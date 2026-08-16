@@ -1,0 +1,14 @@
+{
+  "name": "glass-erp",
+  "version": "0.3.0",
+  "private": true,
+  "description": "ERP для стекольного производства — модульный прототип (замена Spil Glass)",
+  "scripts": {
+    "build": "node build/build.js",
+    "test": "node test/run.js",
+    "test:dist": "TARGET=dist node test/run.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.55.0"
+  }
+}
