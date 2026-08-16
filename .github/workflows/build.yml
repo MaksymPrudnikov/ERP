@@ -1,0 +1,74 @@
+# =====================================================================
+#  Автосборка и автопроверка GLASS ERP
+#
+#  Зачем: ты меняешь ОДИН модуль в src/ прямо на сайте GitHub, а всё
+#  остальное происходит само — терминал не нужен.
+#
+#  Что делает после каждой правки в src/ или build/:
+#   1. проверяет, что все файлы модулей зарегистрированы (частая ошибка —
+#      добавили файл, забыли подключить, он молча не работает);
+#   2. пересобирает dist/GLASS_ERP.html из модулей;
+#   3. прогоняет 38 тестов, включая эталонные числа раскроя из v4.5;
+#   4. только если всё зелёное — коммитит новый dist обратно в main,
+#      и живая ссылка обновляется сама.
+#
+#  Если тесты упали — dist НЕ обновляется, живая версия продолжает
+#  работать на старом коде, а в репозитории появляется красный крестик
+#  и письмо на почту. Сломать рабочую систему одной неудачной заменой
+#  модуля таким образом нельзя.
+# =====================================================================
+name: Сборка и тесты
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'build/**'
+      - 'test/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:        # кнопка «запустить вручную» на вкладке Actions
+
+permissions:
+  contents: write
+
+concurrency:                # если правок подряд несколько — доводим только последнюю
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Установить зависимости
+        run: npm install --no-audit --no-fund
+
+      - name: Установить браузер для тестов
+        run: npx playwright install --with-deps chromium
+
+      - name: Проверить, что все модули зарегистрированы
+        run: node build/check-manifest.js
+
+      - name: Собрать dist/GLASS_ERP.html
+        run: node build/build.js
+
+      - name: Прогнать тесты по собранному файлу
+        run: TARGET=dist node test/run.js
+
+      - name: Закоммитить пересобранный dist
+        run: |
+          if git diff --quiet -- dist/GLASS_ERP.html; then
+            echo "dist не изменился — коммитить нечего"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dist/GLASS_ERP.html
+          git commit -m "Автосборка dist после правки модулей"
+          git push
