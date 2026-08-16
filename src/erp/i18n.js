@@ -1,0 +1,312 @@
+/* =====================================================================
+   erp/i18n  ·  erp-1.0
+   RU / EN. Перевод накладывается на готовый DOM.
+   IN : LANG + текстовые узлы
+   OUT: переведённый DOM
+   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+   ===================================================================== */
+
+let LANG=localStorage.getItem('glazing_system_lang') || 'ru';
+const I18N_EN={
+  "CNC1 и FURN1": "CNC1 and FURN1",
+  "Мин. толщина, мм": "Min thickness, mm",
+  "Макс. толщина, мм": "Max thickness, mm",
+  "Производственная система · прототип": "Production system · prototype",
+  "● несохранённые изменения": "● unsaved changes",
+  "Экспорт JSON": "Export JSON",
+  "Импорт JSON": "Import JSON",
+  "Админ": "Admin",
+  "Руководство": "Management",
+  "Продажи": "Sales",
+  "Технолог": "Technologist",
+  "Цех": "Shop floor",
+  "Отгрузка": "Shipping",
+  "Снабжение": "Purchasing",
+  "Резка": "Cutting",
+  "Кромка (arris/polish)": "Edgework (arris/polish)",
+  "ЧПУ полировка": "CNC polishing",
+  "Сверловка/выемки": "Drilling / notches",
+  "Закалка": "Tempering",
+  "Контроль качества": "Quality control",
+  "Отгрузка/погрузка": "Shipping / loading",
+  "Новичок": "Beginner",
+  "Мидл": "Intermediate",
+  "Синьор": "Senior",
+  "Кромка (arris / polish / CNC polishing)": "Edgework (arris / polish / CNC polishing)",
+  "Раскроечный стол": "Cutting table",
+  "Кромкообрабатывающая линия": "Edging line",
+  "Фацетный станок": "Beveling machine",
+  "Обрабатывающий центр ЧПУ": "CNC machining center",
+  "Печь закалки": "Tempering furnace",
+  "Заведена под уровень 1 — раньше в модели не было отдельной резки, только печь/кромка/ЧПУ": "Assigned to level 1 — the earlier model had no separate cutting step, only furnace/edge/CNC",
+  "Уровень не назначен — уточни у себя: этот ЧПУ больше полирует кромку (уровень 2) или сверлит/выбирает пазы (уровень 3)?": "Level is not assigned — confirm whether this CNC is mainly edge polishing (level 2) or drilling/notching (level 3).",
+  "Уровень не назначен — закалка обычно отдельный этап после кромки/сверловки, назначь номер сам": "Level is not assigned — tempering is normally a separate step after edgework/drilling; assign the actual process level.",
+  "Обзор": "Overview",
+  "Главная": "Dashboard",
+  "Ядро": "Core",
+  "Пользователи": "Users",
+  "Операции": "Operations",
+  "Продажи / конфигурация": "Sales / configuration",
+  "Оптимизация": "Optimization",
+  "Производство": "Production",
+  "Домены — далее": "Domains — next",
+  "Склад": "Inventory",
+  "Закупки": "Purchasing",
+  "Финансы": "Finance",
+  "план": "planned",
+  "Фаза 1 · Фундамент": "Phase 1 · Foundation",
+  "Spil остаётся источником работы до прохождения контрольных фаз.": "Spil remains the operational system until the control phases are passed.",
+  "Обзор системы": "System overview",
+  "Карта ERP и текущий статус": "ERP map and current status",
+  "Роли, станции и покрытие навыков": "Roles, stations and skill coverage",
+  "Изолированные модули Shape и Muntinbar": "Isolated Shape and Muntinbar modules",
+  "Мост данных к Perfect Cut": "Data bridge to Perfect Cut",
+  "Поток цеха, станции и уровни": "Shop flow, stations and levels",
+  "Производственная система": "Production system",
+  "Фаза 1 · фундамент": "Phase 1 · foundation",
+  "модуль в плане": "module planned",
+  "Стекольное производство — одна система": "Glass production — one system",
+  "Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.": "Not a set of reference tables, but an end-to-end flow: from order configuration and cutting optimization to shop-floor processing, inventory and shipping.",
+  "Прототип архитектуры": "Architecture prototype",
+  "нужно назначить": "assignment needed",
+  "готово": "ready",
+  "ядро": "core",
+  "ожидает данных": "waiting for data",
+  "пользователей в прототипе": "users in the prototype",
+  "операционных модулей в новой оболочке": "operational modules in the new shell",
+  "Карта ERP": "ERP map",
+  "зелёная точка = уже есть экран": "green dot = screen already exists",
+  "Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.": "This is a visual map of data ownership by business domain. Perfect Cut remains an external optimizer, not part of the ERP.",
+  "заказ · Shape · Muntin · будущий pricing": "order · Shape · Muntin · future pricing",
+  "внешняя оптимизация раскроя через мост": "external cutting optimization through the bridge",
+  "станции · маршруты · WIP · события": "stations · routings · WIP · events",
+  "стойки · комплектация · доставка": "racks · staging · delivery",
+  "Склад / Inventory": "Inventory",
+  "материалы · партии · остатки · обрезь · движения": "materials · lots · stock · offcuts · movements",
+  "поставщики · source · purchase cost · приёмка": "suppliers · source · purchase cost · receiving",
+  "факт. себестоимость · invoice · интеграция бухгалтерии": "actual cost · invoice · accounting integration",
+  "пользователи · права · единицы · валюты · журнал событий": "users · permissions · units · currencies · event log",
+  "Дорожная карта": "Roadmap",
+  "сейчас Ф1": "currently P1",
+  "Фундамент": "Foundation",
+  "master-data и доменная оболочка": "master data and domain shell",
+  "Заказ": "Order",
+  "клиенты · строки · услуги · ACK · чертёж": "customers · lines · services · ACK · drawing",
+  "Perfect Cut bridge · WIP · бой · остатки": "Perfect Cut bridge · WIP · breakage · stock",
+  "Планирование": "Planning",
+  "мощности · партии · стойки · доставка": "capacity · batches · racks · delivery",
+  "Замыкание": "Closeout",
+  "MRP · фактическая себестоимость · BI": "MRP · actual costing · BI",
+  "Что сейчас требует решения, а не дизайна": "What currently needs a decision, not design",
+  "открытые вопросы": "open questions",
+  "Не проектируем протокол до реальных настроек коннектора Spil / ответа R.O. SRL.": "Do not design the protocol until we have the actual Spil connector settings / R.O. SRL response.",
+  "Уровень потока не назначен. Это должен решить реальный технологический маршрут.": "Flow level is not assigned. The actual production routing must determine it.",
+  "Станки": "Machines",
+  "Нужен полный список: мойка, IGU line, автоклав, ламинация и другие реальные рабочие центры.": "Need the full list: washer, IGU line, autoclave, lamination and other actual work centers.",
+  "Права доступа": "Permissions",
+  "В прототипе пока роли + станция. Field-level security и approval ещё не реализованы.": "The prototype currently has roles + station only. Field-level security and approval are not implemented yet.",
+  "Команда и доступ к производству": "Team and production access",
+  "Кто работает в системе, к какой станции привязан и какие операции умеет выполнять. Права по модулям и полям будут отдельным слоем.": "Who works in the system, which station they are assigned to, and which operations they can perform. Module and field permissions will be a separate layer.",
+  "права — следующий шаг": "permissions — next step",
+  "пользователей": "users",
+  "привязано к станции": "assigned to a station",
+  "типов навыков покрыто": "skill types covered",
+  "навыков без носителя": "skills with no holder",
+  "Покрытие навыков": "Skill coverage",
+  "не назначена": "not assigned",
+  "Изменить": "Edit",
+  "Имя": "Name",
+  "Роль": "Role",
+  "Станция": "Station",
+  "Навыки": "Skills",
+  "пусто": "empty",
+  "Добавить пользователя": "Add user",
+  "Новый пользователь": "New user",
+  "Изменение": "Edit",
+  "Имя *": "Name *",
+  "Роль *": "Role *",
+  "Станция по умолчанию": "Default station",
+  "— нет —": "— none —",
+  "Навыки и уровень владения": "Skills and proficiency level",
+  "не отмечено": "not selected",
+  "Сохранить": "Save",
+  "Отмена": "Cancel",
+  "Укажи имя": "Enter a name",
+  "Удалить пользователя?": "Delete user?",
+  "нет": "none",
+  "нет носителя": "no holder",
+  "риск: 1 человек": "risk: 1 person",
+  "Сначала визуальный слой — видно пробелы в компетенциях. Ниже остаётся точная матрица по уровням.": "The visual layer first shows competency gaps. The exact level matrix remains below.",
+  "Навык": "Skill",
+  "Покрытие": "Coverage",
+  "Конфигурация изделия": "Product configuration",
+  "невалидна": "invalid",
+  "Название": "Name",
+  "Габарит": "Size",
+  "Укажи название": "Enter a name",
+  "Нельзя удалить — фигура используется в Muntinbar": "Cannot delete — the shape is used in Muntinbar",
+  "Удалить фигуру?": "Delete shape?",
+  "фигура удалена": "shape deleted",
+  "Фигура (Shape)": "Shape",
+  "Результат": "Result",
+  "Новая раскладка мунтина": "New muntin layout",
+  "Новая раскладка": "New layout",
+  "Выбери фигуру": "Select a shape",
+  "Удалить раскладку?": "Delete layout?",
+  "Мост к Perfect Cut": "Perfect Cut bridge",
+  "Мы не пишем собственный nesting engine. ERP формирует производственный батч, Perfect Cut оптимизирует раскрой, результат возвращается в склад и трекинг деталей.": "We are not building our own nesting engine. The ERP creates a production batch, Perfect Cut optimizes cutting, and the result returns to inventory and part tracking.",
+  "коннектор не подтверждён": "connector not confirmed",
+  "Как должен идти поток данных": "Intended data flow",
+  "концепция · без выдуманного протокола": "concept · no invented protocol",
+  "батч: material · size · qty · treatment · services": "batch: material · size · qty · treatment · services",
+  "Локальный bridge": "Local bridge",
+  "роль: передать данные между облачной ERP и локальным Perfect Cut": "role: move data between the cloud ERP and local Perfect Cut",
+  "раскладка по листам · расход · обрезь": "sheet layouts · consumption · offcuts",
+  "↩ результат оптимизации возвращается в ERP → Inventory + Production tracking": "↩ optimization result returns to ERP → Inventory + Production tracking",
+  "Статус интеграции": "Integration status",
+  "заблокировано входными данными": "blocked by missing input",
+  "Что уже решено": "What is decided",
+  "Perfect Cut остаётся оптимизатором; свой nesting engine не строим.": "Perfect Cut remains the optimizer; we are not building our own nesting engine.",
+  "Что неизвестно": "What is unknown",
+  "реальный механизм Spil ↔ Perfect Cut: прямая БД, ODBC, коннектор или файл.": "actual Spil ↔ Perfect Cut mechanism: direct DB, ODBC, connector, or file.",
+  "Что не надо делать сейчас": "What not to do now",
+  "придумывать формат обмена или имитировать API без подтверждения.": "invent an exchange format or simulate an API without confirmation.",
+  "Что вернётся в ERP": "What returns to ERP",
+  "листовая раскладка, фактический расход и обрезь — для Inventory и Production.": "sheet layouts, actual consumption and offcuts — for Inventory and Production.",
+  "Отправить батч": "Send batch",
+  "Граница ответственности": "Responsibility boundary",
+  "оптимизация + собственная печать этикеток": "optimization + its own label printing",
+  "Наша ERP": "Our ERP",
+  "WIP, станции, бой, повторный запуск, остатки": "WIP, stations, breakage, remake, stock",
+  "только транспорт данных между двумя системами": "data transport between the two systems only",
+  "машины не назначены": "no machines assigned",
+  "Производственный поток": "Production flow",
+  "Уровень — не просто цифра в таблице. Это место станции в маршруте детали через цех. Ниже поток виден как процесс, а таблица остаётся для точного редактирования.": "A level is not just a number in a table. It is the station position in a part routing through the shop. The flow is shown visually below, while the table remains for precise editing.",
+  "Маршрут по уровням": "Routing by levels",
+  "все назначены": "all assigned",
+  "Без уровня:": "Without level:",
+  ". Их позицию в маршруте не угадываем.": ". Their route position is not guessed.",
+  "Станции / машины": "Stations / machines",
+  "Уровни потока": "Flow levels",
+  "Поток": "Flow",
+  "не назначен": "not assigned",
+  "Толщина": "Thickness",
+  "Статус": "Status",
+  "в маршруте": "in route",
+  "требует решения": "decision needed",
+  "Точная таблица станций": "Exact station table",
+  "CRUD сохранён": "CRUD retained",
+  "Код": "Code",
+  "Уровень": "Level",
+  "Габарит, in": "Size, in",
+  "Примечание": "Note",
+  "Добавить станцию": "Add station",
+  "Новая станция": "New station",
+  "Код *": "Code *",
+  "Название *": "Name *",
+  "— не назначен —": "— not assigned —",
+  "Макс. ширина, in": "Max width, in",
+  "Макс. длина, in": "Max length, in",
+  "Код и название обязательны": "Code and name are required",
+  "Такой код уже есть": "This code already exists",
+  "Нельзя удалить — на станцию назначены пользователи": "Cannot delete — users are assigned to this station",
+  "Удалить станцию?": "Delete station?",
+  "Название этапа": "Stage name",
+  "Станций": "Stations",
+  "Добавить уровень": "Add level",
+  "Список открытый — добавляй уровни по мере того, как появляются новые этапы (закалка, мойка, сборка стеклопакета и т.д.).": "The list is open-ended — add levels as new stages appear (tempering, washing, IGU assembly, etc.).",
+  "Новый уровень": "New level",
+  "Номер *": "Number *",
+  "Название этапа *": "Stage name *",
+  "Заполни номер и название": "Enter the number and name",
+  "Такой номер уже есть": "This number already exists",
+  "Нельзя удалить — на этот уровень назначены станции": "Cannot delete — stations are assigned to this level",
+  "Удалить уровень?": "Delete level?",
+  "Файл не читается:": "Cannot read file:",
+  "Здесь подключены реальные модули из Glass Configurator v4.5: Smart-Shape / Advanced и shape-adaptive Muntin Production. Это уже не демонстрационные точки и не прямоугольная сетка.": "The real modules from Glass Configurator v4.5 are connected here: Smart-Shape / Advanced and shape-adaptive Muntin Production. These are no longer demo points or a rectangular grid.",
+  "Реальная модель из Configurator: A = Height, B = Width, C = правая сторона, D = AUTO. Поддерживаются out-of-plumb, elbows и угловые блоки Single / Double / Triple.": "Real Configurator model: A = Height, B = Width, C = right side, D = AUTO. Supports out-of-plumb, elbows and Single / Double / Triple corner blocks.",
+  "Новая Advanced-фигура": "New Advanced shape",
+  "Изменение Advanced-фигуры": "Edit Advanced shape",
+  "Алгоритм Smart-Shape перенесён из v4.5 без упрощения геометрии.": "The Smart-Shape algorithm is ported from v4.5 without simplifying the geometry.",
+  "Edge mode": "Edge mode",
+  "Hide elbows · simple skew": "Hide elbows · simple skew",
+  "Show elbows · compound": "Show elbows · compound",
+  "Out of plumb / level": "Out of plumb / level",
+  "Direction": "Direction",
+  "Outage to elbow": "Outage to elbow",
+  "Elbow length": "Elbow length",
+  "Outage past elbow": "Outage past elbow",
+  "Elbow form": "Elbow form",
+  "Corner blocks": "Corner blocks",
+  "Corner edge dimensions": "Corner edge dimensions",
+  "Контур валиден · тот же контур используется Muntinbar": "Contour is valid · Muntinbar uses the same contour",
+  "Ошибка геометрии": "Geometry error",
+  "Движок": "Engine",
+  "Сегментов": "Segments",
+  "Equal-clear раскладка на сетке 1/16″, реальный perimeter clipping, perpendicular edge reference, отдельные cut lengths для каждой части бара.": "Equal-clear layout on a 1/16″ grid, real perimeter clipping, perpendicular edge reference and separate cut lengths for every bar segment.",
+  "Изменение Muntinbar": "Edit Muntinbar",
+  "Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.": "Production geometry from Configurator v4.5. A bar is not stretched across the bounding box — it is cut by the real Shape perimeter.",
+  "Production reference": "Production reference",
+  "Bar end clearance": "Bar end clearance",
+  "Edge reference": "Edge reference",
+  "Custom centerlines": "Custom centerlines",
+  "Flip exterior / interior": "Flip exterior / interior"
+};
+const _textOriginal=new WeakMap();
+function tx(value){
+ const raw=String(value??'');
+ if(LANG!=='en') return raw;
+ const m=raw.match(/^(\s*)([\s\S]*?)(\s*)$/);
+ const lead=m?m[1]:'', core=m?m[2]:raw, tail=m?m[3]:'';
+ if(I18N_EN[core]!==undefined) return lead+I18N_EN[core]+tail;
+ let x=core;
+ let mm;
+ if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
+ else if((mm=x.match(/^контуров Shape · (\d+) схем Muntin$/))) x=`Shape contours · ${mm[1]} Muntin layouts`;
+ else if((mm=x.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?) мм$/))) x=`${mm[1]}–${mm[2]} mm`;
+ else if((mm=x.match(/^(\d+) станц\.$/))) x=`${mm[1]} stations`;
+ else if((mm=x.match(/^(\d+) станций$/))) x=`${mm[1]} stations`;
+ else if((mm=x.match(/^(\d+) без уровня$/))) x=`${mm[1]} without level`;
+ else if((mm=x.match(/^(\d+) точек$/))) x=`${mm[1]} points`;
+ else if((mm=x.match(/^(\d+) чел\.$/))) x=`${mm[1]} people`;
+ else if((mm=x.match(/^(\d+) человека$/))) x=`${mm[1]} people`;
+ else if((mm=x.match(/^(\d+) бар · (.+)$/))) x=`${mm[1]} bars · ${mm[2]}`;
+ else if((mm=x.match(/^(\d+) бар, суммарно (.+)$/))) x=`${mm[1]} bars, total ${mm[2]}`;
+ else if((mm=x.match(/^Габарит: (.+)$/))) x=`Size: ${mm[1]}`;
+ else if((mm=x.match(/^(\d+) станци(?:я|и|й)$/))) x=`${mm[1]} stations`;
+ // Translate longer phrases even when punctuation or inline <code>/<b> splits a sentence.
+ if(x===core){
+   const keys=Object.keys(I18N_EN).filter(k=>k.length>=14 && core.includes(k)).sort((a,b)=>b.length-a.length);
+   for(const k of keys) x=x.split(k).join(I18N_EN[k]);
+ }
+ return lead+x+tail;
+}
+function applyLang(root=document.body){
+ document.documentElement.lang=LANG;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ let node;
+ while(node=walker.nextNode()){
+   const parent=node.parentElement;
+   if(!parent || ['SCRIPT','STYLE'].includes(parent.tagName)) continue;
+   /* data-raw = значение, введённое пользователем. Переводить его нельзя:
+      RU/EN обязан менять интерфейс, а не содержимое базы. */
+   if(parent.closest('[data-raw]')) continue;
+   if(!_textOriginal.has(node)) _textOriginal.set(node,node.nodeValue);
+   const original=_textOriginal.get(node);
+   node.nodeValue = LANG==='en' ? tx(original) : original;
+ }
+ document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=LANG==='en'?tx(el.dataset.i18nTitle):el.dataset.i18nTitle; });
+ const ru=document.getElementById('langRu'), en=document.getElementById('langEn');
+ if(ru) ru.classList.toggle('on',LANG==='ru');
+ if(en) en.classList.toggle('on',LANG==='en');
+}
+function setLang(lang){
+ LANG=lang==='en'?'en':'ru';
+ localStorage.setItem('glazing_system_lang',LANG);
+ render();
+}
+
+const _nativeAlert=window.alert.bind(window);
+const _nativeConfirm=window.confirm.bind(window);
+window.alert=(msg)=>_nativeAlert(tx(msg));
+window.confirm=(msg)=>_nativeConfirm(tx(msg));
