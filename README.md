@@ -101,7 +101,7 @@ node test/run.js        # проверить, что геометрия не п�
 - `MuntinModule.compute(shape, mdef)` → `{valid, geo, count, totalLengthIn, verticalSegments, horizontalSegments}`
 - `ShapeModule.compute(shapeDef)` → `{valid, width, height, area, points, segs, line}`
 - **в Muntinbar не появляется собственных Width/Height** — размеры только из Shape, иначе получится второй источник геометрии и расхождение размеров
-- эталонные числа раскроя не меняются: трапеция 48×36 при C=30 → бары `33 1/16″ · 31 1/8″ · 47 1/8″`
+- эталонные числа раскроя не меняются: трапеция 48×36 при C=30 → бары `33 7/64″ · 31 1/8″ · 47 1/8″`
 
 Всё это проверяется тестами автоматически. Если новый код нарушит любой пункт — сборка не пройдёт.
 
