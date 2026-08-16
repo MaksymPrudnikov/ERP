@@ -1,0 +1,37 @@
+/* =====================================================================
+   core/dim  ·  v4.5-port
+   Разбор и печать дюймовых размеров (общее для Shape и Muntin).
+   IN : строка "48", "48 1/2", "48-1/2", число
+   OUT: число дюймов / строка вида 48 1/2″
+   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+   ===================================================================== */
+
+/* ИСПРАВЛЕНО (авг 2026). Раньше inch() имел СВОЙ разбор, более слабый, чем
+   fabParseDimStrict: "48-1/2" превращалось в 48 (дробь молча терялась), а "12abc"
+   в 12. При этом сторона C читалась строгим парсером — то есть Width/Height и C
+   понимали разный синтаксис. Теперь один парсер на всё; непонятный ввод = 0,
+   и его ловит валидация ("Enter valid width and height"), а не тихо считает. */
+function inch(t){
+  if(typeof t==='number')return isFinite(t)?t:0;
+  var r=fabParseDimStrict(t);
+  return r.ok?r.v:0;
+}
+function frac64(v){
+  v=+v||0;var whole=Math.floor(v+1e-9),n=Math.round((v-whole)*64);if(n===64){whole++;n=0;}
+  if(!n)return String(whole);var a=n,b=64;while(b){var t=a%b;a=b;b=t;}n/=a;var d=64/a;
+  return (whole?whole+' ':'')+n+'/'+d;
+}
+function dimIn(v){return frac64(v)+'″';}
+function fabParseDimStrict(v){
+  if(typeof v==='number')return isFinite(v)?{ok:true,v:v}:{ok:false,v:0};
+  var t=String(v==null?'':v).trim().replace(/[\u2033\u201D"]/g,'');
+  if(!t)return {ok:false,v:0,empty:true};
+  var sign=1;
+  if(t.charAt(0)==='-'){sign=-1;t=t.slice(1).trim();}else if(t.charAt(0)==='+'){t=t.slice(1).trim();}
+  var m=t.match(/^(\d+(?:\.\d+)?)[\s-]+(\d+)\s*\/\s*(\d+)$/);
+  if(m)return (+m[3])?{ok:true,v:sign*(+m[1]+(+m[2])/(+m[3]))}:{ok:false,v:0};
+  m=t.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if(m)return (+m[2])?{ok:true,v:sign*((+m[1])/(+m[2]))}:{ok:false,v:0};
+  if(/^\d+(?:\.\d+)?$/.test(t))return {ok:true,v:sign*parseFloat(t)};
+  return {ok:false,v:0};
+}
