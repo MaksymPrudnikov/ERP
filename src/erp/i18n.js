@@ -250,7 +250,15 @@ const I18N_EN={
   "Bar end clearance": "Bar end clearance",
   "Edge reference": "Edge reference",
   "Custom centerlines": "Custom centerlines",
-  "Flip exterior / interior": "Flip exterior / interior"
+  "Flip exterior / interior": "Flip exterior / interior",
+  "Введите корректный неотрицательный размер": "Enter a valid non-negative dimension",
+  "Код: только A–Z, 0–9, дефис и подчёркивание": "Code: use only A–Z, 0–9, hyphen and underscore",
+  "Максимальные ширина и длина заполняются вместе": "Maximum width and length must be entered together",
+  "Габариты станции должны быть больше нуля": "Station dimensions must be greater than zero",
+  "Минимальная и максимальная толщина заполняются вместе": "Minimum and maximum thickness must be entered together",
+  "Проверь диапазон толщины": "Check the thickness range",
+  "Заполни положительный целый номер и название": "Enter a positive integer number and a name",
+  "Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.": "Could not save data in the browser. Export JSON and check available storage."
 };
 const _textOriginal=new WeakMap();
 function tx(value){
@@ -274,12 +282,57 @@ function tx(value){
  else if((mm=x.match(/^(\d+) бар, суммарно (.+)$/))) x=`${mm[1]} bars, total ${mm[2]}`;
  else if((mm=x.match(/^Габарит: (.+)$/))) x=`Size: ${mm[1]}`;
  else if((mm=x.match(/^(\d+) станци(?:я|и|й)$/))) x=`${mm[1]} stations`;
+ else if((mm=x.match(/^Нужно указать ровно (\d+) корректных позиций внутри контура$/))) x=`Enter exactly ${mm[1]} valid positions inside the contour`;
  // Translate longer phrases even when punctuation or inline <code>/<b> splits a sentence.
  if(x===core){
    const keys=Object.keys(I18N_EN).filter(k=>k.length>=14 && core.includes(k)).sort((a,b)=>b.length-a.length);
    for(const k of keys) x=x.split(k).join(I18N_EN[k]);
  }
  return lead+x+tail;
+}
+/* Инженерные модули возвращают нейтральные английские причины и не знают про
+   язык оболочки. Здесь — единственная точка их перевода для пользовательского UI. */
+function moduleErrorText(result){
+ const reason=String(result&&result.reason||'');if(LANG==='en'||!reason)return reason;
+ const exact={
+  'Shape not found':'Фигура не найдена',
+  'Enter valid width and height.':'Введи корректные ширину и высоту.',
+  'Smart-Shape outline could not be built.':'Не удалось построить контур Smart-Shape.',
+  'Smart-Shape outline self-intersects. Check the outages and corner blocks.':'Контур Smart-Shape самопересекается. Проверь уклоны и угловые блоки.',
+  'Smart-Shape outline encloses no area.':'Контур Smart-Shape не образует площадь.',
+  'Top D is degenerate: its horizontal projection is zero.':'Сторона D вырождена: её горизонтальная проекция равна нулю.',
+  'Invalid Smart-Shape':'Некорректная Smart-Shape'
+ };
+ if(exact[reason])return exact[reason];
+ let m;
+ if((m=reason.match(/^Shape is invalid: (.+)$/)))return 'Фигура невалидна: '+moduleErrorText({reason:m[1]});
+ if((m=reason.match(/^Edge (.+): length must be greater than 0\.$/)))return 'Сторона '+m[1]+': длина должна быть больше нуля.';
+ if((m=reason.match(/^Edge (.+): "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректный размер.';
+ if((m=reason.match(/^Edge (.+): out of plumb \/ level "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': отклонение «'+m[2]+'» задано некорректно.';
+ if((m=reason.match(/^Edge (.+): out of plumb \/ level cannot be negative\.$/)))return 'Сторона '+m[1]+': отклонение не может быть отрицательным.';
+ if((m=reason.match(/^Edge (.+): pick which way it is out of plumb \/ level\.$/)))return 'Сторона '+m[1]+': выбери направление отклонения.';
+ if((m=reason.match(/^Edge (.+): "(.+)" is not a valid (elbow length|outage)\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректное '+(m[3]==='elbow length'?'колено':'отклонение')+'.';
+ if((m=reason.match(/^Edge (.+): pick the elbow form \(direction of the skew\)\.$/)))return 'Сторона '+m[1]+': выбери форму колена (направление уклона).';
+ if((m=reason.match(/^Edge (.+): elbow length (.+) is longer than the edge \((.+)\)\.$/)))return 'Сторона '+m[1]+': колено '+m[2]+' длиннее стороны ('+m[3]+').';
+ if((m=reason.match(/^Corner edge (.+) \((.+)\): "(.+)" is not a valid dimension\.$/)))return 'Угловая сторона '+m[1]+' ('+m[2]+'): «'+m[3]+'» — некорректный размер.';
+ if((m=reason.match(/^Corner edge (.+) \((.+)\): no value yet\.$/)))return 'Угловая сторона '+m[1]+' ('+m[2]+'): размер ещё не указан.';
+ if((m=reason.match(/^(.+): corner steps (.+) do not fit in (.+)\.$/))){const side={'Left side (A)':'Левая сторона (A)','Right side (C)':'Правая сторона (C)','Bottom (B)':'Низ (B)','Top (D)':'Верх (D)'}[m[1]]||m[1];return side+': угловые ступени '+m[2]+' не помещаются в '+m[3]+'.';}
+ if((m=reason.match(/^"(.+)" is not a valid dimension \((.+)\) — the last valid value is still in use\.$/)))return '«'+m[1]+'» — некорректный размер ('+m[2]+'); пока используется последнее корректное значение.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: enter exactly (\d+) custom centerline position\(s\)\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: укажи ровно '+m[2]+' пользовательских позиций.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: the profile and edge insets do not fit inside the glass\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профиль и отступы не помещаются внутри стекла.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: every custom centerline must stay inside the usable perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: каждая позиция должна находиться внутри рабочего контура.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: bar profiles overlap or use the same centerline\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профили перекрываются или используют одну ось.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: the requested bars do not fit between the edge insets\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары не помещаются между отступами от кромки.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: requested bar (\d+) does not intersect the usable glass perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальный':'Горизонтальный')+' бар '+m[2]+' не пересекает рабочий контур стекла.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: a generated cut length is invalid\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: получена некорректная длина реза.';
+ return reason;
+}
+function moduleNoteText(note){
+ const value=String(note||'');if(LANG==='en'||!value)return value;
+ let m;if((m=value.match(/^Bar ends hold a constant perpendicular distance of (.+) from the real glass edge; the bar end clearance is then applied along the bar axis\.$/)))return 'Концы баров сохраняют постоянный перпендикулярный отступ '+m[1]+' от реальной кромки стекла; затем вдоль оси бара применяется торцевой зазор.';
+ if(value==='Edge inset X and Y differ, so a single perpendicular distance has no meaning here. Falling back to axis-direction trimming — set both insets equal to use the offset reference.')return 'Отступы X и Y различаются, поэтому единого перпендикулярного расстояния нет. Используется обрезка вдоль оси; для offset reference задай одинаковые отступы.';
+ if(value==='Legacy mode: bar ends are trimmed along the bar axis by the edge inset. On a raked, arched or curved edge that is not a constant distance from the glass.')return 'Legacy-режим: концы баров обрезаются вдоль их оси на величину edge inset. На наклонной, дуговой или кривой кромке это не даёт постоянного расстояния от стекла.';
+ return value;
 }
 function applyLang(root=document.body){
  document.documentElement.lang=LANG;

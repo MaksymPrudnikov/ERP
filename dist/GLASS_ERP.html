@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   GLASS ERP — Glazing System
-  СБОРКА — не редактировать руками. Собрано 2026-08-17 01:09 UTC из src/ через build/build.js.
+  СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
   Состав сборки: 28 модулей, 2 стиля.
 -->
@@ -218,6 +218,26 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  .kpi-grid{grid-template-columns:1fr 1fr}.module-cards{grid-template-columns:1fr}
  .page-head{align-items:flex-start;flex-direction:column}
  .lang-switch button{padding:4px 6px;min-width:30px}
+ table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .card,.form,.main,main,.section-title,.page-head{min-width:0;max-width:100%}
+ .tabs{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ .tabs button{flex:none}
+ input,select,textarea{min-width:0}
+}
+@media(max-width:520px){
+ .side{width:56px}
+ .brand{padding:12px 10px}.brand-mark{width:34px;height:34px}
+ .nav-item{padding:10px;margin:4px 6px}
+ header{min-height:60px;height:auto;padding:8px;gap:5px;flex-wrap:wrap}
+ .header-title,#dirty{display:none!important}
+ header .sp{display:none}
+ header .gh{padding:5px 7px;font-size:10px;flex:1;white-space:nowrap}
+ .lang-switch{margin-left:auto}
+ main{padding:10px}
+ .card{padding:12px;border-radius:11px}
+ .kpi-grid{grid-template-columns:1fr}
+ .row>button{flex:1}
+ .section-title{align-items:flex-start;gap:8px;flex-wrap:wrap}
 }
 
 /* ---- src/styles/modules.css ---- */
@@ -230,7 +250,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .corner-title{display:flex;justify-content:space-between;align-items:center;margin:13px 0 6px}.corner-title b{font-size:11px}.corner-title span{font-size:9.5px;color:var(--mut)}.corner-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.corner-card{border:1px solid var(--line);border-radius:8px;padding:7px}.corner-card label{font-weight:700;font-size:9px}.corner-card select{font-size:10.5px;padding:5px}.extra-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.extra-grid label{font-size:9px}.extra-grid input{font-size:10.5px;padding:6px}
 .smart-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.smart-kpis>div{border:1px solid var(--line);background:#f8fafb;border-radius:8px;padding:7px}.smart-kpis span{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}.smart-kpis b{display:block;font-size:11.5px;margin-top:2px;font-family:ui-monospace,monospace}.validation-box{border-radius:8px;padding:8px 9px;margin-top:7px;font-size:10.5px;line-height:1.4}.okbox{background:var(--green2);border:1px solid #b9dfca;color:#276a4c}.warnbox{background:var(--amber2);border:1px solid #efd9a6;color:#7c581d}.badbox{background:var(--red2);border:1px solid #efc5c5;color:#913e3e}.module-invalid{min-height:180px;display:grid;place-items:center;text-align:center;color:#943e3e;background:#fff5f5;border:1px dashed #e1bcbc;border-radius:9px;padding:15px}
 .muntin-editor-layout{display:grid;grid-template-columns:minmax(420px,.72fr) minmax(540px,1.28fr);gap:14px;align-items:start}.muntin-section{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}.muntin-section>b{display:block;font-size:10.5px;margin-bottom:7px}.muntin-drawing{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.muntin-drawing svg{width:100%;height:auto;display:block}.muntin-bom{font-size:10px;margin-top:9px}.muntin-bom th,.muntin-bom td{padding:6px}.muntin-bom th{font-size:9px}
-@media(max-width:1100px){.shape-editor-layout,.muntin-editor-layout{grid-template-columns:1fr}.shape-preview-side,.muntin-preview-side{position:static}.edge-fields.four{grid-template-columns:1fr 1fr}}@media(max-width:720px){.corner-grid,.smart-kpis{grid-template-columns:1fr 1fr}.edge-fields,.edge-fields.four,.extra-grid{grid-template-columns:1fr}.module-chain{flex-direction:column}.module-chain-arrow{transform:rotate(90deg)}}
+@media(max-width:1100px){.shape-editor-layout,.muntin-editor-layout{grid-template-columns:1fr}.shape-preview-side,.muntin-preview-side{position:static}.edge-fields.four{grid-template-columns:1fr 1fr}}@media(max-width:720px){.module-editor,.shape-controls,.shape-preview-side,.muntin-controls,.muntin-preview-side{min-width:0;max-width:100%;padding:10px}.module-editor-head{flex-wrap:wrap}.real-module-note{flex-direction:column;gap:4px}.real-module-note b{white-space:normal}.corner-grid,.smart-kpis{grid-template-columns:1fr 1fr}.edge-fields,.edge-fields.four,.extra-grid{grid-template-columns:1fr}.module-chain{flex-direction:column}.module-chain-node{width:100%;min-width:0}.module-chain-arrow{transform:rotate(90deg)}.muntin-drawing{max-width:100%;overflow-x:auto}.muntin-bom{display:block;max-width:100%;overflow-x:auto}.shape-mode-row{flex-wrap:wrap}.shape-mode-row>span{width:100%}}
 
 </style>
 </head>
@@ -287,10 +307,10 @@ function fabParseDimStrict(v){
   var sign=1;
   if(t.charAt(0)==='-'){sign=-1;t=t.slice(1).trim();}else if(t.charAt(0)==='+'){t=t.slice(1).trim();}
   var m=t.match(/^(\d+(?:\.\d+)?)[\s-]+(\d+)\s*\/\s*(\d+)$/);
-  if(m)return (+m[3])?{ok:true,v:sign*(+m[1]+(+m[2])/(+m[3]))}:{ok:false,v:0};
+  if(m){var mixed=(+m[3])?sign*(+m[1]+(+m[2])/(+m[3])):NaN;return isFinite(mixed)?{ok:true,v:mixed}:{ok:false,v:0};}
   m=t.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if(m)return (+m[2])?{ok:true,v:sign*((+m[1])/(+m[2]))}:{ok:false,v:0};
-  if(/^\d+(?:\.\d+)?$/.test(t))return {ok:true,v:sign*parseFloat(t)};
+  if(m){var fraction=(+m[2])?sign*((+m[1])/(+m[2])):NaN;return isFinite(fraction)?{ok:true,v:fraction}:{ok:false,v:0};}
+  if(/^\d+(?:\.\d+)?$/.test(t)){var decimal=sign*parseFloat(t);return isFinite(decimal)?{ok:true,v:decimal}:{ok:false,v:0};}
   return {ok:false,v:0};
 }
 
@@ -600,8 +620,14 @@ function fabOutlinePoints(S,G){return (G&&G.pts&&G.pts.length)?G.pts.slice():[[0
    ===================================================================== */
 
 function defaultSmartModel(){return ssNormalize({elbowsOn:false,A:{out:'0'},B:{out:'0'},C:{len:'',out:'0'},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{}});}
-function newSmartShapeDef(){return {id:'s'+Date.now(),name:'',w:'48',h:'36',smart:defaultSmartModel()};}
-function shapeDefToLine(s){s=s||{};return {w:String(s.w||'48'),h:String(s.h||'36'),shape:{type:'smart',smart:ssNormalize(s.smart||{})}};}
+function newShapeId(){
+  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 's'+crypto.randomUUID();
+  return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+}
+function newSmartShapeDef(){return {id:newShapeId(),name:'',w:'48',h:'36',smart:defaultSmartModel()};}
+/* Значения по умолчанию принадлежат только новой форме. Пустой/нулевой размер
+   существующей формы нельзя молча заменять на 48×36 — это производственный брак. */
+function shapeDefToLine(s){s=s||{};return {w:String(s.w==null?'':s.w),h:String(s.h==null?'':s.h),shape:{type:'smart',smart:ssNormalize(s.smart||{})}};}
 function smartShapeResult(s){
   var S=shapeDefToLine(s),G=shapeGeometry(S);if(!G.ok)return {valid:false,reason:G.error||'Invalid Smart-Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G};
   var Q=ssContour(S),area=Math.abs(fabSignedArea(Q.pts));
@@ -1120,11 +1146,43 @@ function mpSvg(x){
    ===================================================================== */
 
 function defaultMuntinModel(){return normalizeMuntinModel({enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}});}
-function newMuntinDef(){return {id:'m'+Date.now(),name:'',shapeId:(DB.shapeDef[0]||{}).id||'',muntin:defaultMuntinModel()};}
+function newMuntinId(){
+  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 'm'+crypto.randomUUID();
+  return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+}
+function newMuntinDef(shapeId){return {id:newMuntinId(),name:'',shapeId:String(shapeId||''),muntin:defaultMuntinModel()};}
+function invalidMuntin(code,reason,M,geo){return {valid:false,code:code,reason:reason,M:M,geo:geo};}
+function muntinLayoutError(M,geo){
+  var P=M.production,eps=1e-7;
+  function checkCustom(raw,count,span,inset,label){
+    if(count<=0)return null;
+    if(raw.length!==count)return invalidMuntin('MUNTIN_CUSTOM_COUNT',label+': enter exactly '+count+' custom centerline position(s).',M,geo);
+    var min=inset+geo.face/2,max=span-inset-geo.face/2,vals=raw.map(function(x){return +x;}).sort(function(a,b){return a-b;});
+    if(max<min-eps)return invalidMuntin('MUNTIN_NO_ROOM',label+': the profile and edge insets do not fit inside the glass.',M,geo);
+    for(var i=0;i<vals.length;i++){
+      if(!isFinite(vals[i])||vals[i]<min-eps||vals[i]>max+eps)return invalidMuntin('MUNTIN_CUSTOM_RANGE',label+': every custom centerline must stay inside the usable perimeter.',M,geo);
+      if(i&&vals[i]-vals[i-1]<geo.face-eps)return invalidMuntin('MUNTIN_OVERLAP',label+': bar profiles overlap or use the same centerline.',M,geo);
+    }
+    return null;
+  }
+  if(P.mode==='custom'){
+    var customV=checkCustom(P.verticalPositions,M.layout.verticalBars,geo.spanW,geo.ix,'Vertical bars');if(customV)return customV;
+    var customH=checkCustom(P.horizontalPositions,M.layout.horizontalBars,geo.spanH,geo.iy,'Horizontal bars');if(customH)return customH;
+  }
+  function checkBuilt(count,positions,segments,label){
+    if(positions.length!==count)return invalidMuntin('MUNTIN_NO_ROOM',label+': the requested bars do not fit between the edge insets.',M,geo);
+    for(var i=0;i<count;i++)if(!segments.some(function(s){return s.bar===i;}))return invalidMuntin('MUNTIN_MISSED_BAR',label+': requested bar '+(i+1)+' does not intersect the usable glass perimeter.',M,geo);
+    for(i=0;i<segments.length;i++)if(!isFinite(segments[i].cut)||segments[i].cut<=eps)return invalidMuntin('MUNTIN_BAD_CUT',label+': a generated cut length is invalid.',M,geo);
+    return null;
+  }
+  var builtV=checkBuilt(M.layout.verticalBars,geo.v||[],geo.verticalSegments||[],'Vertical bars');if(builtV)return builtV;
+  return checkBuilt(M.layout.horizontalBars,geo.h||[],geo.horizontalSegments||[],'Horizontal bars');
+}
 function realMuntinResult(shape,mdef){
-  if(!shape)return {valid:false,reason:'Shape not found'};
-  var sr=ShapeModule.compute(shape);if(!sr.valid)return {valid:false,reason:'Shape is invalid: '+sr.reason};
+  if(!shape)return {valid:false,code:'MUNTIN_SHAPE_NOT_FOUND',reason:'Shape not found'};
+  var sr=ShapeModule.compute(shape);if(!sr.valid)return {valid:false,code:'MUNTIN_SHAPE_INVALID',reason:'Shape is invalid: '+sr.reason};
   var M=normalizeMuntinModel((mdef&&mdef.muntin)||mdef||{}),geo=productionGeometryForLine(M,sr.line);
+  var invalid=muntinLayoutError(M,geo);if(invalid)return invalid;
   var segs=(geo.verticalSegments||[]).concat(geo.horizontalSegments||[]),total=segs.reduce(function(a,s){return a+s.cut;},0);
   return {valid:true,geo:geo,M:M,count:segs.length,totalLengthIn:total,verticalSegments:geo.verticalSegments||[],horizontalSegments:geo.horizontalSegments||[]};
 }
@@ -1141,43 +1199,66 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
 
 function normalizeSalesModules(){
   if(!Array.isArray(DB.shapeDef))DB.shapeDef=[];
+  var shapeIds=Object.create(null);
+  function uniqueId(raw,prefix){
+    var id=String(raw==null?'':raw).trim();
+    if(!id||shapeIds[id]){do{id=prefix==='s'?newShapeId():newMuntinId();}while(shapeIds[id]);}
+    shapeIds[id]=true;return id;
+  }
   DB.shapeDef=DB.shapeDef.map(function(s,i){
-    if(s&&s.smart&&s.w!=null&&s.h!=null){s.smart=ssNormalize(s.smart);return s;}
+    if(s&&typeof s==='object'&&s.smart&&s.w!=null&&s.h!=null){
+      s.id=uniqueId(s.id,'s');s.name=String(s.name==null?'':s.name);s.w=String(s.w);s.h=String(s.h);s.smart=ssNormalize(s.smart);return s;
+    }
     var w=48,h=36;
     if(s&&Array.isArray(s.points)&&s.points.length){var xs=s.points.map(function(p){return +p.x||0}),ys=s.points.map(function(p){return +p.y||0});w=Math.max.apply(null,xs)-Math.min.apply(null,xs)||w;h=Math.max.apply(null,ys)-Math.min.apply(null,ys)||h;}
-    return {id:(s&&s.id)||('s'+Date.now()+i),name:(s&&s.name)||('Smart Shape '+(i+1)),w:String(w),h:String(h),smart:defaultSmartModel(),legacyPoints:s&&s.points?s.points:undefined};
+    return {id:uniqueId(s&&s.id,'s'),name:String((s&&s.name)||('Smart Shape '+(i+1))),w:String(w),h:String(h),smart:defaultSmartModel(),legacyPoints:s&&s.points?s.points:undefined};
   });
-  if(!DB.shapeDef.length)DB.shapeDef.push({id:'s1',name:'Advanced 48×36 / C=30',w:'48',h:'36',smart:(function(){var m=defaultSmartModel();m.C.len='30';return m;})()});
   if(!Array.isArray(DB.muntinDef))DB.muntinDef=[];
+  var firstShapeId=(DB.shapeDef[0]||{}).id||'',muntinIds=Object.create(null);
+  function uniqueMuntinId(raw){var id=String(raw==null?'':raw).trim();if(!id||muntinIds[id]){do{id=newMuntinId();}while(muntinIds[id]);}muntinIds[id]=true;return id;}
   DB.muntinDef=DB.muntinDef.map(function(m,i){
-    if(m&&m.muntin){m.muntin=normalizeMuntinModel(m.muntin);if(!m.shapeId)m.shapeId=DB.shapeDef[0].id;return m;}
+    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);return m;}
     var M=defaultMuntinModel();if(m){M.layout.verticalBars=clampBars(m.cols==null?2:m.cols);M.layout.horizontalBars=clampBars(m.rows==null?1:m.rows);}
-    return {id:(m&&m.id)||('m'+Date.now()+i),name:(m&&m.name)||('Adaptive Muntin '+(i+1)),shapeId:(m&&m.shapeId)||DB.shapeDef[0].id,muntin:M};
+    return {id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M};
   });
-  if(!DB.muntinDef.length)DB.muntinDef.push({id:'m1',name:'Adaptive 2V × 1H',shapeId:DB.shapeDef[0].id,muntin:defaultMuntinModel()});
 }
 
 const ROLES=['Админ','Руководство','Продажи','Технолог','Цех','Отгрузка','Снабжение'];
+const SAFE_DEFAULT_ROLE='Цех';
 const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
 const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
-/* старые записи могли хранить навык просто строкой — приводим к {skill, level} на лету */
-const normSkill = x => (typeof x==='string') ? {skill:x, level:'Мидл'} : x;
+/* Старые записи могли хранить навык строкой — для них сохраняем исторический
+   уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
+const normSkill = x => {
+ const src=typeof x==='string'?{skill:x,level:'Мидл'}:(x&&typeof x==='object'?x:null);
+ if(!src)return null;
+ const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
+ const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
+};
 function normalizeUsers(){
+ if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
- DB.user.forEach(u=>{ u.skills=(u.skills||[]).map(normSkill).filter(x=>x&&x.skill); });
+ DB.user.forEach(u=>{
+  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
+  const station=String(u.station==null?'':u.station).trim().toUpperCase();u.station=DB.station.some(s=>s.code===station)?station:'';
+  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
+ });
 }
 /* Уровень станции обязан быть ЧИСЛОМ или null. Из импортированного/руками
    правленного JSON он приезжал строкой ("1"), и станция молча выпадала из
    маршрута, потому что сравнение s.level===l.n строгое. */
 function normalizeStations(){
- DB.level=DB.level.filter(l=>l&&isFinite(+l.n))
-   .map(l=>({n:+l.n,label:String(l.label==null?'':l.label)}))
+ const levelSeen=Object.create(null),stationSeen=Object.create(null);
+ DB.level=DB.level.filter(l=>l&&isFinite(+l.n)&&Number.isInteger(+l.n)&&+l.n>0&&!levelSeen[+l.n]&&(levelSeen[+l.n]=true))
+   .map(l=>({n:+l.n,label:String(l.label==null?'':l.label).trim()}))
    .sort((a,b)=>a.n-b.n);
- DB.station=DB.station.filter(s=>s&&s.code).map(s=>{
+ DB.station=DB.station.filter(s=>{if(!s||!s.code)return false;const code=String(s.code).trim().toUpperCase();if(!code||stationSeen[code])return false;stationSeen[code]=true;return true;}).map(s=>{
   const lv=(s.level===''||s.level==null)?null:+s.level;
-  s.level=isFinite(lv)?lv:null;
-  ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)?v:null;});
-  s.code=String(s.code);s.name=String(s.name==null?'':s.name);s.note=String(s.note==null?'':s.note);
+  s.level=isFinite(lv)&&DB.level.some(l=>l.n===lv)?lv:null;
+  ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)&&v>0?v:null;});
+  if(s.maxW==null||s.maxL==null)s.maxW=s.maxL=null;
+  if(s.minTh==null||s.maxTh==null||s.minTh>s.maxTh)s.minTh=s.maxTh=null;
+  s.code=String(s.code).trim().toUpperCase();s.name=String(s.name==null?'':s.name).trim();s.note=String(s.note==null?'':s.note);
   return s;
  });
  /* уровень, на который никто не ссылается, оставляем; станция без уровня — тоже
@@ -1196,6 +1277,7 @@ function skillIconName(skill){
 }
 function skillBadgeHTML(skillObj){
  const s=normSkill(skillObj);
+ if(!s)return '';
  return `<span class="skill-badge">${ico(skillIconName(s.skill),'icon-inline')}<span>${esc(s.skill)}</span><span class="pill">${esc(s.level)}</span></span>`;
 }
 function salesSkillCards(){
@@ -1514,7 +1596,15 @@ const I18N_EN={
   "Bar end clearance": "Bar end clearance",
   "Edge reference": "Edge reference",
   "Custom centerlines": "Custom centerlines",
-  "Flip exterior / interior": "Flip exterior / interior"
+  "Flip exterior / interior": "Flip exterior / interior",
+  "Введите корректный неотрицательный размер": "Enter a valid non-negative dimension",
+  "Код: только A–Z, 0–9, дефис и подчёркивание": "Code: use only A–Z, 0–9, hyphen and underscore",
+  "Максимальные ширина и длина заполняются вместе": "Maximum width and length must be entered together",
+  "Габариты станции должны быть больше нуля": "Station dimensions must be greater than zero",
+  "Минимальная и максимальная толщина заполняются вместе": "Minimum and maximum thickness must be entered together",
+  "Проверь диапазон толщины": "Check the thickness range",
+  "Заполни положительный целый номер и название": "Enter a positive integer number and a name",
+  "Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.": "Could not save data in the browser. Export JSON and check available storage."
 };
 const _textOriginal=new WeakMap();
 function tx(value){
@@ -1538,12 +1628,57 @@ function tx(value){
  else if((mm=x.match(/^(\d+) бар, суммарно (.+)$/))) x=`${mm[1]} bars, total ${mm[2]}`;
  else if((mm=x.match(/^Габарит: (.+)$/))) x=`Size: ${mm[1]}`;
  else if((mm=x.match(/^(\d+) станци(?:я|и|й)$/))) x=`${mm[1]} stations`;
+ else if((mm=x.match(/^Нужно указать ровно (\d+) корректных позиций внутри контура$/))) x=`Enter exactly ${mm[1]} valid positions inside the contour`;
  // Translate longer phrases even when punctuation or inline <code>/<b> splits a sentence.
  if(x===core){
    const keys=Object.keys(I18N_EN).filter(k=>k.length>=14 && core.includes(k)).sort((a,b)=>b.length-a.length);
    for(const k of keys) x=x.split(k).join(I18N_EN[k]);
  }
  return lead+x+tail;
+}
+/* Инженерные модули возвращают нейтральные английские причины и не знают про
+   язык оболочки. Здесь — единственная точка их перевода для пользовательского UI. */
+function moduleErrorText(result){
+ const reason=String(result&&result.reason||'');if(LANG==='en'||!reason)return reason;
+ const exact={
+  'Shape not found':'Фигура не найдена',
+  'Enter valid width and height.':'Введи корректные ширину и высоту.',
+  'Smart-Shape outline could not be built.':'Не удалось построить контур Smart-Shape.',
+  'Smart-Shape outline self-intersects. Check the outages and corner blocks.':'Контур Smart-Shape самопересекается. Проверь уклоны и угловые блоки.',
+  'Smart-Shape outline encloses no area.':'Контур Smart-Shape не образует площадь.',
+  'Top D is degenerate: its horizontal projection is zero.':'Сторона D вырождена: её горизонтальная проекция равна нулю.',
+  'Invalid Smart-Shape':'Некорректная Smart-Shape'
+ };
+ if(exact[reason])return exact[reason];
+ let m;
+ if((m=reason.match(/^Shape is invalid: (.+)$/)))return 'Фигура невалидна: '+moduleErrorText({reason:m[1]});
+ if((m=reason.match(/^Edge (.+): length must be greater than 0\.$/)))return 'Сторона '+m[1]+': длина должна быть больше нуля.';
+ if((m=reason.match(/^Edge (.+): "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректный размер.';
+ if((m=reason.match(/^Edge (.+): out of plumb \/ level "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': отклонение «'+m[2]+'» задано некорректно.';
+ if((m=reason.match(/^Edge (.+): out of plumb \/ level cannot be negative\.$/)))return 'Сторона '+m[1]+': отклонение не может быть отрицательным.';
+ if((m=reason.match(/^Edge (.+): pick which way it is out of plumb \/ level\.$/)))return 'Сторона '+m[1]+': выбери направление отклонения.';
+ if((m=reason.match(/^Edge (.+): "(.+)" is not a valid (elbow length|outage)\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректное '+(m[3]==='elbow length'?'колено':'отклонение')+'.';
+ if((m=reason.match(/^Edge (.+): pick the elbow form \(direction of the skew\)\.$/)))return 'Сторона '+m[1]+': выбери форму колена (направление уклона).';
+ if((m=reason.match(/^Edge (.+): elbow length (.+) is longer than the edge \((.+)\)\.$/)))return 'Сторона '+m[1]+': колено '+m[2]+' длиннее стороны ('+m[3]+').';
+ if((m=reason.match(/^Corner edge (.+) \((.+)\): "(.+)" is not a valid dimension\.$/)))return 'Угловая сторона '+m[1]+' ('+m[2]+'): «'+m[3]+'» — некорректный размер.';
+ if((m=reason.match(/^Corner edge (.+) \((.+)\): no value yet\.$/)))return 'Угловая сторона '+m[1]+' ('+m[2]+'): размер ещё не указан.';
+ if((m=reason.match(/^(.+): corner steps (.+) do not fit in (.+)\.$/))){const side={'Left side (A)':'Левая сторона (A)','Right side (C)':'Правая сторона (C)','Bottom (B)':'Низ (B)','Top (D)':'Верх (D)'}[m[1]]||m[1];return side+': угловые ступени '+m[2]+' не помещаются в '+m[3]+'.';}
+ if((m=reason.match(/^"(.+)" is not a valid dimension \((.+)\) — the last valid value is still in use\.$/)))return '«'+m[1]+'» — некорректный размер ('+m[2]+'); пока используется последнее корректное значение.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: enter exactly (\d+) custom centerline position\(s\)\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: укажи ровно '+m[2]+' пользовательских позиций.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: the profile and edge insets do not fit inside the glass\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профиль и отступы не помещаются внутри стекла.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: every custom centerline must stay inside the usable perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: каждая позиция должна находиться внутри рабочего контура.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: bar profiles overlap or use the same centerline\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профили перекрываются или используют одну ось.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: the requested bars do not fit between the edge insets\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары не помещаются между отступами от кромки.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: requested bar (\d+) does not intersect the usable glass perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальный':'Горизонтальный')+' бар '+m[2]+' не пересекает рабочий контур стекла.';
+ if((m=reason.match(/^(Vertical|Horizontal) bars: a generated cut length is invalid\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: получена некорректная длина реза.';
+ return reason;
+}
+function moduleNoteText(note){
+ const value=String(note||'');if(LANG==='en'||!value)return value;
+ let m;if((m=value.match(/^Bar ends hold a constant perpendicular distance of (.+) from the real glass edge; the bar end clearance is then applied along the bar axis\.$/)))return 'Концы баров сохраняют постоянный перпендикулярный отступ '+m[1]+' от реальной кромки стекла; затем вдоль оси бара применяется торцевой зазор.';
+ if(value==='Edge inset X and Y differ, so a single perpendicular distance has no meaning here. Falling back to axis-direction trimming — set both insets equal to use the offset reference.')return 'Отступы X и Y различаются, поэтому единого перпендикулярного расстояния нет. Используется обрезка вдоль оси; для offset reference задай одинаковые отступы.';
+ if(value==='Legacy mode: bar ends are trimmed along the bar axis by the edge inset. On a raked, arched or curved edge that is not a constant distance from the glass.')return 'Legacy-режим: концы баров обрезаются вдоль их оси на величину edge inset. На наклонной, дуговой или кривой кромке это не даёт постоянного расстояния от стекла.';
+ return value;
 }
 function applyLang(root=document.body){
  document.documentElement.lang=LANG;
@@ -1737,7 +1872,7 @@ function viewDashboard(){
 let uEdit=null, uDraft=null;
 function viewUsers(){
  if(!subtab || !['list','report'].includes(subtab)) subtab='list';
- const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x.skill===skill))).length;
+ const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill))).length;
  return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе, к какой станции привязан и какие операции умеет выполнять. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей</div></div>
@@ -1758,7 +1893,7 @@ function viewUsersList(){
   const st=DB.station.find(s=>s.code===u.station);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
   return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
-   <td class="mono">${st?raw(st.code+' — '+st.name):'<span class="mut">не назначена</span>'}</td>
+   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${raw(st.name)}`:'<span class="mut">не назначена</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Изменить</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
@@ -1766,7 +1901,7 @@ function viewUsersList(){
  return `${uEdit!==null?userForm():''}
   <table><thead><tr><th>Имя</th><th>Роль</th><th>Станция</th><th>Навыки</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:ROLES[0],station:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -1775,7 +1910,7 @@ function userForm(){
    <div><label>Имя *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
    <div><label>Роль *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Станция по умолчанию</label><select id="u_station" onchange="uDraft.station=this.value||null"><option value="">— нет —</option>
-    ${DB.station.map(s=>`<option value="${s.code}" ${s.code===r.station?'selected':''}>${esc(s.code)} — ${SEED_TEXT.has(s.name)&&LANG==='en'?tx(s.name):esc(s.name)}</option>`).join('')}</select></div>
+    ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''}>${esc(s.code)} — ${SEED_TEXT.has(s.name)&&LANG==='en'?tx(s.name):esc(s.name)}</option>`).join('')}</select></div>
   </div>
   <div style="margin-top:12px"><label>Навыки и уровень владения</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
@@ -1813,16 +1948,16 @@ function delUser(i){ if(!confirm('Удалить пользователя?'))ret
    поэтому это отдельный экран, а не ещё одна колонка в списке --- */
 function skillReport(){
  const cards=SKILLS.map(skill=>{
-  const people=DB.user.filter(u=>(u.skills||[]).map(normSkill).some(x=>x.skill===skill));
+  const people=DB.user.filter(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill));
   const pct=DB.user.length?Math.min(100,Math.round(people.length/DB.user.length*100)):0;
   const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x.skill===skill);if(e) byLevel[e.level].push(u.name);});
+  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
   const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
   return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div><div class="skill-card-meta">${SKILL_LEVELS.map(l=>`<span class="pill ${byLevel[l].length?'info':''}">${esc(l)} · ${byLevel[l].length}</span>`).join(' ')}</div></div></div>`;
  }).join('');
  const rows=SKILLS.map(skill=>{
   const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x.skill===skill);if(e) byLevel[e.level].push(u.name);});
+  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
   const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
   return `<tr><td><b>${esc(skill)}</b></td>${SKILL_LEVELS.map(l=>`<td>${byLevel[l].length?byLevel[l].map(raw).join(', '):'<span class="mut">—</span>'}</td>`).join('')}<td><span class="pill ${cls}">${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</span></td></tr>`;
  }).join('');
@@ -1854,7 +1989,7 @@ function viewSales(){
 
 let sEdit=null,sDraft=null;
 function viewShapeSkill(){
- const rows=DB.shapeDef.map((s,i)=>{const r=ShapeModule.compute(s);return `<tr><td><b>${raw(s.name)}</b></td><td class="mono">${r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'}</td><td class="mono">${r.valid?r.points.length:'—'}</td><td>${r.valid?'<span class="pill ok">Smart-Shape</span>':'<span class="pill bad">'+esc(r.reason)+'</span>'}</td><td style="white-space:nowrap"><button class="sm" onclick="openShapeEdit(${i})">Изменить</button><button class="sm dl" onclick="delShape(${i})">×</button></td></tr>`;}).join('');
+ const rows=DB.shapeDef.map((s,i)=>{const r=ShapeModule.compute(s);return `<tr><td><b>${raw(s.name)}</b></td><td class="mono">${r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'}</td><td class="mono">${r.valid?r.points.length:'—'}</td><td>${r.valid?'<span class="pill ok">Smart-Shape</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'}</td><td style="white-space:nowrap"><button class="sm" onclick="openShapeEdit(${i})">Изменить</button><button class="sm dl" onclick="delShape(${i})">×</button></td></tr>`;}).join('');
  return `<div class="real-module-note"><b>Smart-Shape v4.5</b><span>Реальная модель из Configurator: A = Height, B = Width, C = правая сторона, D = AUTO. Поддерживаются out-of-plumb, elbows и угловые блоки Single / Double / Triple.</span></div>
   ${sEdit!==null?shapeForm():''}
   <table><thead><tr><th>Название</th><th>Габарит</th><th>Сегментов</th><th>Движок</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
@@ -1871,17 +2006,17 @@ function setShapeElbow(edge,k,v){sDraft.smart[edge].elbow[k]=v||null;refreshShap
 function setShapeCorner(c,v){var S=shapeDraftLine();S.shape.smart.corners[c]=v;ssSyncExtra(S);sDraft.smart=S.shape.smart;render();}
 function setShapeExtra(id,v){if(!sDraft.smart.extraEdges[id])sDraft.smart.extraEdges[id]={len:''};sDraft.smart.extraEdges[id].len=v;refreshShapeEditor();}
 function shapePreviewSVG(r){
- if(!r.valid)return `<div class="module-invalid">${esc(r.reason||'Invalid shape')}</div>`;
+ if(!r.valid)return `<div class="module-invalid">${esc(moduleErrorText(r)||'Invalid shape')}</div>`;
  const pts=r.points,b=fabEdgeBounds(pts),vw=650,vh=390,p=36,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-p*2)/W,(vh-p*2)/H),ox=p+(vw-p*2-W*sc)/2,oy=p+(vh-p*2-H*sc)/2;
  const X=x=>ox+(x-b.minX)*sc,Y=y=>vh-(oy+(y-b.minY)*sc);let o=`<rect x="0" y="0" width="${vw}" height="${vh}" fill="#fbfdfe"/>`;
  o+=`<path d="${pts.map((q,i)=>(i?'L':'M')+' '+X(q[0])+' '+Y(q[1])).join(' ')} Z" fill="#edf7fb" stroke="#1d2b34" stroke-width="2"/>`;
  r.segs.forEach(s=>{const c=SS_COLORS[s.id]||ssExtraColor(s.id),mx=(X(s.p1[0])+X(s.p2[0]))/2,my=(Y(s.p1[1])+Y(s.p2[1]))/2;o+=`<line x1="${X(s.p1[0])}" y1="${Y(s.p1[1])}" x2="${X(s.p2[0])}" y2="${Y(s.p2[1])}" stroke="${c}" stroke-width="4"/><text x="${mx}" y="${my-7}" text-anchor="middle" font-size="11" font-weight="700" fill="${c}" stroke="#fff" stroke-width="4" paint-order="stroke fill">${esc(s.id)}</text>`;});
  return `<svg class="smart-svg" viewBox="0 0 ${vw} ${vh}" aria-label="Smart Shape preview">${o}</svg>`;
 }
-function shapeDerivedHTML(r){if(!r.valid)return `<div class="validation-box badbox"><b>Ошибка геометрии</b><div>${esc(r.reason)}</div></div>`;const G=r.base;return `<div class="smart-kpis"><div><span>Envelope</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>D projection</span><b>${dimIn(G.Dlen)}</b></div><div><span>True D cut</span><b>${dimIn(G.Dtrue)}</b></div></div>${r.warns&&r.warns.length?`<div class="validation-box warnbox">${r.warns.map(esc).join('<br>')}</div>`:'<div class="validation-box okbox">Контур валиден · тот же контур используется Muntinbar</div>'}`;}
+function shapeDerivedHTML(r){if(!r.valid)return `<div class="validation-box badbox"><b>Ошибка геометрии</b><div>${esc(moduleErrorText(r))}</div></div>`;const G=r.base;return `<div class="smart-kpis"><div><span>Envelope</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>D projection</span><b>${dimIn(G.Dlen)}</b></div><div><span>True D cut</span><b>${dimIn(G.Dtrue)}</b></div></div>${r.warns&&r.warns.length?`<div class="validation-box warnbox">${r.warns.map(w=>esc(moduleErrorText({reason:w}))).join('<br>')}</div>`:'<div class="validation-box okbox">Контур валиден · тот же контур используется Muntinbar</div>'}`;}
 function refreshShapeEditor(){if(!sDraft)return;const r=ShapeModule.compute(sDraft),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');if(p)p.innerHTML=shapePreviewSVG(r);if(d)d.innerHTML=shapeDerivedHTML(r);if(p)applyLang(p);if(d)applyLang(d);}
-function shapeEdgeEditor(edge){const m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right';if(!m.elbowsOn)return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${edge==='A'?esc(sDraft.h):edge==='B'?esc(sDraft.w):(s.len||'AUTO = A')}</span></div><div class="edge-fields"><div><label>Out of plumb / level</label><input value="${esc(s.out||'0')}" oninput="setShapeSimple('${edge}','out',this.value)"></div><div><label>Direction</label><select onchange="setShapeSimple('${edge}','dir',this.value)"><option value="">—</option>${(vert?[['left','Left'],['right','Right']]:[['up','Up'],['down','Down']]).map(x=>`<option value="${x[0]}" ${s.dir===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`;
- const E=s.elbow;return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${edge==='A'?esc(sDraft.h):edge==='B'?esc(sDraft.w):(s.len||'AUTO = A')}</span></div><div class="edge-fields four"><div><label>Outage to elbow</label><input value="${esc(E.to)}" oninput="setShapeElbow('${edge}','to',this.value)"></div><div><label>Elbow length</label><input value="${esc(E.elbowLen)}" oninput="setShapeElbow('${edge}','elbowLen',this.value)"></div><div><label>Outage past elbow</label><input value="${esc(E.past)}" oninput="setShapeElbow('${edge}','past',this.value)"></div><div><label>Elbow form</label><select onchange="setShapeElbow('${edge}','mode',this.value)"><option value="">—</option>${SS_MODES.map(x=>`<option value="${x.id}" ${E.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'} / ${x.s2>0?'+':'−'}</option>`).join('')}</select></div></div></div>`;}
+function shapeEdgeEditor(edge){const m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right',shown=edge==='A'?sDraft.h:edge==='B'?sDraft.w:(s.len||'AUTO = A');if(!m.elbowsOn)return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${esc(shown)}</span></div><div class="edge-fields"><div><label>Out of plumb / level</label><input value="${esc(s.out||'0')}" oninput="setShapeSimple('${edge}','out',this.value)"></div><div><label>Direction</label><select onchange="setShapeSimple('${edge}','dir',this.value)"><option value="">—</option>${(vert?[['left','Left'],['right','Right']]:[['up','Up'],['down','Down']]).map(x=>`<option value="${x[0]}" ${s.dir===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`;
+ const E=s.elbow;return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${esc(shown)}</span></div><div class="edge-fields four"><div><label>Outage to elbow</label><input value="${esc(E.to)}" oninput="setShapeElbow('${edge}','to',this.value)"></div><div><label>Elbow length</label><input value="${esc(E.elbowLen)}" oninput="setShapeElbow('${edge}','elbowLen',this.value)"></div><div><label>Outage past elbow</label><input value="${esc(E.past)}" oninput="setShapeElbow('${edge}','past',this.value)"></div><div><label>Elbow form</label><select onchange="setShapeElbow('${edge}','mode',this.value)"><option value="">—</option>${SS_MODES.map(x=>`<option value="${x.id}" ${E.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'} / ${x.s2>0?'+':'−'}</option>`).join('')}</select></div></div></div>`;}
 function shapeForm(){
  const r=ShapeModule.compute(sDraft),S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;const map=ssEdgeMap(S).all;
  return `<div class="module-editor"><div class="module-editor-head"><div><h3>${sEdit==='new'?'Новая Advanced-фигура':'Изменение Advanced-фигуры'}</h3><p>Алгоритм Smart-Shape перенесён из v4.5 без упрощения геометрии.</p></div><span class="pill ok">source v4.5</span></div>
@@ -1894,7 +2029,7 @@ function shapeForm(){
  </div><div class="shape-preview-side"><div id="shapeLivePreview">${shapePreviewSVG(r)}</div><div id="shapeLiveDerived">${shapeDerivedHTML(r)}</div></div></div>
  <div class="err" id="e_shape"></div><div class="row"><button class="pri" onclick="saveShape()">Сохранить</button><button onclick="sEdit=null;sDraft=null;render()">Отмена</button></div></div>`;
 }
-function saveShape(){const e=document.getElementById('e_shape');e.style.display='none';sDraft.name=(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');const r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,r.reason);if(sEdit==='new')DB.shapeDef.push(sDraft);else DB.shapeDef[sEdit]=sDraft;sEdit=null;sDraft=null;touch();render();}
+function saveShape(){const e=document.getElementById('e_shape');e.style.display='none';sDraft.name=(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');const r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(sEdit==='new')DB.shapeDef.push(sDraft);else DB.shapeDef[sEdit]=sDraft;sEdit=null;sDraft=null;touch();render();}
 function delShape(i){const s=DB.shapeDef[i];if(DB.muntinDef.some(m=>m.shapeId===s.id))return alert('Нельзя удалить — фигура используется в Muntinbar');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/sales-muntin-ui.js ==== */
@@ -1903,22 +2038,30 @@ function delShape(i){const s=DB.shapeDef[i];if(DB.muntinDef.some(m=>m.shapeId===
    Экран, live-чертёж и BOM модуля Adaptive Muntin. Геометрия — в modules/muntin/*.
    ===================================================================== */
 
-let mEdit=null,mDraft=null;
+let mEdit=null,mDraft=null,mFieldErrors={};
 function viewMuntinSkill(){
  const rows=DB.muntinDef.map((m,i)=>{const shape=DB.shapeDef.find(s=>s.id===m.shapeId),r=MuntinModule.compute(shape,m),P=muntinProduct((m.muntin||{}).productId);return `<tr><td><b>${raw(m.name)}</b></td><td>${shape?raw(shape.name):'<span class="bad pill">фигура удалена</span>'}</td><td>${esc(P.label)}</td><td class="mono">${r.valid?r.count+' segments · '+dimIn(r.totalLengthIn):'—'}</td><td>${r.valid&&r.geo.shapeAdaptive?'<span class="pill info">shape-adaptive</span>':'<span class="pill">rectangle</span>'}</td><td style="white-space:nowrap"><button class="sm" onclick="openMuntinEdit(${i})">Изменить</button><button class="sm dl" onclick="delMuntin(${i})">×</button></td></tr>`;}).join('');
  return `<div class="real-module-note"><b>Adaptive Muntin v4.5</b><span>Equal-clear раскладка на сетке 1/16″, реальный perimeter clipping, perpendicular edge reference, отдельные cut lengths для каждой части бара.</span></div>${mEdit!==null?muntinForm():''}<table><thead><tr><th>Название</th><th>Shape</th><th>Profile</th><th>Результат</th><th>Geometry</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>${mEdit===null?`<div class="row"><button class="pri" ${DB.shapeDef.length?'':'disabled'} onclick="openMuntinNew()">Новая раскладка мунтина</button></div>`:''}`;
 }
-function openMuntinNew(){mEdit='new';mDraft=newMuntinDef();render();}
-function openMuntinEdit(i){mEdit=i;mDraft=JSON.parse(JSON.stringify(DB.muntinDef[i]));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);render();}
+function openMuntinNew(){mEdit='new';mFieldErrors={};mDraft=newMuntinDef((DB.shapeDef[0]||{}).id||'');render();}
+function openMuntinEdit(i){mEdit=i;mFieldErrors={};mDraft=JSON.parse(JSON.stringify(DB.muntinDef[i]));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);render();}
 function currentMuntinShape(){return DB.shapeDef.find(s=>s.id===mDraft.shapeId);}
-function setMuntinStruct(k,v){if(k==='shapeId')mDraft.shapeId=v;else if(k==='productId')mDraft.muntin.productId=v;else if(k==='verticalBars')mDraft.muntin.layout.verticalBars=clampBars(v);else if(k==='horizontalBars')mDraft.muntin.layout.horizontalBars=clampBars(v);else if(k==='mode')mDraft.muntin.production.mode=v;else if(k==='edgeMode')mDraft.muntin.production.edgeMode=v;else if(k==='flipped')mDraft.muntin.flipped=!!v;render();}
-function setMuntinNumber(k,v){const r=fabParseDimStrict(v);if(r.ok)mDraft.muntin.production[k]=Math.max(0,r.v);refreshMuntinEditor();}
-function setMuntinPositions(axis,v){const shape=currentMuntinShape(),sr=shape&&ShapeModule.compute(shape);if(!sr||!sr.valid)return;const geo=productionGeometryForLine(mDraft.muntin,sr.line),max=axis==='v'?geo.spanW:geo.spanH,count=axis==='v'?mDraft.muntin.layout.verticalBars:mDraft.muntin.layout.horizontalBars;mDraft.muntin.production[axis==='v'?'verticalPositions':'horizontalPositions']=parsePosList(v,max,count);refreshMuntinEditor();}
+function setMuntinStruct(k,v){if(k==='shapeId'){mDraft.shapeId=v;delete mFieldErrors.verticalPositions;delete mFieldErrors.horizontalPositions;}else if(k==='productId')mDraft.muntin.productId=v;else if(k==='verticalBars'){mDraft.muntin.layout.verticalBars=clampBars(v);delete mFieldErrors.verticalPositions;}else if(k==='horizontalBars'){mDraft.muntin.layout.horizontalBars=clampBars(v);delete mFieldErrors.horizontalPositions;}else if(k==='mode'){mDraft.muntin.production.mode=v;mFieldErrors={};}else if(k==='edgeMode')mDraft.muntin.production.edgeMode=v;else if(k==='flipped')mDraft.muntin.flipped=!!v;render();}
+function setMuntinNumber(k,v){const r=fabParseDimStrict(v);if(r.ok&&r.v>=0){mDraft.muntin.production[k]=r.v;delete mFieldErrors[k];}else mFieldErrors[k]='Введите корректный неотрицательный размер';refreshMuntinEditor();}
+function setMuntinPositions(axis,v){
+ const shape=currentMuntinShape(),sr=shape&&ShapeModule.compute(shape);if(!sr||!sr.valid)return;
+ const geo=productionGeometryForLine(mDraft.muntin,sr.line),max=axis==='v'?geo.spanW:geo.spanH,count=axis==='v'?mDraft.muntin.layout.verticalBars:mDraft.muntin.layout.horizontalBars,key=axis==='v'?'verticalPositions':'horizontalPositions';
+ const tokens=String(v||'').split(/[,;]+/).map(x=>x.trim()).filter(Boolean),vals=[];let bad=tokens.length!==count;
+ tokens.forEach(x=>{const r=fabParseDimStrict(x);if(!r.ok||!(r.v>0&&r.v<max))bad=true;else vals.push(r.v);});
+ if(bad)mFieldErrors[key]='Нужно указать ровно '+count+' корректных позиций внутри контура';
+ else{mDraft.muntin.production[key]=vals;delete mFieldErrors[key];}
+ refreshMuntinEditor();
+}
 function muntinBomHTML(r){if(!r.valid)return '';const g=r.geo,f=g.face/2,rows=[];(g.verticalSegments||[]).forEach(s=>rows.push(`<tr><td>${muntinSegId('V',s)}</td><td>Vertical</td><td class="mono">${dimIn(s.cut)}</td><td class="mono">Face ${dimIn(s.pos-f)} → ${dimIn(s.pos+f)} · CL ${dimIn(s.pos)}</td></tr>`));(g.horizontalSegments||[]).forEach(s=>rows.push(`<tr><td>${muntinSegId('H',s)}</td><td>Horizontal</td><td class="mono">${dimIn(s.cut)}</td><td class="mono">Face ${dimIn(s.pos-f)} → ${dimIn(s.pos+f)} · CL ${dimIn(s.pos)}</td></tr>`));return `<table class="muntin-bom"><thead><tr><th>Part</th><th>Orientation</th><th>Cut length</th><th>Position / reference</th></tr></thead><tbody>${rows.join('')||'<tr><td colspan="4">No segment intersects the usable perimeter</td></tr>'}</tbody></table>`;}
-function muntinLiveHTML(){const shape=currentMuntinShape(),r=MuntinModule.compute(shape,mDraft);if(!r.valid)return `<div class="module-invalid">${esc(r.reason)}</div>`;const g=r.geo;return `<div class="muntin-drawing">${mpSvg({geo:g,M:r.M})}</div><div class="smart-kpis"><div><span>Segments</span><b>${r.count}</b></div><div><span>Total cut</span><b>${dimIn(r.totalLengthIn)}</b></div><div><span>Grid</span><b>1/16″</b></div><div><span>Edge ref.</span><b>${g.edgeMode}${g.edgeModeForced?' fallback':''}</b></div></div><div class="validation-box ${g.edgeModeForced?'warnbox':'okbox'}">${esc(muntinEdgeModeNote(g))}</div>${(g.missedVertical.length||g.missedHorizontal.length)?'<div class="validation-box badbox">Requested bars missing after perimeter / edge clearance clipping.</div>':''}${muntinBomHTML(r)}`;}
+function muntinLiveHTML(){const inputError=Object.values(mFieldErrors)[0];if(inputError)return `<div class="module-invalid">${esc(tx(inputError))}</div>`;const shape=currentMuntinShape(),r=MuntinModule.compute(shape,mDraft);if(!r.valid)return `<div class="module-invalid">${esc(moduleErrorText(r))}</div>`;const g=r.geo;return `<div class="muntin-drawing">${mpSvg({geo:g,M:r.M})}</div><div class="smart-kpis"><div><span>Segments</span><b>${r.count}</b></div><div><span>Total cut</span><b>${dimIn(r.totalLengthIn)}</b></div><div><span>Grid</span><b>1/16″</b></div><div><span>Edge ref.</span><b>${g.edgeMode}${g.edgeModeForced?' fallback':''}</b></div></div><div class="validation-box ${g.edgeModeForced?'warnbox':'okbox'}">${esc(moduleNoteText(muntinEdgeModeNote(g)))}</div>${muntinBomHTML(r)}`;}
 function refreshMuntinEditor(){const el=document.getElementById('muntinLive');if(el){el.innerHTML=muntinLiveHTML();applyLang(el);}}
-function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${s.id}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${x.id}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="mEdit=null;mDraft=null;render()">Отмена</button></div></div>`;}
-function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,r.reason);if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;mEdit=null;mDraft=null;touch();render();}
+function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="mEdit=null;mDraft=null;render()">Отмена</button></div></div>`;}
+function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;mEdit=null;mDraft=null;mFieldErrors={};touch();render();}
 function delMuntin(i){if(!confirm('Удалить раскладку?'))return;DB.muntinDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/optimization.js ==== */
@@ -1975,7 +2118,7 @@ function viewOptimization(){
    ===================================================================== */
 
 function viewProduction(){
- if(!subtab) subtab='stations';
+ if(!['stations','levels'].includes(subtab)) subtab='stations';
  const levels=[...DB.level].sort((a,b)=>a.n-b.n);
  const pipeline=levels.map((l,i)=>{
    const machines=DB.station.filter(s=>s.level===l.n);
@@ -2005,7 +2148,7 @@ function viewStations(){
   return `<tr><td class="mono"><b>${raw(s.code)}</b></td><td>${raw(s.name)}</td>
    <td>${lv?`<span class="pill info">${lv.n} · ${raw(lv.label)}</span>`:'<span class="bad pill">не назначен</span>'}</td>
    <td class="mono">${s.maxW?s.maxW+' × '+s.maxL:'<span class="mut">—</span>'}</td>
-   <td class="mono">${s.minTh}–${s.maxTh} мм</td>
+   <td class="mono">${s.minTh==null||s.maxTh==null?'<span class="mut">—</span>':s.minTh+'–'+s.maxTh+' мм'}</td>
    <td class="mut" style="max-width:220px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stEdit=${i};render()">Изменить</button>
    <button class="sm dl" onclick="delStation(${i})">×</button></td></tr>`;
@@ -2025,10 +2168,10 @@ function stationForm(){
    <div><label>Название *</label><input id="st_name" value="${esc(r.name)}"></div>
    <div><label>Уровень</label><select id="st_level"><option value="">— не назначен —</option>
     ${DB.level.map(l=>`<option value="${l.n}" ${l.n===r.level?'selected':''}>${l.n} · ${SEED_TEXT.has(l.label)&&LANG==='en'?tx(l.label):esc(l.label)}</option>`).join('')}</select></div>
-   <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" value="${r.maxW??''}"></div>
-   <div><label>Макс. длина, in</label><input id="st_maxL" type="number" value="${r.maxL??''}"></div>
-   <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" value="${r.minTh??''}"></div>
-   <div><label>Макс. толщина, мм</label><input id="st_maxTh" type="number" value="${r.maxTh??''}"></div>
+   <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" min="0" step="any" value="${r.maxW??''}"></div>
+   <div><label>Макс. длина, in</label><input id="st_maxL" type="number" min="0" step="any" value="${r.maxL??''}"></div>
+   <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" min="0" step="any" value="${r.minTh??''}"></div>
+   <div><label>Макс. толщина, мм</label><input id="st_maxTh" type="number" min="0" step="any" value="${r.maxTh??''}"></div>
   </div>
   <div style="margin-top:12px"><label>Примечание</label><input id="st_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_station"></div>
@@ -2039,10 +2182,15 @@ function saveStation(){
  const code=document.getElementById('st_code').value.trim().toUpperCase();
  const name=document.getElementById('st_name').value.trim();
  if(!code||!name) return fail(e,'Код и название обязательны');
+ if(!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'Такой код уже есть');
  const g=id=>{const v=document.getElementById(id).value; return v===''?null:+v;};
- const o={code,name, level:g('st_level'), maxW:g('st_maxW'), maxL:g('st_maxL'),
-  minTh:g('st_minTh'), maxTh:g('st_maxTh'), note:document.getElementById('st_note').value.trim()};
+ const maxW=g('st_maxW'),maxL=g('st_maxL'),minTh=g('st_minTh'),maxTh=g('st_maxTh');
+ if((maxW==null)!==(maxL==null))return fail(e,'Максимальные ширина и длина заполняются вместе');
+ if(maxW!=null&&(!(maxW>0)||!(maxL>0)))return fail(e,'Габариты станции должны быть больше нуля');
+ if((minTh==null)!==(maxTh==null))return fail(e,'Минимальная и максимальная толщина заполняются вместе');
+ if(minTh!=null&&(!(minTh>0)||!(maxTh>0)||minTh>maxTh))return fail(e,'Проверь диапазон толщины');
+ const o={code,name, level:g('st_level'), maxW,maxL,minTh,maxTh,note:document.getElementById('st_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  stEdit=null; touch(); render();
 }
@@ -2070,7 +2218,7 @@ function viewLevels(){
 function levelForm(){
  const r = lvEdit==='new' ? {n:(Math.max(0,...DB.level.map(l=>l.n))+1), label:''} : DB.level[lvEdit];
  return `<div class="form"><h3>${lvEdit==='new'?'Новый уровень':'Изменение'}</h3>
-  <div class="grid"><div><label>Номер *</label><input id="lv_n" type="number" value="${r.n}"></div>
+  <div class="grid"><div><label>Номер *</label><input id="lv_n" type="number" min="1" step="1" value="${r.n}"></div>
   <div><label>Название этапа *</label><input id="lv_label" value="${esc(r.label)}"></div></div>
   <div class="err" id="e_level"></div>
   <div class="row"><button class="pri" onclick="saveLevel()">Сохранить</button><button onclick="lvEdit=null;render()">Отмена</button></div></div>`;
@@ -2078,7 +2226,7 @@ function levelForm(){
 function saveLevel(){
  const e=document.getElementById('e_level'); e.style.display='none';
  const n=+document.getElementById('lv_n').value, label=document.getElementById('lv_label').value.trim();
- if(!n||!label) return fail(e,'Заполни номер и название');
+ if(!Number.isInteger(n)||n<=0||!label) return fail(e,'Заполни положительный целый номер и название');
  if(DB.level.some((l,i)=>i!==lvEdit && l.n===n)) return fail(e,'Такой номер уже есть');
  if(lvEdit==='new') DB.level.push({n,label});
  else{
@@ -2108,15 +2256,21 @@ function delLevel(i){
    ===================================================================== */
 
 function afterRender(){applyLang(document.body)}
-function touch(){dirty=true; try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));}catch(e){}}
+let storageWarningShown=false;
+function touch(){
+ dirty=true;
+ try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
+ catch(e){console.error('localStorage не записан:',e);if(!storageWarningShown){storageWarningShown=true;alert('Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.');}return false;}
+}
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
- URL.revokeObjectURL(a.href); dirty=false; render();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000); dirty=false; render();
 }
 function doImport(inp){
  const f=inp.files[0]; if(!f) return; const r=new FileReader();
- r.onload=()=>{ try{ mergeState(JSON.parse(r.result)); normalizeDB(); touch(); render(); }
+ if(f.size>10*1024*1024){alert('Файл не читается: размер JSON превышает 10 MB.');inp.value='';return;}
+ r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
   catch(e){ alert('Файл не читается: '+e.message); } };
  r.readAsText(f); inp.value='';
 }
@@ -2133,6 +2287,40 @@ function mergeState(src){
   if(Array.isArray(DEFAULT[k])){ if(Array.isArray(v)) DB[k]=v; }
   else if(v!=null) DB[k]=v;
  });
+}
+function validateImportedState(src){
+ if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
+ Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ function unique(list,key,label,normalize){
+  const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
+   if(!row||typeof row!=='object')return;
+   const raw=row[key];if(raw==null||raw==='')return;
+   const value=normalize?normalize(raw):String(raw);
+   if(seen.has(value))throw new Error(label+' содержит дубликат "'+value+'"');seen.add(value);
+  });
+ }
+ unique(src.level,'n','Уровни',v=>String(+v));
+ unique(src.station,'code','Станции',v=>String(v).trim().toUpperCase());
+ unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
+ const entityId=/^[A-Za-z0-9_-]{1,96}$/;
+ (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
+ (src.user||[]).forEach((u,i)=>{
+  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('skills пользователя '+(i+1)+' должен быть массивом');
+  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('неизвестная роль пользователя '+(i+1));
+  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('некорректный навык пользователя '+(i+1)+', строка '+(j+1));});
+ });
+}
+function prepareImportedState(src){
+ validateImportedState(src);
+ const previous=DB;
+ try{
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
+  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  const next=DB;DB=previous;return next;
+ }catch(e){DB=previous;throw e;}
 }
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });

@@ -27,6 +27,8 @@ function walk(dir, out = []) {
 const onDisk = walk('src').sort();
 const inManifest = M.scripts.slice().sort();
 const problems = [];
+const htmlScripts=[...devHtml.matchAll(/<script\s+[^>]*src=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>'src/'+m[1].replace(/^\.\//,''));
+const htmlStyles=[...devHtml.matchAll(/<link\s+[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi)].map(m=>'src/'+m[1].replace(/^\.\//,''));
 
 for (const f of onDisk) {
   if (!inManifest.includes(f))
@@ -44,6 +46,10 @@ for (const f of inManifest) {
 for (const f of M.styles) {
   if (!fs.existsSync(path.join(ROOT, f))) problems.push(`ПОТЕРЯН стиль: ${f}`);
 }
+if(JSON.stringify(htmlScripts)!==JSON.stringify(M.scripts))
+  problems.push('ПОРЯДОК скриптов в src/index.html не совпадает с build/manifest.json.');
+if(JSON.stringify(htmlStyles)!==JSON.stringify(M.styles))
+  problems.push('ПОРЯДОК стилей в src/index.html не совпадает с build/manifest.json.');
 
 if (problems.length) {
   console.error('Манифест и файлы разошлись:\n');

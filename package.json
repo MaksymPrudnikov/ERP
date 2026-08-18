@@ -9,6 +9,6 @@
     "test:dist": "TARGET=dist node test/run.js"
   },
   "devDependencies": {
-    "playwright": "^1.55.0"
+    "playwright": "1.55.0"
   }
 }

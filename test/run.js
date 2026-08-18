@@ -28,8 +28,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   console.log('target:', TARGET);
   const b = await chromium.launch(EXE ? { executablePath: EXE } : {});
 
-  async function page(seedLS) {
-    const c = await b.newContext();
+  async function page(seedLS, viewport) {
+    const c = await b.newContext(viewport ? { viewport } : {});
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
@@ -50,6 +50,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       bare: inch('3/4'),
       garbage: inch('12abc'),
       empty: inch(''),
+      huge: fabParseDimStrict('9'.repeat(400)).ok,
       strictHyphen: fabParseDimStrict('48-1/2').v,
       strictBad: fabParseDimStrict('12abc').ok,
       print: dimIn(48.5)
@@ -62,6 +63,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('inch("12abc") отбрасывается', r.garbage, 0);
     eq('inch("")', r.empty, 0);
     eq('fabParseDimStrict("12abc").ok', r.strictBad, false);
+    eq('переполнение числа отклоняется', r.huge, false);
     eq('dimIn(48.5)', r.print, '48 1/2″');
     eq('без ошибок страницы', errs, []);
     await c.close();
@@ -106,6 +108,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return ShapeModule.compute(s).valid;
     });
     eq('C=0 отклоняется', bad, false);
+    const missingSize = await p.evaluate(() => {
+      const mk=(w,h)=>ShapeModule.compute({id:'t',name:'t',w,h,smart:ssNormalize({})}).valid;
+      return { blank:mk('',36), zero:mk(0,36) };
+    });
+    eq('пустой размер не превращается в 48″', missingSize.blank, false);
+    eq('нулевой размер не превращается в 48″', missingSize.zero, false);
     await c.close();
   }
 
@@ -156,6 +164,33 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     const orphan = await p.evaluate(() => MuntinModule.compute(null, { muntin: defaultMuntinModel() }).valid);
     eq('мунтин без фигуры не падает', orphan, false);
+
+    const layoutErrors = await p.evaluate(() => {
+      const shape=(w,h)=>({id:'g',name:'g',w:String(w),h:String(h),smart:ssNormalize({})});
+      const tiny=defaultMuntinModel();tiny.layout.verticalBars=1;tiny.layout.horizontalBars=0;
+      const duplicate=defaultMuntinModel();duplicate.layout.verticalBars=2;duplicate.layout.horizontalBars=0;
+      duplicate.production.mode='custom';duplicate.production.verticalPositions=[10,10];
+      const wrongCount=defaultMuntinModel();wrongCount.layout.verticalBars=2;wrongCount.layout.horizontalBars=0;
+      wrongCount.production.mode='custom';wrongCount.production.verticalPositions=[10];
+      return {
+        tiny:MuntinModule.compute(shape(1,36),{muntin:tiny}).code,
+        duplicate:MuntinModule.compute(shape(48,36),{muntin:duplicate}).code,
+        wrongCount:MuntinModule.compute(shape(48,36),{muntin:wrongCount}).code
+      };
+    });
+    eq('бар, который физически не помещается, отклоняется', layoutErrors.tiny, 'MUNTIN_NO_ROOM');
+    eq('совпадающие оси мунтина отклоняются', layoutErrors.duplicate, 'MUNTIN_OVERLAP');
+    eq('неполный список custom-позиций отклоняется', layoutErrors.wrongCount, 'MUNTIN_CUSTOM_COUNT');
+
+    eq('изменение числа баров очищает устаревшую ошибку поля', await p.evaluate(() => {
+      mDraft=newMuntinDef('s1');mDraft.muntin.production.mode='custom';mFieldErrors={verticalPositions:'old'};
+      setMuntinStruct('verticalBars','0');return !mFieldErrors.verticalPositions;
+    }), true);
+
+    eq('быстро созданные определения получают уникальные id', await p.evaluate(() => {
+      const ids=[];for(let i=0;i<100;i++){ids.push(newSmartShapeDef().id,newMuntinDef('s1').id);}
+      return new Set(ids).size===ids.length;
+    }), true);
 
     eq('grid = 1/16"', await p.evaluate(() => MUNTIN_GRID), 0.0625);
     await c.close();
@@ -213,6 +248,38 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return document.querySelectorAll('#app img').length;
     }), 0);
     await t.c.close();
+
+    t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',station:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
+    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Цех',skills:[]});
+    eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
+    await t.c.close();
+
+    t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',station:'',skills:{skill:'Резка'}}]}));
+    eq('skills не-массив не даёт белый экран', await t.p.evaluate(() => ({skills:DB.user[0].skills,hasUI:document.getElementById('app').innerHTML.length>200})), {skills:[],hasUI:true});
+    await t.c.close();
+
+    t = await page();
+    eq('невалидный импорт не меняет DB частично', await t.p.evaluate(() => {
+      const before=JSON.stringify(DB);try{prepareImportedState({station:[{code:'"><img src=x onerror=alert(1)>',name:'x'}]});}catch(e){}
+      return JSON.stringify(DB)===before;
+    }), true);
+    eq('импорт ловит осиротевший Muntin', await t.p.evaluate(() => {
+      try{prepareImportedState({shapeDef:[],muntinDef:[{id:'m2',shapeId:'missing',muntin:{}}]});return false;}catch(e){return /отсутствующий Shape/.test(e.message);}
+    }), true);
+    await t.c.close();
+
+    const payload='\"><\/select><img id=xss_probe src=x onerror=window.__xss=1>';
+    t = await page(JSON.stringify({shapeDef:[{id:payload,name:'Bad id',w:'48',h:'36',smart:{}}],muntinDef:[]}));
+    eq('id фигуры не может внедрить HTML в option', await t.p.evaluate(() => {
+      tab='sales';subtab='muntin';render();openMuntinNew();return {img:document.querySelectorAll('#xss_probe').length,ran:window.__xss||0};
+    }), {img:0,ran:0});
+    await t.c.close();
+
+    t = await page();
+    await t.p.evaluate(() => {DB.shapeDef=[];DB.muntinDef=[];touch();});
+    await t.p.reload();await t.p.waitForTimeout(200);
+    eq('пустые Shape/Muntin сохраняются без повторного seed', await t.p.evaluate(() => ({shape:DB.shapeDef.length,muntin:DB.muntinDef.length})), {shape:0,muntin:0});
+    await t.c.close();
   }
 
   /* --- 6. RU / EN -------------------------------------------------- */
@@ -226,7 +293,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('нет дублей ключей в словаре', dups, []);
 
     const t = await page();
+    eq('ошибки и production note переводятся в RU оболочкой', await t.p.evaluate(() => {
+      LANG='ru';const m=defaultMuntinModel(),s={id:'g',name:'g',w:'48',h:'36',smart:ssNormalize({})},r=MuntinModule.compute(s,{muntin:m});
+      return {
+        edge:moduleErrorText({reason:'Edge A: out of plumb / level cannot be negative.'}),
+        corner:moduleErrorText({reason:'Corner edge E (TL): no value yet.'}),
+        note:moduleNoteText(muntinEdgeModeNote(r.geo))
+      };
+    }), {
+      edge:'Сторона A: отклонение не может быть отрицательным.',
+      corner:'Угловая сторона E (TL): размер ещё не указан.',
+      note:'Концы баров сохраняют постоянный перпендикулярный отступ 7/16″ от реальной кромки стекла; затем вдоль оси бара применяется торцевой зазор.'
+    });
     await t.p.evaluate(() => setLang('en'));
+    eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
     for (const tab of ['dashboard', 'users', 'sales', 'optimization', 'production']) {
       const left = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
@@ -241,6 +321,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab = 'users'; subtab = 'list'; render();
       return [...document.querySelectorAll('tbody tr td b')].map(e => e.textContent).pop();
     }), 'Закалка');
+    await t.c.close();
+
+    const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT1',skills:[]}]});
+    const u = await page(seeded);
+    eq('seed-название станции переводится в карточке пользователя', await u.p.evaluate(() => {
+      setLang('en');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
+    }), 'CUT1 — Cutting table');
+    await u.c.close();
+  }
+
+  /* --- 7. мобильная оболочка --------------------------------------- */
+  {
+    console.log('mobile');
+    const t=await page(undefined,{width:390,height:844});
+    eq('страница Muntin не расширяет viewport', await t.p.evaluate(() => {
+      tab='sales';subtab='muntin';render();return document.documentElement.scrollWidth<=window.innerWidth;
+    }), true);
     await t.c.close();
   }
 

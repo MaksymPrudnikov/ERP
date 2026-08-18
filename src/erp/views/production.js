@@ -7,7 +7,7 @@
    ===================================================================== */
 
 function viewProduction(){
- if(!subtab) subtab='stations';
+ if(!['stations','levels'].includes(subtab)) subtab='stations';
  const levels=[...DB.level].sort((a,b)=>a.n-b.n);
  const pipeline=levels.map((l,i)=>{
    const machines=DB.station.filter(s=>s.level===l.n);
@@ -37,7 +37,7 @@ function viewStations(){
   return `<tr><td class="mono"><b>${raw(s.code)}</b></td><td>${raw(s.name)}</td>
    <td>${lv?`<span class="pill info">${lv.n} · ${raw(lv.label)}</span>`:'<span class="bad pill">не назначен</span>'}</td>
    <td class="mono">${s.maxW?s.maxW+' × '+s.maxL:'<span class="mut">—</span>'}</td>
-   <td class="mono">${s.minTh}–${s.maxTh} мм</td>
+   <td class="mono">${s.minTh==null||s.maxTh==null?'<span class="mut">—</span>':s.minTh+'–'+s.maxTh+' мм'}</td>
    <td class="mut" style="max-width:220px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stEdit=${i};render()">Изменить</button>
    <button class="sm dl" onclick="delStation(${i})">×</button></td></tr>`;
@@ -57,10 +57,10 @@ function stationForm(){
    <div><label>Название *</label><input id="st_name" value="${esc(r.name)}"></div>
    <div><label>Уровень</label><select id="st_level"><option value="">— не назначен —</option>
     ${DB.level.map(l=>`<option value="${l.n}" ${l.n===r.level?'selected':''}>${l.n} · ${SEED_TEXT.has(l.label)&&LANG==='en'?tx(l.label):esc(l.label)}</option>`).join('')}</select></div>
-   <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" value="${r.maxW??''}"></div>
-   <div><label>Макс. длина, in</label><input id="st_maxL" type="number" value="${r.maxL??''}"></div>
-   <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" value="${r.minTh??''}"></div>
-   <div><label>Макс. толщина, мм</label><input id="st_maxTh" type="number" value="${r.maxTh??''}"></div>
+   <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" min="0" step="any" value="${r.maxW??''}"></div>
+   <div><label>Макс. длина, in</label><input id="st_maxL" type="number" min="0" step="any" value="${r.maxL??''}"></div>
+   <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" min="0" step="any" value="${r.minTh??''}"></div>
+   <div><label>Макс. толщина, мм</label><input id="st_maxTh" type="number" min="0" step="any" value="${r.maxTh??''}"></div>
   </div>
   <div style="margin-top:12px"><label>Примечание</label><input id="st_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_station"></div>
@@ -71,10 +71,15 @@ function saveStation(){
  const code=document.getElementById('st_code').value.trim().toUpperCase();
  const name=document.getElementById('st_name').value.trim();
  if(!code||!name) return fail(e,'Код и название обязательны');
+ if(!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'Такой код уже есть');
  const g=id=>{const v=document.getElementById(id).value; return v===''?null:+v;};
- const o={code,name, level:g('st_level'), maxW:g('st_maxW'), maxL:g('st_maxL'),
-  minTh:g('st_minTh'), maxTh:g('st_maxTh'), note:document.getElementById('st_note').value.trim()};
+ const maxW=g('st_maxW'),maxL=g('st_maxL'),minTh=g('st_minTh'),maxTh=g('st_maxTh');
+ if((maxW==null)!==(maxL==null))return fail(e,'Максимальные ширина и длина заполняются вместе');
+ if(maxW!=null&&(!(maxW>0)||!(maxL>0)))return fail(e,'Габариты станции должны быть больше нуля');
+ if((minTh==null)!==(maxTh==null))return fail(e,'Минимальная и максимальная толщина заполняются вместе');
+ if(minTh!=null&&(!(minTh>0)||!(maxTh>0)||minTh>maxTh))return fail(e,'Проверь диапазон толщины');
+ const o={code,name, level:g('st_level'), maxW,maxL,minTh,maxTh,note:document.getElementById('st_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  stEdit=null; touch(); render();
 }
@@ -102,7 +107,7 @@ function viewLevels(){
 function levelForm(){
  const r = lvEdit==='new' ? {n:(Math.max(0,...DB.level.map(l=>l.n))+1), label:''} : DB.level[lvEdit];
  return `<div class="form"><h3>${lvEdit==='new'?'Новый уровень':'Изменение'}</h3>
-  <div class="grid"><div><label>Номер *</label><input id="lv_n" type="number" value="${r.n}"></div>
+  <div class="grid"><div><label>Номер *</label><input id="lv_n" type="number" min="1" step="1" value="${r.n}"></div>
   <div><label>Название этапа *</label><input id="lv_label" value="${esc(r.label)}"></div></div>
   <div class="err" id="e_level"></div>
   <div class="row"><button class="pri" onclick="saveLevel()">Сохранить</button><button onclick="lvEdit=null;render()">Отмена</button></div></div>`;
@@ -110,7 +115,7 @@ function levelForm(){
 function saveLevel(){
  const e=document.getElementById('e_level'); e.style.display='none';
  const n=+document.getElementById('lv_n').value, label=document.getElementById('lv_label').value.trim();
- if(!n||!label) return fail(e,'Заполни номер и название');
+ if(!Number.isInteger(n)||n<=0||!label) return fail(e,'Заполни положительный целый номер и название');
  if(DB.level.some((l,i)=>i!==lvEdit && l.n===n)) return fail(e,'Такой номер уже есть');
  if(lvEdit==='new') DB.level.push({n,label});
  else{

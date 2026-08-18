@@ -7,15 +7,21 @@
    ===================================================================== */
 
 function afterRender(){applyLang(document.body)}
-function touch(){dirty=true; try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));}catch(e){}}
+let storageWarningShown=false;
+function touch(){
+ dirty=true;
+ try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
+ catch(e){console.error('localStorage не записан:',e);if(!storageWarningShown){storageWarningShown=true;alert('Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.');}return false;}
+}
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
- URL.revokeObjectURL(a.href); dirty=false; render();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000); dirty=false; render();
 }
 function doImport(inp){
  const f=inp.files[0]; if(!f) return; const r=new FileReader();
- r.onload=()=>{ try{ mergeState(JSON.parse(r.result)); normalizeDB(); touch(); render(); }
+ if(f.size>10*1024*1024){alert('Файл не читается: размер JSON превышает 10 MB.');inp.value='';return;}
+ r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
   catch(e){ alert('Файл не читается: '+e.message); } };
  r.readAsText(f); inp.value='';
 }
@@ -32,6 +38,40 @@ function mergeState(src){
   if(Array.isArray(DEFAULT[k])){ if(Array.isArray(v)) DB[k]=v; }
   else if(v!=null) DB[k]=v;
  });
+}
+function validateImportedState(src){
+ if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
+ Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ function unique(list,key,label,normalize){
+  const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
+   if(!row||typeof row!=='object')return;
+   const raw=row[key];if(raw==null||raw==='')return;
+   const value=normalize?normalize(raw):String(raw);
+   if(seen.has(value))throw new Error(label+' содержит дубликат "'+value+'"');seen.add(value);
+  });
+ }
+ unique(src.level,'n','Уровни',v=>String(+v));
+ unique(src.station,'code','Станции',v=>String(v).trim().toUpperCase());
+ unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
+ const entityId=/^[A-Za-z0-9_-]{1,96}$/;
+ (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
+ (src.user||[]).forEach((u,i)=>{
+  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('skills пользователя '+(i+1)+' должен быть массивом');
+  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('неизвестная роль пользователя '+(i+1));
+  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('некорректный навык пользователя '+(i+1)+', строка '+(j+1));});
+ });
+}
+function prepareImportedState(src){
+ validateImportedState(src);
+ const previous=DB;
+ try{
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
+  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  const next=DB;DB=previous;return next;
+ }catch(e){DB=previous;throw e;}
 }
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });

@@ -29,9 +29,9 @@ function fabParseDimStrict(v){
   var sign=1;
   if(t.charAt(0)==='-'){sign=-1;t=t.slice(1).trim();}else if(t.charAt(0)==='+'){t=t.slice(1).trim();}
   var m=t.match(/^(\d+(?:\.\d+)?)[\s-]+(\d+)\s*\/\s*(\d+)$/);
-  if(m)return (+m[3])?{ok:true,v:sign*(+m[1]+(+m[2])/(+m[3]))}:{ok:false,v:0};
+  if(m){var mixed=(+m[3])?sign*(+m[1]+(+m[2])/(+m[3])):NaN;return isFinite(mixed)?{ok:true,v:mixed}:{ok:false,v:0};}
   m=t.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if(m)return (+m[2])?{ok:true,v:sign*((+m[1])/(+m[2]))}:{ok:false,v:0};
-  if(/^\d+(?:\.\d+)?$/.test(t))return {ok:true,v:sign*parseFloat(t)};
+  if(m){var fraction=(+m[2])?sign*((+m[1])/(+m[2])):NaN;return isFinite(fraction)?{ok:true,v:fraction}:{ok:false,v:0};}
+  if(/^\d+(?:\.\d+)?$/.test(t)){var decimal=sign*parseFloat(t);return isFinite(decimal)?{ok:true,v:decimal}:{ok:false,v:0};}
   return {ok:false,v:0};
 }
