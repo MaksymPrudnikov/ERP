@@ -13,8 +13,11 @@ function shapeGeometry(S){
     if(!S.shape.smart)S.shape.smart=ssNormalize({});
     var sv=ssValidate(S);if(sv.errors.length)return {ok:false,error:sv.errors[0],errors:sv.errors,warns:sv.warns,W:W,H:H,pts:[],type:kind};
     var sq=ssContour(S);if(sq.pts.length<3)return {ok:false,error:'Smart-Shape outline could not be built.',W:W,H:H,pts:[],type:kind};
-    var sb=fabEdgeBounds(sq.pts);return {ok:true,W:W,H:H,pts:sq.pts,type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns};
+    var smartEdges=sq.segs.map(function(e,i){return {id:e.id,segmentId:e.id+':'+i,type:'line',p1:e.p1.slice(),p2:e.p2.slice(),length:Math.hypot(e.p2[0]-e.p1[0],e.p2[1]-e.p1[1])};}),sb=fabEdgeBounds(sq.pts);
+    return {ok:true,W:W,H:H,pts:sq.pts,points:sq.pts,pointEdgeIds:smartEdges.map(function(e){return e.id;}),edges:smartEdges,vertices:[],type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns,radiusErrors:[]};
   }
-  return {ok:true,W:W,H:H,pts:[[0,0],[W,0],[W,H],[0,H]],type:'rectangle',minX:0,maxX:W,minY:0,maxY:H,bboxW:W,bboxH:H};
+  var topo=shapePresetTopology(S),rounded=shapeApplyCornerRadii(topo,S.shape.definition||{features:S.shape.features||[]}),pts=rounded.points||[];
+  if(pts.length<3)return {ok:false,error:'Shape outline could not be built.',W:W,H:H,pts:[],type:kind};
+  var b=fabEdgeBounds(pts);return {ok:true,W:W,H:H,pts:pts,points:pts,pointEdgeIds:rounded.pointEdgeIds||[],edges:rounded.edges||[],vertices:rounded.vertices||[],analytic:rounded.analytic,type:kind,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,bboxW:b.maxX-b.minX,bboxH:b.maxY-b.minY,warns:[],radiusErrors:rounded.radiusErrors||[],radiusMeta:rounded.radiusMeta||{}};
 }
 function fabOutlinePoints(S,G){return (G&&G.pts&&G.pts.length)?G.pts.slice():[[0,0],[inch(S.w),0],[inch(S.w),inch(S.h)],[0,inch(S.h)]];}

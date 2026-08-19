@@ -67,6 +67,7 @@ const I18N_EN={
   "модуль в плане": "module planned",
   "Стекольное производство — одна система": "Glass production — one system",
   "Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.": "Not a set of reference tables, but an end-to-end flow: from order configuration and cutting optimization to shop-floor processing, inventory and shipping.",
+  "Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.": "The current ERP scope covers technical Shape and Muntin configuration, cutting optimization and shop-floor processing. The orders module is not part of this version.",
   "Прототип архитектуры": "Architecture prototype",
   "нужно назначить": "assignment needed",
   "готово": "ready",
@@ -78,6 +79,7 @@ const I18N_EN={
   "зелёная точка = уже есть экран": "green dot = screen already exists",
   "Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.": "This is a visual map of data ownership by business domain. Perfect Cut remains an external optimizer, not part of the ERP.",
   "заказ · Shape · Muntin · будущий pricing": "order · Shape · Muntin · future pricing",
+  "Shape · Muntin · чертежи · cutting geometry": "Shape · Muntin · drawings · cutting geometry",
   "внешняя оптимизация раскроя через мост": "external cutting optimization through the bridge",
   "станции · маршруты · WIP · события": "stations · routings · WIP · events",
   "стойки · комплектация · доставка": "racks · staging · delivery",
@@ -91,6 +93,8 @@ const I18N_EN={
   "Фундамент": "Foundation",
   "master-data и доменная оболочка": "master data and domain shell",
   "Заказ": "Order",
+  "Технология изделия": "Product engineering",
+  "Shape revisions · Muntin · чертежи · cutting geometry": "Shape revisions · Muntin · drawings · cutting geometry",
   "клиенты · строки · услуги · ACK · чертёж": "customers · lines · services · ACK · drawing",
   "Perfect Cut bridge · WIP · бой · остатки": "Perfect Cut bridge · WIP · breakage · stock",
   "Планирование": "Planning",
@@ -140,6 +144,38 @@ const I18N_EN={
   "Навык": "Skill",
   "Покрытие": "Coverage",
   "Конфигурация изделия": "Product configuration",
+  "Конфигурация": "Configuration",
+  "Shape теперь хранит finished geometry, физическую топологию, features и обработку кромок. Чертёж, cutting geometry и Muntin ссылаются на ту же ревизию.": "Shape now stores finished geometry, physical topology, features and edge processing. The drawing, cutting geometry and Muntin reference the same revision.",
+  "Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Отверстия, вырезы, hardware prep, радиусы и обработка кромки больше не теряются при экспорте.": "Finished Geometry, Production Drawing and Cutting Geometry are generated from one revision. Holes, cutouts, hardware prep, radii and edge processing are preserved in exports.",
+  "Название / тип": "Name / type",
+  "Кромок": "Edges",
+  "готова к экспорту": "ready to export",
+  "Новая фигура": "New shape",
+  "Новая производственная фигура": "New production shape",
+  "Изменение фигуры": "Edit shape",
+  "Все размеры — finished size в дюймах; толщина — в миллиметрах. Невалидная геометрия не сохраняется и не экспортируется.": "All dimensions are finished sizes in inches; thickness is in millimeters. Invalid geometry cannot be saved or exported.",
+  "Тип фигуры": "Shape type",
+  "Обработка физических кромок": "Physical edge processing",
+  "операции создают allowance и маршрут": "operations generate allowance and routing",
+  "Параметры фигуры": "Shape parameters",
+  "Вершины полигона": "Polygon vertices",
+  "IDs стабильны для радиусов и ревизий": "IDs remain stable for radii and revisions",
+  "Добавить вершину": "Add vertex",
+  "Features и технологические элементы": "Features and manufacturing elements",
+  "включаются в чертёж и cutting payload": "included in the drawing and cutting payload",
+  "+ Отверстие": "+ Hole",
+  "+ Вырез": "+ Cutout",
+  "+ Радиус": "+ Radius",
+  "Features не добавлены": "No features added",
+  "Отверстие": "Hole",
+  "Внутренний вырез": "Internal cutout",
+  "Радиус вершины": "Vertex radius",
+  "Маркировка": "Marking",
+  "Производственные требования": "Manufacturing requirements",
+  "Дополнительных операций нет": "No additional operations",
+  "Файлы текущей ревизии": "Current revision files",
+  "Сохранить ревизию": "Save revision",
+  "Проверить на текущей ревизии Shape": "Validate against current Shape revision",
   "невалидна": "invalid",
   "Название": "Name",
   "Габарит": "Size",
@@ -305,12 +341,16 @@ function moduleErrorText(result){
  };
  if(exact[reason])return exact[reason];
  let m;
+ if(reason==='Shape revision changed. Revalidate this Muntin layout against the current Shape revision.')return 'Ревизия Shape изменилась. Проверь раскладку Muntin на текущей ревизии фигуры.';
  if((m=reason.match(/^Shape is invalid: (.+)$/)))return 'Фигура невалидна: '+moduleErrorText({reason:m[1]});
  if((m=reason.match(/^Edge (.+): length must be greater than 0\.$/)))return 'Сторона '+m[1]+': длина должна быть больше нуля.';
  if((m=reason.match(/^Edge (.+): "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректный размер.';
  if((m=reason.match(/^Edge (.+): out of plumb \/ level "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': отклонение «'+m[2]+'» задано некорректно.';
  if((m=reason.match(/^Edge (.+): out of plumb \/ level cannot be negative\.$/)))return 'Сторона '+m[1]+': отклонение не может быть отрицательным.';
  if((m=reason.match(/^Edge (.+): pick which way it is out of plumb \/ level\.$/)))return 'Сторона '+m[1]+': выбери направление отклонения.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): (out of plumb|out of level) "(.+)" is not a valid dimension\.$/)))return 'Угол '+m[1]+': отклонение '+(m[2]==='out of plumb'?'по X':'по Y')+' «'+m[3]+'» задано некорректно.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): (out of plumb|out of level) cannot be negative\.$/)))return 'Угол '+m[1]+': отклонение не может быть отрицательным.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): pick the (out of plumb|out of level) direction\.$/)))return 'Угол '+m[1]+': выбери направление отклонения '+(m[2]==='out of plumb'?'по X':'по Y')+'.';
  if((m=reason.match(/^Edge (.+): "(.+)" is not a valid (elbow length|outage)\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректное '+(m[3]==='elbow length'?'колено':'отклонение')+'.';
  if((m=reason.match(/^Edge (.+): pick the elbow form \(direction of the skew\)\.$/)))return 'Сторона '+m[1]+': выбери форму колена (направление уклона).';
  if((m=reason.match(/^Edge (.+): elbow length (.+) is longer than the edge \((.+)\)\.$/)))return 'Сторона '+m[1]+': колено '+m[2]+' длиннее стороны ('+m[3]+').';
@@ -322,7 +362,6 @@ function moduleErrorText(result){
  if((m=reason.match(/^(Vertical|Horizontal) bars: the profile and edge insets do not fit inside the glass\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профиль и отступы не помещаются внутри стекла.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: every custom centerline must stay inside the usable perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: каждая позиция должна находиться внутри рабочего контура.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: bar profiles overlap or use the same centerline\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профили перекрываются или используют одну ось.';
- if((m=reason.match(/^(Vertical|Horizontal) bars: the requested bars do not fit between the edge insets\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары не помещаются между отступами от кромки.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: requested bar (\d+) does not intersect the usable glass perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальный':'Горизонтальный')+' бар '+m[2]+' не пересекает рабочий контур стекла.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: a generated cut length is invalid\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: получена некорректная длина реза.';
  return reason;

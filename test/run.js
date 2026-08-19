@@ -102,6 +102,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('пустые угловые рёбра = невалидно', corner.blocked, false);
     eq('срезанный угол 4×4 → 6 точек, площадь 1728−16', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1712 });
 
+    const cornerOffsets = await p.evaluate(() => {
+      const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};
+      s.smart.cornerOffsets.tl.plumb='2';s.smart.cornerOffsets.tl.plumbDir='right';
+      s.smart.cornerOffsets.tr.level='3';s.smart.cornerOffsets.tr.levelDir='down';
+      const r=ShapeModule.compute(s),payload=ShapeModule.machinePayload(r);
+      return {valid:r.valid,tl:r.base.AT,tr:r.base.CT,outer:payload.outer.points};
+    });
+    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,36],tr:[48,33]});
+    ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-36)<1e-9));
+
+    const badCornerOffset = await p.evaluate(() => {
+      const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};s.smart.cornerOffsets.bl.plumb='1';return ShapeModule.compute(s).valid;
+    });
+    eq('отклонение угла без направления блокируется', badCornerOffset, false);
+
     const bad = await p.evaluate(() => {
       const s = { id: 't', name: 't', w: '48', h: '36', smart: ssNormalize({}) };
       s.smart.C.len = '0';
@@ -114,6 +129,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('пустой размер не превращается в 48″', missingSize.blank, false);
     eq('нулевой размер не превращается в 48″', missingSize.zero, false);
+
+    const schemaV2 = await p.evaluate(() => {
+      const presets=SHAPE_PRESETS.map(x=>({id:x.id,valid:ShapeModule.compute(newShapeDef(x.id)).valid}));
+      const d=newShapeDef('rectangle');
+      d.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];d.edgeOps.B=[shapeNormalizeOp({type:'Flat Polish'})];
+      d.features.push(shapeNormalizeFeature({type:'radius',vertexId:'BL',radius:'2'}));
+      d.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'10',y:'10',minEdge:'1/2'}));
+      d.features.push(shapeNormalizeFeature({type:'cutout',width:'5',height:'4',x:'20',y:'12',cornerRadius:'1'}));
+      d.features.push(shapeNormalizeFeature({type:'stamp',x:'4',y:'2',text:'TEMPER'}));
+      const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r),dxf=ShapeModule.genericDxf(r);
+      const conflict=newShapeDef('rectangle');conflict.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'}),shapeNormalizeOp({type:'Rough Arris'})];
+      const badParam=newShapeDef('notch-middle');badParam.params.width='abc';
+      const circle=newShapeDef('circle'),badCircle=newShapeDef('circle');badCircle.h='35';
+      return {presets,valid:r.valid,rounded:r.points.length>4&&payload.cutouts[0].points.length>4,holeCount:payload.holes.length,stampLeaked:JSON.stringify(payload).includes('TEMPER'),allowance:r.cutting.minX<0&&r.cutting.minY<0,dxf:dxf.includes('CUT_HOLES')&&dxf.includes('CUT_INNER')&&dxf.endsWith('EOF\n'),requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
+    });
+    eq('все каталожные Shape имеют валидные defaults', schemaV2.presets.filter(x=>!x.valid), []);
+    eq('radius + hole + rounded cutout входят в cutting payload', {valid:schemaV2.valid,rounded:schemaV2.rounded,holes:schemaV2.holeCount,stampLeaked:schemaV2.stampLeaked}, {valid:true,rounded:true,holes:1,stampLeaked:false});
+    eq('припуск Flat Polish меняет cutting contour', schemaV2.allowance, true);
+    eq('Generic DXF содержит отверстия и вырезы', schemaV2.dxf, true);
+    ok('маршрут выводится из геометрии', schemaV2.requirements.includes('POLISHING')&&schemaV2.requirements.includes('DRILLING')&&schemaV2.requirements.includes('CNC'));
+    eq('конфликтующие finishes блокируются', schemaV2.conflict, false);
+    eq('некорректный параметр preset не заменяется default', schemaV2.badParam, false);
+    eq('круг имеет один физический диаметр', {equal:schemaV2.circle,mismatch:schemaV2.badCircle}, {equal:true,mismatch:false});
     await c.close();
   }
 
@@ -191,6 +229,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const ids=[];for(let i=0;i<100;i++){ids.push(newSmartShapeDef().id,newMuntinDef('s1').id);}
       return new Set(ids).size===ids.length;
     }), true);
+
+    eq('Muntin не пересчитывается молча после смены Shape revision', await p.evaluate(() => {
+      const s=newShapeDef('rectangle'),m=newMuntinDef(s.id);pinMuntinShape(m,s);s.w='60';return MuntinModule.compute(s,m).code;
+    }), 'MUNTIN_SHAPE_REVISION');
 
     eq('grid = 1/16"', await p.evaluate(() => MUNTIN_GRID), 0.0625);
     await c.close();

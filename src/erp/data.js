@@ -15,20 +15,20 @@ function normalizeSalesModules(){
     shapeIds[id]=true;return id;
   }
   DB.shapeDef=DB.shapeDef.map(function(s,i){
-    if(s&&typeof s==='object'&&s.smart&&s.w!=null&&s.h!=null){
-      s.id=uniqueId(s.id,'s');s.name=String(s.name==null?'':s.name);s.w=String(s.w);s.h=String(s.h);s.smart=ssNormalize(s.smart);return s;
+    var src=s&&typeof s==='object'?s:{},legacy=Array.isArray(src.points)&&src.points.length>=3;
+    if(legacy&&!src.type){
+      var xs=src.points.map(function(p){return +p.x||0}),ys=src.points.map(function(p){return +p.y||0}),minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys);
+      src=Object.assign({},src,{type:'polygon',w:String(Math.max.apply(null,xs)-minX||48),h:String(Math.max.apply(null,ys)-minY||36),polygon:src.points.map(function(p,n){return {id:'PV'+(n+1),x:String((+p.x||0)-minX),y:String((+p.y||0)-minY)};})});
     }
-    var w=48,h=36;
-    if(s&&Array.isArray(s.points)&&s.points.length){var xs=s.points.map(function(p){return +p.x||0}),ys=s.points.map(function(p){return +p.y||0});w=Math.max.apply(null,xs)-Math.min.apply(null,xs)||w;h=Math.max.apply(null,ys)-Math.min.apply(null,ys)||h;}
-    return {id:uniqueId(s&&s.id,'s'),name:String((s&&s.name)||('Smart Shape '+(i+1))),w:String(w),h:String(h),smart:defaultSmartModel(),legacyPoints:s&&s.points?s.points:undefined};
+    var out=normalizeShapeDef(src);out.id=uniqueId(src.id,'s');out.name=String(src.name==null?(shapePresetInfo(out.type).label+' '+(i+1)):src.name);return out;
   });
   if(!Array.isArray(DB.muntinDef))DB.muntinDef=[];
   var firstShapeId=(DB.shapeDef[0]||{}).id||'',muntinIds=Object.create(null);
   function uniqueMuntinId(raw){var id=String(raw==null?'':raw).trim();if(!id||muntinIds[id]){do{id=newMuntinId();}while(muntinIds[id]);}muntinIds[id]=true;return id;}
   DB.muntinDef=DB.muntinDef.map(function(m,i){
-    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);return m;}
+    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);var ms=DB.shapeDef.find(function(s){return s.id===m.shapeId;});if(ms&&!m.shapeFingerprint)pinMuntinShape(m,ms);return m;}
     var M=defaultMuntinModel();if(m){M.layout.verticalBars=clampBars(m.cols==null?2:m.cols);M.layout.horizontalBars=clampBars(m.rows==null?1:m.rows);}
-    return {id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M};
+    var out={id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M},shape=DB.shapeDef.find(function(s){return s.id===out.shapeId;});if(shape)pinMuntinShape(out,shape);return out;
   });
 }
 
@@ -91,8 +91,8 @@ function skillBadgeHTML(skillObj){
 }
 function salesSkillCards(){
  const cards=[
-  {id:'shape', icon:'shape', title:'Smart-Shape / Advanced', desc:'A/B/C/D · elbows · corner blocks · validation', meta:'real contour · v4.5'},
-  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'actual perimeter · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
+  {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'},
+  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
  ];
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
 }

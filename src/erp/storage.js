@@ -55,6 +55,15 @@ function validateImportedState(src){
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.shapeDef||[]).forEach((s,i)=>{
+  if(!s||typeof s!=='object')return;
+  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('неизвестный тип Shape в строке '+(i+1));
+  if(s.features!=null&&!Array.isArray(s.features))throw new Error('features Shape в строке '+(i+1)+' должны быть массивом');
+  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('polygon Shape в строке '+(i+1)+' должен быть массивом');
+  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('edgeOps Shape в строке '+(i+1)+' должен быть объектом');
+  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('неизвестный feature Shape '+(i+1)+', строка '+(j+1));if(f.id&&!subId.test(String(f.id)))throw new Error('недопустимый id feature Shape '+(i+1));if(f.id&&ids.has(f.id))throw new Error('дубликат id feature Shape '+(i+1));if(f.id)ids.add(f.id);});
+  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('некорректная обработка кромки Shape '+(i+1));s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('неизвестная операция кромки Shape '+(i+1));});});
+ });
  (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
  (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
  (src.user||[]).forEach((u,i)=>{

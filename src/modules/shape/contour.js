@@ -19,11 +19,17 @@ function ssEdgeLocal(S,e){
   return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
 }
 function ssOff(P,o){return P.map(function(p){return [p[0]+o[0],p[1]+o[1]];});}
+function ssCornerMorph(P,a,b){
+  if(P.length<2)return P.slice();
+  var run=[0],total=0;for(var i=1;i<P.length;i++){total+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);run.push(total);}
+  return P.map(function(p,j){var t=total?run[j]/total:j/(P.length-1);return [p[0]+a[0]+(b[0]-a[0])*t,p[1]+a[1]+(b[1]-a[1])*t];});
+}
 function ssBase(S){
-  var BL=[0,0],
-      Ap=ssOff(ssEdgeLocal(S,'A'),BL),AT=Ap[Ap.length-1],
-      Bp=ssOff(ssEdgeLocal(S,'B'),BL),BR=Bp[Bp.length-1],
-      Cp=ssOff(ssEdgeLocal(S,'C'),BR),CT=Cp[Cp.length-1];
+  var dBL=ssCornerDelta(S,'bl'),dTL=ssCornerDelta(S,'tl'),dBR=ssCornerDelta(S,'br'),dTR=ssCornerDelta(S,'tr'),
+      A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
+      Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
+      Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
   return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:[AT,CT],
     Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
     Dtrue:Math.hypot(CT[0]-AT[0],CT[1]-AT[1]),

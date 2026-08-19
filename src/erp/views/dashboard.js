@@ -13,7 +13,7 @@ function viewDashboard(){
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
    <div><h2>Стекольное производство — одна система</h2>
-   <p>Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.</p></div>
+   <p>Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.</p></div>
    <span class="pill info">${ico('layers','icon-inline')}Прототип архитектуры</span>
   </div>
 
@@ -30,7 +30,7 @@ function viewDashboard(){
     <div class="sub">Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.</div>
     <div class="domain-map">
       <div class="flow-row">
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Продажи</b><small>заказ · Shape · Muntin · будущий pricing</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Конфигурация</b><small>Shape · Muntin · чертежи · cutting geometry</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
        <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>внешняя оптимизация раскроя через мост</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
@@ -51,7 +51,7 @@ function viewDashboard(){
     <div class="section-title"><h3>Дорожная карта</h3><span class="pill info">сейчас Ф1</span></div>
     <div class="phase-list">
      <div class="phase-item current"><div class="phase-num">1</div><div><b>Фундамент</b><span>master-data и доменная оболочка</span><div class="progress"><span style="width:42%"></span></div></div></div>
-     <div class="phase-item"><div class="phase-num">2</div><div><b>Заказ</b><span>клиенты · строки · услуги · ACK · чертёж</span></div></div>
+     <div class="phase-item"><div class="phase-num">2</div><div><b>Технология изделия</b><span>Shape revisions · Muntin · чертежи · cutting geometry</span></div></div>
      <div class="phase-item"><div class="phase-num">3</div><div><b>Цех</b><span>Perfect Cut bridge · WIP · бой · остатки</span></div></div>
      <div class="phase-item"><div class="phase-num">4</div><div><b>Планирование</b><span>мощности · партии · стойки · доставка</span></div></div>
      <div class="phase-item"><div class="phase-num">5</div><div><b>Замыкание</b><span>MRP · фактическая себестоимость · BI</span></div></div>

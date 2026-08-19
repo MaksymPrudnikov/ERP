@@ -11,7 +11,11 @@ function newMuntinId(){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 'm'+crypto.randomUUID();
   return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 }
-function newMuntinDef(shapeId){return {id:newMuntinId(),name:'',shapeId:String(shapeId||''),muntin:defaultMuntinModel()};}
+function newMuntinDef(shapeId){return {id:newMuntinId(),name:'',shapeId:String(shapeId||''),shapeRevision:null,shapeFingerprint:'',muntin:defaultMuntinModel()};}
+function pinMuntinShape(mdef,shape){
+  if(!mdef||!shape)return mdef;var sr=ShapeModule.compute(shape);if(!sr.valid)return mdef;
+  mdef.shapeId=String(shape.id||sr.definition.id);mdef.shapeRevision=sr.definition.revision||0;mdef.shapeFingerprint=sr.fingerprint;return mdef;
+}
 function invalidMuntin(code,reason,M,geo){return {valid:false,code:code,reason:reason,M:M,geo:geo};}
 function muntinLayoutError(M,geo){
   var P=M.production,eps=1e-7;
@@ -42,6 +46,7 @@ function muntinLayoutError(M,geo){
 function realMuntinResult(shape,mdef){
   if(!shape)return {valid:false,code:'MUNTIN_SHAPE_NOT_FOUND',reason:'Shape not found'};
   var sr=ShapeModule.compute(shape);if(!sr.valid)return {valid:false,code:'MUNTIN_SHAPE_INVALID',reason:'Shape is invalid: '+sr.reason};
+  if(mdef&&mdef.shapeFingerprint&&mdef.shapeFingerprint!==sr.fingerprint)return {valid:false,code:'MUNTIN_SHAPE_REVISION',reason:'Shape revision changed. Revalidate this Muntin layout against the current Shape revision.',expectedFingerprint:mdef.shapeFingerprint,currentFingerprint:sr.fingerprint,currentRevision:sr.definition.revision||0};
   var M=normalizeMuntinModel((mdef&&mdef.muntin)||mdef||{}),geo=productionGeometryForLine(M,sr.line);
   var invalid=muntinLayoutError(M,geo);if(invalid)return invalid;
   var segs=(geo.verticalSegments||[]).concat(geo.horizontalSegments||[]),total=segs.reduce(function(a,s){return a+s.cut;},0);

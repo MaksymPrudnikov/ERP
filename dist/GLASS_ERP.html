@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 28 модулей, 2 стиля.
+  Состав сборки: 33 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -247,10 +247,12 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-editor-layout{display:grid;grid-template-columns:minmax(520px,1fr) minmax(390px,.82fr);gap:14px;align-items:start}.shape-controls,.shape-preview-side,.muntin-controls,.muntin-preview-side{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px}.shape-preview-side,.muntin-preview-side{position:sticky;top:84px}.smart-svg{width:100%;height:auto;border:1px solid var(--line2);border-radius:9px;background:#fbfdfe}
 .shape-mode-row{display:flex;align-items:center;gap:5px;margin:12px 0 8px;padding:5px;background:#eef2f5;border-radius:8px}.shape-mode-row>span{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);padding:0 7px}.shape-mode-row button{flex:1;border:0;background:transparent;font-size:11px;padding:6px}.shape-mode-row button.on{background:#fff;box-shadow:0 1px 5px rgba(20,40,50,.09);font-weight:650}
 .edge-stack{display:flex;flex-direction:column;gap:7px}.edge-card{border:1px solid var(--line);border-radius:9px;padding:9px}.edge-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}.edge-card-head b{font-size:11px}.edge-card-head span{font:10px ui-monospace,monospace;color:var(--mut)}.edge-fields{display:grid;grid-template-columns:1.3fr .7fr;gap:7px}.edge-fields.four{grid-template-columns:repeat(4,1fr)}.edge-fields label{font-size:9.5px}.edge-fields input,.edge-fields select{padding:6px;font-size:11px}
-.corner-title{display:flex;justify-content:space-between;align-items:center;margin:13px 0 6px}.corner-title b{font-size:11px}.corner-title span{font-size:9.5px;color:var(--mut)}.corner-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.corner-card{border:1px solid var(--line);border-radius:8px;padding:7px}.corner-card label{font-weight:700;font-size:9px}.corner-card select{font-size:10.5px;padding:5px}.extra-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.extra-grid label{font-size:9px}.extra-grid input{font-size:10.5px;padding:6px}
+.corner-title{display:flex;justify-content:space-between;align-items:center;margin:13px 0 6px}.corner-title b{font-size:11px}.corner-title span{font-size:9.5px;color:var(--mut)}.corner-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.corner-card{border:1px solid var(--line);border-radius:8px;padding:7px}.corner-card-head{display:flex;align-items:center;gap:7px;margin-bottom:5px}.corner-card-head b{font:10px ui-monospace,monospace}.corner-card-head small{margin-left:auto;color:var(--mut);font-size:8px}.corner-card-head select{margin-left:auto;width:94px;font-size:9.5px;padding:4px}.corner-type-grid .corner-card-head{margin-bottom:0}.corner-offset{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:5px;align-items:end}.corner-offset+.corner-offset{margin-top:4px}.corner-offset label{font-weight:500;font-size:8.5px;color:var(--mut)}.corner-offset input,.corner-offset select{font-size:9.5px;padding:4px}.corner-offset select{text-align:center}.extra-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.extra-grid label{font-size:9px}.extra-grid input{font-size:10.5px;padding:6px}
 .smart-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.smart-kpis>div{border:1px solid var(--line);background:#f8fafb;border-radius:8px;padding:7px}.smart-kpis span{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}.smart-kpis b{display:block;font-size:11.5px;margin-top:2px;font-family:ui-monospace,monospace}.validation-box{border-radius:8px;padding:8px 9px;margin-top:7px;font-size:10.5px;line-height:1.4}.okbox{background:var(--green2);border:1px solid #b9dfca;color:#276a4c}.warnbox{background:var(--amber2);border:1px solid #efd9a6;color:#7c581d}.badbox{background:var(--red2);border:1px solid #efc5c5;color:#913e3e}.module-invalid{min-height:180px;display:grid;place-items:center;text-align:center;color:#943e3e;background:#fff5f5;border:1px dashed #e1bcbc;border-radius:9px;padding:15px}
+.shape-row-meta{display:block;margin-top:3px;color:var(--mut);font:9.5px ui-monospace,monospace}.shape-actions{white-space:nowrap}.shape-new-row{display:flex;gap:8px;align-items:center;margin-top:13px}.shape-new-row select{max-width:340px}.shape-master-fields{margin-bottom:12px}.shape-subsection{border-top:1px solid var(--line);padding-top:10px;margin-top:13px}.shape-vertex-grid,.shape-edgework-list,.shape-feature-list{display:flex;flex-direction:column;gap:7px}.shape-vertex-row{display:grid;grid-template-columns:minmax(90px,.7fr) 1fr 1fr auto;gap:7px;align-items:end;border:1px solid var(--line);border-radius:8px;padding:7px}.shape-vertex-row>b{align-self:center;font:10px ui-monospace,monospace}.shape-vertex-row label{font-size:9px}.shape-vertex-row input{padding:6px;font-size:10.5px}.shape-edgework-card,.shape-feature-card{border:1px solid var(--line);border-radius:9px;padding:9px;background:#fbfcfd}.shape-edgework-head{display:flex;align-items:center;gap:8px;margin-bottom:7px}.shape-edgework-head>b{font-size:11px}.shape-edgework-head>span{margin-left:auto;color:var(--mut);font-size:9.5px}.shape-edgework-head>.dl{margin-left:0}.shape-op-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 8px}.shape-op{display:flex;gap:5px;align-items:center;font-size:10px;color:#344054}.shape-op input{width:auto}.shape-op-param{display:grid;grid-template-columns:100px 1fr;align-items:center;gap:8px;margin-top:7px;font-size:9.5px}.shape-op-param input,.shape-op-param select{padding:5px;font-size:10px}.shape-feature-add{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}.shape-feature-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.shape-feature-fields label{font-size:9px}.shape-feature-fields input,.shape-feature-fields select{padding:6px;font-size:10.5px}.empty.compact{padding:12px}.shape-view-tabs{display:flex;gap:4px;padding:4px;background:#eef2f5;border-radius:8px;margin-bottom:8px}.shape-view-tabs button{flex:1;border:0;background:transparent;padding:7px 5px;font-size:9.5px}.shape-view-tabs button.on{background:#fff;box-shadow:0 1px 5px rgba(20,40,50,.1);font-weight:700}.shape-drawing-preview{border:1px solid var(--line2);border-radius:9px;overflow:hidden;background:#fff}.shape-drawing-preview svg{width:100%;height:auto;display:block}.shape-requirements{display:flex;flex-direction:column;gap:4px;margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:10px}.shape-requirements>b{font-size:10.5px}.shape-requirements span{color:#475467}.shape-requirements i{display:inline-block;min-width:68px;color:#175cd3;font-style:normal;font:8.5px ui-monospace,monospace}.shape-artifacts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:8px}.shape-artifacts>b,.shape-artifacts>small{grid-column:1/-1}.shape-artifacts>b{font-size:10.5px}.shape-artifacts button{padding:6px;font-size:9.5px}.shape-artifacts small{color:var(--mut);font-size:8.5px;line-height:1.35}
+.shape-accordion{padding-top:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.shape-accordion-head{width:100%;border:0;border-radius:0;background:#f8fafb;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}.shape-accordion-head:hover{background:#f3f7f9;border:0}.shape-accordion-head>span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.shape-accordion-head b{font-size:11px}.shape-accordion-head small{font-size:9px;color:var(--mut);font-weight:400}.shape-accordion-state{display:flex;align-items:center;gap:9px;white-space:nowrap;color:var(--mut);font-size:9.5px}.shape-accordion-state i{width:22px;height:22px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;color:#315f78;font-size:15px;font-style:normal;line-height:1}.shape-accordion-body{padding:9px;border-top:1px solid var(--line2)}.shape-edgework-scroll{overflow-x:hidden;border-top:1px solid var(--line2)}.shape-edgework-matrix{min-width:0}.shape-edgework-row{display:grid;grid-template-columns:minmax(62px,1.15fr) repeat(5,minmax(0,1fr));gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line2)}.shape-edgework-row:last-child{border-bottom:0}.shape-edgework-labels{padding-top:5px;padding-bottom:4px;background:#fbfcfd;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em;text-align:center}.shape-edgework-labels span:first-child{text-align:left}.shape-edge-code{display:flex;align-items:center;gap:7px;min-width:0}.shape-edge-code b{font:11px ui-monospace,monospace;color:#1d2939;overflow:hidden;text-overflow:ellipsis}.shape-edge-code small{color:var(--mut);font:9px ui-monospace,monospace;white-space:nowrap}.shape-op-compact{min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid transparent;border-radius:6px;padding:5px 3px;color:#667085;font-size:8.5px;cursor:pointer}.shape-op-compact:hover{border-color:var(--line);background:#fff}.shape-op-compact.on{border-color:#a9d2e5;background:#edf8fc;color:#175f83;font-weight:700}.shape-op-compact input{width:13px;height:13px;margin:0}.shape-edge-params{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;padding:2px 0}.shape-edge-params label{display:flex;align-items:center;gap:5px;font-size:8.5px;color:var(--mut)}.shape-edge-params input,.shape-edge-params select{width:86px;padding:4px 5px;font-size:9px}
 .muntin-editor-layout{display:grid;grid-template-columns:minmax(420px,.72fr) minmax(540px,1.28fr);gap:14px;align-items:start}.muntin-section{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}.muntin-section>b{display:block;font-size:10.5px;margin-bottom:7px}.muntin-drawing{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.muntin-drawing svg{width:100%;height:auto;display:block}.muntin-bom{font-size:10px;margin-top:9px}.muntin-bom th,.muntin-bom td{padding:6px}.muntin-bom th{font-size:9px}
-@media(max-width:1100px){.shape-editor-layout,.muntin-editor-layout{grid-template-columns:1fr}.shape-preview-side,.muntin-preview-side{position:static}.edge-fields.four{grid-template-columns:1fr 1fr}}@media(max-width:720px){.module-editor,.shape-controls,.shape-preview-side,.muntin-controls,.muntin-preview-side{min-width:0;max-width:100%;padding:10px}.module-editor-head{flex-wrap:wrap}.real-module-note{flex-direction:column;gap:4px}.real-module-note b{white-space:normal}.corner-grid,.smart-kpis{grid-template-columns:1fr 1fr}.edge-fields,.edge-fields.four,.extra-grid{grid-template-columns:1fr}.module-chain{flex-direction:column}.module-chain-node{width:100%;min-width:0}.module-chain-arrow{transform:rotate(90deg)}.muntin-drawing{max-width:100%;overflow-x:auto}.muntin-bom{display:block;max-width:100%;overflow-x:auto}.shape-mode-row{flex-wrap:wrap}.shape-mode-row>span{width:100%}}
+@media(max-width:1280px){.shape-editor-layout,.muntin-editor-layout{grid-template-columns:1fr}.shape-preview-side,.muntin-preview-side{position:static}.edge-fields.four{grid-template-columns:1fr 1fr}}@media(max-width:720px){.module-editor,.shape-controls,.shape-preview-side,.muntin-controls,.muntin-preview-side{min-width:0;max-width:100%;padding:10px}.module-editor-head{flex-wrap:wrap}.real-module-note{flex-direction:column;gap:4px}.real-module-note b{white-space:normal}.corner-grid,.smart-kpis{grid-template-columns:1fr}.edge-fields,.edge-fields.four,.extra-grid,.shape-feature-fields,.shape-op-grid{grid-template-columns:1fr}.shape-vertex-row{grid-template-columns:1fr 1fr}.shape-vertex-row>b{grid-column:1/-1}.module-chain{flex-direction:column}.module-chain-node{width:100%;min-width:0}.module-chain-arrow{transform:rotate(90deg)}.muntin-drawing{max-width:100%;overflow-x:auto}.muntin-bom{display:block;max-width:100%;overflow-x:auto}.shape-mode-row{flex-wrap:wrap}.shape-mode-row>span{width:100%}.shape-new-row{align-items:stretch;flex-direction:column}.shape-new-row select{max-width:none}.shape-view-tabs{flex-wrap:wrap}.shape-view-tabs button{min-width:45%}.shape-accordion-head{align-items:flex-start}.shape-accordion-state{font-size:0}.shape-accordion-state i{font-size:15px}.shape-op-compact span{display:none}.shape-edge-code{gap:3px}}
 
 </style>
 </head>
@@ -339,6 +341,51 @@ function fabPolySelfIntersects(P){
 function fabSignedArea(P){var a=0;for(var i=0;i<P.length;i++){var j=(i+1)%P.length;a+=P[i][0]*P[j][1]-P[j][0]*P[i][1];}return a/2;}
 function fabEdgeBounds(P){var xs=P.map(function(q){return q[0];}),ys=P.map(function(q){return q[1];});return {minX:Math.min.apply(null,xs),maxX:Math.max.apply(null,xs),minY:Math.min.apply(null,ys),maxY:Math.max.apply(null,ys)};}
 
+/* Общие безопасные примитивы. Они используются Shape, Cutting Geometry и
+   проверками features. Все функции чистые: входные массивы не изменяются. */
+function fabPointInPoly(p,P){
+  if(!p||!P||P.length<3)return false;
+  var inside=false,x=p[0],y=p[1];
+  for(var i=0,j=P.length-1;i<P.length;j=i++){
+    var a=P[i],b=P[j],cross=((a[1]>y)!==(b[1]>y))&&(x<(b[0]-a[0])*(y-a[1])/((b[1]-a[1])||1e-30)+a[0]);
+    if(cross)inside=!inside;
+  }
+  return inside;
+}
+function fabPointSegDistance(p,a,b){
+  var dx=b[0]-a[0],dy=b[1]-a[1],d=dx*dx+dy*dy;
+  if(d<=1e-20)return Math.hypot(p[0]-a[0],p[1]-a[1]);
+  var t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/d;t=Math.max(0,Math.min(1,t));
+  return Math.hypot(p[0]-(a[0]+dx*t),p[1]-(a[1]+dy*t));
+}
+function fabPointPolyDistance(p,P){
+  var d=Infinity;for(var i=0;i<(P||[]).length;i++)d=Math.min(d,fabPointSegDistance(p,P[i],P[(i+1)%P.length]));return d;
+}
+function fabLineIntersection(a,b,c,d){
+  var x1=a[0],y1=a[1],x2=b[0],y2=b[1],x3=c[0],y3=c[1],x4=d[0],y4=d[1];
+  var den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);if(Math.abs(den)<1e-10)return null;
+  var q1=x1*y2-y1*x2,q2=x3*y4-y3*x4;
+  var x=(q1*(x3-x4)-(x1-x2)*q2)/den,y=(q1*(y3-y4)-(y1-y2)*q2)/den;
+  return isFinite(x)&&isFinite(y)?[x,y]:null;
+}
+function fabPolylineLength(P,closed){
+  var n=(P||[]).length,L=0;if(n<2)return 0;
+  for(var i=0;i<n-(closed?0:1);i++){var a=P[i],b=P[(i+1)%n];L+=Math.hypot(b[0]-a[0],b[1]-a[1]);}return L;
+}
+function fabBBoxContainsPoint(b,p,eps){eps=eps||0;return p[0]>=b.minX-eps&&p[0]<=b.maxX+eps&&p[1]>=b.minY-eps&&p[1]<=b.maxY+eps;}
+function fabPointOnSegment(p,a,b,eps){
+  eps=eps==null?1e-8:eps;return fabPointSegDistance(p,a,b)<=eps&&p[0]>=Math.min(a[0],b[0])-eps&&p[0]<=Math.max(a[0],b[0])+eps&&p[1]>=Math.min(a[1],b[1])-eps&&p[1]<=Math.max(a[1],b[1])+eps;
+}
+function fabSegIntersectsInclusive(a,b,c,d){
+  if(fabSegCross(a,b,c,d))return true;
+  return fabPointOnSegment(a,c,d)||fabPointOnSegment(b,c,d)||fabPointOnSegment(c,a,b)||fabPointOnSegment(d,a,b);
+}
+function fabPolygonsOverlap(A,B){
+  if(!A||!B||A.length<3||B.length<3)return false;
+  for(var i=0;i<A.length;i++)for(var j=0;j<B.length;j++)if(fabSegIntersectsInclusive(A[i],A[(i+1)%A.length],B[j],B[(j+1)%B.length]))return true;
+  return fabPointInPoly(A[0],B)||fabPointInPoly(B[0],A);
+}
+
 /* ==== src/modules/shape/consts.js ==== */
 /* =====================================================================
    shape/consts  ·  v4.5-port
@@ -377,6 +424,7 @@ function ssNN(v){return Math.max(0,ssNum(v));}
    Иначе любой вызов ssModel() подменял бы объект, и записи по удержанной ссылке терялись. */
 function ssIsModel(m){
   return !!(m&&typeof m==='object'&&m.corners&&m.extraEdges
+    &&m.cornerOffsets&&['tl','tr','br','bl'].every(function(k){return m.cornerOffsets[k];})
     &&m.A&&m.A.elbow&&m.B&&m.B.elbow&&m.C&&m.C.elbow);
 }
 function ssNormalize(m){
@@ -392,6 +440,12 @@ function ssNormalize(m){
   out.corners={};
   /* без модульных констант: normalizeShapeModel вызывается раньше, чем они инициализируются */
   ['tl','tr','br','bl'].forEach(function(k){var v=(m.corners||{})[k];out.corners[k]=['none','single','double','triple'].indexOf(v)>=0?v:'none';});
+  out.cornerOffsets={};
+  ['tl','tr','br','bl'].forEach(function(k){
+    var c=(m.cornerOffsets&&typeof m.cornerOffsets[k]==='object')?m.cornerOffsets[k]:{};
+    out.cornerOffsets[k]={plumb:c.plumb==null?'0':String(c.plumb),plumbDir:c.plumbDir||null,
+      level:c.level==null?'0':String(c.level),levelDir:c.levelDir||null};
+  });
   out.extraEdges={};
   var ee=m.extraEdges||{};
   Object.keys(ee).forEach(function(k){out.extraEdges[k]={len:(ee[k]&&ee[k].len!=null)?String(ee[k].len):''};});
@@ -432,6 +486,11 @@ function ssCornerTotals(S,corner){
   var v=0,h=0;vals.forEach(function(x){v+=x.V;h+=x.H;});
   return {vals:vals,v:v,h:h};
 }
+/* Отклонение вершины от номинального прямоугольника. Plumb двигает X, level — Y. */
+function ssCornerDelta(S,corner){
+  var c=ssModel(S).cornerOffsets[corner]||{},x=ssNN(c.plumb),y=ssNN(c.level);
+  return [c.plumbDir==='left'?-x:c.plumbDir==='right'?x:0,c.levelDir==='down'?-y:c.levelDir==='up'?y:0];
+}
 
 /* ==== src/modules/shape/contour.js ==== */
 /* =====================================================================
@@ -455,11 +514,17 @@ function ssEdgeLocal(S,e){
   return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
 }
 function ssOff(P,o){return P.map(function(p){return [p[0]+o[0],p[1]+o[1]];});}
+function ssCornerMorph(P,a,b){
+  if(P.length<2)return P.slice();
+  var run=[0],total=0;for(var i=1;i<P.length;i++){total+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);run.push(total);}
+  return P.map(function(p,j){var t=total?run[j]/total:j/(P.length-1);return [p[0]+a[0]+(b[0]-a[0])*t,p[1]+a[1]+(b[1]-a[1])*t];});
+}
 function ssBase(S){
-  var BL=[0,0],
-      Ap=ssOff(ssEdgeLocal(S,'A'),BL),AT=Ap[Ap.length-1],
-      Bp=ssOff(ssEdgeLocal(S,'B'),BL),BR=Bp[Bp.length-1],
-      Cp=ssOff(ssEdgeLocal(S,'C'),BR),CT=Cp[Cp.length-1];
+  var dBL=ssCornerDelta(S,'bl'),dTL=ssCornerDelta(S,'tl'),dBR=ssCornerDelta(S,'br'),dTR=ssCornerDelta(S,'tr'),
+      A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
+      Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
+      Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
   return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:[AT,CT],
     Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
     Dtrue:Math.hypot(CT[0]-AT[0],CT[1]-AT[1]),
@@ -528,6 +593,299 @@ function ssContour(S){
     sides:{bottom:spanB.slice().reverse(),right:spanC.slice().reverse(),top:spanD.slice().reverse(),left:spanA.slice().reverse()}};
 }
 
+/* ==== src/modules/shape/presets.js ==== */
+/* =====================================================================
+   shape/presets · schema-v2
+   Каталог параметрических фигур и стабильная topology-модель.
+   OUT: вершины, физические рёбра и sampled contour для расчётов.
+   ===================================================================== */
+
+var SHAPE_PRESETS=[
+  {id:'smart',code:'SMART',label:'Advanced Smart-Shape'},
+  {id:'rectangle',code:'RECT',label:'Rectangle'},
+  {id:'corner-offset',code:'C-OFF',label:'Corner Offset / Smart Quad'},
+  {id:'parallelogram',code:'PARA',label:'Parallelogram'},
+  {id:'raked',code:'RAKE',label:'Raked Rectangle'},
+  {id:'triangle',code:'TRI',label:'Triangle'},
+  {id:'polygon',code:'POLY',label:'Polygon'},
+  {id:'circle',code:'CIRC',label:'Circle'},
+  {id:'ellipse',code:'ELL',label:'Ellipse'},
+  {id:'oval',code:'OVAL',label:'Oval / Capsule'},
+  {id:'notch-left',code:'N-L',label:'Notch Left'},
+  {id:'notch-right',code:'N-R',label:'Notch Right'},
+  {id:'notch-middle',code:'N-M',label:'Notch Middle'},
+  {id:'notch-both',code:'N-B',label:'Notch Both'},
+  {id:'notch-left-double',code:'N-L2',label:'Notch Left Double'},
+  {id:'notch-right-double',code:'N-R2',label:'Notch Right Double'}
+];
+function shapePresetInfo(id){for(var i=0;i<SHAPE_PRESETS.length;i++)if(SHAPE_PRESETS[i].id===id)return SHAPE_PRESETS[i];return SHAPE_PRESETS[0];}
+function shapeType(id){return SHAPE_PRESETS.some(function(x){return x.id===id;})?id:'smart';}
+function shapeClamp(v,a,b){v=+v||0;return Math.max(a,Math.min(b,v));}
+function shapeParamNumber(p,k,d){var r=fabParseDimStrict(p&&p[k]);return r.ok?r.v:(d||0);}
+function shapeDefaultParams(type){
+  var all={
+    'corner-offset':{tlx:'0',tly:'0',trx:'0',try:'0',brx:'0',bry:'0',blx:'0',bly:'0'},
+    parallelogram:{skew:'4'},raked:{leftDrop:'0',rightDrop:'6'},triangle:{apexX:'24'},
+    'notch-left':{depth:'6',height:'12',fromBottom:'12'},'notch-right':{depth:'6',height:'12',fromBottom:'12'},
+    'notch-middle':{width:'8',depth:'8',fromLeft:'20'},'notch-both':{depth:'6',height:'10',fromBottom:'12'},
+    'notch-left-double':{depth1:'4',height1:'8',gap:'8',depth2:'7',height2:'8'},
+    'notch-right-double':{depth1:'4',height1:'8',gap:'8',depth2:'7',height2:'8'}
+  };
+  return JSON.parse(JSON.stringify(all[type]||{}));
+}
+function shapeVertex(id,x,y,outEdge,label){return {id:id,x:+x,y:+y,outEdge:outEdge,label:label||id};}
+function shapeLineTopology(vertices){
+  var pts=vertices.map(function(v){return [v.x,v.y];}),edges=[];
+  for(var i=0;i<vertices.length;i++){
+    var a=vertices[i],b=vertices[(i+1)%vertices.length],id=a.outEdge||('E'+(i+1));
+    edges.push({id:id,segmentId:id,type:'line',p1:[a.x,a.y],p2:[b.x,b.y],startVertexId:a.id,endVertexId:b.id,length:Math.hypot(b.x-a.x,b.y-a.y)});
+  }
+  return {vertices:vertices,points:pts,pointEdgeIds:edges.map(function(e){return e.id;}),edges:edges};
+}
+function shapeSampleEllipse(W,H,type){
+  var cx=W/2,cy=H/2,rx=W/2,ry=H/2,curvature=Math.max(rx*rx/Math.max(ry,1e-9),ry*ry/Math.max(rx,1e-9)),target=1/2048;
+  var n=Math.max(128,Math.min(4096,Math.ceil(Math.PI/Math.acos(Math.max(-1,1-target/Math.max(curvature,target))))));n=Math.ceil(n/4)*4;
+  var pts=[],ids=[],edges=[];
+  for(var i=0;i<n;i++){
+    var a=Math.PI-(Math.PI*2*i/n),id='ARC';
+    pts.push([cx+rx*Math.cos(a),cy+ry*Math.sin(a)]);ids.push(id);
+  }
+  for(i=0;i<n;i++){var p1=pts[i],p2=pts[(i+1)%n];edges.push({id:ids[i],segmentId:ids[i]+':'+i,type:'arc-sample',p1:p1,p2:p2,length:Math.hypot(p2[0]-p1[0],p2[1]-p1[1])});}
+  return {vertices:[],points:pts,pointEdgeIds:ids,edges:edges,analytic:{type:type,cx:cx,cy:cy,rx:rx,ry:ry}};
+}
+function shapeSampleCapsule(W,H){
+  if(Math.abs(W-H)<1e-9)return shapeSampleEllipse(W,H,'circle');
+  var pts=[],ids=[],radius=Math.min(W,H)/2,target=1/2048,n=Math.max(48,Math.min(2048,Math.ceil(Math.PI/Math.acos(Math.max(-1,1-target/Math.max(radius,target)))))),i,a;
+  if(H>W){
+    var r=W/2,cx=W/2,bot=r,top=H-r;
+    pts.push([0,bot],[0,top]);ids.push('A','ARC-TOP');
+    for(i=1;i<=n;i++){a=Math.PI-Math.PI*i/n;pts.push([cx+r*Math.cos(a),top+r*Math.sin(a)]);ids.push(i<n?'ARC-TOP':'C');}
+    pts.push([W,bot]);ids.push('ARC-BOTTOM');
+    for(i=1;i<n;i++){a=-Math.PI*i/n;pts.push([cx+r*Math.cos(a),bot+r*Math.sin(a)]);ids.push('ARC-BOTTOM');}
+  }else{
+    r=H/2;var cy=H/2,left=r,right=W-r;
+    pts.push([left,0],[right,0]);ids.push('B','ARC-RIGHT');
+    for(i=1;i<=n;i++){a=-Math.PI/2+Math.PI*i/n;pts.push([right+r*Math.cos(a),cy+r*Math.sin(a)]);ids.push(i<n?'ARC-RIGHT':'D');}
+    pts.push([left,H]);ids.push('ARC-LEFT');
+    for(i=1;i<n;i++){a=Math.PI/2+Math.PI*i/n;pts.push([left+r*Math.cos(a),cy+r*Math.sin(a)]);ids.push('ARC-LEFT');}
+  }
+  var edges=[];for(i=0;i<pts.length;i++){var p=pts[i],q=pts[(i+1)%pts.length],id=ids[i]||'ARC';edges.push({id:id,segmentId:id+':'+i,type:id.indexOf('ARC')===0?'arc-sample':'line',p1:p,p2:q,length:Math.hypot(q[0]-p[0],q[1]-p[1])});}
+  return {vertices:[],points:pts,pointEdgeIds:ids,edges:edges,analytic:{type:'oval'}};
+}
+function shapePresetTopology(S){
+  var W=inch(S.w),H=inch(S.h),p=(S.shape&&S.shape.params)||{},t=shapeType(S.shape&&S.shape.type),V=[];
+  if(t==='circle')return shapeSampleEllipse(W,H,'circle');
+  if(t==='ellipse')return shapeSampleEllipse(W,H,'ellipse');
+  if(t==='oval')return shapeSampleCapsule(W,H);
+  if(t==='polygon'){
+    var raw=(S.shape&&S.shape.polygon)||[];
+    V=raw.map(function(v,i){return shapeVertex(v.id||('V'+(i+1)),shapeParamNumber(v,'x',0),shapeParamNumber(v,'y',0),'E:'+(v.id||('V'+(i+1))),'V'+(i+1));});
+    return shapeLineTopology(V);
+  }
+  if(t==='rectangle')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
+  if(t==='parallelogram'){
+    var sk=shapeParamNumber(p,'skew',0);V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',sk,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W-sk,0,'B')];
+  }
+  if(t==='raked'){
+    var ld=shapeParamNumber(p,'leftDrop',0),rd=shapeParamNumber(p,'rightDrop',0);V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H-ld,'D'),shapeVertex('TR',W,H-rd,'C'),shapeVertex('BR',W,0,'B')];
+  }
+  if(t==='corner-offset'){
+    var tlx=shapeParamNumber(p,'tlx',0),tly=shapeParamNumber(p,'tly',0),trx=shapeParamNumber(p,'trx',0),tryy=shapeParamNumber(p,'try',0),brx=shapeParamNumber(p,'brx',0),bry=shapeParamNumber(p,'bry',0),blx=shapeParamNumber(p,'blx',0),bly=shapeParamNumber(p,'bly',0);
+    V=[shapeVertex('BL',blx,bly,'A'),shapeVertex('TL',tlx,H-tly,'D'),shapeVertex('TR',W-trx,H-tryy,'C'),shapeVertex('BR',W-brx,bry,'B')];
+  }
+  if(t==='triangle'){
+    var ax=shapeParamNumber(p,'apexX',W/2);V=[shapeVertex('BL',0,0,'A'),shapeVertex('APEX',ax,H,'C'),shapeVertex('BR',W,0,'B')];
+  }
+  function notchSide(left,doubleNotch){
+    var fb=shapeParamNumber(p,'fromBottom',12),d=shapeParamNumber(p,'depth',6),nh=shapeParamNumber(p,'height',12);
+    if(!doubleNotch){
+      if(left)return [shapeVertex('BL',0,0,'A1'),shapeVertex('N1',0,fb,'N1'),shapeVertex('N2',d,fb,'N2'),shapeVertex('N3',d,fb+nh,'N3'),shapeVertex('N4',0,fb+nh,'A2'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
+      return [shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C1'),shapeVertex('N4',W,fb+nh,'N3'),shapeVertex('N3',W-d,fb+nh,'N2'),shapeVertex('N2',W-d,fb,'N1'),shapeVertex('N1',W,fb,'C2'),shapeVertex('BR',W,0,'B')];
+    }
+    var h1=shapeParamNumber(p,'height1',8),gap=shapeParamNumber(p,'gap',8),h2=shapeParamNumber(p,'height2',8),d1=shapeParamNumber(p,'depth1',4),d2=shapeParamNumber(p,'depth2',7),y1=h1,y2=y1+gap,y3=y2+h2;
+    if(left)return [shapeVertex('BL',0,0,'A0'),shapeVertex('L1',d1,0,'N1'),shapeVertex('L2',d1,y1,'N2'),shapeVertex('L3',d2,y1,'N3'),shapeVertex('L4',d2,y3,'N4'),shapeVertex('L5',0,y3,'A1'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
+    return [shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C0'),shapeVertex('R5',W,y3,'N4'),shapeVertex('R4',W-d2,y3,'N3'),shapeVertex('R3',W-d2,y1,'N2'),shapeVertex('R2',W-d1,y1,'N1'),shapeVertex('R1',W-d1,0,'C1'),shapeVertex('BR',W,0,'B')];
+  }
+  if(t==='notch-left')V=notchSide(true,false);
+  if(t==='notch-right')V=notchSide(false,false);
+  if(t==='notch-left-double')V=notchSide(true,true);
+  if(t==='notch-right-double')V=notchSide(false,true);
+  if(t==='notch-middle'){
+    var nw=shapeParamNumber(p,'width',8),dep=shapeParamNumber(p,'depth',8),fl=shapeParamNumber(p,'fromLeft',20);
+    V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D1'),shapeVertex('NM1',fl,H,'N1'),shapeVertex('NM2',fl,H-dep,'N2'),shapeVertex('NM3',fl+nw,H-dep,'N3'),shapeVertex('NM4',fl+nw,H,'D2'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
+  }
+  if(t==='notch-both'){
+    var ndep=shapeParamNumber(p,'depth',6),nhei=shapeParamNumber(p,'height',10),nfb=shapeParamNumber(p,'fromBottom',12);
+    V=[shapeVertex('BL',0,0,'A1'),shapeVertex('L1',0,nfb,'NL1'),shapeVertex('L2',ndep,nfb,'NL2'),shapeVertex('L3',ndep,nfb+nhei,'NL3'),shapeVertex('L4',0,nfb+nhei,'A2'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C1'),shapeVertex('R4',W,nfb+nhei,'NR3'),shapeVertex('R3',W-ndep,nfb+nhei,'NR2'),shapeVertex('R2',W-ndep,nfb,'NR1'),shapeVertex('R1',W,nfb,'C2'),shapeVertex('BR',W,0,'B')];
+  }
+  return shapeLineTopology(V.length?V:[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')]);
+}
+
+/* ==== src/modules/shape/schema.js ==== */
+/* =====================================================================
+   shape/schema · schema-v2
+   Нормализация определения Shape. Старый Smart-Shape остаётся совместимым.
+   ===================================================================== */
+
+var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp'];
+function shapeNewEntityId(prefix){
+  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return prefix+crypto.randomUUID();
+  return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+}
+function shapePlainObject(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
+function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
+function shapeNormalizeOp(op){
+  op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
+  var out={id:shapeTextValue(op.id,shapeNewEntityId('eo-')),type:type};
+  if(type==='Mitering')out.angle=[22.5,45].indexOf(+op.angle)>=0?+op.angle:45;
+  if(type==='Beveling')out.width=shapeTextValue(op.width,'1');
+  return out;
+}
+function shapeNormalizeFeature(f){
+  f=shapePlainObject(f);var type=SHAPE_FEATURE_TYPES.indexOf(f.type)>=0?f.type:'hole';
+  var out={id:shapeTextValue(f.id,shapeNewEntityId('sf-')),type:type};
+  if(type==='hole')Object.assign(out,{diameter:shapeTextValue(f.diameter,'1/2'),x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'3'),minEdge:shapeTextValue(f.minEdge,'1/2')});
+  if(type==='cutout')Object.assign(out,{width:shapeTextValue(f.width,'4'),height:shapeTextValue(f.height,'4'),x:shapeTextValue(f.x,'8'),y:shapeTextValue(f.y,'8'),cornerRadius:shapeTextValue(f.cornerRadius,'0')});
+  if(type==='radius')Object.assign(out,{vertexId:shapeTextValue(f.vertexId,''),radius:shapeTextValue(f.radius,'1/2')});
+  if(type==='hardware')Object.assign(out,{name:shapeTextValue(f.name,'Custom Hardware'),edgeId:shapeTextValue(f.edgeId,''),distance:shapeTextValue(f.distance,'12'),inset:shapeTextValue(f.inset,'0'),prepWidth:shapeTextValue(f.prepWidth,'2'),prepHeight:shapeTextValue(f.prepHeight,'2'),holeDia:shapeTextValue(f.holeDia,'1/2')});
+  if(type==='stamp')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),text:shapeTextValue(f.text,'TEMPER')});
+  return out;
+}
+function shapeNormalizePolygon(raw){
+  if(!Array.isArray(raw)||raw.length<3)return [{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'36'},{id:'PV3',x:'48',y:'36'},{id:'PV4',x:'48',y:'0'}];
+  var seen=Object.create(null);return raw.map(function(v,i){v=shapePlainObject(v);var id=shapeTextValue(v.id,'PV'+(i+1));if(seen[id])id='PV'+(i+1);seen[id]=true;return {id:id,x:shapeTextValue(v.x,'0'),y:shapeTextValue(v.y,'0')};});
+}
+function normalizeShapeDef(s){
+  s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),params=shapePlainObject(s.params),edgeOps=shapePlainObject(s.edgeOps),ops={};
+  Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
+  Object.keys(edgeOps).forEach(function(id){var list=Array.isArray(edgeOps[id])?edgeOps[id]:[],clean=list.map(shapeNormalizeOp).filter(Boolean);if(clean.length)ops[id]=clean;});
+  var out={
+    id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
+    w:shapeTextValue(s.w,type==='circle'?'36':'48'),h:shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36'),
+    thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
+    smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
+    schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'
+  };
+  if(type==='circle'&&s.h==null)out.h=out.w;
+  return out;
+}
+function newShapeDef(type){
+  type=shapeType(type||'smart');var out=normalizeShapeDef({id:shapeNewEntityId('s'),name:'',type:type,w:type==='circle'?'36':'48',h:type==='circle'?'36':'36',params:shapeDefaultParams(type),smart:defaultSmartModel(),features:[],edgeOps:{}});
+  if(type==='polygon')out.polygon=shapeNormalizePolygon(null);return out;
+}
+function newSmartShapeDef(){return newShapeDef('smart');}
+function newShapeFeature(type,context){
+  var f=shapeNormalizeFeature({id:shapeNewEntityId('sf-'),type:type}),r=context&&context.edges&&context.edges[0];
+  if(type==='radius'&&context&&context.vertices&&context.vertices[0])f.vertexId=context.vertices[0].id;
+  if(type==='hardware'&&r)f.edgeId=r.id;
+  return f;
+}
+function shapeParamSpecsFor(type){
+  var labels={skew:'Skew',leftDrop:'Left top drop',rightDrop:'Right top drop',apexX:'Apex X',tlx:'TL X',tly:'TL Y',trx:'TR X',try:'TR Y',brx:'BR X',bry:'BR Y',blx:'BL X',bly:'BL Y',depth:'Notch depth',height:'Notch height',fromBottom:'From bottom',width:'Notch width',fromLeft:'From left',depth1:'Depth 1',height1:'Height 1',gap:'Gap',depth2:'Depth 2',height2:'Height 2'};
+  return Object.keys(shapeDefaultParams(type)).map(function(k){return {key:k,label:labels[k]||k};});
+}
+
+/* ==== src/modules/shape/features.js ==== */
+/* =====================================================================
+   shape/features · schema-v2
+   Радиусы, отверстия, cutout, hardware prep и производные требования.
+   ===================================================================== */
+
+function shapeRadiusMap(def){var out={};(def.features||[]).forEach(function(f){if(f.type==='radius'&&f.vertexId)out[f.vertexId]=Math.max(0,inch(f.radius));});return out;}
+function shapeApplyCornerRadii(topo,def){
+  var V=topo.vertices||[],rmap=shapeRadiusMap(def),keys=Object.keys(rmap).filter(function(k){return rmap[k]>1e-9;});
+  if(!keys.length||V.length<3)return Object.assign({radiusErrors:[]},topo);
+  var orient=fabSignedArea(V.map(function(v){return [v.x,v.y];})),corners=[],errors=[],i;
+  for(i=0;i<V.length;i++){
+    var v=V[i],r=rmap[v.id]||0;if(!(r>0)){corners.push(null);continue;}
+    var prev=V[(i-1+V.length)%V.length],next=V[(i+1)%V.length],u1=[prev.x-v.x,prev.y-v.y],u2=[next.x-v.x,next.y-v.y],l1=Math.hypot(u1[0],u1[1]),l2=Math.hypot(u2[0],u2[1]);
+    if(l1<1e-8||l2<1e-8){errors.push('Radius '+v.id+': adjacent edge is degenerate.');corners.push(null);continue;}
+    u1=[u1[0]/l1,u1[1]/l1];u2=[u2[0]/l2,u2[1]/l2];
+    var cross=u1[0]*u2[1]-u1[1]*u2[0],convex=cross*orient<0;
+    if(!convex){errors.push('Radius '+v.id+': concave corner fillets require a hardware/CNC template.');corners.push(null);continue;}
+    var dot=Math.max(-1,Math.min(1,u1[0]*u2[0]+u1[1]*u2[1])),theta=Math.acos(dot),tan=Math.tan(theta/2),sin=Math.sin(theta/2);
+    if(theta<.02||Math.PI-theta<.02||Math.abs(tan)<1e-8||Math.abs(sin)<1e-8){errors.push('Radius '+v.id+': corner angle cannot be filleted.');corners.push(null);continue;}
+    var tangent=r/tan;if(tangent>=l1-1e-7||tangent>=l2-1e-7){errors.push('Radius '+v.id+' does not fit adjacent edges.');corners.push(null);continue;}
+    var bis=[u1[0]+u2[0],u1[1]+u2[1]],bl=Math.hypot(bis[0],bis[1]);bis=[bis[0]/bl,bis[1]/bl];
+    corners.push({vertexId:v.id,r:r,t:tangent,prev:[v.x+u1[0]*tangent,v.y+u1[1]*tangent],next:[v.x+u2[0]*tangent,v.y+u2[1]*tangent],center:[v.x+bis[0]*(r/sin),v.y+bis[1]*(r/sin)],parentEdges:[prev.outEdge,v.outEdge]});
+  }
+  for(i=0;i<V.length;i++){
+    var a=corners[i],b=corners[(i+1)%V.length],L=Math.hypot(V[(i+1)%V.length].x-V[i].x,V[(i+1)%V.length].y-V[i].y);
+    if((a?a.t:0)+(b?b.t:0)>=L-1e-7)errors.push('Corner radii overlap on edge '+(V[i].outEdge||('E'+(i+1)))+'.');
+  }
+  if(errors.length)return Object.assign({radiusErrors:errors},topo);
+  var points=[],ids=[],arcMeta={},dir=orient<0?-1:1;
+  function same(a,b){return a&&b&&Math.hypot(a[0]-b[0],a[1]-b[1])<1e-7;}
+  function pushSegment(id,end){if(!points.length)points.push(end.slice());else if(!same(points[points.length-1],end)){ids.push(id);points.push(end.slice());}}
+  var first=corners[0]?corners[0].next:[V[0].x,V[0].y];points.push(first.slice());
+  for(i=0;i<V.length;i++){
+    var ni=(i+1)%V.length,edgeId=V[i].outEdge||('E'+(i+1)),end=corners[ni]?corners[ni].prev:[V[ni].x,V[ni].y];pushSegment(edgeId,end);
+    var c=corners[ni];if(c){
+      var a0=Math.atan2(c.prev[1]-c.center[1],c.prev[0]-c.center[0]),a1=Math.atan2(c.next[1]-c.center[1],c.next[0]-c.center[0]);
+      if(dir<0){while(a1>=a0)a1-=Math.PI*2;if(a0-a1>Math.PI)a1+=Math.PI*2;}else{while(a1<=a0)a1+=Math.PI*2;if(a1-a0>Math.PI)a1-=Math.PI*2;}
+      var delta=a1-a0,n=Math.max(4,Math.min(64,Math.ceil(Math.abs(delta)*Math.max(5,c.r*10)))),rid='R:'+c.vertexId;arcMeta[rid]=c;
+      for(var k=1;k<=n;k++){var ang=a0+delta*k/n;pushSegment(rid,[c.center[0]+c.r*Math.cos(ang),c.center[1]+c.r*Math.sin(ang)]);}
+    }
+  }
+  if(points.length>1&&same(points[0],points[points.length-1]))points.pop();
+  while(ids.length<points.length)ids.push(ids[ids.length-1]||'EDGE');
+  var edges=[];for(i=0;i<points.length;i++){var p1=points[i],p2=points[(i+1)%points.length],id=ids[i],meta=arcMeta[id];edges.push({id:id,segmentId:id+':'+i,type:meta?'arc-sample':'line',p1:p1,p2:p2,length:Math.hypot(p2[0]-p1[0],p2[1]-p1[1]),parentEdges:meta?meta.parentEdges:null});}
+  return {vertices:V,points:points,pointEdgeIds:ids,edges:edges,analytic:topo.analytic,radiusErrors:[],radiusMeta:arcMeta};
+}
+
+function shapeEdgePath(geo,id){return (geo.edges||[]).filter(function(e){return e.id===id||e.segmentId===id;});}
+function shapePointAlongPhysicalEdge(geo,id,distance){
+  var path=shapeEdgePath(geo,id),left=Math.max(0,+distance||0);if(!path.length)return null;
+  for(var i=0;i<path.length;i++){var e=path[i],L=e.length||Math.hypot(e.p2[0]-e.p1[0],e.p2[1]-e.p1[1]);if(left<=L+1e-8){var t=L?Math.max(0,Math.min(1,left/L)):0,dx=e.p2[0]-e.p1[0],dy=e.p2[1]-e.p1[1],ll=Math.hypot(dx,dy)||1;return {point:[e.p1[0]+dx*t,e.p1[1]+dy*t],tangent:[dx/ll,dy/ll],edge:e};}left-=L;}
+  e=path[path.length-1];var dx2=e.p2[0]-e.p1[0],dy2=e.p2[1]-e.p1[1],l2=Math.hypot(dx2,dy2)||1;return {point:e.p2.slice(),tangent:[dx2/l2,dy2/l2],edge:e,clamped:true};
+}
+function shapeHardwarePolygon(anchor,def,orientation){
+  var w=inch(def.prepWidth),h=inch(def.prepHeight),ins=inch(def.inset),t=anchor.tangent,n=orientation<0?[t[1],-t[0]]:[-t[1],t[0]],c=[anchor.point[0]+n[0]*(ins+h/2),anchor.point[1]+n[1]*(ins+h/2)],hw=w/2,hh=h/2;
+  function p(a,b){return [c[0]+t[0]*a+n[0]*b,c[1]+t[1]*a+n[1]*b];}
+  return {center:c,points:[p(-hw,-hh),p(-hw,hh),p(hw,hh),p(hw,-hh)],normal:n,tangent:t};
+}
+function shapeFeatureGeometry(def,geo){
+  var out={holes:[],cutouts:[],hardware:[],stamps:[],radii:[],all:[]},orientation=fabSignedArea(geo.points||[]);
+  (def.features||[]).forEach(function(f){
+    if(f.type==='radius'){out.radii.push({id:f.id,vertexId:f.vertexId,radius:inch(f.radius),source:f});return;}
+    if(f.type==='hole'){var h={id:f.id,type:'hole',center:[inch(f.x),inch(f.y)],diameter:inch(f.diameter),minEdge:inch(f.minEdge),source:f};out.holes.push(h);out.all.push(h);return;}
+    if(f.type==='cutout'){var x=inch(f.x),y=inch(f.y),w=inch(f.width),hh=inch(f.height),cr=inch(f.cornerRadius),c={id:f.id,type:'cutout',x:x,y:y,width:w,height:hh,cornerRadius:cr,points:shapeRoundedRectPoints(x,y,w,hh,cr),source:f};out.cutouts.push(c);out.all.push(c);return;}
+    if(f.type==='hardware'){
+      var a=shapePointAlongPhysicalEdge(geo,f.edgeId,inch(f.distance));if(!a){var bad={id:f.id,type:'hardware',invalid:true,source:f};out.hardware.push(bad);out.all.push(bad);return;}
+      var pg=shapeHardwarePolygon(a,f,orientation),hw={id:f.id,type:'hardware',name:f.name,edgeId:f.edgeId,anchor:a,center:pg.center,points:pg.points,holeDia:inch(f.holeDia),source:f};out.hardware.push(hw);out.all.push(hw);return;
+    }
+    if(f.type==='stamp'){var s={id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:f.text||'TEMPER',source:f};out.stamps.push(s);out.all.push(s);}
+  });
+  return out;
+}
+
+function shapeRoundedRectPoints(x,y,w,h,r){
+  r=Math.max(0,Math.min(+r||0,Math.max(0,w/2),Math.max(0,h/2)));if(!(r>0))return [[x,y],[x,y+h],[x+w,y+h],[x+w,y]];
+  var target=1/2048,n=Math.max(6,Math.ceil((Math.PI/2)/Math.acos(Math.max(-1,1-target/Math.max(r,target))))),P=[],centers=[[x+r,y+h-r],[x+w-r,y+h-r],[x+w-r,y+r],[x+r,y+r]],starts=[Math.PI,Math.PI/2,0,-Math.PI/2];
+  for(var q=0;q<4;q++)for(var i=0;i<n;i++){var a=starts[q]-Math.PI*i/(2*n);P.push([centers[q][0]+r*Math.cos(a),centers[q][1]+r*Math.sin(a)]);}
+  return P;
+}
+function shapeThicknessMm(def){var v=Number(String(def&&def.thickness==null?'':def.thickness).trim());return isFinite(v)?v:NaN;}
+function shapePolishAllowance(th){if(th>=3&&th<=6)return 1/16;if(th>=8&&th<=10)return 1/8;if(th>=12&&th<=15)return 3/16;return 0;}
+function shapeOperationAllowance(type,th){if(type==='CNC Shape Polish')return .25;if(type==='Flat Polish'||type==='Beveling'||type==='Mitering')return shapePolishAllowance(th);return 0;}
+function shapeEdgeOps(def,id){return (def.edgeOps&&def.edgeOps[id])||[];}
+function shapeEdgeAllowance(def,edge){
+  var th=shapeThicknessMm(def),ops=shapeEdgeOps(def,edge.id).slice();
+  if(edge.parentEdges)edge.parentEdges.forEach(function(id){ops=ops.concat(shapeEdgeOps(def,id));});
+  var vals=ops.map(function(op){return shapeOperationAllowance(op.type,th);});return vals.length?Math.max.apply(null,vals):0;
+}
+function shapeDerivedRequirements(def,geo,fg){
+  var req=[],groups={};
+  (geo.edges||[]).forEach(function(e){shapeEdgeOps(def,e.id).forEach(function(op){var key=op.type+'|'+(op.angle||'')+'|'+(op.width||'');if(!groups[key])groups[key]={operation:op.type,edgeIds:[],params:{}};if(groups[key].edgeIds.indexOf(e.id)<0)groups[key].edgeIds.push(e.id);if(op.angle)groups[key].params.angle=op.angle;if(op.width)groups[key].params.width=op.width;});});
+  Object.keys(groups).forEach(function(k){var g=groups[k],station=g.operation==='Rough Arris'?'ARRISING':g.operation==='Flat Polish'?'POLISHING':g.operation==='Mitering'?'MITERING':g.operation==='Beveling'?'BEVELING':'CNC';req.push({id:'EDGE:'+k,source:'EDGE',operation:g.operation,stationClass:station,edgeIds:g.edgeIds,params:g.params});});
+  (fg.holes||[]).forEach(function(h){var drill=h.diameter>=.375&&h.diameter<=1.5;req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:drill?'Drill Hole':'Machine Hole',stationClass:drill?'DRILLING':'CNC',featureId:h.id,params:{diameter:h.diameter}});});
+  (fg.cutouts||[]).forEach(function(c){req.push({id:'FEATURE:'+c.id,source:'FEATURE',operation:'Machine Cutout',stationClass:'CNC',featureId:c.id,params:{width:c.width,height:c.height}});});
+  (fg.hardware||[]).forEach(function(h){req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:'Hardware Preparation',stationClass:'CNC',featureId:h.id,params:{template:h.name}});});
+  if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
+  return req;
+}
+
 /* ==== src/modules/shape/validate.js ==== */
 /* =====================================================================
    shape/validate  ·  v4.5-port
@@ -561,6 +919,16 @@ function ssValidate(S){
        ребро берётся прямым, предупреждать не о чем. */
   });
   if(errors.length)return {errors:errors,warns:warns};
+  SS_ORDER.forEach(function(k){
+    var c=m.cornerOffsets[k]||{};
+    [['plumb','plumbDir'],['level','levelDir']].forEach(function(pair){
+      var raw=c[pair[0]],r=fabParseDimStrict(raw),axis=pair[0]==='plumb'?'out of plumb':'out of level';
+      if(raw!==''&&!r.ok)errors.push('Corner '+k.toUpperCase()+': '+axis+' "'+raw+'" is not a valid dimension.');
+      else if(r.ok&&r.v<0)errors.push('Corner '+k.toUpperCase()+': '+axis+' cannot be negative.');
+      else if(r.ok&&r.v>0&&!c[pair[1]])errors.push('Corner '+k.toUpperCase()+': pick the '+axis+' direction.');
+    });
+  });
+  if(errors.length)return {errors:errors,warns:warns};
   var all=ssEdgeMap(S).all;
   all.forEach(function(e){
     var raw=(m.extraEdges[e.id]||{}).len;if(raw==null)raw='';var r=fabParseDimStrict(raw);
@@ -569,9 +937,9 @@ function ssValidate(S){
   if(errors.length)return {errors:errors,warns:warns};
   var G=ssBase(S),T={tl:ssCornerTotals(S,'tl'),tr:ssCornerTotals(S,'tr'),br:ssCornerTotals(S,'br'),bl:ssCornerTotals(S,'bl')};
   function fit(used,avail,txt){if(used-avail>1e-9)errors.push(txt+': corner steps '+dimIn(used)+' do not fit in '+dimIn(avail)+'.');}
-  fit(T.tl.v+T.bl.v,ssEdgeLen(S,'A'),'Left side (A)');
-  fit(T.tr.v+T.br.v,ssEdgeLen(S,'C'),'Right side (C)');
-  fit(T.bl.h+T.br.h,ssEdgeLen(S,'B'),'Bottom (B)');
+  fit(T.tl.v+T.bl.v,Math.abs(G.AT[1]-G.BL[1]),'Left side (A)');
+  fit(T.tr.v+T.br.v,Math.abs(G.CT[1]-G.BR[1]),'Right side (C)');
+  fit(T.bl.h+T.br.h,Math.abs(G.BR[0]-G.BL[0]),'Bottom (B)');
   fit(T.tl.h+T.tr.h,G.Dlen,'Top (D)');
   if(G.Dlen<=1e-9)errors.push('Top D is degenerate: its horizontal projection is zero.');
   if(!errors.length){
@@ -586,6 +954,103 @@ function ssValidate(S){
 function ssWarnings(S){
   if(!S||!S.shape||S.shape.type!=='smart')return [];
   try{return ssValidate(S).warns;}catch(e){return [];}
+}
+
+function shapeValidateDefinitionInputs(def){
+  var errors=[],W=inch(def.w),H=inch(def.h),p=def.params||{},type=def.type;
+  if(!SHAPE_PRESETS.some(function(x){return x.id===type;}))errors.push('Unknown Shape type '+type+'.');
+  function dim(k){var r=fabParseDimStrict(p[k]);if(!r.ok){errors.push(shapePresetInfo(type).label+': '+k+' is not a valid dimension.');return NaN;}return r.v;}
+  var values={};shapeParamSpecsFor(type).forEach(function(s){values[s.key]=dim(s.key);});
+  function nonnegative(k){if(isFinite(values[k])&&values[k]<0)errors.push(shapePresetInfo(type).label+': '+k+' cannot be negative.');}
+  Object.keys(values).forEach(nonnegative);
+  if(type==='parallelogram'&&isFinite(values.skew)&&Math.abs(values.skew)>=W)errors.push('Parallelogram: absolute skew must be less than Width.');
+  if(type==='raked'&&((isFinite(values.leftDrop)&&values.leftDrop>=H)||(isFinite(values.rightDrop)&&values.rightDrop>=H)))errors.push('Raked Rectangle: top drops must be less than Height.');
+  if(type==='triangle'&&isFinite(values.apexX)&&(values.apexX<0||values.apexX>W))errors.push('Triangle: Apex X must be between 0 and Width.');
+  if(type.indexOf('notch-left')===0||type.indexOf('notch-right')===0){
+    if(type.indexOf('double')>=0){if(!(values.depth1>0&&values.depth1<W&&values.depth2>0&&values.depth2<W))errors.push('Double notch depths must be greater than zero and less than Width.');if(!(values.height1>0&&values.height2>0&&values.gap>=0&&values.height1+values.gap+values.height2<H))errors.push('Double notch heights and gap must fit inside Height.');}
+    else{if(!(values.depth>0&&values.depth<W))errors.push('Notch depth must be greater than zero and less than Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Notch height and position must fit inside Height.');}
+  }
+  if(type==='notch-middle'){if(!(values.width>0&&values.fromLeft>=0&&values.fromLeft+values.width<W))errors.push('Middle notch width and position must fit inside Width.');if(!(values.depth>0&&values.depth<H))errors.push('Middle notch depth must be greater than zero and less than Height.');}
+  if(type==='notch-both'){if(!(values.depth>0&&values.depth<W/2))errors.push('Both-notch depth must be greater than zero and less than half Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Both-notch height and position must fit inside Height.');}
+  if(type==='polygon'){
+    if((def.polygon||[]).length<3)errors.push('Polygon requires at least three vertices.');
+    (def.polygon||[]).forEach(function(v){['x','y'].forEach(function(k){if(!fabParseDimStrict(v[k]).ok)errors.push('Polygon vertex '+v.id+': '+k.toUpperCase()+' is not a valid dimension.');});});
+  }
+  return errors;
+}
+
+/* Полная fail-closed проверка schema v2. Ошибка блокирует сохранение/экспорт
+   режущего контура; предупреждение требует решения технолога, но не подменяет
+   геометрию приблизительными значениями. */
+function shapeValidateComputed(def,geo,fg){
+  var errors=[],warns=[],pts=geo.points||geo.pts||[],eps=1e-6;
+  errors=errors.concat(shapeValidateDefinitionInputs(def));
+  if(!geo.ok)errors=(geo.errors||[geo.error||'Shape geometry is invalid.']).slice();
+  if(!(inch(def.w)>0&&inch(def.h)>0))errors.push('Width and Height must be greater than zero.');
+  if(def.type==='circle'&&Math.abs(inch(def.w)-inch(def.h))>1/64)errors.push('Circle requires equal Width and Height (one physical diameter).');
+  if(pts.length<3)errors.push('Finished contour must contain at least three points.');
+  if(pts.some(function(p){return !isFinite(p[0])||!isFinite(p[1]);}))errors.push('Finished contour contains a non-finite coordinate.');
+  if(pts.length>=3&&fabPolySelfIntersects(pts))errors.push('Finished contour self-intersects.');
+  if(pts.length>=3&&Math.abs(fabSignedArea(pts))<1e-5)errors.push('Finished contour encloses no area.');
+  (geo.radiusErrors||[]).forEach(function(e){errors.push(e);});
+  var vertexIds=Object.create(null),radiusTargets=Object.create(null);(geo.vertices||[]).forEach(function(v){vertexIds[v.id]=true;});
+  (def.features||[]).filter(function(f){return f.type==='radius';}).forEach(function(f){
+    if(!(inch(f.radius)>0))errors.push('Radius '+f.id+': radius must be greater than zero.');
+    if(!f.vertexId||!vertexIds[f.vertexId])errors.push('Radius '+f.id+': referenced physical vertex does not exist.');
+    else if(radiusTargets[f.vertexId])errors.push('Only one radius definition is allowed at vertex '+f.vertexId+'.');
+    radiusTargets[f.vertexId]=true;
+  });
+  Object.keys(geo.radiusMeta||{}).forEach(function(id){
+    var meta=geo.radiusMeta[id],parents=meta.parentEdges||[];if(parents.length!==2)return;
+    var a=shapeEdgeAllowance(def,{id:parents[0]}),b=shapeEdgeAllowance(def,{id:parents[1]});
+    if(Math.abs(a-b)>eps)errors.push('Radius '+meta.vertexId+': adjacent edge cutting allowances must match ('+parents[0]+' versus '+parents[1]+').');
+  });
+  var contourEdges=geo.edges||[];for(var te=0;te<contourEdges.length;te++){
+    var before=contourEdges[(te-1+contourEdges.length)%contourEdges.length],after=contourEdges[te],a1=shapeEdgeAllowance(def,before),a2=shapeEdgeAllowance(def,after);
+    if(Math.abs(a1-a2)<=eps)continue;
+    var u=[before.p2[0]-before.p1[0],before.p2[1]-before.p1[1]],v2=[after.p2[0]-after.p1[0],after.p2[1]-after.p1[1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v2[0],v2[1])||1,dot=(u[0]*v2[0]+u[1]*v2[1])/(lu*lv);
+    if(dot>.995)errors.push('Cutting allowance cannot change across tangent-continuous edges '+before.id+' and '+after.id+'.');
+  }
+  var segmentIds=Object.create(null);(geo.edges||[]).forEach(function(e){if(segmentIds[e.segmentId])errors.push('Duplicate topology segment id '+e.segmentId+'.');segmentIds[e.segmentId]=true;if(!(e.length>eps))errors.push('Edge '+e.id+' is degenerate.');});
+  function strictlyInside(p){return fabPointInPoly(p,pts)&&fabPointPolyDistance(p,pts)>eps;}
+  (fg.holes||[]).forEach(function(h){
+    var r=h.diameter/2;if(!(h.diameter>0))errors.push('Hole '+h.id+': diameter must be greater than zero.');
+    else if(!strictlyInside(h.center))errors.push('Hole '+h.id+': center is outside the finished contour.');
+    else{var d=fabPointPolyDistance(h.center,pts);if(d+eps<r)errors.push('Hole '+h.id+': hole crosses the finished contour.');else if(d<r+h.minEdge-eps)warns.push('Hole '+h.id+': requested edge clearance is not met; technology approval required.');}
+  });
+  (fg.cutouts||[]).forEach(function(c){
+    if(!(c.width>0&&c.height>0))errors.push('Cutout '+c.id+': Width and Height must be greater than zero.');
+    else if(!c.points.every(strictlyInside))errors.push('Cutout '+c.id+': the entire cutout must remain inside the finished contour.');
+    if(c.cornerRadius<0||c.cornerRadius>Math.min(c.width,c.height)/2+eps)errors.push('Cutout '+c.id+': invalid corner radius.');
+  });
+  for(var ci=0;ci<(fg.cutouts||[]).length;ci++)for(var cj=ci+1;cj<fg.cutouts.length;cj++)if(fabPolygonsOverlap(fg.cutouts[ci].points,fg.cutouts[cj].points))errors.push('Cutouts '+fg.cutouts[ci].id+' and '+fg.cutouts[cj].id+' overlap.');
+  (fg.hardware||[]).forEach(function(h){
+    if(h.invalid){errors.push('Hardware '+h.id+': referenced physical edge does not exist.');return;}
+    if(!(inch(h.source.prepWidth)>0&&inch(h.source.prepHeight)>0))errors.push('Hardware '+h.id+': prep dimensions must be greater than zero.');
+    if(!(h.holeDia>0))errors.push('Hardware '+h.id+': hole diameter must be greater than zero.');
+    if(h.anchor&&h.anchor.clamped)errors.push('Hardware '+h.id+': distance along edge is longer than the physical edge.');
+    if(h.center&&!fabPointInPoly(h.center,pts))errors.push('Hardware '+h.id+': prep is placed outside the finished contour.');
+    if(h.points&&!h.points.every(function(p){return fabPointInPoly(p,pts)||fabPointPolyDistance(p,pts)<eps;}))errors.push('Hardware '+h.id+': the entire prep must remain inside the finished contour.');
+  });
+  (fg.stamps||[]).forEach(function(s){if(!fabPointInPoly(s.point,pts))errors.push('Temper stamp '+s.id+': annotation is outside the finished contour.');});
+  for(var i=0;i<(fg.holes||[]).length;i++)for(var j=i+1;j<fg.holes.length;j++){
+    var a=fg.holes[i],b=fg.holes[j],min=(a.diameter+b.diameter)/2;if(Math.hypot(a.center[0]-b.center[0],a.center[1]-b.center[1])<min-eps)errors.push('Holes '+a.id+' and '+b.id+' overlap.');
+  }
+  (fg.holes||[]).forEach(function(h){(fg.cutouts||[]).forEach(function(c){if(fabPointInPoly(h.center,c.points)||fabPointPolyDistance(h.center,c.points)<h.diameter/2-eps)errors.push('Hole '+h.id+' overlaps cutout '+c.id+'.');});});
+  var th=shapeThicknessMm(def);if(!(th>0))errors.push('Glass thickness must be a positive number in millimeters.');
+  Object.keys(def.edgeOps||{}).forEach(function(id){
+    if(!(geo.edges||[]).some(function(e){return e.id===id;}))errors.push('Edge processing references missing edge '+id+'.');
+    var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
+    ops.forEach(function(op){
+      if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
+      if(op.type==='Rough Arris'||op.type==='Flat Polish'||op.type==='CNC Shape Polish')finishes++;
+      if((op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering')&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
+      if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
+      if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
+    });
+    if(finishes>1)errors.push('Edge '+id+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.');
+  });
+  return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};
 }
 
 /* ==== src/modules/shape/geometry.js ==== */
@@ -604,11 +1069,125 @@ function shapeGeometry(S){
     if(!S.shape.smart)S.shape.smart=ssNormalize({});
     var sv=ssValidate(S);if(sv.errors.length)return {ok:false,error:sv.errors[0],errors:sv.errors,warns:sv.warns,W:W,H:H,pts:[],type:kind};
     var sq=ssContour(S);if(sq.pts.length<3)return {ok:false,error:'Smart-Shape outline could not be built.',W:W,H:H,pts:[],type:kind};
-    var sb=fabEdgeBounds(sq.pts);return {ok:true,W:W,H:H,pts:sq.pts,type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns};
+    var smartEdges=sq.segs.map(function(e,i){return {id:e.id,segmentId:e.id+':'+i,type:'line',p1:e.p1.slice(),p2:e.p2.slice(),length:Math.hypot(e.p2[0]-e.p1[0],e.p2[1]-e.p1[1])};}),sb=fabEdgeBounds(sq.pts);
+    return {ok:true,W:W,H:H,pts:sq.pts,points:sq.pts,pointEdgeIds:smartEdges.map(function(e){return e.id;}),edges:smartEdges,vertices:[],type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns,radiusErrors:[]};
   }
-  return {ok:true,W:W,H:H,pts:[[0,0],[W,0],[W,H],[0,H]],type:'rectangle',minX:0,maxX:W,minY:0,maxY:H,bboxW:W,bboxH:H};
+  var topo=shapePresetTopology(S),rounded=shapeApplyCornerRadii(topo,S.shape.definition||{features:S.shape.features||[]}),pts=rounded.points||[];
+  if(pts.length<3)return {ok:false,error:'Shape outline could not be built.',W:W,H:H,pts:[],type:kind};
+  var b=fabEdgeBounds(pts);return {ok:true,W:W,H:H,pts:pts,points:pts,pointEdgeIds:rounded.pointEdgeIds||[],edges:rounded.edges||[],vertices:rounded.vertices||[],analytic:rounded.analytic,type:kind,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,bboxW:b.maxX-b.minX,bboxH:b.maxY-b.minY,warns:[],radiusErrors:rounded.radiusErrors||[],radiusMeta:rounded.radiusMeta||{}};
 }
 function fabOutlinePoints(S,G){return (G&&G.pts&&G.pts.length)?G.pts.slice():[[0,0],[inch(S.w),0],[inch(S.w),inch(S.h)],[0,inch(S.h)]];}
+
+/* ==== src/modules/shape/cutting.js ==== */
+/* =====================================================================
+   shape/cutting · schema-v2
+   Детерминированная Cutting Geometry. Невалидный offset блокируется.
+   Generic DXF — нейтральный обменный файл, не постпроцессор конкретного CNC.
+   ===================================================================== */
+
+function shapeOffsetVariable(points,distances){
+  if(!points||points.length<3)return {valid:false,error:'Offset requires a closed contour.'};
+  var n=points.length,orient=fabSignedArea(points),lines=[],i;
+  for(i=0;i<n;i++){
+    var a=points[i],b=points[(i+1)%n],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return {valid:false,error:'Offset source contains a degenerate edge.'};
+    var d=Math.max(0,+distances[i]||0),nx=orient<0?-dy/L:dy/L,ny=orient<0?dx/L:-dx/L;
+    lines.push({a:[a[0]+nx*d,a[1]+ny*d],b:[b[0]+nx*d,b[1]+ny*d],d:d,sourceId:i});
+  }
+  var out=[];
+  for(i=0;i<n;i++){
+    var prev=lines[(i-1+n)%n],cur=lines[i],hit=fabLineIntersection(prev.a,prev.b,cur.a,cur.b),v=points[i],lim=Math.max(.25,Math.max(prev.d,cur.d)*10);
+    if(!hit)hit=[(prev.b[0]+cur.a[0])/2,(prev.b[1]+cur.a[1])/2];
+    if(Math.hypot(hit[0]-v[0],hit[1]-v[1])>lim)return {valid:false,error:'Cutting offset creates an excessive miter at contour vertex '+(i+1)+'.'};
+    out.push(hit);
+  }
+  if(fabPolySelfIntersects(out))return {valid:false,error:'Cutting offset self-intersects. Change the contour or edge allowances.'};
+  if(Math.abs(fabSignedArea(out))<1e-6)return {valid:false,error:'Cutting offset encloses no area.'};
+  return {valid:true,points:out};
+}
+function shapeCuttingGeometry(def,geo,fg){
+  var points=(geo.points||[]).map(function(p){return p.slice();}),ids=geo.pointEdgeIds||[],dist=points.map(function(_,i){var e=(geo.edges||[])[i]||{id:ids[i]};return shapeEdgeAllowance(def,e);});
+  var off=shapeOffsetVariable(points,dist);if(!off.valid)return {valid:false,error:off.error,finishedPoints:points,points:[],holes:[],cutouts:[],hardware:[],warnings:[]};
+  var b=fabEdgeBounds(off.points),curves=(geo.edges||[]).some(function(e){return e.type!=='line';}),warnings=[];
+  if(curves)warnings.push('Curved cutting contour is tessellated to the Shape sampling tolerance; verify the target machine postprocessor.');
+  var holes=(fg.holes||[]).map(function(h){return {id:h.id,center:h.center.slice(),diameter:h.diameter};});
+  var cutouts=(fg.cutouts||[]).map(function(c){return {id:c.id,points:c.points.map(function(p){return p.slice();}),cornerRadius:c.cornerRadius||0};});
+  var hardware=(fg.hardware||[]).filter(function(h){return !h.invalid;}).map(function(h){return {id:h.id,name:h.name,points:h.points.map(function(p){return p.slice();}),hole:{center:h.center.slice(),diameter:h.holeDia}};});
+  return {valid:true,points:off.points,finishedPoints:points,edgeIds:ids.slice(),allowances:dist,holes:holes,cutouts:cutouts,hardware:hardware,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,warnings:warnings,toleranceIn:1/256};
+}
+function shapeMachinePayload(result){
+  if(!result||!result.valid||!result.cutting||!result.cutting.valid)return null;
+  var c=result.cutting,round=function(v){return Math.round(v*1000000)/1000000;},pts=function(P){return P.map(function(p){return [round(p[0]),round(p[1])];});};
+  return {schema:'glass-erp-cutting/v1',units:'inch',shapeId:result.definition.id,revision:result.definition.revision||0,type:result.definition.type,toleranceIn:c.toleranceIn,outer:{closed:true,points:pts(c.points)},holes:c.holes.map(function(h){return {id:h.id,center:pts([h.center])[0],diameter:round(h.diameter)};}),cutouts:c.cutouts.map(function(x){return {id:x.id,closed:true,points:pts(x.points),cornerRadius:round(x.cornerRadius||0)};}),hardware:c.hardware.map(function(h){return {id:h.id,name:h.name,closed:true,points:pts(h.points),hole:{center:pts([h.hole.center])[0],diameter:round(h.hole.diameter)}};}),requirements:result.requirements};
+}
+function shapeDxfPolyline(P,layer){
+  var o='0\nPOLYLINE\n8\n'+layer+'\n66\n1\n70\n1\n';
+  (P||[]).forEach(function(p){o+='0\nVERTEX\n8\n'+layer+'\n10\n'+(+p[0]).toFixed(6)+'\n20\n'+(+p[1]).toFixed(6)+'\n30\n0\n';});return o+'0\nSEQEND\n';
+}
+function shapeGenericDxf(result){
+  var p=shapeMachinePayload(result);if(!p)return null;var o='0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n';
+  o+=shapeDxfPolyline(p.outer.points,'CUT_OUTER');
+  p.holes.forEach(function(h){o+='0\nCIRCLE\n8\nCUT_HOLES\n10\n'+h.center[0].toFixed(6)+'\n20\n'+h.center[1].toFixed(6)+'\n30\n0\n40\n'+(h.diameter/2).toFixed(6)+'\n';});
+  p.cutouts.forEach(function(c){o+=shapeDxfPolyline(c.points,'CUT_INNER');});
+  p.hardware.forEach(function(h){o+=shapeDxfPolyline(h.points,'HARDWARE_PREP');o+='0\nCIRCLE\n8\nHARDWARE_HOLES\n10\n'+h.hole.center[0].toFixed(6)+'\n20\n'+h.hole.center[1].toFixed(6)+'\n30\n0\n40\n'+(h.hole.diameter/2).toFixed(6)+'\n';});
+  return o+'0\nENDSEC\n0\nEOF\n';
+}
+
+/* ==== src/modules/shape/drawing.js ==== */
+/* =====================================================================
+   shape/drawing · schema-v2
+   Production Drawing и Cutting Shape из одного Component/Shape revision.
+   ===================================================================== */
+
+function shapeXml(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function shapeSvgPath(P,X,Y){return (P||[]).map(function(p,i){return (i?'L ':'M ')+X(p[0])+' '+Y(p[1]);}).join(' ')+' Z';}
+function shapeDrawingFrame(points,margin){
+  var b=fabEdgeBounds(points),W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),vw=960,vh=700,pL=150,pR=180,pT=95,pB=125,sc=Math.min((vw-pL-pR)/W,(vh-pT-pB)/H),dw=W*sc,dh=H*sc,x0=pL+(vw-pL-pR-dw)/2,y0=pT+(vh-pT-pB-dh)/2;
+  return {vw:vw,vh:vh,b:b,W:W,H:H,sc:sc,x0:x0,y0:y0,X:function(x){return x0+(x-b.minX)*sc;},Y:function(y){return y0+dh-(y-b.minY)*sc;},dw:dw,dh:dh,margin:margin||42};
+}
+function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
+function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+function shapeEdgeGroups(geo){
+  var g={},order=[];(geo.edges||[]).forEach(function(e){if(!g[e.id]){g[e.id]={id:e.id,length:0,segments:[]};order.push(e.id);}g[e.id].length+=e.length||0;g[e.id].segments.push(e);});return order.map(function(id){return g[id];});
+}
+function shapeEdgeLabelsSvg(result,F){
+  var orient=fabSignedArea(result.points),lanes={},out='';shapeEdgeGroups(result.geometry).forEach(function(g){
+    var total=g.length/2,walk=0,seg=g.segments[0],t=.5;for(var i=0;i<g.segments.length;i++){var L=g.segments[i].length||0;if(walk+L>=total){seg=g.segments[i];t=L?(total-walk)/L:.5;break;}walk+=L;}
+    var dx=seg.p2[0]-seg.p1[0],dy=seg.p2[1]-seg.p1[1],L=Math.hypot(dx,dy)||1,n=orient<0?[-dy/L,dx/L]:[dy/L,-dx/L],mx=seg.p1[0]+dx*t,my=seg.p1[1]+dy*t,key=Math.abs(n[0])>Math.abs(n[1])?(n[0]>0?'R':'L'):(n[1]>0?'T':'B'),lane=lanes[key]||0;lanes[key]=lane+1;
+    var off=23+lane*16,x=F.X(mx)+n[0]*off,y=F.Y(my)-n[1]*off,ops=shapeEdgeOps(result.definition,g.id).map(function(o){return o.type+(o.angle?' '+o.angle+'°':'')+(o.width?' '+dimIn(inch(o.width)):'');}),txt=g.id+' · '+dimIn(g.length)+(ops.length?' · '+ops.join(' + '):'');
+    out+='<line x1="'+F.X(mx)+'" y1="'+F.Y(my)+'" x2="'+x+'" y2="'+y+'" stroke="#98a2b3"/><text x="'+(x+n[0]*5)+'" y="'+(y-n[1]*5)+'" text-anchor="'+(key==='L'?'end':key==='R'?'start':'middle')+'" font-size="10" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill">'+shapeXml(txt)+'</text>';
+  });return out;
+}
+function shapeProductionFeaturesSvg(result,F){
+  var fg=result.featureGeometry,out='';
+  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(dimIn(h.diameter))+' · X '+shapeXml(dimIn(h.center[0]))+' · Y '+shapeXml(dimIn(h.center[1]))+'</text>';});
+  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn(c.width))+' × '+shapeXml(dimIn(c.height))+'</text>';});
+  fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="10" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
+  fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]);out+='<rect x="'+(x-24)+'" y="'+(y-9)+'" width="48" height="18" fill="none" stroke="#101828"/><text x="'+x+'" y="'+(y+3)+'" text-anchor="middle" font-size="8" fill="#101828">'+shapeXml(s.text)+'</text>';});return out;
+}
+function shapeTitleBlock(result,kind){
+  var d=result.definition,p=shapePresetInfo(d.type);return '<g font-family="Arial,sans-serif"><text x="24" y="28" font-size="19" font-weight="700" fill="#101828">'+shapeXml(kind)+'</text><text x="24" y="50" font-size="12" fill="#475467">'+shapeXml(d.name||'(unnamed)')+' · '+shapeXml(p.code+' / '+p.label)+'</text><text x="936" y="28" text-anchor="end" font-size="11" fill="#475467">Shape '+shapeXml(d.id)+' · Rev '+shapeXml(d.revision||0)+'</text><text x="936" y="48" text-anchor="end" font-size="11" fill="#475467">Glass '+shapeXml(d.thickness)+' mm · Area '+(result.area/144).toFixed(2)+' ft²</text></g>';
+}
+function shapeProductionSvg(result){
+  if(!result||!result.valid)return '<svg viewBox="0 0 960 700"><text x="480" y="350" text-anchor="middle" fill="#b42318">Invalid Shape</text></svg>';
+  var F=shapeDrawingFrame(result.points),o='<rect width="960" height="700" fill="#fff"/>'+shapeTitleBlock(result,'PRODUCTION DRAWING');
+  if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
+  o+='<path d="'+shapeSvgPath(result.points,F.X,F.Y)+'" fill="#f9fafb" stroke="#101828" stroke-width="2"/>';
+  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn(F.W));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn(F.H));
+  o+=shapeEdgeLabelsSvg(result,F)+shapeProductionFeaturesSvg(result,F);
+  o+='<text x="24" y="675" font-size="10" fill="#667085">Finished geometry · dimensions in inches · edge IDs are physical topology references</text>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" aria-label="Production Drawing">'+o+'</svg>';
+}
+function shapeCuttingSvg(result){
+  if(!result||!result.valid||!result.cutting.valid)return '<svg viewBox="0 0 960 700"><text x="480" y="350" text-anchor="middle" fill="#b42318">'+shapeXml(result&&result.cutting&&result.cutting.error||'Invalid Cutting Geometry')+'</text></svg>';
+  var c=result.cutting,F=shapeDrawingFrame(c.points),o='<rect width="960" height="700" fill="#fff"/>'+shapeTitleBlock(result,'CUTTING SHAPE');
+  o+='<path d="'+shapeSvgPath(c.finishedPoints,F.X,F.Y)+'" fill="none" stroke="#98a2b3" stroke-width="1" stroke-dasharray="7 6"/><path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="2.2"/>';
+  c.holes.forEach(function(h){o+='<circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.diameter/2*F.sc)+'" fill="none" stroke="#101828" stroke-width="1.5"/>';});
+  c.cutouts.forEach(function(x){o+='<path d="'+shapeSvgPath(x.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="1.5"/>';});
+  c.hardware.forEach(function(h){o+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="1.5"/><circle cx="'+F.X(h.hole.center[0])+'" cy="'+F.Y(h.hole.center[1])+'" r="'+Math.max(2,h.hole.diameter/2*F.sc)+'" fill="none" stroke="#101828"/>';});
+  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn(c.height));
+  o+='<g font-size="10" fill="#667085"><text x="24" y="650">Solid = cutting contour · dashed = finished contour · no production annotations</text><text x="24" y="668">Generic geometry tolerance '+shapeXml(c.toleranceIn.toFixed(4)+'\u2033')+' · verify machine-specific postprocessor before production</text></g>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" aria-label="Cutting Shape">'+o+'</svg>';
+}
 
 /* ==== src/modules/shape/index.js ==== */
 /* =====================================================================
@@ -620,20 +1199,31 @@ function fabOutlinePoints(S,G){return (G&&G.pts&&G.pts.length)?G.pts.slice():[[0
    ===================================================================== */
 
 function defaultSmartModel(){return ssNormalize({elbowsOn:false,A:{out:'0'},B:{out:'0'},C:{len:'',out:'0'},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{}});}
-function newShapeId(){
-  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 's'+crypto.randomUUID();
-  return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
-}
-function newSmartShapeDef(){return {id:newShapeId(),name:'',w:'48',h:'36',smart:defaultSmartModel()};}
+function newShapeId(){return shapeNewEntityId('s');}
 /* Значения по умолчанию принадлежат только новой форме. Пустой/нулевой размер
-   существующей формы нельзя молча заменять на 48×36 — это производственный брак. */
-function shapeDefToLine(s){s=s||{};return {w:String(s.w==null?'':s.w),h:String(s.h==null?'':s.h),shape:{type:'smart',smart:ssNormalize(s.smart||{})}};}
-function smartShapeResult(s){
-  var S=shapeDefToLine(s),G=shapeGeometry(S);if(!G.ok)return {valid:false,reason:G.error||'Invalid Smart-Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G};
-  var Q=ssContour(S),area=Math.abs(fabSignedArea(Q.pts));
-  return {valid:true,width:G.bboxW,height:G.bboxH,area:area,points:Q.pts,segs:Q.segs,base:Q.base,warns:G.warns||[],line:S,geometry:G};
+   существующей формы нельзя молча заменять — это производственный брак. */
+function shapeDefToLine(s){
+  var n=normalizeShapeDef(s||{});return {w:n.w,h:n.h,shape:{type:n.type,smart:n.smart,params:n.params,polygon:n.polygon,features:n.features,edgeOps:n.edgeOps,definition:n},definition:n};
 }
-const ShapeModule={code:'SHAPE',name:'Smart-Shape / Advanced',version:'v4.5-port',compute:smartShapeResult};
+function shapeFingerprint(def){
+  var src=JSON.stringify({type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps}),h=2166136261;
+  for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
+}
+function shapeModuleResult(s){
+  var def=normalizeShapeDef(s||{}),S=shapeDefToLine(def),G=shapeGeometry(S);
+  if(!G.ok)return {valid:false,reason:G.error||'Invalid Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G,definition:def};
+  var fg=shapeFeatureGeometry(def,G),v=shapeValidateComputed(def,G,fg);
+  if(v.errors.length)return {valid:false,reason:v.errors[0],errors:v.errors,warns:v.warns,line:S,geometry:G,definition:def,featureGeometry:fg};
+  var cutting=shapeCuttingGeometry(def,G,fg);if(!cutting.valid)return {valid:false,reason:cutting.error,errors:[cutting.error],warns:v.warns,line:S,geometry:G,definition:def,featureGeometry:fg,cutting:cutting};
+  var outer=Math.abs(fabSignedArea(G.points)),removed=(fg.holes||[]).reduce(function(a,h){return a+Math.PI*Math.pow(h.diameter/2,2);},0)+(fg.cutouts||[]).reduce(function(a,c){return a+c.width*c.height-(4-Math.PI)*Math.pow(c.cornerRadius||0,2);},0),req=shapeDerivedRequirements(def,G,fg);
+  var edgeGroups=shapeEdgeGroups(G),segs=(G.smartSegs||G.edges||[]);
+  return {valid:true,width:G.bboxW,height:G.bboxH,area:Math.max(0,outer-removed),grossArea:outer,perimeter:fabPolylineLength(G.points,true),points:G.points,segs:segs,edges:edgeGroups,vertices:G.vertices||[],base:G.smartBase||null,warns:(G.warns||[]).concat(v.warns||[]).concat(cutting.warnings||[]),line:S,geometry:G,definition:def,featureGeometry:fg,requirements:req,cutting:cutting,fingerprint:shapeFingerprint(def)};
+}
+const ShapeModule={
+  code:'SHAPE',name:'Production Shape / Drawing / Cutting',version:'schema-v2',catalog:SHAPE_PRESETS,
+  compute:shapeModuleResult,productionSvg:shapeProductionSvg,cuttingSvg:shapeCuttingSvg,
+  machinePayload:shapeMachinePayload,genericDxf:shapeGenericDxf
+};
 
 /* ==== src/modules/muntin/catalog.js ==== */
 /* =====================================================================
@@ -1150,7 +1740,11 @@ function newMuntinId(){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 'm'+crypto.randomUUID();
   return 'm'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
 }
-function newMuntinDef(shapeId){return {id:newMuntinId(),name:'',shapeId:String(shapeId||''),muntin:defaultMuntinModel()};}
+function newMuntinDef(shapeId){return {id:newMuntinId(),name:'',shapeId:String(shapeId||''),shapeRevision:null,shapeFingerprint:'',muntin:defaultMuntinModel()};}
+function pinMuntinShape(mdef,shape){
+  if(!mdef||!shape)return mdef;var sr=ShapeModule.compute(shape);if(!sr.valid)return mdef;
+  mdef.shapeId=String(shape.id||sr.definition.id);mdef.shapeRevision=sr.definition.revision||0;mdef.shapeFingerprint=sr.fingerprint;return mdef;
+}
 function invalidMuntin(code,reason,M,geo){return {valid:false,code:code,reason:reason,M:M,geo:geo};}
 function muntinLayoutError(M,geo){
   var P=M.production,eps=1e-7;
@@ -1181,6 +1775,7 @@ function muntinLayoutError(M,geo){
 function realMuntinResult(shape,mdef){
   if(!shape)return {valid:false,code:'MUNTIN_SHAPE_NOT_FOUND',reason:'Shape not found'};
   var sr=ShapeModule.compute(shape);if(!sr.valid)return {valid:false,code:'MUNTIN_SHAPE_INVALID',reason:'Shape is invalid: '+sr.reason};
+  if(mdef&&mdef.shapeFingerprint&&mdef.shapeFingerprint!==sr.fingerprint)return {valid:false,code:'MUNTIN_SHAPE_REVISION',reason:'Shape revision changed. Revalidate this Muntin layout against the current Shape revision.',expectedFingerprint:mdef.shapeFingerprint,currentFingerprint:sr.fingerprint,currentRevision:sr.definition.revision||0};
   var M=normalizeMuntinModel((mdef&&mdef.muntin)||mdef||{}),geo=productionGeometryForLine(M,sr.line);
   var invalid=muntinLayoutError(M,geo);if(invalid)return invalid;
   var segs=(geo.verticalSegments||[]).concat(geo.horizontalSegments||[]),total=segs.reduce(function(a,s){return a+s.cut;},0);
@@ -1206,20 +1801,20 @@ function normalizeSalesModules(){
     shapeIds[id]=true;return id;
   }
   DB.shapeDef=DB.shapeDef.map(function(s,i){
-    if(s&&typeof s==='object'&&s.smart&&s.w!=null&&s.h!=null){
-      s.id=uniqueId(s.id,'s');s.name=String(s.name==null?'':s.name);s.w=String(s.w);s.h=String(s.h);s.smart=ssNormalize(s.smart);return s;
+    var src=s&&typeof s==='object'?s:{},legacy=Array.isArray(src.points)&&src.points.length>=3;
+    if(legacy&&!src.type){
+      var xs=src.points.map(function(p){return +p.x||0}),ys=src.points.map(function(p){return +p.y||0}),minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys);
+      src=Object.assign({},src,{type:'polygon',w:String(Math.max.apply(null,xs)-minX||48),h:String(Math.max.apply(null,ys)-minY||36),polygon:src.points.map(function(p,n){return {id:'PV'+(n+1),x:String((+p.x||0)-minX),y:String((+p.y||0)-minY)};})});
     }
-    var w=48,h=36;
-    if(s&&Array.isArray(s.points)&&s.points.length){var xs=s.points.map(function(p){return +p.x||0}),ys=s.points.map(function(p){return +p.y||0});w=Math.max.apply(null,xs)-Math.min.apply(null,xs)||w;h=Math.max.apply(null,ys)-Math.min.apply(null,ys)||h;}
-    return {id:uniqueId(s&&s.id,'s'),name:String((s&&s.name)||('Smart Shape '+(i+1))),w:String(w),h:String(h),smart:defaultSmartModel(),legacyPoints:s&&s.points?s.points:undefined};
+    var out=normalizeShapeDef(src);out.id=uniqueId(src.id,'s');out.name=String(src.name==null?(shapePresetInfo(out.type).label+' '+(i+1)):src.name);return out;
   });
   if(!Array.isArray(DB.muntinDef))DB.muntinDef=[];
   var firstShapeId=(DB.shapeDef[0]||{}).id||'',muntinIds=Object.create(null);
   function uniqueMuntinId(raw){var id=String(raw==null?'':raw).trim();if(!id||muntinIds[id]){do{id=newMuntinId();}while(muntinIds[id]);}muntinIds[id]=true;return id;}
   DB.muntinDef=DB.muntinDef.map(function(m,i){
-    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);return m;}
+    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);var ms=DB.shapeDef.find(function(s){return s.id===m.shapeId;});if(ms&&!m.shapeFingerprint)pinMuntinShape(m,ms);return m;}
     var M=defaultMuntinModel();if(m){M.layout.verticalBars=clampBars(m.cols==null?2:m.cols);M.layout.horizontalBars=clampBars(m.rows==null?1:m.rows);}
-    return {id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M};
+    var out={id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M},shape=DB.shapeDef.find(function(s){return s.id===out.shapeId;});if(shape)pinMuntinShape(out,shape);return out;
   });
 }
 
@@ -1282,8 +1877,8 @@ function skillBadgeHTML(skillObj){
 }
 function salesSkillCards(){
  const cards=[
-  {id:'shape', icon:'shape', title:'Smart-Shape / Advanced', desc:'A/B/C/D · elbows · corner blocks · validation', meta:'real contour · v4.5'},
-  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'actual perimeter · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
+  {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'},
+  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
  ];
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
 }
@@ -1413,6 +2008,7 @@ const I18N_EN={
   "модуль в плане": "module planned",
   "Стекольное производство — одна система": "Glass production — one system",
   "Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.": "Not a set of reference tables, but an end-to-end flow: from order configuration and cutting optimization to shop-floor processing, inventory and shipping.",
+  "Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.": "The current ERP scope covers technical Shape and Muntin configuration, cutting optimization and shop-floor processing. The orders module is not part of this version.",
   "Прототип архитектуры": "Architecture prototype",
   "нужно назначить": "assignment needed",
   "готово": "ready",
@@ -1424,6 +2020,7 @@ const I18N_EN={
   "зелёная точка = уже есть экран": "green dot = screen already exists",
   "Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.": "This is a visual map of data ownership by business domain. Perfect Cut remains an external optimizer, not part of the ERP.",
   "заказ · Shape · Muntin · будущий pricing": "order · Shape · Muntin · future pricing",
+  "Shape · Muntin · чертежи · cutting geometry": "Shape · Muntin · drawings · cutting geometry",
   "внешняя оптимизация раскроя через мост": "external cutting optimization through the bridge",
   "станции · маршруты · WIP · события": "stations · routings · WIP · events",
   "стойки · комплектация · доставка": "racks · staging · delivery",
@@ -1437,6 +2034,8 @@ const I18N_EN={
   "Фундамент": "Foundation",
   "master-data и доменная оболочка": "master data and domain shell",
   "Заказ": "Order",
+  "Технология изделия": "Product engineering",
+  "Shape revisions · Muntin · чертежи · cutting geometry": "Shape revisions · Muntin · drawings · cutting geometry",
   "клиенты · строки · услуги · ACK · чертёж": "customers · lines · services · ACK · drawing",
   "Perfect Cut bridge · WIP · бой · остатки": "Perfect Cut bridge · WIP · breakage · stock",
   "Планирование": "Planning",
@@ -1486,6 +2085,38 @@ const I18N_EN={
   "Навык": "Skill",
   "Покрытие": "Coverage",
   "Конфигурация изделия": "Product configuration",
+  "Конфигурация": "Configuration",
+  "Shape теперь хранит finished geometry, физическую топологию, features и обработку кромок. Чертёж, cutting geometry и Muntin ссылаются на ту же ревизию.": "Shape now stores finished geometry, physical topology, features and edge processing. The drawing, cutting geometry and Muntin reference the same revision.",
+  "Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Отверстия, вырезы, hardware prep, радиусы и обработка кромки больше не теряются при экспорте.": "Finished Geometry, Production Drawing and Cutting Geometry are generated from one revision. Holes, cutouts, hardware prep, radii and edge processing are preserved in exports.",
+  "Название / тип": "Name / type",
+  "Кромок": "Edges",
+  "готова к экспорту": "ready to export",
+  "Новая фигура": "New shape",
+  "Новая производственная фигура": "New production shape",
+  "Изменение фигуры": "Edit shape",
+  "Все размеры — finished size в дюймах; толщина — в миллиметрах. Невалидная геометрия не сохраняется и не экспортируется.": "All dimensions are finished sizes in inches; thickness is in millimeters. Invalid geometry cannot be saved or exported.",
+  "Тип фигуры": "Shape type",
+  "Обработка физических кромок": "Physical edge processing",
+  "операции создают allowance и маршрут": "operations generate allowance and routing",
+  "Параметры фигуры": "Shape parameters",
+  "Вершины полигона": "Polygon vertices",
+  "IDs стабильны для радиусов и ревизий": "IDs remain stable for radii and revisions",
+  "Добавить вершину": "Add vertex",
+  "Features и технологические элементы": "Features and manufacturing elements",
+  "включаются в чертёж и cutting payload": "included in the drawing and cutting payload",
+  "+ Отверстие": "+ Hole",
+  "+ Вырез": "+ Cutout",
+  "+ Радиус": "+ Radius",
+  "Features не добавлены": "No features added",
+  "Отверстие": "Hole",
+  "Внутренний вырез": "Internal cutout",
+  "Радиус вершины": "Vertex radius",
+  "Маркировка": "Marking",
+  "Производственные требования": "Manufacturing requirements",
+  "Дополнительных операций нет": "No additional operations",
+  "Файлы текущей ревизии": "Current revision files",
+  "Сохранить ревизию": "Save revision",
+  "Проверить на текущей ревизии Shape": "Validate against current Shape revision",
   "невалидна": "invalid",
   "Название": "Name",
   "Габарит": "Size",
@@ -1651,12 +2282,16 @@ function moduleErrorText(result){
  };
  if(exact[reason])return exact[reason];
  let m;
+ if(reason==='Shape revision changed. Revalidate this Muntin layout against the current Shape revision.')return 'Ревизия Shape изменилась. Проверь раскладку Muntin на текущей ревизии фигуры.';
  if((m=reason.match(/^Shape is invalid: (.+)$/)))return 'Фигура невалидна: '+moduleErrorText({reason:m[1]});
  if((m=reason.match(/^Edge (.+): length must be greater than 0\.$/)))return 'Сторона '+m[1]+': длина должна быть больше нуля.';
  if((m=reason.match(/^Edge (.+): "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректный размер.';
  if((m=reason.match(/^Edge (.+): out of plumb \/ level "(.+)" is not a valid dimension\.$/)))return 'Сторона '+m[1]+': отклонение «'+m[2]+'» задано некорректно.';
  if((m=reason.match(/^Edge (.+): out of plumb \/ level cannot be negative\.$/)))return 'Сторона '+m[1]+': отклонение не может быть отрицательным.';
  if((m=reason.match(/^Edge (.+): pick which way it is out of plumb \/ level\.$/)))return 'Сторона '+m[1]+': выбери направление отклонения.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): (out of plumb|out of level) "(.+)" is not a valid dimension\.$/)))return 'Угол '+m[1]+': отклонение '+(m[2]==='out of plumb'?'по X':'по Y')+' «'+m[3]+'» задано некорректно.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): (out of plumb|out of level) cannot be negative\.$/)))return 'Угол '+m[1]+': отклонение не может быть отрицательным.';
+ if((m=reason.match(/^Corner (TL|TR|BR|BL): pick the (out of plumb|out of level) direction\.$/)))return 'Угол '+m[1]+': выбери направление отклонения '+(m[2]==='out of plumb'?'по X':'по Y')+'.';
  if((m=reason.match(/^Edge (.+): "(.+)" is not a valid (elbow length|outage)\.$/)))return 'Сторона '+m[1]+': «'+m[2]+'» — некорректное '+(m[3]==='elbow length'?'колено':'отклонение')+'.';
  if((m=reason.match(/^Edge (.+): pick the elbow form \(direction of the skew\)\.$/)))return 'Сторона '+m[1]+': выбери форму колена (направление уклона).';
  if((m=reason.match(/^Edge (.+): elbow length (.+) is longer than the edge \((.+)\)\.$/)))return 'Сторона '+m[1]+': колено '+m[2]+' длиннее стороны ('+m[3]+').';
@@ -1668,7 +2303,6 @@ function moduleErrorText(result){
  if((m=reason.match(/^(Vertical|Horizontal) bars: the profile and edge insets do not fit inside the glass\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профиль и отступы не помещаются внутри стекла.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: every custom centerline must stay inside the usable perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: каждая позиция должна находиться внутри рабочего контура.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: bar profiles overlap or use the same centerline\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: профили перекрываются или используют одну ось.';
- if((m=reason.match(/^(Vertical|Horizontal) bars: the requested bars do not fit between the edge insets\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары не помещаются между отступами от кромки.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: requested bar (\d+) does not intersect the usable glass perimeter\.$/)))return (m[1]==='Vertical'?'Вертикальный':'Горизонтальный')+' бар '+m[2]+' не пересекает рабочий контур стекла.';
  if((m=reason.match(/^(Vertical|Horizontal) bars: a generated cut length is invalid\.$/)))return (m[1]==='Vertical'?'Вертикальные':'Горизонтальные')+' бары: получена некорректная длина реза.';
  return reason;
@@ -1803,7 +2437,7 @@ function viewDashboard(){
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
    <div><h2>Стекольное производство — одна система</h2>
-   <p>Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.</p></div>
+   <p>Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.</p></div>
    <span class="pill info">${ico('layers','icon-inline')}Прототип архитектуры</span>
   </div>
 
@@ -1820,7 +2454,7 @@ function viewDashboard(){
     <div class="sub">Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.</div>
     <div class="domain-map">
       <div class="flow-row">
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Продажи</b><small>заказ · Shape · Muntin · будущий pricing</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Конфигурация</b><small>Shape · Muntin · чертежи · cutting geometry</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
        <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>внешняя оптимизация раскроя через мост</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
@@ -1841,7 +2475,7 @@ function viewDashboard(){
     <div class="section-title"><h3>Дорожная карта</h3><span class="pill info">сейчас Ф1</span></div>
     <div class="phase-list">
      <div class="phase-item current"><div class="phase-num">1</div><div><b>Фундамент</b><span>master-data и доменная оболочка</span><div class="progress"><span style="width:42%"></span></div></div></div>
-     <div class="phase-item"><div class="phase-num">2</div><div><b>Заказ</b><span>клиенты · строки · услуги · ACK · чертёж</span></div></div>
+     <div class="phase-item"><div class="phase-num">2</div><div><b>Технология изделия</b><span>Shape revisions · Muntin · чертежи · cutting geometry</span></div></div>
      <div class="phase-item"><div class="phase-num">3</div><div><b>Цех</b><span>Perfect Cut bridge · WIP · бой · остатки</span></div></div>
      <div class="phase-item"><div class="phase-num">4</div><div><b>Планирование</b><span>мощности · партии · стойки · доставка</span></div></div>
      <div class="phase-item"><div class="phase-num">5</div><div><b>Замыкание</b><span>MRP · фактическая себестоимость · BI</span></div></div>
@@ -1974,7 +2608,7 @@ function skillReport(){
 
 function viewSales(){
  if(!['shape','muntin'].includes(subtab)) subtab='shape';   /* subtab общий на все домены — чужое значение сюда доезжать не должно */
- return `<div class="page-head"><div><h2>Конфигурация изделия</h2><p>Здесь подключены реальные модули из Glass Configurator v4.5: Smart-Shape / Advanced и shape-adaptive Muntin Production. Это уже не демонстрационные точки и не прямоугольная сетка.</p></div><span class="pill ok">${ico('check','icon-inline')}v4.5 logic</span></div>
+ return `<div class="page-head"><div><h2>Конфигурация изделия</h2><p>Shape теперь хранит finished geometry, физическую топологию, features и обработку кромок. Чертёж, cutting geometry и Muntin ссылаются на ту же ревизию.</p></div><span class="pill ok">${ico('check','icon-inline')}schema v2</span></div>
   <div class="card">
    ${salesSkillCards()}
    ${subtab==='shape'?viewShapeSkill():viewMuntinSkill()}
@@ -1983,54 +2617,167 @@ function viewSales(){
 
 /* ==== src/erp/views/sales-shape-ui.js ==== */
 /* =====================================================================
-   view/sales/shape-ui  ·  erp-1.0
-   Экран и live-превью модуля Smart-Shape. Геометрия — в modules/shape/*.
+   view/sales/shape-ui · schema-v2
+   Полный редактор finished geometry, features, edgework и cutting output.
+   Геометрия и экспорт принадлежат modules/shape/*; экран только редактирует.
    ===================================================================== */
 
-let sEdit=null,sDraft=null;
+let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false;
+
 function viewShapeSkill(){
- const rows=DB.shapeDef.map((s,i)=>{const r=ShapeModule.compute(s);return `<tr><td><b>${raw(s.name)}</b></td><td class="mono">${r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'}</td><td class="mono">${r.valid?r.points.length:'—'}</td><td>${r.valid?'<span class="pill ok">Smart-Shape</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'}</td><td style="white-space:nowrap"><button class="sm" onclick="openShapeEdit(${i})">Изменить</button><button class="sm dl" onclick="delShape(${i})">×</button></td></tr>`;}).join('');
- return `<div class="real-module-note"><b>Smart-Shape v4.5</b><span>Реальная модель из Configurator: A = Height, B = Width, C = правая сторона, D = AUTO. Поддерживаются out-of-plumb, elbows и угловые блоки Single / Double / Triple.</span></div>
-  ${sEdit!==null?shapeForm():''}
-  <table><thead><tr><th>Название</th><th>Габарит</th><th>Сегментов</th><th>Движок</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
-  ${sEdit===null?'<div class="row"><button class="pri" onclick="openShapeNew()">Новая Advanced-фигура</button></div>':''}`;
+  var rows=DB.shapeDef.map(function(s,i){
+    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
+    return `<tr><td><b>${esc(s.name)}</b><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'}</td><td class='mono'>${r.valid?r.edges.length:'—'}</td><td class='mono'>${featureCount}</td><td>${r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+  }).join('');
+  var presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  return `<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Отверстия, вырезы, hardware prep, радиусы и обработка кромки больше не теряются при экспорте.</span></div>
+    ${sEdit!==null?shapeForm():''}
+    <table><thead><tr><th>Название / тип</th><th>Габарит</th><th>Кромок</th><th>Features</th><th>Статус</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>
+    ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
 }
-function openShapeNew(){sEdit='new';sDraft=newSmartShapeDef();render();}
-function openShapeEdit(i){sEdit=i;sDraft=JSON.parse(JSON.stringify(DB.shapeDef[i]));sDraft.smart=ssNormalize(sDraft.smart);render();}
+
+function openShapeNew(type){sEdit='new';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
+function openShapeEdit(i){sEdit=i;sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
 function shapeDraftLine(){return shapeDefToLine(sDraft);}
-function setShapeDim(k,v){sDraft[k]=v;refreshShapeEditor();}
+function shapeDraftGeometry(){try{return shapeGeometry(shapeDraftLine());}catch(e){return {ok:false,error:e.message,points:[],edges:[],vertices:[]};}}
+function shapeDraftResult(){try{return ShapeModule.compute(sDraft);}catch(e){return {valid:false,reason:e.message,errors:[e.message]};}}
+function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}refreshShapeEditor();}
+function setShapeParam(k,v){sDraft.params[k]=v;refreshShapeEditor();}
 function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=S.shape.smart;refreshShapeEditor();}
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
 function setShapeElbow(edge,k,v){sDraft.smart[edge].elbow[k]=v||null;refreshShapeEditor();}
 function setShapeCorner(c,v){var S=shapeDraftLine();S.shape.smart.corners[c]=v;ssSyncExtra(S);sDraft.smart=S.shape.smart;render();}
+function setShapeCornerOffset(c,k,v){sDraft.smart.cornerOffsets[c][k]=v||(k.indexOf('Dir')>=0?null:'');refreshShapeEditor();}
 function setShapeExtra(id,v){if(!sDraft.smart.extraEdges[id])sDraft.smart.extraEdges[id]={len:''};sDraft.smart.extraEdges[id].len=v;refreshShapeEditor();}
-function shapePreviewSVG(r){
- if(!r.valid)return `<div class="module-invalid">${esc(moduleErrorText(r)||'Invalid shape')}</div>`;
- const pts=r.points,b=fabEdgeBounds(pts),vw=650,vh=390,p=36,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-p*2)/W,(vh-p*2)/H),ox=p+(vw-p*2-W*sc)/2,oy=p+(vh-p*2-H*sc)/2;
- const X=x=>ox+(x-b.minX)*sc,Y=y=>vh-(oy+(y-b.minY)*sc);let o=`<rect x="0" y="0" width="${vw}" height="${vh}" fill="#fbfdfe"/>`;
- o+=`<path d="${pts.map((q,i)=>(i?'L':'M')+' '+X(q[0])+' '+Y(q[1])).join(' ')} Z" fill="#edf7fb" stroke="#1d2b34" stroke-width="2"/>`;
- r.segs.forEach(s=>{const c=SS_COLORS[s.id]||ssExtraColor(s.id),mx=(X(s.p1[0])+X(s.p2[0]))/2,my=(Y(s.p1[1])+Y(s.p2[1]))/2;o+=`<line x1="${X(s.p1[0])}" y1="${Y(s.p1[1])}" x2="${X(s.p2[0])}" y2="${Y(s.p2[1])}" stroke="${c}" stroke-width="4"/><text x="${mx}" y="${my-7}" text-anchor="middle" font-size="11" font-weight="700" fill="${c}" stroke="#fff" stroke-width="4" paint-order="stroke fill">${esc(s.id)}</text>`;});
- return `<svg class="smart-svg" viewBox="0 0 ${vw} ${vh}" aria-label="Smart Shape preview">${o}</svg>`;
+function setShapeView(v){sView=v;refreshShapeEditor();}
+function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features')sFeaturesOpen=!sFeaturesOpen;render();}
+
+function setShapeType(type){
+  type=shapeType(type);if(type===sDraft.type)return;
+  var linked=Object.keys(sDraft.edgeOps||{}).length||(sDraft.features||[]).some(function(f){return f.type==='radius'||f.type==='hardware';});
+  if(linked&&!confirm('Смена типа удалит привязанные к топологии радиусы, hardware prep и обработку кромок. Продолжить?')){render();return;}
+  sDraft.type=type;sDraft.params=shapeDefaultParams(type);sDraft.edgeOps={};sDraft.features=(sDraft.features||[]).filter(function(f){return f.type!=='radius'&&f.type!=='hardware';});
+  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='circle')sDraft.h=sDraft.w;
+  render();
 }
-function shapeDerivedHTML(r){if(!r.valid)return `<div class="validation-box badbox"><b>Ошибка геометрии</b><div>${esc(moduleErrorText(r))}</div></div>`;const G=r.base;return `<div class="smart-kpis"><div><span>Envelope</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>D projection</span><b>${dimIn(G.Dlen)}</b></div><div><span>True D cut</span><b>${dimIn(G.Dtrue)}</b></div></div>${r.warns&&r.warns.length?`<div class="validation-box warnbox">${r.warns.map(w=>esc(moduleErrorText({reason:w}))).join('<br>')}</div>`:'<div class="validation-box okbox">Контур валиден · тот же контур используется Muntinbar</div>'}`;}
-function refreshShapeEditor(){if(!sDraft)return;const r=ShapeModule.compute(sDraft),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');if(p)p.innerHTML=shapePreviewSVG(r);if(d)d.innerHTML=shapeDerivedHTML(r);if(p)applyLang(p);if(d)applyLang(d);}
-function shapeEdgeEditor(edge){const m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right',shown=edge==='A'?sDraft.h:edge==='B'?sDraft.w:(s.len||'AUTO = A');if(!m.elbowsOn)return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${esc(shown)}</span></div><div class="edge-fields"><div><label>Out of plumb / level</label><input value="${esc(s.out||'0')}" oninput="setShapeSimple('${edge}','out',this.value)"></div><div><label>Direction</label><select onchange="setShapeSimple('${edge}','dir',this.value)"><option value="">—</option>${(vert?[['left','Left'],['right','Right']]:[['up','Up'],['down','Down']]).map(x=>`<option value="${x[0]}" ${s.dir===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div></div></div>`;
- const E=s.elbow;return `<div class="edge-card"><div class="edge-card-head"><b>${name}</b><span>${esc(shown)}</span></div><div class="edge-fields four"><div><label>Outage to elbow</label><input value="${esc(E.to)}" oninput="setShapeElbow('${edge}','to',this.value)"></div><div><label>Elbow length</label><input value="${esc(E.elbowLen)}" oninput="setShapeElbow('${edge}','elbowLen',this.value)"></div><div><label>Outage past elbow</label><input value="${esc(E.past)}" oninput="setShapeElbow('${edge}','past',this.value)"></div><div><label>Elbow form</label><select onchange="setShapeElbow('${edge}','mode',this.value)"><option value="">—</option>${SS_MODES.map(x=>`<option value="${x.id}" ${E.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'} / ${x.s2>0?'+':'−'}</option>`).join('')}</select></div></div></div>`;}
+
+function shapePreviewMarkup(r){
+  if(sView==='production')return ShapeModule.productionSvg(r);
+  if(sView==='cutting')return ShapeModule.cuttingSvg(r);
+  return ShapeModule.productionSvg(r);
+}
+function shapeDerivedHTML(r){
+  if(!r.valid){
+    var errors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid Shape']);
+    return `<div class='validation-box badbox'><b>Ошибка геометрии</b>${errors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;
+  }
+  var req=r.requirements||[],warns=r.warns||[];
+  return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn(r.cutting.width)} × ${dimIn(r.cutting.height)}</b></div></div>
+    <div class='shape-requirements'><b>Производственные требования</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>Дополнительных операций нет</span>'}</div>
+    ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(moduleErrorText({reason:w}));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Контур валиден · Production Drawing и Cutting Geometry синхронизированы · ${esc(r.fingerprint)}</div>`}`;
+}
+function refreshShapeEditor(){
+  if(!sDraft)return;var r=shapeDraftResult(),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');
+  if(p)p.innerHTML=shapePreviewMarkup(r);if(d)d.innerHTML=shapeDerivedHTML(r);
+  document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
+  if(p)applyLang(p);if(d)applyLang(d);
+}
+
+function shapeEdgeEditor(edge){
+  var m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right',shown=edge==='A'?sDraft.h:edge==='B'?sDraft.w:(s.len||'AUTO = A');
+  if(!m.elbowsOn)return `<div class='edge-card'><div class='edge-card-head'><b>${name}</b><span>${esc(shown)}</span></div><div class='edge-fields'><div><label>Out of plumb / level</label><input value='${esc(s.out||'0')}' oninput='setShapeSimple("${edge}","out",this.value)'></div><div><label>Direction</label><select onchange='setShapeSimple("${edge}","dir",this.value)'><option value=''>—</option>${(vert?[['left','Left'],['right','Right']]:[['up','Up'],['down','Down']]).map(function(x){return `<option value='${x[0]}' ${s.dir===x[0]?'selected':''}>${x[1]}</option>`;}).join('')}</select></div></div></div>`;
+  var E=s.elbow;return `<div class='edge-card'><div class='edge-card-head'><b>${name}</b><span>${esc(shown)}</span></div><div class='edge-fields four'><div><label>Outage to elbow</label><input value='${esc(E.to)}' oninput='setShapeElbow("${edge}","to",this.value)'></div><div><label>Elbow length</label><input value='${esc(E.elbowLen)}' oninput='setShapeElbow("${edge}","elbowLen",this.value)'></div><div><label>Outage past elbow</label><input value='${esc(E.past)}' oninput='setShapeElbow("${edge}","past",this.value)'></div><div><label>Elbow form</label><select onchange='setShapeElbow("${edge}","mode",this.value)'><option value=''>—</option>${SS_MODES.map(function(x){return `<option value='${x.id}' ${E.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'} / ${x.s2>0?'+':'−'}</option>`;}).join('')}</select></div></div></div>`;
+}
+function shapeSmartControls(){
+  var S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;var map=ssEdgeMap(S).all;
+  return `<div class='shape-mode-row'><span>Edge mode</span><button class='${!sDraft.smart.elbowsOn?'on':''}' onclick='setShapeElbows(false)'>Hide elbows · simple skew</button><button class='${sDraft.smart.elbowsOn?'on':''}' onclick='setShapeElbows(true)'>Show elbows · compound</button></div>
+    <div class='edge-stack'>${['A','B','C'].map(shapeEdgeEditor).join('')}</div>
+    <div class='corner-title'><b>Corner blocks</b><span>Single = 2 edges · Double = 4 · Triple = 6</span></div><div class='corner-grid corner-type-grid'>${SS_ORDER.map(function(c){return `<div class='corner-card'><div class='corner-card-head'><b>${c.toUpperCase()}</b><select onchange='setShapeCorner("${c}",this.value)'>${SS_CORNERS.map(function(x){return `<option value='${x[0]}' ${sDraft.smart.corners[c]===x[0]?'selected':''}>${x[1]}</option>`;}).join('')}</select></div></div>`;}).join('')}</div>
+    <div class='extra-edges'><div class='corner-title'><b>Corner edge dimensions</b><span>E / F / G…</span></div>${map.length?`<div class='extra-grid'>${map.map(function(e){return `<div><label>${e.id} · ${e.corner.toUpperCase()} · ${e.axis==='v'?'Vertical':'Horizontal'}</label><input value='${esc((sDraft.smart.extraEdges[e.id]||{}).len||'')}' oninput='setShapeExtra("${e.id}",this.value)'></div>`;}).join('')}</div>`:`<div class='empty compact'>Select Single / Double / Triple to create corner edge dimensions</div>`}</div>
+    <div class='corner-title'><b>Corner blocks · Out of plumb / level</b><span>finished corner coordinates</span></div><div class='corner-grid'>${SS_ORDER.map(function(c){var o=sDraft.smart.cornerOffsets[c];return `<div class='corner-card'><div class='corner-card-head'><b>${c.toUpperCase()}</b><small>corner coordinate</small></div><div class='corner-offset'><label>Out of plumb<input value='${esc(o.plumb||'0')}' oninput='setShapeCornerOffset("${c}","plumb",this.value)'></label><select aria-label='${c.toUpperCase()} plumb direction' onchange='setShapeCornerOffset("${c}","plumbDir",this.value)'><option value=''>—</option><option value='left' ${o.plumbDir==='left'?'selected':''}>←</option><option value='right' ${o.plumbDir==='right'?'selected':''}>→</option></select></div><div class='corner-offset'><label>Out of level<input value='${esc(o.level||'0')}' oninput='setShapeCornerOffset("${c}","level",this.value)'></label><select aria-label='${c.toUpperCase()} level direction' onchange='setShapeCornerOffset("${c}","levelDir",this.value)'><option value=''>—</option><option value='up' ${o.levelDir==='up'?'selected':''}>↑</option><option value='down' ${o.levelDir==='down'?'selected':''}>↓</option></select></div></div>`;}).join('')}</div>`;
+}
+function shapePolygonControls(){
+  return `<div class='shape-subsection'><div class='corner-title'><b>Вершины полигона</b><span>IDs стабильны для радиусов и ревизий</span></div><div class='shape-vertex-grid'>${sDraft.polygon.map(function(v,i){return `<div class='shape-vertex-row'><b>${esc(v.id)}</b><label>X<input value='${esc(v.x)}' oninput='setPolygonCoord(${i},"x",this.value)'></label><label>Y<input value='${esc(v.y)}' oninput='setPolygonCoord(${i},"y",this.value)'></label><button class='sm dl' ${sDraft.polygon.length<=3?'disabled':''} onclick='removePolygonVertex(${i})'>×</button></div>`;}).join('')}</div><button class='sm' onclick='addPolygonVertex()'>Добавить вершину</button></div>`;
+}
+function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;refreshShapeEditor();}
+function addPolygonVertex(){var last=sDraft.polygon[sDraft.polygon.length-1]||{x:'0',y:'0'};sDraft.polygon.push({id:shapeNewEntityId('PV-'),x:String(inch(last.x)+4),y:String(inch(last.y))});render();}
+function removePolygonVertex(i){if(sDraft.polygon.length<=3)return;sDraft.polygon.splice(i,1);render();}
+function shapeGenericControls(){
+  var specs=shapeParamSpecsFor(sDraft.type);
+  return `${specs.length?`<div class='shape-subsection'><div class='corner-title'><b>Параметры фигуры</b><span>inches · дроби поддерживаются</span></div><div class='grid'>${specs.map(function(s){return `<div><label>${esc(s.label)}</label><input value='${esc(sDraft.params[s.key])}' oninput='setShapeParam("${s.key}",this.value)'></div>`;}).join('')}</div></div>`:''}${sDraft.type==='polygon'?shapePolygonControls():''}`;
+}
+
+function shapeGroups(){var g=shapeDraftGeometry();return g.ok?shapeEdgeGroups(g):[];}
+function shapeGroupAt(i){return shapeGroups()[i]||null;}
+function shapeOperationAt(groupIndex,type){var g=shapeGroupAt(groupIndex);if(!g)return null;return ((sDraft.edgeOps||{})[g.id]||[]).find(function(x){return x.type===type;})||null;}
+function toggleShapeEdgeOp(groupIndex,opIndex,on){
+  var g=shapeGroupAt(groupIndex),type=SHAPE_EDGE_OPS[opIndex];if(!g||!type)return;if(!sDraft.edgeOps)sDraft.edgeOps={};var list=(sDraft.edgeOps[g.id]||[]).slice();
+  list=list.filter(function(x){return x.type!==type;});if(on)list.push(shapeNormalizeOp({type:type}));if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];render();
+}
+function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex,type);if(op)op[k]=v;refreshShapeEditor();}
+function shapeEdgeworkEditor(){
+  var groups=shapeGroups();if(!groups.length)return `<div class='validation-box badbox'>Сначала исправь основной контур — кромки не определены.</div>`;
+  var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
+  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Обработка кромок</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'без обработки'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'><div class='shape-edgework-row shape-edgework-labels'><span>Кромка</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
+    var ops=(sDraft.edgeOps||{})[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn(g.length)}</small></span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label>`:''}</div>`:''}</div>`;
+  }).join('')}</div></div>`:''}</div>`;
+}
+
+function addShapeFeature(type){var geo=shapeDraftGeometry();sFeaturesOpen=true;sDraft.features.push(newShapeFeature(type,geo));render();}
+function setShapeFeature(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;refreshShapeEditor();}
+function setShapeFeatureAndRender(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;render();}
+function removeShapeFeature(i){sDraft.features.splice(i,1);render();}
+function shapeFeatureFields(f,i,geo){
+  function input(label,k){return `<label>${label}<input value='${esc(f[k])}' oninput='setShapeFeature(${i},"${k}",this.value)'></label>`;}
+  if(f.type==='hole')return input('Diameter','diameter')+input('X from origin','x')+input('Y from origin','y')+input('Min edge clearance','minEdge');
+  if(f.type==='cutout')return input('Width','width')+input('Height','height')+input('X from origin','x')+input('Y from origin','y')+input('Corner radius','cornerRadius');
+  if(f.type==='stamp')return input('X from origin','x')+input('Y from origin','y')+input('Stamp text','text');
+  if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
+  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
+  return '';
+}
+function shapeFeaturesEditor(geo){
+  var titles={hole:'Отверстие',cutout:'Внутренний вырез',radius:'Радиус вершины',hardware:'Hardware prep',stamp:'Маркировка'};
+  var count=sDraft.features.length;return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("features")'><span><b>Features и технологические элементы</b><small>Отверстия, вырезы, радиусы, hardware и stamp</small></span><span class='shape-accordion-state'>${count?count+' элементов':'нет элементов'}<i>${sFeaturesOpen?'−':'+'}</i></span></button>${sFeaturesOpen?`<div class='shape-accordion-body'><div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("hole")'>+ Отверстие</button><button class='sm' onclick='addShapeFeature("cutout")'>+ Вырез</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Радиус</button>`:''}<button class='sm' onclick='addShapeFeature("hardware")'>+ Hardware</button><button class='sm' onclick='addShapeFeature("stamp")'>+ Stamp</button></div><div class='shape-feature-list'>${count?sDraft.features.map(function(f,i){return `<div class='shape-feature-card'><div class='shape-edgework-head'><b>${esc(titles[f.type]||f.type)}</b><span class='mono'>${esc(f.id)}</span><button class='sm dl' onclick='removeShapeFeature(${i})'>×</button></div><div class='shape-feature-fields'>${shapeFeatureFields(f,i,geo)}</div></div>`;}).join(''):'<div class="empty compact">Features не добавлены</div>'}</div></div>`:''}</div>`;
+}
+
+function shapeArtifacts(r){
+  var disabled=r.valid?'':'disabled';
+  return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Generic DXF</button><small>DXF — нейтральная геометрия R12, не машинный постпроцессор. Перед производством нужен проверенный постпроцессор конкретного CNC.</small></div>`;
+}
 function shapeForm(){
- const r=ShapeModule.compute(sDraft),S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;const map=ssEdgeMap(S).all;
- return `<div class="module-editor"><div class="module-editor-head"><div><h3>${sEdit==='new'?'Новая Advanced-фигура':'Изменение Advanced-фигуры'}</h3><p>Алгоритм Smart-Shape перенесён из v4.5 без упрощения геометрии.</p></div><span class="pill ok">source v4.5</span></div>
- <div class="shape-editor-layout"><div class="shape-controls">
-  <div class="grid"><div><label>Название *</label><input id="s_name" value="${esc(sDraft.name||'')}" oninput="sDraft.name=this.value"></div><div><label>B · Width</label><input value="${esc(sDraft.w)}" oninput="setShapeDim('w',this.value)"></div><div><label>A · Height</label><input value="${esc(sDraft.h)}" oninput="setShapeDim('h',this.value)"></div><div><label>C · Right height</label><input value="${esc(sDraft.smart.C.len||'')}" placeholder="= A" oninput="setShapeC(this.value)"></div></div>
-  <div class="shape-mode-row"><span>Edge mode</span><button class="${!sDraft.smart.elbowsOn?'on':''}" onclick="setShapeElbows(false)">Hide elbows · simple skew</button><button class="${sDraft.smart.elbowsOn?'on':''}" onclick="setShapeElbows(true)">Show elbows · compound</button></div>
-  <div class="edge-stack">${['A','B','C'].map(shapeEdgeEditor).join('')}</div>
-  <div class="corner-title"><b>Corner blocks</b><span>Single = 2 edges · Double = 4 · Triple = 6</span></div><div class="corner-grid">${SS_ORDER.map(c=>`<div class="corner-card"><label>${c.toUpperCase()}</label><select onchange="setShapeCorner('${c}',this.value)">${SS_CORNERS.map(x=>`<option value="${x[0]}" ${sDraft.smart.corners[c]===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select></div>`).join('')}</div>
-  ${map.length?`<div class="extra-edges"><div class="corner-title"><b>Corner edge dimensions</b><span>E / F / G…</span></div><div class="extra-grid">${map.map(e=>`<div><label>${e.id} · ${e.corner.toUpperCase()} · ${e.axis==='v'?'Vertical':'Horizontal'}</label><input value="${esc((sDraft.smart.extraEdges[e.id]||{}).len||'')}" oninput="setShapeExtra('${e.id}',this.value)"></div>`).join('')}</div></div>`:''}
- </div><div class="shape-preview-side"><div id="shapeLivePreview">${shapePreviewSVG(r)}</div><div id="shapeLiveDerived">${shapeDerivedHTML(r)}</div></div></div>
- <div class="err" id="e_shape"></div><div class="row"><button class="pri" onclick="saveShape()">Сохранить</button><button onclick="sEdit=null;sDraft=null;render()">Отмена</button></div></div>`;
+  var r=shapeDraftResult(),geo=shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  return `<div class='module-editor'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>Все размеры — finished size в дюймах; толщина — в миллиметрах. Невалидная геометрия не сохраняется и не экспортируется.</p></div><span class='pill ok'>schema v2 · fail closed</span></div>
+    <div class='shape-editor-layout'><div class='shape-controls'>
+      <div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}<div><label>Glass thickness, mm</label><input type='number' min='1' step='1' value='${esc(sDraft.thickness)}' oninput='setShapeField("thickness",this.value)'></div>${sDraft.type==='smart'?`<div><label>C · Right height</label><input value='${esc(sDraft.smart.C.len||'')}' placeholder='= A' oninput='setShapeC(this.value)'></div>`:''}</div>
+      ${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}
+      ${shapeEdgeworkEditor()}
+      ${shapeFeaturesEditor(geo)}
+    </div><div class='shape-preview-side'><div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button></div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+    <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='sEdit=null;sDraft=null;render()'>Отмена</button></div></div>`;
 }
-function saveShape(){const e=document.getElementById('e_shape');e.style.display='none';sDraft.name=(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');const r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(sEdit==='new')DB.shapeDef.push(sDraft);else DB.shapeDef[sEdit]=sDraft;sEdit=null;sDraft=null;touch();render();}
-function delShape(i){const s=DB.shapeDef[i];if(DB.muntinDef.some(m=>m.shapeId===s.id))return alert('Нельзя удалить — фигура используется в Muntinbar');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
+
+function saveShape(){
+  var e=document.getElementById('e_shape');e.style.display='none';sDraft.name=String(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');
+  var r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,(r.errors||[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
+  var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
+  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('Эта фигура используется в Muntinbar. Новая геометрия изменит связанную раскладку. Сохранить новую ревизию?'))return;
+  var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
+  if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;sEdit=null;sDraft=null;touch();render();
+}
+function shapeSafeFileName(s){return String(s||'shape').trim().replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'shape';}
+function shapeDownload(textValue,mime,name){var b=new Blob([textValue],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
+function downloadShapeArtifact(kind){
+  var r=shapeDraftResult();if(!r.valid)return alert(moduleErrorText(r));var base=shapeSafeFileName(r.definition.name)+'_R'+(r.definition.revision||0);
+  if(kind==='production')shapeDownload(ShapeModule.productionSvg(r),'image/svg+xml',base+'_production.svg');
+  if(kind==='cutting')shapeDownload(ShapeModule.cuttingSvg(r),'image/svg+xml',base+'_cutting.svg');
+  if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
+  if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
+}
+function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/sales-muntin-ui.js ==== */
 /* =====================================================================
@@ -2040,13 +2787,14 @@ function delShape(i){const s=DB.shapeDef[i];if(DB.muntinDef.some(m=>m.shapeId===
 
 let mEdit=null,mDraft=null,mFieldErrors={};
 function viewMuntinSkill(){
- const rows=DB.muntinDef.map((m,i)=>{const shape=DB.shapeDef.find(s=>s.id===m.shapeId),r=MuntinModule.compute(shape,m),P=muntinProduct((m.muntin||{}).productId);return `<tr><td><b>${raw(m.name)}</b></td><td>${shape?raw(shape.name):'<span class="bad pill">фигура удалена</span>'}</td><td>${esc(P.label)}</td><td class="mono">${r.valid?r.count+' segments · '+dimIn(r.totalLengthIn):'—'}</td><td>${r.valid&&r.geo.shapeAdaptive?'<span class="pill info">shape-adaptive</span>':'<span class="pill">rectangle</span>'}</td><td style="white-space:nowrap"><button class="sm" onclick="openMuntinEdit(${i})">Изменить</button><button class="sm dl" onclick="delMuntin(${i})">×</button></td></tr>`;}).join('');
+ const rows=DB.muntinDef.map((m,i)=>{const shape=DB.shapeDef.find(s=>s.id===m.shapeId),r=MuntinModule.compute(shape,m),P=muntinProduct((m.muntin||{}).productId),state=r.valid?(r.geo.shapeAdaptive?'<span class="pill info">shape-adaptive</span>':'<span class="pill">rectangle</span>'):'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';return `<tr><td><b>${raw(m.name)}</b><small class="shape-row-meta">Shape Rev ${m.shapeRevision==null?'—':m.shapeRevision}</small></td><td>${shape?raw(shape.name):'<span class="bad pill">фигура удалена</span>'}</td><td>${esc(P.label)}</td><td class="mono">${r.valid?r.count+' segments · '+dimIn(r.totalLengthIn):'—'}</td><td>${state}</td><td style="white-space:nowrap"><button class="sm" onclick="openMuntinEdit(${i})">Изменить</button><button class="sm dl" onclick="delMuntin(${i})">×</button></td></tr>`;}).join('');
  return `<div class="real-module-note"><b>Adaptive Muntin v4.5</b><span>Equal-clear раскладка на сетке 1/16″, реальный perimeter clipping, perpendicular edge reference, отдельные cut lengths для каждой части бара.</span></div>${mEdit!==null?muntinForm():''}<table><thead><tr><th>Название</th><th>Shape</th><th>Profile</th><th>Результат</th><th>Geometry</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>${mEdit===null?`<div class="row"><button class="pri" ${DB.shapeDef.length?'':'disabled'} onclick="openMuntinNew()">Новая раскладка мунтина</button></div>`:''}`;
 }
-function openMuntinNew(){mEdit='new';mFieldErrors={};mDraft=newMuntinDef((DB.shapeDef[0]||{}).id||'');render();}
+function openMuntinNew(){mEdit='new';mFieldErrors={};mDraft=newMuntinDef((DB.shapeDef[0]||{}).id||'');pinMuntinShape(mDraft,DB.shapeDef[0]);render();}
 function openMuntinEdit(i){mEdit=i;mFieldErrors={};mDraft=JSON.parse(JSON.stringify(DB.muntinDef[i]));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);render();}
 function currentMuntinShape(){return DB.shapeDef.find(s=>s.id===mDraft.shapeId);}
-function setMuntinStruct(k,v){if(k==='shapeId'){mDraft.shapeId=v;delete mFieldErrors.verticalPositions;delete mFieldErrors.horizontalPositions;}else if(k==='productId')mDraft.muntin.productId=v;else if(k==='verticalBars'){mDraft.muntin.layout.verticalBars=clampBars(v);delete mFieldErrors.verticalPositions;}else if(k==='horizontalBars'){mDraft.muntin.layout.horizontalBars=clampBars(v);delete mFieldErrors.horizontalPositions;}else if(k==='mode'){mDraft.muntin.production.mode=v;mFieldErrors={};}else if(k==='edgeMode')mDraft.muntin.production.edgeMode=v;else if(k==='flipped')mDraft.muntin.flipped=!!v;render();}
+function setMuntinStruct(k,v){if(k==='shapeId'){mDraft.shapeId=v;pinMuntinShape(mDraft,currentMuntinShape());delete mFieldErrors.verticalPositions;delete mFieldErrors.horizontalPositions;}else if(k==='productId')mDraft.muntin.productId=v;else if(k==='verticalBars'){mDraft.muntin.layout.verticalBars=clampBars(v);delete mFieldErrors.verticalPositions;}else if(k==='horizontalBars'){mDraft.muntin.layout.horizontalBars=clampBars(v);delete mFieldErrors.horizontalPositions;}else if(k==='mode'){mDraft.muntin.production.mode=v;mFieldErrors={};}else if(k==='edgeMode')mDraft.muntin.production.edgeMode=v;else if(k==='flipped')mDraft.muntin.flipped=!!v;render();}
+function adoptCurrentShapeRevision(){pinMuntinShape(mDraft,currentMuntinShape());render();}
 function setMuntinNumber(k,v){const r=fabParseDimStrict(v);if(r.ok&&r.v>=0){mDraft.muntin.production[k]=r.v;delete mFieldErrors[k];}else mFieldErrors[k]='Введите корректный неотрицательный размер';refreshMuntinEditor();}
 function setMuntinPositions(axis,v){
  const shape=currentMuntinShape(),sr=shape&&ShapeModule.compute(shape);if(!sr||!sr.valid)return;
@@ -2058,7 +2806,7 @@ function setMuntinPositions(axis,v){
  refreshMuntinEditor();
 }
 function muntinBomHTML(r){if(!r.valid)return '';const g=r.geo,f=g.face/2,rows=[];(g.verticalSegments||[]).forEach(s=>rows.push(`<tr><td>${muntinSegId('V',s)}</td><td>Vertical</td><td class="mono">${dimIn(s.cut)}</td><td class="mono">Face ${dimIn(s.pos-f)} → ${dimIn(s.pos+f)} · CL ${dimIn(s.pos)}</td></tr>`));(g.horizontalSegments||[]).forEach(s=>rows.push(`<tr><td>${muntinSegId('H',s)}</td><td>Horizontal</td><td class="mono">${dimIn(s.cut)}</td><td class="mono">Face ${dimIn(s.pos-f)} → ${dimIn(s.pos+f)} · CL ${dimIn(s.pos)}</td></tr>`));return `<table class="muntin-bom"><thead><tr><th>Part</th><th>Orientation</th><th>Cut length</th><th>Position / reference</th></tr></thead><tbody>${rows.join('')||'<tr><td colspan="4">No segment intersects the usable perimeter</td></tr>'}</tbody></table>`;}
-function muntinLiveHTML(){const inputError=Object.values(mFieldErrors)[0];if(inputError)return `<div class="module-invalid">${esc(tx(inputError))}</div>`;const shape=currentMuntinShape(),r=MuntinModule.compute(shape,mDraft);if(!r.valid)return `<div class="module-invalid">${esc(moduleErrorText(r))}</div>`;const g=r.geo;return `<div class="muntin-drawing">${mpSvg({geo:g,M:r.M})}</div><div class="smart-kpis"><div><span>Segments</span><b>${r.count}</b></div><div><span>Total cut</span><b>${dimIn(r.totalLengthIn)}</b></div><div><span>Grid</span><b>1/16″</b></div><div><span>Edge ref.</span><b>${g.edgeMode}${g.edgeModeForced?' fallback':''}</b></div></div><div class="validation-box ${g.edgeModeForced?'warnbox':'okbox'}">${esc(moduleNoteText(muntinEdgeModeNote(g)))}</div>${muntinBomHTML(r)}`;}
+function muntinLiveHTML(){const inputError=Object.values(mFieldErrors)[0];if(inputError)return `<div class="module-invalid">${esc(tx(inputError))}</div>`;const shape=currentMuntinShape(),r=MuntinModule.compute(shape,mDraft);if(!r.valid)return `<div class="module-invalid"><span>${esc(moduleErrorText(r))}</span>${r.code==='MUNTIN_SHAPE_REVISION'?'<button class="pri" onclick="adoptCurrentShapeRevision()">Проверить на текущей ревизии Shape</button>':''}</div>`;const g=r.geo;return `<div class="muntin-drawing">${mpSvg({geo:g,M:r.M})}</div><div class="smart-kpis"><div><span>Segments</span><b>${r.count}</b></div><div><span>Total cut</span><b>${dimIn(r.totalLengthIn)}</b></div><div><span>Grid</span><b>1/16″</b></div><div><span>Edge ref.</span><b>${g.edgeMode}${g.edgeModeForced?' fallback':''}</b></div></div><div class="validation-box ${g.edgeModeForced?'warnbox':'okbox'}">${esc(moduleNoteText(muntinEdgeModeNote(g)))}</div>${muntinBomHTML(r)}`;}
 function refreshMuntinEditor(){const el=document.getElementById('muntinLive');if(el){el.innerHTML=muntinLiveHTML();applyLang(el);}}
 function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="mEdit=null;mDraft=null;render()">Отмена</button></div></div>`;}
 function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;mEdit=null;mDraft=null;mFieldErrors={};touch();render();}
@@ -2304,6 +3052,15 @@ function validateImportedState(src){
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.shapeDef||[]).forEach((s,i)=>{
+  if(!s||typeof s!=='object')return;
+  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('неизвестный тип Shape в строке '+(i+1));
+  if(s.features!=null&&!Array.isArray(s.features))throw new Error('features Shape в строке '+(i+1)+' должны быть массивом');
+  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('polygon Shape в строке '+(i+1)+' должен быть массивом');
+  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('edgeOps Shape в строке '+(i+1)+' должен быть объектом');
+  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('неизвестный feature Shape '+(i+1)+', строка '+(j+1));if(f.id&&!subId.test(String(f.id)))throw new Error('недопустимый id feature Shape '+(i+1));if(f.id&&ids.has(f.id))throw new Error('дубликат id feature Shape '+(i+1));if(f.id)ids.add(f.id);});
+  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('некорректная обработка кромки Shape '+(i+1));s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('неизвестная операция кромки Shape '+(i+1));});});
+ });
  (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
  (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
  (src.user||[]).forEach((u,i)=>{

@@ -10,6 +10,7 @@
    Иначе любой вызов ssModel() подменял бы объект, и записи по удержанной ссылке терялись. */
 function ssIsModel(m){
   return !!(m&&typeof m==='object'&&m.corners&&m.extraEdges
+    &&m.cornerOffsets&&['tl','tr','br','bl'].every(function(k){return m.cornerOffsets[k];})
     &&m.A&&m.A.elbow&&m.B&&m.B.elbow&&m.C&&m.C.elbow);
 }
 function ssNormalize(m){
@@ -25,6 +26,12 @@ function ssNormalize(m){
   out.corners={};
   /* без модульных констант: normalizeShapeModel вызывается раньше, чем они инициализируются */
   ['tl','tr','br','bl'].forEach(function(k){var v=(m.corners||{})[k];out.corners[k]=['none','single','double','triple'].indexOf(v)>=0?v:'none';});
+  out.cornerOffsets={};
+  ['tl','tr','br','bl'].forEach(function(k){
+    var c=(m.cornerOffsets&&typeof m.cornerOffsets[k]==='object')?m.cornerOffsets[k]:{};
+    out.cornerOffsets[k]={plumb:c.plumb==null?'0':String(c.plumb),plumbDir:c.plumbDir||null,
+      level:c.level==null?'0':String(c.level),levelDir:c.levelDir||null};
+  });
   out.extraEdges={};
   var ee=m.extraEdges||{};
   Object.keys(ee).forEach(function(k){out.extraEdges[k]={len:(ee[k]&&ee[k].len!=null)?String(ee[k].len):''};});
@@ -64,4 +71,9 @@ function ssCornerTotals(S,corner){
   });
   var v=0,h=0;vals.forEach(function(x){v+=x.V;h+=x.H;});
   return {vals:vals,v:v,h:h};
+}
+/* Отклонение вершины от номинального прямоугольника. Plumb двигает X, level — Y. */
+function ssCornerDelta(S,corner){
+  var c=ssModel(S).cornerOffsets[corner]||{},x=ssNN(c.plumb),y=ssNN(c.level);
+  return [c.plumbDir==='left'?-x:c.plumbDir==='right'?x:0,c.levelDir==='down'?-y:c.levelDir==='up'?y:0];
 }

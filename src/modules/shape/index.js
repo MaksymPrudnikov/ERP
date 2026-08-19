@@ -7,17 +7,28 @@
    ===================================================================== */
 
 function defaultSmartModel(){return ssNormalize({elbowsOn:false,A:{out:'0'},B:{out:'0'},C:{len:'',out:'0'},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{}});}
-function newShapeId(){
-  if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return 's'+crypto.randomUUID();
-  return 's'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
-}
-function newSmartShapeDef(){return {id:newShapeId(),name:'',w:'48',h:'36',smart:defaultSmartModel()};}
+function newShapeId(){return shapeNewEntityId('s');}
 /* Значения по умолчанию принадлежат только новой форме. Пустой/нулевой размер
-   существующей формы нельзя молча заменять на 48×36 — это производственный брак. */
-function shapeDefToLine(s){s=s||{};return {w:String(s.w==null?'':s.w),h:String(s.h==null?'':s.h),shape:{type:'smart',smart:ssNormalize(s.smart||{})}};}
-function smartShapeResult(s){
-  var S=shapeDefToLine(s),G=shapeGeometry(S);if(!G.ok)return {valid:false,reason:G.error||'Invalid Smart-Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G};
-  var Q=ssContour(S),area=Math.abs(fabSignedArea(Q.pts));
-  return {valid:true,width:G.bboxW,height:G.bboxH,area:area,points:Q.pts,segs:Q.segs,base:Q.base,warns:G.warns||[],line:S,geometry:G};
+   существующей формы нельзя молча заменять — это производственный брак. */
+function shapeDefToLine(s){
+  var n=normalizeShapeDef(s||{});return {w:n.w,h:n.h,shape:{type:n.type,smart:n.smart,params:n.params,polygon:n.polygon,features:n.features,edgeOps:n.edgeOps,definition:n},definition:n};
 }
-const ShapeModule={code:'SHAPE',name:'Smart-Shape / Advanced',version:'v4.5-port',compute:smartShapeResult};
+function shapeFingerprint(def){
+  var src=JSON.stringify({type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps}),h=2166136261;
+  for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
+}
+function shapeModuleResult(s){
+  var def=normalizeShapeDef(s||{}),S=shapeDefToLine(def),G=shapeGeometry(S);
+  if(!G.ok)return {valid:false,reason:G.error||'Invalid Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G,definition:def};
+  var fg=shapeFeatureGeometry(def,G),v=shapeValidateComputed(def,G,fg);
+  if(v.errors.length)return {valid:false,reason:v.errors[0],errors:v.errors,warns:v.warns,line:S,geometry:G,definition:def,featureGeometry:fg};
+  var cutting=shapeCuttingGeometry(def,G,fg);if(!cutting.valid)return {valid:false,reason:cutting.error,errors:[cutting.error],warns:v.warns,line:S,geometry:G,definition:def,featureGeometry:fg,cutting:cutting};
+  var outer=Math.abs(fabSignedArea(G.points)),removed=(fg.holes||[]).reduce(function(a,h){return a+Math.PI*Math.pow(h.diameter/2,2);},0)+(fg.cutouts||[]).reduce(function(a,c){return a+c.width*c.height-(4-Math.PI)*Math.pow(c.cornerRadius||0,2);},0),req=shapeDerivedRequirements(def,G,fg);
+  var edgeGroups=shapeEdgeGroups(G),segs=(G.smartSegs||G.edges||[]);
+  return {valid:true,width:G.bboxW,height:G.bboxH,area:Math.max(0,outer-removed),grossArea:outer,perimeter:fabPolylineLength(G.points,true),points:G.points,segs:segs,edges:edgeGroups,vertices:G.vertices||[],base:G.smartBase||null,warns:(G.warns||[]).concat(v.warns||[]).concat(cutting.warnings||[]),line:S,geometry:G,definition:def,featureGeometry:fg,requirements:req,cutting:cutting,fingerprint:shapeFingerprint(def)};
+}
+const ShapeModule={
+  code:'SHAPE',name:'Production Shape / Drawing / Cutting',version:'schema-v2',catalog:SHAPE_PRESETS,
+  compute:shapeModuleResult,productionSvg:shapeProductionSvg,cuttingSvg:shapeCuttingSvg,
+  machinePayload:shapeMachinePayload,genericDxf:shapeGenericDxf
+};
