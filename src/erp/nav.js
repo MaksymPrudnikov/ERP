@@ -12,7 +12,8 @@ const NAV=[
  {group:'Ядро'},
  {k:'users', label:'Пользователи', icon:'users'},
  {group:'Операции'},
- {k:'sales', label:'Продажи / конфигурация', icon:'sales'},
+ {k:'sales', label:'Продажи', icon:'sales'},
+ {k:'configurators', label:'Конфигураторы', icon:'layers'},
  {k:'optimization', label:'Оптимизация', icon:'optimize'},
  {k:'production', label:'Производство', icon:'factory'},
  {group:'Домены — далее'},
@@ -62,14 +63,15 @@ function render(){
  const meta={
   dashboard:['Обзор системы','Карта ERP и текущий статус'],
   users:['Пользователи','Роли, станции и покрытие навыков'],
-  sales:['Продажи / конфигурация','Изолированные модули Shape и Muntinbar'],
+  sales:['Продажи','Заказы и коммерческая конфигурация'],
+  configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
   production:['Производство','Поток цеха, станции и уровни']
  }[tab]||['ERP Glazing System','Производственная система'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Фаза 1 · фундамент';
- const V={dashboard:viewDashboard,users:viewUsers, sales:viewSales, optimization:viewOptimization, production:viewProduction}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction}[tab];
  document.getElementById('app').innerHTML = V ? V() : '<div class="empty">модуль в плане</div>';
  afterRender();
 }

@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 34 модулей, 2 стиля.
+  Состав сборки: 35 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -2582,6 +2582,20 @@ const I18N_EN={
   "Пользователи": "Users",
   "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
+  "Конфигураторы": "Configurators",
+  "Заказы и коммерческая конфигурация": "Orders and commercial configuration",
+  "Инженерные конфигураторы Shape и Muntinbar": "Engineering Shape and Muntinbar configurators",
+  "Инженерные инструменты Production Shape и Adaptive Muntin развиваются отдельно от коммерческого Sales. Их существующие данные и расчётные контракты сохраняются.": "Production Shape and Adaptive Muntin engineering tools evolve separately from commercial Sales. Their existing data and calculation contracts are preserved.",
+  "Коммерческий контур ERP отделён от инженерных конфигураторов. Здесь поэтапно появятся Sales Orders и библиотека конфигураций заказа.": "The ERP commercial flow is separated from engineering configurators. Sales Orders and the order configuration library will be added here incrementally.",
+  "этап 2": "stage 2",
+  "Заказы": "Orders",
+  "Конфигурации": "Configurations",
+  "Sales Orders · коммерческий заказ клиента": "Sales Orders · customer commercial order",
+  "следующий этап · Draft Sales Order": "next stage · Draft Sales Order",
+  "Переиспользуемые конфигурации заказа и будущие Assembly Revisions": "Reusable order configurations and future Assembly Revisions",
+  "следующий этап · Configuration Library": "next stage · Configuration Library",
+  "Раздел Sales Orders подготовлен. Draft Sales Order будет добавлен отдельным следующим этапом.": "The Sales Orders section is ready. Draft Sales Order will be added as a separate next stage.",
+  "Раздел Configurations подготовлен. Configuration Library будет добавлена отдельным следующим этапом.": "The Configurations section is ready. Configuration Library will be added as a separate next stage.",
   "Оптимизация": "Optimization",
   "Производство": "Production",
   "Домены — далее": "Domains — next",
@@ -2953,7 +2967,8 @@ const NAV=[
  {group:'Ядро'},
  {k:'users', label:'Пользователи', icon:'users'},
  {group:'Операции'},
- {k:'sales', label:'Продажи / конфигурация', icon:'sales'},
+ {k:'sales', label:'Продажи', icon:'sales'},
+ {k:'configurators', label:'Конфигураторы', icon:'layers'},
  {k:'optimization', label:'Оптимизация', icon:'optimize'},
  {k:'production', label:'Производство', icon:'factory'},
  {group:'Домены — далее'},
@@ -3003,14 +3018,15 @@ function render(){
  const meta={
   dashboard:['Обзор системы','Карта ERP и текущий статус'],
   users:['Пользователи','Роли, станции и покрытие навыков'],
-  sales:['Продажи / конфигурация','Изолированные модули Shape и Muntinbar'],
+  sales:['Продажи','Заказы и коммерческая конфигурация'],
+  configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
   production:['Производство','Поток цеха, станции и уровни']
  }[tab]||['ERP Glazing System','Производственная система'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Фаза 1 · фундамент';
- const V={dashboard:viewDashboard,users:viewUsers, sales:viewSales, optimization:viewOptimization, production:viewProduction}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction}[tab];
  document.getElementById('app').innerHTML = V ? V() : '<div class="empty">модуль в плане</div>';
  afterRender();
 }
@@ -3196,19 +3212,23 @@ function skillReport(){
 
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
-   view/sales  ·  erp-1.0
-   Оболочка домена Sales: карточки модулей Shape / Muntinbar.
+   view/sales  ·  erp-1.1
+   Коммерческий Sales. Этап 2: только каркас Sales Orders / Configurations.
+   Shape / Muntin вынесены в отдельный домен Configurators.
    ===================================================================== */
 
 function viewSales(){
- if(!['shape','muntin'].includes(subtab)) subtab='shape';   /* subtab общий на все домены — чужое значение сюда доезжать не должно */
- /* Пока открыт редактор, шапка домена и карточки модулей только съедают высоту:
-    чертёж из-за них уезжает под сгиб экрана. Возвращаются при закрытии. */
- var editing=(typeof sEdit!=='undefined'&&sEdit!==null)||(typeof mEdit!=='undefined'&&mEdit!==null);
- return `${editing?'':`<div class="page-head"><div><h2>Конфигурация изделия</h2><p>Shape теперь хранит finished geometry, физическую топологию, features и обработку кромок. Чертёж, cutting geometry и Muntin ссылаются на ту же ревизию.</p></div><span class="pill ok">${ico('check','icon-inline')}schema v2</span></div>`}
+ if(!['orders','configurations'].includes(subtab)) subtab='orders';
+ const cards=[
+  {id:'orders',icon:'sales',title:'Заказы',desc:'Sales Orders · коммерческий заказ клиента',meta:'следующий этап · Draft Sales Order'},
+  {id:'configurations',icon:'layers',title:'Конфигурации',desc:'Переиспользуемые конфигурации заказа и будущие Assembly Revisions',meta:'следующий этап · Configuration Library'}
+ ];
+ return `<div class="page-head"><div><h2>Продажи</h2><p>Коммерческий контур ERP отделён от инженерных конфигураторов. Здесь поэтапно появятся Sales Orders и библиотека конфигураций заказа.</p></div><span class="pill">этап 2</span></div>
+  <div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>
   <div class="card">
-   ${editing?'':salesSkillCards()}
-   ${subtab==='shape'?viewShapeSkill():viewMuntinSkill()}
+   ${subtab==='orders'
+    ?'<div class="empty">Раздел Sales Orders подготовлен. Draft Sales Order будет добавлен отдельным следующим этапом.</div>'
+    :'<div class="empty">Раздел Configurations подготовлен. Configuration Library будет добавлена отдельным следующим этапом.</div>'}
   </div>`;
 }
 
@@ -3592,6 +3612,25 @@ function refreshMuntinEditor(){const el=document.getElementById('muntinLive');if
 function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="mEdit=null;mDraft=null;render()">Отмена</button></div></div>`;}
 function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;mEdit=null;mDraft=null;mFieldErrors={};touch();render();}
 function delMuntin(i){if(!confirm('Удалить раскладку?'))return;DB.muntinDef.splice(i,1);touch();render();}
+
+/* ==== src/erp/views/configurators.js ==== */
+/* =====================================================================
+   view/configurators  ·  erp-1.0
+   Отдельная оболочка инженерных конфигураторов Shape / Muntinbar.
+   Внутренняя логика существующих модулей не меняется.
+   ===================================================================== */
+
+function viewConfigurators(){
+ if(!['shape','muntin'].includes(subtab)) subtab='shape';
+ /* При открытом редакторе не занимаем экран дополнительной шапкой —
+    сохраняем прежнее поведение Sales-оболочки для Shape/Muntin. */
+ var editing=(typeof sEdit!=='undefined'&&sEdit!==null)||(typeof mEdit!=='undefined'&&mEdit!==null);
+ return `${editing?'':`<div class="page-head"><div><h2>Конфигураторы</h2><p>Инженерные инструменты Production Shape и Adaptive Muntin развиваются отдельно от коммерческого Sales. Их существующие данные и расчётные контракты сохраняются.</p></div><span class="pill ok">${ico('check','icon-inline')}schema v2</span></div>`}
+  <div class="card">
+   ${editing?'':salesSkillCards()}
+   ${subtab==='shape'?viewShapeSkill():viewMuntinSkill()}
+  </div>`;
+}
 
 /* ==== src/erp/views/optimization.js ==== */
 /* =====================================================================
