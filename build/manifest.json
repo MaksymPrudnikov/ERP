@@ -33,6 +33,7 @@
     "src/erp/views/sales.js",
     "src/erp/views/sales-shape-ui.js",
     "src/erp/views/sales-muntin-ui.js",
+    "src/erp/views/configurators.js",
     "src/erp/views/optimization.js",
     "src/erp/views/production.js",
     "src/erp/storage.js"
