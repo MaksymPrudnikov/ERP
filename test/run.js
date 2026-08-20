@@ -102,8 +102,155 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('пустые угловые рёбра = невалидно', corner.blocked, false);
     eq('срезанный угол 4×4 → 6 точек, площадь 1728−16', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1712 });
 
+    /* Скос ребра нотча. Перпендикулярный вынос входит в суммы угла, поэтому
+       контур обязан остаться замкнутым, а габарит — прежним. Разошлось —
+       сломана связка ssCornerTotals ↔ ssStairs. */
+    const notchSkew = await p.evaluate(() => {
+      function mk(E, F) {
+        const s = { id: 't', name: 't', w: '48', h: '36', smart: ssNormalize({}) };
+        s.smart.corners.tl = 'single';
+        const S = { w: s.w, h: s.h, shape: { type: 'smart', smart: s.smart } };
+        ssSyncExtra(S); s.smart = S.shape.smart;
+        s.smart.extraEdges.E = E; s.smart.extraEdges.F = F;
+        return ShapeModule.compute(s);
+      }
+      const flat = mk({ len: '10', out: '0', dir: null }, { len: '8', out: '0', dir: null });
+      const skew = mk({ len: '10', out: '1', dir: 'right' }, { len: '8', out: '0', dir: null });
+      const tooBig = mk({ len: '10', out: '10', dir: 'right' }, { len: '8', out: '0', dir: null });
+      const noDir = mk({ len: '10', out: '1', dir: null }, { len: '8', out: '0', dir: null });
+      let gaps = -1;
+      if (skew.valid) {
+        const e = skew.geometry.edges; gaps = 0;
+        for (let i = 0; i < e.length; i++) { const q = e[(i + 1) % e.length]; if (Math.hypot(q.p1[0] - e[i].p2[0], q.p1[1] - e[i].p2[1]) > 1e-7) gaps++; }
+      }
+      return { flatValid: flat.valid, skewValid: skew.valid, gaps,
+        w: skew.width, h: skew.height,
+        sameBox: flat.width === skew.width && flat.height === skew.height,
+        areaChanged: Math.abs(flat.area - skew.area) > 1e-9,
+        tooBigRejected: !tooBig.valid, noDirRejected: !noDir.valid };
+    });
+    eq('скос ребра нотча не рвёт контур и не двигает габарит',
+      { flat: notchSkew.flatValid, skew: notchSkew.skewValid, gaps: notchSkew.gaps, box: notchSkew.sameBox, w: notchSkew.w, h: notchSkew.h },
+      { flat: true, skew: true, gaps: 0, box: true, w: 48, h: 36 });
+    eq('скос ребра нотча меняет площадь детали', notchSkew.areaChanged, true);
+    eq('скос больше самого ребра отклоняется', notchSkew.tooBigRejected, true);
+    eq('скос без направления отклоняется', notchSkew.noDirRejected, true);
+
+    /* Лесенка нотча привязана к РЕАЛЬНОМУ концу подрезанной стороны.
+       Если A имеет уклон, ребро нотча в 10″ обязано остаться ровно 10″:
+       раньше привязка к вершине габарита превращала его в 10-7/64″. */
+    const notchAnchor = await p.evaluate(() => {
+      const s = { id: 't', name: 't', w: '80', h: '90', smart: ssNormalize({}) };
+      s.smart.elbowsOn = false;
+      s.smart.A.out = '1'; s.smart.A.dir = 'right'; s.smart.C.len = '90';
+      s.smart.corners.tl = 'single';
+      const S = { w: s.w, h: s.h, shape: { type: 'smart', smart: s.smart } };
+      ssSyncExtra(S); s.smart = S.shape.smart;
+      s.smart.extraEdges.E = { len: '10', out: '2', dir: 'right' };
+      s.smart.extraEdges.F = { len: '10', out: '0', dir: null };
+      const r = ShapeModule.compute(s);
+      if (!r.valid) return { valid: false, reason: r.reason };
+      const byId = {}; r.geometry.edges.forEach(e => byId[e.id] = e);
+      const chain = shapeAnnChainItems(r, r.line, 'top');
+      return { valid: true,
+        fRun: Math.abs(byId.F.p2[0] - byId.F.p1[0]),
+        eRise: Math.abs(byId.E.p2[1] - byId.E.p1[1]),
+        chainIds: chain.map(q => q.id),
+        chainPlusGap: chain.reduce((a, q) => a + q.v, 0) + byId.F.p1[0],
+        width: r.width };
+    });
+    eq('уклон стороны не искажает ребро нотча', { valid: notchAnchor.valid, f: notchAnchor.fRun, e: notchAnchor.eRise }, { valid: true, f: 10, e: 10 });
+    eq('верхняя цепочка включает поперечное ребро нотча', notchAnchor.chainIds, ['F', 'E', 'D']);
+    eq('верхняя цепочка сходится с габаритом', Math.abs(notchAnchor.chainPlusGap - notchAnchor.width) < 1e-9, true);
+
+    /* Координата угла живёт только вместе с угловым блоком. Иначе она правит
+       геометрию, но в интерфейсе скрыта — размер «залипает» и его не найти. */
+    const orphanOffset = await p.evaluate(() => {
+      function mk(corner) {
+        const s = { id: 't', name: 't', w: '24', h: '90', smart: ssNormalize({}) };
+        s.smart.C.len = '90';
+        s.smart.corners.tl = corner;
+        s.smart.cornerOffsets = { tl: { plumb: '1', plumbDir: 'left', level: '2', levelDir: 'up' } };
+        s.smart = ssNormalize(s.smart);
+        if (corner !== 'none') {
+          const S = { w: s.w, h: s.h, shape: { type: 'smart', smart: s.smart } };
+          ssSyncExtra(S); s.smart = S.shape.smart;
+          Object.keys(s.smart.extraEdges).forEach(k => s.smart.extraEdges[k].len = '4');
+        }
+        return ShapeModule.compute(s);
+      }
+      const off = mk('none'), on = mk('single');
+      return { offW: off.width, offH: off.height, offDout: off.base.Dout,
+        onApplied: Math.abs(on.base.AT[0] - (-1)) < 1e-9 };
+    });
+    eq('без углового блока координата угла не влияет на геометрию',
+      { w: orphanOffset.offW, h: orphanOffset.offH, dout: orphanOffset.offDout }, { w: 24, h: 90, dout: 0 });
+    eq('с угловым блоком координата угла работает', orphanOffset.onApplied, true);
+
+    /* Тот же инвариант, но по пути СОХРАНЁННОЙ модели: она уже полностью
+       сформирована, и ранний выход из ssNormalize раньше пропускал её мимо
+       нормализации — скрытый вынос угла продолжал жить после перезагрузки. */
+    const storedOrphan = await p.evaluate(() => {
+      const z = { plumb: '0', plumbDir: null, level: '0', levelDir: null };
+      const smart = {
+        elbowsOn: true,
+        A: { len: '', out: '0', dir: null, elbow: { to: '0', elbowLen: '0', past: '0', mode: null } },
+        B: { len: '', out: '0', dir: null, elbow: { to: '0', elbowLen: '0', past: '0', mode: null } },
+        C: { len: '90', out: '0', dir: null, elbow: { to: '0', elbowLen: '0', past: '0', mode: null } },
+        corners: { tl: 'none', tr: 'none', br: 'none', bl: 'none' }, extraEdges: {},
+        cornerOffsets: { tl: { plumb: '1', plumbDir: 'left', level: '2', levelDir: 'up' },
+          tr: Object.assign({}, z), br: Object.assign({}, z), bl: Object.assign({}, z) }
+      };
+      const r = ShapeModule.compute({ id: 't', name: 't', type: 'smart', w: '24', h: '90', smart: smart });
+      return { w: r.width, h: r.height, dout: r.base.Dout };
+    });
+    eq('сохранённый вынос угла без блока не переживает загрузку',
+      storedOrphan, { w: 24, h: 90, dout: 0 });
+
+    /* Печать. Лист должен нести СВОИ идентификаторы: на странице одновременно
+       живёт превью с тем же <marker id>, и по первому совпадению в документе
+       ссылка уходила в скрытый элемент — на бумаге пропадали стрелки размеров. */
+    const printSheetCheck = await p.evaluate(() => {
+      const d = { id: 't', name: 'Печать', type: 'smart', w: '24', h: '90', thickness: '6',
+        smart: ssNormalize({ elbowsOn: false, C: { len: '90' } }), features: [], edgeOps: {} };
+      const r = ShapeModule.compute(d);
+      const before = document.querySelectorAll('#printSheetHost svg').length;
+      printSheetPrepare(ShapeModule.productionSvg(r), 'Печать · Production Drawing');
+      const host = document.getElementById('printSheetHost');
+      const svg = host.querySelector('svg');
+      const html = svg.innerHTML;
+      const ids = (html.match(/id="([^"]+)"/g) || []).map(x => x.slice(4, -1));
+      const refs = (html.match(/url\(#([^)]+)\)/g) || []).map(x => x.slice(5, -1));
+      const resolved = refs.every(id => ids.indexOf(id) >= 0);
+      const printing = document.body.classList.contains('printing');
+      const caption = (host.textContent || '').indexOf('Production Drawing') >= 0;
+      printSheetCleanup();
+      return { before, made: !!svg, resolved, refs: refs.length, printing, caption,
+        cleared: document.getElementById('printSheetHost').innerHTML === '',
+        classGone: !document.body.classList.contains('printing') };
+    });
+    eq('лист печати самодостаточен и убирается за собой',
+      printSheetCheck,
+      { before: 0, made: true, resolved: true, refs: printSheetCheck.refs, printing: true, caption: true, cleared: true, classGone: true });
+    ok('в листе печати есть ссылки на маркеры размеров', printSheetCheck.refs > 0);
+
+    /* Новая Smart-Shape — нейтральный шаблон 1×1 без примера геометрии. */
+    const neutralStart = await p.evaluate(() => {
+      const d = newShapeDef('smart'), r = ShapeModule.compute(d);
+      return { w: d.w, h: d.h, valid: r.valid, corners: Object.values(d.smart.corners).join(','),
+        extras: Object.keys(d.smart.extraEdges).length,
+        offsets: Object.values(d.smart.cornerOffsets).map(o => o.plumb + '/' + o.level).join(',') };
+    });
+    eq('новая Smart-Shape стартует нейтральной 1×1',
+      neutralStart, { w: '1', h: '1', valid: true, corners: 'none,none,none,none', extras: 0, offsets: '0/0,0/0,0/0,0/0' });
+
+    /* Координаты углов живут только вместе с угловым блоком, поэтому здесь
+       блок выбирается явно — иначе значения будут обнулены по инварианту. */
     const cornerOffsets = await p.evaluate(() => {
       const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};
+      s.smart.corners.bl='single';
+      const S={w:s.w,h:s.h,shape:{type:'smart',smart:s.smart}};ssSyncExtra(S);s.smart=S.shape.smart;
+      Object.keys(s.smart.extraEdges).forEach(k=>s.smart.extraEdges[k].len='2');
       s.smart.cornerOffsets.tl.plumb='2';s.smart.cornerOffsets.tl.plumbDir='right';
       s.smart.cornerOffsets.tr.level='3';s.smart.cornerOffsets.tr.levelDir='down';
       const r=ShapeModule.compute(s),payload=ShapeModule.machinePayload(r);
@@ -113,7 +260,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-36)<1e-9));
 
     const badCornerOffset = await p.evaluate(() => {
-      const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};s.smart.cornerOffsets.bl.plumb='1';return ShapeModule.compute(s).valid;
+      const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};
+      s.smart.corners.tr='single';
+      const S={w:s.w,h:s.h,shape:{type:'smart',smart:s.smart}};ssSyncExtra(S);s.smart=S.shape.smart;
+      Object.keys(s.smart.extraEdges).forEach(k=>s.smart.extraEdges[k].len='2');
+      s.smart.cornerOffsets.bl.plumb='1';return ShapeModule.compute(s).valid;
     });
     eq('отклонение угла без направления блокируется', badCornerOffset, false);
 
@@ -132,7 +283,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     const schemaV2 = await p.evaluate(() => {
       const presets=SHAPE_PRESETS.map(x=>({id:x.id,valid:ShapeModule.compute(newShapeDef(x.id)).valid}));
-      const d=newShapeDef('rectangle');
+      /* Новая фигура открывается нейтральным шаблоном 1×1, поэтому здесь
+         размеры задаются явно: тест про features, а не про значения по умолчанию. */
+      const d=newShapeDef('rectangle');d.w='48';d.h='36';
       d.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];d.edgeOps.B=[shapeNormalizeOp({type:'Flat Polish'})];
       d.features.push(shapeNormalizeFeature({type:'radius',vertexId:'BL',radius:'2'}));
       d.features.push(shapeNormalizeFeature({type:'hole',diameter:'1',x:'10',y:'10',minEdge:'1/2'}));
@@ -141,7 +294,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r),dxf=ShapeModule.genericDxf(r);
       const conflict=newShapeDef('rectangle');conflict.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'}),shapeNormalizeOp({type:'Rough Arris'})];
       const badParam=newShapeDef('notch-middle');badParam.params.width='abc';
-      const circle=newShapeDef('circle'),badCircle=newShapeDef('circle');badCircle.h='35';
+      const circle=newShapeDef('circle'),badCircle=newShapeDef('circle');badCircle.w='36';badCircle.h='35';
       return {presets,valid:r.valid,rounded:r.points.length>4&&payload.cutouts[0].points.length>4,holeCount:payload.holes.length,stampLeaked:JSON.stringify(payload).includes('TEMPER'),allowance:r.cutting.minX<0&&r.cutting.minY<0,dxf:dxf.includes('CUT_HOLES')&&dxf.includes('CUT_INNER')&&dxf.endsWith('EOF\n'),requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
     });
     eq('все каталожные Shape имеют валидные defaults', schemaV2.presets.filter(x=>!x.valid), []);

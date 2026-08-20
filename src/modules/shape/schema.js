@@ -14,8 +14,11 @@ function shapeTextValue(v,d){return String(v==null?(d==null?'':d):v);}
 function shapeNormalizeOp(op){
   op=shapePlainObject(op);var type=SHAPE_EDGE_OPS.indexOf(op.type)>=0?op.type:null;if(!type)return null;
   var out={id:shapeTextValue(op.id,shapeNewEntityId('eo-')),type:type};
-  if(type==='Mitering')out.angle=[22.5,45].indexOf(+op.angle)>=0?+op.angle:45;
-  if(type==='Beveling')out.width=shapeTextValue(op.width,'1');
+  /* Сторона обработки — производственный параметр, а не оформление:
+     Front Mitre оставляет длинной ЛИЦЕВУЮ грань и подрезает тыльную,
+     Back Mitre — наоборот. От неё зависит вид сверху и тип машинной линии. */
+  if(type==='Mitering'){out.angle=[22.5,45].indexOf(+op.angle)>=0?+op.angle:45;out.side=op.side==='front'?'front':'back';}
+  if(type==='Beveling'){out.width=shapeTextValue(op.width,'1');out.side=op.side==='back'?'back':'front';}
   return out;
 }
 function shapeNormalizeFeature(f){
@@ -47,7 +50,14 @@ function normalizeShapeDef(s){
   return out;
 }
 function newShapeDef(type){
-  type=shapeType(type||'smart');var out=normalizeShapeDef({id:shapeNewEntityId('s'),name:'',type:type,w:type==='circle'?'36':'48',h:type==='circle'?'36':'36',params:shapeDefaultParams(type),smart:defaultSmartModel(),features:[],edgeOps:{}});
+  /* Smart-Shape открывается нейтральным шаблоном 1×1, без сохранённого примера
+     геометрии: реальные размеры приходят из заказа, а не из заготовки в коде.
+     У остальных пресетов размер связан с их собственными параметрами (глубина
+     выреза, апекс и т.д.), поэтому им 1×1 не навязываем — иначе шаблон родится
+     невалидным. */
+  type=shapeType(type||'smart');
+  var W=type==='smart'?'1':(type==='circle'?'36':'48'),H=type==='smart'?'1':(type==='circle'?'36':'36');
+  var out=normalizeShapeDef({id:shapeNewEntityId('s'),name:'',type:type,w:W,h:H,params:shapeDefaultParams(type),smart:defaultSmartModel(),features:[],edgeOps:{}});
   if(type==='polygon')out.polygon=shapeNormalizePolygon(null);return out;
 }
 function newSmartShapeDef(){return newShapeDef('smart');}

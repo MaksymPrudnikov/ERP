@@ -58,9 +58,18 @@ function ssStairs(S,corner,vertex,pVert,pHoriz){
   var T=ssCornerTotals(S,corner);
   if(!T.vals.length)return [];
   var g=SS_CG[corner];
-  function P(dx,dy){return [vertex[0]+g.h[0]*dx+g.v[0]*dy,vertex[1]+g.h[1]*dx+g.v[1]*dy];}
+  /* Начало лесенки — РЕАЛЬНЫЙ конец подрезанной стороны, а не вершина габарита.
+     Если сторона A/B/C имеет уклон, её конец смещён, и привязка к вершине
+     съедала это смещение первым ребром нотча (ребро 10″ становилось 10-7/64″). */
+  function P(dx,dy){return [pVert[0]+g.h[0]*dx+g.v[0]*(dy-T.v),pVert[1]+g.h[1]*dx+g.v[1]*(dy-T.v)];}
+  /* Каждое ребро нотча идёт не строго по оси: горизонтальное добавляет
+     вертикальный вынос (HP), вертикальное — горизонтальный (VP). Суммы угла
+     уже это учитывают, поэтому цепочка приходит ровно в pHoriz. */
   var pts=[P(0,T.v)],ids=[],dx=0,dy=T.v;
-  T.vals.forEach(function(s){dx+=s.H;pts.push(P(dx,dy));ids.push(s.hId);dy-=s.V;pts.push(P(dx,dy));ids.push(s.vId);});
+  T.vals.forEach(function(s){
+    dx+=s.H;dy+=(s.HP||0);pts.push(P(dx,dy));ids.push(s.hId);
+    dy-=s.V;dx+=(s.VP||0);pts.push(P(dx,dy));ids.push(s.vId);
+  });
   pts[0]=[pVert[0],pVert[1]];
   pts[pts.length-1]=[pHoriz[0],pHoriz[1]];
   var segs=ids.map(function(id,i){return {id:id,p1:pts[i],p2:pts[i+1]};});
@@ -71,10 +80,14 @@ function ssStairs(S,corner,vertex,pVert,pHoriz){
 function ssContour(S){
   var G=ssBase(S),T={tl:ssCornerTotals(S,'tl'),tr:ssCornerTotals(S,'tr'),br:ssCornerTotals(S,'br'),bl:ssCornerTotals(S,'bl')};
   var dD=G.Dsigned>=0?1:-1,dB=-1;
+  /* Сначала вертикальные стороны: их подрезанные концы задают, откуда реально
+     начинаются горизонтальные стороны. Брать вершину габарита нельзя — при
+     уклоне A/C конец стороны смещён по X, и лесенка нотча не сходилась. */
   var spanA=ssSpan(G.Ap,1,G.BL[1]+T.bl.v,G.AT[1]-T.tl.v),
-      spanD=ssSpan(G.Dp,0,G.AT[0]+dD*T.tl.h,G.CT[0]-dD*T.tr.h),
-      spanC=ssSpan(G.Cp.slice().reverse(),1,G.CT[1]-T.tr.v,G.BR[1]+T.br.v),
-      spanB=ssSpan(G.Bp.slice().reverse(),0,G.BR[0]+dB*T.br.h,G.BL[0]-dB*T.bl.h);
+      spanC=ssSpan(G.Cp.slice().reverse(),1,G.CT[1]-T.tr.v,G.BR[1]+T.br.v);
+  var aTop=spanA[spanA.length-1],aBot=spanA[0],cTop=spanC[0],cBot=spanC[spanC.length-1];
+  var spanD=ssSpan(G.Dp,0,aTop[0]+dD*T.tl.h,cTop[0]-dD*T.tr.h),
+      spanB=ssSpan(G.Bp.slice().reverse(),0,cBot[0]+dB*T.br.h,aBot[0]-dB*T.bl.h);
   var segs=[];
   function push(P,id){for(var i=0;i<P.length-1;i++)segs.push({id:id,p1:P[i],p2:P[i+1]});}
   push(spanA,'A');

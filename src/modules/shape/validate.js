@@ -42,11 +42,24 @@ function ssValidate(S){
   if(errors.length)return {errors:errors,warns:warns};
   var all=ssEdgeMap(S).all;
   all.forEach(function(e){
-    var raw=(m.extraEdges[e.id]||{}).len;if(raw==null)raw='';var r=fabParseDimStrict(raw);
-    if(!r.ok||r.v<=0)errors.push('Corner edge '+e.id+' ('+e.corner.toUpperCase()+'): '+((!r.ok&&raw!=='')?'"'+raw+'" is not a valid dimension':'no value yet')+'.');
+    var x=m.extraEdges[e.id]||{},raw=x.len;if(raw==null)raw='';var r=fabParseDimStrict(raw);
+    if(!r.ok||r.v<=0){errors.push('Corner edge '+e.id+' ('+e.corner.toUpperCase()+'): '+((!r.ok&&raw!=='')?'"'+raw+'" is not a valid dimension':'no value yet')+'.');return;}
+    /* Скос ребра нотча проверяется теми же правилами, что и уклон основной стороны. */
+    var ro=fabParseDimStrict(x.out==null?'0':x.out);
+    if(x.out!==''&&x.out!=null&&!ro.ok)errors.push('Corner edge '+e.id+': out of plumb / level "'+x.out+'" is not a valid dimension.');
+    else if(ro.ok&&ro.v<0)errors.push('Corner edge '+e.id+': out of plumb / level cannot be negative.');
+    else if(ro.ok&&ro.v>0&&!x.dir)errors.push('Corner edge '+e.id+': pick which way it is out of '+(e.axis==='v'?'plumb':'level')+'.');
+    else if(ro.ok&&ro.v>=r.v)errors.push('Corner edge '+e.id+': out of plumb / level '+dimIn(ro.v)+' must be smaller than the edge itself ('+dimIn(r.v)+').');
   });
   if(errors.length)return {errors:errors,warns:warns};
   var G=ssBase(S),T={tl:ssCornerTotals(S,'tl'),tr:ssCornerTotals(S,'tr'),br:ssCornerTotals(S,'br'),bl:ssCornerTotals(S,'bl')};
+  /* Скос ребра нотча входит в суммы угла и может увести их в минус —
+     это значит, что лесенка выворачивается наружу детали. */
+  ['tl','tr','br','bl'].forEach(function(c){
+    if(!T[c].vals.length)return;
+    if(T[c].v<-1e-9)errors.push('Corner '+c.toUpperCase()+': the skew of the horizontal notch edges turns the corner inside out.');
+    if(T[c].h<-1e-9)errors.push('Corner '+c.toUpperCase()+': the skew of the vertical notch edges turns the corner inside out.');
+  });
   function fit(used,avail,txt){if(used-avail>1e-9)errors.push(txt+': corner steps '+dimIn(used)+' do not fit in '+dimIn(avail)+'.');}
   fit(T.tl.v+T.bl.v,Math.abs(G.AT[1]-G.BL[1]),'Left side (A)');
   fit(T.tr.v+T.br.v,Math.abs(G.CT[1]-G.BR[1]),'Right side (C)');

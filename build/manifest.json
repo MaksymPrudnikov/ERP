@@ -13,6 +13,7 @@
     "src/modules/shape/validate.js",
     "src/modules/shape/geometry.js",
     "src/modules/shape/cutting.js",
+    "src/modules/shape/annotate.js",
     "src/modules/shape/drawing.js",
     "src/modules/shape/index.js",
     "src/modules/muntin/catalog.js",

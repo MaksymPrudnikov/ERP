@@ -96,3 +96,50 @@ function boot(){
  render();
 }
 boot();
+
+/* ---------------------------------------------------------------------
+   Печать чертежа на бумагу / в PDF.
+
+   Никаких внешних библиотек: файл обязан открываться с диска. Чертёж уже
+   является самодостаточным SVG, поэтому печать сводится к тому, чтобы на
+   время печати показать ТОЛЬКО его. Отдельное окно не открываем — блокировщик
+   всплывающих окон и режим file:// делают этот путь ненадёжным.
+   --------------------------------------------------------------------- */
+function printSheetHost(){
+  var h=document.getElementById('printSheetHost');
+  if(!h){h=document.createElement('div');h.id='printSheetHost';document.body.appendChild(h);}
+  return h;
+}
+function printSheetCleanup(){
+  document.body.classList.remove('printing');
+  var h=document.getElementById('printSheetHost');if(h)h.innerHTML='';
+}
+/* Копия чертежа получает СВОИ идентификаторы. На странице в этот момент живёт
+   ещё и превью с тем же <marker id="shpArr">, а браузер разрешает url(#id) по
+   первому совпадению в документе — им оказывался скрытый превью-элемент, и на
+   бумаге у цепочек размеров пропадали стрелки. */
+function printSheetUniqueIds(svg){
+  var n='pr'+Date.now().toString(36);
+  return String(svg)
+    .replace(/id="([A-Za-z][\w-]*)"/g,function(m,id){return 'id="'+id+'-'+n+'"';})
+    .replace(/url\(#([A-Za-z][\w-]*)\)/g,function(m,id){return 'url(#'+id+'-'+n+')';});
+}
+/* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
+   не открывая системный диалог. */
+function printSheetPrepare(svg,caption){
+  if(!svg)return false;
+  var h=printSheetHost();
+  h.innerHTML='<div class="print-sheet">'+printSheetUniqueIds(svg)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';
+  document.body.classList.add('printing');
+  return true;
+}
+/* svg — готовая разметка чертежа, caption — подпись под листом (что печатаем). */
+function printSheet(svg,caption){
+  if(!printSheetPrepare(svg,caption))return false;
+  window.addEventListener('afterprint',printSheetCleanup,{once:true});
+  /* Safari и часть сборок Chromium не шлют afterprint — подстраховываемся. */
+  setTimeout(printSheetCleanup,60000);
+  try{window.print();}catch(e){printSheetCleanup();return false;}
+  return true;
+}
+window.addEventListener('resize',function(){if(typeof shapeFitPreview==='function')shapeFitPreview();});
