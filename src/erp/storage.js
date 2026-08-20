@@ -42,6 +42,7 @@ function mergeState(src){
 function validateImportedState(src){
  if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -87,6 +88,7 @@ function normalizeDB(){
  normalizeStations();
  normalizeUsers();
  normalizeSalesModules();
+ if(typeof normalizeCustomers==='function')normalizeCustomers();
 }
 function boot(){
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
