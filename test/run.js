@@ -466,7 +466,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const payload='\"><\/select><img id=xss_probe src=x onerror=window.__xss=1>';
     t = await page(JSON.stringify({shapeDef:[{id:payload,name:'Bad id',w:'48',h:'36',smart:{}}],muntinDef:[]}));
     eq('id фигуры не может внедрить HTML в option', await t.p.evaluate(() => {
-      tab='sales';subtab='muntin';render();openMuntinNew();return {img:document.querySelectorAll('#xss_probe').length,ran:window.__xss||0};
+      tab='configurators';subtab='muntin';render();openMuntinNew();return {img:document.querySelectorAll('#xss_probe').length,ran:window.__xss||0};
     }), {img:0,ran:0});
     await t.c.close();
 
@@ -474,6 +474,33 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.p.evaluate(() => {DB.shapeDef=[];DB.muntinDef=[];touch();});
     await t.p.reload();await t.p.waitForTimeout(200);
     eq('пустые Shape/Muntin сохраняются без повторного seed', await t.p.evaluate(() => ({shape:DB.shapeDef.length,muntin:DB.muntinDef.length})), {shape:0,muntin:0});
+    await t.c.close();
+  }
+
+  /* --- 5b. Sales / Configurators boundary ------------------------- */
+  {
+    console.log('Sales / Configurators');
+    const t = await page();
+    eq('Sales больше не рендерит Shape/Muntin', await t.p.evaluate(() => {
+      tab='sales';subtab=null;render();
+      return {
+        hasOrders:document.getElementById('app').textContent.includes('Sales Orders'),
+        hasShape:document.getElementById('app').textContent.includes('Production Shape'),
+        hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin')
+      };
+    }), {hasOrders:true,hasShape:false,hasMuntin:false});
+    eq('Configurators сохраняет Shape/Muntin', await t.p.evaluate(() => {
+      tab='configurators';subtab=null;render();
+      return {
+        hasShape:document.getElementById('app').textContent.includes('Production Shape'),
+        hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin'),
+        shapeRows:document.querySelectorAll('tbody tr').length
+      };
+    }), {hasShape:true,hasMuntin:true,shapeRows:1});
+    eq('Muntin открывается через Configurators', await t.p.evaluate(() => {
+      tab='configurators';subtab='muntin';render();
+      return document.getElementById('app').textContent.includes('Adaptive Muntin v4.5');
+    }), true);
     await t.c.close();
   }
 
@@ -502,7 +529,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     await t.p.evaluate(() => setLang('en'));
     eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
-    for (const tab of ['dashboard', 'users', 'sales', 'optimization', 'production']) {
+    for (const tab of ['dashboard', 'users', 'sales', 'configurators', 'optimization', 'production']) {
       const left = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
         const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
@@ -531,7 +558,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     console.log('mobile');
     const t=await page(undefined,{width:390,height:844});
     eq('страница Muntin не расширяет viewport', await t.p.evaluate(() => {
-      tab='sales';subtab='muntin';render();return document.documentElement.scrollWidth<=window.innerWidth;
+      tab='configurators';subtab='muntin';render();return document.documentElement.scrollWidth<=window.innerWidth;
     }), true);
     await t.c.close();
   }
