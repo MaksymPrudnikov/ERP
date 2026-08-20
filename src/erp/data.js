@@ -1,235 +1,113 @@
 /* =====================================================================
-   erp/customers/data  ·  customers-1.0
-   Customer master: schema, normalization, dedicated import/export.
-   IN : DB.customer / CSV / JSON
-   OUT: normalized Customer entities
-   Rule: no Sales Order / Work Order behavior here.
+   erp/data  ·  erp-1.0
+   Справочники прототипа, дефолтные данные, нормализация после загрузки.
+   IN : localStorage / импорт JSON
+   OUT: DB
+   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
-DEFAULT.customer=[];
-if(!Array.isArray(DB.customer))DB.customer=[];
-
-const CUSTOMER_STATUSES=['active','inactive','archived'];
-const CUSTOMER_CURRENCIES=['CAD','USD'];
-const CUSTOMER_STATEMENT_DELIVERY=['email','print','both','none'];
-const CUSTOMER_FUEL_MODES=['default','custom','exempt'];
-
-function customerUid(prefix){
- prefix=prefix||'CUS';
- try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return prefix+'-'+crypto.randomUUID();}catch(e){}
- return prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,9).toUpperCase();
-}
-function customerString(v){return String(v==null?'':v).trim();}
-function customerBool(v){
- if(typeof v==='boolean')return v;if(typeof v==='number')return v!==0;
- const s=customerString(v).toLowerCase();
- return ['1','true','yes','y','on','checked','x','да','так'].includes(s);
-}
-function customerNumber(v){
- if(v==null||v==='')return null;
- const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:null;
-}
-function customerStatus(v){
- const s=customerString(v).toLowerCase();
- if(['archived','archive','архив','closed','deleted'].includes(s))return 'archived';
- if(['inactive','disabled','неактивный','неактивен'].includes(s))return 'inactive';
- return 'active';
-}
-function customerStatusLabel(v){return v==='archived'?'Архив':v==='inactive'?'Неактивный':'Активный';}
-function customerStatementLabel(v){return v==='print'?'Печать':v==='both'?'Email + печать':v==='none'?'Не отправлять':'Email';}
-function customerFuelLabel(v){return v==='custom'?'Индивидуальная ставка':v==='exempt'?'Без топливного сбора':'По умолчанию';}
-
-function normalizeCustomerContact(c,i){
- c=c&&typeof c==='object'?c:{};
- return {
-  id:customerString(c.id)||customerUid('CON'),
-  name:customerString(c.name),role:customerString(c.role),phone:customerString(c.phone),phone2:customerString(c.phone2),
-  mobile:customerString(c.mobile),fax:customerString(c.fax),email:customerString(c.email),
-  isPrimary:customerBool(c.isPrimary),isInvoice:customerBool(c.isInvoice),isShipping:customerBool(c.isShipping)
- };
-}
-function normalizeCustomerAddress(a,i){
- a=a&&typeof a==='object'?a:{};
- const type=['billing','delivery','other'].includes(a.type)?a.type:'other';
- return {
-  id:customerString(a.id)||customerUid('ADR'),type,label:customerString(a.label),addressee:customerString(a.addressee),
-  address1:customerString(a.address1),address2:customerString(a.address2),address3:customerString(a.address3),
-  city:customerString(a.city),province:customerString(a.province),postalCode:customerString(a.postalCode),country:customerString(a.country)||'Canada',
-  isDefault:customerBool(a.isDefault)
- };
-}
-function normalizeLegacyRefs(v){
- const src=v&&typeof v==='object'&&!Array.isArray(v)?v:{};
- const out={sourceSystem:customerString(src.sourceSystem)};
- ['dcLink','flid','iClassID','repID','iAreasID','uiARDeliveryMethod','uiARCATID','accountStatusID','iwg'].forEach(k=>{out[k]=customerString(src[k]);});
- return out;
-}
-function normalizeCustomer(c,i){
- c=c&&typeof c==='object'?c:{};
- const contacts=(Array.isArray(c.contacts)?c.contacts:[]).map(normalizeCustomerContact);
- const addresses=(Array.isArray(c.addresses)?c.addresses:[]).map(normalizeCustomerAddress);
- /* Keep only one primary/default marker of each kind; imported duplicates are
-    made deterministic rather than causing surprising UI behavior. */
- let primary=false,invoice=false,shipping=false;
- contacts.forEach(x=>{if(x.isPrimary){if(primary)x.isPrimary=false;else primary=true;}if(x.isInvoice){if(invoice)x.isInvoice=false;else invoice=true;}if(x.isShipping){if(shipping)x.isShipping=false;else shipping=true;}});
- const addrDefault={billing:false,delivery:false,other:false};
- addresses.forEach(x=>{if(x.isDefault){if(addrDefault[x.type])x.isDefault=false;else addrDefault[x.type]=true;}});
- const status=customerStatus(c.status);
- const statement=CUSTOMER_STATEMENT_DELIVERY.includes(c.statementDelivery)?c.statementDelivery:'email';
- const fuelMode=CUSTOMER_FUEL_MODES.includes(c.fuelLevyMode)?c.fuelLevyMode:'default';
- return {
-  id:customerString(c.id)||customerUid('CUS'),code:customerString(c.code),legalName:customerString(c.legalName||c.name),displayName:customerString(c.displayName||c.legalName||c.name),
-  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),area:customerString(c.area),salesRep:customerString(c.salesRep),
-  accountOpenedAt:customerString(c.accountOpenedAt),notes:customerString(c.notes),internalNotes:customerString(c.internalNotes),
-  taxNumber:customerString(c.taxNumber),registrationNumber:customerString(c.registrationNumber),taxExempt:customerBool(c.taxExempt),taxExemptionNumber:customerString(c.taxExemptionNumber),
-  paymentTerms:customerString(c.paymentTerms),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
-  onHold:customerBool(c.onHold),holdReason:customerString(c.holdReason),creditApplicationDate:customerString(c.creditApplicationDate),poRequired:customerBool(c.poRequired),checkTerms:customerBool(c.checkTerms),
-  defaultDeliveryMethod:customerString(c.defaultDeliveryMethod),deliverTo:customerString(c.deliverTo),fuelLevyMode:fuelMode,fuelLevyRate:customerNumber(c.fuelLevyRate),
-  statementDelivery:statement,statementEmail:customerString(c.statementEmail),invoiceEmail:customerString(c.invoiceEmail),
-  contacts,addresses,legacyRefs:normalizeLegacyRefs(c.legacyRefs),
-  createdAt:customerString(c.createdAt),updatedAt:customerString(c.updatedAt),archivedAt:status==='archived'?customerString(c.archivedAt):''
- };
-}
-function normalizeCustomers(){
- if(!Array.isArray(DB.customer))DB.customer=[];
- const ids=new Set(),codes=new Set();
- DB.customer=DB.customer.filter(x=>x&&typeof x==='object').map((x,i)=>{
-  const c=normalizeCustomer(x,i);
-  while(ids.has(c.id))c.id=customerUid('CUS');ids.add(c.id);
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))c.code='';else codes.add(key);}
-  return c;
- });
-}
-function validateCustomersPayload(src){
- if(!src||!Object.prototype.hasOwnProperty.call(src,'customer'))return;
- if(!Array.isArray(src.customer))throw new Error('поле "customer" должно быть массивом');
- const ids=new Set(),codes=new Set();
- src.customer.forEach((c,i)=>{
-  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('клиент в строке '+(i+1)+' должен быть объектом');
-  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('contacts клиента '+(i+1)+' должны быть массивом');
-  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('addresses клиента '+(i+1)+' должны быть массивом');
-  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers содержит дубликат id "'+id+'"');ids.add(id);}
-  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers содержит дубликат кода "'+c.code+'"');codes.add(code);}
- });
-}
-function nextCustomerCode(){
- let max=0;DB.customer.forEach(c=>{const m=String(c.code||'').match(/^C-(\d+)$/i);if(m)max=Math.max(max,+m[1]||0);});
- let n=max+1,code;do{code='C-'+String(n++).padStart(5,'0');}while(DB.customer.some(c=>String(c.code).toUpperCase()===code));return code;
-}
-function newCustomerDraft(){
- const now=new Date().toISOString();
- return normalizeCustomer({id:customerUid('CUS'),code:'',status:'active',currency:'CAD',statementDelivery:'email',fuelLevyMode:'default',createdAt:now,updatedAt:now,contacts:[],addresses:[]});
-}
-function customerHasReferences(id){
- if(!id)return false;
- const collections=['salesOrder','salesOrders','orderRevision','orderRevisions'];
- return collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id));
-}
-
-/* ------------------------ customer-only export ----------------------- */
-function customerDownload(name,text,type){
- const b=new Blob([text],{type:type||'text/plain;charset=utf-8'}),a=document.createElement('a');
- a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-}
-function exportCustomersJSON(){
- customerDownload('glass_erp_customers.json',JSON.stringify({schema:'glass-erp-customers-v1',exportedAt:new Date().toISOString(),customers:DB.customer},null,2),'application/json');
-}
-function csvCell(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
-function customerPrimaryContact(c){return c.contacts.find(x=>x.isPrimary)||c.contacts[0]||{};}
-function customerAddressByType(c,type){return c.addresses.find(x=>x.type===type&&x.isDefault)||c.addresses.find(x=>x.type===type)||{};}
-function customerCsvRows(){
- const H=['Customer ID','Account','Name','Display Name','Status','IsProspect','CustomerType','Group','Area','SalesRep','Telephone','Telephone2','Mobile','Fax1','EMail','Addressee','Post Add1','Post Add2','Post Add3','Post Add4','Post Add5','Post PC','Del Add1','Del Add2','Del Add3','Del Add4','Del Add5','Del PC','Deliver To','On Hold','Hold Reason','I.W.G','Print Statements','Email Statements','Check Terms','TAX Number','Registration','Credit Limit','Delivery Method','Fuel Levy Rate','Fuel Levy Mode','Currency','AccountOpenDate','CreditApplicationDate','PaymentTerms','PO Required','Statement Email','Invoice Email','Notes','Internal Notes','Contacts JSON','Addresses JSON','DCLink','FLID','iClassID','RepID','iAreasID','uiARDeliveryMethod','uiARCATID','AccountStatusID'];
- const rows=DB.customer.map(c=>{
-  const p=customerPrimaryContact(c),b=customerAddressByType(c,'billing'),d=customerAddressByType(c,'delivery'),lr=c.legacyRefs||{};
-  const print=['print','both'].includes(c.statementDelivery),email=['email','both'].includes(c.statementDelivery);
-  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID];
-  return vals;
- });
- return [H].concat(rows);
-}
-function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',customerCsvRows().map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
-
-/* ------------------------ customer-only import ----------------------- */
-function csvParse(text){
- text=String(text||'').replace(/^\uFEFF/,'');
- const first=(text.split(/\r?\n/)[0]||''),counts={',':(first.match(/,/g)||[]).length,';':(first.match(/;/g)||[]).length,'\t':(first.match(/\t/g)||[]).length};
- const delim=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||',';
- const out=[],row=[];let cell='',q=false;
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(q){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"')q=false;else cell+=ch;continue;}
-  if(ch==='"'){q=true;continue;}if(ch===delim){row.push(cell);cell='';continue;}
-  if(ch==='\r'){continue;}if(ch==='\n'){row.push(cell);out.push(row.splice(0));cell='';continue;}cell+=ch;
- }
- row.push(cell);if(row.some(x=>x!==''))out.push(row);
- if(!out.length)return [];
- const headers=out.shift().map(customerColumnKey);
- return out.filter(r=>r.some(x=>customerString(x))).map(r=>{const o={};headers.forEach((h,i)=>{if(h)o[h]=r[i]==null?'':r[i];});return o;});
-}
-function customerColumnKey(v){return customerString(v).toLowerCase().replace(/[._\-\/\\]+/g,' ').replace(/\s+/g,' ').trim();}
-function rowPick(row){
- for(let i=1;i<arguments.length;i++){const k=customerColumnKey(arguments[i]);if(Object.prototype.hasOwnProperty.call(row,k)&&customerString(row[k])!=='')return row[k];}
- return '';
-}
-function customerJsonCell(v,fallback){try{const x=JSON.parse(v);return Array.isArray(x)?x:fallback;}catch(e){return fallback;}}
-function customerFromImportRow(row){
- if(!row||typeof row!=='object')return newCustomerDraft();
- /* Canonical JSON export can be normalized directly. */
- if(row.legalName!==undefined||row.contacts!==undefined||row.addresses!==undefined){return normalizeCustomer(row);}
- const R={};Object.keys(row).forEach(k=>R[customerColumnKey(k)]=row[k]);
- const print=customerBool(rowPick(R,'Print Statements')),emailStmt=customerBool(rowPick(R,'Email Statements'));
- let statementDelivery=print&&emailStmt?'both':print?'print':emailStmt?'email':'none';
- const primary={id:customerUid('CON'),name:rowPick(R,'Addressee'),role:'',phone:rowPick(R,'Telephone'),phone2:rowPick(R,'Telephone2'),mobile:rowPick(R,'Mobile'),fax:rowPick(R,'Fax1'),email:rowPick(R,'EMail','Email'),isPrimary:true,isInvoice:false,isShipping:false};
- const billing={id:customerUid('ADR'),type:'billing',label:'Billing',addressee:rowPick(R,'Addressee'),address1:rowPick(R,'Post Add1','PostAdd1'),address2:rowPick(R,'Post Add2','PostAdd2'),address3:[rowPick(R,'Post Add3','PostAdd3'),rowPick(R,'Post Add4','PostAdd4'),rowPick(R,'Post Add5','PostAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Post PC','PostPC'),country:'Canada',isDefault:true};
- const delivery={id:customerUid('ADR'),type:'delivery',label:'Delivery',addressee:rowPick(R,'Deliver To'),address1:rowPick(R,'Del Add1','DelAdd1'),address2:rowPick(R,'Del Add2','DelAdd2'),address3:[rowPick(R,'Del Add3','DelAdd3'),rowPick(R,'Del Add4','DelAdd4'),rowPick(R,'Del Add5','DelAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Del PC','DelPC'),country:'Canada',isDefault:true};
- let contacts=(primary.name||primary.phone||primary.phone2||primary.mobile||primary.fax||primary.email)?[primary]:[];
- let addresses=[];if(billing.address1||billing.address2||billing.address3||billing.postalCode)addresses.push(billing);if(delivery.address1||delivery.address2||delivery.address3||delivery.postalCode)addresses.push(delivery);
- const cj=rowPick(R,'Contacts JSON'),aj=rowPick(R,'Addresses JSON');if(cj)contacts=customerJsonCell(cj,contacts);if(aj)addresses=customerJsonCell(aj,addresses);
- const name=rowPick(R,'Name','Legal Name','Customer Name'),statusRaw=rowPick(R,'Status');
- return normalizeCustomer({
-  id:rowPick(R,'Customer ID','ID'),code:rowPick(R,'Account','Customer Code','Code'),legalName:name,displayName:rowPick(R,'Display Name')||name,status:statusRaw,
-  isProspect:rowPick(R,'IsProspect','Is Prospect'),customerType:rowPick(R,'CustomerType','Customer Type'),group:rowPick(R,'Group'),area:rowPick(R,'Area'),salesRep:rowPick(R,'SalesRep','Sales Rep'),
-  accountOpenedAt:rowPick(R,'AccountOpenDate','Account Open Date'),notes:rowPick(R,'Notes'),internalNotes:rowPick(R,'Internal Notes'),taxNumber:rowPick(R,'TAX Number','Tax Number'),registrationNumber:rowPick(R,'Registration'),
-  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
-  creditApplicationDate:rowPick(R,'CreditApplicationDate','Credit Application Date'),poRequired:rowPick(R,'PO Required'),checkTerms:rowPick(R,'Check Terms'),defaultDeliveryMethod:rowPick(R,'Delivery Method'),deliverTo:rowPick(R,'Deliver To'),
-  fuelLevyMode:rowPick(R,'Fuel Levy Mode')||'default',fuelLevyRate:rowPick(R,'Fuel Levy Rate'),statementDelivery,statementEmail:rowPick(R,'Statement Email'),invoiceEmail:rowPick(R,'Invoice Email'),contacts,addresses,
-  legacyRefs:{sourceSystem:'legacy-import',dcLink:rowPick(R,'DCLink'),flid:rowPick(R,'FLID'),iClassID:rowPick(R,'iClassID'),repID:rowPick(R,'RepID'),iAreasID:rowPick(R,'iAreasID'),uiARDeliveryMethod:rowPick(R,'uiARDeliveryMethod'),uiARCATID:rowPick(R,'uiARCATID'),accountStatusID:rowPick(R,'AccountStatusID'),iwg:rowPick(R,'I.W.G','IWG')}
- });
-}
-function parseCustomerImport(text,name){
- const ext=String(name||'').toLowerCase();
- if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
-  const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
-  if(!list)throw new Error('JSON клиентов должен содержать массив customers');
-  return list.map(customerFromImportRow);
- }
- return csvParse(text).map(customerFromImportRow);
-}
-function validateCustomerImportList(list){
- if(!Array.isArray(list)||!list.length)throw new Error('в файле нет клиентов');
- const codes=new Set();list.forEach((c,i)=>{
-  if(!c.legalName)throw new Error('клиент в строке '+(i+1)+': не заполнено Name');
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('в импортируемом файле повторяется Account "'+c.code+'"');codes.add(key);}
- });
-}
-function applyCustomerImport(list,mode){
- validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
- if(mode==='replace'){
-  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('нельзя заменить весь справочник: есть клиенты, связанные с заказами');
-  DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
- }else{
-  list.forEach(incoming=>{
-   let current=null;if(incoming.id)current=DB.customer.find(c=>c.id===incoming.id)||null;
-   if(!current&&incoming.code)current=DB.customer.find(c=>String(c.code).toUpperCase()===String(incoming.code).toUpperCase())||null;
-   if(current){const keepId=current.id,created=current.createdAt;Object.assign(current,normalizeCustomer(Object.assign({},incoming,{id:keepId,createdAt:created||incoming.createdAt})));current.id=keepId;}
-   else{const c=normalizeCustomer(incoming);if(!c.code)c.code=nextCustomerCode();DB.customer.push(c);}
+function normalizeSalesModules(){
+  if(!Array.isArray(DB.shapeDef))DB.shapeDef=[];
+  var shapeIds=Object.create(null);
+  function uniqueId(raw,prefix){
+    var id=String(raw==null?'':raw).trim();
+    if(!id||shapeIds[id]){do{id=prefix==='s'?newShapeId():newMuntinId();}while(shapeIds[id]);}
+    shapeIds[id]=true;return id;
+  }
+  DB.shapeDef=DB.shapeDef.map(function(s,i){
+    var src=s&&typeof s==='object'?s:{},legacy=Array.isArray(src.points)&&src.points.length>=3;
+    if(legacy&&!src.type){
+      var xs=src.points.map(function(p){return +p.x||0}),ys=src.points.map(function(p){return +p.y||0}),minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys);
+      src=Object.assign({},src,{type:'polygon',w:String(Math.max.apply(null,xs)-minX||48),h:String(Math.max.apply(null,ys)-minY||36),polygon:src.points.map(function(p,n){return {id:'PV'+(n+1),x:String((+p.x||0)-minX),y:String((+p.y||0)-minY)};})});
+    }
+    var out=normalizeShapeDef(src);out.id=uniqueId(src.id,'s');out.name=String(src.name==null?(shapePresetInfo(out.type).label+' '+(i+1)):src.name);return out;
   });
- }
- normalizeCustomers();touch();render();return list.length;
+  if(!Array.isArray(DB.muntinDef))DB.muntinDef=[];
+  var firstShapeId=(DB.shapeDef[0]||{}).id||'',muntinIds=Object.create(null);
+  function uniqueMuntinId(raw){var id=String(raw==null?'':raw).trim();if(!id||muntinIds[id]){do{id=newMuntinId();}while(muntinIds[id]);}muntinIds[id]=true;return id;}
+  DB.muntinDef=DB.muntinDef.map(function(m,i){
+    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);var ms=DB.shapeDef.find(function(s){return s.id===m.shapeId;});if(ms&&!m.shapeFingerprint)pinMuntinShape(m,ms);return m;}
+    var M=defaultMuntinModel();if(m){M.layout.verticalBars=clampBars(m.cols==null?2:m.cols);M.layout.horizontalBars=clampBars(m.rows==null?1:m.rows);}
+    var out={id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M},shape=DB.shapeDef.find(function(s){return s.id===out.shapeId;});if(shape)pinMuntinShape(out,shape);return out;
+  });
 }
-function importCustomersFile(inp,mode){
- const f=inp.files&&inp.files[0];if(!f)return;
- if(f.size>10*1024*1024){alert('Файл клиентов превышает 10 MB.');inp.value='';return;}
- if(mode==='replace'&&!confirm('Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.')){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Импортировано клиентов: '+n);}catch(e){alert('Не удалось импортировать клиентов: '+e.message);}finally{inp.value='';}};r.readAsText(f);
+
+const ROLES=['Админ','Руководство','Продажи','Технолог','Цех','Отгрузка','Снабжение'];
+const SAFE_DEFAULT_ROLE='Цех';
+const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
+const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
+/* Старые записи могли хранить навык строкой — для них сохраняем исторический
+   уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
+const normSkill = x => {
+ const src=typeof x==='string'?{skill:x,level:'Мидл'}:(x&&typeof x==='object'?x:null);
+ if(!src)return null;
+ const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
+ const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
+};
+function normalizeUsers(){
+ if(!Array.isArray(DB.user))DB.user=[];
+ DB.user=DB.user.filter(u=>u&&typeof u==='object');
+ DB.user.forEach(u=>{
+  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
+  const station=String(u.station==null?'':u.station).trim().toUpperCase();u.station=DB.station.some(s=>s.code===station)?station:'';
+  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
+ });
 }
+/* Уровень станции обязан быть ЧИСЛОМ или null. Из импортированного/руками
+   правленного JSON он приезжал строкой ("1"), и станция молча выпадала из
+   маршрута, потому что сравнение s.level===l.n строгое. */
+function normalizeStations(){
+ const levelSeen=Object.create(null),stationSeen=Object.create(null);
+ DB.level=DB.level.filter(l=>l&&isFinite(+l.n)&&Number.isInteger(+l.n)&&+l.n>0&&!levelSeen[+l.n]&&(levelSeen[+l.n]=true))
+   .map(l=>({n:+l.n,label:String(l.label==null?'':l.label).trim()}))
+   .sort((a,b)=>a.n-b.n);
+ DB.station=DB.station.filter(s=>{if(!s||!s.code)return false;const code=String(s.code).trim().toUpperCase();if(!code||stationSeen[code])return false;stationSeen[code]=true;return true;}).map(s=>{
+  const lv=(s.level===''||s.level==null)?null:+s.level;
+  s.level=isFinite(lv)&&DB.level.some(l=>l.n===lv)?lv:null;
+  ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)&&v>0?v:null;});
+  if(s.maxW==null||s.maxL==null)s.maxW=s.maxL=null;
+  if(s.minTh==null||s.maxTh==null||s.minTh>s.maxTh)s.minTh=s.maxTh=null;
+  s.code=String(s.code).trim().toUpperCase();s.name=String(s.name==null?'':s.name).trim();s.note=String(s.note==null?'':s.note);
+  return s;
+ });
+ /* уровень, на который никто не ссылается, оставляем; станция без уровня — тоже
+    штатное состояние (CNC1 / FURN1 ждут решения пользователя) */
+}
+function skillIconName(skill){
+ return ({
+  'Резка':'cut',
+  'Кромка (arris/polish)':'edge',
+  'ЧПУ полировка':'cnc',
+  'Сверловка/выемки':'cnc',
+  'Закалка':'furnace',
+  'Контроль качества':'check',
+  'Отгрузка/погрузка':'shipping'
+ })[skill] || 'report';
+}
+function skillBadgeHTML(skillObj){
+ const s=normSkill(skillObj);
+ if(!s)return '';
+ return `<span class="skill-badge">${ico(skillIconName(s.skill),'icon-inline')}<span>${esc(s.skill)}</span><span class="pill">${esc(s.level)}</span></span>`;
+}
+function salesSkillCards(){
+ const cards=[
+  {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'},
+  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
+ ];
+ return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
+}
+
+const DEFAULT={
+ user:[],
+ level:[{n:1,label:'Резка'},{n:2,label:'Кромка (arris / polish / CNC polishing)'},{n:3,label:'Drill & Notch'},{n:4,label:'—'}],
+ station:[
+  {code:'CUT1', name:'Раскроечный стол', level:1, maxW:null, maxL:null, minTh:3, maxTh:19, note:'Заведена под уровень 1 — раньше в модели не было отдельной резки, только печь/кромка/ЧПУ'},
+  {code:'EDGE1', name:'Кромкообрабатывающая линия', level:2, maxW:null, maxL:null, minTh:3, maxTh:19, note:''},
+  {code:'BEVEL1', name:'Фацетный станок', level:2, maxW:70, maxL:100, minTh:3, maxTh:19, note:''},
+  {code:'CNC1', name:'Обрабатывающий центр ЧПУ', level:null, maxW:60, maxL:122, minTh:3, maxTh:19, note:'Уровень не назначен — уточни у себя: этот ЧПУ больше полирует кромку (уровень 2) или сверлит/выбирает пазы (уровень 3)?'},
+  {code:'FURN1', name:'Печь закалки', level:null, maxW:90, maxL:150, minTh:3, maxTh:19, note:'Уровень не назначен — закалка обычно отдельный этап после кромки/сверловки, назначь номер сам'}
+ ],
+ shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
+ muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
+};
+let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
