@@ -45,6 +45,75 @@ const I18N_EN={
   "Главная": "Dashboard",
   "Ядро": "Core",
   "Пользователи": "Users",
+  "Клиенты": "Customers",
+  "Справочник клиентов, контакты и коммерческие условия": "Customer master, contacts and commercial terms",
+  "Единый справочник клиентов для будущих Sales Orders. Контакты, адреса, кредитные условия и legacy-ID хранятся отдельно и не смешиваются с производственными данными.": "Single customer master for future Sales Orders. Contacts, addresses, credit terms and legacy IDs are stored separately from production data.",
+  "активных клиентов": "active customers",
+  "на hold": "on hold",
+  "в архиве": "archived",
+  "Поиск по коду, имени, контакту, телефону, email…": "Search by code, name, contact, phone, email…",
+  "+ Новый клиент": "+ New customer",
+  "Экспорт CSV": "Export CSV",
+  "Импорт / обновление": "Import / update",
+  "Импорт с заменой": "Import and replace",
+  "Активные": "Active",
+  "Все": "All",
+  "Архив": "Archived",
+  "Account": "Account",
+  "Клиент": "Customer",
+  "Основной контакт": "Primary contact",
+  "Условия": "Terms",
+  "Кредит": "Credit",
+  "клиенты не найдены": "no customers found",
+  "CSV-импорт понимает как экспорт GLASS ERP, так и legacy-колонки Name / Account / Post Add / Del Add / Telephone / EMail / SalesRep / Credit Limit / DCLink и др.": "CSV import accepts both GLASS ERP exports and legacy columns such as Name / Account / Post Add / Del Add / Telephone / EMail / SalesRep / Credit Limit / DCLink and others.",
+  "Открыть": "Open",
+  "Дублировать": "Duplicate",
+  "В архив": "Archive",
+  "Восстановить": "Restore",
+  "Активный": "Active",
+  "Неактивный": "Inactive",
+  "Новый клиент": "New customer",
+  "Внутренний ID:": "Internal ID:",
+  "Основное": "General",
+  "Контакты": "Contacts",
+  "Адреса": "Addresses",
+  "Кредит и условия": "Credit & terms",
+  "Основная информация": "General information",
+  "авто: C-00001": "auto: C-00001",
+  "PO обязателен": "PO required",
+  "Контактов пока нет": "No contacts yet",
+  "Несколько людей на одного клиента: purchasing, accounting, receiving, project manager и др.": "Multiple people per customer: purchasing, accounting, receiving, project manager, etc.",
+  "+ Контакт": "+ Contact",
+  "Контакт": "Contact",
+  "Роль / должность": "Role / title",
+  "Основной": "Primary",
+  "Удалить": "Delete",
+  "Адресов пока нет": "No addresses yet",
+  "Billing и несколько delivery/job-site адресов могут существовать одновременно.": "Billing and multiple delivery/job-site addresses can exist at the same time.",
+  "+ Адрес": "+ Address",
+  "Адрес": "Address",
+  "Тип": "Type",
+  "По умолчанию": "Default",
+  "Кредит и коммерческие условия": "Credit and commercial terms",
+  "Индивидуальная ставка": "Custom rate",
+  "Без топливного сбора": "Fuel levy exempt",
+  "Печать": "Print",
+  "Email + печать": "Email + print",
+  "Не отправлять": "Do not send",
+  "Accounting и statements": "Accounting and statements",
+  "Legacy IDs сохраняются для миграции и сверки со старой системой. Они не являются бизнес-ключами новой ERP.": "Legacy IDs are preserved for migration and reconciliation with the old system. They are not business keys in the new ERP.",
+  "Legacy / migration references": "Legacy / migration references",
+  "Укажи Legal Name": "Enter Legal Name",
+  "Customer Code уже используется": "Customer Code is already in use",
+  "Клиент уже используется в заказах. Удаление запрещено — переведи клиента в архив.": "This customer is already used by orders. Deletion is blocked — archive the customer instead.",
+  "Удалить клиента без возможности восстановления?": "Delete this customer permanently?",
+  "Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.": "Replace the entire customer master with data from the file? This cannot be undone without a backup export.",
+  "Файл клиентов превышает 10 MB.": "Customer file exceeds 10 MB.",
+  "Не удалось импортировать клиентов:": "Could not import customers:",
+  "в файле нет клиентов": "the file contains no customers",
+  "JSON клиентов должен содержать массив customers": "Customer JSON must contain a customers array",
+  "нельзя заменить весь справочник: есть клиенты, связанные с заказами": "The customer master cannot be replaced because some customers are referenced by orders",
+  "поле \"customer\" должно быть массивом": "the \"customer\" field must be an array",
   "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
   "Конфигураторы": "Configurators",
@@ -311,6 +380,7 @@ const I18N_EN={
   "Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.": "Could not save data in the browser. Export JSON and check available storage."
 };
 const _textOriginal=new WeakMap();
+const _attrOriginal=new WeakMap();
 function tx(value){
  const raw=String(value??'');
  if(LANG!=='en') return raw;
@@ -319,7 +389,18 @@ function tx(value){
  if(I18N_EN[core]!==undefined) return lead+I18N_EN[core]+tail;
  let x=core;
  let mm;
- if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
+ if((mm=x.match(/^Показано: (\d+) \/ (\d+)$/))) x=`Shown: ${mm[1]} / ${mm[2]}`;
+ else if((mm=x.match(/^Импортировано клиентов: (\d+)$/))) x=`Customers imported: ${mm[1]}`;
+ else if((mm=x.match(/^клиент в строке (\d+): не заполнено Name$/i))) x=`Customer row ${mm[1]}: Name is required`;
+ else if((mm=x.match(/^клиент в строке (\d+) должен быть объектом$/i))) x=`Customer row ${mm[1]} must be an object`;
+ else if((mm=x.match(/^contacts клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} contacts must be an array`;
+ else if((mm=x.match(/^addresses клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} addresses must be an array`;
+ else if((mm=x.match(/^Customers содержит дубликат id "(.+)"$/))) x=`Customers contains duplicate id "${mm[1]}"`;
+ else if((mm=x.match(/^Customers содержит дубликат кода "(.+)"$/))) x=`Customers contains duplicate code "${mm[1]}"`;
+ else if((mm=x.match(/^в импортируемом файле повторяется Account "(.+)"$/i))) x=`The import file contains duplicate Account "${mm[1]}"`;
+ else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
+ else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
+ else if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
  else if((mm=x.match(/^контуров Shape · (\d+) схем Muntin$/))) x=`Shape contours · ${mm[1]} Muntin layouts`;
  else if((mm=x.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?) мм$/))) x=`${mm[1]}–${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) станц\.$/))) x=`${mm[1]} stations`;
@@ -401,6 +482,10 @@ function applyLang(root=document.body){
    const original=_textOriginal.get(node);
    node.nodeValue = LANG==='en' ? tx(original) : original;
  }
+ document.querySelectorAll('[placeholder]').forEach(el=>{
+   let rec=_attrOriginal.get(el);if(!rec){rec={};_attrOriginal.set(el,rec);}if(rec.placeholder===undefined)rec.placeholder=el.getAttribute('placeholder')||'';
+   el.setAttribute('placeholder',LANG==='en'?tx(rec.placeholder):rec.placeholder);
+ });
  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=LANG==='en'?tx(el.dataset.i18nTitle):el.dataset.i18nTitle; });
  const ru=document.getElementById('langRu'), en=document.getElementById('langEn');
  if(ru) ru.classList.toggle('on',LANG==='ru');

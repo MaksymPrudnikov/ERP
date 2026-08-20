@@ -504,6 +504,49 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
+  /* --- 5c. Customers ------------------------------------------------ */
+  {
+    console.log('Customers');
+    let t = await page();
+    eq('старые данные стартуют с пустым справочником Customers', await t.p.evaluate(() => Array.isArray(DB.customer)&&DB.customer.length), 0);
+    eq('новый клиент нормализуется и получает business code', await t.p.evaluate(() => {
+      const c=newCustomerDraft();c.legalName='ABC Glass';c.displayName='ABC Glass';DB.customer.push(c);normalizeCustomers();
+      if(!DB.customer[0].code)DB.customer[0].code=nextCustomerCode();touch();return {name:DB.customer[0].legalName,code:DB.customer[0].code,status:DB.customer[0].status};
+    }), {name:'ABC Glass',code:'C-00001',status:'active'});
+    await t.c.close();
+
+    t = await page();
+    eq('legacy CSV маппится в новую карточку клиента', await t.p.evaluate(() => {
+      const csv='Account,Name,Telephone,EMail,Post Add1,Post PC,Del Add1,Del PC,On Hold,SalesRep,TAX Number,Credit Limit,DCLink,FLID,IsProspect,PaymentTerms\nA100,Legacy Glass,416-555-0100,a@example.com,10 King St,M5V 1A1,20 Queen St,M5H 2N2,Yes,Max,TX-9,25000,77,88,1,45 Days Net';
+      const c=parseCustomerImport(csv,'legacy.csv')[0];return {code:c.code,name:c.legalName,phone:c.contacts[0].phone,email:c.contacts[0].email,bill:c.addresses.find(a=>a.type==='billing').address1,del:c.addresses.find(a=>a.type==='delivery').address1,hold:c.onHold,rep:c.salesRep,tax:c.taxNumber,limit:c.creditLimit,dc:c.legacyRefs.dcLink,flid:c.legacyRefs.flid,prospect:c.isProspect,terms:c.paymentTerms};
+    }), {code:'A100',name:'Legacy Glass',phone:'416-555-0100',email:'a@example.com',bill:'10 King St',del:'20 Queen St',hold:true,rep:'Max',tax:'TX-9',limit:25000,dc:'77',flid:'88',prospect:true,terms:'45 Days Net'});
+    await t.c.close();
+
+    t = await page();
+    eq('merge импорта обновляет клиента по Account без дубля', await t.p.evaluate(() => {
+      DB.customer=[normalizeCustomer({code:'A1',legalName:'Old'})];
+      applyCustomerImport([normalizeCustomer({code:'A1',legalName:'New',paymentTerms:'COD'})],'merge');
+      return {n:DB.customer.length,name:DB.customer[0].legalName,terms:DB.customer[0].paymentTerms};
+    }), {n:1,name:'New',terms:'COD'});
+    await t.c.close();
+
+    t = await page();
+    eq('удаление customer с будущей ссылкой на Sales Order блокируется доменным guard', await t.p.evaluate(() => {
+      const c=normalizeCustomer({code:'A1',legalName:'Ref'});DB.customer=[c];DB.salesOrder=[{customerId:c.id}];return customerHasReferences(c.id);
+    }), true);
+    await t.c.close();
+
+    t = await page(JSON.stringify({customer:[{id:'c1',code:'A1',legalName:'<img id=xss_customer src=x onerror=window.__cx=1>',displayName:'<img id=xss_customer2 src=x onerror=window.__cx=1>',contacts:[],addresses:[]}]}));
+    eq('Customer master не исполняет HTML из имени клиента', await t.p.evaluate(() => {tab='customers';render();return {imgs:document.querySelectorAll('#xss_customer,#xss_customer2').length,ran:window.__cx||0};}), {imgs:0,ran:0});
+    await t.c.close();
+
+    t = await page();
+    eq('глобальный import/export contract принимает customer collection', await t.p.evaluate(() => {
+      const next=prepareImportedState({customer:[{id:'c1',code:'A1',legalName:'Imported',contacts:[],addresses:[]}]});return {n:next.customer.length,name:next.customer[0].legalName};
+    }), {n:1,name:'Imported'});
+    await t.c.close();
+  }
+
   /* --- 6. RU / EN -------------------------------------------------- */
   {
     console.log('RU / EN');
@@ -529,7 +572,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     await t.p.evaluate(() => setLang('en'));
     eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
-    for (const tab of ['dashboard', 'users', 'sales', 'configurators', 'optimization', 'production']) {
+    for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production']) {
       const left = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
         const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
@@ -538,6 +581,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }, tab);
       eq('EN без русского остатка: ' + tab, left, []);
     }
+    eq('Customers EN переводит placeholder поиска', await t.p.evaluate(() => {
+      tab='customers';subtab=null;render();const el=document.getElementById('customerSearch');return el&&el.getAttribute('placeholder');
+    }), 'Search by code, name, contact, phone, email…');
+    eq('Customers dynamic import errors переводятся в EN', await t.p.evaluate(() => ({
+      missing:tx('клиент в строке 7: не заполнено Name'),
+      dup:tx('в импортируемом файле повторяется Account "A-100"'),
+      contacts:tx('contacts клиента 2 должны быть массивом')
+    })), {
+      missing:'Customer row 7: Name is required',
+      dup:'The import file contains duplicate Account "A-100"',
+      contacts:'Customer 2 contacts must be an array'
+    });
     eq('данные пользователя не переводятся', await t.p.evaluate(() => {
       DB.user.push({ name: 'Закалка', role: 'Цех', station: '', skills: [] });
       tab = 'users'; subtab = 'list'; render();

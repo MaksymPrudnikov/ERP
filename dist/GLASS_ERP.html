@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 35 модулей, 2 стиля.
+  Состав сборки: 37 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -294,6 +294,9 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
   .print-caption{margin-top:5mm;font:11px Arial,sans-serif;color:#475467}
 }
 @media(max-width:1280px){.shape-editor-layout,.muntin-editor-layout{grid-template-columns:1fr}.shape-preview-side,.muntin-preview-side{position:static}.edge-fields.four{grid-template-columns:1fr 1fr}}@media(max-width:720px){.module-editor,.shape-controls,.shape-preview-side,.muntin-controls,.muntin-preview-side{min-width:0;max-width:100%;padding:10px}.module-editor-head{flex-wrap:wrap}.real-module-note{flex-direction:column;gap:4px}.real-module-note b{white-space:normal}.corner-grid,.smart-kpis{grid-template-columns:1fr}.em-row{grid-template-columns:1fr 1fr}.em-key{grid-column:1/-1;text-align:left}.smart-visual{grid-template-columns:1fr 1fr}.smart-visual .cv.top{grid-row:auto;grid-column:1/-1}.notch-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.notch-head-row{display:none}.notch-id{grid-column:1/-1}.edge-fields,.edge-fields.four,.extra-grid,.shape-feature-fields,.shape-op-grid{grid-template-columns:1fr}.shape-vertex-row{grid-template-columns:1fr 1fr}.shape-vertex-row>b{grid-column:1/-1}.module-chain{flex-direction:column}.module-chain-node{width:100%;min-width:0}.module-chain-arrow{transform:rotate(90deg)}.muntin-drawing{max-width:100%;overflow-x:auto}.muntin-bom{display:block;max-width:100%;overflow-x:auto}.shape-mode-row{flex-wrap:wrap}.shape-mode-row>span{width:100%}.shape-new-row{align-items:stretch;flex-direction:column}.shape-new-row select{max-width:none}.shape-view-tabs{flex-wrap:wrap}.shape-view-tabs button{min-width:45%}.shape-accordion-head{align-items:flex-start}.shape-accordion-state{font-size:0}.shape-accordion-state i{font-size:15px}.shape-op-compact span{display:none}.shape-edge-code{gap:3px}}
+
+/* customers ---------------------------------------------------------- */
+.customer-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}.customer-search{flex:1;min-width:260px;max-width:520px}.customer-actions{display:flex;gap:7px;flex-wrap:wrap}.customer-filterbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 12px}.customer-filter-on{background:var(--blue2);border-color:#9bc8de;color:#235f7d}.customer-filterbar .mut{margin-left:auto;font-size:12px}.customer-table-wrap{overflow:auto}.customer-table-wrap table{min-width:1040px}.customer-row-actions{white-space:nowrap}.customer-editor .section-title{align-items:flex-start}.customer-editor-actions{margin-top:0}.customer-grid-4{grid-template-columns:repeat(4,minmax(160px,1fr))}.customer-checks{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding-bottom:1px}.customer-subrecord{margin-bottom:10px}.customer-subrecord-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.customer-tabs{overflow-x:auto}.customer-tabs button{white-space:nowrap}@media(max-width:1100px){.customer-grid-4{grid-template-columns:repeat(2,minmax(160px,1fr))}}@media(max-width:700px){.customer-grid-4{grid-template-columns:1fr}.customer-actions{width:100%}.customer-actions button{flex:1}.customer-filterbar .mut{width:100%;margin-left:0}}
 
 </style>
 </head>
@@ -2492,6 +2495,243 @@ const DEFAULT={
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
 
+/* ==== src/erp/customers/data.js ==== */
+/* =====================================================================
+   erp/customers/data  ·  customers-1.0
+   Customer master: schema, normalization, dedicated import/export.
+   IN : DB.customer / CSV / JSON
+   OUT: normalized Customer entities
+   Rule: no Sales Order / Work Order behavior here.
+   ===================================================================== */
+
+DEFAULT.customer=[];
+if(!Array.isArray(DB.customer))DB.customer=[];
+
+const CUSTOMER_STATUSES=['active','inactive','archived'];
+const CUSTOMER_CURRENCIES=['CAD','USD'];
+const CUSTOMER_STATEMENT_DELIVERY=['email','print','both','none'];
+const CUSTOMER_FUEL_MODES=['default','custom','exempt'];
+
+function customerUid(prefix){
+ prefix=prefix||'CUS';
+ try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return prefix+'-'+crypto.randomUUID();}catch(e){}
+ return prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,9).toUpperCase();
+}
+function customerString(v){return String(v==null?'':v).trim();}
+function customerBool(v){
+ if(typeof v==='boolean')return v;if(typeof v==='number')return v!==0;
+ const s=customerString(v).toLowerCase();
+ return ['1','true','yes','y','on','checked','x','да','так'].includes(s);
+}
+function customerNumber(v){
+ if(v==null||v==='')return null;
+ const n=Number(String(v).replace(/[$,\s]/g,''));return Number.isFinite(n)?n:null;
+}
+function customerStatus(v){
+ const s=customerString(v).toLowerCase();
+ if(['archived','archive','архив','closed','deleted'].includes(s))return 'archived';
+ if(['inactive','disabled','неактивный','неактивен'].includes(s))return 'inactive';
+ return 'active';
+}
+function customerStatusLabel(v){return v==='archived'?'Архив':v==='inactive'?'Неактивный':'Активный';}
+function customerStatementLabel(v){return v==='print'?'Печать':v==='both'?'Email + печать':v==='none'?'Не отправлять':'Email';}
+function customerFuelLabel(v){return v==='custom'?'Индивидуальная ставка':v==='exempt'?'Без топливного сбора':'По умолчанию';}
+
+function normalizeCustomerContact(c,i){
+ c=c&&typeof c==='object'?c:{};
+ return {
+  id:customerString(c.id)||customerUid('CON'),
+  name:customerString(c.name),role:customerString(c.role),phone:customerString(c.phone),phone2:customerString(c.phone2),
+  mobile:customerString(c.mobile),fax:customerString(c.fax),email:customerString(c.email),
+  isPrimary:customerBool(c.isPrimary),isInvoice:customerBool(c.isInvoice),isShipping:customerBool(c.isShipping)
+ };
+}
+function normalizeCustomerAddress(a,i){
+ a=a&&typeof a==='object'?a:{};
+ const type=['billing','delivery','other'].includes(a.type)?a.type:'other';
+ return {
+  id:customerString(a.id)||customerUid('ADR'),type,label:customerString(a.label),addressee:customerString(a.addressee),
+  address1:customerString(a.address1),address2:customerString(a.address2),address3:customerString(a.address3),
+  city:customerString(a.city),province:customerString(a.province),postalCode:customerString(a.postalCode),country:customerString(a.country)||'Canada',
+  isDefault:customerBool(a.isDefault)
+ };
+}
+function normalizeLegacyRefs(v){
+ const src=v&&typeof v==='object'&&!Array.isArray(v)?v:{};
+ const out={sourceSystem:customerString(src.sourceSystem)};
+ ['dcLink','flid','iClassID','repID','iAreasID','uiARDeliveryMethod','uiARCATID','accountStatusID','iwg'].forEach(k=>{out[k]=customerString(src[k]);});
+ return out;
+}
+function normalizeCustomer(c,i){
+ c=c&&typeof c==='object'?c:{};
+ const contacts=(Array.isArray(c.contacts)?c.contacts:[]).map(normalizeCustomerContact);
+ const addresses=(Array.isArray(c.addresses)?c.addresses:[]).map(normalizeCustomerAddress);
+ /* Keep only one primary/default marker of each kind; imported duplicates are
+    made deterministic rather than causing surprising UI behavior. */
+ let primary=false,invoice=false,shipping=false;
+ contacts.forEach(x=>{if(x.isPrimary){if(primary)x.isPrimary=false;else primary=true;}if(x.isInvoice){if(invoice)x.isInvoice=false;else invoice=true;}if(x.isShipping){if(shipping)x.isShipping=false;else shipping=true;}});
+ const addrDefault={billing:false,delivery:false,other:false};
+ addresses.forEach(x=>{if(x.isDefault){if(addrDefault[x.type])x.isDefault=false;else addrDefault[x.type]=true;}});
+ const status=customerStatus(c.status);
+ const statement=CUSTOMER_STATEMENT_DELIVERY.includes(c.statementDelivery)?c.statementDelivery:'email';
+ const fuelMode=CUSTOMER_FUEL_MODES.includes(c.fuelLevyMode)?c.fuelLevyMode:'default';
+ return {
+  id:customerString(c.id)||customerUid('CUS'),code:customerString(c.code),legalName:customerString(c.legalName||c.name),displayName:customerString(c.displayName||c.legalName||c.name),
+  status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),area:customerString(c.area),salesRep:customerString(c.salesRep),
+  accountOpenedAt:customerString(c.accountOpenedAt),notes:customerString(c.notes),internalNotes:customerString(c.internalNotes),
+  taxNumber:customerString(c.taxNumber),registrationNumber:customerString(c.registrationNumber),taxExempt:customerBool(c.taxExempt),taxExemptionNumber:customerString(c.taxExemptionNumber),
+  paymentTerms:customerString(c.paymentTerms),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
+  onHold:customerBool(c.onHold),holdReason:customerString(c.holdReason),creditApplicationDate:customerString(c.creditApplicationDate),poRequired:customerBool(c.poRequired),checkTerms:customerBool(c.checkTerms),
+  defaultDeliveryMethod:customerString(c.defaultDeliveryMethod),deliverTo:customerString(c.deliverTo),fuelLevyMode:fuelMode,fuelLevyRate:customerNumber(c.fuelLevyRate),
+  statementDelivery:statement,statementEmail:customerString(c.statementEmail),invoiceEmail:customerString(c.invoiceEmail),
+  contacts,addresses,legacyRefs:normalizeLegacyRefs(c.legacyRefs),
+  createdAt:customerString(c.createdAt),updatedAt:customerString(c.updatedAt),archivedAt:status==='archived'?customerString(c.archivedAt):''
+ };
+}
+function normalizeCustomers(){
+ if(!Array.isArray(DB.customer))DB.customer=[];
+ const ids=new Set(),codes=new Set();
+ DB.customer=DB.customer.filter(x=>x&&typeof x==='object').map((x,i)=>{
+  const c=normalizeCustomer(x,i);
+  while(ids.has(c.id))c.id=customerUid('CUS');ids.add(c.id);
+  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))c.code='';else codes.add(key);}
+  return c;
+ });
+}
+function validateCustomersPayload(src){
+ if(!src||!Object.prototype.hasOwnProperty.call(src,'customer'))return;
+ if(!Array.isArray(src.customer))throw new Error('поле "customer" должно быть массивом');
+ const ids=new Set(),codes=new Set();
+ src.customer.forEach((c,i)=>{
+  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('клиент в строке '+(i+1)+' должен быть объектом');
+  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('contacts клиента '+(i+1)+' должны быть массивом');
+  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('addresses клиента '+(i+1)+' должны быть массивом');
+  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers содержит дубликат id "'+id+'"');ids.add(id);}
+  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers содержит дубликат кода "'+c.code+'"');codes.add(code);}
+ });
+}
+function nextCustomerCode(){
+ let max=0;DB.customer.forEach(c=>{const m=String(c.code||'').match(/^C-(\d+)$/i);if(m)max=Math.max(max,+m[1]||0);});
+ let n=max+1,code;do{code='C-'+String(n++).padStart(5,'0');}while(DB.customer.some(c=>String(c.code).toUpperCase()===code));return code;
+}
+function newCustomerDraft(){
+ const now=new Date().toISOString();
+ return normalizeCustomer({id:customerUid('CUS'),code:'',status:'active',currency:'CAD',statementDelivery:'email',fuelLevyMode:'default',createdAt:now,updatedAt:now,contacts:[],addresses:[]});
+}
+function customerHasReferences(id){
+ if(!id)return false;
+ const collections=['salesOrder','salesOrders','orderRevision','orderRevisions'];
+ return collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id));
+}
+
+/* ------------------------ customer-only export ----------------------- */
+function customerDownload(name,text,type){
+ const b=new Blob([text],{type:type||'text/plain;charset=utf-8'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function exportCustomersJSON(){
+ customerDownload('glass_erp_customers.json',JSON.stringify({schema:'glass-erp-customers-v1',exportedAt:new Date().toISOString(),customers:DB.customer},null,2),'application/json');
+}
+function csvCell(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function customerPrimaryContact(c){return c.contacts.find(x=>x.isPrimary)||c.contacts[0]||{};}
+function customerAddressByType(c,type){return c.addresses.find(x=>x.type===type&&x.isDefault)||c.addresses.find(x=>x.type===type)||{};}
+function customerCsvRows(){
+ const H=['Customer ID','Account','Name','Display Name','Status','IsProspect','CustomerType','Group','Area','SalesRep','Telephone','Telephone2','Mobile','Fax1','EMail','Addressee','Post Add1','Post Add2','Post Add3','Post Add4','Post Add5','Post PC','Del Add1','Del Add2','Del Add3','Del Add4','Del Add5','Del PC','Deliver To','On Hold','Hold Reason','I.W.G','Print Statements','Email Statements','Check Terms','TAX Number','Registration','Credit Limit','Delivery Method','Fuel Levy Rate','Fuel Levy Mode','Currency','AccountOpenDate','CreditApplicationDate','PaymentTerms','PO Required','Statement Email','Invoice Email','Notes','Internal Notes','Contacts JSON','Addresses JSON','DCLink','FLID','iClassID','RepID','iAreasID','uiARDeliveryMethod','uiARCATID','AccountStatusID'];
+ const rows=DB.customer.map(c=>{
+  const p=customerPrimaryContact(c),b=customerAddressByType(c,'billing'),d=customerAddressByType(c,'delivery'),lr=c.legacyRefs||{};
+  const print=['print','both'].includes(c.statementDelivery),email=['email','both'].includes(c.statementDelivery);
+  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID];
+  return vals;
+ });
+ return [H].concat(rows);
+}
+function exportCustomersCSV(){customerDownload('glass_erp_customers.csv',customerCsvRows().map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');}
+
+/* ------------------------ customer-only import ----------------------- */
+function csvParse(text){
+ text=String(text||'').replace(/^\uFEFF/,'');
+ const first=(text.split(/\r?\n/)[0]||''),counts={',':(first.match(/,/g)||[]).length,';':(first.match(/;/g)||[]).length,'\t':(first.match(/\t/g)||[]).length};
+ const delim=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||',';
+ const out=[],row=[];let cell='',q=false;
+ for(let i=0;i<text.length;i++){
+  const ch=text[i];
+  if(q){if(ch==='"'&&text[i+1]==='"'){cell+='"';i++;}else if(ch==='"')q=false;else cell+=ch;continue;}
+  if(ch==='"'){q=true;continue;}if(ch===delim){row.push(cell);cell='';continue;}
+  if(ch==='\r'){continue;}if(ch==='\n'){row.push(cell);out.push(row.splice(0));cell='';continue;}cell+=ch;
+ }
+ row.push(cell);if(row.some(x=>x!==''))out.push(row);
+ if(!out.length)return [];
+ const headers=out.shift().map(customerColumnKey);
+ return out.filter(r=>r.some(x=>customerString(x))).map(r=>{const o={};headers.forEach((h,i)=>{if(h)o[h]=r[i]==null?'':r[i];});return o;});
+}
+function customerColumnKey(v){return customerString(v).toLowerCase().replace(/[._\-\/\\]+/g,' ').replace(/\s+/g,' ').trim();}
+function rowPick(row){
+ for(let i=1;i<arguments.length;i++){const k=customerColumnKey(arguments[i]);if(Object.prototype.hasOwnProperty.call(row,k)&&customerString(row[k])!=='')return row[k];}
+ return '';
+}
+function customerJsonCell(v,fallback){try{const x=JSON.parse(v);return Array.isArray(x)?x:fallback;}catch(e){return fallback;}}
+function customerFromImportRow(row){
+ if(!row||typeof row!=='object')return newCustomerDraft();
+ /* Canonical JSON export can be normalized directly. */
+ if(row.legalName!==undefined||row.contacts!==undefined||row.addresses!==undefined){return normalizeCustomer(row);}
+ const R={};Object.keys(row).forEach(k=>R[customerColumnKey(k)]=row[k]);
+ const print=customerBool(rowPick(R,'Print Statements')),emailStmt=customerBool(rowPick(R,'Email Statements'));
+ let statementDelivery=print&&emailStmt?'both':print?'print':emailStmt?'email':'none';
+ const primary={id:customerUid('CON'),name:rowPick(R,'Addressee'),role:'',phone:rowPick(R,'Telephone'),phone2:rowPick(R,'Telephone2'),mobile:rowPick(R,'Mobile'),fax:rowPick(R,'Fax1'),email:rowPick(R,'EMail','Email'),isPrimary:true,isInvoice:false,isShipping:false};
+ const billing={id:customerUid('ADR'),type:'billing',label:'Billing',addressee:rowPick(R,'Addressee'),address1:rowPick(R,'Post Add1','PostAdd1'),address2:rowPick(R,'Post Add2','PostAdd2'),address3:[rowPick(R,'Post Add3','PostAdd3'),rowPick(R,'Post Add4','PostAdd4'),rowPick(R,'Post Add5','PostAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Post PC','PostPC'),country:'Canada',isDefault:true};
+ const delivery={id:customerUid('ADR'),type:'delivery',label:'Delivery',addressee:rowPick(R,'Deliver To'),address1:rowPick(R,'Del Add1','DelAdd1'),address2:rowPick(R,'Del Add2','DelAdd2'),address3:[rowPick(R,'Del Add3','DelAdd3'),rowPick(R,'Del Add4','DelAdd4'),rowPick(R,'Del Add5','DelAdd5')].filter(Boolean).join(', '),city:'',province:'',postalCode:rowPick(R,'Del PC','DelPC'),country:'Canada',isDefault:true};
+ let contacts=(primary.name||primary.phone||primary.phone2||primary.mobile||primary.fax||primary.email)?[primary]:[];
+ let addresses=[];if(billing.address1||billing.address2||billing.address3||billing.postalCode)addresses.push(billing);if(delivery.address1||delivery.address2||delivery.address3||delivery.postalCode)addresses.push(delivery);
+ const cj=rowPick(R,'Contacts JSON'),aj=rowPick(R,'Addresses JSON');if(cj)contacts=customerJsonCell(cj,contacts);if(aj)addresses=customerJsonCell(aj,addresses);
+ const name=rowPick(R,'Name','Legal Name','Customer Name'),statusRaw=rowPick(R,'Status');
+ return normalizeCustomer({
+  id:rowPick(R,'Customer ID','ID'),code:rowPick(R,'Account','Customer Code','Code'),legalName:name,displayName:rowPick(R,'Display Name')||name,status:statusRaw,
+  isProspect:rowPick(R,'IsProspect','Is Prospect'),customerType:rowPick(R,'CustomerType','Customer Type'),group:rowPick(R,'Group'),area:rowPick(R,'Area'),salesRep:rowPick(R,'SalesRep','Sales Rep'),
+  accountOpenedAt:rowPick(R,'AccountOpenDate','Account Open Date'),notes:rowPick(R,'Notes'),internalNotes:rowPick(R,'Internal Notes'),taxNumber:rowPick(R,'TAX Number','Tax Number'),registrationNumber:rowPick(R,'Registration'),
+  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
+  creditApplicationDate:rowPick(R,'CreditApplicationDate','Credit Application Date'),poRequired:rowPick(R,'PO Required'),checkTerms:rowPick(R,'Check Terms'),defaultDeliveryMethod:rowPick(R,'Delivery Method'),deliverTo:rowPick(R,'Deliver To'),
+  fuelLevyMode:rowPick(R,'Fuel Levy Mode')||'default',fuelLevyRate:rowPick(R,'Fuel Levy Rate'),statementDelivery,statementEmail:rowPick(R,'Statement Email'),invoiceEmail:rowPick(R,'Invoice Email'),contacts,addresses,
+  legacyRefs:{sourceSystem:'legacy-import',dcLink:rowPick(R,'DCLink'),flid:rowPick(R,'FLID'),iClassID:rowPick(R,'iClassID'),repID:rowPick(R,'RepID'),iAreasID:rowPick(R,'iAreasID'),uiARDeliveryMethod:rowPick(R,'uiARDeliveryMethod'),uiARCATID:rowPick(R,'uiARCATID'),accountStatusID:rowPick(R,'AccountStatusID'),iwg:rowPick(R,'I.W.G','IWG')}
+ });
+}
+function parseCustomerImport(text,name){
+ const ext=String(name||'').toLowerCase();
+ if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
+  const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
+  if(!list)throw new Error('JSON клиентов должен содержать массив customers');
+  return list.map(customerFromImportRow);
+ }
+ return csvParse(text).map(customerFromImportRow);
+}
+function validateCustomerImportList(list){
+ if(!Array.isArray(list)||!list.length)throw new Error('в файле нет клиентов');
+ const codes=new Set();list.forEach((c,i)=>{
+  if(!c.legalName)throw new Error('клиент в строке '+(i+1)+': не заполнено Name');
+  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('в импортируемом файле повторяется Account "'+c.code+'"');codes.add(key);}
+ });
+}
+function applyCustomerImport(list,mode){
+ validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
+ if(mode==='replace'){
+  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('нельзя заменить весь справочник: есть клиенты, связанные с заказами');
+  DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
+ }else{
+  list.forEach(incoming=>{
+   let current=null;if(incoming.id)current=DB.customer.find(c=>c.id===incoming.id)||null;
+   if(!current&&incoming.code)current=DB.customer.find(c=>String(c.code).toUpperCase()===String(incoming.code).toUpperCase())||null;
+   if(current){const keepId=current.id,created=current.createdAt;Object.assign(current,normalizeCustomer(Object.assign({},incoming,{id:keepId,createdAt:created||incoming.createdAt})));current.id=keepId;}
+   else{const c=normalizeCustomer(incoming);if(!c.code)c.code=nextCustomerCode();DB.customer.push(c);}
+  });
+ }
+ normalizeCustomers();touch();render();return list.length;
+}
+function importCustomersFile(inp,mode){
+ const f=inp.files&&inp.files[0];if(!f)return;
+ if(f.size>10*1024*1024){alert('Файл клиентов превышает 10 MB.');inp.value='';return;}
+ if(mode==='replace'&&!confirm('Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.')){inp.value='';return;}
+ const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Импортировано клиентов: '+n);}catch(e){alert('Не удалось импортировать клиентов: '+e.message);}finally{inp.value='';}};r.readAsText(f);
+}
+
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
    erp/icons  ·  erp-1.0
@@ -2580,6 +2820,75 @@ const I18N_EN={
   "Главная": "Dashboard",
   "Ядро": "Core",
   "Пользователи": "Users",
+  "Клиенты": "Customers",
+  "Справочник клиентов, контакты и коммерческие условия": "Customer master, contacts and commercial terms",
+  "Единый справочник клиентов для будущих Sales Orders. Контакты, адреса, кредитные условия и legacy-ID хранятся отдельно и не смешиваются с производственными данными.": "Single customer master for future Sales Orders. Contacts, addresses, credit terms and legacy IDs are stored separately from production data.",
+  "активных клиентов": "active customers",
+  "на hold": "on hold",
+  "в архиве": "archived",
+  "Поиск по коду, имени, контакту, телефону, email…": "Search by code, name, contact, phone, email…",
+  "+ Новый клиент": "+ New customer",
+  "Экспорт CSV": "Export CSV",
+  "Импорт / обновление": "Import / update",
+  "Импорт с заменой": "Import and replace",
+  "Активные": "Active",
+  "Все": "All",
+  "Архив": "Archived",
+  "Account": "Account",
+  "Клиент": "Customer",
+  "Основной контакт": "Primary contact",
+  "Условия": "Terms",
+  "Кредит": "Credit",
+  "клиенты не найдены": "no customers found",
+  "CSV-импорт понимает как экспорт GLASS ERP, так и legacy-колонки Name / Account / Post Add / Del Add / Telephone / EMail / SalesRep / Credit Limit / DCLink и др.": "CSV import accepts both GLASS ERP exports and legacy columns such as Name / Account / Post Add / Del Add / Telephone / EMail / SalesRep / Credit Limit / DCLink and others.",
+  "Открыть": "Open",
+  "Дублировать": "Duplicate",
+  "В архив": "Archive",
+  "Восстановить": "Restore",
+  "Активный": "Active",
+  "Неактивный": "Inactive",
+  "Новый клиент": "New customer",
+  "Внутренний ID:": "Internal ID:",
+  "Основное": "General",
+  "Контакты": "Contacts",
+  "Адреса": "Addresses",
+  "Кредит и условия": "Credit & terms",
+  "Основная информация": "General information",
+  "авто: C-00001": "auto: C-00001",
+  "PO обязателен": "PO required",
+  "Контактов пока нет": "No contacts yet",
+  "Несколько людей на одного клиента: purchasing, accounting, receiving, project manager и др.": "Multiple people per customer: purchasing, accounting, receiving, project manager, etc.",
+  "+ Контакт": "+ Contact",
+  "Контакт": "Contact",
+  "Роль / должность": "Role / title",
+  "Основной": "Primary",
+  "Удалить": "Delete",
+  "Адресов пока нет": "No addresses yet",
+  "Billing и несколько delivery/job-site адресов могут существовать одновременно.": "Billing and multiple delivery/job-site addresses can exist at the same time.",
+  "+ Адрес": "+ Address",
+  "Адрес": "Address",
+  "Тип": "Type",
+  "По умолчанию": "Default",
+  "Кредит и коммерческие условия": "Credit and commercial terms",
+  "Индивидуальная ставка": "Custom rate",
+  "Без топливного сбора": "Fuel levy exempt",
+  "Печать": "Print",
+  "Email + печать": "Email + print",
+  "Не отправлять": "Do not send",
+  "Accounting и statements": "Accounting and statements",
+  "Legacy IDs сохраняются для миграции и сверки со старой системой. Они не являются бизнес-ключами новой ERP.": "Legacy IDs are preserved for migration and reconciliation with the old system. They are not business keys in the new ERP.",
+  "Legacy / migration references": "Legacy / migration references",
+  "Укажи Legal Name": "Enter Legal Name",
+  "Customer Code уже используется": "Customer Code is already in use",
+  "Клиент уже используется в заказах. Удаление запрещено — переведи клиента в архив.": "This customer is already used by orders. Deletion is blocked — archive the customer instead.",
+  "Удалить клиента без возможности восстановления?": "Delete this customer permanently?",
+  "Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.": "Replace the entire customer master with data from the file? This cannot be undone without a backup export.",
+  "Файл клиентов превышает 10 MB.": "Customer file exceeds 10 MB.",
+  "Не удалось импортировать клиентов:": "Could not import customers:",
+  "в файле нет клиентов": "the file contains no customers",
+  "JSON клиентов должен содержать массив customers": "Customer JSON must contain a customers array",
+  "нельзя заменить весь справочник: есть клиенты, связанные с заказами": "The customer master cannot be replaced because some customers are referenced by orders",
+  "поле \"customer\" должно быть массивом": "the \"customer\" field must be an array",
   "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
   "Конфигураторы": "Configurators",
@@ -2846,6 +3155,7 @@ const I18N_EN={
   "Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.": "Could not save data in the browser. Export JSON and check available storage."
 };
 const _textOriginal=new WeakMap();
+const _attrOriginal=new WeakMap();
 function tx(value){
  const raw=String(value??'');
  if(LANG!=='en') return raw;
@@ -2854,7 +3164,18 @@ function tx(value){
  if(I18N_EN[core]!==undefined) return lead+I18N_EN[core]+tail;
  let x=core;
  let mm;
- if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
+ if((mm=x.match(/^Показано: (\d+) \/ (\d+)$/))) x=`Shown: ${mm[1]} / ${mm[2]}`;
+ else if((mm=x.match(/^Импортировано клиентов: (\d+)$/))) x=`Customers imported: ${mm[1]}`;
+ else if((mm=x.match(/^клиент в строке (\d+): не заполнено Name$/i))) x=`Customer row ${mm[1]}: Name is required`;
+ else if((mm=x.match(/^клиент в строке (\d+) должен быть объектом$/i))) x=`Customer row ${mm[1]} must be an object`;
+ else if((mm=x.match(/^contacts клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} contacts must be an array`;
+ else if((mm=x.match(/^addresses клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} addresses must be an array`;
+ else if((mm=x.match(/^Customers содержит дубликат id "(.+)"$/))) x=`Customers contains duplicate id "${mm[1]}"`;
+ else if((mm=x.match(/^Customers содержит дубликат кода "(.+)"$/))) x=`Customers contains duplicate code "${mm[1]}"`;
+ else if((mm=x.match(/^в импортируемом файле повторяется Account "(.+)"$/i))) x=`The import file contains duplicate Account "${mm[1]}"`;
+ else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
+ else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
+ else if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
  else if((mm=x.match(/^контуров Shape · (\d+) схем Muntin$/))) x=`Shape contours · ${mm[1]} Muntin layouts`;
  else if((mm=x.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?) мм$/))) x=`${mm[1]}–${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) станц\.$/))) x=`${mm[1]} stations`;
@@ -2936,6 +3257,10 @@ function applyLang(root=document.body){
    const original=_textOriginal.get(node);
    node.nodeValue = LANG==='en' ? tx(original) : original;
  }
+ document.querySelectorAll('[placeholder]').forEach(el=>{
+   let rec=_attrOriginal.get(el);if(!rec){rec={};_attrOriginal.set(el,rec);}if(rec.placeholder===undefined)rec.placeholder=el.getAttribute('placeholder')||'';
+   el.setAttribute('placeholder',LANG==='en'?tx(rec.placeholder):rec.placeholder);
+ });
  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=LANG==='en'?tx(el.dataset.i18nTitle):el.dataset.i18nTitle; });
  const ru=document.getElementById('langRu'), en=document.getElementById('langEn');
  if(ru) ru.classList.toggle('on',LANG==='ru');
@@ -2967,6 +3292,7 @@ const NAV=[
  {group:'Ядро'},
  {k:'users', label:'Пользователи', icon:'users'},
  {group:'Операции'},
+ {k:'customers', label:'Клиенты', icon:'users'},
  {k:'sales', label:'Продажи', icon:'sales'},
  {k:'configurators', label:'Конфигураторы', icon:'layers'},
  {k:'optimization', label:'Оптимизация', icon:'optimize'},
@@ -3018,6 +3344,7 @@ function render(){
  const meta={
   dashboard:['Обзор системы','Карта ERP и текущий статус'],
   users:['Пользователи','Роли, станции и покрытие навыков'],
+  customers:['Клиенты','Справочник клиентов, контакты и коммерческие условия'],
   sales:['Продажи','Заказы и коммерческая конфигурация'],
   configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
@@ -3026,7 +3353,7 @@ function render(){
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Фаза 1 · фундамент';
- const V={dashboard:viewDashboard,users:viewUsers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction}[tab];
  document.getElementById('app').innerHTML = V ? V() : '<div class="empty">модуль в плане</div>';
  afterRender();
 }
@@ -3208,6 +3535,105 @@ function skillReport(){
  return `<div class="sub">Сначала визуальный слой — видно пробелы в компетенциях. Ниже остаётся точная матрица по уровням.</div>
   <div class="skill-card-grid" style="margin-bottom:14px">${cards}</div>
   <table><thead><tr><th>Навык</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Покрытие</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ==== src/erp/views/customers.js ==== */
+/* =====================================================================
+   view/customers  ·  customers-1.0
+   Customer master CRUD + dedicated import/export UI.
+   ===================================================================== */
+
+let cEdit=null,cDraft=null,cTab='general',cSearch='',cFilter='active';
+function customerVisibleRows(){
+ const q=customerString(cSearch).toLowerCase();
+ return DB.customer.filter(c=>{
+  if(cFilter==='active'&&c.status!=='active')return false;
+  if(cFilter==='prospect'&&!c.isProspect)return false;
+  if(cFilter==='hold'&&!c.onHold)return false;
+  if(cFilter==='archived'&&c.status!=='archived')return false;
+  if(q){const p=customerPrimaryContact(c),hay=[c.code,c.legalName,c.displayName,c.customerType,c.group,c.area,c.salesRep,c.taxNumber,p.name,p.phone,p.email].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+  return true;
+ });
+}
+function customerSearchChange(el){cSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('customerSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function viewCustomers(){
+ const active=DB.customer.filter(c=>c.status==='active').length,prospects=DB.customer.filter(c=>c.isProspect).length,holds=DB.customer.filter(c=>c.onHold).length,arch=DB.customer.filter(c=>c.status==='archived').length;
+ return `<div class="page-head"><div><h2>Клиенты</h2><p>Единый справочник клиентов для будущих Sales Orders. Контакты, адреса, кредитные условия и legacy-ID хранятся отдельно и не смешиваются с производственными данными.</p></div><span class="pill info">Customer Master · v1</span></div>
+  <div class="kpi-grid">
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${active}</div><div class="kpi-label">активных клиентов</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('sales')}</div></div><div class="kpi-num">${prospects}</div><div class="kpi-label">prospects</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${holds}</div><div class="kpi-label">на hold</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('database')}</div></div><div class="kpi-num">${arch}</div><div class="kpi-label">в архиве</div></div>
+  </div>
+  ${cEdit!==null?customerForm():customerList()}`;
+}
+function customerList(){
+ const rows=customerVisibleRows();
+ return `<div class="card">
+  <div class="customer-toolbar">
+   <div class="customer-search"><input id="customerSearch" value="${esc(cSearch)}" placeholder="Поиск по коду, имени, контакту, телефону, email…" oninput="customerSearchChange(this)"></div>
+   <div class="customer-actions"><button class="pri" onclick="customerNew()">+ Новый клиент</button><button onclick="exportCustomersCSV()">Экспорт CSV</button><button onclick="exportCustomersJSON()">Экспорт JSON</button><button onclick="document.getElementById('customerImportMerge').click()">Импорт / обновление</button><button class="dl" onclick="document.getElementById('customerImportReplace').click()">Импорт с заменой</button></div>
+  </div>
+  <input id="customerImportMerge" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'merge')">
+  <input id="customerImportReplace" type="file" accept=".csv,.json,text/csv,application/json" hidden onchange="importCustomersFile(this,'replace')">
+  <div class="customer-filterbar">
+   ${[['active','Активные'],['all','Все'],['prospect','Prospects'],['hold','On Hold'],['archived','Архив']].map(x=>`<button class="sm ${cFilter===x[0]?'customer-filter-on':''}" onclick="cFilter='${x[0]}';render()">${x[1]}</button>`).join('')}
+   <span class="mut">Показано: ${rows.length} / ${DB.customer.length}</span>
+  </div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Account</th><th>Клиент</th><th>Основной контакт</th><th>Условия</th><th>Кредит</th><th>Статус</th><th></th></tr></thead><tbody>${rows.map(customerRow).join('')||'<tr><td colspan="7" class="empty">клиенты не найдены</td></tr>'}</tbody></table></div>
+  <div class="hint">CSV-импорт понимает как экспорт GLASS ERP, так и legacy-колонки Name / Account / Post Add / Del Add / Telephone / EMail / SalesRep / Credit Limit / DCLink и др.</div>
+ </div>`;
+}
+function customerRow(c){
+ const p=customerPrimaryContact(c),hold=c.onHold?'<span class="pill bad">On Hold</span>':'',prospect=c.isProspect?'<span class="pill info">Prospect</span>':'';
+ const statusClass=c.status==='archived'?'warn':c.status==='inactive'?'info':'ok';
+ return `<tr><td class="mono"><b>${raw(c.code||'—')}</b></td><td><b>${raw(c.displayName||c.legalName)}</b><div class="mut">${raw(c.legalName!==c.displayName?c.legalName:'')}</div></td>
+  <td>${p.name?`<b>${raw(p.name)}</b><div class="mut">${raw(p.phone||p.mobile||'')} ${p.email?'· '+raw(p.email):''}</div>`:'<span class="mut">—</span>'}</td>
+  <td>${raw(c.paymentTerms||'—')}<div class="mut">${esc(c.currency)} · ${raw(c.defaultDeliveryMethod||'—')}</div></td>
+  <td>${c.creditLimit==null?'<span class="mut">—</span>':`<span class="mono">${esc(c.currency)} ${esc(c.creditLimit.toLocaleString('en-CA',{maximumFractionDigits:2}))}</span>`}<div>${hold}</div></td>
+  <td><span class="pill ${statusClass}">${customerStatusLabel(c.status)}</span> ${prospect}</td>
+  <td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(c.id)}')">Открыть</button><button class="sm" onclick="customerDuplicate('${esc(c.id)}')">Дублировать</button><button class="sm" onclick="customerToggleArchive('${esc(c.id)}')">${c.status==='archived'?'Восстановить':'В архив'}</button><button class="sm dl" onclick="customerDelete('${esc(c.id)}')">×</button></td></tr>`;
+}
+function customerNew(){cEdit='new';cDraft=newCustomerDraft();cTab='general';render();}
+function customerEdit(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;cEdit=id;cDraft=JSON.parse(JSON.stringify(c));cTab='general';render();}
+function customerDuplicate(id){const src=DB.customer.find(x=>x.id===id);if(!src)return;cEdit='new';cDraft=normalizeCustomer(JSON.parse(JSON.stringify(src)));cDraft.id=customerUid('CUS');cDraft.code='';cDraft.legalName+=(cDraft.legalName?' — копия':'');cDraft.displayName+=(cDraft.displayName?' — копия':'');cDraft.createdAt=new Date().toISOString();cDraft.updatedAt=cDraft.createdAt;cTab='general';render();}
+function customerToggleArchive(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;if(c.status==='archived'){c.status='active';c.archivedAt='';}else{c.status='archived';c.archivedAt=new Date().toISOString();}c.updatedAt=new Date().toISOString();touch();render();}
+function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('Клиент уже используется в заказах. Удаление запрещено — переведи клиента в архив.');return;}if(!confirm('Удалить клиента без возможности восстановления?'))return;DB.customer.splice(i,1);touch();render();}
+function customerTabButton(id,label){return `<button class="${cTab===id?'on':''}" onclick="cTab='${id}';render()">${label}</button>`;}
+function customerForm(){
+ const c=cDraft;
+ return `<div class="card customer-editor">
+  <div class="section-title"><div><h3>${cEdit==='new'?'Новый клиент':raw(c.displayName||c.legalName||'Клиент')}</h3><div class="sub">Внутренний ID: <span class="mono" data-raw>${esc(c.id)}</span></div></div><div class="row customer-editor-actions"><button class="pri" onclick="saveCustomer()">Сохранить</button><button onclick="cEdit=null;cDraft=null;render()">Отмена</button></div></div>
+  <div class="tabs customer-tabs">${customerTabButton('general','Основное')}${customerTabButton('contacts','Контакты')}${customerTabButton('addresses','Адреса')}${customerTabButton('credit','Кредит и условия')}${customerTabButton('accounting','Accounting')}${customerTabButton('legacy','Legacy IDs')}</div>
+  ${cTab==='general'?customerGeneralForm():cTab==='contacts'?customerContactsForm():cTab==='addresses'?customerAddressesForm():cTab==='credit'?customerCreditForm():cTab==='accounting'?customerAccountingForm():customerLegacyForm()}
+  <div class="err" id="e_customer"></div>
+ </div>`;
+}
+function customerGeneralForm(){const c=cDraft;return `<div class="form"><h3>Основная информация</h3><div class="grid customer-grid-4">
+ <div><label>Account / Customer Code</label><input value="${esc(c.code)}" placeholder="авто: C-00001" oninput="cDraft.code=this.value"></div>
+ <div><label>Legal Name *</label><input value="${esc(c.legalName)}" oninput="cDraft.legalName=this.value;if(!cDraft.displayName)cDraft.displayName=this.value"></div>
+ <div><label>Display Name</label><input value="${esc(c.displayName)}" oninput="cDraft.displayName=this.value"></div>
+ <div><label>Статус</label><select onchange="cDraft.status=this.value"><option value="active" ${c.status==='active'?'selected':''}>Активный</option><option value="inactive" ${c.status==='inactive'?'selected':''}>Неактивный</option><option value="archived" ${c.status==='archived'?'selected':''}>Архив</option></select></div>
+ <div><label>Customer Type</label><input value="${esc(c.customerType)}" oninput="cDraft.customerType=this.value"></div><div><label>Group</label><input value="${esc(c.group)}" oninput="cDraft.group=this.value"></div><div><label>Area / Territory</label><input value="${esc(c.area)}" oninput="cDraft.area=this.value"></div><div><label>Sales Rep</label><input value="${esc(c.salesRep)}" oninput="cDraft.salesRep=this.value"></div>
+ <div><label>Account Open Date</label><input type="date" value="${esc(c.accountOpenedAt)}" onchange="cDraft.accountOpenedAt=this.value"></div><div><label>TAX Number</label><input value="${esc(c.taxNumber)}" oninput="cDraft.taxNumber=this.value"></div><div><label>Registration</label><input value="${esc(c.registrationNumber)}" oninput="cDraft.registrationNumber=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${c.isProspect?'checked':''} onchange="cDraft.isProspect=this.checked"> Prospect</label><label class="chk"><input type="checkbox" ${c.poRequired?'checked':''} onchange="cDraft.poRequired=this.checked"> PO обязателен</label></div>
+ </div><div class="grid" style="margin-top:12px"><div><label>Notes</label><textarea rows="3" oninput="cDraft.notes=this.value">${esc(c.notes)}</textarea></div><div><label>Internal Notes</label><textarea rows="3" oninput="cDraft.internalNotes=this.value">${esc(c.internalNotes)}</textarea></div></div></div>`;}
+function customerContactsForm(){const c=cDraft;return `<div class="section-title"><div><h3>Контакты</h3><div class="sub">Несколько людей на одного клиента: purchasing, accounting, receiving, project manager и др.</div></div><button class="pri" onclick="customerAddContact()">+ Контакт</button></div>${c.contacts.map((x,i)=>`<div class="form customer-subrecord"><div class="customer-subrecord-head"><b>Контакт ${i+1}</b><button class="sm dl" onclick="customerRemoveContact(${i})">Удалить</button></div><div class="grid customer-grid-4"><div><label>Имя</label><input value="${esc(x.name)}" oninput="cDraft.contacts[${i}].name=this.value"></div><div><label>Роль / должность</label><input value="${esc(x.role)}" oninput="cDraft.contacts[${i}].role=this.value"></div><div><label>Phone</label><input value="${esc(x.phone)}" oninput="cDraft.contacts[${i}].phone=this.value"></div><div><label>Phone 2</label><input value="${esc(x.phone2)}" oninput="cDraft.contacts[${i}].phone2=this.value"></div><div><label>Mobile</label><input value="${esc(x.mobile)}" oninput="cDraft.contacts[${i}].mobile=this.value"></div><div><label>Fax</label><input value="${esc(x.fax)}" oninput="cDraft.contacts[${i}].fax=this.value"></div><div><label>Email</label><input type="email" value="${esc(x.email)}" oninput="cDraft.contacts[${i}].email=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${x.isPrimary?'checked':''} onchange="customerContactFlag(${i},'isPrimary',this.checked)"> Основной</label><label class="chk"><input type="checkbox" ${x.isInvoice?'checked':''} onchange="customerContactFlag(${i},'isInvoice',this.checked)"> Invoice</label><label class="chk"><input type="checkbox" ${x.isShipping?'checked':''} onchange="customerContactFlag(${i},'isShipping',this.checked)"> Shipping</label></div></div></div>`).join('')||'<div class="empty">Контактов пока нет</div>'}`;}
+function customerAddContact(){cDraft.contacts.push(normalizeCustomerContact({}));render();}function customerRemoveContact(i){cDraft.contacts.splice(i,1);render();}function customerContactFlag(i,k,v){if(v)cDraft.contacts.forEach((x,n)=>{if(n!==i)x[k]=false;});cDraft.contacts[i][k]=v;render();}
+function customerAddressesForm(){const c=cDraft;return `<div class="section-title"><div><h3>Адреса</h3><div class="sub">Billing и несколько delivery/job-site адресов могут существовать одновременно.</div></div><button class="pri" onclick="customerAddAddress()">+ Адрес</button></div>${c.addresses.map((x,i)=>`<div class="form customer-subrecord"><div class="customer-subrecord-head"><b>Адрес ${i+1}</b><button class="sm dl" onclick="customerRemoveAddress(${i})">Удалить</button></div><div class="grid customer-grid-4"><div><label>Тип</label><select onchange="cDraft.addresses[${i}].type=this.value"><option value="billing" ${x.type==='billing'?'selected':''}>Billing</option><option value="delivery" ${x.type==='delivery'?'selected':''}>Delivery</option><option value="other" ${x.type==='other'?'selected':''}>Other</option></select></div><div><label>Название</label><input value="${esc(x.label)}" placeholder="Main warehouse / Job Site" oninput="cDraft.addresses[${i}].label=this.value"></div><div><label>Addressee</label><input value="${esc(x.addressee)}" oninput="cDraft.addresses[${i}].addressee=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${x.isDefault?'checked':''} onchange="customerAddressDefault(${i},this.checked)"> По умолчанию</label></div><div><label>Address 1</label><input value="${esc(x.address1)}" oninput="cDraft.addresses[${i}].address1=this.value"></div><div><label>Address 2</label><input value="${esc(x.address2)}" oninput="cDraft.addresses[${i}].address2=this.value"></div><div><label>Address 3</label><input value="${esc(x.address3)}" oninput="cDraft.addresses[${i}].address3=this.value"></div><div><label>City</label><input value="${esc(x.city)}" oninput="cDraft.addresses[${i}].city=this.value"></div><div><label>Province / State</label><input value="${esc(x.province)}" oninput="cDraft.addresses[${i}].province=this.value"></div><div><label>Postal Code</label><input value="${esc(x.postalCode)}" oninput="cDraft.addresses[${i}].postalCode=this.value"></div><div><label>Country</label><input value="${esc(x.country)}" oninput="cDraft.addresses[${i}].country=this.value"></div></div></div>`).join('')||'<div class="empty">Адресов пока нет</div>'}`;}
+function customerAddAddress(){cDraft.addresses.push(normalizeCustomerAddress({type:'delivery',country:'Canada'}));render();}function customerRemoveAddress(i){cDraft.addresses.splice(i,1);render();}function customerAddressDefault(i,v){if(v)cDraft.addresses.forEach((x,n)=>{if(n!==i&&x.type===cDraft.addresses[i].type)x.isDefault=false;});cDraft.addresses[i].isDefault=v;render();}
+function customerCreditForm(){const c=cDraft;return `<div class="form"><h3>Кредит и коммерческие условия</h3><div class="grid customer-grid-4"><div><label>Payment Terms</label><input value="${esc(c.paymentTerms)}" placeholder="45 Days Net" oninput="cDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="cDraft.currency=this.value">${CUSTOMER_CURRENCIES.map(x=>`<option ${c.currency===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Credit Limit</label><input type="number" step="0.01" min="0" value="${c.creditLimit==null?'':esc(c.creditLimit)}" oninput="cDraft.creditLimit=this.value"></div><div><label>Credit Application Date</label><input type="date" value="${esc(c.creditApplicationDate)}" onchange="cDraft.creditApplicationDate=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${c.onHold?'checked':''} onchange="cDraft.onHold=this.checked;render()"> On Hold</label><label class="chk"><input type="checkbox" ${c.checkTerms?'checked':''} onchange="cDraft.checkTerms=this.checked"> Check Terms</label></div><div><label>Hold Reason</label><input value="${esc(c.holdReason)}" ${c.onHold?'':'disabled'} oninput="cDraft.holdReason=this.value"></div><div><label>Delivery Method</label><input value="${esc(c.defaultDeliveryMethod)}" placeholder="Pickup / Company Truck" oninput="cDraft.defaultDeliveryMethod=this.value"></div><div><label>Deliver To</label><input value="${esc(c.deliverTo)}" oninput="cDraft.deliverTo=this.value"></div><div><label>Fuel Levy</label><select onchange="cDraft.fuelLevyMode=this.value;render()"><option value="default" ${c.fuelLevyMode==='default'?'selected':''}>По умолчанию</option><option value="custom" ${c.fuelLevyMode==='custom'?'selected':''}>Индивидуальная ставка</option><option value="exempt" ${c.fuelLevyMode==='exempt'?'selected':''}>Без топливного сбора</option></select></div><div><label>Fuel Levy Rate</label><input type="number" step="0.0001" min="0" value="${c.fuelLevyRate==null?'':esc(c.fuelLevyRate)}" ${c.fuelLevyMode==='custom'?'':'disabled'} oninput="cDraft.fuelLevyRate=this.value"></div></div></div>`;}
+function customerAccountingForm(){const c=cDraft;return `<div class="form"><h3>Accounting и statements</h3><div class="grid customer-grid-4"><div><label>Statement Delivery</label><select onchange="cDraft.statementDelivery=this.value"><option value="email" ${c.statementDelivery==='email'?'selected':''}>Email</option><option value="print" ${c.statementDelivery==='print'?'selected':''}>Печать</option><option value="both" ${c.statementDelivery==='both'?'selected':''}>Email + печать</option><option value="none" ${c.statementDelivery==='none'?'selected':''}>Не отправлять</option></select></div><div><label>Statement Email</label><input type="email" value="${esc(c.statementEmail)}" oninput="cDraft.statementEmail=this.value"></div><div><label>Invoice Email</label><input type="email" value="${esc(c.invoiceEmail)}" oninput="cDraft.invoiceEmail=this.value"></div><div><label>TAX Exempt</label><label class="chk"><input type="checkbox" ${c.taxExempt?'checked':''} onchange="cDraft.taxExempt=this.checked;render()"> Tax Exempt</label></div><div><label>Tax Exemption Number</label><input value="${esc(c.taxExemptionNumber)}" ${c.taxExempt?'':'disabled'} oninput="cDraft.taxExemptionNumber=this.value"></div></div></div>`;}
+function customerLegacyForm(){const l=cDraft.legacyRefs||normalizeLegacyRefs({});cDraft.legacyRefs=l;return `<div class="note">Legacy IDs сохраняются для миграции и сверки со старой системой. Они не являются бизнес-ключами новой ERP.</div><div class="form"><h3>Legacy / migration references</h3><div class="grid customer-grid-4"><div><label>Source System</label><input value="${esc(l.sourceSystem)}" oninput="cDraft.legacyRefs.sourceSystem=this.value"></div>${[['dcLink','DCLink'],['flid','FLID'],['iClassID','iClassID'],['repID','RepID'],['iAreasID','iAreasID'],['uiARDeliveryMethod','uiARDeliveryMethod'],['uiARCATID','uiARCATID'],['accountStatusID','AccountStatusID'],['iwg','I.W.G']].map(x=>`<div><label>${x[1]}</label><input value="${esc(l[x[0]])}" oninput="cDraft.legacyRefs.${x[0]}=this.value"></div>`).join('')}</div></div>`;}
+function saveCustomer(){
+ const e=document.getElementById('e_customer');e.style.display='none';
+ cDraft=normalizeCustomer(cDraft);cDraft.legalName=customerString(cDraft.legalName);cDraft.displayName=customerString(cDraft.displayName)||cDraft.legalName;
+ if(!cDraft.legalName)return fail(e,'Укажи Legal Name');
+ if(!cDraft.code)cDraft.code=nextCustomerCode();
+ if(DB.customer.some(c=>c.id!==cDraft.id&&String(c.code).toUpperCase()===String(cDraft.code).toUpperCase()))return fail(e,'Customer Code уже используется');
+ if(cDraft.onHold&&!cDraft.holdReason)cDraft.holdReason='Management hold';
+ cDraft.updatedAt=new Date().toISOString();if(!cDraft.createdAt)cDraft.createdAt=cDraft.updatedAt;if(cDraft.status==='archived'&&!cDraft.archivedAt)cDraft.archivedAt=cDraft.updatedAt;if(cDraft.status!=='archived')cDraft.archivedAt='';
+ if(cEdit==='new')DB.customer.push(cDraft);else{const i=DB.customer.findIndex(c=>c.id===cEdit);if(i>=0)DB.customer[i]=cDraft;else DB.customer.push(cDraft);}
+ normalizeCustomers();cEdit=null;cDraft=null;touch();render();
 }
 
 /* ==== src/erp/views/sales.js ==== */
@@ -3859,6 +4285,7 @@ function mergeState(src){
 function validateImportedState(src){
  if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -3904,6 +4331,7 @@ function normalizeDB(){
  normalizeStations();
  normalizeUsers();
  normalizeSalesModules();
+ if(typeof normalizeCustomers==='function')normalizeCustomers();
 }
 function boot(){
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
