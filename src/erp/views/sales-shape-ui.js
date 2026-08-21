@@ -315,7 +315,7 @@ function shapeForm(){
       ${shapeEdgeworkEditor()}
       ${shapeFeaturesEditor(geo)}
     </div><div class='shape-preview-side'><div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
-    <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='sEdit=null;sDraft=null;render()'>Отмена</button></div></div>`;
+    <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 
 function saveShape(){
@@ -324,8 +324,11 @@ function saveShape(){
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
   if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('Эта фигура используется в Muntinbar. Новая геометрия изменит связанную раскладку. Сохранить новую ревизию?'))return;
   var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
-  if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;sEdit=null;sDraft=null;touch();render();
+  if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
+  if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
+  sEdit=null;sDraft=null;render();
 }
+function cancelShapeEdit(){if(typeof salesBridgeCancel==='function'&&salesBridgeCancel('shape'))return;sEdit=null;sDraft=null;render();}
 function shapeSafeFileName(s){return String(s||'shape').trim().replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'shape';}
 function shapeDownload(textValue,mime,name){var b=new Blob([textValue],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
 function downloadShapeArtifact(kind){
@@ -335,4 +338,4 @@ function downloadShapeArtifact(kind){
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
   if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
 }
-function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
+function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Нельзя удалить — Shape используется в Sales Order');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
