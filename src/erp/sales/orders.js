@@ -67,6 +67,19 @@ function salesPaneSetProduct(i,v){const p=salesCurrentMakeup().panes[i],g=glassP
 function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
 function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
 function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}
+/* Диаметр точки и отступы — числа, а не свободный текст: мусор ловим прямо на
+   поле, как на размерах строки заказа. Ноль в отступе законен и обязан
+   сохраниться, поэтому у него отдельный парсер (см. salesMarginTo16). */
+function salesFritDotChange(i,el){
+ const p=salesCurrentMakeup().panes[i],n=+String(el.value).trim();
+ if(!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}
+ p.frit.dotMm=n;el.value=String(n);el.classList.remove('bad');
+}
+function salesFritMarginChange(i,key,el){
+ const p=salesCurrentMakeup().panes[i],n=salesMarginTo16(el.value);
+ if(n==null){el.classList.add('bad');return;}
+ p.frit[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');
+}
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
 function salesPaneSetLam(i,k,v){salesCurrentMakeup().panes[i].laminated[k]=v;render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}

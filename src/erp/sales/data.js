@@ -37,6 +37,13 @@ function salesDimTo16(v){
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 
 function salesDimFrom16(v){return Number.isInteger(v)&&v>0?frac64(v/16):'';}
+/* Отступ узора фрита — размер заказа, а не константа, и ноль в нём законен:
+   узор идёт до самой кромки. Поэтому у отступа свой парсер — salesDimTo16
+   отбрасывает 0 вместе с мусором, и «0» превращалось бы в пустое поле. */
+function salesMarginTo16(v){const r=fabParseDimStrict(v);return r.ok&&r.v>=0?Math.round(r.v*16):null;}
+function salesMarginFrom16(v){return Number.isInteger(v)&&v>=0?frac64(v/16):'';}
+function salesStoredMargin16(v,def){if(v==null||v==='')return def;const n=+v;return Number.isInteger(n)&&n>=0?n:def;}
+function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
 function salesFirstGlass(family,manufacturer,thickness){
@@ -48,13 +55,32 @@ function salesDefaultPane(i){
  return {
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',
   coatingSurface:null,
-  frit:{productId:'FRIT-CERAMIC',color:'Black',pattern:'Full coverage',coverage:'100',surface:null},
+  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
   laminated:{outerGlassProductId:g?g.id:'',interlayerProductId:'INT-PVB030',innerGlassProductId:g?g.id:''}
  };
 }
 function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:'SEAL-PIB',secondarySealantId:'SEAL-SIL'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
+/* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
+   заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
+   не существует; такие значения падают в дефолт, а поля coverage больше нет:
+   в спецификации силкскрина его нет вообще. */
+function normalizeFritSpec(f,d,allowed){
+ f=f&&typeof f==='object'?f:{};
+ const color=salesString(f.color),pattern=salesString(f.pattern),corner=salesString(f.marginFrom);
+ return {
+  productId:salesString(f.productId)||d.productId,
+  color:FRIT_COLORS.includes(color)?color:d.color,
+  pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,
+  dotMm:salesFritDotMm(f.dotMm,d.dotMm),
+  marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,
+  marginW16:salesStoredMargin16(f.marginW16,d.marginW16),
+  marginH16:salesStoredMargin16(f.marginH16,d.marginH16),
+  marking:salesString(f.marking),
+  surface:normalizeSurface(f.surface,allowed)
+ };
+}
 function salesPaneSurfaces(index){return [index*2+1,index*2+2];}
 function normalizeSalesPane(p,index){
  const d=salesDefaultPane(index);p=p&&typeof p==='object'?p:{};
@@ -69,7 +95,7 @@ function normalizeSalesPane(p,index){
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
-  frit:{productId:salesString(frit.productId)||d.frit.productId,color:salesString(frit.color)||d.frit.color,pattern:salesString(frit.pattern)||d.frit.pattern,coverage:salesString(frit.coverage)||d.frit.coverage,surface:normalizeSurface(frit.surface,allowed)},
+  frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
   laminated:{outerGlassProductId:salesString(lam.outerGlassProductId)||d.laminated.outerGlassProductId,interlayerProductId:salesString(lam.interlayerProductId)||d.laminated.interlayerProductId,innerGlassProductId:salesString(lam.innerGlassProductId)||d.laminated.innerGlassProductId}
  };
@@ -103,20 +129,20 @@ function normalizeSalesData(){
  DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
 }
 function validateSalesPayload(src){
- if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('поле "salesOrder" должно быть массивом');
+ if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('The "salesOrder" field must be an array.');
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
-  if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order в строке '+(i+1)+' должен быть объектом');
-  if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('lines Sales Order '+(i+1)+' должны быть массивом');
-  if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('makeups Sales Order '+(i+1)+' должны быть массивом');
-  if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' содержит недопустимый id');if(ids.has(id))throw new Error('Sales Orders содержит дубликат id "'+id+'"');ids.add(id);}
-  if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders содержит дубликат номера "'+n+'"');numbers.add(n);}
-  const muIds=new Set(),muCodes=new Set();(o.makeups||[]).forEach((m,j)=>{if(!m||typeof m!=='object')throw new Error('Makeup '+(j+1)+' Sales Order '+(i+1)+' должен быть объектом');if(m.id){const id=salesString(m.id);if(!entityId.test(id))throw new Error('Makeup '+(j+1)+' содержит недопустимый id');if(muIds.has(id))throw new Error('Makeups содержит дубликат id "'+id+'"');muIds.add(id);}if(m.code){const c=salesString(m.code).toUpperCase();if(muCodes.has(c))throw new Error('Makeups содержит дубликат code "'+c+'"');muCodes.add(c);}});
-  (o.lines||[]).forEach((l,j)=>{if(!l||typeof l!=='object'||Array.isArray(l))throw new Error('строка '+(j+1)+' Sales Order '+(i+1)+' должна быть объектом');if(l.id){const id=salesString(l.id);if(!entityId.test(id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит недопустимый id');if(lineIds.has(id))throw new Error('Sales Order lines содержит дубликат id "'+id+'"');lineIds.add(id);}if(!l.makeupId)throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' не содержит Makeup');if(!muIds.has(salesString(l.makeupId)))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.width16!=null&&!salesStoredDim16(l.width16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный width16');if(l.height16!=null&&!salesStoredDim16(l.height16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный height16');});
+  if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order row '+(i+1)+' must be an object.');
+  if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('Sales Order '+(i+1)+': lines must be an array.');
+  if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('Sales Order '+(i+1)+': makeups must be an array.');
+  if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' has an invalid id.');if(ids.has(id))throw new Error('Sales Orders contains duplicate id "'+id+'".');ids.add(id);}
+  if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders contains duplicate number "'+n+'".');numbers.add(n);}
+  const muIds=new Set(),muCodes=new Set();(o.makeups||[]).forEach((m,j)=>{if(!m||typeof m!=='object')throw new Error('Sales Order '+(i+1)+', Makeup '+(j+1)+' must be an object.');if(m.id){const id=salesString(m.id);if(!entityId.test(id))throw new Error('Makeup '+(j+1)+' has an invalid id.');if(muIds.has(id))throw new Error('Makeups contains duplicate id "'+id+'".');muIds.add(id);}if(m.code){const c=salesString(m.code).toUpperCase();if(muCodes.has(c))throw new Error('Makeups contains duplicate code "'+c+'".');muCodes.add(c);}});
+  (o.lines||[]).forEach((l,j)=>{if(!l||typeof l!=='object'||Array.isArray(l))throw new Error('Sales Order '+(i+1)+', line '+(j+1)+' must be an object.');if(l.id){const id=salesString(l.id);if(!entityId.test(id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid id.');if(lineIds.has(id))throw new Error('Sales Order lines contains duplicate id "'+id+'".');lineIds.add(id);}if(!l.makeupId)throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has no Makeup.');if(!muIds.has(salesString(l.makeupId)))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.width16!=null&&!salesStoredDim16(l.width16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid width16.');if(l.height16!=null&&!salesStoredDim16(l.height16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid height16.');});
  });
 }
 function validateSalesReferences(){
  const customers=new Set((DB.customer||[]).map(c=>c.id)),shapeIds=new Set((DB.shapeDef||[]).map(s=>s.id)),muntinIds=new Set((DB.muntinDef||[]).map(m=>m.id));
- DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' ссылается на отсутствующего Customer');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Shape');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Muntin');});});
+ DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Muntin.');});});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
 function newSalesOrderDraft(){const now=new Date().toISOString();return normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});}
