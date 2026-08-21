@@ -7,8 +7,8 @@
 }
 html{background:var(--bg)}
 body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}
-.shell{display:flex;min-height:100vh}
-.side{width:250px;flex:none;background:var(--nav);color:#dbe7ed;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid #203844}
+.shell{--side-w:250px;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);min-height:100vh;background:var(--nav)}
+.side{width:var(--side-w);flex:none;align-self:start;background:var(--nav);color:#dbe7ed;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid #203844}
 .brand{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;display:flex;align-items:center;gap:12px}
 .brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#4ba0cf,#23678c);display:grid;place-items:center;color:#fff;box-shadow:0 8px 24px rgba(50,137,184,.25)}
 .brand-mark svg{width:21px;height:21px}
@@ -23,7 +23,7 @@ body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,A
 .nav-item.soon:hover{background:none;color:#aebfc8}
 .nav-badge{margin-left:auto;font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.08);color:#9bb0bb;text-transform:uppercase;letter-spacing:.04em}
 .side-footer{margin:18px 14px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#78919e;font-size:11px}
-.main{flex:1;min-width:0}
+.main{flex:1;min-width:0;min-height:100vh;background:var(--bg)}
 header{height:66px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);color:var(--text);padding:0 26px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 .header-title{display:flex;flex-direction:column}
 header h1{font-size:15px;font-weight:650;margin:0}
@@ -197,7 +197,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  .bridge{overflow-x:auto}.bridge-node{min-width:210px}
 }
 @media(max-width:760px){
- .side{width:72px}.brand-copy,.nav-group,.nav-item span,.nav-badge,.side-footer{display:none}
+ .shell{--side-w:72px}.side{width:var(--side-w)}.brand-copy,.nav-group,.nav-item span,.nav-badge,.side-footer{display:none}
  .brand{padding:17px}.brand-mark{width:36px;height:36px}
  .nav-item{justify-content:center;padding:12px;margin:4px 8px}
  main{padding:17px}header{padding:0 17px}.header-kicker,.top-chip{display:none}
@@ -211,7 +211,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  input,select,textarea{min-width:0}
 }
 @media(max-width:520px){
- .side{width:56px}
+ .shell{--side-w:56px}.side{width:var(--side-w)}
  .brand{padding:12px 10px}.brand-mark{width:34px;height:34px}
  .nav-item{padding:10px;margin:4px 6px}
  header{min-height:60px;height:auto;padding:8px;gap:5px;flex-wrap:wrap}
