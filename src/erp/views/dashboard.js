@@ -13,7 +13,7 @@ function viewDashboard(){
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
    <div><h2>Стекольное производство — одна система</h2>
-   <p>Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.</p></div>
+   <p>Текущий контур ERP: Customer Master, Draft Sales Orders с order-scoped Makeups, техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху.</p></div>
    <span class="pill info">${ico('layers','icon-inline')}Прототип архитектуры</span>
   </div>
 
