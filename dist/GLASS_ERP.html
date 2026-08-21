@@ -2431,8 +2431,16 @@ function normalizeSalesModules(){
   });
 }
 
-const ROLES=['Админ','Руководство','Продажи','Технолог','Цех','Отгрузка','Снабжение'];
-const SAFE_DEFAULT_ROLE='Цех';
+/* Реальные должности компании (хендофф, раздел 7): Продажи · Бухгалтер ·
+   Админ · Владелец. Прежние семь ролей были выдумкой прототипа — проектировать
+   права под несуществующие должности нельзя. Цех, отгрузка и снабжение
+   именованных учёток не получают: учётка принадлежит терминалу станции, а
+   человек опознаётся сканом бейджа при действии.
+   Прибыль видит только Владелец; Админ — техническая роль без денег. */
+const ROLES=['Продажи','Бухгалтер','Админ','Владелец'];
+/* Неизвестная роль из импорта или из старых данных падает в самую слабую —
+   Продажи: она не видит ни себестоимости, ни настроек системы. */
+const SAFE_DEFAULT_ROLE='Продажи';
 const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
 const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
 /* Старые записи могли хранить навык строкой — для них сохраняем исторический
@@ -2494,6 +2502,29 @@ function salesSkillCards(){
   {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
  ];
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
+}
+
+/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
+   показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
+   проверить было не на ком. Трое — по одному на роль, которую в жизни держит
+   человек; Админ не засеян намеренно, это техническая роль.
+   Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
+   русское имя осталось бы русским в английском интерфейсе. */
+const DEMO_USERS=[
+ {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
+ {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
+ {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
+];
+const DEMO_USERS_KEY='glazing_system_demo_users_v1';
+/* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому
+   что это свойство установки, а не данных: иначе удалённые демо-записи
+   возвращались бы после каждого F5, а импорт чужого экспорта засевал бы их
+   заново поверх настоящих людей. */
+function seedDemoUsers(){
+ try{if(localStorage.getItem(DEMO_USERS_KEY))return false;localStorage.setItem(DEMO_USERS_KEY,'1');}catch(e){return false;}
+ if(!Array.isArray(DB.user)||DB.user.length)return false;
+ DB.user=JSON.parse(JSON.stringify(DEMO_USERS));
+ return true;
 }
 
 const DEFAULT={
@@ -2571,8 +2602,23 @@ DEFAULT.spandrelProduct=[
  {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER'},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL'}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
-const FRIT_COLORS=['Black','White','Gray','Bronze','Custom'];
-const FRIT_PATTERNS=['Full coverage','Dots','Lines','Custom'];
+/* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
+   снята со скриншотов рабочего интерфейса). Здесь стояли выдуманные 'Black',
+   'Gray', 'Bronze', 'Full coverage', 'Lines' — цех такого не делает, а новый
+   лист получал их по умолчанию. Узоров ровно три плюс отсылка к бумажному
+   листу спецификации; цвета два. Позиции прайса CERM FRIT - FULL / PATTERN /
+   GRADIENT подтверждены пользователем как мёртвые. */
+const FRIT_COLORS=['White','Acid Etched'];
+const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — see silk screen sheet'];
+/* Узор кладётся ОТ конкретного угла детали, и этот угол маркируется в цеху:
+   иначе трафарет ляжет зеркально. Это производственный параметр, а не
+   оформление. На рабочих листах стоит Top right. */
+const FRIT_MARGIN_CORNERS=['Top left','Top right','Bottom left','Bottom right'];
+const FRIT_DEFAULT_CORNER='Top right';
+const FRIT_DEFAULT_DOT_MM=5;
+/* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
+   подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
+const FRIT_DEFAULT_MARGIN16=16;
 const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
 
 function normalizeMasterData(){
@@ -2695,14 +2741,14 @@ function normalizeCustomers(){
 }
 function validateCustomersPayload(src){
  if(!src||!Object.prototype.hasOwnProperty.call(src,'customer'))return;
- if(!Array.isArray(src.customer))throw new Error('поле "customer" должно быть массивом');
+ if(!Array.isArray(src.customer))throw new Error('The "customer" field must be an array.');
  const ids=new Set(),codes=new Set();
  src.customer.forEach((c,i)=>{
-  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('клиент в строке '+(i+1)+' должен быть объектом');
-  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('contacts клиента '+(i+1)+' должны быть массивом');
-  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('addresses клиента '+(i+1)+' должны быть массивом');
-  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers содержит дубликат id "'+id+'"');ids.add(id);}
-  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers содержит дубликат кода "'+c.code+'"');codes.add(code);}
+  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Customer row '+(i+1)+' must be an object.');
+  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('Customer '+(i+1)+': contacts must be an array.');
+  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('Customer '+(i+1)+': addresses must be an array.');
+  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers contains duplicate id "'+id+'".');ids.add(id);}
+  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers contains duplicate code "'+c.code+'".');codes.add(code);}
  });
 }
 function nextCustomerCode(){
@@ -2793,22 +2839,22 @@ function parseCustomerImport(text,name){
  const ext=String(name||'').toLowerCase();
  if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
   const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
-  if(!list)throw new Error('JSON клиентов должен содержать массив customers');
+  if(!list)throw new Error('Customer JSON must contain a customers array.');
   return list.map(customerFromImportRow);
  }
  return csvParse(text).map(customerFromImportRow);
 }
 function validateCustomerImportList(list){
- if(!Array.isArray(list)||!list.length)throw new Error('в файле нет клиентов');
+ if(!Array.isArray(list)||!list.length)throw new Error('The file contains no customers.');
  const codes=new Set();list.forEach((c,i)=>{
-  if(!c.legalName)throw new Error('клиент в строке '+(i+1)+': не заполнено Name');
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('в импортируемом файле повторяется Account "'+c.code+'"');codes.add(key);}
+  if(!c.legalName)throw new Error('Customer row '+(i+1)+': Name is required.');
+  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('The import file contains duplicate Account "'+c.code+'".');codes.add(key);}
  });
 }
 function applyCustomerImport(list,mode){
  validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
  if(mode==='replace'){
-  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('нельзя заменить весь справочник: есть клиенты, связанные с заказами');
+  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
   DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
  }else{
   list.forEach(incoming=>{
@@ -2867,6 +2913,13 @@ function salesDimTo16(v){
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
 
 function salesDimFrom16(v){return Number.isInteger(v)&&v>0?frac64(v/16):'';}
+/* Отступ узора фрита — размер заказа, а не константа, и ноль в нём законен:
+   узор идёт до самой кромки. Поэтому у отступа свой парсер — salesDimTo16
+   отбрасывает 0 вместе с мусором, и «0» превращалось бы в пустое поле. */
+function salesMarginTo16(v){const r=fabParseDimStrict(v);return r.ok&&r.v>=0?Math.round(r.v*16):null;}
+function salesMarginFrom16(v){return Number.isInteger(v)&&v>=0?frac64(v/16):'';}
+function salesStoredMargin16(v,def){if(v==null||v==='')return def;const n=+v;return Number.isInteger(n)&&n>=0?n:def;}
+function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
 function salesFirstGlass(family,manufacturer,thickness){
@@ -2878,13 +2931,32 @@ function salesDefaultPane(i){
  return {
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',
   coatingSurface:null,
-  frit:{productId:'FRIT-CERAMIC',color:'Black',pattern:'Full coverage',coverage:'100',surface:null},
+  frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
   laminated:{outerGlassProductId:g?g.id:'',interlayerProductId:'INT-PVB030',innerGlassProductId:g?g.id:''}
  };
 }
 function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:'SEAL-PIB',secondarySealantId:'SEAL-SIL'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
+/* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
+   заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
+   не существует; такие значения падают в дефолт, а поля coverage больше нет:
+   в спецификации силкскрина его нет вообще. */
+function normalizeFritSpec(f,d,allowed){
+ f=f&&typeof f==='object'?f:{};
+ const color=salesString(f.color),pattern=salesString(f.pattern),corner=salesString(f.marginFrom);
+ return {
+  productId:salesString(f.productId)||d.productId,
+  color:FRIT_COLORS.includes(color)?color:d.color,
+  pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,
+  dotMm:salesFritDotMm(f.dotMm,d.dotMm),
+  marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,
+  marginW16:salesStoredMargin16(f.marginW16,d.marginW16),
+  marginH16:salesStoredMargin16(f.marginH16,d.marginH16),
+  marking:salesString(f.marking),
+  surface:normalizeSurface(f.surface,allowed)
+ };
+}
 function salesPaneSurfaces(index){return [index*2+1,index*2+2];}
 function normalizeSalesPane(p,index){
  const d=salesDefaultPane(index);p=p&&typeof p==='object'?p:{};
@@ -2899,7 +2971,7 @@ function normalizeSalesPane(p,index){
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
-  frit:{productId:salesString(frit.productId)||d.frit.productId,color:salesString(frit.color)||d.frit.color,pattern:salesString(frit.pattern)||d.frit.pattern,coverage:salesString(frit.coverage)||d.frit.coverage,surface:normalizeSurface(frit.surface,allowed)},
+  frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
   laminated:{outerGlassProductId:salesString(lam.outerGlassProductId)||d.laminated.outerGlassProductId,interlayerProductId:salesString(lam.interlayerProductId)||d.laminated.interlayerProductId,innerGlassProductId:salesString(lam.innerGlassProductId)||d.laminated.innerGlassProductId}
  };
@@ -2933,20 +3005,20 @@ function normalizeSalesData(){
  DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
 }
 function validateSalesPayload(src){
- if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('поле "salesOrder" должно быть массивом');
+ if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('The "salesOrder" field must be an array.');
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
-  if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order в строке '+(i+1)+' должен быть объектом');
-  if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('lines Sales Order '+(i+1)+' должны быть массивом');
-  if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('makeups Sales Order '+(i+1)+' должны быть массивом');
-  if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' содержит недопустимый id');if(ids.has(id))throw new Error('Sales Orders содержит дубликат id "'+id+'"');ids.add(id);}
-  if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders содержит дубликат номера "'+n+'"');numbers.add(n);}
-  const muIds=new Set(),muCodes=new Set();(o.makeups||[]).forEach((m,j)=>{if(!m||typeof m!=='object')throw new Error('Makeup '+(j+1)+' Sales Order '+(i+1)+' должен быть объектом');if(m.id){const id=salesString(m.id);if(!entityId.test(id))throw new Error('Makeup '+(j+1)+' содержит недопустимый id');if(muIds.has(id))throw new Error('Makeups содержит дубликат id "'+id+'"');muIds.add(id);}if(m.code){const c=salesString(m.code).toUpperCase();if(muCodes.has(c))throw new Error('Makeups содержит дубликат code "'+c+'"');muCodes.add(c);}});
-  (o.lines||[]).forEach((l,j)=>{if(!l||typeof l!=='object'||Array.isArray(l))throw new Error('строка '+(j+1)+' Sales Order '+(i+1)+' должна быть объектом');if(l.id){const id=salesString(l.id);if(!entityId.test(id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит недопустимый id');if(lineIds.has(id))throw new Error('Sales Order lines содержит дубликат id "'+id+'"');lineIds.add(id);}if(!l.makeupId)throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' не содержит Makeup');if(!muIds.has(salesString(l.makeupId)))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.width16!=null&&!salesStoredDim16(l.width16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный width16');if(l.height16!=null&&!salesStoredDim16(l.height16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный height16');});
+  if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order row '+(i+1)+' must be an object.');
+  if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('Sales Order '+(i+1)+': lines must be an array.');
+  if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('Sales Order '+(i+1)+': makeups must be an array.');
+  if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' has an invalid id.');if(ids.has(id))throw new Error('Sales Orders contains duplicate id "'+id+'".');ids.add(id);}
+  if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders contains duplicate number "'+n+'".');numbers.add(n);}
+  const muIds=new Set(),muCodes=new Set();(o.makeups||[]).forEach((m,j)=>{if(!m||typeof m!=='object')throw new Error('Sales Order '+(i+1)+', Makeup '+(j+1)+' must be an object.');if(m.id){const id=salesString(m.id);if(!entityId.test(id))throw new Error('Makeup '+(j+1)+' has an invalid id.');if(muIds.has(id))throw new Error('Makeups contains duplicate id "'+id+'".');muIds.add(id);}if(m.code){const c=salesString(m.code).toUpperCase();if(muCodes.has(c))throw new Error('Makeups contains duplicate code "'+c+'".');muCodes.add(c);}});
+  (o.lines||[]).forEach((l,j)=>{if(!l||typeof l!=='object'||Array.isArray(l))throw new Error('Sales Order '+(i+1)+', line '+(j+1)+' must be an object.');if(l.id){const id=salesString(l.id);if(!entityId.test(id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid id.');if(lineIds.has(id))throw new Error('Sales Order lines contains duplicate id "'+id+'".');lineIds.add(id);}if(!l.makeupId)throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has no Makeup.');if(!muIds.has(salesString(l.makeupId)))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.width16!=null&&!salesStoredDim16(l.width16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid width16.');if(l.height16!=null&&!salesStoredDim16(l.height16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' has an invalid height16.');});
  });
 }
 function validateSalesReferences(){
  const customers=new Set((DB.customer||[]).map(c=>c.id)),shapeIds=new Set((DB.shapeDef||[]).map(s=>s.id)),muntinIds=new Set((DB.muntinDef||[]).map(m=>m.id));
- DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' ссылается на отсутствующего Customer');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Shape');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Muntin');});});
+ DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Muntin.');});});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
 function newSalesOrderDraft(){const now=new Date().toISOString();return normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});}
@@ -3031,12 +3103,11 @@ const I18N_EN={
   "Экспорт JSON": "Export JSON",
   "Импорт JSON": "Import JSON",
   "Админ": "Admin",
-  "Руководство": "Management",
   "Продажи": "Sales",
-  "Технолог": "Technologist",
+  "Бухгалтер": "Accounting",
+  "Владелец": "Owner",
   "Цех": "Shop floor",
   "Отгрузка": "Shipping",
-  "Снабжение": "Purchasing",
   "Резка": "Cutting",
   "Кромка (arris/polish)": "Edgework (arris/polish)",
   "ЧПУ полировка": "CNC polishing",
@@ -3125,10 +3196,6 @@ const I18N_EN={
   "Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.": "Replace the entire customer master with data from the file? This cannot be undone without a backup export.",
   "Файл клиентов превышает 10 MB.": "Customer file exceeds 10 MB.",
   "Не удалось импортировать клиентов:": "Could not import customers:",
-  "в файле нет клиентов": "the file contains no customers",
-  "JSON клиентов должен содержать массив customers": "Customer JSON must contain a customers array",
-  "нельзя заменить весь справочник: есть клиенты, связанные с заказами": "The customer master cannot be replaced because some customers are referenced by orders",
-  "поле \"customer\" должно быть массивом": "the \"customer\" field must be an array",
   "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
   "Конфигураторы": "Configurators",
@@ -3410,13 +3477,6 @@ function tx(value){
  let mm;
  if((mm=x.match(/^Показано: (\d+) \/ (\d+)$/))) x=`Shown: ${mm[1]} / ${mm[2]}`;
  else if((mm=x.match(/^Импортировано клиентов: (\d+)$/))) x=`Customers imported: ${mm[1]}`;
- else if((mm=x.match(/^клиент в строке (\d+): не заполнено Name$/i))) x=`Customer row ${mm[1]}: Name is required`;
- else if((mm=x.match(/^клиент в строке (\d+) должен быть объектом$/i))) x=`Customer row ${mm[1]} must be an object`;
- else if((mm=x.match(/^contacts клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} contacts must be an array`;
- else if((mm=x.match(/^addresses клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} addresses must be an array`;
- else if((mm=x.match(/^Customers содержит дубликат id "(.+)"$/))) x=`Customers contains duplicate id "${mm[1]}"`;
- else if((mm=x.match(/^Customers содержит дубликат кода "(.+)"$/))) x=`Customers contains duplicate code "${mm[1]}"`;
- else if((mm=x.match(/^в импортируемом файле повторяется Account "(.+)"$/i))) x=`The import file contains duplicate Account "${mm[1]}"`;
  else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
  else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
  else if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
@@ -3950,6 +4010,19 @@ function salesPaneSetProduct(i,v){const p=salesCurrentMakeup().panes[i],g=glassP
 function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
 function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
 function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}
+/* Диаметр точки и отступы — числа, а не свободный текст: мусор ловим прямо на
+   поле, как на размерах строки заказа. Ноль в отступе законен и обязан
+   сохраниться, поэтому у него отдельный парсер (см. salesMarginTo16). */
+function salesFritDotChange(i,el){
+ const p=salesCurrentMakeup().panes[i],n=+String(el.value).trim();
+ if(!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}
+ p.frit.dotMm=n;el.value=String(n);el.classList.remove('bad');
+}
+function salesFritMarginChange(i,key,el){
+ const p=salesCurrentMakeup().panes[i],n=salesMarginTo16(el.value);
+ if(n==null){el.classList.add('bad');return;}
+ p.frit[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');
+}
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
 function salesPaneSetLam(i,k,v){salesCurrentMakeup().panes[i].laminated[k]=v;render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
@@ -4049,11 +4122,18 @@ function salesHeatField(p,index){return `<div><label>Heat Treatment</label><sele
 /* Surface buttons need literal calls; keeping this helper separate avoids
    generating unsafe/eval-style handlers. */
 function salesFritSurfaceSelector(p,index){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Frit Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.frit.surface===n?'on':''}" onclick="salesPaneSetFrit(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;}
+/* Спецификация силкскрина: узор, цвет, диаметр точки, опорный угол и отступы
+   от него, строка маркировки для цеха. Поля перенесены с рабочего листа
+   спецификации (хендофф, раздел 9л), а не придуманы. Coverage % убрано — в
+   реальной спецификации такого поля нет. */
+function salesFritFields(p,index){
+ return `<div class="mu-subgrid"><div><label>Frit Product</label><select onchange="salesPaneSetFrit(${index},'productId',this.value)">${salesSimpleOptions('fritProduct',p.frit.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetFrit(${index},'color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,p.frit.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetFrit(${index},'pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,p.frit.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(p.frit.dotMm)}" onchange="salesFritDotChange(${index},this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetFrit(${index},'marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,p.frit.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(p.frit.marginW16))}" placeholder="1" onchange="salesFritMarginChange(${index},'marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(p.frit.marginH16))}" placeholder="1" onchange="salesFritMarginChange(${index},'marginH16',this)"></div><div><label>Production marking</label><input value="${esc(p.frit.marking)}" oninput="salesCurrentMakeup().panes[${index}].frit.marking=this.value"></div>${salesFritSurfaceSelector(p,index)}</div>`;
+}
 function salesCoatingSurfaceSelector(p,index){const nums=salesPaneSurfaces(index),label=p.visionType==='reflective'?'Reflective Surface':'Coating Surface';return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.coatingSurface===n?'on':''}" onclick="salesPaneSetCoatingSurface(${index},${n})">#${n}</button>`).join('')}</div></div>`;}
 function salesVisionFieldsSafe(p,index){
  const products=salesGlassCandidates(p),isFrit=p.visionType==='frit',surfaceNeeded=p.visionType==='lowe'||p.visionType==='reflective';
  return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div><div><label>${isFrit?'Base Glass':'Glass Product'}</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(products,p.glassProductId)}</select></div>${salesHeatField(p,index)}${surfaceNeeded?salesCoatingSurfaceSelector(p,index):''}</div>
- ${isFrit?`<div class="mu-subgrid"><div><label>Frit Product</label><select onchange="salesPaneSetFrit(${index},'productId',this.value)">${salesSimpleOptions('fritProduct',p.frit.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetFrit(${index},'color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,p.frit.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetFrit(${index},'pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,p.frit.pattern,true)).join('')}</select></div><div><label>Coverage %</label><input value="${esc(p.frit.coverage)}" oninput="salesCurrentMakeup().panes[${index}].frit.coverage=this.value"></div>${salesFritSurfaceSelector(p,index)}</div>`:''}`;
+ ${isFrit?salesFritFields(p,index):''}`;
 }
 function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select></div>${salesHeatField(p,index)}</div><div class="mu-subgrid"><div><label>Spandrel Product</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;}
 function salesLaminatedFields(p,index){const all=activeGlassProducts();return `<div class="mu-lam-grid"><div><label>Outer Ply</label><select onchange="salesPaneSetLam(${index},'outerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.outerGlassProductId)}</select></div><div><label>Interlayer</label><select onchange="salesPaneSetLam(${index},'interlayerProductId',this.value)">${salesSimpleOptions('interlayerProduct',p.laminated.interlayerProductId)}</select></div><div><label>Inner Ply</label><select onchange="salesPaneSetLam(${index},'innerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.innerGlassProductId)}</select></div></div>`;}
@@ -4739,8 +4819,8 @@ function mergeState(src){
  });
 }
 function validateImportedState(src){
- if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
- Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('Expected an exported state object.');
+ Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  function unique(list,key,label,normalize){
@@ -4748,29 +4828,29 @@ function validateImportedState(src){
    if(!row||typeof row!=='object')return;
    const raw=row[key];if(raw==null||raw==='')return;
    const value=normalize?normalize(raw):String(raw);
-   if(seen.has(value))throw new Error(label+' содержит дубликат "'+value+'"');seen.add(value);
+   if(seen.has(value))throw new Error(label+': duplicate "'+value+'".');seen.add(value);
   });
  }
- unique(src.level,'n','Уровни',v=>String(+v));
- unique(src.station,'code','Станции',v=>String(v).trim().toUpperCase());
+ unique(src.level,'n','Levels',v=>String(+v));
+ unique(src.station,'code','Stations',v=>String(v).trim().toUpperCase());
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
- (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
  (src.shapeDef||[]).forEach((s,i)=>{
   if(!s||typeof s!=='object')return;
-  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('неизвестный тип Shape в строке '+(i+1));
-  if(s.features!=null&&!Array.isArray(s.features))throw new Error('features Shape в строке '+(i+1)+' должны быть массивом');
-  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('polygon Shape в строке '+(i+1)+' должен быть массивом');
-  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('edgeOps Shape в строке '+(i+1)+' должен быть объектом');
-  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('неизвестный feature Shape '+(i+1)+', строка '+(j+1));if(f.id&&!subId.test(String(f.id)))throw new Error('недопустимый id feature Shape '+(i+1));if(f.id&&ids.has(f.id))throw new Error('дубликат id feature Shape '+(i+1));if(f.id)ids.add(f.id);});
-  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('некорректная обработка кромки Shape '+(i+1));s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('неизвестная операция кромки Shape '+(i+1));});});
+  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('Shape row '+(i+1)+' has an unknown type.');
+  if(s.features!=null&&!Array.isArray(s.features))throw new Error('Shape row '+(i+1)+': features must be an array.');
+  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('Shape row '+(i+1)+': polygon must be an array.');
+  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('Shape row '+(i+1)+': edgeOps must be an object.');
+  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('Shape '+(i+1)+', feature '+(j+1)+' has an unknown type.');if(f.id&&!subId.test(String(f.id)))throw new Error('Shape '+(i+1)+' has a feature with an invalid id.');if(f.id&&ids.has(f.id))throw new Error('Shape '+(i+1)+' has duplicate feature ids.');if(f.id)ids.add(f.id);});
+  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
- (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
- (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
+ (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('Muntin row '+(i+1)+' has an invalid id.');});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
  (src.user||[]).forEach((u,i)=>{
-  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('skills пользователя '+(i+1)+' должен быть массивом');
-  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('неизвестная роль пользователя '+(i+1));
-  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('некорректный навык пользователя '+(i+1)+', строка '+(j+1));});
+  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
+  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('User '+(i+1)+' has an unknown role.');
+  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('User '+(i+1)+', skill '+(j+1)+' is invalid.');});
  });
 }
 function prepareImportedState(src){
@@ -4779,7 +4859,7 @@ function prepareImportedState(src){
  try{
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
-  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin row '+(i+1)+' references a missing Shape.');});
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
  }catch(e){DB=previous;throw e;}
@@ -4798,6 +4878,10 @@ function boot(){
  catch(e){ console.warn('localStorage не прочитан, стартуем с дефолтов:',e.message); }
  try{ normalizeDB(); }
  catch(e){ console.warn('данные не нормализуются, откат на дефолты:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
+    идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
+    один раз на браузер (см. seedDemoUsers в erp/data). */
+ if(typeof seedDemoUsers==='function'&&seedDemoUsers())touch();
  render();
 }
 boot();
