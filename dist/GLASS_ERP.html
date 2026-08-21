@@ -322,7 +322,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 <div class="main">
 <header>
   <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Производственная система · прототип</span></div>
-  <span id="dirty">● несохранённые изменения</span>
+  <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
   <div class="lang-switch" aria-label="Language">
     <button type="button" id="langRu" onclick="setLang('ru')">RU</button>
@@ -2822,9 +2822,9 @@ function applyCustomerImport(list,mode){
 }
 function importCustomersFile(inp,mode){
  const f=inp.files&&inp.files[0];if(!f)return;
- if(f.size>10*1024*1024){alert('Файл клиентов превышает 10 MB.');inp.value='';return;}
- if(mode==='replace'&&!confirm('Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.')){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Импортировано клиентов: '+n);}catch(e){alert('Не удалось импортировать клиентов: '+e.message);}finally{inp.value='';}};r.readAsText(f);
+ if(f.size>10*1024*1024){alert('Customer file exceeds 10 MB.');inp.value='';return;}
+ if(mode==='replace'&&!confirm('Replace the entire customer master with data from the file? This cannot be undone without a backup export.')){inp.value='';return;}
+ const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Customers imported: '+n);}catch(e){alert('Could not import customers: '+e.message);}finally{inp.value='';}};r.readAsText(f);
 }
 
 /* ==== src/erp/sales/data.js ==== */
@@ -3019,13 +3019,15 @@ function ico(name, cls=''){
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
-let LANG=localStorage.getItem('glazing_system_lang') || 'ru';
+/* Рабочий язык системы — английский: на нём говорят все в цеху и у поставщиков,
+   на нём же названия станций, услуг и позиций в исходных данных. Русский
+   остаётся переключателем в шапке для владельца. */
+let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   "CNC1 и FURN1": "CNC1 and FURN1",
   "Мин. толщина, мм": "Min thickness, mm",
   "Макс. толщина, мм": "Max thickness, mm",
   "Производственная система · прототип": "Production system · prototype",
-  "● несохранённые изменения": "● unsaved changes",
   "Экспорт JSON": "Export JSON",
   "Импорт JSON": "Import JSON",
   "Админ": "Admin",
@@ -3755,7 +3757,7 @@ function saveUser(){
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  uEdit=null; uDraft=null; touch(); render();
 }
-function delUser(i){ if(!confirm('Удалить пользователя?'))return; DB.user.splice(i,1); touch(); render(); }
+function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
 
 /* --- отчёт: свод по навыкам всех людей сразу, чекбоксы этого не умеют,
    поэтому это отдельный экран, а не ещё одна колонка в списке --- */
@@ -3840,7 +3842,7 @@ function customerNew(){cEdit='new';cDraft=newCustomerDraft();cTab='general';rend
 function customerEdit(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;cEdit=id;cDraft=JSON.parse(JSON.stringify(c));cTab='general';render();}
 function customerDuplicate(id){const src=DB.customer.find(x=>x.id===id);if(!src)return;cEdit='new';cDraft=normalizeCustomer(JSON.parse(JSON.stringify(src)));cDraft.id=customerUid('CUS');cDraft.code='';cDraft.legalName+=(cDraft.legalName?' — копия':'');cDraft.displayName+=(cDraft.displayName?' — копия':'');cDraft.createdAt=new Date().toISOString();cDraft.updatedAt=cDraft.createdAt;cTab='general';render();}
 function customerToggleArchive(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;if(c.status==='archived'){c.status='active';c.archivedAt='';}else{c.status='archived';c.archivedAt=new Date().toISOString();}c.updatedAt=new Date().toISOString();touch();render();}
-function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('Клиент уже используется в заказах. Удаление запрещено — переведи клиента в архив.');return;}if(!confirm('Удалить клиента без возможности восстановления?'))return;DB.customer.splice(i,1);touch();render();}
+function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('This customer is already used by orders. Deletion is blocked — archive the customer instead.');return;}if(!confirm('Delete this customer permanently?'))return;DB.customer.splice(i,1);touch();render();}
 function customerTabButton(id,label){return `<button class="${cTab===id?'on':''}" onclick="cTab='${id}';render()">${label}</button>`;}
 function customerForm(){
  const c=cDraft;
@@ -3900,23 +3902,42 @@ function salesApplyCustomerDefaults(id){
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
 function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
-function salesOrderClose(){soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;salesBridge=null;render();}
+/* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
+   Раньше Close молча стирал введённые строки — оператор терял работу без единого
+   сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
+   пока в нём нет строк. */
+function salesDraftHasWork(){
+ if(!soDraft)return false;
+ if(soEdit==='new')return soDraft.lines.length>0;
+ const saved=DB.salesOrder.find(x=>x.id===soEdit);
+ return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
+}
+function salesOrderClose(){
+ if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
+ soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;salesBridge=null;render();
+}
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
- soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Выбери Customer');
- const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer не найден');
+ soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
+ const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
+ /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
+    Размер обязателен всегда — и когда введён руками, и когда пришёл из Shape. */
+ const noDim=soDraft.lines.map((l,i)=>(!l.width16||!l.height16)?i+1:0).filter(Boolean);
+ if(noDim.length)return fail(e,noDim.length===1
+   ?'Line '+noDim[0]+' has no width or height. Enter the size or remove the line.'
+   :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
  normalizeSalesData();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();
 }
-function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Удалить Draft Sales Order?'))return;DB.salesOrder.splice(i,1);touch();render();}
+function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Delete this Draft Sales Order?'))return;DB.salesOrder.splice(i,1);touch();render();}
 
 function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
 function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey=null;render();}}
 function salesAddMakeup(){const now=new Date().toISOString(),m=normalizeOrderMakeup({code:nextMakeupCode(soDraft),unitType:'double',createdAt:now,updatedAt:now},soDraft.makeups.length);soDraft.makeups.push(m);soMakeupId=m.id;soOpenSectionKey=null;render();}
 function salesDuplicateMakeup(id){const src=salesMakeupById(soDraft,id);if(!src)return;const copy=JSON.parse(JSON.stringify(src));copy.id=salesUid('MU');copy.code=nextMakeupCode(soDraft);copy.createdAt=copy.updatedAt=new Date().toISOString();copy.panes.forEach((p,i)=>p.id=salesUid('LITE'));copy.cavities.forEach(c=>c.id=salesUid('CAV'));soDraft.makeups.push(copy);soMakeupId=copy.id;soOpenSectionKey=null;render();}
-function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;if(soDraft.makeups.length<=1)return alert('В Sales Order должен остаться хотя бы один Makeup.');const used=soDraft.lines.filter(l=>l.makeupId===id).length;if(used)return alert('Makeup '+m.code+' используется в '+used+' строках. Сначала переназначь эти строки.');if(!confirm('Удалить Makeup '+m.code+'?'))return;soDraft.makeups=soDraft.makeups.filter(x=>x.id!==id);if(soMakeupId===id)soMakeupId=soDraft.makeups[0].id;soOpenSectionKey=null;render();}
+function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;if(soDraft.makeups.length<=1)return alert('A Sales Order must keep at least one Makeup.');const used=soDraft.lines.filter(l=>l.makeupId===id).length;if(used)return alert('Makeup '+m.code+' is used by '+used+' line(s). Reassign those lines first.');if(!confirm('Delete Makeup '+m.code+'?'))return;soDraft.makeups=soDraft.makeups.filter(x=>x.id!==id);if(soMakeupId===id)soMakeupId=soDraft.makeups[0].id;soOpenSectionKey=null;render();}
 function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey=null;render();}
 function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
@@ -3946,13 +3967,16 @@ function salesAssignSelected(makeupId){if(!makeupId||!salesMakeupById(soDraft,ma
 
 function salesExcelOpen(){document.getElementById('salesExcelModal').classList.add('show');}
 function salesExcelClose(){const m=document.getElementById('salesExcelModal');if(m)m.classList.remove('show');}
-function salesExcelSetMode(v){soExcelMode=v==='withMakeup'?'withMakeup':'current';const hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withMakeup'?'MU | Qty | Height | Width | Mark':'Qty | Height | Width | Mark';}
+function salesExcelSetMode(v){soExcelMode=v==='withMakeup'?'withMakeup':'current';const hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark';}
 function salesExcelApply(){
  const text=document.getElementById('salesExcelText').value,rows=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);let added=0,bad=0;const current=salesCurrentMakeup();
- rows.forEach(r=>{const c=r.split(/\t|,|;/).map(x=>x.trim());let mu=current,q,h,w,mark;if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(m=>m.code.toUpperCase()===String(c[0]).toUpperCase());q=salesPositiveInt(c[1],0);h=salesDimTo16(c[2]);w=salesDimTo16(c[3]);mark=c[4];}else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);h=salesDimTo16(c[1]);w=salesDimTo16(c[2]);mark=c[3];}
+ /* Порядок колонок совпадает с таблицей строк заказа: Width, затем Height.
+    Раньше вставка ждала Height первым, а таблица показывала Width — на пачке
+    строк это давало перевёрнутые размеры, самую дорогую ошибку в стекле. */
+ rows.forEach(r=>{const c=r.split(/\t|,|;/).map(x=>x.trim());let mu=current,q,h,w,mark;if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(m=>m.code.toUpperCase()===String(c[0]).toUpperCase());q=salesPositiveInt(c[1],0);w=salesDimTo16(c[2]);h=salesDimTo16(c[3]);mark=c[4];}else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);w=salesDimTo16(c[1]);h=salesDimTo16(c[2]);mark=c[3];}
   if(!mu||!q||!h||!w){bad++;return;}soDraft.lines.push(normalizeSalesOrderLine({makeupId:mu.id,qty:q,height16:h,width16:w,mark}));added++;
  });
- salesExcelClose();render();if(bad)alert('Добавлено строк: '+added+'. Пропущено: '+bad);else if(added)alert('Добавлено строк: '+added);
+ salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
 }
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
@@ -3967,9 +3991,9 @@ function salesOrderConfigureShape(i){
  render();
 }
 function salesBridgeOnShapeSaved(id){if(!salesBridge||salesBridge.kind!=='shape'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),s=DB.shapeDef.find(x=>x.id===id);if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
-function salesUnlinkShape(i){const l=soDraft.lines[i];if(!l)return;if(l.muntinRef&&l.muntinRef.id&&!confirm('Shape связан с Muntin. Отвязать оба?'))return;l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});render();}
+function salesUnlinkShape(i){const l=soDraft.lines[i];if(!l)return;if(l.muntinRef&&l.muntinRef.id&&!confirm('This Shape is linked to a Muntin layout. Unlink both?'))return;l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});render();}
 function salesOrderConfigureMuntin(i){
- const line=soDraft.lines[i];if(!line)return;const shape=salesShapeByRef(line.shapeRef);if(!shape)return alert('Сначала настрой Shape для этой строки.');salesBridge={kind:'muntin',lineId:line.id};tab='configurators';subtab='muntin';mFieldErrors={};
+ const line=soDraft.lines[i];if(!line)return;const shape=salesShapeByRef(line.shapeRef);if(!shape)return alert('Configure the Shape for this line first.');salesBridge={kind:'muntin',lineId:line.id};tab='configurators';subtab='muntin';mFieldErrors={};
  const current=salesMuntinByRef(line.muntinRef);if(current){mEdit=DB.muntinDef.findIndex(m=>m.id===current.id);mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);}
  else{mEdit='new';mDraft=newMuntinDef(shape.id);mDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)))+' Muntin';pinMuntinShape(mDraft,shape);}
  render();
@@ -4076,7 +4100,7 @@ function salesOrderLines(){
  return `<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b><span>MU → Qty → Dimensions → Mark → engineering configurators</span></div><div class="sales-line-tools"><button onclick="salesExcelOpen()">Paste Excel</button><button onclick="salesOrderAddTen()">+10</button><button class="pri" onclick="salesOrderAddLine(null,true)">+ Line</button></div></div>${bulk?`<div class="sales-bulk"><b id="salesBulkCount">${soSelectedLines.size} selected</b><span>Assign Makeup</span><select onchange="salesAssignSelected(this.value)"><option value="">—</option>${soDraft.makeups.map(m=>`<option value="${esc(m.id)}">${esc(m.code)} · ${esc(salesMakeupSummary(m))}</option>`).join('')}</select><button class="sm" onclick="soSelectedLines=new Set();render()">Clear</button></div>`:''}
  <div class="sales-table-wrap"><table class="sales-lines-table"><thead><tr><th class="line-check"><input type="checkbox" ${allSelected?'checked':''} onchange="salesToggleAllLines(this.checked)"></th><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Notes</th><th></th></tr></thead><tbody>${soDraft.lines.map((l,i)=>{const linked=!!(l.shapeRef&&l.shapeRef.id);return `<tr><td class="line-check"><input type="checkbox" ${soSelectedLines.has(l.id)?'checked':''} onchange="salesToggleLine('${esc(l.id)}',this.checked)"></td><td class="mono line-num">${i+1}</td><td><select class="line-mu" onchange="soDraft.lines[${i}].makeupId=this.value">${soDraft.makeups.map(m=>`<option value="${esc(m.id)}" ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`).join('')}</select></td><td><input class="line-qty" type="number" min="1" step="1" value="${esc(l.qty)}" oninput="soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)"></td><td><input data-so-width class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.width16))}" placeholder="34 13/16" onchange="salesLineDimChange(${i},'width',this)"></td><td><input class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.height16))}" placeholder="15 5/16" onchange="salesLineDimChange(${i},'height',this)"></td><td><input class="line-mark" value="${esc(l.mark)}" oninput="soDraft.lines[${i}].mark=this.value" onkeydown="salesLineMarkKey(${i},event)"></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td><input class="line-notes" value="${esc(l.notes)}" oninput="soDraft.lines[${i}].notes=this.value"></td><td><button class="sm dl line-delete" onclick="salesOrderRemoveLine(${i})">×</button></td></tr>`;}).join('')||'<tr><td colspan="11" class="empty">No lines yet. Add a line or paste from Excel.</td></tr>'}</tbody></table></div></section>`;
 }
-function salesExcelModal(){const m=salesCurrentMakeup();return `<div id="salesExcelModal" class="sales-modal-back"><div class="sales-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">Qty | Height | Width | Mark</span></div><button onclick="salesExcelClose()">×</button></div><div class="excel-mode"><button class="${soExcelMode==='current'?'on':''}" onclick="soExcelMode='current';salesExcelSetMode('current');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===0))">Current Makeup ${m?esc(m.code):''}</button><button class="${soExcelMode==='withMakeup'?'on':''}" onclick="soExcelMode='withMakeup';salesExcelSetMode('withMakeup');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===1))">MU in first column</button></div><textarea id="salesExcelText" rows="10" placeholder="1&#9;80&#9;30&#9;A1&#10;2&#9;42 1/2&#9;24&#9;B2"></textarea><div class="sales-modal-actions"><button onclick="salesExcelClose()">Cancel</button><button class="pri" onclick="salesExcelApply()">Add Rows</button></div></div></div>`;}
+function salesExcelModal(){const m=salesCurrentMakeup();return `<div id="salesExcelModal" class="sales-modal-back"><div class="sales-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">Qty | Width | Height | Mark</span></div><button onclick="salesExcelClose()">×</button></div><div class="excel-mode"><button class="${soExcelMode==='current'?'on':''}" onclick="soExcelMode='current';salesExcelSetMode('current');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===0))">Current Makeup ${m?esc(m.code):''}</button><button class="${soExcelMode==='withMakeup'?'on':''}" onclick="soExcelMode='withMakeup';salesExcelSetMode('withMakeup');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===1))">MU in first column</button></div><textarea id="salesExcelText" rows="10" placeholder="1&#9;30&#9;80&#9;A1&#10;2&#9;24&#9;42 1/2&#9;B2"></textarea><div class="sales-modal-actions"><button onclick="salesExcelClose()">Cancel</button><button class="pri" onclick="salesExcelApply()">Add Rows</button></div></div></div>`;}
 
 /* ==== src/erp/views/sales-shape-ui.js ==== */
 /* =====================================================================
@@ -4125,7 +4149,7 @@ function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdg
 function setShapeType(type){
   type=shapeType(type);if(type===sDraft.type)return;
   var linked=Object.keys(sDraft.edgeOps||{}).length||(sDraft.features||[]).some(function(f){return f.type==='radius'||f.type==='hardware';});
-  if(linked&&!confirm('Смена типа удалит привязанные к топологии радиусы, hardware prep и обработку кромок. Продолжить?')){render();return;}
+  if(linked&&!confirm('Changing the shape type will remove topology-bound radii, hardware prep and edgework. Continue?')){render();return;}
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);sDraft.edgeOps={};sDraft.features=(sDraft.features||[]).filter(function(f){return f.type!=='radius'&&f.type!=='hardware';});
   if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
@@ -4403,7 +4427,7 @@ function saveShape(){
   var e=document.getElementById('e_shape');e.style.display='none';sDraft.name=String(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');
   var r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,(r.errors||[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
-  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('Эта фигура используется в Muntinbar. Новая геометрия изменит связанную раскладку. Сохранить новую ревизию?'))return;
+  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('This shape is used by a Muntin layout. New geometry will change that layout. Save a new revision?'))return;
   var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
@@ -4419,7 +4443,7 @@ function downloadShapeArtifact(kind){
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
   if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
 }
-function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Нельзя удалить — Shape используется в Sales Order');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
+function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Cannot delete — this shape is used by a Muntin layout');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/sales-muntin-ui.js ==== */
 /* =====================================================================
@@ -4461,7 +4485,7 @@ function refreshMuntinEditor(){const el=document.getElementById('muntinLive');if
 function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="cancelMuntinEdit()">Отмена</button></div></div>`;}
 function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;const savedId=mDraft.id;touch();if(typeof salesBridgeOnMuntinSaved==='function'&&salesBridgeOnMuntinSaved(savedId))return;mEdit=null;mDraft=null;mFieldErrors={};render();}
 function cancelMuntinEdit(){if(typeof salesBridgeCancel==='function'&&salesBridgeCancel('muntin'))return;mEdit=null;mDraft=null;mFieldErrors={};render();}
-function delMuntin(i){const m=DB.muntinDef[i];if(m&&typeof salesMuntinHasReferences==='function'&&salesMuntinHasReferences(m.id))return alert('Нельзя удалить — Muntin используется в Sales Order');if(!confirm('Удалить раскладку?'))return;DB.muntinDef.splice(i,1);touch();render();}
+function delMuntin(i){const m=DB.muntinDef[i];if(m&&typeof salesMuntinHasReferences==='function'&&salesMuntinHasReferences(m.id))return alert('Cannot delete — this Muntin is used by a Sales Order');if(!confirm('Delete this muntin layout?'))return;DB.muntinDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/configurators.js ==== */
 /* =====================================================================
@@ -4614,8 +4638,8 @@ function saveStation(){
 }
 function delStation(i){
  const s=DB.station[i];
- if(DB.user.some(u=>u.station===s.code)) return alert('Нельзя удалить — на станцию назначены пользователи');
- if(!confirm('Удалить станцию?'))return; DB.station.splice(i,1); touch(); render();
+ if(DB.user.some(u=>u.station===s.code)) return alert('Cannot delete — users are assigned to this station');
+ if(!confirm('Delete this station?'))return; DB.station.splice(i,1); touch(); render();
 }
 
 let lvEdit=null;
@@ -4660,8 +4684,8 @@ function saveLevel(){
 }
 function delLevel(i){
  const l=DB.level[i];
- if(DB.station.some(s=>s.level===l.n)) return alert('Нельзя удалить — на этот уровень назначены станции');
- if(!confirm('Удалить уровень?'))return; DB.level.splice(i,1); touch(); render();
+ if(DB.station.some(s=>s.level===l.n)) return alert('Cannot delete — stations are assigned to this level');
+ if(!confirm('Delete this level?'))return; DB.level.splice(i,1); touch(); render();
 }
 
 /* ==== src/erp/storage.js ==== */
@@ -4679,8 +4703,15 @@ let storageWarningShown=false;
 function touch(){
  dirty=true;
  try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
- catch(e){console.error('localStorage не записан:',e);if(!storageWarningShown){storageWarningShown=true;alert('Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.');}return false;}
+ catch(e){console.error('localStorage write failed:',e);if(!storageWarningShown){storageWarningShown=true;alert('Could not save to this browser. Export JSON and check free space.');}return false;}
 }
+/* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
+   без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
+   браузер показывал бы диалог на каждом уходе со страницы. */
+window.addEventListener('beforeunload',function(e){
+ if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork())return;
+ e.preventDefault();e.returnValue='';return '';
+});
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
@@ -4688,9 +4719,9 @@ function doExport(){
 }
 function doImport(inp){
  const f=inp.files[0]; if(!f) return; const r=new FileReader();
- if(f.size>10*1024*1024){alert('Файл не читается: размер JSON превышает 10 MB.');inp.value='';return;}
+ if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
  r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
-  catch(e){ alert('Файл не читается: '+e.message); } };
+  catch(e){ alert('File not readable: '+e.message); } };
  r.readAsText(f); inp.value='';
 }
 /* ИСПРАВЛЕНО (авг 2026). Раньше здесь был Object.assign(DB, JSON.parse(s)) —
