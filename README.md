@@ -7,7 +7,7 @@
 **Живая версия: https://maksymprudnikov.github.io/ERP/** — открывается в браузере, ничего скачивать не нужно.
 Режим по модулям (правишь файл → F5): https://maksymprudnikov.github.io/ERP/src/
 
-Текущая стадия: **Фаза 1 (фундамент)** — доменная оболочка, справочники, два реальных расчётных модуля.
+Текущая стадия: **Фаза 1 / Stage 3B** — Customer Master, Draft Sales Orders с order-scoped IGU Makeups, плюс реальные Production Shape и Adaptive Muntin configurators.
 
 ---
 
@@ -52,7 +52,13 @@ src/
 │
 ├── erp/                      ОБОЛОЧКА — домены, экраны, RU/EN, хранилище
 │   ├── data.js  icons.js  i18n.js  nav.js  storage.js
-│   └── views/    dashboard · users · sales · sales-shape-ui · sales-muntin-ui · optimization · production
+│   ├── customers/ data.js    Customer Master
+│   ├── masterdata/ glass.js  glass / spacer / gas / seal / interlayer seed catalog
+│   ├── sales/                 Draft Sales domain
+│   │   ├── data.js            SalesOrder · OrderMakeup · OrderLine schema
+│   │   ├── orders.js          draft behavior · Excel · Shape/Muntin bridge
+│   │   └── makeup-ui.js       compact Lite / Cavity Makeup Builder
+│   └── views/    dashboard · users · customers · sales · sales-shape-ui · sales-muntin-ui · optimization · production
 │
 ├── styles/                   base.css · modules.css
 └── shell.html                каркас страницы (шапка, меню, контейнер)
@@ -83,6 +89,22 @@ node test/run.js        # проверить, что геометрия не п�
 
 ---
 
+## Stage 3B — Draft Sales / IGU Makeups
+
+Sales больше не использует глобальную Configuration Library. Каждый Draft Sales Order содержит собственные `makeups[]` (A/B/C/…), а строки заказа хранят стабильный `makeupId`. Один Makeup переиспользуется множеством строк только внутри своего заказа.
+
+Makeup Builder поддерживает `Single Lite / Double / Triple`, `Vision / Spandrel / Laminated`, а для Vision — `Low-E / Reflective / Frit / Uncoated`. Surface numbering идёт Exterior → Interior: Lite 1 = `#1/#2`, Lite 2 = `#3/#4`, Lite 3 = `#5/#6`. Low-E/Reflective, Frit и Spandrel хранят свои surface-поля отдельно.
+
+Lite/Cavity формы в Makeup Builder по умолчанию свёрнуты: оператор открывает только рабочую секцию, а остальные остаются компактными summary-строками. Одновременно открыта максимум одна секция.
+
+Shape и Muntin **не встроены в Makeup** и не переписываются. Строка Sales Order открывает существующий Production Shape / Adaptive Muntin configurator и хранит ссылку на его ревизию. При привязанном Shape размеры строки берутся из Shape; ручные Width/Height блокируются.
+
+Размеры Sales Order канонически хранятся integer-значением в `1/16″` (`width16`, `height16`), а строковый формат является только представлением.
+
+Master Data seed отделён от supply-фактов: продукт может позже получить `availability`, supplier, lead time и sheet sizes без изменения Sales schema.
+
+---
+
 ## Как обновить модуль (без терминала)
 
 Модули для того и разделены: правишь один файл, остальное не трогаешь.
@@ -91,7 +113,7 @@ node test/run.js        # проверить, что геометрия не п�
 
 **Заменить несколько файлов или всю папку модуля.** Зайди в папку (например `src/modules/muntin`) → **Add file** → **Upload files** → перетащи файлы. Файлы с теми же именами перезаписываются — это и есть обновление.
 
-**Что произойдёт дальше — само.** GitHub Action (`.github/workflows/build.yml`) проверит, что все модули зарегистрированы, пересоберёт `dist/GLASS_ERP.html` и прогонит 57 тестов. Зелёная галочка рядом с коммитом — живая версия обновилась. Красный крестик — тесты не прошли, `dist` НЕ обновлён, работающая система осталась на прежнем коде; открой вкладку **Actions**, там написано, какой именно тест упал.
+**Что произойдёт дальше — само.** GitHub Action (`.github/workflows/build.yml`) проверит, что все модули зарегистрированы, пересоберёт `dist/GLASS_ERP.html` и прогонит регрессионные тесты. В feature-ветке зелёная галочка означает, что кандидат прошёл CI; живая версия при этом не меняется. Только успешный push в `main` может автоматически закоммитить пересобранный `dist` и обновить GitHub Pages. Красный крестик означает, что кандидат не прошёл проверку — открой вкладку **Actions**, там указан упавший тест.
 
 **Если в модуле появился НОВЫЙ файл** — его надо зарегистрировать в двух местах: `build/manifest.json` (порядок подключения) и `src/index.html` (тот же порядок). Забудешь — проверка остановит сборку и прямо скажет какой файл не подключён.
 
@@ -142,7 +164,7 @@ node test/run.js     # прогон по src/
 TARGET=dist node test/run.js
 ```
 
-57 тестов держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN и мобильный viewport. Если после правки модуля упал тест вида
+Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape/Muntin bridge и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
 
 Отчёт последнего аудита: [`docs/REVIEW_2026-08-18.md`](docs/REVIEW_2026-08-18.md).
