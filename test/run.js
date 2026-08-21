@@ -48,6 +48,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       while ((m = re.exec(src))) if (cyr.test(m[2])) leaks.push(path.relative(ROOT, f) + ': ' + m[2].slice(0, 40));
     }
     eq('в alert/confirm нет русского текста', leaks, []);
+    /* Текст исключения уезжает пользователю через alert('...: '+e.message) —
+       та же утечка, что и в диалогах, только через неудачный импорт. В DOM их
+       тоже нет, поэтому проверка статическая. */
+    const throwLeaks = [];
+    for (const f of walk(path.join(ROOT, 'src'))) {
+      const src = fs.readFileSync(f, 'utf8');
+      src.split('throw new Error(').slice(1).forEach(chunk => {
+        const stmt = chunk.split(');')[0];
+        if (cyr.test(stmt)) throwLeaks.push(path.relative(ROOT, f) + ': ' + stmt.slice(0, 40));
+      });
+    }
+    eq('в текстах ошибок нет русского', throwLeaks, []);
     const i18n = fs.readFileSync(path.join(ROOT, 'src/erp/i18n.js'), 'utf8');
     ok('язык по умолчанию — английский', /\|\|\s*'en'/.test(i18n), i18n.match(/let LANG[^;]*/)[0]);
     /* Словарь работает в одну сторону RU→EN и применяется ТОЛЬКО в английском
@@ -479,12 +491,39 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',station:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
-    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Цех',skills:[]});
+    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Продажи',skills:[]});
     eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',station:'',skills:{skill:'Резка'}}]}));
     eq('skills не-массив не даёт белый экран', await t.p.evaluate(() => ({skills:DB.user[0].skills,hasUI:document.getElementById('app').innerHTML.length>200})), {skills:[],hasUI:true});
+    await t.c.close();
+
+    /* --- B8: реальные роли и демо-пользователи ---------------------- */
+    t = await page();
+    eq('роли приведены к реальным должностям', await t.p.evaluate(() => ({roles:ROLES,safe:SAFE_DEFAULT_ROLE})),
+      {roles:['Продажи','Бухгалтер','Админ','Владелец'],safe:'Продажи'});
+    eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.role)),
+      ['Demo Sales · Продажи','Demo Accounting · Бухгалтер','Demo Owner · Владелец']);
+    /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
+       после каждого обновления страницы, и удалить их было бы невозможно. */
+    await t.p.evaluate(() => { DB.user=[]; touch(); });
+    await t.p.reload();
+    await t.p.waitForTimeout(200);
+    eq('удалённые демо-пользователи не возвращаются после F5', await t.p.evaluate(() => DB.user.length), 0);
+    await t.c.close();
+
+    t = await page(JSON.stringify({user:[{name:'Real Person',role:'Админ',station:'',skills:[]}]}));
+    eq('демо-пользователи не подмешиваются к настоящим', await t.p.evaluate(() => DB.user.map(u => u.name)), ['Real Person']);
+    await t.c.close();
+
+    t = await page();
+    eq('дубликат станции в импорте называется по-английски', await t.p.evaluate(() => {
+      try{prepareImportedState({station:[{code:'A1',name:'x'},{code:'A1',name:'y'}]});return '';}catch(e){return e.message;}
+    }), 'Stations: duplicate "A1".');
+    eq('неизвестная роль в импорте отклоняется по-английски', await t.p.evaluate(() => {
+      try{prepareImportedState({user:[{name:'X',role:'Начальник цеха'}]});return '';}catch(e){return e.message;}
+    }), 'User 1 has an unknown role.');
     await t.c.close();
 
     t = await page();
@@ -493,7 +532,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return JSON.stringify(DB)===before;
     }), true);
     eq('импорт ловит осиротевший Muntin', await t.p.evaluate(() => {
-      try{prepareImportedState({shapeDef:[],muntinDef:[{id:'m2',shapeId:'missing',muntin:{}}]});return false;}catch(e){return /отсутствующий Shape/.test(e.message);}
+      try{prepareImportedState({shapeDef:[],muntinDef:[{id:'m2',shapeId:'missing',muntin:{}}]});return false;}catch(e){return e.message.includes('references a missing Shape');}
     }), true);
     await t.c.close();
 
@@ -605,6 +644,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Frit и Spandrel имеют независимые surface', await t.p.evaluate(() => {
       const p=normalizeSalesPane({visionType:'frit',frit:{surface:2},spandrel:{surface:1}},0);return {frit:p.frit.surface,spandrel:p.spandrel.surface,coating:p.coatingSurface};
     }), {frit:2,spandrel:1,coating:null});
+    /* --- Frit к реальности: по умолчанию был Black + Full coverage, то есть
+       изделие, которого цех не делает. --- */
+    eq('новый лист получает Frit, который цех может изготовить', await t.p.evaluate(() => {
+      const f=salesDefaultPane(0).frit;
+      return {color:f.color,pattern:f.pattern,dotMm:f.dotMm,corner:f.marginFrom,w:f.marginW16,h:f.marginH16,coverage:Object.prototype.hasOwnProperty.call(f,'coverage')};
+    }), {color:'White',pattern:'2 x 2 square',dotMm:5,corner:'Top right',w:16,h:16,coverage:false});
+    eq('ассортимент фрита — только реальный', await t.p.evaluate(() => ({colors:FRIT_COLORS,patterns:FRIT_PATTERNS})),
+      {colors:['White','Acid Etched'],patterns:['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — see silk screen sheet']});
+    eq('старая спецификация Frit приводится к реальному ассортименту', await t.p.evaluate(() => {
+      const p=normalizeSalesPane({visionType:'frit',frit:{color:'Black',pattern:'Full coverage',coverage:'100',marginFrom:'Somewhere'}},0);
+      return {color:p.frit.color,pattern:p.frit.pattern,corner:p.frit.marginFrom,coverage:Object.prototype.hasOwnProperty.call(p.frit,'coverage')};
+    }), {color:'White',pattern:'2 x 2 square',corner:'Top right',coverage:false});
+    /* Ноль — законный отступ (узор идёт до кромки), поэтому у отступа свой
+       парсер: salesDimTo16 отбрасывает 0 вместе с мусором. */
+    eq('нулевой отступ узора сохраняется, мусор — нет', await t.p.evaluate(() => ({
+      zero:salesMarginTo16('0'),half:salesMarginTo16('1 1/2'),garbage:salesMarginTo16('12abc'),
+      kept:normalizeSalesPane({visionType:'frit',frit:{marginW16:0}},0).frit.marginW16,text:salesMarginFrom16(0)
+    })), {zero:0,half:24,garbage:null,kept:0,text:'0'});
+    eq('поля спецификации Frit на месте, Coverage % убран', await t.p.evaluate(() => {
+      const html=salesFritFields(normalizeSalesPane({visionType:'frit'},0),0);
+      return {coverage:html.includes('Coverage'),dot:html.includes('Dot diameter'),corner:html.includes('Margin measured from'),
+        margins:html.split('Margin — ').length-1,marking:html.includes('Production marking')};
+    }), {coverage:false,dot:true,corner:true,margins:2,marking:true});
     eq('300 строк сохраняют стабильные makeupId и integer-геометрию', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),mu=o.makeups[0].id;for(let i=0;i<300;i++)o.lines.push(normalizeSalesOrderLine({makeupId:mu,qty:1,width:'48',height:'36',mark:'L'+i}));const n=normalizeSalesOrder(o);return {n:n.lines.length,refs:new Set(n.lines.map(x=>x.makeupId)).size,w:n.lines[299].width16,h:n.lines[299].height16};
     }), {n:300,refs:1,w:768,h:576});
@@ -694,14 +756,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Customers EN переводит placeholder поиска', await t.p.evaluate(() => {
       tab='customers';subtab=null;render();const el=document.getElementById('customerSearch');return el&&el.getAttribute('placeholder');
     }), 'Search by code, name, contact, phone, email…');
-    eq('Customers dynamic import errors переводятся в EN', await t.p.evaluate(() => ({
-      missing:tx('клиент в строке 7: не заполнено Name'),
-      dup:tx('в импортируемом файле повторяется Account "A-100"'),
-      contacts:tx('contacts клиента 2 должны быть массивом')
-    })), {
-      missing:'Customer row 7: Name is required',
-      dup:'The import file contains duplicate Account "A-100"',
-      contacts:'Customer 2 contacts must be an array'
+    /* Ошибки импорта больше не переводятся на лету: они написаны по-английски
+       в самом источнике. Словарь для них удалён вместе с ветками tx(). */
+    eq('ошибки импорта клиентов приходят уже по-английски', await t.p.evaluate(() => {
+      const out={};
+      try{validateCustomerImportList([{legalName:''}]);}catch(e){out.missing=e.message;}
+      try{validateCustomerImportList([{legalName:'A',code:'A-100'},{legalName:'B',code:'A-100'}]);}catch(e){out.dup=e.message;}
+      try{validateCustomersPayload({customer:[{contacts:1}]});}catch(e){out.contacts=e.message;}
+      return out;
+    }), {
+      missing:'Customer row 1: Name is required.',
+      dup:'The import file contains duplicate Account "A-100".',
+      contacts:'Customer 1: contacts must be an array.'
     });
     eq('данные пользователя не переводятся', await t.p.evaluate(() => {
       DB.user.push({ name: 'Закалка', role: 'Цех', station: '', skills: [] });
