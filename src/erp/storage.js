@@ -48,8 +48,8 @@ function mergeState(src){
  });
 }
 function validateImportedState(src){
- if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
- Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
+ if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('Expected an exported state object.');
+ Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  function unique(list,key,label,normalize){
@@ -57,29 +57,29 @@ function validateImportedState(src){
    if(!row||typeof row!=='object')return;
    const raw=row[key];if(raw==null||raw==='')return;
    const value=normalize?normalize(raw):String(raw);
-   if(seen.has(value))throw new Error(label+' содержит дубликат "'+value+'"');seen.add(value);
+   if(seen.has(value))throw new Error(label+': duplicate "'+value+'".');seen.add(value);
   });
  }
- unique(src.level,'n','Уровни',v=>String(+v));
- unique(src.station,'code','Станции',v=>String(v).trim().toUpperCase());
+ unique(src.level,'n','Levels',v=>String(+v));
+ unique(src.station,'code','Stations',v=>String(v).trim().toUpperCase());
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
- (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('недопустимый id Shape в строке '+(i+1));});
+ (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
  (src.shapeDef||[]).forEach((s,i)=>{
   if(!s||typeof s!=='object')return;
-  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('неизвестный тип Shape в строке '+(i+1));
-  if(s.features!=null&&!Array.isArray(s.features))throw new Error('features Shape в строке '+(i+1)+' должны быть массивом');
-  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('polygon Shape в строке '+(i+1)+' должен быть массивом');
-  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('edgeOps Shape в строке '+(i+1)+' должен быть объектом');
-  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('неизвестный feature Shape '+(i+1)+', строка '+(j+1));if(f.id&&!subId.test(String(f.id)))throw new Error('недопустимый id feature Shape '+(i+1));if(f.id&&ids.has(f.id))throw new Error('дубликат id feature Shape '+(i+1));if(f.id)ids.add(f.id);});
-  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('некорректная обработка кромки Shape '+(i+1));s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('неизвестная операция кромки Shape '+(i+1));});});
+  if(s.type!=null&&!SHAPE_PRESETS.some(p=>p.id===s.type))throw new Error('Shape row '+(i+1)+' has an unknown type.');
+  if(s.features!=null&&!Array.isArray(s.features))throw new Error('Shape row '+(i+1)+': features must be an array.');
+  if(s.polygon!=null&&!Array.isArray(s.polygon))throw new Error('Shape row '+(i+1)+': polygon must be an array.');
+  if(s.edgeOps!=null&&(!s.edgeOps||typeof s.edgeOps!=='object'||Array.isArray(s.edgeOps)))throw new Error('Shape row '+(i+1)+': edgeOps must be an object.');
+  const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('Shape '+(i+1)+', feature '+(j+1)+' has an unknown type.');if(f.id&&!subId.test(String(f.id)))throw new Error('Shape '+(i+1)+' has a feature with an invalid id.');if(f.id&&ids.has(f.id))throw new Error('Shape '+(i+1)+' has duplicate feature ids.');if(f.id)ids.add(f.id);});
+  Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
- (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('недопустимый id Muntin в строке '+(i+1));});
- (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('недопустимый код станции в строке '+(i+1));});
+ (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('Muntin row '+(i+1)+' has an invalid id.');});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
  (src.user||[]).forEach((u,i)=>{
-  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('skills пользователя '+(i+1)+' должен быть массивом');
-  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('неизвестная роль пользователя '+(i+1));
-  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('некорректный навык пользователя '+(i+1)+', строка '+(j+1));});
+  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
+  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('User '+(i+1)+' has an unknown role.');
+  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('User '+(i+1)+', skill '+(j+1)+' is invalid.');});
  });
 }
 function prepareImportedState(src){
@@ -88,7 +88,7 @@ function prepareImportedState(src){
  try{
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
-  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin row '+(i+1)+' references a missing Shape.');});
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
  }catch(e){DB=previous;throw e;}
@@ -107,6 +107,10 @@ function boot(){
  catch(e){ console.warn('localStorage не прочитан, стартуем с дефолтов:',e.message); }
  try{ normalizeDB(); }
  catch(e){ console.warn('данные не нормализуются, откат на дефолты:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
+    идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
+    один раз на браузер (см. seedDemoUsers в erp/data). */
+ if(typeof seedDemoUsers==='function'&&seedDemoUsers())touch();
  render();
 }
 boot();

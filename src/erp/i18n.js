@@ -18,12 +18,11 @@ const I18N_EN={
   "Экспорт JSON": "Export JSON",
   "Импорт JSON": "Import JSON",
   "Админ": "Admin",
-  "Руководство": "Management",
   "Продажи": "Sales",
-  "Технолог": "Technologist",
+  "Бухгалтер": "Accounting",
+  "Владелец": "Owner",
   "Цех": "Shop floor",
   "Отгрузка": "Shipping",
-  "Снабжение": "Purchasing",
   "Резка": "Cutting",
   "Кромка (arris/polish)": "Edgework (arris/polish)",
   "ЧПУ полировка": "CNC polishing",
@@ -112,10 +111,6 @@ const I18N_EN={
   "Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.": "Replace the entire customer master with data from the file? This cannot be undone without a backup export.",
   "Файл клиентов превышает 10 MB.": "Customer file exceeds 10 MB.",
   "Не удалось импортировать клиентов:": "Could not import customers:",
-  "в файле нет клиентов": "the file contains no customers",
-  "JSON клиентов должен содержать массив customers": "Customer JSON must contain a customers array",
-  "нельзя заменить весь справочник: есть клиенты, связанные с заказами": "The customer master cannot be replaced because some customers are referenced by orders",
-  "поле \"customer\" должно быть массивом": "the \"customer\" field must be an array",
   "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
   "Конфигураторы": "Configurators",
@@ -397,13 +392,6 @@ function tx(value){
  let mm;
  if((mm=x.match(/^Показано: (\d+) \/ (\d+)$/))) x=`Shown: ${mm[1]} / ${mm[2]}`;
  else if((mm=x.match(/^Импортировано клиентов: (\d+)$/))) x=`Customers imported: ${mm[1]}`;
- else if((mm=x.match(/^клиент в строке (\d+): не заполнено Name$/i))) x=`Customer row ${mm[1]}: Name is required`;
- else if((mm=x.match(/^клиент в строке (\d+) должен быть объектом$/i))) x=`Customer row ${mm[1]} must be an object`;
- else if((mm=x.match(/^contacts клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} contacts must be an array`;
- else if((mm=x.match(/^addresses клиента (\d+) должны быть массивом$/i))) x=`Customer ${mm[1]} addresses must be an array`;
- else if((mm=x.match(/^Customers содержит дубликат id "(.+)"$/))) x=`Customers contains duplicate id "${mm[1]}"`;
- else if((mm=x.match(/^Customers содержит дубликат кода "(.+)"$/))) x=`Customers contains duplicate code "${mm[1]}"`;
- else if((mm=x.match(/^в импортируемом файле повторяется Account "(.+)"$/i))) x=`The import file contains duplicate Account "${mm[1]}"`;
  else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
  else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
  else if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;

@@ -32,8 +32,16 @@ function normalizeSalesModules(){
   });
 }
 
-const ROLES=['Админ','Руководство','Продажи','Технолог','Цех','Отгрузка','Снабжение'];
-const SAFE_DEFAULT_ROLE='Цех';
+/* Реальные должности компании (хендофф, раздел 7): Продажи · Бухгалтер ·
+   Админ · Владелец. Прежние семь ролей были выдумкой прототипа — проектировать
+   права под несуществующие должности нельзя. Цех, отгрузка и снабжение
+   именованных учёток не получают: учётка принадлежит терминалу станции, а
+   человек опознаётся сканом бейджа при действии.
+   Прибыль видит только Владелец; Админ — техническая роль без денег. */
+const ROLES=['Продажи','Бухгалтер','Админ','Владелец'];
+/* Неизвестная роль из импорта или из старых данных падает в самую слабую —
+   Продажи: она не видит ни себестоимости, ни настроек системы. */
+const SAFE_DEFAULT_ROLE='Продажи';
 const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
 const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
 /* Старые записи могли хранить навык строкой — для них сохраняем исторический
@@ -95,6 +103,29 @@ function salesSkillCards(){
   {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
  ];
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
+}
+
+/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
+   показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
+   проверить было не на ком. Трое — по одному на роль, которую в жизни держит
+   человек; Админ не засеян намеренно, это техническая роль.
+   Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
+   русское имя осталось бы русским в английском интерфейсе. */
+const DEMO_USERS=[
+ {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
+ {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
+ {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
+];
+const DEMO_USERS_KEY='glazing_system_demo_users_v1';
+/* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому
+   что это свойство установки, а не данных: иначе удалённые демо-записи
+   возвращались бы после каждого F5, а импорт чужого экспорта засевал бы их
+   заново поверх настоящих людей. */
+function seedDemoUsers(){
+ try{if(localStorage.getItem(DEMO_USERS_KEY))return false;localStorage.setItem(DEMO_USERS_KEY,'1');}catch(e){return false;}
+ if(!Array.isArray(DB.user)||DB.user.length)return false;
+ DB.user=JSON.parse(JSON.stringify(DEMO_USERS));
+ return true;
 }
 
 const DEFAULT={
