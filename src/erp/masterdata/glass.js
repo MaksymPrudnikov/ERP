@@ -57,8 +57,23 @@ DEFAULT.spandrelProduct=[
  {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER'},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL'}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
-const FRIT_COLORS=['Black','White','Gray','Bronze','Custom'];
-const FRIT_PATTERNS=['Full coverage','Dots','Lines','Custom'];
+/* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
+   снята со скриншотов рабочего интерфейса). Здесь стояли выдуманные 'Black',
+   'Gray', 'Bronze', 'Full coverage', 'Lines' — цех такого не делает, а новый
+   лист получал их по умолчанию. Узоров ровно три плюс отсылка к бумажному
+   листу спецификации; цвета два. Позиции прайса CERM FRIT - FULL / PATTERN /
+   GRADIENT подтверждены пользователем как мёртвые. */
+const FRIT_COLORS=['White','Acid Etched'];
+const FRIT_PATTERNS=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — see silk screen sheet'];
+/* Узор кладётся ОТ конкретного угла детали, и этот угол маркируется в цеху:
+   иначе трафарет ляжет зеркально. Это производственный параметр, а не
+   оформление. На рабочих листах стоит Top right. */
+const FRIT_MARGIN_CORNERS=['Top left','Top right','Bottom left','Bottom right'];
+const FRIT_DEFAULT_CORNER='Top right';
+const FRIT_DEFAULT_DOT_MM=5;
+/* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
+   подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
+const FRIT_DEFAULT_MARGIN16=16;
 const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
 
 function normalizeMasterData(){
