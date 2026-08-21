@@ -484,7 +484,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Sales больше не рендерит Shape/Muntin', await t.p.evaluate(() => {
       tab='sales';subtab=null;render();
       return {
-        hasOrders:document.getElementById('app').textContent.includes('Sales Orders'),
+        hasOrders:!!document.querySelector('.sales-list-card'),
         hasShape:document.getElementById('app').textContent.includes('Production Shape'),
         hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin')
       };
@@ -544,6 +544,52 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('глобальный import/export contract принимает customer collection', await t.p.evaluate(() => {
       const next=prepareImportedState({customer:[{id:'c1',code:'A1',legalName:'Imported',contacts:[],addresses:[]}]});return {n:next.customer.length,name:next.customer[0].legalName};
     }), {n:1,name:'Imported'});
+    await t.c.close();
+  }
+
+  /* --- 5d. Sales Order / order-scoped Makeups ------------------------ */
+  {
+    console.log('Sales Order / Makeups');
+    let t = await page();
+    eq('новый Sales Order получает локальный Makeup A', await t.p.evaluate(() => {
+      const o=newSalesOrderDraft();return {n:o.makeups.length,code:o.makeups[0].code,type:o.makeups[0].unitType,panes:o.makeups[0].panes.length,cavities:o.makeups[0].cavities.length,global:Object.prototype.hasOwnProperty.call(DB,'salesConfiguration')};
+    }), {n:1,code:'A',type:'double',panes:2,cavities:1,global:false});
+    eq('код Makeup A может повторяться в разных заказах', await t.p.evaluate(() => {
+      const a=newSalesOrderDraft(),b=newSalesOrderDraft();return [a.makeups[0].code,b.makeups[0].code];
+    }), ['A','A']);
+    eq('Sales хранит размеры точно в 1/16″', await t.p.evaluate(() => {
+      const n=salesDimTo16('34 13/16');return {n,back:salesDimFrom16(n)};
+    }), {n:557,back:'34 13/16'});
+    eq('surface номера принадлежат конкретному Lite', await t.p.evaluate(() => [salesPaneSurfaces(0),salesPaneSurfaces(1),salesPaneSurfaces(2)]), [[1,2],[3,4],[5,6]]);
+    eq('числовые legacy dimensions трактуются как inches, а width16 остаётся ticks', await t.p.evaluate(() => ({legacy:salesDimTo16(34),stored:normalizeSalesOrderLine({makeupId:'MU-X',width16:544,height16:576}).width16})), {legacy:544,stored:544});
+    eq('Laminated overall thickness включает interlayer', await t.p.evaluate(() => {
+      const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-VITRO-6-CLR',innerGlassProductId:'GL-VITRO-6-CLR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
+    }), '12.762');
+    eq('Makeup accordion стартует закрытым и держит только одну открытую секцию', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('triple');soOpenSectionKey=null;render();const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length;d[0].open=true;salesAccordionToggle(d[0],d[0].dataset.muSection);d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,open:d.filter(x=>x.open).length,key:soOpenSectionKey};
+    }), {initial:0,open:1,key:'cavity-0'});
+    eq('Frit и Spandrel имеют независимые surface', await t.p.evaluate(() => {
+      const p=normalizeSalesPane({visionType:'frit',frit:{surface:2},spandrel:{surface:1}},0);return {frit:p.frit.surface,spandrel:p.spandrel.surface,coating:p.coatingSurface};
+    }), {frit:2,spandrel:1,coating:null});
+    eq('300 строк сохраняют стабильные makeupId и integer-геометрию', await t.p.evaluate(() => {
+      const o=newSalesOrderDraft(),mu=o.makeups[0].id;for(let i=0;i<300;i++)o.lines.push(normalizeSalesOrderLine({makeupId:mu,qty:1,width:'48',height:'36',mark:'L'+i}));const n=normalizeSalesOrder(o);return {n:n.lines.length,refs:new Set(n.lines.map(x=>x.makeupId)).size,w:n.lines[299].width16,h:n.lines[299].height16};
+    }), {n:300,refs:1,w:768,h:576});
+    eq('import отклоняет строку с отсутствующим Makeup', await t.p.evaluate(() => {
+      const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:'MISSING',width:'10',height:'10'})];
+      try{prepareImportedState({salesOrder:[o]});return false;}catch(e){return /Makeup/.test(e.message);}
+    }), true);
+    eq('Muntin link помечается stale при новой Shape revision', await t.p.evaluate(() => {
+      DB.muntinDef=[{id:'M-X',name:'Grid',shapeId:'S-X',shapeRevision:1}];return /stale/.test(salesLineMuntinCell({shapeRef:{id:'S-X',revision:2},muntinRef:{id:'M-X'}},0));
+    }), true);
+    await t.c.close();
+
+    t = await page();
+    eq('Sales bridge использует существующие Shape и Muntin configurators', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesOrderAddLine();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      salesOrderConfigureShape(0);saveShape();const shapeId=soDraft.lines[0].shapeRef.id,backFromShape=tab==='sales'&&!!shapeId;
+      salesOrderConfigureMuntin(0);saveMuntin();const muntinId=soDraft.lines[0].muntinRef.id,backFromMuntin=tab==='sales'&&!!muntinId;
+      return {backFromShape,backFromMuntin,shapeIdMatch:DB.muntinDef.find(m=>m.id===muntinId).shapeId===shapeId};
+    }), {backFromShape:true,backFromMuntin:true,shapeIdMatch:true});
     await t.c.close();
   }
 
