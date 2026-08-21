@@ -44,7 +44,7 @@ function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdg
 function setShapeType(type){
   type=shapeType(type);if(type===sDraft.type)return;
   var linked=Object.keys(sDraft.edgeOps||{}).length||(sDraft.features||[]).some(function(f){return f.type==='radius'||f.type==='hardware';});
-  if(linked&&!confirm('Смена типа удалит привязанные к топологии радиусы, hardware prep и обработку кромок. Продолжить?')){render();return;}
+  if(linked&&!confirm('Changing the shape type will remove topology-bound radii, hardware prep and edgework. Continue?')){render();return;}
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);sDraft.edgeOps={};sDraft.features=(sDraft.features||[]).filter(function(f){return f.type!=='radius'&&f.type!=='hardware';});
   if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
@@ -322,7 +322,7 @@ function saveShape(){
   var e=document.getElementById('e_shape');e.style.display='none';sDraft.name=String(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');
   var r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,(r.errors||[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
-  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('Эта фигура используется в Muntinbar. Новая геометрия изменит связанную раскладку. Сохранить новую ревизию?'))return;
+  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('This shape is used by a Muntin layout. New geometry will change that layout. Save a new revision?'))return;
   var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
@@ -338,4 +338,4 @@ function downloadShapeArtifact(kind){
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
   if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
 }
-function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Нельзя удалить — Shape используется в Sales Order');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
+function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Cannot delete — this shape is used by a Muntin layout');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}
