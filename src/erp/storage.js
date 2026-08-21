@@ -3,7 +3,8 @@
    localStorage, экспорт/импорт JSON, старт приложения.
    IN : —
    OUT: —
-   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+   Правило: файл не содержит бизнес-логику доменов; он вызывает их публичные
+   normalize/validate hooks и отвечает только за безопасный вход→выход.
    ===================================================================== */
 
 function afterRender(){applyLang(document.body)}
@@ -43,6 +44,7 @@ function validateImportedState(src){
  if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
+ if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -80,6 +82,7 @@ function prepareImportedState(src){
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
   DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
  }catch(e){DB=previous;throw e;}
 }
@@ -88,7 +91,9 @@ function normalizeDB(){
  normalizeStations();
  normalizeUsers();
  normalizeSalesModules();
+ if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
+ if(typeof normalizeSalesData==='function')normalizeSalesData();
 }
 function boot(){
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
