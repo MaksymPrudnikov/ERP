@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 37 модулей, 2 стиля.
+  Состав сборки: 41 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -21,8 +21,8 @@
 }
 html{background:var(--bg)}
 body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}
-.shell{display:flex;min-height:100vh}
-.side{width:250px;flex:none;background:var(--nav);color:#dbe7ed;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid #203844}
+.shell{--side-w:250px;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);min-height:100vh;background:var(--nav)}
+.side{width:var(--side-w);flex:none;align-self:start;background:var(--nav);color:#dbe7ed;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid #203844}
 .brand{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;display:flex;align-items:center;gap:12px}
 .brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#4ba0cf,#23678c);display:grid;place-items:center;color:#fff;box-shadow:0 8px 24px rgba(50,137,184,.25)}
 .brand-mark svg{width:21px;height:21px}
@@ -37,7 +37,7 @@ body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,A
 .nav-item.soon:hover{background:none;color:#aebfc8}
 .nav-badge{margin-left:auto;font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.08);color:#9bb0bb;text-transform:uppercase;letter-spacing:.04em}
 .side-footer{margin:18px 14px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#78919e;font-size:11px}
-.main{flex:1;min-width:0}
+.main{flex:1;min-width:0;min-height:100vh;background:var(--bg)}
 header{height:66px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);color:var(--text);padding:0 26px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 .header-title{display:flex;flex-direction:column}
 header h1{font-size:15px;font-weight:650;margin:0}
@@ -211,7 +211,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  .bridge{overflow-x:auto}.bridge-node{min-width:210px}
 }
 @media(max-width:760px){
- .side{width:72px}.brand-copy,.nav-group,.nav-item span,.nav-badge,.side-footer{display:none}
+ .shell{--side-w:72px}.side{width:var(--side-w)}.brand-copy,.nav-group,.nav-item span,.nav-badge,.side-footer{display:none}
  .brand{padding:17px}.brand-mark{width:36px;height:36px}
  .nav-item{justify-content:center;padding:12px;margin:4px 8px}
  main{padding:17px}header{padding:0 17px}.header-kicker,.top-chip{display:none}
@@ -225,7 +225,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  input,select,textarea{min-width:0}
 }
 @media(max-width:520px){
- .side{width:56px}
+ .shell{--side-w:56px}.side{width:var(--side-w)}
  .brand{padding:12px 10px}.brand-mark{width:34px;height:34px}
  .nav-item{padding:10px;margin:4px 6px}
  header{min-height:60px;height:auto;padding:8px;gap:5px;flex-wrap:wrap}
@@ -297,6 +297,22 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 
 /* customers ---------------------------------------------------------- */
 .customer-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}.customer-search{flex:1;min-width:260px;max-width:520px}.customer-actions{display:flex;gap:7px;flex-wrap:wrap}.customer-filterbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 12px}.customer-filter-on{background:var(--blue2);border-color:#9bc8de;color:#235f7d}.customer-filterbar .mut{margin-left:auto;font-size:12px}.customer-table-wrap{overflow:auto}.customer-table-wrap table{min-width:1040px}.customer-row-actions{white-space:nowrap}.customer-editor .section-title{align-items:flex-start}.customer-editor-actions{margin-top:0}.customer-grid-4{grid-template-columns:repeat(4,minmax(160px,1fr))}.customer-checks{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;padding-bottom:1px}.customer-subrecord{margin-bottom:10px}.customer-subrecord-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.customer-tabs{overflow-x:auto}.customer-tabs button{white-space:nowrap}@media(max-width:1100px){.customer-grid-4{grid-template-columns:repeat(2,minmax(160px,1fr))}}@media(max-width:700px){.customer-grid-4{grid-template-columns:1fr}.customer-actions{width:100%}.customer-actions button{flex:1}.customer-filterbar .mut{width:100%;margin-left:0}}
+
+/* sales 3B · compact order makeups ---------------------------------- */
+.sales-order-editor{--sa:#f2762e;--sa2:#fff4ec;--sink:#263843;--swarm:#f6f8f9;--sline:#e1e6e9;display:flex;flex-direction:column;gap:10px;max-width:1500px}
+.sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.sales-row-actions{white-space:nowrap}
+.sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;gap:7px}.sales-editor-actions button{padding:6px 10px}
+.sales-header-compact{display:grid;grid-template-columns:repeat(8,minmax(110px,1fr));gap:7px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px}.sales-header-compact label,.sales-order-editor label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:#7a7974;margin-bottom:3px;font-weight:650}.sales-header-compact input,.sales-header-compact select,.sales-order-editor .mu-section input,.sales-order-editor .mu-section select{height:34px;padding:5px 8px;font-size:12px;border-radius:7px;border-color:#d8d4cc}.sales-hold{font-size:11px;color:#8d3e31;background:#fff4f1;border:1px solid #f1d2c9;border-radius:8px;padding:7px 10px}
+.sales-block{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px}.sales-block-head,.sales-lines-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-block-head>div,.sales-lines-head>div:first-child{display:flex;align-items:baseline;gap:9px}.sales-block-head b,.sales-lines-head b{font-size:11px;letter-spacing:.055em;color:#3c3b37}.sales-block-head span,.sales-lines-head span{font-size:10.5px;color:var(--mut)}
+.mu-strip{display:flex;align-items:stretch;gap:7px;margin-bottom:8px}.mu-strip-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px}.mu-tab{display:flex;align-items:center;gap:7px;min-width:0;max-width:360px;height:34px;padding:4px 8px;border:1px solid var(--sline);background:#faf9f7;border-radius:8px;color:#66635e}.mu-tab b{font-size:12px;min-width:20px}.mu-tab span{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-tab.on{border-color:var(--sa);background:var(--sa2);color:#8f4214;box-shadow:inset 0 0 0 1px #ffd7bc}.mu-add{height:34px;white-space:nowrap;border-style:dashed;color:#715b4b}
+.mu-builder{border:1px solid var(--sline);border-radius:10px;overflow:hidden;background:#fcfbf9}.mu-builder-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;background:#f7f9fa;border-bottom:1px solid var(--sline)}.mu-builder-head>div:first-child{display:flex;align-items:center;gap:9px;min-width:0}.mu-builder-head b{font-size:11px;letter-spacing:.06em}.mu-builder-head span{font-size:10.5px;color:#77736d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-builder-actions{display:flex;align-items:center;gap:5px;flex:none}.mu-builder-actions .pill{padding:2px 6px;font-size:9px}.mu-builder-actions button{padding:3px 7px;font-size:10px}
+.mu-unit-row{display:grid;grid-template-columns:105px minmax(280px,430px) 1fr;align-items:center;gap:10px;padding:7px 9px;border-bottom:1px solid var(--sline);background:#fff}.mu-unit-row>span{font-size:10px;letter-spacing:.06em;color:#77736d;font-weight:700}.mu-segment{display:flex;background:#eef1f2;border-radius:8px;padding:2px}.mu-segment button{flex:1;border:0;background:transparent;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:650;color:#5e5b56}.mu-segment button.on{background:var(--sa);color:#fff;box-shadow:0 1px 2px #9b4b1f22}.mu-total{justify-self:end;display:flex;align-items:baseline;gap:6px}.mu-total span{font-size:9px;color:#8b8881;text-transform:uppercase}.mu-total b{font-size:12px;color:#4a4843}
+.mu-stack{background:#fff}.mu-section{border-bottom:1px solid #e9edef}.mu-section:last-child{border-bottom:0}.mu-section>summary{list-style:none;display:grid;grid-template-columns:12px max-content max-content minmax(0,1fr);align-items:center;gap:7px;min-height:32px;padding:3px 8px;cursor:pointer;background:#fff;transition:background .12s}.mu-section>summary::-webkit-details-marker{display:none}.mu-section>summary:hover{background:#f8fafb}.mu-section[open]>summary{background:#f6f8f9}.mu-chevron{font-size:17px;line-height:1;color:#9c9891;transform:rotate(0deg);transition:.12s}.mu-section[open] .mu-chevron{transform:rotate(90deg)}.mu-section summary b{font-size:11px;letter-spacing:.04em}.mu-surface-tags{font-size:10px;border:1px solid #dad6cf;border-radius:999px;padding:1px 6px;color:#696660;background:#fff}.mu-summary{justify-self:end;font-size:10px;color:#88847c;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:560px}.mu-cavity>summary{grid-template-columns:12px max-content minmax(0,1fr);background:#f8fafb}.mu-cavity>summary .mu-summary{grid-column:3}.mu-section-body{padding:7px 8px 8px;border-top:1px solid #edf0f2}.mu-lite-top{display:flex;justify-content:flex-end;margin-bottom:6px}.mu-lite-tabs{display:flex;border:1px solid #d7d3cc;border-radius:7px;overflow:hidden}.mu-lite-tabs button{border:0;border-right:1px solid #e1ddd6;border-radius:0;padding:4px 10px;font-size:10.5px;background:#fff;color:#5b5853}.mu-lite-tabs button:last-child{border-right:0}.mu-lite-tabs button.on{background:var(--sink);color:#fff}.mu-field-grid{display:grid;gap:6px;align-items:end}.mu-field-grid-4{grid-template-columns:minmax(115px,.8fr) minmax(90px,.55fr) minmax(280px,1.4fr) minmax(190px,1.15fr) minmax(150px,.9fr)}.mu-type-field{grid-column:auto}.mu-type-buttons{display:flex;gap:3px;min-height:34px;align-items:center;flex-wrap:nowrap}.mu-type-buttons button{padding:5px 7px;font-size:10px;border-radius:6px;border-color:#d8d4cc;white-space:nowrap}.mu-type-buttons button.on{background:var(--sa2);border-color:var(--sa);color:#9a4818;font-weight:700}.mu-surface{align-self:end}.mu-surface-buttons{display:flex;gap:4px;height:34px;align-items:center}.mu-surface-buttons button{min-width:38px;padding:5px 8px;font-size:10.5px;border-radius:999px;background:#fff}.mu-surface-buttons button.on{background:var(--sink);color:#fff;border-color:var(--sink)}.mu-subgrid{display:grid;grid-template-columns:repeat(5,minmax(105px,1fr));gap:6px;margin-top:6px;padding-top:6px;border-top:1px dashed #e1e6e9}.mu-lam-grid{display:grid;grid-template-columns:1fr .8fr 1fr;gap:6px}.mu-cavity-grid{display:grid;grid-template-columns:1.45fr .8fr 1fr 1fr;gap:6px}
+.sales-lines-block{padding-bottom:8px}.sales-line-tools{display:flex;gap:5px}.sales-line-tools button{padding:5px 8px;font-size:11px}.sales-bulk{display:flex;align-items:center;gap:7px;padding:5px 7px;margin-bottom:6px;border-radius:7px;background:#fff5ed;border:1px solid #ffd9c0;font-size:10.5px}.sales-bulk select{width:auto;min-width:260px;height:30px;padding:3px 7px;font-size:10.5px}.sales-lines-table{min-width:1120px;font-size:11px}.sales-lines-table th{padding:5px 5px;font-size:10px;background:#f8f7f5}.sales-lines-table td{padding:3px 4px;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{height:29px;padding:3px 5px;font-size:11px;border-radius:5px}.sales-lines-table input:disabled{background:#f2f1ee;color:#67645e;opacity:1}.sales-lines-table .line-check{width:30px;text-align:center}.sales-lines-table .line-check input{height:auto;width:auto}.line-num{color:#79766f}.line-mu{width:54px!important;min-width:54px}.line-qty{width:54px!important}.line-dim{width:92px!important}.line-mark{width:74px!important}.line-notes{min-width:100px}.line-config-cell{display:flex;align-items:center;gap:2px;max-width:180px}.line-link-btn{height:28px!important;max-width:155px;padding:3px 6px!important;border-radius:5px!important;font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4d4a45}.line-link-btn.linked{background:#f1f7f4;border-color:#bcd8ca;color:#35634d}.line-link-btn.stale{background:#fff7e9;border-color:#e8c886;color:#8b641d}.line-x{height:26px!important;padding:1px 5px!important;border:0!important;background:transparent!important;color:#a09b93!important}.line-delete{padding:2px 6px!important}.sales-lines-table input.bad{border-color:#d85845;background:#fff3f0}
+.sales-notes{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:#12100e66;z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:#fff;border:1px solid #d9d4cc;border-radius:12px;padding:12px;box-shadow:0 18px 60px #10182830}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.excel-mode{display:flex;gap:4px;margin-bottom:7px}.excel-mode button{font-size:10.5px;padding:5px 8px}.excel-mode button.on{background:var(--sa2);border-color:var(--sa);color:#9a4818}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+@media(max-width:1350px){.sales-header-compact{grid-template-columns:repeat(4,minmax(130px,1fr))}.mu-field-grid-4{grid-template-columns:repeat(3,minmax(140px,1fr))}.mu-type-field{grid-column:span 2}.mu-subgrid{grid-template-columns:repeat(3,minmax(120px,1fr))}}
+@media(max-width:900px){.sales-editor-top{align-items:flex-start}.sales-header-compact{grid-template-columns:repeat(2,minmax(130px,1fr))}.mu-unit-row{grid-template-columns:90px 1fr}.mu-total{display:none}.mu-field-grid-4,.mu-subgrid,.mu-cavity-grid,.mu-lam-grid{grid-template-columns:repeat(2,minmax(130px,1fr))}.mu-type-field{grid-column:1/-1}.mu-lite-top{justify-content:flex-start}.sales-block-head>div,.sales-lines-head>div:first-child{display:block}.sales-lines-head{align-items:flex-end}}
+@media(max-width:620px){.sales-editor-top{flex-direction:column}.sales-editor-actions{width:100%}.sales-editor-actions button{flex:1}.sales-header-compact{grid-template-columns:1fr}.mu-strip{align-items:stretch}.mu-add{flex:none}.mu-unit-row{grid-template-columns:1fr}.mu-unit-row>span{display:none}.mu-field-grid-4,.mu-subgrid,.mu-cavity-grid,.mu-lam-grid{grid-template-columns:1fr}.mu-type-buttons{flex-wrap:wrap;height:auto}.mu-summary{display:none}.mu-section>summary{grid-template-columns:12px max-content max-content}.sales-lines-head{align-items:stretch;flex-direction:column}.sales-line-tools{width:100%}.sales-line-tools button{flex:1}}
 
 </style>
 </head>
@@ -2495,6 +2511,85 @@ const DEFAULT={
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
 
+/* ==== src/erp/masterdata/glass.js ==== */
+/* =====================================================================
+   erp/masterdata/glass · masterdata-0.3b
+   Seed catalog for the Sales Makeup Builder.
+   The schema deliberately separates product identity from supply facts so
+   stock/order state, suppliers and sheet sizes can be enriched later.
+   ===================================================================== */
+
+const MATERIAL_AVAILABILITY=['stock','order','special','inactive'];
+
+function mdString(v){return String(v==null?'':v).trim();}
+function mdNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)?n:null;}
+function mdAvailability(v){return MATERIAL_AVAILABILITY.includes(v)?v:'order';}
+function normalizeSheetSize(s){s=s&&typeof s==='object'?s:{};return {id:mdString(s.id),wIn:mdNum(s.wIn),hIn:mdNum(s.hIn),stockQty:mdNum(s.stockQty),supplier:mdString(s.supplier)};}
+function normalizeGlassProduct(p){p=p&&typeof p==='object'?p:{};return {
+ id:mdString(p.id),manufacturer:mdString(p.manufacturer),thicknessMm:mdNum(p.thicknessMm),family:['uncoated','lowe','reflective'].includes(p.family)?p.family:'uncoated',
+ name:mdString(p.name),code:mdString(p.code),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),
+ sheetSizes:(Array.isArray(p.sheetSizes)?p.sheetSizes:[]).map(normalizeSheetSize),active:p.active!==false
+};}
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
+
+/* Starter subset aligned with the public IGU Builder vocabulary. It is a
+   seed, not a purchasing truth: availability/supplier/sheet sizes remain
+   intentionally editable and mostly blank until the plant catalog is loaded. */
+DEFAULT.glassProduct=[
+ {id:'GL-VITRO-6-CLR',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL',availability:'order',sheetSizes:[]},
+ {id:'GL-VITRO-6-GRY',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Gray',code:'6GRY',availability:'order',sheetSizes:[]},
+ {id:'GL-VITRO-6-BRZ',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Bronze',code:'6BRZ',availability:'order',sheetSizes:[]},
+ {id:'GL-VITRO-6-SB60',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 60',code:'6SB60',availability:'order',sheetSizes:[]},
+ {id:'GL-VITRO-6-SB70',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 70',code:'6SB70',availability:'order',sheetSizes:[]},
+ {id:'GL-VITRO-6-SB90',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 90',code:'6SB90',availability:'order',sheetSizes:[]},
+ {id:'GL-PILK-6-CLR',manufacturer:'Pilkington',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL-P',availability:'order',sheetSizes:[]},
+ {id:'GL-PILK-6-EAC',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage C',code:'6EAC',availability:'order',sheetSizes:[]},
+ {id:'GL-PILK-6-EA',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage Low-E',code:'6EA',availability:'order',sheetSizes:[]},
+ {id:'GL-PILK-6-EAOW',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage OW',code:'6EAOW',availability:'order',sheetSizes:[]},
+ {id:'GL-GUARD-6-CLR',manufacturer:'Guardian',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL-G',availability:'order',sheetSizes:[]},
+ {id:'GL-GUARD-6-SN68',manufacturer:'Guardian',thicknessMm:6,family:'lowe',name:'SunGuard SN 68',code:'6SN68',availability:'order',sheetSizes:[]},
+ {id:'GL-GUARD-6-SNX6227',manufacturer:'Guardian',thicknessMm:6,family:'lowe',name:'SunGuard SNX 62/27',code:'6SNX6227',availability:'order',sheetSizes:[]},
+ {id:'GL-GUARD-6-RGY',manufacturer:'Guardian',thicknessMm:6,family:'reflective',name:'Reflective Gray',code:'6REF-GRY',availability:'order',sheetSizes:[]},
+ {id:'GL-GUARD-6-RBZ',manufacturer:'Guardian',thicknessMm:6,family:'reflective',name:'Reflective Bronze',code:'6REF-BRZ',availability:'order',sheetSizes:[]},
+ {id:'GL-GEN-10-CLR',manufacturer:'Generic',thicknessMm:10,family:'uncoated',name:'Clear',code:'10CL',availability:'order',sheetSizes:[]}
+].map(normalizeGlassProduct);
+
+DEFAULT.heatTreatment=[
+ {id:'HT-AN',name:'Annealed',code:'AN'},{id:'HT-HS',name:'Heat Strengthened',code:'HS'},{id:'HT-FT',name:'Tempered',code:'FT'}
+].map(x=>normalizeSimpleMaterial(x,'heatTreatment'));
+DEFAULT.spacerVariant=[
+ ['SP-BWE-038','Black Warm Edge','3/8'],['SP-BWE-716','Black Warm Edge','7/16'],['SP-BWE-012','Black Warm Edge','1/2'],['SP-BWE-1732','Black Warm Edge','17/32'],['SP-BWE-058','Black Warm Edge','5/8'],
+ ['SP-AL-038','Aluminum','3/8'],['SP-AL-012','Aluminum','1/2'],['SP-AL-058','Aluminum','5/8']
+].map(x=>({id:x[0],system:x[1],size:x[2],name:x[1]+' '+x[2]+'″',code:x[0],availability:'order',supplier:'',leadTimeDays:null,active:true}));
+DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
+DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
+DEFAULT.interlayerProduct=[{id:'INT-PVB030',name:'PVB Clear .030',code:'PVB030',thicknessMm:.762},{id:'INT-PVB060',name:'PVB Clear .060',code:'PVB060',thicknessMm:1.524},{id:'INT-SGP035',name:'Structural interlayer .035',code:'SGP035',thicknessMm:.889}].map(x=>normalizeSimpleMaterial(x,'interlayer'));
+DEFAULT.fritProduct=[
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER'},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG'}
+].map(x=>normalizeSimpleMaterial(x,'frit'));
+DEFAULT.spandrelProduct=[
+ {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER'},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL'}
+].map(x=>normalizeSimpleMaterial(x,'spandrel'));
+
+const FRIT_COLORS=['Black','White','Gray','Bronze','Custom'];
+const FRIT_PATTERNS=['Full coverage','Dots','Lines','Custom'];
+const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
+
+function normalizeMasterData(){
+ if(!Array.isArray(DB.glassProduct))DB.glassProduct=JSON.parse(JSON.stringify(DEFAULT.glassProduct));
+ DB.glassProduct=DB.glassProduct.filter(x=>x&&typeof x==='object').map(normalizeGlassProduct).filter(x=>x.id&&x.name);
+ [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
+  const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
+ });
+ if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),system:mdString(x.system),size:mdString(x.size),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
+}
+
+function mdById(key,id){return (DB[key]||[]).find(x=>x.id===id)||null;}
+function glassProductById(id){return mdById('glassProduct',id);}
+function activeGlassProducts(){return (DB.glassProduct||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
+function activeSimple(key){return (DB[key]||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
+
 /* ==== src/erp/customers/data.js ==== */
 /* =====================================================================
    erp/customers/data  ·  customers-1.0
@@ -2732,6 +2827,149 @@ function importCustomersFile(inp,mode){
  const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Импортировано клиентов: '+n);}catch(e){alert('Не удалось импортировать клиентов: '+e.message);}finally{inp.value='';}};r.readAsText(f);
 }
 
+/* ==== src/erp/sales/data.js ==== */
+/* =====================================================================
+   erp/sales/data · sales-0.3b-makeup
+   Draft Sales Order domain with order-scoped Makeups.
+   No global Configuration Library. Shape/Muntin stay external configurators.
+   ===================================================================== */
+
+DEFAULT.salesOrder=[];
+if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];
+
+const SALES_PRIORITIES=['normal','rush','critical'];
+const SALES_DELIVERY_TYPES=['pickup','delivery'];
+const SALES_ORDER_STATUSES=['draft'];
+const SALES_UNIT_TYPES=['single','double','triple'];
+const SALES_LITE_CATEGORIES=['vision','spandrel','laminated'];
+const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
+
+function salesUid(prefix){
+ prefix=prefix||'SO';
+ try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return prefix+'-'+crypto.randomUUID();}catch(e){}
+ return prefix+'-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,9).toUpperCase();
+}
+function salesString(v){return String(v==null?'':v).trim();}
+const SALES_ENTITY_ID=/^[A-Za-z0-9_-]{1,96}$/;
+function salesEntityId(v,prefix){const s=salesString(v);return SALES_ENTITY_ID.test(s)?s:salesUid(prefix);}
+function salesRefId(v){const s=salesString(v);return SALES_ENTITY_ID.test(s)?s:'';}
+function salesPositiveInt(v,def){const n=Math.floor(+v);return Number.isFinite(n)&&n>0?n:(def==null?1:def);}
+function salesPriorityLabel(v){return ({normal:'Normal',rush:'Rush',critical:'Critical'})[v]||'Normal';}
+function salesDeliveryLabel(v){return v==='delivery'?'Delivery':'Pickup';}
+function salesUnitLabel(v){return ({single:'Single Lite',double:'Double',triple:'Triple'})[v]||'Double';}
+function salesLiteCategoryLabel(v){return ({vision:'Vision',spandrel:'Spandrel',laminated:'Laminated'})[v]||'Vision';}
+function salesVisionTypeLabel(v){return ({lowe:'Low-E',reflective:'Reflective',frit:'Frit',uncoated:'Uncoated'})[v]||'Uncoated';}
+function salesPaneCount(unitType){return unitType==='single'?1:unitType==='triple'?3:2;}
+
+function salesDimTo16(v){
+ const r=fabParseDimStrict(v);return r.ok&&r.v>0?Math.round(r.v*16):null;
+}
+function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
+
+function salesDimFrom16(v){return Number.isInteger(v)&&v>0?frac64(v/16):'';}
+function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
+
+function salesFirstGlass(family,manufacturer,thickness){
+ const rows=activeGlassProducts().filter(x=>(!family||x.family===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
+ return rows[0]||activeGlassProducts()[0]||null;
+}
+function salesDefaultPane(i){
+ const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
+ return {
+  id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',
+  coatingSurface:null,
+  frit:{productId:'FRIT-CERAMIC',color:'Black',pattern:'Full coverage',coverage:'100',surface:null},
+  spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
+  laminated:{outerGlassProductId:g?g.id:'',interlayerProductId:'INT-PVB030',innerGlassProductId:g?g.id:''}
+ };
+}
+function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:'SEAL-PIB',secondarySealantId:'SEAL-SIL'};}
+function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
+function salesPaneSurfaces(index){return [index*2+1,index*2+2];}
+function normalizeSalesPane(p,index){
+ const d=salesDefaultPane(index);p=p&&typeof p==='object'?p:{};
+ const category=SALES_LITE_CATEGORIES.includes(p.category)?p.category:d.category;
+ const visionType=SALES_VISION_TYPES.includes(p.visionType||p.type)?(p.visionType||p.type):d.visionType;
+ const allowed=salesPaneSurfaces(index);
+ const frit=p.frit&&typeof p.frit==='object'?p.frit:{};
+ const sp=p.spandrel&&typeof p.spandrel==='object'?p.spandrel:{};
+ const lam=p.laminated&&typeof p.laminated==='object'?p.laminated:{};
+ return {
+  id:salesEntityId(p.id,'LITE'),category,
+  manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
+  visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
+  coatingSurface:normalizeSurface(p.coatingSurface,allowed),
+  frit:{productId:salesString(frit.productId)||d.frit.productId,color:salesString(frit.color)||d.frit.color,pattern:salesString(frit.pattern)||d.frit.pattern,coverage:salesString(frit.coverage)||d.frit.coverage,surface:normalizeSurface(frit.surface,allowed)},
+  spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
+  laminated:{outerGlassProductId:salesString(lam.outerGlassProductId)||d.laminated.outerGlassProductId,interlayerProductId:salesString(lam.interlayerProductId)||d.laminated.interlayerProductId,innerGlassProductId:salesString(lam.innerGlassProductId)||d.laminated.innerGlassProductId}
+ };
+}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:salesString(c.primarySealantId)||d.primarySealantId,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+function normalizeOrderMakeup(m,index){
+ m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
+ const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));
+ const cavities=(Array.isArray(m.cavities)?m.cavities:[]).slice(0,Math.max(0,count-1));while(cavities.length<count-1)cavities.push(salesDefaultCavity(cavities.length));
+ return {id:salesEntityId(m.id,'MU'),code:salesString(m.code).toUpperCase()||String.fromCharCode(65+(index||0)%26),unitType,panes:panes.map(normalizeSalesPane),cavities:cavities.map(normalizeSalesCavity),notes:salesString(m.notes),createdAt:salesString(m.createdAt),updatedAt:salesString(m.updatedAt)};
+}
+function normalizeShapeRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.shapeId),revision:Number.isInteger(+r.revision)?+r.revision:null,fingerprint:salesString(r.fingerprint)};}
+function normalizeMuntinRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.muntinId),shapeId:salesRefId(r.shapeId),shapeRevision:Number.isInteger(+r.shapeRevision)?+r.shapeRevision:null};}
+function normalizeSalesOrderLine(l){
+ l=l&&typeof l==='object'?l:{};
+ const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId})};
+}
+function normalizeSalesOrder(o){
+ o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
+ let makeups=(Array.isArray(o.makeups)?o.makeups:[]).map(normalizeOrderMakeup);if(!makeups.length)makeups=[normalizeOrderMakeup({code:'A',unitType:'double'},0)];
+ const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
+ const first=makeups[0].id;
+ const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+}
+function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
+function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
+function normalizeSalesData(){
+ if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];const ids=new Set(),numbers=new Set(),lineIds=new Set();
+ DB.salesOrder=DB.salesOrder.filter(x=>x&&typeof x==='object').map(x=>{const o=normalizeSalesOrder(x);while(ids.has(o.id))o.id=salesUid('SO');ids.add(o.id);if(o.businessNumber){if(numbers.has(o.businessNumber))o.businessNumber='';else numbers.add(o.businessNumber);}o.lines.forEach(l=>{while(lineIds.has(l.id))l.id=salesUid('SOL');lineIds.add(l.id);});return o;});
+}
+function validateSalesPayload(src){
+ if(!src||typeof src!=='object')return;if(Object.prototype.hasOwnProperty.call(src,'salesOrder')&&!Array.isArray(src.salesOrder))throw new Error('поле "salesOrder" должно быть массивом');
+ const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
+  if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order в строке '+(i+1)+' должен быть объектом');
+  if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('lines Sales Order '+(i+1)+' должны быть массивом');
+  if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('makeups Sales Order '+(i+1)+' должны быть массивом');
+  if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' содержит недопустимый id');if(ids.has(id))throw new Error('Sales Orders содержит дубликат id "'+id+'"');ids.add(id);}
+  if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders содержит дубликат номера "'+n+'"');numbers.add(n);}
+  const muIds=new Set(),muCodes=new Set();(o.makeups||[]).forEach((m,j)=>{if(!m||typeof m!=='object')throw new Error('Makeup '+(j+1)+' Sales Order '+(i+1)+' должен быть объектом');if(m.id){const id=salesString(m.id);if(!entityId.test(id))throw new Error('Makeup '+(j+1)+' содержит недопустимый id');if(muIds.has(id))throw new Error('Makeups содержит дубликат id "'+id+'"');muIds.add(id);}if(m.code){const c=salesString(m.code).toUpperCase();if(muCodes.has(c))throw new Error('Makeups содержит дубликат code "'+c+'"');muCodes.add(c);}});
+  (o.lines||[]).forEach((l,j)=>{if(!l||typeof l!=='object'||Array.isArray(l))throw new Error('строка '+(j+1)+' Sales Order '+(i+1)+' должна быть объектом');if(l.id){const id=salesString(l.id);if(!entityId.test(id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит недопустимый id');if(lineIds.has(id))throw new Error('Sales Order lines содержит дубликат id "'+id+'"');lineIds.add(id);}if(!l.makeupId)throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' не содержит Makeup');if(!muIds.has(salesString(l.makeupId)))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.width16!=null&&!salesStoredDim16(l.width16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный width16');if(l.height16!=null&&!salesStoredDim16(l.height16))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' содержит неверный height16');});
+ });
+}
+function validateSalesReferences(){
+ const customers=new Set((DB.customer||[]).map(c=>c.id)),shapeIds=new Set((DB.shapeDef||[]).map(s=>s.id)),muntinIds=new Set((DB.muntinDef||[]).map(m=>m.id));
+ DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' ссылается на отсутствующего Customer');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Makeup');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Shape');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', строка '+(j+1)+' ссылается на отсутствующий Muntin');});});
+}
+function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
+function newSalesOrderDraft(){const now=new Date().toISOString();return normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});}
+function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
+function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
+function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.shapeRef&&l.shapeRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.shapeRef&&l.shapeRef.id===id));}
+function salesMuntinHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.muntinRef&&l.muntinRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.muntinRef&&l.muntinRef.id===id));}
+
+function salesGlassCodeForPane(p){
+ if(p.category==='laminated')return 'LAM';
+ const g=glassProductById(p.glassProductId),base=g?(g.code||g.name):'?';
+ if(p.category==='spandrel')return base+' SP';
+ if(p.visionType==='frit')return base+' FRIT';
+ if(p.visionType==='lowe'||p.visionType==='reflective')return base;
+ return base;
+}
+function salesMakeupSummary(m){
+ const bits=[];m.panes.forEach((p,i)=>{if(i){const c=m.cavities[i-1],sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);bits.push((sp?sp.size+' '+sp.system:'Cavity')+(gas&&gas.code!=='AIR'?' '+gas.code:''));}bits.push(salesGlassCodeForPane(p));});return bits.join(' / ');
+}
+function salesMakeupThicknessMm(m){
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outerGlassProductId),b=glassProductById(p.laminated.innerGlassProductId),il=mdById('interlayerProduct',p.laminated.interlayerProductId);if(a&&b&&il&&il.thicknessMm!=null)total+=(a.thicknessMm||0)+(b.thicknessMm||0)+il.thicknessMm;else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
+}
+
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
    erp/icons  ·  erp-1.0
@@ -2895,16 +3133,20 @@ const I18N_EN={
   "Заказы и коммерческая конфигурация": "Orders and commercial configuration",
   "Инженерные конфигураторы Shape и Muntinbar": "Engineering Shape and Muntinbar configurators",
   "Инженерные инструменты Production Shape и Adaptive Muntin развиваются отдельно от коммерческого Sales. Их существующие данные и расчётные контракты сохраняются.": "Production Shape and Adaptive Muntin engineering tools evolve separately from commercial Sales. Their existing data and calculation contracts are preserved.",
-  "Коммерческий контур ERP отделён от инженерных конфигураторов. Здесь поэтапно появятся Sales Orders и библиотека конфигураций заказа.": "The ERP commercial flow is separated from engineering configurators. Sales Orders and the order configuration library will be added here incrementally.",
+  "Sales Order → order-scoped Makeup → line-specific Shape / Muntin. Без глобальной библиотеки конфигураций.": "Sales Order → order-scoped Makeup → line-specific Shape / Muntin. No global configuration library.",
+  "+ Новый Sales Order": "+ New Sales Order",
+  "Sales Orders пока нет": "No Sales Orders yet",
+  "— выбери Customer —": "— select Customer —",
+  "Поиск по заказу, клиенту, PO…": "Search by order, customer, PO…",
+  "Нельзя удалить — Shape используется в Sales Order": "Cannot delete — Shape is used in a Sales Order",
+  "Нельзя удалить — Muntin используется в Sales Order": "Cannot delete — Muntin is used in a Sales Order",
   "этап 2": "stage 2",
   "Заказы": "Orders",
   "Конфигурации": "Configurations",
   "Sales Orders · коммерческий заказ клиента": "Sales Orders · customer commercial order",
   "следующий этап · Draft Sales Order": "next stage · Draft Sales Order",
   "Переиспользуемые конфигурации заказа и будущие Assembly Revisions": "Reusable order configurations and future Assembly Revisions",
-  "следующий этап · Configuration Library": "next stage · Configuration Library",
   "Раздел Sales Orders подготовлен. Draft Sales Order будет добавлен отдельным следующим этапом.": "The Sales Orders section is ready. Draft Sales Order will be added as a separate next stage.",
-  "Раздел Configurations подготовлен. Configuration Library будет добавлена отдельным следующим этапом.": "The Configurations section is ready. Configuration Library will be added as a separate next stage.",
   "Оптимизация": "Optimization",
   "Производство": "Production",
   "Домены — далее": "Domains — next",
@@ -2925,7 +3167,7 @@ const I18N_EN={
   "модуль в плане": "module planned",
   "Стекольное производство — одна система": "Glass production — one system",
   "Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.": "Not a set of reference tables, but an end-to-end flow: from order configuration and cutting optimization to shop-floor processing, inventory and shipping.",
-  "Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.": "The current ERP scope covers technical Shape and Muntin configuration, cutting optimization and shop-floor processing. The orders module is not part of this version.",
+  "Текущий контур ERP: Customer Master, Draft Sales Orders с order-scoped Makeups, техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху.": "The current ERP scope includes Customer Master, Draft Sales Orders with order-scoped Makeups, technical Shape and Muntin configuration, cutting optimization and shop-floor processing.",
   "Прототип архитектуры": "Architecture prototype",
   "нужно назначить": "assignment needed",
   "готово": "ready",
@@ -3374,7 +3616,7 @@ function viewDashboard(){
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
    <div><h2>Стекольное производство — одна система</h2>
-   <p>Текущий контур ERP: техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху. Модуль заказов в эту версию не входит.</p></div>
+   <p>Текущий контур ERP: Customer Master, Draft Sales Orders с order-scoped Makeups, техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху.</p></div>
    <span class="pill info">${ico('layers','icon-inline')}Прототип архитектуры</span>
   </div>
 
@@ -3636,27 +3878,205 @@ function saveCustomer(){
  normalizeCustomers();cEdit=null;cDraft=null;touch();render();
 }
 
+/* ==== src/erp/sales/orders.js ==== */
+/* =====================================================================
+   erp/sales/orders · sales-0.3b-makeup
+   Draft order behavior, order-scoped makeups, Excel entry and bridges to
+   the existing Shape / Muntin configurators.
+   ===================================================================== */
+
+let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
+let soExcelMode='current';
+let soSelectedLines=new Set();
+let soOpenSectionKey=null;
+let salesBridge=null;
+
+function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
+function salesApplyCustomerDefaults(id){
+ const c=salesFindCustomer(id);soDraft.customerId=id||'';if(!c)return;
+ if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;if(c.currency)soDraft.currency=c.currency;
+ const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
+}
+function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
+function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
+function salesOrderClose(){soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;salesBridge=null;render();}
+function salesOrderSave(){
+ const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Выбери Customer');
+ const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer не найден');
+ if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
+ soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
+ if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
+ normalizeSalesData();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();
+}
+function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Удалить Draft Sales Order?'))return;DB.salesOrder.splice(i,1);touch();render();}
+
+function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
+function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey=null;render();}}
+function salesAddMakeup(){const now=new Date().toISOString(),m=normalizeOrderMakeup({code:nextMakeupCode(soDraft),unitType:'double',createdAt:now,updatedAt:now},soDraft.makeups.length);soDraft.makeups.push(m);soMakeupId=m.id;soOpenSectionKey=null;render();}
+function salesDuplicateMakeup(id){const src=salesMakeupById(soDraft,id);if(!src)return;const copy=JSON.parse(JSON.stringify(src));copy.id=salesUid('MU');copy.code=nextMakeupCode(soDraft);copy.createdAt=copy.updatedAt=new Date().toISOString();copy.panes.forEach((p,i)=>p.id=salesUid('LITE'));copy.cavities.forEach(c=>c.id=salesUid('CAV'));soDraft.makeups.push(copy);soMakeupId=copy.id;soOpenSectionKey=null;render();}
+function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;if(soDraft.makeups.length<=1)return alert('В Sales Order должен остаться хотя бы один Makeup.');const used=soDraft.lines.filter(l=>l.makeupId===id).length;if(used)return alert('Makeup '+m.code+' используется в '+used+' строках. Сначала переназначь эти строки.');if(!confirm('Удалить Makeup '+m.code+'?'))return;soDraft.makeups=soDraft.makeups.filter(x=>x.id!==id);if(soMakeupId===id)soMakeupId=soDraft.makeups[0].id;soOpenSectionKey=null;render();}
+function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey=null;render();}
+function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}render();}
+function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
+function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p);return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.family===fam));}
+function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
+function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
+function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
+function salesPaneSetVisionType(i,v){const p=salesCurrentMakeup().panes[i];if(!SALES_VISION_TYPES.includes(v))return;p.visionType=v;p.coatingSurface=null;if(v==='frit')p.frit.surface=null;salesPaneEnsureProduct(p);render();}
+function salesPaneSetProduct(i,v){const p=salesCurrentMakeup().panes[i],g=glassProductById(v);p.glassProductId=v;if(g){p.manufacturer=g.manufacturer;p.thicknessMm=g.thicknessMm;}render();}
+function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
+function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
+function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}
+function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
+function salesPaneSetLam(i,k,v){salesCurrentMakeup().panes[i].laminated[k]=v;render();}
+function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
+
+function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
+function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
+function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
+function salesLineDimChange(i,key,el){const n=salesDimTo16(el.value);if(!n){soDraft.lines[i][key+'16']=null;el.classList.add('bad');return;}soDraft.lines[i][key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');}
+function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
+function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
+function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
+function salesRefreshBulkBar(){const el=document.getElementById('salesBulkCount');if(el)el.textContent=soSelectedLines.size+' selected';}
+function salesAssignSelected(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;soDraft.lines.forEach(l=>{if(soSelectedLines.has(l.id))l.makeupId=makeupId;});render();}
+
+function salesExcelOpen(){document.getElementById('salesExcelModal').classList.add('show');}
+function salesExcelClose(){const m=document.getElementById('salesExcelModal');if(m)m.classList.remove('show');}
+function salesExcelSetMode(v){soExcelMode=v==='withMakeup'?'withMakeup':'current';const hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withMakeup'?'MU | Qty | Height | Width | Mark':'Qty | Height | Width | Mark';}
+function salesExcelApply(){
+ const text=document.getElementById('salesExcelText').value,rows=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);let added=0,bad=0;const current=salesCurrentMakeup();
+ rows.forEach(r=>{const c=r.split(/\t|,|;/).map(x=>x.trim());let mu=current,q,h,w,mark;if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(m=>m.code.toUpperCase()===String(c[0]).toUpperCase());q=salesPositiveInt(c[1],0);h=salesDimTo16(c[2]);w=salesDimTo16(c[3]);mark=c[4];}else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);h=salesDimTo16(c[1]);w=salesDimTo16(c[2]);mark=c[3];}
+  if(!mu||!q||!h||!w){bad++;return;}soDraft.lines.push(normalizeSalesOrderLine({makeupId:mu.id,qty:q,height16:h,width16:w,mark}));added++;
+ });
+ salesExcelClose();render();if(bad)alert('Добавлено строк: '+added+'. Пропущено: '+bad);else if(added)alert('Добавлено строк: '+added);
+}
+
+function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
+function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
+function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s);return s&&r&&r.valid?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
+function salesMuntinRefFrom(m){return m?{id:m.id,shapeId:m.shapeId||'',shapeRevision:m.shapeRevision==null?null:m.shapeRevision}:{id:'',shapeId:'',shapeRevision:null};}
+function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s);if(!r||!r.valid)return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);if(line.muntinRef&&line.muntinRef.id&&line.muntinRef.shapeId!==s.id)line.muntinRef=normalizeMuntinRef({});return true;}
+function salesOrderConfigureShape(i){
+ const line=soDraft.lines[i];if(!line)return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;
+ const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
+ else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
+ render();
+}
+function salesBridgeOnShapeSaved(id){if(!salesBridge||salesBridge.kind!=='shape'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),s=DB.shapeDef.find(x=>x.id===id);if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
+function salesUnlinkShape(i){const l=soDraft.lines[i];if(!l)return;if(l.muntinRef&&l.muntinRef.id&&!confirm('Shape связан с Muntin. Отвязать оба?'))return;l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});render();}
+function salesOrderConfigureMuntin(i){
+ const line=soDraft.lines[i];if(!line)return;const shape=salesShapeByRef(line.shapeRef);if(!shape)return alert('Сначала настрой Shape для этой строки.');salesBridge={kind:'muntin',lineId:line.id};tab='configurators';subtab='muntin';mFieldErrors={};
+ const current=salesMuntinByRef(line.muntinRef);if(current){mEdit=DB.muntinDef.findIndex(m=>m.id===current.id);mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);}
+ else{mEdit='new';mDraft=newMuntinDef(shape.id);mDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)))+' Muntin';pinMuntinShape(mDraft,shape);}
+ render();
+}
+function salesBridgeOnMuntinSaved(id){if(!salesBridge||salesBridge.kind!=='muntin'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),m=DB.muntinDef.find(x=>x.id===id);if(line&&m)line.muntinRef=salesMuntinRefFrom(m);salesBridge=null;mEdit=null;mDraft=null;mFieldErrors={};tab='sales';subtab='orders';touch();render();return true;}
+function salesUnlinkMuntin(i){const l=soDraft.lines[i];if(l){l.muntinRef=normalizeMuntinRef({});render();}}
+
+function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return false;salesBridge=null;if(kind==='shape'){sEdit=null;sDraft=null;}if(kind==='muntin'){mEdit=null;mDraft=null;mFieldErrors={};}tab='sales';subtab='orders';render();return true;}
+
+/* ==== src/erp/sales/makeup-ui.js ==== */
+/* =====================================================================
+   erp/sales/makeup-ui · sales-0.3b-makeup
+   Compact UX for order-scoped IGU Makeups. Visual reference: IGU Builder;
+   data model remains ERP-native and uses Master Data IDs.
+   ===================================================================== */
+
+function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
+function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
+function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
+function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
+function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.family==='uncoated');}
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,(g.code?g.code+' · ':'')+g.name,selected,true)).join('');}
+function salesSimpleOptions(key,selected){return activeSimple(key).map(x=>salesOption(x.id,(x.code?x.code+' · ':'')+x.name,selected,true)).join('');}
+function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+value===n?'on':''}" onclick="${handler}(${n})">#${n}</button>`).join('')}</div></div>`;}
+function salesPaneProductSummary(p,index){
+ if(p.category==='laminated'){const a=glassProductById(p.laminated.outerGlassProductId),b=glassProductById(p.laminated.innerGlassProductId),il=mdById('interlayerProduct',p.laminated.interlayerProductId);return [a&&(a.code||a.name),il&&(il.code||il.name),b&&(b.code||b.name)].filter(Boolean).join(' + ')||'Laminated';}
+ const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
+ if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
+ else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
+ else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
+ if(ht&&ht.code!=='AN')bits.push(ht.code);return bits.join(' · ');
+}
+
+function salesAccordionToggle(el,key){
+ if(!el)return;
+ if(!el.open){if(soOpenSectionKey===key)soOpenSectionKey=null;return;}
+ soOpenSectionKey=key;
+ const stack=el.closest('.mu-stack');if(!stack)return;
+ stack.querySelectorAll('details.mu-section[open]').forEach(x=>{if(x!==el)x.open=false;});
+}
+function salesCavitySummary(c){
+ const sp=mdById('spacerVariant',c.spacerVariantId),gas=mdById('gasProduct',c.gasProductId),pri=mdById('sealantProduct',c.primarySealantId),sec=mdById('sealantProduct',c.secondarySealantId);
+ const bits=[sp?sp.name:'Spacer',gas?gas.name:'Gas'];if(pri||sec)bits.push([pri&&(pri.code||pri.name),sec&&(sec.code||sec.name)].filter(Boolean).join(' / '));return bits.join(' · ');
+}
+function salesMakeupTabs(){
+ const selected=salesCurrentMakeup();return `<div class="mu-strip"><div class="mu-strip-scroll">${soDraft.makeups.map(m=>`<button type="button" class="mu-tab ${selected&&selected.id===m.id?'on':''}" onclick="salesSelectMakeup('${esc(m.id)}')"><b>${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></button>`).join('')}</div><button type="button" class="mu-add" onclick="salesAddMakeup()">+ Makeup</button></div>`;
+}
+function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYPE</span><div class="mu-segment">${[['single','Single Lite'],['double','Double'],['triple','Triple']].map(x=>`<button type="button" class="${m.unitType===x[0]?'on':''}" onclick="salesSetUnitType('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="mu-total"><span>Overall</span><b>${salesMakeupThicknessMm(m)==null?'—':salesMakeupThicknessMm(m).toFixed(1)+' mm'}</b></div></div>`;}
+function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['vision','Vision'],['spandrel','Spandrel'],['laminated','Laminated']].map(x=>`<button type="button" class="${p.category===x[0]?'on':''}" onclick="salesSetPaneCategory(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
+function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
+function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
+function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesSimpleOptions('heatTreatment',p.heatTreatmentId)}</select></div>`;}
+/* Surface buttons need literal calls; keeping this helper separate avoids
+   generating unsafe/eval-style handlers. */
+function salesFritSurfaceSelector(p,index){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Frit Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.frit.surface===n?'on':''}" onclick="salesPaneSetFrit(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;}
+function salesCoatingSurfaceSelector(p,index){const nums=salesPaneSurfaces(index),label=p.visionType==='reflective'?'Reflective Surface':'Coating Surface';return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.coatingSurface===n?'on':''}" onclick="salesPaneSetCoatingSurface(${index},${n})">#${n}</button>`).join('')}</div></div>`;}
+function salesVisionFieldsSafe(p,index){
+ const products=salesGlassCandidates(p),isFrit=p.visionType==='frit',surfaceNeeded=p.visionType==='lowe'||p.visionType==='reflective';
+ return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div><div><label>${isFrit?'Base Glass':'Glass Product'}</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(products,p.glassProductId)}</select></div>${salesHeatField(p,index)}${surfaceNeeded?salesCoatingSurfaceSelector(p,index):''}</div>
+ ${isFrit?`<div class="mu-subgrid"><div><label>Frit Product</label><select onchange="salesPaneSetFrit(${index},'productId',this.value)">${salesSimpleOptions('fritProduct',p.frit.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetFrit(${index},'color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,p.frit.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetFrit(${index},'pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,p.frit.pattern,true)).join('')}</select></div><div><label>Coverage %</label><input value="${esc(p.frit.coverage)}" oninput="salesCurrentMakeup().panes[${index}].frit.coverage=this.value"></div>${salesFritSurfaceSelector(p,index)}</div>`:''}`;
+}
+function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select></div>${salesHeatField(p,index)}</div><div class="mu-subgrid"><div><label>Spandrel Product</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;}
+function salesLaminatedFields(p,index){const all=activeGlassProducts();return `<div class="mu-lam-grid"><div><label>Outer Ply</label><select onchange="salesPaneSetLam(${index},'outerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.outerGlassProductId)}</select></div><div><label>Interlayer</label><select onchange="salesPaneSetLam(${index},'interlayerProductId',this.value)">${salesSimpleOptions('interlayerProduct',p.laminated.interlayerProductId)}</select></div><div><label>Inner Ply</label><select onchange="salesPaneSetLam(${index},'innerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.innerGlassProductId)}</select></div></div>`;}
+function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span></summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
+function salesCavitySection(c,index){const key='cavity-'+index,isOpen=soOpenSectionKey===key;return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span></summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${(DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive').map(x=>salesOption(x.id,x.name,c.spacerVariantId,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Primary Seal</label><select onchange="salesCavitySet(${index},'primarySealantId',this.value)">${salesSimpleOptions('sealantProduct',c.primarySealantId)}</select></div><div><label>Secondary Seal</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSimpleOptions('sealantProduct',c.secondarySealantId)}</select></div></div></div></details>`;}
+function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
+
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
-   view/sales  ·  erp-1.1
-   Коммерческий Sales. Этап 2: только каркас Sales Orders / Configurations.
-   Shape / Muntin вынесены в отдельный домен Configurators.
+   view/sales · sales-0.3b-makeup
+   Draft Sales Orders with order-scoped IGU Makeups.
+   Shape and Muntin remain external engineering configurators.
    ===================================================================== */
 
 function viewSales(){
- if(!['orders','configurations'].includes(subtab)) subtab='orders';
- const cards=[
-  {id:'orders',icon:'sales',title:'Заказы',desc:'Sales Orders · коммерческий заказ клиента',meta:'следующий этап · Draft Sales Order'},
-  {id:'configurations',icon:'layers',title:'Конфигурации',desc:'Переиспользуемые конфигурации заказа и будущие Assembly Revisions',meta:'следующий этап · Configuration Library'}
- ];
- return `<div class="page-head"><div><h2>Продажи</h2><p>Коммерческий контур ERP отделён от инженерных конфигураторов. Здесь поэтапно появятся Sales Orders и библиотека конфигураций заказа.</p></div><span class="pill">этап 2</span></div>
-  <div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>
-  <div class="card">
-   ${subtab==='orders'
-    ?'<div class="empty">Раздел Sales Orders подготовлен. Draft Sales Order будет добавлен отдельным следующим этапом.</div>'
-    :'<div class="empty">Раздел Configurations подготовлен. Configuration Library будет добавлена отдельным следующим этапом.</div>'}
-  </div>`;
+ subtab='orders';
+ return `<div class="page-head sales-page-head"><div><h2>Продажи</h2><p>Sales Order → order-scoped Makeup → line-specific Shape / Muntin. Без глобальной библиотеки конфигураций.</p></div><span class="pill info">Stage 3B · Draft</span></div>${salesOrdersPane()}`;
 }
+function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderList();}
+function salesOrderList(){
+ const q=salesString(soSearch).toLowerCase(),rows=DB.salesOrder.filter(o=>!q||[o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.priority,o.dueDate].join(' ').toLowerCase().includes(q));
+ return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-search"><input id="salesOrderSearch" value="${esc(soSearch)}" placeholder="Поиск по заказу, клиенту, PO…" oninput="salesOrderSearchChange(this)"></div><button class="pri" onclick="salesOrderNew()">+ Новый Sales Order</button></div><div class="sales-table-wrap"><table><thead><tr><th>Sales Order</th><th>Customer</th><th>PO</th><th>Due</th><th>Priority</th><th>Makeups</th><th>Lines</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(o=>`<tr><td><b class="mono">${raw(o.businessNumber||'Auto Number')}</b><div class="mut">${raw(o.id)}</div></td><td><b>${raw(salesCustomerDisplay(o.customerId)||'—')}</b></td><td>${raw(o.customerPo||'—')}</td><td>${esc(o.dueDate||'—')}</td><td>${salesPriorityLabel(o.priority)}</td><td>${o.makeups.length}</td><td>${o.lines.length}</td><td><span class="pill warn">Draft</span></td><td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Открыть</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">Sales Orders пока нет</td></tr>'}</tbody></table></div></div>`;
+}
+function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— выбери Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
+function salesOrderEditor(){
+ const o=soDraft,c=salesFindCustomer(o.customerId),title=o.businessNumber?'Sales Order '+o.businessNumber:'New Sales Order · Auto Number',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button class="pri" onclick="salesOrderSave()">Save Draft</button><button onclick="salesOrderClose()">Close</button></div></div>
+ <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label><input value="${esc(o.paymentTerms)}" oninput="soDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="soDraft.currency=this.value"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
+ ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
+ <section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
+ ${salesOrderLines()}
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}</div>`;
+}
+function salesLineShapeCell(l,i){
+ const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
+ const currentRev=s.revision||0,stale=l.shapeRef.revision!=null&&currentRev!==l.shapeRef.revision;return `<div class="line-config-cell"><button class="line-link-btn ${stale?'stale':'linked'}" onclick="salesOrderConfigureShape(${i})">${esc(s.name)}${stale?' · stale':''}</button><button class="line-x" title="Unlink" onclick="salesUnlinkShape(${i})">×</button></div>`;
+}
+function salesLineMuntinCell(l,i){
+ const m=salesMuntinByRef(l.muntinRef);if(!m)return `<button class="line-link-btn" ${l.shapeRef&&l.shapeRef.id?'':'disabled'} onclick="salesOrderConfigureMuntin(${i})">+ Muntin</button>`;
+ const stale=!!(l.shapeRef&&l.shapeRef.id&&(m.shapeId!==l.shapeRef.id||(l.shapeRef.revision!=null&&m.shapeRevision!=null&&m.shapeRevision!==l.shapeRef.revision)));return `<div class="line-config-cell"><button class="line-link-btn ${stale?'stale':'linked'}" onclick="salesOrderConfigureMuntin(${i})">${esc(m.name)}${stale?' · stale':''}</button><button class="line-x" title="Unlink" onclick="salesUnlinkMuntin(${i})">×</button></div>`;
+}
+function salesOrderLines(){
+ const allSelected=soDraft.lines.length>0&&soDraft.lines.every(l=>soSelectedLines.has(l.id)),bulk=soSelectedLines.size>0;
+ return `<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b><span>MU → Qty → Dimensions → Mark → engineering configurators</span></div><div class="sales-line-tools"><button onclick="salesExcelOpen()">Paste Excel</button><button onclick="salesOrderAddTen()">+10</button><button class="pri" onclick="salesOrderAddLine(null,true)">+ Line</button></div></div>${bulk?`<div class="sales-bulk"><b id="salesBulkCount">${soSelectedLines.size} selected</b><span>Assign Makeup</span><select onchange="salesAssignSelected(this.value)"><option value="">—</option>${soDraft.makeups.map(m=>`<option value="${esc(m.id)}">${esc(m.code)} · ${esc(salesMakeupSummary(m))}</option>`).join('')}</select><button class="sm" onclick="soSelectedLines=new Set();render()">Clear</button></div>`:''}
+ <div class="sales-table-wrap"><table class="sales-lines-table"><thead><tr><th class="line-check"><input type="checkbox" ${allSelected?'checked':''} onchange="salesToggleAllLines(this.checked)"></th><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Notes</th><th></th></tr></thead><tbody>${soDraft.lines.map((l,i)=>{const linked=!!(l.shapeRef&&l.shapeRef.id);return `<tr><td class="line-check"><input type="checkbox" ${soSelectedLines.has(l.id)?'checked':''} onchange="salesToggleLine('${esc(l.id)}',this.checked)"></td><td class="mono line-num">${i+1}</td><td><select class="line-mu" onchange="soDraft.lines[${i}].makeupId=this.value">${soDraft.makeups.map(m=>`<option value="${esc(m.id)}" ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`).join('')}</select></td><td><input class="line-qty" type="number" min="1" step="1" value="${esc(l.qty)}" oninput="soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)"></td><td><input data-so-width class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.width16))}" placeholder="34 13/16" onchange="salesLineDimChange(${i},'width',this)"></td><td><input class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.height16))}" placeholder="15 5/16" onchange="salesLineDimChange(${i},'height',this)"></td><td><input class="line-mark" value="${esc(l.mark)}" oninput="soDraft.lines[${i}].mark=this.value" onkeydown="salesLineMarkKey(${i},event)"></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td><input class="line-notes" value="${esc(l.notes)}" oninput="soDraft.lines[${i}].notes=this.value"></td><td><button class="sm dl line-delete" onclick="salesOrderRemoveLine(${i})">×</button></td></tr>`;}).join('')||'<tr><td colspan="11" class="empty">No lines yet. Add a line or paste from Excel.</td></tr>'}</tbody></table></div></section>`;
+}
+function salesExcelModal(){const m=salesCurrentMakeup();return `<div id="salesExcelModal" class="sales-modal-back"><div class="sales-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">Qty | Height | Width | Mark</span></div><button onclick="salesExcelClose()">×</button></div><div class="excel-mode"><button class="${soExcelMode==='current'?'on':''}" onclick="soExcelMode='current';salesExcelSetMode('current');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===0))">Current Makeup ${m?esc(m.code):''}</button><button class="${soExcelMode==='withMakeup'?'on':''}" onclick="soExcelMode='withMakeup';salesExcelSetMode('withMakeup');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===1))">MU in first column</button></div><textarea id="salesExcelText" rows="10" placeholder="1&#9;80&#9;30&#9;A1&#10;2&#9;42 1/2&#9;24&#9;B2"></textarea><div class="sales-modal-actions"><button onclick="salesExcelClose()">Cancel</button><button class="pri" onclick="salesExcelApply()">Add Rows</button></div></div></div>`;}
 
 /* ==== src/erp/views/sales-shape-ui.js ==== */
 /* =====================================================================
@@ -3976,7 +4396,7 @@ function shapeForm(){
       ${shapeEdgeworkEditor()}
       ${shapeFeaturesEditor(geo)}
     </div><div class='shape-preview-side'><div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
-    <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='sEdit=null;sDraft=null;render()'>Отмена</button></div></div>`;
+    <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 
 function saveShape(){
@@ -3985,8 +4405,11 @@ function saveShape(){
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
   if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('Эта фигура используется в Muntinbar. Новая геометрия изменит связанную раскладку. Сохранить новую ревизию?'))return;
   var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
-  if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;sEdit=null;sDraft=null;touch();render();
+  if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
+  if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
+  sEdit=null;sDraft=null;render();
 }
+function cancelShapeEdit(){if(typeof salesBridgeCancel==='function'&&salesBridgeCancel('shape'))return;sEdit=null;sDraft=null;render();}
 function shapeSafeFileName(s){return String(s||'shape').trim().replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'shape';}
 function shapeDownload(textValue,mime,name){var b=new Blob([textValue],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
 function downloadShapeArtifact(kind){
@@ -3996,7 +4419,7 @@ function downloadShapeArtifact(kind){
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
   if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
 }
-function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
+function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Нельзя удалить — фигура используется в Muntinbar');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Нельзя удалить — Shape используется в Sales Order');if(!confirm('Удалить фигуру?'))return;DB.shapeDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/sales-muntin-ui.js ==== */
 /* =====================================================================
@@ -4035,9 +4458,10 @@ function muntinPrintDrawing(){
   printSheet(mpSvg({geo:r.geo,M:r.M}),name+' · Muntin production drawing · '+dimIn(r.totalLengthIn)+' total cut');
 }
 function refreshMuntinEditor(){const el=document.getElementById('muntinLive');if(el){el.innerHTML=muntinLiveHTML();applyLang(el);}}
-function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="mEdit=null;mDraft=null;render()">Отмена</button></div></div>`;}
-function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;mEdit=null;mDraft=null;mFieldErrors={};touch();render();}
-function delMuntin(i){if(!confirm('Удалить раскладку?'))return;DB.muntinDef.splice(i,1);touch();render();}
+function muntinForm(){const M=normalizeMuntinModel(mDraft.muntin),P=M.production;return `<div class="module-editor"><div class="module-editor-head"><div><h3>${mEdit==='new'?'Новая раскладка':'Изменение Muntinbar'}</h3><p>Production geometry из Configurator v4.5. Бар не растягивается по bounding box — он режется реальным контуром Shape.</p></div><span class="pill ok">adaptive v4.5</span></div><div class="muntin-editor-layout"><div class="muntin-controls"><div class="grid"><div><label>Название *</label><input id="m_name" value="${esc(mDraft.name||'')}" oninput="mDraft.name=this.value"></div><div><label>Фигура (Shape)</label><select onchange="setMuntinStruct('shapeId',this.value)">${DB.shapeDef.map(s=>`<option data-raw value="${esc(s.id)}" ${s.id===mDraft.shapeId?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div><label>Muntin profile</label><select onchange="setMuntinStruct('productId',this.value)">${MUNTIN_BARS.map(x=>`<option value="${esc(x.id)}" ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div><div><label>Vertical bars</label><input type="number" min="0" max="12" value="${M.layout.verticalBars}" onchange="setMuntinStruct('verticalBars',this.value)"></div><div><label>Horizontal bars</label><input type="number" min="0" max="12" value="${M.layout.horizontalBars}" onchange="setMuntinStruct('horizontalBars',this.value)"></div><div><label>Layout</label><select onchange="setMuntinStruct('mode',this.value)"><option value="equal" ${P.mode==='equal'?'selected':''}>Equal clear</option><option value="custom" ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div></div><div class="muntin-section"><b>Production reference</b><div class="grid"><div><label>Edge inset X</label><input value="${dimIn(P.edgeInsetX).replace('″','')}" oninput="setMuntinNumber('edgeInsetX',this.value)"></div><div><label>Edge inset Y</label><input value="${dimIn(P.edgeInsetY).replace('″','')}" oninput="setMuntinNumber('edgeInsetY',this.value)"></div><div><label>Bar end clearance</label><input value="${dimIn(P.endClearance).replace('″','')}" oninput="setMuntinNumber('endClearance',this.value)"></div><div><label>Edge reference</label><select onchange="setMuntinStruct('edgeMode',this.value)"><option value="offset" ${P.edgeMode!=='axis'?'selected':''}>Perpendicular offset</option><option value="axis" ${P.edgeMode==='axis'?'selected':''}>Axis · legacy</option></select></div></div></div>${P.mode==='custom'?`<div class="muntin-section"><b>Custom centerlines</b><div class="grid"><div><label>Vertical positions</label><input value="${(P.verticalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('v',this.value)"></div><div><label>Horizontal positions</label><input value="${(P.horizontalPositions||[]).map(frac64).join(', ')}" oninput="setMuntinPositions('h',this.value)"></div></div></div>`:''}${muntinProduct(M.productId).exteriorColor!==muntinProduct(M.productId).interiorColor?`<label class="chk" style="margin-top:12px"><input type="checkbox" ${M.flipped?'checked':''} onchange="setMuntinStruct('flipped',this.checked)"> Flip exterior / interior</label>`:''}</div><div class="muntin-preview-side" id="muntinLive">${muntinLiveHTML()}</div></div><div class="err" id="e_muntin"></div><div class="row"><button class="pri" onclick="saveMuntin()">Сохранить</button><button onclick="cancelMuntinEdit()">Отмена</button></div></div>`;}
+function saveMuntin(){const e=document.getElementById('e_muntin');e.style.display='none';mDraft.name=(mDraft.name||'').trim();if(!mDraft.name)return fail(e,'Укажи название');if(!mDraft.shapeId)return fail(e,'Выбери фигуру');const inputError=Object.values(mFieldErrors)[0];if(inputError)return fail(e,inputError);const r=MuntinModule.compute(currentMuntinShape(),mDraft);if(!r.valid)return fail(e,moduleErrorText(r));if(mEdit==='new')DB.muntinDef.push(mDraft);else DB.muntinDef[mEdit]=mDraft;const savedId=mDraft.id;touch();if(typeof salesBridgeOnMuntinSaved==='function'&&salesBridgeOnMuntinSaved(savedId))return;mEdit=null;mDraft=null;mFieldErrors={};render();}
+function cancelMuntinEdit(){if(typeof salesBridgeCancel==='function'&&salesBridgeCancel('muntin'))return;mEdit=null;mDraft=null;mFieldErrors={};render();}
+function delMuntin(i){const m=DB.muntinDef[i];if(m&&typeof salesMuntinHasReferences==='function'&&salesMuntinHasReferences(m.id))return alert('Нельзя удалить — Muntin используется в Sales Order');if(!confirm('Удалить раскладку?'))return;DB.muntinDef.splice(i,1);touch();render();}
 
 /* ==== src/erp/views/configurators.js ==== */
 /* =====================================================================
@@ -4246,7 +4670,8 @@ function delLevel(i){
    localStorage, экспорт/импорт JSON, старт приложения.
    IN : —
    OUT: —
-   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+   Правило: файл не содержит бизнес-логику доменов; он вызывает их публичные
+   normalize/validate hooks и отвечает только за безопасный вход→выход.
    ===================================================================== */
 
 function afterRender(){applyLang(document.body)}
@@ -4286,6 +4711,7 @@ function validateImportedState(src){
  if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('ожидался объект экспортированного состояния');
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('поле "'+k+'" должно быть массивом');});
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
+ if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -4323,6 +4749,7 @@ function prepareImportedState(src){
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
   DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin в строке '+(i+1)+' ссылается на отсутствующий Shape');});
+  if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
  }catch(e){DB=previous;throw e;}
 }
@@ -4331,7 +4758,9 @@ function normalizeDB(){
  normalizeStations();
  normalizeUsers();
  normalizeSalesModules();
+ if(typeof normalizeMasterData==='function')normalizeMasterData();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
+ if(typeof normalizeSalesData==='function')normalizeSalesData();
 }
 function boot(){
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
