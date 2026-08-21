@@ -102,14 +102,14 @@ function normalizeCustomers(){
 }
 function validateCustomersPayload(src){
  if(!src||!Object.prototype.hasOwnProperty.call(src,'customer'))return;
- if(!Array.isArray(src.customer))throw new Error('поле "customer" должно быть массивом');
+ if(!Array.isArray(src.customer))throw new Error('The "customer" field must be an array.');
  const ids=new Set(),codes=new Set();
  src.customer.forEach((c,i)=>{
-  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('клиент в строке '+(i+1)+' должен быть объектом');
-  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('contacts клиента '+(i+1)+' должны быть массивом');
-  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('addresses клиента '+(i+1)+' должны быть массивом');
-  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers содержит дубликат id "'+id+'"');ids.add(id);}
-  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers содержит дубликат кода "'+c.code+'"');codes.add(code);}
+  if(!c||typeof c!=='object'||Array.isArray(c))throw new Error('Customer row '+(i+1)+' must be an object.');
+  if(c.contacts!=null&&!Array.isArray(c.contacts))throw new Error('Customer '+(i+1)+': contacts must be an array.');
+  if(c.addresses!=null&&!Array.isArray(c.addresses))throw new Error('Customer '+(i+1)+': addresses must be an array.');
+  if(c.id){const id=customerString(c.id);if(ids.has(id))throw new Error('Customers contains duplicate id "'+id+'".');ids.add(id);}
+  if(c.code){const code=customerString(c.code).toUpperCase();if(codes.has(code))throw new Error('Customers contains duplicate code "'+c.code+'".');codes.add(code);}
  });
 }
 function nextCustomerCode(){
@@ -200,22 +200,22 @@ function parseCustomerImport(text,name){
  const ext=String(name||'').toLowerCase();
  if(ext.endsWith('.json')||/^\s*[\[{]/.test(text)){
   const src=JSON.parse(text),list=Array.isArray(src)?src:(Array.isArray(src.customers)?src.customers:Array.isArray(src.customer)?src.customer:null);
-  if(!list)throw new Error('JSON клиентов должен содержать массив customers');
+  if(!list)throw new Error('Customer JSON must contain a customers array.');
   return list.map(customerFromImportRow);
  }
  return csvParse(text).map(customerFromImportRow);
 }
 function validateCustomerImportList(list){
- if(!Array.isArray(list)||!list.length)throw new Error('в файле нет клиентов');
+ if(!Array.isArray(list)||!list.length)throw new Error('The file contains no customers.');
  const codes=new Set();list.forEach((c,i)=>{
-  if(!c.legalName)throw new Error('клиент в строке '+(i+1)+': не заполнено Name');
-  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('в импортируемом файле повторяется Account "'+c.code+'"');codes.add(key);}
+  if(!c.legalName)throw new Error('Customer row '+(i+1)+': Name is required.');
+  if(c.code){const key=c.code.toUpperCase();if(codes.has(key))throw new Error('The import file contains duplicate Account "'+c.code+'".');codes.add(key);}
  });
 }
 function applyCustomerImport(list,mode){
  validateCustomerImportList(list);mode=mode==='replace'?'replace':'merge';
  if(mode==='replace'){
-  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('нельзя заменить весь справочник: есть клиенты, связанные с заказами');
+  const referenced=DB.customer.filter(c=>customerHasReferences(c.id));if(referenced.length)throw new Error('The customer master cannot be replaced because some customers are referenced by orders.');
   DB.customer=[];list.forEach(c=>{const n=normalizeCustomer(c);if(!n.code)n.code=nextCustomerCode();DB.customer.push(n);});
  }else{
   list.forEach(incoming=>{
