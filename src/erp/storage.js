@@ -12,8 +12,15 @@ let storageWarningShown=false;
 function touch(){
  dirty=true;
  try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
- catch(e){console.error('localStorage не записан:',e);if(!storageWarningShown){storageWarningShown=true;alert('Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.');}return false;}
+ catch(e){console.error('localStorage write failed:',e);if(!storageWarningShown){storageWarningShown=true;alert('Could not save to this browser. Export JSON and check free space.');}return false;}
 }
+/* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
+   без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
+   браузер показывал бы диалог на каждом уходе со страницы. */
+window.addEventListener('beforeunload',function(e){
+ if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork())return;
+ e.preventDefault();e.returnValue='';return '';
+});
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
@@ -21,9 +28,9 @@ function doExport(){
 }
 function doImport(inp){
  const f=inp.files[0]; if(!f) return; const r=new FileReader();
- if(f.size>10*1024*1024){alert('Файл не читается: размер JSON превышает 10 MB.');inp.value='';return;}
+ if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
  r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
-  catch(e){ alert('Файл не читается: '+e.message); } };
+  catch(e){ alert('File not readable: '+e.message); } };
  r.readAsText(f); inp.value='';
 }
 /* ИСПРАВЛЕНО (авг 2026). Раньше здесь был Object.assign(DB, JSON.parse(s)) —
