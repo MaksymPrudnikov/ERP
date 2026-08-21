@@ -79,7 +79,7 @@ function saveUser(){
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  uEdit=null; uDraft=null; touch(); render();
 }
-function delUser(i){ if(!confirm('Удалить пользователя?'))return; DB.user.splice(i,1); touch(); render(); }
+function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
 
 /* --- отчёт: свод по навыкам всех людей сразу, чекбоксы этого не умеют,
    поэтому это отдельный экран, а не ещё одна колонка в списке --- */

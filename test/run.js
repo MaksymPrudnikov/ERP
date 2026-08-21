@@ -26,6 +26,40 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
 (async () => {
   console.log('target:', TARGET);
+
+  /* --- 0. язык интерфейса: статическая проверка исходников ----------
+     Тест «EN без русского остатка» ходит по текстовым узлам внутри #app и
+     поэтому НЕ видит alert/confirm — их вообще нет в DOM. Именно там русский
+     и оставался в английском интерфейсе. Проверяем исходники напрямую. */
+  {
+    console.log('язык интерфейса');
+    const walk = (dir, out = []) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        e.isDirectory() ? walk(p, out) : (p.endsWith('.js') && out.push(p));
+      }
+      return out;
+    };
+    const cyr = /[А-яЁё]/, leaks = [];
+    for (const f of walk(path.join(ROOT, 'src'))) {
+      const src = fs.readFileSync(f, 'utf8');
+      const re = /(?:alert|confirm)\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g;
+      let m;
+      while ((m = re.exec(src))) if (cyr.test(m[2])) leaks.push(path.relative(ROOT, f) + ': ' + m[2].slice(0, 40));
+    }
+    eq('в alert/confirm нет русского текста', leaks, []);
+    const i18n = fs.readFileSync(path.join(ROOT, 'src/erp/i18n.js'), 'utf8');
+    ok('язык по умолчанию — английский', /\|\|\s*'en'/.test(i18n), i18n.match(/let LANG[^;]*/)[0]);
+    /* Словарь работает в одну сторону RU→EN и применяется ТОЛЬКО в английском
+       режиме. Значит русское значение = английский текст подменяется русским
+       ровно там, где его быть не должно. Ключи-повторы вида "Edge mode":
+       "Edge mode" безвредны, их не трогаем. */
+    const ruValues = [];
+    const pair = /"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+    let kv;
+    while ((kv = pair.exec(i18n))) if (cyr.test(kv[2])) ruValues.push(kv[1].slice(0, 40) + ' → ' + kv[2].slice(0, 40));
+    eq('словарь RU→EN нигде не выдаёт русский текст', ruValues, []);
+  }
   const b = await chromium.launch(EXE ? { executablePath: EXE } : {});
 
   async function page(seedLS, viewport) {
@@ -581,6 +615,36 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Muntin link помечается stale при новой Shape revision', await t.p.evaluate(() => {
       DB.muntinDef=[{id:'M-X',name:'Grid',shapeId:'S-X',shapeRevision:1}];return /stale/.test(salesLineMuntinCell({shapeRef:{id:'S-X',revision:2},muntinRef:{id:'M-X'}},0));
     }), true);
+    await t.c.close();
+
+    /* --- ловушки Этапа 3C: молчаливая потеря работы и перевёрнутые размеры --- */
+    t = await page();
+    eq('пустой черновик закрывается без вопроса, черновик со строками — спрашивает', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();
+      const emptyAsks=salesDraftHasWork();
+      salesOrderAddLine();
+      return {emptyAsks,withLineAsks:salesDraftHasWork()};
+    }), {emptyAsks:false,withLineAsks:true});
+    eq('строка без размеров не даёт сохранить заказ', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();
+      DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});
+      soDraft.customerId='CUS-T';salesOrderAddLine();
+      salesOrderSave();
+      const blocked=DB.salesOrder.length===0;
+      soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;salesOrderSave();
+      return {blocked,savedAfterSize:DB.salesOrder.length===1};
+    }), {blocked:true,savedAfterSize:true});
+    eq('Excel-вставка кладёт ширину в ширину, а не в высоту', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();
+      document.getElementById('salesExcelText').value='2\t30\t80\tA1';
+      soExcelMode='current';salesExcelApply();
+      const l=soDraft.lines[soDraft.lines.length-1];
+      return {qty:l.qty,w:l.width16,h:l.height16};
+    }), {qty:2,w:30*16,h:80*16});
+    eq('подсказка Excel совпадает с порядком колонок таблицы', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesExcelSetMode('current');
+      return document.getElementById('salesExcelCols').textContent;
+    }), 'Qty | Width | Height | Mark');
     await t.c.close();
 
     t = await page();

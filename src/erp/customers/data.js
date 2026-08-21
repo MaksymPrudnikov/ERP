@@ -229,7 +229,7 @@ function applyCustomerImport(list,mode){
 }
 function importCustomersFile(inp,mode){
  const f=inp.files&&inp.files[0];if(!f)return;
- if(f.size>10*1024*1024){alert('Файл клиентов превышает 10 MB.');inp.value='';return;}
- if(mode==='replace'&&!confirm('Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.')){inp.value='';return;}
- const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Импортировано клиентов: '+n);}catch(e){alert('Не удалось импортировать клиентов: '+e.message);}finally{inp.value='';}};r.readAsText(f);
+ if(f.size>10*1024*1024){alert('Customer file exceeds 10 MB.');inp.value='';return;}
+ if(mode==='replace'&&!confirm('Replace the entire customer master with data from the file? This cannot be undone without a backup export.')){inp.value='';return;}
+ const r=new FileReader();r.onload=()=>{try{const list=parseCustomerImport(r.result,f.name);const n=applyCustomerImport(list,mode);alert('Customers imported: '+n);}catch(e){alert('Could not import customers: '+e.message);}finally{inp.value='';}};r.readAsText(f);
 }

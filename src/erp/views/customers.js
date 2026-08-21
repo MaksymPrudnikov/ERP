@@ -58,7 +58,7 @@ function customerNew(){cEdit='new';cDraft=newCustomerDraft();cTab='general';rend
 function customerEdit(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;cEdit=id;cDraft=JSON.parse(JSON.stringify(c));cTab='general';render();}
 function customerDuplicate(id){const src=DB.customer.find(x=>x.id===id);if(!src)return;cEdit='new';cDraft=normalizeCustomer(JSON.parse(JSON.stringify(src)));cDraft.id=customerUid('CUS');cDraft.code='';cDraft.legalName+=(cDraft.legalName?' — копия':'');cDraft.displayName+=(cDraft.displayName?' — копия':'');cDraft.createdAt=new Date().toISOString();cDraft.updatedAt=cDraft.createdAt;cTab='general';render();}
 function customerToggleArchive(id){const c=DB.customer.find(x=>x.id===id);if(!c)return;if(c.status==='archived'){c.status='active';c.archivedAt='';}else{c.status='archived';c.archivedAt=new Date().toISOString();}c.updatedAt=new Date().toISOString();touch();render();}
-function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('Клиент уже используется в заказах. Удаление запрещено — переведи клиента в архив.');return;}if(!confirm('Удалить клиента без возможности восстановления?'))return;DB.customer.splice(i,1);touch();render();}
+function customerDelete(id){const i=DB.customer.findIndex(x=>x.id===id);if(i<0)return;if(customerHasReferences(id)){alert('This customer is already used by orders. Deletion is blocked — archive the customer instead.');return;}if(!confirm('Delete this customer permanently?'))return;DB.customer.splice(i,1);touch();render();}
 function customerTabButton(id,label){return `<button class="${cTab===id?'on':''}" onclick="cTab='${id}';render()">${label}</button>`;}
 function customerForm(){
  const c=cDraft;

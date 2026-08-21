@@ -85,8 +85,8 @@ function saveStation(){
 }
 function delStation(i){
  const s=DB.station[i];
- if(DB.user.some(u=>u.station===s.code)) return alert('Нельзя удалить — на станцию назначены пользователи');
- if(!confirm('Удалить станцию?'))return; DB.station.splice(i,1); touch(); render();
+ if(DB.user.some(u=>u.station===s.code)) return alert('Cannot delete — users are assigned to this station');
+ if(!confirm('Delete this station?'))return; DB.station.splice(i,1); touch(); render();
 }
 
 let lvEdit=null;
@@ -131,6 +131,6 @@ function saveLevel(){
 }
 function delLevel(i){
  const l=DB.level[i];
- if(DB.station.some(s=>s.level===l.n)) return alert('Нельзя удалить — на этот уровень назначены станции');
- if(!confirm('Удалить уровень?'))return; DB.level.splice(i,1); touch(); render();
+ if(DB.station.some(s=>s.level===l.n)) return alert('Cannot delete — stations are assigned to this level');
+ if(!confirm('Delete this level?'))return; DB.level.splice(i,1); touch(); render();
 }

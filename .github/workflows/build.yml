@@ -20,8 +20,18 @@
 name: Сборка и тесты
 
 on:
+  # Проверяем ЛЮБУЮ ветку, а не только main: раньше кандидат в feature-ветке
+  # оставался непроверенным, и «зелёный CI перед merge» приходилось получать
+  # вручную через кнопку на вкладке Actions — про неё легко забыть.
   push:
-    branches: [main]
+    paths:
+      - 'src/**'
+      - 'build/**'
+      - 'test/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/build.yml'
+  pull_request:             # PR проверяется до вливания
     paths:
       - 'src/**'
       - 'build/**'
@@ -63,7 +73,11 @@ jobs:
       - name: Прогнать тесты по собранному файлу
         run: TARGET=dist node test/run.js
 
+      # Автокоммит dist — ТОЛЬКО для main. В feature-ветке и в PR сборка с тестами
+      # прогоняется, но живая версия не трогается: кандидат получает честный
+      # зелёный или красный, ничего при этом не обновляя.
       - name: Закоммитить пересобранный dist
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           if git diff --quiet -- dist/GLASS_ERP.html; then
             echo "dist не изменился — коммитить нечего"
