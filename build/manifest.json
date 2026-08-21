@@ -1,9 +1,6 @@
 {
   "title": "GLASS ERP — Glazing System",
-  "styles": [
-    "src/styles/base.css",
-    "src/styles/modules.css"
-  ],
+  "styles": ["src/styles/base.css", "src/styles/modules.css"],
   "scripts": [
     "src/core/dim.js",
     "src/core/poly.js",
@@ -28,17 +25,13 @@
     "src/modules/muntin/drawing.js",
     "src/modules/muntin/index.js",
     "src/erp/data.js",
-    "src/erp/masterdata/glass.js",
     "src/erp/customers/data.js",
-    "src/erp/sales/data.js",
     "src/erp/icons.js",
     "src/erp/i18n.js",
     "src/erp/nav.js",
     "src/erp/views/dashboard.js",
     "src/erp/views/users.js",
     "src/erp/views/customers.js",
-    "src/erp/sales/orders.js",
-    "src/erp/sales/makeup-ui.js",
     "src/erp/views/sales.js",
     "src/erp/views/sales-shape-ui.js",
     "src/erp/views/sales-muntin-ui.js",
