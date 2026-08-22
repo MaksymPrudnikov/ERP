@@ -103,10 +103,15 @@ function normalizeDB(){
  if(typeof normalizeSalesData==='function')normalizeSalesData();
 }
 function boot(){
- try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
+ let hadSavedState=false;
+ try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; mergeState(JSON.parse(s)); } }
  catch(e){ console.warn('localStorage не прочитан, стартуем с дефолтов:',e.message); }
  try{ normalizeDB(); }
  catch(e){ console.warn('данные не нормализуются, откат на дефолты:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
+    чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
+    что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
+ if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(hadSavedState)){ normalizeDB(); touch(); }
  /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */
