@@ -61,25 +61,72 @@ function normalizeUsers(){
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
  });
 }
-/* Уровень станции обязан быть ЧИСЛОМ или null. Из импортированного/руками
-   правленного JSON он приезжал строкой ("1"), и станция молча выпадала из
-   маршрута, потому что сравнение s.level===l.n строгое. */
+/* Этап станка обязан быть ЧИСЛОМ. Из импортированного/руками правленного JSON
+   он приезжал строкой ("1"), и станок молча выпадал из маршрута, потому что
+   сравнение строгое.
+
+   ОДИН СТАНОК СТОИТ НА НЕСКОЛЬКИХ ЭТАПАХ (авг 2026). Раньше здесь было поле
+   `level` — ровно один этап на станок. Реальность другая: ЧПУ полирует контур
+   (этап 2) и обрабатывает тело стекла (этап 3), это подтверждено пользователем.
+   Одним числом такое не выражается, поэтому поле стало массивом `levels`.
+   Старое `level` из сохранённых данных подхватывается и переносится. */
 function normalizeStations(){
  const levelSeen=Object.create(null),stationSeen=Object.create(null);
  DB.level=DB.level.filter(l=>l&&isFinite(+l.n)&&Number.isInteger(+l.n)&&+l.n>0&&!levelSeen[+l.n]&&(levelSeen[+l.n]=true))
    .map(l=>({n:+l.n,label:String(l.label==null?'':l.label).trim()}))
    .sort((a,b)=>a.n-b.n);
  DB.station=DB.station.filter(s=>{if(!s||!s.code)return false;const code=String(s.code).trim().toUpperCase();if(!code||stationSeen[code])return false;stationSeen[code]=true;return true;}).map(s=>{
-  const lv=(s.level===''||s.level==null)?null:+s.level;
-  s.level=isFinite(lv)&&DB.level.some(l=>l.n===lv)?lv:null;
+  const raw=Array.isArray(s.levels)?s.levels:((s.level===''||s.level==null)?[]:[s.level]);
+  const seen=Object.create(null);
+  s.levels=raw.map(v=>+v).filter(v=>isFinite(v)&&Number.isInteger(v)&&DB.level.some(l=>l.n===v)&&!seen[v]&&(seen[v]=true)).sort((a,b)=>a-b);
+  delete s.level;
   ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)&&v>0?v:null;});
   if(s.maxW==null||s.maxL==null)s.maxW=s.maxL=null;
   if(s.minTh==null||s.maxTh==null||s.minTh>s.maxTh)s.minTh=s.maxTh=null;
   s.code=String(s.code).trim().toUpperCase();s.name=String(s.name==null?'':s.name).trim();s.note=String(s.note==null?'':s.note);
   return s;
  });
- /* уровень, на который никто не ссылается, оставляем; станция без уровня — тоже
-    штатное состояние (CNC1 / FURN1 ждут решения пользователя) */
+ const rv=+DB.refVersion;DB.refVersion=isFinite(rv)&&Number.isInteger(rv)&&rv>0?rv:0;
+ /* этап, на который никто не ссылается, оставляем; станок без этапа — тоже
+    штатное состояние: так выглядит только что заведённое железо */
+}
+
+/* =====================================================================
+   ПЕРЕСЕВ СПРАВОЧНИКОВ
+
+   Проблема, которую это чинит: mergeState при загрузке делает DB[k]=v, то есть
+   сохранённый массив ЦЕЛИКОМ заменяет заводскую заготовку. Значит правка сида
+   в коде до работающего браузера не доезжает никогда — там лежат старые данные,
+   и они переживают любую заливку. Экспорт с импортом не помогает: из своего же
+   JSON приедут те же старые записи.
+
+   Решение: у данных есть версия справочников. Если она отстала — справочные
+   таблицы заменяются заводскими, а рабочие данные (пользователи, клиенты,
+   заказы, чертежи) не трогаются вообще.
+
+   Версия живёт В ДАННЫХ, а не в localStorage: тогда чужой импорт со старым
+   каталогом тоже пересеется, а это именно то поведение, которое нужно.
+
+   ОГРАНИЧЕНИЕ, ЗНАТЬ ОБЯЗАТЕЛЬНО: пересев затирает ручные правки справочников.
+   Пока экрана справочников нет, править их можно только на экране Производства,
+   и цена невелика. Как появится Master Data (Этап 5) — заменить на слияние по
+   коду: свои строки пользователя оставлять, заводские обновлять.
+   ===================================================================== */
+const REFERENCE_TABLES=['level','station','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+const REFERENCE_VERSION=2;
+let referenceReseeded=false;
+/* hadSaved — были ли в браузере сохранённые данные. Нужен ТОЛЬКО для
+   уведомления: на чистой установке пересев тоже проходит (версия 0 → 2), но
+   говорить «справочники обновлены» там не о чем, ничего не заменялось. */
+function reseedReferenceTables(hadSaved){
+ const have=Number.isInteger(+DB.refVersion)?+DB.refVersion:0;
+ if(have>=REFERENCE_VERSION)return false;
+ const done=[];
+ REFERENCE_TABLES.forEach(k=>{if(Array.isArray(DEFAULT[k])){DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));done.push(k);}});
+ DB.refVersion=REFERENCE_VERSION;
+ referenceReseeded=!!hadSaved;
+ console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));
+ return true;
 }
 function skillIconName(skill){
  return ({
@@ -128,15 +175,38 @@ function seedDemoUsers(){
  return true;
 }
 
+/* Этапы маршрута — реальная последовательность цеха, снятая с рабочей таблицы
+   Main Station и уточнённая пользователем 21–22 августа 2026.
+   Мойки среди этапов НЕТ намеренно: она не шаг маршрута, а часть операций
+   термообработки и сборки стеклопакета — грязное стекло туда просто не пустят.
+   Названия по-русски: перевод накладывается словарём i18n (см. SEED_TEXT). */
 const DEFAULT={
  user:[],
- level:[{n:1,label:'Резка'},{n:2,label:'Кромка (arris / polish / CNC polishing)'},{n:3,label:'Drill & Notch'},{n:4,label:'—'}],
+ /* НУЛЬ, а не текущая версия, и это не описка. mergeState копирует только те
+    ключи, которые ЕСТЬ в сохранённых данных: у старого браузера refVersion нет
+    вовсе, значение из DEFAULT остаётся нетронутым. Поставь сюда 2 — и данные
+    без версии выглядели бы уже актуальными, пересев не сработал бы никогда
+    ровно там, где он и нужен. Ноль означает «версия неизвестна». */
+ refVersion:0,
+ level:[
+  {n:1, label:'Резка'},
+  {n:2, label:'Кромка'},
+  {n:3, label:'Обработка тела стекла'},
+  {n:4, label:'Силкскрин'},
+  {n:5, label:'Термообработка'},
+  {n:6, label:'Пескоструй'},
+  {n:7, label:'Покраска'},
+  {n:8, label:'Ламинация'},
+  {n:9, label:'Сборка стеклопакета'},
+  {n:10,label:'Готово к отгрузке'},
+  {n:11,label:'Отгрузка'}
+ ],
  station:[
-  {code:'CUT1', name:'Раскроечный стол', level:1, maxW:null, maxL:null, minTh:3, maxTh:19, note:'Заведена под уровень 1 — раньше в модели не было отдельной резки, только печь/кромка/ЧПУ'},
-  {code:'EDGE1', name:'Кромкообрабатывающая линия', level:2, maxW:null, maxL:null, minTh:3, maxTh:19, note:''},
-  {code:'BEVEL1', name:'Фацетный станок', level:2, maxW:70, maxL:100, minTh:3, maxTh:19, note:''},
-  {code:'CNC1', name:'Обрабатывающий центр ЧПУ', level:null, maxW:60, maxL:122, minTh:3, maxTh:19, note:'Уровень не назначен — уточни у себя: этот ЧПУ больше полирует кромку (уровень 2) или сверлит/выбирает пазы (уровень 3)?'},
-  {code:'FURN1', name:'Печь закалки', level:null, maxW:90, maxL:150, minTh:3, maxTh:19, note:'Уровень не назначен — закалка обычно отдельный этап после кромки/сверловки, назначь номер сам'}
+  {code:'CUT1', name:'Раскроечный стол', levels:[1], maxW:null, maxL:null, minTh:3, maxTh:19, note:'Режется только отожжённое стекло'},
+  {code:'EDGE1', name:'Кромкообрабатывающая линия', levels:[2], maxW:null, maxL:null, minTh:3, maxTh:19, note:''},
+  {code:'BEVEL1', name:'Фацетный станок', levels:[2], maxW:70, maxL:100, minTh:3, maxTh:19, note:''},
+  {code:'CNC1', name:'Обрабатывающий центр ЧПУ', levels:[2,3], maxW:60, maxL:122, minTh:3, maxTh:19, note:'Полирует контур (этап 2) и обрабатывает тело стекла (этап 3) — один станок на двух этапах'},
+  {code:'FURN1', name:'Печь закалки', levels:[5], maxW:90, maxL:150, minTh:3, maxTh:19, note:'Работает садками, а не поштучно; минимальный размер детали 6 × 12 in'}
  ],
  shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
  muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
