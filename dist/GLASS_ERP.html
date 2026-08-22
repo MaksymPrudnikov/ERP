@@ -3109,6 +3109,21 @@ const I18N_EN={
   "Цех": "Shop floor",
   "Отгрузка": "Shipping",
   "Резка": "Cutting",
+  "Кромка": "Edge work",
+  "Обработка тела стекла": "Fabrication",
+  "Силкскрин": "Ceramic paint",
+  "Термообработка": "Heat treatment",
+  "Пескоструй": "Sandblasting",
+  "Покраска": "Painting",
+  "Ламинация": "Lamination",
+  "Сборка стеклопакета": "IGU assembly",
+  "Готово к отгрузке": "Shipping ready",
+  "Этапы маршрута": "Route stages",
+  "Режется только отожжённое стекло": "Annealed glass only",
+  "Полирует контур (этап 2) и обрабатывает тело стекла (этап 3) — один станок на двух этапах": "Polishes the contour (stage 2) and works the glass body (stage 3) — one machine on two stages",
+  "Работает садками, а не поштучно; минимальный размер детали 6 × 12 in": "Runs in batches, not piece by piece; minimum part size 6 × 12 in",
+  "Один станок может стоять на нескольких этапах — ЧПУ полирует контур и обрабатывает тело стекла.": "One machine can sit on several stages — the CNC polishes the contour and works the glass body.",
+  "Справочники обновлены до новой версии — этапы маршрута и станки приведены к реальному цеху.": "Reference tables refreshed — route stages and machines now match the real shop.",
   "Кромка (arris/polish)": "Edgework (arris/polish)",
   "ЧПУ полировка": "CNC polishing",
   "Сверловка/выемки": "Drilling / notches",
@@ -4874,10 +4889,15 @@ function normalizeDB(){
  if(typeof normalizeSalesData==='function')normalizeSalesData();
 }
 function boot(){
- try{ const s=localStorage.getItem('glazing_system_v1'); if(s) mergeState(JSON.parse(s)); }
+ let hadSavedState=false;
+ try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; mergeState(JSON.parse(s)); } }
  catch(e){ console.warn('localStorage не прочитан, стартуем с дефолтов:',e.message); }
  try{ normalizeDB(); }
  catch(e){ console.warn('данные не нормализуются, откат на дефолты:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
+    чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
+    что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
+ if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(hadSavedState)){ normalizeDB(); touch(); }
  /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */
