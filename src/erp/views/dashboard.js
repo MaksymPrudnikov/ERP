@@ -7,7 +7,7 @@
    ===================================================================== */
 
 function viewDashboard(){
- const assigned=DB.station.filter(s=>s.level!==null && s.level!=='').length;
+ const assigned=DB.station.filter(s=>s.levels&&s.levels.length).length;
  const unassigned=DB.station.length-assigned;
  const moduleCount=3; // Sales / Optimization / Production в текущем прототипе
  const shapeCount=DB.shapeDef.length;

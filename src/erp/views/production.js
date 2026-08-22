@@ -10,11 +10,11 @@ function viewProduction(){
  if(!['stations','levels'].includes(subtab)) subtab='stations';
  const levels=[...DB.level].sort((a,b)=>a.n-b.n);
  const pipeline=levels.map((l,i)=>{
-   const machines=DB.station.filter(s=>s.level===l.n);
+   const machines=DB.station.filter(s=>s.levels.includes(l.n));
    return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-index">${l.n}</div><div><b>${raw(l.label)}</b><small>${machines.length} станц.</small></div></div><div class="stage-machines">${machines.length?machines.map(s=>`<span class="pill" data-raw>${esc(s.code)}</span>`).join(' '):'<span class="mut">машины не назначены</span>'}</div></div>`;
  }).join('');
- const orphan=DB.station.filter(s=>s.level===null || s.level==='');
- return `<div class="page-head"><div><h2>Производственный поток</h2><p>Уровень — не просто цифра в таблице. Это место станции в маршруте детали через цех. Ниже поток виден как процесс, а таблица остаётся для точного редактирования.</p></div><span class="pill info">${ico('factory','icon-inline')}${DB.station.length} станций</span></div>
+ const orphan=DB.station.filter(s=>!s.levels.length);
+ return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Справочники обновлены до новой версии — этапы маршрута и станки приведены к реальному цеху.</div>':''}<div class="page-head"><div><h2>Производственный поток</h2><p>Уровень — не просто цифра в таблице. Это место станции в маршруте детали через цех. Ниже поток виден как процесс, а таблица остаётся для точного редактирования.</p></div><span class="pill info">${ico('factory','icon-inline')}${DB.station.length} станций</span></div>
   <div class="card">
    <div class="section-title"><h3>Маршрут по уровням</h3><span class="pill ${orphan.length?'warn':'ok'}">${orphan.length?orphan.length+' без уровня':'все назначены'}</span></div>
    <div class="pipeline">${pipeline}</div>
@@ -28,14 +28,14 @@ function viewProduction(){
 let stEdit=null;
 function viewStations(){
  const machineCards=DB.station.map(s=>{
-  const lv=DB.level.find(l=>l.n===s.level);
+  const lvs=s.levels.map(n=>DB.level.find(l=>l.n===n)).filter(Boolean);
   const icon=s.code.includes('FURN')?'furnace':s.code.includes('CNC')?'cnc':s.code.includes('EDGE')||s.code.includes('BEVEL')?'edge':'cut';
-  return `<div class="machine-card"><div class="machine-head"><div class="machine-ico">${ico(icon)}</div><div><b>${raw(s.name)}</b><div class="code" data-raw>${esc(s.code)}</div></div></div><div class="machine-meta"><div><span>Поток</span><strong>${lv?lv.n+' · '+raw(lv.label):'не назначен'}</strong></div><div><span>Габарит</span><strong>${s.maxW?s.maxW+' × '+s.maxL+' in':'—'}</strong></div><div><span>Толщина</span><strong>${s.minTh??'—'}–${s.maxTh??'—'} mm</strong></div><div><span>Статус</span><strong>${lv?'в маршруте':'требует решения'}</strong></div></div></div>`;
+  return `<div class="machine-card"><div class="machine-head"><div class="machine-ico">${ico(icon)}</div><div><b>${raw(s.name)}</b><div class="code" data-raw>${esc(s.code)}</div></div></div><div class="machine-meta"><div><span>Поток</span><strong>${lvs.length?lvs.map(l=>l.n+' · '+raw(l.label)).join('<br>'):'не назначен'}</strong></div><div><span>Габарит</span><strong>${s.maxW?s.maxW+' × '+s.maxL+' in':'—'}</strong></div><div><span>Толщина</span><strong>${s.minTh??'—'}–${s.maxTh??'—'} mm</strong></div><div><span>Статус</span><strong>${lvs.length?'в маршруте':'требует решения'}</strong></div></div></div>`;
  }).join('');
  const rows=DB.station.map((s,i)=>{
-  const lv=DB.level.find(l=>l.n===s.level);
+  const lvs=s.levels.map(n=>DB.level.find(l=>l.n===n)).filter(Boolean);
   return `<tr><td class="mono"><b>${raw(s.code)}</b></td><td>${raw(s.name)}</td>
-   <td>${lv?`<span class="pill info">${lv.n} · ${raw(lv.label)}</span>`:'<span class="bad pill">не назначен</span>'}</td>
+   <td>${lvs.length?lvs.map(l=>`<span class="pill info">${l.n} · ${raw(l.label)}</span>`).join(' '):'<span class="bad pill">не назначен</span>'}</td>
    <td class="mono">${s.maxW?s.maxW+' × '+s.maxL:'<span class="mut">—</span>'}</td>
    <td class="mono">${s.minTh==null||s.maxTh==null?'<span class="mut">—</span>':s.minTh+'–'+s.maxTh+' мм'}</td>
    <td class="mut" style="max-width:220px">${raw(s.note||'')}</td>
@@ -50,13 +50,14 @@ function viewStations(){
   ${stEdit!==null?'':'<div class="row"><button class="pri" onclick="stEdit=\'new\';render()">Добавить станцию</button></div>'}`;
 }
 function stationForm(){
- const r = stEdit==='new' ? {code:'',name:'',level:'',maxW:'',maxL:'',minTh:'',maxTh:'',note:''} : DB.station[stEdit];
+ const r = stEdit==='new' ? {code:'',name:'',levels:[],maxW:'',maxL:'',minTh:'',maxTh:'',note:''} : DB.station[stEdit];
  return `<div class="form"><h3>${stEdit==='new'?'Новая станция':'Изменение'}</h3>
   <div class="grid">
    <div><label>Код *</label><input id="st_code" value="${esc(r.code)}"></div>
    <div><label>Название *</label><input id="st_name" value="${esc(r.name)}"></div>
-   <div><label>Уровень</label><select id="st_level"><option value="">— не назначен —</option>
-    ${DB.level.map(l=>`<option value="${l.n}" ${l.n===r.level?'selected':''}>${l.n} · ${SEED_TEXT.has(l.label)&&LANG==='en'?tx(l.label):esc(l.label)}</option>`).join('')}</select></div>
+   <div style="grid-column:1/-1"><label>Этапы маршрута</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 16px">${DB.level.map(l=>`<label style="display:inline-flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" class="st_lv" value="${l.n}" ${(r.levels||[]).includes(l.n)?'checked':''}><span>${l.n} · ${SEED_TEXT.has(l.label)&&LANG==='en'?tx(l.label):esc(l.label)}</span></label>`).join('')}</div>
+    <div class="hint">Один станок может стоять на нескольких этапах — ЧПУ полирует контур и обрабатывает тело стекла.</div></div>
    <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" min="0" step="any" value="${r.maxW??''}"></div>
    <div><label>Макс. длина, in</label><input id="st_maxL" type="number" min="0" step="any" value="${r.maxL??''}"></div>
    <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" min="0" step="any" value="${r.minTh??''}"></div>
@@ -79,8 +80,9 @@ function saveStation(){
  if(maxW!=null&&(!(maxW>0)||!(maxL>0)))return fail(e,'Габариты станции должны быть больше нуля');
  if((minTh==null)!==(maxTh==null))return fail(e,'Минимальная и максимальная толщина заполняются вместе');
  if(minTh!=null&&(!(minTh>0)||!(maxTh>0)||minTh>maxTh))return fail(e,'Проверь диапазон толщины');
- const o={code,name, level:g('st_level'), maxW,maxL,minTh,maxTh,note:document.getElementById('st_note').value.trim()};
- if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
+ const levels=[...document.querySelectorAll('.st_lv:checked')].map(x=>+x.value).sort((a,b)=>a-b);
+ const o={code,name, levels, maxW,maxL,minTh,maxTh,note:document.getElementById('st_note').value.trim()};
+ if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o); delete DB.station[stEdit].level;}
  stEdit=null; touch(); render();
 }
 function delStation(i){
@@ -92,7 +94,7 @@ function delStation(i){
 let lvEdit=null;
 function viewLevels(){
  const rows=DB.level.map((l,i)=>{   /* DB.level держим отсортированным при записи, не в рендере */
-  const cnt=DB.station.filter(s=>s.level===l.n).length;
+  const cnt=DB.station.filter(s=>s.levels.includes(l.n)).length;
   return `<tr><td class="mono"><b>${l.n}</b></td><td>${raw(l.label)}</td>
    <td class="mut">${cnt} станци${cnt===1?'я':cnt>=2&&cnt<=4?'и':'й'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="lvEdit=${i};render()">Изменить</button>
@@ -124,13 +126,13 @@ function saveLevel(){
      было можно, и station.level указывал в пустоту. Тянем станции за уровнем. */
   const was=DB.level[lvEdit].n;
   Object.assign(DB.level[lvEdit],{n,label});
-  if(was!==n) DB.station.forEach(s=>{ if(s.level===was) s.level=n; });
+  if(was!==n) DB.station.forEach(s=>{ s.levels=s.levels.map(v=>v===was?n:v).sort((a,b)=>a-b); });
  }
  DB.level.sort((a,b)=>a.n-b.n);
  lvEdit=null; touch(); render();
 }
 function delLevel(i){
  const l=DB.level[i];
- if(DB.station.some(s=>s.level===l.n)) return alert('Cannot delete — stations are assigned to this level');
+ if(DB.station.some(s=>s.levels.includes(l.n))) return alert('Cannot delete — stations are assigned to this level');
  if(!confirm('Delete this level?'))return; DB.level.splice(i,1); touch(); render();
 }
