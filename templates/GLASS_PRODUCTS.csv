@@ -1,0 +1,5 @@
+manufacturer,code,name,substrate,coating_family,thickness_mm,actual_thickness_mm,temper_mode,exposure_rule,allowed_surfaces,edge_deletion,deposition,legacy_code,notes
+Vitro,6CL,Clear,clear,uncoated,6,5.77,temperable,any,,no,,6MM CLR,ПРИМЕР — удали строку после проверки
+Vitro,6SB70,Solarban 70,clear,lowe,6,5.70,temperable,cavity_only,"2,3",yes,sputtered,6MM SB70,ПРИМЕР
+Vitro,6SB70-SP,Solarban 70 on Starphire,low_iron,lowe,6,5.70,temperable,cavity_only,"2,3",yes,sputtered,,ПРИМЕР — другая подложка = отдельная строка
+Cardinal,6i89,LoE-i89,clear,lowe,6,5.70,temperable,interior_only,4,no,pyrolytic,,ПРИМЕР — единственный low-E на #4

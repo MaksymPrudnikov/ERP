@@ -1,0 +1,23 @@
+code,station,name_en,name_ru,kind,operations,default_operator,default_helper,max_w_in,max_l_in,batch_mode,note
+CUT1,CUT,Cutting 1,Резка 1,machine,cutting,squidly,ricardo,,,single,снять рабочее поле стола
+CUT2,CUT,Cutting 2,Резка 2,machine,cutting,bairon,loie,,,single,снять рабочее поле стола
+ARRIS-H,EDGE,Manual arrising,Притупление ручное,manual,arris_hand,jorje,,,,single,станка нет — руки; габарит не нужен
+ARRIS-M,EDGE,Machine arrising,Притупление машинное,machine,arris_machine,artur,jose,,,single,снять габарит
+POL1,EDGE,Flat polishing 1,Полировка прямой кромки 1,machine,polish,erik,,,,single,снять габарит
+POL2,EDGE,Flat polishing 2,Полировка прямой кромки 2,machine,polish,djima,,,,single,снять габарит
+POL3,EDGE,Flat polishing 3,Полировка прямой кромки 3,machine,polish,huan,,,,single,снять габарит
+MITER1,EDGE,Miter,Митра,machine,miter,erik,,,,single,снять габарит
+BEVEL1,EDGE,Beveling,Фацетный станок,machine,bevel,,,70,100,single,габарит был известен — проверить
+CNC1,FAB,CNC 1,ЧПУ 1,machine,"fabrication,cnc_shape_polish,cnc_lami_polish",joseph,,60,122,single,служит ДВУМ станциям: FAB и EDGE. Габарит проверить
+CNC2,FAB,CNC 2,ЧПУ 2,machine,"fabrication,cnc_shape_polish,cnc_lami_polish",roberto,,,,single,ОДИНАКОВ ЛИ С CNC1? если нет — маршрут обязан знать
+CNC3,FAB,CNC 3,ЧПУ 3,machine,"fabrication,cnc_shape_polish,cnc_lami_polish",ron,,,,single,ОДИНАКОВ ЛИ С CNC1?
+FURN1,HEAT,Furnace,Печь,machine,"tempering,heat_strengthening,heat_soak",,,90,150,batch,снять с шильдика ПАСПОРТНЫЙ вес садки — сейчас в модели прикидка ~305 кг
+WASH-T,HEAT,Washer at furnace,Мойка у печи,machine,,,,,,single,"не шаг маршрута, но габарит ограничивает деталь — снять"
+SAND1,SAND,Sandblasting,Пескоструйная камера,machine,sandblasting,,,,,single,НЕТ НИ В ОДНОЙ ВЫГРУЗКЕ — завести и снять габарит
+PAINT-S,PAINT,Spray,Покраска распылением,machine,painting,,,,,single,НЕТ В ВЫГРУЗКАХ — завести
+PAINT-R,PAINT,Roller,Покраска валом,machine,painting,,,,,single,НЕТ В ВЫГРУЗКАХ — завести
+PAINT-B,PAINT,Booth,Покрасочная камера,machine,painting,,,,,single,НЕТ В ВЫГРУЗКАХ — завести
+LAM1,LAM,Lamination line,Линия ламинации,machine,lamination,,,,,batch,НЕТ В ВЫГРУЗКАХ — завести и снять габарит
+AUTOCL1,LAM,Autoclave,Автоклав,machine,lamination,,,,,batch,"НЕТ В ВЫГРУЗКАХ — работает партиями, снять габарит и вместимость"
+IGU1,IGU,IGU line,Линия сборки стеклопакета,machine,igu_assembly,,,,,batch,НЕТ В ВЫГРУЗКАХ — завести и снять габарит
+WASH-IGU,IGU,Washer at IGU line,Мойка на сборке,machine,,,,,,single,"не шаг маршрута, но габарит ограничивает деталь — снять"

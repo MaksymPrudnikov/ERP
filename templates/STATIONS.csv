@@ -1,0 +1,12 @@
+seq,code,name_en,name_ru,always_or_optional,note
+1,CUT,Cutting,Резка,always,режется только отожжённое стекло
+2,EDGE,Edge work,Кромка,optional,услуги: arris (machine/hand) · polish · cnc shape polish · miter · lami polish
+3,FAB,Fabrication,Обработка тела стекла,optional,"услуги: hole · notch · cutout · radius · hinge · clamp. Работа по телу стекла, в отличие от EDGE — по периметру"
+4,CERP,Ceramic paint,Силкскрин,optional,услуги: ceramic frit (3 узора) · digital ceramic print
+5,HEAT,Heat treatment,Термообработка,optional,услуги: tempering · heat strengthening · heat soak. Вся механика до неё
+6,SAND,Sandblasting,Пескоструй,optional,"позиция в маршруте зависит от того, есть ли термообработка"
+7,PAINT,Painting,Покраска,optional,услуги: opaci-coat standard/custom · backpainting
+8,LAM,Lamination,Ламинация,optional,"lead time 3 дня, у остальных 1. Точка слияния компонентов"
+9,IGU,IGU assembly,Сборка стеклопакета,optional,мойка входит в операцию. Точка слияния компонентов
+10,SHIPR,Shipping ready,Готово к отгрузке,always,
+11,SHIP,Shipping,Отгрузка,always,включает монтаж — развести при проектировании отгрузки
