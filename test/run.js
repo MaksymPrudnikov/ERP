@@ -467,19 +467,69 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     ok('нечитаемый localStorage не роняет старт', (await t.p.evaluate(() => document.getElementById('app').innerHTML.length)) > 200);
     await t.c.close();
 
-    t = await page(JSON.stringify({ station: [{ code: 'A1', name: 'x', level: '1', minTh: 3, maxTh: 19 }], level: [{ n: 1, label: 'Резка' }] }));
-    eq('level строкой приводится к числу', await t.p.evaluate(() => typeof DB.station[0].level), 'number');
+    /* refVersion в сиде стоит намеренно: без него данные считаются устаревшими
+       и справочники пересеваются, а этот тест про нормализацию, а не про пересев. */
+    t = await page(JSON.stringify({ refVersion: 2, station: [{ code: 'A1', name: 'x', level: '1', minTh: 3, maxTh: 19 }], level: [{ n: 1, label: 'Резка' }] }));
+    eq('строковый этап из импорта приводится к числу', await t.p.evaluate(() => DB.station[0].levels), [1]);
     eq('станция попадает в маршрут', await t.p.evaluate(() => { tab = 'production'; subtab = 'stations'; render(); return document.querySelector('.stage-machines').textContent.trim(); }), 'A1');
     await t.c.close();
 
+    /* Главный сценарий пересева: у реального браузера пользователя поля
+       refVersion нет вообще. Если бы DEFAULT.refVersion равнялся текущей версии,
+       такие данные выглядели бы актуальными и пересев не сработал бы никогда. */
+    t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
+    eq('данные без версии справочника пересеваются', await t.p.evaluate(() => [DB.refVersion, DB.level.length, DB.station.some(s => s.code === 'OLDX')]), [2, 11, false]);
+    await t.c.close();
+
+    t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', station: '', skills: [] }], level: [{ n: 1, label: 'Старый этап' }] }));
+    eq('пересев не трогает пользователей', await t.p.evaluate(() => [DB.user.map(u => u.name), DB.level.length]), [['Ivan'], 11]);
+    await t.c.close();
+
     t = await page();
-    eq('переименование номера уровня не осиротляет станции', await t.p.evaluate(() => {
+    eq('переименование номера этапа не осиротляет станки', await t.p.evaluate(() => {
       tab = 'production'; subtab = 'levels'; render(); lvEdit = 0; render();
-      document.getElementById('lv_n').value = '9';
+      document.getElementById('lv_n').value = '12';
       document.getElementById('lv_label').value = DB.level[0].label;
       saveLevel();
-      return DB.station.filter(s => s.level !== null && !DB.level.some(l => l.n === s.level)).map(s => s.code);
+      return DB.station.flatMap(s => s.levels).filter(n => !DB.level.some(l => l.n === n));
     }), []);
+    await t.c.close();
+
+    /* --- справочники цеха и их пересев (авг 2026) ------------------------ */
+    t = await page();
+    eq('пересев обновляет справочники и не трогает рабочие данные', await t.p.evaluate(() => {
+      DB.level = [{ n: 1, label: 'Мусор' }]; DB.station = []; DB.refVersion = 1;
+      const shapes = DB.shapeDef.length, users = DB.user.length;
+      const did = reseedReferenceTables();
+      return [did, DB.level.length, DB.station.length, DB.refVersion,
+              DB.shapeDef.length === shapes, DB.user.length === users];
+    }), [true, 11, 5, 2, true, true]);
+    await t.c.close();
+
+    t = await page();
+    eq('на актуальной версии пересев не повторяется', await t.p.evaluate(() => reseedReferenceTables()), false);
+    await t.c.close();
+
+    t = await page();
+    eq('один станок стоит на двух этапах маршрута', await t.p.evaluate(() => {
+      const c = DB.station.find(s => s.code === 'CNC1');
+      return c ? c.levels : null;
+    }), [2, 3]);
+    await t.c.close();
+
+    t = await page();
+    eq('термообработка — пятый этап маршрута', await t.p.evaluate(() => {
+      const f = DB.station.find(s => s.code === 'FURN1'), l = DB.level.find(x => x.n === 5);
+      return [f ? f.levels : null, l ? l.label : null];
+    }), [[5], 'Термообработка']);
+    await t.c.close();
+
+    t = await page();
+    eq('старое поле level переносится в levels', await t.p.evaluate(() => {
+      DB.station = [{ code: 'OLD1', name: 'Старый', level: '3' }];
+      normalizeStations();
+      return DB.station.map(s => [s.levels, s.level === undefined]);
+    }), [[[3], true]]);
     await t.c.close();
 
     t = await page();
