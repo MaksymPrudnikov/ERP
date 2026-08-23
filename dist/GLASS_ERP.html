@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 41 модулей, 2 стиля.
+  Состав сборки: 42 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -2451,45 +2451,30 @@ const normSkill = x => {
  const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
  const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
 };
+/* Пользователь привязан к РАБОЧЕМУ МЕСТУ, а не к станции: станция теперь шаг
+   маршрута, и «привязать человека к шагу маршрута» не значит ничего.
+
+   Старое поле `station` держало код станка (CUT1, CNC1, FURN1) — по коду оно
+   и переносится в `workPosition`. Код, которому в реальном цеху ничего не
+   соответствует (`EDGE1` — выдуманная «кромкообрабатывающая линия», вместо
+   неё стоят ARRIS-H/M, POL1–3, MITER1, BEVEL1), обнуляется. Угадывать, за
+   каким из шести мест стоял человек, нельзя: это ровно та подмена, из-за
+   которой у Spil расстановка смены оказалась структурой цеха.
+
+   И это ПРЕФИЛЛ, не назначение. Правда о том, кто сделал работу, приходит со
+   скана и живёт в событии (хендофф, раздел 9м §3). */
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
  DB.user.forEach(u=>{
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
-  const station=String(u.station==null?'':u.station).trim().toUpperCase();u.station=DB.station.some(s=>s.code===station)?station:'';
+  const legacy=u.workPosition==null?u.station:u.workPosition;
+  const code=String(legacy==null?'':legacy).trim().toUpperCase();
+  u.workPosition=DB.workPosition.some(w=>w.code===code)?code:'';
+  delete u.station;
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
  });
 }
-/* Этап станка обязан быть ЧИСЛОМ. Из импортированного/руками правленного JSON
-   он приезжал строкой ("1"), и станок молча выпадал из маршрута, потому что
-   сравнение строгое.
-
-   ОДИН СТАНОК СТОИТ НА НЕСКОЛЬКИХ ЭТАПАХ (авг 2026). Раньше здесь было поле
-   `level` — ровно один этап на станок. Реальность другая: ЧПУ полирует контур
-   (этап 2) и обрабатывает тело стекла (этап 3), это подтверждено пользователем.
-   Одним числом такое не выражается, поэтому поле стало массивом `levels`.
-   Старое `level` из сохранённых данных подхватывается и переносится. */
-function normalizeStations(){
- const levelSeen=Object.create(null),stationSeen=Object.create(null);
- DB.level=DB.level.filter(l=>l&&isFinite(+l.n)&&Number.isInteger(+l.n)&&+l.n>0&&!levelSeen[+l.n]&&(levelSeen[+l.n]=true))
-   .map(l=>({n:+l.n,label:String(l.label==null?'':l.label).trim()}))
-   .sort((a,b)=>a.n-b.n);
- DB.station=DB.station.filter(s=>{if(!s||!s.code)return false;const code=String(s.code).trim().toUpperCase();if(!code||stationSeen[code])return false;stationSeen[code]=true;return true;}).map(s=>{
-  const raw=Array.isArray(s.levels)?s.levels:((s.level===''||s.level==null)?[]:[s.level]);
-  const seen=Object.create(null);
-  s.levels=raw.map(v=>+v).filter(v=>isFinite(v)&&Number.isInteger(v)&&DB.level.some(l=>l.n===v)&&!seen[v]&&(seen[v]=true)).sort((a,b)=>a-b);
-  delete s.level;
-  ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)&&v>0?v:null;});
-  if(s.maxW==null||s.maxL==null)s.maxW=s.maxL=null;
-  if(s.minTh==null||s.maxTh==null||s.minTh>s.maxTh)s.minTh=s.maxTh=null;
-  s.code=String(s.code).trim().toUpperCase();s.name=String(s.name==null?'':s.name).trim();s.note=String(s.note==null?'':s.note);
-  return s;
- });
- const rv=+DB.refVersion;DB.refVersion=isFinite(rv)&&Number.isInteger(rv)&&rv>0?rv:0;
- /* этап, на который никто не ссылается, оставляем; станок без этапа — тоже
-    штатное состояние: так выглядит только что заведённое железо */
-}
-
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ
 
@@ -2511,9 +2496,24 @@ function normalizeStations(){
    и цена невелика. Как появится Master Data (Этап 5) — заменить на слияние по
    коду: свои строки пользователя оставлять, заводские обновлять.
    ===================================================================== */
-const REFERENCE_TABLES=['level','station','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
-const REFERENCE_VERSION=2;
+/* `level` из списка ушёл вместе с таблицей: шагом маршрута теперь является
+   сама СТАНЦИЯ, и держать рядом второй справочник тех же одиннадцати строк
+   означало бы два источника правды. На его место встали три новые таблицы
+   цеха — операции, рабочие места и терминалы (см. erp/shopfloor/data). */
+const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+/* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
+   модели. Пересев меняет там смысл таблицы, а не только её содержимое,
+   поэтому версия обязана подняться — иначе браузер пользователя навсегда
+   останется со станками там, где код ждёт шаги маршрута. */
+const REFERENCE_VERSION=3;
 let referenceReseeded=false;
+/* Версия справочников обязана быть целым числом: из руками правленного JSON
+   она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
+   тихо давало не тот ответ. Раньше эта строка жила в normalizeStations —
+   таблица уехала в erp/shopfloor, проверка осталась здесь. */
+function normalizeRefVersion(){
+ const rv=+DB.refVersion;DB.refVersion=isFinite(rv)&&Number.isInteger(rv)&&rv>0?rv:0;
+}
 /* hadSaved — были ли в браузере сохранённые данные. Нужен ТОЛЬКО для
    уведомления: на чистой установке пересев тоже проходит (версия 0 → 2), но
    говорить «справочники обновлены» там не о чем, ничего не заменялось. */
@@ -2554,13 +2554,14 @@ function salesSkillCards(){
 /* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
    показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
    проверить было не на ком. Трое — по одному на роль, которую в жизни держит
-   человек; Админ не засеян намеренно, это техническая роль.
+   человек; Админ не засеян намеренно, это техническая роль. Рабочее место у
+   всех троих пустое: это офисные роли, за станком они не стоят.
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
- {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
- {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
+ {name:'Demo Sales',role:'Продажи',workPosition:'',skills:[]},
+ {name:'Demo Accounting',role:'Бухгалтер',workPosition:'',skills:[]},
+ {name:'Demo Owner',role:'Владелец',workPosition:'',skills:[]}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому
@@ -2574,11 +2575,10 @@ function seedDemoUsers(){
  return true;
 }
 
-/* Этапы маршрута — реальная последовательность цеха, снятая с рабочей таблицы
-   Main Station и уточнённая пользователем 21–22 августа 2026.
-   Мойки среди этапов НЕТ намеренно: она не шаг маршрута, а часть операций
-   термообработки и сборки стеклопакета — грязное стекло туда просто не пустят.
-   Названия по-русски: перевод накладывается словарём i18n (см. SEED_TEXT). */
+/* Справочники цеха — станции, операции, рабочие места и терминалы — живут в
+   erp/shopfloor/data.js и дописываются в DEFAULT оттуда: там же лежит разбор,
+   почему их четыре, а не одна таблица.
+   Здесь остаётся только то, что к цеху не относится. */
 const DEFAULT={
  user:[],
  /* НУЛЬ, а не текущая версия, и это не описка. mergeState копирует только те
@@ -2587,30 +2587,416 @@ const DEFAULT={
     без версии выглядели бы уже актуальными, пересев не сработал бы никогда
     ровно там, где он и нужен. Ноль означает «версия неизвестна». */
  refVersion:0,
- level:[
-  {n:1, label:'Резка'},
-  {n:2, label:'Кромка'},
-  {n:3, label:'Обработка тела стекла'},
-  {n:4, label:'Силкскрин'},
-  {n:5, label:'Термообработка'},
-  {n:6, label:'Пескоструй'},
-  {n:7, label:'Покраска'},
-  {n:8, label:'Ламинация'},
-  {n:9, label:'Сборка стеклопакета'},
-  {n:10,label:'Готово к отгрузке'},
-  {n:11,label:'Отгрузка'}
- ],
- station:[
-  {code:'CUT1', name:'Раскроечный стол', levels:[1], maxW:null, maxL:null, minTh:3, maxTh:19, note:'Режется только отожжённое стекло'},
-  {code:'EDGE1', name:'Кромкообрабатывающая линия', levels:[2], maxW:null, maxL:null, minTh:3, maxTh:19, note:''},
-  {code:'BEVEL1', name:'Фацетный станок', levels:[2], maxW:70, maxL:100, minTh:3, maxTh:19, note:''},
-  {code:'CNC1', name:'Обрабатывающий центр ЧПУ', levels:[2,3], maxW:60, maxL:122, minTh:3, maxTh:19, note:'Полирует контур (этап 2) и обрабатывает тело стекла (этап 3) — один станок на двух этапах'},
-  {code:'FURN1', name:'Печь закалки', levels:[5], maxW:90, maxL:150, minTh:3, maxTh:19, note:'Работает садками, а не поштучно; минимальный размер детали 6 × 12 in'}
- ],
  shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
  muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
+
+/* ==== src/erp/shopfloor/data.js ==== */
+/* =====================================================================
+   erp/shopfloor/data  ·  shopfloor-1.0
+   Четыре РАЗНЫЕ сущности цеха, которые Spil держал в одной таблице.
+   IN : templates/STATIONS.csv · templates/WORK_POSITIONS.csv
+   OUT: DEFAULT.station · DEFAULT.operation · DEFAULT.workPosition · DEFAULT.terminal
+   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+
+   ПОЧЕМУ ЧЕТЫРЕ ТАБЛИЦЫ, А НЕ ОДНА (хендофф, разделы 9м · 9н)
+
+   В Spil «станция» означала сразу три вещи, и от этого ломались данные:
+   экран сканирования, шаг маршрута и станок. Скан говорил «на CNC сделано»,
+   но не говорил КАКАЯ операция — следующая запись ложилась на то же место и
+   затирала предыдущую. Самый дорогой случай, названный пользователем: `CNC`
+   показывал, что петли уже выполнены, хотя их не делали. Деталь уезжала без
+   петель, а закалённое стекло не досверливается.
+
+   Здесь эти три вещи разъехались, и к ним добавилась четвёртая:
+
+     station      шаг маршрута, ровно 11, у каждого порядок и always/optional
+     operation    что именно делают: единица, stage до/после печи
+     workPosition где делают: габарит, batch_mode, список операций
+     terminal     экран сканирования — ТОЛЬКО ввод, ключом шага не бывает
+
+   Отдельно, чтобы не потерялось: подстанции Spil (cutting1 / cutting2) сюда
+   НЕ переносятся ни одной строкой. Это были люди, станки, операции и смены
+   вперемешку — все они разрезы журнала событий, а не единицы цеха.
+   ===================================================================== */
+
+const SF_STAGES=['pre_temper','heat','post_temper','any'];
+const SF_KINDS=['machine','manual'];
+const SF_BATCH_MODES=['single','batch'];
+/* Единица услуги. `null` — «ещё не подтверждена пользователем», и это
+   рабочее состояние: выдумывать единицу нельзя, на ней стоит цена. */
+const SF_UNITS=['in','ft2','pcs','lb'];
+
+function sfStr(v){return String(v==null?'':v).trim();}
+function sfCode(v){return sfStr(v).toUpperCase();}
+function sfNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)&&n>0?n:null;}
+const SF_CODE_RE=/^[A-Z0-9][A-Z0-9_-]{0,39}$/;
+const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
+
+/* =====================================================================
+   1. СТАНЦИИ — 11 шагов маршрута. Источник: templates/STATIONS.csv,
+   колонка always_or_optional заполнена пользователем.
+
+   Имена по правилу из раздела 9н: СТАНЦИЯ НАЗЫВАЕТСЯ ПО ТИПУ РАБОТЫ, а
+   конкретная операция живёт услугой и печатается на стикере. Поэтому
+   `POLISH` стал `EDGE` (на станции три операции), `Tempering` стал `HEAT`
+   (три обработки), а `CNC` стал `FAB` — CNC это железо, а не тип работы.
+   `HEAT` вместо `TEMP` уводит от тройной коллизии, где `TEMP` означал
+   шаблон в услугах, стекло клиента на складе и печь в подстанциях.
+
+   Мойки среди станций НЕТ намеренно: она не шаг маршрута, а часть операций
+   термообработки и сборки стеклопакета. Как рабочее место она существует —
+   её габарит ограничивает деталь.
+
+   name / nameEn лежат ОБА: пользователь заполнил в CSV обе колонки, и
+   выбрасывать половину его данных ради словаря i18n незачем. Переключатель
+   языка берёт нужную колонку, а не переводит содержимое базы. */
+DEFAULT.station=[
+ {seq:1, code:'CUT',  name:'Резка',                  nameEn:'Cutting',        always:true,  note:'режется только отожжённое стекло'},
+ {seq:2, code:'EDGE', name:'Кромка',                 nameEn:'Edge work',      always:false, note:'услуги: arris (machine/hand) · polish · cnc shape polish · miter · lami polish'},
+ {seq:3, code:'FAB',  name:'Обработка тела стекла',  nameEn:'Fabrication',    always:false, note:'услуги: hole · notch · cutout · radius · hinge · clamp. Работа по телу стекла, в отличие от EDGE — по периметру'},
+ {seq:4, code:'CERP', name:'Силкскрин',              nameEn:'Ceramic paint',  always:false, note:'услуги: ceramic frit (3 узора) · digital ceramic print'},
+ {seq:5, code:'HEAT', name:'Термообработка',         nameEn:'Heat treatment', always:false, note:'услуги: tempering · heat strengthening · heat soak. Вся механика до неё'},
+ {seq:6, code:'SAND', name:'Пескоструй',             nameEn:'Sandblasting',   always:false, note:'позиция в маршруте зависит от того, есть ли термообработка'},
+ {seq:7, code:'PAINT',name:'Покраска',               nameEn:'Painting',       always:false, note:'услуги: opaci-coat standard/custom · backpainting'},
+ {seq:8, code:'LAM',  name:'Ламинация',              nameEn:'Lamination',     always:false, note:'lead time 3 дня, у остальных 1. Точка слияния компонентов'},
+ {seq:9, code:'IGU',  name:'Сборка стеклопакета',    nameEn:'IGU assembly',   always:false, note:'мойка входит в операцию. Точка слияния компонентов'},
+ {seq:10,code:'SHIPR',name:'Готово к отгрузке',      nameEn:'Shipping ready', always:true,  note:''},
+ {seq:11,code:'SHIP', name:'Отгрузка',               nameEn:'Shipping',       always:true,  note:'включает монтаж — развести при проектировании отгрузки'}
+];
+
+/* =====================================================================
+   2. ОПЕРАЦИИ — что именно делают. Коды взяты из колонки `operations`
+   файла WORK_POSITIONS.csv: это тот список, который заполнил пользователь.
+
+   `stage` — свойство ОПЕРАЦИИ, а не станции, и это принципиально (9м §4).
+   Одно и то же ЧПУ делает отверстия ДО печи и полирует ламинат ПОСЛЕ неё.
+   Если бы stage принадлежал станции или станку, третий визит на CNC1 затёр
+   бы первый — ровно та ошибка, которая была у Spil.
+
+   `unit` заполнен ТОЛЬКО там, где единица подтверждена источником:
+     · периметровые услуги — дюйм (9о §3: «какой периметр мы продали за год»);
+     · fabrication — штука (стикер печатает «2 hole · 2 hng · 3 clamp»,
+       а прайс раздела 9и даёт диапазоны цены по диаметру отверстия).
+   Остальные оставлены пустыми намеренно. На единице стоит цена; выдуманная
+   единица тише и опаснее пустой, потому что в неё верят. */
+DEFAULT.operation=[
+ {code:'cutting',            station:'CUT',  name:'Резка',                        nameEn:'Cutting',                  stage:'pre_temper',  unit:null,  note:''},
+ {code:'arris_hand',         station:'EDGE', name:'Притупление ручное',           nameEn:'Manual arrising',          stage:'pre_temper',  unit:'in',  note:'себестоимость иная, чем у машинного, а в счёте позиция одна — RA'},
+ {code:'arris_machine',      station:'EDGE', name:'Притупление машинное',         nameEn:'Machine arrising',         stage:'pre_temper',  unit:'in',  note:'себестоимость иная, чем у ручного, а в счёте позиция одна — RA'},
+ {code:'polish',             station:'EDGE', name:'Полировка прямой кромки',      nameEn:'Flat polishing',           stage:'pre_temper',  unit:'in',  note:''},
+ {code:'miter',              station:'EDGE', name:'Митра',                        nameEn:'Mitering',                 stage:'pre_temper',  unit:'in',  note:''},
+ {code:'bevel',              station:'EDGE', name:'Фацет',                        nameEn:'Beveling',                 stage:'pre_temper',  unit:'in',  note:''},
+ {code:'cnc_shape_polish',   station:'EDGE', name:'Полировка фигурной кромки',    nameEn:'CNC shape polishing',      stage:'pre_temper',  unit:'in',  note:'кромка, но выполняется на ЧПУ — поэтому рабочее место служит двум станциям'},
+ {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
+ {code:'fabrication',        station:'FAB',  name:'Обработка тела стекла',        nameEn:'Fabrication',              stage:'pre_temper',  unit:'pcs', note:'отверстия · ноч · вырезы · радиусы · посадочные места под петли и клемы'},
+ {code:'ceramic_frit',       station:'CERP', name:'Керамический фрит',            nameEn:'Ceramic frit',             stage:'pre_temper',  unit:null,  note:'из STATIONS.csv: 3 узора. Рабочего места нет — силкскрин переносится на этапе 5б'},
+ {code:'digital_print',      station:'CERP', name:'Цифровая керамическая печать', nameEn:'Digital ceramic print',    stage:'pre_temper',  unit:null,  note:'из STATIONS.csv. Рабочего места нет — силкскрин переносится на этапе 5б'},
+ {code:'tempering',          station:'HEAT', name:'Закалка',                      nameEn:'Tempering',                stage:'heat',        unit:null,  note:''},
+ {code:'heat_strengthening', station:'HEAT', name:'Термоупрочнение',              nameEn:'Heat strengthening',       stage:'heat',        unit:null,  note:''},
+ {code:'heat_soak',          station:'HEAT', name:'Heat soak',                    nameEn:'Heat soak',                stage:'heat',        unit:null,  note:''},
+ {code:'sandblasting',       station:'SAND', name:'Пескоструй',                   nameEn:'Sandblasting',             stage:'any',         unit:null,  note:'позиция в маршруте зависит от того, есть ли термообработка'},
+ {code:'painting',           station:'PAINT',name:'Покраска',                     nameEn:'Painting',                 stage:'any',         unit:null,  note:'opaci-coat standard/custom · backpainting — разнести на услуги при ценообразовании'},
+ {code:'lamination',         station:'LAM',  name:'Ламинация',                    nameEn:'Lamination',               stage:'post_temper', unit:null,  note:'точка слияния компонентов: два L-номера сходятся здесь'},
+ {code:'igu_assembly',       station:'IGU',  name:'Сборка стеклопакета',          nameEn:'IGU assembly',             stage:'post_temper', unit:null,  note:'мойка входит в операцию. Точка слияния компонентов'}
+];
+
+/* =====================================================================
+   3. РАБОЧИЕ МЕСТА — 22 строки, дословно из templates/WORK_POSITIONS.csv.
+   Подстанций Spil здесь нет ни одной.
+
+   `defaultOperator` / `defaultHelper` — это ПРЕФИЛЛ ЭКРАНА, а не назначение
+   человека на станок (9м §3). Сегодняшняя расстановка не должна быть
+   структурой цеха: завтра встанет другой человек, и справочник оборудования
+   править не придётся. Правда о том, кто сделал, приходит со скана и живёт
+   в событии. `helper` заведён потому, что на части мест работают вдвоём.
+
+   Габариты — рабочее ПОЛЕ, а не корпус станка: печь 90 × 150″ это стол.
+   Модель отвечает на вопрос «влезет ли деталь». 19 позиций из 22 ждут
+   замеров в цеху, и пустой габарит здесь — честное «не измерено», а не ноль.
+
+   `station` — ДОМАШНЯЯ станция места. Полный список станций, которым место
+   служит, НЕ хранится: он выводится из станций его операций (см.
+   workPositionStations). У CNC1 из этого само собой получается FAB + EDGE —
+   ровно то, что пользователь написал в примечании к строке. */
+DEFAULT.workPosition=[
+ {code:'CUT1',    station:'CUT',  name:'Резка 1',                  nameEn:'Cutting 1',          kind:'machine',operations:['cutting'],                                             defaultOperator:'squidly',defaultHelper:'ricardo',maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
+ {code:'CUT2',    station:'CUT',  name:'Резка 2',                  nameEn:'Cutting 2',          kind:'machine',operations:['cutting'],                                             defaultOperator:'bairon', defaultHelper:'loie',   maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
+ {code:'ARRIS-H', station:'EDGE', name:'Притупление ручное',       nameEn:'Manual arrising',    kind:'manual', operations:['arris_hand'],                                          defaultOperator:'jorje',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'станка нет — руки; габарит не нужен'},
+ {code:'ARRIS-M', station:'EDGE', name:'Притупление машинное',     nameEn:'Machine arrising',   kind:'machine',operations:['arris_machine'],                                       defaultOperator:'artur',  defaultHelper:'jose',   maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'MITER1',  station:'EDGE', name:'Митра',                    nameEn:'Miter',              kind:'machine',operations:['miter'],                                               defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'BEVEL1',  station:'EDGE', name:'Фацетный станок',          nameEn:'Beveling',           kind:'machine',operations:['bevel'],                                               defaultOperator:'',       defaultHelper:'',       maxW:70,  maxL:100, batchMode:'single',note:'габарит был известен — проверить'},
+ {code:'CNC1',    station:'FAB',  name:'ЧПУ 1',                    nameEn:'CNC 1',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'joseph', defaultHelper:'',       maxW:60,  maxL:122, batchMode:'single',note:'служит ДВУМ станциям: FAB и EDGE. Габарит проверить'},
+ {code:'CNC2',    station:'FAB',  name:'ЧПУ 2',                    nameEn:'CNC 2',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'roberto',defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'ОДИНАКОВ ЛИ С CNC1? если нет — маршрут обязан знать'},
+ {code:'CNC3',    station:'FAB',  name:'ЧПУ 3',                    nameEn:'CNC 3',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'ron',    defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'ОДИНАКОВ ЛИ С CNC1?'},
+ {code:'FURN1',   station:'HEAT', name:'Печь',                     nameEn:'Furnace',            kind:'machine',operations:['tempering','heat_strengthening','heat_soak'],          defaultOperator:'',       defaultHelper:'',       maxW:90,  maxL:150, batchMode:'batch', note:'снять с шильдика ПАСПОРТНЫЙ вес садки — сейчас в модели прикидка ~305 кг'},
+ {code:'WASH-T',  station:'HEAT', name:'Мойка у печи',             nameEn:'Washer at furnace',  kind:'machine',operations:[],                                                      defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'не шаг маршрута, но габарит ограничивает деталь — снять'},
+ {code:'SAND1',   station:'SAND', name:'Пескоструйная камера',     nameEn:'Sandblasting',       kind:'machine',operations:['sandblasting'],                                        defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ НИ В ОДНОЙ ВЫГРУЗКЕ — завести и снять габарит'},
+ {code:'PAINT-S', station:'PAINT',name:'Покраска распылением',     nameEn:'Spray',              kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
+ {code:'PAINT-R', station:'PAINT',name:'Покраска валом',           nameEn:'Roller',             kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
+ {code:'PAINT-B', station:'PAINT',name:'Покрасочная камера',       nameEn:'Booth',              kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
+ {code:'LAM1',    station:'LAM',  name:'Линия ламинации',          nameEn:'Lamination line',    kind:'machine',operations:['lamination'],                                          defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — завести и снять габарит'},
+ {code:'AUTOCL1', station:'LAM',  name:'Автоклав',                 nameEn:'Autoclave',          kind:'machine',operations:['lamination'],                                          defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — работает партиями, снять габарит и вместимость'},
+ {code:'IGU1',    station:'IGU',  name:'Линия сборки стеклопакета',nameEn:'IGU line',           kind:'machine',operations:['igu_assembly'],                                        defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — завести и снять габарит'},
+ {code:'WASH-IGU',station:'IGU',  name:'Мойка на сборке',          nameEn:'Washer at IGU line', kind:'machine',operations:[],                                                      defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'не шаг маршрута, но габарит ограничивает деталь — снять'}
+];
+
+/* =====================================================================
+   4. ТЕРМИНАЛЫ — экраны сканирования. Таблица заведена ПУСТОЙ, и это не
+   недоделка.
+
+   Про поведение терминала известно всё: оператор сканирует стикер, экран
+   показывает открытые операции ЭТОЙ детали для ЭТОГО места, все отмечены
+   заранее, он снимает галочку с того, чего не делал. Экраны никто не
+   переключает — это условие задачи, а не то, что надо чинить. Главный
+   выигрыш: закрыть операцию, которой нет в маршруте детали, физически
+   невозможно, её просто нет на экране.
+
+   А вот СКОЛЬКО экранов стоит в цеху и какие места висят на каждом —
+   пользователь ещё не называл. Засеять «по одному на станцию» значило бы
+   повторить болезнь подстанций Spil: справочник, распухший выдуманными
+   строками. Пустая таблица с CRUD — честное состояние: модель готова,
+   данные заводятся из цеха. */
+DEFAULT.terminal=[];
+
+/* ---------------------------------------------------------------------
+   Выведенные связи. Ничего не хранят — считают из уже введённого.
+   --------------------------------------------------------------------- */
+/* Станции, которым служит рабочее место. НЕ отдельное поле: у CNC1 оно само
+   даёт FAB + EDGE из его операций, и второй источник правды не заводится. */
+function workPositionStations(wp){
+ if(!wp||!Array.isArray(wp.operations))return [];
+ const seen=Object.create(null),out=[];
+ (wp.station?[wp.station]:[]).concat(wp.operations.map(c=>{
+   const op=DB.operation.find(o=>o.code===c);return op?op.station:'';
+ })).forEach(code=>{if(code&&!seen[code]){seen[code]=true;out.push(code);}});
+ return out.sort((a,b)=>stationSeq(a)-stationSeq(b));
+}
+function stationSeq(code){const s=DB.station.find(x=>x.code===code);return s?s.seq:999;}
+/* Рабочие места станции — по операциям, а не по домашнему полю: иначе CNC1
+   не попал бы в EDGE, хотя фигурную кромку полируют именно на нём. */
+function stationWorkPositions(code){return DB.workPosition.filter(w=>workPositionStations(w).includes(code));}
+function stationOperations(code){return DB.operation.filter(o=>o.station===code);}
+/* Операция без рабочего места — не ошибка, а видимый пробел: силкскрин ещё
+   не перенесён, отгрузка ещё не спроектирована. */
+function operationWorkPositions(code){return DB.workPosition.filter(w=>(w.operations||[]).includes(code));}
+/* Рабочие места, которые ЖДУТ ЗАМЕРОВ. Не то же самое, что «без габарита»:
+   у ручного места габарита нет и не будет — там руки, а не станок, и считать
+   его недостающим замером значит вечно показывать долг, который никто не
+   закроет. Определение одно на всю систему, чтобы экраны не спорили друг с
+   другом о числе. */
+function workPositionsAwaitingSize(){
+ return DB.workPosition.filter(function(w){return w.maxW==null&&w.kind!=='manual';});
+}
+/* Станции, которые терминал в принципе может закрывать. Это СПРАВКА для
+   экрана, а не право: ключом шага маршрута терминал не бывает никогда. */
+function terminalStations(t){
+ const seen=Object.create(null),out=[];
+ ((t&&t.workPositions)||[]).forEach(code=>{
+  const wp=DB.workPosition.find(w=>w.code===code);
+  if(wp)workPositionStations(wp).forEach(s=>{if(!seen[s]){seen[s]=true;out.push(s);}});
+ });
+ return out.sort((a,b)=>stationSeq(a)-stationSeq(b));
+}
+
+/* ---------------------------------------------------------------------
+   Нормализация. Идёт ДО normalizeUsers: пользователь ссылается на рабочее
+   место, и проверять ссылку не на чем, пока места не приведены в порядок.
+
+   Устойчивость здесь обязательна, а не желательна. В браузере пользователя
+   под ключом `station` лежат СТАНКИ старой модели (CUT1, EDGE1, CNC1…), и
+   этот код увидит их раньше, чем пересев успеет заменить таблицу
+   заводской. Ронять загрузку он при этом не имеет права — иначе до пересева
+   дело не дойдёт вообще.
+   --------------------------------------------------------------------- */
+function normalizeShopFloor(){
+ const seen=Object.create(null);
+ DB.station=(Array.isArray(DB.station)?DB.station:[]).filter(s=>{
+  if(!s||typeof s!=='object')return false;
+  const code=sfCode(s.code);if(!code||seen[code])return false;seen[code]=true;return true;
+ }).map((s,i)=>{
+  const seq=Number.isInteger(+s.seq)&&+s.seq>0?+s.seq:i+1;
+  return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,note:sfStr(s.note)};
+ }).sort((a,b)=>a.seq-b.seq);
+
+ const opSeen=Object.create(null);
+ DB.operation=(Array.isArray(DB.operation)?DB.operation:[]).filter(o=>{
+  if(!o||typeof o!=='object')return false;
+  const code=sfStr(o.code).toLowerCase();if(!code||opSeen[code])return false;opSeen[code]=true;return true;
+ }).map(o=>{
+  const station=sfCode(o.station);
+  return {
+   code:sfStr(o.code).toLowerCase(),
+   /* операция без своей станции — сирота, а не ошибка данных: станцию могли
+      удалить. Пустая ссылка видна на экране, выдуманная — нет. */
+   station:DB.station.some(s=>s.code===station)?station:'',
+   name:sfStr(o.name),nameEn:sfStr(o.nameEn),
+   stage:SF_STAGES.includes(o.stage)?o.stage:'any',
+   unit:SF_UNITS.includes(o.unit)?o.unit:null,
+   note:sfStr(o.note)
+  };
+ });
+
+ const wpSeen=Object.create(null);
+ DB.workPosition=(Array.isArray(DB.workPosition)?DB.workPosition:[]).filter(w=>{
+  if(!w||typeof w!=='object')return false;
+  const code=sfCode(w.code);if(!code||wpSeen[code])return false;wpSeen[code]=true;return true;
+ }).map(w=>{
+  const station=sfCode(w.station),opSet=Object.create(null);
+  const maxW=sfNum(w.maxW),maxL=sfNum(w.maxL);
+  return {
+   code:sfCode(w.code),
+   station:DB.station.some(s=>s.code===station)?station:'',
+   name:sfStr(w.name),nameEn:sfStr(w.nameEn),
+   kind:SF_KINDS.includes(w.kind)?w.kind:'machine',
+   operations:(Array.isArray(w.operations)?w.operations:[]).map(c=>sfStr(c).toLowerCase())
+     .filter(c=>c&&DB.operation.some(o=>o.code===c)&&!opSet[c]&&(opSet[c]=true)),
+   defaultOperator:sfStr(w.defaultOperator),defaultHelper:sfStr(w.defaultHelper),
+   /* габарит принимается только парой: одна сторона без второй не отвечает
+      на вопрос «влезет ли деталь», а выглядит как заполненная строка */
+   maxW:(maxW!=null&&maxL!=null)?maxW:null,
+   maxL:(maxW!=null&&maxL!=null)?maxL:null,
+   batchMode:SF_BATCH_MODES.includes(w.batchMode)?w.batchMode:'single',
+   note:sfStr(w.note)
+  };
+ });
+
+ const tSeen=Object.create(null);
+ DB.terminal=(Array.isArray(DB.terminal)?DB.terminal:[]).filter(t=>{
+  if(!t||typeof t!=='object')return false;
+  const code=sfCode(t.code);if(!code||tSeen[code])return false;tSeen[code]=true;return true;
+ }).map(t=>{
+  const wpSet=Object.create(null);
+  return {
+   code:sfCode(t.code),name:sfStr(t.name),nameEn:sfStr(t.nameEn),
+   workPositions:(Array.isArray(t.workPositions)?t.workPositions:[]).map(sfCode)
+     .filter(c=>c&&DB.workPosition.some(w=>w.code===c)&&!wpSet[c]&&(wpSet[c]=true)),
+   note:sfStr(t.note)
+  };
+ });
+}
+
+/* ---------------------------------------------------------------------
+   Разбор CSV. Нужен здесь, а не в Этапе 5·3, по простой причине: 19 из 22
+   рабочих мест ждут замеров в цеху. Без импорта каждый снятый габарит
+   означал бы правку кода и новую сборку.
+
+   Формат — тот, в котором пользователю отдают файлы: запятая, кавычки
+   вокруг полей с запятыми, удвоенная кавычка внутри. BOM от Excel снимаем.
+   --------------------------------------------------------------------- */
+function parseCsv(text){
+ const src=String(text==null?'':text).replace(/^﻿/,'');
+ const rows=[];let row=[],field='',quoted=false,i=0;
+ const endField=()=>{row.push(field);field='';};
+ const endRow=()=>{endField();if(row.length>1||row[0]!=='')rows.push(row);row=[];};
+ while(i<src.length){
+  const c=src[i];
+  if(quoted){
+   if(c==='"'){ if(src[i+1]==='"'){field+='"';i+=2;continue;} quoted=false;i++;continue; }
+   field+=c;i++;continue;
+  }
+  if(c==='"'){quoted=true;i++;continue;}
+  if(c===','){endField();i++;continue;}
+  if(c==='\r'){i++;continue;}
+  if(c==='\n'){endRow();i++;continue;}
+  field+=c;i++;
+ }
+ if(field!==''||row.length)endRow();
+ if(!rows.length)return {header:[],rows:[]};
+ const header=rows[0].map(h=>sfStr(h));
+ return {header,rows:rows.slice(1).map(r=>{
+  const o=Object.create(null);header.forEach((h,n)=>{o[h]=sfStr(r[n]);});return o;
+ })};
+}
+
+/* Отчёт вместо тихого успеха: «принято N, отклонено M и почему». Строка,
+   которую отклонили без причины, возвращается пользователю как загадка. */
+function sfReport(){return {accepted:0,added:0,updated:0,rejected:[],missing:[]};}
+function sfReject(rep,line,code,why){rep.rejected.push({line,code:code||'—',why});}
+
+/* Импорт STATIONS.csv. Слияние ПО КОДУ, а не замена таблицы: строки, которые
+   пользователь завёл руками, чужой файл сносить не должен. Чего в файле нет —
+   попадает в `missing` отчёта, а не удаляется молча. */
+function importStationsCsv(text){
+ const {header,rows}=parseCsv(text),rep=sfReport();
+ if(!header.includes('code')||!header.includes('seq'))
+  {sfReject(rep,0,'','файл не похож на STATIONS.csv: нет колонок seq и code');return rep;}
+ const inFile=Object.create(null);
+ rows.forEach((r,n)=>{
+  const line=n+2,code=sfCode(r.code);
+  if(!code)return sfReject(rep,line,'','пустой код');
+  if(!SF_CODE_RE.test(code))return sfReject(rep,line,code,'код: только A–Z, 0–9, дефис и подчёркивание');
+  if(inFile[code])return sfReject(rep,line,code,'код повторяется в файле');
+  const seq=+r.seq;
+  if(!Number.isInteger(seq)||seq<=0)return sfReject(rep,line,code,'seq должен быть целым положительным');
+  const flag=sfStr(r.always_or_optional).toLowerCase();
+  if(flag!=='always'&&flag!=='optional')return sfReject(rep,line,code,'always_or_optional: ожидается always или optional');
+  inFile[code]=true;
+  const next={seq,code,name:sfStr(r.name_ru),nameEn:sfStr(r.name_en),always:flag==='always',note:sfStr(r.note)};
+  const at=DB.station.findIndex(s=>s.code===code);
+  if(at<0){DB.station.push(next);rep.added++;}else{Object.assign(DB.station[at],next);rep.updated++;}
+  rep.accepted++;
+ });
+ DB.station.forEach(s=>{if(!inFile[s.code])rep.missing.push(s.code);});
+ normalizeShopFloor();
+ return rep;
+}
+
+/* Импорт WORK_POSITIONS.csv. Здесь же приезжают габариты, которых ждёт
+   `check_route_fits()` этапа 7·2. Пустой габарит в файле означает «ещё не
+   замерили» и стирает прежнее значение только вместе с парной стороной —
+   половина габарита хуже, чем его отсутствие. */
+function importWorkPositionsCsv(text){
+ const {header,rows}=parseCsv(text),rep=sfReport();
+ if(!header.includes('code')||!header.includes('station'))
+  {sfReject(rep,0,'','файл не похож на WORK_POSITIONS.csv: нет колонок code и station');return rep;}
+ const inFile=Object.create(null);
+ rows.forEach((r,n)=>{
+  const line=n+2,code=sfCode(r.code);
+  if(!code)return sfReject(rep,line,'','пустой код');
+  if(!SF_CODE_RE.test(code))return sfReject(rep,line,code,'код: только A–Z, 0–9, дефис и подчёркивание');
+  if(inFile[code])return sfReject(rep,line,code,'код повторяется в файле');
+  const station=sfCode(r.station);
+  if(!DB.station.some(s=>s.code===station))return sfReject(rep,line,code,'станции '+(station||'—')+' нет в справочнике');
+  const ops=sfStr(r.operations).split(/[,;]/).map(x=>sfStr(x).toLowerCase()).filter(Boolean);
+  const unknown=ops.filter(c=>!DB.operation.some(o=>o.code===c));
+  if(unknown.length)return sfReject(rep,line,code,'неизвестные операции: '+unknown.join(', '));
+  const kind=sfStr(r.kind).toLowerCase()||'machine';
+  if(!SF_KINDS.includes(kind))return sfReject(rep,line,code,'kind: ожидается machine или manual');
+  const batchMode=sfStr(r.batch_mode).toLowerCase()||'single';
+  if(!SF_BATCH_MODES.includes(batchMode))return sfReject(rep,line,code,'batch_mode: ожидается single или batch');
+  const maxW=sfNum(r.max_w_in),maxL=sfNum(r.max_l_in);
+  if((maxW==null)!==(maxL==null))return sfReject(rep,line,code,'габарит заполняется парой: max_w_in и max_l_in');
+  inFile[code]=true;
+  const seenOp=Object.create(null);
+  const next={code,station,name:sfStr(r.name_ru),nameEn:sfStr(r.name_en),kind,
+   operations:ops.filter(c=>!seenOp[c]&&(seenOp[c]=true)),
+   defaultOperator:sfStr(r.default_operator),defaultHelper:sfStr(r.default_helper),
+   maxW,maxL,batchMode,note:sfStr(r.note)};
+  const at=DB.workPosition.findIndex(w=>w.code===code);
+  if(at<0){DB.workPosition.push(next);rep.added++;}else{Object.assign(DB.workPosition[at],next);rep.updated++;}
+  rep.accepted++;
+ });
+ DB.workPosition.forEach(w=>{if(!inFile[w.code])rep.missing.push(w.code);});
+ normalizeShopFloor();
+ return rep;
+}
+
+/* ---------------------------------------------------------------------
+   Имя записи на языке интерфейса. Не перевод: обе колонки заполнил
+   пользователь, здесь только выбор нужной. Пустая nameEn — не беда, тогда
+   показываем то единственное имя, которое есть.
+   --------------------------------------------------------------------- */
+function sfName(row){
+ if(!row)return '';
+ return (LANG==='en'&&row.nameEn)?row.nameEn:(row.name||row.nameEn||'');
+}
+/* Локализованное имя — уже данные, а не интерфейс: переводчику его не отдаём. */
+function sfLabel(row){return `<span data-raw>${esc(sfName(row))}</span>`;}
 
 /* ==== src/erp/masterdata/glass.js ==== */
 /* =====================================================================
@@ -3166,9 +3552,150 @@ function ico(name, cls=''){
    остаётся переключателем в шапке для владельца. */
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
-  "CNC1 и FURN1": "CNC1 and FURN1",
-  "Мин. толщина, мм": "Min thickness, mm",
-  "Макс. толщина, мм": "Max thickness, mm",
+  "режется только отожжённое стекло": "annealed glass only",
+  "услуги: arris (machine/hand) · polish · cnc shape polish · miter · lami polish": "services: arris (machine/hand) \u00b7 polish \u00b7 cnc shape polish \u00b7 miter \u00b7 lami polish",
+  "услуги: hole · notch · cutout · radius · hinge · clamp. Работа по телу стекла, в отличие от EDGE — по периметру": "services: hole \u00b7 notch \u00b7 cutout \u00b7 radius \u00b7 hinge \u00b7 clamp. Work on the body of the glass, unlike EDGE which works the perimeter",
+  "услуги: ceramic frit (3 узора) · digital ceramic print": "services: ceramic frit (3 patterns) \u00b7 digital ceramic print",
+  "услуги: tempering · heat strengthening · heat soak. Вся механика до неё": "services: tempering \u00b7 heat strengthening \u00b7 heat soak. All machining comes before it",
+  "позиция в маршруте зависит от того, есть ли термообработка": "its place in the route depends on whether heat treatment is present",
+  "услуги: opaci-coat standard/custom · backpainting": "services: opaci-coat standard/custom \u00b7 backpainting",
+  "lead time 3 дня, у остальных 1. Точка слияния компонентов": "lead time 3 days, 1 day elsewhere. Components merge here",
+  "мойка входит в операцию. Точка слияния компонентов": "washing is part of the operation. Components merge here",
+  "включает монтаж — развести при проектировании отгрузки": "includes installation \u2014 split them when shipping is designed",
+  "снять рабочее поле стола": "measure the table working field",
+  "станка нет — руки; габарит не нужен": "no machine \u2014 done by hand; no size needed",
+  "снять габарит": "measure the size",
+  "габарит был известен — проверить": "the size was known \u2014 verify it",
+  "служит ДВУМ станциям: FAB и EDGE. Габарит проверить": "serves TWO stations: FAB and EDGE. Verify the size",
+  "ОДИНАКОВ ЛИ С CNC1? если нет — маршрут обязан знать": "SAME AS CNC1? if not, the route has to know",
+  "ОДИНАКОВ ЛИ С CNC1?": "SAME AS CNC1?",
+  "снять с шильдика ПАСПОРТНЫЙ вес садки — сейчас в модели прикидка ~305 кг": "take the RATED batch weight from the nameplate \u2014 the model currently holds an estimate of ~305 kg",
+  "не шаг маршрута, но габарит ограничивает деталь — снять": "not a route step, but its size limits the part \u2014 measure it",
+  "НЕТ НИ В ОДНОЙ ВЫГРУЗКЕ — завести и снять габарит": "IN NO EXPORT AT ALL \u2014 create it and measure the size",
+  "НЕТ В ВЫГРУЗКАХ — завести": "NOT IN THE EXPORTS \u2014 create it",
+  "НЕТ В ВЫГРУЗКАХ — завести и снять габарит": "NOT IN THE EXPORTS \u2014 create it and measure the size",
+  "НЕТ В ВЫГРУЗКАХ — работает партиями, снять габарит и вместимость": "NOT IN THE EXPORTS \u2014 runs in batches, measure size and capacity",
+  "себестоимость иная, чем у машинного, а в счёте позиция одна — RA": "its cost differs from the machine version, yet the invoice has one line \u2014 RA",
+  "себестоимость иная, чем у ручного, а в счёте позиция одна — RA": "its cost differs from the manual version, yet the invoice has one line \u2014 RA",
+  "кромка, но выполняется на ЧПУ — поэтому рабочее место служит двум станциям": "edge work, but done on the CNC \u2014 which is why that position serves two stations",
+  "только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута": "only AFTER bonding \u2014 the same CNC, a different moment in the route",
+  "отверстия · ноч · вырезы · радиусы · посадочные места под петли и клемы": "holes \u00b7 notches \u00b7 cutouts \u00b7 radii \u00b7 seats for hinges and clamps",
+  "из STATIONS.csv: 3 узора. Рабочего места нет — силкскрин переносится на этапе 5б": "from STATIONS.csv: 3 patterns. No work position yet \u2014 silkscreen is ported in stage 5b",
+  "из STATIONS.csv. Рабочего места нет — силкскрин переносится на этапе 5б": "from STATIONS.csv. No work position yet \u2014 silkscreen is ported in stage 5b",
+  "opaci-coat standard/custom · backpainting — разнести на услуги при ценообразовании": "opaci-coat standard/custom \u00b7 backpainting \u2014 split into services during pricing",
+  "точка слияния компонентов: два L-номера сходятся здесь": "components merge here: two L-numbers come together",
+  "Цех": "Shop floor",
+  "Станции": "Stations",
+  "Рабочие места": "Work positions",
+  "Операции": "Operations",
+  "Терминалы": "Terminals",
+  "Станция — это шаг маршрута, а не экран и не станок. Где делают — рабочее место, что именно делают — операция, чем сканируют — терминал. Четыре разные вещи, которые в Spil лежали одной таблицей.": "A station is a route step — not a screen and not a machine. Where the work happens is a work position, what is done is an operation, what you scan with is a terminal. Four different things Spil kept in one table.",
+  "Маршрут по станциям": "Route by station",
+  "нужны замеры": "measurements needed",
+  "Без рабочих мест:": "Without work positions:",
+  ". Силкскрин переносится на этапе 5б, отгрузка ещё не спроектирована — рабочих мест там пока нет, и это не пробел в данных.": ". Silkscreen is ported in stage 5b and shipping is not designed yet, so there are no work positions there — that is not a gap in the data.",
+  ". Пока габарита нет, check_route_fits() этапа 7·2 работать не может. Замеры приезжают импортом WORK_POSITIONS.csv — правка кода для этого не нужна.": ". Until the size is known, check_route_fits() of stage 7\u00b72 cannot work. Measurements arrive by importing WORK_POSITIONS.csv — no code change needed.",
+  "Её не подставляли по догадке: на единице стоит цена, а выдуманная единица тише и опаснее пустой — в неё верят. Заполняется вместе с прайсом на этапе 6.": "It was not guessed at: the price rides on the unit, and an invented unit is quieter and more dangerous than a blank one — people believe it. It is filled in together with the price list in stage 6.",
+  "Именно здесь закрывается самый дорогой дефект Spil: закрыть операцию, которой нет в маршруте детали, физически невозможно — на экране её просто нет. Случай «CNC показал петли выполненными, хотя их не делали» не может возникнуть в принципе.": "This is where Spil\u2019s most expensive defect is closed: an operation that is not in the part\u2019s route physically cannot be signed off — it is simply not on the screen. The case where CNC showed the hinges as done although nobody made them cannot arise at all.",
+  "Список пуст, и это честное состояние. Сколько экранов стоит в цеху и какие места висят на каждом — ещё не называли. Засеять «по одному на станцию» значило бы повторить болезнь подстанций Spil: справочник, распухший выдуманными строками.": "The list is empty, and that is the honest state. How many screens stand in the shop and which positions hang on each has not been stated yet. Seeding one per station would repeat the disease of Spil\u2019s sub-stations: a reference table swollen with invented rows.",
+  "Одинаковы ли CNC1 / CNC2 / CNC3 по рабочему полю. Если нет — маршрут обязан знать, на какой можно.": "Whether CNC1 / CNC2 / CNC3 share the same working field. If not, the route has to know which one is allowed.",
+  "Поведение экрана известно, а сколько их в цеху и какие места висят на каждом — ещё нет. Выдуманные строки сюда не заводим.": "The screen behaviour is known; how many stand in the shop and which positions hang on each is not. We do not create invented rows here.",
+  "Справочники обновлены: станция стала шагом маршрута, станки переехали в рабочие места, появились операции и терминалы.": "Reference tables refreshed: the station is now a route step, machines moved to work positions, and operations and terminals were added.",
+  "всегда": "always",
+  "по необходимости": "when required",
+  "В маршруте": "In route",
+  "рабочих мест нет": "no work positions",
+  "везде есть места": "every station staffed",
+  "Одиннадцать шагов маршрута. Порядок и признак «всегда / по необходимости» пользователь подтвердил; имена даны по ТИПУ работы, а конкретная услуга печатается на стикере.": "Eleven route steps. The order and the always / when-required flag are confirmed; names describe the TYPE of work, while the specific service is printed on the sticker.",
+  "Порядок *": "Sequence *",
+  "Код *": "Code *",
+  "Название (RU) *": "Name (RU) *",
+  "Название (EN)": "Name (EN)",
+  "Проходится всегда": "Always in the route",
+  "«Всегда» — станция есть в маршруте любой детали: резка, готовность к отгрузке, отгрузка. Остальные включаются составом изделия.": "\u00abAlways\u00bb means the station is in every part\u2019s route: cutting, shipping ready, shipping. The rest are switched on by the makeup.",
+  "Новая станция": "New station",
+  "Добавить станцию": "Add station",
+  "Порядок: целое положительное число": "Sequence: a positive integer",
+  "Код операции: строчные латинские буквы, цифры и подчёркивание": "Operation code: lowercase latin letters, digits and underscore",
+  "Где делают. Габарит — рабочее ПОЛЕ, а не корпус станка: модель отвечает на вопрос «влезет ли деталь». Оператор и напарник — префилл экрана, а не закрепление человека за станком.": "Where the work happens. The size is the working FIELD, not the machine cabinet: the model answers \u00abdoes the part fit\u00bb. Operator and helper prefill the screen; they do not tie a person to a machine.",
+  "Точная таблица рабочих мест": "Exact work position table",
+  "Новое рабочее место": "New work position",
+  "Добавить рабочее место": "Add work position",
+  "Домашняя станция *": "Home station *",
+  "Макс. ширина поля, in": "Max field width, in",
+  "Макс. длина поля, in": "Max field length, in",
+  "Оператор по умолчанию": "Default operator",
+  "Напарник по умолчанию": "Default helper",
+  "Оператор": "Operator",
+  "Загрузка": "Loading",
+  "Тип": "Type",
+  "Тип места": "Position kind",
+  "станок": "machine",
+  "ручное место": "manual position",
+  "поштучно": "piece by piece",
+  "садкой": "in batches",
+  "садка": "batch",
+  "не замерен": "not measured",
+  "Габарит, in": "Size, in",
+  "Габарит заполняется парой: ширина и длина": "The size is entered as a pair: width and length",
+  "Габариты рабочего места должны быть больше нуля": "Work position dimensions must be greater than zero",
+  "Выбери домашнюю станцию": "Pick a home station",
+  "Выбери станцию": "Pick a station",
+  "Список станций места выводится из его операций, отдельно его не задают. Поэтому ЧПУ с полировкой контура сам оказывается и на FAB, и на EDGE.": "A position\u2019s station list is derived from its operations and is never entered separately. That is why a CNC that polishes contours ends up on both FAB and EDGE.",
+  "Что именно делают. «До печи / после печи» — свойство ОПЕРАЦИИ, а не станции: на одном и том же ЧПУ отверстия обязаны быть до печи, а полировка ламината — после. Держи это на станке — и третий визит детали затрёт первый.": "What exactly is done. Before / after the furnace is a property of the OPERATION, not the station: on the very same CNC, holes must come before the furnace and laminate polishing after it. Keep that on the machine and the part\u2019s third visit overwrites its first.",
+  "Момент маршрута": "Route moment",
+  "Момент": "Moment",
+  "до печи": "before furnace",
+  "печь": "furnace",
+  "после печи": "after furnace",
+  "не ограничено": "unrestricted",
+  "Единица": "Unit",
+  "не задана": "not set",
+  "— не задана —": "\u2014 not set \u2014",
+  "дюйм": "inch",
+  "шт": "pcs",
+  "фунт": "lb",
+  "нет места": "no position",
+  "нет станции": "no station",
+  "Новая операция": "New operation",
+  "Добавить операцию": "Add operation",
+  "Станция *": "Station *",
+  "Экран сканирования. Терминал читает и пишет, но ничего не определяет: ключом шага маршрута он не бывает никогда. Оператор сканирует стикер — экран показывает открытые операции ЭТОЙ детали для ЭТОГО места, все отмечены заранее, он снимает галочку с того, чего не делал.": "The scanning screen. A terminal reads and writes but decides nothing: it is never the key of a route step. The operator scans the sticker, the screen lists the open operations of THIS part for THIS position, all pre-ticked, and they untick whatever they did not do.",
+  "Станции, которые закрывает": "Stations it can close",
+  "Рабочие места на этом экране": "Work positions on this screen",
+  "мест нет": "no positions",
+  "Новый терминал": "New terminal",
+  "Добавить терминал": "Add terminal",
+  "Один экран обслуживает несколько мест — переключать его оператор не будет, и это условие задачи, а не то, что надо чинить.": "One screen serves several positions \u2014 the operator will not switch it, and that is a given of the problem, not something to fix.",
+  "слияние по коду": "merged by code",
+  "Выбрать файл": "Choose file",
+  "— выбери —": "\u2014 pick one \u2014",
+  "В файле не было, оставлены как есть:": "Absent from the file, left as they were:",
+  "файл не похож на STATIONS.csv: нет колонок seq и code": "this does not look like STATIONS.csv: the seq and code columns are missing",
+  "файл не похож на WORK_POSITIONS.csv: нет колонок code и station": "this does not look like WORK_POSITIONS.csv: the code and station columns are missing",
+  "пустой код": "empty code",
+  "код: только A–Z, 0–9, дефис и подчёркивание": "code: only A\u2013Z, 0\u20139, hyphen and underscore",
+  "код повторяется в файле": "the code is repeated in the file",
+  "seq должен быть целым положительным": "seq must be a positive integer",
+  "always_or_optional: ожидается always или optional": "always_or_optional: expected always or optional",
+  "kind: ожидается machine или manual": "kind: expected machine or manual",
+  "batch_mode: ожидается single или batch": "batch_mode: expected single or batch",
+  "габарит заполняется парой: max_w_in и max_l_in": "the size is entered as a pair: max_w_in and max_l_in",
+  "Файл обновляет строки с теми же кодами и добавляет новые. Строки, которых в файле нет, остаются на месте и перечисляются в отчёте — чужой файл не сносит то, что завели руками.": "The file updates rows with matching codes and adds new ones. Rows absent from the file stay put and are listed in the report \u2014 someone else\u2019s file never wipes what was entered by hand.",
+  "Строка": "Line",
+  "Код": "Code",
+  "Почему отклонена": "Why rejected",
+  "не назначено": "not assigned",
+  "Рабочее место": "Work position",
+  "Рабочее место по умолчанию": "Default work position",
+  "привязано к рабочему месту": "assigned to a work position",
+  "Роли, рабочие места и покрытие навыков": "Roles, work positions and skill coverage",
+  "Станции · рабочие места · операции · терминалы": "Stations \u00b7 work positions \u00b7 operations \u00b7 terminals",
+  "станции · рабочие места · операции · терминалы": "stations \u00b7 work positions \u00b7 operations \u00b7 terminals",
+  "Кто работает в системе и на каком рабочем месте стоит по умолчанию. Это префилл экрана, а не закрепление человека за станком: правда о том, кто сделал работу, приходит со скана. Права по модулям и полям будут отдельным слоем.": "Who works in the system and which work position they stand at by default. This prefills the screen; it does not tie a person to a machine \u2014 the truth about who did the work arrives with the scan. Module and field permissions come as a separate layer.",
+  "Габариты рабочих мест": "Work position sizes",
+  "Три ЧПУ": "Three CNCs",
+  "В прототипе пока роли + рабочее место. Field-level security и approval ещё не реализованы.": "The prototype has roles + work position so far. Field-level security and approval are not implemented yet.",
   "Производственная система · прототип": "Production system · prototype",
   "Экспорт JSON": "Export JSON",
   "Импорт JSON": "Import JSON",
@@ -3176,7 +3703,6 @@ const I18N_EN={
   "Продажи": "Sales",
   "Бухгалтер": "Accounting",
   "Владелец": "Owner",
-  "Цех": "Shop floor",
   "Отгрузка": "Shipping",
   "Резка": "Cutting",
   "Кромка": "Edge work",
@@ -3188,12 +3714,6 @@ const I18N_EN={
   "Ламинация": "Lamination",
   "Сборка стеклопакета": "IGU assembly",
   "Готово к отгрузке": "Shipping ready",
-  "Этапы маршрута": "Route stages",
-  "Режется только отожжённое стекло": "Annealed glass only",
-  "Полирует контур (этап 2) и обрабатывает тело стекла (этап 3) — один станок на двух этапах": "Polishes the contour (stage 2) and works the glass body (stage 3) — one machine on two stages",
-  "Работает садками, а не поштучно; минимальный размер детали 6 × 12 in": "Runs in batches, not piece by piece; minimum part size 6 × 12 in",
-  "Один станок может стоять на нескольких этапах — ЧПУ полирует контур и обрабатывает тело стекла.": "One machine can sit on several stages — the CNC polishes the contour and works the glass body.",
-  "Справочники обновлены до новой версии — этапы маршрута и станки приведены к реальному цеху.": "Reference tables refreshed — route stages and machines now match the real shop.",
   "Кромка (arris/polish)": "Edgework (arris/polish)",
   "ЧПУ полировка": "CNC polishing",
   "Сверловка/выемки": "Drilling / notches",
@@ -3204,14 +3724,6 @@ const I18N_EN={
   "Мидл": "Intermediate",
   "Синьор": "Senior",
   "Кромка (arris / polish / CNC polishing)": "Edgework (arris / polish / CNC polishing)",
-  "Раскроечный стол": "Cutting table",
-  "Кромкообрабатывающая линия": "Edging line",
-  "Фацетный станок": "Beveling machine",
-  "Обрабатывающий центр ЧПУ": "CNC machining center",
-  "Печь закалки": "Tempering furnace",
-  "Заведена под уровень 1 — раньше в модели не было отдельной резки, только печь/кромка/ЧПУ": "Assigned to level 1 — the earlier model had no separate cutting step, only furnace/edge/CNC",
-  "Уровень не назначен — уточни у себя: этот ЧПУ больше полирует кромку (уровень 2) или сверлит/выбирает пазы (уровень 3)?": "Level is not assigned — confirm whether this CNC is mainly edge polishing (level 2) or drilling/notching (level 3).",
-  "Уровень не назначен — закалка обычно отдельный этап после кромки/сверловки, назначь номер сам": "Level is not assigned — tempering is normally a separate step after edgework/drilling; assign the actual process level.",
   "Обзор": "Overview",
   "Главная": "Dashboard",
   "Ядро": "Core",
@@ -3263,7 +3775,6 @@ const I18N_EN={
   "Billing и несколько delivery/job-site адресов могут существовать одновременно.": "Billing and multiple delivery/job-site addresses can exist at the same time.",
   "+ Адрес": "+ Address",
   "Адрес": "Address",
-  "Тип": "Type",
   "По умолчанию": "Default",
   "Кредит и коммерческие условия": "Credit and commercial terms",
   "Индивидуальная ставка": "Custom rate",
@@ -3281,7 +3792,6 @@ const I18N_EN={
   "Заменить весь справочник клиентов данными из файла? Это действие нельзя отменить без резервного экспорта.": "Replace the entire customer master with data from the file? This cannot be undone without a backup export.",
   "Файл клиентов превышает 10 MB.": "Customer file exceeds 10 MB.",
   "Не удалось импортировать клиентов:": "Could not import customers:",
-  "Операции": "Operations",
   "Продажи / конфигурация": "Sales / configuration",
   "Конфигураторы": "Configurators",
   "Заказы и коммерческая конфигурация": "Orders and commercial configuration",
@@ -3312,10 +3822,8 @@ const I18N_EN={
   "Spil остаётся источником работы до прохождения контрольных фаз.": "Spil remains the operational system until the control phases are passed.",
   "Обзор системы": "System overview",
   "Карта ERP и текущий статус": "ERP map and current status",
-  "Роли, станции и покрытие навыков": "Roles, stations and skill coverage",
   "Изолированные модули Shape и Muntinbar": "Isolated Shape and Muntinbar modules",
   "Мост данных к Perfect Cut": "Data bridge to Perfect Cut",
-  "Поток цеха, станции и уровни": "Shop flow, stations and levels",
   "Производственная система": "Production system",
   "Фаза 1 · фундамент": "Phase 1 · foundation",
   "модуль в плане": "module planned",
@@ -3323,7 +3831,6 @@ const I18N_EN={
   "Не набор справочников, а сквозной поток: от конфигурации заказа и оптимизации раскроя до прохождения детали по цеху, складу и отгрузке.": "Not a set of reference tables, but an end-to-end flow: from order configuration and cutting optimization to shop-floor processing, inventory and shipping.",
   "Текущий контур ERP: Customer Master, Draft Sales Orders с order-scoped Makeups, техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху.": "The current ERP scope includes Customer Master, Draft Sales Orders with order-scoped Makeups, technical Shape and Muntin configuration, cutting optimization and shop-floor processing.",
   "Прототип архитектуры": "Architecture prototype",
-  "нужно назначить": "assignment needed",
   "готово": "ready",
   "ядро": "core",
   "ожидает данных": "waiting for data",
@@ -3335,7 +3842,6 @@ const I18N_EN={
   "заказ · Shape · Muntin · будущий pricing": "order · Shape · Muntin · future pricing",
   "Shape · Muntin · чертежи · cutting geometry": "Shape · Muntin · drawings · cutting geometry",
   "внешняя оптимизация раскроя через мост": "external cutting optimization through the bridge",
-  "станции · маршруты · WIP · события": "stations · routings · WIP · events",
   "стойки · комплектация · доставка": "racks · staging · delivery",
   "Склад / Inventory": "Inventory",
   "материалы · партии · остатки · обрезь · движения": "materials · lots · stock · offcuts · movements",
@@ -3358,20 +3864,13 @@ const I18N_EN={
   "Что сейчас требует решения, а не дизайна": "What currently needs a decision, not design",
   "открытые вопросы": "open questions",
   "Не проектируем протокол до реальных настроек коннектора Spil / ответа R.O. SRL.": "Do not design the protocol until we have the actual Spil connector settings / R.O. SRL response.",
-  "Уровень потока не назначен. Это должен решить реальный технологический маршрут.": "Flow level is not assigned. The actual production routing must determine it.",
-  "Станки": "Machines",
-  "Нужен полный список: мойка, IGU line, автоклав, ламинация и другие реальные рабочие центры.": "Need the full list: washer, IGU line, autoclave, lamination and other actual work centers.",
   "Права доступа": "Permissions",
-  "В прототипе пока роли + станция. Field-level security и approval ещё не реализованы.": "The prototype currently has roles + station only. Field-level security and approval are not implemented yet.",
   "Команда и доступ к производству": "Team and production access",
-  "Кто работает в системе, к какой станции привязан и какие операции умеет выполнять. Права по модулям и полям будут отдельным слоем.": "Who works in the system, which station they are assigned to, and which operations they can perform. Module and field permissions will be a separate layer.",
   "права — следующий шаг": "permissions — next step",
   "пользователей": "users",
-  "привязано к станции": "assigned to a station",
   "типов навыков покрыто": "skill types covered",
   "навыков без носителя": "skills with no holder",
   "Покрытие навыков": "Skill coverage",
-  "не назначена": "not assigned",
   "Изменить": "Edit",
   "Имя": "Name",
   "Роль": "Role",
@@ -3383,7 +3882,6 @@ const I18N_EN={
   "Изменение": "Edit",
   "Имя *": "Name *",
   "Роль *": "Role *",
-  "Станция по умолчанию": "Default station",
   "— нет —": "— none —",
   "Навыки и уровень владения": "Skills and proficiency level",
   "не отмечено": "not selected",
@@ -3469,49 +3967,15 @@ const I18N_EN={
   "Наша ERP": "Our ERP",
   "WIP, станции, бой, повторный запуск, остатки": "WIP, stations, breakage, remake, stock",
   "только транспорт данных между двумя системами": "data transport between the two systems only",
-  "машины не назначены": "no machines assigned",
-  "Производственный поток": "Production flow",
-  "Уровень — не просто цифра в таблице. Это место станции в маршруте детали через цех. Ниже поток виден как процесс, а таблица остаётся для точного редактирования.": "A level is not just a number in a table. It is the station position in a part routing through the shop. The flow is shown visually below, while the table remains for precise editing.",
-  "Маршрут по уровням": "Routing by levels",
-  "все назначены": "all assigned",
-  "Без уровня:": "Without level:",
-  ". Их позицию в маршруте не угадываем.": ". Their route position is not guessed.",
-  "Станции / машины": "Stations / machines",
-  "Уровни потока": "Flow levels",
-  "Поток": "Flow",
   "не назначен": "not assigned",
-  "Толщина": "Thickness",
   "Статус": "Status",
   "в маршруте": "in route",
   "требует решения": "decision needed",
-  "Точная таблица станций": "Exact station table",
   "CRUD сохранён": "CRUD retained",
-  "Код": "Code",
-  "Уровень": "Level",
-  "Габарит, in": "Size, in",
   "Примечание": "Note",
-  "Добавить станцию": "Add station",
-  "Новая станция": "New station",
-  "Код *": "Code *",
   "Название *": "Name *",
-  "— не назначен —": "— not assigned —",
-  "Макс. ширина, in": "Max width, in",
-  "Макс. длина, in": "Max length, in",
   "Код и название обязательны": "Code and name are required",
   "Такой код уже есть": "This code already exists",
-  "Нельзя удалить — на станцию назначены пользователи": "Cannot delete — users are assigned to this station",
-  "Удалить станцию?": "Delete station?",
-  "Название этапа": "Stage name",
-  "Станций": "Stations",
-  "Добавить уровень": "Add level",
-  "Список открытый — добавляй уровни по мере того, как появляются новые этапы (закалка, мойка, сборка стеклопакета и т.д.).": "The list is open-ended — add levels as new stages appear (tempering, washing, IGU assembly, etc.).",
-  "Новый уровень": "New level",
-  "Номер *": "Number *",
-  "Название этапа *": "Stage name *",
-  "Заполни номер и название": "Enter the number and name",
-  "Такой номер уже есть": "This number already exists",
-  "Нельзя удалить — на этот уровень назначены станции": "Cannot delete — stations are assigned to this level",
-  "Удалить уровень?": "Delete level?",
   "Файл не читается:": "Cannot read file:",
   "Здесь подключены реальные модули из Glass Configurator v4.5: Smart-Shape / Advanced и shape-adaptive Muntin Production. Это уже не демонстрационные точки и не прямоугольная сетка.": "The real modules from Glass Configurator v4.5 are connected here: Smart-Shape / Advanced and shape-adaptive Muntin Production. These are no longer demo points or a rectangular grid.",
   "Реальная модель из Configurator: A = Height, B = Width, C = правая сторона, D = AUTO. Поддерживаются out-of-plumb, elbows и угловые блоки Single / Double / Triple.": "Real Configurator model: A = Height, B = Width, C = right side, D = AUTO. Supports out-of-plumb, elbows and Single / Double / Triple corner blocks.",
@@ -3543,11 +4007,6 @@ const I18N_EN={
   "Flip exterior / interior": "Flip exterior / interior",
   "Введите корректный неотрицательный размер": "Enter a valid non-negative dimension",
   "Код: только A–Z, 0–9, дефис и подчёркивание": "Code: use only A–Z, 0–9, hyphen and underscore",
-  "Максимальные ширина и длина заполняются вместе": "Maximum width and length must be entered together",
-  "Габариты станции должны быть больше нуля": "Station dimensions must be greater than zero",
-  "Минимальная и максимальная толщина заполняются вместе": "Minimum and maximum thickness must be entered together",
-  "Проверь диапазон толщины": "Check the thickness range",
-  "Заполни положительный целый номер и название": "Enter a positive integer number and a name",
   "Не удалось сохранить данные в браузере. Сделай экспорт JSON и проверь свободное место.": "Could not save data in the browser. Export JSON and check available storage."
 };
 const _textOriginal=new WeakMap();
@@ -3564,12 +4023,21 @@ function tx(value){
  else if((mm=x.match(/^Импортировано клиентов: (\d+)$/))) x=`Customers imported: ${mm[1]}`;
  else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
  else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
- else if((mm=x.match(/^станций заведено · (\d+) с уровнем потока$/))) x=`stations added · ${mm[1]} with flow level`;
+ else if((mm=x.match(/^рабочих мест · (\d+) с габаритом$/))) x=`work positions · ${mm[1]} sized`;
  else if((mm=x.match(/^контуров Shape · (\d+) схем Muntin$/))) x=`Shape contours · ${mm[1]} Muntin layouts`;
  else if((mm=x.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?) мм$/))) x=`${mm[1]}–${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) станц\.$/))) x=`${mm[1]} stations`;
  else if((mm=x.match(/^(\d+) станций$/))) x=`${mm[1]} stations`;
- else if((mm=x.match(/^(\d+) без уровня$/))) x=`${mm[1]} without level`;
+ else if((mm=x.match(/^(\d+) мест без габарита$/))) x=`${mm[1]} positions without a size`;
+ else if((mm=x.match(/^(\d+) станций без мест$/))) x=`${mm[1]} stations without positions`;
+ else if((mm=x.match(/^Ждут замеров в цеху \((\d+)\):$/))) x=`Awaiting measurement in the shop (${mm[1]}):`;
+ else if((mm=x.match(/^Единица не задана у (\d+) операций\.$/))) x=`The unit is not set on ${mm[1]} operations.`;
+ else if((mm=x.match(/^(\d+) из (\d+) рабочих мест ждут замеров\. Без них не работает check_route_fits\(\) — маршрут не знает, влезет ли деталь\.$/))) x=`${mm[1]} of ${mm[2]} work positions await measurement. Without them check_route_fits() cannot run — the route does not know whether the part fits.`;
+ else if((mm=x.match(/^Принято строк: (\d+)$/))) x=`Rows accepted: ${mm[1]}`;
+ else if((mm=x.match(/^— новых (\d+), обновлено (\d+)\. Отклонено: (\d+)\.$/))) x=`— ${mm[1]} new, ${mm[2]} updated. Rejected: ${mm[3]}.`;
+ else if((mm=x.match(/^станции (.+) нет в справочнике$/))) x=`station ${mm[1]} is not in the reference table`;
+ else if((mm=x.match(/^неизвестные операции: (.+)$/))) x=`unknown operations: ${mm[1]}`;
+ else if((mm=x.match(/^Загрузить (STATIONS|WORK_POSITIONS)\.csv$/))) x=`Load ${mm[1]}.csv`;
  else if((mm=x.match(/^(\d+) точек$/))) x=`${mm[1]} points`;
  else if((mm=x.match(/^(\d+) чел\.$/))) x=`${mm[1]} people`;
  else if((mm=x.match(/^(\d+) человека$/))) x=`${mm[1]} people`;
@@ -3713,13 +4181,18 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
    raw() помечает узел атрибутом data-raw, и переводчик его пропускает.
    Для <option> тот же смысл даёт атрибут data-raw прямо на теге.
 
-   Исключение — строки, которые засеяли МЫ (дефолтный каталог станций и уровней):
+   Исключение — строки, которые засеяли МЫ (примечания к справочникам цеха):
    их перевод остаётся, иначе в EN каталог по умолчанию был бы русским. Как только
-   пользователь переименует запись — значение перестаёт совпадать с засеянным
+   пользователь перепишет примечание — значение перестаёт совпадать с засеянным
    и дальше не переводится никогда. */
+/* Имён станций и рабочих мест здесь БОЛЬШЕ НЕТ, и это не пропуск. У них
+   появилось поле nameEn: пользователь заполнил в CSV обе колонки, поэтому
+   язык выбирает нужную, а не переводит содержимое базы словарём. В словаре
+   остались только примечания — их пользователь написал в одном языке. */
 const SEED_TEXT=new Set([].concat(
- (DEFAULT.station||[]).map(s=>s.name), (DEFAULT.station||[]).map(s=>s.note),
- (DEFAULT.level||[]).map(l=>l.label)
+ (DEFAULT.station||[]).map(s=>s.note),
+ (DEFAULT.workPosition||[]).map(w=>w.note),
+ (DEFAULT.operation||[]).map(o=>o.note)
 ).filter(Boolean));
 const raw=s=>{s=String(s??'');
  /* засеянное значение оборачиваем в свой <span>: так оно становится отдельным
@@ -3732,12 +4205,12 @@ function render(){
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
   dashboard:['Обзор системы','Карта ERP и текущий статус'],
-  users:['Пользователи','Роли, станции и покрытие навыков'],
+  users:['Пользователи','Роли, рабочие места и покрытие навыков'],
   customers:['Клиенты','Справочник клиентов, контакты и коммерческие условия'],
   sales:['Продажи','Заказы и коммерческая конфигурация'],
   configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
-  production:['Производство','Поток цеха, станции и уровни']
+  production:['Производство','Станции · рабочие места · операции · терминалы']
  }[tab]||['ERP Glazing System','Производственная система'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
@@ -3757,8 +4230,14 @@ function render(){
    ===================================================================== */
 
 function viewDashboard(){
- const assigned=DB.station.filter(s=>s.levels&&s.levels.length).length;
- const unassigned=DB.station.length-assigned;
+ /* Считаем не «станции с уровнем», а рабочие места без габарита: уровня
+    больше нет — станция сама стала шагом маршрута, — а незамеренное поле это
+    единственное, что сейчас держит `check_route_fits()` этапа 7·2. */
+ /* Два РАЗНЫХ числа, и путать их нельзя: `sized` — у скольких габарит есть,
+    `unsized` — сколько ждёт замера. Разница не сходится на ручных местах:
+    у притупления руками габарита нет и не будет, оно не в долгу. */
+ const sized=DB.workPosition.filter(w=>w.maxW!=null).length;
+ const unsized=workPositionsAwaitingSize().length;
  const moduleCount=3; // Sales / Optimization / Production в текущем прототипе
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
@@ -3768,7 +4247,7 @@ function viewDashboard(){
   </div>
 
   <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unassigned?'warn':'ok'}">${unassigned?'нужно назначить':'готово'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">станций заведено · ${assigned} с уровнем потока</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'нужны замеры':'готово'}</span></div><div class="kpi-num">${DB.workPosition.length}</div><div class="kpi-label">рабочих мест · ${sized} с габаритом</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">ядро</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей в прототипе</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">контуров Shape · ${DB.muntinDef.length} схем Muntin</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">ожидает данных</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">операционных модулей в новой оболочке</div></div>
@@ -3784,7 +4263,7 @@ function viewDashboard(){
        <div class="flow-arrow">${ico('arrow')}</div>
        <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>внешняя оптимизация раскроя через мост</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Производство</b><small>станции · маршруты · WIP · события</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Производство</b><small>станции · рабочие места · операции · терминалы</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
        <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('shipping')}</div><b>Отгрузка</b><small>стойки · комплектация · доставка</small></div>
       </div>
@@ -3813,9 +4292,10 @@ function viewDashboard(){
    <div class="section-title"><h3>Что сейчас требует решения, а не дизайна</h3><span class="pill warn">${ico('alert','icon-inline')}открытые вопросы</span></div>
    <div class="machine-grid">
     <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Не проектируем протокол до реальных настроек коннектора Spil / ответа R.O. SRL.</div></div>
-    <div class="card-soft"><b>CNC1 и FURN1</b><div class="hint">Уровень потока не назначен. Это должен решить реальный технологический маршрут.</div></div>
-    <div class="card-soft"><b>Станки</b><div class="hint">Нужен полный список: мойка, IGU line, автоклав, ламинация и другие реальные рабочие центры.</div></div>
-    <div class="card-soft"><b>Права доступа</b><div class="hint">В прототипе пока роли + станция. Field-level security и approval ещё не реализованы.</div></div>
+    <div class="card-soft"><b>Габариты рабочих мест</b><div class="hint">${unsized} из ${DB.workPosition.length} рабочих мест ждут замеров. Без них не работает check_route_fits() — маршрут не знает, влезет ли деталь.</div></div>
+    <div class="card-soft"><b>Три ЧПУ</b><div class="hint">Одинаковы ли CNC1 / CNC2 / CNC3 по рабочему полю. Если нет — маршрут обязан знать, на какой можно.</div></div>
+    <div class="card-soft"><b>Терминалы</b><div class="hint">Поведение экрана известно, а сколько их в цеху и какие места висят на каждом — ещё нет. Выдуманные строки сюда не заводим.</div></div>
+    <div class="card-soft"><b>Права доступа</b><div class="hint">В прототипе пока роли + рабочее место. Field-level security и approval ещё не реализованы.</div></div>
    </div>
   </div>`;
 }
@@ -3823,7 +4303,7 @@ function viewDashboard(){
 /* ==== src/erp/views/users.js ==== */
 /* =====================================================================
    view/users  ·  erp-1.0
-   Пользователи, станции, навыки и покрытие навыков.
+   Пользователи, рабочие места, навыки и покрытие навыков.
    IN : DB.user
    OUT: html
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
@@ -3833,10 +4313,10 @@ let uEdit=null, uDraft=null;
 function viewUsers(){
  if(!subtab || !['list','report'].includes(subtab)) subtab='list';
  const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill))).length;
- return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе, к какой станции привязан и какие операции умеет выполнять. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
+ return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе и на каком рабочем месте стоит по умолчанию. Это префилл экрана, а не закрепление человека за станком: правда о том, кто сделал работу, приходит со скана. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.station).length}</div><div class="kpi-label">привязано к станции</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.workPosition).length}</div><div class="kpi-label">привязано к рабочему месту</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('check')}</div></div><div class="kpi-num">${covered}/${SKILLS.length}</div><div class="kpi-label">типов навыков покрыто</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${SKILLS.length-covered}</div><div class="kpi-label">навыков без носителя</div></div>
   </div>
@@ -3850,18 +4330,18 @@ function viewUsers(){
 }
 function viewUsersList(){
  const rows=DB.user.map((u,i)=>{
-  const st=DB.station.find(s=>s.code===u.station);
+  const st=DB.workPosition.find(w=>w.code===u.workPosition);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
   return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
-   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${raw(st.name)}`:'<span class="mut">не назначена</span>'}</td>
+   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">не назначено</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Изменить</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Имя</th><th>Роль</th><th>Станция</th><th>Навыки</th><th></th></tr></thead>
+  <table><thead><tr><th>Имя</th><th>Роль</th><th>Рабочее место</th><th>Навыки</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,workPosition:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -3869,8 +4349,8 @@ function userForm(){
   <div class="grid">
    <div><label>Имя *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
    <div><label>Роль *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
-   <div><label>Станция по умолчанию</label><select id="u_station" onchange="uDraft.station=this.value||null"><option value="">— нет —</option>
-    ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''}>${esc(s.code)} — ${SEED_TEXT.has(s.name)&&LANG==='en'?tx(s.name):esc(s.name)}</option>`).join('')}</select></div>
+   <div><label>Рабочее место по умолчанию</label><select id="u_workPosition" onchange="uDraft.workPosition=this.value"><option value="">— нет —</option>
+    ${DB.workPosition.map(w=>`<option value="${esc(w.code)}" ${w.code===r.workPosition?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
   </div>
   <div style="margin-top:12px"><label>Навыки и уровень владения</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
@@ -4717,142 +5197,347 @@ function viewOptimization(){
 
 /* ==== src/erp/views/production.js ==== */
 /* =====================================================================
-   view/production  ·  erp-1.0
-   Поток по уровням, станции/машины, CRUD.
-   IN : DB.station / DB.level
+   view/production  ·  shopfloor-1.0
+   Четыре справочника цеха и маршрут по станциям.
+   IN : DB.station · DB.operation · DB.workPosition · DB.terminal
    OUT: html
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+
+   Экран разложен по тем же четырём сущностям, что и модель: станция, рабочее
+   место, операция, терминал. Это не оформление — прежний экран показывал
+   станки и «уровни потока» как одно и то же, и пока они выглядят одним, их
+   и заводят как одно. Ровно так у Spil в 33 подстанциях оказались вперемешку
+   люди, станки, операции и смены.
    ===================================================================== */
 
+const SF_TABS=[
+ {k:'stations',  label:'Станции'},
+ {k:'positions', label:'Рабочие места'},
+ {k:'operations',label:'Операции'},
+ {k:'terminals', label:'Терминалы'}
+];
+const SF_STAGE_LABEL={pre_temper:'до печи',heat:'печь',post_temper:'после печи',any:'не ограничено'};
+const SF_UNIT_LABEL={in:'дюйм',ft2:'ft²',pcs:'шт',lb:'фунт'};
+
 function viewProduction(){
- if(!['stations','levels'].includes(subtab)) subtab='stations';
- const levels=[...DB.level].sort((a,b)=>a.n-b.n);
- const pipeline=levels.map((l,i)=>{
-   const machines=DB.station.filter(s=>s.levels.includes(l.n));
-   return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-index">${l.n}</div><div><b>${raw(l.label)}</b><small>${machines.length} станц.</small></div></div><div class="stage-machines">${machines.length?machines.map(s=>`<span class="pill" data-raw>${esc(s.code)}</span>`).join(' '):'<span class="mut">машины не назначены</span>'}</div></div>`;
+ if(!SF_TABS.some(t=>t.k===subtab)) subtab='stations';
+ const noSize=workPositionsAwaitingSize().length;
+ const pipeline=DB.station.map((s,i)=>{
+  const wp=stationWorkPositions(s.code);
+  return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-index">${s.seq}</div><div><b>${sfLabel(s)}</b><small>${s.always?'всегда':'по необходимости'}</small></div></div><div class="stage-machines">${wp.length?wp.map(w=>`<span class="pill" data-raw>${esc(w.code)}</span>`).join(' '):'<span class="mut">рабочих мест нет</span>'}</div></div>`;
  }).join('');
- const orphan=DB.station.filter(s=>!s.levels.length);
- return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Справочники обновлены до новой версии — этапы маршрута и станки приведены к реальному цеху.</div>':''}<div class="page-head"><div><h2>Производственный поток</h2><p>Уровень — не просто цифра в таблице. Это место станции в маршруте детали через цех. Ниже поток виден как процесс, а таблица остаётся для точного редактирования.</p></div><span class="pill info">${ico('factory','icon-inline')}${DB.station.length} станций</span></div>
+ const empty=DB.station.filter(s=>!stationWorkPositions(s.code).length);
+ return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Справочники обновлены: станция стала шагом маршрута, станки переехали в рабочие места, появились операции и терминалы.</div>':''}<div class="page-head"><div><h2>Цех</h2><p>Станция — это шаг маршрута, а не экран и не станок. Где делают — рабочее место, что именно делают — операция, чем сканируют — терминал. Четыре разные вещи, которые в Spil лежали одной таблицей.</p></div><span class="pill ${noSize?'warn':'ok'}">${ico('factory','icon-inline')}${noSize} мест без габарита</span></div>
   <div class="card">
-   <div class="section-title"><h3>Маршрут по уровням</h3><span class="pill ${orphan.length?'warn':'ok'}">${orphan.length?orphan.length+' без уровня':'все назначены'}</span></div>
+   <div class="section-title"><h3>Маршрут по станциям</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' станций без мест':'везде есть места'}</span></div>
    <div class="pipeline">${pipeline}</div>
-   ${orphan.length?`<div class="note" style="margin-top:10px">Без уровня: ${orphan.map(s=>`<b>${raw(s.code)}</b> — ${raw(s.name)}`).join('; ')}. Их позицию в маршруте не угадываем.</div>`:''}
+   ${empty.length?`<div class="note" style="margin-top:10px">Без рабочих мест: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}<span>. Силкскрин переносится на этапе 5б, отгрузка ещё не спроектирована — рабочих мест там пока нет, и это не пробел в данных.</span></div>`:''}
   </div>
   <div class="card">
-   <div class="tabs"><button class="${subtab==='stations'?'on':''}" onclick="subtab='stations';render()">Станции / машины</button><button class="${subtab==='levels'?'on':''}" onclick="subtab='levels';render()">Уровни потока</button></div>
-   ${subtab==='stations'?viewStations():viewLevels()}
-  </div>`;
+   <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
+   ${({stations:viewSfStations,positions:viewSfPositions,operations:viewSfOperations,terminals:viewSfTerminals})[subtab]()}
+  </div>
+  ${subtab==='stations'||subtab==='positions'?sfImportCard():''}`;
 }
+
+/* --- 1. Станции ------------------------------------------------------ */
 let stEdit=null;
-function viewStations(){
- const machineCards=DB.station.map(s=>{
-  const lvs=s.levels.map(n=>DB.level.find(l=>l.n===n)).filter(Boolean);
-  const icon=s.code.includes('FURN')?'furnace':s.code.includes('CNC')?'cnc':s.code.includes('EDGE')||s.code.includes('BEVEL')?'edge':'cut';
-  return `<div class="machine-card"><div class="machine-head"><div class="machine-ico">${ico(icon)}</div><div><b>${raw(s.name)}</b><div class="code" data-raw>${esc(s.code)}</div></div></div><div class="machine-meta"><div><span>Поток</span><strong>${lvs.length?lvs.map(l=>l.n+' · '+raw(l.label)).join('<br>'):'не назначен'}</strong></div><div><span>Габарит</span><strong>${s.maxW?s.maxW+' × '+s.maxL+' in':'—'}</strong></div><div><span>Толщина</span><strong>${s.minTh??'—'}–${s.maxTh??'—'} mm</strong></div><div><span>Статус</span><strong>${lvs.length?'в маршруте':'требует решения'}</strong></div></div></div>`;
- }).join('');
+function viewSfStations(){
  const rows=DB.station.map((s,i)=>{
-  const lvs=s.levels.map(n=>DB.level.find(l=>l.n===n)).filter(Boolean);
-  return `<tr><td class="mono"><b>${raw(s.code)}</b></td><td>${raw(s.name)}</td>
-   <td>${lvs.length?lvs.map(l=>`<span class="pill info">${l.n} · ${raw(l.label)}</span>`).join(' '):'<span class="bad pill">не назначен</span>'}</td>
-   <td class="mono">${s.maxW?s.maxW+' × '+s.maxL:'<span class="mut">—</span>'}</td>
-   <td class="mono">${s.minTh==null||s.maxTh==null?'<span class="mut">—</span>':s.minTh+'–'+s.maxTh+' мм'}</td>
-   <td class="mut" style="max-width:220px">${raw(s.note||'')}</td>
+  const wp=stationWorkPositions(s.code),ops=stationOperations(s.code);
+  return `<tr><td class="mono"><b>${s.seq}</b></td><td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
+   <td><span class="pill ${s.always?'ok':'info'}">${s.always?'всегда':'по необходимости'}</span></td>
+   <td>${ops.length?ops.map(o=>`<span class="pill info" data-raw>${esc(o.code)}</span>`).join(' '):'<span class="mut">—</span>'}</td>
+   <td>${wp.length?wp.map(w=>`<span class="pill" data-raw>${esc(w.code)}</span>`).join(' '):'<span class="mut">нет</span>'}</td>
+   <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stEdit=${i};render()">Изменить</button>
-   <button class="sm dl" onclick="delStation(${i})">×</button></td></tr>`;
+   <button class="sm dl" onclick="delSfStation(${i})">×</button></td></tr>`;
  }).join('');
- return `${stEdit!==null?stationForm():''}
-  <div class="machine-grid">${machineCards}</div>
-  <div class="section-title" style="margin-top:18px"><h3>Точная таблица станций</h3><span class="mut" style="font-size:11px">CRUD сохранён</span></div>
-  <table><thead><tr><th>Код</th><th>Название</th><th>Уровень</th><th>Габарит, in</th><th>Толщина</th><th>Примечание</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="7" class="empty">пусто</td></tr>'}</tbody></table>
+ return `${stEdit!==null?sfStationForm():''}
+  <div class="sub">Одиннадцать шагов маршрута. Порядок и признак «всегда / по необходимости» пользователь подтвердил; имена даны по ТИПУ работы, а конкретная услуга печатается на стикере.</div>
+  <table><thead><tr><th>№</th><th>Код</th><th>Название</th><th>В маршруте</th><th>Операции</th><th>Рабочие места</th><th>Примечание</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="8" class="empty">пусто</td></tr>'}</tbody></table>
   ${stEdit!==null?'':'<div class="row"><button class="pri" onclick="stEdit=\'new\';render()">Добавить станцию</button></div>'}`;
 }
-function stationForm(){
- const r = stEdit==='new' ? {code:'',name:'',levels:[],maxW:'',maxL:'',minTh:'',maxTh:'',note:''} : DB.station[stEdit];
+function sfStationForm(){
+ const r = stEdit==='new' ? {seq:(Math.max(0,...DB.station.map(s=>s.seq))+1),code:'',name:'',nameEn:'',always:false,note:''} : DB.station[stEdit];
  return `<div class="form"><h3>${stEdit==='new'?'Новая станция':'Изменение'}</h3>
   <div class="grid">
-   <div><label>Код *</label><input id="st_code" value="${esc(r.code)}"></div>
-   <div><label>Название *</label><input id="st_name" value="${esc(r.name)}"></div>
-   <div style="grid-column:1/-1"><label>Этапы маршрута</label>
-    <div style="display:flex;flex-wrap:wrap;gap:8px 16px">${DB.level.map(l=>`<label style="display:inline-flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" class="st_lv" value="${l.n}" ${(r.levels||[]).includes(l.n)?'checked':''}><span>${l.n} · ${SEED_TEXT.has(l.label)&&LANG==='en'?tx(l.label):esc(l.label)}</span></label>`).join('')}</div>
-    <div class="hint">Один станок может стоять на нескольких этапах — ЧПУ полирует контур и обрабатывает тело стекла.</div></div>
-   <div><label>Макс. ширина, in</label><input id="st_maxW" type="number" min="0" step="any" value="${r.maxW??''}"></div>
-   <div><label>Макс. длина, in</label><input id="st_maxL" type="number" min="0" step="any" value="${r.maxL??''}"></div>
-   <div><label>Мин. толщина, мм</label><input id="st_minTh" type="number" min="0" step="any" value="${r.minTh??''}"></div>
-   <div><label>Макс. толщина, мм</label><input id="st_maxTh" type="number" min="0" step="any" value="${r.maxTh??''}"></div>
+   <div><label>Порядок *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"></div>
+   <div><label>Код *</label><input id="sf_code" value="${esc(r.code)}"></div>
+   <div><label>Название (RU) *</label><input id="sf_name" value="${esc(r.name)}"></div>
+   <div><label>Название (EN)</label><input id="sf_nameEn" value="${esc(r.nameEn||'')}"></div>
+   <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_always" ${r.always?'checked':''}> Проходится всегда</label>
+    <div class="hint">«Всегда» — станция есть в маршруте любой детали: резка, готовность к отгрузке, отгрузка. Остальные включаются составом изделия.</div></div>
   </div>
-  <div style="margin-top:12px"><label>Примечание</label><input id="st_note" value="${esc(r.note||'')}"></div>
-  <div class="err" id="e_station"></div>
-  <div class="row"><button class="pri" onclick="saveStation()">Сохранить</button><button onclick="stEdit=null;render()">Отмена</button></div></div>`;
+  <div style="margin-top:12px"><label>Примечание</label><input id="sf_note" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_sfStation"></div>
+  <div class="row"><button class="pri" onclick="saveSfStation()">Сохранить</button><button onclick="stEdit=null;render()">Отмена</button></div></div>`;
 }
-function saveStation(){
- const e=document.getElementById('e_station'); e.style.display='none';
- const code=document.getElementById('st_code').value.trim().toUpperCase();
- const name=document.getElementById('st_name').value.trim();
+function saveSfStation(){
+ const e=document.getElementById('e_sfStation'); e.style.display='none';
+ const seq=+document.getElementById('sf_seq').value;
+ const code=document.getElementById('sf_code').value.trim().toUpperCase();
+ const name=document.getElementById('sf_name').value.trim();
+ if(!Number.isInteger(seq)||seq<=0) return fail(e,'Порядок: целое положительное число');
  if(!code||!name) return fail(e,'Код и название обязательны');
- if(!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
+ if(!SF_CODE_RE.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'Такой код уже есть');
- const g=id=>{const v=document.getElementById(id).value; return v===''?null:+v;};
- const maxW=g('st_maxW'),maxL=g('st_maxL'),minTh=g('st_minTh'),maxTh=g('st_maxTh');
- if((maxW==null)!==(maxL==null))return fail(e,'Максимальные ширина и длина заполняются вместе');
- if(maxW!=null&&(!(maxW>0)||!(maxL>0)))return fail(e,'Габариты станции должны быть больше нуля');
- if((minTh==null)!==(maxTh==null))return fail(e,'Минимальная и максимальная толщина заполняются вместе');
- if(minTh!=null&&(!(minTh>0)||!(maxTh>0)||minTh>maxTh))return fail(e,'Проверь диапазон толщины');
- const levels=[...document.querySelectorAll('.st_lv:checked')].map(x=>+x.value).sort((a,b)=>a-b);
- const o={code,name, levels, maxW,maxL,minTh,maxTh,note:document.getElementById('st_note').value.trim()};
- if(stEdit==='new') DB.station.push(o); else {Object.assign(DB.station[stEdit],o); delete DB.station[stEdit].level;}
+ const o={seq,code,name,nameEn:document.getElementById('sf_nameEn').value.trim(),
+  always:document.getElementById('sf_always').checked,note:document.getElementById('sf_note').value.trim()};
+ if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
+ DB.station.sort((a,b)=>a.seq-b.seq);
  stEdit=null; touch(); render();
 }
-function delStation(i){
+/* Станцию, на которую ссылаются операции, не удаляем: операция без станции —
+   сирота, и увидит её только тот, кто откроет нужную вкладку. */
+function delSfStation(i){
  const s=DB.station[i];
- if(DB.user.some(u=>u.station===s.code)) return alert('Cannot delete — users are assigned to this station');
+ if(DB.operation.some(o=>o.station===s.code)) return alert('Cannot delete — operations belong to this station');
+ if(DB.workPosition.some(w=>w.station===s.code)) return alert('Cannot delete — work positions belong to this station');
  if(!confirm('Delete this station?'))return; DB.station.splice(i,1); touch(); render();
 }
 
-let lvEdit=null;
-function viewLevels(){
- const rows=DB.level.map((l,i)=>{   /* DB.level держим отсортированным при записи, не в рендере */
-  const cnt=DB.station.filter(s=>s.levels.includes(l.n)).length;
-  return `<tr><td class="mono"><b>${l.n}</b></td><td>${raw(l.label)}</td>
-   <td class="mut">${cnt} станци${cnt===1?'я':cnt>=2&&cnt<=4?'и':'й'}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="lvEdit=${i};render()">Изменить</button>
-   <button class="sm dl" onclick="delLevel(${i})">×</button></td></tr>`;
+/* --- 2. Рабочие места ------------------------------------------------ */
+let wpEdit=null;
+function viewSfPositions(){
+ const cards=DB.workPosition.map(w=>{
+  const st=workPositionStations(w);
+  const icon=w.code.indexOf('FURN')===0?'furnace':w.code.indexOf('CNC')===0?'cnc':w.station==='EDGE'?'edge':w.station==='CUT'?'cut':'factory';
+  return `<div class="machine-card"><div class="machine-head"><div class="machine-ico">${ico(icon)}</div><div><b>${sfLabel(w)}</b><div class="code" data-raw>${esc(w.code)}</div></div></div>
+   <div class="machine-meta">
+    <div><span>Станции</span><strong>${st.length?st.map(esc).join(' · '):'—'}</strong></div>
+    <div><span>Габарит</span><strong>${w.maxW?w.maxW+' × '+w.maxL+' in':'не замерен'}</strong></div>
+    <div><span>Загрузка</span><strong>${w.batchMode==='batch'?'садка':'поштучно'}</strong></div>
+    <div><span>Оператор</span><strong>${w.defaultOperator?raw(w.defaultOperator):'—'}${w.defaultHelper?' + '+raw(w.defaultHelper):''}</strong></div>
+   </div></div>`;
  }).join('');
- return `${lvEdit!==null?levelForm():''}
-  <table><thead><tr><th>№</th><th>Название этапа</th><th>Станций</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="4" class="empty">пусто</td></tr>'}</tbody></table>
-  ${lvEdit!==null?'':'<div class="row"><button class="pri" onclick="lvEdit=\'new\';render()">Добавить уровень</button></div>'}
-  <div class="hint">Список открытый — добавляй уровни по мере того, как появляются новые этапы (закалка, мойка, сборка стеклопакета и т.д.).</div>`;
+ const rows=DB.workPosition.map((w,i)=>{
+  const st=workPositionStations(w);
+  return `<tr><td class="mono"><b>${raw(w.code)}</b></td><td>${sfLabel(w)}</td>
+   <td>${st.map(c=>`<span class="pill ${c===w.station?'info':''}" data-raw>${esc(c)}</span>`).join(' ')||'<span class="bad pill">нет станции</span>'}</td>
+   <td>${(w.operations||[]).map(c=>`<span class="pill" data-raw>${esc(c)}</span>`).join(' ')||'<span class="mut">—</span>'}</td>
+   <td class="mono">${w.maxW?w.maxW+' × '+w.maxL:'<span class="bad pill">не замерен</span>'}</td>
+   <td>${w.batchMode==='batch'?'<span class="pill warn">садка</span>':'<span class="mut">поштучно</span>'}</td>
+   <td class="mono">${w.defaultOperator?raw(w.defaultOperator):'<span class="mut">—</span>'}${w.defaultHelper?' <span class="mut">+</span> '+raw(w.defaultHelper):''}</td>
+   <td class="mut" style="max-width:220px">${raw(w.note||'')}</td>
+   <td style="white-space:nowrap"><button class="sm" onclick="wpEdit=${i};render()">Изменить</button>
+   <button class="sm dl" onclick="delSfPosition(${i})">×</button></td></tr>`;
+ }).join('');
+ const noSize=workPositionsAwaitingSize();
+ return `${wpEdit!==null?sfPositionForm():''}
+  <div class="sub">Где делают. Габарит — рабочее ПОЛЕ, а не корпус станка: модель отвечает на вопрос «влезет ли деталь». Оператор и напарник — префилл экрана, а не закрепление человека за станком.</div>
+  <div class="machine-grid">${cards}</div>
+  ${noSize.length?`<div class="note" style="margin-top:12px"><span>Ждут замеров в цеху (${noSize.length}):</span> ${noSize.map(w=>`<b>${raw(w.code)}</b>`).join(', ')}<span>. Пока габарита нет, check_route_fits() этапа 7·2 работать не может. Замеры приезжают импортом WORK_POSITIONS.csv — правка кода для этого не нужна.</span></div>`:''}
+  <div class="section-title" style="margin-top:18px"><h3>Точная таблица рабочих мест</h3><span class="mut" style="font-size:11px">CRUD сохранён</span></div>
+  <table><thead><tr><th>Код</th><th>Название</th><th>Станции</th><th>Операции</th><th>Габарит, in</th><th>Загрузка</th><th>Оператор</th><th>Примечание</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="9" class="empty">пусто</td></tr>'}</tbody></table>
+  ${wpEdit!==null?'':'<div class="row"><button class="pri" onclick="wpEdit=\'new\';render()">Добавить рабочее место</button></div>'}`;
 }
-function levelForm(){
- const r = lvEdit==='new' ? {n:(Math.max(0,...DB.level.map(l=>l.n))+1), label:''} : DB.level[lvEdit];
- return `<div class="form"><h3>${lvEdit==='new'?'Новый уровень':'Изменение'}</h3>
-  <div class="grid"><div><label>Номер *</label><input id="lv_n" type="number" min="1" step="1" value="${r.n}"></div>
-  <div><label>Название этапа *</label><input id="lv_label" value="${esc(r.label)}"></div></div>
-  <div class="err" id="e_level"></div>
-  <div class="row"><button class="pri" onclick="saveLevel()">Сохранить</button><button onclick="lvEdit=null;render()">Отмена</button></div></div>`;
+function sfPositionForm(){
+ const r = wpEdit==='new' ? {code:'',station:'',name:'',nameEn:'',kind:'machine',operations:[],defaultOperator:'',defaultHelper:'',maxW:'',maxL:'',batchMode:'single',note:''} : DB.workPosition[wpEdit];
+ return `<div class="form"><h3>${wpEdit==='new'?'Новое рабочее место':'Изменение'}</h3>
+  <div class="grid">
+   <div><label>Код *</label><input id="wp_code" value="${esc(r.code)}"></div>
+   <div><label>Домашняя станция *</label><select id="wp_station"><option value="">— выбери —</option>
+    ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''} data-raw>${esc(s.code)} — ${esc(sfName(s))}</option>`).join('')}</select></div>
+   <div><label>Название (RU) *</label><input id="wp_name" value="${esc(r.name)}"></div>
+   <div><label>Название (EN)</label><input id="wp_nameEn" value="${esc(r.nameEn||'')}"></div>
+   <div><label>Тип места</label><select id="wp_kind"><option value="machine" ${r.kind==='machine'?'selected':''}>станок</option><option value="manual" ${r.kind==='manual'?'selected':''}>ручное место</option></select></div>
+   <div><label>Загрузка</label><select id="wp_batch"><option value="single" ${r.batchMode==='single'?'selected':''}>поштучно</option><option value="batch" ${r.batchMode==='batch'?'selected':''}>садкой</option></select></div>
+   <div style="grid-column:1/-1"><label>Операции</label>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 16px">${DB.operation.map(o=>`<label style="display:inline-flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" class="wp_op" value="${esc(o.code)}" ${(r.operations||[]).includes(o.code)?'checked':''}><span data-raw>${esc(o.code)} — ${esc(sfName(o))}</span></label>`).join('')}</div>
+    <div class="hint">Список станций места выводится из его операций, отдельно его не задают. Поэтому ЧПУ с полировкой контура сам оказывается и на FAB, и на EDGE.</div></div>
+   <div><label>Оператор по умолчанию</label><input id="wp_op1" value="${esc(r.defaultOperator||'')}"></div>
+   <div><label>Напарник по умолчанию</label><input id="wp_op2" value="${esc(r.defaultHelper||'')}"></div>
+   <div><label>Макс. ширина поля, in</label><input id="wp_maxW" type="number" min="0" step="any" value="${r.maxW??''}"></div>
+   <div><label>Макс. длина поля, in</label><input id="wp_maxL" type="number" min="0" step="any" value="${r.maxL??''}"></div>
+  </div>
+  <div style="margin-top:12px"><label>Примечание</label><input id="wp_note" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_sfPosition"></div>
+  <div class="row"><button class="pri" onclick="saveSfPosition()">Сохранить</button><button onclick="wpEdit=null;render()">Отмена</button></div></div>`;
 }
-function saveLevel(){
- const e=document.getElementById('e_level'); e.style.display='none';
- const n=+document.getElementById('lv_n').value, label=document.getElementById('lv_label').value.trim();
- if(!Number.isInteger(n)||n<=0||!label) return fail(e,'Заполни положительный целый номер и название');
- if(DB.level.some((l,i)=>i!==lvEdit && l.n===n)) return fail(e,'Такой номер уже есть');
- if(lvEdit==='new') DB.level.push({n,label});
+function saveSfPosition(){
+ const e=document.getElementById('e_sfPosition'); e.style.display='none';
+ const code=document.getElementById('wp_code').value.trim().toUpperCase();
+ const station=document.getElementById('wp_station').value;
+ const name=document.getElementById('wp_name').value.trim();
+ if(!code||!name) return fail(e,'Код и название обязательны');
+ if(!SF_CODE_RE.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
+ if(!DB.station.some(s=>s.code===station)) return fail(e,'Выбери домашнюю станцию');
+ if(DB.workPosition.some((w,i)=>i!==wpEdit && w.code===code)) return fail(e,'Такой код уже есть');
+ const g=id=>{const v=document.getElementById(id).value; return v===''?null:+v;};
+ const maxW=g('wp_maxW'),maxL=g('wp_maxL');
+ if((maxW==null)!==(maxL==null))return fail(e,'Габарит заполняется парой: ширина и длина');
+ if(maxW!=null&&(!(maxW>0)||!(maxL>0)))return fail(e,'Габариты рабочего места должны быть больше нуля');
+ const o={code,station,name,nameEn:document.getElementById('wp_nameEn').value.trim(),
+  kind:document.getElementById('wp_kind').value,batchMode:document.getElementById('wp_batch').value,
+  operations:[...document.querySelectorAll('.wp_op:checked')].map(x=>x.value),
+  defaultOperator:document.getElementById('wp_op1').value.trim(),
+  defaultHelper:document.getElementById('wp_op2').value.trim(),
+  maxW,maxL,note:document.getElementById('wp_note').value.trim()};
+ if(wpEdit==='new') DB.workPosition.push(o); else Object.assign(DB.workPosition[wpEdit],o);
+ wpEdit=null; touch(); render();
+}
+function delSfPosition(i){
+ const w=DB.workPosition[i];
+ if(DB.user.some(u=>u.workPosition===w.code)) return alert('Cannot delete — users are assigned to this work position');
+ if(DB.terminal.some(t=>(t.workPositions||[]).includes(w.code))) return alert('Cannot delete — terminals are wired to this work position');
+ if(!confirm('Delete this work position?'))return; DB.workPosition.splice(i,1); touch(); render();
+}
+
+/* --- 3. Операции ----------------------------------------------------- */
+let opEdit=null;
+function viewSfOperations(){
+ const rows=DB.operation.map((o,i)=>{
+  const wp=operationWorkPositions(o.code);
+  return `<tr><td class="mono"><b>${raw(o.code)}</b></td><td>${sfLabel(o)}</td>
+   <td>${o.station?`<span class="pill info" data-raw>${esc(o.station)}</span>`:'<span class="bad pill">нет станции</span>'}</td>
+   <td><span class="pill ${o.stage==='any'?'':'info'}">${SF_STAGE_LABEL[o.stage]}</span></td>
+   <td>${o.unit?`<span class="pill">${SF_UNIT_LABEL[o.unit]}</span>`:'<span class="warn pill">не задана</span>'}</td>
+   <td>${wp.length?wp.map(w=>`<span class="pill" data-raw>${esc(w.code)}</span>`).join(' '):'<span class="warn pill">нет места</span>'}</td>
+   <td class="mut" style="max-width:260px">${raw(o.note||'')}</td>
+   <td style="white-space:nowrap"><button class="sm" onclick="opEdit=${i};render()">Изменить</button>
+   <button class="sm dl" onclick="delSfOperation(${i})">×</button></td></tr>`;
+ }).join('');
+ const noUnit=DB.operation.filter(o=>!o.unit).length;
+ return `${opEdit!==null?sfOperationForm():''}
+  <div class="sub">Что именно делают. «До печи / после печи» — свойство ОПЕРАЦИИ, а не станции: на одном и том же ЧПУ отверстия обязаны быть до печи, а полировка ламината — после. Держи это на станке — и третий визит детали затрёт первый.</div>
+  ${noUnit?`<div class="note" style="margin-bottom:12px"><b>Единица не задана у ${noUnit} операций.</b> <span>Её не подставляли по догадке: на единице стоит цена, а выдуманная единица тише и опаснее пустой — в неё верят. Заполняется вместе с прайсом на этапе 6.</span></div>`:''}
+  <table><thead><tr><th>Код</th><th>Название</th><th>Станция</th><th>Момент</th><th>Единица</th><th>Рабочие места</th><th>Примечание</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="8" class="empty">пусто</td></tr>'}</tbody></table>
+  ${opEdit!==null?'':'<div class="row"><button class="pri" onclick="opEdit=\'new\';render()">Добавить операцию</button></div>'}`;
+}
+function sfOperationForm(){
+ const r = opEdit==='new' ? {code:'',station:'',name:'',nameEn:'',stage:'any',unit:null,note:''} : DB.operation[opEdit];
+ return `<div class="form"><h3>${opEdit==='new'?'Новая операция':'Изменение'}</h3>
+  <div class="grid">
+   <div><label>Код *</label><input id="op_code" value="${esc(r.code)}" placeholder="cnc_shape_polish"></div>
+   <div><label>Станция *</label><select id="op_station"><option value="">— выбери —</option>
+    ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''} data-raw>${esc(s.code)} — ${esc(sfName(s))}</option>`).join('')}</select></div>
+   <div><label>Название (RU) *</label><input id="op_name" value="${esc(r.name)}"></div>
+   <div><label>Название (EN)</label><input id="op_nameEn" value="${esc(r.nameEn||'')}"></div>
+   <div><label>Момент маршрута</label><select id="op_stage">${SF_STAGES.map(x=>`<option value="${x}" ${x===r.stage?'selected':''}>${SF_STAGE_LABEL[x]}</option>`).join('')}</select></div>
+   <div><label>Единица</label><select id="op_unit"><option value="">— не задана —</option>${SF_UNITS.map(x=>`<option value="${x}" ${x===r.unit?'selected':''}>${SF_UNIT_LABEL[x]}</option>`).join('')}</select></div>
+  </div>
+  <div style="margin-top:12px"><label>Примечание</label><input id="op_note" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_sfOperation"></div>
+  <div class="row"><button class="pri" onclick="saveSfOperation()">Сохранить</button><button onclick="opEdit=null;render()">Отмена</button></div></div>`;
+}
+function saveSfOperation(){
+ const e=document.getElementById('e_sfOperation'); e.style.display='none';
+ const code=document.getElementById('op_code').value.trim().toLowerCase();
+ const station=document.getElementById('op_station').value;
+ const name=document.getElementById('op_name').value.trim();
+ if(!code||!name) return fail(e,'Код и название обязательны');
+ if(!SF_OP_CODE_RE.test(code)) return fail(e,'Код операции: строчные латинские буквы, цифры и подчёркивание');
+ if(!DB.station.some(s=>s.code===station)) return fail(e,'Выбери станцию');
+ if(DB.operation.some((o,i)=>i!==opEdit && o.code===code)) return fail(e,'Такой код уже есть');
+ const unit=document.getElementById('op_unit').value;
+ const o={code,station,name,nameEn:document.getElementById('op_nameEn').value.trim(),
+  stage:document.getElementById('op_stage').value,unit:unit||null,
+  note:document.getElementById('op_note').value.trim()};
+ if(opEdit==='new') DB.operation.push(o);
  else{
-  /* ИСПРАВЛЕНО (авг 2026): смена номера уровня раньше молча осиротляла станции —
-     удалять уровень со станциями запрещено, а переименовать его в другой номер
-     было можно, и station.level указывал в пустоту. Тянем станции за уровнем. */
-  const was=DB.level[lvEdit].n;
-  Object.assign(DB.level[lvEdit],{n,label});
-  if(was!==n) DB.station.forEach(s=>{ s.levels=s.levels.map(v=>v===was?n:v).sort((a,b)=>a-b); });
+  /* Смена кода раньше молча осиротляла рабочие места: удалить операцию со
+     ссылками нельзя, а переименовать было можно — и место ссылалось в пустоту.
+     Тянем ссылки за операцией. */
+  const was=DB.operation[opEdit].code;
+  Object.assign(DB.operation[opEdit],o);
+  if(was!==code) DB.workPosition.forEach(w=>{w.operations=(w.operations||[]).map(c=>c===was?code:c);});
  }
- DB.level.sort((a,b)=>a.n-b.n);
- lvEdit=null; touch(); render();
+ opEdit=null; touch(); render();
 }
-function delLevel(i){
- const l=DB.level[i];
- if(DB.station.some(s=>s.levels.includes(l.n))) return alert('Cannot delete — stations are assigned to this level');
- if(!confirm('Delete this level?'))return; DB.level.splice(i,1); touch(); render();
+function delSfOperation(i){
+ const o=DB.operation[i];
+ if(DB.workPosition.some(w=>(w.operations||[]).includes(o.code))) return alert('Cannot delete — work positions perform this operation');
+ if(!confirm('Delete this operation?'))return; DB.operation.splice(i,1); touch(); render();
+}
+
+/* --- 4. Терминалы ---------------------------------------------------- */
+let tmEdit=null;
+function viewSfTerminals(){
+ const rows=DB.terminal.map((t,i)=>{
+  const st=terminalStations(t);
+  return `<tr><td class="mono"><b>${raw(t.code)}</b></td><td>${sfLabel(t)}</td>
+   <td>${(t.workPositions||[]).map(c=>`<span class="pill" data-raw>${esc(c)}</span>`).join(' ')||'<span class="warn pill">мест нет</span>'}</td>
+   <td>${st.map(c=>`<span class="pill info" data-raw>${esc(c)}</span>`).join(' ')||'<span class="mut">—</span>'}</td>
+   <td class="mut" style="max-width:260px">${raw(t.note||'')}</td>
+   <td style="white-space:nowrap"><button class="sm" onclick="tmEdit=${i};render()">Изменить</button>
+   <button class="sm dl" onclick="delSfTerminal(${i})">×</button></td></tr>`;
+ }).join('');
+ return `${tmEdit!==null?sfTerminalForm():''}
+  <div class="sub">Экран сканирования. Терминал читает и пишет, но ничего не определяет: ключом шага маршрута он не бывает никогда. Оператор сканирует стикер — экран показывает открытые операции ЭТОЙ детали для ЭТОГО места, все отмечены заранее, он снимает галочку с того, чего не делал.</div>
+  <div class="note" style="margin-bottom:12px">Именно здесь закрывается самый дорогой дефект Spil: закрыть операцию, которой нет в маршруте детали, физически невозможно — на экране её просто нет. Случай «CNC показал петли выполненными, хотя их не делали» не может возникнуть в принципе.</div>
+  <table><thead><tr><th>Код</th><th>Название</th><th>Рабочие места</th><th>Станции, которые закрывает</th><th>Примечание</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="6" class="empty">Список пуст, и это честное состояние. Сколько экранов стоит в цеху и какие места висят на каждом — ещё не называли. Засеять «по одному на станцию» значило бы повторить болезнь подстанций Spil: справочник, распухший выдуманными строками.</td></tr>'}</tbody></table>
+  ${tmEdit!==null?'':'<div class="row"><button class="pri" onclick="tmEdit=\'new\';render()">Добавить терминал</button></div>'}`;
+}
+function sfTerminalForm(){
+ const r = tmEdit==='new' ? {code:'',name:'',nameEn:'',workPositions:[],note:''} : DB.terminal[tmEdit];
+ return `<div class="form"><h3>${tmEdit==='new'?'Новый терминал':'Изменение'}</h3>
+  <div class="grid">
+   <div><label>Код *</label><input id="tm_code" value="${esc(r.code)}"></div>
+   <div><label>Название (RU) *</label><input id="tm_name" value="${esc(r.name)}"></div>
+   <div><label>Название (EN)</label><input id="tm_nameEn" value="${esc(r.nameEn||'')}"></div>
+  </div>
+  <div style="margin-top:12px"><label>Рабочие места на этом экране</label>
+   <div style="display:flex;flex-wrap:wrap;gap:8px 16px">${DB.workPosition.map(w=>`<label style="display:inline-flex;align-items:center;gap:6px;font-weight:400"><input type="checkbox" class="tm_wp" value="${esc(w.code)}" ${(r.workPositions||[]).includes(w.code)?'checked':''}><span data-raw>${esc(w.code)} — ${esc(sfName(w))}</span></label>`).join('')}</div>
+   <div class="hint">Один экран обслуживает несколько мест — переключать его оператор не будет, и это условие задачи, а не то, что надо чинить.</div></div>
+  <div style="margin-top:12px"><label>Примечание</label><input id="tm_note" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_sfTerminal"></div>
+  <div class="row"><button class="pri" onclick="saveSfTerminal()">Сохранить</button><button onclick="tmEdit=null;render()">Отмена</button></div></div>`;
+}
+function saveSfTerminal(){
+ const e=document.getElementById('e_sfTerminal'); e.style.display='none';
+ const code=document.getElementById('tm_code').value.trim().toUpperCase();
+ const name=document.getElementById('tm_name').value.trim();
+ if(!code||!name) return fail(e,'Код и название обязательны');
+ if(!SF_CODE_RE.test(code)) return fail(e,'Код: только A–Z, 0–9, дефис и подчёркивание');
+ if(DB.terminal.some((t,i)=>i!==tmEdit && t.code===code)) return fail(e,'Такой код уже есть');
+ const o={code,name,nameEn:document.getElementById('tm_nameEn').value.trim(),
+  workPositions:[...document.querySelectorAll('.tm_wp:checked')].map(x=>x.value),
+  note:document.getElementById('tm_note').value.trim()};
+ if(tmEdit==='new') DB.terminal.push(o); else Object.assign(DB.terminal[tmEdit],o);
+ tmEdit=null; touch(); render();
+}
+function delSfTerminal(i){
+ if(!confirm('Delete this terminal?'))return; DB.terminal.splice(i,1); touch(); render();
+}
+
+/* --- 5. Импорт двух файлов под заполнение ---------------------------- */
+let sfImportReport=null;
+function sfImportCard(){
+ const which=subtab==='stations'?'STATIONS.csv':'WORK_POSITIONS.csv';
+ return `<div class="card">
+  <div class="section-title"><h3>Загрузить ${which}</h3><span class="pill info">слияние по коду</span></div>
+  <div class="sub">Файл обновляет строки с теми же кодами и добавляет новые. Строки, которых в файле нет, остаются на месте и перечисляются в отчёте — чужой файл не сносит то, что завели руками.</div>
+  <div class="row"><button onclick="document.getElementById('sfCsv').click()">Выбрать файл</button>
+   <input type="file" id="sfCsv" accept=".csv,.txt" style="display:none" onchange="sfImportCsv(this,'${subtab}')"></div>
+  ${sfImportReport&&sfImportReport.which===subtab?sfReportHTML(sfImportReport.rep):''}</div>`;
+}
+function sfReportHTML(rep){
+ const rejected=rep.rejected.map(r=>`<tr><td class="mono">${r.line?r.line:'—'}</td><td class="mono" data-raw>${esc(r.code)}</td><td>${esc(r.why)}</td></tr>`).join('');
+ return `<div class="note" style="margin-top:12px">
+   <b>Принято строк: ${rep.accepted}</b> — новых ${rep.added}, обновлено ${rep.updated}. Отклонено: ${rep.rejected.length}.
+   ${rep.missing.length?`<div style="margin-top:6px">В файле не было, оставлены как есть: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}.</div>`:''}
+  </div>
+  ${rejected?`<table style="margin-top:10px"><thead><tr><th>Строка</th><th>Код</th><th>Почему отклонена</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
+}
+function sfImportCsv(inp,which){
+ const f=inp.files[0]; inp.value='';
+ if(!f) return;
+ if(f.size>2*1024*1024){alert('File not readable: CSV exceeds 2 MB.');return;}
+ const r=new FileReader();
+ r.onload=()=>{
+  try{
+   /* отчёт принадлежит той таблице, в которую грузили: иначе он остаётся
+      висеть на соседней вкладке и относится там уже не к тем строкам */
+   sfImportReport = {which:which, rep: which==='stations' ? importStationsCsv(r.result) : importWorkPositionsCsv(r.result)};
+   touch(); render();
+  }catch(e){ alert('File not readable: '+e.message); }
+ };
+ r.readAsText(f);
 }
 
 /* ==== src/erp/storage.js ==== */
@@ -4918,8 +5603,12 @@ function validateImportedState(src){
    if(seen.has(value))throw new Error(label+': duplicate "'+value+'".');seen.add(value);
   });
  }
- unique(src.level,'n','Levels',v=>String(+v));
+ /* `level` больше не таблица — старый экспорт с этим ключом читается, ключ
+    просто игнорируется: шагом маршрута стала сама станция. */
  unique(src.station,'code','Stations',v=>String(v).trim().toUpperCase());
+ unique(src.operation,'code','Operations',v=>String(v).trim().toLowerCase());
+ unique(src.workPosition,'code','Work positions',v=>String(v).trim().toUpperCase());
+ unique(src.terminal,'code','Terminals',v=>String(v).trim().toUpperCase());
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
@@ -4933,7 +5622,18 @@ function validateImportedState(src){
   Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
  (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('Muntin row '+(i+1)+' has an invalid id.');});
- (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!SF_CODE_RE.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
+ (src.workPosition||[]).forEach((w,i)=>{
+  if(!w)return;
+  if(w.code&&!SF_CODE_RE.test(String(w.code).trim().toUpperCase()))throw new Error('Work position row '+(i+1)+' has an invalid code.');
+  if(w.operations!=null&&!Array.isArray(w.operations))throw new Error('Work position row '+(i+1)+': operations must be an array.');
+ });
+ (src.operation||[]).forEach((o,i)=>{if(o&&o.code&&!SF_OP_CODE_RE.test(String(o.code).trim().toLowerCase()))throw new Error('Operation row '+(i+1)+' has an invalid code.');});
+ (src.terminal||[]).forEach((t,i)=>{
+  if(!t)return;
+  if(t.code&&!SF_CODE_RE.test(String(t.code).trim().toUpperCase()))throw new Error('Terminal row '+(i+1)+' has an invalid code.');
+  if(t.workPositions!=null&&!Array.isArray(t.workPositions))throw new Error('Terminal row '+(i+1)+': workPositions must be an array.');
+ });
  (src.user||[]).forEach((u,i)=>{
   if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
   if(u.role!=null&&!ROLES.includes(u.role))throw new Error('User '+(i+1)+' has an unknown role.');
@@ -4942,18 +5642,29 @@ function validateImportedState(src){
 }
 function prepareImportedState(src){
  validateImportedState(src);
- const previous=DB;
+ const previous=DB, previousReseeded=referenceReseeded;
  try{
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  /* Пересев на импорте, а не только на старте. Версия справочников живёт В
+     ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
+     до сих пор это срабатывало лишь при следующем F5, и всё это время на
+     экране лежала прежняя модель цеха. Теперь — сразу. */
+  if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(true))normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
   DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin row '+(i+1)+' references a missing Shape.');});
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
- }catch(e){DB=previous;throw e;}
+  /* Откатываем и ОТМЕТКУ о пересеве: импорт мог упасть уже после него, и
+     баннер «справочники обновлены» рассказывал бы про замену, которой не было. */
+ }catch(e){DB=previous;referenceReseeded=previousReseeded;throw e;}
 }
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
- normalizeStations();
+ normalizeRefVersion();
+ /* Порядок обязателен: рабочие места приводятся в порядок ДО пользователей.
+    Пользователь ссылается на рабочее место, и проверять ссылку не на чем,
+    пока таблица мест не нормализована. */
+ normalizeShopFloor();
  normalizeUsers();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
