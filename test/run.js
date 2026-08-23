@@ -540,9 +540,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), 0);
     await t.c.close();
 
-    t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',station:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
-    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Продажи',skills:[]});
+    t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',station:'',skills:[{skill:'Резка',level:'Синьор'},{skill:'Телепортация'},'Закалка']}]}));
+    /* Уровень владения убран из модели, но в сохранённых браузерах он остался:
+       навык приходит объектом {skill, level}. Уровень отбрасываем, сам навык
+       сохраняем — иначе у людей в базе разом пропали бы все отметки. Навык
+       строкой — та же старая форма записи. Несуществующий навык не угадываем,
+       роль из импорта не повышаем. */
+    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Продажи',skills:['Резка','Закалка']});
     eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
+    /* Имена носителей — данные, переводчик их не трогает, поэтому проверка не
+       зависит от языка интерфейса. Порядок строк — порядок SKILLS. */
+    eq('отчёт называет носителя навыка поимённо', await t.p.evaluate(() => {
+      tab='users';subtab='report';render();
+      return [...document.querySelectorAll('tbody tr')].map(r=>r.children[1].textContent.trim());
+    }), ['Оператор','—','—','—','Оператор','—','—']);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',station:'',skills:{skill:'Резка'}}]}));

@@ -43,14 +43,23 @@ const ROLES=['Продажи','Бухгалтер','Админ','Владеле�
    Продажи: она не видит ни себестоимости, ни настроек системы. */
 const SAFE_DEFAULT_ROLE='Продажи';
 const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
-const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
-/* Старые записи могли хранить навык строкой — для них сохраняем исторический
-   уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
+/* УРОВНИ ВЛАДЕНИЯ УБРАНЫ (24 авг 2026). Навык — это «умеет / не умеет».
+   Грейд (Новичок · Мидл · Синьор) не спрашивал никто: ни маршрут, ни очередь,
+   ни норма времени, ни цена, ни права — он был виден только сам себе, а
+   выставлять его честно значило завести оценку сотрудника со всеми вопросами
+   про пересмотр и деньги. Настоящий вопрос здесь один — bus factor: на
+   скольких людях держится навык, — и для него хватает галочки. Появится журнал
+   событий со сканом бейджа — покрытие будет считаться из фактов, а не из
+   отметок, проставленных руками.
+
+   Навык приезжает строкой, объектом {skill} и старым {skill, level} из уже
+   сохранённых данных: уровень молча отбрасываем, сам навык сохраняем — иначе
+   импорт прежнего экспорта падал бы на валидации (см. validateUsersPayload).
+   Неизвестный навык не угадываем и удаляем. */
 const normSkill = x => {
- const src=typeof x==='string'?{skill:x,level:'Мидл'}:(x&&typeof x==='object'?x:null);
- if(!src)return null;
- const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
- const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
+ const src=typeof x==='string'?x:(x&&typeof x==='object'?x.skill:null);
+ const skill=String(src==null?'':src).trim();
+ return SKILLS.includes(skill)?skill:null;
 };
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
@@ -58,7 +67,7 @@ function normalizeUsers(){
  DB.user.forEach(u=>{
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
   const station=String(u.station==null?'':u.station).trim().toUpperCase();u.station=DB.station.some(s=>s.code===station)?station:'';
-  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
+  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(s=>s&&!seen[s]&&(seen[s]=true));
  });
 }
 /* Этап станка обязан быть ЧИСЛОМ. Из импортированного/руками правленного JSON
@@ -139,10 +148,10 @@ function skillIconName(skill){
   'Отгрузка/погрузка':'shipping'
  })[skill] || 'report';
 }
-function skillBadgeHTML(skillObj){
- const s=normSkill(skillObj);
+function skillBadgeHTML(skill){
+ const s=normSkill(skill);
  if(!s)return '';
- return `<span class="skill-badge">${ico(skillIconName(s.skill),'icon-inline')}<span>${esc(s.skill)}</span><span class="pill">${esc(s.level)}</span></span>`;
+ return `<span class="skill-badge">${ico(skillIconName(s),'icon-inline')}<span>${esc(s)}</span></span>`;
 }
 function salesSkillCards(){
  const cards=[

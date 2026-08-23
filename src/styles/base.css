@@ -167,7 +167,6 @@ svg{display:block}
 .icon-inline svg{width:16px;height:16px}
 .skill-pillset{display:flex;flex-wrap:wrap;gap:7px}
 .skill-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:#f6fafc;color:#364b57;font-size:11px;line-height:1}
-.skill-badge .pill{padding:3px 7px;font-size:10px}
 .skill-badge .icon-inline{margin-right:0}
 .skill-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .skill-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;display:flex;gap:12px;align-items:flex-start}
@@ -180,7 +179,6 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .skill-card-body b{display:block;font-size:13px;margin:0 0 4px}
 .skill-card-body small{display:block;color:var(--mut);font-size:11px;line-height:1.35}
 .skill-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.skill-coverage-card .skill-card-meta .pill{font-size:10px}
 .sales-skill-grid{margin:14px 0 16px}
 
 

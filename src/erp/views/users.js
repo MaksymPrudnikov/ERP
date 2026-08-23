@@ -49,15 +49,9 @@ function userForm(){
    <div><label>Станция по умолчанию</label><select id="u_station" onchange="uDraft.station=this.value||null"><option value="">— нет —</option>
     ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''}>${esc(s.code)} — ${SEED_TEXT.has(s.name)&&LANG==='en'?tx(s.name):esc(s.name)}</option>`).join('')}</select></div>
   </div>
-  <div style="margin-top:12px"><label>Навыки и уровень владения</label>
+  <div style="margin-top:12px"><label>Навыки</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
-   ${SKILLS.map(s=>{
-     const entry=(r.skills||[]).find(x=>x.skill===s);
-     return `<div style="display:flex;align-items:center;gap:8px">
-      <label class="chk" style="min-width:230px"><input type="checkbox" ${entry?'checked':''} onchange="toggleUserSkill('${esc(s)}',this.checked)"> ${esc(s)}</label>
-      ${entry?`<select onchange="setUserSkillLevel('${esc(s)}',this.value)">${SKILL_LEVELS.map(l=>`<option ${l===entry.level?'selected':''}>${l}</option>`).join('')}</select>`:'<span class="mut" style="font-size:12px">не отмечено</span>'}
-     </div>`;
-   }).join('')}
+   ${SKILLS.map(s=>`<label class="chk"><input type="checkbox" ${(r.skills||[]).includes(s)?'checked':''} onchange="toggleUserSkill('${esc(s)}',this.checked)"> ${esc(s)}</label>`).join('')}
    </div>
   </div>
   <div class="err" id="e_user"></div>
@@ -65,12 +59,9 @@ function userForm(){
 }
 function toggleUserSkill(skill, checked){
  if(!uDraft.skills) uDraft.skills=[];
- if(checked){ if(!uDraft.skills.some(x=>x.skill===skill)) uDraft.skills.push({skill, level:'Новичок'}); }
- else { uDraft.skills=uDraft.skills.filter(x=>x.skill!==skill); }
+ if(checked){ if(!uDraft.skills.includes(skill)) uDraft.skills.push(skill); }
+ else { uDraft.skills=uDraft.skills.filter(s=>s!==skill); }
  render();
-}
-function setUserSkillLevel(skill, level){
- const e=uDraft.skills.find(x=>x.skill===skill); if(e) e.level=level;
 }
 function saveUser(){
  const e=document.getElementById('e_user'); e.style.display='none';
@@ -84,21 +75,22 @@ function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1
 /* --- отчёт: свод по навыкам всех людей сразу, чекбоксы этого не умеют,
    поэтому это отдельный экран, а не ещё одна колонка в списке --- */
 function skillReport(){
+ /* Единственный вопрос отчёта — bus factor: на скольких людях держится навык.
+    Уровни убраны (см. normSkill в erp/data.js), поэтому счёт, полоса и подпись
+    считаются из ОДНОГО списка носителей. Раньше их было два: полоса шла от
+    people, а подпись — от суммы по уровням, и на битом уровне они расходились. */
+ const holders=skill=>DB.user.filter(u=>(u.skills||[]).map(normSkill).some(s=>s===skill)).map(u=>u.name);
+ const coverage=n=>n===0?'нет носителя':n===1?'риск: 1 человек':n+' человека';
  const cards=SKILLS.map(skill=>{
-  const people=DB.user.filter(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill));
+  const people=holders(skill);
   const pct=DB.user.length?Math.min(100,Math.round(people.length/DB.user.length*100)):0;
-  const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
-  const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div><div class="skill-card-meta">${SKILL_LEVELS.map(l=>`<span class="pill ${byLevel[l].length?'info':''}">${esc(l)} · ${byLevel[l].length}</span>`).join(' ')}</div></div></div>`;
+  return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${coverage(people.length)}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div></div></div>`;
  }).join('');
  const rows=SKILLS.map(skill=>{
-  const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
-  const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<tr><td><b>${esc(skill)}</b></td>${SKILL_LEVELS.map(l=>`<td>${byLevel[l].length?byLevel[l].map(raw).join(', '):'<span class="mut">—</span>'}</td>`).join('')}<td><span class="pill ${cls}">${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</span></td></tr>`;
+  const people=holders(skill), cls=people.length===0?'bad':people.length===1?'warn':'ok';
+  return `<tr><td><b>${esc(skill)}</b></td><td>${people.length?people.map(raw).join(', '):'<span class="mut">—</span>'}</td><td><span class="pill ${cls}">${coverage(people.length)}</span></td></tr>`;
  }).join('');
- return `<div class="sub">Сначала визуальный слой — видно пробелы в компетенциях. Ниже остаётся точная матрица по уровням.</div>
+ return `<div class="sub">Сначала визуальный слой — видно пробелы в компетенциях. Ниже поимённо: кто какой навык держит.</div>
   <div class="skill-card-grid" style="margin-bottom:14px">${cards}</div>
-  <table><thead><tr><th>Навык</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Покрытие</th></tr></thead><tbody>${rows}</tbody></table>`;
+  <table><thead><tr><th>Навык</th><th>Кто умеет</th><th>Покрытие</th></tr></thead><tbody>${rows}</tbody></table>`;
 }

@@ -45,9 +45,6 @@ const I18N_EN={
   "Закалка": "Tempering",
   "Контроль качества": "Quality control",
   "Отгрузка/погрузка": "Shipping / loading",
-  "Новичок": "Beginner",
-  "Мидл": "Intermediate",
-  "Синьор": "Senior",
   "Кромка (arris / polish / CNC polishing)": "Edgework (arris / polish / CNC polishing)",
   "Раскроечный стол": "Cutting table",
   "Кромкообрабатывающая линия": "Edging line",
@@ -230,8 +227,6 @@ const I18N_EN={
   "Роль *": "Role *",
   "Станция по умолчанию": "Default station",
   "— нет —": "— none —",
-  "Навыки и уровень владения": "Skills and proficiency level",
-  "не отмечено": "not selected",
   "Сохранить": "Save",
   "Отмена": "Cancel",
   "Укажи имя": "Enter a name",
@@ -239,8 +234,9 @@ const I18N_EN={
   "нет": "none",
   "нет носителя": "no holder",
   "риск: 1 человек": "risk: 1 person",
-  "Сначала визуальный слой — видно пробелы в компетенциях. Ниже остаётся точная матрица по уровням.": "The visual layer first shows competency gaps. The exact level matrix remains below.",
+  "Сначала визуальный слой — видно пробелы в компетенциях. Ниже поимённо: кто какой навык держит.": "The visual layer first shows competency gaps. Below, by name: who holds which skill.",
   "Навык": "Skill",
+  "Кто умеет": "Who can do it",
   "Покрытие": "Coverage",
   "Конфигурация изделия": "Product configuration",
   "Конфигурация": "Configuration",
@@ -418,12 +414,6 @@ function tx(value){
  else if((mm=x.match(/^(\d+) точек$/))) x=`${mm[1]} points`;
  else if((mm=x.match(/^(\d+) чел\.$/))) x=`${mm[1]} people`;
  else if((mm=x.match(/^(\d+) человека$/))) x=`${mm[1]} people`;
- /* «Новичок · 0» — уровень владения и число носителей одной строкой в карточке
-    покрытия навыков (views/users.js). Сами уровни (SKILL_LEVELS из erp/data.js)
-    в словаре есть, но по отдельности: составную строку не ловил никто, и в EN
-    она оставалась русской. Перевод берём из словаря, чтобы он жил в одном месте;
-    пропал ключ — строка снова станет русской, и тест это увидит. */
- else if((mm=x.match(/^(Новичок|Мидл|Синьор) · (\d+)$/))) x=`${I18N_EN[mm[1]]||mm[1]} · ${mm[2]}`;
  else if((mm=x.match(/^(\d+) бар · (.+)$/))) x=`${mm[1]} bars · ${mm[2]}`;
  else if((mm=x.match(/^(\d+) бар, суммарно (.+)$/))) x=`${mm[1]} bars, total ${mm[2]}`;
  else if((mm=x.match(/^Габарит: (.+)$/))) x=`Size: ${mm[1]}`;
