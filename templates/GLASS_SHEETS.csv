@@ -1,0 +1,5 @@
+code,thickness_mm,supplier,currency,sheet_w_in,sheet_h_in,purchase_unit,purchase_price,price_date,freight_pct,lead_time_days,availability
+6CL,6,Vitro Barrie,CAD,130,96,ft2,1.00,2026-08-22,0,10,stock
+6CL,6,Vitro USA,USD,144,96,ft2,1.00,2026-08-22,0,15,order
+6SB70,6,Vitro Barrie,CAD,130,96,ft2,1.00,2026-08-22,0,15,order
+6i89,6,Cardinal USA,USD,144,100,ft2,1.00,2026-08-22,0,20,order
