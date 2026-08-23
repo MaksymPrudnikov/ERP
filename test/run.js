@@ -794,14 +794,31 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     await t.p.evaluate(() => setLang('en'));
     eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
+    /* Подвкладки берём из самой разметки: кнопка переключения несёт
+       onclick="subtab='...'", поэтому новая подвкладка попадает в проверку сама,
+       без правки теста. Раньше вкладка открывалась только с subtab = null — из
+       каждой пары проверялась ровно одна подвкладка. «Покрытие навыков» не
+       рендерилось ни разу, и русское «Новичок · 0» жило там в английском
+       интерфейсе, пока его не нашли руками. */
     for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production']) {
-      const left = await t.p.evaluate(tb => {
+      const subtabs = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
-        const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
-        let n; while (n = w.nextNode()) { const v = n.nodeValue.trim(); if (/[А-Яа-яЁё]/.test(v)) out.add(v); }
+        const out = new Set([null]);
+        document.querySelectorAll('#app [onclick]').forEach(el => {
+          const m = /subtab\s*=\s*'([^']+)'/.exec(el.getAttribute('onclick'));
+          if (m) out.add(m[1]);
+        });
         return [...out];
       }, tab);
-      eq('EN без русского остатка: ' + tab, left, []);
+      for (const sub of subtabs) {
+        const left = await t.p.evaluate(([tb, sb]) => {
+          tab = tb; subtab = sb; render();
+          const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+          let n; while (n = w.nextNode()) { const v = n.nodeValue.trim(); if (/[А-Яа-яЁё]/.test(v)) out.add(v); }
+          return [...out];
+        }, [tab, sub]);
+        eq('EN без русского остатка: ' + tab + (sub ? ' · ' + sub : ''), left, []);
+      }
     }
     eq('Customers EN переводит placeholder поиска', await t.p.evaluate(() => {
       tab='customers';subtab=null;render();const el=document.getElementById('customerSearch');return el&&el.getAttribute('placeholder');
