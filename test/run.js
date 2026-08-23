@@ -458,7 +458,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   /* --- 5. оболочка: устойчивость к битым данным -------------------- */
   {
     console.log('оболочка / хранилище');
-    let t = await page(JSON.stringify({ user: null, station: null, level: null }));
+    let t = await page(JSON.stringify({ user: null, station: null, operation: null, workPosition: null, terminal: null }));
     const len = await t.p.evaluate(() => document.getElementById('app').innerHTML.length);
     ok('битый localStorage не даёт белый экран', len > 200, 'app length=' + len + ' errs=' + JSON.stringify(t.errs));
     await t.c.close();
@@ -467,85 +467,186 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     ok('нечитаемый localStorage не роняет старт', (await t.p.evaluate(() => document.getElementById('app').innerHTML.length)) > 200);
     await t.c.close();
 
-    /* refVersion в сиде стоит намеренно: без него данные считаются устаревшими
-       и справочники пересеваются, а этот тест про нормализацию, а не про пересев. */
-    t = await page(JSON.stringify({ refVersion: 2, station: [{ code: 'A1', name: 'x', level: '1', minTh: 3, maxTh: 19 }], level: [{ n: 1, label: 'Резка' }] }));
-    eq('строковый этап из импорта приводится к числу', await t.p.evaluate(() => DB.station[0].levels), [1]);
-    eq('станция попадает в маршрут', await t.p.evaluate(() => { tab = 'production'; subtab = 'stations'; render(); return document.querySelector('.stage-machines').textContent.trim(); }), 'A1');
-    await t.c.close();
-
-    /* Главный сценарий пересева: у реального браузера пользователя поля
-       refVersion нет вообще. Если бы DEFAULT.refVersion равнялся текущей версии,
-       такие данные выглядели бы актуальными и пересев не сработал бы никогда. */
-    t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
-    eq('данные без версии справочника пересеваются', await t.p.evaluate(() => [DB.refVersion, DB.level.length, DB.station.some(s => s.code === 'OLDX')]), [2, 11, false]);
-    await t.c.close();
-
-    t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', station: '', skills: [] }], level: [{ n: 1, label: 'Старый этап' }] }));
-    eq('пересев не трогает пользователей', await t.p.evaluate(() => [DB.user.map(u => u.name), DB.level.length]), [['Ivan'], 11]);
-    await t.c.close();
-
+    /* --- справочники цеха: четыре РАЗНЫЕ сущности (порция 5·2) ---------
+       Раньше «станция» означала и шаг маршрута, и станок, а «уровень» дублировал
+       первое отдельной таблицей. Разведено: station — шаг маршрута, workPosition —
+       где делают, operation — что делают, terminal — чем сканируют. */
     t = await page();
-    eq('переименование номера этапа не осиротляет станки', await t.p.evaluate(() => {
-      tab = 'production'; subtab = 'levels'; render(); lvEdit = 0; render();
-      document.getElementById('lv_n').value = '12';
-      document.getElementById('lv_label').value = DB.level[0].label;
-      saveLevel();
-      return DB.station.flatMap(s => s.levels).filter(n => !DB.level.some(l => l.n === n));
-    }), []);
+    eq('четыре справочника цеха заведены и разведены', await t.p.evaluate(() => [
+      DB.station.length, DB.operation.length, DB.workPosition.length, DB.terminal.length, DB.level === undefined
+    ]), [11, 18, 22, 0, true]);
+    eq('станции идут по порядку, всегда проходятся только три', await t.p.evaluate(() => [
+      DB.station.map(s => s.seq), DB.station.filter(s => s.always).map(s => s.code)
+    ]), [[1,2,3,4,5,6,7,8,9,10,11], ['CUT','SHIPR','SHIP']]);
     await t.c.close();
 
-    /* --- справочники цеха и их пересев (авг 2026) ------------------------ */
+    /* Ключевая проверка модели: место служит двум станциям, и это ВЫВЕДЕНО из
+       его операций, а не записано второй колонкой. Второго источника правды нет. */
+    t = await page();
+    eq('ЧПУ служит двум станциям — выведено из операций', await t.p.evaluate(() => {
+      const c = DB.workPosition.find(w => w.code === 'CNC1');
+      return [workPositionStations(c), stationWorkPositions('EDGE').some(w => w.code === 'CNC1')];
+    }), [['EDGE','FAB'], true]);
+    /* stage принадлежит ОПЕРАЦИИ, а не станку: на одном ЧПУ отверстия обязаны
+       быть до печи, а полировка ламината — после. Держи это на станке — и третий
+       визит детали затрёт первый, ровно как у Spil. */
+    eq('до/после печи — свойство операции, а не станка', await t.p.evaluate(() =>
+      ['fabrication','cnc_shape_polish','cnc_lami_polish'].map(c => DB.operation.find(o => o.code === c).stage)
+    ), ['pre_temper','pre_temper','post_temper']);
+    eq('садками работают печь, ламинация, автоклав и линия СП', await t.p.evaluate(() =>
+      DB.workPosition.filter(w => w.batchMode === 'batch').map(w => w.code)
+    ), ['FURN1','LAM1','AUTOCL1','IGU1']);
+    eq('габарит есть у трёх мест, остальные ждут замеров', await t.p.evaluate(() =>
+      DB.workPosition.filter(w => w.maxW != null).map(w => w.code)
+    ), ['BEVEL1','CNC1','FURN1']);
+    /* «Без габарита» и «ждёт замера» — РАЗНЫЕ множества, и три экрана обязаны
+       считать одинаково. У ручного притупления габарита нет и не будет: там
+       руки, а не станок, и держать его в долгу значит показывать задачу,
+       которую никто никогда не закроет. */
+    eq('ручное место не числится ждущим замера', await t.p.evaluate(() => [
+      DB.workPosition.filter(w => w.maxW == null).length,
+      workPositionsAwaitingSize().length,
+      workPositionsAwaitingSize().some(w => w.code === 'ARRIS-H')
+    ]), [19, 18, false]);
+    /* Терминал пустой намеренно: сколько экранов в цеху — ещё не называли, а
+       засеять «по одному на станцию» значит повторить подстанции Spil. */
+    eq('рабочее место попадает в маршрут своей станции', await t.p.evaluate(() => {
+      tab = 'production'; subtab = 'stations'; render();
+      return document.querySelector('.stage-machines').textContent.trim();
+    }), 'CUT1 CUT2');
+    await t.c.close();
+
+    /* ГЛАВНЫЙ ПУТЬ ПЕРЕЕЗДА. В браузере пользователя под ключом station лежат
+       СТАНКИ прошлой модели. Тест механизма пересева не заменяет тест пути в
+       него — поэтому здесь именно сохранённые данные, а не вызов руками. */
+    t = await page(JSON.stringify({
+      refVersion: 2,
+      station: [{ code: 'CUT1', name: 'Раскроечный стол', levels: [1], minTh: 3, maxTh: 19 },
+                { code: 'EDGE1', name: 'Кромкообрабатывающая линия', levels: [2] },
+                { code: 'CNC1', name: 'Обрабатывающий центр ЧПУ', levels: [2, 3], maxW: 60, maxL: 122 }],
+      level: [{ n: 1, label: 'Резка' }, { n: 2, label: 'Кромка' }],
+      user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] },
+             { name: 'Petr', role: 'Продажи', station: 'EDGE1', skills: [] }]
+    }));
+    eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
+      DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
+    ]), [3, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
+       за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
+    eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
+      DB.user.map(u => [u.name, u.workPosition, u.station === undefined])
+    ), [['Ivan','CNC1',true], ['Petr','',true]]);
+    await t.c.close();
+
+    /* Данных без refVersion — так выглядит браузер, который не открывали с
+       прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
+    t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
+    eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [3, 11, false]);
+    await t.c.close();
+
+    t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
+    eq('пересев не трогает пользователей', await t.p.evaluate(() =>
+      [DB.user.map(u => u.name), DB.station.length]), [['Ivan'], 11]);
+    await t.c.close();
+
     t = await page();
     eq('пересев обновляет справочники и не трогает рабочие данные', await t.p.evaluate(() => {
-      DB.level = [{ n: 1, label: 'Мусор' }]; DB.station = []; DB.refVersion = 1;
+      DB.station = []; DB.workPosition = []; DB.operation = []; DB.refVersion = 1;
       const shapes = DB.shapeDef.length, users = DB.user.length;
       const did = reseedReferenceTables();
-      return [did, DB.level.length, DB.station.length, DB.refVersion,
+      return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 5, 2, true, true]);
+    }), [true, 11, 22, 18, 3, true, true]);
     await t.c.close();
 
     t = await page();
     eq('на актуальной версии пересев не повторяется', await t.p.evaluate(() => reseedReferenceTables()), false);
     await t.c.close();
 
+    /* Нормализация обязана пережить мусор: до пересева она видит именно старые
+       данные, и если она упадёт — до пересева дело не дойдёт вообще. */
     t = await page();
-    eq('один станок стоит на двух этапах маршрута', await t.p.evaluate(() => {
-      const c = DB.station.find(s => s.code === 'CNC1');
-      return c ? c.levels : null;
-    }), [2, 3]);
+    eq('мусор в справочниках цеха нормализуется, а не роняет старт', await t.p.evaluate(() => {
+      DB.station = [{ code: 'A B' }, null, { code: 'CUT' }, { code: 'cut' }, 'мусор'];
+      DB.workPosition = [{ code: 'X1', station: 'НЕТ', operations: ['нет_такой'], maxW: 5 }];
+      DB.terminal = [{ code: 'T1', workPositions: ['НЕТУ', 'X1', 'X1'] }];
+      normalizeShopFloor();
+      return [DB.station.map(s => s.code), DB.workPosition[0].station, DB.workPosition[0].operations,
+              [DB.workPosition[0].maxW, DB.workPosition[0].maxL], DB.terminal[0].workPositions];
+    }), [['A B','CUT'], '', [], [null, null], ['X1']]);
     await t.c.close();
 
+    /* --- импорт двух файлов под заполнение ------------------------------
+       Ради этого импорт и написан: 19 замеров из цеха должны доезжать файлом,
+       а не правкой кода и новой сборкой. Файлы читает node и передаёт строкой —
+       fetch на file:// в Chrome закрыт. */
+    const stationsCsv = fs.readFileSync(path.join(ROOT, 'templates/STATIONS.csv'), 'utf8');
+    const positionsCsv = fs.readFileSync(path.join(ROOT, 'templates/WORK_POSITIONS.csv'), 'utf8');
     t = await page();
-    eq('термообработка — пятый этап маршрута', await t.p.evaluate(() => {
-      const f = DB.station.find(s => s.code === 'FURN1'), l = DB.level.find(x => x.n === 5);
-      return [f ? f.levels : null, l ? l.label : null];
-    }), [[5], 'Термообработка']);
+    eq('templates/STATIONS.csv принимается целиком', await t.p.evaluate(csv => {
+      const r = importStationsCsv(csv);
+      return [r.accepted, r.added, r.updated, r.rejected.length, DB.station.map(s => s.code).join(',')];
+    }, stationsCsv), [11, 0, 11, 0, 'CUT,EDGE,FAB,CERP,HEAT,SAND,PAINT,LAM,IGU,SHIPR,SHIP']);
+    eq('templates/WORK_POSITIONS.csv принимается целиком', await t.p.evaluate(csv => {
+      const r = importWorkPositionsCsv(csv);
+      const cnc = DB.workPosition.find(w => w.code === 'CNC1');
+      return [r.accepted, r.updated, r.rejected.length, r.missing.length, cnc.operations];
+    }, positionsCsv), [22, 22, 0, 0, ['fabrication','cnc_shape_polish','cnc_lami_polish']]);
+    /* Снятый в цеху габарит доезжает импортом. */
+    eq('замер из цеха приезжает файлом', await t.p.evaluate(csv => {
+      const measured = csv.replace('roberto,,,,single,', 'roberto,,60,122,single,');
+      const r = importWorkPositionsCsv(measured);
+      const cnc2 = DB.workPosition.find(w => w.code === 'CNC2');
+      return [r.rejected.length, cnc2.maxW, cnc2.maxL];
+    }, positionsCsv), [0, 60, 122]);
     await t.c.close();
 
+    /* Отчёт обязан объяснить КАЖДУЮ отклонённую строку: строка, отклонённая
+       без причины, возвращается пользователю загадкой. */
     t = await page();
-    eq('старое поле level переносится в levels', await t.p.evaluate(() => {
-      DB.station = [{ code: 'OLD1', name: 'Старый', level: '3' }];
-      normalizeStations();
-      return DB.station.map(s => [s.levels, s.level === undefined]);
-    }), [[[3], true]]);
+    eq('импорт объясняет каждую отклонённую строку', await t.p.evaluate(() => {
+      const bad = 'code,station,name_en,name_ru,kind,operations,default_operator,default_helper,max_w_in,max_l_in,batch_mode,note\n'
+        + 'GOOD1,CUT,Good,Годная,machine,cutting,,,10,20,single,\n'
+        + 'BAD1,NOSUCH,X,Икс,machine,cutting,,,,,single,\n'
+        + 'BAD2,CUT,X,Икс,machine,nosuchop,,,,,single,\n'
+        + 'BAD3,CUT,X,Икс,machine,cutting,,,10,,single,\n'
+        + 'GOOD1,CUT,Dup,Дубль,machine,cutting,,,,,single,\n';
+      const r = importWorkPositionsCsv(bad);
+      return [r.accepted, r.added, r.rejected.map(x => x.line), DB.workPosition.length];
+    }), [1, 1, [3, 4, 5, 6], 23]);
+    eq('файл не того формата отклоняется целиком, а не молча', await t.p.evaluate(() => {
+      const r = importStationsCsv('foo,bar\n1,2\n');
+      return [r.accepted, r.rejected.length, DB.station.length];
+    }), [0, 1, 11]);
+    await t.c.close();
+
+    /* Пересев обязан отработать НА ИМПОРТЕ, а не через F5: иначе после загрузки
+       чужого файла на экране лежат станки под видом шагов маршрута. */
+    t = await page();
+    eq('импорт старого файла пересевается сразу', await t.p.evaluate(() => {
+      const next = prepareImportedState({ refVersion: 2,
+        station: [{ code: 'CNC1', name: 'Обрабатывающий центр ЧПУ', levels: [2, 3] }],
+        user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
+      return [next.refVersion, next.station.length, next.workPosition.length,
+              next.station[0].code, next.user[0].workPosition];
+    }), [3, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();
     eq('html в имени не исполняется', await t.p.evaluate(() => {
-      DB.user.push({ name: '<img src=x onerror=alert(1)>', role: 'Админ', station: '', skills: [] });
+      DB.user.push({ name: '<img src=x onerror=alert(1)>', role: 'Админ', workPosition: '', skills: [] });
       tab = 'users'; subtab = 'list'; render();
       return document.querySelectorAll('#app img').length;
     }), 0);
     await t.c.close();
 
-    t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',station:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
+    t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',workPosition:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
     eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Продажи',skills:[]});
     eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
     await t.c.close();
 
-    t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',station:'',skills:{skill:'Резка'}}]}));
+    t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',workPosition:'',skills:{skill:'Резка'}}]}));
     eq('skills не-массив не даёт белый экран', await t.p.evaluate(() => ({skills:DB.user[0].skills,hasUI:document.getElementById('app').innerHTML.length>200})), {skills:[],hasUI:true});
     await t.c.close();
 
@@ -563,7 +664,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('удалённые демо-пользователи не возвращаются после F5', await t.p.evaluate(() => DB.user.length), 0);
     await t.c.close();
 
-    t = await page(JSON.stringify({user:[{name:'Real Person',role:'Админ',station:'',skills:[]}]}));
+    t = await page(JSON.stringify({user:[{name:'Real Person',role:'Админ',workPosition:'',skills:[]}]}));
     eq('демо-пользователи не подмешиваются к настоящим', await t.p.evaluate(() => DB.user.map(u => u.name)), ['Real Person']);
     await t.c.close();
 
@@ -820,17 +921,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       contacts:'Customer 1: contacts must be an array.'
     });
     eq('данные пользователя не переводятся', await t.p.evaluate(() => {
-      DB.user.push({ name: 'Закалка', role: 'Цех', station: '', skills: [] });
+      DB.user.push({ name: 'Закалка', role: 'Цех', workPosition: '', skills: [] });
       tab = 'users'; subtab = 'list'; render();
       return [...document.querySelectorAll('tbody tr td b')].map(e => e.textContent).pop();
     }), 'Закалка');
     await t.c.close();
 
-    const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT1',skills:[]}]});
+    /* Имя рабочего места больше не переводится словарём: пользователь заполнил
+       в CSV обе колонки, и язык выбирает нужную. Словарь трогает только
+       примечания — их пользователь написал в одном языке. */
+    const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',workPosition:'CUT1',skills:[]}]});
     const u = await page(seeded);
-    eq('seed-название станции переводится в карточке пользователя', await u.p.evaluate(() => {
+    eq('имя рабочего места берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
       setLang('en');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
-    }), 'CUT1 — Cutting table');
+    }), 'CUT1 — Cutting 1');
+    eq('в русском интерфейсе то же место названо по-русски', await u.p.evaluate(() => {
+      setLang('ru');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
+    }), 'CUT1 — Резка 1');
     await u.c.close();
   }
 

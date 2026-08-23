@@ -52,45 +52,30 @@ const normSkill = x => {
  const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
  const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
 };
+/* Пользователь привязан к РАБОЧЕМУ МЕСТУ, а не к станции: станция теперь шаг
+   маршрута, и «привязать человека к шагу маршрута» не значит ничего.
+
+   Старое поле `station` держало код станка (CUT1, CNC1, FURN1) — по коду оно
+   и переносится в `workPosition`. Код, которому в реальном цеху ничего не
+   соответствует (`EDGE1` — выдуманная «кромкообрабатывающая линия», вместо
+   неё стоят ARRIS-H/M, POL1–3, MITER1, BEVEL1), обнуляется. Угадывать, за
+   каким из шести мест стоял человек, нельзя: это ровно та подмена, из-за
+   которой у Spil расстановка смены оказалась структурой цеха.
+
+   И это ПРЕФИЛЛ, не назначение. Правда о том, кто сделал работу, приходит со
+   скана и живёт в событии (хендофф, раздел 9м §3). */
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
  DB.user.forEach(u=>{
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
-  const station=String(u.station==null?'':u.station).trim().toUpperCase();u.station=DB.station.some(s=>s.code===station)?station:'';
+  const legacy=u.workPosition==null?u.station:u.workPosition;
+  const code=String(legacy==null?'':legacy).trim().toUpperCase();
+  u.workPosition=DB.workPosition.some(w=>w.code===code)?code:'';
+  delete u.station;
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
  });
 }
-/* Этап станка обязан быть ЧИСЛОМ. Из импортированного/руками правленного JSON
-   он приезжал строкой ("1"), и станок молча выпадал из маршрута, потому что
-   сравнение строгое.
-
-   ОДИН СТАНОК СТОИТ НА НЕСКОЛЬКИХ ЭТАПАХ (авг 2026). Раньше здесь было поле
-   `level` — ровно один этап на станок. Реальность другая: ЧПУ полирует контур
-   (этап 2) и обрабатывает тело стекла (этап 3), это подтверждено пользователем.
-   Одним числом такое не выражается, поэтому поле стало массивом `levels`.
-   Старое `level` из сохранённых данных подхватывается и переносится. */
-function normalizeStations(){
- const levelSeen=Object.create(null),stationSeen=Object.create(null);
- DB.level=DB.level.filter(l=>l&&isFinite(+l.n)&&Number.isInteger(+l.n)&&+l.n>0&&!levelSeen[+l.n]&&(levelSeen[+l.n]=true))
-   .map(l=>({n:+l.n,label:String(l.label==null?'':l.label).trim()}))
-   .sort((a,b)=>a.n-b.n);
- DB.station=DB.station.filter(s=>{if(!s||!s.code)return false;const code=String(s.code).trim().toUpperCase();if(!code||stationSeen[code])return false;stationSeen[code]=true;return true;}).map(s=>{
-  const raw=Array.isArray(s.levels)?s.levels:((s.level===''||s.level==null)?[]:[s.level]);
-  const seen=Object.create(null);
-  s.levels=raw.map(v=>+v).filter(v=>isFinite(v)&&Number.isInteger(v)&&DB.level.some(l=>l.n===v)&&!seen[v]&&(seen[v]=true)).sort((a,b)=>a-b);
-  delete s.level;
-  ['maxW','maxL','minTh','maxTh'].forEach(k=>{const v=(s[k]===''||s[k]==null)?null:+s[k];s[k]=isFinite(v)&&v>0?v:null;});
-  if(s.maxW==null||s.maxL==null)s.maxW=s.maxL=null;
-  if(s.minTh==null||s.maxTh==null||s.minTh>s.maxTh)s.minTh=s.maxTh=null;
-  s.code=String(s.code).trim().toUpperCase();s.name=String(s.name==null?'':s.name).trim();s.note=String(s.note==null?'':s.note);
-  return s;
- });
- const rv=+DB.refVersion;DB.refVersion=isFinite(rv)&&Number.isInteger(rv)&&rv>0?rv:0;
- /* этап, на который никто не ссылается, оставляем; станок без этапа — тоже
-    штатное состояние: так выглядит только что заведённое железо */
-}
-
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ
 
@@ -112,9 +97,24 @@ function normalizeStations(){
    и цена невелика. Как появится Master Data (Этап 5) — заменить на слияние по
    коду: свои строки пользователя оставлять, заводские обновлять.
    ===================================================================== */
-const REFERENCE_TABLES=['level','station','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
-const REFERENCE_VERSION=2;
+/* `level` из списка ушёл вместе с таблицей: шагом маршрута теперь является
+   сама СТАНЦИЯ, и держать рядом второй справочник тех же одиннадцати строк
+   означало бы два источника правды. На его место встали три новые таблицы
+   цеха — операции, рабочие места и терминалы (см. erp/shopfloor/data). */
+const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+/* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
+   модели. Пересев меняет там смысл таблицы, а не только её содержимое,
+   поэтому версия обязана подняться — иначе браузер пользователя навсегда
+   останется со станками там, где код ждёт шаги маршрута. */
+const REFERENCE_VERSION=3;
 let referenceReseeded=false;
+/* Версия справочников обязана быть целым числом: из руками правленного JSON
+   она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
+   тихо давало не тот ответ. Раньше эта строка жила в normalizeStations —
+   таблица уехала в erp/shopfloor, проверка осталась здесь. */
+function normalizeRefVersion(){
+ const rv=+DB.refVersion;DB.refVersion=isFinite(rv)&&Number.isInteger(rv)&&rv>0?rv:0;
+}
 /* hadSaved — были ли в браузере сохранённые данные. Нужен ТОЛЬКО для
    уведомления: на чистой установке пересев тоже проходит (версия 0 → 2), но
    говорить «справочники обновлены» там не о чем, ничего не заменялось. */
@@ -155,13 +155,14 @@ function salesSkillCards(){
 /* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
    показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
    проверить было не на ком. Трое — по одному на роль, которую в жизни держит
-   человек; Админ не засеян намеренно, это техническая роль.
+   человек; Админ не засеян намеренно, это техническая роль. Рабочее место у
+   всех троих пустое: это офисные роли, за станком они не стоят.
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
- {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
- {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
+ {name:'Demo Sales',role:'Продажи',workPosition:'',skills:[]},
+ {name:'Demo Accounting',role:'Бухгалтер',workPosition:'',skills:[]},
+ {name:'Demo Owner',role:'Владелец',workPosition:'',skills:[]}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому
@@ -175,11 +176,10 @@ function seedDemoUsers(){
  return true;
 }
 
-/* Этапы маршрута — реальная последовательность цеха, снятая с рабочей таблицы
-   Main Station и уточнённая пользователем 21–22 августа 2026.
-   Мойки среди этапов НЕТ намеренно: она не шаг маршрута, а часть операций
-   термообработки и сборки стеклопакета — грязное стекло туда просто не пустят.
-   Названия по-русски: перевод накладывается словарём i18n (см. SEED_TEXT). */
+/* Справочники цеха — станции, операции, рабочие места и терминалы — живут в
+   erp/shopfloor/data.js и дописываются в DEFAULT оттуда: там же лежит разбор,
+   почему их четыре, а не одна таблица.
+   Здесь остаётся только то, что к цеху не относится. */
 const DEFAULT={
  user:[],
  /* НУЛЬ, а не текущая версия, и это не описка. mergeState копирует только те
@@ -188,26 +188,6 @@ const DEFAULT={
     без версии выглядели бы уже актуальными, пересев не сработал бы никогда
     ровно там, где он и нужен. Ноль означает «версия неизвестна». */
  refVersion:0,
- level:[
-  {n:1, label:'Резка'},
-  {n:2, label:'Кромка'},
-  {n:3, label:'Обработка тела стекла'},
-  {n:4, label:'Силкскрин'},
-  {n:5, label:'Термообработка'},
-  {n:6, label:'Пескоструй'},
-  {n:7, label:'Покраска'},
-  {n:8, label:'Ламинация'},
-  {n:9, label:'Сборка стеклопакета'},
-  {n:10,label:'Готово к отгрузке'},
-  {n:11,label:'Отгрузка'}
- ],
- station:[
-  {code:'CUT1', name:'Раскроечный стол', levels:[1], maxW:null, maxL:null, minTh:3, maxTh:19, note:'Режется только отожжённое стекло'},
-  {code:'EDGE1', name:'Кромкообрабатывающая линия', levels:[2], maxW:null, maxL:null, minTh:3, maxTh:19, note:''},
-  {code:'BEVEL1', name:'Фацетный станок', levels:[2], maxW:70, maxL:100, minTh:3, maxTh:19, note:''},
-  {code:'CNC1', name:'Обрабатывающий центр ЧПУ', levels:[2,3], maxW:60, maxL:122, minTh:3, maxTh:19, note:'Полирует контур (этап 2) и обрабатывает тело стекла (этап 3) — один станок на двух этапах'},
-  {code:'FURN1', name:'Печь закалки', levels:[5], maxW:90, maxL:150, minTh:3, maxTh:19, note:'Работает садками, а не поштучно; минимальный размер детали 6 × 12 in'}
- ],
  shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
  muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
 };
