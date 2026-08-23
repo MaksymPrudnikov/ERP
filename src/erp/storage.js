@@ -60,8 +60,12 @@ function validateImportedState(src){
    if(seen.has(value))throw new Error(label+': duplicate "'+value+'".');seen.add(value);
   });
  }
- unique(src.level,'n','Levels',v=>String(+v));
+ /* `level` больше не таблица — старый экспорт с этим ключом читается, ключ
+    просто игнорируется: шагом маршрута стала сама станция. */
  unique(src.station,'code','Stations',v=>String(v).trim().toUpperCase());
+ unique(src.operation,'code','Operations',v=>String(v).trim().toLowerCase());
+ unique(src.workPosition,'code','Work positions',v=>String(v).trim().toUpperCase());
+ unique(src.terminal,'code','Terminals',v=>String(v).trim().toUpperCase());
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
@@ -75,7 +79,18 @@ function validateImportedState(src){
   Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
  (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('Muntin row '+(i+1)+' has an invalid id.');});
- (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!/^[A-Z0-9][A-Z0-9_-]{0,39}$/.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
+ (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!SF_CODE_RE.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
+ (src.workPosition||[]).forEach((w,i)=>{
+  if(!w)return;
+  if(w.code&&!SF_CODE_RE.test(String(w.code).trim().toUpperCase()))throw new Error('Work position row '+(i+1)+' has an invalid code.');
+  if(w.operations!=null&&!Array.isArray(w.operations))throw new Error('Work position row '+(i+1)+': operations must be an array.');
+ });
+ (src.operation||[]).forEach((o,i)=>{if(o&&o.code&&!SF_OP_CODE_RE.test(String(o.code).trim().toLowerCase()))throw new Error('Operation row '+(i+1)+' has an invalid code.');});
+ (src.terminal||[]).forEach((t,i)=>{
+  if(!t)return;
+  if(t.code&&!SF_CODE_RE.test(String(t.code).trim().toUpperCase()))throw new Error('Terminal row '+(i+1)+' has an invalid code.');
+  if(t.workPositions!=null&&!Array.isArray(t.workPositions))throw new Error('Terminal row '+(i+1)+': workPositions must be an array.');
+ });
  (src.user||[]).forEach((u,i)=>{
   if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
   if(u.role!=null&&!ROLES.includes(u.role))throw new Error('User '+(i+1)+' has an unknown role.');
@@ -84,18 +99,29 @@ function validateImportedState(src){
 }
 function prepareImportedState(src){
  validateImportedState(src);
- const previous=DB;
+ const previous=DB, previousReseeded=referenceReseeded;
  try{
   DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  /* Пересев на импорте, а не только на старте. Версия справочников живёт В
+     ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
+     до сих пор это срабатывало лишь при следующем F5, и всё это время на
+     экране лежала прежняя модель цеха. Теперь — сразу. */
+  if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(true))normalizeDB();
   const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
   DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin row '+(i+1)+' references a missing Shape.');});
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
- }catch(e){DB=previous;throw e;}
+  /* Откатываем и ОТМЕТКУ о пересеве: импорт мог упасть уже после него, и
+     баннер «справочники обновлены» рассказывал бы про замену, которой не было. */
+ }catch(e){DB=previous;referenceReseeded=previousReseeded;throw e;}
 }
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
- normalizeStations();
+ normalizeRefVersion();
+ /* Порядок обязателен: рабочие места приводятся в порядок ДО пользователей.
+    Пользователь ссылается на рабочее место, и проверять ссылку не на чем,
+    пока таблица мест не нормализована. */
+ normalizeShopFloor();
  normalizeUsers();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();

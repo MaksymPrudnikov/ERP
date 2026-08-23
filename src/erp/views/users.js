@@ -1,6 +1,6 @@
 /* =====================================================================
    view/users  ·  erp-1.0
-   Пользователи, станции, навыки и покрытие навыков.
+   Пользователи, рабочие места, навыки и покрытие навыков.
    IN : DB.user
    OUT: html
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
@@ -10,10 +10,10 @@ let uEdit=null, uDraft=null;
 function viewUsers(){
  if(!subtab || !['list','report'].includes(subtab)) subtab='list';
  const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill))).length;
- return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе, к какой станции привязан и какие операции умеет выполнять. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
+ return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе и на каком рабочем месте стоит по умолчанию. Это префилл экрана, а не закрепление человека за станком: правда о том, кто сделал работу, приходит со скана. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.station).length}</div><div class="kpi-label">привязано к станции</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.workPosition).length}</div><div class="kpi-label">привязано к рабочему месту</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('check')}</div></div><div class="kpi-num">${covered}/${SKILLS.length}</div><div class="kpi-label">типов навыков покрыто</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${SKILLS.length-covered}</div><div class="kpi-label">навыков без носителя</div></div>
   </div>
@@ -27,18 +27,18 @@ function viewUsers(){
 }
 function viewUsersList(){
  const rows=DB.user.map((u,i)=>{
-  const st=DB.station.find(s=>s.code===u.station);
+  const st=DB.workPosition.find(w=>w.code===u.workPosition);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
   return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
-   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${raw(st.name)}`:'<span class="mut">не назначена</span>'}</td>
+   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">не назначено</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Изменить</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Имя</th><th>Роль</th><th>Станция</th><th>Навыки</th><th></th></tr></thead>
+  <table><thead><tr><th>Имя</th><th>Роль</th><th>Рабочее место</th><th>Навыки</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,workPosition:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -46,8 +46,8 @@ function userForm(){
   <div class="grid">
    <div><label>Имя *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
    <div><label>Роль *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
-   <div><label>Станция по умолчанию</label><select id="u_station" onchange="uDraft.station=this.value||null"><option value="">— нет —</option>
-    ${DB.station.map(s=>`<option value="${esc(s.code)}" ${s.code===r.station?'selected':''}>${esc(s.code)} — ${SEED_TEXT.has(s.name)&&LANG==='en'?tx(s.name):esc(s.name)}</option>`).join('')}</select></div>
+   <div><label>Рабочее место по умолчанию</label><select id="u_workPosition" onchange="uDraft.workPosition=this.value"><option value="">— нет —</option>
+    ${DB.workPosition.map(w=>`<option value="${esc(w.code)}" ${w.code===r.workPosition?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
   </div>
   <div style="margin-top:12px"><label>Навыки и уровень владения</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
