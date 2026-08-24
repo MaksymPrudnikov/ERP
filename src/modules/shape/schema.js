@@ -49,6 +49,27 @@ function shapeNormalizeSource(raw){
   if(kind==='dxf')out.preview=shapeNormalizeDxfPreview(raw.preview);return out;
 }
 function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf');}
+
+/* Manufacturing marks are annotations tied to a Shape revision.
+   They do NOT modify cutting geometry or the original DXF. Services and pricing
+   are derived from these marks elsewhere; the Shape stores only what/where. */
+const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','hole'];
+function shapeNormalizeManufacturingItem(raw){
+  raw=shapePlainObject(raw);var type=SHAPE_MANUFACTURING_ITEM_TYPES.indexOf(raw.type)>=0?raw.type:'hole';
+  var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
+  if(type==='hole'){
+    var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
+    out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'3/4');
+    out.hRef=raw.hRef==='right'?'right':'left';out.vRef=raw.vRef==='top'?'top':'bottom';
+  }else{
+    var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
+    if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;
+  }
+  return out;
+}
+function shapeNormalizeManufacturingItems(raw){
+  return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
+}
 function shapeDxfFail(message){return {ok:false,error:message};}
 function shapeParseFusionDxf(text){
   text=String(text==null?'':text);if(!text.trim())return shapeDxfFail('DXF file is empty.');
@@ -111,6 +132,7 @@ function normalizeShapeDef(s){
     w:shapeTextValue(s.w,type==='circle'?'36':'48'),h:shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36'),
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
+    manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'
   };
   if(source.kind==='dxf'&&source.preview.width16>0&&source.preview.height16>0){out.w=frac64(source.preview.width16/16);out.h=frac64(source.preview.height16/16);}

@@ -15,6 +15,9 @@ function shapeDefToLine(s){
 }
 function shapeFingerprint(def){
   var payload=shapeIsDxfSource(def)?{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview}}:{type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps};
+  /* Preserve every legacy fingerprint when no PR2 items exist. Once a
+     manufacturing annotation is added, it becomes part of the Shape revision. */
+  if(def.manufacturingItems&&def.manufacturingItems.length)payload.manufacturingItems=def.manufacturingItems;
   var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }
@@ -23,8 +26,8 @@ function shapeModuleResult(s){
   if(shapeIsDxfSource(def)){
     var sourceValidation=shapeValidateSource(def),fingerprint=shapeFingerprint(def),preview=def.source.preview||shapeNormalizeDxfPreview(null);
     if(sourceValidation.errors.length)return {valid:false,externalFile:true,sourceValid:false,reason:sourceValidation.errors[0],errors:sourceValidation.errors,warns:sourceValidation.warns,definition:def,fingerprint:fingerprint};
-    var width=preview.width16/16,height=preview.height16/16,points=preview.points||[],contourArea=Math.abs(fabSignedArea(points));
-    return {valid:false,externalFile:true,sourceValid:true,reason:'External DXF source uses validated preview geometry, not ERP cutting geometry.',errors:[],warns:sourceValidation.warns,definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:contourArea,billableArea:width*height,perimeter:fabPolylineLength(points,true)};
+    var width=preview.width16/16,height=preview.height16/16,points=preview.points||[],contourArea=Math.abs(fabSignedArea(points)),externalReq=shapeDerivedRequirements(def,{edges:[]},{holes:[],cutouts:[],hardware:[],radii:[]});
+    return {valid:false,externalFile:true,sourceValid:true,reason:'External DXF source uses validated preview geometry, not ERP cutting geometry.',errors:[],warns:sourceValidation.warns,definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:contourArea,billableArea:width*height,perimeter:fabPolylineLength(points,true),requirements:externalReq};
   }
   var S=shapeDefToLine(def),G=shapeGeometry(S);
   if(!G.ok)return {valid:false,reason:G.error||'Invalid Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G,definition:def};
