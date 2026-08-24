@@ -1014,6 +1014,186 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
+  /* --- 5f. Экран Master Data и выбор стекла (порция 5·3, пункты 4–5) ---
+     Каталог собран скриптом из чужой выгрузки, и первое, что с ним придётся
+     сделать, — дописать своего поставщика и переименовать чужие коды в цеховые.
+     Без экрана это Excel, пересборка каталога и новая заливка ради одной строки. */
+  {
+    console.log('Master Data / выбор стекла');
+    let t = await page();
+    eq('каталог показывается страницей, а не целиком', await t.p.evaluate(() => {
+      tab = 'masterdata'; subtab = null; mdTab = 'glass'; mdEdit = null;
+      mdSearch = ''; mdMfr = ''; mdThick = ''; mdCoating = ''; mdStatus = 'all';
+      render();
+      return [document.querySelectorAll('#app tbody tr').length, DB.glassProduct.length];
+    }), [60, 511]);
+
+    /* Поиск идёт по подстроке: 6SBN60VT попадает и в цветные версии того же
+       покрытия — ровно то поведение, которое нужно продавцу. */
+    eq('фильтры сужают выбор', await t.p.evaluate(() => {
+      mdMfr = 'Woodbridge'; const a = mdVisibleProducts().length;
+      mdMfr = ''; mdCoating = 'reflective'; const b = mdVisibleProducts().length;
+      mdCoating = ''; mdThick = '19'; const c = mdVisibleProducts().length;
+      mdThick = ''; mdStatus = 'stocked'; const d = mdVisibleProducts().length;
+      mdStatus = 'all'; mdSearch = '6sbn60vt'; const e = mdVisibleProducts().length;
+      mdSearch = ''; render();
+      return [a, b, c, d, e];
+    }), [3, 51, 4, 53, 12]);
+    await t.c.close();
+
+    t = await page();
+    eq('новая позиция заводится через форму', await t.p.evaluate(() => {
+      tab = 'masterdata'; mdTab = 'glass'; mdGlassNew();
+      const set = (id, v) => { document.getElementById(id).value = v; };
+      set('md_code', '6TRU-CLR'); set('md_name', 'Trulite Clear 6mm'); set('md_mfr', 'Trulite');
+      set('md_thick', '6'); set('md_actual', '5.7'); set('md_substrate', 'clear');
+      set('md_coating', 'uncoated'); set('md_temper', 'temper_required'); set('md_exposure', 'any');
+      set('md_stockunit', 'sheet'); set('md_salesunit', 'sqft');
+      document.getElementById('md_stocked').checked = true;
+      mdGlassSave();
+      const p = glassProductByCode('6TRU-CLR');
+      return [DB.glassProduct.length, mdEdit, p.id, p.thicknessMm, p.stockingUnit, p.stocked, glassNeedsFurnace(p)];
+    }), [512, null, 'GL-6TRU-CLR', 6, 'sheet', true, true]);
+
+    eq('дубль кода, негодная толщина и поверхность вне 1–8 не сохраняются', await t.p.evaluate(() => {
+      const set = (id, v) => { document.getElementById(id).value = v; };
+      const err = () => document.getElementById('e_mdGlass').textContent.length > 0;
+      mdGlassNew();
+      set('md_code', '6TRU-CLR'); set('md_name', 'Дубль'); set('md_thick', '6');
+      mdGlassSave(); const dup = [DB.glassProduct.length, err()];
+      set('md_code', '6TRU-THICK'); set('md_thick', '25');
+      mdGlassSave(); const thick = [DB.glassProduct.length, err()];
+      set('md_thick', '6'); set('md_surfaces', '9');
+      mdGlassSave(); const surf = [DB.glassProduct.length, err()];
+      mdEdit = null; mdDraft = null; render();
+      return [dup, thick, surf];
+    }), [[512, true], [512, true], [512, true]]);
+    await t.c.close();
+
+    /* То, ради чего экран и нужен в первую очередь: девять позиций 6BIRDSMART
+       пользователь переписывает в свои цеховые коды. Ссылки из сохранённых
+       Makeup держатся на идентификаторе и обязаны пережить переименование. */
+    t = await page();
+    eq('переименование кода сохраняет идентификатор', await t.p.evaluate(() => {
+      tab = 'masterdata'; mdTab = 'glass';
+      const src = DB.glassProduct.find(p => p.code.indexOf('6BIRDSMART') === 0), id = src.id;
+      mdGlassEdit(id);
+      const set = (i, v) => { document.getElementById(i).value = v; };
+      set('md_code', '6BS-70C'); set('md_name', src.name); set('md_thick', String(src.thicknessMm));
+      mdGlassSave();
+      const after = glassProductById(id);
+      return [DB.glassProduct.length, after.code, after.id === id, glassProductByCode('6BS-70C').id === id];
+    }), [511, '6BS-70C', true, true]);
+
+    /* Позицию, которая стоит в Makeup, удалять нельзя: старый заказ показал бы
+       `?` вместо кода стекла. Вместо удаления — обратимая пометка «снята». */
+    eq('позицию из Makeup удалить нельзя — только снять с производства', await t.p.evaluate(() => {
+      const id = DB.glassProduct[0].id;
+      DB.salesOrder.push({ id: 'SO-X', makeups: [{ id: 'MU-X', panes: [{ glassProductId: id }] }], lines: [] });
+      mdGlassDelete(id);
+      const kept = !!glassProductById(id);
+      mdGlassToggle(id);
+      const off = [glassProductById(id).active, activeGlassProducts().some(p => p.id === id)];
+      mdGlassToggle(id);
+      return [kept, off[0], off[1], glassProductById(id).active];
+    }), [true, false, false, true]);
+
+    eq('свободную позицию удалить можно', await t.p.evaluate(() => {
+      const id = DB.glassProduct[3].id, n = DB.glassProduct.length;
+      mdGlassDelete(id);
+      return [DB.glassProduct.length === n - 1, !glassProductById(id)];
+    }), [true, true]);
+    await t.c.close();
+
+    t = await page();
+    eq('строка поставки заводится через форму', await t.p.evaluate(() => {
+      tab = 'masterdata'; mdTab = 'supply'; mdSheetNew();
+      const set = (id, v) => { document.getElementById(id).value = v; };
+      set('md_sheetCode', '6CLEAR'); set('md_sheetSupplier', 'Vitro Barrie'); set('md_sheetCurrency', 'CAD');
+      set('md_sheetW', '130'); set('md_sheetH', '96'); set('md_sheetUnit', 'sqft');
+      set('md_sheetPrice', '1.25'); set('md_sheetDate', '2026-08-22'); set('md_sheetLead', '10');
+      set('md_sheetAvail', 'stock');
+      mdSheetSave();
+      const s = DB.glassSheet[0];
+      return [DB.glassSheet.length, s.productCode, s.currency, s.sheetWIn, s.purchasePrice,
+              glassLeadTimeDays('6CLEAR'), mdUnitCalc(s.purchaseUnit)];
+    }), [1, '6CLEAR', 'CAD', 130, 1.25, 10, 'area']);
+
+    eq('та же точка с тем же листом не удваивается, другой формат листа заводится', await t.p.evaluate(() => {
+      const set = (id, v) => { document.getElementById(id).value = v; };
+      mdSheetNew();
+      set('md_sheetCode', '6CLEAR'); set('md_sheetSupplier', 'Vitro Barrie'); set('md_sheetCurrency', 'CAD');
+      set('md_sheetW', '130'); set('md_sheetH', '96'); set('md_sheetPrice', '9.99');
+      mdSheetSave();
+      const blocked = [DB.glassSheet.length, document.getElementById('e_mdSheet').textContent.length > 0];
+      set('md_sheetW', '96'); set('md_sheetH', '48');
+      mdSheetSave();
+      return blocked.concat([DB.glassSheet.length, glassSheetsFor('6CLEAR').length]);
+    }), [1, true, 2, 2]);
+
+    eq('половина размера листа, кривая дата и кривая валюта не сохраняются', await t.p.evaluate(() => {
+      const set = (id, v) => { document.getElementById(id).value = v; };
+      const err = () => document.getElementById('e_mdSheet').textContent.length > 0;
+      mdSheetNew();
+      set('md_sheetCode', '6CLEAR'); set('md_sheetSupplier', 'Vitro USA'); set('md_sheetCurrency', 'USD');
+      set('md_sheetW', '144'); set('md_sheetH', '');
+      mdSheetSave(); const half = [DB.glassSheet.length, err()];
+      set('md_sheetH', '96'); set('md_sheetDate', '22.08.2026');
+      mdSheetSave(); const date = [DB.glassSheet.length, err()];
+      set('md_sheetDate', '2026-08-22'); set('md_sheetCurrency', 'CADD');
+      mdSheetSave(); const cur = [DB.glassSheet.length, err()];
+      mdSheetEdit = null; mdSheetDraft = null; render();
+      return [half, date, cur];
+    }), [[2, true], [2, true], [2, true]]);
+
+    eq('обзор базы считает все коллекции', await t.p.evaluate(() => {
+      mdTab = 'overview'; render();
+      const html = document.getElementById('app').innerHTML;
+      return [html.indexOf('glassProduct') > 0, html.indexOf('glassSheet') > 0, html.indexOf('salesOrder') > 0,
+              MD_COLLECTIONS.filter(c => !Array.isArray(DB[c.key])).length];
+    }), [true, true, true, 0]);
+    await t.c.close();
+
+    /* Пункт 5. Выбор не блокируется: позиция, которой у нас нет, помечается
+       «по предзаказу» и остаётся выбираемой — с этого пользователь начал. */
+    t = await page();
+    eq('в списке выбора позиция без склада помечена, но остаётся', await t.p.evaluate(() => {
+      const pre = DB.glassProduct.find(p => !p.stocked);
+      const opts = salesGlassProductOptions([pre], '');
+      return [opts.indexOf(glassLabel('stock', 'preorder')) > 0, opts.indexOf(pre.id) > 0];
+    }), [true, true]);
+
+    eq('под селектом видно подложку, покрытие и оба гейта закалки', await t.p.evaluate(() => {
+      const vt = glassProductByCode('6SBN60VT'), e = glassProductByCode('6SBN60'), st = glassProductByCode('6CLEAR');
+      const a = salesGlassMeta(vt), b = salesGlassMeta(e), c = salesGlassMeta(st);
+      return [a.indexOf(glassLabel('substrate', vt.substrate)) > 0,
+              a.indexOf(glassLabel('coatingFamily', vt.coatingFamily)) > 0,
+              a.indexOf(glassLabel('temperMode', 'temper_required')) > 0,
+              b.indexOf(glassLabel('temperMode', 'annealed_only')) > 0,
+              c.indexOf(glassLabel('stock', 'stocked')) > 0,
+              salesGlassMeta(glassProductByCode('3COMFORTSELECT73')).indexOf(glassLabel('stock', 'preorder')) > 0,
+              salesGlassMeta(null)];
+    }), [true, true, true, true, true, true, '']);
+
+    eq('срок поставки показывается только тому, чего нет на складе', await t.p.evaluate(() => {
+      const pre = DB.glassProduct.find(p => !p.stocked);
+      DB.glassSheet.push(normalizeGlassSheet({ productCode: pre.code, supplier: 'Vitro Barrie', leadTimeDays: 12, availability: 'order' }));
+      DB.glassSheet.push(normalizeGlassSheet({ productCode: '6CLEAR', supplier: 'Vitro Barrie', leadTimeDays: 9, availability: 'stock' }));
+      return [salesGlassMeta(pre).indexOf('12 d') > 0, salesGlassMeta(glassProductByCode('6CLEAR')).indexOf('9 d') > 0];
+    }), [true, false]);
+
+    /* Доменные термины не ходят через словарь интерфейса: обе колонки лежат
+       рядом с данными, и язык выбирает нужную. */
+    eq('термины каталога приезжают на языке интерфейса, а не через словарь', await t.p.evaluate(() => {
+      const read = () => [glassLabel('substrate', 'low_iron'), glassLabel('temperMode', 'annealed_only'),
+                          glassLabel('stock', 'preorder'), mdUnitName('sqft')];
+      LANG = 'ru'; const ru = read();
+      LANG = 'en'; const en = read();
+      return [ru.some(v => /[А-Яа-яЁё]/.test(v)), en.some(v => /[А-Яа-яЁё]/.test(v)), en[3]];
+    }), [true, false, 'sq ft']);
+    await t.c.close();
+  }
+
   /* --- 6. RU / EN -------------------------------------------------- */
   {
     console.log('RU / EN');
@@ -1039,7 +1219,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     await t.p.evaluate(() => setLang('en'));
     eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
-    for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production']) {
+    for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production', 'masterdata']) {
       const left = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
         const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
