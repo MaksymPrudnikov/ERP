@@ -411,7 +411,31 @@ function glassLeadTimeDays(code){
 }
 function glassOrphanSheets(){return (DB.glassSheet||[]).filter(s=>!glassProductByCode(s.productCode));}
 
-/* --- 7. Импорт -------------------------------------------------------- */
+/* --- 7. Имена значений на языке интерфейса ---------------------------- */
+
+/* Тот же приём, что sfName в цеховом справочнике: обе колонки лежат здесь, а
+   язык только выбирает нужную. Доменные термины через словарь интерфейса не
+   гоняем — иначе «прозрачное» однажды переведётся там, где стоит имя товара.
+   Значение, которого в таблице нет, показывается как есть: пустая ячейка врёт
+   меньше, чем подставленное наугад слово. */
+const GLASS_VOCAB={
+ substrate:{clear:['прозрачное','clear'],low_iron:['осветлённое','low iron'],tinted:['тонированное','tinted'],patterned:['узорчатое','patterned'],wired:['армированное','wired']},
+ coatingFamily:{uncoated:['без покрытия','uncoated'],lowe:['Low-E','Low-E'],reflective:['рефлективное','reflective']},
+ temperMode:{temperable:['закаливается','temperable'],temper_required:['только закалённым','temper required'],annealed_only:['в печь нельзя','no tempering'],unknown:['не указано','unknown']},
+ exposureRule:{any:['любая поверхность','any surface'],cavity_only:['только внутрь пакета','cavity only'],exterior_only:['только наружу','exterior only'],interior_only:['только в помещение','interior only']},
+ deposition:{pyrolytic:['пиролитическое','pyrolytic'],sputtered:['напыление','sputtered']},
+ availability:{stock:['склад','stock'],order:['под заказ','order'],special:['спецзаказ','special'],inactive:['снято','inactive']},
+ /* Ответ на вопрос, с которого пользователь начал разговор: позиция, которой у
+    нас нет, из выбора не исчезает — она берётся по предзаказу. */
+ stock:{stocked:['на складе','in stock'],preorder:['по предзаказу','pre-order']}
+};
+function glassLabel(kind,value){
+ const row=(GLASS_VOCAB[kind]||{})[value];
+ if(!row)return mdString(value);
+ return (typeof LANG!=='undefined'&&LANG==='en')?row[1]:row[0];
+}
+
+/* --- 8. Импорт -------------------------------------------------------- */
 
 /* Слияние ПО КОДУ, а не замена таблицы: строки, которые пользователь завёл
    руками, чужой файл сносить не должен. Чего в файле нет — попадает в

@@ -148,6 +148,18 @@ function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=
 function newSalesOrderDraft(){const now=new Date().toISOString();return normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
+/* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
+   старый заказ показал бы `?` вместо кода стекла. Проверка живёт здесь, а не в
+   masterdata: справочник материалов не знает про заказы и знать не должен.
+   Черновик заказа считается наравне с сохранёнными — он ещё не в базе, но
+   человек уже выбрал в нём это стекло. */
+function salesGlassProductHasReferences(id){
+ if(!id)return false;
+ const inMakeups=ms=>(Array.isArray(ms)?ms:[]).some(m=>(m&&m.panes||[]).some(p=>
+  p.glassProductId===id||(p.laminated&&(p.laminated.outerGlassProductId===id||p.laminated.innerGlassProductId===id))));
+ return (DB.salesOrder||[]).some(o=>inMakeups(o.makeups))||
+  (typeof soDraft!=='undefined'&&!!soDraft&&inMakeups(soDraft.makeups));
+}
 function salesShapeHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.shapeRef&&l.shapeRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.shapeRef&&l.shapeRef.id===id));}
 function salesMuntinHasReferences(id){return (DB.salesOrder||[]).some(o=>o.lines.some(l=>l.muntinRef&&l.muntinRef.id===id))||(typeof soDraft!=='undefined'&&soDraft&&soDraft.lines.some(l=>l.muntinRef&&l.muntinRef.id===id));}
 

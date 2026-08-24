@@ -48,6 +48,7 @@
     "src/erp/views/configurators.js",
     "src/erp/views/optimization.js",
     "src/erp/views/production.js",
+    "src/erp/views/masterdata.js",
     "src/erp/storage.js"
   ]
 }
