@@ -8,6 +8,7 @@ let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
 let soExcelMode='current';
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
+let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 let salesBridge=null;
 
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
@@ -17,8 +18,8 @@ function salesApplyCustomerDefaults(id){
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
-function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
+function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -31,10 +32,11 @@ function salesDraftHasWork(){
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;salesBridge=null;render();
+ soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;salesBridge=null;render();
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -145,6 +147,80 @@ function salesExcelApply(){
  });
  salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
 }
+
+/* ---------- Sales pricing · PR3 clickable prototype ----------
+   Geometry and quantities are always derived from Shape / line Qty. Only the
+   monetary rate can be overridden in the Sales Order. Catalog rates are snapped
+   into the order on save so later catalog changes do not rewrite old orders. */
+const SALES_SERVICE_RATE_TABLE={
+ clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
+ hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
+ roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15}
+};
+function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t===6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
+function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
+function salesLineChargeRows(line){
+ const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
+ const miGroups={};items.forEach(function(item){if(item.type==='clamp'||item.type==='hinge'){const key=item.type;if(!miGroups[key])miGroups[key]={qty:0};miGroups[key].qty++;return;}if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!miGroups[key])miGroups[key]={qty:0,holeBand:hb};miGroups[key].qty++;}});
+ if(miGroups.clamp)rows.push(salesChargeRow('MI:clamp:'+ctx.band,'Clamp',miGroups.clamp.qty,'pc',salesCatalogRate('clamp',ctx),'Manufacturing item'));
+ if(miGroups.hinge)rows.push(salesChargeRow('MI:hinge:'+ctx.band,'Hinge',miGroups.hinge.qty,'pc',salesCatalogRate('hinge',ctx),'Manufacturing item'));
+ Object.keys(miGroups).filter(k=>k.indexOf('hole:')===0).forEach(function(k){const g=miGroups[k],hb=g.holeBand,rate=hb?salesCatalogRate('hole',ctx,hb.key):null;rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(hb?hb.label:'—'),g.qty,'pc',rate,'Manufacturing item'));});
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
+  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
+ }
+ return rows.filter(x=>x.basis>0);
+}
+function salesChargeGroupKey(row){
+ const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
+ if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
+ if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');return String(row&&row.key||'');
+}
+function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
+function salesChargePricingState(line,row){
+ const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
+ /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
+    a future catalog edit silently reprice an old order. */
+ const catalog=saved?saved.catalogRate:row.catalogRate,lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?'catalog':'missing'));
+ return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,missing:effective==null};
+}
+function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]={catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null};return line.chargePricing[row.key];}
+function salesEnsureOrderServicePricing(){if(!soDraft.servicePricing||typeof soDraft.servicePricing!=='object')soDraft.servicePricing={};return soDraft.servicePricing;}
+function salesSnapshotAllChargePricing(){if(!soDraft)return;(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){salesEnsureChargePricing(line,row);});});}
+function salesSetChargeOrderRate(lineId,key,v){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;const rec=salesEnsureChargePricing(line,row),txt=String(v==null?'':v).trim();if(txt===''){rec.orderRate=null;render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative line rate.');render();return;}rec.orderRate=Math.round(n*10000)/10000;render();}
+function salesResetChargeRate(lineId,key){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};const saved=Object.prototype.hasOwnProperty.call(line.chargePricing,key)?line.chargePricing[key]:null;line.chargePricing[key]={catalogRate:saved?saved.catalogRate:(row.catalogRate==null?null:row.catalogRate),orderRate:null};render();}
+function salesSetOrderGroupRate(groupKey,v){
+ const txt=String(v==null?'':v).trim(),map=salesEnsureOrderServicePricing();if(txt===''){delete map[groupKey];render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative order-wide rate.');render();return;}map[groupKey]={catalogRate:null,orderRate:Math.round(n*10000)/10000};
+ /* A bulk order-rate edit means "all of this service". Clear old line exceptions
+    for the same service; a specific line can be overridden again afterwards. */
+ (soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){if(salesChargeGroupKey(row)!==groupKey)return;const rec=salesEnsureChargePricing(line,row);rec.orderRate=null;});});render();
+}
+function salesResetOrderGroupRate(groupKey){const map=salesEnsureOrderServicePricing();delete map[groupKey];(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){if(salesChargeGroupKey(row)!==groupKey)return;const rec=salesEnsureChargePricing(line,row);rec.orderRate=null;});});render();}
+function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q;if(row.unit==='pc')return row.basis+' pc'+(q>1?' × '+q+' = '+total+' pc':'');return dimIn(row.basis)+(q>1?' × '+q+' = '+dimIn(total):'');}
+function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':'in');}
+function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=row.basis*q*st.effectiveRate;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
+function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
+function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
+function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
+function salesTogglePricingLine(id){soPricingLineId=soPricingLineId===id?null:id;render();}
+function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;render();}
+function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;render();}
+function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;render();}
+function salesChargeShortLabel(row){const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';return l.slice(0,8).toUpperCase();}
+function salesLineServicesSummary(line){
+ const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
+ const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
+ return `<button type='button' class='line-services-btn${summary.unpriced?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${summary.unpriced?`<small>${summary.unpriced} без цены</small>`:''}</span></button>`;
+}
+function salesOrderChargeGroups(){
+ const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
+ return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:e.basis*e.state.effectiveRate);},0);return g;});
+}
+function salesOrderGroupBasisText(g){return g.unit==='pc'?g.basis+' pc':dimIn(g.basis);}
+function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':'in');}
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
