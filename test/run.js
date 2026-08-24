@@ -1194,6 +1194,99 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
+  /* --- 5g. Два шага выбора: покрытие → на каком стекле ------------------
+     Каталог держит одну строку на пару «покрытие × базовое стекло», и Vitro
+     6 мм Low-E — это 92 строки. Одним списком их выбирать нельзя; у самого
+     поставщика тот же выбор сделан двумя шагами, и здесь так же. */
+  {
+    console.log('Покрытие → базовое стекло');
+    let t = await page();
+
+    /* Отдельных колонок под покрытие и базу в выгрузке нет — разбирается имя,
+       по тем правилам, по которым имена и написаны. */
+    eq('имя каталога разбирается на покрытие и базовое стекло', await t.p.evaluate(() => {
+      const parts = code => { const p = glassProductByCode(code); return [glassCoatingName(p), glassBaseName(p)]; };
+      return [parts('6SBN60VT-ACU'), parts('6SBN70-OBL'), parts('6Q180'),
+              parts('6ECLIPSEADVANTAGEPARC'), parts('6ECLIPSEADVANTAGEARCT')];
+    }), [['Solarban 60', 'Acuity'], ['Solarban 70', 'Optiblue (Solarban z75)'], ['LoE 180', 'Clear'],
+         ['Eclipse Advantage +', 'Arctic Blue'], ['Eclipse Advantage', 'Arctic Blue']]);
+
+    eq('92 позиции Vitro 6 мм Low-E стали 15 покрытиями', await t.p.evaluate(() => {
+      const pane = { manufacturer: 'Vitro', thicknessMm: 6, visionType: 'lowe', glassProductId: '' };
+      return [salesGlassCandidates(pane).length, salesGlassCoatings(pane).length,
+              salesGlassVariants(pane, 'Solarban 60').length];
+    }), [92, 15, 13]);
+
+    /* «Solarban 60 on Clear» заведена и закаливаемой, и незакаливаемой — в
+       списке вариантов это обязано быть видно, иначе две одинаковые строки. */
+    eq('пара по закалке различима в списке вариантов', await t.p.evaluate(() => {
+      const pane = { manufacturer: 'Vitro', thicknessMm: 6, visionType: 'lowe', glassProductId: '' };
+      const rows = salesGlassVariants(pane, 'Solarban 60').filter(g => glassBaseName(g) === 'Clear');
+      const labels = rows.map(salesGlassVariantLabel).sort();
+      return [rows.length, labels[0] !== labels[1],
+              labels.join(' | ').indexOf(glassLabel('temperMode', 'temper_required')) >= 0];
+    }), [2, true, true]);
+
+    /* Короткий код остаётся в шапке Lite и в коде makeup; в подписи выбора его
+       нет — там он только мешал читать имя. */
+    eq('короткого кода в подписи выбора нет', await t.p.evaluate(() => {
+      const labels = html => [...html.matchAll(/>([^<>]*)<\/option>/g)].map(m => m[1]).join(' | ');
+      const pane = { manufacturer: 'Vitro', thicknessMm: 6, visionType: 'lowe', glassProductId: '' };
+      const coated = labels(salesGlassVariantOptions(salesGlassVariants(pane, 'Solarban 60'), ''));
+      const plain = labels(salesGlassProductOptions(salesGlassCandidates({ manufacturer: 'Vitro', thicknessMm: 6, visionType: 'uncoated' }), ''));
+      return [coated.indexOf('6SBN60') < 0, plain.indexOf('6CLEAR') < 0, coated.indexOf('Acuity') > 0];
+    }), [true, true, true]);
+    await t.c.close();
+
+    /* Шаг покрытия есть только у покрытого стекла: у непокрытого он был бы
+       пустой формальностью — там выбирают само стекло. */
+    t = await page();
+    eq('шаг покрытия появляется только у покрытого стекла', await t.p.evaluate(() => {
+      tab = 'sales'; subtab = null; render(); salesOrderNew();
+      const p = salesCurrentMakeup().panes[0];
+      p.category = 'vision'; p.manufacturer = 'Vitro'; p.thicknessMm = 6; p.visionType = 'lowe';
+      p.glassProductId = glassProductByCode('6SBN60VT-ACU').id;
+      const coated = salesVisionFieldsSafe(p, 0);
+      p.visionType = 'uncoated'; p.glassProductId = glassProductByCode('6CLEAR').id;
+      const plain = salesVisionFieldsSafe(p, 0);
+      return [coated.indexOf('Select Coating') > 0, coated.indexOf('On Glass') > 0,
+              plain.indexOf('Select Coating') < 0, plain.indexOf('>Glass<') > 0];
+    }), [true, true, true, true]);
+
+    /* Смена покрытия переносит базовое стекло: человек выбрал Azuria и на
+       новом покрытии ждёт ту же Azuria, а не первую строку списка. */
+    eq('смена покрытия в интерфейсе переносит базовое стекло', await t.p.evaluate(() => {
+      tab = 'sales'; subtab = null; render(); salesOrderNew();
+      const p = salesCurrentMakeup().panes[0];
+      p.category = 'vision'; p.manufacturer = 'Vitro'; p.thicknessMm = 6; p.visionType = 'lowe';
+      salesPaneSetProduct(0, glassProductByCode('6SBN60VT-AZ').id);
+      soOpenSectionKey = 'lite-0'; render();
+      const before = glassProductById(salesCurrentMakeup().panes[0].glassProductId).code;
+      const sel = document.querySelectorAll('.mu-coating-grid select')[0];
+      sel.value = 'Solarban 90';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      const after = glassProductById(salesCurrentMakeup().panes[0].glassProductId);
+      return [before, after.code, glassBaseName(after)];
+    }), ['6SBN60VT-AZ', '6SBN90-AZ', 'Azuria']);
+
+    /* `allowed_surfaces` каталога наконец доехало до кнопок: напыление живёт
+       на #2 снаружи. Но выбор не запирается — вторая кнопка нажимаема. */
+    eq('напыление ставится на #2, а несходящийся каталог ничего не запирает', await t.p.evaluate(() => {
+      const p = salesCurrentMakeup().panes[0];
+      p.visionType = 'lowe'; p.coatingSurface = 1;
+      salesPaneSetProduct(0, glassProductByCode('6SBN60VT-ACU').id);
+      const html = salesCoatingSurfaceSelector(p, 0);
+      const inner = DB.glassProduct.find(g => g.exposureRule === 'interior_only' && g.thicknessMm === 6);
+      p.manufacturer = inner.manufacturer;
+      salesPaneSetProduct(0, inner.id);
+      const free = salesCoatingSurfaceSelector(p, 0);
+      return [p.coatingSurface === 2 || salesAllowedCoatingSurfaces(p, 0).join() === '1,2',
+              html.indexOf('default #2') > 0, html.indexOf('off-catalog') > 0,
+              inner.allowedSurfaces, free.indexOf('off-catalog') < 0];
+    }), [true, true, true, [4], true]);
+    await t.c.close();
+  }
+
   /* --- 6. RU / EN -------------------------------------------------- */
   {
     console.log('RU / EN');

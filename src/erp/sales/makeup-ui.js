@@ -13,7 +13,32 @@ function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.
    выпадает: заказать можно и то, чего у нас нет. Строка помечена data-raw и
    собирается заново на каждом переключении языка, поэтому пометка приезжает
    уже на нужном языке, а имя товара переводчик не трогает. */
-function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,(g.code?g.code+' · ':'')+g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+/* Короткого кода в списке НЕТ намеренно: он уже стоит в шапке Lite и в коде
+   makeup, а в строке выбора только мешает читать имя. */
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+/* --- Два шага выбора покрытого стекла --------------------------------
+   Раньше шаг был один, и Vitro 6 мм Low-E выкатывал 92 строки списком.
+   Теперь как у самого поставщика: сначала покрытие, потом на каком стекле. */
+function salesGlassCoatings(p){
+ const seen=Object.create(null),out=[];
+ salesGlassCandidates(p).forEach(g=>{const c=glassCoatingName(g);if(c&&!seen[c]){seen[c]=true;out.push(c);}});
+ return out.sort((a,b)=>a.localeCompare(b));
+}
+function salesGlassVariants(p,coating){return salesGlassCandidates(p).filter(g=>glassCoatingName(g)===coating);}
+function salesCurrentCoating(p){return glassCoatingName(glassProductById(p.glassProductId));}
+/* Подпись варианта — базовое стекло. Пара по закалке («Solarban 60 on Clear»
+   заведена и закаливаемой, и незакаливаемой) иначе выглядела бы двумя
+   одинаковыми строками, поэтому гейт печи стоит прямо в подписи. */
+function salesGlassVariantLabel(g){
+ const bits=[glassBaseName(g)];
+ if(glassNeedsFurnace(g))bits.push(glassLabel('temperMode','temper_required'));
+ else if(glassBannedFromFurnace(g))bits.push(glassLabel('temperMode','annealed_only'));
+ if(glassIsPreorder(g))bits.push(glassLabel('stock','preorder'));
+ return bits.join(' · ');
+}
+function salesGlassVariantOptions(rows,selected){
+ return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,salesGlassVariantLabel(g),selected,true)).join('');
+}
 /* Что именно выбрано: подложка, покрытие, закалка и наличие. До этого в
    конфигураторе было видно одно имя, и разница между двумя соседними строками
    каталога — например закаливаемой и незакаливаемой версией одного покрытия —
@@ -33,7 +58,9 @@ function salesGlassMeta(g){
  if(g.exposureRule!=='any')pills.push(`<span class="pill info">${esc(glassLabel('exposureRule',g.exposureRule))}</span>`);
  return `<div class="mu-glass-meta"><span class="mut" data-raw>${esc(facts.join(' · '))}</span>${pills.join('')}</div>`;
 }
-function salesGlassMetaFor(id){return salesGlassMeta(glassProductById(id));}
+/* Контейнер меты рендерится ВСЕГДА, даже пустой: иначе выбор стекла менял
+   высоту ряда, и соседний Lite подпрыгивал. */
+function salesGlassMetaFor(id){return salesGlassMeta(glassProductById(id))||'<div class="mu-glass-meta"></div>';}
 function salesSimpleOptions(key,selected){return activeSimple(key).map(x=>salesOption(x.id,(x.code?x.code+' · ':'')+x.name,selected,true)).join('');}
 function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+value===n?'on':''}" onclick="${handler}(${n})">#${n}</button>`).join('')}</div></div>`;}
 function salesPaneProductSummary(p,index){
@@ -74,11 +101,41 @@ function salesFritSurfaceSelector(p,index){const nums=salesPaneSurfaces(index);r
 function salesFritFields(p,index){
  return `<div class="mu-subgrid"><div><label>Frit Product</label><select onchange="salesPaneSetFrit(${index},'productId',this.value)">${salesSimpleOptions('fritProduct',p.frit.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetFrit(${index},'color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,p.frit.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetFrit(${index},'pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,p.frit.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(p.frit.dotMm)}" onchange="salesFritDotChange(${index},this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetFrit(${index},'marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,p.frit.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(p.frit.marginW16))}" placeholder="1" onchange="salesFritMarginChange(${index},'marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(p.frit.marginH16))}" placeholder="1" onchange="salesFritMarginChange(${index},'marginH16',this)"></div><div><label>Production marking</label><input value="${esc(p.frit.marking)}" oninput="salesCurrentMakeup().panes[${index}].frit.marking=this.value"></div>${salesFritSurfaceSelector(p,index)}</div>`;
 }
-function salesCoatingSurfaceSelector(p,index){const nums=salesPaneSurfaces(index),label=p.visionType==='reflective'?'Reflective Surface':'Coating Surface';return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.coatingSurface===n?'on':''}" onclick="salesPaneSetCoatingSurface(${index},${n})">#${n}</button>`).join('')}</div></div>`;}
+/* Кнопка вне `allowed_surfaces` каталога помечается, но остаётся нажимаемой:
+   каталог отвечает, где покрытие живёт штатно, а не запрещает работу. */
+function salesCoatingSurfaceSelector(p,index){
+ const nums=salesPaneSurfaces(index),ok=salesAllowedCoatingSurfaces(p,index);
+ /* Подпись одна на оба типа покрытия: разная длина подписи двигала колонку,
+    и в Triple соседние лайты стояли с разной шириной поля. */
+ const label='On Surface';
+ const hint=ok.length&&ok.length<nums.length?`<div class="mu-surface-hint">default #${ok[0]}</div>`:'';
+ return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.coatingSurface===n?'on':''} ${ok.indexOf(n)<0?'off-catalog':''}" onclick="salesPaneSetCoatingSurface(${index},${n})">#${n}</button>`).join('')}</div>${hint}</div>`;
+}
+/* Цепочка выбора повторяет ту, которой пользуется сам поставщик:
+   производитель → толщина → тип → ПОКРЫТИЕ → на каком стекле оно лежит.
+   Пока шага «покрытие» не было, Vitro 6 мм Low-E выкатывал 92 строки одним
+   списком, и Solarban 60 на двенадцати подложках приходилось искать глазами.
+   У непокрытого стекла и фрита промежуточного шага нет — там выбирают само
+   стекло, и второй список был бы пустой формальностью. */
 function salesVisionFieldsSafe(p,index){
- const products=salesGlassCandidates(p),isFrit=p.visionType==='frit',surfaceNeeded=p.visionType==='lowe'||p.visionType==='reflective';
- return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div><div><label>${isFrit?'Base Glass':'Glass Product'}</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(products,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatField(p,index)}${surfaceNeeded?salesCoatingSurfaceSelector(p,index):''}</div>
- ${isFrit?salesFritFields(p,index):''}`;
+ const isFrit=p.visionType==='frit',coated=p.visionType==='lowe'||p.visionType==='reflective';
+ const coatings=coated?salesGlassCoatings(p):[];
+ const coating=coated?(salesCurrentCoating(p)||coatings[0]||''):'';
+ const rows=coated?salesGlassVariants(p,coating):salesGlassCandidates(p);
+ const glassSelect=`<select onchange="salesPaneSetProduct(${index},this.value)">${
+  coated?salesGlassVariantOptions(rows,p.glassProductId):salesGlassProductOptions(rows,p.glassProductId)}</select>`;
+ return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div>${salesHeatField(p,index)}</div>
+  <div class="mu-coating-grid">
+   ${coated
+    ?`<div><label>Select Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c,coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>`
+    /* ПУСТАЯ ячейка, а не пропущенная: в Double и Triple лайты стоят один под
+       другим, и поле, съехавшее на колонку влево у непокрытого стекла,
+       заставляло глаз прыгать по всей сетке. Колонки держим на месте. */
+    :'<div class="mu-cell-empty"></div>'}
+   <div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div>
+   ${coated?salesCoatingSurfaceSelector(p,index):'<div class="mu-cell-empty"></div>'}
+  </div>
+  ${isFrit?salesFritFields(p,index):''}`;
 }
 function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatField(p,index)}</div><div class="mu-subgrid"><div><label>Spandrel Product</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;}
 function salesLaminatedFields(p,index){const all=activeGlassProducts();return `<div class="mu-lam-grid"><div><label>Outer Ply</label><select onchange="salesPaneSetLam(${index},'outerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.outerGlassProductId)}</select>${salesGlassMetaFor(p.laminated.outerGlassProductId)}</div><div><label>Interlayer</label><select onchange="salesPaneSetLam(${index},'interlayerProductId',this.value)">${salesSimpleOptions('interlayerProduct',p.laminated.interlayerProductId)}</select></div><div><label>Inner Ply</label><select onchange="salesPaneSetLam(${index},'innerGlassProductId',this.value)">${salesGlassProductOptions(all,p.laminated.innerGlassProductId)}</select>${salesGlassMetaFor(p.laminated.innerGlassProductId)}</div></div>`;}
