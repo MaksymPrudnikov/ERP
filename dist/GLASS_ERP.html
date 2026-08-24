@@ -342,6 +342,21 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-mi-axis-card label{display:flex;flex-direction:column;gap:3px}.shape-mi-axis-card select,.shape-mi-axis-card input{width:100%;min-width:0;padding:6px 7px;font-size:10px;box-sizing:border-box}.shape-mi-axis-card small{color:var(--mut);font-size:8px;line-height:1.2}
 .shape-mi-prod-dims line{stroke:#d92d20;stroke-width:1.15;fill:none}.shape-mi-prod-dims .shape-mi-prod-guide{stroke:#f04438;stroke-width:.75;stroke-dasharray:3 3}.shape-mi-prod-dims text{fill:#b42318!important;paint-order:stroke!important;stroke:#fff!important;stroke-width:4px!important;stroke-linejoin:round!important;font:700 12px ui-monospace,monospace!important}.shape-mi-marker.hole .shape-mi-hole-leader{stroke:#667085;stroke-width:1.15;fill:none}.shape-mi-marker.hole>text{paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round;font:700 11px ui-monospace,monospace}.shape-mi-marker.hole>circle{fill:#fff;stroke:#6b56c8;stroke-width:1.6}
 @media(max-width:720px){.shape-mi-hole-position-grid,.shape-mi-axis-card{grid-template-columns:1fr}}
+/* PR3 · Sales service / processing pricing. Geometry basis is always read-only. */
+.sales-pricing-block{display:flex;flex-direction:column;gap:8px}.sales-pricing-grand{font:750 13px ui-monospace,monospace;color:#276a4c;white-space:nowrap}.sales-pricing-lines{display:flex;flex-direction:column;gap:7px}.sales-price-line{border:1px solid var(--sline);border-radius:9px;overflow:hidden;background:#fbfcfd}.sales-price-line.open{border-color:#c8dbe4;background:#fff}.sales-price-line-head{width:100%;display:grid;grid-template-columns:34px minmax(180px,1fr) minmax(130px,.7fr) 110px 18px;gap:8px;align-items:center;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:0}.sales-price-line-head:hover{background:#f4f8fa}.sales-price-line-name{display:flex;flex-direction:column;min-width:0}.sales-price-line-name b,.sales-price-line-name small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sales-price-line-name b{font-size:11px}.sales-price-line-name small{font-size:9px;color:var(--mut)}.sales-price-line-meta{font-size:9.5px;color:var(--mut)}.sales-price-line-head strong{font:700 11px ui-monospace,monospace;text-align:right;color:#276a4c}.sales-price-line-head i{font-style:normal;text-align:center;color:var(--mut)}.sales-price-body{border-top:1px solid var(--sline);padding:8px;background:#fff}.sales-price-context{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:6px 8px;margin-bottom:6px;border-radius:7px;background:#f7f9fa;color:#6d6a64;font-size:9.5px}.sales-price-context b{color:#3f3d38}.sales-price-table{display:flex;flex-direction:column;border:1px solid #e4e8ea;border-radius:8px;overflow:hidden}.sales-price-row{display:grid;grid-template-columns:minmax(170px,1.35fr) minmax(145px,1fr) 120px 130px 110px 58px;gap:7px;align-items:center;padding:6px 8px;border-bottom:1px solid #edf0f1;font-size:10px}.sales-price-row:last-child{border-bottom:0}.sales-price-row.head{background:#f8f9fa;color:#77736c;font-size:8.5px;text-transform:uppercase;letter-spacing:.035em;font-weight:700}.sales-price-charge{display:flex;flex-direction:column;min-width:0}.sales-price-charge b{font-size:10px}.sales-price-charge small{font-size:8px;color:var(--mut)}.sales-price-basis,.sales-price-catalog,.sales-price-total{font-family:ui-monospace,monospace}.sales-price-basis{color:#3f3d38}.sales-price-catalog{color:#6d6a64}.sales-price-order{position:relative;display:flex;align-items:center;gap:5px}.sales-price-order input{height:30px;min-width:0;width:82px;padding:4px 6px;font:10px ui-monospace,monospace}.sales-price-order small{font-size:7.5px;color:#7c7972}.sales-price-order small.manual{color:#a15a13;font-weight:700}.sales-price-total{text-align:right;color:#276a4c}.sales-price-row>button{padding:4px 6px;font-size:8.5px}.sales-price-subtotal{display:flex;justify-content:flex-end;gap:18px;align-items:center;padding:8px 6px 2px;font-size:10px}.sales-price-subtotal strong{font:750 12px ui-monospace,monospace;color:#276a4c}
+@media(max-width:950px){.sales-price-table{overflow-x:auto}.sales-price-row{min-width:820px}.sales-price-line-head{grid-template-columns:30px minmax(150px,1fr) 100px 95px 16px}.sales-price-line-meta{display:none}}
+
+.shape-service-table-qty .shape-service-row{grid-template-columns:minmax(160px,1fr) 70px}.shape-service-table-qty .shape-service-row>b{text-align:right}
+
+/* PR3 V2 · Services live on the Order Line; order-wide pricing is edited in one modal. */
+.sales-lines-with-services{min-width:1260px}.sales-lines-with-services .line-notes-compact{min-width:72px;width:92px}.line-services-cell{min-width:150px}.line-services-btn{width:100%;min-width:142px;min-height:34px;padding:4px 6px!important;display:flex;align-items:center;justify-content:space-between;gap:7px;border-radius:6px!important;background:#f6faf8!important;border-color:#c9ddd2!important;color:#315f49!important}.line-services-btn:hover{background:#edf7f1!important}.line-services-btn.empty{background:#fafafa!important;border-color:#e0e0dd!important;color:var(--mut)!important}.line-services-btn>small{font-size:8px}.line-services-btn>b{font:700 9.5px ui-monospace,monospace;white-space:nowrap}.line-services-chips{display:flex;gap:3px;align-items:center;min-width:0;overflow:hidden}.line-services-chips>span,.line-services-chips>i{font:700 7.5px ui-monospace,monospace;padding:2px 4px;border-radius:4px;background:#e8f3ed;color:#35634d;white-space:nowrap;font-style:normal}.line-services-chips>i{background:#f0f1f0;color:#696660}.sales-services-order-btn{display:flex!important;align-items:center;gap:7px!important;border-color:#bdd6ca!important;background:#f5faf7!important}.sales-services-order-btn span{font-weight:650}.sales-services-order-btn b{font:750 10px ui-monospace,monospace;color:#276a4c}.sales-services-order-btn.has-services{box-shadow:inset 0 0 0 1px rgba(39,106,76,.05)}
+.sales-service-modal-back{position:fixed;inset:0;z-index:110;background:#11182766;display:flex;align-items:center;justify-content:center;padding:18px}.sales-service-modal{width:min(1120px,96vw);max-height:88vh;overflow:auto;background:#fff;border:1px solid #d9ddd9;border-radius:14px;box-shadow:0 24px 80px #10182836}.sales-service-modal.line-modal{width:min(1180px,96vw)}.sales-service-modal.order-modal{width:min(1040px,96vw)}.sales-service-modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:13px 15px;background:#fff;border-bottom:1px solid #e7e9e7}.sales-service-modal-head>div{display:flex;flex-direction:column;gap:2px;min-width:0}.sales-service-modal-head>div>span{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}.sales-service-modal-head h3{margin:0;font-size:15px}.sales-service-modal-head small{font-size:9px;color:var(--mut);max-width:760px}.sales-service-modal-head>button{width:30px;height:30px;padding:0;font-size:18px}.sales-service-context{display:flex;gap:18px;flex-wrap:wrap;margin:10px 12px 8px;padding:7px 9px;border-radius:7px;background:#f7f9f8;color:#6d6a64;font-size:9.5px}.sales-service-context b{color:#3f3d38}.sales-line-service-table,.sales-order-service-table{margin:0 12px;border:1px solid #e3e7e4;border-radius:9px;overflow:hidden}.sales-line-service-row{display:grid;grid-template-columns:minmax(150px,1.25fr) minmax(135px,1fr) 115px 115px 110px 105px 130px;gap:7px;align-items:center;padding:7px 8px;border-bottom:1px solid #edf0ee;font-size:9.5px}.sales-line-service-row:last-child,.sales-order-service-row:last-child{border-bottom:0}.sales-line-service-row.head,.sales-order-service-row.head{background:#f8faf9;color:#77736c;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em}.sales-line-service-row>strong,.sales-order-service-row>strong{font:750 10px ui-monospace,monospace;color:#276a4c;text-align:right}.sales-line-rate,.sales-order-rate{display:flex;flex-direction:column;gap:2px}.sales-line-rate input,.sales-order-rate input{height:29px;padding:4px 6px;font:10px ui-monospace,monospace;min-width:0}.sales-line-rate small,.sales-order-rate small{font-size:7.5px;color:var(--mut)}.sales-line-rate small.manual{color:#a15a13;font-weight:700}.sales-service-modal-total{display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:11px 14px;font-size:10px}.sales-service-modal-total strong{font:800 13px ui-monospace,monospace;color:#276a4c}.sales-service-modal-total.grand{border-top:1px solid #dfe6e2;background:#f7fbf8}.sales-service-empty{margin:12px}.sales-order-service-row{display:grid;grid-template-columns:minmax(180px,1.3fr) 130px 165px 130px 115px 85px;gap:8px;align-items:center;padding:8px 9px;border-bottom:1px solid #edf0ee;font-size:9.5px}.sales-order-service-row .sales-price-charge small{display:block;color:var(--mut);font-size:8px}.sales-service-order-note{display:flex;gap:10px;align-items:flex-start;margin:10px 12px 0;padding:8px 10px;border:1px solid #d6e5dc;border-radius:8px;background:#f5faf7;color:#4f6558;font-size:9px}.sales-service-order-note b{white-space:nowrap}.sales-service-order-note span{line-height:1.4}
+@media(max-width:900px){.sales-service-modal{max-height:92vh}.sales-line-service-table,.sales-order-service-table{overflow-x:auto}.sales-line-service-row{min-width:920px}.sales-order-service-row{min-width:800px}}
+
+.sales-bulk-pricing-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.sales-bulk-pricing-title h3{margin:0}.sales-bulk-pricing-badge{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;background:#fff1e8;border:1px solid #f1c7a7;color:#9a4f18;font-size:8px!important;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.sales-bulk-pricing-banner{display:flex;align-items:center;gap:8px;margin:10px 12px 8px;padding:8px 10px;border-radius:8px;background:#fff7ed;border:1px solid #f2cfae;color:#8a4b1a;font-size:9px}.sales-bulk-pricing-banner b{white-space:nowrap}.sales-bulk-pricing-banner span{line-height:1.35}.sales-order-service-row:not(.head) .sales-order-rate{padding:4px;border-radius:6px;background:#fffaf5;box-shadow:inset 0 0 0 1px #f4ddc8}
+
+/* PR3 release guards: rate provenance and incomplete pricing are explicit. */
+.line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:#b54708;white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:#f3c48b!important;background:#fff8ee!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid #f2cfae;border-radius:8px;background:#fff7ed;color:#8a4b1a;font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:#b54708;font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:#fffaf4}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:#eef4f8;color:#476579!important}.sales-rate-origin.order{background:#fff1e8;color:#9a4f18!important}.sales-rate-origin.line{background:#f4ebff;color:#6941c6!important}.sales-rate-origin.missing{background:#fff1f0;color:#b42318!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:#b54708}
 
 </style>
 </head>
@@ -4768,10 +4783,19 @@ function normalizeOrderMakeup(m,index){
 }
 function normalizeShapeRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.shapeId),revision:Number.isInteger(+r.revision)?+r.revision:null,fingerprint:salesString(r.fingerprint)};}
 function normalizeMuntinRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.muntinId),shapeId:salesRefId(r.shapeId),shapeRevision:Number.isInteger(+r.shapeRevision)?+r.shapeRevision:null};}
+function normalizeSalesChargePricing(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};const out={};
+ Object.keys(raw).forEach(function(key){
+  if(!/^[A-Za-z0-9:._|+\-]{1,180}$/.test(key))return;const r=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
+  const catalog=r.catalogRate==null||r.catalogRate===''?NaN:Number(r.catalogRate),order=r.orderRate==null||r.orderRate===''?NaN:Number(r.orderRate);
+  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null};
+ });
+ return out;
+}
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId})};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId}),chargePricing:normalizeSalesChargePricing(l.chargePricing)};
 }
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
@@ -4779,7 +4803,7 @@ function normalizeSalesOrder(o){
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -4891,6 +4915,64 @@ function ico(name, cls=''){
    остаётся переключателем в шапке для владельца. */
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
+  "без цены": "unpriced",
+  "Цена не заполнена": "Price not set",
+  "начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.": "charges have no effective rate. They are not included in the monetary total until a rate is entered.",
+  "Не задана": "Not set",
+  "Нужна ставка": "Rate required",
+  "Использовать Order / Catalog": "Use Order / Catalog",
+  "Калькуляция неполная": "Pricing incomplete",
+  "начислений не имеют действующей ставки. В общий денежный итог они не входят, пока ставка не будет задана.": "charges have no effective rate. They are excluded from the order monetary total until a rate is entered.",
+  "Без цены:": "Unpriced:",
+  "Сбросить к Catalog": "Reset to Catalog",
+
+  "Массовое изменение цен": "Bulk price edit",
+  "Ставка, изменённая в этом окне, применяется ко всем строкам заказа с таким же сервисом. Геометрия и количество не меняются.": "A rate changed in this window applies to every order line with the same service. Geometry and quantity do not change.",
+  "Массовое изменение": "Bulk edit",
+  "Изменение Order rate ниже применяется ко всем совпадающим сервисам этого заказа.": "Changing an Order rate below applies it to all matching services in this order.",
+  "MU → Qty → Dimensions → Mark → engineering configurators → Сервисы": "MU → Qty → Dimensions → Mark → engineering configurators → Services",
+  "Сервисы и цены": "Services & Pricing",
+  "Сервисы": "Services",
+  "Сервисы / обработка": "Services / Processing",
+  "Толщина Makeup": "Makeup thickness",
+  "Количество строки": "Line Qty",
+  "Геометрия / количество": "Geometry / quantity",
+  "Каталог": "Catalog",
+  "На весь заказ": "Order-wide",
+  "Ставка строки": "Line rate",
+  "По ставке заказа/каталога": "Use order/catalog",
+  "В этой строке пока нет сервисов или начислений за обработку.": "This line has no services or processing charges yet.",
+  "Измени одну числовую ставку, чтобы применить её ко всем одинаковым сервисам этого заказа. Геометрия и количество не меняются.": "Change one numeric rate here to apply it to every matching service in this order. Geometry and quantities remain unchanged.",
+  "Сервис / обработка": "Service / Processing",
+  "База заказа": "Order basis",
+  "Ставки каталога": "Catalog rates",
+  "Сбросить всё": "Reset all",
+  "Правило массового изменения": "Mass edit rule",
+  "Изменение ставки заказа применяется ко всем одинаковым сервисам этого заказа и очищает старые исключения по строкам для этого сервиса. После этого отдельную строку можно переопределить через её ячейку Сервисы.": "Changing an Order rate applies it to all matching services in this order and clears older line exceptions for that service. A specific line can then be overridden from its Services cell.",
+  "Итого сервисы / обработка всего заказа": "Services / processing total for the whole order",
+  "В этом заказе пока нет сервисов или начислений за обработку.": "No services or processing charges in this order yet.",
+  "Строк:": "Lines:",
+  "Исключений:": "Overrides:",
+  "Цена рассчитывается в Sales Order. Геометрия и количество здесь не являются денежными полями.": "Pricing is calculated in the Sales Order. Geometry and quantity here are not monetary fields.",
+  "СЕРВИСЫ / ОБРАБОТКА · ЦЕНА": "SERVICES / PROCESSING · PRICING",
+  "Геометрия и количество рассчитываются ERP и не редактируются. Меняется только денежная ставка заказа.": "Geometry and quantity are calculated by ERP and cannot be edited. Only the order monetary rate can be changed.",
+  "Добавь Production Shape с обработкой или Manufacturing items — начисления появятся здесь автоматически.": "Add a Production Shape with processing or Manufacturing items — charges will appear here automatically.",
+  "Начислений:": "Charges:",
+  "Вручную:": "Manual:",
+  "Толщина Makeup:": "Makeup thickness:",
+  "Количество строки:": "Line Qty:",
+  "Геометрия Production Shape:": "Production Shape geometry:",
+  "только чтение": "read-only",
+  "нет стандартного диапазона": "no standard price band",
+  "Начисление": "Charge",
+  "Рассчитанная база": "Calculated basis",
+  "Ставка каталога": "Catalog rate",
+  "Ставка заказа": "Order rate",
+  "Итог": "Final total",
+  "Вручную": "Manual",
+  "Стандарт": "Catalog",
+  "К каталогу": "Reset to catalog",
+  "Итого сервисы / обработка этой строки": "Services / processing total for this line",
   "Clamp / Hinge привязываются к краю. Hole задаётся двумя размерными привязками с точностью 1/16″.": "Clamp / Hinge snap to an edge. Hole uses two dimension references with 1/16″ precision.",
   "Добавить": "Add",
   "Кликни внутри стекла для стартовой точки, затем точно задай Left/Right и Top/Bottom.": "Click inside the glass for a starting point, then set Left/Right and Top/Bottom precisely.",
@@ -6113,6 +6195,7 @@ let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
 let soExcelMode='current';
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
+let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 let salesBridge=null;
 
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
@@ -6122,8 +6205,8 @@ function salesApplyCustomerDefaults(id){
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
-function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;subtab='orders';render();}
+function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -6136,10 +6219,11 @@ function salesDraftHasWork(){
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;salesBridge=null;render();
+ soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;salesBridge=null;render();
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
@@ -6250,6 +6334,80 @@ function salesExcelApply(){
  });
  salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
 }
+
+/* ---------- Sales pricing · PR3 clickable prototype ----------
+   Geometry and quantities are always derived from Shape / line Qty. Only the
+   monetary rate can be overridden in the Sales Order. Catalog rates are snapped
+   into the order on save so later catalog changes do not rewrite old orders. */
+const SALES_SERVICE_RATE_TABLE={
+ clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
+ hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
+ roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15}
+};
+function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t===6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
+function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
+function salesLineChargeRows(line){
+ const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
+ const miGroups={};items.forEach(function(item){if(item.type==='clamp'||item.type==='hinge'){const key=item.type;if(!miGroups[key])miGroups[key]={qty:0};miGroups[key].qty++;return;}if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!miGroups[key])miGroups[key]={qty:0,holeBand:hb};miGroups[key].qty++;}});
+ if(miGroups.clamp)rows.push(salesChargeRow('MI:clamp:'+ctx.band,'Clamp',miGroups.clamp.qty,'pc',salesCatalogRate('clamp',ctx),'Manufacturing item'));
+ if(miGroups.hinge)rows.push(salesChargeRow('MI:hinge:'+ctx.band,'Hinge',miGroups.hinge.qty,'pc',salesCatalogRate('hinge',ctx),'Manufacturing item'));
+ Object.keys(miGroups).filter(k=>k.indexOf('hole:')===0).forEach(function(k){const g=miGroups[k],hb=g.holeBand,rate=hb?salesCatalogRate('hole',ctx,hb.key):null;rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(hb?hb.label:'—'),g.qty,'pc',rate,'Manufacturing item'));});
+ if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
+  const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
+  const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
+ }
+ return rows.filter(x=>x.basis>0);
+}
+function salesChargeGroupKey(row){
+ const p=String(row&&row.key||'').split(':');if(p[0]==='MI'){if(p[1]==='hole')return 'MI:hole:'+(p[2]||'unpriced');return 'MI:'+(p[1]||'');}
+ if(p[0]==='EDGE'){if(p[1]==='bevel')return 'EDGE:bevel:'+(p[2]||'');return 'EDGE:'+(p[1]||'');}
+ if(p[0]==='FEATURE')return 'FEATURE:'+(p[1]||'');return String(row&&row.key||'');
+}
+function salesOrderChargePricingRecord(row){const map=soDraft&&soDraft.servicePricing&&typeof soDraft.servicePricing==='object'?soDraft.servicePricing:{},r=map[salesChargeGroupKey(row)]||null;return r&&r.orderRate!=null?r.orderRate:null;}
+function salesChargePricingState(line,row){
+ const map=line.chargePricing&&typeof line.chargePricing==='object'?line.chargePricing:{},saved=Object.prototype.hasOwnProperty.call(map,row.key)?map[row.key]:null;
+ /* Once an order is saved, even a missing catalog rate is a snapshot. Do not let
+    a future catalog edit silently reprice an old order. */
+ const catalog=saved?saved.catalogRate:row.catalogRate,lineRate=saved&&saved.orderRate!=null?saved.orderRate:null,orderRate=salesOrderChargePricingRecord(row);
+ const effective=lineRate!=null?lineRate:(orderRate!=null?orderRate:catalog),origin=lineRate!=null?'line':(orderRate!=null?'order':(catalog!=null?'catalog':'missing'));
+ return {catalogRate:catalog,orderRate:orderRate,lineRate:lineRate,effectiveRate:effective,manual:lineRate!=null,origin:origin,missing:effective==null};
+}
+function salesEnsureChargePricing(line,row){if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};if(!line.chargePricing[row.key])line.chargePricing[row.key]={catalogRate:row.catalogRate==null?null:row.catalogRate,orderRate:null};return line.chargePricing[row.key];}
+function salesEnsureOrderServicePricing(){if(!soDraft.servicePricing||typeof soDraft.servicePricing!=='object')soDraft.servicePricing={};return soDraft.servicePricing;}
+function salesSnapshotAllChargePricing(){if(!soDraft)return;(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){salesEnsureChargePricing(line,row);});});}
+function salesSetChargeOrderRate(lineId,key,v){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;const rec=salesEnsureChargePricing(line,row),txt=String(v==null?'':v).trim();if(txt===''){rec.orderRate=null;render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative line rate.');render();return;}rec.orderRate=Math.round(n*10000)/10000;render();}
+function salesResetChargeRate(lineId,key){const line=(soDraft.lines||[]).find(x=>x.id===lineId);if(!line)return;const row=salesLineChargeRows(line).find(x=>x.key===key);if(!row)return;if(!line.chargePricing||typeof line.chargePricing!=='object')line.chargePricing={};const saved=Object.prototype.hasOwnProperty.call(line.chargePricing,key)?line.chargePricing[key]:null;line.chargePricing[key]={catalogRate:saved?saved.catalogRate:(row.catalogRate==null?null:row.catalogRate),orderRate:null};render();}
+function salesSetOrderGroupRate(groupKey,v){
+ const txt=String(v==null?'':v).trim(),map=salesEnsureOrderServicePricing();if(txt===''){delete map[groupKey];render();return;}const n=Number(txt);if(!Number.isFinite(n)||n<0){alert('Enter a valid non-negative order-wide rate.');render();return;}map[groupKey]={catalogRate:null,orderRate:Math.round(n*10000)/10000};
+ /* A bulk order-rate edit means "all of this service". Clear old line exceptions
+    for the same service; a specific line can be overridden again afterwards. */
+ (soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){if(salesChargeGroupKey(row)!==groupKey)return;const rec=salesEnsureChargePricing(line,row);rec.orderRate=null;});});render();
+}
+function salesResetOrderGroupRate(groupKey){const map=salesEnsureOrderServicePricing();delete map[groupKey];(soDraft.lines||[]).forEach(function(line){salesLineChargeRows(line).forEach(function(row){if(salesChargeGroupKey(row)!==groupKey)return;const rec=salesEnsureChargePricing(line,row);rec.orderRate=null;});});render();}
+function salesChargeBasisText(row,line){const q=salesPositiveInt(line.qty,1),total=row.basis*q;if(row.unit==='pc')return row.basis+' pc'+(q>1?' × '+q+' = '+total+' pc':'');return dimIn(row.basis)+(q>1?' × '+q+' = '+dimIn(total):'');}
+function salesRateText(v,unit,currency){return v==null?'—':Number(v).toFixed(2)+' '+currency+'/'+(unit==='pc'?'pc':'in');}
+function salesLinePricingSummary(line){const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1);let total=0,unpriced=0;rows.forEach(function(row){const st=salesChargePricingState(line,row);if(st.effectiveRate==null)unpriced++;else total+=row.basis*q*st.effectiveRate;});return {total:total,unpriced:unpriced,charges:rows.length,complete:unpriced===0};}
+function salesOrderPricingSummary(){return (soDraft&&soDraft.lines||[]).reduce(function(a,l){const s=salesLinePricingSummary(l);a.total+=s.total;a.unpriced+=s.unpriced;a.charges+=s.charges;return a;},{total:0,unpriced:0,charges:0});}
+function salesLinePricingTotal(line){return salesLinePricingSummary(line).total;}
+function salesOrderPricingTotal(){return salesOrderPricingSummary().total;}
+function salesTogglePricingLine(id){soPricingLineId=soPricingLineId===id?null:id;render();}
+function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;render();}
+function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;render();}
+function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;render();}
+function salesChargeShortLabel(row){const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';return l.slice(0,8).toUpperCase();}
+function salesLineServicesSummary(line){
+ const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
+ const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
+ return `<button type='button' class='line-services-btn${summary.unpriced?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</span></button>`;
+}
+function salesOrderChargeGroups(){
+ const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
+ return Object.keys(groups).map(function(k){const g=groups[k];g.catalogRates.sort(function(a,b){return a-b;});g.orderRate=(soDraft.servicePricing&&soDraft.servicePricing[k]&&soDraft.servicePricing[k].orderRate!=null)?soDraft.servicePricing[k].orderRate:null;g.lineOverrides=g.entries.filter(function(e){return e.state.lineRate!=null;}).length;g.unpriced=g.entries.filter(function(e){return e.state.effectiveRate==null;}).length;g.total=g.entries.reduce(function(n,e){return n+(e.state.effectiveRate==null?0:e.basis*e.state.effectiveRate);},0);return g;});
+}
+function salesOrderGroupBasisText(g){return g.unit==='pc'?g.basis+' pc':dimIn(g.basis);}
+function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':'in');}
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
@@ -6464,7 +6622,7 @@ function salesOrderEditor(){
  ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
  <section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
  ${salesOrderLines()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}</div>`;
 }
 function salesLineShapeCell(l,i){
  const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
@@ -6475,10 +6633,22 @@ function salesLineMuntinCell(l,i){
  const stale=!!(l.shapeRef&&l.shapeRef.id&&(m.shapeId!==l.shapeRef.id||(l.shapeRef.revision!=null&&m.shapeRevision!=null&&m.shapeRevision!==l.shapeRef.revision)));return `<div class="line-config-cell"><button class="line-link-btn ${stale?'stale':'linked'}" onclick="salesOrderConfigureMuntin(${i})">${esc(m.name)}${stale?' · stale':''}</button><button class="line-x" title="Unlink" onclick="salesUnlinkMuntin(${i})">×</button></div>`;
 }
 function salesOrderLines(){
- const allSelected=soDraft.lines.length>0&&soDraft.lines.every(l=>soSelectedLines.has(l.id)),bulk=soSelectedLines.size>0;
- return `<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b><span>MU → Qty → Dimensions → Mark → engineering configurators</span></div><div class="sales-line-tools"><button onclick="salesExcelOpen()">Paste Excel</button><button onclick="salesOrderAddTen()">+10</button><button class="pri" onclick="salesOrderAddLine(null,true)">+ Line</button></div></div>${bulk?`<div class="sales-bulk"><b id="salesBulkCount">${soSelectedLines.size} selected</b><span>Assign Makeup</span><select onchange="salesAssignSelected(this.value)"><option value="">—</option>${soDraft.makeups.map(m=>`<option value="${esc(m.id)}">${esc(m.code)} · ${esc(salesMakeupSummary(m))}</option>`).join('')}</select><button class="sm" onclick="soSelectedLines=new Set();render()">Clear</button></div>`:''}
- <div class="sales-table-wrap"><table class="sales-lines-table"><thead><tr><th class="line-check"><input type="checkbox" ${allSelected?'checked':''} onchange="salesToggleAllLines(this.checked)"></th><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Notes</th><th></th></tr></thead><tbody>${soDraft.lines.map((l,i)=>{const linked=!!(l.shapeRef&&l.shapeRef.id);return `<tr><td class="line-check"><input type="checkbox" ${soSelectedLines.has(l.id)?'checked':''} onchange="salesToggleLine('${esc(l.id)}',this.checked)"></td><td class="mono line-num">${i+1}</td><td><select class="line-mu" onchange="soDraft.lines[${i}].makeupId=this.value">${soDraft.makeups.map(m=>`<option value="${esc(m.id)}" ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`).join('')}</select></td><td><input class="line-qty" type="number" min="1" step="1" value="${esc(l.qty)}" oninput="soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)"></td><td><input data-so-width class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.width16))}" placeholder="34 13/16" onchange="salesLineDimChange(${i},'width',this)"></td><td><input class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.height16))}" placeholder="15 5/16" onchange="salesLineDimChange(${i},'height',this)"></td><td><input class="line-mark" value="${esc(l.mark)}" oninput="soDraft.lines[${i}].mark=this.value" onkeydown="salesLineMarkKey(${i},event)"></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td><input class="line-notes" value="${esc(l.notes)}" oninput="soDraft.lines[${i}].notes=this.value"></td><td><button class="sm dl line-delete" onclick="salesOrderRemoveLine(${i})">×</button></td></tr>`;}).join('')||'<tr><td colspan="11" class="empty">No lines yet. Add a line or paste from Excel.</td></tr>'}</tbody></table></div></section>`;
+ const allSelected=soDraft.lines.length>0&&soDraft.lines.every(l=>soSelectedLines.has(l.id)),bulk=soSelectedLines.size>0,currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),hasServices=pricing.charges>0;
+ return `<section class="sales-block sales-lines-block"><div class="sales-lines-head"><div><b>ORDER LINES</b><span>MU → Qty → Dimensions → Mark → engineering configurators → Сервисы</span></div><div class="sales-line-tools"><button class="sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}" onclick="salesOpenOrderServices()"><span>Сервисы и цены</span><span class="sales-order-price-summary"><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small><span data-raw>${pricing.unpriced}</span> <span>без цены</span></small>`:''}</span></button><button onclick="salesExcelOpen()">Paste Excel</button><button onclick="salesOrderAddTen()">+10</button><button class="pri" onclick="salesOrderAddLine(null,true)">+ Line</button></div></div>${bulk?`<div class="sales-bulk"><b id="salesBulkCount">${soSelectedLines.size} selected</b><span>Assign Makeup</span><select onchange="salesAssignSelected(this.value)"><option value="">—</option>${soDraft.makeups.map(m=>`<option value="${esc(m.id)}">${esc(m.code)} · ${esc(salesMakeupSummary(m))}</option>`).join('')}</select><button class="sm" onclick="soSelectedLines=new Set();render()">Clear</button></div>`:''}
+ <div class="sales-table-wrap"><table class="sales-lines-table sales-lines-with-services"><thead><tr><th class="line-check"><input type="checkbox" ${allSelected?'checked':''} onchange="salesToggleAllLines(this.checked)"></th><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Сервисы</th><th>Notes</th><th></th></tr></thead><tbody>${soDraft.lines.map((l,i)=>{const linked=!!(l.shapeRef&&l.shapeRef.id);return `<tr><td class="line-check"><input type="checkbox" ${soSelectedLines.has(l.id)?'checked':''} onchange="salesToggleLine('${esc(l.id)}',this.checked)"></td><td class="mono line-num">${i+1}</td><td><select class="line-mu" onchange="soDraft.lines[${i}].makeupId=this.value;render()">${soDraft.makeups.map(m=>`<option value="${esc(m.id)}" ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`).join('')}</select></td><td><input class="line-qty" type="number" min="1" step="1" value="${esc(l.qty)}" oninput="soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)" onchange="render()"></td><td><input data-so-width class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.width16))}" placeholder="34 13/16" onchange="salesLineDimChange(${i},'width',this)"></td><td><input class="line-dim" ${linked?'disabled title="Dimensions come from Shape"':''} value="${esc(salesDimFrom16(l.height16))}" placeholder="15 5/16" onchange="salesLineDimChange(${i},'height',this)"></td><td><input class="line-mark" value="${esc(l.mark)}" oninput="soDraft.lines[${i}].mark=this.value" onkeydown="salesLineMarkKey(${i},event)"></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td class="line-services-cell">${salesLineServicesSummary(l)}</td><td><input class="line-notes line-notes-compact" value="${esc(l.notes)}" oninput="soDraft.lines[${i}].notes=this.value"></td><td><button class="sm dl line-delete" onclick="salesOrderRemoveLine(${i})">×</button></td></tr>`;}).join('')||'<tr><td colspan="12" class="empty">No lines yet. Add a line or paste from Excel.</td></tr>'}</tbody></table></div></section>`;
 }
+function salesLineServicesModal(line,index){
+ const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Строка</span> ${index+1}</span><h3>Сервисы / обработка</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length?`<div class="sales-service-context"><span>Толщина Makeup <b>${esc(thickness)}</b></span><span>Количество строки <b>${esc(line.qty)}</b></span><span>Геометрия / количество <b>только чтение</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Цена не заполнена</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.</span></span></div>`:''}<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Начисление</span><span>Рассчитанная база</span><span>Каталог</span><span>На весь заказ</span><span>Ставка строки</span><span>Итог</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${st.catalogRate==null?'<span class="sales-price-missing">Не задана</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Нужна ставка</span>':final.toFixed(2)+' '+esc(currency)}</strong><button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Использовать Order / Catalog</button></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка этой строки</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:`<div class="empty compact sales-service-empty">В этой строке пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
+}
+
+function salesOrderServicesModal(){
+ const groups=salesOrderChargeGroups(),currency=soDraft.currency||'CAD',summary=salesOrderPricingSummary();
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Сервисы и цены</h3><span class="sales-bulk-pricing-badge">Массовое изменение цен</span></div><small>Ставка, изменённая в этом окне, применяется ко всем строкам заказа с таким же сервисом. Геометрия и количество не меняются.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length?`<div class="sales-bulk-pricing-banner"><b>Массовое изменение</b><span>Изменение Order rate ниже применяется ко всем совпадающим сервисам этого заказа.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Калькуляция неполная</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. В общий денежный итог они не входят, пока ставка не будет задана.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Сервис / обработка</span><span>База заказа</span><span>Ставка каталога</span><span>Ставка заказа</span><span>Итог</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'',origin=g.orderRate!=null?'ORDER':'CATALOG';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Строк:</span> ${g.entries.length}${g.lineOverrides?' · <span>Исключений:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Без цены:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Не задана</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Нужна ставка</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Сбросить к Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Правило массового изменения</b><span>Изменение ставки заказа применяется ко всем одинаковым сервисам этого заказа и очищает старые исключения по строкам для этого сервиса. После этого отдельную строку можно переопределить через её ячейку Сервисы.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка всего заказа</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:`<div class="empty compact sales-service-empty">В этом заказе пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
+}
+
+function salesServicesModal(){if(soServiceOrderOpen)return salesOrderServicesModal();if(soServiceLineId){const i=(soDraft.lines||[]).findIndex(function(l){return l.id===soServiceLineId;});if(i>=0)return salesLineServicesModal(soDraft.lines[i],i);}return '';}
+
 function salesExcelModal(){const m=salesCurrentMakeup();return `<div id="salesExcelModal" class="sales-modal-back"><div class="sales-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">Qty | Width | Height | Mark</span></div><button onclick="salesExcelClose()">×</button></div><div class="excel-mode"><button class="${soExcelMode==='current'?'on':''}" onclick="soExcelMode='current';salesExcelSetMode('current');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===0))">Current Makeup ${m?esc(m.code):''}</button><button class="${soExcelMode==='withMakeup'?'on':''}" onclick="soExcelMode='withMakeup';salesExcelSetMode('withMakeup');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===1))">MU in first column</button></div><textarea id="salesExcelText" rows="10" placeholder="1&#9;30&#9;80&#9;A1&#10;2&#9;24&#9;42 1/2&#9;B2"></textarea><div class="sales-modal-actions"><button onclick="salesExcelClose()">Cancel</button><button class="pri" onclick="salesExcelApply()">Add Rows</button></div></div></div>`;}
 
 /* ==== src/erp/views/sales-shape-ui.js ==== */
@@ -6732,33 +6902,16 @@ function shapeManufacturingMarkersSvg(source,T){
     return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
 }
-function shapeServiceThicknessContext(){
-  var linked=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape';if(!linked)return {ok:false,reason:'Open Production Shape from a Sales Order to price Services from its Makeup.'};
-  var t=+sDraft.thickness;if(!Number.isFinite(t)||t<=0)return {ok:false,reason:'The selected Makeup has mixed or unknown glass thickness; Service pricing is not available.'};
-  if(t===6)return {ok:true,thickness:t,band:'6'};
-  if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
-  if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
-  return {ok:false,thickness:t,reason:'No confirmed Service price band exists for '+t+' mm glass.'};
-}
-function shapeHolePriceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'over 4″'};return null;}
-function shapeServiceUnitPrice(type,band,holeKey){
-  var prices={clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}}};
-  if(type==='hole')return prices.hole[holeKey]&&prices.hole[holeKey][band]!=null?prices.hole[holeKey][band]:null;
-  return prices[type]&&prices[type][band]!=null?prices[type][band]:null;
-}
-function shapeServiceEntries(){
-  return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});
-}
+function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});}
 function shapeDerivedServices(){
-  var ctx=shapeServiceThicknessContext(),groups=Object.create(null),invalid=[];
-  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),holeKey='';if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHolePriceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{holeKey=hb.key;key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={type:item.type,label:label,holeKey:holeKey,qty:0};groups[key].qty++;});
-  var rows=Object.keys(groups).map(function(k){var g=groups[k],price=ctx.ok?shapeServiceUnitPrice(g.type,ctx.band,g.holeKey):null;return {label:g.label,qty:g.qty,unit:price,total:price==null?null:price*g.qty};});
-  return {context:ctx,rows:rows,invalid:invalid,total:rows.reduce(function(n,r){return n+(r.total||0);},0)};
+  var groups=Object.create(null),invalid=[];
+  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type);if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty++;});
+  return {rows:Object.keys(groups).map(function(k){return groups[k];}),invalid:invalid};
 }
 function shapeManufacturingServicesHTML(){
   var svc=shapeDerivedServices();if(!svc.rows.length)return `<div class='shape-service-summary empty-service'><b>Services</b><span>Добавь Hole / Clamp / Hinge — количество и сервисы появятся здесь автоматически.</span></div>`;
-  var pricing=svc.context.ok?`Makeup ${svc.context.thickness} mm · price band ${svc.context.band} mm`:`${esc(svc.context.reason)}`;
-  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · автоматически из чертежа</b><small>${pricing}</small></div>${svc.context.ok?`<strong>${svc.total.toFixed(2)} CAD</strong>`:'<span class="pill warn">цена не рассчитана</span>'}</div><div class='shape-service-table'><div class='shape-service-row head'><span>Service</span><span>Qty</span><span>Each</span><span>Total</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b><span>${r.unit==null?'—':r.unit.toFixed(2)+' CAD'}</span><b>${r.total==null?'—':r.total.toFixed(2)+' CAD'}</b></div>`;}).join('')}</div></div>`;
+  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · автоматически из чертежа</b><small>Цена рассчитывается в Sales Order. Геометрия и количество здесь не являются денежными полями.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div></div>`;
 }
 function shapeManufacturingEditor(){
   var items=shapeManufacturingItems(),placing=sManufacturingPlace,body=`<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("clamp")'>+ Clamp</button><button class='sm' onclick='shapeStartManufacturingPlacement("hinge")'>+ Hinge</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button><span>Clamp / Hinge привязываются к краю. Hole задаётся двумя размерными привязками с точностью 1/16″.</span></div>`;
