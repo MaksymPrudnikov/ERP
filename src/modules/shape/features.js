@@ -94,5 +94,18 @@ function shapeDerivedRequirements(def,geo,fg){
   (fg.cutouts||[]).forEach(function(c){req.push({id:'FEATURE:'+c.id,source:'FEATURE',operation:'Machine Cutout',stationClass:'CNC',featureId:c.id,params:{width:c.width,height:c.height}});});
   (fg.hardware||[]).forEach(function(h){req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:'Hardware Preparation',stationClass:'CNC',featureId:h.id,params:{template:h.name}});});
   if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
+  /* Manufacturing items belong to the production drawing, not cutting geometry.
+     They still create production requirements so the shop does not lose the
+     requested manipulation. Only a generic Hole has a confirmed station here:
+     Clamp/Hinge stay SERVICE requirements until their real prep template/route
+     is defined by the owner. */
+  (def.manufacturingItems||[]).forEach(function(item){
+    if(item.type==='hole'){
+      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
+    }else if(item.type==='clamp'||item.type==='hinge'){
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:item.type==='clamp'?'Clamp':'Hinge',stationClass:'SERVICE',manufacturingItemId:item.id,params:{edge:item.edge,distance:item.distance}});
+    }
+  });
   return req;
 }
