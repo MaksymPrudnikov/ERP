@@ -351,6 +351,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('конфликтующие finishes блокируются', schemaV2.conflict, false);
     eq('некорректный параметр preset не заменяется default', schemaV2.badParam, false);
     eq('круг имеет один физический диаметр', {equal:schemaV2.circle,mismatch:schemaV2.badCircle}, {equal:true,mismatch:false});
+
+    const dxfSource = await p.evaluate(() => {
+      const legacy=normalizeShapeDef({id:'legacy',name:'Legacy',type:'rectangle',w:'48',h:'36',smart:ssNormalize({})});
+      const oldFingerprint=(def=>{const src=JSON.stringify({type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps});let h=2166136261;for(let i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');})(legacy);
+      const sample='0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n90\n4\n70\n1\n10\n-0.062693900897917293\n20\n-0.062339039673932138\n10\n0.18769175581660708\n20\n80.56184242240289\n10\n23.874610399584448\n20\n80.813162514113941\n10\n24.375388895415785\n20\n-0.12516187462589493\n0\nENDSEC\n0\nEOF\n';
+      const parsed=shapeParseFusionDxf(sample),d=newShapeDef('rectangle');d.id='fusion';d.source={kind:'dxf',fileName:'panel-01.DXF',fileSize:54321,uploadedAt:'2026-08-24T15:00:00.000Z',note:'shop copy',preview:parsed.preview};
+      const r=ShapeModule.compute(d),m=newMuntinDef(d.id),mr=MuntinModule.compute(d,m);
+      const badUnits=shapeParseFusionDxf(sample.replace('$INSUNITS\n70\n1','$INSUNITS\n70\n4'));
+      const openContour=shapeParseFusionDxf(sample.replace('90\n4\n70\n1','90\n4\n70\n0'));
+      const bad=ShapeModule.compute(Object.assign({},d,{source:{kind:'dxf',fileName:'panel.txt',fileSize:0,uploadedAt:''}}));
+      return {legacySource:legacy.source,legacyFingerprintStable:shapeFingerprint(legacy)===oldFingerprint,
+        parsed:{ok:parsed.ok,width16:parsed.preview.width16,height16:parsed.preview.height16,points:parsed.preview.points.length,badUnits:badUnits.ok,open:openContour.ok},
+        external:{valid:r.valid,external:r.externalFile,sourceValid:r.sourceValid,cutting:!!r.cutting,fingerprint:!!r.fingerprint,width16:Math.round(r.width*16),height16:Math.round(r.height*16),billable:+(r.billableArea/144).toFixed(4)},
+        muntin:{valid:mr.valid,code:mr.code},bad:{sourceValid:bad.sourceValid}};
+    });
+    eq('legacy Shape получает drawn source без изменения fingerprint', {source:dxfSource.legacySource,stable:dxfSource.legacyFingerprintStable}, {source:{kind:'drawn',fileName:'',fileSize:0,uploadedAt:'',note:''},stable:true});
+    eq('Fusion DXF читается в inches и округляется до 1/16', dxfSource.parsed, {ok:true,width16:391,height16:1295,points:4,badUnits:false,open:false});
+    eq('DXF source fail-closed для Cutting Geometry, но даёт габариты и billable area', dxfSource.external, {valid:false,external:true,sourceValid:true,cutting:false,fingerprint:true,width16:391,height16:1295,billable:13.7355});
+    eq('Muntin не использует внешний DXF как рассчитанную ERP-геометрию', dxfSource.muntin, {valid:false,code:'MUNTIN_SHAPE_INVALID'});
+    eq('битый DXF source отклоняется', dxfSource.bad, {sourceValid:false});
     await c.close();
   }
 
@@ -726,6 +746,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return document.getElementById('app').textContent.includes('Adaptive Muntin v4.5');
     }), true);
     await t.c.close();
+
+    const dxfUi = await page();
+    eq('выбор DXF сохраняет только производный contour preview и размеры', await dxfUi.p.evaluate(async () => {
+      tab='configurators';subtab='shape';render();openShapeNew('rectangle');
+      const text='0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n90\n4\n70\n1\n10\n0\n20\n0\n10\n24.43808\n20\n0\n10\n24.43808\n20\n80.93832\n10\n0\n20\n80.93832\n0\nENDSEC\n0\nEOF\n';
+      const file=new File([text], 'Fusion деталь 01.dxf',{type:'application/dxf'}),input={files:[file],value:'picked'};
+      shapeAttachDxf(input);for(let i=0;i<50&&(!sDraft.source||sDraft.source.kind!=='dxf');i++)await new Promise(r=>setTimeout(r,10));
+      const keys=Object.keys(sDraft.source).sort(),json=JSON.stringify(sDraft),rawName=!!document.querySelector('.shape-dxf-name [data-raw]'),svg=!!document.querySelector('.shape-dxf-svg');
+      const before={kind:sDraft.source.kind,name:sDraft.source.fileName,keys:keys,previewKeys:Object.keys(sDraft.source.preview).sort(),rawBodyLeaked:json.includes('$INSUNITS')||json.includes('LWPOLYLINE'),rawName:rawName,svg:svg,width16:sDraft.source.preview.width16,height16:sDraft.source.preview.height16};
+      removeShapeDxf();before.removed=sDraft.source;return before;
+    }), {kind:'dxf',name:'Fusion деталь 01.dxf',keys:['fileName','fileSize','kind','note','preview','uploadedAt'],previewKeys:['height16','points','units','width16'],rawBodyLeaked:false,rawName:true,svg:true,width16:391,height16:1295,removed:{kind:'drawn',fileName:'',fileSize:0,uploadedAt:'',note:''}});
+    await dxfUi.c.close();
+
+    const dxfSales = await page();
+    eq('Sales получает Width и Height DXF, округлённые до 1/16', await dxfSales.p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.id='sales-dxf';d.revision=3;d.source={kind:'dxf',fileName:'sales.dxf',fileSize:2048,uploadedAt:'2026-08-24T15:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[24.43808,0],[24.43808,80.93832],[0,80.93832]],width16:391,height16:1295}};
+      const line=normalizeSalesOrderLine({width16:800,height16:600,mark:'A'}),ok=salesSyncLineFromShape(line,d);
+      return {ok:ok,width16:line.width16,height16:line.height16,id:line.shapeRef.id,revision:line.shapeRef.revision,hasFingerprint:/^shp-[0-9a-f]{8}$/.test(line.shapeRef.fingerprint)};
+    }), {ok:true,width16:391,height16:1295,id:'sales-dxf',revision:3,hasFingerprint:true});
+    await dxfSales.c.close();
   }
 
   /* --- 5c. Customers ------------------------------------------------ */
@@ -867,6 +907,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesOrderConfigureMuntin(0);saveMuntin();const muntinId=soDraft.lines[0].muntinRef.id,backFromMuntin=tab==='sales'&&!!muntinId;
       return {backFromShape,backFromMuntin,shapeIdMatch:DB.muntinDef.find(m=>m.id===muntinId).shapeId===shapeId};
     }), {backFromShape:true,backFromMuntin:true,shapeIdMatch:true});
+    eq('Shape edge allowance берёт толщину из выбранного Sales Makeup', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesOrderAddLine();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      m.panes.forEach(p=>{p.glassProductId='';p.thicknessMm=12;});
+      salesOrderConfigureShape(0);const th12=sDraft.thickness,allow12=shapePolishAllowance(+sDraft.thickness);
+      salesBridgeCancel('shape');m.panes.forEach(p=>{p.glassProductId='';p.thicknessMm=10;});
+      salesOrderConfigureShape(0);const th10=sDraft.thickness,allow10=shapePolishAllowance(+sDraft.thickness);
+      salesBridgeCancel('shape');
+      if(m.panes.length<2)m.panes.push(salesDefaultPane(1));m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;m.panes[1].glassProductId='';m.panes[1].thicknessMm=12;
+      salesOrderConfigureShape(0);sDraft.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];const mixed=ShapeModule.compute(sDraft);
+      return {th12,allow12,th10,allow10,mixedThickness:sDraft.thickness,mixedValid:mixed.valid,mixedError:(mixed.errors||[]).join(' | ')};
+    }), {th12:'12',allow12:3/16,th10:'10',allow10:1/8,mixedThickness:'',mixedValid:false,mixedError:'Glass thickness for edge-processing allowance must come from the selected Sales Makeup.'});
     await t.c.close();
   }
 
@@ -1321,6 +1373,28 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }, tab);
       eq('EN без русского остатка: ' + tab, left, []);
     }
+    eq('Production Shape editor EN без русского остатка', await t.p.evaluate(() => {
+      function cyrillicUi(){
+        const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
+        while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('[data-raw]'))continue;const v=n.nodeValue.trim();if(/[А-Яа-яЁё]/.test(v))out.add(v);}
+        root.querySelectorAll('[placeholder],[title]').forEach(el=>{if(el.closest('[data-raw]'))return;['placeholder','title'].forEach(a=>{const v=el.getAttribute(a)||'';if(/[А-Яа-яЁё]/.test(v))out.add(a+': '+v);});});
+        return [...out];
+      }
+      tab='configurators';subtab='shape';openShapeNew('smart');
+      sDraft.smart.corners.tl='single';const S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;sEdgeworkOpen=true;sFeaturesOpen=true;render();
+      const left=cyrillicUi();sEdit=null;sDraft=null;sEdgeworkOpen=false;sFeaturesOpen=false;render();return left;
+    }), []);
+    eq('Production Shape DXF editor EN без русского остатка', await t.p.evaluate(() => {
+      function cyrillicUi(){
+        const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
+        while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('[data-raw]'))continue;const v=n.nodeValue.trim();if(/[А-Яа-яЁё]/.test(v))out.add(v);}
+        root.querySelectorAll('[placeholder],[title]').forEach(el=>{if(el.closest('[data-raw]'))return;['placeholder','title'].forEach(a=>{const v=el.getAttribute(a)||'';if(/[А-Яа-яЁё]/.test(v))out.add(a+': '+v);});});
+        return [...out];
+      }
+      tab='configurators';subtab='shape';openShapeNew('rect');
+      sDraft.source={kind:'dxf',fileName:'Пользовательский файл.dxf',fileSize:2048,uploadedAt:'2026-08-24T12:00:00.000Z',note:'Примечание владельца',preview:{units:'in',points:[[0,0],[12,0],[12,24],[0,24]],width16:192,height16:384}};
+      sDraft.w='12';sDraft.h='24';render();const left=cyrillicUi();sEdit=null;sDraft=null;render();return left;
+    }), []);
     eq('Customers EN переводит placeholder поиска', await t.p.evaluate(() => {
       tab='customers';subtab=null;render();const el=document.getElementById('customerSearch');return el&&el.getAttribute('placeholder');
     }), 'Search by code, name, contact, phone, email…');
