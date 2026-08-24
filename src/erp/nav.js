@@ -17,6 +17,10 @@ const NAV=[
  {k:'configurators', label:'Конфигураторы', icon:'layers'},
  {k:'optimization', label:'Оптимизация', icon:'optimize'},
  {k:'production', label:'Производство', icon:'factory'},
+ /* Справочники стоят в операциях, а не в «ядре»: заводит их не администратор
+    раз в жизни, а продавец и снабженец по ходу работы — переименовать код,
+    дописать поставщика, поправить цену листа. */
+ {k:'masterdata', label:'Справочники', icon:'database'},
  {group:'Домены — далее'},
  {k:'inventory', label:'Склад', icon:'inventory', soon:1},
  {k:'purchasing', label:'Закупки', icon:'purchase', soon:1},
@@ -73,12 +77,13 @@ function render(){
   sales:['Продажи','Заказы и коммерческая конфигурация'],
   configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
-  production:['Производство','Станции · рабочие места · операции · терминалы']
+  production:['Производство','Станции · рабочие места · операции · терминалы'],
+  masterdata:['Справочники','Каталог стекла · точки поставки · обзор базы']
  }[tab]||['ERP Glazing System','Производственная система'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Фаза 1 · фундамент';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction,masterdata:viewMasterData}[tab];
  document.getElementById('app').innerHTML = V ? V() : '<div class="empty">модуль в плане</div>';
  afterRender();
 }
