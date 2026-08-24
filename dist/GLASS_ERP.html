@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 42 модулей, 2 стиля.
+  Состав сборки: 44 модулей, 2 стиля.
 -->
 <html lang="ru">
 <head>
@@ -2504,8 +2504,20 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
 /* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
    модели. Пересев меняет там смысл таблицы, а не только её содержимое,
    поэтому версия обязана подняться — иначе браузер пользователя навсегда
-   останется со станками там, где код ждёт шаги маршрута. */
-const REFERENCE_VERSION=3;
+   останется со станками там, где код ждёт шаги маршрута.
+
+   3 → 4: каталог стекла перестал быть шестнадцатью выдуманными заглушками —
+   в `glassProduct` встали 511 реальных позиций, и схема записи изменилась
+   целиком: подложка, режим закалки, правило поверхности, единицы хранения и
+   продажи, оптика IGDB. Поставка при этом уехала в отдельную таблицу
+   `glassSheet`. Без подъёма версии браузер пользователя остался бы со
+   старыми заглушками, а конфигуратор — с шестнадцатью строками выбора.
+
+   `glassSheet` в списке пересева НЕТ намеренно: там лежат цены и сроки,
+   введённые руками, а пересев заменяет таблицу заводской — то есть стёр бы
+   их при следующем же подъёме версии. Заводского содержимого у поставки не
+   бывает (см. erp/masterdata/glass). */
+const REFERENCE_VERSION=4;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -2998,48 +3010,953 @@ function sfName(row){
 /* Локализованное имя — уже данные, а не интерфейс: переводчику его не отдаём. */
 function sfLabel(row){return `<span data-raw>${esc(sfName(row))}</span>`;}
 
+/* ==== src/erp/masterdata/units.js ==== */
+/* =====================================================================
+   erp/masterdata/units  ·  masterdata-1.0
+   Единицы измерения справочников.
+   IN : —
+   OUT: MD_UNITS · MD_UNIT_CALCS
+   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+
+   ЕДИНИЦА — ЭТО ТРИ РАЗНЫХ ВОПРОСА, А НЕ ОДИН
+
+   Пользователь назвал их прямо: закупка, хранение, продажа. У одного и того
+   же товара они расходятся, и держать одну колонку «единица» значит однажды
+   посчитать не то:
+
+     закупка   в чём поставщик даёт ЦЕНУ           стекло — sq ft, герметик — карton
+     хранение  в чём считаем ОСТАТОК на складе     стекло — sq ft, штапик — лист
+     продажа   в чём выставляем клиенту            стекло — sq ft, услуга — штука
+
+   Закупка принадлежит СТРОКЕ ПОСТАВКИ (один продукт у двух поставщиков может
+   стоить за разные единицы), хранение и продажа — самому продукту.
+
+   КАЛЬКУЛЯЦИЯ — САМОЕ ВАЖНОЕ ПОЛЕ
+
+   Она отвечает, как из детали получается количество, и без неё единица — просто
+   надпись:
+
+     area    площадь детали      sq ft · sq m
+     linear  длина или периметр  дюйм · фут · метр
+     flat    штуки как есть      лист · штука · коробка · кг
+
+   Именно поэтому не всякий товар покупается квадратными футами: коробку
+   пластин или бочку герметика площадью не мерят, а на складе они лежат рядом
+   со стеклом. Список открытый — новые единицы дописываются сюда.
+   ===================================================================== */
+
+const MD_UNIT_CALCS=['area','linear','flat'];
+/* nameEn заполнен у каждой строки намеренно: имя единицы приходит из этого
+   файла, а не из словаря интерфейса — так в EN не остаётся русского даже
+   там, где строку показывает таблица, собранная данными. */
+const MD_UNITS=[
+ {code:'sqft',  calc:'area',  name:'кв. фут',   nameEn:'sq ft'},
+ {code:'sqm',   calc:'area',  name:'кв. метр',  nameEn:'sq m'},
+ {code:'inch',  calc:'linear',name:'дюйм',      nameEn:'inch'},
+ {code:'ft',    calc:'linear',name:'фут',       nameEn:'ft'},
+ {code:'m',     calc:'linear',name:'метр',      nameEn:'m'},
+ {code:'each',  calc:'flat',  name:'штука',     nameEn:'each'},
+ {code:'sheet', calc:'flat',  name:'лист',      nameEn:'sheet'},
+ {code:'lite',  calc:'flat',  name:'деталь',    nameEn:'lite'},
+ {code:'box',   calc:'flat',  name:'коробка',   nameEn:'box'},
+ {code:'carton',calc:'flat',  name:'картон',    nameEn:'carton'},
+ {code:'bag',   calc:'flat',  name:'мешок',     nameEn:'bag'},
+ {code:'drum',  calc:'flat',  name:'бочка',     nameEn:'drum'},
+ {code:'roll',  calc:'flat',  name:'рулон',     nameEn:'roll'},
+ {code:'kg',    calc:'flat',  name:'кг',        nameEn:'kg'},
+ {code:'lb',    calc:'flat',  name:'фунт',      nameEn:'lb'},
+ {code:'liter', calc:'flat',  name:'литр',      nameEn:'liter'}
+];
+/* Написания, в которых единица приезжает из чужого файла. Прайс поставщика
+   пишет `SQ FT`, выгрузка Spil — `ft2`, Excel — `sq. ft.`; всё это одна и та
+   же единица, и отклонять её строкой отчёта было бы издевательством. */
+const MD_UNIT_ALIASES={
+ 'ft2':'sqft','sf':'sqft','sqft':'sqft','sq ft':'sqft','sq.ft':'sqft','sq. ft.':'sqft','sqfeet':'sqft','square foot':'sqft','square feet':'sqft',
+ 'm2':'sqm','sqm':'sqm','sq m':'sqm','кв.м':'sqm','кв м':'sqm',
+ 'in':'inch','inch':'inch','inches':'inch','"':'inch',
+ 'foot':'ft','feet':'ft','lin ft':'ft','lft':'ft',
+ 'meter':'m','metre':'m','mtr':'m',
+ 'ea':'each','pc':'each','pcs':'each','piece':'each','pieces':'each','unit':'each','units':'each',
+ 'sheets':'sheet','plate':'sheet','lites':'lite',
+ 'boxes':'box','ctn':'carton','cartons':'carton','bags':'bag','drums':'drum','brum':'drum','rolls':'roll',
+ 'kgs':'kg','kilogram':'kg','lbs':'lb','pound':'lb','pounds':'lb',
+ 'l':'liter','ltr':'liter','litre':'liter','liters':'liter','litres':'liter'
+};
+
+function mdUnit(code){const c=String(code==null?'':code).trim().toLowerCase();return MD_UNITS.find(u=>u.code===c)||null;}
+/* Приведение к коду списка. Пустая строка не угадывается: вызывающий сам
+   решает, чем заполнить пропуск — у стекла это sq ft, у бочки герметика нет. */
+function mdUnitCode(v,fallback){
+ const raw=String(v==null?'':v).trim().toLowerCase();
+ if(!raw)return fallback||'';
+ const direct=mdUnit(raw);if(direct)return direct.code;
+ const alias=MD_UNIT_ALIASES[raw]||MD_UNIT_ALIASES[raw.replace(/[\s.]+/g,'')];
+ return alias||(fallback||'');
+}
+/* Калькуляция берётся у единицы, а не хранится второй раз рядом с ней: два
+   поля об одном означают два ответа, и однажды они разойдутся. */
+function mdUnitCalc(code){const u=mdUnit(code);return u?u.calc:'';}
+/* Имя единицы на языке интерфейса. Не перевод словарём — обе колонки
+   заполнены здесь, язык только выбирает нужную (тот же приём, что sfName). */
+function mdUnitName(code){const u=mdUnit(code);if(!u)return String(code==null?'':code);return (typeof LANG!=='undefined'&&LANG==='en')?u.nameEn:u.name;}
+
+/* ==== src/erp/masterdata/glass-catalog.js ==== */
+/* =====================================================================
+   erp/masterdata/glass-catalog · masterdata-1.0
+   СБОРКА — не редактировать руками.
+   Заводской засев каталога стекла: 511 позиций, дословная копия
+   templates/GLASS_PRODUCTS.csv.
+
+   Пересобрать после правки каталога:
+       python3 tools/catalog-to-js.py
+
+   Разбирается тем же parseCsv, что и пользовательский импорт
+   (см. erp/masterdata/glass), поэтому второй схемы разбора здесь нет.
+   ===================================================================== */
+
+const GLASS_PRODUCTS_CSV=[
+'manufacturer,code,name,substrate,coating_family,thickness_mm,actual_thickness_mm,temper_mode,exposure_rule,allowed_surfaces,edge_deletion,deposition,legacy_code,notes,stocked,igdb_id,igdb_name,igdb_source,tvis,tsol,rvis1,rvis2,rsol1,rsol2,emis1,emis2,coated_side,conductivity',
+'Woodbridge,6LAM015,"Laminated 3mm + .015"" PVB + 3mm",clear,uncoated,6,6.38,,any,,,,,ПОКУПНОЙ ламинат — не наше производство. Поставщика и размер листа заполнить.,YES,,,,,,,,,,,,,',
+'Woodbridge,6LAM030,"Laminated 3mm + .030"" PVB + 3mm",clear,uncoated,6,6.76,,any,,,,,ПОКУПНОЙ ламинат — не наше производство. Поставщика и размер листа заполнить.,,,,,,,,,,,,,,',
+'Woodbridge,6LAM060,"Laminated 3mm + .060"" PVB + 3mm",clear,uncoated,6,7.52,,any,,,,,ПОКУПНОЙ ламинат — не наше производство. Поставщика и размер листа заполнить.,,,,,,,,,,,,,,',
+'Cardinal,3COMFORTSELECT73,Comfort Select 73 on 3mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,1032,CS73-3.CIG,IGDB v89.0,0.815568,0.687757,0.116614,0.112616,0.120060,0.119026,0.147626,0.840000,1,1.000000',
+'Cardinal,4COMFORTSELECT73,Comfort Select 73 on 4mm Clear,clear,lowe,4,3.9,,cavity_only,"2,3",,sputtered,,,,1033,CS73-4.CIG,IGDB v89.0,0.825131,0.688585,0.111825,0.107241,0.115041,0.107389,0.147626,0.840000,1,1.000000',
+'Cardinal,5COMFORTSELECT73,Comfort Select 73 on 5mm Clear,clear,lowe,5,4.7,,cavity_only,"2,3",,sputtered,,,,1034,CS73-5.CIG,IGDB v89.0,0.824885,0.675333,0.109842,0.104793,0.112747,0.105550,0.147626,0.840000,1,1.000000',
+'Cardinal,3COMFORTSELECT73PLUS,Comfort Select 73Plus on 3mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,1023,CS73P-3.CIG,IGDB v89.0,0.843126,0.717138,0.112666,0.117774,0.111948,0.123603,0.840000,0.181640,2,1.000000',
+'Cardinal,4COMFORTSELECT73PLUS,Comfort Select 73Plus on 4mm Clear,clear,lowe,4,3.91,,cavity_only,"2,3",,sputtered,,,,1024,CS73P-4.CIG,IGDB v90.0,0.842763,0.709946,0.108871,0.114547,0.109886,0.121934,0.840000,0.184017,2,1.000000',
+'Cardinal,5COMFORTSELECT73PLUS,Comfort Select 73Plus on 5mm Clear,clear,lowe,5,4.7,,cavity_only,"2,3",,sputtered,,,,1025,CS73P-5.CIG,IGDB v89.0,0.831743,0.697890,0.113649,0.120277,0.107993,0.121434,0.840000,0.185576,2,1.000000',
+'Cardinal,6ENERGYSELECT73PLUS,Energy Select 73Plus on 6mm Clear,clear,lowe,6,5.7,,cavity_only,"2,3",,sputtered,,,,1026,ES73P-6.CIG,IGDB v89.0,0.832031,0.681027,0.111577,0.117408,0.103250,0.119295,0.840000,0.188465,2,1.000000',
+'Cardinal,10FLOATGLASS,Float Glass - 10mm,clear,uncoated,10,9.5,,any,,,,,,,892,Clr-10.CIG,IGDB v85.0,0.858686,0.733171,0.074532,0.074532,0.064912,0.064912,0.840000,0.840000,,1.000000',
+'Cardinal,12FLOATGLASS,Float Glass - 12mm,clear,uncoated,12,12.14,,any,,,,,,,893,Clr-12.CIG,IGDB v85.0,0.842398,0.690868,0.073324,0.073324,0.062439,0.062439,0.840000,0.840000,,1.000000',
+'Cardinal,3FLOATGLASS,Float Glass - 3mm,clear,uncoated,3,3,,any,,,,,,,2001,Clr-3.CIG,IGDB v29.0,0.904429,0.848358,0.082252,0.082253,0.075636,0.075657,0.840000,0.840000,,1.000000',
+'Cardinal,4FLOATGLASS,Float Glass - 4mm,clear,uncoated,4,3.9,,any,,,,,,,2002,Clr-4.CIG,IGDB v85.0,0.900938,0.833350,0.082112,0.082112,0.074728,0.074720,0.840000,0.840000,,1.000000',
+'Cardinal,5FLOATGLASS,Float Glass - 5mm,clear,uncoated,5,4.7,,any,,,,,,,2003,Clr-5.CIG,IGDB v85.0,0.897676,0.818580,0.081129,0.081129,0.073488,0.073479,0.840000,0.840000,,1.000000',
+'Cardinal,6FLOATGLASS,Float Glass - 6mm,clear,uncoated,6,5.7,,any,,,,,,,2004,Clr-6.CIG,IGDB v85.0,0.889484,0.793344,0.080322,0.080322,0.072747,0.072744,0.840000,0.840000,,1.000000',
+'Cardinal,8FLOATGLASS,Float Glass - 8mm,clear,uncoated,8,7.8,,any,,,,,,,2020,Clr-8.CIG,IGDB v43.0,0.878691,0.751231,0.083130,0.083452,0.068807,0.070207,0.840000,0.840000,,1.000000',
+'Cardinal,3Q180,LoE 180 on 3mm Clear,clear,lowe,3,3,TEMPERED,cavity_only,"2,3",,sputtered,,,,2191,LoE180-3.CIG,IGDB v97.0,0.870964,0.689214,0.091253,0.078011,0.164141,0.189278,0.840000,0.067930,2,1.000000',
+'Cardinal,4Q180,LoE 180 on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,,2192,LoE180-4.CIG,IGDB v97.0,0.867654,0.678110,0.091009,0.077809,0.158973,0.188641,0.840000,0.067930,2,1.000000',
+'Cardinal,5Q180,LoE 180 on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2193,LoE180-5.CIG,IGDB v97.0,0.864196,0.666845,0.090288,0.077210,0.154006,0.187857,0.840000,0.067930,2,1.000000',
+'Cardinal,6Q180,LoE 180 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2194,LoE180-6.CIG,IGDB v97.0,0.856243,0.647865,0.089394,0.076516,0.147005,0.186963,0.840000,0.067930,2,1.000000',
+'Cardinal,8Q180,LoE 180 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2127,LoE180-8.CIG,IGDB v97.0,0.847486,0.615563,0.090460,0.077453,0.133194,0.185231,0.840000,0.067930,2,1.000000',
+'Cardinal,3Q180ESC,LoE 180ESC on 3mm Clear,clear,lowe,3,3,TEMPERED,cavity_only,"2,3",,sputtered,,,,2031,LoE180ESC-3.CIG,IGDB v97.0,0.872953,0.715782,0.090842,0.080091,0.146675,0.164408,0.840000,0.079644,2,1.000000',
+'Cardinal,4Q180ESC,LoE 180ESC on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2032,LoE180ESC-4.CIG,IGDB v71.0,0.869476,0.696333,0.090546,0.079862,0.139759,0.163172,0.840000,0.079644,2,1.000000',
+'Cardinal,5Q180ESC,LoE 180ESC on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2033,LoE180ESC-5.CIG,IGDB v71.0,0.865037,0.685828,0.089419,0.078892,0.135998,0.162192,0.840000,0.079644,2,1.000000',
+'Cardinal,6Q180ESC,LoE 180ESC on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2034,LoE180ESC-6.CIG,IGDB v71.0,0.859435,0.665672,0.089337,0.078880,0.129735,0.161239,0.840000,0.079644,2,1.000000',
+'Cardinal,3Q340+,LoE 340+ on 3mm Clear,clear,lowe,3,3.1,TEMPERED,cavity_only,"2,3",,sputtered,,,,2139,LoE340+-3.CIG,IGDB v107.0,0.430560,0.160502,0.111872,0.037733,0.401681,0.474961,0.840000,0.027120,2,1.000000',
+'Cardinal,4Q340+,LoE 340+ on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,,2140,LoE340+-4.CIG,IGDB v107.0,0.429004,0.159675,0.111470,0.037695,0.383849,0.474948,0.840000,0.027120,2,1.000000',
+'Cardinal,5Q340+,LoE 340+ on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2141,LoE340+-5.CIG,IGDB v107.0,0.427342,0.158724,0.110593,0.037531,0.366949,0.474892,0.840000,0.027120,2,1.000000',
+'Cardinal,6Q340+,LoE 340+ on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2142,LoE340+-6.CIG,IGDB v107.0,0.423505,0.156785,0.109356,0.037372,0.341285,0.474835,0.840000,0.027120,2,1.000000',
+'Cardinal,8Q340+,LoE 340+ on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2143,LoE340+-8.CIG,IGDB v107.0,0.419413,0.154392,0.110016,0.037631,0.295671,0.474908,0.840000,0.027120,2,1.000000',
+'Cardinal,3Q240,LoE 240 on 3mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,2044,LoE240-3.CIG,IGDB v92.0,0.441812,0.236373,0.127412,0.028682,0.305338,0.365278,0.840000,0.050807,2,1.000000',
+'Cardinal,4Q240,LoE 240 on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,,2045,LoE240-4.CIG,IGDB v92.0,0.434066,0.229129,0.122105,0.028642,0.276092,0.365233,0.840000,0.050807,2,1.000000',
+'Cardinal,5Q240,LoE 240 on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2046,LoE240-5.CIG,IGDB v92.0,0.432676,0.226819,0.124413,0.028475,0.271119,0.365152,0.840000,0.050807,2,1.000000',
+'Cardinal,6Q240,LoE 240 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2047,LoE240-6.CIG,IGDB v92.0,0.422188,0.222500,0.122042,0.028294,0.265332,0.365050,0.840000,0.050807,2,1.000000',
+'Cardinal,8Q240,LoE 240 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2132,LoE240-8.CIG,IGDB v93.0,0.416594,0.216003,0.122160,0.028570,0.235728,0.365056,0.840000,0.050807,2,1.000000',
+'Cardinal,3Q270,LoE 270 on 3mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,2026,LoE270-3.CIG,IGDB v69.0,0.770470,0.378896,0.073836,0.061752,0.374733,0.464013,0.840000,0.034967,2,1.000000',
+'Cardinal,4Q270,LoE 270 on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,,2027,LoE270-4.CIG,IGDB v69.0,0.763577,0.371813,0.073669,0.061578,0.345307,0.463812,0.840000,0.034967,2,1.000000',
+'Cardinal,5Q270,LoE 270 on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2028,LoE270-5.CIG,IGDB v69.0,0.759714,0.368152,0.072699,0.060826,0.331648,0.463472,0.840000,0.034967,2,1.000000',
+'Cardinal,6Q270,LoE 270 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2029,LoE270-6.CIG,IGDB v69.0,0.754850,0.362123,0.072832,0.060822,0.305242,0.463368,0.840000,0.034967,2,1.000000',
+'Cardinal,8Q270,LoE 270 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2128,LoE270-8.CIG,IGDB v69.0,0.746074,0.353078,0.073881,0.061338,0.271210,0.463374,0.840000,0.034967,2,1.000000',
+'Cardinal,3Q272,LoE 272 on 3 mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,2011,LoE272-3.CIG,IGDB v97.0,0.793236,0.428964,0.055959,0.043317,0.324730,0.418146,0.840000,0.041910,2,1.000000',
+'Cardinal,4Q272,LoE 272 on 4 mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2012,LoE272-4.CIG,IGDB v97.0,0.790245,0.424458,0.055952,0.043152,0.309671,0.417985,0.840000,0.041910,2,1.000000',
+'Cardinal,5Q272,LoE 272 on 5 mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2013,LoE272-5.CIG,IGDB v97.0,0.787110,0.419694,0.055496,0.042651,0.295435,0.417681,0.840000,0.041910,2,1.000000',
+'Cardinal,6Q272,LoE 272 on 6 mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2014,LoE272-6.CIG,IGDB v97.0,0.779911,0.411298,0.055222,0.042074,0.274092,0.417340,0.840000,0.041910,2,1.000000',
+'Cardinal,8Q272,LoE 272 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2129,LoE272-8.CIG,IGDB v97.0,0.771927,0.398056,0.056907,0.042866,0.235586,0.417194,0.840000,0.041910,2,1.000000',
+'Cardinal,3Q340,LoE 340 on 3mm Clear,clear,lowe,3,3,TEMPERED,cavity_only,"2,3",,sputtered,,,,2164,340-3.CIG,IGDB v40.0,0.426490,0.163818,0.118157,0.090994,0.431155,0.490203,0.840000,0.028157,2,1.000000',
+'Cardinal,4Q340,LoE 340 on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,,2165,340-4.CIG,IGDB v40.0,0.424929,0.162650,0.117749,0.090963,0.398872,0.490210,0.840000,0.028157,2,1.000000',
+'Cardinal,5Q340,LoE 340 on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2166,340-5.CIG,IGDB v40.0,0.422786,0.161492,0.116353,0.090719,0.383598,0.490126,0.840000,0.028157,2,1.000000',
+'Cardinal,6Q340,LoE 340 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2167,340-6.CIG,IGDB v40.0,0.420178,0.159874,0.116032,0.090742,0.354368,0.490123,0.840000,0.028157,2,1.000000',
+'Cardinal,8Q340,LoE 340 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2130,340-8.CIG,IGDB v43.0,0.415493,0.157332,0.116220,0.090926,0.316509,0.490182,0.840000,0.028157,2,1.000000',
+'Cardinal,3Q366,LoE 366 on 3mm Clear,clear,lowe,3,3,TEMPERED,cavity_only,"2,3",,sputtered,,,,2154,LoE366-3.CIG,IGDB v69.0,0.713757,0.275737,0.069891,0.048732,0.454834,0.547274,0.840000,0.019943,2,1.000000',
+'Cardinal,4Q366,LoE 366 on 4mm Clear,clear,lowe,4,3.9,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2155,LoE366-4.CIG,IGDB v69.0,0.710994,0.273583,0.069734,0.048592,0.418731,0.547177,0.840000,0.019943,2,1.000000',
+'Cardinal,5Q366,LoE 366 on 5mm Clear,clear,lowe,5,4.7,TEMPERED,cavity_only,"2,3",,sputtered,,,,2156,LoE366-5.CIG,IGDB v69.0,0.707419,0.271586,0.068805,0.047940,0.401837,0.546958,0.840000,0.019943,2,1.000000',
+'Cardinal,6Q366,LoE 366 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2157,LoE366-6.CIG,IGDB v69.0,0.702923,0.268693,0.068949,0.047942,0.369307,0.546933,0.840000,0.019943,2,1.000000',
+'Cardinal,8Q366,LoE 366 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2131,LoE366-8.CIG,IGDB v69.0,0.694830,0.264112,0.070054,0.048401,0.327263,0.547039,0.840000,0.019943,2,1.000000',
+'Cardinal,6E180ESC,LoE 180ESC on 6mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2034,LoE180ESC-6.CIG,IGDB v71.0,0.859435,0.665672,0.089337,0.078880,0.129735,0.161239,0.840000,0.079644,2,1.000000',
+'Cardinal,3E+272,LoE 272 on 3 mm Clear,clear,lowe,3,3,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2011,LoE272-3.CIG,IGDB v97.0,0.793236,0.428964,0.055959,0.043317,0.324730,0.418146,0.840000,0.041910,2,1.000000',
+'Cardinal,4E+272,LoE 272 on 4 mm Clear,clear,lowe,4,3.9,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2012,LoE272-4.CIG,IGDB v97.0,0.790245,0.424458,0.055952,0.043152,0.309671,0.417985,0.840000,0.041910,2,1.000000',
+'Cardinal,4E366,LoE 366 on 4mm Clear,clear,lowe,4,3.9,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2155,LoE366-4.CIG,IGDB v69.0,0.710994,0.273583,0.069734,0.048592,0.418731,0.547177,0.840000,0.019943,2,1.000000',
+'Cardinal,6E+272,LoE 272 on 6 mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2014,LoE272-6.CIG,IGDB v97.0,0.779911,0.411298,0.055222,0.042074,0.274092,0.417340,0.840000,0.041910,2,1.000000',
+'Cardinal,6E366,LoE 366 on 6mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2157,LoE366-6.CIG,IGDB v69.0,0.702923,0.268693,0.068949,0.047942,0.369307,0.546933,0.840000,0.019943,2,1.000000',
+'Cardinal,10PUREVISION,PureVision - 10mm,low_iron,uncoated,10,9.5,,any,,,,,,,878,PureVision-10.CIG,IGDB v89.0,0.897976,0.816012,0.082199,0.082199,0.077132,0.077132,0.840000,0.840000,,1.000000',
+'Cardinal,12PUREVISION,PureVision - 12mm,low_iron,uncoated,12,12.1,,any,,,,,,,879,PureVision-12.CIG,IGDB v89.0,0.892993,0.791772,0.081769,0.081769,0.075343,0.075343,0.840000,0.840000,,1.000000',
+'Cardinal,3PUREVISION,PureVision - 3mm,low_iron,uncoated,3,3.1,,any,,,,,,,873,PureVision-3.CIG,IGDB v89.0,0.909627,0.880131,0.083695,0.083749,0.082678,0.082494,0.840000,0.840000,,1.000000',
+'Cardinal,4PUREVISION,PureVision - 4mm,low_iron,uncoated,4,3.9,,any,,,,,,,874,PureVision-4.CIG,IGDB v89.0,0.908171,0.871790,0.083523,0.083448,0.081916,0.081635,0.840000,0.840000,,1.000000',
+'Cardinal,5PUREVISION,PureVision - 5mm,low_iron,uncoated,5,4.7,,any,,,,,,,875,PureVision-5.CIG,IGDB v89.0,0.906514,0.863025,0.083377,0.083377,0.081193,0.081193,0.840000,0.840000,,1.000000',
+'Cardinal,6PUREVISION,PureVision - 6mm,low_iron,uncoated,6,5.7,,any,,,,,,,876,PureVision-6.CIG,IGDB v89.0,0.905303,0.853537,0.082818,0.082776,0.080047,0.079698,0.840000,0.840000,,1.000000',
+'Cardinal,8PUREVISION,PureVision - 8mm,low_iron,uncoated,8,7.9,,any,,,,,,,877,PureVision-8.CIG,IGDB v89.0,0.901073,0.831568,0.082455,0.082455,0.078319,0.078319,0.840000,0.840000,,1.000000',
+'Cardinal,3QUADLOE452,Quad LoE 452 on 3mm Clear,clear,lowe,3,3,,cavity_only,"2,3",,sputtered,,,,2104,LoE452-3.CIG,IGDB v72.0,0.574316,0.212102,0.068747,0.085677,0.410221,0.513715,0.840000,0.018012,2,1.000000',
+'Cardinal,4QUADLOE452,Quad LoE 452 on 4mm Clear,clear,lowe,4,3.9,,cavity_only,"2,3",,sputtered,,,,2105,LoE452-4.CIG,IGDB v72.0,0.572120,0.210676,0.068610,0.085585,0.377592,0.513658,0.840000,0.018012,2,1.000000',
+'Cardinal,5QUADLOE452,Quad LoE 452 on 5mm Clear,clear,lowe,5,4.7,,cavity_only,"2,3",,sputtered,,,,2106,LoE452-5.CIG,IGDB v72.0,0.569260,0.209255,0.067682,0.085188,0.362422,0.513526,0.840000,0.018012,2,1.000000',
+'Cardinal,6QUADLOE452,Quad LoE 452 on 6mm Clear,clear,lowe,6,5.7,,cavity_only,"2,3",,sputtered,,,,2107,LoE452-6.CIG,IGDB v72.0,0.565654,0.207237,0.067864,0.085167,0.333107,0.513507,0.840000,0.018012,2,1.000000',
+'Cardinal,8QUADLOE452,Quad LoE 452 on 8mm Clear,clear,lowe,8,7.8,,cavity_only,"2,3",,sputtered,,,,2108,LoE452-8.CIG,IGDB v72.0,0.559183,0.204019,0.069004,0.085486,0.295212,0.513584,0.840000,0.018012,2,1.000000',
+'Cardinal,10R500,R500 on 10mm Clear,clear,reflective,10,9.4,,any,,,,,,,18135,R500-10.CIG,IGDB v82.0,0.754902,0.628807,0.186226,0.198692,0.121420,0.145889,0.844413,0.841023,2,1.000000',
+'Cardinal,12R500,R500 on 12mm Clear,clear,reflective,12,12,,any,,,,,,,18136,R500-12.CIG,IGDB v82.0,0.740649,0.574276,0.180129,0.196835,0.112808,0.142716,0.844413,0.841023,2,1.000000',
+'Cardinal,4R500,R500 on 4mm Clear,clear,reflective,4,3.9,,any,,,,,,,18131,R500-4.CIG,IGDB v82.0,0.782216,0.750307,0.193688,0.198941,0.141181,0.152218,0.844413,0.841023,2,1.000000',
+'Cardinal,5R500,R500 on 5mm Clear,clear,reflective,5,4.7,,any,,,,,,,18132,R500-5.CIG,IGDB v82.0,0.778111,0.738207,0.191506,0.198165,0.138213,0.151124,0.844413,0.841023,2,1.000000',
+'Cardinal,6R500,R500 on 6mm Clear,clear,reflective,6,5.7,,any,,,,,,,18133,R500-6.CIG,IGDB v82.0,0.773056,0.714743,0.190144,0.198158,0.134163,0.149840,0.844413,0.841023,2,1.000000',
+'Cardinal,8R500,R500 on 8mm Clear,clear,reflective,8,7.8,,any,,,,,,,18134,R500-8.CIG,IGDB v82.0,0.764098,0.682049,0.188551,0.198687,0.128132,0.147994,0.844413,0.841023,2,1.000000',
+'Cardinal,3I89,i89 on 3mm Clear,clear,lowe,3,3,,interior_only,4,,pyrolytic,,,,2159,i89-3.CIG,IGDB v97.0,0.883630,0.734620,0.078968,0.076970,0.104762,0.101254,0.840000,0.148902,2,1.000000',
+'Cardinal,4I89,i89 on 4mm Clear,clear,lowe,4,3.9,,interior_only,4,,pyrolytic,,,,2160,i89-4.CIG,IGDB v97.0,0.880267,0.722375,0.078825,0.076765,0.102461,0.100522,0.840000,0.148902,2,1.000000',
+'Cardinal,5I89,i89 on 5mm Clear,clear,lowe,5,4.7,,interior_only,4,,pyrolytic,,,,2161,i89-5.CIG,IGDB v97.0,0.876758,0.709988,0.078209,0.076147,0.100183,0.099631,0.840000,0.148902,2,1.000000',
+'Cardinal,6I89,i89 on 6mm Clear,clear,lowe,6,5.7,,interior_only,4,,pyrolytic,,,YES,2162,i89-6.CIG,IGDB v97.0,0.868692,0.689242,0.077565,0.075427,0.097366,0.098609,0.840000,0.148902,2,1.000000',
+'Cardinal,8I89,i89 on 8mm Clear,clear,lowe,8,7.8,,interior_only,4,,pyrolytic,,,,18097,i89-8.CIG,IGDB v97.0,0.859774,0.653979,0.078888,0.076395,0.090523,0.096569,0.840000,0.148902,2,1.000000',
+'Cardinal,3X89,x89 on 3mm Clear,clear,lowe,3,3,,interior_only,4,,pyrolytic,,,,2006,x89-3.CIG,IGDB v29.0,0.887614,0.759613,0.071458,0.071341,0.092514,0.100903,0.192299,0.840000,1,1.000000',
+'Cardinal,4X89,x89 on 4mm Clear,clear,lowe,4,3.9,,interior_only,4,,pyrolytic,,,,2007,x89-4.CIG,IGDB v29.0,0.884084,0.738406,0.071220,0.071199,0.091149,0.096825,0.192299,0.840000,1,1.000000',
+'Cardinal,5X89,x89 on 5mm Clear,clear,lowe,5,4.7,,interior_only,4,,pyrolytic,,,,2008,x89-5.CIG,IGDB v29.0,0.879486,0.727003,0.070171,0.070195,0.090063,0.094374,0.192299,0.840000,1,1.000000',
+'Cardinal,6X89,x89 on 6mm Clear,clear,lowe,6,5.7,,interior_only,4,,pyrolytic,,,,2009,x89-6.CIG,IGDB v29.0,0.873761,0.705367,0.070206,0.070411,0.089013,0.090917,0.192299,0.840000,1,1.000000',
+'Pilkington,3ACTIV,Activ on Clear,clear,reflective,3,2.9972,,exterior_only,1,,pyrolytic,,,,9941,Activ3.lof,IGDB v14.6,0.838063,0.801392,0.148800,0.146039,0.121546,0.116606,0.833000,0.840000,1,1.000000',
+'Pilkington,4ACTIV,Activ on Clear,clear,reflective,4,3.9116,,exterior_only,1,,pyrolytic,,,,9942,Activ4.lof,IGDB v14.6,0.834666,0.785969,0.148461,0.145647,0.120236,0.114711,0.833000,0.840000,1,1.000000',
+'Pilkington,5ACTIV,Activ on Clear,clear,reflective,5,4.699,,exterior_only,1,,pyrolytic,,,,9943,Activ5.lof,IGDB v14.6,0.834633,0.769205,0.145353,0.142882,0.117608,0.111604,0.833000,0.840000,1,1.000000',
+'Pilkington,6ACTIV,Activ on Clear,clear,reflective,6,5.6388,,exterior_only,1,,pyrolytic,,,,9944,Activ6.lof,IGDB v14.6,0.824678,0.746919,0.150923,0.147368,0.119617,0.112164,0.833000,0.840000,1,1.000000',
+'Pilkington,4ARCTICBLUE,Arctic Blue,tinted,uncoated,4,3.937,,any,,,,,,,9862,ARCBL4.LOF,IGDB v14.6,0.650333,0.453282,0.063389,0.063389,0.053566,0.053566,0.840000,0.840000,,1.000000',
+'Pilkington,6ARCTICBLUE,Arctic Blue,tinted,uncoated,6,5.918,,any,,,,,,,9864,ARCBL6.LOF,IGDB v14.6,0.525721,0.327766,0.056525,0.056525,0.048980,0.048980,0.840000,0.840000,,1.000000',
+'Pilkington,8ARCTICBLUE,Arctic Blue,tinted,uncoated,8,7.87,,any,,,,,,,9865,ARCBL8.lof,IGDB v30.0,0.424342,0.249578,0.052346,0.057264,0.045642,0.049842,0.840000,0.840000,,1.000000',
+'Pilkington,10ARCTICBLUE,Arctic Blue,tinted,uncoated,10,9.4488,,any,,,,,,,9866,ARCBL10.LOF,IGDB v14.6,0.408715,0.214919,0.051503,0.051503,0.046119,0.046119,0.840000,0.840000,,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEPARC,Eclipse Advantage + Arctic Blue,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9915,EclAdv+ArBl6.LOF,IGDB v87.0,0.230256,0.122540,0.213424,0.065588,0.217493,0.055276,0.170799,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEPBLU,Eclipse Advantage + Blue-Green,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9916,EclAdv+BlGn6.LOF,IGDB v87.0,0.324354,0.185501,0.207661,0.080738,0.217605,0.063044,0.170799,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEPEVE,Eclipse Advantage + EverGreen,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9918,EclAdv+EvGn6.LOF,IGDB v87.0,0.285690,0.124739,0.206033,0.070996,0.208332,0.055090,0.170799,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEPGRE,Eclipse Advantage + Grey,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9919,EclAdv+Grey6.LOF,IGDB v87.0,0.190008,0.147150,0.195750,0.054512,0.206654,0.054136,0.170799,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEARCT,Eclipse Advantage Arctic Blue,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9906,EclAdvArBl6.LOF,IGDB v15.0,0.387152,0.230558,0.268576,0.120300,0.214289,0.079394,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEBLUE,Eclipse Advantage Blue-Green,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9907,EclAdvBlGn6.LOF,IGDB v15.0,0.564331,0.351591,0.267149,0.187065,0.206923,0.108930,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEBRON,Eclipse Advantage Bronze,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9908,EclAdvBrnz6.LOF,IGDB v15.0,0.378039,0.349616,0.265892,0.113617,0.214271,0.097940,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGECLEA,Eclipse Advantage Clear,clear,lowe,6,5.918,,any,,,pyrolytic,,,,9909,EclAdvClr6.LOF,IGDB v40.0,0.665327,0.580297,0.284587,0.254471,0.227269,0.186076,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEEVER,Eclipse Advantage EverGreen,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9910,EclAdvEvGn6.LOF,IGDB v15.0,0.477830,0.233081,0.271650,0.154614,0.216778,0.083709,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEADVANTAGEGREY,Eclipse Advantage Grey,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9911,EclAdvGrey6.LOF,IGDB v15.0,0.320261,0.292158,0.267403,0.096215,0.217210,0.084872,0.208932,0.840000,1,1.000000',
+'Pilkington,6ECLIPSEGOLD,Eclipse Gold,clear,reflective,6,5.9,,any,,,pyrolytic,,,,9912,EclGold6.lof,IGDB v18.1,0.397453,0.450514,0.451556,0.361843,0.360946,0.253812,0.839330,0.840000,1,1.000000',
+'Pilkington,8ECLIPSEGOLD,Eclipse Gold,clear,reflective,8,7.9,,any,,,pyrolytic,,,,9913,EclGold8.lof,IGDB v18.1,0.397904,0.419405,0.438983,0.337380,0.359149,0.228657,0.839330,0.840000,1,1.000000',
+'Pilkington,6ECLIPSESUNSETGOLD,Eclipse Sunset Gold,clear,reflective,6,5.9,,any,,,pyrolytic,,,,9914,EclSunGold6.lof,IGDB v18.1,0.243191,0.300461,0.443622,0.156537,0.343562,0.124509,0.839330,0.840000,1,1.000000',
+'Pilkington,3ENERGYADVANTAGEC,Energy Advantage C,clear,lowe,3,3.03,,any,,,pyrolytic,,,,9928,EnAdvLE-C_3.LOF,IGDB v70.0,0.838067,0.746506,0.110648,0.103629,0.122163,0.117470,0.146429,0.840000,1,1.000000',
+'Pilkington,4ENERGYADVANTAGEC,Energy Advantage C,clear,lowe,4,3.98,,any,,,pyrolytic,,,,9929,EnAdvLE-C_4.LOF,IGDB v74.0,0.825767,0.740942,0.110606,0.104249,0.117554,0.113473,0.145684,0.840000,1,1.000000',
+'Pilkington,3ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,3,3,,any,,,pyrolytic,,,,9921,EnAdvLE3.LOF,IGDB v17.4,0.842135,0.740110,0.111396,0.106375,0.119435,0.112362,0.163722,0.840000,1,1.000000',
+'Pilkington,4ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,4,3.9,,any,,,pyrolytic,,,,9922,EnAdvLE4.LOF,IGDB v17.4,0.840040,0.731050,0.111215,0.105977,0.118773,0.110548,0.163722,0.840000,1,1.000000',
+'Pilkington,5ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,5,4.7244,,any,,,pyrolytic,,,,9923,LOW-E_5.LOF,IGDB v11.4,0.825813,0.675595,0.115210,0.109406,0.117185,0.104579,0.157969,0.840000,1,1.000000',
+'Pilkington,6ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,6,5.6388,,any,,,pyrolytic,,,,9924,LOW-E_6.LOF,IGDB v11.4,0.818639,0.661537,0.108240,0.101568,0.113037,0.099711,0.157315,0.840000,1,1.000000',
+'Pilkington,8ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,8,7.8,,any,,,pyrolytic,,,,9925,EnAdvLE8.LOF,IGDB v17.4,0.807135,0.621575,0.107323,0.100000,0.110966,0.092070,0.157315,0.840000,1,1.000000',
+'Pilkington,10ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,10,9.9,,any,,,pyrolytic,,,,9926,EnAdvLE10.LOF,IGDB v17.4,0.796212,0.589184,0.106497,0.098467,0.109011,0.088901,0.157315,0.840000,1,1.000000',
+'Pilkington,12ENERGYADVANTAGELOWE,Energy Advantage Low-E,clear,lowe,12,12.5,,any,,,pyrolytic,,,,9927,EnAdvLE12.LOF,IGDB v17.4,0.790738,0.563257,0.109405,0.100788,0.101419,0.080880,0.169249,0.840000,1,1.000000',
+'Pilkington,6ENERGYADVANTAGEOW,Energy Advantage OW,low_iron,lowe,6,6.03,,any,,,pyrolytic,,,,9930,EnAdvLEOW6.LOF,IGDB v67.0,0.830225,0.749531,0.116127,0.108870,0.121934,0.116374,0.157315,0.840000,1,1.000000',
+'Pilkington,3EVERGREEN,EverGreen,tinted,uncoated,3,3.2004,,any,,,,,,,9881,EVGRN3.LOF,IGDB v11.4,0.764538,0.486718,0.072148,0.072148,0.056532,0.056532,0.840000,0.840000,,1.000000',
+'Pilkington,5EVERGREEN,EverGreen,tinted,uncoated,5,4.699,,any,,,,,,,9883,EVGRN5.LOF,IGDB v11.4,0.729501,0.421117,0.069353,0.069353,0.053866,0.053866,0.840000,0.840000,,1.000000',
+'Pilkington,6EVERGREEN,EverGreen,tinted,uncoated,6,5.918,,any,,,,,,,9884,EVGRN6.LOF,IGDB v14.6,0.655960,0.332861,0.063687,0.063687,0.050012,0.050012,0.840000,0.840000,,1.000000',
+'Pilkington,6GRAPHITEBLUE,Graphite Blue,tinted,uncoated,6,5.92,,any,,,,,,,9847,GraphiteBlue6.lof,IGDB v30.0,0.610490,0.544855,0.061980,0.063707,0.056906,0.058786,0.840000,0.840000,,1.000000',
+'Pilkington,8GRAPHITEBLUE,Graphite Blue,tinted,uncoated,8,7.97,,any,,,,,,,9848,GraphiteBlue8.lof,IGDB v30.0,0.537562,0.460041,0.056783,0.059351,0.052041,0.054310,0.840000,0.840000,,1.000000',
+'Pilkington,10GRAPHITEBLUE,Graphite Blue,tinted,uncoated,10,9.95,,any,,,,,,,9849,GraphiteBlue10.lof,IGDB v30.0,0.446149,0.374885,0.052537,0.056193,0.048753,0.051794,0.840000,0.840000,,1.000000',
+'Pilkington,6MIRROPANEONEWAYMIRRO,Mirropane one-way mirror,clear,reflective,6,6,,any,,,,,,,9988,Mirropane6.LOF,IGDB v67.0,0.096051,0.242009,0.746928,0.191264,0.361303,0.117116,0.846424,0.840000,2,1.000000',
+'Pilkington,3OPTIVIEW,OptiView on Clear,clear,reflective,3,3.17,,any,,,,,,,9996,OptiView3.LOF,IGDB v105.0,0.907827,0.828777,0.056525,0.058983,0.060150,0.065018,0.403672,0.840000,1,1.000000',
+'Pilkington,4OPTIVIEW,OptiView on Clear,clear,reflective,4,3.81,,any,,,,,,,9997,OptiView4.LOF,IGDB v105.0,0.917137,0.832438,0.052377,0.052377,0.058480,0.058480,0.452013,0.840000,1,1.000000',
+'Pilkington,6OPTIVIEW,OptiView on Clear,clear,reflective,6,5.83,,any,,,,,,,9998,OptiView6.LOF,IGDB v105.0,0.911080,0.815468,0.055840,0.058536,0.057687,0.061313,0.492318,0.840000,1,1.000000',
+'Pilkington,8OPTIVIEW,OptiView on Clear,clear,reflective,8,7.9,,any,,,,,,,9999,OptiView8.LOF,IGDB v105.0,0.890643,0.723565,0.051162,0.055269,0.053599,0.057672,0.459597,0.840000,1,1.000000',
+'Pilkington,6OPTIVIEW-OW,OptiView on Optiwhite,low_iron,reflective,6,5.91,,any,,,,,,,10001,OptiViewOW6.LOF,IGDB v105.0,0.922008,0.851922,0.053046,0.054637,0.063288,0.065093,0.432246,0.840000,1,1.000000',
+'Pilkington,6OPTIFLOATBLUEGREEN,Optifloat Blue-Green,tinted,uncoated,6,5.918,,any,,,,,,,9874,BLGRN6.LOF,IGDB v14.6,0.753057,0.481401,0.070098,0.070098,0.055400,0.055400,0.840000,0.840000,,1.000000',
+'Pilkington,8OPTIFLOATBLUEGREEN,Optifloat Blue-Green,tinted,uncoated,8,7.9502,,any,,,,,,,9875,BLGRN8.LOF,IGDB v11.4,0.699952,0.401893,0.066363,0.066363,0.052242,0.052242,0.840000,0.840000,,1.000000',
+'Pilkington,10OPTIFLOATBLUEGREEN,Optifloat Blue-Green,tinted,uncoated,10,9.398,,any,,,,,,,9876,BLGRN10.LOF,IGDB v11.4,0.666973,0.358366,0.064862,0.064862,0.050187,0.050187,0.840000,0.840000,,1.000000',
+'Pilkington,3OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,3,3.2004,,any,,,,,,,9851,BRONZ3.LOF,IGDB v11.4,0.682031,0.647612,0.063718,0.063718,0.061635,0.061635,0.840000,0.840000,,1.000000',
+'Pilkington,5OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,5,4.699,,any,,,,,,,9853,BRONZ5.LOF,IGDB v11.4,0.594043,0.552548,0.058272,0.058272,0.056130,0.056130,0.840000,0.840000,,1.000000',
+'Pilkington,6OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,6,5.918,,any,,,,,,,9854,BRONZE6.LOF,IGDB v14.6,0.509542,0.480484,0.055490,0.055490,0.053321,0.053321,0.840000,0.840000,,1.000000',
+'Pilkington,8OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,8,7.9502,,any,,,,,,,9855,BRONZ8.LOF,IGDB v11.4,0.440749,0.393849,0.051009,0.051009,0.049369,0.049369,0.840000,0.840000,,1.000000',
+'Pilkington,10OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,10,9.398,,any,,,,,,,9856,BRONZ10.LOF,IGDB v11.4,0.386264,0.339638,0.048481,0.048481,0.047357,0.047357,0.840000,0.840000,,1.000000',
+'Pilkington,12OPTIFLOATBRONZE,Optifloat Bronze,tinted,uncoated,12,12.4968,,any,,,,,,,9857,BRONZ12.LOF,IGDB v11.4,0.291252,0.248875,0.045458,0.045458,0.044975,0.044975,0.840000,0.840000,,1.000000',
+'Pilkington,3OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,3,3,,any,,,,,,,9801,CLEAR3.LOF,IGDB v17.4,0.907408,0.876384,0.082104,0.082104,0.078026,0.078026,0.840000,0.840000,,1.000000',
+'Pilkington,4OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,4,3.9,,any,,,,,,,9802,CLEAR4.LOF,IGDB v17.4,0.904360,0.864164,0.081803,0.081803,0.077007,0.077007,0.840000,0.840000,,1.000000',
+'Pilkington,5OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,5,4.699,,any,,,,,,,9803,CLEAR5.LOF,IGDB v11.4,0.888338,0.796406,0.081976,0.081976,0.074159,0.074159,0.840000,0.840000,,1.000000',
+'Pilkington,6OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,6,5.6642,,any,,,,,,,9804,CLEAR6.LOF,IGDB v11.4,0.882593,0.774428,0.081343,0.081343,0.071721,0.071721,0.840000,0.840000,,1.000000',
+'Pilkington,8OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,8,7.9502,,any,,,,,,,9805,CLEAR8.LOF,IGDB v11.4,0.869042,0.725924,0.080539,0.080539,0.067008,0.067008,0.840000,0.840000,,1.000000',
+'Pilkington,10OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,10,9.398,,any,,,,,,,9806,CLEAR10.LOF,IGDB v11.4,0.860550,0.697571,0.079510,0.079510,0.066029,0.066029,0.840000,0.840000,,1.000000',
+'Pilkington,12OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,12,12.4968,,any,,,,,,,9807,CLEAR12.LOF,IGDB v11.4,0.842712,0.642438,0.078660,0.078660,0.064322,0.064322,0.840000,0.840000,,1.000000',
+'Pilkington,16OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,16,15.621,,any,,,,,,,9808,CLEAR16.LOF,IGDB v11.4,0.825215,0.593648,0.076799,0.076799,0.063008,0.063008,0.840000,0.840000,,1.000000',
+'Pilkington,19OPTIFLOATCLEAR,Optifloat Clear,clear,uncoated,19,18.7452,,any,,,,,,,9809,CLEAR19.LOF,IGDB v11.4,0.808183,0.550828,0.074893,0.074893,0.061049,0.061049,0.840000,0.840000,,1.000000',
+'Pilkington,6OPTIFLOATGREEN,Optifloat Green,tinted,uncoated,6,5.66,,any,,,,,,,9844,GREEN6.lof,IGDB v17.4,0.763761,0.456459,0.071012,0.071012,0.054791,0.054791,0.840000,0.840000,,1.000000',
+'Pilkington,3OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,3,3.2004,,any,,,,,,,9831,GREY3.LOF,IGDB v11.4,0.607997,0.585316,0.060761,0.060761,0.058510,0.058510,0.840000,0.840000,,1.000000',
+'Pilkington,4OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,4,3.88,,any,,,,,,,9832,GREY4.LOF,IGDB v105.0,0.558403,0.527594,0.056561,0.058577,0.053801,0.056007,0.840000,0.840000,,1.000000',
+'Pilkington,5OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,5,4.699,,any,,,,,,,9833,GREY5.LOF,IGDB v11.4,0.501858,0.476902,0.055130,0.055130,0.053187,0.053187,0.840000,0.840000,,1.000000',
+'Pilkington,6OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,6,5.918,,any,,,,,,,9834,GREY6.LOF,IGDB v14.6,0.438430,0.408210,0.052314,0.052314,0.050381,0.050381,0.840000,0.840000,,1.000000',
+'Pilkington,8OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,8,7.9502,,any,,,,,,,9835,GREY8.LOF,IGDB v11.4,0.331382,0.308754,0.048457,0.048457,0.047090,0.047090,0.840000,0.840000,,1.000000',
+'Pilkington,10OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,10,9.398,,any,,,,,,,9836,GREY10.LOF,IGDB v11.4,0.275550,0.255303,0.046822,0.046822,0.045643,0.045643,0.840000,0.840000,,1.000000',
+'Pilkington,12OPTIFLOATGREY,Optifloat Grey,tinted,uncoated,12,12.4968,,any,,,,,,,9837,GREY12.LOF,IGDB v11.4,0.185942,0.171110,0.044912,0.044912,0.043939,0.043939,0.840000,0.840000,,1.000000',
+'Pilkington,3OPTIWHITE,Optiwhite,low_iron,uncoated,3,3.2,,any,,,,,,,9811,Optiwhite3.lof,IGDB v38.0,0.913754,0.906676,0.082592,0.082592,0.080325,0.080325,0.840000,0.840000,,1.000000',
+'Pilkington,4OPTIWHITE,Optiwhite,low_iron,uncoated,4,3.9,,any,,,,,,,9812,Optiwhite4.lof,IGDB v38.0,0.913020,0.904100,0.082527,0.082527,0.080119,0.080119,0.840000,0.840000,,1.000000',
+'Pilkington,5OPTIWHITE,Optiwhite,low_iron,uncoated,5,4.74,,any,,,,,,,9813,Optiwhite5.lof,IGDB v38.0,0.911619,0.901150,0.082414,0.082414,0.079880,0.079880,0.840000,0.840000,,1.000000',
+'Pilkington,6OPTIWHITE,Optiwhite,low_iron,uncoated,6,5.85,,any,,,,,,,9814,Optiwhite6.lof,IGDB v38.0,0.910528,0.897520,0.082315,0.082315,0.079595,0.079595,0.840000,0.840000,,1.000000',
+'Pilkington,8OPTIWHITE,Optiwhite,low_iron,uncoated,8,7.9,,any,,,,,,,9815,Optiwhite8.lof,IGDB v38.0,0.907620,0.890482,0.082074,0.082074,0.079023,0.079023,0.840000,0.840000,,1.000000',
+'Pilkington,10OPTIWHITE,Optiwhite,low_iron,uncoated,10,9.34,,any,,,,,,,9816,Optiwhite10.lof,IGDB v38.0,0.907935,0.883520,0.082093,0.082093,0.078477,0.078477,0.840000,0.840000,,1.000000',
+'Pilkington,12OPTIWHITE,Optiwhite,low_iron,uncoated,12,12.47,,any,,,,,,,9817,Optiwhite12.lof,IGDB v38.0,0.902384,0.876434,0.081607,0.081607,0.077921,0.077921,0.840000,0.840000,,1.000000',
+'Pilkington,16OPTIWHITE,Optiwhite,low_iron,uncoated,16,15.5,,any,,,,,,,9818,Optiwhite16.lof,IGDB v38.0,0.900404,0.867182,0.081323,0.081323,0.077184,0.077184,0.840000,0.840000,,1.000000',
+'Pilkington,19OPTIWHITE,Optiwhite,low_iron,uncoated,19,18.9,,any,,,,,,,9819,Optiwhite19.lof,IGDB v38.0,0.899033,0.855879,0.081342,0.081342,0.076371,0.076371,0.840000,0.840000,,1.000000',
+'Pilkington,6REFLITEARCTICBLUE,Reflite Arctic Blue,tinted,reflective,6,5.83,,any,,,pyrolytic,,,,9991,RefliteArBl6.lof,IGDB v38.0,0.169059,0.152553,0.529887,0.189714,0.362883,0.107797,0.853125,0.840000,2,1.000000',
+'Pilkington,6REFLITEBLUEGREEN,Reflite Blue-Green,tinted,reflective,6,5.88,,any,,,pyrolytic,,,,9992,RefliteBlGn6.lof,IGDB v38.0,0.259110,0.243878,0.509265,0.324208,0.352088,0.162946,0.853125,0.840000,2,1.000000',
+'Pilkington,6REFLITEBRONZE,Reflite Bronze,tinted,reflective,6,5.85,,any,,,pyrolytic,,,,9993,RefliteBrnz6.lof,IGDB v38.0,0.179122,0.288273,0.526286,0.191908,0.368488,0.140048,0.853125,0.840000,2,1.000000',
+'Pilkington,6REFLITECLEAR,Reflite Clear,clear,reflective,6,5.83,,any,,,pyrolytic,,,,9994,RefliteClr6.lof,IGDB v38.0,0.275993,0.422797,0.547921,0.472893,0.390097,0.302031,0.853125,0.840000,2,1.000000',
+'Pilkington,6REFLITEGREY,Reflite Grey,tinted,reflective,6,5.92,,any,,,pyrolytic,,,,9995,RefliteGrey6.lof,IGDB v67.0,0.146331,0.221214,0.512926,0.133581,0.355246,0.100829,0.853125,0.840000,2,1.000000',
+'Pilkington,6SANITISE,SaniTise,clear,reflective,6,5.65,,any,,,pyrolytic,,,,9945,SaniTise_6.LOF,IGDB v74.0,0.840339,0.765483,0.131053,0.133854,0.102910,0.109351,0.840000,0.841464,1,1.000000',
+'Pilkington,6SANITISEOW,SaniTise OW,low_iron,reflective,6,5.99,,any,,,pyrolytic,,,,9946,SaniTise-OW_6.LOF,IGDB v74.0,0.851697,0.852462,0.145298,0.145392,0.121050,0.122608,0.840000,0.841246,1,1.000000',
+'Pilkington,3SOLARE,Solar E,clear,lowe,3,3.2,,any,,,pyrolytic,,,,9932,SolarE3.LOF,IGDB v17.4,0.601078,0.458904,0.091891,0.075211,0.117040,0.076919,0.165616,0.840000,1,1.000000',
+'Pilkington,4SOLARE,Solar E,clear,lowe,4,3.912,,any,,,pyrolytic,,,,9933,SolarE4.LOF,IGDB v17.4,0.598778,0.449838,0.091768,0.075057,0.116648,0.075805,0.165616,0.840000,1,1.000000',
+'Pilkington,5SOLARE,Solar E,clear,lowe,5,4.7,,any,,,pyrolytic,,,,9934,SolarE5.LOF,IGDB v17.4,0.596813,0.442249,0.091654,0.074860,0.116323,0.074877,0.165616,0.840000,1,1.000000',
+'Pilkington,6SOLARE,Solar E,clear,lowe,6,5.918,,any,,,pyrolytic,,,YES,9935,SolarE6.LOF,IGDB v17.4,0.598665,0.437881,0.092619,0.076472,0.117021,0.071641,0.165616,0.840000,1,1.000000',
+'Pilkington,8SOLARE,Solar E,clear,lowe,8,7.9,,any,,,pyrolytic,,,,9936,SolarE8.LOF,IGDB v17.4,0.593071,0.419126,0.092270,0.075914,0.116315,0.069407,0.165616,0.840000,1,1.000000',
+'Pilkington,10SOLARE,Solar E,clear,lowe,10,9.94,,any,,,pyrolytic,,,,9937,SolarE10.LOF,IGDB v30.0,0.604895,0.403084,0.094556,0.080820,0.118962,0.073163,0.165616,0.840000,1,1.000000',
+'Pilkington,6SOLAREARCTICBLUE,Solar-E Arctic Blue,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9950,SolarEArBl6.lof,IGDB v17.2,0.359169,0.196835,0.078338,0.057021,0.110292,0.051859,0.166572,0.840122,1,1.000000',
+'Pilkington,8SOLAREARCTICBLUE,Solar-E Arctic Blue,tinted,lowe,8,7.9,,any,,,pyrolytic,,,,9956,SolarEArBl8.lof,IGDB v18.1,0.300106,0.154666,0.079885,0.056197,0.105534,0.051306,0.166572,0.840000,1,1.000000',
+'Pilkington,6SOLAREBLUEGREEN,Solar-E Blue-Green,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9951,SolarEBlGn6.lof,IGDB v17.2,0.511585,0.289225,0.084471,0.065550,0.110322,0.057930,0.166572,0.840122,1,1.000000',
+'Pilkington,8SOLAREBLUEGREEN,Solar-E Blue-Green,tinted,lowe,8,7.9,,any,,,pyrolytic,,,,9957,SolarEBlGn8.lof,IGDB v18.1,0.450496,0.238431,0.087380,0.066796,0.107558,0.056657,0.166572,0.840000,1,1.000000',
+'Pilkington,6SOLAREEVERGREEN,Solar-E EverGreen,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9954,SolarEEvGn6.lof,IGDB v18.0,0.448038,0.201510,0.086026,0.063335,0.111035,0.052119,0.166572,0.840000,1,1.000000',
+'Pilkington,8SOLAREEVERGREEN,Solar-E EverGreen,tinted,lowe,8,7.9,,any,,,pyrolytic,,,,9960,SolarEEvGn8.lof,IGDB v18.1,0.401469,0.161993,0.092622,0.065682,0.108737,0.052156,0.166572,0.840000,1,1.000000',
+'Pilkington,6SOLAREGREY,Solar-E Grey,tinted,lowe,6,5.918,,any,,,pyrolytic,,,,9955,SolarEGrey6.lof,IGDB v17.2,0.298249,0.230868,0.076278,0.052618,0.110303,0.059582,0.166572,0.840122,1,1.000000',
+'Pilkington,8SOLAREGREY,Solar-E Grey,tinted,lowe,8,7.9,,any,,,pyrolytic,,,,9961,SolarEGrey8.lof,IGDB v18.1,0.229256,0.171065,0.075698,0.050495,0.107051,0.050470,0.166572,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUS,Solar-E Plus,clear,lowe,6,5.96,,any,,,pyrolytic,,,,9965,SolarEPlusClr6.LOF,IGDB v74.0,0.490502,0.370986,0.096107,0.072990,0.108971,0.068063,0.172597,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUSARCTICBLUE,Solar-E Plus Arctic Blue,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9962,SolarEPlusArBl6.lof,IGDB v30.0,0.304672,0.169758,0.079276,0.052996,0.109769,0.048089,0.169764,0.840000,1,1.000000',
+'Pilkington,8SOLAREPLUSARCTICBLUE,Solar-E Plus Arctic Blue,tinted,lowe,8,7.85,,any,,,pyrolytic,,,,9969,SolarEPlusArBl8.lof,IGDB v30.0,0.274766,0.143933,0.082997,0.055702,0.110710,0.050509,0.169764,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUSBLUEGREEN,Solar-E Plus Blue-Green,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9963,SolarEPlusBlGn6.lof,IGDB v30.0,0.414260,0.242186,0.086707,0.060944,0.111732,0.053214,0.169764,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUSEVERGREEN,Solar-E Plus EverGreen,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9966,SolarEPlusEvGn6.lof,IGDB v30.0,0.378249,0.171715,0.090418,0.063141,0.111346,0.050792,0.169764,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUSGREY,Solar-E Plus Grey,tinted,lowe,6,5.92,,any,,,pyrolytic,,,,9967,SolarEPlusGrey6.lof,IGDB v30.0,0.240436,0.194920,0.085011,0.053819,0.109847,0.051804,0.169764,0.840000,1,1.000000',
+'Pilkington,8SOLAREPLUSGREY,Solar-E Plus Grey,tinted,lowe,8,7.94,,any,,,pyrolytic,,,,9974,SolarEPlusGrey8.lof,IGDB v30.0,0.193811,0.154867,0.081056,0.053028,0.107103,0.051003,0.169764,0.840000,1,1.000000',
+'Pilkington,6SOLAREPLUS-GRB,Solar-E Plus on Graphite Blue,tinted,lowe,6,5.93,,any,,,pyrolytic,,,,9968,SolarEPlusGrBl6.lof,IGDB v30.0,0.353948,0.277018,0.085446,0.056984,0.113214,0.054808,0.169764,0.840000,1,1.000000',
+'Pilkington,8SOLAREPLUS-GRB,Solar-E Plus on Graphite Blue,tinted,lowe,8,7.92,,any,,,pyrolytic,,,,9975,SolarEPlusGrBl8.lof,IGDB v30.0,0.300963,0.229641,0.086671,0.057881,0.110523,0.054126,0.169764,0.840000,1,1.000000',
+'Pilkington,3SUPERGREY,SuperGrey,tinted,uncoated,3,3.2004,,any,,,,,,,9891,SUPGRY3.LOF,IGDB v11.4,0.249673,0.227047,0.045800,0.045800,0.042893,0.042893,0.840000,0.840000,,1.000000',
+'Pilkington,5SUPERGREY,SuperGrey,tinted,uncoated,5,4.699,,any,,,,,,,9893,SUPGRY5.LOF,IGDB v11.4,0.124159,0.111167,0.041851,0.041851,0.038656,0.038656,0.840000,0.840000,,1.000000',
+'Pilkington,6SUPERGREY,SuperGrey,tinted,uncoated,6,5.6642,,any,,,,,,YES,9894,SUPGRY6.LOF,IGDB v17.4,0.085195,0.075551,0.039740,0.039740,0.037481,0.037481,0.840000,0.840000,,1.000000',
+'Vitro,10ACUITY,Acuity 10mm,low_iron,uncoated,10,9.398,,any,,,,,,,5065,Acuity_10.VTA,IGDB v63.0,0.895066,0.811190,0.080918,0.080825,0.072440,0.072528,0.840000,0.840000,,0.999980',
+'Vitro,12ACUITY,Acuity 12mm,low_iron,uncoated,12,12.7,,any,,,,,,,5066,Acuity_12.VTA,IGDB v67.0,0.887423,0.778060,0.080296,0.080171,0.070225,0.070325,0.840000,0.840000,,0.999980',
+'Vitro,3ACUITY,Acuity 3mm,low_iron,uncoated,3,3.2766,,any,,,,,,,5060,Acuity_3.VTA,IGDB v67.0,0.909438,0.878981,0.082096,0.082078,0.077393,0.077432,0.840000,0.840000,,0.999980',
+'Vitro,4ACUITY,Acuity 4mm,low_iron,uncoated,4,3.9116,,any,,,,,,,5061,Acuity_4.VTA,IGDB v67.0,0.907933,0.871517,0.081970,0.081928,0.076824,0.076866,0.840000,0.840000,,0.999980',
+'Vitro,5ACUITY,Acuity 5mm,low_iron,uncoated,5,4.6736,,any,,,,,,,5062,Acuity_5.VTA,IGDB v67.0,0.906142,0.862710,0.081825,0.081782,0.076152,0.076202,0.840000,0.840000,,0.999980',
+'Vitro,6ACUITY,Acuity 6mm,low_iron,uncoated,6,5.6642,,any,,,,,,,5063,Acuity_6.VTA,IGDB v63.0,0.903805,0.851472,0.081635,0.081575,0.075323,0.075379,0.840000,0.840000,,0.999980',
+'Vitro,8ACUITY,Acuity 8mm,low_iron,uncoated,8,7.9248,,any,,,,,,,5064,Acuity_8.VTA,IGDB v63.0,0.898499,0.826707,0.081198,0.081129,0.073525,0.073604,0.840000,0.840000,,0.999980',
+'Vitro,4ATLANTICA,Atlantica 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5026,Atlantica_4.VTA,IGDB v61.0,0.736413,0.434006,0.068644,0.068644,0.053191,0.053191,0.840000,0.840000,,0.999980',
+'Vitro,5ATLANTICA,Atlantica 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5027,Atlantica_5.VTA,IGDB v61.0,0.705940,0.387323,0.066606,0.066606,0.051583,0.051583,0.840000,0.840000,,0.999980',
+'Vitro,6ATLANTICA,Atlantica 6mm,tinted,uncoated,6,5.6642,,any,,,,,,,5028,Atlantica_6.VTA,IGDB v61.0,0.668355,0.338091,0.064221,0.064221,0.049990,0.049990,0.840000,0.840000,,0.999980',
+'Vitro,8ATLANTICA,Atlantica 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5029,Atlantica_8.VTA,IGDB v61.0,0.590507,0.258317,0.059702,0.059702,0.047598,0.047598,0.840000,0.840000,,0.999980',
+'Vitro,10AZURIA,Azuria 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5038,Azuria_10.VTA,IGDB v56.0,0.567373,0.230343,0.059254,0.059948,0.048153,0.048457,0.840000,0.840000,,1.000000',
+'Vitro,12AZURIA,Azuria 12mm,tinted,uncoated,12,12.7,,any,,,,,,,5039,Azuria_12.VTA,IGDB v56.0,0.485352,0.186593,0.055302,0.055954,0.046719,0.047004,0.840000,0.840000,,1.000000',
+'Vitro,3AZURIA,Azuria 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5033,Azuria_3.VTA,IGDB v56.0,0.770311,0.445343,0.071663,0.072401,0.054836,0.055299,0.840000,0.840000,,1.000000',
+'Vitro,4AZURIA,Azuria 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5034,Azuria_4.VTA,IGDB v56.0,0.745420,0.403341,0.069943,0.070667,0.053472,0.053880,0.840000,0.840000,,1.000000',
+'Vitro,5AZURIA,Azuria 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5035,Azuria_5.VTA,IGDB v56.0,0.716893,0.362803,0.068029,0.068737,0.052214,0.052579,0.840000,0.840000,,1.000000',
+'Vitro,6AZURIA,Azuria 6mm,tinted,uncoated,6,5.6642,,any,,,,,,,5036,Azuria_6.VTA,IGDB v56.0,0.681816,0.321765,0.065778,0.066487,0.050975,0.051311,0.840000,0.840000,,1.000000',
+'Vitro,8AZURIA,Azuria 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5037,Azuria_8.VTA,IGDB v56.0,0.609452,0.258401,0.061529,0.062219,0.049047,0.049357,0.840000,0.840000,,1.000000',
+'Vitro,6BIRDSMARTACUITY,BirdSmart (1) Acuity 6mm,low_iron,reflective,6,5.6642,,exterior_only,1,,,,,,5242,BirdSmart(1)ACU_6.VTA,IGDB v103.0,0.903805,0.851472,0.081635,0.081575,0.075323,0.075379,0.837920,0.840000,1,0.999980',
+'Vitro,6BIRDSMARTCLEAR,BirdSmart (1) Clear 6mm,clear,reflective,6,5.6642,,exterior_only,1,,,,,,5241,BirdSmart(1)CLR_6.VTA,IGDB v103.0,0.886115,0.770509,0.084853,0.085058,0.072072,0.072665,0.837920,0.840000,1,1.000000',
+'Vitro,6BIRDSMARTSTARPHIRE,BirdSmart (1) Starphire 6mm,low_iron,reflective,6,5.6642,,exterior_only,1,,,,,,5243,BirdSmart(1)STR_6.VTA,IGDB v103.0,0.911000,0.890088,0.081944,0.082739,0.078403,0.080055,0.837920,0.840000,1,1.000345',
+'Vitro,10CLEAR,Clear 10mm,clear,uncoated,10,9.398,,any,,,,,,YES,5014,Clear_10.VTA,IGDB v56.0,0.867213,0.693216,0.083321,0.083534,0.067444,0.068032,0.840000,0.840000,,1.000000',
+'Vitro,12CLEAR,Clear 12mm,clear,uncoated,12,12.7,,any,,,,,,YES,5015,Clear_12.VTA,IGDB v56.0,0.850909,0.634816,0.082026,0.082229,0.064375,0.064965,0.840000,0.840000,,1.000000',
+'Vitro,16CLEAR,Clear 16mm,clear,uncoated,16,15.875,,any,,,,,,YES,5075,Clear_16.VTA,IGDB v65.0,0.816926,0.576162,0.077710,0.079481,0.059965,0.065036,0.840000,0.840000,,1.000345',
+'Vitro,19CLEAR,Clear 19mm,clear,uncoated,19,18.7427,,any,,,,,,YES,5076,Clear_19.VTA,IGDB v65.0,0.805656,0.553574,0.077369,0.079664,0.058960,0.064897,0.840000,0.840000,,1.000345',
+'Vitro,3CLEAR,Clear 3mm,clear,uncoated,3,3.2766,,any,,,,,,YES,5009,Clear_3.VTA,IGDB v56.0,0.898458,0.827459,0.085886,0.086078,0.075919,0.076509,0.840000,0.840000,,1.000000',
+'Vitro,4CLEAR,Clear 4mm,clear,uncoated,4,3.9116,,any,,,,,,YES,5010,Clear_4.VTA,IGDB v56.0,0.895164,0.811668,0.085621,0.085811,0.074820,0.075405,0.840000,0.840000,,1.000000',
+'Vitro,5CLEAR,Clear 5mm,clear,uncoated,5,4.6736,,any,,,,,,YES,5011,Clear_5.VTA,IGDB v56.0,0.891217,0.793362,0.085290,0.085502,0.073577,0.074164,0.840000,0.840000,,1.000000',
+'Vitro,6CLEAR,Clear 6mm,clear,uncoated,6,5.6642,,any,,,,,,YES,5012,Clear_6.VTA,IGDB v56.0,0.886115,0.770509,0.084853,0.085058,0.072072,0.072665,0.840000,0.840000,,1.000000',
+'Vitro,8CLEAR,Clear 8mm,clear,uncoated,8,7.9248,,any,,,,,,YES,5013,Clear_8.VTA,IGDB v56.0,0.874603,0.722154,0.083928,0.084139,0.069101,0.069691,0.840000,0.840000,,1.000000',
+'Vitro,3GRAYLITEII,Graylite II 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5056,Graylite II_3.VTA,IGDB v56.0,0.237649,0.216754,0.045917,0.048563,0.044572,0.046875,0.840000,0.840000,,1.000345',
+'Vitro,4GRAYLITEII,Graylite II 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5058,Graylite II_4.VTA,IGDB v56.0,0.183324,0.166468,0.044762,0.047455,0.043590,0.045898,0.840000,0.840000,,1.000345',
+'Vitro,5GRAYLITEII,Graylite II 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5059,Graylite II_5.VTA,IGDB v56.0,0.134353,0.121934,0.043973,0.046724,0.042904,0.045235,0.840000,0.840000,,1.000345',
+'Vitro,6GRAYLITEII,Graylite II 6mm,tinted,uncoated,6,5.6642,,any,,,,,,,5057,Graylite II_6.VTA,IGDB v56.0,0.089808,0.082029,0.043475,0.046219,0.042453,0.044778,0.840000,0.840000,,1.000345',
+'Vitro,10OPTIBLUE,Optiblue 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5416,Optiblue_10.VTA,IGDB v59.0,0.506178,0.502651,0.055297,0.055774,0.054070,0.054795,0.840000,0.840000,,1.000345',
+'Vitro,3OPTIBLUE,Optiblue 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5411,Optiblue_3.VTA,IGDB v59.0,0.744671,0.740788,0.069340,0.069975,0.067513,0.068740,0.840000,0.840000,,1.000345',
+'Vitro,5OPTIBLUE,Optiblue 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5413,Optiblue_5.VTA,IGDB v59.0,0.681630,0.677220,0.065106,0.065682,0.063420,0.064486,0.843000,0.841000,,1.000345',
+'Vitro,6OPTIBLUE,Optiblue 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5414,Optiblue_6.VTA,IGDB v59.0,0.640261,0.635783,0.062533,0.063074,0.060958,0.061932,0.840000,0.840000,,1.000345',
+'Vitro,8OPTIBLUE,Optiblue 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5415,Optiblue_8.VTA,IGDB v59.0,0.555254,0.551175,0.057739,0.058250,0.056390,0.057207,0.840000,0.840000,,1.000345',
+'Vitro,10OPTIGRAY,Optigray 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5069,Optigray_10.VTA,IGDB v56.0,0.490790,0.358700,0.054402,0.054402,0.048693,0.048693,0.840000,0.840000,,1.000345',
+'Vitro,6OPTIGRAY,Optigray 6mm,tinted,uncoated,6,5.6642,,any,,,,,,,5067,Optigray_6.VTA,IGDB v56.0,0.628903,0.511960,0.061646,0.061646,0.054721,0.054721,0.840000,0.840000,,1.000345',
+'Vitro,8OPTIGRAY,Optigray 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5068,Optigray_8.VTA,IGDB v56.0,0.541189,0.411792,0.056836,0.056836,0.050576,0.050576,0.840000,0.840000,,1.000345',
+'Vitro,10PACIFICA,Pacifica 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5089,Pacifica_10.VTA,IGDB v56.0,0.261053,0.147206,0.047258,0.047258,0.044186,0.044186,0.840000,0.840000,,1.000345',
+'Vitro,6PACIFICA,Pacifica 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5087,Pacifica_6.VTA,IGDB v56.0,0.424310,0.274348,0.052642,0.052642,0.047133,0.047133,0.840000,0.840000,,1.000345',
+'Vitro,8PACIFICA,Pacifica 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5088,Pacifica_8.VTA,IGDB v56.0,0.315609,0.185853,0.048805,0.048805,0.044972,0.044972,0.840000,0.840000,,1.000345',
+'Vitro,10SBN60VT-ACU,Solarban 60 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5298,SB60 Acuity_10.VTA,IGDB v63.0,0.799367,0.407665,0.055581,0.045809,0.297939,0.436044,0.840000,0.034606,2,0.999980',
+'Vitro,3SBN60VT-ACU,Solarban 60 on Acuity 3mm,low_iron,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5293,SB60 Acuity_3.VTA,IGDB v67.0,0.812166,0.425871,0.055947,0.046772,0.372503,0.436868,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT-ACU,Solarban 60 on Acuity 5mm,low_iron,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5295,SB60 Acuity_5.VTA,IGDB v67.0,0.809222,0.421561,0.055867,0.046548,0.353575,0.436667,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-ACU,Solarban 60 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5296,SB60 Acuity_6.VTA,IGDB v63.0,0.807147,0.418551,0.055794,0.046396,0.340900,0.436521,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-ACU,Solarban 60 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5297,SB60 Acuity_8.VTA,IGDB v63.0,0.802422,0.411886,0.055661,0.046034,0.314009,0.436234,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-ATL,Solarban 60 on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5259,SB60 Atlantica_6.VTA,IGDB v61.0,0.597406,0.233235,0.050248,0.032628,0.059257,0.428793,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-ATL,Solarban 60 on Atlantica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5260,SB60 Atlantica_8.VTA,IGDB v61.0,0.527958,0.192176,0.048765,0.029024,0.049357,0.427363,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-AZ,Solarban 60 on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5269,SB60 Azuria_6.VTA,IGDB v58.0,0.609437,0.238001,0.050735,0.033530,0.053265,0.429489,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-AZ,Solarban 60 on Azuria 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5270,SB60 Azuria_8.VTA,IGDB v58.0,0.544715,0.203280,0.049362,0.030174,0.047815,0.428275,0.840000,0.034606,2,0.999980',
+'Vitro,10SBN60VT,Solarban 60 on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5278,SB60 Clear_10.VTA,IGDB v58.0,0.773654,0.372949,0.054732,0.043852,0.196199,0.434524,0.840000,0.034606,2,0.999980',
+'Vitro,3SBN60,Solarban 60 on Clear 3mm,clear,lowe,3,3.2766,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,,YES,5281,SB60 Clear_3.VTA,IGDB v58.0,0.802956,0.411834,0.055568,0.045991,0.316462,0.436188,0.840000,0.034606,2,0.999980',
+'Vitro,3SBN60VT,Solarban 60 on Clear 3mm,clear,lowe,3,3.2766,TEMPERED,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,5281,SB60 Clear_3.VTA,IGDB v58.0,0.802956,0.411834,0.055568,0.045991,0.316462,0.436188,0.840000,0.034606,2,0.999980',
+'Vitro,4SBN60,Solarban 60 on Clear 4mm,clear,lowe,4,3.9116,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,,YES,5282,SB60 Clear_4.VTA,IGDB v58.0,0.799858,0.407419,0.055474,0.045765,0.300045,0.435996,0.840000,0.034606,2,0.999980',
+'Vitro,4SBN60VT,Solarban 60 on Clear 4mm,clear,lowe,4,3.9116,TEMPERED,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,5282,SB60 Clear_4.VTA,IGDB v58.0,0.799858,0.407419,0.055474,0.045765,0.300045,0.435996,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60,Solarban 60 on Clear 5mm,clear,lowe,5,4.6736,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,,YES,5283,SB60 Clear_5.VTA,IGDB v58.0,0.796150,0.402248,0.055372,0.045488,0.281785,0.435768,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT,Solarban 60 on Clear 5mm,clear,lowe,5,4.6736,TEMPERED,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,5283,SB60 Clear_5.VTA,IGDB v58.0,0.796150,0.402248,0.055372,0.045488,0.281785,0.435768,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60,Solarban 60 on Clear 6mm,clear,lowe,6,5.6642,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,,YES,5284,SB60 Clear_6.VTA,IGDB v58.0,0.791371,0.395717,0.055229,0.045139,0.260162,0.435488,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT,Solarban 60 on Clear 6mm,clear,lowe,6,5.6642,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,5284,SB60 Clear_6.VTA,IGDB v58.0,0.791371,0.395717,0.055229,0.045139,0.260162,0.435488,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT,Solarban 60 on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5279,SB60 Clear_8.VTA,IGDB v58.0,0.780588,0.381596,0.054932,0.044351,0.218518,0.434876,0.840000,0.034606,2,0.999980',
+'Vitro,10SBN60VT-OBL,Solarban 60 on Optiblue (Solarban z50) 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5426,SB60 Optiblue_10.VTA,IGDB v89.0,0.452183,0.249462,0.047221,0.025391,0.145119,0.428041,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT-OBL,Solarban 60 on Optiblue (Solarban z50) 5mm,tinted,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5423,SB60 Optiblue_5.VTA,IGDB v89.0,0.608951,0.329277,0.050414,0.033166,0.237236,0.431391,0.843000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-OBL,Solarban 60 on Optiblue (Solarban z50) 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5424,SB60 Optiblue_6.VTA,IGDB v89.0,0.572009,0.310500,0.049573,0.031122,0.212328,0.430520,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-OBL,Solarban 60 on Optiblue (Solarban z50) 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5425,SB60 Optiblue_8.VTA,IGDB v89.0,0.496048,0.271854,0.048027,0.027331,0.167414,0.428892,0.840000,0.034606,2,0.999980',
+'Vitro,10SBN60VT-OGY,Solarban 60 on Optigray 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5267,SB60 Optigray_10.VTA,IGDB v58.0,0.438734,0.205543,0.046904,0.024777,0.079553,0.426841,0.840000,0.034606,2,1.000345',
+'Vitro,6SBN60VT-OGY,Solarban 60 on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5265,SB60 Optigray_6.VTA,IGDB v58.0,0.562023,0.275011,0.049273,0.030561,0.130005,0.429369,0.840000,0.034606,2,1.000345',
+'Vitro,8SBN60VT-OGY,Solarban 60 on Optigray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5266,SB60 Optigray_8.VTA,IGDB v58.0,0.483737,0.230357,0.047703,0.026720,0.094060,0.427675,0.840000,0.034606,2,1.000345',
+'Vitro,6SBN60VT-PAC,Solarban 60 on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5367,SB60 Pacifica_6.VTA,IGDB v58.0,0.379181,0.173231,0.046141,0.022726,0.059232,0.426198,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-PAC,Solarban 60 on Pacifica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5368,SB60 Pacifica_8.VTA,IGDB v58.0,0.281838,0.125725,0.044826,0.019697,0.048760,0.425012,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-SBL,Solarban 60 on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5364,SB60 Solarblue_6.VTA,IGDB v58.0,0.500966,0.252393,0.048184,0.027633,0.113331,0.428511,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-SBL,Solarban 60 on Solarblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5365,SB60 Solarblue_8.VTA,IGDB v58.0,0.412975,0.205397,0.046617,0.023878,0.081554,0.426914,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT-SBZ,Solarban 60 on Solarbronze 5mm,tinted,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5273,SB60 Solarbronze_5.VTA,IGDB v58.0,0.522739,0.272007,0.048368,0.028568,0.169550,0.428902,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-SBZ,Solarban 60 on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5274,SB60 Solarbronze_6.VTA,IGDB v58.0,0.475490,0.246482,0.047468,0.026372,0.144658,0.427933,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-SBZ,Solarban 60 on Solarbronze 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5275,SB60 Solarbronze_8.VTA,IGDB v58.0,0.383255,0.197150,0.045928,0.022653,0.105577,0.426296,0.840000,0.034606,2,0.999980',
+'Vitro,3SBN60VT-SGY,Solarban 60 on Solargray 3mm,tinted,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5286,SB60 Solargray_3.VTA,IGDB v58.0,0.538724,0.285967,0.048773,0.029347,0.181823,0.429462,0.840000,0.034606,2,0.999980',
+'Vitro,4SBN60VT-SGY,Solarban 60 on Solargray 4mm,tinted,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5287,SB60 Solargray_4.VTA,IGDB v58.0,0.496781,0.263764,0.047941,0.027320,0.158464,0.428564,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT-SGY,Solarban 60 on Solargray 5mm,tinted,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5288,SB60 Solargray_5.VTA,IGDB v58.0,0.450776,0.239473,0.047092,0.025274,0.135902,0.427662,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-SGY,Solarban 60 on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5289,SB60 Solargray_6.VTA,IGDB v58.0,0.397329,0.211307,0.046202,0.023145,0.113454,0.426711,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-SGY,Solarban 60 on Solargray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5290,SB60 Solargray_8.VTA,IGDB v58.0,0.298047,0.159106,0.044854,0.019892,0.081309,0.425254,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-SLX,Solarban 60 on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5254,SB60 Solexia_6.VTA,IGDB v58.0,0.689405,0.293556,0.052477,0.038149,0.089046,0.431211,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-SLX,Solarban 60 on Solexia 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5255,SB60 Solexia_8.VTA,IGDB v58.0,0.644234,0.258382,0.051376,0.035365,0.066371,0.429870,0.840000,0.034606,2,0.999980',
+'Vitro,10SBN60VT-SP,Solarban 60 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5252,SB60 Starphire_10.VTA,IGDB v58.0,0.809697,0.424469,0.055751,0.046499,0.361379,0.436726,0.840000,0.034606,2,0.999980',
+'Vitro,3SBN60VT-SP,Solarban 60 on Starphire 3mm,low_iron,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5346,SB60 Starphire_3.VTA,IGDB v58.0,0.815872,0.432193,0.055933,0.046964,0.399558,0.437076,0.840000,0.034606,2,0.999980',
+'Vitro,5SBN60VT-SP,Solarban 60 on Starphire 5mm,low_iron,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5348,SB60 Starphire_5.VTA,IGDB v58.0,0.814466,0.430410,0.055893,0.046854,0.390405,0.436996,0.840000,0.034606,2,0.999980',
+'Vitro,6SBN60VT-SP,Solarban 60 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5349,SB60 Starphire_6.VTA,IGDB v58.0,0.813455,0.429152,0.055869,0.046787,0.384079,0.436941,0.840000,0.034606,2,0.999980',
+'Vitro,8SBN60VT-SP,Solarban 60 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5251,SB60 Starphire_8.VTA,IGDB v58.0,0.811173,0.426303,0.055802,0.046605,0.370123,0.436803,0.840000,0.034606,2,0.999980',
+'Vitro,10SBN65-ACU,Solarban 65 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5305,SB65 Acuity_10.VTA,IGDB v95.0,0.787139,0.363045,0.092596,0.082609,0.360372,0.508655,0.840000,0.028273,2,0.999980',
+'Vitro,6SBN65-ACU,Solarban 65 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5303,SB65 Acuity_6.VTA,IGDB v95.0,0.794838,0.371175,0.093487,0.083176,0.410754,0.509028,0.840000,0.028273,2,0.999980',
+'Vitro,8SBN65-ACU,Solarban 65 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5304,SB65 Acuity_8.VTA,IGDB v95.0,0.790159,0.366206,0.092940,0.082823,0.379237,0.508799,0.840000,0.028273,2,0.999980',
+'Vitro,10SBN65,Solarban 65 on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5302,SB65 Clear_10.VTA,IGDB v95.0,0.761628,0.336695,0.089581,0.080685,0.239576,0.507446,0.840000,0.028273,2,0.999980',
+'Vitro,6SBN65,Solarban 65 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5300,SB65 Clear_6.VTA,IGDB v95.0,0.779192,0.354050,0.091564,0.081944,0.315329,0.508221,0.840000,0.028273,2,0.999980',
+'Vitro,8SBN65,Solarban 65 on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5301,SB65 Clear_8.VTA,IGDB v95.0,0.768487,0.343337,0.090355,0.081175,0.266070,0.507743,0.840000,0.028273,2,0.999980',
+'Vitro,10SBN65-SP,Solarban 65 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5308,SB65 Starphire_10.VTA,IGDB v95.0,0.796413,0.375288,0.093529,0.083203,0.444350,0.509137,0.840000,0.028273,2,0.999980',
+'Vitro,6SBN65-SP,Solarban 65 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5306,SB65 Starphire_6.VTA,IGDB v95.0,0.800514,0.378864,0.094015,0.083504,0.467539,0.509311,0.840000,0.028273,2,0.999980',
+'Vitro,8SBN65-SP,Solarban 65 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5307,SB65 Starphire_8.VTA,IGDB v95.0,0.798035,0.376694,0.093724,0.083323,0.453317,0.509206,0.840000,0.028273,2,0.999980',
+'Vitro,10SBN70GLASS,Solarban 70 glass 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5441,Solarban 70_10.VTA,IGDB v70.0,0.705488,0.258393,0.087627,0.068930,0.297084,0.583137,0.837920,0.017929,2,0.999980',
+'Vitro,4SBN70GLASS,Solarban 70 glass 4mm,clear,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5433,Solarban 70_4.VTA,IGDB v102.0,0.729484,0.271750,0.090647,0.070525,0.432582,0.583773,0.837920,0.017929,2,0.999980',
+'Vitro,5SBN70GLASS,Solarban 70 glass 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5434,Solarban 70_5.VTA,IGDB v70.0,0.726106,0.269820,0.090206,0.070303,0.409464,0.583680,0.837920,0.017929,2,0.999980',
+'Vitro,6SBN70GLASS,Solarban 70 glass 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5439,Solarban 70_6.VTA,IGDB v70.0,0.721721,0.267344,0.089653,0.070011,0.381738,0.583570,0.837920,0.017929,2,0.999980',
+'Vitro,8SBN70VT,Solarban 70 glass 8mm,clear,lowe,8,7.9248,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,5440,Solarban 70_8.VTA,IGDB v70.0,0.711843,0.261864,0.088409,0.069356,0.327142,0.583304,0.837920,0.017929,2,0.999980',
+'Vitro,6SBN70-ATL,Solarban 70 on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5381,SB70 Atlantica_6.VTA,IGDB v70.0,0.545593,0.183085,0.070180,0.059670,0.075290,0.579750,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-ATL,Solarban 70 on Atlantica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5382,SB70 Atlantica_8.VTA,IGDB v70.0,0.482390,0.156515,0.064582,0.056655,0.058519,0.578759,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-AZ,Solarban 70 on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5385,SB70 Azuria_6.VTA,IGDB v70.0,0.556882,0.192034,0.072213,0.060431,0.069359,0.580322,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-AZ,Solarban 70 on Azuria 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5386,SB70 Azuria_8.VTA,IGDB v70.0,0.497948,0.169161,0.067119,0.057621,0.059039,0.579457,0.840000,0.017929,2,0.999980',
+'Vitro,3SBN70,Solarban 70 on Clear 3mm,clear,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5432,SB70 Clear_3.VTA,IGDB v70.0,0.695613,0.263866,0.084740,0.068204,0.413040,0.571746,0.840000,0.018269,2,0.999980',
+'Vitro,10SBN70-OBL,Solarban 70 on Optiblue (Solarban z75) 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5430,SB70 Optiblue_10.VTA,IGDB v89.0,0.412093,0.161209,0.058941,0.053562,0.196293,0.578448,0.840000,0.017929,2,0.999980',
+'Vitro,3SBN70-OBL,Solarban 70 on Optiblue (Solarban z75) 3mm,tinted,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5402,SB70 Optiblue_3.VTA,IGDB v89.0,0.576096,0.223833,0.072051,0.061078,0.362049,0.569535,0.840000,0.018269,2,0.999980',
+'Vitro,5SBN70-OBL,Solarban 70 on Optiblue (Solarban z75) 5mm,tinted,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5427,SB70 Optiblue_5.VTA,IGDB v89.0,0.555109,0.212918,0.071183,0.060030,0.326371,0.580540,0.843000,0.017929,2,0.999980',
+'Vitro,6SBN70-OBL,Solarban 70 on Optiblue (Solarban z75) 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5428,SB70 Optiblue_6.VTA,IGDB v89.0,0.521384,0.200772,0.067998,0.058331,0.291482,0.579998,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-OBL,Solarban 70 on Optiblue (Solarban z75) 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5429,SB70 Optiblue_8.VTA,IGDB v89.0,0.452094,0.175716,0.062030,0.055177,0.228068,0.578976,0.840000,0.017929,2,0.999980',
+'Vitro,10SBN70-OGY,Solarban 70 on Optigray 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5392,SB70 Optigray_10.VTA,IGDB v70.0,0.400038,0.144870,0.057476,0.053065,0.102152,0.577969,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-OGY,Solarban 70 on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5390,SB70 Optigray_6.VTA,IGDB v70.0,0.512435,0.188365,0.066631,0.057880,0.176458,0.579566,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-OGY,Solarban 70 on Optigray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5391,SB70 Optigray_8.VTA,IGDB v70.0,0.441066,0.160646,0.060556,0.054686,0.123889,0.578503,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-PAC,Solarban 70 on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5399,SB70 Pacifica_6.VTA,IGDB v70.0,0.345983,0.129127,0.054861,0.051361,0.071880,0.577688,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-PAC,Solarban 70 on Pacifica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5400,SB70 Pacifica_8.VTA,IGDB v70.0,0.257235,0.097018,0.049900,0.048847,0.054712,0.576861,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-SBL,Solarban 70 on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5396,SB70 Solarblue_6.VTA,IGDB v70.0,0.456835,0.173305,0.062627,0.055451,0.152595,0.579032,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-SBL,Solarban 70 on Solarblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5397,SB70 Solarblue_8.VTA,IGDB v70.0,0.376610,0.143784,0.056656,0.052327,0.105540,0.578019,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-SBZ,Solarban 70 on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5377,SB70 Solarbronze_6.VTA,IGDB v70.0,0.433196,0.160564,0.059638,0.054373,0.192329,0.578400,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-SBZ,Solarban 70 on Solarbronze 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5378,SB70 Solarbronze_8.VTA,IGDB v70.0,0.349099,0.128628,0.053808,0.051298,0.135916,0.577398,0.840000,0.017929,2,0.999980',
+'Vitro,3SBN70-SGY,Solarban 70 on Solargray 3mm,tinted,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5370,SB70 Solargray_3.VTA,IGDB v70.0,0.466265,0.179902,0.061992,0.055703,0.232433,0.567619,0.840000,0.018269,2,0.999980',
+'Vitro,5SBN70-SGY,Solarban 70 on Solargray 5mm,tinted,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5372,SB70 Solargray_5.VTA,IGDB v70.0,0.410725,0.155842,0.058340,0.053463,0.181202,0.578226,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-SGY,Solarban 70 on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5373,SB70 Solargray_6.VTA,IGDB v70.0,0.362001,0.137577,0.054984,0.051699,0.148706,0.577641,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-SGY,Solarban 70 on Solargray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5374,SB70 Solargray_8.VTA,IGDB v70.0,0.271505,0.103623,0.049829,0.048999,0.101495,0.576750,0.840000,0.017929,2,0.999980',
+'Vitro,6SBN70-SLX,Solarban 70 on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5393,SB70 Solexia_6.VTA,IGDB v70.0,0.629399,0.219616,0.078794,0.064249,0.121795,0.581341,0.840000,0.017929,2,0.999980',
+'Vitro,8SBN70-SLX,Solarban 70 on Solexia 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5394,SB70 Solexia_8.VTA,IGDB v70.0,0.588369,0.200372,0.074536,0.061957,0.087349,0.580525,0.840000,0.017929,2,0.999980',
+'Vitro,10SBN72-ACU,Solarban 72 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5389,SB72 Acuity_10.VTA,IGDB v63.0,0.730904,0.274783,0.087287,0.069371,0.413564,0.591638,0.840000,0.017845,2,0.999980',
+'Vitro,6SBN72-ACU,Solarban 72 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5387,SB72 Acuity_6.VTA,IGDB v63.0,0.737966,0.278856,0.088130,0.069837,0.470814,0.591837,0.840000,0.017845,2,0.999980',
+'Vitro,8SBN72-ACU,Solarban 72 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5388,SB72 Acuity_8.VTA,IGDB v63.0,0.733676,0.276380,0.087613,0.069547,0.435027,0.591712,0.840000,0.017845,2,0.999980',
+'Vitro,10SBN72-SP,Solarban 72 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5437,SB72 Starphire_10.VTA,IGDB v63.0,0.740271,0.280672,0.088295,0.069923,0.500235,0.591881,0.840000,0.017845,2,0.999980',
+'Vitro,6SBN72-SP,Solarban 72 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5435,SB72 Starphire_6.VTA,IGDB v63.0,0.743694,0.282504,0.088713,0.070166,0.529554,0.591978,0.840000,0.017845,2,0.999980',
+'Vitro,8SBN72-SP,Solarban 72 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5436,SB72 Starphire_8.VTA,IGDB v63.0,0.741618,0.281394,0.088461,0.070020,0.511547,0.591923,0.840000,0.017845,2,0.999980',
+'Vitro,10SBN90-ACU,Solarban 90 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5469,SB90 Acuity_10.VTA,IGDB v63.0,0.574614,0.219212,0.095468,0.133985,0.417674,0.602369,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-ACU,Solarban 90 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5467,SB90 Acuity_6.VTA,IGDB v63.0,0.580189,0.222522,0.096475,0.134291,0.475222,0.602501,0.840000,0.023413,2,0.999980',
+'Vitro,8SBN90-ACU,Solarban 90 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5468,SB90 Acuity_8.VTA,IGDB v63.0,0.576825,0.220513,0.095861,0.134102,0.439247,0.602415,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-ATL,Solarban 90 on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5450,SB90 Atlantica_6.VTA,IGDB v61.0,0.429804,0.146885,0.072826,0.127208,0.075666,0.599757,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-AZ,Solarban 90 on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5451,SB90 Azuria_6.VTA,IGDB v59.0,0.438828,0.154400,0.074805,0.127698,0.069957,0.600131,0.840000,0.023413,2,0.999980',
+'Vitro,10SBN90,Solarban 90 on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5449,SB90 Clear_10.VTA,IGDB v59.0,0.556240,0.208029,0.092111,0.132989,0.278001,0.601933,0.840000,0.023413,2,0.999980',
+'Vitro,5SBN90,Solarban 90 on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5446,SB90 Clear_5.VTA,IGDB v59.0,0.572323,0.217510,0.094938,0.133820,0.394837,0.602294,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90,Solarban 90 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5447,SB90 Clear_6.VTA,IGDB v59.0,0.568916,0.215462,0.094323,0.133644,0.365509,0.602215,0.840000,0.023413,2,0.999980',
+'Vitro,8SBN90,Solarban 90 on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5448,SB90 Clear_8.VTA,IGDB v59.0,0.561194,0.210902,0.092965,0.133240,0.308698,0.602040,0.840000,0.023413,2,0.999980',
+'Vitro,10SBN90-OBL,Solarban 90 on Optiblue 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5461,SB90 Optiblue_10.VTA,IGDB v59.0,0.324710,0.130281,0.060405,0.123427,0.196806,0.598949,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-OBL,Solarban 90 on Optiblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5452,SB90 Optiblue_6.VTA,IGDB v59.0,0.410836,0.162180,0.070368,0.126396,0.292285,0.599938,0.840000,0.023413,2,0.999980',
+'Vitro,8SBN90-OBL,Solarban 90 on Optiblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5460,SB90 Optiblue_8.VTA,IGDB v59.0,0.356229,0.141979,0.063777,0.124437,0.228673,0.599286,0.840000,0.023413,2,0.999980',
+'Vitro,10SBN90-OGY,Solarban 90 on Optigray 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5463,SB90 Optigray_10.VTA,IGDB v59.0,0.315055,0.116680,0.058965,0.123115,0.102414,0.598629,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-OGY,Solarban 90 on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5453,SB90 Optigray_6.VTA,IGDB v59.0,0.403656,0.151826,0.069030,0.126098,0.176939,0.599651,0.840000,0.023413,2,0.999980',
+'Vitro,8SBN90-OGY,Solarban 90 on Optigray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5462,SB90 Optigray_8.VTA,IGDB v59.0,0.347395,0.129422,0.062358,0.124119,0.124215,0.598971,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-PAC,Solarban 90 on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5454,SB90 Pacifica_6.VTA,IGDB v59.0,0.272741,0.103986,0.055787,0.122067,0.072078,0.598451,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-SBL,Solarban 90 on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5455,SB90 Solarblue_6.VTA,IGDB v59.0,0.360005,0.139820,0.064366,0.124602,0.153035,0.599318,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-SBZ,Solarban 90 on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5456,SB90 Solarbronze_6.VTA,IGDB v59.0,0.341103,0.129483,0.061496,0.123919,0.192717,0.598904,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-SGY,Solarban 90 on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5457,SB90 Solargray_6.VTA,IGDB v59.0,0.285105,0.111070,0.056203,0.122271,0.149005,0.598422,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-SLX,Solarban 90 on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5458,SB90 Solexia_6.VTA,IGDB v59.0,0.495874,0.176558,0.082317,0.130060,0.122328,0.600777,0.840000,0.023413,2,0.999980',
+'Vitro,10SBN90-SP,Solarban 90 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5466,SB90 Starphire_10.VTA,IGDB v59.0,0.581988,0.224015,0.096669,0.134328,0.504741,0.602525,0.840000,0.023413,2,0.999980',
+'Vitro,12SBN90-SP,Solarban 90 on Starphire 12mm,low_iron,lowe,12,12.7,,cavity_only,"2,3",,sputtered,,,,5471,SB90 Starphire_12.VTA,IGDB v90.0,0.579616,0.222711,0.096249,0.134206,0.480581,0.602473,0.840000,0.023413,2,0.999980',
+'Vitro,5SBN90-SP,Solarban 90 on Starphire 5mm,low_iron,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5464,SB90 Starphire_5.VTA,IGDB v59.0,0.585404,0.225901,0.097298,0.134523,0.542382,0.602602,0.840000,0.023413,2,0.999980',
+'Vitro,6SBN90-SP,Solarban 90 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5459,SB90 Starphire_6.VTA,IGDB v59.0,0.584680,0.225500,0.097182,0.134493,0.534199,0.602591,0.840000,0.023413,2,0.999980',
+'Vitro,8SBN90-SP,Solarban 90 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5465,SB90 Starphire_8.VTA,IGDB v59.0,0.583054,0.224602,0.096868,0.134395,0.516105,0.602550,0.840000,0.023413,2,0.999980',
+'Vitro,10SBNR100-ACU,Solarban R100 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5419,SBR100 Acuity_10.VTA,IGDB v67.0,0.468962,0.223574,0.302992,0.064402,0.449373,0.501415,0.840000,0.035999,2,0.999980',
+'Vitro,6SBNR100-ACU,Solarban R100 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5417,SBR100 Acuity_6.VTA,IGDB v63.0,0.473533,0.228711,0.308021,0.064598,0.504016,0.501543,0.840000,0.035999,2,0.999980',
+'Vitro,8SBNR100-ACU,Solarban R100 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5418,SBR100 Acuity_8.VTA,IGDB v67.0,0.470769,0.225534,0.304983,0.064477,0.469879,0.501465,0.840000,0.035999,2,0.999980',
+'Vitro,6SBNR100-ATL,Solarban R100 on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5182,SBR100 Atlantica_6.VTA,IGDB v61.0,0.349623,0.135014,0.188743,0.059929,0.106636,0.499094,0.840000,0.035999,2,0.999980',
+'Vitro,6SBNR100-AZ,Solarban R100 on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5183,SBR100 Azuria_6.VTA,IGDB v58.0,0.357948,0.140420,0.196725,0.060399,0.106993,0.499350,0.840000,0.035999,2,1.000345',
+'Vitro,10SBNR100,Solarban R100 on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5406,SBR100 Clear_10.VTA,IGDB v59.0,0.455840,0.208205,0.290901,0.064444,0.318779,0.501151,0.840000,0.035999,2,1.000345',
+'Vitro,5SBNR100,Solarban R100 on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5403,SBR100 Clear_5.VTA,IGDB v59.0,0.468461,0.221721,0.304511,0.064982,0.429532,0.501517,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100,Solarban R100 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5404,SBR100 Clear_6.VTA,IGDB v59.0,0.465761,0.218719,0.301559,0.064871,0.401814,0.501440,0.840000,0.035999,2,1.000345',
+'Vitro,8SBNR100,Solarban R100 on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5405,SBR100 Clear_8.VTA,IGDB v59.0,0.459730,0.212224,0.295037,0.064610,0.347980,0.501258,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-OBL,Solarban R100 on Optiblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5408,SBR100 Optiblue_6.VTA,IGDB v59.0,0.334201,0.168751,0.175929,0.059371,0.303169,0.499436,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-OGY,Solarban R100 on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5184,SBR100 Optigray_6.VTA,IGDB v58.0,0.327675,0.151915,0.171174,0.059154,0.195153,0.499175,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-PAC,Solarban R100 on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5185,SBR100 Pacifica_6.VTA,IGDB v58.0,0.222540,0.099777,0.103644,0.056613,0.086183,0.498129,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-SBL,Solarban R100 on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5186,SBR100 Solarblue_6.VTA,IGDB v58.0,0.293319,0.140601,0.146385,0.058308,0.169619,0.498900,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-SBZ,Solarban R100 on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5187,SBR100 Solarbronze_6.VTA,IGDB v58.0,0.277116,0.133855,0.138718,0.057935,0.202186,0.498632,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-SGY,Solarban R100 on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5188,SBR100 Solargray_6.VTA,IGDB v58.0,0.231570,0.115214,0.110514,0.056804,0.155382,0.498243,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-SLX,Solarban R100 on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5189,SBR100 Solexia_6.VTA,IGDB v58.0,0.405473,0.168026,0.240317,0.062362,0.162333,0.500029,0.840000,0.035999,2,1.000345',
+'Vitro,10SBNR100-SP,Solarban R100 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5410,SBR100 Starphire_10.VTA,IGDB v59.0,0.474994,0.231342,0.309448,0.064597,0.531626,0.501483,0.840000,0.035999,2,1.000345',
+'Vitro,6SBNR100-SP,Solarban R100 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5407,SBR100 Starphire_6.VTA,IGDB v59.0,0.477267,0.233546,0.312004,0.064700,0.559904,0.501545,0.840000,0.035999,2,1.000345',
+'Vitro,8SBNR100-SP,Solarban R100 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5409,SBR100 Starphire_8.VTA,IGDB v59.0,0.475877,0.232195,0.310451,0.064634,0.542502,0.501501,0.840000,0.035999,2,1.000345',
+'Vitro,10SBNR67-ACU,Solarban R67 (Solarban 67) on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5495,SBR67 Acuity_10.VTA,IGDB v95.0,0.607635,0.289137,0.161611,0.095302,0.374904,0.492289,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-ACU,Solarban R67 (Solarban 67) on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5493,SBR67 Acuity_6.VTA,IGDB v95.0,0.613521,0.295829,0.163821,0.095635,0.424899,0.492525,0.840000,0.034984,2,0.999980',
+'Vitro,8SBNR67-ACU,Solarban R67 (Solarban 67) on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5494,SBR67 Acuity_8.VTA,IGDB v95.0,0.609952,0.291737,0.162468,0.095427,0.393628,0.492375,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-ATL,Solarban R67 (Solarban 67) on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5479,SBR67 Atlantica_6.VTA,IGDB v95.0,0.454013,0.173274,0.110619,0.087771,0.080868,0.488427,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-AZ,Solarban R67 (Solarban 67) on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5480,SBR67 Azuria_6.VTA,IGDB v95.0,0.464178,0.178134,0.114796,0.088350,0.078630,0.488839,0.840000,0.034984,2,0.999980',
+'Vitro,10SBNR67,Solarban R67 (Solarban 67) on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5478,SBR67 Clear_10.VTA,IGDB v95.0,0.588122,0.267471,0.154345,0.094192,0.254894,0.491527,0.840000,0.034984,2,0.999980',
+'Vitro,5SBNR67,Solarban R67 (Solarban 67) on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5475,SBR67 Clear_5.VTA,IGDB v95.0,0.605186,0.285776,0.160572,0.095116,0.355514,0.492149,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67,Solarban R67 (Solarban 67) on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5476,SBR67 Clear_6.VTA,IGDB v95.0,0.601561,0.281727,0.159236,0.094916,0.330190,0.492001,0.840000,0.034984,2,0.999980',
+'Vitro,8SBNR67,Solarban R67 (Solarban 67) on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5477,SBR67 Clear_8.VTA,IGDB v95.0,0.593370,0.272915,0.156247,0.094470,0.281245,0.491699,0.840000,0.034984,2,0.999980',
+'Vitro,10SBNR67-OBL,Solarban R67 (Solarban 67) on Optiblue 10mm,tinted,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5491,SBR67 Optiblue_10.VTA,IGDB v95.0,0.343088,0.176135,0.081694,0.083540,0.175255,0.487829,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-OBL,Solarban R67 (Solarban 67) on Optiblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5481,SBR67 Optiblue_6.VTA,IGDB v95.0,0.434106,0.218806,0.104235,0.086844,0.259538,0.489191,0.840000,0.034984,2,0.999980',
+'Vitro,8SBNR67-OBL,Solarban R67 (Solarban 67) on Optiblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5490,SBR67 Optiblue_8.VTA,IGDB v95.0,0.376385,0.191789,0.089350,0.084661,0.203312,0.488299,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-OGY,Solarban R67 (Solarban 67) on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5492,SBR67 Optigray_6.VTA,IGDB v95.0,0.426056,0.196801,0.101776,0.086475,0.161690,0.488605,0.840000,0.034984,2,1.000345',
+'Vitro,6SBNR67-PAC,Solarban R67 (Solarban 67) on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5482,SBR67 Pacifica_6.VTA,IGDB v95.0,0.288718,0.127524,0.071476,0.082072,0.072283,0.486923,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-SBL,Solarban R67 (Solarban 67) on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5483,SBR67 Solarblue_6.VTA,IGDB v95.0,0.380642,0.181184,0.090764,0.084867,0.141044,0.488167,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-SBZ,Solarban R67 (Solarban 67) on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5484,SBR67 Solarbronze_6.VTA,IGDB v95.0,0.359355,0.173896,0.084787,0.084015,0.172215,0.487747,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-SGY,Solarban R67 (Solarban 67) on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5485,SBR67 Solargray_6.VTA,IGDB v95.0,0.300689,0.149483,0.072486,0.082207,0.133704,0.487095,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-SLX,Solarban R67 (Solarban 67) on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5486,SBR67 Solexia_6.VTA,IGDB v95.0,0.524056,0.215246,0.132236,0.090933,0.122541,0.489774,0.840000,0.034984,2,0.999980',
+'Vitro,10SBNR67-SP,Solarban R67 (Solarban 67) on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5489,SBR67 Starphire_10.VTA,IGDB v95.0,0.615420,0.299369,0.164387,0.095679,0.449533,0.492608,0.840000,0.034984,2,0.999980',
+'Vitro,6SBNR67-SP,Solarban R67 (Solarban 67) on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5487,SBR67 Starphire_6.VTA,IGDB v95.0,0.618297,0.302259,0.165484,0.095859,0.475600,0.492715,0.840000,0.034984,2,0.999980',
+'Vitro,8SBNR67-SP,Solarban R67 (Solarban 67) on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5488,SBR67 Starphire_8.VTA,IGDB v95.0,0.616565,0.300510,0.164819,0.095758,0.459584,0.492652,0.840000,0.034984,2,0.999980',
+'Vitro,10SBNR77-ACU,Solarban R77 on Acuity 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5335,SBR77 Acuity_10.VTA,IGDB v79.0,0.531884,0.243888,0.231803,0.096467,0.440184,0.539362,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-ACU,Solarban R77 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5311,SBR77 Acuity_6.VTA,IGDB v77.0,0.537132,0.249146,0.235458,0.096722,0.496123,0.539525,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-ACU,Solarban R77 on Acuity 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5323,SBR77 Acuity_8.VTA,IGDB v79.0,0.533952,0.245937,0.233247,0.096567,0.461165,0.539425,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-ATL,Solarban R77 on Atlantica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5312,SBR77 Atlantica_6.VTA,IGDB v77.0,0.396273,0.149475,0.149445,0.090671,0.096414,0.536523,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-ATL,Solarban R77 on Atlantica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5324,SBR77 Atlantica_8.VTA,IGDB v79.0,0.349941,0.124914,0.126788,0.089069,0.075389,0.535910,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-AZ,Solarban R77 on Azuria 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5313,SBR77 Azuria_6.VTA,IGDB v77.0,0.404791,0.155052,0.155265,0.091088,0.094959,0.536861,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-AZ,Solarban R77 on Azuria 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5325,SBR77 Azuria_8.VTA,IGDB v79.0,0.361708,0.133998,0.134178,0.089624,0.080659,0.536334,0.840000,0.025141,2,0.999980',
+'Vitro,10SBNR77,Solarban R77 on Clear 10mm,clear,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5334,SBR77 Clear_10.VTA,IGDB v79.0,0.514551,0.226831,0.219911,0.095601,0.304205,0.538826,0.840000,0.025141,2,0.999980',
+'Vitro,5SBNR77,Solarban R77 on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5309,SBR77 Clear_5.VTA,IGDB v79.0,0.529704,0.241253,0.230183,0.096324,0.418068,0.539265,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77,Solarban R77 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5310,SBR77 Clear_6.VTA,IGDB v77.0,0.526478,0.238072,0.227965,0.096175,0.389528,0.539164,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77,Solarban R77 on Clear 8mm,clear,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5322,SBR77 Clear_8.VTA,IGDB v79.0,0.519208,0.231131,0.223024,0.095815,0.334163,0.538955,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-OBL,Solarban R77 on Optiblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5314,SBR77 Optiblue_6.VTA,IGDB v77.0,0.379149,0.183025,0.139954,0.089989,0.300679,0.537003,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-OBL,Solarban R77 on Optiblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5326,SBR77 Optiblue_8.VTA,IGDB v79.0,0.328495,0.160264,0.116198,0.088319,0.234930,0.536342,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-OGY,Solarban R77 on Optigray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5315,SBR77 Optigray_6.VTA,IGDB v77.0,0.372258,0.166226,0.136312,0.089730,0.189396,0.536619,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-OGY,Solarban R77 on Optigray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5327,SBR77 Optigray_8.VTA,IGDB v79.0,0.320027,0.140354,0.112251,0.088039,0.134162,0.535926,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-PAC,Solarban R77 on Pacifica 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5316,SBR77 Pacifica_6.VTA,IGDB v77.0,0.251281,0.108782,0.087225,0.086324,0.081720,0.535369,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-PAC,Solarban R77 on Pacifica 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5328,SBR77 Pacifica_8.VTA,IGDB v79.0,0.186805,0.080177,0.068241,0.084999,0.061236,0.534857,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-SBL,Solarban R77 on Solarblue 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5317,SBR77 Solarblue_6.VTA,IGDB v77.0,0.331997,0.152847,0.118068,0.088472,0.164291,0.536281,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-SBL,Solarban R77 on Solarblue 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5329,SBR77 Solarblue_8.VTA,IGDB v79.0,0.273515,0.125524,0.094579,0.086831,0.114662,0.535623,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-SBZ,Solarban R77 on Solarbronze 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5318,SBR77 Solarbronze_6.VTA,IGDB v77.0,0.314197,0.145606,0.109900,0.087874,0.197982,0.535951,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-SBZ,Solarban R77 on Solarbronze 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5330,SBR77 Solarbronze_8.VTA,IGDB v79.0,0.252853,0.116617,0.086661,0.086243,0.139299,0.535296,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-SGY,Solarban R77 on Solargray 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5319,SBR77 Solargray_6.VTA,IGDB v77.0,0.262528,0.125034,0.089830,0.086478,0.152624,0.535464,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-SGY,Solarban R77 on Solargray 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5331,SBR77 Solargray_8.VTA,IGDB v79.0,0.196682,0.094303,0.069530,0.085054,0.103461,0.534879,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-SLX,Solarban R77 on Solexia 6mm,tinted,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5320,SBR77 Solexia_6.VTA,IGDB v77.0,0.457924,0.184543,0.184026,0.093086,0.148535,0.537542,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-SLX,Solarban R77 on Solexia 8mm,tinted,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5332,SBR77 Solexia_8.VTA,IGDB v79.0,0.427683,0.164901,0.166639,0.091861,0.111978,0.536986,0.840000,0.025141,2,0.999980',
+'Vitro,10SBNR77-SP,Solarban R77 on Starphire 10mm,low_iron,lowe,10,9.398,,cavity_only,"2,3",,sputtered,,,,5336,SBR77 Starphire_10.VTA,IGDB v79.0,0.538821,0.251924,0.236517,0.096767,0.524271,0.539585,0.840000,0.025141,2,0.999980',
+'Vitro,6SBNR77-SP,Solarban R77 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5321,SBR77 Starphire_6.VTA,IGDB v77.0,0.541354,0.254203,0.238315,0.096887,0.553070,0.539658,0.840000,0.025141,2,0.999980',
+'Vitro,8SBNR77-SP,Solarban R77 on Starphire 8mm,low_iron,lowe,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5333,SBR77 Starphire_8.VTA,IGDB v79.0,0.539821,0.252814,0.237229,0.096812,0.535386,0.539615,0.840000,0.025141,2,0.999980',
+'Vitro,10SOLARBLUE,Solarblue 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5082,Solarblue_10.VTA,IGDB v56.0,0.408303,0.310175,0.052109,0.052109,0.048039,0.048039,0.840000,0.840000,,1.000345',
+'Vitro,6SOLARBLUE,Solarblue 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5080,Solarblue_6.VTA,IGDB v56.0,0.560674,0.465410,0.059118,0.059118,0.053570,0.053570,0.840000,0.840000,,1.000345',
+'Vitro,8SOLARBLUE,Solarblue 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5081,Solarblue_8.VTA,IGDB v56.0,0.462458,0.362784,0.054353,0.054353,0.049704,0.049704,0.840000,0.840000,,1.000345',
+'Vitro,10SOLARBRONZE,Solarbronze 10mm,tinted,uncoated,10,9.398,,any,,,,,,YES,5046,Solarbronze_10.VTA,IGDB v56.0,0.372787,0.336373,0.053533,0.055456,0.049597,0.051788,0.840000,0.840000,,1.000000',
+'Vitro,12SOLARBRONZE,Solarbronze 12mm,tinted,uncoated,12,12.7,,any,,,,,,YES,5047,Solarbronze_12.VTA,IGDB v56.0,0.272715,0.240320,0.050490,0.052414,0.047011,0.049204,0.840000,0.840000,,1.000000',
+'Vitro,3SOLARBRONZE,Solarbronze 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5041,Solarbronze_3.VTA,IGDB v56.0,0.668374,0.640136,0.067947,0.069849,0.063059,0.065255,0.840000,0.840000,,1.000000',
+'Vitro,4SOLARBRONZE,Solarbronze 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5042,Solarbronze_4.VTA,IGDB v56.0,0.628924,0.597996,0.065536,0.067476,0.060705,0.062898,0.840000,0.840000,,1.000000',
+'Vitro,5SOLARBRONZE,Solarbronze 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5043,Solarbronze_5.VTA,IGDB v56.0,0.584690,0.551310,0.063026,0.064942,0.058274,0.060476,0.840000,0.840000,,1.000000',
+'Vitro,6SOLARBRONZE,Solarbronze 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5044,Solarbronze_6.VTA,IGDB v56.0,0.531894,0.496382,0.060279,0.062205,0.055674,0.057869,0.840000,0.840000,,1.000000',
+'Vitro,8SOLARBRONZE,Solarbronze 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5045,Solarbronze_8.VTA,IGDB v56.0,0.428807,0.391729,0.055631,0.057556,0.051440,0.053647,0.840000,0.840000,,1.000000',
+'Vitro,4SOLARCOOL-AZ,Solarcool on Azuria 4mm,tinted,reflective,4,3.9116,,any,,,,,,,5093,SC Azuria_4.VTA,IGDB v56.0,0.284247,0.181390,0.364763,0.216882,0.299215,0.109009,0.849663,0.840000,2,1.000000',
+'Vitro,5SOLARCOOL-AZ,Solarcool on Azuria 5mm,tinted,reflective,5,4.6736,,any,,,,,,,5094,SC Azuria_5.VTA,IGDB v56.0,0.272812,0.157877,0.364460,0.204458,0.298876,0.101765,0.849663,0.840000,2,1.000000',
+'Vitro,6SOLARCOOL-AZ,Solarcool on Azuria 6mm,tinted,reflective,6,5.6642,,any,,,,,,,5095,SC Azuria_6.VTA,IGDB v56.0,0.258780,0.134835,0.364125,0.189918,0.298579,0.094603,0.849663,0.840000,2,1.000000',
+'Vitro,8SOLARCOOL-AZ,Solarcool on Azuria 8mm,tinted,reflective,8,7.9248,,any,,,,,,,5096,SC Azuria_8.VTA,IGDB v56.0,0.230034,0.101321,0.363485,0.162297,0.298192,0.083372,0.849663,0.840000,2,1.000000',
+'Vitro,6SOLARCOOL-PAC,Solarcool on Pacifica 6mm,tinted,reflective,6,5.6642,,any,,,,,,,5149,SC Pacifica_6.VTA,IGDB v58.0,0.159767,0.130201,0.362168,0.100997,0.298261,0.069647,0.840000,0.840000,,1.000345',
+'Vitro,8SOLARCOOL-PAC,Solarcool on Pacifica 8mm,tinted,reflective,8,7.9248,,any,,,,,,,5150,SC Pacifica_8.VTA,IGDB v58.0,0.117975,0.083523,0.361633,0.076309,0.297752,0.057366,0.840000,0.840000,,1.000345',
+'Vitro,6SOLARCOOL-SBL,Solarcool on Solarblue 6mm,tinted,reflective,6,5.6642,,any,,,,,,,5154,SC Solarblue_6.VTA,IGDB v58.0,0.213290,0.241899,0.363129,0.141598,0.300238,0.104829,0.840000,0.840000,,1.000345',
+'Vitro,8SOLARCOOL-SBL,Solarcool on Solarblue 8mm,tinted,reflective,8,7.9248,,any,,,,,,,5155,SC Solarblue_8.VTA,IGDB v58.0,0.175132,0.183744,0.362418,0.110934,0.299044,0.082581,0.840000,0.840000,,1.000345',
+'Vitro,4SOLARCOOL-SBZ,Solarcool on Solarbronze 4mm,tinted,reflective,4,3.9116,,any,,,,,,,5104,SC Solarbronze_4.VTA,IGDB v58.0,0.243055,0.329348,0.363916,0.168465,0.302901,0.139840,0.849663,0.840000,2,1.000000',
+'Vitro,5SOLARCOOL-SBZ,Solarcool on Solarbronze 5mm,tinted,reflective,5,4.6736,,any,,,,,,,5106,SC Solarbronze_5.VTA,IGDB v58.0,0.226128,0.303157,0.363531,0.152053,0.302081,0.125675,0.849663,0.840000,2,1.000000',
+'Vitro,6SOLARCOOL-SBZ,Solarcool on Solarbronze 6mm,tinted,reflective,6,5.6642,,any,,,,,,YES,5108,SC Solarbronze_6.VTA,IGDB v58.0,0.205925,0.272457,0.363081,0.133989,0.301196,0.110477,0.849663,0.840000,2,1.000000',
+'Vitro,8SOLARCOOL-SBZ,Solarcool on Solarbronze 8mm,tinted,reflective,8,7.9248,,any,,,,,,,5110,SC Solarbronze_8.VTA,IGDB v58.0,0.166543,0.214353,0.362348,0.103600,0.299786,0.085871,0.849663,0.840000,2,1.000000',
+'Vitro,4SOLARCOOL-SGY,Solarcool on Solargray 4mm,tinted,reflective,4,3.9116,,any,,,,,,,5116,SC Solargray_4.VTA,IGDB v58.0,0.213435,0.289908,0.363231,0.141400,0.301599,0.119517,0.849663,0.840000,2,1.000000',
+'Vitro,5SOLARCOOL-SGY,Solarcool on Solargray 5mm,tinted,reflective,5,4.6736,,any,,,,,,,5118,SC Solargray_5.VTA,IGDB v58.0,0.193689,0.260602,0.362830,0.124684,0.300806,0.105571,0.849663,0.840000,2,1.000000',
+'Vitro,6SOLARCOOL-SGY,Solarcool on Solargray 6mm,tinted,reflective,6,5.6642,,any,,,,,,YES,5120,SC Solargray_6.VTA,IGDB v58.0,0.170746,0.227202,0.362417,0.107284,0.300015,0.091331,0.849663,0.840000,2,1.000000',
+'Vitro,8SOLARCOOL-SGY,Solarcool on Solargray 8mm,tinted,reflective,8,7.9248,,any,,,,,,,5122,SC Solargray_8.VTA,IGDB v58.0,0.128213,0.167096,0.361767,0.080752,0.298827,0.070200,0.849663,0.840000,2,1.000000',
+'Vitro,10SOLARGRAY,Solargray 10mm,tinted,uncoated,10,9.398,,any,,,,,,YES,5054,Solargray_10.VTA,IGDB v56.0,0.276591,0.255974,0.050260,0.054646,0.046877,0.051295,0.840000,0.840000,,1.000000',
+'Vitro,12SOLARGRAY,Solargray 12mm,tinted,uncoated,12,12.7,,any,,,,,,YES,5055,Solargray_12.VTA,IGDB v56.0,0.182103,0.167425,0.048224,0.052598,0.045068,0.049495,0.840000,0.840000,,1.000000',
+'Vitro,3SOLARGRAY,Solargray 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5049,Solargray_3.VTA,IGDB v56.0,0.602486,0.579566,0.063723,0.068097,0.059231,0.063648,0.840000,0.840000,,1.000000',
+'Vitro,4SOLARGRAY,Solargray 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5050,Solargray_4.VTA,IGDB v56.0,0.555634,0.531374,0.061164,0.065547,0.056805,0.061227,0.840000,0.840000,,1.000000',
+'Vitro,5SOLARGRAY,Solargray 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5051,Solargray_5.VTA,IGDB v56.0,0.504206,0.479129,0.058617,0.062990,0.054412,0.058835,0.840000,0.840000,,1.000000',
+'Vitro,6SOLARGRAY,Solargray 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5052,Solargray_6.VTA,IGDB v56.0,0.444494,0.419260,0.055952,0.060322,0.051965,0.056379,0.840000,0.840000,,1.000000',
+'Vitro,8SOLARGRAY,Solargray 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5053,Solargray_8.VTA,IGDB v56.0,0.333437,0.310426,0.051890,0.056265,0.048313,0.052734,0.840000,0.840000,,1.000000',
+'Vitro,10SOLEXIA,Solexia 10mm,tinted,uncoated,10,9.398,,any,,,,,,,5022,Solexia_10.VTA,IGDB v56.0,0.694547,0.344446,0.067467,0.068952,0.051109,0.051268,0.840000,0.840000,,1.000345',
+'Vitro,12SOLEXIA,Solexia 12mm,tinted,uncoated,12,12.7,,any,,,,,,,5023,Solexia_12.VTA,IGDB v56.0,0.632043,0.275628,0.063423,0.065091,0.048938,0.049135,0.840000,0.840000,,1.000345',
+'Vitro,3SOLEXIA,Solexia 3mm,tinted,uncoated,3,3.2766,,any,,,,,,,5017,Solexia_3.VTA,IGDB v56.0,0.828851,0.604255,0.079873,0.080604,0.061600,0.062834,0.840000,0.840000,,1.000000',
+'Vitro,4SOLEXIA,Solexia 4mm,tinted,uncoated,4,3.9116,,any,,,,,,,5018,Solexia_4.VTA,IGDB v56.0,0.813128,0.563248,0.078649,0.079407,0.059702,0.060947,0.840000,0.840000,,1.000000',
+'Vitro,5SOLEXIA,Solexia 5mm,tinted,uncoated,5,4.6736,,any,,,,,,,5019,Solexia_5.VTA,IGDB v56.0,0.794703,0.519773,0.077288,0.078039,0.057864,0.059103,0.840000,0.840000,,1.000000',
+'Vitro,6SOLEXIA,Solexia 6mm,tinted,uncoated,6,5.6642,,any,,,,,,YES,5020,Solexia_6.VTA,IGDB v56.0,0.771447,0.471094,0.075608,0.076361,0.055955,0.057205,0.840000,0.840000,,1.000000',
+'Vitro,8SOLEXIA,Solexia 8mm,tinted,uncoated,8,7.9248,,any,,,,,,,5021,Solexia_8.VTA,IGDB v56.0,0.721230,0.385278,0.072166,0.072913,0.052976,0.054221,0.840000,0.840000,,1.000000',
+'Vitro,10STARPHIRE,Starphire 10mm,low_iron,uncoated,10,9.398,,any,,,,,,YES,5006,Starphire_10.VTA,IGDB v56.0,0.906732,0.871622,0.081587,0.082368,0.076970,0.078539,0.840000,0.840000,,1.000345',
+'Vitro,12STARPHIRE,Starphire 12mm,low_iron,uncoated,12,12.7,,any,,,,,,YES,5007,Starphire_12.VTA,IGDB v56.0,0.902965,0.855801,0.081260,0.082060,0.075776,0.077303,0.840000,0.840000,,1.000345',
+'Vitro,16STARPHIRE,Starphire 16mm,low_iron,uncoated,16,15.875,,any,,,,,,YES,5071,Starphire_16.VTA,IGDB v56.0,0.899349,0.841011,0.080969,0.081731,0.074692,0.076150,0.840000,0.840000,,1.000345',
+'Vitro,19STARPHIRE,Starphire 19mm,low_iron,uncoated,19,19.05,,any,,,,,,YES,5072,Starphire_19.VTA,IGDB v56.0,0.895765,0.826630,0.080659,0.081436,0.073653,0.075068,0.840000,0.840000,,1.000345',
+'Vitro,3STARPHIRE,Starphire 3mm,low_iron,uncoated,3,3.2766,,any,,,,,,,5001,Starphire_3.VTA,IGDB v56.0,0.913747,0.902223,0.082172,0.082978,0.079365,0.081061,0.840000,0.840000,,1.000345',
+'Vitro,4STARPHIRE,Starphire 4mm,low_iron,uncoated,4,3.9116,,any,,,,,,,5002,Starphire_4.VTA,IGDB v56.0,0.913033,0.898971,0.082121,0.082923,0.079107,0.080794,0.840000,0.840000,,1.000345',
+'Vitro,5STARPHIRE,Starphire 5mm,low_iron,uncoated,5,4.6736,,any,,,,,,,5003,Starphire_5.VTA,IGDB v56.0,0.912142,0.895089,0.082029,0.082855,0.078795,0.080475,0.840000,0.840000,,1.000345',
+'Vitro,6STARPHIRE,Starphire 6mm,low_iron,uncoated,6,5.6642,,any,,,,,,YES,5004,Starphire_6.VTA,IGDB v56.0,0.911000,0.890088,0.081944,0.082739,0.078403,0.080055,0.840000,0.840000,,1.000345',
+'Vitro,8STARPHIRE,Starphire 8mm,low_iron,uncoated,8,7.9248,,any,,,,,,YES,5005,Starphire_8.VTA,IGDB v56.0,0.908414,0.878838,0.081719,0.082507,0.077521,0.079127,0.840000,0.840000,,1.000345',
+'Vitro,3SUNGATE400-ACU,Sungate 400 on Acuity 3mm,low_iron,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5237,SG400 Acuity_3.VTA,IGDB v67.0,0.876474,0.715222,0.064340,0.071986,0.176266,0.153904,0.113846,0.840000,1,0.999980',
+'Vitro,4SUNGATE400-ACU,Sungate 400 on Acuity 4mm,low_iron,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5238,SG400 Acuity_4.VTA,IGDB v67.0,0.875028,0.709697,0.064234,0.071899,0.175919,0.151366,0.113846,0.840000,1,0.999980',
+'Vitro,5SUNGATE400-ACU,Sungate 400 on Acuity 5mm,low_iron,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5239,SG400 Acuity_5.VTA,IGDB v67.0,0.873282,0.703173,0.064078,0.071798,0.175518,0.148403,0.113846,0.840000,1,0.999980',
+'Vitro,6SUNGATE400-ACU,Sungate 400 on Acuity 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5240,SG400 Acuity_6mm.VTA,IGDB v94.0,0.871041,0.694832,0.063893,0.071660,0.175006,0.144715,0.113846,0.840000,1,0.999980',
+'Vitro,3SUNGATE400,Sungate 400 on Clear 3mm,clear,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5232,SG400 Clear_3.VTA,IGDB v58.0,0.868142,0.677806,0.065826,0.073909,0.175022,0.139964,0.112855,0.840000,1,1.000345',
+'Vitro,4SUNGATE400,Sungate 400 on Clear 4mm,clear,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5233,SG400 Clear_4.VTA,IGDB v58.0,0.864973,0.665890,0.065564,0.073744,0.174326,0.135306,0.112855,0.840000,1,1.000345',
+'Vitro,5SUNGATE400,Sungate 400 on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5234,SG400 Clear_5.VTA,IGDB v58.0,0.861175,0.652067,0.065239,0.073515,0.173538,0.130079,0.112855,0.840000,1,1.000345',
+'Vitro,6SUNGATE400,Sungate 400 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5235,SG400 Clear_6.VTA,IGDB v58.0,0.856252,0.634777,0.064827,0.073239,0.172567,0.123805,0.112855,0.840000,1,1.000345',
+'Vitro,3SUNGATE400-SP,Sungate 400 on Starphire 3mm,low_iron,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5227,SG400 Starphire_3.VTA,IGDB v58.0,0.880491,0.732772,0.064526,0.072064,0.177441,0.160887,0.115294,0.840000,1,1.000345',
+'Vitro,4SUNGATE400-SP,Sungate 400 on Starphire 4mm,low_iron,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5228,SG400 Starphire_4.VTA,IGDB v58.0,0.879793,0.730479,0.064458,0.072035,0.177281,0.159505,0.115294,0.840000,1,1.000345',
+'Vitro,5SUNGATE400-SP,Sungate 400 on Starphire 5mm,low_iron,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5229,SG400 Starphire_5.VTA,IGDB v58.0,0.878949,0.727743,0.064392,0.071973,0.177104,0.157865,0.115294,0.840000,1,1.000345',
+'Vitro,6SUNGATE400-SP,Sungate 400 on Starphire 6mm,low_iron,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5230,SG400 Starphire_6.VTA,IGDB v58.0,0.877855,0.724209,0.064303,0.071902,0.176886,0.155791,0.115294,0.840000,1,1.000345',
+'Vitro,3SUNGATE460,Sungate 460 on Clear 3mm,clear,lowe,3,3.2766,,cavity_only,"2,3",,sputtered,,,,5222,SG460 Clear_3.VTA,IGDB v58.0,0.829043,0.508157,0.049829,0.053046,0.318268,0.233988,0.055371,0.840000,1,0.999980',
+'Vitro,4SUNGATE460,Sungate 460 on Clear 4mm,clear,lowe,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5223,SG460 Clear_4.VTA,IGDB v58.0,0.825829,0.501104,0.049588,0.052969,0.317922,0.222824,0.055371,0.840000,1,0.999980',
+'Vitro,5SUNGATE460,Sungate 460 on Clear 5mm,clear,lowe,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5224,SG460 Clear_5.VTA,IGDB v58.0,0.822006,0.492880,0.049295,0.052883,0.317499,0.210376,0.055371,0.840000,1,0.999980',
+'Vitro,6SUNGATE460,Sungate 460 on Clear 6mm,clear,lowe,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5225,SG460 Clear_6.VTA,IGDB v58.0,0.817056,0.482553,0.048910,0.052769,0.317002,0.195626,0.055371,0.840000,1,0.999980',
+'Vitro,6SUNGATETHERML-ACU,Sungate ThermL on Acuity 6mm,low_iron,lowe,6,5.6642,,any,"3,4",,sputtered,,"производитель рекомендует #4, допускается #3",,5203,Sungate ThermL Acuity_6.VTA,IGDB v96.0,0.881754,0.731706,0.077739,0.075826,0.111244,0.116243,0.840000,0.154232,2,0.999980',
+'Vitro,6SUNGATETHERML,Sungate ThermL on Clear 6mm,clear,lowe,6,5.6642,,any,"3,4",,sputtered,,"производитель рекомендует #4, допускается #3",,5200,Sungate ThermL Clear_6.VTA,IGDB v96.0,0.864450,0.664727,0.076287,0.074321,0.098849,0.112118,0.840000,0.154232,2,0.999980',
+'Vitro,6SUNGATETHERML-SP,Sungate ThermL on Starphire 6mm,low_iron,lowe,6,5.6642,,any,"3,4",,sputtered,,"производитель рекомендует #4, допускается #3",,5206,Sungate ThermL Starphire_6.VTA,IGDB v96.0,0.888030,0.765779,0.078110,0.076244,0.118201,0.118457,0.840000,0.154232,2,0.999980',
+'Vitro,4VISTACOOL-AZ,Vistacool on Azuria 4mm,tinted,reflective,4,3.9116,,cavity_only,"2,3",,sputtered,,,,5161,VC Azuria_4.VTA,IGDB v58.0,0.569961,0.324184,0.215288,0.291170,0.110054,0.205562,0.840000,0.832447,2,1.000345',
+'Vitro,5VISTACOOL-AZ,Vistacool on Azuria 5mm,tinted,reflective,5,4.6736,,cavity_only,"2,3",,sputtered,,,,5162,VC Azuria_5.VTA,IGDB v58.0,0.547735,0.289441,0.203205,0.290030,0.103655,0.204710,0.840000,0.832447,2,1.000345',
+'Vitro,6VISTACOOL-AZ,Vistacool on Azuria 6mm,tinted,reflective,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5163,VC Azuria_6.VTA,IGDB v58.0,0.520477,0.254549,0.188990,0.288742,0.097032,0.203898,0.840000,0.832447,2,1.000345',
+'Vitro,8VISTACOOL-AZ,Vistacool on Azuria 8mm,tinted,reflective,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5164,VC Azuria_8.VTA,IGDB v58.0,0.464391,0.201426,0.161967,0.286233,0.086114,0.202682,0.840000,0.832447,2,1.000345',
+'Vitro,6VISTACOOL-PAC,Vistacool on Pacifica 6mm,tinted,reflective,6,5.6642,,cavity_only,"2,3",,sputtered,,,,5178,VC Pacifica_6.VTA,IGDB v58.0,0.322792,0.222463,0.100886,0.280606,0.069746,0.201590,0.840000,0.840000,,1.000345',
+'Vitro,8VISTACOOL-PAC,Vistacool on Pacifica 8mm,tinted,reflective,8,7.9248,,cavity_only,"2,3",,sputtered,,,,5179,VC Pacifica_8.VTA,IGDB v58.0,0.239595,0.149001,0.076513,0.278539,0.058116,0.200241,0.840000,0.832447,2,1.000345',
+'Vitro,6BIRDSMARTSOLARBAN65A,BirdSmart (1) Solarban 65 (2) Acuity 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5245,BirdSmart(1)SB65(2)ACU_6.VTA,IGDB v103.0,0.794838,0.371175,0.093487,0.083176,0.410754,0.509028,0.837920,0.028273,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN65C,BirdSmart (1) Solarban 65 (2) Clear 6mm,clear,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5244,BirdSmart(1)SB65(2)CLR_6.VTA,IGDB v103.0,0.779192,0.354050,0.091564,0.081944,0.315329,0.508221,0.837920,0.028273,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN65S,BirdSmart (1) Solarban 65 (2) Starphire 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5246,BirdSmart(1)SB65(2)STR_6.VTA,IGDB v103.0,0.800514,0.378864,0.094015,0.083504,0.467539,0.509311,0.837920,0.028273,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN70C,BirdSmart (1) Solarban 70 (2) Clear 6mm,clear,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5247,BirdSmart(1)SB70(2)CLR_6.VTA,IGDB v103.0,0.721721,0.267344,0.089653,0.070011,0.381738,0.583570,0.837920,0.017929,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN72A,BirdSmart (1) Solarban 72 (2) Acuity 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5248,BirdSmart(1)SB72(2)ACU_6.VTA,IGDB v103.0,0.737966,0.278856,0.088130,0.069837,0.470814,0.591837,0.837920,0.017845,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN72S,BirdSmart (1) Solarban 72 (2) Starphire 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5249,BirdSmart(1)SB72(2)STR_6.VTA,IGDB v103.0,0.743694,0.282504,0.088713,0.070166,0.529554,0.591978,0.837920,0.017845,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN90A,BirdSmart (1) Solarban 90 (2) Acuity 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5444,BirdSmart(1)SB90(2)ACU_6.VTA,IGDB v107.0,0.580189,0.222522,0.096475,0.134291,0.475222,0.602501,0.837920,0.023413,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN90C,BirdSmart (1) Solarban 90 (2) Clear 6mm,clear,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5443,BirdSmart(1)SB90(2)CLR_6.VTA,IGDB v107.0,0.568916,0.215462,0.094323,0.133644,0.365509,0.602215,0.837920,0.023413,2,0.999980',
+'Vitro,6BIRDSMARTSOLARBAN90S,BirdSmart (1) Solarban 90 (2) Starphire 6mm,low_iron,lowe,6,5.6642,,exterior_only,"1,2",,,,два покрытия на одном листе: #1 и #2 — лист ставится наружным · добавлено после твоей выгрузки — код переименуй по своей конвенции,,5445,BirdSmart(1)SB90(2)STR_6.VTA,IGDB v107.0,0.584680,0.225500,0.097182,0.134493,0.534199,0.602591,0.837920,0.023413,2,0.999980'
+].join('\n');
+
 /* ==== src/erp/masterdata/glass.js ==== */
 /* =====================================================================
-   erp/masterdata/glass · masterdata-0.3b
-   Seed catalog for the Sales Makeup Builder.
-   The schema deliberately separates product identity from supply facts so
-   stock/order state, suppliers and sheet sizes can be enriched later.
+   erp/masterdata/glass · masterdata-1.0
+   Каталог стекла, точки поставки и остальные материалы Makeup.
+   IN : templates/GLASS_PRODUCTS.csv (засев — erp/masterdata/glass-catalog)
+        templates/GLASS_SHEETS.csv  (импорт)
+   OUT: DEFAULT.glassProduct · DEFAULT.glassSheet · DEFAULT.<материалы>
+   Правило: файл не знает про цены продажи, клиентов и заказы. Только вход→выход.
+
+   ПРОДУКТ И ПОСТАВКА — ДВЕ ТАБЛИЦЫ, А НЕ ОДНА
+
+   Раньше `supplier`, `sheetSizes` и `leadTimeDays` висели прямо на продукте, и
+   на вопрос «почём» ответа не было вовсе: валюты в модели не существовало. Но
+   валюта принадлежит ТОЧКЕ ПОСТАВКИ, а не поставщику — Vitro Barrie отгружает
+   в CAD, Vitro USA то же самое стекло в USD. Один продукт, две строки цены,
+   две даты, два срока.
+
+   Поэтому:
+     glassProduct  ЧТО за стекло: подложка, покрытие, толщина, закалка, гейты
+     glassSheet    ГДЕ и ПОЧЁМ:  точка поставки, валюта, размер листа, цена
+
+   Ключ строки поставки — тройка «продукт · точка поставки · размер листа».
+   Один поставщик держит один и тот же продукт двумя форматами листа, и это
+   две разные закупки, а не переписанная строка.
+
+   TEMPER_MODE — ЭТО ДВА ЖЁСТКИХ ГЕЙТА, А НЕ СПРАВКА
+
+     temper_required  (`Q` у Cardinal, `VT` у Vitro) — БЕЗ ПЕЧИ НЕ ВЫПУСКАТЬ.
+       Цвет приходит к финальному только после закалки; невыпеченный лист не
+       сойдётся с соседним в том же фасаде.
+     annealed_only    (`E`, без `VT`) — В ПЕЧЬ НЕ ПУСКАТЬ. Там гибнет товар,
+       а не портится деталь.
+
+   Обе версии лежат на складе как РАЗНЫЕ товары; в каталоге таких пар десять.
+   Пустая клетка в файле означает «закаливается штатно» (подтверждено
+   пользователем): печь допустима, но не обязательна, гейт не срабатывает.
+
+   STOCKED И AVAILABILITY — РАЗНЫЕ ВОПРОСЫ
+
+     stocked       на ПРОДУКТЕ: держим ли мы это у себя на складе
+     availability  на СТРОКЕ ПОСТАВКИ: через какую точку и за сколько дней
+
+   Позиция без `stocked` из выбора НЕ выпадает — она помечается «по
+   предзаказу». Из выбора выпадает только снятая с производства (`active`).
+
+   ДОСТУПНОСТИ НА ПРОДУКТЕ БОЛЬШЕ НЕТ. Старое поле `availability:'inactive'`
+   означало ровно «снято с производства» и переезжает в `active:false` — иначе
+   рядом оказались бы два поля об одном и том же («stock» и «stocked»), и
+   однажды они разошлись бы.
    ===================================================================== */
 
 const MATERIAL_AVAILABILITY=['stock','order','special','inactive'];
+const GLASS_SUBSTRATES=['clear','low_iron','tinted','patterned','wired'];
+const GLASS_COATING_FAMILIES=['uncoated','lowe','reflective'];
+const GLASS_TEMPER_MODES=['temperable','temper_required','annealed_only','unknown'];
+/* exposure_rule определяется СПОСОБОМ НАНЕСЕНИЯ, а не эмиссивностью:
+   пиролитика стойкая (`any`), напыление мягкое и живёт только внутри пакета
+   (`cavity_only`). */
+const GLASS_EXPOSURE_RULES=['any','cavity_only','exterior_only','interior_only'];
+const GLASS_DEPOSITIONS=['pyrolytic','sputtered'];
+/* Толщины каталога — предел пользователя, а не мира. Строка вне диапазона
+   отклоняется с названным диапазоном в причине: расширять — здесь. */
+const GLASS_MIN_MM=3, GLASS_MAX_MM=19;
+/* Коды Cardinal `3Q340+` и `3E+272` — фирменные обозначения, а не опечатки:
+   плюс в коде законен. */
+const GLASS_CODE_RE=/^[A-Za-z0-9][A-Za-z0-9+._/-]{0,39}$/;
+/* Валюта точки поставки. Список не закрываем: пользователь пересчитывает
+   прайсы вручную и вносит по канадским меркам, но чужая строка с USD обязана
+   заезжать без правки кода. Проверяем формат — три буквы. */
+const CURRENCY_RE=/^[A-Za-z]{3}$/;
+const GLASS_DEFAULT_CURRENCY='CAD';
+/* Единица закупки стекла по умолчанию — квадратный фут; всё, что покупается
+   иначе, выбирается из MD_UNITS (см. erp/masterdata/units). */
+const GLASS_DEFAULT_UNIT='sqft';
 
 function mdString(v){return String(v==null?'':v).trim();}
 function mdNum(v){if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)?n:null;}
+function mdNonNeg(v){const n=mdNum(v);return n!=null&&n>=0?n:null;}
+function mdInt(v){const n=mdNum(v);return n!=null&&Number.isInteger(n)&&n>=0?n:null;}
 function mdAvailability(v){return MATERIAL_AVAILABILITY.includes(v)?v:'order';}
-function normalizeSheetSize(s){s=s&&typeof s==='object'?s:{};return {id:mdString(s.id),wIn:mdNum(s.wIn),hIn:mdNum(s.hIn),stockQty:mdNum(s.stockQty),supplier:mdString(s.supplier)};}
-function normalizeGlassProduct(p){p=p&&typeof p==='object'?p:{};return {
- id:mdString(p.id),manufacturer:mdString(p.manufacturer),thicknessMm:mdNum(p.thicknessMm),family:['uncoated','lowe','reflective'].includes(p.family)?p.family:'uncoated',
- name:mdString(p.name),code:mdString(p.code),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),
- sheetSizes:(Array.isArray(p.sheetSizes)?p.sheetSizes:[]).map(normalizeSheetSize),active:p.active!==false
-};}
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
+/* Дата цены — только ISO. Прайс без даты бесполезен не тем, что он пуст, а
+   тем, что неизвестно, насколько он устарел; поэтому мусор становится пустотой,
+   а не сегодняшним числом. */
+const ISO_DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+function mdDate(v){const s=mdString(v);return ISO_DATE_RE.test(s)?s:'';}
 
-/* Starter subset aligned with the public IGU Builder vocabulary. It is a
-   seed, not a purchasing truth: availability/supplier/sheet sizes remain
-   intentionally editable and mostly blank until the plant catalog is loaded. */
-DEFAULT.glassProduct=[
- {id:'GL-VITRO-6-CLR',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL',availability:'order',sheetSizes:[]},
- {id:'GL-VITRO-6-GRY',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Gray',code:'6GRY',availability:'order',sheetSizes:[]},
- {id:'GL-VITRO-6-BRZ',manufacturer:'Vitro',thicknessMm:6,family:'uncoated',name:'Bronze',code:'6BRZ',availability:'order',sheetSizes:[]},
- {id:'GL-VITRO-6-SB60',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 60',code:'6SB60',availability:'order',sheetSizes:[]},
- {id:'GL-VITRO-6-SB70',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 70',code:'6SB70',availability:'order',sheetSizes:[]},
- {id:'GL-VITRO-6-SB90',manufacturer:'Vitro',thicknessMm:6,family:'lowe',name:'Solarban 90',code:'6SB90',availability:'order',sheetSizes:[]},
- {id:'GL-PILK-6-CLR',manufacturer:'Pilkington',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL-P',availability:'order',sheetSizes:[]},
- {id:'GL-PILK-6-EAC',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage C',code:'6EAC',availability:'order',sheetSizes:[]},
- {id:'GL-PILK-6-EA',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage Low-E',code:'6EA',availability:'order',sheetSizes:[]},
- {id:'GL-PILK-6-EAOW',manufacturer:'Pilkington',thicknessMm:6,family:'lowe',name:'Energy Advantage OW',code:'6EAOW',availability:'order',sheetSizes:[]},
- {id:'GL-GUARD-6-CLR',manufacturer:'Guardian',thicknessMm:6,family:'uncoated',name:'Clear',code:'6CL-G',availability:'order',sheetSizes:[]},
- {id:'GL-GUARD-6-SN68',manufacturer:'Guardian',thicknessMm:6,family:'lowe',name:'SunGuard SN 68',code:'6SN68',availability:'order',sheetSizes:[]},
- {id:'GL-GUARD-6-SNX6227',manufacturer:'Guardian',thicknessMm:6,family:'lowe',name:'SunGuard SNX 62/27',code:'6SNX6227',availability:'order',sheetSizes:[]},
- {id:'GL-GUARD-6-RGY',manufacturer:'Guardian',thicknessMm:6,family:'reflective',name:'Reflective Gray',code:'6REF-GRY',availability:'order',sheetSizes:[]},
- {id:'GL-GUARD-6-RBZ',manufacturer:'Guardian',thicknessMm:6,family:'reflective',name:'Reflective Bronze',code:'6REF-BRZ',availability:'order',sheetSizes:[]},
- {id:'GL-GEN-10-CLR',manufacturer:'Generic',thicknessMm:10,family:'uncoated',name:'Clear',code:'10CL',availability:'order',sheetSizes:[]}
-].map(normalizeGlassProduct);
+/* --- 1. Продукт ------------------------------------------------------ */
+
+/* Оптика IGDB. Она здесь не для показа: из неё считаются U-value и SHGC на
+   более позднем этапе, и потерять её при первой же правке каталога нельзя.
+   Мусор в клетке превращается в пустоту, а не роняет строку — это справочные
+   числа, а не идентичность продукта. */
+const GLASS_OPTICS_KEYS=['tvis','tsol','rvis1','rvis2','rsol1','rsol2','emis1','emis2','conductivity'];
+function normalizeGlassOptics(o){
+ o=o&&typeof o==='object'?o:{};
+ const out={};
+ GLASS_OPTICS_KEYS.forEach(k=>{out[k]=mdNum(o[k]);});
+ out.coatedSide=[1,2].includes(+o.coatedSide)?+o.coatedSide:null;
+ return out;
+}
+/* Происхождение строки: какой файл IGDB и какая запись в нём. Нужно, чтобы
+   пересборка каталога могла сойтись с прошлой, а спорное число — с источником. */
+function normalizeGlassOrigin(o){
+ o=o&&typeof o==='object'?o:{};
+ return {igdbId:mdString(o.igdbId),igdbName:mdString(o.igdbName),igdbSource:mdString(o.igdbSource)};
+}
+/* Номера поверхностей: 1–8 (четырёхкамерных пакетов не бывает). Пусто = любая. */
+function normalizeSurfaceList(v){
+ const seen=Object.create(null),out=[];
+ (Array.isArray(v)?v:[]).forEach(x=>{
+  const n=+x;
+  if(Number.isInteger(n)&&n>=1&&n<=8&&!seen[n]){seen[n]=true;out.push(n);}
+ });
+ return out.sort((a,b)=>a-b);
+}
+function normalizeGlassProduct(p){
+ p=p&&typeof p==='object'?p:{};
+ /* `family` — имя поля прежней схемы; читаем, чтобы сохранённый браузер не
+    потерял покрытие ещё до пересева. */
+ const fam=GLASS_COATING_FAMILIES.includes(p.coatingFamily)?p.coatingFamily
+  :(GLASS_COATING_FAMILIES.includes(p.family)?p.family:'uncoated');
+ return {
+  id:mdString(p.id),code:mdString(p.code),manufacturer:mdString(p.manufacturer),name:mdString(p.name),
+  substrate:GLASS_SUBSTRATES.includes(p.substrate)?p.substrate:'clear',
+  coatingFamily:fam,
+  thicknessMm:mdNum(p.thicknessMm),actualThicknessMm:mdNum(p.actualThicknessMm),
+  temperMode:GLASS_TEMPER_MODES.includes(p.temperMode)?p.temperMode:'temperable',
+  exposureRule:GLASS_EXPOSURE_RULES.includes(p.exposureRule)?p.exposureRule:'any',
+  allowedSurfaces:normalizeSurfaceList(p.allowedSurfaces),
+  edgeDeletion:p.edgeDeletion===true,
+  deposition:GLASS_DEPOSITIONS.includes(p.deposition)?p.deposition:'',
+  stocked:p.stocked===true,
+  legacyCode:mdString(p.legacyCode),note:mdString(p.note),
+  stockingUnit:mdUnitCode(p.stockingUnit,GLASS_DEFAULT_UNIT),
+  salesUnit:mdUnitCode(p.salesUnit,GLASS_DEFAULT_UNIT),
+  optics:normalizeGlassOptics(p.optics),
+  origin:normalizeGlassOrigin(p.origin),
+  /* миграция прежней схемы: снятое с производства было availability='inactive' */
+  active:p.active!==false&&p.availability!=='inactive'
+ };
+}
+/* Идентификатор переживает переименование кода, и это не украшение: пользователь
+   переписывает `6BIRDSMART…` в свои цеховые коды, а сохранённые Makeup ссылаются
+   на стекло по id. Совпадает с tools/catalog-to-js.py — иначе пересобранный
+   каталог приехал бы новыми записями вместо обновления старых. */
+function glassProductId(code){return 'GL-'+mdString(code).toUpperCase().replace(/[^A-Za-z0-9_-]/g,'-');}
+
+/* --- 2. Строка поставки ---------------------------------------------- */
+
+/* Ключ — тройка «продукт · точка поставки · размер листа». Размер входит в
+   ключ намеренно: тот же лист по новой цене обновляет строку, другой формат
+   листа добавляет свою. */
+function glassSheetKey(code,supplier,wIn,hIn){
+ return [mdString(code).toUpperCase(),mdString(supplier).toLowerCase(),wIn==null?'':wIn,hIn==null?'':hIn].join('|');
+}
+function glassSheetId(code,supplier,wIn,hIn){
+ const slug=s=>mdString(s).toUpperCase().replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
+ return ['GS',slug(code),slug(supplier),(wIn==null?'':wIn)+'x'+(hIn==null?'':hIn)].join('-');
+}
+function normalizeGlassSheet(s){
+ s=s&&typeof s==='object'?s:{};
+ const code=mdString(s.productCode||s.code),supplier=mdString(s.supplier);
+ const wIn=mdNonNeg(s.sheetWIn),hIn=mdNonNeg(s.sheetHIn);
+ const cur=mdString(s.currency).toUpperCase();
+ return {
+  id:mdString(s.id)||glassSheetId(code,supplier,wIn,hIn),
+  productCode:code,supplier,
+  currency:CURRENCY_RE.test(cur)?cur:GLASS_DEFAULT_CURRENCY,
+  sheetWIn:wIn,sheetHIn:hIn,
+  purchaseUnit:mdUnitCode(s.purchaseUnit,GLASS_DEFAULT_UNIT),
+  purchasePrice:mdNonNeg(s.purchasePrice),
+  priceDate:mdDate(s.priceDate),
+  freightPct:mdNonNeg(s.freightPct),
+  leadTimeDays:mdInt(s.leadTimeDays),
+  availability:mdAvailability(s.availability),
+  note:mdString(s.note)
+ };
+}
+
+/* --- 3. Разбор CSV каталога ------------------------------------------ */
+
+/* Один разбор на засев и на импорт. Вторая схема разбора однажды разойдётся с
+   первой, и заводские данные начнут отличаться от загруженных тем же файлом. */
+const GLASS_TEMPER_CSV={
+ '':'temperable',
+ 'TEMPERED':'temper_required',
+ 'NO TEMPERABLE':'annealed_only',
+ 'NOT TEMPERABLE':'annealed_only',
+ 'TEMPER REQUIRED':'temper_required',
+ 'TEMPERABLE':'temperable',
+ 'ANNEALED ONLY':'annealed_only',
+ 'UNKNOWN':'unknown'
+};
+const GLASS_YES=['yes','y','true','1','да','+','x'];
+const GLASS_NO=['','no','n','false','0','нет','-'];
+/* undefined — «не разобрали», это отказ строки; пустая клетка означает «нет». */
+function glassBoolCell(v){
+ const s=mdString(v).toLowerCase();
+ if(GLASS_YES.includes(s))return true;
+ if(GLASS_NO.includes(s))return false;
+ return undefined;
+}
+function glassSurfacesCell(v){
+ const s=mdString(v);
+ if(!s)return [];
+ const parts=s.split(/[,;\s]+/).filter(Boolean),out=[];
+ for(let i=0;i<parts.length;i++){
+  const n=+parts[i];
+  if(!Number.isInteger(n)||n<1||n>8)return null;
+  out.push(n);
+ }
+ return normalizeSurfaceList(out);
+}
+
+/* Разбор файла каталога. Возвращает отчёт и список принятых строк; каждая
+   строка несёт ТОЛЬКО те поля, колонки которых в файле есть.
+
+   Это не мелочь: файл возвращается из Excel то с потерянными колонками, то с
+   `LoE` в каждой пустой клетке. Обновлять запись целиком таким файлом значит
+   стереть оптику и примечания всего каталога одной загрузкой. Чего в шапке
+   нет — того импорт не трогает. */
+function glassParseProductsCsv(text){
+ const parsed=parseCsv(text),header=parsed.header,rep=sfReport(),out=[];
+ if(!header.includes('code')||!header.includes('name')){
+  sfReject(rep,0,'','файл не похож на GLASS_PRODUCTS.csv: нет колонок code и name');
+  return {rep,out};
+ }
+ const has=c=>header.includes(c);
+ const seen=Object.create(null);
+ parsed.rows.forEach((r,n)=>{
+  const line=n+2,code=mdString(r.code);
+  if(!code)return sfReject(rep,line,'','пустой код');
+  if(!GLASS_CODE_RE.test(code))return sfReject(rep,line,code,'код: только буквы, цифры и + . _ - /');
+  if(seen[code.toUpperCase()])return sfReject(rep,line,code,'код повторяется в файле');
+  const name=mdString(r.name);
+  if(!name)return sfReject(rep,line,code,'пустое название');
+  const f={code,name};
+
+  if(has('manufacturer'))f.manufacturer=mdString(r.manufacturer);
+  if(has('substrate')){
+   const v=mdString(r.substrate).toLowerCase();
+   if(!GLASS_SUBSTRATES.includes(v))return sfReject(rep,line,code,'substrate: ожидается '+GLASS_SUBSTRATES.join(' · '));
+   f.substrate=v;
+  }
+  if(has('coating_family')){
+   const v=mdString(r.coating_family).toLowerCase();
+   if(!GLASS_COATING_FAMILIES.includes(v))return sfReject(rep,line,code,'coating_family: ожидается '+GLASS_COATING_FAMILIES.join(' · '));
+   f.coatingFamily=v;
+  }
+  if(has('thickness_mm')){
+   const t=mdNum(r.thickness_mm);
+   if(t==null)return sfReject(rep,line,code,'thickness_mm: не число');
+   if(t<GLASS_MIN_MM||t>GLASS_MAX_MM)return sfReject(rep,line,code,'толщина вне диапазона '+GLASS_MIN_MM+'–'+GLASS_MAX_MM+' мм');
+   f.thicknessMm=t;
+  }
+  if(has('actual_thickness_mm'))f.actualThicknessMm=mdNum(r.actual_thickness_mm);
+  if(has('temper_mode')){
+   const key=mdString(r.temper_mode).toUpperCase();
+   const v=GLASS_TEMPER_CSV[key];
+   if(!v)return sfReject(rep,line,code,'temper_mode: ожидается пусто · TEMPERED · NO TEMPERABLE');
+   f.temperMode=v;
+  }
+  if(has('exposure_rule')){
+   const v=mdString(r.exposure_rule).toLowerCase()||'any';
+   if(!GLASS_EXPOSURE_RULES.includes(v))return sfReject(rep,line,code,'exposure_rule: ожидается '+GLASS_EXPOSURE_RULES.join(' · '));
+   f.exposureRule=v;
+  }
+  if(has('allowed_surfaces')){
+   const v=glassSurfacesCell(r.allowed_surfaces);
+   if(v===null)return sfReject(rep,line,code,'allowed_surfaces: номера поверхностей 1–8 через запятую');
+   f.allowedSurfaces=v;
+  }
+  if(has('edge_deletion')){
+   const v=glassBoolCell(r.edge_deletion);
+   if(v===undefined)return sfReject(rep,line,code,'edge_deletion: ожидается YES или пусто');
+   f.edgeDeletion=v;
+  }
+  if(has('deposition')){
+   const v=mdString(r.deposition).toLowerCase();
+   if(v&&!GLASS_DEPOSITIONS.includes(v))return sfReject(rep,line,code,'deposition: ожидается пусто · '+GLASS_DEPOSITIONS.join(' · '));
+   f.deposition=v;
+  }
+  if(has('stocked')){
+   const v=glassBoolCell(r.stocked);
+   if(v===undefined)return sfReject(rep,line,code,'stocked: ожидается YES или пусто');
+   f.stocked=v;
+  }
+  if(has('legacy_code'))f.legacyCode=mdString(r.legacy_code);
+  if(has('notes'))f.note=mdString(r.notes);
+  if(has('stocking_unit'))f.stockingUnit=mdUnitCode(r.stocking_unit,GLASS_DEFAULT_UNIT);
+  if(has('sales_unit'))f.salesUnit=mdUnitCode(r.sales_unit,GLASS_DEFAULT_UNIT);
+
+  const optics={};let anyOptics=false;
+  GLASS_OPTICS_KEYS.forEach(k=>{if(has(k)){optics[k]=mdNum(r[k]);anyOptics=true;}});
+  if(has('coated_side')){optics.coatedSide=mdNum(r.coated_side);anyOptics=true;}
+  if(anyOptics)f.optics=optics;
+  if(has('igdb_id')||has('igdb_name')||has('igdb_source'))
+   f.origin={igdbId:mdString(r.igdb_id),igdbName:mdString(r.igdb_name),igdbSource:mdString(r.igdb_source)};
+
+  seen[code.toUpperCase()]=true;
+  rep.accepted++;
+  out.push({line,code,fields:f});
+ });
+ return {rep,out};
+}
+
+/* --- 4. Заводской каталог -------------------------------------------- */
+
+/* 511 позиций приезжают из того же файла, который лежит в templates/ — см.
+   erp/masterdata/glass-catalog. Отклонённая строка засева означает, что
+   каталог пересобрали сломанным, и молчать об этом нельзя. */
+function glassSeedProducts(){
+ const parsed=glassParseProductsCsv(typeof GLASS_PRODUCTS_CSV==='string'?GLASS_PRODUCTS_CSV:'');
+ if(parsed.rep.rejected.length)
+  console.warn('glass catalog seed: '+parsed.rep.rejected.length+' row(s) rejected — '+
+   parsed.rep.rejected.map(x=>x.line+' '+x.code+': '+x.why).join('; '));
+ return parsed.out.map(x=>normalizeGlassProduct(Object.assign({id:glassProductId(x.code)},x.fields)));
+}
+DEFAULT.glassProduct=glassSeedProducts();
+/* Строки поставки заводскими НЕ бывают: точки поставки, размеры листа, цены и
+   сроки пользователем ещё не подтверждены, а выдуманная цена в прайсе хуже
+   отсутствующей. Таблица стартует пустой и заполняется экраном или CSV.
+
+   И по той же причине её НЕТ в REFERENCE_TABLES (см. erp/data): пересев
+   заменяет справочник заводским, то есть стёр бы все введённые цены. */
+DEFAULT.glassSheet=[];
+
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
 
 DEFAULT.heatTreatment=[
  {id:'HT-AN',name:'Annealed',code:'AN'},{id:'HT-HS',name:'Heat Strengthened',code:'HS'},{id:'HT-FT',name:'Tempered',code:'FT'}
@@ -3077,9 +3994,24 @@ const FRIT_DEFAULT_DOT_MM=5;
 const FRIT_DEFAULT_MARGIN16=16;
 const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
 
+/* --- 5. Нормализация -------------------------------------------------- */
+
 function normalizeMasterData(){
  if(!Array.isArray(DB.glassProduct))DB.glassProduct=JSON.parse(JSON.stringify(DEFAULT.glassProduct));
- DB.glassProduct=DB.glassProduct.filter(x=>x&&typeof x==='object').map(normalizeGlassProduct).filter(x=>x.id&&x.name);
+ const gSeen=Object.create(null);
+ DB.glassProduct=DB.glassProduct.filter(x=>x&&typeof x==='object').map(normalizeGlassProduct)
+  .map(p=>{if(!p.id&&p.code)p.id=glassProductId(p.code);return p;})
+  .filter(p=>p.id&&p.name&&!gSeen[p.id]&&(gSeen[p.id]=true));
+
+ /* Строка поставки на продукт, которого в каталоге нет, НЕ выбрасывается.
+    Пользователь переименовывает коды каталога под цех, и выброшенная строка
+    унесла бы с собой цену и срок — молча. Осиротевшая строка остаётся видимой
+    на экране Master Data и чинится там же. */
+ if(!Array.isArray(DB.glassSheet))DB.glassSheet=[];
+ const sSeen=Object.create(null);
+ DB.glassSheet=DB.glassSheet.filter(x=>x&&typeof x==='object').map(normalizeGlassSheet)
+  .filter(s=>s.productCode&&s.supplier&&!sSeen[s.id]&&(sSeen[s.id]=true));
+
  [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
   const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
@@ -3087,10 +4019,119 @@ function normalizeMasterData(){
  DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),system:mdString(x.system),size:mdString(x.size),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
 
+/* --- 6. Выборки ------------------------------------------------------- */
+
 function mdById(key,id){return (DB[key]||[]).find(x=>x.id===id)||null;}
 function glassProductById(id){return mdById('glassProduct',id);}
-function activeGlassProducts(){return (DB.glassProduct||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
+function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
+/* Из выбора выпадает только снятое с производства. Отсутствие на складе —
+   не запрет, а пометка «по предзаказу»: пользователь начал разговор именно
+   с того, что заказать можно и то, чего у него нет. */
+function activeGlassProducts(){return (DB.glassProduct||[]).filter(x=>x.active!==false);}
 function activeSimple(key){return (DB[key]||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
+function glassIsPreorder(g){return !!g&&g.stocked!==true;}
+/* Два жёстких гейта. Названы функциями, а не сравнением по месту, потому что
+   на них будет опираться проверка маршрута (этап 7·2), а не только показ. */
+function glassNeedsFurnace(g){return !!g&&g.temperMode==='temper_required';}
+function glassBannedFromFurnace(g){return !!g&&g.temperMode==='annealed_only';}
+
+function glassSheetsFor(code){const c=mdString(code).toUpperCase();return (DB.glassSheet||[]).filter(s=>s.productCode.toUpperCase()===c);}
+/* Срок поставки — минимальный из живых точек: заказ уедет туда, где быстрее. */
+function glassLeadTimeDays(code){
+ const days=glassSheetsFor(code).filter(s=>s.availability!=='inactive'&&s.leadTimeDays!=null).map(s=>s.leadTimeDays);
+ return days.length?Math.min.apply(null,days):null;
+}
+function glassOrphanSheets(){return (DB.glassSheet||[]).filter(s=>!glassProductByCode(s.productCode));}
+
+/* --- 7. Импорт -------------------------------------------------------- */
+
+/* Слияние ПО КОДУ, а не замена таблицы: строки, которые пользователь завёл
+   руками, чужой файл сносить не должен. Чего в файле нет — попадает в
+   `missing` отчёта, а не удаляется молча. */
+function importGlassProductsCsv(text){
+ const parsed=glassParseProductsCsv(text),rep=parsed.rep,inFile=Object.create(null);
+ parsed.out.forEach(row=>{
+  const at=DB.glassProduct.findIndex(p=>p.code.toUpperCase()===row.code.toUpperCase());
+  inFile[row.code.toUpperCase()]=true;
+  if(at<0){
+   DB.glassProduct.push(normalizeGlassProduct(Object.assign({id:glassProductId(row.code)},row.fields)));
+   rep.added++;
+  }else{
+   /* id сохраняется: на него ссылаются Makeup сохранённых заказов. */
+   DB.glassProduct[at]=normalizeGlassProduct(Object.assign({},DB.glassProduct[at],row.fields,{id:DB.glassProduct[at].id}));
+   rep.updated++;
+  }
+ });
+ DB.glassProduct.forEach(p=>{if(!inFile[p.code.toUpperCase()])rep.missing.push(p.code);});
+ normalizeMasterData();
+ return rep;
+}
+
+/* Импорт GLASS_SHEETS.csv — «почём и каким листом». Строка на неизвестный код
+   отклоняется: цена, привязанная к продукту, которого нет, не поддаётся
+   проверке и тихо ляжет в себестоимость. */
+function importGlassSheetsCsv(text){
+ const parsed=parseCsv(text),header=parsed.header,rep=sfReport(),inFile=Object.create(null);
+ if(!header.includes('code')||!header.includes('supplier')){
+  sfReject(rep,0,'','файл не похож на GLASS_SHEETS.csv: нет колонок code и supplier');
+  return rep;
+ }
+ const has=c=>header.includes(c);
+ parsed.rows.forEach((r,n)=>{
+  const line=n+2,code=mdString(r.code),supplier=mdString(r.supplier);
+  const label=code+(supplier?' · '+supplier:'');
+  if(!code)return sfReject(rep,line,'','пустой код продукта');
+  if(!supplier)return sfReject(rep,line,code,'пустая точка поставки');
+  const product=glassProductByCode(code);
+  if(!product)return sfReject(rep,line,label,'продукта '+code+' нет в каталоге');
+  if(has('thickness_mm')){
+   const t=mdNum(r.thickness_mm);
+   if(t!=null&&product.thicknessMm!=null&&t!==product.thicknessMm)
+    return sfReject(rep,line,label,'толщина '+t+' мм не совпадает с каталогом ('+product.thicknessMm+' мм)');
+  }
+  const cur=mdString(r.currency).toUpperCase();
+  if(cur&&!CURRENCY_RE.test(cur))return sfReject(rep,line,label,'currency: три буквы кода валюты, например CAD');
+  const wIn=mdNonNeg(r.sheet_w_in),hIn=mdNonNeg(r.sheet_h_in);
+  if(has('sheet_w_in')&&has('sheet_h_in')&&(wIn==null)!==(hIn==null))
+   return sfReject(rep,line,label,'размер листа заполняется парой: sheet_w_in и sheet_h_in');
+  const unit=mdUnitCode(r.purchase_unit,'');
+  if(mdString(r.purchase_unit)&&!unit)
+   return sfReject(rep,line,label,'purchase_unit: неизвестная единица, ожидается '+MD_UNITS.map(u=>u.code).join(' · '));
+  const price=mdNonNeg(r.purchase_price);
+  if(mdString(r.purchase_price)&&price==null)return sfReject(rep,line,label,'purchase_price: неотрицательное число');
+  const lead=mdInt(r.lead_time_days);
+  if(mdString(r.lead_time_days)&&lead==null)return sfReject(rep,line,label,'lead_time_days: целое неотрицательное число');
+  const avail=mdString(r.availability).toLowerCase();
+  if(avail&&!MATERIAL_AVAILABILITY.includes(avail))
+   return sfReject(rep,line,label,'availability: ожидается '+MATERIAL_AVAILABILITY.join(' · '));
+  const priceDate=mdString(r.price_date);
+  if(priceDate&&!ISO_DATE_RE.test(priceDate))return sfReject(rep,line,label,'price_date: дата вида ГГГГ-ММ-ДД');
+
+  const key=glassSheetKey(product.code,supplier,wIn,hIn);
+  if(inFile[key])return sfReject(rep,line,label,'та же точка поставки и тот же размер листа повторяются в файле');
+  inFile[key]=true;
+
+  const next={productCode:product.code,supplier,sheetWIn:wIn,sheetHIn:hIn};
+  if(cur)next.currency=cur;
+  if(unit)next.purchaseUnit=unit;
+  if(has('purchase_price'))next.purchasePrice=price;
+  if(has('price_date'))next.priceDate=priceDate;
+  if(has('freight_pct'))next.freightPct=mdNonNeg(r.freight_pct);
+  if(has('lead_time_days'))next.leadTimeDays=lead;
+  if(avail)next.availability=avail;
+  if(has('note'))next.note=mdString(r.note);
+
+  const at=DB.glassSheet.findIndex(s=>glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)===key);
+  if(at<0){DB.glassSheet.push(normalizeGlassSheet(next));rep.added++;}
+  else{DB.glassSheet[at]=normalizeGlassSheet(Object.assign({},DB.glassSheet[at],next,{id:DB.glassSheet[at].id}));rep.updated++;}
+  rep.accepted++;
+ });
+ DB.glassSheet.forEach(s=>{
+  if(!inFile[glassSheetKey(s.productCode,s.supplier,s.sheetWIn,s.sheetHIn)])rep.missing.push(s.productCode+' · '+s.supplier);
+ });
+ normalizeMasterData();
+ return rep;
+}
 
 /* ==== src/erp/customers/data.js ==== */
 /* =====================================================================
@@ -3379,7 +4420,7 @@ function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
 function salesFirstGlass(family,manufacturer,thickness){
- const rows=activeGlassProducts().filter(x=>(!family||x.family===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
+ const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  return rows[0]||activeGlassProducts()[0]||null;
 }
 function salesDefaultPane(i){
@@ -4566,7 +5607,7 @@ function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;
 function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey=null;render();}
 function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
-function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p);return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.family===fam));}
+function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p);return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));}
 function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
 function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
 function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
@@ -4652,7 +5693,7 @@ function salesOption(value,label,selected,rawText){return `<option ${rawText?'da
 function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
 function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
 function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
-function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.family==='uncoated');}
+function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.coatingFamily==='uncoated');}
 function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,(g.code?g.code+' · ':'')+g.name,selected,true)).join('');}
 function salesSimpleOptions(key,selected){return activeSimple(key).map(x=>salesOption(x.id,(x.code?x.code+' · ':'')+x.name,selected,true)).join('');}
 function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+value===n?'on':''}" onclick="${handler}(${n})">#${n}</button>`).join('')}</div></div>`;}
@@ -5609,6 +6650,12 @@ function validateImportedState(src){
  unique(src.operation,'code','Operations',v=>String(v).trim().toLowerCase());
  unique(src.workPosition,'code','Work positions',v=>String(v).trim().toUpperCase());
  unique(src.terminal,'code','Terminals',v=>String(v).trim().toUpperCase());
+ /* Каталог стекла опознаётся и по id, и по коду: id держит ссылки из
+    сохранённых Makeup, код — слияние при импорте CSV. Дубль любого из них
+    означает, что одна из двух записей окажется недостижимой. */
+ unique(src.glassProduct,'id','Glass products');
+ unique(src.glassProduct,'code','Glass products',v=>String(v).trim().toUpperCase());
+ unique(src.glassSheet,'id','Glass supply');
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
