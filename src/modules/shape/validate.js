@@ -106,6 +106,28 @@ function shapeValidateDefinitionInputs(def){
 /* Полная fail-closed проверка schema v2. Ошибка блокирует сохранение/экспорт
    режущего контура; предупреждение требует решения технолога, но не подменяет
    геометрию приблизительными значениями. */
+
+function shapeValidateSource(def){
+  var source=shapeNormalizeSource(def&&def.source),errors=[],warns=[],preview=source.preview||shapeNormalizeDxfPreview(null);
+  if(source.kind!=='dxf')return {errors:errors,warns:warns};
+  if(!source.fileName||!/\.dxf$/i.test(source.fileName))errors.push('DXF source requires a .dxf file.');
+  if(!(source.fileSize>0))errors.push('DXF source file is empty.');
+  if(!source.uploadedAt||isNaN(Date.parse(source.uploadedAt)))errors.push('DXF source upload timestamp is missing or invalid.');
+  if(preview.units!=='in')errors.push('DXF preview units must be inches.');
+  if(!Array.isArray(preview.points)||preview.points.length<3)errors.push('DXF preview contour is missing.');
+  if(!(preview.width16>0&&preview.height16>0))errors.push('DXF preview Width and Height are missing.');
+  if(preview.points.length>=3){
+    if(preview.points.some(function(p){return !Array.isArray(p)||!isFinite(+p[0])||!isFinite(+p[1]);}))errors.push('DXF preview contour contains an invalid coordinate.');
+    else{
+      if(fabPolySelfIntersects(preview.points))errors.push('DXF preview contour self-intersects.');
+      if(Math.abs(fabSignedArea(preview.points))<1e-8)errors.push('DXF preview contour encloses no area.');
+      var b=fabEdgeBounds(preview.points),w16=Math.round((b.maxX-b.minX)*16),h16=Math.round((b.maxY-b.minY)*16);
+      if(w16!==preview.width16||h16!==preview.height16)errors.push('DXF preview dimensions do not match its contour.');
+    }
+  }
+  return {errors:Array.from(new Set(errors)),warns:warns};
+}
+
 function shapeValidateComputed(def,geo,fg){
   var errors=[],warns=[],pts=geo.points||geo.pts||[],eps=1e-6;
   errors=errors.concat(shapeValidateDefinitionInputs(def));
@@ -161,18 +183,22 @@ function shapeValidateComputed(def,geo,fg){
     var a=fg.holes[i],b=fg.holes[j],min=(a.diameter+b.diameter)/2;if(Math.hypot(a.center[0]-b.center[0],a.center[1]-b.center[1])<min-eps)errors.push('Holes '+a.id+' and '+b.id+' overlap.');
   }
   (fg.holes||[]).forEach(function(h){(fg.cutouts||[]).forEach(function(c){if(fabPointInPoly(h.center,c.points)||fabPointPolyDistance(h.center,c.points)<h.diameter/2-eps)errors.push('Hole '+h.id+' overlaps cutout '+c.id+'.');});});
-  var th=shapeThicknessMm(def);if(!(th>0))errors.push('Glass thickness must be a positive number in millimeters.');
+  var th=shapeThicknessMm(def),thicknessNeeded=false;
   Object.keys(def.edgeOps||{}).forEach(function(id){
     if(!(geo.edges||[]).some(function(e){return e.id===id;}))errors.push('Edge processing references missing edge '+id+'.');
     var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
       if(op.type==='Rough Arris'||op.type==='Flat Polish'||op.type==='CNC Shape Polish')finishes++;
-      if((op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering')&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
+      if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'){
+        thicknessNeeded=true;
+        if(th>0&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
+      }
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
     if(finishes>1)errors.push('Edge '+id+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.');
   });
+  if(thicknessNeeded&&!(th>0))errors.push('Glass thickness for edge-processing allowance must come from the selected Sales Makeup.');
   return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};
 }
