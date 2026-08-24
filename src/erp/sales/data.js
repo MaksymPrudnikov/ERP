@@ -47,7 +47,7 @@ function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
 function salesFirstGlass(family,manufacturer,thickness){
- const rows=activeGlassProducts().filter(x=>(!family||x.family===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
+ const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  return rows[0]||activeGlassProducts()[0]||null;
 }
 function salesDefaultPane(i){

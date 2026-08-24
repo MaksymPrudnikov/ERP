@@ -29,6 +29,8 @@
     "src/modules/muntin/index.js",
     "src/erp/data.js",
     "src/erp/shopfloor/data.js",
+    "src/erp/masterdata/units.js",
+    "src/erp/masterdata/glass-catalog.js",
     "src/erp/masterdata/glass.js",
     "src/erp/customers/data.js",
     "src/erp/sales/data.js",
