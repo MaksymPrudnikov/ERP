@@ -8,11 +8,12 @@ let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false
 
 function viewShapeSkill(){
   var rows=DB.shapeDef.map(function(s,i){
-    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
-    return `<tr><td><b>${esc(s.name)}</b><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'}</td><td class='mono'>${r.valid?r.edges.length:'—'}</td><td class='mono'>${featureCount}</td><td>${r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
+    var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
+    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
   var presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
-  return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Отверстия, вырезы, hardware prep, радиусы и обработка кромки больше не теряются при экспорте.</span></div>`}
+  return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Для DXF из Fusion 360 ERP хранит метаданные, лёгкий 2D-контур превью и габариты; исходное содержимое DXF в localStorage не сохраняется.</span></div>`}
     ${sEdit!==null?shapeForm():''}
     <table><thead><tr><th>Название / тип</th><th>Габарит</th><th>Кромок</th><th>Features</th><th>Статус</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
@@ -20,6 +21,32 @@ function viewShapeSkill(){
 
 function openShapeNew(type){sEdit='new';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
 function openShapeEdit(i){sEdit=i;sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
+function shapeFileSizeText(bytes){
+  var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
+}
+function shapeAttachDxf(input){
+  var file=input&&input.files&&input.files[0];if(!file)return;
+  if(!/\.dxf$/i.test(String(file.name||''))){alert('Choose a DXF file.');input.value='';return;}
+  if(!(file.size>0)){alert('DXF file is empty.');input.value='';return;}
+  var reader=new FileReader();
+  reader.onerror=function(){input.value='';alert('DXF file could not be read.');};
+  reader.onload=function(){
+    var parsed=shapeParseFusionDxf(String(reader.result||''));
+    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');return;}
+    var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
+    sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
+    sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);sView='setup';render();
+  };
+  reader.readAsText(file);
+}
+function removeShapeDxf(){sDraft.source=shapeNormalizeSource(null);sView='setup';render();}
+function setShapeSourceNote(v){if(!sDraft.source)sDraft.source=shapeNormalizeSource(null);sDraft.source.note=String(v==null?'':v);}
+function shapeSourceEditor(){
+  sDraft.source=shapeNormalizeSource(sDraft.source);var source=sDraft.source;
+  if(source.kind!=='dxf')return `<div class='shape-source-box'><div><b>Источник раскроя</b><small>По умолчанию Production Shape использует геометрию конфигуратора. DXF из Fusion 360 можно прикрепить как внешний файл раскроя.</small></div><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Загрузить DXF из Fusion 360</span></label></div>`;
+  var valid=shapeValidateSource(sDraft).errors.length===0;
+  return `<div class='shape-source-box dxf'><div class='shape-source-head'><div><b>DXF из Fusion 360</b><small>Исходный DXF не сохраняется в ERP. Для повторного открытия хранятся имя файла, лёгкий 2D-контур превью и габариты, округлённые до 1/16 дюйма.</small></div><span class='pill ${valid?'info':'bad'}'>${valid?'внешний раскрой':'ошибка файла'}</span></div><div class='shape-file-meta'><b class='shape-dxf-name'>${raw(source.fileName)}</b><span data-raw>${esc(shapeFileSizeText(source.fileSize))}</span><span data-raw>${esc(source.uploadedAt||'—')}</span></div><label>Примечание к DXF<input data-raw value='${esc(source.note)}' oninput='setShapeSourceNote(this.value)'></label><div class='row'><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Заменить DXF</span></label><button type='button' onclick='removeShapeDxf()'>Убрать файл</button></div></div>`;
+}
 function shapeDraftLine(){return shapeDefToLine(sDraft);}
 function shapeDraftGeometry(){try{return shapeGeometry(shapeDraftLine());}catch(e){return {ok:false,error:e.message,points:[],edges:[],vertices:[]};}}
 function shapeDraftResult(){try{return ShapeModule.compute(sDraft);}catch(e){return {valid:false,reason:e.message,errors:[e.message]};}}
@@ -38,7 +65,7 @@ function setShapeExtraOut(id,k,v){
   sDraft.smart.extraEdges[id][k]=(k==='dir')?(v||null):v;
   refreshShapeEditor();
 }
-function setShapeView(v){sView=v;refreshShapeEditor();}
+function setShapeView(v){if(shapeIsDxfSource(sDraft))return;sView=v;refreshShapeEditor();}
 function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features')sFeaturesOpen=!sFeaturesOpen;render();}
 
 function setShapeType(type){
@@ -51,12 +78,39 @@ function setShapeType(type){
   render();
 }
 
+function shapeDxfPreviewSvg(source){
+  source=shapeNormalizeSource(source);var P=source.preview.points||[];if(P.length<3)return '';
+  var b=fabEdgeBounds(P),W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),vw=760,vh=390,padL=72,padR=32,padT=54,padB=62;
+  var sc=Math.min((vw-padL-padR)/W,(vh-padT-padB)/H),dw=W*sc,dh=H*sc,x0=padL+(vw-padL-padR-dw)/2,y0=padT+(vh-padT-padB-dh)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+dh-(y-b.minY)*sc;}
+  var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
+  var widthLabel=dimIn(source.preview.width16/16),heightLabel=dimIn(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26);
+  return `<svg class='shape-dxf-svg' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview'>
+    <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
+    <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
+    <line x1='${x0}' y1='${topY}' x2='${x0+dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeDxfArrow)' marker-end='url(#shapeDxfArrow)'/>
+    <line x1='${x0}' y1='${topY-8}' x2='${x0}' y2='${y0}' class='shape-dxf-guide'/><line x1='${x0+dw}' y1='${topY-8}' x2='${x0+dw}' y2='${y0}' class='shape-dxf-guide'/>
+    <text x='${x0+dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>Width ${esc(widthLabel)}</text>
+    <line x1='${leftX}' y1='${y0}' x2='${leftX}' y2='${y0+dh}' class='shape-dxf-dim-line' marker-start='url(#shapeDxfArrow)' marker-end='url(#shapeDxfArrow)'/>
+    <line x1='${leftX-8}' y1='${y0}' x2='${x0}' y2='${y0}' class='shape-dxf-guide'/><line x1='${leftX-8}' y1='${y0+dh}' x2='${x0}' y2='${y0+dh}' class='shape-dxf-guide'/>
+    <text x='${leftX-10}' y='${y0+dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${y0+dh/2})'>Height ${esc(heightLabel)}</text>
+  </svg>`;
+}
 function shapePreviewMarkup(r){
+  if(r&&r.externalFile){
+    var source=(r.definition&&r.definition.source)||shapeNormalizeSource(null),svg=r.sourceValid?shapeDxfPreviewSvg(source):'';
+    return `<div class='shape-dxf-preview visual'><div class='shape-dxf-preview-title'><b>DXF-файл является источником раскроя</b><span>Контур считан из Fusion 360 в дюймах. Красные размеры показывают максимальные габариты от края до края.</span></div>${svg||'<div class="module-invalid">Превью DXF недоступно</div>'}${source.fileName?`<div class='shape-dxf-preview-file'>${raw(source.fileName)}<small data-raw>${esc(shapeFileSizeText(source.fileSize))}</small></div>`:''}</div>`;
+  }
   if(sView==='production')return ShapeModule.productionSvg(r);
   if(sView==='cutting')return ShapeModule.cuttingSvg(r);
   return ShapeModule.productionSvg(r);
 }
 function shapeDerivedHTML(r){
+  if(r&&r.externalFile){
+    if(!r.sourceValid){var sourceErrors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid DXF source']);return `<div class='validation-box badbox'><b>Ошибка DXF-файла</b>${sourceErrors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;}
+    return `<div class='smart-kpis'><div><span>Width</span><b>${dimIn(r.width)}</b></div><div><span>Height</span><b>${dimIn(r.height)}</b></div><div><span>Продажная площадь</span><b>${(r.billableArea/144).toFixed(2)} ft²</b></div><div><span>Grid</span><b>1/16″</b></div></div>
+      <div class='validation-box okbox'><b>DXF проверен и принят</b><div>Габариты округлены до ближайшей 1/16″. Продажная площадь считается по габаритному прямоугольнику Width × Height. Исходное содержимое DXF в localStorage не сохраняется.</div></div>`;
+  }
   if(!r.valid){
     var errors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid Shape']);
     return `<div class='validation-box badbox'><b>Ошибка геометрии</b>${errors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;
@@ -193,7 +247,7 @@ function shapeNotchMatrix(map){
         return `<div class='notch-row${skewed?' skewed':''}'>
           <span class='notch-id'>${e.id}<small>${vert?'вертикальное':'горизонтальное'}</small></span>
           <input data-vfield='len' value='${esc(x.len||'')}' placeholder='0' oninput='setShapeExtra("${e.id}",this.value)'>
-          <input data-vfield='num' value='${esc(x.out||'0')}' placeholder='0' oninput='setShapeExtraOut("${e.id}","out",this.value)' onblur='shapeZeroIfEmpty(this)' title='${vert?'уход от отвеса':'уход от уровня'}'>
+          <input data-vfield='num' value='${esc(x.out||'0')}' placeholder='0' oninput='setShapeExtraOut("${e.id}","out",this.value)' onblur='shapeZeroIfEmpty(this)' data-i18n-title='${vert?'уход от отвеса':'уход от уровня'}'>
           <select onchange='setShapeExtraOut("${e.id}","dir",this.value)'><option value=''>—</option>${dirs.map(function(d){return `<option value='${d[0]}' ${x.dir===d[0]?'selected':''}>${d[1]}</option>`;}).join('')}</select>
         </div>`;
       }).join('')}</div>`;
@@ -241,6 +295,7 @@ function shapeFitPreview(){
 function shapePrintDrawing(){
   var r=shapeDraftResult(),e=document.getElementById('e_shape');
   if(e)e.style.display='none';
+  if(r.externalFile){if(e)fail(e,'DXF-файл из Fusion 360 не печатается как чертёж Production Shape.');return;}
   if(!r.valid){if(e)fail(e,'Невалидная геометрия не печатается: '+(r.errors&&r.errors[0]||r.reason||''));return;}
   var cutting=sView==='cutting',svg=cutting?ShapeModule.cuttingSvg(r):ShapeModule.productionSvg(r);
   var name=(sDraft.name||'').trim()||'Shape';
@@ -300,6 +355,7 @@ function shapeFeaturesEditor(geo){
 }
 
 function shapeArtifacts(r){
+  if(r.externalFile)return `<div class='shape-artifacts dxf-source'><b>Файл раскроя текущей ревизии</b><span>DXF из Fusion 360 используется как внешний файл раскроя. ERP хранит метаданные, превью-контура и габариты, но не хранит исходное содержимое DXF и не может скачать файл повторно.</span><small>ERP-экспорт Production SVG, Cutting SVG, Machine JSON и Generic DXF для этой ревизии отключён: он не должен подменять внешний раскрой.</small></div>`;
   var disabled=r.valid?'':'disabled';
   return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Generic DXF</button><small>DXF — нейтральная геометрия R12, не машинный постпроцессор. Перед производством нужен проверенный постпроцессор конкретного CNC.</small></div>`;
 }
@@ -307,23 +363,23 @@ function shapeForm(){
   /* Полный render() пересоздаёт DOM, поэтому подсветку полей ставим сразу
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
-  var r=shapeDraftResult(),geo=shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
-  return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>Все размеры — finished size в дюймах; толщина — в миллиметрах. Невалидная геометрия не сохраняется и не экспортируется.</p></div><span class='pill ok'>schema v2 · fail closed</span></div>
+  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input value='${esc(sDraft.smart.C.len||'')}' placeholder='= A' oninput='setShapeC(this.value)'></div>`:''}</div>`;
+  var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeEdgeworkEditor()}${shapeFeaturesEditor(geo)}`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='on'>Источник DXF</button><button disabled>Production Drawing</button><button disabled>Cutting Shape</button><button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
+  return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div><span class='pill ok'>schema v2 · fail closed</span></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
-      <div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}<div><label>Glass thickness, mm</label><input type='number' min='1' step='1' value='${esc(sDraft.thickness)}' oninput='setShapeField("thickness",this.value)'></div>${sDraft.type==='smart'?`<div><label>C · Right height</label><input value='${esc(sDraft.smart.C.len||'')}' placeholder='= A' oninput='setShapeC(this.value)'></div>`:''}</div>
-      ${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}
-      ${shapeEdgeworkEditor()}
-      ${shapeFeaturesEditor(geo)}
-    </div><div class='shape-preview-side'><div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+      ${master}${shapeSourceEditor()}${controls}
+    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
     <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 
 function saveShape(){
   var e=document.getElementById('e_shape');e.style.display='none';sDraft.name=String(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');
-  var r=ShapeModule.compute(sDraft);if(!r.valid)return fail(e,(r.errors||[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
+  var r=ShapeModule.compute(sDraft),external=r.externalFile&&r.sourceValid;if(!r.valid&&!external)return fail(e,(r.errors&&r.errors.length?r.errors:[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
   var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
   if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('This shape is used by a Muntin layout. New geometry will change that layout. Save a new revision?'))return;
-  var saved=r.definition;saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
+  var saved=r.definition||normalizeShapeDef(sDraft);saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
   sEdit=null;sDraft=null;render();
@@ -332,7 +388,7 @@ function cancelShapeEdit(){if(typeof salesBridgeCancel==='function'&&salesBridge
 function shapeSafeFileName(s){return String(s||'shape').trim().replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'')||'shape';}
 function shapeDownload(textValue,mime,name){var b=new Blob([textValue],{type:mime}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
 function downloadShapeArtifact(kind){
-  var r=shapeDraftResult();if(!r.valid)return alert(moduleErrorText(r));var base=shapeSafeFileName(r.definition.name)+'_R'+(r.definition.revision||0);
+  var r=shapeDraftResult();if(r.externalFile)return alert('ERP-generated artifacts are unavailable for an external DXF source.');if(!r.valid)return alert(moduleErrorText(r));var base=shapeSafeFileName(r.definition.name)+'_R'+(r.definition.revision||0);
   if(kind==='production')shapeDownload(ShapeModule.productionSvg(r),'image/svg+xml',base+'_production.svg');
   if(kind==='cutting')shapeDownload(ShapeModule.cuttingSvg(r),'image/svg+xml',base+'_cutting.svg');
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');

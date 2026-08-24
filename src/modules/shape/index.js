@@ -14,11 +14,19 @@ function shapeDefToLine(s){
   var n=normalizeShapeDef(s||{});return {w:n.w,h:n.h,shape:{type:n.type,smart:n.smart,params:n.params,polygon:n.polygon,features:n.features,edgeOps:n.edgeOps,definition:n},definition:n};
 }
 function shapeFingerprint(def){
-  var src=JSON.stringify({type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps}),h=2166136261;
+  var payload=shapeIsDxfSource(def)?{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview}}:{type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps};
+  var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }
 function shapeModuleResult(s){
-  var def=normalizeShapeDef(s||{}),S=shapeDefToLine(def),G=shapeGeometry(S);
+  var def=normalizeShapeDef(s||{});
+  if(shapeIsDxfSource(def)){
+    var sourceValidation=shapeValidateSource(def),fingerprint=shapeFingerprint(def),preview=def.source.preview||shapeNormalizeDxfPreview(null);
+    if(sourceValidation.errors.length)return {valid:false,externalFile:true,sourceValid:false,reason:sourceValidation.errors[0],errors:sourceValidation.errors,warns:sourceValidation.warns,definition:def,fingerprint:fingerprint};
+    var width=preview.width16/16,height=preview.height16/16,points=preview.points||[],contourArea=Math.abs(fabSignedArea(points));
+    return {valid:false,externalFile:true,sourceValid:true,reason:'External DXF source uses validated preview geometry, not ERP cutting geometry.',errors:[],warns:sourceValidation.warns,definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:contourArea,billableArea:width*height,perimeter:fabPolylineLength(points,true)};
+  }
+  var S=shapeDefToLine(def),G=shapeGeometry(S);
   if(!G.ok)return {valid:false,reason:G.error||'Invalid Shape',errors:G.errors||[G.error],warns:G.warns||[],line:S,geometry:G,definition:def};
   var fg=shapeFeatureGeometry(def,G),v=shapeValidateComputed(def,G,fg);
   if(v.errors.length)return {valid:false,reason:v.errors[0],errors:v.errors,warns:v.warns,line:S,geometry:G,definition:def,featureGeometry:fg};

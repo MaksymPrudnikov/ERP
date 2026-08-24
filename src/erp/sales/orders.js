@@ -148,13 +148,32 @@ function salesExcelApply(){
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
-function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s);return s&&r&&r.valid?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
+/* Edge-processing allowance belongs to the glass selected in the line's Makeup,
+   not to a manually entered Shape thickness. The Shape editor keeps the legacy
+   schema field only as an internal calculation input so old saved definitions and
+   v4.5 fingerprints remain compatible. */
+function salesLineGlassThicknesses(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];if(!m)return out;
+ (m.panes||[]).forEach(p=>{const g=glassProductById(p.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:p.thicknessMm);if(Number.isFinite(v)&&v>0&&out.indexOf(v)<0)out.push(v);});
+ return out.sort((a,b)=>a-b);
+}
+function salesApplyLineGlassThicknessToShape(line,shape){
+ if(!shape)return null;const values=salesLineGlassThicknesses(line);
+ if(values.length===1){shape.thickness=String(values[0]);return values[0];}
+ /* Mixed-thickness IGUs do not have one safe allowance. Fail closed instead of
+    silently using the old 6 mm default. A production rule can be added later if
+    the owner defines how edgework should behave for mixed lite thicknesses. */
+ if(values.length>1)shape.thickness='';
+ return null;
+}
+function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s),ready=r&&(r.valid||(r.externalFile&&r.sourceValid));return s&&ready?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
 function salesMuntinRefFrom(m){return m?{id:m.id,shapeId:m.shapeId||'',shapeRevision:m.shapeRevision==null?null:m.shapeRevision}:{id:'',shapeId:'',shapeRevision:null};}
-function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s);if(!r||!r.valid)return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);if(line.muntinRef&&line.muntinRef.id&&line.muntinRef.shapeId!==s.id)line.muntinRef=normalizeMuntinRef({});return true;}
+function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s),external=r&&r.externalFile&&r.sourceValid;if(!r||(!r.valid&&!external))return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);if(line.muntinRef&&line.muntinRef.id&&line.muntinRef.shapeId!==s.id)line.muntinRef=normalizeMuntinRef({});return true;}
 function salesOrderConfigureShape(i){
  const line=soDraft.lines[i];if(!line)return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;
  const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
  else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
+ salesApplyLineGlassThicknessToShape(line,sDraft);
  render();
 }
 function salesBridgeOnShapeSaved(id){if(!salesBridge||salesBridge.kind!=='shape'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),s=DB.shapeDef.find(x=>x.id===id);if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
