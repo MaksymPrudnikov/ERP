@@ -109,10 +109,19 @@ function normalizeOrderMakeup(m,index){
 }
 function normalizeShapeRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.shapeId),revision:Number.isInteger(+r.revision)?+r.revision:null,fingerprint:salesString(r.fingerprint)};}
 function normalizeMuntinRef(r){r=r&&typeof r==='object'?r:{};return {id:salesRefId(r.id||r.muntinId),shapeId:salesRefId(r.shapeId),shapeRevision:Number.isInteger(+r.shapeRevision)?+r.shapeRevision:null};}
+function normalizeSalesChargePricing(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};const out={};
+ Object.keys(raw).forEach(function(key){
+  if(!/^[A-Za-z0-9:._|+\-]{1,180}$/.test(key))return;const r=raw[key]&&typeof raw[key]==='object'?raw[key]:{};
+  const catalog=r.catalogRate==null||r.catalogRate===''?NaN:Number(r.catalogRate),order=r.orderRate==null||r.orderRate===''?NaN:Number(r.orderRate);
+  out[key]={catalogRate:Number.isFinite(catalog)&&catalog>=0?catalog:null,orderRate:Number.isFinite(order)&&order>=0?order:null};
+ });
+ return out;
+}
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId})};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId}),chargePricing:normalizeSalesChargePricing(l.chargePricing)};
 }
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
@@ -120,7 +129,7 @@ function normalizeSalesOrder(o){
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}

@@ -794,14 +794,28 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const line=normalizeSalesOrderLine({width16:800,height16:600,mark:'A'}),ok=salesSyncLineFromShape(line,d);
       return {ok:ok,width16:line.width16,height16:line.height16,id:line.shapeRef.id,revision:line.shapeRef.revision,hasFingerprint:/^shp-[0-9a-f]{8}$/.test(line.shapeRef.fingerprint)};
     }), {ok:true,width16:391,height16:1295,id:'sales-dxf',revision:3,hasFingerprint:true});
-    eq('Services обычного Shape считаются по толщине Makeup', await dxfSales.p.evaluate(() => {
-      salesBridge={kind:'shape',lineId:'qa'};sDraft=newShapeDef('rectangle');sDraft.w='20';sDraft.h='40';sDraft.thickness='10';sDraft.manufacturingItems=[
+    eq('Services обычного Shape считаются по толщине Makeup в Sales Order', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-service-shape';sh.w='20';sh.h='40';sh.manufacturingItems=[
         shapeNormalizeManufacturingItem({id:'c',type:'clamp',edge:'left',distance:4}),
         shapeNormalizeManufacturingItem({id:'g',type:'hinge',edge:'right',distance:5}),
         shapeNormalizeManufacturingItem({id:'h',type:'hole',x:3,y:8,diameter:'3/4',hRef:'left',vRef:'bottom'})
-      ];
-      const svc=shapeDerivedServices(),out={total:svc.total,rows:svc.rows.map(r=>[r.label,r.qty,r.unit,r.total])};salesBridge=null;sDraft=null;return out;
+      ];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const rows=salesLineChargeRows(line).filter(r=>r.key.indexOf('MI:')===0),total=rows.reduce((n,r)=>n+(r.catalogRate==null?0:r.basis*r.catalogRate),0);
+      return {total,rows:rows.map(r=>[r.label,r.basis,r.catalogRate,r.catalogRate==null?null:r.basis*r.catalogRate])};
     }), {total:29,rows:[['Clamp',1,8,8],['Hinge',1,15,15],['Hole 1/2″–1″',1,6,6]]});
+
+    eq('Pricing меняет только деньги, geometry basis остаётся системным', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;const line=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const beforeShape=JSON.stringify(DB.shapeDef[0]),beforeRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit,catalogRate:r.catalogRate}));const hinge=beforeRows.find(r=>r.key.indexOf('MI:hinge:')===0),flat=beforeRows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=beforeRows.find(r=>r.key.indexOf('EDGE:miter45:')===0);
+      salesSetOrderGroupRate('MI:hinge','12');const hRow=salesLineChargeRows(line).find(r=>r.key===hinge.key);salesSetChargeOrderRate(line.id,hRow.key,'10');const afterRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit})),state=salesChargePricingState(line,hRow),summary=salesLinePricingSummary(line);
+      return {hingeBasis:hinge.basis,flatBasis:flat.basis,miterCatalog:miter.catalogRate,effectiveHinge:state.effectiveRate,unpriced:summary.unpriced,sameShape:beforeShape===JSON.stringify(DB.shapeDef[0]),sameBasis:JSON.stringify(beforeRows.map(r=>[r.key,r.basis,r.unit]))===JSON.stringify(afterRows.map(r=>[r.key,r.basis,r.unit]))};
+    }), {hingeBasis:1,flatBasis:40,miterCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
+    eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
+      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,resetCatalog};
+    }), {flatSaved:.1,miterSaved:null,flatEffective:.1,miterEffective:null,resetCatalog:.1});
     await dxfSales.c.close();
   }
 
@@ -1410,6 +1424,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }, tab);
       eq('EN без русского остатка: ' + tab, left, []);
     }
+    eq('Sales Services pricing modals EN без русского остатка', await t.p.evaluate(() => {
+      function cyrillicUi(){const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('[data-raw]'))continue;const v=n.nodeValue.trim();if(/[А-Яа-яЁё]/.test(v))out.add(v);}return [...out];}
+      const sh=newShapeDef('rectangle');sh.id='qa-price-en';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-en-h',type:'hinge',edge:'left',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;soDraft.lines=[normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])})];soEdit='new';tab='sales';subtab='orders';salesOpenOrderServices();const orderLeft=cyrillicUi();salesCloseServices();salesOpenLineServices(soDraft.lines[0].id);const lineLeft=cyrillicUi();salesCloseServices();soEdit=null;soDraft=null;render();return orderLeft.concat(lineLeft);
+    }), []);
     eq('Production Shape editor EN без русского остатка', await t.p.evaluate(() => {
       function cyrillicUi(){
         const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
