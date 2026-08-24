@@ -63,7 +63,44 @@ function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.s
 function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
 function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
 function salesPaneSetVisionType(i,v){const p=salesCurrentMakeup().panes[i];if(!SALES_VISION_TYPES.includes(v))return;p.visionType=v;p.coatingSurface=null;if(v==='frit')p.frit.surface=null;salesPaneEnsureProduct(p);render();}
-function salesPaneSetProduct(i,v){const p=salesCurrentMakeup().panes[i],g=glassProductById(v);p.glassProductId=v;if(g){p.manufacturer=g.manufacturer;p.thicknessMm=g.thicknessMm;}render();}
+/* Поверхности, на которых это покрытие вообще законно. `allowed_surfaces`
+   каталога — номера в пакете (2,3 у напылённых), а Lite держит свою пару
+   (#1 #2 снаружи, #3 #4 внутри); пересечение и есть ответ. Пустое пересечение
+   означает, что каталог и конструкция не сходятся — тогда показываем всё и не
+   мешаем человеку работать. */
+function salesAllowedCoatingSurfaces(p,index){
+ const nums=salesPaneSurfaces(index),g=glassProductById(p.glassProductId);
+ if(!g||!g.allowedSurfaces.length)return nums;
+ const ok=nums.filter(n=>g.allowedSurfaces.indexOf(n)>=0);
+ return ok.length?ok:nums;
+}
+/* Смена продукта подставляет ЗАКОННУЮ поверхность по умолчанию: у напыления
+   это #2 снаружи. Выбор при этом не запирается — вторая кнопка остаётся
+   нажимаемой, просто помечена как не по каталогу. */
+function salesPaneSetProduct(i,v){
+ const p=salesCurrentMakeup().panes[i],g=glassProductById(v);
+ p.glassProductId=v;
+ if(g){p.manufacturer=g.manufacturer;p.thicknessMm=g.thicknessMm;}
+ if(g&&(p.visionType==='lowe'||p.visionType==='reflective')){
+  const ok=salesAllowedCoatingSurfaces(p,i);
+  if(ok.indexOf(+p.coatingSurface)<0)p.coatingSurface=ok[0]||null;
+ }
+ render();
+}
+/* Первый шаг выбора: ПОКРЫТИЕ. Второй — на каком стекле оно лежит. Пока шаг
+   был один, Vitro 6 мм Low-E выкатывал 92 строки одним списком. */
+function salesPaneSetCoating(i,coating){
+ const p=salesCurrentMakeup().panes[i],rows=salesGlassVariants(p,coating);
+ if(!rows.length)return render();
+ /* уже выбранное стекло того же покрытия не сбрасываем */
+ if(rows.some(g=>g.id===p.glassProductId))return render();
+ /* Базовое стекло переносим: сменить покрытие — значит сменить покрытие, а не
+    вернуться к первой подложке в списке. Solarban 60 on Azuria → Solarban 90
+    on Azuria, и человек не выбирает подложку заново на каждом шаге. */
+ const base=glassBaseName(glassProductById(p.glassProductId));
+ const same=base?rows.filter(g=>glassBaseName(g)===base)[0]:null;
+ salesPaneSetProduct(i,(same||rows[0]).id);
+}
 function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
 function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
 function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}

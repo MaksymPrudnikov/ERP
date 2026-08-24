@@ -380,6 +380,9 @@ function normalizeMasterData(){
  DB.glassSheet=DB.glassSheet.filter(x=>x&&typeof x==='object').map(normalizeGlassSheet)
   .filter(s=>s.productCode&&s.supplier&&!sSeen[s.id]&&(sSeen[s.id]=true));
 
+ /* каталог пересобран — индекс базовых стёкол больше не действителен */
+ glassInvalidateNameIndex();
+
  [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
   const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
@@ -411,7 +414,97 @@ function glassLeadTimeDays(code){
 }
 function glassOrphanSheets(){return (DB.glassSheet||[]).filter(s=>!glassProductByCode(s.productCode));}
 
-/* --- 7. Имена значений на языке интерфейса ---------------------------- */
+/* --- 7. Покрытие и базовое стекло ------------------------------------- */
+
+/* В каталоге одна строка на пару «покрытие × базовое стекло», и у Vitro на
+   6 мм Low-E таких строк 92. Выбирать из 92 нельзя: у самого поставщика тот
+   же выбор сделан ДВУМЯ шагами — сначала покрытие (Solarban 60), потом на
+   каком стекле оно лежит (on Acuity, on Azuria, on Clear).
+
+   Отдельных колонок под это в выгрузке IGDB нет — есть имя. Поэтому имя
+   разбирается, и правила ровно те, по которым имена и написаны:
+
+     Solarban 60 on Acuity 6mm     → «on»: покрытие · базовое стекло
+     LoE 180 on 3mm Clear          → то же, толщина снимается заранее
+     Eclipse Advantage + Grey      → «+» у Pilkington значит то же самое
+     Eclipse Advantage Grey        → хвост совпал с известным базовым стеклом
+
+   Список базовых стёкол берётся ИЗ САМОГО КАТАЛОГА: непокрытые позиции
+   производителя плюс всё, что нашлось после «on» и «+» у него же. Он не
+   выдуман, переживает пересборку каталога и растёт вместе с ним.
+
+   Что не разобралось (тридцать позиций Pilkington вида «Energy Advantage OW»)
+   остаётся покрытием без базы, и второй список показывает у него подложку.
+   Это честно: базового стекла в имени нет, а придумывать его нельзя. */
+
+const GLASS_THICK_RE=/\b\d+(?:[.,]\d+)?\s*mm\b/ig;
+function glassCleanName(name){
+ return mdString(name).replace(GLASS_THICK_RE,' ')
+  .replace(/\s+glass\s*$/i,'')
+  .replace(/[\s\-–—]+$/,'')
+  .replace(/\s{2,}/g,' ').trim();
+}
+/* Делим по ПЕРВОМУ вхождению: «Solarban 70 on Optiblue (Solarban z75)» не
+   должно разъезжаться на три части. */
+function glassSplitAt(text,re){
+ const m=text.match(re);
+ if(!m||m.index<=0)return null;
+ const head=text.slice(0,m.index).trim(),tail=text.slice(m.index+m[0].length).trim();
+ return (head&&tail)?[head,tail]:null;
+}
+/* Индекс базовых стёкол по производителям. Строится лениво и сбрасывается
+   нормализацией: каталог меняют импортом и экраном справочников, и
+   переименованная позиция обязана перегруппироваться сразу. */
+let glassBaseIndex=null;
+function glassInvalidateNameIndex(){glassBaseIndex=null;}
+function glassBaseNames(manufacturer){
+ if(!glassBaseIndex){
+  glassBaseIndex=Object.create(null);
+  const add=(mfr,name)=>{
+   const key=mdString(mfr).toLowerCase();
+   if(!name)return;
+   if(!glassBaseIndex[key])glassBaseIndex[key]=Object.create(null);
+   glassBaseIndex[key][name]=true;
+  };
+  (DB.glassProduct||[]).forEach(p=>{
+   const n=glassCleanName(p.name);
+   const on=glassSplitAt(n,/\s+on\s+/i);
+   if(on)return add(p.manufacturer,on[1]);
+   const plus=glassSplitAt(n,/\s+\+\s+/);
+   if(plus)return add(p.manufacturer,plus[1]);
+   if(p.coatingFamily==='uncoated')add(p.manufacturer,n);
+  });
+  Object.keys(glassBaseIndex).forEach(k=>{
+   /* сначала длинные: «Arctic Blue» должно выиграть у «Blue» */
+   glassBaseIndex[k]=Object.keys(glassBaseIndex[k]).sort((a,b)=>b.length-a.length);
+  });
+ }
+ return glassBaseIndex[mdString(manufacturer).toLowerCase()]||[];
+}
+function glassNameParts(p){
+ if(!p)return {coating:'',base:''};
+ const n=glassCleanName(p.name);
+ const on=glassSplitAt(n,/\s+on\s+/i);
+ if(on)return {coating:on[0],base:on[1]};
+ const plus=glassSplitAt(n,/\s+\+\s+/);
+ if(plus)return {coating:plus[0]+' +',base:plus[1]};
+ const bases=glassBaseNames(p.manufacturer);
+ for(let i=0;i<bases.length;i++){
+  const b=bases[i];
+  if(n.length>b.length+1&&n.slice(-b.length).toLowerCase()===b.toLowerCase()&&n.charAt(n.length-b.length-1)===' ')
+   return {coating:n.slice(0,n.length-b.length-1).trim(),base:n.slice(n.length-b.length)};
+ }
+ return {coating:n,base:''};
+}
+function glassCoatingName(p){return glassNameParts(p).coating;}
+/* Имя базового стекла, а если в имени его нет — подложка. Пустой строки здесь
+   не бывает: пользователю нужно что-то выбрать во втором списке. */
+function glassBaseName(p){
+ const parts=glassNameParts(p);
+ return parts.base||(p?glassLabel('substrate',p.substrate):'');
+}
+
+/* --- 8. Имена значений на языке интерфейса ---------------------------- */
 
 /* Тот же приём, что sfName в цеховом справочнике: обе колонки лежат здесь, а
    язык только выбирает нужную. Доменные термины через словарь интерфейса не
@@ -435,7 +528,7 @@ function glassLabel(kind,value){
  return (typeof LANG!=='undefined'&&LANG==='en')?row[1]:row[0];
 }
 
-/* --- 8. Импорт -------------------------------------------------------- */
+/* --- 9. Импорт -------------------------------------------------------- */
 
 /* Слияние ПО КОДУ, а не замена таблицы: строки, которые пользователь завёл
    руками, чужой файл сносить не должен. Чего в файле нет — попадает в
