@@ -248,33 +248,16 @@ function shapeManufacturingMarkersSvg(source,T){
     return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
 }
-function shapeServiceThicknessContext(){
-  var linked=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape';if(!linked)return {ok:false,reason:'Open Production Shape from a Sales Order to price Services from its Makeup.'};
-  var t=+sDraft.thickness;if(!Number.isFinite(t)||t<=0)return {ok:false,reason:'The selected Makeup has mixed or unknown glass thickness; Service pricing is not available.'};
-  if(t===6)return {ok:true,thickness:t,band:'6'};
-  if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
-  if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
-  return {ok:false,thickness:t,reason:'No confirmed Service price band exists for '+t+' mm glass.'};
-}
-function shapeHolePriceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'over 4″'};return null;}
-function shapeServiceUnitPrice(type,band,holeKey){
-  var prices={clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}}};
-  if(type==='hole')return prices.hole[holeKey]&&prices.hole[holeKey][band]!=null?prices.hole[holeKey][band]:null;
-  return prices[type]&&prices[type][band]!=null?prices[type][band]:null;
-}
-function shapeServiceEntries(){
-  return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});
-}
+function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
+function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});}
 function shapeDerivedServices(){
-  var ctx=shapeServiceThicknessContext(),groups=Object.create(null),invalid=[];
-  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),holeKey='';if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHolePriceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{holeKey=hb.key;key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={type:item.type,label:label,holeKey:holeKey,qty:0};groups[key].qty++;});
-  var rows=Object.keys(groups).map(function(k){var g=groups[k],price=ctx.ok?shapeServiceUnitPrice(g.type,ctx.band,g.holeKey):null;return {label:g.label,qty:g.qty,unit:price,total:price==null?null:price*g.qty};});
-  return {context:ctx,rows:rows,invalid:invalid,total:rows.reduce(function(n,r){return n+(r.total||0);},0)};
+  var groups=Object.create(null),invalid=[];
+  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type);if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty++;});
+  return {rows:Object.keys(groups).map(function(k){return groups[k];}),invalid:invalid};
 }
 function shapeManufacturingServicesHTML(){
   var svc=shapeDerivedServices();if(!svc.rows.length)return `<div class='shape-service-summary empty-service'><b>Services</b><span>Добавь Hole / Clamp / Hinge — количество и сервисы появятся здесь автоматически.</span></div>`;
-  var pricing=svc.context.ok?`Makeup ${svc.context.thickness} mm · price band ${svc.context.band} mm`:`${esc(svc.context.reason)}`;
-  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · автоматически из чертежа</b><small>${pricing}</small></div>${svc.context.ok?`<strong>${svc.total.toFixed(2)} CAD</strong>`:'<span class="pill warn">цена не рассчитана</span>'}</div><div class='shape-service-table'><div class='shape-service-row head'><span>Service</span><span>Qty</span><span>Each</span><span>Total</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b><span>${r.unit==null?'—':r.unit.toFixed(2)+' CAD'}</span><b>${r.total==null?'—':r.total.toFixed(2)+' CAD'}</b></div>`;}).join('')}</div></div>`;
+  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · автоматически из чертежа</b><small>Цена рассчитывается в Sales Order. Геометрия и количество здесь не являются денежными полями.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div></div>`;
 }
 function shapeManufacturingEditor(){
   var items=shapeManufacturingItems(),placing=sManufacturingPlace,body=`<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("clamp")'>+ Clamp</button><button class='sm' onclick='shapeStartManufacturingPlacement("hinge")'>+ Hinge</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button><span>Clamp / Hinge привязываются к краю. Hole задаётся двумя размерными привязками с точностью 1/16″.</span></div>`;
