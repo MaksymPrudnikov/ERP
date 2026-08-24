@@ -66,6 +66,12 @@ function validateImportedState(src){
  unique(src.operation,'code','Operations',v=>String(v).trim().toLowerCase());
  unique(src.workPosition,'code','Work positions',v=>String(v).trim().toUpperCase());
  unique(src.terminal,'code','Terminals',v=>String(v).trim().toUpperCase());
+ /* Каталог стекла опознаётся и по id, и по коду: id держит ссылки из
+    сохранённых Makeup, код — слияние при импорте CSV. Дубль любого из них
+    означает, что одна из двух записей окажется недостижимой. */
+ unique(src.glassProduct,'id','Glass products');
+ unique(src.glassProduct,'code','Glass products',v=>String(v).trim().toUpperCase());
+ unique(src.glassSheet,'id','Glass supply');
  unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});

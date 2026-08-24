@@ -530,7 +530,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [3, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    ]), [4, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
     /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
        за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
     eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
@@ -542,7 +542,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [3, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [4, 11, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
@@ -557,7 +557,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 18, 3, true, true]);
+    }), [true, 11, 22, 18, 4, true, true]);
     await t.c.close();
 
     t = await page();
@@ -630,7 +630,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition.length,
               next.station[0].code, next.user[0].workPosition];
-    }), [3, 11, 22, 'CUT', 'CNC1']);
+    }), [4, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();
@@ -787,7 +787,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('surface номера принадлежат конкретному Lite', await t.p.evaluate(() => [salesPaneSurfaces(0),salesPaneSurfaces(1),salesPaneSurfaces(2)]), [[1,2],[3,4],[5,6]]);
     eq('числовые legacy dimensions трактуются как inches, а width16 остаётся ticks', await t.p.evaluate(() => ({legacy:salesDimTo16(34),stored:normalizeSalesOrderLine({makeupId:'MU-X',width16:544,height16:576}).width16})), {legacy:544,stored:544});
     eq('Laminated overall thickness включает interlayer', await t.p.evaluate(() => {
-      const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-VITRO-6-CLR',innerGlassProductId:'GL-VITRO-6-CLR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
+      const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
     }), '12.762');
     eq('Makeup accordion стартует закрытым и держит только одну открытую секцию', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');soOpenSectionKey=null;render();const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length;d[0].open=true;salesAccordionToggle(d[0],d[0].dataset.muSection);d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,open:d.filter(x=>x.open).length,key:soOpenSectionKey};
@@ -867,6 +867,150 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesOrderConfigureMuntin(0);saveMuntin();const muntinId=soDraft.lines[0].muntinRef.id,backFromMuntin=tab==='sales'&&!!muntinId;
       return {backFromShape,backFromMuntin,shapeIdMatch:DB.muntinDef.find(m=>m.id===muntinId).shapeId===shapeId};
     }), {backFromShape:true,backFromMuntin:true,shapeIdMatch:true});
+    await t.c.close();
+  }
+
+  /* --- 5e. Каталог стекла и точки поставки (порция 5·3) -------------
+     511 позиций каталога лежали в templates/GLASS_PRODUCTS.csv и в систему не
+     попадали: схема кода их не держала. Здесь проверяется, что каталог заехал
+     целиком, что закалка стала гейтом, а поставка — отдельной таблицей. */
+  {
+    console.log('Каталог стекла / поставки');
+    let t = await page();
+    eq('каталог заехал целиком и без дублей', await t.p.evaluate(() => [
+      DB.glassProduct.length,
+      new Set(DB.glassProduct.map(p => p.id)).size,
+      new Set(DB.glassProduct.map(p => p.code.toUpperCase())).size,
+      DB.glassSheet.length
+    ]), [511, 511, 511, 0]);
+
+    /* Два жёстких гейта. Q/VT обязано пройти печь, E без VT в печь пускать
+       нельзя — на складе это два РАЗНЫХ товара, а не два написания одного. */
+    eq('закалка стала гейтом, а не справкой', await t.p.evaluate(() => {
+      const e = glassProductByCode('6SBN60'), vt = glassProductByCode('6SBN60VT');
+      return [e.temperMode, glassBannedFromFurnace(e), vt.temperMode, glassNeedsFurnace(vt),
+              e.id === vt.id, DB.glassProduct.filter(p => p.temperMode === 'annealed_only').length];
+    }), ['annealed_only', true, 'temper_required', true, false, 10]);
+
+    eq('колонки каталога доехали до записи', await t.p.evaluate(() => {
+      const g = glassProductByCode('3COMFORTSELECT73');
+      return [g.substrate, g.coatingFamily, g.deposition, g.exposureRule, g.allowedSurfaces,
+              g.temperMode, g.optics.tvis, g.optics.coatedSide, g.origin.igdbSource,
+              g.stockingUnit, g.salesUnit];
+    }), ['clear', 'lowe', 'sputtered', 'cavity_only', [2, 3], 'temperable', 0.815568, 1, 'IGDB v89.0', 'sqft', 'sqft']);
+
+    /* Позиция без галочки склада из выбора НЕ выпадает: её берут по предзаказу.
+       Выпадает только снятая с производства. */
+    eq('нет на складе — не значит нельзя выбрать', await t.p.evaluate(() => {
+      const g = glassProductByCode('3COMFORTSELECT73');
+      const before = activeGlassProducts().length;
+      const lam = glassProductByCode('6LAM015');
+      DB.glassProduct.find(p => p.code === '6LAM015').active = false;
+      return [glassIsPreorder(g), activeGlassProducts().some(p => p.id === g.id),
+              lam.stocked, before - activeGlassProducts().length];
+    }), [true, true, true, 1]);
+    await t.c.close();
+
+    /* Единица — три разных вопроса (закупка, хранение, продажа) плюс
+       калькуляция: площадь, длина или штуки. */
+    t = await page();
+    eq('единицы знают, как из детали получается количество', await t.p.evaluate(() => [
+      mdUnitCalc('sqft'), mdUnitCalc('inch'), mdUnitCalc('sheet'),
+      mdUnitCode('ft2'), mdUnitCode('SQ FT'), mdUnitCode('щепотка', '')
+    ]), ['area', 'linear', 'flat', 'sqft', 'sqft', '']);
+
+    eq('прежняя схема продукта читается, а не теряется', await t.p.evaluate(() => [
+      normalizeGlassProduct({ id: 'X', name: 'n', family: 'lowe' }).coatingFamily,
+      normalizeGlassProduct({ id: 'X', name: 'n', availability: 'inactive' }).active
+    ]), ['lowe', false]);
+
+    /* Слияние ПО КОДУ: чужой файл обновляет свои строки и добавляет новые,
+       а остальной каталог остаётся на месте и перечисляется в отчёте. */
+    eq('импорт каталога сливает по коду и не теряет оптику', await t.p.evaluate(() => {
+      const csv = 'manufacturer,code,name,substrate,coating_family,thickness_mm,temper_mode,exposure_rule,stocked\n' +
+        'Vitro,6CLEAR,Clear 6mm цеховое имя,clear,uncoated,6,,any,YES\n' +
+        'Trulite,6TRU-CLR,Trulite Clear 6mm,clear,uncoated,6,TEMPERED,any,YES\n';
+      const rep = importGlassProductsCsv(csv), g = glassProductByCode('6CLEAR');
+      return [rep.accepted, rep.added, rep.updated, rep.rejected.length, rep.missing.length,
+              DB.glassProduct.length, g.id, g.name, g.origin.igdbSource.slice(0, 4),
+              glassNeedsFurnace(glassProductByCode('6TRU-CLR'))];
+    }), [2, 1, 1, 0, 510, 512, 'GL-6CLEAR', 'Clear 6mm цеховое имя', 'IGDB', true]);
+    await t.c.close();
+
+    /* Отчёт объясняет каждую отклонённую строку номером и причиной: строка,
+       которую отклонили без причины, возвращается пользователю загадкой. */
+    t = await page();
+    eq('каждая отклонённая строка объяснена', await t.p.evaluate(() => {
+      const csv = 'manufacturer,code,name,substrate,coating_family,thickness_mm,temper_mode,allowed_surfaces\n' +
+        'Vitro,,Без кода,clear,uncoated,6,,\n' +
+        'Vitro,6BAD!,Плохой код,clear,uncoated,6,,\n' +
+        'Vitro,6THICK,Толстое,clear,uncoated,25,,\n' +
+        'Vitro,6SUB,Подложка,стекло,uncoated,6,,\n' +
+        'Vitro,6TEMP,Закалка,clear,uncoated,6,МОЖЕТ БЫТЬ,\n' +
+        'Vitro,6SURF,Поверхности,clear,uncoated,6,,9\n' +
+        'Vitro,6GOOD,Хорошая строка,clear,uncoated,6,,\n';
+      const rep = importGlassProductsCsv(csv);
+      return [rep.accepted, rep.rejected.length,
+              rep.rejected.filter(r => !r.line || !r.why).length,
+              rep.rejected.map(r => r.why.split(':')[0])];
+    }), [1, 6, 0, ['пустой код', 'код', 'толщина вне диапазона 3–19 мм', 'substrate', 'temper_mode', 'allowed_surfaces']]);
+    await t.c.close();
+
+    /* Продукт и поставка — разные таблицы: валюта принадлежит ТОЧКЕ ПОСТАВКИ.
+       Один и тот же 6CLEAR из Vitro Barrie идёт в CAD, из Vitro USA — в USD. */
+    t = await page();
+    const SHEETS = 'code,thickness_mm,supplier,currency,sheet_w_in,sheet_h_in,purchase_unit,purchase_price,price_date,freight_pct,lead_time_days,availability\n' +
+      '6CLEAR,6,Vitro Barrie,CAD,130,96,sqft,1.00,2026-08-22,0,10,stock\n' +
+      '6CLEAR,6,Vitro USA,USD,144,96,sqft,1.00,2026-08-22,0,15,order\n';
+    eq('одна позиция — две точки поставки со своими валютами', await t.p.evaluate(csv => {
+      const rep = importGlassSheetsCsv(csv), rows = glassSheetsFor('6CLEAR');
+      return [rep.accepted, rep.added, rep.rejected.length, rows.length,
+              rows.map(s => s.supplier + ' ' + s.currency).sort(),
+              [rows[0].sheetWIn, rows[0].sheetHIn, rows[0].purchaseUnit, rows[0].purchasePrice],
+              glassLeadTimeDays('6CLEAR'), glassProductByCode('6CLEAR').availability === undefined];
+    }, SHEETS), [2, 2, 0, 2, ['Vitro Barrie CAD', 'Vitro USA USD'], [130, 96, 'sqft', 1], 10, true]);
+
+    eq('повторная загрузка обновляет, а другой размер листа заводит свою строку', await t.p.evaluate(csv => {
+      const again = importGlassSheetsCsv(csv);
+      const other = importGlassSheetsCsv('code,supplier,currency,sheet_w_in,sheet_h_in,purchase_unit,purchase_price,lead_time_days,availability\n' +
+        '6CLEAR,Vitro Barrie,CAD,96,48,sqft,1.20,10,stock\n');
+      return [again.added, again.updated, other.added, glassSheetsFor('6CLEAR').length];
+    }, SHEETS), [0, 2, 1, 3]);
+
+    /* Цена, привязанная к продукту, которого нет, тихо ляжет в себестоимость —
+       поэтому строка на неизвестный код отклоняется. А вот переименование кода
+       пользователем цену НЕ уносит: строка остаётся видимой сиротой. */
+    eq('цена без продукта не заводится, а переименование её не съедает', await t.p.evaluate(() => {
+      const bad = importGlassSheetsCsv('code,thickness_mm,supplier,currency,purchase_unit,purchase_price,price_date,lead_time_days,availability\n' +
+        '6НЕТУ,6,Vitro Barrie,CAD,sqft,1.00,2026-08-22,10,stock\n' +
+        '6CLEAR,8,Vitro Barrie,CAD,sqft,1.00,2026-08-22,10,stock\n' +
+        '6CLEAR,6,Vitro Barrie,CADD,sqft,1.00,2026-08-22,10,stock\n' +
+        '6CLEAR,6,Vitro Barrie,CAD,щепотка,1.00,2026-08-22,10,stock\n' +
+        '6CLEAR,6,Vitro Barrie,CAD,sqft,1.00,22.08.2026,10,stock\n');
+      const before = DB.glassSheet.length;
+      DB.glassProduct.find(p => p.code === '6CLEAR').code = '6CL-ЦЕХ';
+      normalizeMasterData();
+      return [bad.accepted, bad.rejected.length, bad.rejected[0].why.indexOf('нет в каталоге') > 0,
+              DB.glassSheet.length === before, glassOrphanSheets().length];
+    }), [0, 5, true, true, 3]);
+    await t.c.close();
+
+    /* Конфигуратор — то место, где 511 позиций видно пользователю. */
+    t = await page();
+    eq('конфигуратор выбирает из настоящего каталога', await t.p.evaluate(() => {
+      const pane = normalizeSalesPane({ category: 'vision', manufacturer: 'Vitro', thicknessMm: 6, visionType: 'lowe' }, 0);
+      const rows = salesGlassCandidates(pane), th = salesThicknessesFor({ manufacturer: 'Vitro' });
+      return [salesManufacturers(), rows.length > 0,
+              rows.filter(g => g.coatingFamily !== 'lowe' || g.thicknessMm !== 6 || g.manufacturer !== 'Vitro').length,
+              Math.min(...th), Math.max(...th)];
+    }), [['Cardinal', 'Pilkington', 'Vitro', 'Woodbridge'], true, 0, 3, 19]);
+
+    eq('дубль позиции каталога виден при импорте JSON, а не после него', await t.p.evaluate(() => {
+      const dump = JSON.parse(JSON.stringify(DB));
+      dump.glassProduct.push(JSON.parse(JSON.stringify(dump.glassProduct[0])));
+      try { prepareImportedState(dump); return 'принято'; }
+      catch (e) { return [e.message.indexOf('Glass products') === 0, /[А-Яа-яЁё]/.test(e.message)]; }
+    }), [true, false]);
     await t.c.close();
   }
 
