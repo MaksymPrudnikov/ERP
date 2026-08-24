@@ -371,6 +371,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('DXF source fail-closed для Cutting Geometry, но даёт габариты и billable area', dxfSource.external, {valid:false,external:true,sourceValid:true,cutting:false,fingerprint:true,width16:391,height16:1295,billable:13.7355});
     eq('Muntin не использует внешний DXF как рассчитанную ERP-геометрию', dxfSource.muntin, {valid:false,code:'MUNTIN_SHAPE_INVALID'});
     eq('битый DXF source отклоняется', dxfSource.bad, {sourceValid:false});
+
+    const manufacturing = await p.evaluate(() => {
+      const base=newShapeDef('rectangle');base.id='mi-base';base.w='20';base.h='40';
+      const d=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+      d.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'mh',type:'hole',x:3.0625,y:12.125,diameter:'3/4',hRef:'left',vRef:'bottom'}),
+        shapeNormalizeManufacturingItem({id:'mc',type:'clamp',edge:'right',distance:6.125}),
+        shapeNormalizeManufacturingItem({id:'mg',type:'hinge',edge:'bottom',distance:7.5})
+      ];
+      const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r);
+      const req=(r.requirements||[]).filter(q=>q.source==='MANUFACTURING');
+      const machineReq=(payload&&payload.requirements||[]).filter(q=>q.source==='MANUFACTURING');
+      const dxf=normalizeShapeDef(newShapeDef('rectangle'));dxf.id='mi-dxf';dxf.source={kind:'dxf',fileName:'mi.dxf',fileSize:1200,uploadedAt:'2026-08-24T15:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[20,0],[20,40],[0,40]],width16:320,height16:640}};dxf.manufacturingItems=[shapeNormalizeManufacturingItem({id:'dc',type:'clamp',edge:'left',distance:4})];
+      const dr=ShapeModule.compute(dxf);
+      return {
+        valid:r.valid,
+        count:r.definition.manufacturingItems.length,
+        hole:[r.definition.manufacturingItems[0].x,r.definition.manufacturingItems[0].y,r.definition.manufacturingItems[0].diameter],
+        edge:[r.definition.manufacturingItems[1].edge,r.definition.manufacturingItems[1].distance],
+        req:req.map(q=>q.stationClass+':'+q.operation).sort(),
+        cutting:[r.cutting.holes.length,r.cutting.hardware.length],
+        machineReq:machineReq.length,
+        fingerprintChanged:shapeFingerprint(d)!==shapeFingerprint(base),
+        external:{sourceValid:dr.sourceValid,requirements:(dr.requirements||[]).filter(q=>q.source==='MANUFACTURING').map(q=>q.operation)}
+      };
+    });
+    eq('Manufacturing items сохраняются в ревизии и дают требования цеху', {valid:manufacturing.valid,count:manufacturing.count,hole:manufacturing.hole,edge:manufacturing.edge,req:manufacturing.req}, {valid:true,count:3,hole:[3.0625,12.125,'3/4'],edge:['right',6.125],req:['DRILLING:Drill Hole','SERVICE:Clamp','SERVICE:Hinge']});
+    eq('Manufacturing items не попадают в Cutting Geometry / machine payload', {cutting:manufacturing.cutting,machineReq:manufacturing.machineReq}, {cutting:[0,0],machineReq:0});
+    eq('Manufacturing items меняют fingerprint ревизии, DXF сохраняет requirements отдельно', {fingerprint:manufacturing.fingerprintChanged,external:manufacturing.external}, {fingerprint:true,external:{sourceValid:true,requirements:['Clamp']}});
     await c.close();
   }
 
@@ -765,6 +794,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const line=normalizeSalesOrderLine({width16:800,height16:600,mark:'A'}),ok=salesSyncLineFromShape(line,d);
       return {ok:ok,width16:line.width16,height16:line.height16,id:line.shapeRef.id,revision:line.shapeRef.revision,hasFingerprint:/^shp-[0-9a-f]{8}$/.test(line.shapeRef.fingerprint)};
     }), {ok:true,width16:391,height16:1295,id:'sales-dxf',revision:3,hasFingerprint:true});
+    eq('Services обычного Shape считаются по толщине Makeup', await dxfSales.p.evaluate(() => {
+      salesBridge={kind:'shape',lineId:'qa'};sDraft=newShapeDef('rectangle');sDraft.w='20';sDraft.h='40';sDraft.thickness='10';sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'c',type:'clamp',edge:'left',distance:4}),
+        shapeNormalizeManufacturingItem({id:'g',type:'hinge',edge:'right',distance:5}),
+        shapeNormalizeManufacturingItem({id:'h',type:'hole',x:3,y:8,diameter:'3/4',hRef:'left',vRef:'bottom'})
+      ];
+      const svc=shapeDerivedServices(),out={total:svc.total,rows:svc.rows.map(r=>[r.label,r.qty,r.unit,r.total])};salesBridge=null;sDraft=null;return out;
+    }), {total:29,rows:[['Clamp',1,8,8],['Hinge',1,15,15],['Hole 1/2″–1″',1,6,6]]});
     await dxfSales.c.close();
   }
 
@@ -1381,8 +1418,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         return [...out];
       }
       tab='configurators';subtab='shape';openShapeNew('smart');
-      sDraft.smart.corners.tl='single';const S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;sEdgeworkOpen=true;sFeaturesOpen=true;render();
-      const left=cyrillicUi();sEdit=null;sDraft=null;sEdgeworkOpen=false;sFeaturesOpen=false;render();return left;
+      sDraft.smart.corners.tl='single';const S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;sEdgeworkOpen=true;sFeaturesOpen=true;sManufacturingOpen=true;
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hole',type:'hole',x:.5,y:.5,diameter:'3/4',hRef:'left',vRef:'bottom'}),shapeNormalizeManufacturingItem({id:'qa-clamp',type:'clamp',edge:'right',distance:.5}),shapeNormalizeManufacturingItem({id:'qa-hinge',type:'hinge',edge:'bottom',distance:.5})];sManufacturingSelected='qa-hole';render();
+      const left=cyrillicUi();sEdit=null;sDraft=null;sEdgeworkOpen=false;sFeaturesOpen=false;sManufacturingOpen=true;sManufacturingSelected=null;render();return left;
     }), []);
     eq('Production Shape DXF editor EN без русского остатка', await t.p.evaluate(() => {
       function cyrillicUi(){
@@ -1393,7 +1431,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }
       tab='configurators';subtab='shape';openShapeNew('rect');
       sDraft.source={kind:'dxf',fileName:'Пользовательский файл.dxf',fileSize:2048,uploadedAt:'2026-08-24T12:00:00.000Z',note:'Примечание владельца',preview:{units:'in',points:[[0,0],[12,0],[12,24],[0,24]],width16:192,height16:384}};
-      sDraft.w='12';sDraft.h='24';render();const left=cyrillicUi();sEdit=null;sDraft=null;render();return left;
+      sDraft.w='12';sDraft.h='24';sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'dx-hole',type:'hole',x:3,y:5,diameter:'1/2',hRef:'left',vRef:'bottom'}),shapeNormalizeManufacturingItem({id:'dx-hinge',type:'hinge',edge:'top',distance:4})];sManufacturingOpen=true;sManufacturingSelected='dx-hinge';sSourceOpen=true;render();const left=cyrillicUi();sEdit=null;sDraft=null;sManufacturingSelected=null;sSourceOpen=false;render();return left;
     }), []);
     eq('Customers EN переводит placeholder поиска', await t.p.evaluate(() => {
       tab='customers';subtab=null;render();const el=document.getElementById('customerSearch');return el&&el.getAttribute('placeholder');
