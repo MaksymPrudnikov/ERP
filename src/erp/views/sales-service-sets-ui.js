@@ -34,7 +34,7 @@ function salesServiceFiltersHtml(){
 }
 
 const __salesServiceToggleLine=salesToggleLine;
-salesToggleLine=function(id,on){__salesServiceToggleLine(id,on);soServiceBulkPreview=null;};
+salesToggleLine=function(id,on){__salesServiceToggleLine(id,on);soServiceBulkPreview=null;render();};
 salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});soServiceBulkPreview=null;render();};
 salesRefreshBulkBar=function(){var el=document.getElementById('salesBulkCount');if(el)el.textContent=salesServiceVisibleSelected().length+' selected';};
 salesAssignSelected=function(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;salesServiceVisibleSelected().forEach(function(l){l.makeupId=makeupId;});soServiceBulkPreview=null;render();};

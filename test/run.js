@@ -776,6 +776,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), true);
     await t.c.close();
 
+    const serviceSetUi = await page();
+    const serviceSetIds = await serviceSetUi.p.evaluate(() => {
+      tab='sales';subtab=null;render();salesOrderNew();salesOrderAddLine();
+      const line=soDraft.lines[0],set=salesNormalizeServiceSet({
+        id:'SVC-QA',code:'S1',name:'QA Edgework',mode:'sides',
+        sides:{A:[{type:'Rough Arris'}],B:[],C:[],D:[],other:[]}
+      });
+      soDraft.serviceSets=[set];render();
+      return {lineId:line.id,setId:set.id};
+    });
+    eq('до выбора строки bulk-панель скрыта', await serviceSetUi.p.locator('.ss-bulk').count(), 0);
+    await serviceSetUi.p.locator('.sales-lines-table tbody .line-check input').check();
+    eq('выбор отдельной Sales-строки показывает Bulk Set', await serviceSetUi.p.locator('.ss-bulk').count(), 1);
+    await serviceSetUi.p.locator('.ss-bulk select').nth(1).selectOption(serviceSetIds.setId);
+    await serviceSetUi.p.getByRole('button',{name:'Preview',exact:true}).click();
+    eq('Preview готовит применение Edgework Set', await serviceSetUi.p.locator('.ss-preview').count(), 1);
+    await serviceSetUi.p.getByRole('button',{name:'Apply',exact:true}).click();
+    eq('Apply назначает Edgework Set строке', await serviceSetUi.p.evaluate(({lineId,setId}) => {
+      const line=soDraft.lines.find(l=>l.id===lineId);
+      return !!line&&line.serviceSetId===setId&&document.querySelector('.ss-badge').textContent==='S1';
+    }, serviceSetIds), true);
+    await serviceSetUi.c.close();
+
     const dxfUi = await page();
     eq('выбор DXF сохраняет только производный contour preview и размеры', await dxfUi.p.evaluate(async () => {
       tab='configurators';subtab='shape';render();openShapeNew('rectangle');
