@@ -9,6 +9,12 @@
 .shape-prod-source-line{display:flex;align-items:center;gap:8px;margin:-3px 0 12px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fbfcfd;font-size:10px}.shape-prod-source-line>b{min-width:0;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px ui-monospace,monospace}.shape-prod-source-line>span{color:var(--mut)}.shape-prod-source-line>.sp{flex:1}.shape-prod-source-line .shape-file-pick{margin:0}
 .shape-prod-external-note{margin:0 0 11px;padding:8px 10px;border:1px solid #c7dfeb;border-radius:8px;background:#f2f9fc;color:#315f78;font-size:10.5px}
 
+
+.shape-saved-details{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.shape-saved-details>summary{display:flex;align-items:center;gap:7px;padding:9px 11px;cursor:pointer;font-size:10px;font-weight:700;color:#425662;list-style:none}
+.shape-saved-details>summary::-webkit-details-marker{display:none}.shape-saved-details>summary:after{content:'+';margin-left:auto;color:var(--mut);font-size:14px;font-weight:400}.shape-saved-details[open]>summary:after{content:'−'}
+.shape-saved-table{border-top:1px solid var(--line);overflow:auto}.shape-saved-table table{margin:0}
+
 /* ---------- Shape Edge processing ---------- */
 .shape-prod-edge .shape-accordion-body{padding-top:9px}.shape-prod-thickness{display:flex;align-items:end;gap:10px;margin-bottom:9px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:#fbfcfd}.shape-prod-thickness label{width:170px;margin:0}.shape-prod-thickness select{margin-top:3px;padding:6px}.shape-prod-thickness small{color:var(--mut);font-size:9px;line-height:1.35;padding-bottom:4px}
 .shape-prod-ar{margin-bottom:8px;padding:8px 9px;border:1px solid #eadcc6;border-radius:8px;background:#fffaf4}.shape-prod-ar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.shape-prod-ar-head b{font-size:9.5px;color:#6b4d2c}.shape-prod-ar-head span{font-size:8.5px;color:#7d6a54}.shape-prod-ar-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.shape-prod-ar-actions button{padding:5px 6px;font-size:9px;background:#fff}.shape-prod-ar-actions button.on{background:var(--blue2);border-color:#9ac9df;color:#265e7a;font-weight:700}
