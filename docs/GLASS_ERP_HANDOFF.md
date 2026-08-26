@@ -1,6 +1,6 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 2.5 · 25 августа 2026 — Production Shape получил внешний DXF из Fusion 360, Manufacturing items и продажные начисления; Sales Order получил line-level и bulk pricing с фиксированными ставками заказа. Геометрию и calculated basis вручную менять запрещено. (Версия 2.4 — разобрано ценообразование СВЕРХУ ВНИЗ (head price) и права на деньги: раздел 9о.)
+Версия 2.6 · 26 августа 2026 — Production Shape получил явный производственный DXF-контракт и edge allowances; Sales Order получил order-scoped Edgework Sets, line overrides и единый Effective Production snapshot для цены и раскроя. Исправлено реальное Preview → Apply для выбранной строки и добавлена визуальная схема сторон A/B/C/D. (Версия 2.5 — внешний DXF, Manufacturing items и pricing overrides 24–25 августа.)
 
 **Код:** https://github.com/MaksymPrudnikov/ERP · **Живая версия:** https://maksymprudnikov.github.io/ERP/
 **Инструкция для внешнего ИИ (ChatGPT и др.):** `docs/ДЛЯ_ЧАТГПТ.md` — отдавать целиком перед постановкой задачи.
@@ -10,6 +10,156 @@
 Это управляющий документ проекта. Отдавай его целиком любому LLM (ChatGPT, другой сессии Claude), чтобы продолжить работу без потери контекста. Обновляй по итогам каждой сессии.
 
 ---
+
+## Production Shape + Edgework Sets + Effective Production · 26 августа 2026
+
+### Проверенная точка репозитория
+
+- `main`, локальный `HEAD`, `origin/main` и GitHub `main` совпадают на
+  `13740c11ca0377f2eea54e8c522fc74dd737162a`.
+- Живая сборка на этой точке:
+  `https://maksymprudnikov.github.io/ERP/dist/GLASS_ERP.html?v=13740c1`.
+- На текущем source-прогоне — **205 passed, 0 failed**. Тот же набор ранее
+  прошёл на собранном `dist`.
+- Перед следующей работой всё равно выполнять `git fetch --prune origin` и
+  сравнивать `HEAD`, `origin/main` и `git ls-remote origin refs/heads/main`.
+  Не анализировать случайный старый checkout как свежую GitHub-сборку.
+- Workflow публикации сегодня не менялся: неуспешная feature-сборка не должна
+  обновлять live; Pages получает проверенный результат из `main`.
+
+### Production Shape — производственный контракт
+
+Добавлены `src/modules/shape/dxf-production.js` и
+`src/erp/views/shape-production-ui.js`. Теперь Production Shape — не просто
+геометрическое превью, а последовательность:
+
+`FINISHED geometry/DXF → Edge processing → Manufacturing Items → CUTTING geometry`
+
+Что реализовано:
+
+- отдельный workspace создания и редактирования reusable Production Shape;
+- для drawn Shape и внешнего DXF доступны edge operations: Rough Arris, Flat
+  Polish, CNC Shape Polish, Mitering и Beveling;
+- `AR · ALL AROUND` применяется ко всем физическим рёбрам; исключения можно
+  задать per edge / per DXF segment;
+- первичные finishes Rough / Flat / CNC взаимно исключаются;
+- Miter допускает только 22.5° или 45°, Bevel требует положительную ширину;
+- Cutting preview показывает orange cutting contour и gray dashed finished
+  reference, а также вычисленные Cut Width / Cut Height;
+- standalone exports строятся из того же cutting plan: Cutting SVG, Machine
+  JSON и Generic DXF;
+- изменение физического контура требует подтверждения и очищает привязанные к
+  старой топологии edge processing, Manufacturing Items и geometry modifiers;
+- Clamp/Hinge на внешнем DXF привязаны к конкретному physical `SEG` и точному
+  расстоянию от его начала; Hole обязан оставаться внутри finished contour;
+- fingerprint внешнего DXF учитывает preview topology, thickness, edgeOps и
+  Manufacturing Items.
+
+Подтверждённые allowance rules:
+
+| Operation | Allowance |
+|---|---:|
+| Rough Arris | 0″ |
+| CNC Shape Polish | 1/4″ |
+| Flat Polish / Mitering / Beveling, 3–6 mm | 1/16″ |
+| Flat Polish / Mitering / Beveling, 8–10 mm | 1/8″ |
+| Flat Polish / Mitering / Beveling, 12–15 mm | 3/16″ |
+
+Для другой толщины нулевой fallback запрещён: Cutting блокируется сообщением
+`allowance rule is not configured`. Разный allowance на двух
+tangent-continuous DXF segments также блокируется, потому что такой скачок
+нельзя безопасно превратить в однозначный физический offset.
+
+**Не путать два контракта внешнего DXF.** Старый публичный `ShapeModule.compute`
+по-прежнему не выдаёт uploaded DXF за обычную рассчитанную ERP-геометрию — это
+нужно для fail-closed поведения и Muntin. Проверенный производственный результат
+доступен явно через `productionValid`, `productionCutting` и helpers
+`ShapeModule.dxfProductionResult()` / `ShapeModule.dxfCuttingPlan()`.
+
+### Edgework Sets внутри Sales Order
+
+Edgework Set — reusable bulk recipe **внутри одного заказа**, а не глобальный
+каталог и не новая Shape revision. Поддерживаются два режима:
+
+- `Sides A/B/C/D/OTHER` — разные операции по физическим сторонам;
+- `Whole perimeter` — один рецепт для всего контура.
+
+Каноническая схема прямоугольника:
+
+| Code | Physical side | Dimension |
+|---|---|---|
+| A | Left | Height |
+| B | Bottom | Width |
+| C | Right | Height |
+| D | Top | Width |
+| OTHER | Custom / extra edge | — |
+
+Эта схема теперь показана прямо в Edgework Sets: мини-карта finished lite и
+подпись у каждой строки. Изменение залито commit `13740c1` и защищено UI-тестом.
+Не переставлять A/B/C/D без отдельной миграции сохранённых заказов.
+
+Назначение Set работает через выделение видимых строк Sales Order:
+
+1. отметить строку checkbox;
+2. выбрать Bulk Set;
+3. выбрать policy: `Keep overrides`, `Overwrite overrides` или `Only empty`;
+4. нажать `Preview`;
+5. проверить количество строк/рёбер и warnings;
+6. нажать `Apply`.
+
+Баг, из-за которого при выборе одной строки bulk controls исчезали и Set нельзя
+было применить, исправлен commit `434149c`. Regression test теперь проходит
+полный UI-путь: выбрать строку → увидеть Bulk Set → Preview → Apply → получить
+badge `S1` и реальный `line.serviceSetId`.
+
+### Единый Effective Production snapshot
+
+Для каждой строки Sales Order фактическое производство вычисляется так:
+
+`Shape + optional Edgework Set + optional Line Override + exact Makeup thickness`
+
+Правила разрешения по physical edge:
+
+1. явный Line Override имеет наивысший приоритет и может в том числе очистить
+   операции только на одной грани;
+2. непустой bucket назначенного Edgework Set заменяет Shape-owned operations;
+3. если для грани Set не задаёт operations, остаётся Shape-owned processing;
+4. без Set/override используется processing самой Shape.
+
+Критические инварианты:
+
+- billing и Cutting читают **один и тот же** effective snapshot, чтобы клиенту
+  не посчитали одну обработку, а в раскрой ушла другая;
+- allowance вычисляется по точной толщине выбранного Makeup, а не по случайной
+  standalone thickness Shape;
+- mixed/unresolved Makeup thickness при наличии processing блокирует Cutting;
+- обычная строка Width × Height без сохранённой Shape получает безопасную
+  implicit rectangle geometry;
+- внешний DXF с side-based Set требует ручного mapping физических `SEG` в
+  A/B/C/D/OTHER и сохраняет topology fingerprint;
+- mapping или Line Override от старого DXF contour считается stale и блокирует
+  machine release до review/clear;
+- line-specific machine payload имеет schema
+  `glass-erp-order-effective/v1`, units `inch` и fingerprint `eff-*`;
+- standalone Shape export и Sales-line effective export остаются разными:
+  заказный файл обязан учитывать Set, line override и Makeup thickness.
+
+### Файлы сегодняшнего слоя
+
+- `src/modules/shape/dxf-production.js` — DXF physical edges, validation,
+  allowances, production cutting и fingerprint;
+- `src/erp/views/shape-production-ui.js` — Production Shape workspace;
+- `src/erp/sales/service-sets.js` — order schema, resolution, effective cutting,
+  billing basis и line-specific machine payload;
+- `src/erp/views/sales-service-sets-ui.js` — Edgework Sets, bulk assignment,
+  Effective Production и DXF mapping UI;
+- `src/styles/service-sets.css` — новый workspace и side-reference presentation;
+- `test/run.js` — regression tests, включая реальный Preview → Apply и side map.
+
+Следующая работа по Cutting Shape и Printing Format вынесена в
+`docs/TOMORROW_CUTTING_SHAPE_PRINTING_HANDOFF.md`. Текущая печать пока остаётся
+адаптивным SVG через `printSheet()` и системный Print/PDF; отдельный договорённый
+формат бумаги, scale и производственный title block ещё не реализованы.
 
 ## Production Shape + Services + Sales pricing · 24–25 августа 2026
 
@@ -1210,28 +1360,30 @@ dist/GLASS_ERP.html           СОБРАННАЯ СИСТЕМА. Двойной 
 src/index.html                та же система, модули подключены отдельными <script src>.
                               Правишь модуль → F5. Живёт на /ERP/src/
 src/shell.html                каркас страницы (шапка, меню, контейнер)
-src/styles/                   base.css · modules.css
+src/styles/                   base.css · modules.css · service-sets.css
 
 src/core/                     dim.js (разбор дюймов) · poly.js (площадь, габарит, самопересечение)
 src/modules/shape/            consts · model · contour · presets · schema · features · validate ·
-                              geometry · cutting · annotate · drawing · index
+                              geometry · cutting · annotate · drawing · index · dxf-production
 src/modules/muntin/           catalog · model · layout · clip · adaptive · bom · drawing · index
 src/erp/                      data · icons · i18n · nav · storage
 src/erp/customers/            data.js — Customer Master
 src/erp/masterdata/           glass.js — seed каталог стекла/spacer/газа/герметиков/interlayer
 src/erp/sales/                data.js (схема SalesOrder · OrderMakeup · OrderLine) ·
                               orders.js (черновик, Excel, мосты в Shape/Muntin) ·
-                              makeup-ui.js (Makeup Builder)
+                              makeup-ui.js (Makeup Builder) · service-sets.js (Effective Production)
 src/erp/views/                dashboard · users · customers · sales · sales-shape-ui ·
-                              sales-muntin-ui · configurators · optimization · production
+                              shape-production-ui · sales-muntin-ui · configurators ·
+                              sales-service-sets-ui · optimization · production · masterdata
 
 build/manifest.json           ПОРЯДОК подключения модулей — новый файл вписывать сюда
 build/build.js                собирает dist/GLASS_ERP.html из модулей
 build/check-manifest.js       ловит файл, который добавили в src/, но не подключили
 
-test/run.js                   108 регрессионных тестов: эталонные числа геометрии v4.5,
+test/run.js                   205 регрессионных тестов: эталонные числа геометрии v4.5,
                               устойчивость оболочки к битым данным, Customers,
-                              Sales Orders / Makeups, мост Shape↔Muntin, RU/EN, mobile
+                              Sales Orders / Makeups / Edgework Sets, Effective Production,
+                              мост Shape↔Muntin, RU/EN, mobile
 
 .github/workflows/build.yml   АВТОМАТИКА: после каждой правки в src/ проверяет манифест,
                               пересобирает dist, гоняет тесты, коммитит результат.
@@ -1339,7 +1491,7 @@ docs/ДЛЯ_ЧАТГПТ.md            что можно и нельзя мен�
 
 **Про код и репозиторий**
 
-- Код живёт в `MaksymPrudnikov/ERP`, разрезан на 41 модуль. **Не присылать пользователю новый большой HTML «взамен»** — правится ОДИН модуль в `src/**`, дальше робот сам пересоберёт `dist`. Пересборка файла целиком руками — ровно то, от чего пользователь отказался.
+- Код живёт в `MaksymPrudnikov/ERP`; текущий manifest подключает 49 модулей. **Не присылать пользователю новый большой HTML «взамен»** — правится ОДИН модуль в `src/**`, дальше робот сам пересоберёт `dist`. Пересборка файла целиком руками — ровно то, от чего пользователь отказался.
 - **Перед правкой геометрии прогнать `node test/run.js`, после правки прогнать снова.** Эталонные числа там не для красоты: трапеция 48 × 36 при C = 30 обязана давать бары `33 7/64″ · 31 1/8″ · 47 1/8″`. Разошлось — сломан перенос v4.5, а не тест. На вечер 22 августа 2026 набор зелёный на прогоне «Сборка и тесты» #54 — и на `src/`, и на собранном `dist`; точное число проверок смотреть в логе прогона. **Порция 1 добавила проверки на пересев справочников и на станок, стоящий на двух этапах.**
 - **Ближайший порядок работ брать из `docs/PLAN_2026-08-26.md`; долгосрочную карту — из `docs/PLAN_2026-08-21.md`.** На 26 авг приоритет владельца: закончить Service Catalog и pricing contract, затем Hardware Library. Не менять инженерную геометрию ради коммерческой логики.
 - **Добавил файл в модуль — впиши его в `build/manifest.json` и `src/index.html`**, в одинаковом порядке. Иначе `check-manifest` остановит сборку.
