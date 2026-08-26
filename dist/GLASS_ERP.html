@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 45 модулей, 2 стиля.
+  Состав сборки: 49 модулей, 3 стиля.
 -->
 <html lang="ru">
 <head>
@@ -357,6 +357,55 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 
 /* PR3 release guards: rate provenance and incomplete pricing are explicit. */
 .line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:#b54708;white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:#f3c48b!important;background:#fff8ee!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid #f2cfae;border-radius:8px;background:#fff7ed;color:#8a4b1a;font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:#b54708;font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:#fffaf4}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:#eef4f8;color:#476579!important}.sales-rate-origin.order{background:#fff1e8;color:#9a4f18!important}.sales-rate-origin.line{background:#f4ebff;color:#6941c6!important}.sales-rate-origin.missing{background:#fff1f0;color:#b42318!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:#b54708}
+
+/* ---- src/styles/service-sets.css ---- */
+/* =====================================================================
+   Service Sets + production Shape UX
+   Новые стили используют существующие ERP tokens, без отдельной темы.
+   ===================================================================== */
+
+/* ---------- Shape workspace ---------- */
+.shape-workspace-empty{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:var(--shadow)}
+.shape-workspace-empty>div:first-child b{display:block;font-size:14px}.shape-workspace-empty>div:first-child span{display:block;margin-top:3px;color:var(--mut);font-size:11px;max-width:650px}.shape-workspace-empty .shape-new-row{margin:0;min-width:360px;justify-content:flex-end}
+.shape-prod-source-line{display:flex;align-items:center;gap:8px;margin:-3px 0 12px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fbfcfd;font-size:10px}.shape-prod-source-line>b{min-width:0;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10px ui-monospace,monospace}.shape-prod-source-line>span{color:var(--mut)}.shape-prod-source-line>.sp{flex:1}.shape-prod-source-line .shape-file-pick{margin:0}
+.shape-prod-external-note{margin:0 0 11px;padding:8px 10px;border:1px solid #c7dfeb;border-radius:8px;background:#f2f9fc;color:#315f78;font-size:10.5px}
+
+
+.shape-saved-details{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.shape-saved-details>summary{display:flex;align-items:center;gap:7px;padding:9px 11px;cursor:pointer;font-size:10px;font-weight:700;color:#425662;list-style:none}
+.shape-saved-details>summary::-webkit-details-marker{display:none}.shape-saved-details>summary:after{content:'+';margin-left:auto;color:var(--mut);font-size:14px;font-weight:400}.shape-saved-details[open]>summary:after{content:'−'}
+.shape-saved-table{border-top:1px solid var(--line);overflow:auto}.shape-saved-table table{margin:0}
+
+/* ---------- Shape Edge processing ---------- */
+.shape-prod-edge .shape-accordion-body{padding-top:9px}.shape-prod-thickness{display:flex;align-items:end;gap:10px;margin-bottom:9px;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:#fbfcfd}.shape-prod-thickness label{width:170px;margin:0}.shape-prod-thickness select{margin-top:3px;padding:6px}.shape-prod-thickness small{color:var(--mut);font-size:9px;line-height:1.35;padding-bottom:4px}
+.shape-prod-ar{margin-bottom:8px;padding:8px 9px;border:1px solid #eadcc6;border-radius:8px;background:#fffaf4}.shape-prod-ar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.shape-prod-ar-head b{font-size:9.5px;color:#6b4d2c}.shape-prod-ar-head span{font-size:8.5px;color:#7d6a54}.shape-prod-ar-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.shape-prod-ar-actions button{padding:5px 6px;font-size:9px;background:#fff}.shape-prod-ar-actions button.on{background:var(--blue2);border-color:#9ac9df;color:#265e7a;font-weight:700}
+.shape-prod-selected{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#f8fafb;font-size:9px}.shape-prod-selected>span:first-child{color:var(--mut);text-transform:uppercase;letter-spacing:.05em}.shape-prod-selected>b{font:10px ui-monospace,monospace}.shape-prod-selected>span:last-child{margin-left:auto;font:700 10px ui-monospace,monospace;color:#9a561d}
+.shape-prod-exceptions{border:1px solid var(--line);border-radius:8px;overflow:hidden}.shape-prod-exceptions>button{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;border-radius:0;padding:7px 9px;background:#fbfcfd;text-align:left;font-size:9.5px}.shape-prod-exceptions>button i{font-style:normal;font-size:13px;color:var(--mut)}
+.shape-prod-seg-head,.shape-prod-seg-row{display:grid;grid-template-columns:120px minmax(360px,1fr) 155px;align-items:start}.shape-prod-seg-head{padding:5px 8px;background:#f1f5f7;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em}.shape-prod-seg-row{border-top:1px solid var(--line2);padding:7px 8px;cursor:pointer;background:#fff}.shape-prod-seg-row:hover,.shape-prod-seg-row.on{background:#fbfdfe}.shape-prod-seg-row>div:first-child b{display:block;font:10px ui-monospace,monospace;color:#315f78}.shape-prod-seg-row>div:first-child small{display:block;margin-top:2px;color:var(--mut);font:8px ui-monospace,monospace}
+.shape-prod-opset{display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap}.shape-prod-opset>label{display:inline-flex;align-items:center;margin:0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:#596873;font-size:8.5px;cursor:pointer}.shape-prod-opset>label input{display:none}.shape-prod-opset>label.on{background:var(--blue2);border-color:#a7cee1;color:#285f7c;font-weight:700}.shape-prod-op-params{flex-basis:100%;display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:5px;margin-top:3px;padding:6px;border:1px solid var(--line2);border-radius:7px;background:#fafcfd}.shape-prod-op-params label{margin:0;font-size:8px}.shape-prod-op-params input,.shape-prod-op-params select{margin-top:2px;padding:5px;font-size:9px}
+.shape-prod-allow{text-align:right}.shape-prod-allow b{display:block;font:700 10px ui-monospace,monospace;color:#955117}.shape-prod-allow small{display:block;margin-top:2px;color:var(--mut);font-size:8px}.shape-prod-allow.bad b{color:var(--red)}
+
+/* ---------- Shape DXF drawing ---------- */
+.shape-prod-dxf-card,.shape-prod-machine-card{width:100%}.shape-prod-dxf-svg{max-height:560px;min-height:360px}.shape-prod-edge-line{stroke:#607583;stroke-width:2}.shape-prod-edge-line.processed{stroke:#cf7138;stroke-width:2.5}.shape-prod-edge-line.selected{stroke:#c75216;stroke-width:3}.shape-prod-edge-hit{stroke:transparent;stroke-width:14;cursor:pointer}.shape-prod-edge-label{fill:#315f78;font:700 10px ui-monospace,monospace;paint-order:stroke;stroke:#fff;stroke-width:3px}.shape-prod-place-note{margin-bottom:6px;padding:6px 8px;border:1px solid #c6ddeb;border-radius:7px;background:#f1f8fc;color:#315f78;font-size:9.5px}.shape-prod-dxf-help{display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fbfcfd;font-size:9px}.shape-prod-dxf-help span{color:var(--mut)}
+.shape-prod-machine-card{padding:10px;border:1px solid var(--line);border-radius:9px;background:#fff}.shape-prod-machine-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.shape-prod-machine-head b{font-size:10px;color:#9a531c}.shape-prod-machine-head span{font-size:8.5px;color:var(--mut)}.shape-prod-machine-card svg{width:100%;max-height:520px;background:#fff}.shape-prod-finished-ref{fill:none;stroke:#85939b;stroke-width:1.5;stroke-dasharray:7 5}.shape-prod-cutting-main{fill:#fff5ed;stroke:#f2762e;stroke-width:3}.shape-prod-machine-kpi{display:flex;justify-content:center;gap:22px;margin-top:5px;font-size:9px;color:var(--mut)}.shape-prod-machine-kpi b{font:700 10px ui-monospace,monospace;color:#7a461f}.shape-prod-cut-block{display:flex;flex-direction:column;gap:5px;min-height:180px;align-items:center;justify-content:center;border:1px dashed #e1bcbc;border-radius:9px;background:#fff5f5;color:#913e3e}.shape-prod-cut-block span{max-width:620px;text-align:center;font-size:10px}
+
+/* ---------- Sales Set table ---------- */
+.sales-lines-with-services .ss-cell{white-space:nowrap}.ss-order-btn{padding:5px 8px;font-size:10px}.ss-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:3px 7px;border:1px solid #b9d8e8;border-radius:999px;background:var(--blue2);color:#285f7d;font:700 10px ui-monospace,monospace}.ss-badge.override{box-shadow:inset 0 0 0 1px #d6965d}.ss-status{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;border:1px solid var(--line);font-size:9px;white-space:nowrap}.ss-status.ok{background:var(--green2);border-color:#b9dfca;color:#236b4b}.ss-status.warn{background:var(--amber2);border-color:#efd9a6;color:#8a5b16}.ss-status.bad{background:var(--red2);border-color:#efc5c5;color:#934242}.ss-status.info{background:var(--blue2);border-color:#bddbea;color:#2b6685}
+.ss-filters{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}.ss-filter{padding:4px 7px;border-radius:999px;font-size:9px;color:#60717b}.ss-filter.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d;font-weight:700}.ss-filter span{font:700 9px ui-monospace,monospace}
+.ss-bulk{display:flex;align-items:end;gap:7px;flex-wrap:wrap;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfd}.ss-bulk label{min-width:150px;margin:0;font-size:9px}.ss-bulk select{margin-top:3px;padding:6px;font-size:10px}.ss-bulk button{padding:6px 9px;font-size:10px}.ss-preview{margin-top:7px;padding:8px 9px;border:1px solid #c7dfeb;border-radius:8px;background:#f3f9fc;font-size:9.5px}.ss-preview-actions{display:flex;gap:6px;margin-top:6px}
+
+/* ---------- Modals ---------- */
+.sales-service-modal-back{position:fixed;inset:0;z-index:70;display:flex;align-items:flex-start;justify-content:center;padding:28px;background:rgba(13,31,41,.43);overflow:auto}.sales-service-modal{width:min(1180px,96vw);max-height:calc(100vh - 56px);overflow:auto;background:#fff;border:1px solid #cad8e0;border-radius:14px;box-shadow:0 24px 70px rgba(15,32,42,.2)}.sales-service-modal.line-modal{width:min(1320px,97vw)}.sales-service-modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.97);backdrop-filter:blur(7px)}.sales-service-modal-head>div:first-child{flex:1}.sales-service-modal-head span{font-size:8.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--mut)}.sales-service-modal-head h3{margin:1px 0 0;font-size:15px}.sales-service-modal-head small{display:block;margin-top:2px;color:var(--mut);font-size:9px}.sales-service-modal-head>button{padding:3px 8px;font-size:18px;line-height:1}
+
+/* ---------- Service Set editor ---------- */
+.ss-set-modal{padding-bottom:12px}.ss-set-workspace{display:grid;grid-template-columns:235px minmax(0,1fr);min-height:460px}.ss-set-list{padding:10px;border-right:1px solid var(--line);background:#f8fafb}.ss-set-list-item{width:100%;display:flex;align-items:center;gap:7px;margin-bottom:5px;padding:7px 8px;text-align:left;background:#fff}.ss-set-list-item.on{border-color:#8ebdd5;background:var(--blue2)}.ss-set-list-item b{font:700 10px ui-monospace,monospace}.ss-set-list-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;color:var(--mut)}.ss-set-editor{padding:12px 14px}.ss-set-fields{display:grid;grid-template-columns:120px minmax(170px,1fr) 150px;gap:8px;margin-bottom:9px}.ss-set-fields label{font-size:9px}.ss-set-fields input,.ss-set-fields select{padding:6px;font-size:10px}.ss-set-matrix{border:1px solid var(--line);border-radius:9px;overflow:hidden}.ss-set-row{display:grid;grid-template-columns:90px minmax(0,1fr) 145px;align-items:start;padding:7px 8px;border-bottom:1px solid var(--line2)}.ss-set-row:last-child{border-bottom:0}.ss-set-row.head{background:#f5f8fa;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.05em}.ss-set-row>div:first-child b{font:700 10px ui-monospace,monospace}.ss-op{display:inline-flex;align-items:center;margin:0 4px 4px 0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:8.5px;cursor:pointer}.ss-op input{display:none}.ss-op.on{background:var(--blue2);border-color:#a5cde0;color:#285e79;font-weight:700}.ss-edge-params,.ss-param-row{display:grid;grid-template-columns:repeat(2,minmax(100px,1fr));gap:5px;margin-top:4px}.ss-edge-params label,.ss-param-row label{font-size:8px}.ss-edge-params input,.ss-edge-params select,.ss-param-row input,.ss-param-row select{padding:5px;font-size:9px}.ss-set-result{font-size:8.5px;color:var(--mut)}.ss-set-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
+
+/* ---------- Effective Production ---------- */
+.ss-line-warning{margin:9px 12px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:9.5px}.ss-line-warning.warn{background:var(--amber2);border-color:#efd9a6;color:#805816}.ss-line-warning.bad{background:var(--red2);border-color:#efc5c5;color:#913e3e}.ss-effective-workspace{display:grid;grid-template-columns:minmax(560px,1.5fr) minmax(300px,.5fr);gap:10px;padding:10px 12px}.ss-effective-visual{border:1px solid var(--line);border-radius:9px;padding:8px;background:#fbfcfd}.ss-effective-svg{width:100%;max-height:550px;background:#fff;border:1px solid var(--line2);border-radius:8px}.ss-effective-legend{display:flex;gap:12px;margin-top:5px;color:var(--mut);font-size:8.5px}.ss-effective-edges{display:flex;flex-direction:column;gap:5px}.ss-effective-edge{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}.ss-effective-edge.on{border-color:#9ac7dd;box-shadow:0 0 0 1px #d8ecf5}.ss-effective-edge-head{display:grid;grid-template-columns:78px 1fr auto;gap:7px;align-items:center;padding:6px 7px;cursor:pointer}.ss-effective-edge-head>b{font:700 10px ui-monospace,monospace}.ss-effective-edge-head>span{font-size:8.5px;color:var(--mut)}.ss-source{font-size:8px;color:#6d7d86}.ss-effective-opset{display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 7px}.ss-effective-opset label{display:inline-flex;margin:0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:8px;cursor:pointer}.ss-effective-opset label input{display:none}.ss-effective-opset label.on{background:var(--blue2);border-color:#a6cfe2;color:#285f7c;font-weight:700}.ss-edge-params{padding:0 7px 7px}.ss-line-actions{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px}
+.ss-dxf-map{margin:0 12px 10px;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ss-map-state{display:flex;align-items:center;gap:7px;padding:7px 8px;background:#fbfcfd;border-bottom:1px solid var(--line);font-size:8.5px}.ss-map-state .sp{flex:1}.ss-dxf-map-head,.ss-dxf-map-row{display:grid;grid-template-columns:130px minmax(220px,1fr) 110px;align-items:center}.ss-dxf-map-head{padding:5px 8px;background:#f2f5f7;color:var(--mut);font-size:8px;text-transform:uppercase}.ss-dxf-map-row{padding:6px 8px;border-top:1px solid var(--line2)}.ss-dxf-map-row select{padding:5px;font-size:9px}.ss-machine{margin:0 12px 10px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fbfdfe}.ss-machine.ok{border-color:#b9dfca;background:#f4fbf6}.ss-machine.blocked{border-color:#efc5c5;background:#fff7f7}.ss-machine>div:first-child{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.ss-machine b{font-size:9.5px}.ss-machine small{display:block;color:var(--mut);font-size:8px}.ss-machine code{display:block;margin:5px 0;font-size:8px;color:#687982}.ss-machine>div:last-child{display:flex;gap:6px}.ss-cut-block{margin:0 12px 10px;padding:9px 10px;border:1px solid #efc5c5;border-radius:9px;background:#fff7f7;color:#913e3e;font-size:9.5px}
+
+@media(max-width:1100px){.ss-effective-workspace{grid-template-columns:1fr}.ss-set-workspace{grid-template-columns:1fr}.ss-set-list{border-right:0;border-bottom:1px solid var(--line)}.shape-prod-seg-head,.shape-prod-seg-row{grid-template-columns:90px 1fr 125px}}
+@media(max-width:760px){.shape-workspace-empty{align-items:stretch;flex-direction:column}.shape-workspace-empty .shape-new-row{min-width:0;justify-content:flex-start}.shape-prod-ar-actions{grid-template-columns:1fr 1fr}.shape-prod-seg-head{display:none}.shape-prod-seg-row{grid-template-columns:1fr}.shape-prod-allow{text-align:left;margin-top:5px}.sales-service-modal-back{padding:10px}.ss-set-fields{grid-template-columns:1fr}.ss-set-row{grid-template-columns:1fr}.ss-dxf-map-head{display:none}.ss-dxf-map-row{grid-template-columns:1fr;gap:4px}}
 
 </style>
 </head>
@@ -2021,6 +2070,263 @@ const ShapeModule={
   compute:shapeModuleResult,productionSvg:shapeProductionSvg,cuttingSvg:shapeCuttingSvg,
   machinePayload:shapeMachinePayload,genericDxf:shapeGenericDxf
 };
+
+/* ==== src/modules/shape/dxf-production.js ==== */
+/* =====================================================================
+   shape/dxf-production · schema-v2 extension
+   Производственная логика внешнего DXF. Файл не знает про Sales, цены,
+   клиентов или заказы: только finished contour -> edgework -> cutting.
+   ===================================================================== */
+
+const SHAPE_PRIMARY_FINISHES=['Rough Arris','Flat Polish','CNC Shape Polish'];
+
+function shapeStableHash(prefix,payload){
+  var src=JSON.stringify(payload),h=2166136261;
+  for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}
+  return prefix+(h>>>0).toString(16).padStart(8,'0');
+}
+
+function shapeDxfPhysicalEdges(def){
+  if(!shapeIsDxfSource(def))return [];
+  var preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],out=[];
+  for(var i=0;i<points.length;i++){
+    var a=points[i],b=points[(i+1)%points.length],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
+    if(L<=1e-9)continue;
+    var id='seg'+(i+1);
+    out.push({id:id,segmentId:id,type:'line',p1:a.slice(),p2:b.slice(),length:L,parentEdges:[]});
+  }
+  return out;
+}
+
+/* Только физический контур. Обработка/толщина не инвалидируют side mapping. */
+function shapeDxfTopologyFingerprint(defOrPreview){
+  var preview=null;
+  if(defOrPreview&&defOrPreview.kind==='dxf'&&defOrPreview.preview)preview=defOrPreview.preview;
+  else if(defOrPreview&&shapeIsDxfSource(defOrPreview))preview=shapeNormalizeSource(defOrPreview.source).preview;
+  else if(defOrPreview&&Array.isArray(defOrPreview.points))preview=defOrPreview;
+  if(!preview)return '';
+  var points=(preview.points||[]).map(function(p){return [shapeDxfCoord(p[0]),shapeDxfCoord(p[1])];});
+  return points.length>=3?shapeStableHash('top-',{points:points}):'';
+}
+
+function shapePrimaryFinish(ops){
+  return (Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).find(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0;})||null;
+}
+
+function shapeTogglePrimaryFinish(ops,type,on){
+  var list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
+  if(on){
+    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    list.push(shapeNormalizeOp({type:type}));
+  }
+  return list.filter(Boolean);
+}
+
+function shapeValidateEdgeOperations(ops,edgeId){
+  var seen=Object.create(null),primary=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
+  for(var i=0;i<list.length;i++){
+    var op=list[i];
+    if(seen[op.type])return {ok:false,reason:'Edge '+edgeId+': duplicate '+op.type+' operation.'};
+    seen[op.type]=true;
+    if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)primary++;
+    if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
+    if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
+  }
+  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.'};
+  return {ok:true};
+}
+
+/* Не используем нулевой fallback там, где технологическая таблица неизвестна. */
+function shapeProductionAllowanceRule(op,thicknessMm){
+  var type=typeof op==='string'?op:(op&&op.type)||'',mm=Number(thicknessMm);
+  if(type==='Rough Arris')return {ok:true,value:0};
+  if(type==='CNC Shape Polish')return {ok:true,value:.25};
+  if(type==='Flat Polish'||type==='Mitering'||type==='Beveling'){
+    if(mm>=3&&mm<=6)return {ok:true,value:1/16};
+    if(mm>=8&&mm<=10)return {ok:true,value:1/8};
+    if(mm>=12&&mm<=15)return {ok:true,value:3/16};
+    return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
+  }
+  return {ok:true,value:0};
+}
+
+function shapeProductionAllowanceForOps(ops,thicknessMm){
+  var max=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
+  for(var i=0;i<list.length;i++){
+    var r=shapeProductionAllowanceRule(list[i],thicknessMm);
+    if(!r.ok)return r;
+    max=Math.max(max,r.value||0);
+  }
+  return {ok:true,value:max};
+}
+
+function shapeDxfTangentAllowanceIssue(groups){
+  var eps=1e-7;
+  if(!Array.isArray(groups)||groups.length<2)return null;
+  for(var i=0;i<groups.length;i++){
+    var before=groups[(i-1+groups.length)%groups.length],after=groups[i];
+    if(before.allowance==null||after.allowance==null||Math.abs(before.allowance-after.allowance)<=eps)continue;
+    var u=[before.p2[0]-before.p1[0],before.p2[1]-before.p1[1]],v=[after.p2[0]-after.p1[0],after.p2[1]-after.p1[1]],lu=Math.hypot(u[0],u[1])||1,lv=Math.hypot(v[0],v[1])||1;
+    var dot=(u[0]*v[0]+u[1]*v[1])/(lu*lv);
+    if(dot>.995)return {before:before.id,after:after.id,reason:'Cutting allowance cannot change across tangent-continuous edges '+before.id+' and '+after.id+'.'};
+  }
+  return null;
+}
+
+/* Clamp/Hinge на DXF хранят конкретный physical SEG + расстояние от его начала. */
+const __shapeDxfNormalizeManufacturingItem=shapeNormalizeManufacturingItem;
+shapeNormalizeManufacturingItem=function(raw){
+  raw=shapePlainObject(raw);
+  var out=__shapeDxfNormalizeManufacturingItem(raw);
+  if(out.type!=='hole'){
+    var candidate=shapeTextValue(raw.edgeId,/^seg\d+$/i.test(shapeTextValue(raw.edge,''))?raw.edge:'');
+    if(/^seg\d+$/i.test(candidate)){
+      out.edgeId=candidate;
+      delete out.edge;
+    }
+  }
+  return out;
+};
+
+function shapeDxfManufacturingPoint(item,def){
+  if(!item||item.type==='hole'||!item.edgeId)return null;
+  var edge=shapeDxfPhysicalEdges(def).find(function(e){return e.id===item.edgeId;});
+  if(!edge)return null;
+  var d=Math.max(0,+item.distance||0),t=edge.length?Math.max(0,Math.min(1,d/edge.length)):0;
+  return {edge:edge,distance:Math.min(d,edge.length),point:[edge.p1[0]+(edge.p2[0]-edge.p1[0])*t,edge.p1[1]+(edge.p2[1]-edge.p1[1])*t]};
+}
+
+function shapeDxfRequirements(def){
+  var req=[],groups=Object.create(null);
+  shapeDxfPhysicalEdges(def).forEach(function(edge){
+    shapeEdgeOps(def,edge.id).map(shapeNormalizeOp).filter(Boolean).forEach(function(op){
+      var key=op.type+'|'+(op.angle||'')+'|'+(op.width||'')+'|'+(op.side||'');
+      if(!groups[key])groups[key]={operation:op.type,edgeIds:[],params:{}};
+      groups[key].edgeIds.push(edge.id);
+      if(op.angle)groups[key].params.angle=op.angle;
+      if(op.width)groups[key].params.width=op.width;
+      if(op.side)groups[key].params.side=op.side;
+    });
+  });
+  Object.keys(groups).forEach(function(key){
+    var g=groups[key],station=g.operation==='Rough Arris'?'ARRISING':g.operation==='Flat Polish'?'POLISHING':g.operation==='Mitering'?'MITERING':g.operation==='Beveling'?'BEVELING':'CNC';
+    req.push({id:'EDGE:'+key,source:'EDGE',operation:g.operation,stationClass:station,edgeIds:g.edgeIds,params:g.params});
+  });
+  (def.manufacturingItems||[]).forEach(function(item){
+    if(item.type==='hole'){
+      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
+    }else if(item.type==='clamp'||item.type==='hinge'){
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:item.type==='clamp'?'Clamp':'Hinge',stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance}});
+    }
+  });
+  return req;
+}
+
+function shapeValidateDxfProduction(def,edges){
+  var errors=[],warns=[],preview=shapeNormalizeSource(def.source).preview,points=preview.points||[],ids=Object.create(null),th=shapeThicknessMm(def);
+  edges.forEach(function(e){ids[e.id]=true;});
+  Object.keys(def.edgeOps||{}).forEach(function(id){
+    if(!ids[id]){errors.push('Edge processing references missing DXF edge '+id+'.');return;}
+    var v=shapeValidateEdgeOperations(shapeEdgeOps(def,id),id);if(!v.ok)errors.push(v.reason);
+    if(isFinite(th))shapeEdgeOps(def,id).forEach(function(op){var r=shapeProductionAllowanceRule(op,th);if(!r.ok)errors.push('Edge '+id+': '+r.reason);});
+  });
+  if(!isFinite(th)||!(th>0))errors.push('Shape thickness must be a positive number for DXF cutting.');
+  (def.manufacturingItems||[]).forEach(function(item){
+    if(item.type==='hole'){
+      var d=fabParseDimStrict(item.diameter);
+      if(!d.ok||!(d.v>0))errors.push('Hole '+item.id+': diameter must be greater than zero.');
+      if(!fabPointInPoly([+item.x||0,+item.y||0],points))errors.push('Hole '+item.id+': center must stay inside the finished DXF contour.');
+      return;
+    }
+    if(!item.edgeId||!ids[item.edgeId]){errors.push((item.type==='clamp'?'Clamp ':'Hinge ')+item.id+': referenced physical DXF segment does not exist.');return;}
+    var e=edges.find(function(x){return x.id===item.edgeId;}),distance=+item.distance||0;
+    if(distance<0||distance>e.length+1e-8)errors.push((item.type==='clamp'?'Clamp ':'Hinge ')+item.id+': distance must stay on '+item.edgeId+'.');
+  });
+  return {errors:errors,warns:warns};
+}
+
+function shapeDxfCuttingPlan(def){
+  def=normalizeShapeDef(def||{});
+  if(!shapeIsDxfSource(def))return {valid:false,error:'Shape is not a DXF source.'};
+  var sv=shapeValidateSource(def);if(sv.errors.length)return {valid:false,error:sv.errors[0],errors:sv.errors};
+  var points=shapeNormalizeSource(def.source).preview.points.map(function(p){return p.slice();}),edges=shapeDxfPhysicalEdges(def),v=shapeValidateDxfProduction(def,edges),th=shapeThicknessMm(def);
+  if(v.errors.length)return {valid:false,error:v.errors[0],errors:v.errors,warns:v.warns};
+  var groups=[],allowances=[];
+  for(var i=0;i<edges.length;i++){
+    var e=edges[i],ar=shapeProductionAllowanceForOps(shapeEdgeOps(def,e.id),th);
+    if(!ar.ok)return {valid:false,error:ar.reason,errors:[ar.reason]};
+    allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
+  }
+  var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,error:tangent.reason,errors:[tangent.reason]};
+  var off=shapeOffsetVariable(points,allowances);if(!off.valid)return {valid:false,error:off.error,errors:[off.error]};
+  var b=fabEdgeBounds(off.points),holes=(def.manufacturingItems||[]).filter(function(x){return x.type==='hole';}).map(function(item){var d=fabParseDimStrict(item.diameter);return {id:item.id,center:[item.x,item.y],diameter:d.ok?d.v:0};});
+  return {valid:true,points:off.points,finishedPoints:points,edgeIds:edges.map(function(e){return e.id;}),allowances:allowances,holes:holes,cutouts:[],hardware:[],minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,warnings:[],toleranceIn:1/256,edges:edges};
+}
+
+const __shapeDxfFingerprint=shapeFingerprint;
+shapeFingerprint=function(def){
+  def=normalizeShapeDef(def||{});
+  if(!shapeIsDxfSource(def))return __shapeDxfFingerprint(def);
+  return shapeStableHash('shp-',{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview},thickness:def.thickness,edgeOps:def.edgeOps,manufacturingItems:def.manufacturingItems||[]});
+};
+
+function shapeValidateProductionEdgework(def){
+  def=normalizeShapeDef(def||{});
+  var errors=[],th=shapeThicknessMm(def);
+  Object.keys(def.edgeOps||{}).forEach(function(edgeId){
+    var ops=shapeEdgeOps(def,edgeId),v=shapeValidateEdgeOperations(ops,edgeId);
+    if(!v.ok)errors.push(v.reason);
+    if(isFinite(th))ops.forEach(function(op){var ar=shapeProductionAllowanceRule(op,th);if(!ar.ok)errors.push('Edge '+edgeId+': '+ar.reason);});
+  });
+  return errors;
+}
+
+function shapeDxfProductionResult(source){
+  var def=normalizeShapeDef(source||{}),fingerprint=shapeFingerprint(def);
+  if(!shapeIsDxfSource(def))return {valid:false,reason:'Shape is not a DXF source.',errors:['Shape is not a DXF source.'],definition:def,fingerprint:fingerprint};
+  var sv=shapeValidateSource(def),preview=def.source.preview||shapeNormalizeDxfPreview(null);
+  if(sv.errors.length)return {valid:false,sourceValid:false,reason:sv.errors[0],errors:sv.errors,warns:sv.warns,definition:def,fingerprint:fingerprint};
+  var cutting=shapeDxfCuttingPlan(def),points=preview.points||[],width=preview.width16/16,height=preview.height16/16,area=Math.abs(fabSignedArea(points)),edges=shapeDxfPhysicalEdges(def),requirements=shapeDxfRequirements(def);
+  if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting};
+  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],radii:[],all:[]},requirements:requirements,cutting:cutting};
+}
+
+const __shapeDxfCompute=ShapeModule.compute;
+ShapeModule.compute=function(source){
+  var def=normalizeShapeDef(source||{});
+  if(!shapeIsDxfSource(def)){
+    /* Configured Shapes keep the native ShapeModule contract intact.
+       The base validator already owns thickness, allowance, finish-conflict,
+       tangent-edge and Miter/Bevel validation. Do not pre-empt its errors here. */
+    return __shapeDxfCompute(def);
+  }
+
+  /* Preserve the public external-DXF contract used by Muntin and legacy callers:
+     an uploaded DXF is NOT ordinary computed ERP geometry. Production cutting is
+     exposed explicitly instead of flipping result.valid to true. */
+  var base=__shapeDxfCompute(def),production=shapeDxfProductionResult(def);
+  base.fingerprint=shapeFingerprint(def);
+  base.productionValid=!!production.valid;
+  base.productionReason=production.reason||'';
+  base.productionErrors=production.errors||[];
+  base.productionWarnings=production.warns||[];
+  base.productionRequirements=production.requirements||shapeDxfRequirements(def);
+  base.productionCutting=production.valid?production.cutting:null;
+  base.productionEdges=production.edges||shapeDxfPhysicalEdges(def);
+  return base;
+};
+
+/* Внешний код использует эти helpers, не повторяя DXF topology/allowance math. */
+ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
+ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
+ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
+ShapeModule.productionAllowanceForOps=shapeProductionAllowanceForOps;
+ShapeModule.validateEdgeOperations=shapeValidateEdgeOperations;
+ShapeModule.validateProductionEdgework=shapeValidateProductionEdgework;
+ShapeModule.dxfCuttingPlan=shapeDxfCuttingPlan;
+ShapeModule.dxfProductionResult=shapeDxfProductionResult;
+ShapeModule.dxfManufacturingPoint=shapeDxfManufacturingPoint;
 
 /* ==== src/modules/muntin/catalog.js ==== */
 /* =====================================================================
@@ -6452,6 +6758,317 @@ function salesUnlinkMuntin(i){const l=soDraft.lines[i];if(l){l.muntinRef=normali
 
 function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return false;salesBridge=null;if(kind==='shape'){sEdit=null;sDraft=null;}if(kind==='muntin'){mEdit=null;mDraft=null;mFieldErrors={};}tab='sales';subtab='orders';render();return true;}
 
+/* ==== src/erp/sales/service-sets.js ==== */
+/* =====================================================================
+   erp/sales/service-sets · service-set-v1
+   Order-scoped bulk edgework recipes and one Effective Production snapshot.
+   Shape stays independent; prices/orders stay in ERP.
+   ===================================================================== */
+
+const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+
+function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
+function salesServicePlain(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
+function salesServiceOps(raw){return (Array.isArray(raw)?raw:[]).map(shapeNormalizeOp).filter(Boolean);}
+function salesServiceOpSignature(op){return [op.type,op.angle||'',op.width||'',op.side||''].join('|');}
+function salesServiceOpsSignature(raw){return salesServiceOps(raw).map(salesServiceOpSignature).sort().join('||');}
+function salesServiceSameOps(a,b){return salesServiceOpsSignature(a)===salesServiceOpsSignature(b);}
+
+function salesNormalizeServiceSet(raw,index){
+  raw=salesServicePlain(raw);
+  var mode=raw.mode==='perimeter'?'perimeter':'sides',sides=salesServicePlain(raw.sides),code=salesString(raw.code).toUpperCase();
+  return {
+    id:salesEntityId(raw.id,'SVC'),
+    code:code||('S'+((index||0)+1)),
+    name:salesString(raw.name),
+    mode:mode,
+    sides:{A:salesServiceOps(sides.A),B:salesServiceOps(sides.B),C:salesServiceOps(sides.C),D:salesServiceOps(sides.D),other:salesServiceOps(sides.other)},
+    perimeter:salesServiceOps(raw.perimeter),
+    createdAt:salesString(raw.createdAt),updatedAt:salesString(raw.updatedAt)
+  };
+}
+
+function salesNormalizeServiceOverrides(raw){
+  raw=salesServicePlain(raw);var edges=salesServicePlain(raw.edges),out={};
+  Object.keys(edges).forEach(function(id){if(/^[A-Za-z0-9:_-]{1,96}$/.test(id))out[id]=salesServiceOps(edges[id]);});
+  return {pinnedTopology:salesString(raw.pinnedTopology),edges:out};
+}
+
+function salesNormalizeSideMap(raw){
+  raw=salesServicePlain(raw);var out={A:[],B:[],C:[],D:[],other:[]},seen=Object.create(null);
+  ['A','B','C','D','other'].forEach(function(k){
+    (Array.isArray(raw[k])?raw[k]:[]).forEach(function(id){id=salesString(id);if(id&&!seen[id]){seen[id]=true;out[k].push(id);}});
+  });
+  return Object.keys(out).some(function(k){return out[k].length;})?out:null;
+}
+
+/* Нормализация включается до storage.boot(), поэтому старые заказы мигрируют на лету. */
+const __salesServiceNormalizeLine=normalizeSalesOrderLine;
+normalizeSalesOrderLine=function(line){
+  var src=salesServicePlain(line),out=__salesServiceNormalizeLine(src);
+  out.serviceSetId=salesRefId(src.serviceSetId);
+  out.serviceOverrides=salesNormalizeServiceOverrides(src.serviceOverrides);
+  out.sideMap=salesNormalizeSideMap(src.sideMap);
+  out.sideMapTopology=salesString(src.sideMapTopology);
+  return out;
+};
+
+const __salesServiceNormalizeOrder=normalizeSalesOrder;
+normalizeSalesOrder=function(order){
+  var src=salesServicePlain(order),out=__salesServiceNormalizeOrder(src),usedIds=Object.create(null),usedCodes=Object.create(null);
+  out.serviceSets=(Array.isArray(src.serviceSets)?src.serviceSets:[]).map(salesNormalizeServiceSet).map(function(set,i){
+    while(usedIds[set.id])set.id=salesUid('SVC');usedIds[set.id]=true;
+    if(!set.code||usedCodes[set.code]){var n=i+1;do{set.code='S'+n++;}while(usedCodes[set.code]);}
+    usedCodes[set.code]=true;return set;
+  });
+  /* Base normalizer recreates line objects, so restore service fields from raw rows. */
+  var rawLines=Array.isArray(src.lines)?src.lines:[];
+  out.lines=(out.lines||[]).map(function(line,i){
+    var raw=salesServicePlain(rawLines[i]);
+    line.serviceSetId=salesRefId(raw.serviceSetId);
+    line.serviceOverrides=salesNormalizeServiceOverrides(raw.serviceOverrides);
+    line.sideMap=salesNormalizeSideMap(raw.sideMap);
+    line.sideMapTopology=salesString(raw.sideMapTopology);
+    return line;
+  });
+  return out;
+};
+
+function salesServiceSetById(order,id){return (order&&order.serviceSets||[]).find(function(set){return set.id===id;})||null;}
+function salesServiceSetUsage(order,id){return (order&&order.lines||[]).filter(function(line){return line.serviceSetId===id;}).length;}
+function salesNextServiceSetCode(order){var used=new Set((order&&order.serviceSets||[]).map(function(s){return s.code;})),n=1,code;do{code='S'+n++;}while(used.has(code));return code;}
+function salesServiceSetFormula(set){
+  if(!set)return '—';
+  function txt(ops){var a=salesServiceOps(ops);return a.length?a.map(function(o){return o.type==='Rough Arris'?'Rough':o.type==='Flat Polish'?'Flat':o.type==='CNC Shape Polish'?'CNC':o.type==='Mitering'?'Miter '+(o.angle||45)+'°':'Bevel '+(o.width||'1');}).join(' + '):'—';}
+  if(set.mode==='perimeter')return 'ALL = '+txt(set.perimeter);
+  return ['A','B','C','D','other'].map(function(k){return (k==='other'?'OTHER':k)+' = '+txt(set.sides[k]);}).join(' · ');
+}
+
+function salesLineHasRectGeometry(line){return !!(line&&(+line.width16||0)>0&&(+line.height16||0)>0);}
+function salesImplicitRectShape(line){
+  if(!salesLineHasRectGeometry(line))return null;
+  var w=(+line.width16||0)/16,h=(+line.height16||0)/16;
+  return {id:'IMPLICIT-RECT-'+(line.id||'LINE'),name:'Order-line rectangle',type:'rectangle',w:String(w),h:String(h),thickness:'6',edgeOps:{},features:[],manufacturingItems:[],source:{kind:'drawn'}};
+}
+function salesLineGeometryShape(line){return salesShapeByRef(line&&line.shapeRef)||salesImplicitRectShape(line);}
+
+function salesShapePhysicalEdges(shape){
+  if(!shape)return [];
+  if(String(shape.id||'').indexOf('IMPLICIT-RECT-')===0){
+    var w=+shape.w||0,h=+shape.h||0;
+    /* Canonical order follows the physical boundary: A left, B bottom, C right, D top. */
+    return [
+      {id:'A',type:'line',length:h,p1:[0,h],p2:[0,0],parentEdges:[]},
+      {id:'B',type:'line',length:w,p1:[0,0],p2:[w,0],parentEdges:[]},
+      {id:'C',type:'line',length:h,p1:[w,0],p2:[w,h],parentEdges:[]},
+      {id:'D',type:'line',length:w,p1:[w,h],p2:[0,h],parentEdges:[]}
+    ];
+  }
+  if(shapeIsDxfSource(shape))return ShapeModule.dxfEdges(shape);
+  try{
+    var geo=shapeGeometry(shapeDefToLine(shape));if(!geo||!geo.ok)return [];
+    return shapeEdgeGroups(geo).map(function(group){
+      var parents=[];(group.segments||[]).forEach(function(seg){(seg.parentEdges||[]).forEach(function(id){if(parents.indexOf(id)<0)parents.push(id);});});
+      (group.parentEdges||[]).forEach(function(id){if(parents.indexOf(id)<0)parents.push(id);});
+      var seg=group.segments&&group.segments[0];
+      return Object.assign({},group,{p1:seg&&seg.p1,p2:seg&&seg.p2,parentEdges:parents,length:+group.length||0});
+    });
+  }catch(e){return [];}
+}
+
+function salesShapeOpsForPhysicalEdge(shape,edge){
+  if(!shape||String(shape.id||'').indexOf('IMPLICIT-RECT-')===0)return [];
+  var all=[],ids=[edge.id].concat(Array.isArray(edge.parentEdges)?edge.parentEdges:[]),seen=Object.create(null);
+  ids.forEach(function(id){shapeEdgeOps(shape,id).forEach(function(op){op=shapeNormalizeOp(op);if(!op)return;var key=salesServiceOpSignature(op);if(!seen[key]){seen[key]=true;all.push(op);}});});
+  return all;
+}
+
+function salesMappedSide(line,edgeId){
+  var map=line&&line.sideMap;if(!map)return '';
+  for(var i=0;i<5;i++){var k=['A','B','C','D','other'][i];if((map[k]||[]).indexOf(edgeId)>=0)return k;}
+  return '';
+}
+
+function salesSideForPhysicalEdge(line,edge){
+  var id=edge&&edge.id||'';
+  if(['A','B','C','D'].indexOf(id)>=0)return id;
+  for(var i=0;i<4;i++){var k=['A','B','C','D'][i];if(new RegExp('^'+k+'\\d+$').test(id))return k;}
+  var mapped=salesMappedSide(line,id);if(mapped)return mapped;
+  if(/^seg\d+$/i.test(id))return 'unmapped';
+  var parents=Array.isArray(edge&&edge.parentEdges)?edge.parentEdges:[];
+  for(i=0;i<parents.length;i++)if(['A','B','C','D'].indexOf(parents[i])>=0)return parents[i];
+  return 'other';
+}
+
+function salesDxfSideMapClassified(line,shape){
+  var edges=shape&&shapeIsDxfSource(shape)?ShapeModule.dxfEdges(shape):[];
+  return !!(edges.length&&line&&line.sideMap&&edges.every(function(edge){return !!salesMappedSide(line,edge.id);}));
+}
+function salesDxfSideMapCurrent(line,shape){
+  var key=shape&&shapeIsDxfSource(shape)?ShapeModule.dxfTopologyFingerprint(shape):'';
+  return !!(key&&line&&line.sideMapTopology===key);
+}
+function salesDxfMappingComplete(line,shape){return !!(salesDxfSideMapClassified(line,shape)&&salesDxfSideMapCurrent(line,shape));}
+
+function salesDxfSetNeedsMapping(line,shape,set){
+  if(!shape||!shapeIsDxfSource(shape)||!set||set.mode!=='sides')return false;
+  var hasWork=['A','B','C','D','other'].some(function(k){return ((set.sides&&set.sides[k])||[]).length>0;});
+  return hasWork&&!salesDxfMappingComplete(line,shape);
+}
+
+function salesHasLineEdgeOverrides(line){return !!Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{}).length;}
+function salesDxfOverrideStale(line,shape){
+  if(!shape||!shapeIsDxfSource(shape)||!salesHasLineEdgeOverrides(line))return false;
+  var key=ShapeModule.dxfTopologyFingerprint(shape),pinned=line.serviceOverrides&&line.serviceOverrides.pinnedTopology;
+  return !pinned||pinned!==key;
+}
+
+/* Единый snapshot. Он не занимается машинным offset — поэтому известные Services
+   не исчезают только из-за того, что Cutting сейчас blocked. */
+function salesEffectiveProductionSnapshot(line,shape,order){
+  order=order||soDraft;shape=shape||salesLineGeometryShape(line);
+  if(!shape)return {valid:false,reason:'Line needs Width and Height or a Shape.',groups:[]};
+  var set=salesServiceSetById(order,line&&line.serviceSetId);
+  if(line&&line.serviceSetId&&!set)return {valid:false,reason:'Referenced Bulk Service Set is missing.',groups:[],shape:shape};
+  if(salesDxfOverrideStale(line,shape))return {valid:false,reason:'DXF line override belongs to another physical contour. Review or clear it before production.',groups:[],shape:shape,overrideStale:true};
+  var mappingPending=salesDxfSetNeedsMapping(line,shape,set),overrides=line&&line.serviceOverrides&&line.serviceOverrides.edges||{},physical=salesShapePhysicalEdges(shape),groups=[];
+  for(var i=0;i<physical.length;i++){
+    var edge=physical[i],shapeOps=salesShapeOpsForPhysicalEdge(shape,edge),side=salesSideForPhysicalEdge(line,edge),setOps=[],ops=shapeOps,source='Shape';
+    if(Object.prototype.hasOwnProperty.call(overrides,edge.id)){ops=salesServiceOps(overrides[edge.id]);source='Line override';}
+    else if(set&&!mappingPending){
+      if(set.mode==='perimeter')setOps=salesServiceOps(set.perimeter);
+      else if(side!=='unmapped')setOps=salesServiceOps((set.sides&&set.sides[side])||[]);
+      if(setOps.length){ops=setOps;source=set.code;}
+    }else if(set&&mappingPending)source='Shape · '+set.code+' pending mapping';
+    var v=ShapeModule.validateEdgeOperations(ops,edge.id);
+    if(!v.ok)return {valid:false,reason:v.reason,groups:groups,shape:shape,set:set,operationConflict:true,mappingPending:mappingPending};
+    groups.push({id:edge.id,length:+edge.length||0,side:side,source:source,p1:edge.p1,p2:edge.p2,parentEdges:edge.parentEdges||[],shapeOps:salesServiceOps(shapeOps),setOps:salesServiceOps(setOps),ops:salesServiceOps(ops),allowance:null});
+  }
+  return {valid:true,shape:shape,set:set,groups:groups,mappingPending:mappingPending,mappingClassified:shapeIsDxfSource(shape)?salesDxfSideMapClassified(line,shape):true,mappingCurrent:shapeIsDxfSource(shape)?salesDxfSideMapCurrent(line,shape):true};
+}
+
+function salesEffectiveEdgeSignature(line,shape,order){
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);if(!snap.valid)return {valid:false,reason:snap.reason,ops:[],snapshot:snap};
+  var acc=Object.create(null);
+  snap.groups.forEach(function(group){group.ops.forEach(function(op){var key=salesServiceOpSignature(op);if(!acc[key])acc[key]={op:op,length:0};acc[key].length+=group.length;});});
+  return {valid:true,ops:Object.keys(acc).map(function(k){return acc[k];}),snapshot:snap,mappingPending:snap.mappingPending};
+}
+
+function salesLineExactGlassThickness(line){
+  var values=salesLineGlassThicknesses(line);return values.length===1?{ok:true,mm:values[0]}:{ok:false,mm:null,values:values};
+}
+
+function salesEffectiveCuttingPlan(line,shape,order){
+  var snap=salesEffectiveProductionSnapshot(line,shape,order);if(!snap.valid)return {valid:false,blocked:true,reason:snap.reason,groups:snap.groups||[],snapshot:snap};
+  shape=snap.shape;
+  var hasProcessing=snap.groups.some(function(g){return g.ops.length>0;}),t=salesLineExactGlassThickness(line);
+  if(hasProcessing&&!t.ok)return {valid:false,blocked:true,reason:'Exact Makeup thickness is unresolved. Effective cutting is blocked.',groups:snap.groups,snapshot:snap};
+  var mm=t.ok?t.mm:Number(shape.thickness)||6;
+  for(var i=0;i<snap.groups.length;i++){
+    var ar=ShapeModule.productionAllowanceForOps(snap.groups[i].ops,mm);
+    if(!ar.ok)return {valid:false,blocked:true,reason:ar.reason,groups:snap.groups,snapshot:snap,allowanceRuleMissing:true};
+    snap.groups[i].allowance=ar.value;
+  }
+  if(String(shape.id||'').indexOf('IMPLICIT-RECT-')===0){
+    var w=(+line.width16||0)/16,h=(+line.height16||0)/16,byId=function(id){return snap.groups.find(function(g){return g.id===id;})||{allowance:0};},a=byId('A').allowance||0,b=byId('B').allowance||0,c=byId('C').allowance||0,d=byId('D').allowance||0;
+    return {valid:true,implicitRect:true,thickness:mm,groups:snap.groups,snapshot:snap,finishedPoints:[[0,0],[w,0],[w,h],[0,h]],cuttingPoints:[[-a,-b],[w+c,-b],[w+c,h+d],[-a,h+d]],finishedW:w,finishedH:h,cutW:w+a+c,cutH:h+b+d,perimeter:2*(w+h),setPendingMapping:snap.mappingPending};
+  }
+  if(shapeIsDxfSource(shape)){
+    var points=shapeNormalizeSource(shape.source).preview.points.map(function(p){return p.slice();});
+    if(points.length<3||points.length!==snap.groups.length)return {valid:false,blocked:true,reason:'DXF physical contour is unavailable.',groups:snap.groups,snapshot:snap};
+    var tangent=shapeDxfTangentAllowanceIssue(snap.groups);if(tangent)return {valid:false,blocked:true,reason:tangent.reason,groups:snap.groups,snapshot:snap,tangentAllowanceConflict:true};
+    var off=shapeOffsetVariable(points,snap.groups.map(function(g){return g.allowance||0;}));
+    if(!off.valid)return {valid:false,blocked:true,reason:'Effective cutting offset failed: '+off.error,groups:snap.groups,snapshot:snap};
+    var fb=fabEdgeBounds(points),cb=fabEdgeBounds(off.points);
+    return {valid:true,external:true,thickness:mm,groups:snap.groups,snapshot:snap,finishedPoints:points,cuttingPoints:off.points,finishedW:fb.maxX-fb.minX,finishedH:fb.maxY-fb.minY,cutW:cb.maxX-cb.minX,cutH:cb.maxY-cb.minY,perimeter:fabPolylineLength(points,true),setPendingMapping:snap.mappingPending};
+  }
+  var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
+  snap.groups.forEach(function(group){if(group.ops.length)effective.edgeOps[group.id]=salesServiceOps(group.ops);});
+  var result=ShapeModule.compute(effective);
+  if(!result||!result.valid)return {valid:false,blocked:true,reason:(result&&((result.errors&&result.errors[0])||result.reason))||'Effective Shape cutting failed.',groups:snap.groups,snapshot:snap};
+  return {valid:true,external:false,thickness:mm,groups:snap.groups,snapshot:snap,effective:effective,result:result,finishedPoints:result.cutting.finishedPoints,cuttingPoints:result.cutting.points,finishedW:result.width,finishedH:result.height,cutW:result.cutting.width,cutH:result.cutting.height,setPendingMapping:snap.mappingPending};
+}
+
+function salesEdgeChargeMetaForServiceSet(op,ctx){
+  var id='',label=op.type,rate=null;
+  if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}
+  else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
+  else return null;
+  return {id:id,label:label,rate:rate};
+}
+
+/* Billing and Cutting read the SAME effective snapshot. */
+salesLineChargeRows=function(line){
+  var shape=salesLineGeometryShape(line),rows=[],ctx=salesPricingThickness(line);if(!shape)return rows;
+  var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[],mi=Object.create(null);
+  items.forEach(function(item){
+    if(item.type==='clamp'||item.type==='hinge'){if(!mi[item.type])mi[item.type]={qty:0};mi[item.type].qty++;return;}
+    if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!mi[key])mi[key]={qty:0,holeBand:hb};mi[key].qty++;}
+  });
+  if(mi.clamp)rows.push(salesChargeRow('MI:clamp:'+ctx.band,'Clamp',mi.clamp.qty,'pc',salesCatalogRate('clamp',ctx),'Manufacturing item'));
+  if(mi.hinge)rows.push(salesChargeRow('MI:hinge:'+ctx.band,'Hinge',mi.hinge.qty,'pc',salesCatalogRate('hinge',ctx),'Manufacturing item'));
+  Object.keys(mi).filter(function(k){return k.indexOf('hole:')===0;}).forEach(function(k){var g=mi[k],hb=g.holeBand;rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(hb?hb.label:'—'),g.qty,'pc',hb?salesCatalogRate('hole',ctx,hb.key):null,'Manufacturing item'));});
+  var sig=salesEffectiveEdgeSignature(line,shape,soDraft);
+  if(sig.valid)sig.ops.forEach(function(group){var meta=salesEdgeChargeMetaForServiceSet(group.op,ctx);if(meta&&group.length>0)rows.push(salesChargeRow('EDGE:'+meta.id+':'+ctx.band,meta.label,group.length,'in',meta.rate,'Effective Edge Processing'));});
+  if(saved&&!shapeIsDxfSource(saved)){
+    var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;if(radius)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
+    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',null,'Shape feature'));
+  }
+  return rows.filter(function(row){return row.basis>0;});
+};
+
+function salesLineServiceStatus(line){
+  var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
+  var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
+  if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
+  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
+  if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
+  var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
+  if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
+  if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
+  if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Shape processing',cls:'ok'};
+  if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
+  return {key:'ready',label:'No processing',cls:'ok'};
+}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+
+function salesLostOverrideEdges(line){
+  var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
+  if(salesDxfOverrideStale(line,shape))return edges;
+  return edges.filter(function(id){return current.indexOf(id)<0;});
+}
+
+function salesApplyLineEdgeOperation(line,edgeId,type,on){
+  var shape=salesLineGeometryShape(line);if(!shape)return {ok:false,reason:'Line has no geometry.'};
+  if(!line.serviceOverrides)line.serviceOverrides={pinnedTopology:'',edges:{}};
+  var base=salesServiceClone(line);base.serviceOverrides={pinnedTopology:'',edges:{}};
+  var baseSnap=salesEffectiveProductionSnapshot(base,shape,soDraft),curSnap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!baseSnap.valid||!curSnap.valid)return {ok:false,reason:curSnap.reason||baseSnap.reason};
+  var baseGroup=baseSnap.groups.find(function(g){return g.id===edgeId;})||{ops:[]},curGroup=curSnap.groups.find(function(g){return g.id===edgeId;})||baseGroup,current=Object.prototype.hasOwnProperty.call(line.serviceOverrides.edges,edgeId)?line.serviceOverrides.edges[edgeId]:curGroup.ops;
+  var list=shapeTogglePrimaryFinish(current,type,on);
+  if(salesServiceSameOps(list,baseGroup.ops))delete line.serviceOverrides.edges[edgeId];else line.serviceOverrides.edges[edgeId]=list;
+  line.serviceOverrides.pinnedTopology=Object.keys(line.serviceOverrides.edges).length&&shapeIsDxfSource(shape)?ShapeModule.dxfTopologyFingerprint(shape):'';
+  return {ok:true};
+}
+
+/* Machine export is intentionally line-specific. Standalone Shape export remains separate. */
+function salesEffectiveMachineIssue(line,shape,plan){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return plan.reason||'Effective cutting is unresolved.';
+  if(plan.setPendingMapping)return 'Bulk Service Set is assigned but DXF side mapping is not confirmed. Review mapping before releasing a machine file.';
+  return '';
+}
+function salesEffectiveProductionFingerprint(line,shape,plan){
+  plan=plan||salesEffectiveCuttingPlan(line,shape,soDraft);if(!plan.valid)return '';
+  var snap=plan.snapshot,src=JSON.stringify({lineId:line&&line.id||'',topology:shape&&shapeIsDxfSource(shape)?ShapeModule.dxfTopologyFingerprint(shape):'',dimensions:{w:+line.width16||0,h:+line.height16||0},thickness:plan.thickness,groups:(snap.groups||[]).map(function(g){return {id:g.id,ops:salesServiceOps(g.ops),allowance:g.allowance};}),cuttingPoints:(plan.cuttingPoints||[]).map(function(p){return [+p[0],+p[1]];})}),h=2166136261;
+  for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'eff-'+(h>>>0).toString(16).padStart(8,'0');
+}
+function salesEffectiveMachinePayload(line){
+  var shape=salesLineGeometryShape(line),plan=salesEffectiveCuttingPlan(line,shape,soDraft),issue=salesEffectiveMachineIssue(line,shape,plan);if(issue)return {ok:false,reason:issue};
+  return {ok:true,fingerprint:salesEffectiveProductionFingerprint(line,shape,plan),schema:'glass-erp-order-effective/v1',units:'inch',lineId:line.id,outer:{closed:true,points:plan.cuttingPoints.map(function(p){return [Math.round(p[0]*1000000)/1000000,Math.round(p[1]*1000000)/1000000];})},snapshot:plan.snapshot};
+}
+
 /* ==== src/erp/sales/makeup-ui.js ==== */
 /* =====================================================================
    erp/sales/makeup-ui · sales-0.3b-makeup
@@ -7267,6 +7884,317 @@ function downloadShapeArtifact(kind){
 }
 function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Cannot delete — this shape is used by a Muntin layout');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}
 
+/* ==== src/erp/views/shape-production-ui.js ==== */
+/* =====================================================================
+   erp/views/shape-production-ui · production workflow extension
+   Экран Shape остаётся отдельным от Sales/Service Set. Здесь только UX
+   finished geometry -> edge processing -> manufacturing -> cutting.
+   ===================================================================== */
+
+let shapeProdExceptionsOpen=false,shapeProdSelectedEdgeId=null;
+
+function shapeProdResetUi(){
+  shapeProdExceptionsOpen=false;shapeProdSelectedEdgeId=null;
+  sEdgeworkOpen=false;sFeaturesOpen=false;sManufacturingOpen=true;
+  sManufacturingPlace=null;sManufacturingSelected=null;sSourceOpen=false;
+}
+function shapeProdHasGeometryBoundData(){
+  return !!(Object.keys((sDraft&&sDraft.edgeOps)||{}).length||
+    ((sDraft&&sDraft.manufacturingItems)||[]).length||
+    ((sDraft&&sDraft.features)||[]).length);
+}
+function shapeProdClearGeometryBoundData(){
+  if(!sDraft)return;
+  sDraft.edgeOps={};sDraft.manufacturingItems=[];sDraft.features=[];
+  sManufacturingPlace=null;sManufacturingSelected=null;
+  shapeProdSelectedEdgeId=null;shapeProdExceptionsOpen=false;
+}
+function shapeProdStripStaleSegments(){
+  if(!sDraft||shapeIsDxfSource(sDraft)||!sDraft.edgeOps)return;
+  Object.keys(sDraft.edgeOps).forEach(function(id){if(/^seg\d+$/i.test(id))delete sDraft.edgeOps[id];});
+  (sDraft.manufacturingItems||[]).forEach(function(item){if(item&&item.edgeId&&/^seg\d+$/i.test(item.edgeId))delete item.edgeId;});
+}
+
+/* Configurators — рабочее место; сохранённый master-list остаётся доступен,
+   но не создаёт постоянную визуальную «свалку». */
+viewShapeSkill=function(){
+  if(sEdit!==null)return shapeForm();
+  var rows=DB.shapeDef.map(function(s,i){
+    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
+    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
+    var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn(r.width)+' × '+dimIn(r.height)):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">Invalid</span>');
+    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+  }).join('');
+  var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
+  return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
+    <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${DB.shapeDef.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
+};
+function shapeProdOpenNew(type){
+  if(type==='__DXF__'){
+    openShapeNew('rectangle');
+    setTimeout(function(){var el=document.getElementById('shape_prod_dxf_pick');if(el)el.click();},0);
+    return;
+  }
+  openShapeNew(type);
+}
+
+const __shapeProdOpenNew=openShapeNew;
+openShapeNew=function(type){shapeProdResetUi();return __shapeProdOpenNew(type);};
+const __shapeProdOpenEdit=openShapeEdit;
+openShapeEdit=function(i){shapeProdResetUi();return __shapeProdOpenEdit(i);};
+const __shapeProdSalesConfigureShape=salesOrderConfigureShape;
+salesOrderConfigureShape=function(i){shapeProdResetUi();return __shapeProdSalesConfigureShape(i);};
+
+/* ---------- Geometry/source safety ---------- */
+setShapeType=function(type){
+  type=shapeType(type);if(!sDraft||type===sDraft.type&&!shapeIsDxfSource(sDraft))return;
+  var changing=shapeIsDxfSource(sDraft)||type!==sDraft.type;
+  if(changing&&shapeProdHasGeometryBoundData()&&!confirm('Changing the physical geometry will clear edge processing, Manufacturing Items and geometry modifiers. Continue?')){render();return;}
+  if(changing)shapeProdClearGeometryBoundData();
+  if(shapeIsDxfSource(sDraft))sDraft.source=shapeNormalizeSource(null);
+  sDraft.type=type;sDraft.params=shapeDefaultParams(type);
+  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='circle')sDraft.h=sDraft.w;
+  render();
+};
+
+shapeAttachDxf=function(input){
+  var file=input&&input.files&&input.files[0];if(!file)return;
+  if(!/\.dxf$/i.test(String(file.name||''))){alert('Choose a DXF file.');input.value='';return;}
+  if(!(file.size>0)){alert('DXF file is empty.');input.value='';return;}
+  var reader=new FileReader();
+  reader.onerror=function(){input.value='';alert('DXF file could not be read.');};
+  reader.onload=function(){
+    var parsed=shapeParseFusionDxf(String(reader.result||''));
+    if(!parsed.ok){input.value='';alert(parsed.error||'DXF file could not be parsed.');return;}
+    var oldTopology=shapeIsDxfSource(sDraft)?ShapeModule.dxfTopologyFingerprint(sDraft):'',newTopology=ShapeModule.dxfTopologyFingerprint(parsed.preview),geometryChanged=!oldTopology||oldTopology!==newTopology;
+    if(geometryChanged&&shapeProdHasGeometryBoundData()&&!confirm('This DXF changes the physical contour. Existing edge processing, Manufacturing Items and geometry modifiers will be cleared. Continue?')){input.value='';render();return;}
+    if(geometryChanged)shapeProdClearGeometryBoundData();
+    var note=sDraft&&sDraft.source?String(sDraft.source.note||''):'';
+    sDraft.source={kind:'dxf',fileName:String(file.name),fileSize:Math.floor(file.size),uploadedAt:new Date().toISOString(),note:note,preview:parsed.preview};
+    sDraft.w=frac64(parsed.preview.width16/16);sDraft.h=frac64(parsed.preview.height16/16);
+    if(!sDraft.thickness)sDraft.thickness='6';sView='production';sSourceOpen=false;render();
+  };
+  reader.readAsText(file);
+};
+removeShapeDxf=function(){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return;
+  if(shapeProdHasGeometryBoundData()&&!confirm('Removing the DXF will clear edge processing, Manufacturing Items and geometry modifiers tied to this contour. Continue?')){render();return;}
+  shapeProdClearGeometryBoundData();sDraft.source=shapeNormalizeSource(null);sView='setup';render();
+};
+
+/* ---------- Compact master/source ---------- */
+function shapeProdTypeOptions(){
+  return SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
+    `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF · Fusion 360</option>`;
+}
+function shapeProdChooseType(value){
+  if(value==='__DXF__'){
+    if(shapeIsDxfSource(sDraft))return;
+    var input=document.getElementById('shape_prod_dxf_pick');if(input)input.click();return;
+  }
+  setShapeType(value);
+}
+function shapeProdDxfFileRow(){
+  if(!shapeIsDxfSource(sDraft))return `<input id='shape_prod_dxf_pick' type='file' accept='.dxf,application/dxf' hidden onchange='shapeAttachDxf(this)'>`;
+  var src=shapeNormalizeSource(sDraft.source);
+  return `<div class='shape-prod-source-line'><span>DXF</span><b class='shape-dxf-name'>${raw(src.fileName||'—')}</b><span>${esc(shapeFileSizeText(src.fileSize))}</span><span class='sp'></span><label class='shape-file-pick'><input id='shape_prod_dxf_pick' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Replace</span></label><button type='button' onclick='removeShapeDxf()'>Remove</button></div>`;
+}
+function shapeProdMasterFields(){
+  var external=shapeIsDxfSource(sDraft),common=`<div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='shapeProdChooseType(this.value)'>${shapeProdTypeOptions()}</select>${external?'':shapeProdDxfFileRow()}</div>`;
+  if(external)return `<div class='grid shape-master-fields shape-prod-master'>${common}<div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>${shapeProdDxfFileRow()}`;
+  return `<div class='grid shape-master-fields shape-prod-master'>${common}<div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input value='${esc(sDraft.smart.C.len||'')}' placeholder='= A' oninput='setShapeC(this.value)'></div>`:''}</div>`;
+}
+
+/* ---------- Edge processing: shared invariant ---------- */
+function shapeProdDefaultOp(type){
+  if(type==='Mitering')return shapeNormalizeOp({type:type,angle:45,side:'back'});
+  if(type==='Beveling')return shapeNormalizeOp({type:type,width:'1',side:'front'});
+  return shapeNormalizeOp({type:type});
+}
+function shapeProdToggleOps(list,type,on){
+  list=(Array.isArray(list)?list:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
+  if(on){
+    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    list.push(shapeProdDefaultOp(type));
+  }
+  return list;
+}
+
+toggleShapeEdgeOp=function(groupIndex,opIndex,on){
+  var g=shapeGroupAt(groupIndex),type=SHAPE_EDGE_OPS[opIndex];if(!g||!type)return;
+  if(!sDraft.edgeOps)sDraft.edgeOps={};var list=shapeProdToggleOps(sDraft.edgeOps[g.id]||[],type,on);
+  if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];render();
+};
+function shapeProdConfiguredUniform(type){
+  var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
+}
+function shapeProdApplyConfiguredAR(type){
+  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+}
+function shapeProdClearConfiguredAR(){
+  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+}
+function shapeProdConfiguredArBar(){
+  var groups=shapeGroups();if(!groups.length)return'';
+  return `<div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>Primary finish · ${groups.length} physical edges</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdConfiguredUniform('Rough Arris')?'on':''}' onclick='shapeProdApplyConfiguredAR("Rough Arris")'>AR · Arris</button><button class='${shapeProdConfiguredUniform('Flat Polish')?'on':''}' onclick='shapeProdApplyConfiguredAR("Flat Polish")'>AR · Polish</button><button class='${shapeProdConfiguredUniform('CNC Shape Polish')?'on':''}' onclick='shapeProdApplyConfiguredAR("CNC Shape Polish")'>AR · CNC</button><button onclick='shapeProdClearConfiguredAR()'>Clear AR</button></div></div>`;
+}
+const __shapeProdEdgeworkEditor=shapeEdgeworkEditor;
+shapeEdgeworkEditor=function(){
+  var html=__shapeProdEdgeworkEditor();if(!sDraft||shapeIsDxfSource(sDraft)||!sEdgeworkOpen)return html;
+  var bar=shapeProdConfiguredArBar(),needle="<div class='shape-edgework-scroll'>";
+  return bar&&html.indexOf(needle)>=0?html.replace(needle,bar+needle):html;
+};
+
+function shapeProdDxfGroups(){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return[];
+  var th=shapeThicknessMm(sDraft);
+  return ShapeModule.dxfEdges(sDraft).map(function(edge){
+    var ops=shapeEdgeOps(sDraft,edge.id).map(shapeNormalizeOp).filter(Boolean),a=ShapeModule.productionAllowanceForOps(ops,th);
+    return Object.assign({},edge,{ops:ops,allowance:a.ok?a.value:null,allowanceError:a.ok?'':a.reason});
+  });
+}
+function shapeProdSelectedDxfGroup(){
+  var groups=shapeProdDxfGroups();if(!groups.length)return null;
+  if(!groups.some(function(g){return g.id===shapeProdSelectedEdgeId;}))shapeProdSelectedEdgeId=groups[0].id;
+  return groups.find(function(g){return g.id===shapeProdSelectedEdgeId;})||groups[0];
+}
+function shapeProdSetDxfEdge(id){shapeProdSelectedEdgeId=id;render();}
+function shapeProdToggleDxfOp(edgeId,type,on){
+  if(!sDraft.edgeOps)sDraft.edgeOps={};var list=shapeProdToggleOps(sDraft.edgeOps[edgeId]||[],type,on);
+  if(list.length)sDraft.edgeOps[edgeId]=list;else delete sDraft.edgeOps[edgeId];render();
+}
+function shapeProdSetDxfOpParam(edgeId,type,key,value){
+  var op=((sDraft.edgeOps&&sDraft.edgeOps[edgeId])||[]).find(function(x){return x.type===type;});if(!op)return;
+  if(type==='Mitering'){
+    if(key==='angle')op.angle=+value===22.5?22.5:45;
+    if(key==='side')op.side=value==='front'?'front':'back';
+  }else if(type==='Beveling'){
+    if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');render();return;}op.width=String(value);}
+    if(key==='side')op.side=value==='back'?'back':'front';
+  }
+  render();
+}
+function shapeProdDxfUniform(type){
+  var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(g.ops);return f&&f.type===type;});
+}
+function shapeProdApplyDxfAR(type){
+  if(!sDraft.edgeOps)sDraft.edgeOps={};ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[edge.id]||[],type,true);if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
+}
+function shapeProdClearDxfAR(){
+  ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=(sDraft.edgeOps[edge.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
+}
+function shapeProdDxfParams(edge){
+  var m=edge.ops.find(function(op){return op.type==='Mitering';}),b=edge.ops.find(function(op){return op.type==='Beveling';});if(!m&&!b)return'';
+  return `<div class='shape-prod-op-params'>${m?`<label>Miter angle<select onchange='shapeProdSetDxfOpParam("${esc(edge.id)}","Mitering","angle",this.value)'><option value='45' ${+m.angle===45?'selected':''}>45°</option><option value='22.5' ${+m.angle===22.5?'selected':''}>22.5°</option></select></label><label>Miter side<select onchange='shapeProdSetDxfOpParam("${esc(edge.id)}","Mitering","side",this.value)'><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${m.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' onchange='shapeProdSetDxfOpParam("${esc(edge.id)}","Beveling","width",this.value)'></label><label>Bevel side<select onchange='shapeProdSetDxfOpParam("${esc(edge.id)}","Beveling","side",this.value)'><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${b.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`;
+}
+function shapeProdDxfEdgeProcessing(){
+  var groups=shapeProdDxfGroups(),selected=shapeProdSelectedDxfGroup(),th=shapeThicknessMm(sDraft),count=groups.reduce(function(n,g){return n+g.ops.length;},0);
+  return `<div class='shape-subsection shape-accordion shape-prod-edge'>
+    <button type='button' class='shape-accordion-head' onclick='sEdgeworkOpen=!sEdgeworkOpen;render()'><span><b>Edge processing</b><small>Shape-owned processing · finished DXF → derived cutting allowance</small></span><span class='shape-accordion-state'>${count?count+' operations':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>
+    ${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='shape-prod-thickness'><label>Shape thickness<select onchange='sDraft.thickness=this.value;render()'>${[3,4,5,6,8,10,12,15,19].map(function(n){return `<option value='${n}' ${th===n?'selected':''}>${n} mm</option>`;}).join('')}</select></label><small>Standalone Shape cutting only. Sales Makeup supplies runtime thickness later.</small></div>
+      <div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>${groups.length} physical segments</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdDxfUniform('Rough Arris')?'on':''}' onclick='shapeProdApplyDxfAR("Rough Arris")'>AR · Arris</button><button class='${shapeProdDxfUniform('Flat Polish')?'on':''}' onclick='shapeProdApplyDxfAR("Flat Polish")'>AR · Polish</button><button class='${shapeProdDxfUniform('CNC Shape Polish')?'on':''}' onclick='shapeProdApplyDxfAR("CNC Shape Polish")'>AR · CNC</button><button onclick='shapeProdClearDxfAR()'>Clear AR</button></div></div>
+      ${selected?`<div class='shape-prod-selected'><span>Selected</span><b>${esc(selected.id.toUpperCase())} · ${esc(dimIn(selected.length))}</b><span>${selected.allowance==null?'BLOCKED':selected.allowance?'+'+esc(dimIn(selected.allowance)):'0″'}</span></div>`:''}
+      <div class='shape-prod-exceptions'><button type='button' onclick='shapeProdExceptionsOpen=!shapeProdExceptionsOpen;render()'><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' onclick='shapeProdSetDxfEdge("${esc(edge.id)}")'><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' onclick='event.stopPropagation()'><input type='checkbox' ${on?'checked':''} onchange='shapeProdToggleDxfOp("${esc(edge.id)}","${esc(type)}",this.checked)'><span>${esc(type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':'Bevel')}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
+    </div>`:''}
+  </div>`;
+}
+
+/* ---------- Exact DXF Manufacturing Items ---------- */
+function shapeProdDxfEdgeById(id){return ShapeModule.dxfEdges(sDraft).find(function(e){return e.id===id;})||null;}
+function shapeProdNearestDxfEdge(x,y){
+  var best=null;ShapeModule.dxfEdges(sDraft).forEach(function(e){var dx=e.p2[0]-e.p1[0],dy=e.p2[1]-e.p1[1],L2=dx*dx+dy*dy;if(!(L2>1e-12))return;var t=((x-e.p1[0])*dx+(y-e.p1[1])*dy)/L2;t=Math.max(0,Math.min(1,t));var px=e.p1[0]+dx*t,py=e.p1[1]+dy*t,err=Math.hypot(x-px,y-py);if(!best||err<best.error)best={edgeId:e.id,distance:shapeSnapManufacturing16(t*e.length),error:err};});return best;
+}
+const __shapeProdManufacturingEdgePoint=shapeManufacturingEdgePoint;
+shapeManufacturingEdgePoint=function(item,g){
+  if(sDraft&&shapeIsDxfSource(sDraft)&&item&&item.edgeId){var p=ShapeModule.dxfManufacturingPoint(item,sDraft);if(!p)return null;return {x:p.point[0],y:p.point[1],edge:{edgeId:p.edge.id,start:p.edge.p1,end:p.edge.p2,len:p.edge.length},distance:p.distance};}
+  return __shapeProdManufacturingEdgePoint(item,g);
+};
+const __shapeProdPlaceManufacturing=shapePlaceManufacturingFromEvent;
+shapePlaceManufacturingFromEvent=function(ev,svg){
+  if(!sManufacturingPlace||!sDraft||!shapeIsDxfSource(sDraft)||sManufacturingPlace.type==='hole')return __shapeProdPlaceManufacturing(ev,svg);
+  var T=shapeDxfPreviewTransform(sDraft.source);if(!T)return;var rect=svg.getBoundingClientRect(),vx=(ev.clientX-rect.left)*T.vw/Math.max(1,rect.width),vy=(ev.clientY-rect.top)*T.vh/Math.max(1,rect.height),x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,snap=shapeProdNearestDxfEdge(x,y);if(!snap){alert('No valid DXF segment is available for this item.');return;}
+  if(sManufacturingPlace.moveId){var moving=shapeManufacturingItems().find(function(v){return v.id===sManufacturingPlace.moveId;});if(moving){moving.edgeId=snap.edgeId;delete moving.edge;moving.distance=snap.distance;}}
+  else shapeManufacturingItems().push(shapeNormalizeManufacturingItem({id:shapeNewEntityId('mi-'),type:sManufacturingPlace.type,note:'',edgeId:snap.edgeId,distance:snap.distance}));
+  sManufacturingSelected=null;sManufacturingPlace=null;render();
+};
+function shapeProdSetManufacturingSegment(id,edgeId){
+  var item=shapeManufacturingItems().find(function(x){return x.id===id;}),edge=shapeProdDxfEdgeById(edgeId);if(!item||item.type==='hole'||!edge)return;item.edgeId=edgeId;delete item.edge;if((+item.distance||0)>edge.length)item.distance=shapeSnapManufacturing16(edge.length);render();
+}
+const __shapeProdSetManufacturingDistance=shapeSetManufacturingDistance;
+shapeSetManufacturingDistance=function(id,value){
+  var item=shapeManufacturingItems().find(function(x){return x.id===id;});
+  if(item&&item.type!=='hole'&&item.edgeId&&sDraft&&shapeIsDxfSource(sDraft)){
+    var parsed=fabParseDimStrict(value),edge=shapeProdDxfEdgeById(item.edgeId);if(!parsed.ok||!edge){alert('Enter a valid distance in inches.');render();return;}var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0||d>edge.length+1e-9){alert('The distance must stay on the selected physical segment.');render();return;}item.distance=d;render();return;
+  }
+  return __shapeProdSetManufacturingDistance(id,value);
+};
+const __shapeProdManufacturingMarkers=shapeManufacturingMarkersSvg;
+shapeManufacturingMarkersSvg=function(source,T){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingMarkers(source,T);
+  var items=shapeManufacturingItems();if(!items.length)return'';
+  return items.map(function(item,i){var selected=item.id===sManufacturingSelected?' selected':'',label=shapeManufacturingShort(item.type)+' '+(i+1);if(item.type==='hole'){var x=T.X(item.x),y=T.Y(item.y),d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2));return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'><circle cx='${x}' cy='${y}' r='${r}'/><text x='${x+r+6}' y='${y-6}'>${esc(label)} · Ø ${esc(dimIn(dia))}</text></g>`;}var pt=shapeManufacturingEdgePoint(item,{P:T.P,b:T.b});if(!pt)return'';var e=pt.edge,x=T.X(pt.x),y=T.Y(pt.y),ang=Math.atan2(T.Y(e.end[1])-T.Y(e.start[1]),T.X(e.end[0])-T.X(e.start[0]))*180/Math.PI,mark=item.type==='clamp'?`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-8' y='-8' width='16' height='16' rx='2'/><path d='M -3 -6 V 6 M 3 -6 V 6'/></g>`:`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-10' y='-6' width='20' height='12' rx='2'/><line x1='0' y1='-6' x2='0' y2='6'/></g>`;return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${mark}<text x='${x+12}' y='${y-10}'>${esc(label+' · '+item.edgeId+' @ '+shapeDim16(pt.distance))}</text></g>`;}).join('');
+};
+const __shapeProdManufacturingEditor=shapeManufacturingEditor;
+shapeManufacturingEditor=function(){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingEditor();
+  var items=shapeManufacturingItems(),placing=sManufacturingPlace,edges=ShapeModule.dxfEdges(sDraft),body=`<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("clamp")'>+ Clamp</button><button class='sm' onclick='shapeStartManufacturingPlacement("hinge")'>+ Hinge</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button><span>Clamp / Hinge bind to an exact physical SEG. Hole keeps coordinate references.</span></div>`;
+  if(placing)body+=`<div class='shape-mi-place'><b>${placing.moveId?'Move':'Add'}: ${esc(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Click inside the glass.':'Click near the exact DXF segment.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Cancel</button></div>`;
+  body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){var expanded=item.id===sManufacturingSelected,summary='',fields='';if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),pos=shapeManufacturingHolePosition(item,shapeManufacturingGeometry())||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};summary='Ø '+(d&&d.ok?dimIn(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);fields=`<div class='shape-mi-hole-position-grid'><div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'></label></div><div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'></label></div></div><label>Diameter<input id='mi_d_${esc(item.id)}' value='${esc(item.diameter)}' oninput='shapeSetManufacturingField("${esc(item.id)}","diameter",this.value)' onchange='render()'></label>`;}else{var edge=shapeProdDxfEdgeById(item.edgeId),max=edge?shapeDim16(edge.length):'—';summary=(item.edgeId||'Missing SEG')+' · '+shapeDim16(item.distance||0)+' from segment start';fields=`<div class='shape-mi-coordinate-grid'><label>Physical segment<select onchange='shapeProdSetManufacturingSegment("${esc(item.id)}",this.value)'>${edges.map(function(x){return `<option value='${esc(x.id)}' ${item.edgeId===x.id?'selected':''}>${esc(x.id.toUpperCase())} · ${esc(dimIn(x.length))}</option>`;}).join('')}</select><small>Exact finished DXF segment</small></label><label>Distance from segment start<input value='${esc(shapeFrac16(item.distance||0))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small>Segment length ${esc(max)} · 1/16″</small></label></div>`;}return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${item.type}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${esc(shapeManufacturingItemTitle(item.type))} #${i+1}</b><small>${esc(summary)}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;}).join(''):'<div class="empty compact">No manufacturing items yet</div>'}</div>`;
+  return `<div class='shape-subsection shape-accordion shape-manufacturing'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("manufacturing")'><span><b>Manufacturing items</b><small>Clamp / Hinge = exact SEG + distance · Hole = coordinate references</small></span><span class='shape-accordion-state'>${items.length?items.length+' items':'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>${body}${shapeManufacturingServicesHTML()}</div>`:''}</div>`;
+};
+
+/* ---------- DXF Production / Cutting preview ---------- */
+function shapeProdDxfProductionSvg(){
+  var result=ShapeModule.compute(sDraft),T=shapeDxfPreviewTransform(sDraft.source);if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
+  var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
+  var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
+  var markers=shapeManufacturingMarkersSvg(sDraft.source,T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
+  return `<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${edges}${markers}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>MAX WIDTH ${esc(dimIn(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>MAX HEIGHT ${esc(dimIn(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`;
+}
+function shapeProdDxfCuttingSvg(){
+  var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
+  var finished=plan.finishedPoints,cut=plan.points,all=finished.concat(cut),b=fabEdgeBounds(all),vw=820,vh=480,p=70,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-2*p)/W,(vh-2*p)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
+  return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/></svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn(cb.maxY-cb.minY))}</b></span></div></div>`;
+}
+const __shapeProdPreviewMarkup=shapePreviewMarkup;
+shapePreviewMarkup=function(r){if(sDraft&&shapeIsDxfSource(sDraft))return sView==='cutting'?shapeProdDxfCuttingSvg():shapeProdDxfProductionSvg();return __shapeProdPreviewMarkup(r);};
+const __shapeProdDerivedHTML=shapeDerivedHTML;
+shapeDerivedHTML=function(r){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdDerivedHTML(r);
+  var pr=ShapeModule.dxfProductionResult(sDraft);
+  if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
+  if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn(pr.cutting.width))} × ${esc(dimIn(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn(pr.perimeter))}</b></div></div><div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+};
+
+function shapeProdDownloadDxf(kind){
+  var pr=ShapeModule.dxfProductionResult(sDraft);if(!pr.valid)return alert(pr.reason||'Cutting is blocked.');var base=shapeSafeFileName((sDraft.name||'Shape')+'_R'+(sDraft.revision||0));
+  if(kind==='dxf')return shapeDownload(ShapeModule.genericDxf(pr),'application/dxf',base+'_cutting.dxf');
+  if(kind==='json')return shapeDownload(JSON.stringify(ShapeModule.machinePayload(pr),null,2),'application/json',base+'_machine.json');
+  var plan=pr.cutting,P=plan.points,b=fabEdgeBounds(P),pad=Math.max(.25,Math.max(plan.width,plan.height)*.03),pts=P.map(function(p){return (p[0]-b.minX+pad)+','+(b.maxY-p[1]+pad);}).join(' '),svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${plan.width+2*pad} ${plan.height+2*pad}"><polygon points="${pts}" fill="none" stroke="black"/></svg>`;shapeDownload(svg,'image/svg+xml',base+'_cutting.svg');
+}
+const __shapeProdArtifacts=shapeArtifacts;
+shapeArtifacts=function(r){
+  if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdArtifacts(r);
+  var pr=ShapeModule.dxfProductionResult(sDraft);
+  if(!pr.valid)return `<div class='shape-artifacts dxf-source'><b>Machine export blocked</b><span>${esc(pr.reason||'Fix the production input first.')}</span></div>`;
+  return `<div class='shape-artifacts'><b>Machine cutting files</b><button onclick='shapeProdDownloadDxf("svg")'>Cutting SVG</button><button onclick='shapeProdDownloadDxf("json")'>Machine JSON</button><button onclick='shapeProdDownloadDxf("dxf")'>Generic DXF</button><small>All files use the orange Cutting contour shown above.</small></div>`;
+};
+
+/* ---------- Final approved editor order ---------- */
+shapeForm=function(){
+  shapeProdStripStaleSegments();setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
+  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry();
+  var controls=external
+    ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing and manufacturing remain editable.</div>${shapeProdDxfEdgeProcessing()}${shapeManufacturingEditor()}`
+    : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeEdgeworkEditor()}${shapeManufacturingEditor()}${shapeFeaturesEditor(geo)}`;
+  var tabs=external
+    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Print / PDF</button></div>`
+    : `<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
+  return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</h3><p>${external?'Finished DXF → Edge processing → Manufacturing Items → derived Cutting DXF.':'Finished geometry → Edge processing → Manufacturing Items → geometry modifiers.'}</p></div></div><div class='shape-editor-layout'><div class='shape-controls'>${shapeProdMasterFields()}${controls}</div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div><div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Save revision</button><button onclick='cancelShapeEdit()'>Cancel</button></div></div>`;
+};
+
 /* ==== src/erp/views/sales-muntin-ui.js ==== */
 /* =====================================================================
    view/sales/muntin-ui  ·  erp-1.0
@@ -7327,6 +8255,206 @@ function viewConfigurators(){
    ${subtab==='shape'?viewShapeSkill():viewMuntinSkill()}
   </div>`;
 }
+
+/* ==== src/erp/views/sales-service-sets-ui.js ==== */
+/* =====================================================================
+   erp/views/sales-service-sets-ui · service-set-v1
+   UI for order-scoped Edgework Sets and line Effective Production.
+   Business resolution lives in erp/sales/service-sets.js.
+   ===================================================================== */
+
+let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
+let soEdgeworkLineId=null,soServiceFilter='all',soBulkServiceSetId='',soBulkServicePolicy='keep',soServiceBulkPreview=null;
+
+function salesServiceShort(type){return type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':type==='Beveling'?'Bevel':type;}
+function salesServiceOpsText(ops){var a=salesServiceOps(ops);return a.length?a.map(function(o){return o.type==='Mitering'?(o.angle||45)+'° '+((o.side||'back')==='front'?'Front':'Back')+' Mitre':o.type==='Beveling'?'Bevel '+(o.width||'1')+'″ ('+((o.side||'front')==='back'?'Back':'Front')+')':salesServiceShort(o.type);}).join(' + '):'None';}
+
+function salesServiceFilteredEntries(){
+  if(!soDraft)return [];
+  return soDraft.lines.map(function(line,index){return {line:line,index:index};}).filter(function(entry){
+    var line=entry.line;
+    if(soServiceFilter==='unset')return !line.serviceSetId;
+    if(soServiceFilter==='attention')return salesLineNeedsServiceAttention(line);
+    if(soServiceFilter==='override')return salesHasLineEdgeOverrides(line);
+    if(soServiceFilter==='dxf'){var s=salesShapeByRef(line.shapeRef);return !!(s&&shapeIsDxfSource(s));}
+    return true;
+  });
+}
+function salesServiceFilterCount(key){var old=soServiceFilter;soServiceFilter=key;var n=salesServiceFilteredEntries().length;soServiceFilter=old;return n;}
+function salesServiceVisibleSelected(){var ids=new Set(salesServiceFilteredEntries().map(function(x){return x.line.id;}));return (soDraft&&soDraft.lines||[]).filter(function(line){return soSelectedLines.has(line.id)&&ids.has(line.id);});}
+function salesServiceAvailableFilters(){
+  return [['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
+}
+function salesNormalizeVisibleServiceFilter(){var a=salesServiceAvailableFilters();if(soServiceFilter!=='all'&&!a.some(function(d){return d.key===soServiceFilter;}))soServiceFilter='all';}
+function salesSetServiceFilter(key){var a=salesServiceAvailableFilters();soServiceFilter=key==='all'||a.some(function(d){return d.key===key;})?key:'all';soServiceBulkPreview=null;render();}
+function salesServiceFiltersHtml(){
+  salesNormalizeVisibleServiceFilter();var a=salesServiceAvailableFilters();if(!a.length)return '';
+  return `<div class='ss-filters'><button class='ss-filter ${soServiceFilter==='all'?'on':''}' onclick='salesSetServiceFilter("all")'>All <span>${salesServiceFilterCount('all')}</span></button>${a.map(function(d){return `<button class='ss-filter ${soServiceFilter===d.key?'on':''} ${d.key==='attention'?'attn':''}' onclick='salesSetServiceFilter("${d.key}")'>${esc(d.label)} <span>${d.count}</span></button>`;}).join('')}</div>`;
+}
+
+const __salesServiceToggleLine=salesToggleLine;
+salesToggleLine=function(id,on){__salesServiceToggleLine(id,on);soServiceBulkPreview=null;};
+salesToggleAllLines=function(on){salesServiceFilteredEntries().forEach(function(x){if(on)soSelectedLines.add(x.line.id);else soSelectedLines.delete(x.line.id);});soServiceBulkPreview=null;render();};
+salesRefreshBulkBar=function(){var el=document.getElementById('salesBulkCount');if(el)el.textContent=salesServiceVisibleSelected().length+' selected';};
+salesAssignSelected=function(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;salesServiceVisibleSelected().forEach(function(l){l.makeupId=makeupId;});soServiceBulkPreview=null;render();};
+
+function salesSetBadge(line){
+  var set=salesServiceSetById(soDraft,line.serviceSetId),ov=salesHasLineEdgeOverrides(line);
+  if(line.serviceSetId&&!set)return `<button type='button' class='ss-badge missing' title='Referenced Bulk Service Set is missing' onclick='salesOpenLineEdgework("${esc(line.id)}")'>?</button>`;
+  if(!set)return `<button type='button' class='ss-badge' title='No Bulk Service Set' onclick='salesOpenLineEdgework("${esc(line.id)}")'>—</button>`;
+  return `<button type='button' class='ss-badge${ov?' override':''}' title='${esc(salesServiceSetFormula(set))}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>${esc(set.code)}${ov?'*':''}</button>`;
+}
+
+function salesAssignmentWarning(line,set){
+  var test=salesServiceClone(line);test.serviceSetId=set.id;var shape=salesLineGeometryShape(test);if(!shape)return 'Needs geometry';
+  if(shapeIsDxfSource(shape)&&set.mode==='sides'&&!salesDxfMappingComplete(test,shape))return 'DXF Set will wait for confirmed side mapping';
+  if(salesDxfOverrideStale(test,shape))return 'DXF line override belongs to another physical contour';
+  var cut=salesEffectiveCuttingPlan(test,shape,soDraft);return cut.valid?'':cut.reason;
+}
+function salesPlanServiceAssignment(setId,policy){
+  var set=salesServiceSetById(soDraft,setId),rows=salesServiceVisibleSelected();policy=policy||'keep';if(!set||!rows.length)return null;
+  var affected=rows.filter(function(l){return !(policy==='empty'&&l.serviceSetId);}),warnings=[],preserved=policy==='keep'?affected.reduce(function(n,l){return n+Object.keys((l.serviceOverrides&&l.serviceOverrides.edges)||{}).length;},0):0,edges=0;
+  affected.forEach(function(line){var shape=salesLineGeometryShape(line);edges+=shape?salesShapePhysicalEdges(shape).length:0;var w=salesAssignmentWarning(line,set);if(w)warnings.push({mark:line.mark||line.id,text:w});});
+  return {setId:set.id,policy:policy,lineIds:affected.map(function(l){return l.id;}),lineCount:affected.length,edgeCount:edges,preserved:preserved,warnings:warnings};
+}
+function salesPreviewServiceAssignment(){soServiceBulkPreview=salesPlanServiceAssignment(soBulkServiceSetId,soBulkServicePolicy);if(!soServiceBulkPreview)alert('Select visible rows and choose a Bulk Service Set.');render();}
+function salesApplyServiceAssignment(){
+  var p=soServiceBulkPreview;if(!p)return;var ids=new Set(p.lineIds);
+  soDraft.lines.forEach(function(line){if(!ids.has(line.id))return;line.serviceSetId=p.setId;if(p.policy==='overwrite')line.serviceOverrides={pinnedTopology:'',edges:{}};});
+  soServiceBulkPreview=null;soSelectedLines=new Set();render();
+}
+function salesServiceBulkPreviewHtml(){
+  var p=soServiceBulkPreview;if(!p)return '';
+  return `<div class='ss-preview'><strong>Will change ${p.lineCount} line(s) · ${p.edgeCount} physical edge(s) · ${p.preserved} manual override(s) preserved</strong>${p.warnings.length?`<ul>${p.warnings.map(function(w){return `<li>${esc(w.mark)} — ${esc(w.text)}</li>`;}).join('')}</ul>`:`<div class='mut'>No production warnings detected.</div>`}<div class='ss-preview-actions'><button class='pri sm' onclick='salesApplyServiceAssignment()'>Apply</button><button class='sm' onclick='soServiceBulkPreview=null;render()'>Cancel</button></div></div>`;
+}
+function salesBulkServiceControls(){
+  var selected=salesServiceVisibleSelected();if(!selected.length)return '';
+  return `<div class='sales-bulk ss-bulk'><b id='salesBulkCount'>${selected.length} selected</b><span>Makeup</span><select onchange='salesAssignSelected(this.value)'><option value=''>—</option>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}'>${esc(m.code)}</option>`;}).join('')}</select><span>Bulk Set</span><select onchange='soBulkServiceSetId=this.value;soServiceBulkPreview=null;render()'><option value=''>—</option>${(soDraft.serviceSets||[]).map(function(s){return `<option value='${esc(s.id)}' ${soBulkServiceSetId===s.id?'selected':''}>${esc(s.code)} · ${esc(salesServiceSetFormula(s))}</option>`;}).join('')}</select><span>Policy</span><select onchange='soBulkServicePolicy=this.value;soServiceBulkPreview=null;render()'><option value='keep' ${soBulkServicePolicy==='keep'?'selected':''}>Keep overrides</option><option value='overwrite' ${soBulkServicePolicy==='overwrite'?'selected':''}>Overwrite overrides</option><option value='empty' ${soBulkServicePolicy==='empty'?'selected':''}>Only empty</option></select><button class='sm' onclick='salesPreviewServiceAssignment()'>Preview</button><button class='sm' onclick='soSelectedLines=new Set();soServiceBulkPreview=null;render()'>Clear</button></div>${salesServiceBulkPreviewHtml()}`;
+}
+
+/* Approved Sales line layout: Set column immediately after MU. */
+salesOrderLines=function(){
+  var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),hasServices=pricing.charges>0;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>MU → Set → Qty → Dimensions → Mark → Shape / Muntin → Services</span></div><div class='sales-line-tools'><button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:''}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th><th>MU</th><th>Set</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Services</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!!(l.shapeRef&&l.shapeRef.id),st=salesLineServiceStatus(l);return `<tr><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}</td><td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td><td class='ss-cell'>${salesSetBadge(l)}</td><td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td><td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td><td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td><td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td class='line-services-cell'>${salesLineServicesSummary(l)}</td><td class='ss-status'><span class='pill ${st.cls}'>${esc(st.label)}</span></td><td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td><td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='14' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div></section>`;
+};
+
+/* ---------- Edgework Set editor ---------- */
+function salesOpenServiceSets(id){soServiceSetOpen=true;soEdgeworkLineId=null;if(id)salesSelectServiceSet(id);else if((soDraft.serviceSets||[]).length)salesSelectServiceSet(soDraft.serviceSets[0].id);else salesNewServiceSet();render();}
+function salesCloseServiceSets(){soServiceSetOpen=false;soServiceSetEditingId=null;soServiceSetDraft=null;render();}
+function salesSelectServiceSet(id){var s=salesServiceSetById(soDraft,id);if(!s)return;soServiceSetEditingId=id;soServiceSetDraft=salesServiceClone(s);render();}
+function salesNewServiceSet(){var now=new Date().toISOString();soServiceSetEditingId='new';soServiceSetDraft=salesNormalizeServiceSet({id:salesUid('SVC'),code:salesNextServiceSetCode(soDraft),name:'',mode:'sides',sides:{A:[],B:[],C:[],D:[],other:[]},createdAt:now,updatedAt:now},(soDraft.serviceSets||[]).length);render();}
+function salesSetSetField(key,value){if(!soServiceSetDraft)return;if(key==='code')soServiceSetDraft.code=salesString(value).toUpperCase();else soServiceSetDraft[key]=value;}
+function salesSetSetMode(mode){if(!soServiceSetDraft)return;soServiceSetDraft.mode=mode==='perimeter'?'perimeter':'sides';render();}
+function salesSetBucket(row){return row==='ALL'?soServiceSetDraft.perimeter:soServiceSetDraft.sides[row==='OTHER'?'other':row];}
+function salesToggleSetOp(row,type,on){
+  if(!soServiceSetDraft)return;var key=row==='OTHER'?'other':row,current=row==='ALL'?soServiceSetDraft.perimeter:soServiceSetDraft.sides[key],list=shapeTogglePrimaryFinish(current,type,on);
+  if(row==='ALL')soServiceSetDraft.perimeter=list;else soServiceSetDraft.sides[key]=list;render();
+}
+function salesSetOpParam(row,type,key,value){
+  var bucket=salesSetBucket(row),op=bucket.find(function(o){return o.type===type;});if(!op)return;
+  if(type==='Mitering'){if(key==='angle')op.angle=+value===22.5?22.5:45;if(key==='side')op.side=value==='front'?'front':'back';}
+  if(type==='Beveling'){if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');render();return;}op.width=String(value);}if(key==='side')op.side=value==='back'?'back':'front';}render();
+}
+function salesValidateSetDraft(){
+  if(!soServiceSetDraft)return 'No Service Set draft.';if(!/^[A-Za-z0-9_-]{1,20}$/.test(soServiceSetDraft.code||''))return 'Set code must contain letters, numbers, _ or -.';
+  var rows=soServiceSetDraft.mode==='perimeter'?['ALL']:['A','B','C','D','OTHER'];
+  for(var i=0;i<rows.length;i++){var v=ShapeModule.validateEdgeOperations(salesSetBucket(rows[i]),rows[i]);if(!v.ok)return v.reason;}
+  var dup=(soDraft.serviceSets||[]).find(function(s){return s.code===soServiceSetDraft.code&&s.id!==soServiceSetDraft.id;});if(dup)return 'Another Service Set already uses code '+soServiceSetDraft.code+'.';return '';
+}
+function salesSaveServiceSet(){
+  var error=salesValidateSetDraft();if(error)return alert(error);var now=new Date().toISOString(),draft=salesNormalizeServiceSet(soServiceSetDraft);draft.updatedAt=now;if(!draft.createdAt)draft.createdAt=now;
+  if(soServiceSetEditingId==='new'){soDraft.serviceSets.push(draft);soServiceSetEditingId=draft.id;}else{var i=soDraft.serviceSets.findIndex(function(s){return s.id===soServiceSetEditingId;});if(i>=0)soDraft.serviceSets[i]=draft;}
+  soServiceSetDraft=salesServiceClone(draft);render();
+}
+function salesDeleteServiceSet(){
+  if(!soServiceSetDraft||soServiceSetEditingId==='new'){salesNewServiceSet();return;}var used=salesServiceSetUsage(soDraft,soServiceSetDraft.id);if(used&&!confirm('This Set is assigned to '+used+' line(s). Delete it and leave those lines needing review?'))return;if(!used&&!confirm('Delete '+soServiceSetDraft.code+'?'))return;
+  soDraft.serviceSets=soDraft.serviceSets.filter(function(s){return s.id!==soServiceSetDraft.id;});if(soDraft.serviceSets.length)salesSelectServiceSet(soDraft.serviceSets[0].id);else salesNewServiceSet();render();
+}
+function salesSetMatrixRow(row){
+  var ops=salesSetBucket(row);return `<div class='ss-set-row'><b>${esc(row)}</b>${SALES_SERVICE_SET_OPS.map(function(type){var on=ops.some(function(o){return o.type===type;});return `<label class='ss-op ${on?'on':''}'><input type='checkbox' ${on?'checked':''} onchange='salesToggleSetOp("${row}","${type}",this.checked)'><span>${esc(salesServiceShort(type))}</span></label>`;}).join('')}<span class='ss-set-result'>${esc(salesServiceOpsText(ops))}</span></div>${ops.map(function(op){if(op.type==='Mitering')return `<div class='ss-param-row'><span>${row} · Miter</span><label>Angle<select onchange='salesSetOpParam("${row}","Mitering","angle",this.value)'><option value='45' ${+op.angle===45?'selected':''}>45°</option><option value='22.5' ${+op.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='salesSetOpParam("${row}","Mitering","side",this.value)'><option value='back' ${(op.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${op.side==='front'?'selected':''}>Front</option></select></label></div>`;if(op.type==='Beveling')return `<div class='ss-param-row'><span>${row} · Bevel</span><label>Width<input value='${esc(op.width||'1')}' onchange='salesSetOpParam("${row}","Beveling","width",this.value)'></label><label>Side<select onchange='salesSetOpParam("${row}","Beveling","side",this.value)'><option value='front' ${(op.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${op.side==='back'?'selected':''}>Back</option></select></label></div>`;return '';}).join('')}`;
+}
+function salesServiceSetsModal(){
+  if(!soServiceSetOpen||!soServiceSetDraft)return '';
+  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseServiceSets()'><div class='sales-service-modal ss-set-modal'><div class='sales-service-modal-head'><div><span>Sales Order ${esc(soDraft.businessNumber||'Draft')}</span><h3>Edgework Sets</h3><small>Reusable bulk edgework recipe inside this order.</small></div><button onclick='salesCloseServiceSets()'>×</button></div><div class='ss-set-workspace'><aside class='ss-set-list'><button class='pri sm' onclick='salesNewServiceSet()'>+ New Set</button>${(soDraft.serviceSets||[]).map(function(s){return `<button class='ss-set-list-item ${soServiceSetEditingId===s.id?'on':''}' onclick='salesSelectServiceSet("${esc(s.id)}")'><b>${esc(s.code)}</b><span>${esc(s.name||salesServiceSetFormula(s))}</span><small>${salesServiceSetUsage(soDraft,s.id)} line(s)</small></button>`;}).join('')}</aside><div class='ss-set-editor'><div class='ss-set-fields'><label>Code<input value='${esc(soServiceSetDraft.code)}' oninput='salesSetSetField("code",this.value)'></label><label>Name<input value='${esc(soServiceSetDraft.name)}' oninput='salesSetSetField("name",this.value)'></label><label>Mode<select onchange='salesSetSetMode(this.value)'><option value='sides' ${soServiceSetDraft.mode==='sides'?'selected':''}>Sides A/B/C/D/OTHER</option><option value='perimeter' ${soServiceSetDraft.mode==='perimeter'?'selected':''}>Whole perimeter</option></select></label></div><div class='ss-set-matrix'><div class='ss-set-row head'><b>Side</b>${SALES_SERVICE_SET_OPS.map(function(t){return `<span>${esc(salesServiceShort(t))}</span>`;}).join('')}<span>Resolved</span></div>${(soServiceSetDraft.mode==='perimeter'?['ALL']:['A','B','C','D','OTHER']).map(salesSetMatrixRow).join('')}</div><div class='ss-set-actions'><button class='dl' onclick='salesDeleteServiceSet()'>Delete</button><span class='sp'></span><button onclick='salesCloseServiceSets()'>Close</button><button class='pri' onclick='salesSaveServiceSet()'>Save Set</button></div></div></div></div></div>`;
+}
+
+/* ---------- Line Effective Production ---------- */
+function salesOpenLineEdgework(id){soEdgeworkLineId=id;soServiceSetOpen=false;render();}
+function salesCloseLineEdgework(){soEdgeworkLineId=null;render();}
+function salesSetDxfSegmentSide(lineId,segId,side){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;var map=salesNormalizeSideMap(line.sideMap)||{A:[],B:[],C:[],D:[],other:[]};
+  ['A','B','C','D','other'].forEach(function(k){map[k]=map[k].filter(function(id){return id!==segId;});});if(['A','B','C','D','other'].indexOf(side)>=0)map[side].push(segId);line.sideMap=salesNormalizeSideMap(map);line.sideMapTopology='';render();
+}
+function salesConfirmDxfMapping(lineId){var line=soDraft.lines.find(function(l){return l.id===lineId;}),shape=line&&salesShapeByRef(line.shapeRef);if(!line||!shape||!shapeIsDxfSource(shape))return;if(!salesDxfSideMapClassified(line,shape))return alert('Classify every DXF segment before confirming the mapping.');line.sideMapTopology=ShapeModule.dxfTopologyFingerprint(shape);render();}
+function salesDxfMappingHtml(line,shape){
+  var edges=ShapeModule.dxfEdges(shape),classified=salesDxfSideMapClassified(line,shape),current=salesDxfSideMapCurrent(line,shape),unmapped=edges.filter(function(e){return !salesMappedSide(line,e.id);}).length,key=ShapeModule.dxfTopologyFingerprint(shape);
+  return `<div class='ss-dxf-map'><div class='ss-map-state'>${current?`<span class='ok'><b>Confirmed for this physical DXF contour</b></span>`:classified?`<span class='warn'><b>Review required.</b> Classification is complete but not confirmed.</span>`:`<span class='warn'><b>${unmapped} unmapped segment(s).</b> Unmapped is not OTHER.</span>`}<span class='sp'></span>${classified&&!current?`<button onclick='salesConfirmDxfMapping("${esc(line.id)}")'>Confirm mapping</button>`:''}<code>${esc(key)}</code></div><div class='ss-dxf-map-head'><b>Physical segment</b><b>Class</b><b>Length</b></div>${edges.map(function(edge){var side=salesMappedSide(line,edge.id);return `<div class='ss-dxf-map-row'><b class='mono'>${esc(edge.id.toUpperCase())}</b><select onchange='salesSetDxfSegmentSide("${esc(line.id)}","${esc(edge.id)}",this.value)'><option value='' ${!side?'selected':''}>Unmapped</option><option value='A' ${side==='A'?'selected':''}>A · Left / height</option><option value='B' ${side==='B'?'selected':''}>B · Bottom / width</option><option value='C' ${side==='C'?'selected':''}>C · Right / height</option><option value='D' ${side==='D'?'selected':''}>D · Top / width</option><option value='other' ${side==='other'?'selected':''}>OTHER · custom edge</option></select><span class='mono'>${esc(dimIn(edge.length))}</span></div>`;}).join('')}</div>`;
+}
+function salesSetLineEdgeOp(lineId,edgeId,type,on){var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;var r=salesApplyLineEdgeOperation(line,edgeId,type,on);if(!r.ok)alert(r.reason);render();}
+function salesRevertEdge(lineId,edgeId){var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;delete line.serviceOverrides.edges[edgeId];if(!Object.keys(line.serviceOverrides.edges).length)line.serviceOverrides.pinnedTopology='';render();}
+function salesRevertAllEdges(lineId){var line=soDraft.lines.find(function(l){return l.id===lineId;});if(line)line.serviceOverrides={pinnedTopology:'',edges:{}};render();}
+function salesRemoveLostEdges(lineId){var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;salesLostOverrideEdges(line).forEach(function(id){delete line.serviceOverrides.edges[id];});if(!Object.keys(line.serviceOverrides.edges).length)line.serviceOverrides.pinnedTopology='';render();}
+function salesSetLineOpParam(lineId,edgeId,type,key,value){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;}),shape=line&&salesLineGeometryShape(line);if(!line||!shape)return;if(!line.serviceOverrides)line.serviceOverrides={pinnedTopology:'',edges:{}};
+  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft),group=snap.valid&&snap.groups.find(function(g){return g.id===edgeId;});if(!group)return alert(snap.reason||'Edge is unavailable.');
+  if(!Object.prototype.hasOwnProperty.call(line.serviceOverrides.edges,edgeId))line.serviceOverrides.edges[edgeId]=salesServiceClone(group.ops);
+  var op=line.serviceOverrides.edges[edgeId].find(function(o){return o.type===type;});if(!op)return;
+  if(type==='Mitering'){if(key==='angle')op.angle=+value===22.5?22.5:45;if(key==='side')op.side=value==='front'?'front':'back';}
+  if(type==='Beveling'){if(key==='width'){if(!(inch(value)>0)){alert('Bevel width must be greater than zero.');return render();}op.width=String(value);}if(key==='side')op.side=value==='back'?'back':'front';}
+  if(shapeIsDxfSource(shape))line.serviceOverrides.pinnedTopology=ShapeModule.dxfTopologyFingerprint(shape);render();
+}
+function salesLineParamEditor(line,group){
+  var m=group.ops.find(function(o){return o.type==='Mitering';}),b=group.ops.find(function(o){return o.type==='Beveling';});if(!m&&!b)return '';
+  return `<div class='ss-edge-params'>${m?`<label>Miter angle<select onchange='salesSetLineOpParam("${esc(line.id)}","${esc(group.id)}","Mitering","angle",this.value)'><option value='45' ${+m.angle===45?'selected':''}>45°</option><option value='22.5' ${+m.angle===22.5?'selected':''}>22.5°</option></select></label><label>Miter side<select onchange='salesSetLineOpParam("${esc(line.id)}","${esc(group.id)}","Mitering","side",this.value)'><option value='back' ${(m.side||'back')==='back'?'selected':''}>Back</option><option value='front' ${m.side==='front'?'selected':''}>Front</option></select></label>`:''}${b?`<label>Bevel width<input value='${esc(b.width||'1')}' onchange='salesSetLineOpParam("${esc(line.id)}","${esc(group.id)}","Beveling","width",this.value)'></label><label>Bevel side<select onchange='salesSetLineOpParam("${esc(line.id)}","${esc(group.id)}","Beveling","side",this.value)'><option value='front' ${(b.side||'front')==='front'?'selected':''}>Front</option><option value='back' ${b.side==='back'?'selected':''}>Back</option></select></label>`:''}</div>`;
+}
+function salesEffectivePreviewSvg(plan){
+  if(!plan||!plan.valid||!(plan.finishedPoints||[]).length)return '';
+  var all=(plan.finishedPoints||[]).concat(plan.cuttingPoints||[]),b=fabEdgeBounds(all),W=Math.max(.01,b.maxX-b.minX),H=Math.max(.01,b.maxY-b.minY),vw=640,vh=420,p=45,sc=Math.min((vw-p*2)/W,(vh-p*2)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L ':'M ')+X(q[0])+' '+Y(q[1]);}).join(' ')+' Z';};
+  return `<svg class='ss-effective-svg' viewBox='0 0 ${vw} ${vh}'><path d='${path(plan.finishedPoints)}' class='finished'/><path d='${path(plan.cuttingPoints)}' class='cutting'/></svg>`;
+}
+function salesDownloadBlob(text,type,name){var blob=new Blob([text],{type:type}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
+function salesEffectiveFileBase(line){return String((soDraft.businessNumber||'SO')+'_'+(line.mark||line.id||'line')+'_EFFECTIVE_CUTTING').replace(/[^A-Za-z0-9_.-]+/g,'_');}
+function salesDownloadEffectiveCutting(lineId,kind){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;}),payload=line&&salesEffectiveMachinePayload(line);if(!payload)return;if(!payload.ok)return alert(payload.reason);var base=salesEffectiveFileBase(line),points=payload.outer.points;
+  if(kind==='dxf'){var dxf='0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n'+shapeDxfPolyline(points,'CUT_OUTER')+'0\nENDSEC\n0\nEOF\n';salesDownloadBlob(dxf,'application/dxf',base+'.dxf');return;}
+  var b=fabEdgeBounds(points),w=Math.max(.001,b.maxX-b.minX),h=Math.max(.001,b.maxY-b.minY),pad=Math.max(.25,Math.max(w,h)*.03),pts=points.map(function(p){return (p[0]-b.minX+pad)+','+(b.maxY-p[1]+pad);}).join(' ');salesDownloadBlob(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${w+pad*2} ${h+pad*2}'><polygon points='${pts}' fill='none' stroke='black'/></svg>`,'image/svg+xml',base+'.svg');
+}
+function salesEffectiveMachineCard(line,shape,plan){var issue=salesEffectiveMachineIssue(line,shape,plan);if(issue)return `<div class='ss-machine blocked'><b>ORDER EFFECTIVE · machine cutting</b><span>BLOCKED · ${esc(issue)}</span></div>`;return `<div class='ss-machine ok'><div><b>ORDER EFFECTIVE · machine cutting</b><small>Same Effective edge map as Services & prices.</small></div><code>${esc(salesEffectiveProductionFingerprint(line,shape,plan))}</code><div><button onclick='salesDownloadEffectiveCutting("${esc(line.id)}","svg")'>Effective Cutting SVG</button><button onclick='salesDownloadEffectiveCutting("${esc(line.id)}","dxf")'>Effective Generic DXF</button></div></div>`;}
+function salesLineEdgeworkModal(){
+  var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);
+  var warning=!snap.valid?`<div class='ss-line-warning bad'>${esc(snap.reason)}</div>`:snap.mappingPending?`<div class='ss-line-warning warn'><b>${esc(set&&set.code||'Bulk Set')} is pending mapping.</b> Shape-owned processing remains active in Services; machine release is blocked until mapping is confirmed.</div>`:!plan.valid?`<div class='ss-line-warning bad'>${esc(plan.reason)}</div>`:lost.length?`<div class='ss-line-warning bad'>Lost override edge(s): ${esc(lost.join(', '))}</div>`:`<div class='ss-line-warning info'><b>Order Effective</b> = Shape + optional Bulk Set + optional Line Override + Makeup thickness.</div>`;
+  var groups=snap.groups||[];
+  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseLineEdgework()'><div class='sales-service-modal line-modal'><div class='sales-service-modal-head'><div><span>Sales Order line ${esc(line.mark||line.id)}</span><h3>Effective Production</h3><small>${line.shapeRef&&line.shapeRef.id?esc(shape.name):'Width × Height rectangle'}${set?' · '+esc(set.code):''}</small></div><button onclick='salesCloseLineEdgework()'>×</button></div>${warning}<div class='ss-effective-workspace'><div class='ss-effective-visual'>${plan.valid?salesEffectivePreviewSvg(plan):`<div class='ss-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.reason||snap.reason||'Unresolved')}</span></div>`}<div class='ss-effective-legend'><span>Finished</span><span>Cutting</span></div></div><div class='ss-effective-edges'>${groups.map(function(g){var ov=Object.prototype.hasOwnProperty.call((line.serviceOverrides&&line.serviceOverrides.edges)||{},g.id);return `<div class='ss-effective-edge'><div class='ss-effective-edge-head'><div><b>${esc(g.id.toUpperCase())}</b><small>${esc(dimIn(g.length))} · ${esc(g.side==='other'?'OTHER':g.side)}</small></div><div><span class='ss-source'>${esc(g.source)}</span>${g.allowance==null?'':`<b>${g.allowance?'+'+esc(dimIn(g.allowance)):'0″'}</b>`}</div></div><div class='ss-effective-opset'>${SALES_SERVICE_SET_OPS.map(function(type){var on=g.ops.some(function(o){return o.type===type;});return `<label class='ss-op ${on?'on':''}'><input type='checkbox' ${on?'checked':''} onchange='salesSetLineEdgeOp("${esc(line.id)}","${esc(g.id)}","${type}",this.checked)'><span>${esc(salesServiceShort(type))}</span></label>`;}).join('')}</div>${salesLineParamEditor(line,g)}${ov?`<button class='sm' onclick='salesRevertEdge("${esc(line.id)}","${esc(g.id)}")'>Return this edge to Set / Shape</button>`:''}</div>`;}).join('')||`<div class='empty compact'>No physical edges available.</div>`}</div></div>${dxf&&set&&set.mode==='sides'?salesDxfMappingHtml(line,shape):''}${salesEffectiveMachineCard(line,shape,plan)}<div class='ss-line-actions'>${salesHasLineEdgeOverrides(line)?`<button onclick='salesRevertAllEdges("${esc(line.id)}")'>Clear all line overrides</button>`:''}${lost.length?`<button class='dl' onclick='salesRemoveLostEdges("${esc(line.id)}")'>Remove lost overrides</button>`:''}${line.shapeRef&&line.shapeRef.id?`<button onclick='salesOpenShapeFromEdgework("${esc(line.id)}")'>Open Shape · standalone</button>`:''}<button class='pri' onclick='salesOpenLineServices("${esc(line.id)}")'>Open Services · same snapshot</button></div></div></div>`;
+}
+function salesOpenShapeFromEdgework(lineId){var i=soDraft.lines.findIndex(function(l){return l.id===lineId;});soEdgeworkLineId=null;if(i>=0)salesOrderConfigureShape(i);}
+
+/* Existing Services modal remains authoritative for prices; dispatcher gains 2 new modal types. */
+const __salesServiceServicesModal=salesServicesModal;
+salesServicesModal=function(){if(soServiceSetOpen)return salesServiceSetsModal();if(soEdgeworkLineId)return salesLineEdgeworkModal();return __salesServiceServicesModal();};
+
+/* Excel: optional Service Set column. */
+const __salesServiceExcelModal=salesExcelModal;
+salesExcelModal=function(){
+  var m=salesCurrentMakeup();return `<div id='salesExcelModal' class='sales-modal-back'><div class='sales-modal'><div class='sales-modal-head'><div><h3>Paste Excel Rows</h3><span id='salesExcelCols'>${soExcelMode==='withSet'?'MU | SS | Qty | Width | Height | Mark':soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark'}</span></div><button onclick='salesExcelClose()'>×</button></div><div class='excel-mode'><button class='${soExcelMode==='current'?'on':''}' onclick='salesExcelSetMode("current");render()'>Current Makeup ${m?esc(m.code):''}</button><button class='${soExcelMode==='withMakeup'?'on':''}' onclick='salesExcelSetMode("withMakeup");render()'>MU first</button><button class='${soExcelMode==='withSet'?'on':''}' onclick='salesExcelSetMode("withSet");render()'>MU + SS</button></div><textarea id='salesExcelText' rows='10' placeholder='A&#9;S2&#9;1&#9;30&#9;80&#9;A1'></textarea><div class='sales-modal-actions'><button onclick='salesExcelClose()'>Cancel</button><button class='pri' onclick='salesExcelApply()'>Add Rows</button></div></div></div>`;
+};
+salesExcelSetMode=function(v){soExcelMode=v==='withSet'?'withSet':v==='withMakeup'?'withMakeup':'current';var hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withSet'?'MU | SS | Qty | Width | Height | Mark':soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark';};
+salesExcelApply=function(){
+  var text=document.getElementById('salesExcelText').value,rows=String(text||'').split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean),added=0,bad=0,current=salesCurrentMakeup();
+  rows.forEach(function(row){var c=row.split(/\t|,|;/).map(function(x){return x.trim();}),mu=current,setId='',q,w,h,mark;
+    if(soExcelMode==='withSet'){if(c.length<6){bad++;return;}mu=soDraft.makeups.find(function(m){return m.code.toUpperCase()===String(c[0]).toUpperCase();});var set=(soDraft.serviceSets||[]).find(function(s){return s.code.toUpperCase()===String(c[1]).toUpperCase();});if(c[1]&&!set){bad++;return;}setId=set?set.id:'';q=salesPositiveInt(c[2],0);w=salesDimTo16(c[3]);h=salesDimTo16(c[4]);mark=c[5];}
+    else if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(function(m){return m.code.toUpperCase()===String(c[0]).toUpperCase();});q=salesPositiveInt(c[1],0);w=salesDimTo16(c[2]);h=salesDimTo16(c[3]);mark=c[4];}
+    else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);w=salesDimTo16(c[1]);h=salesDimTo16(c[2]);mark=c[3];}
+    if(!mu||!q||!w||!h){bad++;return;}soDraft.lines.push(normalizeSalesOrderLine({makeupId:mu.id,serviceSetId:setId,qty:q,width16:w,height16:h,mark:mark}));added++;
+  });
+  salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
+};
+
+/* Clear transient Service Set UI whenever the operator changes order. */
+function salesResetServiceSetUi(){soServiceSetOpen=false;soServiceSetEditingId=null;soServiceSetDraft=null;soEdgeworkLineId=null;soServiceFilter='all';soBulkServiceSetId='';soBulkServicePolicy='keep';soServiceBulkPreview=null;}
+const __salesServiceOrderNew=salesOrderNew,__salesServiceOrderEdit=salesOrderEdit,__salesServiceOrderClose=salesOrderClose;
+salesOrderNew=function(){salesResetServiceSetUi();return __salesServiceOrderNew();};
+salesOrderEdit=function(id){salesResetServiceSetUi();return __salesServiceOrderEdit(id);};
+salesOrderClose=function(){salesResetServiceSetUi();return __salesServiceOrderClose();};
 
 /* ==== src/erp/views/optimization.js ==== */
 /* =====================================================================
