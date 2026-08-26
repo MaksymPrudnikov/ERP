@@ -222,10 +222,9 @@ const __shapeDxfCompute=ShapeModule.compute;
 ShapeModule.compute=function(source){
   var def=normalizeShapeDef(source||{});
   if(!shapeIsDxfSource(def)){
-    /* Base cutting math is retained for configured Shapes, but unsupported
-       allowance bands and conflicting primary finishes fail before it runs. */
-    var productionErrors=shapeValidateProductionEdgework(def);
-    if(productionErrors.length)return {valid:false,reason:productionErrors[0],errors:productionErrors,warns:[],definition:def,fingerprint:shapeFingerprint(def)};
+    /* Configured Shapes keep the native ShapeModule contract intact.
+       The base validator already owns thickness, allowance, finish-conflict,
+       tangent-edge and Miter/Bevel validation. Do not pre-empt its errors here. */
     return __shapeDxfCompute(def);
   }
 
