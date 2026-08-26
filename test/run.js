@@ -786,6 +786,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       soDraft.serviceSets=[set];render();
       return {lineId:line.id,setId:set.id};
     });
+    await serviceSetUi.p.evaluate(id => salesOpenServiceSets(id), serviceSetIds.setId);
+    eq('Edgework Sets показывает визуальную схему A/B/C/D', await serviceSetUi.p.locator('.ss-side-map-label').allTextContents(),
+      ['D Top · Width','A Left · Height','C Right · Height','B Bottom · Width']);
+    eq('каждая строка Set объясняет физическую сторону', await serviceSetUi.p.locator('.ss-set-side small').allTextContents(),
+      ['Left · Height','Bottom · Width','Right · Height','Top · Width','Custom / extra edge']);
+    await serviceSetUi.p.locator('.ss-set-modal').getByRole('button',{name:'Close',exact:true}).click();
     eq('до выбора строки bulk-панель скрыта', await serviceSetUi.p.locator('.ss-bulk').count(), 0);
     await serviceSetUi.p.locator('.sales-lines-table tbody .line-check input').check();
     eq('выбор отдельной Sales-строки показывает Bulk Set', await serviceSetUi.p.locator('.ss-bulk').count(), 1);
