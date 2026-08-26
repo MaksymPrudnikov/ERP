@@ -28,15 +28,19 @@ function shapeProdStripStaleSegments(){
   (sDraft.manufacturingItems||[]).forEach(function(item){if(item&&item.edgeId&&/^seg\d+$/i.test(item.edgeId))delete item.edgeId;});
 }
 
-/* Configurators — рабочее место, а не архив operational Shape. */
+/* Configurators — рабочее место; сохранённый master-list остаётся доступен,
+   но не создаёт постоянную визуальную «свалку». */
 viewShapeSkill=function(){
   if(sEdit!==null)return shapeForm();
-  var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
-    `<option value='__DXF__'>DXF · Fusion 360</option>`;
-  return `<div class='shape-workspace-empty'>
-    <div><b>Production Shape workspace</b><span>Saved order Shapes stay in the background and are opened from their Sales Order line.</span></div>
-    <div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div>
-  </div>`;
+  var rows=DB.shapeDef.map(function(s,i){
+    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
+    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
+    var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn(r.width)+' × '+dimIn(r.height)):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">Invalid</span>');
+    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+  }).join('');
+  var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
+  return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
+    <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${DB.shapeDef.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
 };
 function shapeProdOpenNew(type){
   if(type==='__DXF__'){
@@ -107,7 +111,7 @@ function shapeProdChooseType(value){
 function shapeProdDxfFileRow(){
   if(!shapeIsDxfSource(sDraft))return `<input id='shape_prod_dxf_pick' type='file' accept='.dxf,application/dxf' hidden onchange='shapeAttachDxf(this)'>`;
   var src=shapeNormalizeSource(sDraft.source);
-  return `<div class='shape-prod-source-line'><span>DXF</span><b>${esc(src.fileName||'—')}</b><span>${esc(shapeFileSizeText(src.fileSize))}</span><span class='sp'></span><label class='shape-file-pick'><input id='shape_prod_dxf_pick' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Replace</span></label><button type='button' onclick='removeShapeDxf()'>Remove</button></div>`;
+  return `<div class='shape-prod-source-line'><span>DXF</span><b class='shape-dxf-name'>${raw(src.fileName||'—')}</b><span>${esc(shapeFileSizeText(src.fileSize))}</span><span class='sp'></span><label class='shape-file-pick'><input id='shape_prod_dxf_pick' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Replace</span></label><button type='button' onclick='removeShapeDxf()'>Remove</button></div>`;
 }
 function shapeProdMasterFields(){
   var external=shapeIsDxfSource(sDraft),common=`<div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='shapeProdChooseType(this.value)'>${shapeProdTypeOptions()}</select>${external?'':shapeProdDxfFileRow()}</div>`;
