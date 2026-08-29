@@ -28,6 +28,63 @@ function shapeProdStripStaleSegments(){
   (sDraft.manufacturingItems||[]).forEach(function(item){if(item&&item.edgeId&&/^seg\d+$/i.test(item.edgeId))delete item.edgeId;});
 }
 
+/* ---------- Safety Border ----------
+   Отступ для безопасной резки и ломки вдоль скошенных и дуговых кромок.
+   В контур реза не входит — только сообщает раскрою, сколько места оставить.
+   Пустое поле = AUTO по толщине, введённое число = OVERRIDE. */
+function shapeProdBorderPlan(){
+  if(!sDraft)return null;
+  /* У DXF-источника своя ветка расчёта — обычный compute для него закрыт. */
+  var r=shapeIsDxfSource(sDraft)?ShapeModule.dxfProductionResult(sDraft):ShapeModule.compute(sDraft);
+  if(!(r&&r.cutting&&r.cutting.valid))return null;
+  return {plan:r.cutting.safetyBorder,cut:r.cutting,fw:r.width,fh:r.height};
+}
+function setShapeSafetyBorder(v){if(sDraft)sDraft.safetyBorder=String(v==null?'':v);render();}
+function setShapeSafetyBorderEdge(id,v){
+  if(!sDraft)return;
+  if(!sDraft.safetyBorderEdges)sDraft.safetyBorderEdges={};
+  var t=String(v==null?'':v).trim();
+  if(t)sDraft.safetyBorderEdges[id]=t;else delete sDraft.safetyBorderEdges[id];
+  render();
+}
+function resetShapeSafetyBorder(){if(sDraft){sDraft.safetyBorder='';sDraft.safetyBorderEdges={};}render();}
+function shapeBorderEdgeLabel(id){
+  var d=typeof salesSetSideDescription==='function'?salesSetSideDescription(id):'';
+  return d||'Physical edge';
+}
+function shapeProdBorderField(){
+  var ctx=shapeProdBorderPlan();
+  if(!ctx)return '';
+  var plan=ctx.plan,cut=ctx.cut,fp=cut.footprint||{width:cut.width,height:cut.height};
+  var ov=(sDraft&&sDraft.safetyBorderEdges)||{};
+  /* Откуда и куда: готовый размер → плюс припуск кромки → размер реза →
+     плюс бордер → оплачиваемый габарит. Без этой цепочки непонятно, какое
+     число откуда берётся. */
+  var chain=`<div class='shape-border-chain'>`+
+    `<span><i>Finished</i><b>${esc(dimIn(ctx.fw))} × ${esc(dimIn(ctx.fh))}</b></span>`+
+    `<em>+ edge allowance</em>`+
+    `<span><i>Cut</i><b>${esc(dimIn(cut.width))} × ${esc(dimIn(cut.height))}</b></span>`+
+    `<em>+ safety border</em>`+
+    `<span><i>Billable</i><b>${esc(dimIn(fp.width))} × ${esc(dimIn(fp.height))}</b></span>`+
+    `</div>`;
+  var rows=plan.edges.map(function(e){
+    var id=String(e.id),v=ov[id]==null?'':ov[id];
+    var tag=e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
+      :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
+    return `<div class='shape-border-row'><b>${esc(id)}</b><span>${esc(shapeBorderEdgeLabel(id))}</span>`+
+      `<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn(plan.base):'—')}' oninput='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`+
+      `${tag}<i>${e.value>0?esc(dimIn(e.value)):''}</i></div>`;
+  }).join('');
+  return `<div class='shape-prod-border'>
+    <div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn(plan.autoValue))}' oninput='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset to calculated</button>`:`<span class='pill ok'>AUTO</span>`}</div>
+    ${chain}
+    <div class='shape-border-rows'>${rows}</div>
+    <small>${plan.manualRequired
+      ? 'No automatic value for this thickness — enter the border manually.'
+      : 'Base value goes to angled and curved edges automatically. Any edge can be set by hand. Nesting clearance, never cut.'}</small>
+  </div>`;
+}
+
 /* Configurators — рабочее место; сохранённый master-list остаётся доступен,
    но не создаёт постоянную визуальную «свалку». */
 viewShapeSkill=function(){
@@ -267,8 +324,8 @@ function shapeProdDxfProductionSvg(){
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
-  var finished=plan.finishedPoints,cut=plan.points,all=finished.concat(cut),b=fabEdgeBounds(all),vw=820,vh=480,p=70,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-2*p)/W,(vh-2*p)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
-  return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/></svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn(cb.maxY-cb.minY))}</b></span></div></div>`;
+  var finished=plan.finishedPoints,cut=plan.points,all=finished.concat(cut).concat(shapeBorderFramePoints(plan)),b=fabEdgeBounds(all),vw=820,vh=480,p=70,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-2*p)/W,(vh-2*p)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
+  return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference · amber dashed = safety border (nesting clearance, never cut)</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/>${shapeBorderOverlaySvg(plan,X,Y)}</svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn(cb.maxY-cb.minY))}</b></span></div></div>`;
 }
 const __shapeProdPreviewMarkup=shapePreviewMarkup;
 shapePreviewMarkup=function(r){if(sDraft&&shapeIsDxfSource(sDraft))return sView==='cutting'?shapeProdDxfCuttingSvg():shapeProdDxfProductionSvg();return __shapeProdPreviewMarkup(r);};
@@ -278,12 +335,14 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn(pr.cutting.width))} × ${esc(dimIn(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn(pr.perimeter))}</b></div></div><div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn(pr.cutting.width))} × ${esc(dimIn(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){
   var pr=ShapeModule.dxfProductionResult(sDraft);if(!pr.valid)return alert(pr.reason||'Cutting is blocked.');var base=shapeSafeFileName((sDraft.name||'Shape')+'_R'+(sDraft.revision||0));
   if(kind==='dxf')return shapeDownload(ShapeModule.genericDxf(pr),'application/dxf',base+'_cutting.dxf');
+  if(kind==='finished')return shapeDownload(ShapeModule.finishedDxf(pr),'application/dxf',base+'_finished.dxf');
+  if(kind==='check')return shapeDownload(ShapeModule.checkDxf(pr),'application/dxf',base+'_check.dxf');
   if(kind==='json')return shapeDownload(JSON.stringify(ShapeModule.machinePayload(pr),null,2),'application/json',base+'_machine.json');
   var plan=pr.cutting,P=plan.points,b=fabEdgeBounds(P),pad=Math.max(.25,Math.max(plan.width,plan.height)*.03),pts=P.map(function(p){return (p[0]-b.minX+pad)+','+(b.maxY-p[1]+pad);}).join(' '),svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${plan.width+2*pad} ${plan.height+2*pad}"><polygon points="${pts}" fill="none" stroke="black"/></svg>`;shapeDownload(svg,'image/svg+xml',base+'_cutting.svg');
 }
@@ -292,7 +351,8 @@ shapeArtifacts=function(r){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdArtifacts(r);
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.valid)return `<div class='shape-artifacts dxf-source'><b>Machine export blocked</b><span>${esc(pr.reason||'Fix the production input first.')}</span></div>`;
-  return `<div class='shape-artifacts'><b>Machine cutting files</b><button onclick='shapeProdDownloadDxf("svg")'>Cutting SVG</button><button onclick='shapeProdDownloadDxf("json")'>Machine JSON</button><button onclick='shapeProdDownloadDxf("dxf")'>Generic DXF</button><small>All files use the orange Cutting contour shown above.</small></div>`;
+  if(sView!=='cutting')return `<div class='shape-artifacts'><b>Finished drawing</b><button onclick='shapeProdDownloadDxf("finished")'>Finished DXF</button><small>Finished DXF — готовая деталь: контур, отверстия и вырезы, без припуска. Ноль в нижнем левом углу готового контура.</small></div>`;
+  return `<div class='shape-artifacts'><b>Machine cutting files</b><button onclick='shapeProdDownloadDxf("dxf")'>Cutting DXF</button><button onclick='shapeProdDownloadDxf("check")'>Check DXF</button><button onclick='shapeProdDownloadDxf("json")'>Machine JSON</button><button onclick='shapeProdDownloadDxf("svg")'>Cutting SVG</button><small>Cutting DXF — только линия реза, слой CUT_OUTER: это файл для станка. Check DXF — проверочный, слоями FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER, REFERENCE в одном нуле; на станок его не отдавать.</small></div>`;
 };
 
 /* ---------- Final approved editor order ---------- */

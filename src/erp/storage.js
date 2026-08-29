@@ -198,3 +198,10 @@ function printSheet(svg,caption){
   return true;
 }
 window.addEventListener('resize',function(){if(typeof shapeFitPreview==='function')shapeFitPreview();});
+
+/* Метка сборки в шапке: видно, та ли версия файла открыта. В dev-режиме
+   (src/index.html) переменной нет — тогда метка просто не показывается. */
+(function(){
+  var el=document.getElementById('hdrBuild');
+  if(el&&typeof ERP_BUILD!=='undefined')el.textContent='build '+ERP_BUILD;
+})();
