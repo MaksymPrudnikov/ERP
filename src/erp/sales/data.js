@@ -13,6 +13,8 @@ const SALES_ORDER_STATUSES=['draft'];
 const SALES_UNIT_TYPES=['single','double','triple'];
 const SALES_LITE_CATEGORIES=['vision','spandrel','laminated'];
 const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
+const SALES_LAMINATED_GLASS_TYPES=['lowe','reflective','uncoated'];
+const SALES_MAX_INTERLAYERS=4;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
@@ -66,20 +68,60 @@ function salesSortGlass(rows,preferBaseClear){
   return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'en',{sensitivity:'base',numeric:true})||String((a&&a.code)||'').localeCompare(String((b&&b.code)||''),'en',{sensitivity:'base',numeric:true});
  });
 }
+/* У покрытого стекла первым шагом выбирают покрытие. Поэтому общий список
+   группируем именно по покрытию: сначала покрытия, у которых для выбранных
+   производителя и толщины есть хотя бы одна складская позиция, затем только
+   предзаказ. Внутри покрытия сохраняется правило Clear → склад → предзаказ. */
+function salesSortCoatedGlass(rows){
+ const groups=Object.create(null);
+ (Array.isArray(rows)?rows:[]).forEach(g=>{const coating=glassCoatingName(g);if(!groups[coating])groups[coating]=[];groups[coating].push(g);});
+ return Object.keys(groups).sort((a,b)=>{
+  const stock=(groups[a].some(g=>g.stocked===true)?0:1)-(groups[b].some(g=>g.stocked===true)?0:1);
+  return stock||a.localeCompare(b,'en',{sensitivity:'base',numeric:true});
+ }).reduce((out,coating)=>out.concat(salesSortGlass(groups[coating],true)),[]);
+}
 
 function salesFirstGlass(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
  const preferBaseClear=family==='lowe'||family==='reflective';
- return salesSortGlass(rows,preferBaseClear)[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
+ return (preferBaseClear?salesSortCoatedGlass(rows):salesSortGlass(rows,false))[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
+}
+function salesDefaultLaminatedPly(g){return {manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN'};}
+function salesLaminatedPlyCandidates(ply){
+ const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
+ const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
+ return fam==='lowe'||fam==='reflective'?salesSortCoatedGlass(rows):salesSortGlass(rows,false);
+}
+function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d){
+ raw=raw&&typeof raw==='object'?raw:{};
+ const requestedId=salesString(raw.glassProductId||legacyProductId),requested=glassProductById(requestedId),fallback=glassProductById(d.glassProductId);
+ const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
+ const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
+ const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
+ const out={manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId};
+ const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
+ return out;
+}
+function salesInterlayerDefaultThickness(productId){const p=mdById('interlayerProduct',productId),n=+(p&&p.thicknessMm);return Number.isFinite(n)&&n>0?n:null;}
+function normalizeSalesInterlayer(layer,defaultProductId){
+ layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
+ const productId=salesString(layer.productId)||defaultProductId,n=layer.thicknessMm==null||layer.thicknessMm===''?salesInterlayerDefaultThickness(productId):+layer.thicknessMm;
+ return {productId,thicknessMm:Number.isFinite(n)&&n>0?n:null};
+}
+function normalizeSalesInterlayers(lam,d){
+ let rows=Array.isArray(lam.interlayers)?lam.interlayers:(Array.isArray(lam.interlayerProductIds)?lam.interlayerProductIds:(lam.interlayerProductId?[lam.interlayerProductId]:d.interlayers));
+ rows=rows.slice(0,SALES_MAX_INTERLAYERS).map(x=>normalizeSalesInterlayer(x,d.interlayers[0].productId));
+ return rows.length?rows:[normalizeSalesInterlayer({},d.interlayers[0].productId)];
 }
 function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
+ const ply=salesDefaultLaminatedPly(g);
  return {
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
-  laminated:{outerGlassProductId:g?g.id:'',interlayerProductId:'INT-PVB030',innerGlassProductId:g?g.id:''}
+  laminated:{outer:Object.assign({},ply),interlayers:[normalizeSalesInterlayer({},'INT-PVB030')],inner:Object.assign({},ply)}
  };
 }
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
@@ -122,7 +164,7 @@ function normalizeSalesPane(p,index){
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
-  laminated:{outerGlassProductId:salesString(lam.outerGlassProductId)||d.laminated.outerGlassProductId,interlayerProductId:salesString(lam.interlayerProductId)||d.laminated.interlayerProductId,innerGlassProductId:salesString(lam.innerGlassProductId)||d.laminated.innerGlassProductId}
+  laminated:{outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated),inner:normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner)}
  };
 }
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
@@ -182,7 +224,7 @@ function validateSalesReferences(){
  DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');if(l.muntinRef.id&&!muntinIds.has(l.muntinRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Muntin.');});});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(){const now=new Date().toISOString();return normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});}
+function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
@@ -193,7 +235,7 @@ function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.i
 function salesGlassProductHasReferences(id){
  if(!id)return false;
  const inMakeups=ms=>(Array.isArray(ms)?ms:[]).some(m=>(m&&m.panes||[]).some(p=>
-  p.glassProductId===id||(p.laminated&&(p.laminated.outerGlassProductId===id||p.laminated.innerGlassProductId===id))));
+  p.glassProductId===id||(p.laminated&&((p.laminated.outer&&p.laminated.outer.glassProductId===id)||(p.laminated.inner&&p.laminated.inner.glassProductId===id)))));
  return (DB.salesOrder||[]).some(o=>inMakeups(o.makeups))||
   (typeof soDraft!=='undefined'&&!!soDraft&&inMakeups(soDraft.makeups));
 }
@@ -212,5 +254,5 @@ function salesMakeupSummary(m){
  const bits=[];m.panes.forEach((p,i)=>{if(i){const c=m.cavities[i-1],sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);bits.push((sp?sp.size+' '+sp.system:'Cavity')+(gas&&gas.code!=='AIR'?' '+gas.code:''));}bits.push(salesGlassCodeForPane(p));});return bits.join(' / ');
 }
 function salesMakeupThicknessMm(m){
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outerGlassProductId),b=glassProductById(p.laminated.innerGlassProductId),il=mdById('interlayerProduct',p.laminated.interlayerProductId);if(a&&b&&il&&il.thicknessMm!=null)total+=(a.thicknessMm||0)+(b.thicknessMm||0)+il.thicknessMm;else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
 }
