@@ -39,6 +39,9 @@ ${css}
 <body>
 ${shell}
 <script>
+/* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
+   вручную не редактируется. */
+var ERP_BUILD='${new Date().toISOString().slice(0, 16).replace('T', ' ')}';
 ${js}
 </script>
 </body>
