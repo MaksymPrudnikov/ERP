@@ -341,16 +341,55 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const conflict=newShapeDef('rectangle');conflict.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'}),shapeNormalizeOp({type:'Rough Arris'})];
       const badParam=newShapeDef('notch-middle');badParam.params.width='abc';
       const circle=newShapeDef('circle'),badCircle=newShapeDef('circle');badCircle.w='36';badCircle.h='35';
-      return {presets,valid:r.valid,rounded:r.points.length>4&&payload.cutouts[0].points.length>4,holeCount:payload.holes.length,stampLeaked:JSON.stringify(payload).includes('TEMPER'),allowance:r.cutting.minX<0&&r.cutting.minY<0,dxf:dxf.includes('CUT_HOLES')&&dxf.includes('CUT_INNER')&&dxf.endsWith('EOF\n'),requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
+      return {presets,valid:r.valid,rounded:r.points.length>4&&r.featureGeometry.cutouts[0].points.length>4,
+        payloadHoles:payload.holes.length,payloadCutouts:payload.cutouts.length,payloadHardware:payload.hardware.length,
+        finishedHoles:r.featureGeometry.holes.length,finishedCutouts:r.featureGeometry.cutouts.length,
+        stampLeaked:JSON.stringify(payload).includes('TEMPER'),allowance:r.cutting.minX<0&&r.cutting.minY<0,
+        dxf:!dxf.includes('CUT_HOLES')&&!dxf.includes('CUT_INNER')&&dxf.includes('CUT_OUTER')&&dxf.endsWith('EOF\n'),
+        requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
     });
     eq('все каталожные Shape имеют валидные defaults', schemaV2.presets.filter(x=>!x.valid), []);
-    eq('radius + hole + rounded cutout входят в cutting payload', {valid:schemaV2.valid,rounded:schemaV2.rounded,holes:schemaV2.holeCount,stampLeaked:schemaV2.stampLeaked}, {valid:true,rounded:true,holes:1,stampLeaked:false});
+    /* Порядок цеха: рез → кромка → отверстия/нотчи. Всё, что после кромки,
+       базируется на обработанном крае и в cutting-файл не попадает никогда. */
+    eq('отверстия, вырезы и фурнитура НЕ попадают в cutting payload', {valid:schemaV2.valid,rounded:schemaV2.rounded,holes:schemaV2.payloadHoles,cutouts:schemaV2.payloadCutouts,hardware:schemaV2.payloadHardware,stampLeaked:schemaV2.stampLeaked}, {valid:true,rounded:true,holes:0,cutouts:0,hardware:0,stampLeaked:false});
+    eq('готовый чертёж сохраняет отверстия и вырезы', {holes:schemaV2.finishedHoles,cutouts:schemaV2.finishedCutouts}, {holes:1,cutouts:1});
     eq('припуск Flat Polish меняет cutting contour', schemaV2.allowance, true);
-    eq('Generic DXF содержит отверстия и вырезы', schemaV2.dxf, true);
+    eq('Generic DXF содержит только внешний контур', schemaV2.dxf, true);
     ok('маршрут выводится из геометрии', schemaV2.requirements.includes('POLISHING')&&schemaV2.requirements.includes('DRILLING')&&schemaV2.requirements.includes('CNC'));
     eq('конфликтующие finishes блокируются', schemaV2.conflict, false);
     eq('некорректный параметр preset не заменяется default', schemaV2.badParam, false);
     eq('круг имеет один физический диаметр', {equal:schemaV2.circle,mismatch:schemaV2.badCircle}, {equal:true,mismatch:false});
+
+    /* --- Safety Border ------------------------------------------------
+       Защитный отступ при резке и ломке вдоль скошенных и дуговых кромок.
+       В контур реза НЕ входит: деталь режется по finished + припуск кромки.
+       Бордер говорит раскрою, сколько пустого места оставить — и до соседней
+       детали, и до края листа. Клиент за него платит (лист расходуется из-за
+       его скоса), поэтому он входит в оплачиваемый габарит. */
+    const border = await p.evaluate(() => {
+      const mk=(type,th,b)=>{const d=newShapeDef(type);d.w='48';d.h='36';d.thickness=String(th);if(b!=null)d.safetyBorder=String(b);return d;};
+      const rect=ShapeModule.compute(mk('rectangle',10));
+      const raked=ShapeModule.compute(mk('raked',10)),raked6=ShapeModule.compute(mk('raked',6)),raked19=ShapeModule.compute(mk('raked',19));
+      const over=ShapeModule.compute(mk('raked',10,'2 1/16')),odd=ShapeModule.compute(mk('raked',10,'1.03')),junk=ShapeModule.compute(mk('raked',10,'abc'));
+      const plain=ShapeModule.compute(mk('raked',10)),withB=ShapeModule.compute(mk('raked',10,'3'));
+      const pPlain=ShapeModule.machinePayload(plain),pWith=ShapeModule.machinePayload(withB);
+      return {
+        rect:{applies:rect.cutting.safetyBorder.applies,value:rect.cutting.safetyBorder.value},
+        auto:{applies:raked.cutting.safetyBorder.applies,mm10:raked.cutting.safetyBorder.value,mm6:raked6.cutting.safetyBorder.value,state:raked.cutting.safetyBorder.state},
+        outside:{value:raked19.cutting.safetyBorder.value,manual:raked19.cutting.safetyBorder.manualRequired},
+        override:{state:over.cutting.safetyBorder.state,value:over.cutting.safetyBorder.value,rounded:odd.cutting.safetyBorder.value,junkState:junk.cutting.safetyBorder.state},
+        contourSame:JSON.stringify(plain.cutting.points)===JSON.stringify(withB.cutting.points),
+        outerSame:JSON.stringify(pPlain.outer)===JSON.stringify(pWith.outer),
+        footprintGrows:(withB.cutting.footprint.width-withB.cutting.width)+(withB.cutting.footprint.height-withB.cutting.height),
+        payloadValue:pWith.safetyBorder.value
+      };
+    });
+    eq('прямые кромки под 90° бордера не требуют', border.rect, {applies:false,value:0});
+    eq('скос требует бордер, значение автоматом от толщины', border.auto, {applies:true,mm10:1.5,mm6:1,state:'AUTO'});
+    eq('толщина вне 4–15 мм требует ручного ввода', border.outside, {value:0,manual:true});
+    eq('ручной ввод даёт OVERRIDE, дробь и округление 1/16″', border.override, {state:'OVERRIDE',value:2.0625,rounded:1,junkState:'AUTO'});
+    eq('бордер НЕ меняет контур реза', {contour:border.contourSame,payloadOuter:border.outerSame}, {contour:true,payloadOuter:true});
+    eq('бордер увеличивает оплачиваемый габарит и уходит в payload', {grew:border.footprintGrows,payload:border.payloadValue}, {grew:3,payload:3});
 
     const dxfSource = await p.evaluate(() => {
       const legacy=normalizeShapeDef({id:'legacy',name:'Legacy',type:'rectangle',w:'48',h:'36',smart:ssNormalize({})});
