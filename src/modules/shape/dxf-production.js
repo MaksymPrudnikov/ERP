@@ -185,9 +185,18 @@ function shapeDxfCuttingPlan(def){
     allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
   }
   var tangent=shapeDxfTangentAllowanceIssue(groups);if(tangent)return {valid:false,error:tangent.reason,errors:[tangent.reason]};
-  var off=shapeOffsetVariable(points,allowances);if(!off.valid)return {valid:false,error:off.error,errors:[off.error]};
-  var b=fabEdgeBounds(off.points),holes=(def.manufacturingItems||[]).filter(function(x){return x.type==='hole';}).map(function(item){var d=fabParseDimStrict(item.diameter);return {id:item.id,center:[item.x,item.y],diameter:d.ok?d.v:0};});
-  return {valid:true,points:off.points,finishedPoints:points,edgeIds:edges.map(function(e){return e.id;}),allowances:allowances,holes:holes,cutouts:[],hardware:[],minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,warnings:[],toleranceIn:1/256,edges:edges};
+  /* Тот же закон, что и для рассчитанной геометрии: стол режет только внешний
+     контур. Нотчи заполняются продолжением кромок, отверстия в файл резки не
+     попадают — они сверлятся после обработки кромки. */
+  var srcIds=edges.map(function(e){return e.id;});
+  var filled=shapeFillNotches(points,allowances,srcIds);
+  var off=shapeOffsetVariable(filled.points,filled.dist);if(!off.valid)return {valid:false,error:off.error,errors:[off.error]};
+  var b=fabEdgeBounds(off.points),warnings=[];
+  var types={};edges.forEach(function(e){if(e&&e.id!=null)types[e.id]=e.type;});
+  var border=shapeSafetyBorderPlan(def,filled.points,filled.ids,types),footprint=shapeBorderFootprint(off.points,border);
+  if(border.manualRequired)warnings.push('Safety Border has no automatic value for this thickness — set it manually before cutting.');
+  if(filled.reduced)warnings.push('Notches and cutouts are excluded from the cutting contour — they are fabricated after edgework.');
+  return {valid:true,points:off.points,finishedPoints:points,edgeIds:(filled.ids||[]).slice(),allowances:(filled.dist||[]).slice(),notchesRemoved:filled.removed,holes:[],cutouts:[],hardware:[],safetyBorder:border,footprint:footprint,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,warnings:warnings,toleranceIn:1/256,edges:edges};
 }
 
 const __shapeDxfFingerprint=shapeFingerprint;

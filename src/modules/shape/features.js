@@ -86,6 +86,104 @@ function shapeEdgeAllowance(def,edge){
   if(edge.parentEdges)edge.parentEdges.forEach(function(id){ops=ops.concat(shapeEdgeOps(def,id));});
   var vals=ops.map(function(op){return shapeOperationAllowance(op.type,th);});return vals.length?Math.max.apply(null,vals):0;
 }
+/* ---------- Safety Border ----------
+   Защитный отступ при резке и ломке на столе. В контур реза НЕ входит:
+   деталь режется по finished + припуск кромки. Бордер сообщает раскрою,
+   сколько пустого места оставить вдоль скошенной или дуговой кромки — и до
+   соседней детали, и до края листа. Прямые кромки под 90° его не требуют:
+   детали и так разделены собственными припусками.
+   Клиент за бордер платит (лист расходуется из-за его скоса), поэтому он
+   входит в оплачиваемый габарит, но никогда — в вырезаемый контур. */
+function shapeSafetyBorderAuto(th){if(th>=4&&th<8)return 1;if(th>=8&&th<=15)return 1.5;return 0;}
+function shapeBorderStep(v){return Math.round((+v||0)*16)/16;}
+function shapeEdgeNeedsBorder(edge,a,b){
+  if(edge&&edge.type&&edge.type!=='line')return true;
+  /* Скос — любое отклонение от вертикали/горизонтали больше 1/256″: та же
+     величина, что и геометрический допуск контура (toleranceIn). На детали
+     140″ это ловит уклон, вчетверо более мелкий, чем 1/64″.
+     Угловой допуск здесь не годится: уклон 1/8″ на высоте 40″ — всего 0.18°,
+     но ломать вдоль такой кромки уже небезопасно. */
+  var dx=Math.abs(b[0]-a[0]),dy=Math.abs(b[1]-a[1]);
+  return Math.min(dx,dy)>1/256;
+}
+/* Бордер задаётся по кромкам, как обработка в Edge Set: базовое значение
+   ставится автоматически на скосы и дуги, а любую кромку — включая прямую —
+   оператор может переопределить вручную. Ввод читается тем же строгим
+   парсером, что Width/Height: «1 1/2», «1-1/2», «1/2», «1.5».
+   Считается по контуру РЕЗКИ (после снятия нотчей), иначе кромки выреза
+   ошибочно выглядят скошенными. */
+function shapeNormalizeBorderEdges(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
+    var t=String(raw[id]==null?'':raw[id]).trim();
+    if(t)out[String(id)]=t;
+  });
+  return out;
+}
+function shapeBorderOverrides(def){
+  var raw=(def&&def.safetyBorderEdges)||{},out={};
+  Object.keys(raw).forEach(function(id){
+    var p=fabParseDimStrict(raw[id]==null?'':raw[id]);
+    if(p.ok&&p.v>=0)out[id]=shapeBorderStep(p.v);
+  });
+  return out;
+}
+function shapeSafetyBorderPlan(def,pts,ids,edgeTypes){
+  var th=shapeThicknessMm(def),auto=shapeSafetyBorderAuto(th);
+  var parsed=fabParseDimStrict(def&&def.safetyBorder==null?'':def&&def.safetyBorder),baseOver=parsed.ok&&parsed.v>=0;
+  var base=shapeBorderStep(baseOver?parsed.v:auto),over=shapeBorderOverrides(def);
+  pts=pts||[];ids=ids||[];edgeTypes=edgeTypes||{};
+  /* Строка на КРОМКУ, а не на сегмент: у круга контур тесселирован сотнями
+     отрезков, но кромка одна («ARC»), и в списке она должна быть одной
+     строкой. Сегментные значения нужны отдельно — по ним считается габарит. */
+  var n=pts.length,byId={},order=[],segValues=new Array(n),i,id,angled,value,state,max=0,anyAngled=false;
+  for(i=0;i<n;i++){
+    id=String(ids[i]!=null?ids[i]:i);
+    angled=shapeEdgeNeedsBorder({type:edgeTypes[id]},pts[i],pts[(i+1)%n]);
+    if(!byId[id]){byId[id]={id:id,angled:false,segments:0};order.push(id);}
+    byId[id].angled=byId[id].angled||angled;
+    byId[id].segments++;
+  }
+  var list=order.map(function(key){
+    var e=byId[key];
+    if(e.angled)anyAngled=true;
+    if(Object.prototype.hasOwnProperty.call(over,key)){e.value=over[key];e.state='OVERRIDE';}
+    else if(e.angled){e.value=base;e.state='AUTO';}
+    else {e.value=0;e.state='OFF';}
+    if(e.value>max)max=e.value;
+    return e;
+  });
+  for(i=0;i<n;i++)segValues[i]=byId[String(ids[i]!=null?ids[i]:i)].value;
+  return {edges:list,segValues:segValues,base:base,autoValue:shapeBorderStep(auto),
+    baseState:baseOver?'OVERRIDE':'AUTO',
+    state:list.some(function(e){return e.state==='OVERRIDE';})||baseOver?'OVERRIDE':'AUTO',
+    value:max,applies:max>0,
+    edgeIds:list.filter(function(e){return e.value>0;}).map(function(e){return e.id;}),
+    manualRequired:!baseOver&&auto===0&&anyAngled&&max===0};
+}
+/* Оплачиваемый габарит: прямоугольник контура реза плюс бордер с тех сторон,
+   где он реально стоит. У стороны берётся наибольший бордер её кромок.
+   Округление 1/16". */
+function shapeBorderFootprint(points,plan){
+  var b=fabEdgeBounds(points),w=b.maxX-b.minX,h=b.maxY-b.minY;
+  if(!plan||!plan.applies)return {width:shapeBorderStep(w),height:shapeBorderStep(h),sides:[]};
+  var cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2,n=points.length,sides={left:0,right:0,top:0,bottom:0},i,v,key;
+  for(i=0;i<n;i++){
+    v=(plan.segValues||[])[i]||0;if(!(v>0))continue;
+    var a=points[i],c=points[(i+1)%n],mx=(a[0]+c[0])/2,my=(a[1]+c[1])/2;
+    if(Math.abs(c[1]-a[1])>=Math.abs(c[0]-a[0]))key=mx>=cx?'right':'left';
+    else key=my>=cy?'top':'bottom';
+    if(v>sides[key])sides[key]=v;
+  }
+  /* pad — отступ по каждой стороне габарита. Бордер меряется по прямой, под
+     90°, а не параллельно скосу: стол режет прямыми и зазор до соседней
+     детали тоже прямой. Скошенная кромка отодвигает границу от САМОЙ ДАЛЬНЕЙ
+     своей точки, поэтому величина ложится на сторону габарита. */
+  return {width:shapeBorderStep(w+sides.left+sides.right),
+    height:shapeBorderStep(h+sides.top+sides.bottom),
+    pad:sides,
+    sides:Object.keys(sides).filter(function(k){return sides[k]>0;}).sort()};
+}
 function shapeDerivedRequirements(def,geo,fg){
   var req=[],groups={};
   (geo.edges||[]).forEach(function(e){shapeEdgeOps(def,e.id).forEach(function(op){var key=op.type+'|'+(op.angle||'')+'|'+(op.width||'');if(!groups[key])groups[key]={operation:op.type,edgeIds:[],params:{}};if(groups[key].edgeIds.indexOf(e.id)<0)groups[key].edgeIds.push(e.id);if(op.angle)groups[key].params.angle=op.angle;if(op.width)groups[key].params.width=op.width;});});

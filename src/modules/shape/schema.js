@@ -131,6 +131,10 @@ function normalizeShapeDef(s){
     id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
     w:shapeTextValue(s.w,type==='circle'?'36':'48'),h:shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36'),
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
+    /* Safety Border: базовое значение (пусто = AUTO по толщине) плюс ручной
+       ввод по конкретным кромкам, как обработка в Edge Set. */
+    safetyBorder:shapeTextValue(s.safetyBorder,''),
+    safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'

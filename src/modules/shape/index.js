@@ -41,5 +41,6 @@ function shapeModuleResult(s){
 const ShapeModule={
   code:'SHAPE',name:'Production Shape / Drawing / Cutting',version:'schema-v2',catalog:SHAPE_PRESETS,
   compute:shapeModuleResult,productionSvg:shapeProductionSvg,cuttingSvg:shapeCuttingSvg,
-  machinePayload:shapeMachinePayload,genericDxf:shapeGenericDxf
+  machinePayload:shapeMachinePayload,genericDxf:shapeGenericDxf,
+  finishedDxf:shapeFinishedDxf,checkDxf:shapeCheckDxf
 };

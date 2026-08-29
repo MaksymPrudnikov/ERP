@@ -326,13 +326,19 @@ function shapeDerivedHTML(r){
     return `<div class='validation-box badbox'><b>Ошибка геометрии</b>${errors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;
   }
   var req=r.requirements||[],warns=r.warns||[];
-  return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn(r.cutting.width)} × ${dimIn(r.cutting.height)}</b></div></div>
+  return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn(r.cutting.width)} × ${dimIn(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'не задан':dimIn(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Оплачиваемый габарит</span><b>${dimIn(r.cutting.footprint.width)} × ${dimIn(r.cutting.footprint.height)}</b></div>`:''}</div>
+    ${typeof shapeProdBorderField==='function'?shapeProdBorderField():''}
     <div class='shape-requirements'><b>Производственные требования</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>Дополнительных операций нет</span>'}</div>
     ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(moduleErrorText({reason:w}));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Контур валиден · Production Drawing и Cutting Geometry синхронизированы · ${esc(r.fingerprint)}</div>`}`;
 }
 function refreshShapeEditor(){
   if(!sDraft)return;var r=shapeDraftResult(),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');
   if(p)p.innerHTML=shapePreviewMarkup(r);if(d)d.innerHTML=shapeDerivedHTML(r);
+  /* Набор файлов зависит от открытого листа: на чертеже свои, на резке свои.
+     Переключение вкладки идёт через refreshShapeEditor, а не через render(),
+     поэтому блок надо обновлять здесь — иначе кнопки остаются от того листа,
+     на котором редактор открыли. */
+  var art=document.querySelector('.shape-artifacts');if(art)art.outerHTML=shapeArtifacts(r);
   /* Мини-превью живёт в ЛЕВОЙ колонке, которую этот обход не перерисовывает.
      Без явного обновления оно застывало на прошлом рендере и показывало
      «невалидна» уже после того, как фигуру починили. */
@@ -574,7 +580,11 @@ function shapeFeaturesEditor(geo){
 function shapeArtifacts(r){
   if(r.externalFile)return `<div class='shape-artifacts dxf-source'><b>Файл раскроя текущей ревизии</b><span>DXF из Fusion 360 используется как внешний файл раскроя. ERP хранит метаданные, превью-контура и габариты, но не хранит исходное содержимое DXF и не может скачать файл повторно.</span><small>ERP-экспорт Production SVG, Cutting SVG, Machine JSON и Generic DXF для этой ревизии отключён: он не должен подменять внешний раскрой.</small></div>`;
   var disabled=r.valid?'':'disabled';
-  return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Generic DXF</button><small>DXF — нейтральная геометрия R12, не машинный постпроцессор. Перед производством нужен проверенный постпроцессор конкретного CNC.</small></div>`;
+  /* На листе чертежа скачивается чертёж, на листе резки — файл резки.
+     Файл для станка держим отдельно от проверочного: неизвестно, как станок
+     отреагирует на посторонние слои, поэтому в нём только линия реза. */
+  if(sView==='cutting')return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Cutting DXF</button><button ${disabled} onclick='downloadShapeArtifact("check")'>Check DXF</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><small>Cutting DXF — только линия реза, слой CUT_OUTER, ноль в нижнем левом углу реза: это файл для станка. Check DXF — проверочный, слоями FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER, REFERENCE в нуле готового контура; на станок его не отдавать.</small></div>`;
+  return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("finished")'>Finished DXF</button><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><small>Finished DXF — готовая деталь: контур, отверстия и вырезы, без припуска. Ноль в нижнем левом углу готового контура.</small></div>`;
 }
 function shapeForm(){
   /* Полный render() пересоздаёт DOM, поэтому подсветку полей ставим сразу
@@ -609,6 +619,8 @@ function downloadShapeArtifact(kind){
   if(kind==='production')shapeDownload(shapeDrawnProductionSvg(r,false),'image/svg+xml',base+'_production.svg');
   if(kind==='cutting')shapeDownload(ShapeModule.cuttingSvg(r),'image/svg+xml',base+'_cutting.svg');
   if(kind==='json')shapeDownload(JSON.stringify(ShapeModule.machinePayload(r),null,2),'application/json',base+'_machine.json');
-  if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_generic.dxf');
+  if(kind==='dxf')shapeDownload(ShapeModule.genericDxf(r),'application/dxf',base+'_cutting.dxf');
+  if(kind==='finished')shapeDownload(ShapeModule.finishedDxf(r),'application/dxf',base+'_finished.dxf');
+  if(kind==='check')shapeDownload(ShapeModule.checkDxf(r),'application/dxf',base+'_check.dxf');
 }
 function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Cannot delete — this shape is used by a Muntin layout');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}

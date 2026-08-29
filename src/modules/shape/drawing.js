@@ -98,17 +98,48 @@ function shapeProductionSvg(result){
   o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
+/* ---------- Safety Border overlay ----------
+   Рисуется ВДОЛЬ той кромки, которая его получила: видно, от какой стороны и
+   на сколько отступает раскрой. Общая рамка вокруг детали этого не показывала.
+   Сегменты одной кромки сшиваются в одну ломаную — у круга контур
+   тесселирован сотнями отрезков, и рисовать их по отдельности незачем. */
+function shapeBorderZone(c){
+  var brd=c&&c.safetyBorder,fp=c&&c.footprint;
+  if(!brd||!brd.applies||!fp||!fp.pad)return null;
+  var b=fabEdgeBounds(c.points||[]),p=fp.pad;
+  return {b:b,pad:p,x0:b.minX-(p.left||0),x1:b.maxX+(p.right||0),y0:b.minY-(p.bottom||0),y1:b.maxY+(p.top||0)};
+}
+function shapeBorderFramePoints(c){
+  var z=shapeBorderZone(c);
+  return z?[[z.x0,z.y0],[z.x1,z.y0],[z.x1,z.y1],[z.x0,z.y1]]:[];
+}
+function shapeBorderOverlaySvg(c,X,Y){
+  var z=shapeBorderZone(c);if(!z)return '';
+  var col='#f79009',o='',cx=(z.b.minX+z.b.maxX)/2,cy=(z.b.minY+z.b.maxY)/2;
+  var seg=function(x1,y1,x2,y2){return '<line x1="'+x1.toFixed(2)+'" y1="'+y1.toFixed(2)+'" x2="'+x2.toFixed(2)+'" y2="'+y2.toFixed(2)+'" stroke="'+col+'" stroke-width="1"/>';};
+  var txt=function(x,y,s2,a){return '<text x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" text-anchor="'+a+'" font-size="10" font-weight="700" fill="'+col+'">'+shapeXml(s2)+'</text>';};
+  o+='<rect x="'+X(z.x0).toFixed(2)+'" y="'+Y(z.y1).toFixed(2)+'" width="'+(X(z.x1)-X(z.x0)).toFixed(2)+'" height="'+(Y(z.y0)-Y(z.y1)).toFixed(2)+'" fill="none" stroke="'+col+'" stroke-width="1.4" stroke-dasharray="8 5"/>';
+  if(z.pad.left>0)o+=seg(X(z.x0),Y(cy),X(z.b.minX),Y(cy))+txt((X(z.x0)+X(z.b.minX))/2,Y(cy)-5,dimIn(z.pad.left),'middle');
+  if(z.pad.right>0)o+=seg(X(z.b.maxX),Y(cy),X(z.x1),Y(cy))+txt((X(z.b.maxX)+X(z.x1))/2,Y(cy)-5,dimIn(z.pad.right),'middle');
+  if(z.pad.top>0)o+=seg(X(cx),Y(z.b.maxY),X(cx),Y(z.y1))+txt(X(cx)+5,(Y(z.b.maxY)+Y(z.y1))/2+3,dimIn(z.pad.top),'start');
+  if(z.pad.bottom>0)o+=seg(X(cx),Y(z.b.minY),X(cx),Y(z.y0))+txt(X(cx)+5,(Y(z.b.minY)+Y(z.y0))/2+3,dimIn(z.pad.bottom),'start');
+  return o+txt(X(z.x1),Y(z.y1)-6,'SAFETY BORDER','end');
+}
 function shapeCuttingSvg(result){
   if(!result||!result.valid||!result.cutting.valid)return '<svg viewBox="0 0 960 700"><text x="480" y="350" text-anchor="middle" fill="#b42318">'+shapeXml(result&&result.cutting&&result.cutting.error||'Invalid Cutting Geometry')+'</text></svg>';
   var c=result.cutting,cb=fabEdgeBounds(c.points),cw=Math.max(.001,cb.maxX-cb.minX),ch=Math.max(.001,cb.maxY-cb.minY),car=cw/ch;
   var cL=620,cS=250,caw=car>=1?cL:Math.max(cS,cL*car),cah=car>=1?Math.max(cS,cL/car):cL;
-  var F=shapeDrawingFrame(c.points,{vw:Math.round(caw+330),vh:Math.round(cah+220),pL:150,pR:180,pT:95,pB:125});
+  var F=shapeDrawingFrame(c.points.concat(shapeBorderFramePoints(c)),{vw:Math.round(caw+330),vh:Math.round(cah+220),pL:150,pR:180,pT:95,pB:125});
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeTitleBlock(result,'CUTTING SHAPE',F);
   o+='<path d="'+shapeSvgPath(c.finishedPoints,F.X,F.Y)+'" fill="none" stroke="#98a2b3" stroke-width="1" stroke-dasharray="7 6"/><path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="2.2"/>';
   c.holes.forEach(function(h){o+='<circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.diameter/2*F.sc)+'" fill="none" stroke="#101828" stroke-width="1.5"/>';});
   c.cutouts.forEach(function(x){o+='<path d="'+shapeSvgPath(x.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="1.5"/>';});
   c.hardware.forEach(function(h){o+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="none" stroke="#101828" stroke-width="1.5"/><circle cx="'+F.X(h.hole.center[0])+'" cy="'+F.Y(h.hole.center[1])+'" r="'+Math.max(2,h.hole.diameter/2*F.sc)+'" fill="none" stroke="#101828"/>';});
+  /* Safety Border — оранжевый пунктир: зона, в которую раскрой не имеет права
+     положить соседнюю деталь или подвести край листа. Сам контур реза внутри
+     неё не меняется. */
+  o+=shapeBorderOverlaySvg(c,F.X,F.Y);
   o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn(c.height));
-  o+='<g font-size="10" fill="#667085"><text x="24" y="'+(F.vh-50)+'">Solid = cutting contour · dashed = finished contour · no production annotations</text><text x="24" y="'+(F.vh-32)+'">Generic geometry tolerance '+shapeXml(c.toleranceIn.toFixed(4)+'\u2033')+' · verify machine-specific postprocessor before production</text></g>';
+  o+='<g font-size="10" fill="#667085"><text x="24" y="'+(F.vh-50)+'">Solid = cutting contour · dashed = finished contour · orange = safety border (nesting clearance, never cut)</text><text x="24" y="'+(F.vh-32)+'">Generic geometry tolerance '+shapeXml(c.toleranceIn.toFixed(4)+'\u2033')+' · verify machine-specific postprocessor before production</text></g>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Cutting Shape">'+o+'</svg>';
 }
