@@ -114,3 +114,24 @@
 
 /* PR3 release guards: rate provenance and incomplete pricing are explicit. */
 .line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:#b54708;white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:#f3c48b!important;background:#fff8ee!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid #f2cfae;border-radius:8px;background:#fff7ed;color:#8a4b1a;font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:#b54708;font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:#fffaf4}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:#eef4f8;color:#476579!important}.sales-rate-origin.order{background:#fff1e8;color:#9a4f18!important}.sales-rate-origin.line{background:#f4ebff;color:#6941c6!important}.sales-rate-origin.missing{background:#fff1f0;color:#b42318!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:#b54708}
+
+/* Safety Border — базовое значение плюс построчный ввод по кромкам.
+   Отступ для безопасной резки и ломки; в контур реза не входит. */
+.shape-prod-border{margin:10px 0;padding:10px 12px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
+.shape-border-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.shape-border-head>b{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
+.shape-border-head label{display:flex;align-items:center;gap:6px;font-size:12px;color:#475467}
+.shape-border-head input{width:90px}
+.shape-border-rows{display:flex;flex-direction:column;gap:4px}
+.shape-border-row{display:grid;grid-template-columns:22px minmax(90px,1fr) 90px auto 64px;align-items:center;gap:8px;font-size:12px}
+.shape-border-row>b{font-weight:700;color:#101828}
+.shape-border-row>span{color:#667085;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shape-border-row>i{font-style:normal;color:#101828;text-align:right}
+.shape-prod-border>small{display:block;margin-top:8px;color:#667085}
+/* Цепочка «откуда и куда»: готовый → рез → оплачиваемый габарит. */
+.shape-border-chain{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px;padding:8px 10px;background:#f9fafb;border-radius:6px}
+.shape-border-chain span{display:flex;flex-direction:column;line-height:1.25}
+.shape-border-chain i{font-style:normal;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#667085}
+.shape-border-chain b{font-size:12px;color:#101828;white-space:nowrap}
+.shape-border-chain em{font-style:normal;font-size:11px;color:#f79009;white-space:nowrap}
+.header-build{margin-left:10px;font-size:11px;color:#98a2b3;white-space:nowrap}
