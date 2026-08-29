@@ -27,7 +27,7 @@ The builder follows the compact operator flow agreed from the IGU Builder refere
 - Frit also has product, color, pattern and coverage.
 - Spandrel has product and color.
 - Laminated lite has outer ply, interlayer and inner ply.
-- Each cavity has spacer variant/size, gas, primary seal and secondary seal.
+- Each cavity is selected as Width → compatible Spacer system → Gas → Sealant. PIB is the fixed primary seal and remains in the saved specification without a separate operator field.
 - Lite/Cavity sections are collapsed by default. Only one section can be open at a time; collapsed rows retain a production summary.
 - The left navigation rail remains viewport-sticky while its dark column background continues to the bottom of long Sales Orders.
 

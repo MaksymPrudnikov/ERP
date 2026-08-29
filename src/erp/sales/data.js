@@ -13,6 +13,7 @@ const SALES_ORDER_STATUSES=['draft'];
 const SALES_UNIT_TYPES=['single','double','triple'];
 const SALES_LITE_CATEGORIES=['vision','spandrel','laminated'];
 const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
+const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
  prefix=prefix||'SO';
@@ -60,7 +61,10 @@ function salesDefaultPane(i){
   laminated:{outerGlassProductId:g?g.id:'',interlayerProductId:'INT-PVB030',innerGlassProductId:g?g.id:''}
  };
 }
-function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:'SEAL-PIB',secondarySealantId:'SEAL-SIL'};}
+function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
+function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
+function salesSpacerWidths(){return [...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];}
+function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-SIL'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
    заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
@@ -100,7 +104,10 @@ function normalizeSalesPane(p,index){
   laminated:{outerGlassProductId:salesString(lam.outerGlassProductId)||d.laminated.outerGlassProductId,interlayerProductId:salesString(lam.interlayerProductId)||d.laminated.interlayerProductId,innerGlassProductId:salesString(lam.innerGlassProductId)||d.laminated.innerGlassProductId}
  };
 }
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:salesString(c.primarySealantId)||d.primarySealantId,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+/* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
+   спецификации, но не является выбором оператора в Cavity. Нормализация также
+   исправляет старые черновики, где первичный герметик могли сменить вручную. */
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));

@@ -951,6 +951,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Makeup accordion стартует закрытым и держит только одну открытую секцию', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');soOpenSectionKey=null;render();const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length;d[0].open=true;salesAccordionToggle(d[0],d[0].dataset.muSection);d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,open:d.filter(x=>x.open).length,key:soOpenSectionKey};
     }), {initial:0,open:1,key:'cavity-0'});
+    eq('Cavity выбирается в порядке Width → Spacer → Gas → Sealant', await t.p.evaluate(() => {
+      const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
+      host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
+      return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[0].options].map(x=>x.textContent),spacers:[...selects[1].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
+    }), {labels:['Width','Spacer','Gas','Sealant'],widths:['3/8″','7/16″','1/2″','17/32″','5/8″'],spacers:['BWE — Black Warm Edge','AL — Aluminum'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · SIL'});
+    eq('смена Width сохраняет spacer-систему и фильтрует недоступные размеры', await t.p.evaluate(() => {
+      salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;salesCavitySetWidth(0,'7/16');return {same,fallback:c.spacerVariantId};
+    }), {same:'SP-AL-058',fallback:'SP-BWE-716'});
     eq('Frit и Spandrel имеют независимые surface', await t.p.evaluate(() => {
       const p=normalizeSalesPane({visionType:'frit',frit:{surface:2},spandrel:{surface:1}},0);return {frit:p.frit.surface,spandrel:p.spandrel.surface,coating:p.coatingSurface};
     }), {frit:2,spandrel:1,coating:null});
