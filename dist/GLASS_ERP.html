@@ -456,7 +456,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-08-29 21:27';
+var ERP_BUILD='2026-08-29 21:37';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5315,9 +5315,30 @@ function salesStoredMargin16(v,def){if(v==null||v==='')return def;const n=+v;ret
 function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
+/* В выборе Lite первая позиция — Clear, затем всё, что реально есть на
+   складе, и только после этого предзаказ. Для покрытого стекла Clear — это
+   базовое стекло варианта; в общем каталоге Clear означает именно обычное
+   непокрытое стекло, чтобы покрытия "on Clear" не обгоняли складские позиции.
+   Исходный каталог не мутируем: на него опираются Master Data и импорты. */
+function salesGlassIsClear(g,preferBaseClear){
+ return !!g&&g.substrate==='clear'&&(preferBaseClear||g.coatingFamily==='uncoated');
+}
+function salesGlassPriority(g,preferBaseClear){return salesGlassIsClear(g,preferBaseClear)?0:(g&&g.stocked===true?1:2);}
+function salesGlassSortLabel(g,preferBaseClear){return String(preferBaseClear?glassBaseName(g):(g&&g.name)||'');}
+function salesSortGlass(rows,preferBaseClear){
+ return (Array.isArray(rows)?rows:[]).slice().sort((a,b)=>{
+  const priority=salesGlassPriority(a,preferBaseClear)-salesGlassPriority(b,preferBaseClear);
+  if(priority)return priority;
+  const label=salesGlassSortLabel(a,preferBaseClear).localeCompare(salesGlassSortLabel(b,preferBaseClear),'en',{sensitivity:'base',numeric:true});
+  if(label)return label;
+  return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'en',{sensitivity:'base',numeric:true})||String((a&&a.code)||'').localeCompare(String((b&&b.code)||''),'en',{sensitivity:'base',numeric:true});
+ });
+}
+
 function salesFirstGlass(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
- return rows[0]||activeGlassProducts()[0]||null;
+ const preferBaseClear=family==='lowe'||family==='reflective';
+ return salesSortGlass(rows,preferBaseClear)[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
 }
 function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
@@ -6852,7 +6873,7 @@ function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;
 function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey=null;render();}
 function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
-function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p);return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));}
+function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p),rows=activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));return salesSortGlass(rows,fam==='lowe'||fam==='reflective');}
 function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
 function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
 function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
@@ -7387,14 +7408,14 @@ function salesOption(value,label,selected,rawText){return `<option ${rawText?'da
 function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
 function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
 function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
-function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.coatingFamily==='uncoated');}
+function salesBaseGlassCandidates(p){return salesSortGlass(activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.coatingFamily==='uncoated'),false);}
 /* Позиция без галочки склада помечается прямо в списке выбора, но из него не
    выпадает: заказать можно и то, чего у нас нет. Строка помечена data-raw и
    собирается заново на каждом переключении языка, поэтому пометка приезжает
    уже на нужном языке, а имя товара переводчик не трогает. */
 /* Короткого кода в списке НЕТ намеренно: он уже стоит в шапке Lite и в коде
    makeup, а в строке выбора только мешает читать имя. */
-function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
 /* --- Два шага выбора покрытого стекла --------------------------------
    Раньше шаг был один, и Vitro 6 мм Low-E выкатывал 92 строки списком.
    Теперь как у самого поставщика: сначала покрытие, потом на каком стекле. */
@@ -7403,7 +7424,7 @@ function salesGlassCoatings(p){
  salesGlassCandidates(p).forEach(g=>{const c=glassCoatingName(g);if(c&&!seen[c]){seen[c]=true;out.push(c);}});
  return out.sort((a,b)=>a.localeCompare(b));
 }
-function salesGlassVariants(p,coating){return salesGlassCandidates(p).filter(g=>glassCoatingName(g)===coating);}
+function salesGlassVariants(p,coating){return salesSortGlass(salesGlassCandidates(p).filter(g=>glassCoatingName(g)===coating),true);}
 function salesCurrentCoating(p){return glassCoatingName(glassProductById(p.glassProductId));}
 /* Подпись варианта — базовое стекло. Пара по закалке («Solarban 60 on Clear»
    заведена и закаливаемой, и незакаливаемой) иначе выглядела бы двумя
@@ -7416,7 +7437,7 @@ function salesGlassVariantLabel(g){
  return bits.join(' · ');
 }
 function salesGlassVariantOptions(rows,selected){
- return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,salesGlassVariantLabel(g),selected,true)).join('');
+ return `<option value="">— select —</option>`+salesSortGlass(rows,true).map(g=>salesOption(g.id,salesGlassVariantLabel(g),selected,true)).join('');
 }
 /* Что именно выбрано: подложка, покрытие, закалка и наличие. До этого в
    конфигураторе было видно одно имя, и разница между двумя соседними строками

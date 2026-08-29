@@ -8,14 +8,14 @@ function salesOption(value,label,selected,rawText){return `<option ${rawText?'da
 function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
 function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
 function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
-function salesBaseGlassCandidates(p){return activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.coatingFamily==='uncoated');}
+function salesBaseGlassCandidates(p){return salesSortGlass(activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&g.coatingFamily==='uncoated'),false);}
 /* Позиция без галочки склада помечается прямо в списке выбора, но из него не
    выпадает: заказать можно и то, чего у нас нет. Строка помечена data-raw и
    собирается заново на каждом переключении языка, поэтому пометка приезжает
    уже на нужном языке, а имя товара переводчик не трогает. */
 /* Короткого кода в списке НЕТ намеренно: он уже стоит в шапке Lite и в коде
    makeup, а в строке выбора только мешает читать имя. */
-function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
 /* --- Два шага выбора покрытого стекла --------------------------------
    Раньше шаг был один, и Vitro 6 мм Low-E выкатывал 92 строки списком.
    Теперь как у самого поставщика: сначала покрытие, потом на каком стекле. */
@@ -24,7 +24,7 @@ function salesGlassCoatings(p){
  salesGlassCandidates(p).forEach(g=>{const c=glassCoatingName(g);if(c&&!seen[c]){seen[c]=true;out.push(c);}});
  return out.sort((a,b)=>a.localeCompare(b));
 }
-function salesGlassVariants(p,coating){return salesGlassCandidates(p).filter(g=>glassCoatingName(g)===coating);}
+function salesGlassVariants(p,coating){return salesSortGlass(salesGlassCandidates(p).filter(g=>glassCoatingName(g)===coating),true);}
 function salesCurrentCoating(p){return glassCoatingName(glassProductById(p.glassProductId));}
 /* Подпись варианта — базовое стекло. Пара по закалке («Solarban 60 on Clear»
    заведена и закаливаемой, и незакаливаемой) иначе выглядела бы двумя
@@ -37,7 +37,7 @@ function salesGlassVariantLabel(g){
  return bits.join(' · ');
 }
 function salesGlassVariantOptions(rows,selected){
- return `<option value="">— select —</option>`+rows.map(g=>salesOption(g.id,salesGlassVariantLabel(g),selected,true)).join('');
+ return `<option value="">— select —</option>`+salesSortGlass(rows,true).map(g=>salesOption(g.id,salesGlassVariantLabel(g),selected,true)).join('');
 }
 /* Что именно выбрано: подложка, покрытие, закалка и наличие. До этого в
    конфигураторе было видно одно имя, и разница между двумя соседними строками

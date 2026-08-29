@@ -1396,6 +1396,33 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               salesGlassVariants(pane, 'Solarban 60').length];
     }), [92, 15, 13]);
 
+    eq('новый Lite сразу выбирает Clear', await t.p.evaluate(() => {
+      const pane = salesDefaultPane(0), glass = glassProductById(pane.glassProductId);
+      return [glass.code, glass.name, pane.laminated.outerGlassProductId,
+              pane.laminated.innerGlassProductId];
+    }), ['6CLEAR', 'Clear 6mm', 'GL-6CLEAR', 'GL-6CLEAR']);
+
+    eq('обычное стекло идёт Clear → склад → предзаказ', await t.p.evaluate(() => {
+      const pane = { manufacturer: 'Vitro', thicknessMm: 6, visionType: 'uncoated', glassProductId: '' };
+      const rows = salesGlassCandidates(pane), firstPreorder = rows.findIndex(g => !g.stocked);
+      const stockedNames = rows.slice(1, firstPreorder).map(g => g.name);
+      const preorderNames = rows.slice(firstPreorder).map(g => g.name);
+      const alpha = names => names.slice().sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true }));
+      return [rows[0].code, firstPreorder > 1,
+              rows.slice(1, firstPreorder).every(g => g.stocked === true),
+              rows.slice(firstPreorder).every(g => g.stocked !== true),
+              stockedNames.join('|') === alpha(stockedNames).join('|'),
+              preorderNames.join('|') === alpha(preorderNames).join('|')];
+    }), ['6CLEAR', true, true, true, true, true]);
+
+    eq('после смены типа покрытие тоже стартует с Clear', await t.p.evaluate(() => {
+      tab = 'sales'; subtab = null; render(); salesOrderNew();
+      salesPaneSetVisionType(0, 'lowe');
+      const glass = glassProductById(salesCurrentMakeup().panes[0].glassProductId);
+      const rows = salesGlassVariants(salesCurrentMakeup().panes[0], glassCoatingName(glass));
+      return [glassBaseName(glass), glassBaseName(rows[0]), rows[0].id === glass.id];
+    }), ['Clear', 'Clear', true]);
+
     /* «Solarban 60 on Clear» заведена и закаливаемой, и незакаливаемой — в
        списке вариантов это обязано быть видно, иначе две одинаковые строки. */
     eq('пара по закалке различима в списке вариантов', await t.p.evaluate(() => {
