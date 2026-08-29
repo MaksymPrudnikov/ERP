@@ -122,6 +122,14 @@ function salesFritMarginChange(i,key,el){
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
 function salesPaneSetLam(i,k,v){salesCurrentMakeup().panes[i].laminated[k]=v;render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
+/* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
+   если она выпускается в этом размере; иначе берём первый доступный вариант. */
+function salesCavitySetWidth(i,size){
+ const c=salesCurrentMakeup().cavities[i];if(!c)return;
+ const current=salesCavitySpacer(c),rows=salesActiveSpacerVariants().filter(x=>x.size===size);
+ const next=rows.find(x=>current&&x.system===current.system)||rows[0];
+ if(next)c.spacerVariantId=next.id;render();
+}
 
 function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
