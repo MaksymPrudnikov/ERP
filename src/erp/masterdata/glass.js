@@ -335,7 +335,16 @@ DEFAULT.spacerVariant=[
 ].map(x=>({id:x[0],system:x[1],size:x[2],name:x[1]+' '+x[2]+'″',code:x[0],availability:'order',supplier:'',leadTimeDays:null,active:true}));
 DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
 DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
-DEFAULT.interlayerProduct=[{id:'INT-PVB030',name:'PVB Clear .030',code:'PVB030',thicknessMm:.762},{id:'INT-PVB060',name:'PVB Clear .060',code:'PVB060',thicknessMm:1.524},{id:'INT-SGP035',name:'Structural interlayer .035',code:'SGP035',thicknessMm:.889}].map(x=>normalizeSimpleMaterial(x,'interlayer'));
+/* EVA colour families are selectable materials, but their actual layer
+   thickness is supplier / job specific. Keep it null instead of inventing a
+   number; the Laminated builder asks the operator for the real millimetres. */
+DEFAULT.interlayerProduct=[
+ {id:'INT-PVB030',name:'PVB Clear .030',code:'PVB030',thicknessMm:.762},
+ {id:'INT-PVB060',name:'PVB Clear .060',code:'PVB060',thicknessMm:1.524},
+ {id:'INT-SGP035',name:'Structural interlayer .035',code:'SGP035',thicknessMm:.889},
+ {id:'INT-EVA-UC',name:'EVA Ultra Clear',code:'EVA-UC',thicknessMm:null},
+ {id:'INT-EVA-MW',name:'EVA Milky Way',code:'EVA-MW',thicknessMm:null}
+].map(x=>normalizeSimpleMaterial(x,'interlayer'));
 DEFAULT.fritProduct=[
  {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER'},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG'}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
@@ -384,7 +393,11 @@ function normalizeMasterData(){
  glassInvalidateNameIndex();
 
  [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
-  const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
+  const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));
+  /* Add only missing built-in film types to an existing browser database.
+     Re-seeding the whole reference table would erase user-maintained rows. */
+  if(k==='interlayerProduct')DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
  DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),system:mdString(x.system),size:mdString(x.size),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);

@@ -817,7 +817,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     const serviceSetUi = await page();
     const serviceSetIds = await serviceSetUi.p.evaluate(() => {
-      tab='sales';subtab=null;render();salesOrderNew();salesOrderAddLine();
+      tab='sales';subtab=null;render();salesOrderNew();
       const line=soDraft.lines[0],set=salesNormalizeServiceSet({
         id:'SVC-QA',code:'S1',name:'QA Edgework',mode:'sides',
         sides:{A:[{type:'Rough Arris'}],B:[],C:[],D:[],other:[]}
@@ -935,8 +935,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     console.log('Sales Order / Makeups');
     let t = await page();
     eq('новый Sales Order получает локальный Makeup A', await t.p.evaluate(() => {
-      const o=newSalesOrderDraft();return {n:o.makeups.length,code:o.makeups[0].code,type:o.makeups[0].unitType,panes:o.makeups[0].panes.length,cavities:o.makeups[0].cavities.length,global:Object.prototype.hasOwnProperty.call(DB,'salesConfiguration')};
-    }), {n:1,code:'A',type:'double',panes:2,cavities:1,global:false});
+      const o=newSalesOrderDraft();return {n:o.makeups.length,code:o.makeups[0].code,type:o.makeups[0].unitType,panes:o.makeups[0].panes.length,cavities:o.makeups[0].cavities.length,lines:o.lines.length,blank:salesOrderLineIsBlank(o.lines[0]),global:Object.prototype.hasOwnProperty.call(DB,'salesConfiguration')};
+    }), {n:1,code:'A',type:'double',panes:2,cavities:1,lines:1,blank:true,global:false});
     eq('код Makeup A может повторяться в разных заказах', await t.p.evaluate(() => {
       const a=newSalesOrderDraft(),b=newSalesOrderDraft();return [a.makeups[0].code,b.makeups[0].code];
     }), ['A','A']);
@@ -948,9 +948,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Laminated overall thickness включает interlayer', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
     }), '12.762');
-    eq('Makeup accordion стартует закрытым и держит только одну открытую секцию', await t.p.evaluate(() => {
-      tab='sales';render();salesOrderNew();salesSetUnitType('triple');soOpenSectionKey=null;render();const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length;d[0].open=true;salesAccordionToggle(d[0],d[0].dataset.muSection);d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,open:d.filter(x=>x.open).length,key:soOpenSectionKey};
-    }), {initial:0,open:1,key:'cavity-0'});
+    eq('Laminated мигрирует старые поля в две плиты со своей закалкой', await t.p.evaluate(() => {
+      const p=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB060'}},0);
+      return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>x.productId)};
+    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:['INT-PVB060']});
+    eq('Laminated фильтрует каждую плиту и показывает две независимые закалки', await t.p.evaluate(() => {
+      const p=normalizeSalesPane({category:'laminated',laminated:{outer:{manufacturer:'Vitro',thicknessMm:6,visionType:'lowe'},inner:{manufacturer:'Vitro',thicknessMm:6,visionType:'uncoated'}}},0),host=document.createElement('div');
+      host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelectorAll('select')[5];
+      return {cards:host.querySelectorAll('[data-lam-ply]').length,heat:[...host.querySelectorAll('.mu-lam-ply label')].filter(x=>x.textContent==='Heat Treatment').length,candidates:salesLaminatedPlyCandidates(p.laminated.outer).length,glassOptions:glass.options.length,firstCoating:outer.querySelectorAll('select')[4].value};
+    }), {cards:2,heat:2,candidates:92,glassOptions:14,firstCoating:'Solarban 60'});
+    eq('Laminated смешивает несколько типов плёнки без выдуманной EVA толщины', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();const m=salesCurrentMakeup(),p=m.panes[0];p.category='laminated';m.unitType='single';m.panes=[p];m.cavities=[];
+      salesPaneSetLamInterlayer(0,0,'INT-EVA-UC');salesPaneAddLamInterlayer(0);salesPaneSetLamInterlayer(0,1,'INT-EVA-MW');
+      const field=v=>({value:v,classList:{add(){},remove(){}}});salesPaneSetLamInterlayerThickness(0,0,field('.38'));salesPaneSetLamInterlayerThickness(0,1,field('.76'));
+      return {catalog:[mdById('interlayerProduct','INT-EVA-UC').thicknessMm,mdById('interlayerProduct','INT-EVA-MW').thicknessMm],films:p.laminated.interlayers.map(x=>[x.productId,x.thicknessMm]),overall:salesMakeupThicknessMm(m).toFixed(2)};
+    }), {catalog:[null,null],films:[['INT-EVA-UC',.38],['INT-EVA-MW',.76]],overall:'13.14'});
+    eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
+    }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
     eq('Cavity выбирается в порядке Width → Spacer → Gas → Sealant', await t.p.evaluate(() => {
       const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
       host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
@@ -986,7 +1001,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         margins:html.split('Margin — ').length-1,marking:html.includes('Production marking')};
     }), {coverage:false,dot:true,corner:true,margins:2,marking:true});
     eq('300 строк сохраняют стабильные makeupId и integer-геометрию', await t.p.evaluate(() => {
-      const o=newSalesOrderDraft(),mu=o.makeups[0].id;for(let i=0;i<300;i++)o.lines.push(normalizeSalesOrderLine({makeupId:mu,qty:1,width:'48',height:'36',mark:'L'+i}));const n=normalizeSalesOrder(o);return {n:n.lines.length,refs:new Set(n.lines.map(x=>x.makeupId)).size,w:n.lines[299].width16,h:n.lines[299].height16};
+      const o=newSalesOrderDraft(),mu=o.makeups[0].id;o.lines=[];for(let i=0;i<300;i++)o.lines.push(normalizeSalesOrderLine({makeupId:mu,qty:1,width:'48',height:'36',mark:'L'+i}));const n=normalizeSalesOrder(o);return {n:n.lines.length,refs:new Set(n.lines.map(x=>x.makeupId)).size,w:n.lines[299].width16,h:n.lines[299].height16};
     }), {n:300,refs:1,w:768,h:576});
     eq('import отклоняет строку с отсутствующим Makeup', await t.p.evaluate(() => {
       const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:'MISSING',width:'10',height:'10'})];
@@ -1008,7 +1023,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('строка без размеров не даёт сохранить заказ', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();
       DB.customer.push({id:'CUS-T',code:'C-1',legalName:'T',displayName:'T',status:'active',contacts:[],addresses:[]});
-      soDraft.customerId='CUS-T';salesOrderAddLine();
+      soDraft.customerId='CUS-T';
       salesOrderSave();
       const blocked=DB.salesOrder.length===0;
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;salesOrderSave();
@@ -1029,13 +1044,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     t = await page();
     eq('Sales bridge использует существующие Shape и Muntin configurators', await t.p.evaluate(() => {
-      tab='sales';render();salesOrderNew();salesOrderAddLine();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      tab='sales';render();salesOrderNew();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
       salesOrderConfigureShape(0);saveShape();const shapeId=soDraft.lines[0].shapeRef.id,backFromShape=tab==='sales'&&!!shapeId;
       salesOrderConfigureMuntin(0);saveMuntin();const muntinId=soDraft.lines[0].muntinRef.id,backFromMuntin=tab==='sales'&&!!muntinId;
       return {backFromShape,backFromMuntin,shapeIdMatch:DB.muntinDef.find(m=>m.id===muntinId).shapeId===shapeId};
     }), {backFromShape:true,backFromMuntin:true,shapeIdMatch:true});
     eq('Shape edge allowance берёт толщину из выбранного Sales Makeup', await t.p.evaluate(() => {
-      tab='sales';render();salesOrderNew();salesOrderAddLine();
+      tab='sales';render();salesOrderNew();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
       m.panes.forEach(p=>{p.glassProductId='';p.thicknessMm=12;});
       salesOrderConfigureShape(0);const th12=sDraft.thickness,allow12=shapePolishAllowance(+sDraft.thickness);
@@ -1217,7 +1232,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       mdStatus = 'all'; mdSearch = '6sbn60vt'; const e = mdVisibleProducts().length;
       mdSearch = ''; render();
       return [a, b, c, d, e];
-    }), [3, 51, 4, 53, 12]);
+    }), [3, 51, 4, 54, 12]);
     await t.c.close();
 
     t = await page();
@@ -1396,10 +1411,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               salesGlassVariants(pane, 'Solarban 60').length];
     }), [92, 15, 13]);
 
+    eq('покрытия идут склад → предзаказ, а не просто по алфавиту', await t.p.evaluate(() => {
+      const pane = { manufacturer: 'Vitro', thicknessMm: 6, visionType: 'lowe', glassProductId: '' };
+      const coatings = salesGlassCoatings(pane), firstPreorder = coatings.findIndex(c => !salesGlassCoatingHasStock(pane, c));
+      return [coatings.slice(0, 2), firstPreorder,
+              coatings.slice(0, firstPreorder).every(c => salesGlassCoatingHasStock(pane, c)),
+              coatings.slice(firstPreorder).every(c => !salesGlassCoatingHasStock(pane, c)),
+              glassProductByCode('6SBN70GLASS').stocked];
+    }), [['Solarban 60', 'Solarban 70'], 2, true, true, true]);
+
     eq('новый Lite сразу выбирает Clear', await t.p.evaluate(() => {
       const pane = salesDefaultPane(0), glass = glassProductById(pane.glassProductId);
-      return [glass.code, glass.name, pane.laminated.outerGlassProductId,
-              pane.laminated.innerGlassProductId];
+      return [glass.code, glass.name, pane.laminated.outer.glassProductId,
+              pane.laminated.inner.glassProductId];
     }), ['6CLEAR', 'Clear 6mm', 'GL-6CLEAR', 'GL-6CLEAR']);
 
     eq('обычное стекло идёт Clear → склад → предзаказ', await t.p.evaluate(() => {
@@ -1420,8 +1444,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesPaneSetVisionType(0, 'lowe');
       const glass = glassProductById(salesCurrentMakeup().panes[0].glassProductId);
       const rows = salesGlassVariants(salesCurrentMakeup().panes[0], glassCoatingName(glass));
-      return [glassBaseName(glass), glassBaseName(rows[0]), rows[0].id === glass.id];
-    }), ['Clear', 'Clear', true]);
+      const html = salesVisionFieldsSafe(salesCurrentMakeup().panes[0], 0);
+      return [glassCoatingName(glass), glassBaseName(glass), glass.stocked,
+              glassBaseName(rows[0]), rows[0].id === glass.id,
+              html.indexOf('BirdSmart (1) Solarban 65 (2) · '+glassLabel('stock', 'preorder')) > 0];
+    }), ['Solarban 60', 'Clear', true, 'Clear', true, true]);
 
     /* «Solarban 60 on Clear» заведена и закаливаемой, и незакаливаемой — в
        списке вариантов это обязано быть видно, иначе две одинаковые строки. */
