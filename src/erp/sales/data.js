@@ -47,9 +47,30 @@ function salesStoredMargin16(v,def){if(v==null||v==='')return def;const n=+v;ret
 function salesFritDotMm(v,def){const n=+v;return Number.isFinite(n)&&n>0?n:def;}
 function salesDimDisplay(v){return Number.isInteger(v)&&v>0?frac64(v/16)+'″':'—';}
 
+/* В выборе Lite первая позиция — Clear, затем всё, что реально есть на
+   складе, и только после этого предзаказ. Для покрытого стекла Clear — это
+   базовое стекло варианта; в общем каталоге Clear означает именно обычное
+   непокрытое стекло, чтобы покрытия "on Clear" не обгоняли складские позиции.
+   Исходный каталог не мутируем: на него опираются Master Data и импорты. */
+function salesGlassIsClear(g,preferBaseClear){
+ return !!g&&g.substrate==='clear'&&(preferBaseClear||g.coatingFamily==='uncoated');
+}
+function salesGlassPriority(g,preferBaseClear){return salesGlassIsClear(g,preferBaseClear)?0:(g&&g.stocked===true?1:2);}
+function salesGlassSortLabel(g,preferBaseClear){return String(preferBaseClear?glassBaseName(g):(g&&g.name)||'');}
+function salesSortGlass(rows,preferBaseClear){
+ return (Array.isArray(rows)?rows:[]).slice().sort((a,b)=>{
+  const priority=salesGlassPriority(a,preferBaseClear)-salesGlassPriority(b,preferBaseClear);
+  if(priority)return priority;
+  const label=salesGlassSortLabel(a,preferBaseClear).localeCompare(salesGlassSortLabel(b,preferBaseClear),'en',{sensitivity:'base',numeric:true});
+  if(label)return label;
+  return String((a&&a.name)||'').localeCompare(String((b&&b.name)||''),'en',{sensitivity:'base',numeric:true})||String((a&&a.code)||'').localeCompare(String((b&&b.code)||''),'en',{sensitivity:'base',numeric:true});
+ });
+}
+
 function salesFirstGlass(family,manufacturer,thickness){
  const rows=activeGlassProducts().filter(x=>(!family||x.coatingFamily===family)&&(!manufacturer||x.manufacturer===manufacturer)&&(!thickness||x.thicknessMm===+thickness));
- return rows[0]||activeGlassProducts()[0]||null;
+ const preferBaseClear=family==='lowe'||family==='reflective';
+ return salesSortGlass(rows,preferBaseClear)[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
 }
 function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
