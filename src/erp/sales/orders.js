@@ -129,6 +129,14 @@ function salesPaneSetLamPly(i,side,key,v){
  if(key==='manufacturer'){const th=salesThicknessesFor(ply);if(th.length&&th.indexOf(+ply.thicknessMm)<0)ply.thicknessMm=th[0];}
  salesPaneEnsureLamPly(ply);render();
 }
+/* Laminated повторяет привычный выбор TYPE. Frit остаётся свойством одной
+   конкретной ply, но выбирается там же, где Low-E / Reflective / Uncoated. */
+function salesPaneSetLamPlyType(i,side,v){
+ const ply=salesPaneLamPly(i,side),f=salesPaneEnsureLamFrit(ply);if(!ply||!f)return;
+ if(v==='frit'){ply.visionType='uncoated';f.enabled=true;f.position=SALES_LAMINATED_FRIT_POSITIONS.includes(f.position)?f.position:'outside';}
+ else{if(!SALES_LAMINATED_GLASS_TYPES.includes(v))return;ply.visionType=v;f.enabled=false;}
+ salesPaneEnsureLamPly(ply);render();
+}
 function salesPaneSetLamPlyCoating(i,side,coating){
  const ply=salesPaneLamPly(i,side),rows=ply?salesGlassVariants(ply,coating):[];if(!rows.length)return render();
  const base=glassBaseName(glassProductById(ply.glassProductId)),same=base?rows.find(g=>glassBaseName(g)===base):null;
@@ -136,8 +144,13 @@ function salesPaneSetLamPlyCoating(i,side,coating){
 }
 function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
 function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);if(ply)ply.heatTreatmentId=v;render();}
-function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.thicknessMm=salesInterlayerDefaultThickness(v);render();}
-function salesPaneSetLamInterlayerThickness(i,slot,el){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot],n=+String(el.value).trim();if(!layer||!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}layer.thicknessMm=n;el.value=String(n);el.classList.remove('bad');render();}
+function salesPaneEnsureLamFrit(ply){if(!ply)return null;if(!ply.frit)ply.frit=salesDefaultLaminatedFrit();return ply.frit;}
+function salesPaneSetLamFrit(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(!f)return;if(key==='position'){if(!SALES_LAMINATED_FRIT_POSITIONS.includes(v))return;f.position=v;}else f[key]=v;render();}
+function salesPaneSetLamFritText(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(f)f[key]=v;}
+function salesLamFritDotChange(i,side,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=+String(el.value).trim();if(!f||!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}f.dotMm=n;el.value=String(n);el.classList.remove('bad');}
+function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=salesMarginTo16(el.value);if(!f||n==null){el.classList.add('bad');return;}f[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');}
+function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
+function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB030'));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}

@@ -14,7 +14,10 @@ const SALES_UNIT_TYPES=['single','double','triple'];
 const SALES_LITE_CATEGORIES=['vision','spandrel','laminated'];
 const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
 const SALES_LAMINATED_GLASS_TYPES=['lowe','reflective','uncoated'];
+const SALES_LAMINATED_FRIT_POSITIONS=['outside','in_film'];
 const SALES_MAX_INTERLAYERS=4;
+const SALES_INTERLAYER_LAYER_MM=.38;
+const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
 
 function salesUid(prefix){
@@ -86,7 +89,13 @@ function salesFirstGlass(family,manufacturer,thickness){
  const preferBaseClear=family==='lowe'||family==='reflective';
  return (preferBaseClear?salesSortCoatedGlass(rows):salesSortGlass(rows,false))[0]||salesSortGlass(activeGlassProducts(),false)[0]||null;
 }
-function salesDefaultLaminatedPly(g){return {manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN'};}
+function salesDefaultLaminatedFrit(){return {enabled:false,position:'outside',productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:''};}
+function normalizeSalesLaminatedFrit(raw,d){
+ raw=raw&&typeof raw==='object'?raw:{};d=d||salesDefaultLaminatedFrit();
+ const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
+ return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
+}
+function salesDefaultLaminatedPly(g){return {manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',frit:salesDefaultLaminatedFrit()};}
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
  const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
@@ -98,15 +107,20 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
  const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
- const out={manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId};
+ const out={manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
 function salesInterlayerDefaultThickness(productId){const p=mdById('interlayerProduct',productId),n=+(p&&p.thicknessMm);return Number.isFinite(n)&&n>0?n:null;}
+function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)?Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,n)):(def==null?1:def);}
+function salesInterlayerThicknessForLayers(layers){return +(salesInterlayerLayerCount(layers)*SALES_INTERLAYER_LAYER_MM).toFixed(2);}
+function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,Math.round(n/SALES_INTERLAYER_LAYER_MM)));}
 function normalizeSalesInterlayer(layer,defaultProductId){
- layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
- const productId=salesString(layer.productId)||defaultProductId,n=layer.thicknessMm==null||layer.thicknessMm===''?salesInterlayerDefaultThickness(productId):+layer.thicknessMm;
- return {productId,thicknessMm:Number.isFinite(n)&&n>0?n:null};
+ const legacyId=typeof layer==='string';layer=legacyId?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
+ const productId=salesString(layer.productId)||defaultProductId,explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount;
+ const oldThickness=layer.thicknessMm==null||layer.thicknessMm===''?(legacyId?salesInterlayerDefaultThickness(productId):null):layer.thicknessMm;
+ const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit):salesInterlayerLayersFromThickness(oldThickness);
+ return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers)};
 }
 function normalizeSalesInterlayers(lam,d){
  let rows=Array.isArray(lam.interlayers)?lam.interlayers:(Array.isArray(lam.interlayerProductIds)?lam.interlayerProductIds:(lam.interlayerProductId?[lam.interlayerProductId]:d.interlayers));
@@ -121,7 +135,7 @@ function salesDefaultPane(i){
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
-  laminated:{outer:Object.assign({},ply),interlayers:[normalizeSalesInterlayer({},'INT-PVB030')],inner:Object.assign({},ply)}
+  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB030')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
