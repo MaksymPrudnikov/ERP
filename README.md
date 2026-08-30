@@ -7,7 +7,7 @@
 **Живая версия: https://maksymprudnikov.github.io/ERP/** — открывается в браузере, ничего скачивать не нужно.
 Режим по модулям (правишь файл → F5): https://maksymprudnikov.github.io/ERP/src/
 
-Текущая стадия: **Фаза 1 / Stage 3B** — Customer Master, Draft Sales Orders с order-scoped IGU Makeups, плюс реальные Production Shape и Adaptive Muntin configurators.
+Текущая стадия: **Фаза 2, развитие Sales** — Customer Master, Draft Sales Orders с order-scoped IGU Makeups, Production Shape, Adaptive Muntin, Effective Production и уточнённый операторский flow выбора стекла/ламината.
 
 ---
 
@@ -57,10 +57,11 @@ src/
 │   ├── sales/                 Draft Sales domain
 │   │   ├── data.js            SalesOrder · OrderMakeup · OrderLine schema
 │   │   ├── orders.js          draft behavior · Excel · Shape/Muntin bridge
-│   │   └── makeup-ui.js       compact Lite / Cavity Makeup Builder
+│   │   ├── makeup-ui.js       compact Lite / Cavity / Laminated Makeup Builder
+│   │   └── service-sets.js    Effective Production · Edgework Sets
 │   └── views/    dashboard · users · customers · sales · sales-shape-ui · sales-muntin-ui · optimization · production
 │
-├── styles/                   base.css · modules.css
+├── styles/                   base.css · modules.css · service-sets.css
 └── shell.html                каркас страницы (шапка, меню, контейнер)
 
 build/build.js + build/manifest.json   →  dist/GLASS_ERP.html
@@ -89,13 +90,19 @@ node test/run.js        # проверить, что геометрия не п�
 
 ---
 
-## Stage 3B — Draft Sales / IGU Makeups
+## Sales — Draft Orders / IGU Makeups
 
 Sales больше не использует глобальную Configuration Library. Каждый Draft Sales Order содержит собственные `makeups[]` (A/B/C/…), а строки заказа хранят стабильный `makeupId`. Один Makeup переиспользуется множеством строк только внутри своего заказа.
 
 Makeup Builder поддерживает `Single Lite / Double / Triple`, `Vision / Spandrel / Laminated`, а для Vision — `Low-E / Reflective / Frit / Uncoated`. Surface numbering идёт Exterior → Interior: Lite 1 = `#1/#2`, Lite 2 = `#3/#4`, Lite 3 = `#5/#6`. Low-E/Reflective, Frit и Spandrel хранят свои surface-поля отдельно.
 
-Lite/Cavity формы в Makeup Builder по умолчанию свёрнуты: оператор открывает только рабочую секцию, а остальные остаются компактными summary-строками. Одновременно открыта максимум одна секция.
+При создании Makeup сразу открыт Lite 1 для Single, Double и Triple. После перехода к другой секции предыдущая сворачивается: одновременно открыта максимум одна рабочая секция, остальные остаются компактными summary-строками. Новый Sales Order сразу получает одну пустую Order Line.
+
+Выбор стекла оптимизирован под реальную работу: **Clear → позиции в наличии → предзаказ**. Позиции без склада не исчезают, а получают пометку `pre-order`. Для покрытого стекла сначала выбирается coating, затем базовое стекло в том же порядке.
+
+Cavity выбирается как **Width → Spacer → Gas → Sealant**. Primary Seal фиксирован как PIB и не занимает отдельное поле оператора.
+
+Laminated строится как `OUTER PLY → INTERLAYER STACK → INNER PLY`. Каждая ply имеет собственные Manufacturer, Thickness, TYPE, Glass и Heat Treatment. Frit выбирается внутри TYPE отдельно для каждой ply и может находиться снаружи плёнки либо `Into film`. Плёнки можно смешивать; для каждой строки выбираются 1–6 слоёв по 0.38 mm (`0.38 … 2.28 mm`).
 
 Shape и Muntin **не встроены в Makeup** и не переписываются. Строка Sales Order открывает существующий Production Shape / Adaptive Muntin configurator и хранит ссылку на его ревизию. При привязанном Shape размеры строки берутся из Shape; ручные Width/Height блокируются.
 
@@ -166,6 +173,8 @@ TARGET=dist node test/run.js
 
 Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape/Muntin bridge и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
+
+Проверенная точка 30 августа 2026: **222 passed, 0 failed** на `src` и те же **222 passed, 0 failed** на собранном `dist`.
 
 Отчёт последнего аудита: [`docs/REVIEW_2026-08-18.md`](docs/REVIEW_2026-08-18.md).
 
