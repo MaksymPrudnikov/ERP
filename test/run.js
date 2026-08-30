@@ -1037,17 +1037,128 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;salesOrderSave();
       return {blocked,savedAfterSize:DB.salesOrder.length===1};
     }), {blocked:true,savedAfterSize:true});
-    eq('Excel-вставка кладёт ширину в ширину, а не в высоту', await t.p.evaluate(() => {
-      tab='sales';render();salesOrderNew();
-      document.getElementById('salesExcelText').value='2\t30\t80\tA1';
-      soExcelMode='current';salesExcelApply();
+    /* Excel paste. Ввод — таблица с колонками Qty | Width | Height | Mark:
+       проверяем и разбор буфера, и то, что на экране именно колонки, а не одна
+       строка текста (на ней владелец и споткнулся: набранное через пробелы
+       слипалось в одну ячейку). */
+    eq('Excel-вставка кладёт ширину в ширину, а не в высоту', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('2\\t30\\t80\\tA1',0);salesExcelApply();
       const l=soDraft.lines[soDraft.lines.length-1];
-      return {qty:l.qty,w:l.width16,h:l.height16};
-    }), {qty:2,w:30*16,h:80*16});
-    eq('подсказка Excel совпадает с порядком колонок таблицы', await t.p.evaluate(() => {
-      tab='sales';render();salesOrderNew();salesExcelSetMode('current');
-      return document.getElementById('salesExcelCols').textContent;
-    }), 'Qty | Width | Height | Mark');
+      return {qty:l.qty,w:l.width16,h:l.height16,mark:l.mark};
+    })()`), {qty:2,w:30*16,h:80*16,mark:'A1'});
+    eq('подсказка Excel повторяет колонки самой сетки', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesExcelOpen();
+      const hint=document.getElementById('salesExcelCols').textContent;
+      const head=Array.from(document.querySelectorAll('#salesExcelGrid thead th'))
+        .map(th=>th.textContent.trim()).filter(t=>t!=='#'&&t!=='Result').join(' | ');
+      return {hint,head};
+    }), {hint:'Qty | Width | Height | Mark',head:'Qty | Width | Height | Mark'});
+    /* Вводом должна быть сетка: заголовки колонок и по ячейке на значение. */
+    eq('вставка вводится таблицей, а не текстовым полем', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesExcelOpen();
+      const modal=document.getElementById('salesExcelModal');
+      const head=Array.from(modal.querySelectorAll('#salesExcelGrid thead th')).map(th=>th.textContent.trim());
+      return {textarea:modal.querySelectorAll('textarea').length,head,
+        cells:modal.querySelectorAll('#salesExcelGrid tbody input[data-c="qty"]').length>0};
+    }), {textarea:0,head:['#','Qty','Width','Height','Mark','Result'],cells:true});
+    /* Пробелы — такой же разделитель, как таб; дробь остаётся при своём числе. */
+    eq('строка через пробелы раскладывается по колонкам', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('12 22 33 A1',0);
+      const r=soExcelRows[0];
+      return [r.qty,r.width,r.height,r.mark];
+    }), ['12','22','33','A1']);
+    eq('дробь не разваливается на два размера', await t.p.evaluate(() => {
+      return salesExcelTokens('1 34 13/16 15 5/16 A1');
+    }), ['1','34 13/16','15 5/16','A1']);
+    /* Реальная вставка идёт через событие paste на ячейке — проверяем провод. */
+    eq('paste в ячейку заполняет строки сетки', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];salesExcelOpen();
+      const inp=document.querySelector('#salesExcelGrid input[data-r="0"][data-c="qty"]');
+      const dt=new DataTransfer();dt.setData('text/plain','2\\t30\\t80\\tA1\\n1\\t24\\t42 1/2\\tB2');
+      inp.dispatchEvent(new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true}));
+      const c=salesExcelCounts();
+      return {ready:c.ready,bad:c.bad,second:[soExcelRows[1].width,soExcelRows[1].height]};
+    })()`), {ready:2,bad:0,second:['24','42 1/2']});
+    /* Несколько значений, набранных в одну ячейку, тоже раскладываются. */
+    eq('значения из одной ячейки уходят по колонкам вправо', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines=[];salesExcelOpen();
+      const q=document.querySelector('#salesExcelGrid input[data-r="0"][data-c="qty"]');
+      q.value='12 22 33 A1';
+      q.dispatchEvent(new Event('input',{bubbles:true}));
+      q.dispatchEvent(new Event('change',{bubbles:true}));
+      return ['qty','width','height','mark'].map(c=>document.querySelector('#salesExcelGrid input[data-r="0"][data-c="'+c+'"]').value);
+    }), ['12','22','33','A1']);
+    eq('строка шапки и лишняя колонка в заказ не уезжают', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('Qty\\tWidth\\tHeight\\tMark\\tNotes\\n2\\t30\\t80\\tA1\\trush',0);
+      salesExcelApply();
+      const l=soDraft.lines[0];
+      return {lines:soDraft.lines.length,qty:l.qty,w:l.width16,mark:l.mark};
+    })()`), {lines:1,qty:2,w:30*16,mark:'A1'});
+    eq('колонки MU и Set распознаются сами', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();salesAddMakeup();soDraft.lines=[];
+      soDraft.serviceSets=[salesNormalizeServiceSet({code:'S2'},1)];
+      salesExcelPasteText('B\\tS2\\t2\\t30\\t80\\tA1',0);
+      const shown={mu:soExcelShowMu,set:soExcelShowSet};
+      salesExcelApply();
+      const l=soDraft.lines[0];
+      return {shown,mu:l.makeupId===soDraft.makeups[1].id,set:l.serviceSetId===soDraft.serviceSets[0].id};
+    })()`), {shown:{mu:true,set:true},mu:true,set:true});
+    /* Раньше ошибочные строки исчезали в счётчике «Skipped: N» — исправить их
+       было нечего. Теперь они остаются в сетке, а исправные уходят в заказ. */
+    eq('строки с ошибкой остаются в сетке, исправные добавляются', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];salesExcelOpen();
+      salesExcelPasteText('2\\t30\\t80\\tA1\\n1\\tabc\\t80\\tA2',0);
+      salesExcelApply();
+      const first={added:soDraft.lines.length,left:soExcelRows.filter(r=>!salesExcelRowIsBlank(r)).map(r=>r.width),open:soExcelOpen};
+      /* Строку поправили — второй Add забирает её и не дублирует первую. */
+      soExcelRows[0].width='20';salesExcelApply();
+      return {first,total:soDraft.lines.length,closed:!soExcelOpen};
+    })()`), {first:{added:1,left:['abc'],open:true},total:2,closed:true});
+    eq('роль колонки переставляется и не занимает две колонки', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('7\\t2\\t30\\t80\\tA1',0);
+      salesExcelSetRole(0,'skip');salesExcelSetRole(1,'qty');salesExcelSetRole(2,'width');salesExcelSetRole(3,'height');salesExcelSetRole(4,'mark');
+      salesExcelApply();
+      const l=soDraft.lines[0];
+      return {qty:l.qty,w:l.width16,h:l.height16,mark:l.mark};
+    })()`), {qty:2,w:30*16,h:80*16,mark:'A1'});
+    /* Шапка, назвавшая только размеры, обязана остаться в силе: раньше она
+       отбрасывалась целиком и разметка по содержимому уезжала на колонку
+       влево — Width попадал в Qty, а Height в Width. */
+    eq('шапка без Qty не сдвигает размеры', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('Width\\tHeight\\tMark\\n30\\t80\\tA1',0);
+      const r=soExcelRows[0];salesExcelApply();
+      const l=soDraft.lines[0];
+      return {cells:[r.qty,r.width,r.height,r.mark],qty:l.qty,w:l.width16,h:l.height16};
+    })()`), {cells:['','30','80','A1'],qty:1,w:30*16,h:80*16});
+    /* После Add блок вставки забывается: иначе «Change columns» вернул бы уже
+       добавленные строки обратно в сетку и повторный Add их удвоил. */
+    eq('после Add блок вставки не хранится', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('2\\t30\\t80\\tA1\\n1\\t24\\t60\\tB2\\n5\\tabc\\t80\\tC3',0);
+      salesExcelApply();
+      return {lines:soDraft.lines.length,block:soExcelBlock};
+    })()`), {lines:2,block:null});
+    /* Кавычка — обёртка поля только в начале ячейки: в размерах '"' это дюймы. */
+    eq('кавычки CSV не режут значение и не склеивают ячейки', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('2,30,80,"A1, left"',0);
+      const csv=soExcelRows[0].mark;
+      salesExcelClearGrid();
+      salesExcelPasteText('1\\t30"\\t80\\tA1',0);
+      const r=soExcelRows[0];
+      return {csv,inches:[r.width,r.height,r.mark]};
+    })()`), {csv:'A1, left',inches:['30"','80','A1']});
+    eq('пустое Qty считается как одна штука и помечается', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('Qty\\tWidth\\tHeight\\tMark\\n\\t30\\t80\\tA1',0);
+      const v=salesExcelValidateRow(soExcelRows[0]);
+      return {qty:v.qty,assumed:v.qtyAssumed,ok:v.ok};
+    })()`), {qty:1,assumed:true,ok:true});
     await t.c.close();
 
     t = await page();

@@ -177,22 +177,10 @@ function salesOpenShapeFromEdgework(lineId){var i=soDraft.lines.findIndex(functi
 const __salesServiceServicesModal=salesServicesModal;
 salesServicesModal=function(){if(soServiceSetOpen)return salesServiceSetsModal();if(soEdgeworkLineId)return salesLineEdgeworkModal();return __salesServiceServicesModal();};
 
-/* Excel: optional Service Set column. */
-const __salesServiceExcelModal=salesExcelModal;
-salesExcelModal=function(){
-  var m=salesCurrentMakeup();return `<div id='salesExcelModal' class='sales-modal-back'><div class='sales-modal'><div class='sales-modal-head'><div><h3>Paste Excel Rows</h3><span id='salesExcelCols'>${soExcelMode==='withSet'?'MU | SS | Qty | Width | Height | Mark':soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark'}</span></div><button onclick='salesExcelClose()'>×</button></div><div class='excel-mode'><button class='${soExcelMode==='current'?'on':''}' onclick='salesExcelSetMode("current");render()'>Current Makeup ${m?esc(m.code):''}</button><button class='${soExcelMode==='withMakeup'?'on':''}' onclick='salesExcelSetMode("withMakeup");render()'>MU first</button><button class='${soExcelMode==='withSet'?'on':''}' onclick='salesExcelSetMode("withSet");render()'>MU + SS</button></div><textarea id='salesExcelText' rows='10' placeholder='A&#9;S2&#9;1&#9;30&#9;80&#9;A1'></textarea><div class='sales-modal-actions'><button onclick='salesExcelClose()'>Cancel</button><button class='pri' onclick='salesExcelApply()'>Add Rows</button></div></div></div>`;
-};
-salesExcelSetMode=function(v){soExcelMode=v==='withSet'?'withSet':v==='withMakeup'?'withMakeup':'current';var hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withSet'?'MU | SS | Qty | Width | Height | Mark':soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark';};
-salesExcelApply=function(){
-  var text=document.getElementById('salesExcelText').value,rows=String(text||'').split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean),added=0,bad=0,current=salesCurrentMakeup();
-  rows.forEach(function(row){var c=row.split(/\t|,|;/).map(function(x){return x.trim();}),mu=current,setId='',q,w,h,mark;
-    if(soExcelMode==='withSet'){if(c.length<6){bad++;return;}mu=soDraft.makeups.find(function(m){return m.code.toUpperCase()===String(c[0]).toUpperCase();});var set=(soDraft.serviceSets||[]).find(function(s){return s.code.toUpperCase()===String(c[1]).toUpperCase();});if(c[1]&&!set){bad++;return;}setId=set?set.id:'';q=salesPositiveInt(c[2],0);w=salesDimTo16(c[3]);h=salesDimTo16(c[4]);mark=c[5];}
-    else if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(function(m){return m.code.toUpperCase()===String(c[0]).toUpperCase();});q=salesPositiveInt(c[1],0);w=salesDimTo16(c[2]);h=salesDimTo16(c[3]);mark=c[4];}
-    else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);w=salesDimTo16(c[1]);h=salesDimTo16(c[2]);mark=c[3];}
-    if(!mu||!q||!w||!h){bad++;return;}soDraft.lines.push(normalizeSalesOrderLine({makeupId:mu.id,serviceSetId:setId,qty:q,width16:w,height16:h,mark:mark}));added++;
-  });
-  salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
-};
+/* Excel paste знает про Edgework Sets сам (sales/orders.js): колонка Set —
+   такая же необязательная, как MU, и разбирается общим кодом. Отдельного
+   переопределения окна здесь больше нет — именно из-за него подсказка и
+   placeholder показывали разные наборы колонок. */
 
 /* Clear transient Service Set UI whenever the operator changes order. */
 function salesResetServiceSetUi(){soServiceSetOpen=false;soServiceSetEditingId=null;soServiceSetDraft=null;soEdgeworkLineId=null;soServiceFilter='all';soBulkServiceSetId='';soBulkServicePolicy='keep';soServiceBulkPreview=null;}
