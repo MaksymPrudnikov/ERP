@@ -72,4 +72,4 @@ Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) 
 - 300-line normal-volume render and 900-line reserve/stress render.
 - Invalid import with a missing Makeup reference is rejected.
 
-The 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It is tracked by PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.
+The 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It was merged through PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.

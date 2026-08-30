@@ -1,10 +1,10 @@
 # ERP для производства стекла — хендофф-документ
 
-Версия 2.7 · 30 августа 2026 — уточнён рабочий поток выбора стекла и Makeup Builder: Clear → склад → предзаказ, Lite 1 открыт первым, первая Order Line создаётся сразу, Cavity выбирается от Width, а Laminated получил независимые plies, закалку, слои плёнки и Frit внутри TYPE. Проверенный кандидат — PR #28 `codex/laminated-frit-type`, 222 теста на `src` и 222 на `dist`.
+Версия 2.7 · 30 августа 2026 — уточнён рабочий поток выбора стекла и Makeup Builder: Clear → склад → предзаказ, Lite 1 открыт первым, первая Order Line создаётся сразу, Cavity выбирается от Width, а Laminated получил независимые plies, закалку, слои плёнки и Frit внутри TYPE. Проверенная реализация влита через PR #28, 222 теста на `src` и 222 на `dist`.
 
 **Код:** https://github.com/MaksymPrudnikov/ERP · **Живая версия:** https://maksymprudnikov.github.io/ERP/
 **Инструкция для внешнего ИИ (ChatGPT и др.):** `docs/ДЛЯ_ЧАТГПТ.md` — отдавать целиком перед постановкой задачи.
-**Ближайшая отдельная задача:** переработка Excel paste в Sales Order после PR #28. Затем `docs/PLAN_2026-08-26.md` — Service Catalog, перенос pricing rules и подготовка Hardware Library. Долгосрочная карта этапов остаётся в `docs/PLAN_2026-08-21.md`.
+**Ближайшая отдельная задача:** переработка Excel paste в Sales Order отдельной веткой после уже влитого PR #28. Затем `docs/PLAN_2026-08-26.md` — Service Catalog, перенос pricing rules и подготовка Hardware Library. Долгосрочная карта этапов остаётся в `docs/PLAN_2026-08-21.md`.
 Цель: полная замена Spil Glass (австралийский вендор), собственная система, код пишется блоками/модулями.
 
 Это управляющий документ проекта. Отдавай его целиком любому LLM (ChatGPT, другой сессии Claude), чтобы продолжить работу без потери контекста. Обновляй по итогам каждой сессии.
@@ -15,13 +15,13 @@
 
 ### Проверенная точка и Git workflow
 
-- Рабочая ветка: `codex/laminated-frit-type`; Pull Request:
-  `https://github.com/MaksymPrudnikov/ERP/pull/28`.
+- Feature-ветка: `codex/laminated-frit-type`; Pull Request:
+  `https://github.com/MaksymPrudnikov/ERP/pull/28`. PR влит в `main` merge-коммитом
+  `139725c`; следующая автоматическая сборка `dist` — `e43ca48`.
 - Функциональный коммит: `5d04645` (`feat: refine laminated glass configuration`).
   Merge-коммит `b48309b` подтянул актуальный `origin/main` (`dc050ae`) и
   разрешил единственный конфликт в сгенерированном `dist/GLASS_ERP.html`.
-- После разрешения конфликта PR подтверждён GitHub как `MERGEABLE`.
-  На момент обновления этого документа PR ещё не влит в `main`.
+- После разрешения конфликта PR прошёл GitHub Actions и был влит в `main`.
 - Проверено реальным Chromium: **222 passed, 0 failed** на `src/index.html` и
   **222 passed, 0 failed** на собранном `dist/GLASS_ERP.html`.
 - Ветка содержит полноценную правку проекта: исходники Sales, CSS, тесты и

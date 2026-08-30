@@ -36,4 +36,4 @@ The earlier sandbox limitation above is historical. The Sales Makeup refinement 
 - Frit is selected inside TYPE for one ply, exposes `Outside film` / `Into film`, and does not activate Frit on the other ply;
 - the feature branch was merged with current `main`; the generated-dist conflict was resolved by rebuilding from source, not by hand-editing HTML.
 
-Git reference at verification: PR #28, branch `codex/laminated-frit-type`, functional commit `5d04645`, conflict-resolution merge commit `b48309b`.
+Git reference at verification: merged PR #28, branch `codex/laminated-frit-type`, functional commit `5d04645`, conflict-resolution merge commit `b48309b`, PR merge commit `139725c`.
