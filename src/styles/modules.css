@@ -68,7 +68,7 @@
 .mu-lam-stack{display:grid;gap:8px}.mu-lam-ply{border:1px solid #e1e5e7;border-radius:8px;padding:7px;background:#fff}.mu-lam-ply-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px}.mu-lam-ply-title b{font-size:10px;letter-spacing:.06em;color:#4d4a45}.mu-lam-ply-title span{font-size:9.5px;color:#8a8780}.mu-lam-ply-grid{display:grid;grid-template-columns:minmax(110px,.8fr) minmax(85px,.5fr) minmax(280px,1.35fr) minmax(155px,.9fr) minmax(160px,1fr) minmax(190px,1.15fr);gap:6px;align-items:start}.mu-lam-glass{min-width:0}.mu-lam-films{border:1px solid #ead8c9;border-radius:8px;padding:7px;background:#fffaf6}.mu-lam-films-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px}.mu-lam-films-head>div{display:flex;align-items:baseline;gap:8px}.mu-lam-films-head b{font-size:10px;letter-spacing:.06em}.mu-lam-films-head span{font-size:9.5px;color:#8a6e5b}.mu-lam-films-head button{padding:4px 8px;font-size:10px;border-style:dashed}.mu-lam-film{display:grid;grid-template-columns:24px minmax(210px,1fr) minmax(150px,.5fr) 28px;gap:6px;align-items:end}.mu-lam-film+.mu-lam-film{margin-top:6px;padding-top:6px;border-top:1px dashed #ead8c9}.mu-lam-film-num{align-self:center;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:700;color:#8f4214;background:#ffe8d8}.mu-lam-film small{display:block;min-height:15px;margin-top:3px;font-size:9px;color:#aa5f30}.mu-lam-film-remove{width:28px;height:34px!important;padding:0!important;font-size:16px!important;color:#9b5143}.mu-lam-film-remove:disabled{opacity:.3}
 .mu-lam-frit-grid{margin-top:7px;padding:7px;border:1px solid #f0d8c7;border-radius:7px;background:#fffaf7}
 .sales-lines-block{padding-bottom:8px}.sales-line-tools{display:flex;gap:5px}.sales-line-tools button{padding:5px 8px;font-size:11px}.sales-bulk{display:flex;align-items:center;gap:7px;padding:5px 7px;margin-bottom:6px;border-radius:7px;background:#fff5ed;border:1px solid #ffd9c0;font-size:10.5px}.sales-bulk select{width:auto;min-width:260px;height:30px;padding:3px 7px;font-size:10.5px}.sales-lines-table{min-width:1120px;font-size:11px}.sales-lines-table th{padding:5px 5px;font-size:10px;background:#f8f7f5}.sales-lines-table td{padding:3px 4px;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{height:29px;padding:3px 5px;font-size:11px;border-radius:5px}.sales-lines-table input:disabled{background:#f2f1ee;color:#67645e;opacity:1}.sales-lines-table .line-check{width:30px;text-align:center}.sales-lines-table .line-check input{height:auto;width:auto}.line-num{color:#79766f}.line-mu{width:54px!important;min-width:54px}.line-qty{width:54px!important}.line-dim{width:92px!important}.line-mark{width:74px!important}.line-notes{min-width:100px}.line-config-cell{display:flex;align-items:center;gap:2px;max-width:180px}.line-link-btn{height:28px!important;max-width:155px;padding:3px 6px!important;border-radius:5px!important;font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4d4a45}.line-link-btn.linked{background:#f1f7f4;border-color:#bcd8ca;color:#35634d}.line-link-btn.stale{background:#fff7e9;border-color:#e8c886;color:#8b641d}.line-x{height:26px!important;padding:1px 5px!important;border:0!important;background:transparent!important;color:#a09b93!important}.line-delete{padding:2px 6px!important}.sales-lines-table input.bad{border-color:#d85845;background:#fff3f0}
-.sales-notes{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:#12100e66;z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:#fff;border:1px solid #d9d4cc;border-radius:12px;padding:12px;box-shadow:0 18px 60px #10182830}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.excel-mode{display:flex;gap:4px;margin-bottom:7px}.excel-mode button{font-size:10.5px;padding:5px 8px}.excel-mode button.on{background:var(--sa2);border-color:var(--sa);color:#9a4818}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
+.sales-notes{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:#12100e66;z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:#fff;border:1px solid #d9d4cc;border-radius:12px;padding:12px;box-shadow:0 18px 60px #10182830}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
 .mu-cavity-grid{grid-template-columns:minmax(105px,.42fr) minmax(260px,1.25fr) minmax(145px,.58fr) minmax(165px,.65fr);max-width:980px}
 @media(max-width:1350px){.sales-header-compact{grid-template-columns:repeat(4,minmax(130px,1fr))}.mu-field-grid-4{grid-template-columns:repeat(3,minmax(140px,1fr))}.mu-type-field{grid-column:span 2}.mu-subgrid{grid-template-columns:repeat(3,minmax(120px,1fr))}}
 @media(max-width:900px){.sales-editor-top{align-items:flex-start}.sales-header-compact{grid-template-columns:repeat(2,minmax(130px,1fr))}.mu-unit-row{grid-template-columns:90px 1fr}.mu-total{display:none}.mu-field-grid-4,.mu-subgrid,.mu-cavity-grid,.mu-lam-grid{grid-template-columns:repeat(2,minmax(130px,1fr))}.mu-type-field{grid-column:1/-1}.mu-lite-top{justify-content:flex-start}.sales-block-head>div,.sales-lines-head>div:first-child{display:block}.sales-lines-head{align-items:flex-end}}
@@ -141,3 +141,49 @@
 .shape-border-chain b{font-size:12px;color:#101828;white-space:nowrap}
 .shape-border-chain em{font-style:normal;font-size:11px;color:#f79009;white-space:nowrap}
 .header-build{margin-left:10px;font-size:11px;color:#98a2b3;white-space:nowrap}
+
+/* ---- Excel paste: ввод таблицей, колонки как в строках заказа ---- */
+.sales-modal.excel-modal{width:min(1020px,97vw);max-height:calc(100vh - 36px);overflow:auto}
+.excel-defaults{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.excel-defaults label{display:flex;flex-direction:column;gap:3px;font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.excel-defaults select{min-width:190px;padding:5px 7px;font-size:11px;text-transform:none;letter-spacing:0;color:var(--text)}
+.excel-defaults-hint{flex:1;min-width:150px;padding-bottom:5px;font-size:9.5px;color:var(--mut)}
+.excel-col-toggles{display:flex;gap:5px;padding-bottom:2px}
+.excel-col-toggles button{padding:4px 8px;font-size:9px}
+.excel-col-toggles button.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d}
+.excel-note{margin-bottom:7px;padding:7px 9px;border:1px solid #efd9a6;border-radius:8px;background:var(--amber2);color:#805816;font-size:10px}
+.excel-map{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);font-size:9.5px;color:var(--mut)}
+.excel-map b{color:var(--text)}
+.excel-map button{padding:3px 7px;font-size:9px}
+.excel-map-grid{margin-bottom:7px;max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.excel-map-grid select{width:100%;min-width:74px;padding:3px 4px;font-size:9.5px}
+.excel-grid-wrap{max-height:290px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+table.excel-grid{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed}
+table.excel-grid th,table.excel-grid td{padding:0;border-bottom:1px solid var(--line2);border-right:1px solid var(--line2);text-align:left}
+table.excel-grid th{padding:5px 7px;font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);background:var(--panel2)}
+table.excel-grid thead th{position:sticky;top:0;z-index:2;border-bottom:1px solid var(--line)}
+table.excel-grid th.n,table.excel-grid td.n{width:32px;text-align:right;padding:5px 6px;color:#9aa7b1;font:9.5px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--panel2);border-right:1px solid var(--line)}
+table.excel-grid th.qty,table.excel-grid td.qty{width:64px}
+table.excel-grid th.code,table.excel-grid td.code{width:58px}
+table.excel-grid th.dim,table.excel-grid td.dim{width:100px}
+table.excel-grid th.mark,table.excel-grid td.mark{width:96px}
+table.excel-grid td.cell input{width:100%;height:26px;padding:0 7px;border:0;border-radius:0;background:transparent;font:11px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text);outline:0}
+table.excel-grid td.cell input:focus{box-shadow:inset 0 0 0 2px var(--blue);background:#fff}
+table.excel-grid td.cell input.cell-bad{background:var(--red2);color:#913e3e;box-shadow:inset 0 0 0 1px #e8b9b9}
+table.excel-grid td.res{padding:4px 8px;border-right:0;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table.excel-grid tr.row-ok td.n{color:var(--green)}
+table.excel-grid tr.row-bad td.n{color:var(--red)}
+table.excel-grid tr.row-bad td{background:#fdf5f5}
+table.excel-grid td.res .excel-ok{color:#1f6046}
+table.excel-grid td.res .excel-err{color:#913e3e;font-family:inherit;font-weight:600}
+table.excel-grid td.res .excel-assumed{margin-left:6px;font-style:normal;font-size:9px;color:var(--amber)}
+table.excel-grid td.off{color:#b3bcc4;background:#fafbfc;padding:4px 7px}
+.excel-map-grid table.excel-grid td{padding:4px 7px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}
+.excel-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:7px}
+.excel-tip{flex:1;min-width:200px;font-size:9.5px;color:var(--mut)}
+.excel-summary{display:flex;align-items:center;gap:9px;font-size:10px}
+.excel-summary .sum-ok{color:var(--green)}
+.excel-summary .sum-bad{color:var(--red)}
+.excel-summary .sum-mut{color:var(--mut)}
+.excel-actions-sp{flex:1}
+.sales-modal.excel-modal .sales-modal-actions{align-items:center}

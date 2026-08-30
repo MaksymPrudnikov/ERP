@@ -5,7 +5,6 @@
    ===================================================================== */
 
 let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
-let soExcelMode='current';
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
@@ -18,8 +17,8 @@ function salesApplyCustomerDefaults(id){
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
-function salesOrderNew(){soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -32,7 +31,7 @@ function salesDraftHasWork(){
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;salesBridge=null;render();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;salesBridge=null;render();
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
@@ -175,18 +174,409 @@ function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=
 function salesRefreshBulkBar(){const el=document.getElementById('salesBulkCount');if(el)el.textContent=soSelectedLines.size+' selected';}
 function salesAssignSelected(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;soDraft.lines.forEach(l=>{if(soSelectedLines.has(l.id))l.makeupId=makeupId;});render();}
 
-function salesExcelOpen(){document.getElementById('salesExcelModal').classList.add('show');}
-function salesExcelClose(){const m=document.getElementById('salesExcelModal');if(m)m.classList.remove('show');}
-function salesExcelSetMode(v){soExcelMode=v==='withMakeup'?'withMakeup':'current';const hint=document.getElementById('salesExcelCols');if(hint)hint.textContent=soExcelMode==='withMakeup'?'MU | Qty | Width | Height | Mark':'Qty | Width | Height | Mark';}
-function salesExcelApply(){
- const text=document.getElementById('salesExcelText').value,rows=String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);let added=0,bad=0;const current=salesCurrentMakeup();
- /* Порядок колонок совпадает с таблицей строк заказа: Width, затем Height.
-    Раньше вставка ждала Height первым, а таблица показывала Width — на пачке
-    строк это давало перевёрнутые размеры, самую дорогую ошибку в стекле. */
- rows.forEach(r=>{const c=r.split(/\t|,|;/).map(x=>x.trim());let mu=current,q,h,w,mark;if(soExcelMode==='withMakeup'){if(c.length<5){bad++;return;}mu=soDraft.makeups.find(m=>m.code.toUpperCase()===String(c[0]).toUpperCase());q=salesPositiveInt(c[1],0);w=salesDimTo16(c[2]);h=salesDimTo16(c[3]);mark=c[4];}else{if(c.length<4){bad++;return;}q=salesPositiveInt(c[0],0);w=salesDimTo16(c[1]);h=salesDimTo16(c[2]);mark=c[3];}
-  if(!mu||!q||!h||!w){bad++;return;}soDraft.lines.push(normalizeSalesOrderLine({makeupId:mu.id,qty:q,height16:h,width16:w,mark}));added++;
+/* ---------- Excel paste ----------
+   Ввод — это ТАБЛИЦА с колонками Qty | Width | Height | Mark, а не текстовое
+   поле: пользователь видит те же колонки, что и в строках заказа, и ячейку
+   правит на месте. Блок, скопированный в Excel, раскладывается по колонкам сам
+   при вставке в любую ячейку; MU и Edgework Set — необязательные колонки,
+   которые включаются, если они пришли в буфере, а иначе берутся из селектов
+   над таблицей.
+
+   Почему так, а не поле с текстом: в поле «12 22 33 A1» — одна строка, и
+   человеку не видно, где кончается ширина и начинается высота. Разделителем
+   там был только таб, поэтому набранное руками через пробелы слипалось в одну
+   ячейку. Теперь колонка — это колонка: и на экране, и в разборе. Пробелы,
+   табы, `;` и `,` понимаются одинаково, дробь остаётся при своём числе
+   ('30 1/2' — одно значение, а не два). */
+const SALES_EXCEL_ROW_FIELDS=['mu','set','qty','width','height','mark'];
+const SALES_EXCEL_ROLES=['skip','mu','ss','qty','width','height','mark'];
+const SALES_EXCEL_ROLE_LABEL={skip:'ignore',mu:'MU',ss:'Set',qty:'Qty',width:'Width',height:'Height',mark:'Mark'};
+const SALES_EXCEL_MIN_ROWS=6;
+/* Шапку в файле клиента пишут как придётся — принимаем оба языка цеха и
+   сокращения. Строка шапки в заказ не попадает, она только размечает колонки. */
+const SALES_EXCEL_HEADER_WORDS={
+ qty:['qty','quantity','q-ty','qnt','pcs','pc','pieces','count','кол-во','колво','количество','шт'],
+ width:['width','w','wd','ширина'],
+ height:['height','h','ht','hgt','высота'],
+ mark:['mark','marks','tag','label','метка','марка','тег'],
+ mu:['mu','makeup','make-up','makeup code','мейкап'],
+ ss:['ss','set','sets','edgework','edgework set','service set','набор']
+};
+let soExcelOpen=false,soExcelRows=[],soExcelMakeupId='',soExcelSetId='',soExcelNote='';
+let soExcelShowMu=false,soExcelShowSet=false,soExcelBlock=null,soExcelMapOpen=false;
+
+function salesExcelSets(){return (soDraft&&soDraft.serviceSets)||[];}
+function salesExcelSetById(id){return salesExcelSets().find(function(s){return s.id===id;})||null;}
+function salesExcelMakeups(){return (soDraft&&soDraft.makeups)||[];}
+function salesExcelDefaultMakeup(){return (soDraft&&salesMakeupById(soDraft,soExcelMakeupId))||salesCurrentMakeup();}
+function salesExcelByCode(list,code){const c=String(code||'').trim().toUpperCase();return c?(list.find(function(x){return String(x.code).toUpperCase()===c;})||null):null;}
+function salesExcelBlankRow(){return {mu:'',set:'',qty:'',width:'',height:'',mark:''};}
+function salesExcelRowIsBlank(r){return !SALES_EXCEL_ROW_FIELDS.some(function(f){return String((r&&r[f])||'').trim().length;});}
+/* В таблице всегда есть куда напечатать следующую строку — как в Excel. */
+function salesExcelEnsureRows(){
+ soExcelRows=(soExcelRows||[]).filter(Boolean);
+ while(soExcelRows.length<SALES_EXCEL_MIN_ROWS)soExcelRows.push(salesExcelBlankRow());
+ if(!salesExcelRowIsBlank(soExcelRows[soExcelRows.length-1]))soExcelRows.push(salesExcelBlankRow());
+}
+function salesExcelReset(){
+ soExcelOpen=false;soExcelRows=[];soExcelMakeupId='';soExcelSetId='';soExcelNote='';
+ soExcelShowMu=false;soExcelShowSet=false;soExcelBlock=null;soExcelMapOpen=false;
+ salesExcelEnsureRows();
+}
+/* Состояние окна живёт в модуле, а не в классе на DOM: render() перерисовывает
+   весь экран, и класс .show вместе с набранным раньше терялся. */
+function salesExcelOpen(){
+ soExcelOpen=true;soExcelNote='';salesExcelEnsureRows();render();
+ const el=document.querySelector('#salesExcelGrid input[data-c="qty"]');
+ if(el){el.focus();try{el.select();}catch(e){}}
+}
+function salesExcelClose(){soExcelOpen=false;soExcelNote='';render();}
+function salesExcelSetMakeup(id){soExcelMakeupId=(soDraft&&salesMakeupById(soDraft,id))?id:'';salesExcelRenderGrid();}
+function salesExcelSetSet(id){soExcelSetId=salesExcelSetById(id)?id:'';salesExcelRenderGrid();}
+function salesExcelToggleMu(){soExcelShowMu=!soExcelShowMu;if(!soExcelShowMu)soExcelRows.forEach(function(r){r.mu='';});render();}
+function salesExcelToggleSet(){soExcelShowSet=!soExcelShowSet;if(!soExcelShowSet)soExcelRows.forEach(function(r){r.set='';});render();}
+function salesExcelClearGrid(){soExcelRows=[];soExcelBlock=null;soExcelMapOpen=false;soExcelNote='';salesExcelEnsureRows();render();}
+function salesExcelAddBlankRows(){for(let i=0;i<5;i++)soExcelRows.push(salesExcelBlankRow());salesExcelRenderGrid();}
+
+/* ---- разбор вставленного блока ---- */
+/* Кавычка открывает поле CSV только в НАЧАЛЕ ячейки: в этих данных '"' куда
+   чаще знак дюйма ('30"'), чем обёртка поля, и трактовать его как обёртку
+   значило бы склеивать соседние ячейки. */
+function salesExcelSplitLine(line,sep){
+ if(!sep)return salesExcelTokens(line);
+ const out=[];let cur='',quoted=false,fresh=true;
+ for(let i=0;i<line.length;i++){
+  const ch=line.charAt(i);
+  if(ch==='"'&&(fresh||quoted)){
+   if(quoted&&line.charAt(i+1)==='"'){cur+='"';i++;fresh=false;continue;}
+   quoted=!quoted;fresh=false;continue;
+  }
+  if(ch===sep&&!quoted){out.push(cur);cur='';quoted=false;fresh=true;continue;}
+  cur+=ch;fresh=false;
+ }
+ out.push(cur);
+ return out.map(salesExcelCellText);
+}
+function salesExcelCellText(v){return String(v==null?'':v).trim().replace(/^"([\s\S]*)"$/,'$1').trim();}
+/* Разбивка по пробелам с одним правилом: дробь принадлежит предыдущему числу,
+   иначе '34 13/16' развалилось бы на два размера. */
+function salesExcelTokens(s){
+ const out=[];
+ String(s==null?'':s).trim().split(/\s+/).forEach(function(t){
+  if(!t)return;
+  const prev=out.length?out[out.length-1]:'';
+  if(/^\d+\/\d+$/.test(t)&&/^\d+$/.test(prev))out[out.length-1]=prev+' '+t;
+  else out.push(t);
  });
- salesExcelClose();render();if(bad)alert('Rows added: '+added+'. Skipped: '+bad);else if(added)alert('Rows added: '+added);
+ return out;
+}
+function salesExcelHeaderRole(cell){
+ const s=salesExcelCellText(cell).toLowerCase().replace(/[.:*#()]/g,'').replace(/\s+/g,' ').trim();
+ if(!s)return '';
+ let hit='';
+ Object.keys(SALES_EXCEL_HEADER_WORDS).forEach(function(role){if(!hit&&SALES_EXCEL_HEADER_WORDS[role].indexOf(s)>=0)hit=role;});
+ return hit;
+}
+/* Шапка — строка из слов без единого размера. '1 30 80 A1' под это не попадает
+   и уедет в заказ строкой данных. */
+function salesExcelIsHeader(cells){
+ let named=0,numeric=0;
+ (cells||[]).forEach(function(c){if(!c)return;if(salesExcelHeaderRole(c))named++;if(fabParseDimStrict(c).ok)numeric++;});
+ return named>=2&&!numeric;
+}
+function salesExcelDetectRoles(rows,cols,header){
+ const roles=[];for(let i=0;i<cols;i++)roles.push('skip');
+ if(header){
+  header.forEach(function(c,i){const r=salesExcelHeaderRole(c);if(r&&roles.indexOf(r)<0&&i<cols)roles[i]=r;});
+  /* Шапке верим, если она назвала оба размера: Qty необязателен, пустое Qty —
+     это одна штука. Раньше шапка без Qty отбрасывалась целиком, и разметка по
+     содержимому уезжала на колонку влево: Width попадал в Qty, Height в Width. */
+  if(roles.indexOf('width')>=0&&roles.indexOf('height')>=0)return roles;
+  /* Шапка понята наполовину — вторую половину не угадываем, размечаем по данным. */
+  for(let i=0;i<cols;i++)roles[i]='skip';
+ }
+ const filled=[];
+ for(let i=0;i<cols;i++)if(rows.some(function(r){return (r[i]||'').length;}))filled.push(i);
+ const all=function(i,fn){return rows.some(function(r){return (r[i]||'').length;})&&rows.every(function(r){const v=r[i]||'';return !v.length||fn(v);});};
+ const codes=function(list){const s=new Set();(list||[]).forEach(function(x){if(x&&x.code)s.add(String(x.code).toUpperCase());});return s;};
+ const muCodes=codes(salesExcelMakeups()),ssCodes=codes(salesExcelSets());
+ let k=0;
+ if(k<filled.length&&muCodes.size&&all(filled[k],function(v){return muCodes.has(v.toUpperCase());})){roles[filled[k]]='mu';k++;}
+ if(k<filled.length&&ssCodes.size&&all(filled[k],function(v){return ssCodes.has(v.toUpperCase());})){roles[filled[k]]='ss';k++;}
+ /* Дальше — заявленный порядок таблицы. Лишние колонки клиентского файла
+    остаются 'ignore' и в заказ не попадают. */
+ ['qty','width','height','mark'].forEach(function(role){if(k<filled.length){roles[filled[k]]=role;k++;}});
+ return roles;
+}
+function salesExcelParseBlock(text){
+ const lines=String(text==null?'':text).replace(/\r\n?/g,'\n').split('\n').filter(function(l){return l.trim().length;});
+ if(!lines.length)return null;
+ const joined=lines.join('\n');
+ const sep=joined.indexOf('\t')>=0?'\t':joined.indexOf(';')>=0?';':joined.indexOf(',')>=0?',':'';
+ const rows=lines.map(function(l){return salesExcelSplitLine(l,sep);});
+ let cols=0;rows.forEach(function(r){if(r.length>cols)cols=r.length;});
+ /* Пустые крайние колонки (выделили в Excel лишний столбец) убираем: иначе при
+    вставке в конкретную колонку весь блок уезжает на одну вправо. */
+ while(cols>1&&rows.every(function(r){return !(r[0]||'').length;})){rows.forEach(function(r){r.shift();});cols--;}
+ while(cols>1&&rows.every(function(r){return !(r[cols-1]||'').length;})){rows.forEach(function(r){if(r.length>=cols)r.length=cols-1;});cols--;}
+ const header=salesExcelIsHeader(rows[0])?rows.shift():null;
+ if(!rows.length)return null;
+ return {rows:rows,cols:cols,header:header,roles:salesExcelDetectRoles(rows,cols,header),sep:sep};
+}
+/* Блок ложится в таблицу начиная с указанной строки — как вставка в Excel. */
+function salesExcelFillFromBlock(block,start){
+ if(!block)return 0;
+ const roles=block.roles;
+ if(roles.indexOf('mu')>=0)soExcelShowMu=true;
+ if(roles.indexOf('ss')>=0)soExcelShowSet=true;
+ const from=Math.max(0,+start||0);
+ block.rows.forEach(function(cells,n){
+  const i=from+n;
+  while(soExcelRows.length<=i)soExcelRows.push(salesExcelBlankRow());
+  const row=salesExcelBlankRow();
+  roles.forEach(function(role,c){
+   const v=salesExcelCellText(cells[c]);
+   if(role==='skip'||!v)return;
+   row[role==='ss'?'set':role]=v;
+  });
+  soExcelRows[i]=row;
+ });
+ salesExcelEnsureRows();
+ return block.rows.length;
+}
+/* Если курсор стоит не в первой колонке, блок ложится ОТ НЕЁ — как в Excel:
+   скопировал две колонки Width/Height, встал в Width, вставил. Разметка по
+   содержимому в этом случае не гадает: пользователь уже показал, куда класть. */
+function salesExcelPositionalRoles(cols,startField){
+ const order=salesExcelFieldOrder();
+ let at=order.indexOf(startField);
+ if(at<0)at=order.indexOf('qty');
+ const roles=[];
+ for(let i=0;i<cols;i++){const f=order[at+i];roles.push(f?(f==='set'?'ss':f):'skip');}
+ return roles;
+}
+/* Отдельная от события функция: ею же пользуются тесты и «Change columns». */
+function salesExcelPasteText(text,start){
+ const block=salesExcelParseBlock(text);
+ if(!block)return 0;
+ const n=salesExcelFillFromBlock(block,start);
+ block.startRow=Math.max(0,+start||0);
+ soExcelBlock=block;
+ return n;
+}
+function salesExcelPaste(ev){
+ const dt=ev&&(ev.clipboardData||window.clipboardData);
+ if(!dt)return;
+ const text=dt.getData('text/plain')||'';
+ if(!text.trim())return;
+ const block=salesExcelParseBlock(text);
+ /* Одно значение — обычная вставка в ячейку, браузер справится сам. */
+ if(!block||(block.rows.length===1&&block.rows[0].length<2&&!block.header))return;
+ const cell=ev.target&&ev.target.getAttribute?ev.target:null;
+ const target=cell?cell.getAttribute('data-r'):null,field=cell?cell.getAttribute('data-c'):null;
+ ev.preventDefault();
+ const start=target==null?0:(+target||0);
+ /* Шапка или узнанные коды MU/Set — это цельный блок, его разметку не трогаем. */
+ const whole=!!block.header||block.roles.indexOf('mu')>=0||block.roles.indexOf('ss')>=0;
+ const order=salesExcelFieldOrder();
+ if(!whole&&field&&field!==order[0])block.roles=salesExcelPositionalRoles(block.cols,field);
+ salesExcelFillFromBlock(block,start);
+ block.startRow=start;soExcelBlock=block;soExcelMapOpen=false;soExcelNote='';
+ render();
+ const el=document.querySelector('#salesExcelGrid input[data-r="'+start+'"][data-c="qty"]');
+ if(el)el.focus();
+}
+
+/* ---- проверка строки ---- */
+function salesExcelQty(raw){
+ const t=String(raw||'').replace(/\s/g,'');
+ if(!/^\d+(\.0+)?$/.test(t))return 0;
+ const n=parseInt(t,10);
+ return n>0?n:0;
+}
+function salesExcelValidateRow(row){
+ const out={blank:salesExcelRowIsBlank(row),ok:false,qty:1,qtyAssumed:false,width16:null,height16:null,mark:'',mu:null,set:null,err:{},errors:[]};
+ if(out.blank)return out;
+ out.mark=salesString(row.mark);
+ const muRaw=salesString(row.mu);
+ if(muRaw){const m=salesExcelByCode(salesExcelMakeups(),muRaw);if(m)out.mu=m;else out.err.mu='Makeup '+muRaw+' is not in this order';}
+ else out.mu=salesExcelDefaultMakeup();
+ const setRaw=salesString(row.set);
+ if(setRaw){const s=salesExcelByCode(salesExcelSets(),setRaw);if(s)out.set=s;else out.err.set='Set '+setRaw+' is not in this order';}
+ else out.set=salesExcelSetById(soExcelSetId);
+ const qtyRaw=salesString(row.qty);
+ /* Пустое Qty — одна штука: так этот столбец и заполняют в файлах клиентов.
+    Подстановка не молчаливая, в строке результата она помечена. */
+ if(!qtyRaw){out.qty=1;out.qtyAssumed=true;}
+ else{const q=salesExcelQty(qtyRaw);if(q)out.qty=q;else out.err.qty='Qty must be a whole number';}
+ [['width','Width'],['height','Height']].forEach(function(pair){
+  const f=pair[0],label=pair[1],v=salesString(row[f]);
+  if(!v){out.err[f]=label+' is empty';return;}
+  const n=salesDimTo16(v);
+  if(n)out[f+'16']=n;else out.err[f]=label+' is not a size';
+ });
+ SALES_EXCEL_ROW_FIELDS.forEach(function(f){if(out.err[f])out.errors.push(out.err[f]);});
+ out.ok=!out.errors.length;
+ return out;
+}
+function salesExcelCounts(){
+ let ready=0,bad=0;
+ (soExcelRows||[]).forEach(function(r){const v=salesExcelValidateRow(r);if(v.blank)return;if(v.ok)ready++;else bad++;});
+ return {ready:ready,bad:bad};
+}
+function salesExcelAddLabel(c){return c.ready?('Add '+c.ready+(c.ready===1?' row':' rows')):'Add rows';}
+
+/* ---- таблица ---- */
+function salesExcelColumns(){
+ const cols=[];
+ if(soExcelShowMu)cols.push({f:'mu',label:'MU',ph:'A',list:'salesExcelMuCodes',cls:'code'});
+ if(soExcelShowSet&&salesExcelSets().length)cols.push({f:'set',label:'Set',ph:'S1',list:'salesExcelSetCodes',cls:'code'});
+ cols.push({f:'qty',label:'Qty',ph:'2',cls:'qty'});
+ cols.push({f:'width',label:'Width',ph:'30',cls:'dim'});
+ cols.push({f:'height',label:'Height',ph:'80 1/2',cls:'dim'});
+ cols.push({f:'mark',label:'Mark',ph:'A1',cls:'mark'});
+ return cols;
+}
+function salesExcelColumnHint(){return salesExcelColumns().map(function(c){return c.label;}).join(' | ');}
+function salesExcelFieldOrder(){return salesExcelColumns().map(function(c){return c.f;});}
+function salesExcelRowStatusHtml(v){
+ if(v.blank)return '';
+ if(!v.ok)return `<span class="excel-err">${esc(v.errors.join(' · '))}</span>`;
+ return `<span class="excel-ok">${esc(v.qty+' × '+salesDimFrom16(v.width16)+'″ × '+salesDimFrom16(v.height16)+'″')}</span>`+(v.qtyAssumed?'<em class="excel-assumed">qty 1</em>':'');
+}
+function salesExcelRowHtml(i){
+ const row=soExcelRows[i];if(!row)return '';
+ const v=salesExcelValidateRow(row),cols=salesExcelColumns();
+ return `<tr data-row="${i}" class="${v.blank?'':(v.ok?'row-ok':'row-bad')}"><td class="n">${i+1}</td>`
+  +cols.map(function(c){
+    return `<td class="cell ${c.cls}"><input data-r="${i}" data-c="${c.f}" class="${v.err[c.f]?'cell-bad':''}" value="${esc(row[c.f]||'')}"${i===0?` placeholder="${esc(c.ph)}"`:''}${c.list?` list="${c.list}"`:''} oninput="salesExcelCellInput(${i},'${c.f}',this)" onchange="salesExcelCellChange(${i},'${c.f}',this)" onkeydown="salesExcelCellKey(event,${i},'${c.f}')"></td>`;
+   }).join('')
+  +`<td class="res">${salesExcelRowStatusHtml(v)}</td></tr>`;
+}
+function salesExcelGridInnerHtml(){
+ if(!soDraft)return '';
+ const cols=salesExcelColumns();
+ return `<datalist id="salesExcelMuCodes">${salesExcelMakeups().map(function(m){return `<option value="${esc(m.code)}">`;}).join('')}</datalist>`
+  +`<datalist id="salesExcelSetCodes">${salesExcelSets().map(function(s){return `<option value="${esc(s.code)}">`;}).join('')}</datalist>`
+  +`<table class="excel-grid"><thead><tr><th class="n">#</th>${cols.map(function(c){return `<th class="${c.cls}">${c.label}</th>`;}).join('')}<th class="res">Result</th></tr></thead>`
+  +`<tbody>${soExcelRows.map(function(r,i){return salesExcelRowHtml(i);}).join('')}</tbody></table>`;
+}
+function salesExcelSummaryHtml(c){
+ c=c||salesExcelCounts();
+ return `<b class="${c.ready?'sum-ok':'sum-mut'}">${c.ready} ready</b>${c.bad?`<b class="sum-bad">${c.bad===1?'1 needs a fix':c.bad+' need a fix'}</b>`:''}`;
+}
+/* Что именно взяли из последней вставки — одной строкой, с возможностью
+   переназначить колонки, если файл клиента идёт в своём порядке. */
+function salesExcelMapHtml(){
+ if(!soExcelBlock)return '';
+ const b=soExcelBlock,used=b.roles.filter(function(r){return r!=='skip';}).map(function(r){return SALES_EXCEL_ROLE_LABEL[r];}).join(' · ');
+ const ignored=b.roles.filter(function(r){return r==='skip';}).length;
+ return `<div class="excel-map"><span>Pasted ${b.cols} column${b.cols===1?'':'s'} → <b>${esc(used||'nothing')}</b>${ignored?`, ${ignored} ignored`:''}${b.header?', header row skipped':''}</span>`
+  +`<button class="sm" onclick="salesExcelToggleMap()">${soExcelMapOpen?'Hide columns':'Change columns'}</button></div>`
+  +(soExcelMapOpen?`<div class="excel-map-grid"><table class="excel-grid"><thead><tr>${b.roles.map(function(role,i){
+     return `<th><select onchange="salesExcelSetRole(${i},this.value)">${SALES_EXCEL_ROLES.map(function(r){return `<option value="${r}" ${role===r?'selected':''}>${SALES_EXCEL_ROLE_LABEL[r]}</option>`;}).join('')}</select></th>`;
+    }).join('')}</tr></thead><tbody data-raw>${b.rows.slice(0,4).map(function(cells){
+     return `<tr>${b.roles.map(function(role,i){return `<td class="${role==='skip'?'off':''}">${esc(cells[i]||'')}</td>`;}).join('')}</tr>`;
+    }).join('')}</tbody></table></div>`:'');
+}
+function salesExcelToggleMap(){soExcelMapOpen=!soExcelMapOpen;render();}
+/* Роль занимает ровно одну колонку: две Width — это перевёрнутый размер,
+   самая дорогая ошибка в стекле. */
+function salesExcelSetRole(col,role){
+ if(!soExcelBlock||SALES_EXCEL_ROLES.indexOf(role)<0)return;
+ const roles=soExcelBlock.roles.slice();
+ if(col<0||col>=roles.length)return;
+ if(role!=='skip')roles.forEach(function(r,i){if(r===role&&i!==col)roles[i]='skip';});
+ roles[col]=role;soExcelBlock.roles=roles;
+ salesExcelFillFromBlock(soExcelBlock,soExcelBlock.startRow||0);
+ render();
+}
+
+/* ---- точечные обновления: полная перерисовка увела бы каретку из ячейки ---- */
+function salesExcelRenderGrid(){
+ const box=document.getElementById('salesExcelGrid');
+ if(box){box.innerHTML=salesExcelGridInnerHtml();if(typeof applyLang==='function')applyLang(box);}
+ salesExcelRefreshFooter();
+}
+function salesExcelRefreshFooter(){
+ const c=salesExcelCounts();
+ const sum=document.getElementById('salesExcelSummary');if(sum)sum.innerHTML=salesExcelSummaryHtml(c);
+ const btn=document.getElementById('salesExcelAdd');
+ if(btn){btn.textContent=salesExcelAddLabel(c);btn.disabled=!c.ready;}
+}
+function salesExcelRefreshRow(i){
+ const row=soExcelRows[i];if(!row)return;
+ const tr=document.querySelector('#salesExcelGrid tr[data-row="'+i+'"]');if(!tr)return;
+ const v=salesExcelValidateRow(row);
+ tr.className=v.blank?'':(v.ok?'row-ok':'row-bad');
+ const res=tr.querySelector('td.res');if(res)res.innerHTML=salesExcelRowStatusHtml(v);
+ Array.prototype.forEach.call(tr.querySelectorAll('input[data-c]'),function(el){
+  el.classList.toggle('cell-bad',!!v.err[el.getAttribute('data-c')]);
+ });
+}
+function salesExcelSyncRowInputs(i){
+ const row=soExcelRows[i];if(!row)return;
+ const tr=document.querySelector('#salesExcelGrid tr[data-row="'+i+'"]');if(!tr)return;
+ Array.prototype.forEach.call(tr.querySelectorAll('input[data-c]'),function(el){el.value=row[el.getAttribute('data-c')]||'';});
+}
+function salesExcelAppendIfLast(i){
+ if(i!==soExcelRows.length-1||salesExcelRowIsBlank(soExcelRows[i]))return;
+ soExcelRows.push(salesExcelBlankRow());
+ const tb=document.querySelector('#salesExcelGrid tbody');
+ if(tb)tb.insertAdjacentHTML('beforeend',salesExcelRowHtml(soExcelRows.length-1));
+}
+function salesExcelCellInput(i,field,el){
+ const row=soExcelRows[i];if(!row)return;
+ row[field]=el.value;
+ salesExcelRefreshRow(i);salesExcelRefreshFooter();salesExcelAppendIfLast(i);
+}
+/* Несколько значений, набранных в одну ячейку, раскладываются по колонкам
+   вправо — ровно то, чего ждёшь, напечатав «12 22 33 A1» одной строкой. */
+function salesExcelCellChange(i,field,el){
+ const row=soExcelRows[i];if(!row)return;
+ const order=salesExcelFieldOrder(),at=order.indexOf(field),tokens=salesExcelTokens(el.value);
+ if(at<0||tokens.length<2||at>=order.length-1){salesExcelRefreshRow(i);salesExcelRefreshFooter();return;}
+ tokens.forEach(function(t,n){
+  const f=order[at+n];
+  if(!f)return;
+  row[f]=(at+n===order.length-1)?tokens.slice(n).join(' '):t;
+ });
+ salesExcelSyncRowInputs(i);salesExcelRefreshRow(i);salesExcelRefreshFooter();salesExcelAppendIfLast(i);
+}
+function salesExcelCellKey(ev,i,field){
+ if(!ev||ev.key!=='Enter')return;
+ ev.preventDefault();
+ salesExcelAppendIfLast(i);
+ const next=document.querySelector('#salesExcelGrid input[data-r="'+(i+1)+'"][data-c="'+field+'"]');
+ if(next){next.focus();try{next.select();}catch(e){}}
+}
+
+function salesExcelApply(){
+ if(!soDraft)return;
+ const keep=[];let added=0;
+ (soExcelRows||[]).forEach(function(row){
+  const v=salesExcelValidateRow(row);
+  if(v.blank)return;
+  if(!v.ok||!v.mu){keep.push(row);return;}
+  soDraft.lines.push(normalizeSalesOrderLine({makeupId:v.mu.id,serviceSetId:v.set?v.set.id:'',qty:v.qty,width16:v.width16,height16:v.height16,mark:v.mark}));
+  added++;
+ });
+ if(!added)return;
+ /* Строки с ошибкой не исчезают в счётчике «Skipped: N» — они остаются в
+    таблице, чтобы их поправить и нажать Add ещё раз. Добавленные из таблицы
+    убираются, поэтому повтор не дублирует их. */
+ /* Блок последней вставки описывал ТУ сетку, которой уже нет: часть строк уехала
+    в заказ. Если его сохранить, «Change columns» вернёт добавленные строки обратно
+    и повторный Add их удвоит. */
+ soExcelBlock=null;soExcelMapOpen=false;
+ if(keep.length){
+  soExcelRows=keep;
+  soExcelNote=(added===1?'1 row added':added+' rows added')+'. '+(keep.length===1?'1 row below still needs a fix':keep.length+' rows below still need a fix')+' — correct it and press Add again.';
+ }else{
+  soExcelRows=[];soExcelNote='';soExcelOpen=false;
+ }
+ salesExcelEnsureRows();
+ render();
 }
 
 /* ---------- Sales pricing · PR3 clickable prototype ----------

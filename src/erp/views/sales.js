@@ -48,4 +48,21 @@ function salesOrderServicesModal(){
 
 function salesServicesModal(){if(soServiceOrderOpen)return salesOrderServicesModal();if(soServiceLineId){const i=(soDraft.lines||[]).findIndex(function(l){return l.id===soServiceLineId;});if(i>=0)return salesLineServicesModal(soDraft.lines[i],i);}return '';}
 
-function salesExcelModal(){const m=salesCurrentMakeup();return `<div id="salesExcelModal" class="sales-modal-back"><div class="sales-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">Qty | Width | Height | Mark</span></div><button onclick="salesExcelClose()">×</button></div><div class="excel-mode"><button class="${soExcelMode==='current'?'on':''}" onclick="soExcelMode='current';salesExcelSetMode('current');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===0))">Current Makeup ${m?esc(m.code):''}</button><button class="${soExcelMode==='withMakeup'?'on':''}" onclick="soExcelMode='withMakeup';salesExcelSetMode('withMakeup');document.querySelectorAll('.excel-mode button').forEach((b,i)=>b.classList.toggle('on',i===1))">MU in first column</button></div><textarea id="salesExcelText" rows="10" placeholder="1&#9;30&#9;80&#9;A1&#10;2&#9;24&#9;42 1/2&#9;B2"></textarea><div class="sales-modal-actions"><button onclick="salesExcelClose()">Cancel</button><button class="pri" onclick="salesExcelApply()">Add Rows</button></div></div></div>`;}
+/* Окно вставки из Excel. Ввод — таблица с теми же колонками, что и строки
+   заказа: скопировал блок в Excel, встал в ячейку, вставил — колонки на своих
+   местах. Подсказка в шапке, заголовки таблицы и разбор говорят одно и то же. */
+function salesExcelModal(){
+ if(!soDraft)return '';
+ salesExcelEnsureRows();
+ const sets=salesExcelSets(),mu=salesExcelDefaultMakeup(),c=salesExcelCounts();
+ return `<div id="salesExcelModal" class="sales-modal-back${soExcelOpen?' show':''}" onpaste="salesExcelPaste(event)"><div class="sales-modal excel-modal"><div class="sales-modal-head"><div><h3>Paste Excel Rows</h3><span id="salesExcelCols">${esc(salesExcelColumnHint())}</span></div><button onclick="salesExcelClose()">×</button></div>`
+  +`<div class="excel-defaults"><label>Makeup for pasted rows<select onchange="salesExcelSetMakeup(this.value)">${soDraft.makeups.map(m=>`<option value="${esc(m.id)}" ${mu&&mu.id===m.id?'selected':''}>${esc(m.code)} · ${esc(salesMakeupSummary(m))}</option>`).join('')}</select></label>`
+  +(sets.length?`<label>Edgework Set<select onchange="salesExcelSetSet(this.value)"><option value="">No Set</option>${sets.map(s=>`<option value="${esc(s.id)}" ${soExcelSetId===s.id?'selected':''}>${esc(s.code)}${s.name?' · '+esc(s.name):''}</option>`).join('')}</select></label>`:'')
+  +`<span class="excel-defaults-hint">Applies to every row that has no MU${sets.length?' / Set':''} of its own.</span>`
+  +`<span class="excel-col-toggles"><button class="sm ${soExcelShowMu?'on':''}" onclick="salesExcelToggleMu()">${soExcelShowMu?'− MU column':'+ MU column'}</button>${sets.length?`<button class="sm ${soExcelShowSet?'on':''}" onclick="salesExcelToggleSet()">${soExcelShowSet?'− Set column':'+ Set column'}</button>`:''}</span></div>`
+  +(soExcelNote?`<div class="excel-note">${esc(soExcelNote)}</div>`:'')
+  +salesExcelMapHtml()
+  +`<div id="salesExcelGrid" class="excel-grid-wrap">${salesExcelGridInnerHtml()}</div>`
+  +`<div class="excel-foot"><span class="excel-tip">Copy the block in Excel, click a cell here and paste — the columns land as they are. Typing works too: Tab moves across, Enter goes down.</span><span id="salesExcelSummary" class="excel-summary">${salesExcelSummaryHtml(c)}</span></div>`
+  +`<div class="sales-modal-actions"><button class="sm" onclick="salesExcelAddBlankRows()">+ 5 rows</button><button class="sm" onclick="salesExcelClearGrid()">Clear</button><span class="excel-actions-sp"></span><button onclick="salesExcelClose()">Cancel</button><button class="pri" id="salesExcelAdd" ${c.ready?'':'disabled'} onclick="salesExcelApply()">${esc(salesExcelAddLabel(c))}</button></div></div></div>`;
+}
