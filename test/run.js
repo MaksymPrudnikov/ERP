@@ -947,22 +947,30 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('числовые legacy dimensions трактуются как inches, а width16 остаётся ticks', await t.p.evaluate(() => ({legacy:salesDimTo16(34),stored:normalizeSalesOrderLine({makeupId:'MU-X',width16:544,height16:576}).width16})), {legacy:544,stored:544});
     eq('Laminated overall thickness включает interlayer', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
-    }), '12.762');
+    }), '12.760');
     eq('Laminated мигрирует старые поля в две плиты со своей закалкой', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB060'}},0);
-      return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>x.productId)};
-    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:['INT-PVB060']});
+      return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm])};
+    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:[['INT-PVB060',4,1.52]]});
     eq('Laminated фильтрует каждую плиту и показывает две независимые закалки', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',laminated:{outer:{manufacturer:'Vitro',thicknessMm:6,visionType:'lowe'},inner:{manufacturer:'Vitro',thicknessMm:6,visionType:'uncoated'}}},0),host=document.createElement('div');
-      host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelectorAll('select')[5];
-      return {cards:host.querySelectorAll('[data-lam-ply]').length,heat:[...host.querySelectorAll('.mu-lam-ply label')].filter(x=>x.textContent==='Heat Treatment').length,candidates:salesLaminatedPlyCandidates(p.laminated.outer).length,glassOptions:glass.options.length,firstCoating:outer.querySelectorAll('select')[4].value};
+      host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelector('.mu-lam-glass select'),coating=[...outer.querySelectorAll('label')].find(x=>x.textContent==='Select Coating').parentElement.querySelector('select');
+      return {cards:host.querySelectorAll('[data-lam-ply]').length,heat:[...host.querySelectorAll('.mu-lam-ply label')].filter(x=>x.textContent==='Heat Treatment').length,candidates:salesLaminatedPlyCandidates(p.laminated.outer).length,glassOptions:glass.options.length,firstCoating:coating.value};
     }), {cards:2,heat:2,candidates:92,glassOptions:14,firstCoating:'Solarban 60'});
-    eq('Laminated смешивает несколько типов плёнки без выдуманной EVA толщины', await t.p.evaluate(() => {
+    eq('Frit назначается одной laminated ply: снаружи плёнки по умолчанию или в плёнку', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();const p=salesCurrentMakeup().panes[0];p.category='laminated';
+      const defaults=[p.laminated.outer.frit.position,p.laminated.inner.frit.position,p.laminated.outer.frit.enabled,p.laminated.inner.frit.enabled];
+      salesPaneSetLamPlyType(0,'outer','frit');salesPaneSetLamFrit(0,'outer','position','in_film');salesPaneSetLamFrit(0,'outer','color','Acid Etched');
+      const host=document.createElement('div');host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),pos=outer.querySelector('.mu-lam-frit-grid select');
+      return {defaults,outer:[p.laminated.outer.visionType,p.laminated.outer.frit.enabled,p.laminated.outer.frit.position,p.laminated.outer.frit.color],inner:[p.laminated.inner.frit.enabled,p.laminated.inner.frit.position,p.laminated.inner.frit.color],types:[...outer.querySelectorAll('.mu-type-buttons button')].map(x=>[x.textContent,x.classList.contains('on')]),grids:host.querySelectorAll('.mu-lam-frit-grid').length,positions:[...pos.options].map(x=>x.textContent),summary:salesPaneProductSummary(p,0)};
+    }), {defaults:['outside','outside',false,false],outer:['uncoated',true,'in_film','Acid Etched'],inner:[false,'outside','White'],types:[['Low-E',false],['Reflective',false],['Frit',true],['Uncoated',false]],grids:1,positions:['#1 · Outside film (default)','Into film'],summary:'6CLEAR · FRIT into film + PVB030 0.38 mm + 6CLEAR'});
+    eq('Laminated смешивает типы плёнки с отдельным количеством слоёв', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();const m=salesCurrentMakeup(),p=m.panes[0];p.category='laminated';m.unitType='single';m.panes=[p];m.cavities=[];
       salesPaneSetLamInterlayer(0,0,'INT-EVA-UC');salesPaneAddLamInterlayer(0);salesPaneSetLamInterlayer(0,1,'INT-EVA-MW');
-      const field=v=>({value:v,classList:{add(){},remove(){}}});salesPaneSetLamInterlayerThickness(0,0,field('.38'));salesPaneSetLamInterlayerThickness(0,1,field('.76'));
-      return {catalog:[mdById('interlayerProduct','INT-EVA-UC').thicknessMm,mdById('interlayerProduct','INT-EVA-MW').thicknessMm],films:p.laminated.interlayers.map(x=>[x.productId,x.thicknessMm]),overall:salesMakeupThicknessMm(m).toFixed(2)};
-    }), {catalog:[null,null],films:[['INT-EVA-UC',.38],['INT-EVA-MW',.76]],overall:'13.14'});
+      salesPaneSetLamInterlayerLayers(0,0,1);salesPaneSetLamInterlayerLayers(0,1,4);
+      const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[1];
+      return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2)};
+    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.90'});
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});

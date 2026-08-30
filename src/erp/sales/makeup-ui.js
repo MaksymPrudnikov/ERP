@@ -72,9 +72,9 @@ function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSur
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,heat)=>{const ht=mdById('heatTreatment',heat),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'outside film'));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
-  return [part(a,outer.heatTreatmentId)].concat(films,part(b,inner.heatTreatmentId)).filter(Boolean).join(' + ')||'Laminated';
+  return [part(a,outer)].concat(films,part(b,inner)).filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
  if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
@@ -153,24 +153,29 @@ function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);ret
    same narrowing chain as Vision (manufacturer → thickness → type → coating /
    glass) plus its own heat treatment. Interlayers are repeatable because a
    laminate may combine, for example, EVA Ultra Clear and EVA Milky Way. */
+function salesLaminatedFritFields(p,index,side){
+ const f=p.laminated[side].frit;if(!f||!f.enabled)return '';
+ return `<div class="mu-subgrid mu-lam-frit-grid"><div><label>Frit Position</label><select onchange="salesPaneSetLamFrit(${index},'${side}','position',this.value)">${[['outside','#1 · Outside film (default)'],['in_film','Into film']].map(x=>salesOption(x[0],x[1],f.position,true)).join('')}</select></div><div><label>Frit Product</label><select onchange="salesPaneSetLamFrit(${index},'${side}','productId',this.value)">${salesSimpleOptions('fritProduct',f.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetLamFrit(${index},'${side}','color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,f.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetLamFrit(${index},'${side}','pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,f.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(f.dotMm)}" onchange="salesLamFritDotChange(${index},'${side}',this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetLamFrit(${index},'${side}','marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,f.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(f.marginW16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(f.marginH16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginH16',this)"></div><div><label>Production marking</label><input value="${esc(f.marking)}" oninput="salesPaneSetLamFritText(${index},'${side}','marking',this.value)"></div></div>`;
+}
 function salesLaminatedPlyFields(p,index,side,label){
- const ply=p.laminated[side],coated=ply.visionType==='lowe'||ply.visionType==='reflective',coatings=coated?salesGlassCoatings(ply):[];
+ const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
  const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
  const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
  return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div><div class="mu-lam-ply-grid">
   <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
   <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
-  <div><label>Type</label><select onchange="salesPaneSetLamPly(${index},'${side}','visionType',this.value)">${[['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective']].map(x=>salesOption(x[0],x[1],ply.visionType,true)).join('')}</select></div>
+  <div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${(isFrit?x[0]==='frit':ply.visionType===x[0])?'on':''}" onclick="salesPaneSetLamPlyType(${index},'${side}','${x[0]}')">${x[1]}</button>`).join('')}</div></div>
   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
   ${coated?`<div><label>Select Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>`:''}
   <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
- </div></div>`;
+ </div>${salesLaminatedFritFields(p,index,side)}</div>`;
 }
 function salesLaminatedInterlayers(p,index){
  const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
- return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Combine up to ${SALES_MAX_INTERLAYERS} film layers</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
-  const known=Number.isFinite(+layer.thicknessMm)&&+layer.thicknessMm>0;
-  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesSimpleOptions('interlayerProduct',layer.productId)}</select></div><div><label>Actual Thickness, mm</label><input type="number" min="0.001" step="0.001" value="${known?esc(layer.thicknessMm):''}" placeholder="Enter mm" onchange="salesPaneSetLamInterlayerThickness(${index},${slot},this)">${known?'':'<small>Required for overall thickness</small>'}</div><button type="button" class="mu-lam-film-remove" title="Remove film" ${rows.length<=1?'disabled':''} onclick="salesPaneRemoveLamInterlayer(${index},${slot})">×</button></div>`;
+ return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · up to ${SALES_MAX_INTERLAYER_LAYERS} layers each</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
+  const selected=String(salesInterlayerLayerCount(layer.layers));
+  const layerOptions=Array.from({length:SALES_MAX_INTERLAYER_LAYERS},(_,i)=>{const n=i+1,mm=salesInterlayerThicknessForLayers(n);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
+  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesSimpleOptions('interlayerProduct',layer.productId)}</select></div><div><label>Layers / Actual Thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><button type="button" class="mu-lam-film-remove" title="Remove film" ${rows.length<=1?'disabled':''} onclick="salesPaneRemoveLamInterlayer(${index},${slot})">×</button></div>`;
  }).join('')}</div>`;
 }
 function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
