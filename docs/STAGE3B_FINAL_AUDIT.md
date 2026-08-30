@@ -1,5 +1,12 @@
 # Stage 3B — Final pre-upload audit
 
+> **Historical snapshot (21 Aug 2026).** The acceptance criteria below describe
+> the original Stage 3B candidate and must not be used as the current UI
+> contract. Since 30 Aug 2026 Lite 1 opens initially, the first blank Order Line
+> is created automatically, and laminated film thickness is selected as 1–6
+> layers × 0.38 mm. Current behavior and verification are documented in
+> `docs/STAGE3B_SALES_MAKEUPS.md` and `docs/GLASS_ERP_HANDOFF.md`.
+
 Date: 21 Aug 2026
 Candidate: Draft Sales Orders + order-scoped IGU Makeups
 Base: `main`
@@ -96,4 +103,3 @@ Do **not** merge directly on upload. Upload the patch to `stage3b-order-makeups`
 6. Configure one line Shape → Save → verify return to Sales and locked dimensions.
 7. Configure Muntin on that line → Save → verify return to Sales.
 8. Save Draft, reload, and reopen the order.
-

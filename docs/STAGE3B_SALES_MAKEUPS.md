@@ -1,6 +1,6 @@
 # Stage 3B — Draft Sales Orders / Order-scoped IGU Makeups
 
-Status: implementation candidate, 21 Aug 2026.
+Status: implemented 21 Aug 2026; operator-flow refinement verified 30 Aug 2026.
 
 ## Frozen domain boundary
 
@@ -24,11 +24,13 @@ The builder follows the compact operator flow agreed from the IGU Builder refere
   - Lite 2 → #3 / #4
   - Lite 3 → #5 / #6
 - Low-E/Reflective coating surface, Frit surface and Spandrel surface are stored independently.
-- Frit also has product, color, pattern and coverage.
+- Frit has product, colour, pattern, dot diameter, reference corner, margins and production marking. The obsolete `coverage` field is not part of the current contract.
 - Spandrel has product and color.
-- Laminated lite has outer ply, interlayer and inner ply.
+- Laminated lite is a real stack: independent outer/inner plies plus repeatable interlayer rows. Each ply has its own Manufacturer, Thickness, TYPE, Glass, Heat Treatment and optional Frit specification.
+- Laminated TYPE uses the same `Low-E / Reflective / Frit / Uncoated` buttons as Vision. Frit applies only to the selected ply and supports `Outside film` (default) or `Into film`.
+- Interlayer types may be mixed. Each row selects 1–6 layers at 0.38 mm per layer: 0.38 / 0.76 / 1.14 / 1.52 / 1.90 / 2.28 mm.
 - Each cavity is selected as Width → compatible Spacer system → Gas → Sealant. PIB is the fixed primary seal and remains in the saved specification without a separate operator field.
-- Lite/Cavity sections are collapsed by default. Only one section can be open at a time; collapsed rows retain a production summary.
+- Lite 1 is open initially for Single, Double and Triple. Moving to another Lite/Cavity collapses the previous section; only one section can be open at a time and collapsed rows retain a production summary.
 - The left navigation rail remains viewport-sticky while its dark column background continues to the bottom of long Sales Orders.
 
 ## Master Data
@@ -45,9 +47,11 @@ The current catalog is a **starter seed**, not a complete import of the external
 - purchase cost/currency;
 - branch availability and substitutions.
 
+Current selection order is operator-oriented: Clear first, then stocked products, then pre-order products. Low-E/Reflective coatings with stocked variants precede coatings available only by pre-order. A pre-order product remains selectable.
+
 ## Sales entry
 
-Order lines support compact keyboard-first entry and Excel paste. Excel can be pasted either under the current Makeup or with the local Makeup code in the first column.
+Every new Sales Order starts with one blank Order Line. Order lines support compact keyboard-first entry and the current Excel paste flow. The owner requested a separate redesign of Excel paste after this change; do not mix that work into the laminated feature.
 
 Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) so fractional inch input does not introduce floating point drift.
 
@@ -58,14 +62,14 @@ Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) 
 - `+ Muntin` requires an attached Shape, opens the existing Adaptive Muntin UI and returns its reference to the line.
 - Deleting a Shape/Muntin referenced by a Sales Order is guarded.
 
-## Verification for this candidate
+## Verification
 
 - JavaScript syntax check across source/test/build files.
 - Build manifest consistency check.
 - Production `dist/GLASS_ERP.html` build.
-- Headless Chromium smoke of Sales, surfaces, Triple, Shape bridge, Muntin bridge, save and JSON round-trip.
+- Real Chromium smoke of Sales, surfaces, Triple, Shape bridge, Muntin bridge, save and JSON round-trip.
 - English UI residue check across active screens.
 - 300-line normal-volume render and 900-line reserve/stress render.
 - Invalid import with a missing Makeup reference is rejected.
 
-GitHub Actions remains the authoritative full Node/Playwright regression run after the candidate is uploaded to a branch. CI now runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.
+The 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It was merged through PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.
