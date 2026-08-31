@@ -46,7 +46,7 @@ function shapeAnnSeedContour(pts){
         L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
     for(var k=0;k<=n;k++){
       var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
-      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5});
+      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
     }
   }
 }
@@ -56,8 +56,9 @@ function shapeAnnBoxOf(x,y,txt,o){
   var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
   return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
 }
-function shapeAnnFree(b){
+function shapeAnnFree(b,skipContour){
   for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
+    if(skipContour&&o.c)continue;
     if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
   return true;
 }
@@ -80,10 +81,15 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
      нижней строкой — угол ложился на контур. Сдвигаем блок целиком, чтобы
      наружу уходил он весь, а не только первая строка. */
   if(l2&&step[1]<0)y-=gap;
+  /* Выноска уклона стоит в СВОЁМ зазоре, и контур ей не помеха: зазор им и
+     ограничен. Узкий зазор подпись не вмещает — реестр выталкивал её за пунктир,
+     и число уходило от того места, которое описывает. Поэтому контур для неё
+     прозрачен, а отодвигают её только другие числа. */
+  var skip=!!o.overContour;
   for(var k=0;k<16;k++){
     var px=x+step[0]*k*d,py=y+step[1]*k*d,
         b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
-    if(shapeAnnFree(b1)&&(!b2||shapeAnnFree(b2))){
+    if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
       SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
       return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
     }
@@ -481,7 +487,7 @@ function shapeAnnCallouts(r,S,DP){
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
-        {size:13,anchor:anchor,weight:600},step);
+        {size:13,anchor:anchor,weight:600,overContour:true},step);
     });
   });
   return out;
