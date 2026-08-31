@@ -921,7 +921,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const beforeShape=JSON.stringify(DB.shapeDef[0]),beforeRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit,catalogRate:r.catalogRate}));const hinge=beforeRows.find(r=>r.key.indexOf('MI:hinge:')===0),flat=beforeRows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=beforeRows.find(r=>r.key.indexOf('EDGE:miter45:')===0);
       salesSetOrderGroupRate('MI:hinge','12');const hRow=salesLineChargeRows(line).find(r=>r.key===hinge.key);salesSetChargeOrderRate(line.id,hRow.key,'10');const afterRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit})),state=salesChargePricingState(line,hRow),summary=salesLinePricingSummary(line);
       return {hingeBasis:hinge.basis,flatBasis:flat.basis,miterCatalog:miter.catalogRate,effectiveHinge:state.effectiveRate,unpriced:summary.unpriced,sameShape:beforeShape===JSON.stringify(DB.shapeDef[0]),sameBasis:JSON.stringify(beforeRows.map(r=>[r.key,r.basis,r.unit]))===JSON.stringify(afterRows.map(r=>[r.key,r.basis,r.unit]))};
-    }), {hingeBasis:1,flatBasis:40,miterCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
+    /* 100″ = кромка A от формы (40) плюс C и D, которые форма не трогала и
+       которые закрывает базовая кромка стекла 10 mm. B несёт только Mitering. */
+    }), {hingeBasis:1,flatBasis:100,miterCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
       const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,resetCatalog};
     }), {flatSaved:.1,miterSaved:null,flatEffective:.1,miterEffective:null,resetCatalog:.1});
@@ -1294,6 +1296,31 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {onlyLite,liteLeft:Object.keys((salesShapeByRef(soDraft.lines[0].shapeRef).lites['1']||{}).edgeOps||{}),
         effect:plan.lites.map(l=>l.groups[0].ops.map(o=>o.type).join('+'))};
     })()`), {onlyLite:{lite:['A'],shared:[]},liteLeft:[],effect:['CNC Shape Polish','CNC Shape Polish']});
+    /* Кнопка AR · ALL AROUND — решение по всей форме, значит и по всем лайтам.
+       Раньше она отрабатывала молча: форма получала полировку, а лайт со своей
+       старой обработкой продолжал уходить в производство и в счёт арисом, при
+       этом карточка кромки показывала полировку. */
+    eq('AR · ALL AROUND снимает обработку лайтов, и карточка не врёт', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t48\\t36\\tAR',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      m.unitType='single';m.panes=[m.panes[0]];
+      m.panes[0].category='vision';m.panes[0].glassProductId='';m.panes[0].thicknessMm=6;
+      salesOrderConfigureShape(0);
+      setShapeEdgeLite(0);[0,1,2,3].forEach(gi=>toggleShapeEdgeOp(gi,0,true));   /* лайту арис */
+      const liteBefore=Object.keys((sDraft.lites['0']||{}).edgeOps||{}).length;
+      setShapeEdgeLite(null);
+      shapeProdApplyConfiguredAR('Flat Polish');                                  /* полировка на всю форму */
+      const liteAfter=Object.keys((sDraft.lites&&sDraft.lites['0']||{}).edgeOps||{}).length;
+      saveShape();tab='sales';render();
+      const snap=salesEffectiveProductionSnapshot(line,null,soDraft),plan=salesEffectiveCuttingPlan(line,null,soDraft);
+      return {liteBefore,liteAfter,
+        card:snap.groups.map(g=>(g.effectiveOps||g.ops).map(o=>o.type).join('+')),
+        cut:[plan.cutW,plan.cutH],
+        charge:salesLineChargeRows(line).map(r=>[r.label,r.basis].join(' '))};
+    })()`), {liteBefore:4,liteAfter:0,
+      card:['Flat Polish','Flat Polish','Flat Polish','Flat Polish'],
+      cut:[48.125,36.125],charge:['Flat Polish 168']});
     /* Разделение лайтов вынесено в отдельную видимую секцию редактора формы:
        стёкла юнита почти всегда повторяют одну фигуру, поэтому отличия — это
        исключение, и место ему на виду, а не внутри обработки кромок.
@@ -1336,10 +1363,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         lites:plan.lites.map(l=>[l.label,l.ownShape?'own':'shared',l.finishedW,l.finishedH].join(' ')),
         lineDims:[line.width16,line.height16],
         payload:pay.lites.map(l=>[l.width,l.height].join('x')),
-        library:DB.shapeDef.filter(s=>!salesShapeIsLineOwned(s)).length};
+        liteShapeInLibrary:DB.shapeDef.filter(s=>!salesShapeIsLineOwned(s)).some(s=>s.name.indexOf('Lite 2')>=0)};
     })()`), {bridge:{lite:1,name:'SO · OWN · Lite 2'},
       lites:['Lite 1 shared 30 50','Lite 2 own 28 46'],lineDims:[480,800],
-      payload:['30x50','28x46'],library:1});
+      payload:['30x50','28x46'],liteShapeInLibrary:false});
     /* Ступенчатый пакет: у первого стекла контур формы, второе меньше на отступ,
        и у каждого своя кромка. Всё это задаётся ВНУТРИ формы — вкладками по
        лайтам, а не в карточке стекла. */
@@ -1406,20 +1433,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('базовая кромка от стекла попадает в начисления', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('2\\t30\\t50\\tA1',0);salesExcelApply();
-      const line=soDraft.lines[0];
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      /* Одиночное стекло: кромка по толщине — 6 mm арис, 12 mm полировка. */
+      m.unitType='single';m.panes=[m.panes[0]];
       const arris=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
       const g12=(DB.glassProduct||[]).find(g=>+g.thicknessMm===12);
-      salesMakeupById(soDraft,line.makeupId).panes.forEach(p=>{p.category='vision';p.glassProductId=g12.id;p.thicknessMm=12;});
-      const polish=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
-      return {arris,polish,total:salesLinePricingSummary(line).total};
-    })()`), {arris:[{label:'Rough Arris',basis:160,rate:.01}],polish:[{label:'Flat Polish',basis:160,rate:.13}],total:41.6});
+      m.panes.forEach(p=>{p.category='vision';p.glassProductId=g12.id;p.thicknessMm=12;});
+      const single=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
+      /* Стеклопакет из тех же 12 mm — арис на ОБОИХ лайтах, длина удваивается. */
+      m.unitType='double';m.panes=[m.panes[0],normalizeSalesPane({category:'vision',glassProductId:g12.id,thicknessMm:12},1)];
+      const unit=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
+      return {arris,single,unit,total:salesLinePricingSummary(line).total};
+    })()`), {arris:[{label:'Rough Arris',basis:160,rate:.01}],
+      single:[{label:'Flat Polish',basis:160,rate:.13}],
+      unit:[{label:'Rough Arris',basis:320,rate:.03}],total:19.2});
     /* 16–19 мм с полировкой раньше блокировали рез целиком. */
     eq('19 мм с Flat Polish режется, а не блокируется', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t30\\t50\\tA1',0);salesExcelApply();
-      const line=soDraft.lines[0];
-      /* 19 mm по правилу владельца получает Flat Polish базовой кромкой от
-         самого стекла — отдельный набор для этого больше не нужен. */
+      const line=soDraft.lines[0],mk=salesMakeupById(soDraft,line.makeupId);
+      /* 19 mm получает Flat Polish базовой кромкой от самого стекла. Полировка
+         по толщине — правило ОДИНОЧНОГО стекла: у пакета кромка спрятана и там
+         арис на всех лайтах. */
+      mk.unitType='single';mk.panes=[mk.panes[0]];
       const g19=(DB.glassProduct||[]).find(g=>+g.thicknessMm===19);
       soDraft.makeups[0].panes.forEach(pn=>{pn.category='vision';pn.glassProductId=g19.id;pn.thicknessMm=19;});
       const plan=salesEffectiveCuttingPlan(line,null,soDraft);

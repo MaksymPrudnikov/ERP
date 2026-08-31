@@ -540,7 +540,7 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-08-31 05:26';
+var ERP_BUILD='2026-08-31 05:33';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5791,7 +5791,6 @@ const I18N_EN={
   "Лайт живёт на общей форме строки.": "This lite uses the shared Shape of the line.",
   "Дать лайту свою форму": "Give this lite its own Shape",
   "Вернуть на общую": "Back to shared",
-  "Открыть": "Open",
   "У этого лайта своя форма:": "This lite has its own Shape:",
   "Это собственная форма": "This is the own Shape of",
   "строки заказа. Остальные лайты живут на общей форме строки.": "of this order line. The other lites live on the shared Shape.",
@@ -5806,7 +5805,6 @@ const I18N_EN={
   "Своя форма": "Own shape",
   "Обработка этого стекла. Пусто = берётся общая обработка формы или базовая кромка стекла. Геометрия лайта — в секции «Лайты юнита».": "Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.",
   "Все лайты": "All lites",
-  "Отступ": "Inset",
   "Общая обработка формы: действует на все лайты, если у лайта не задано своё.": "Shape-wide edgework: applies to every lite unless the lite has its own.",
   "Отступ — насколько ЭТО стекло уже формы по кромке (ступенчатый пакет). Пустая обработка = берётся общая обработка формы или базовая кромка стекла.": "Inset — how much narrower THIS glass is than the Shape on that edge (stepped unit). Empty edgework = the Shape-wide one, or the base edgework of the glass.",
   "Кромка лайта": "Lite edgework",
@@ -8292,12 +8290,17 @@ function salesEffectiveProductionSnapshot(line,shape,order){
   /* Если у лайтов кромка разная, карточка кромки не должна выдавать одну из них
      за общую: помечаем такие кромки, а раскладка по лайтам показана ниже. */
   groups.forEach(function(g){
-    var sigs={};
+    var sigs={},first=null;
     liteViews.forEach(function(lv){
       var lg=lv.groups.find(function(x){return x.id===g.id;});
+      if(lg&&!first)first=lg;
       sigs[lg?salesServiceOpsSignature(lg.ops):'']=true;
     });
     g.liteVaries=Object.keys(sigs).length>1;
+    /* Карточка кромки обязана показывать то, что реально уйдёт в производство:
+       обработка лайта сильнее общей, и если показать общую, экран соврёт. */
+    g.effectiveOps=first?salesServiceOps(first.ops):salesServiceOps(g.ops);
+    if(first&&first.source&&!g.liteVaries)g.source=first.source;
   });
   return {valid:true,shape:shape,set:set,groups:groups,lites:liteViews,mappingPending:mappingPending,mappingClassified:shapeIsDxfSource(shape)?salesDxfSideMapClassified(line,shape):true,mappingCurrent:shapeIsDxfSource(shape)?salesDxfSideMapCurrent(line,shape):true};
 }
@@ -9831,11 +9834,22 @@ function shapeProdToggleOps(list,type,on){
 function shapeProdConfiguredUniform(type){
   var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
 }
+/* AR · ALL AROUND — решение по всей форме, а значит и по всем её лайтам:
+   собственная обработка лайтов снимается. Иначе кнопка отрабатывала молча:
+   форма получала полировку, а лайт со своей старой обработкой продолжал
+   уходить в производство и в счёт арисом. */
+function shapeProdClearLiteFinishes(){
+  if(!sDraft||!sDraft.lites)return;
+  Object.keys(sDraft.lites).forEach(function(key){
+    var spec=sDraft.lites[key];if(!spec||!spec.edgeOps)return;
+    Object.keys(spec.edgeOps).forEach(function(id){delete spec.edgeOps[id];});
+  });
+}
 function shapeProdApplyConfiguredAR(type){
-  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
 }
 function shapeProdClearConfiguredAR(){
-  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
 }
 function shapeProdConfiguredArBar(){
   var groups=shapeGroups();if(!groups.length)return'';
@@ -10301,7 +10315,7 @@ function salesLineEdgeworkModal(){
   var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);
   var warning=!snap.valid?`<div class='ss-line-warning bad'>${esc(snap.reason)}</div>`:snap.mappingPending?`<div class='ss-line-warning warn'><b>${esc(set&&set.code||'Bulk Set')} is pending mapping.</b> Shape-owned processing remains active in Services; machine release is blocked until mapping is confirmed.</div>`:!plan.valid?`<div class='ss-line-warning bad'>${esc(plan.reason)}</div>`:lost.length?`<div class='ss-line-warning bad'>Lost override edge(s): ${esc(lost.join(', '))}</div>`:`<div class='ss-line-warning info'><b>Order Effective</b> = edgework of this line's Shape, base <b>Rough Arris / Flat Polish</b> from the glass of its Makeup where the Shape says nothing, and Makeup thickness for the cutting allowance. Nothing is stored on the line, so nothing can go stale.<button class='sm' onclick='salesOpenShapeFromEdgework("\${esc(line.id)}")'>Open Shape</button></div>`;
   var groups=snap.groups||[];
-  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseLineEdgework()'><div class='sales-service-modal line-modal'><div class='sales-service-modal-head'><div><span>Sales Order line ${esc(line.mark||line.id)}</span><h3>Effective Production</h3><small>${line.shapeRef&&line.shapeRef.id?esc(shape.name):'Width × Height rectangle'}${set?' · '+esc(set.code):''}</small></div><button onclick='salesCloseLineEdgework()'>×</button></div>${warning}<div class='ss-effective-workspace'><div class='ss-effective-visual'>${plan.valid?salesEffectivePreviewSvg(plan):`<div class='ss-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.reason||snap.reason||'Unresolved')}</span></div>`}<div class='ss-effective-legend'><span class='lg-finished'>Finished</span><span class='lg-cutting'>Cutting</span><span class='lg-border'>Safety border</span></div>${plan.valid?salesEffectiveSizesHtml(plan,line):''}</div><div class='ss-effective-edges'>${groups.map(function(g){var ov=Object.prototype.hasOwnProperty.call((line.serviceOverrides&&line.serviceOverrides.edges)||{},g.id);return `<div class='ss-effective-edge'><div class='ss-effective-edge-head'><div><b>${esc(g.id.toUpperCase())}</b><small>${esc(dimIn(g.length))} · ${esc(g.side==='other'?'OTHER':g.side)}</small></div><div><span class='ss-source${g.liteVaries?' varies':''}'>${esc(g.liteVaries?g.source+' · varies by lite':g.source)}</span>${g.allowance==null?'':`<b>${g.allowance?'+'+esc(dimIn(g.allowance)):'0″'}</b>`}</div></div><div class='ss-effective-opset read-only'>${SALES_SERVICE_SET_OPS.map(function(type){var on=g.ops.some(function(o){return o.type===type;});return `<span class='ss-op ${on?'on':''}'>${esc(salesServiceShort(type))}</span>`;}).join('')}</div></div>`;}).join('')||`<div class='empty compact'>No physical edges available.</div>`}</div></div>${dxf&&set&&set.mode==='sides'?salesDxfMappingHtml(line,shape):''}${salesEffectiveMachineCard(line,shape,plan)}<div class='ss-line-actions'>${salesHasLineEdgeOverrides(line)?`<button onclick='salesRevertAllEdges("${esc(line.id)}")'>Clear all line overrides</button>`:''}${lost.length?`<button class='dl' onclick='salesRemoveLostEdges("${esc(line.id)}")'>Remove lost overrides</button>`:''}${line.shapeRef&&line.shapeRef.id?`<button onclick='salesOpenShapeFromEdgework("${esc(line.id)}")'>Open Shape · standalone</button>`:''}<button class='pri' onclick='salesOpenLineServices("${esc(line.id)}")'>Open Services · same snapshot</button></div></div></div>`;
+  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseLineEdgework()'><div class='sales-service-modal line-modal'><div class='sales-service-modal-head'><div><span>Sales Order line ${esc(line.mark||line.id)}</span><h3>Effective Production</h3><small>${line.shapeRef&&line.shapeRef.id?esc(shape.name):'Width × Height rectangle'}${set?' · '+esc(set.code):''}</small></div><button onclick='salesCloseLineEdgework()'>×</button></div>${warning}<div class='ss-effective-workspace'><div class='ss-effective-visual'>${plan.valid?salesEffectivePreviewSvg(plan):`<div class='ss-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.reason||snap.reason||'Unresolved')}</span></div>`}<div class='ss-effective-legend'><span class='lg-finished'>Finished</span><span class='lg-cutting'>Cutting</span><span class='lg-border'>Safety border</span></div>${plan.valid?salesEffectiveSizesHtml(plan,line):''}</div><div class='ss-effective-edges'>${groups.map(function(g){var ov=Object.prototype.hasOwnProperty.call((line.serviceOverrides&&line.serviceOverrides.edges)||{},g.id);return `<div class='ss-effective-edge'><div class='ss-effective-edge-head'><div><b>${esc(g.id.toUpperCase())}</b><small>${esc(dimIn(g.length))} · ${esc(g.side==='other'?'OTHER':g.side)}</small></div><div><span class='ss-source${g.liteVaries?' varies':''}'>${esc(g.liteVaries?g.source+' · varies by lite':g.source)}</span>${g.allowance==null?'':`<b>${g.allowance?'+'+esc(dimIn(g.allowance)):'0″'}</b>`}</div></div><div class='ss-effective-opset read-only'>${SALES_SERVICE_SET_OPS.map(function(type){var on=(g.effectiveOps||g.ops).some(function(o){return o.type===type;});return `<span class='ss-op ${on?'on':''}'>${esc(salesServiceShort(type))}</span>`;}).join('')}</div></div>`;}).join('')||`<div class='empty compact'>No physical edges available.</div>`}</div></div>${dxf&&set&&set.mode==='sides'?salesDxfMappingHtml(line,shape):''}${salesEffectiveMachineCard(line,shape,plan)}<div class='ss-line-actions'>${salesHasLineEdgeOverrides(line)?`<button onclick='salesRevertAllEdges("${esc(line.id)}")'>Clear all line overrides</button>`:''}${lost.length?`<button class='dl' onclick='salesRemoveLostEdges("${esc(line.id)}")'>Remove lost overrides</button>`:''}${line.shapeRef&&line.shapeRef.id?`<button onclick='salesOpenShapeFromEdgework("${esc(line.id)}")'>Open Shape · standalone</button>`:''}<button class='pri' onclick='salesOpenLineServices("${esc(line.id)}")'>Open Services · same snapshot</button></div></div></div>`;
 }
 function salesOpenShapeFromEdgework(lineId){var i=soDraft.lines.findIndex(function(l){return l.id===lineId;});soEdgeworkLineId=null;if(i>=0)salesOrderConfigureShape(i);}
 

@@ -215,12 +215,17 @@ function salesEffectiveProductionSnapshot(line,shape,order){
   /* Если у лайтов кромка разная, карточка кромки не должна выдавать одну из них
      за общую: помечаем такие кромки, а раскладка по лайтам показана ниже. */
   groups.forEach(function(g){
-    var sigs={};
+    var sigs={},first=null;
     liteViews.forEach(function(lv){
       var lg=lv.groups.find(function(x){return x.id===g.id;});
+      if(lg&&!first)first=lg;
       sigs[lg?salesServiceOpsSignature(lg.ops):'']=true;
     });
     g.liteVaries=Object.keys(sigs).length>1;
+    /* Карточка кромки обязана показывать то, что реально уйдёт в производство:
+       обработка лайта сильнее общей, и если показать общую, экран соврёт. */
+    g.effectiveOps=first?salesServiceOps(first.ops):salesServiceOps(g.ops);
+    if(first&&first.source&&!g.liteVaries)g.source=first.source;
   });
   return {valid:true,shape:shape,set:set,groups:groups,lites:liteViews,mappingPending:mappingPending,mappingClassified:shapeIsDxfSource(shape)?salesDxfSideMapClassified(line,shape):true,mappingCurrent:shapeIsDxfSource(shape)?salesDxfSideMapCurrent(line,shape):true};
 }

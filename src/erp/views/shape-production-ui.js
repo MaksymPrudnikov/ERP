@@ -203,11 +203,22 @@ function shapeProdToggleOps(list,type,on){
 function shapeProdConfiguredUniform(type){
   var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
 }
+/* AR · ALL AROUND — решение по всей форме, а значит и по всем её лайтам:
+   собственная обработка лайтов снимается. Иначе кнопка отрабатывала молча:
+   форма получала полировку, а лайт со своей старой обработкой продолжал
+   уходить в производство и в счёт арисом. */
+function shapeProdClearLiteFinishes(){
+  if(!sDraft||!sDraft.lites)return;
+  Object.keys(sDraft.lites).forEach(function(key){
+    var spec=sDraft.lites[key];if(!spec||!spec.edgeOps)return;
+    Object.keys(spec.edgeOps).forEach(function(id){delete spec.edgeOps[id];});
+  });
+}
 function shapeProdApplyConfiguredAR(type){
-  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+  if(!sDraft.edgeOps)sDraft.edgeOps={};shapeGroups().forEach(function(g){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[g.id]||[],type,true);if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
 }
 function shapeProdClearConfiguredAR(){
-  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});render();
+  shapeGroups().forEach(function(g){var list=(sDraft.edgeOps[g.id]||[]).filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];});shapeProdClearLiteFinishes();render();
 }
 function shapeProdConfiguredArBar(){
   var groups=shapeGroups();if(!groups.length)return'';
