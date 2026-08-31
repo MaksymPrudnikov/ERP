@@ -78,8 +78,13 @@ function shapeRoundedRectPoints(x,y,w,h,r){
   return P;
 }
 function shapeThicknessMm(def){var v=Number(String(def&&def.thickness==null?'':def.thickness).trim());return isFinite(v)?v:NaN;}
-function shapePolishAllowance(th){if(th>=3&&th<=6)return 1/16;if(th>=8&&th<=10)return 1/8;if(th>=12&&th<=15)return 3/16;return 0;}
-function shapeOperationAllowance(type,th){if(type==='CNC Shape Polish')return .25;if(type==='Flat Polish'||type==='Beveling'||type==='Mitering')return shapePolishAllowance(th);return 0;}
+/* Таблица припуска в проекте ОДНА — shapeProductionAllowanceRule. Здесь она
+   только переспрашивается: раньше значения были продублированы, и после
+   правки цеховых цифр рассчитанная геометрия продолжала блокировать рез на
+   16–19 mm, пока производственный путь уже считал 1/2". Ноль здесь означает
+   «правила нет» — этот случай ловит validate и блокирует рез. */
+function shapeOperationAllowance(type,th){var r=shapeProductionAllowanceRule(type,th);return r.ok?(+r.value||0):0;}
+function shapePolishAllowance(th){return shapeOperationAllowance('Flat Polish',th);}
 function shapeEdgeOps(def,id){return (def.edgeOps&&def.edgeOps[id])||[];}
 function shapeEdgeAllowance(def,edge){
   var th=shapeThicknessMm(def),ops=shapeEdgeOps(def,edge.id).slice();
@@ -94,7 +99,11 @@ function shapeEdgeAllowance(def,edge){
    детали и так разделены собственными припусками.
    Клиент за бордер платит (лист расходуется из-за его скоса), поэтому он
    входит в оплачиваемый габарит, но никогда — в вырезаемый контур. */
-function shapeSafetyBorderAuto(th){if(th>=4&&th<8)return 1;if(th>=8&&th<=15)return 1.5;return 0;}
+/* Авто-значение бордера по толщине. 16–19 mm добавлены 31 августа 2026 по
+   словам владельца: это очень редкие типы стекла, и 1/2" бордера там хватает,
+   чтобы избежать проблем при резке и ломке. Меньше, чем у 8–15 mm, — так и
+   задумано. Вне таблицы значение обязан ввести оператор. */
+function shapeSafetyBorderAuto(th){if(th>=4&&th<8)return 1;if(th>=8&&th<=15)return 1.5;if(th>=16&&th<=19)return .5;return 0;}
 function shapeBorderStep(v){return Math.round((+v||0)*16)/16;}
 function shapeEdgeNeedsBorder(edge,a,b){
   if(edge&&edge.type&&edge.type!=='line')return true;

@@ -187,3 +187,36 @@ table.excel-grid td.off{color:#b3bcc4;background:#fafbfc;padding:4px 7px}
 .excel-summary .sum-mut{color:var(--mut)}
 .excel-actions-sp{flex:1}
 .sales-modal.excel-modal .sales-modal-actions{align-items:center}
+
+.shape-edge-code{flex-wrap:wrap}
+.shape-edge-base{flex:0 0 100%;margin-top:2px;color:var(--blue);font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.mu-lam-edgework{max-width:260px;margin-bottom:8px}
+
+.shape-lite-tabs{display:flex;gap:5px;flex-wrap:wrap;padding:8px 8px 0}
+.shape-lite-tabs button{padding:5px 9px;font-size:10px}
+.shape-lite-tabs button.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d;font-weight:700}
+.shape-lite-tabs button i{font-style:normal;margin-left:4px;padding:0 4px;border-radius:999px;background:#fff;font-size:8.5px;color:#2a617d}
+.shape-lite-note{padding:6px 9px 2px;font-size:9px;color:var(--mut)}
+.shape-edgework-row.with-inset{grid-template-columns:minmax(62px,1.05fr) 68px repeat(5,minmax(0,1fr))}
+.shape-edge-inset input{width:100%;padding:3px 5px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}
+
+.shape-lite-own{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.shape-lite-own button{padding:4px 9px;font-size:9px}
+.shape-lite-note.own{padding:8px 10px;border:1px solid #c7dfeb;border-radius:8px;background:#f5fafc;color:#2b5f79;font-size:9.5px;margin:8px}
+
+.shape-lite-cards{padding:8px;display:grid;gap:8px}
+.shape-lite-card{border:1px solid var(--line);border-radius:9px;background:#fff;padding:8px 10px}
+.shape-lite-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px}
+.shape-lite-card-head small{color:var(--mut);font:9.5px ui-monospace,SFMono-Regular,Menlo,monospace}
+.shape-lite-card-head .sp{flex:1}
+.shape-lite-card-head button{padding:4px 9px;font-size:9px}
+.shape-lite-mirror{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;color:var(--text)}
+.shape-lite-insets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px;padding-top:7px;border-top:1px solid var(--line2)}
+.shape-lite-insets>span{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-lite-insets label{display:inline-flex;align-items:center;gap:4px;font-size:9.5px}
+.shape-lite-insets input{width:62px;padding:3px 5px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace}
+
+svg.shape-mini{width:88px;height:64px;flex:none;border:1px solid var(--line2);border-radius:7px;background:#fff}
+svg.shape-mini path{fill:rgba(46,144,250,.07);stroke:#2f7da8;stroke-width:1.6}
+svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}

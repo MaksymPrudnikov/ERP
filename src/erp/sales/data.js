@@ -33,6 +33,10 @@ function salesPositiveInt(v,def){const n=Math.floor(+v);return Number.isFinite(n
 function salesPriorityLabel(v){return ({normal:'Normal',rush:'Rush',critical:'Critical'})[v]||'Normal';}
 function salesDeliveryLabel(v){return v==='delivery'?'Delivery':'Pickup';}
 function salesUnitLabel(v){return ({single:'Single Lite',double:'Double',triple:'Triple'})[v]||'Double';}
+/* Кромка лайта: пусто = по правилу (пакет → арис, одиночное → по толщине,
+   ламинат → по суммарной), либо выбранная руками. Нужна, когда у пакета одно
+   стекло полируют, а второе только зачищают. */
+const SALES_PANE_EDGEWORK=['','arris','polish'];
 function salesLiteCategoryLabel(v){return ({vision:'Vision',spandrel:'Spandrel',laminated:'Laminated'})[v]||'Vision';}
 function salesVisionTypeLabel(v){return ({lowe:'Low-E',reflective:'Reflective',frit:'Frit',uncoated:'Uncoated'})[v]||'Uncoated';}
 function salesPaneCount(unitType){return unitType==='single'?1:unitType==='triple'?3:2;}
@@ -173,6 +177,7 @@ function normalizeSalesPane(p,index){
  const lam=p.laminated&&typeof p.laminated==='object'?p.laminated:{};
  return {
   id:salesEntityId(p.id,'LITE'),category,
+  edgework:SALES_PANE_EDGEWORK.includes(p.edgework)?p.edgework:'',
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
@@ -202,10 +207,22 @@ function normalizeSalesChargePricing(raw){
  });
  return out;
 }
+/* Отдельная форма на лайт. Ступенчатый пакет с фигурой: у 10 мм один контур, у
+   6 мм — другой, меньший, и отступом от общего он не выводится. Пусто = лайт
+   живёт на общей форме строки (со своим отступом, если он задан). */
+function normalizeSalesLiteShapes(raw){
+ const out={};
+ if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(key){
+  if(!/^\d+$/.test(String(key)))return;
+  const ref=normalizeShapeRef(raw[key]);
+  if(ref.id)out[String(key)]=ref;
+ });
+ return out;
+}
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId}),chargePricing:normalizeSalesChargePricing(l.chargePricing)};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),muntinRef:normalizeMuntinRef(l.muntinRef||{muntinId:l.muntinId}),chargePricing:normalizeSalesChargePricing(l.chargePricing)};
 }
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';

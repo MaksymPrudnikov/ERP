@@ -369,14 +369,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const border = await p.evaluate(() => {
       const mk=(type,th,b)=>{const d=newShapeDef(type);d.w='48';d.h='36';d.thickness=String(th);if(b!=null)d.safetyBorder=String(b);return d;};
       const rect=ShapeModule.compute(mk('rectangle',10));
-      const raked=ShapeModule.compute(mk('raked',10)),raked6=ShapeModule.compute(mk('raked',6)),raked19=ShapeModule.compute(mk('raked',19));
+      const raked=ShapeModule.compute(mk('raked',10)),raked6=ShapeModule.compute(mk('raked',6)),raked19=ShapeModule.compute(mk('raked',19)),raked3=ShapeModule.compute(mk('raked',3));
       const over=ShapeModule.compute(mk('raked',10,'2 1/16')),odd=ShapeModule.compute(mk('raked',10,'1.03')),junk=ShapeModule.compute(mk('raked',10,'abc'));
       const plain=ShapeModule.compute(mk('raked',10)),withB=ShapeModule.compute(mk('raked',10,'3'));
       const pPlain=ShapeModule.machinePayload(plain),pWith=ShapeModule.machinePayload(withB);
       return {
         rect:{applies:rect.cutting.safetyBorder.applies,value:rect.cutting.safetyBorder.value},
         auto:{applies:raked.cutting.safetyBorder.applies,mm10:raked.cutting.safetyBorder.value,mm6:raked6.cutting.safetyBorder.value,state:raked.cutting.safetyBorder.state},
-        outside:{value:raked19.cutting.safetyBorder.value,manual:raked19.cutting.safetyBorder.manualRequired},
+        outside:{mm19:{value:raked19.cutting.safetyBorder.value,manual:raked19.cutting.safetyBorder.manualRequired},mm3:{value:raked3.cutting.safetyBorder.value,manual:raked3.cutting.safetyBorder.manualRequired}},
         override:{state:over.cutting.safetyBorder.state,value:over.cutting.safetyBorder.value,rounded:odd.cutting.safetyBorder.value,junkState:junk.cutting.safetyBorder.state},
         contourSame:JSON.stringify(plain.cutting.points)===JSON.stringify(withB.cutting.points),
         outerSame:JSON.stringify(pPlain.outer)===JSON.stringify(pWith.outer),
@@ -386,10 +386,47 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('прямые кромки под 90° бордера не требуют', border.rect, {applies:false,value:0});
     eq('скос требует бордер, значение автоматом от толщины', border.auto, {applies:true,mm10:1.5,mm6:1,state:'AUTO'});
-    eq('толщина вне 4–15 мм требует ручного ввода', border.outside, {value:0,manual:true});
+    /* 16–19 mm получили авто-значение 1/2" (владелец, 31 августа 2026): редкие
+       толщины, и этого бордера хватает. Ручной ввод остаётся обязательным
+       только вне таблицы — тоньше 4 mm и толще 19 mm. */
+    eq('16–19 мм имеют авто-бордер, вне таблицы нужен ручной ввод', border.outside, {mm19:{value:.5,manual:false},mm3:{value:0,manual:true}});
     eq('ручной ввод даёт OVERRIDE, дробь и округление 1/16″', border.override, {state:'OVERRIDE',value:2.0625,rounded:1,junkState:'AUTO'});
     eq('бордер НЕ меняет контур реза', {contour:border.contourSame,payloadOuter:border.outerSame}, {contour:true,payloadOuter:true});
     eq('бордер увеличивает оплачиваемый габарит и уходит в payload', {grew:border.footprintGrows,payload:border.payloadValue}, {grew:3,payload:3});
+
+    /* Цеховая таблица припуска на рез. Значения подтверждены владельцем
+       31 августа 2026: 16–19 мм раньше блокировали рез, потому что правила
+       для них просто не было, а Rough Arris не увеличивает лист никогда —
+       это ручная зачистка фаски, контур она не съедает. */
+    eq('припуск на рез по толщине стекла', await p.evaluate(() => {
+      const v=(type,mm)=>{const r=ShapeModule.productionAllowanceForOps([{type:type}],mm);return r.ok?r.value:'blocked';};
+      return {
+        arris:[v('Rough Arris',6),v('Rough Arris',19)],
+        flat:[v('Flat Polish',6),v('Flat Polish',10),v('Flat Polish',12),v('Flat Polish',16),v('Flat Polish',19)],
+        miter:[v('Mitering',16),v('Mitering',19)],
+        bevel:[v('Beveling',16),v('Beveling',19)],
+        cnc:[v('CNC Shape Polish',6),v('CNC Shape Polish',12),v('CNC Shape Polish',15),v('CNC Shape Polish',19)]
+      };
+    }), {arris:[0,0],flat:[1/16,1/8,3/16,.5,.5],miter:[.5,.5],bevel:[.5,.5],cnc:[.25,.25,.5,.5]});
+    /* Таблица припуска должна быть ОДНА. Их было две: производственная и та, по
+       которой ShapeModule.compute считает рез рассчитанной геометрии. После
+       правки цеховых цифр они разошлись — рассчитанная геометрия продолжала
+       блокировать рез на 16–19 mm, пока производственный путь уже считал 1/2".
+       Тест сверяет обе точки входа, чтобы это не повторилось. */
+    eq('припуск считается одной таблицей, а не двумя', await p.evaluate(() => {
+      const mm=[3,4,5,6,8,10,12,15,16,19];
+      const prod=type=>mm.map(m=>{const r=ShapeModule.productionAllowanceForOps([{type:type}],m);return r.ok?r.value:'blocked';});
+      const feat=type=>mm.map(m=>shapeOperationAllowance(type,m));
+      const gap=(type,m)=>{const r=ShapeModule.productionAllowanceForOps([{type:type}],m);return {prod:r.ok?r.value:'blocked',feat:shapeOperationAllowance(type,m)};};
+      const d=newShapeDef('rectangle');d.w='30';d.h='50';d.thickness='19';
+      d.edgeOps={A:[shapeNormalizeOp({type:'Flat Polish'})]};
+      return {
+        flat:JSON.stringify(prod('Flat Polish'))===JSON.stringify(feat('Flat Polish')),
+        cnc:JSON.stringify(prod('CNC Shape Polish'))===JSON.stringify(feat('CNC Shape Polish')),
+        unconfigured:gap('Flat Polish',7),
+        calculated19:ShapeModule.compute(d).valid
+      };
+    }), {flat:true,cnc:true,unconfigured:{prod:'blocked',feat:0},calculated19:true});
 
     const dxfSource = await p.evaluate(() => {
       const legacy=normalizeShapeDef({id:'legacy',name:'Legacy',type:'rectangle',w:'48',h:'36',smart:ssNormalize({})});
@@ -818,7 +855,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const serviceSetUi = await page();
     const serviceSetIds = await serviceSetUi.p.evaluate(() => {
       tab='sales';subtab=null;render();salesOrderNew();
-      const line=soDraft.lines[0],set=salesNormalizeServiceSet({
+      const line=soDraft.lines[0];
+      line.width16=30*16;line.height16=50*16;salesEnsureLineShape(line);
+      const set=salesNormalizeServiceSet({
         id:'SVC-QA',code:'S1',name:'QA Edgework',mode:'sides',
         sides:{A:[{type:'Rough Arris'}],B:[],C:[],D:[],other:[]}
       });
@@ -838,10 +877,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await serviceSetUi.p.getByRole('button',{name:'Preview',exact:true}).click();
     eq('Preview готовит применение Edgework Set', await serviceSetUi.p.locator('.ss-preview').count(), 1);
     await serviceSetUi.p.getByRole('button',{name:'Apply',exact:true}).click();
-    eq('Apply назначает Edgework Set строке', await serviceSetUi.p.evaluate(({lineId,setId}) => {
-      const line=soDraft.lines.find(l=>l.id===lineId);
-      return !!line&&line.serviceSetId===setId&&document.querySelector('.ss-badge').textContent==='S1';
-    }, serviceSetIds), true);
+    /* Apply больше не вешает ссылку на строку: операции набора уходят в форму
+       этой строки, и правятся дальше там же, где вся геометрия. */
+    eq('Apply пишет операции набора в форму строки', await serviceSetUi.p.evaluate(({lineId}) => {
+      const line=soDraft.lines.find(l=>l.id===lineId),shape=salesShapeByRef(line.shapeRef);
+      return {onLine:line.serviceSetId,edges:Object.keys(shape.edgeOps||{}),badge:document.querySelector('.ss-badge').textContent};
+    }, serviceSetIds), {onLine:'',edges:['A'],badge:'Shape'});
     await serviceSetUi.c.close();
 
     const dxfUi = await page();
@@ -1099,13 +1140,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {lines:1,qty:2,w:30*16,mark:'A1'});
     eq('колонки MU и Set распознаются сами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();salesAddMakeup();soDraft.lines=[];
-      soDraft.serviceSets=[salesNormalizeServiceSet({code:'S2'},1)];
+      soDraft.serviceSets=[salesNormalizeServiceSet({code:'S2',mode:'perimeter',perimeter:[{type:'Flat Polish'}]},1)];
       salesExcelPasteText('B\\tS2\\t2\\t30\\t80\\tA1',0);
       const shown={mu:soExcelShowMu,set:soExcelShowSet};
       salesExcelApply();
       const l=soDraft.lines[0];
-      return {shown,mu:l.makeupId===soDraft.makeups[1].id,set:l.serviceSetId===soDraft.serviceSets[0].id};
-    })()`), {shown:{mu:true,set:true},mu:true,set:true});
+      /* Набор из буфера — рецепт: операции легли в форму строки, а на самой
+         строке ссылки не осталось. */
+      const shape=salesShapeByRef(l.shapeRef);
+      return {shown,mu:l.makeupId===soDraft.makeups[1].id,onLine:l.serviceSetId,edges:Object.keys(shape.edgeOps||{}).sort()};
+    })()`), {shown:{mu:true,set:true},mu:true,onLine:'',edges:['A','B','C','D']});
     /* Раньше ошибочные строки исчезали в счётчике «Skipped: N» — исправить их
        было нечего. Теперь они остаются в сетке, а исправные уходят в заказ. */
     eq('строки с ошибкой остаются в сетке, исправные добавляются', await t.p.evaluate(`(()=>{
@@ -1153,6 +1197,234 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=soExcelRows[0];
       return {csv,inches:[r.width,r.height,r.mark]};
     })()`), {csv:'A1, left',inches:['30"','80','A1']});
+    /* Safety Border доезжает до строки заказа. Раньше он считался только
+       внутри Shape: в Order Effective и в машинный payload заказа не попадал
+       вовсе, поэтому раскрой не знал про отступ, за который платит клиент. */
+    eq('бордер доезжает до Order Effective и в payload заказа', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tA1',0);salesExcelApply();
+      const line=soDraft.lines[0];
+      /* Обработка живёт на форме строки: полировка по периметру задаётся ей. */
+      const ownRect=salesShapeByRef(line.shapeRef);
+      ['A','B','C','D'].forEach(id=>ownRect.edgeOps[id]=[shapeNormalizeOp({type:'Flat Polish'})]);
+      const rect=salesEffectiveCuttingPlan(line,null,soDraft);
+      const def=normalizeShapeDef({id:'SHP-BORDER',name:'Raked',type:'raked',w:'30',h:'50',h2:'40',thickness:'6',edgeOps:{A:[{type:'Flat Polish'}],B:[{type:'Flat Polish'}],C:[{type:'Flat Polish'}],D:[{type:'Flat Polish'}]}});
+      DB.shapeDef.push(def);line.shapeRef={id:'SHP-BORDER',revision:def.revision||0};
+      const plan=salesEffectiveCuttingPlan(line,null,soDraft),pay=salesEffectiveMachinePayload(line);
+      return {
+        rect:{applies:rect.safetyBorder.applies,sameAsCut:rect.footprint.width===rect.cutW&&rect.footprint.height===rect.cutH},
+        raked:{applies:plan.safetyBorder.applies,value:plan.safetyBorder.value,pad:plan.footprint.pad},
+        payload:{value:pay.safetyBorder.value,sides:pay.billableFootprint.sides,outerSame:pay.outer.points.length===plan.cuttingPoints.length}
+      };
+    })()`), {rect:{applies:false,sameAsCut:true},raked:{applies:true,value:1,pad:{left:0,right:0,top:1,bottom:0}},payload:{value:1,sides:['top'],outerSame:true}});
+    /* Rough Arris, Flat Polish и CNC Shape Polish взаимоисключающие: выбор
+       новой обработки ПОДМЕНЯЕТ прежнюю. Раньше кнопка дописывала операцию, и
+       CNC поверх уже стоявшей полировки давал ошибку и блокировал рез. */
+    eq('базовые обработки кромки подменяют друг друга, а не спорят', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tA1',0);salesExcelApply();
+      salesOrderConfigureShape(0);
+      toggleShapeEdgeOp(0,1,true);const flat=(sDraft.edgeOps.A||[]).map(o=>o.type);
+      toggleShapeEdgeOp(0,2,true);const cnc=(sDraft.edgeOps.A||[]).map(o=>o.type);
+      const afterCnc=ShapeModule.compute(sDraft);
+      toggleShapeEdgeOp(0,3,true);const withMiter=(sDraft.edgeOps.A||[]).map(o=>o.type);
+      return {flat,cnc,valid:afterCnc.valid,errors:(afterCnc.errors||[]).length,withMiter};
+    })()`), {flat:['Flat Polish'],cnc:['CNC Shape Polish'],valid:true,errors:0,withMiter:['CNC Shape Polish','Mitering']});
+    /* Всё, что задано внутри формы, — база номер один. Массовое изменение идёт
+       модификацией и не имеет права встать выше: оно заполняет только кромки,
+       где на форме ничего нет. */
+    eq('массовое изменение не перекрывает обработку формы', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tA1',0);salesExcelApply();
+      const line=soDraft.lines[0],shape=salesShapeByRef(line.shapeRef);
+      shape.edgeOps.A=[shapeNormalizeOp({type:'CNC Shape Polish'})];
+      const set=salesNormalizeServiceSet({code:'S1',mode:'perimeter',perimeter:[{type:'Flat Polish'}]},0);
+      soDraft.serviceSets=[set];
+      salesApplySetOpsToShape(line,set);
+      const after=salesShapeByRef(line.shapeRef).edgeOps;
+      return {A:after.A.map(o=>o.type),B:(after.B||[]).map(o=>o.type)};
+    })()`), {A:['CNC Shape Polish'],B:['Flat Polish']});
+    /* Кромка считается ПО ЛАЙТАМ — правила цеха, владелец 31 августа 2026:
+       стеклопакет получает арис на всех лайтах (кромка спрятана внутри),
+       одиночное стекло — по толщине, ламинат — одна кромка на всю склейку.
+       Комбинация 10 + 6 раньше упиралась в «Exact Makeup thickness is
+       unresolved» и не считалась вовсе. */
+    eq('пакет 10 + 6: арис на обоих лайтах, рез не блокируется, ставки свои', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      m.unitType='double';
+      m.panes[0].category='vision';m.panes[0].glassProductId=g(10).id;m.panes[0].thicknessMm=10;
+      m.panes[1].category='vision';m.panes[1].glassProductId=g(6).id;m.panes[1].thicknessMm=6;
+      const snap=salesEffectiveProductionSnapshot(line,null,soDraft),plan=salesEffectiveCuttingPlan(line,null,soDraft);
+      return {
+        lites:(snap.lites||[]).map(l=>[l.label,l.thicknessMm,l.baseEdgework].join(' ')),
+        cutting:plan.valid,
+        rows:salesLineChargeRows(line).map(r=>[r.label,r.basis,r.catalogRate].join(' ')),
+        total:salesLinePricingSummary(line).total
+      };
+    })()`), {lites:['Lite 1 10 arris','Lite 2 6 arris'],cutting:true,
+      rows:['Rough Arris · 10 mm 128 0.02','Rough Arris · 6 mm 128 0.01'],total:3.84});
+    eq('одиночное стекло: до 8 мм арис, от 10 мм полировка', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      m.unitType='single';m.panes=[m.panes[0]];
+      m.panes[0].category='vision';m.panes[0].glassProductId=g(6).id;m.panes[0].thicknessMm=6;
+      const thin=salesLineLites(line)[0].baseEdgework;
+      m.panes[0].glassProductId=g(12).id;m.panes[0].thicknessMm=12;
+      const thick=salesLineLites(line)[0].baseEdgework;
+      const plan=salesEffectiveCuttingPlan(line,null,soDraft);
+      return {thin,thick,lites:plan.lites.length,cut:[plan.cutW,plan.cutH]};
+    })()`), {thin:'arris',thick:'polish',lites:1,cut:[20.375,44.375]});
+    /* «Все лайты» означает ВСЕ: правка на этой вкладке снимает собственную
+       обработку лайтов по этой кромке. Иначе выбор молча не срабатывал —
+       обработка лайта сильнее общей. */
+    eq('правка на вкладке «Все лайты» перебивает обработку лайтов', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tALL',0);salesExcelApply();
+      salesOrderConfigureShape(0);
+      setShapeEdgeLite(1);toggleShapeEdgeOp(0,1,true);          /* Lite 2: полировка на A */
+      const onlyLite={lite:Object.keys(sDraft.lites['1'].edgeOps),shared:Object.keys(sDraft.edgeOps)};
+      setShapeEdgeLite(null);toggleShapeEdgeOp(0,2,true);        /* все лайты: CNC на A */
+      saveShape();tab='sales';render();
+      const plan=salesEffectiveCuttingPlan(soDraft.lines[0],null,soDraft);
+      return {onlyLite,liteLeft:Object.keys((salesShapeByRef(soDraft.lines[0].shapeRef).lites['1']||{}).edgeOps||{}),
+        effect:plan.lites.map(l=>l.groups[0].ops.map(o=>o.type).join('+'))};
+    })()`), {onlyLite:{lite:['A'],shared:[]},liteLeft:[],effect:['CNC Shape Polish','CNC Shape Polish']});
+    /* Разделение лайтов вынесено в отдельную видимую секцию редактора формы:
+       стёкла юнита почти всегда повторяют одну фигуру, поэтому отличия — это
+       исключение, и место ему на виду, а не внутри обработки кромок.
+       Зеркало нужно, когда стекло приходит перевёрнутым (например Low-E на #2),
+       и работает для любого лайта, а не только для покрытий. */
+    eq('лайт зеркалится и это видно в секции лайтов, а не в кромках', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tMIR',0);salesExcelApply();
+      salesOrderConfigureShape(0);
+      setShapeType('triangle');sDraft.params.apexX='6';
+      sLiteSplitOpen=true;render();
+      const section=!!document.querySelector('.shape-lite-cards');
+      const insideEdgework=!!document.querySelector('.shape-edgework-matrix .shape-lite-insets');
+      const thumbsBefore=Array.from(document.querySelectorAll('.shape-lite-card svg.shape-mini path')).map(p=>p.getAttribute('d'));
+      setShapeLiteMirror(1,true);sLiteSplitOpen=true;render();
+      /* Зеркало не видно на общем чертеже формы — оно про отдельное стекло,
+         поэтому у каждого лайта своя миниатюра контура. */
+      const thumbsAfter=Array.from(document.querySelectorAll('.shape-lite-card svg.shape-mini path')).map(p=>p.getAttribute('d'));
+      saveShape();tab='sales';render();
+      const plan=salesEffectiveCuttingPlan(soDraft.lines[0],null,soDraft);
+      return {section,insideEdgework,
+        thumbs:thumbsAfter.length,thumbChanged:thumbsBefore[1]!==thumbsAfter[1],lite1Same:thumbsBefore[0]===thumbsAfter[0],
+        mirrored:plan.lites.map(l=>!!l.mirrored),
+        apex:plan.lites.map(l=>l.finishedPoints[1][0]),
+        sizes:plan.lites.map(l=>[l.finishedW,l.finishedH].join('x'))};
+    })()`), {section:true,insideEdgework:false,thumbs:2,thumbChanged:true,lite1Same:true,
+      mirrored:[false,true],apex:[6,24],sizes:['30x50','30x50']});
+    /* Фигура 10 + 6, где 6 мм просто другой контур: отступом это не описывается,
+       поэтому лайт получает СВОЮ форму — копию общей на момент отделения. */
+    eq('лайт получает собственную форму, а размеры строки остаются от общей', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tOWN',0);salesExcelApply();
+      const line=soDraft.lines[0];
+      salesOpenLiteShape(line.id,1);
+      const bridge={lite:salesBridge.liteIndex,name:sDraft.name};
+      sDraft.w='28';sDraft.h='46';saveShape();
+      tab='sales';render();
+      const plan=salesEffectiveCuttingPlan(line,null,soDraft),pay=salesEffectiveMachinePayload(line);
+      return {bridge,
+        lites:plan.lites.map(l=>[l.label,l.ownShape?'own':'shared',l.finishedW,l.finishedH].join(' ')),
+        lineDims:[line.width16,line.height16],
+        payload:pay.lites.map(l=>[l.width,l.height].join('x')),
+        library:DB.shapeDef.filter(s=>!salesShapeIsLineOwned(s)).length};
+    })()`), {bridge:{lite:1,name:'SO · OWN · Lite 2'},
+      lites:['Lite 1 shared 30 50','Lite 2 own 28 46'],lineDims:[480,800],
+      payload:['30x50','28x46'],library:1});
+    /* Ступенчатый пакет: у первого стекла контур формы, второе меньше на отступ,
+       и у каждого своя кромка. Всё это задаётся ВНУТРИ формы — вкладками по
+       лайтам, а не в карточке стекла. */
+    eq('лайт получает свой отступ и свою кромку внутри формы', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tSTEP',0);salesExcelApply();
+      salesOrderConfigureShape(0);
+      [0,1,2,3].forEach(gi=>toggleShapeEdgeOp(gi,0,true));      /* арис на все кромки формы */
+      setShapeEdgeLite(1);                                       /* вкладка Lite 2 */
+      [0,1,2,3].forEach(gi=>setShapeLiteInset(gi,'1/2'));
+      toggleShapeEdgeOp(0,1,true);                               /* полировка на кромке A только у Lite 2 */
+      const shared=Object.keys(sDraft.edgeOps).sort().join(',');
+      const spec=sDraft.lites['1'];
+      saveShape();tab='sales';render();
+      const line=soDraft.lines[0],plan=salesEffectiveCuttingPlan(line,null,soDraft);
+      return {
+        shared,liteInsets:Object.keys(spec.inset).sort().join(','),liteOps:Object.keys(spec.edgeOps).join(','),
+        finished:plan.lites.map(l=>[l.finishedW,l.finishedH].join('x')),
+        cuts:plan.lites.map(l=>[l.cutW,l.cutH].join('x')),
+        uniform:plan.uniformCut,
+        charges:salesLineChargeRows(line).map(r=>[r.label,r.basis].join(' '))
+      };
+    })()`), {shared:'A,B,C,D',liteInsets:'A,B,C,D',liteOps:'A',
+      finished:['20x44','19x43'],cuts:['20x44','19.0625x43'],uniform:false,
+      charges:['Rough Arris 209','Flat Polish 43']});
+    /* Ламинат — один кусок: плёнка не делит кромку на два стекла. */
+    eq('ламинат считается одной кромкой, в пакете получает арис', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      const pane=salesDefaultPane(0);pane.category='laminated';
+      pane.laminated.outer.glassProductId=g(6).id;pane.laminated.outer.thicknessMm=6;
+      pane.laminated.inner.glassProductId=g(6).id;pane.laminated.inner.thicknessMm=6;
+      m.unitType='single';m.panes=[normalizeSalesPane(pane,0)];
+      const alone=salesLineLites(line);
+      m.unitType='double';m.panes=[m.panes[0],normalizeSalesPane({category:'vision',glassProductId:g(6).id,thicknessMm:6},1)];
+      const inUnit=salesLineLites(line);
+      return {
+        alone:{count:alone.length,kind:alone[0].baseEdgework,laminated:alone[0].laminated},
+        inUnit:inUnit.map(l=>l.baseEdgework)
+      };
+    })()`), {alone:{count:1,kind:'polish',laminated:true},inUnit:['arris','arris']});
+    /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
+    eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t20\\t44\\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      m.unitType='double';
+      m.panes[0].category='vision';m.panes[0].glassProductId=g(12).id;m.panes[0].thicknessMm=12;
+      m.panes[1].category='vision';m.panes[1].glassProductId=g(6).id;m.panes[1].thicknessMm=6;
+      const shape=salesShapeByRef(line.shapeRef);
+      ['A','B','C','D'].forEach(id=>shape.edgeOps[id]=[shapeNormalizeOp({type:'Flat Polish'})]);
+      const plan=salesEffectiveCuttingPlan(line,null,soDraft),pay=salesEffectiveMachinePayload(line);
+      return {
+        cuts:plan.lites.map(l=>[l.thickness,l.cutW,l.cutH].join(' ')),
+        uniform:plan.uniformCut,
+        payloadLites:pay.lites.map(l=>[l.thicknessMm,l.width,l.height].join(' '))
+      };
+    })()`), {cuts:['12 20.375 44.375','6 20.125 44.125'],uniform:false,
+      payloadLites:['12 20.375 44.375','6 20.125 44.125']});
+    /* Базовая кромка от стекла — это работа, за которую выставляется счёт. */
+    eq('базовая кромка от стекла попадает в начисления', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('2\\t30\\t50\\tA1',0);salesExcelApply();
+      const line=soDraft.lines[0];
+      const arris=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
+      const g12=(DB.glassProduct||[]).find(g=>+g.thicknessMm===12);
+      salesMakeupById(soDraft,line.makeupId).panes.forEach(p=>{p.category='vision';p.glassProductId=g12.id;p.thicknessMm=12;});
+      const polish=salesLineChargeRows(line).map(r=>({label:r.label,basis:r.basis,rate:r.catalogRate}));
+      return {arris,polish,total:salesLinePricingSummary(line).total};
+    })()`), {arris:[{label:'Rough Arris',basis:160,rate:.01}],polish:[{label:'Flat Polish',basis:160,rate:.13}],total:41.6});
+    /* 16–19 мм с полировкой раньше блокировали рез целиком. */
+    eq('19 мм с Flat Polish режется, а не блокируется', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t50\\tA1',0);salesExcelApply();
+      const line=soDraft.lines[0];
+      /* 19 mm по правилу владельца получает Flat Polish базовой кромкой от
+         самого стекла — отдельный набор для этого больше не нужен. */
+      const g19=(DB.glassProduct||[]).find(g=>+g.thicknessMm===19);
+      soDraft.makeups[0].panes.forEach(pn=>{pn.category='vision';pn.glassProductId=g19.id;pn.thicknessMm=19;});
+      const plan=salesEffectiveCuttingPlan(line,null,soDraft);
+      return {valid:plan.valid,thickness:plan.thickness,cut:[plan.cutW,plan.cutH]};
+    })()`), {valid:true,thickness:19,cut:[31,51]});
     eq('пустое Qty считается как одна штука и помечается', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('Qty\\tWidth\\tHeight\\tMark\\n\\t30\\t80\\tA1',0);

@@ -89,7 +89,12 @@ function shapeProdBorderField(){
    но не создаёт постоянную визуальную «свалку». */
 viewShapeSkill=function(){
   if(sEdit!==null)return shapeForm();
-  var rows=DB.shapeDef.map(function(s,i){
+  /* Формы, принадлежащие строкам заказа, в этот список не попадают: каждая
+     строка с размерами заводит свой прямоугольник, и двести строк сделали бы
+     список нечитаемым. Такая форма открывается из своей строки. */
+  var library=DB.shapeDef.map(function(s,i){return {s:s,i:i};}).filter(function(x){return !salesShapeIsLineOwned(x.s);});
+  var rows=library.map(function(x){
+    var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
     var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
     var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn(r.width)+' × '+dimIn(r.height)):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">Invalid</span>');
@@ -97,7 +102,7 @@ viewShapeSkill=function(){
   }).join('');
   var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
   return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
-    <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${DB.shapeDef.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
+    <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${library.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
 };
 function shapeProdOpenNew(type){
   if(type==='__DXF__'){
@@ -191,11 +196,10 @@ function shapeProdToggleOps(list,type,on){
   return list;
 }
 
-toggleShapeEdgeOp=function(groupIndex,opIndex,on){
-  var g=shapeGroupAt(groupIndex),type=SHAPE_EDGE_OPS[opIndex];if(!g||!type)return;
-  if(!sDraft.edgeOps)sDraft.edgeOps={};var list=shapeProdToggleOps(sDraft.edgeOps[g.id]||[],type,on);
-  if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];render();
-};
+/* Переопределения toggleShapeEdgeOp здесь больше нет: оно игнорировало выбранный
+   лайт и молча перебивало правку в sales-shape-ui.js. Логика значений по
+   умолчанию осталась в shapeProdToggleOps выше, её и зовёт единственная
+   реализация переключателя. */
 function shapeProdConfiguredUniform(type){
   var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
 }
@@ -361,9 +365,9 @@ shapeForm=function(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry();
   var controls=external
     ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing and manufacturing remain editable.</div>${shapeProdDxfEdgeProcessing()}${shapeManufacturingEditor()}`
-    : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeEdgeworkEditor()}${shapeManufacturingEditor()}${shapeFeaturesEditor(geo)}`;
+    : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}${shapeManufacturingEditor()}${shapeFeaturesEditor(geo)}`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
-  return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</h3><p>${external?'Finished DXF → Edge processing → Manufacturing Items → derived Cutting DXF.':'Finished geometry → Edge processing → Manufacturing Items → geometry modifiers.'}</p></div></div><div class='shape-editor-layout'><div class='shape-controls'>${shapeProdMasterFields()}${controls}</div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div><div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Save revision</button><button onclick='cancelShapeEdit()'>Cancel</button></div></div>`;
+  return `<div class='module-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</h3><p>${external?'Finished DXF → Edge processing → Manufacturing Items → derived Cutting DXF.':'Finished geometry → Edge processing → Manufacturing Items → geometry modifiers.'}</p></div></div><div class='shape-editor-layout'><div class='shape-controls'>${shapeProdMasterFields()}${controls}</div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div><div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Save revision</button><button onclick='cancelShapeEdit()'>Cancel</button></div></div>`;
 };

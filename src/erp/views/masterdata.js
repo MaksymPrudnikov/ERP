@@ -145,6 +145,7 @@ function mdGlassForm(){
    <div><label>Разрешённые поверхности</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Номера через запятую. Пусто — любая поверхность.</div></div>
    <div><label>Единица хранения</label><select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select></div>
    <div><label>Единица продажи</label><select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select></div>
+   <div><label>Базовая кромка</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Авто по толщине · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Арис до 8 мм, полировка от 10 мм. Ручной выбор для исключений — например, зеркалам 5/6 мм ставят полировку.</div></div>
    <div><label>Прежний код</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">Код той же позиции в Spil — по нему сходятся старые заказы.</div></div>
   </div>
   <div class="row" style="margin-top:12px">
@@ -172,7 +173,7 @@ function mdGlassSave(){
   substrate:mdVal('md_substrate'),coatingFamily:mdVal('md_coating'),deposition:mdVal('md_deposition'),
   temperMode:mdVal('md_temper'),exposureRule:mdVal('md_exposure'),allowedSurfaces:surfaces,
   stockingUnit:mdVal('md_stockunit'),salesUnit:mdVal('md_salesunit'),legacyCode:mdVal('md_legacy'),
-  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),edgeDeletion:mdChecked('md_edge'),active:mdChecked('md_active')
+  note:mdVal('md_note'),stocked:mdChecked('md_stocked'),edgeDeletion:mdChecked('md_edge'),baseEdgework:mdVal('md_baseedge'),active:mdChecked('md_active')
  });
  if(mdEdit==='new'){
   next.id=glassProductId(code);

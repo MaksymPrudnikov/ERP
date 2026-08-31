@@ -123,6 +123,38 @@ function shapeParseFusionDxf(text){
   var normalized=points.map(function(p){return [shapeDxfCoord(p[0]-b.minX),shapeDxfCoord(p[1]-b.minY)];});
   return {ok:true,preview:{units:'in',points:normalized,width16:width16,height16:height16},exactWidth:w,exactHeight:h};
 }
+/* Отступ лайта задаётся по кромкам той же строкой, что и Width/Height, и
+   читается тем же строгим парсером. Обработка лайта перекрывает общую. */
+function shapeNormalizeLiteSpecs(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(key){
+    if(!/^\d+$/.test(String(key)))return;
+    var spec=raw[key]&&typeof raw[key]==='object'?raw[key]:{},inset={},ops={};
+    var rawInset=spec.inset&&typeof spec.inset==='object'?spec.inset:{};
+    Object.keys(rawInset).forEach(function(id){
+      var t=String(rawInset[id]==null?'':rawInset[id]).trim();
+      if(t)inset[String(id)]=t;
+    });
+    var rawOps=spec.edgeOps&&typeof spec.edgeOps==='object'?spec.edgeOps:{};
+    Object.keys(rawOps).forEach(function(id){
+      var list=(Array.isArray(rawOps[id])?rawOps[id]:[]).map(shapeNormalizeOp).filter(Boolean);
+      if(list.length)ops[String(id)]=list;
+    });
+    /* Зеркало: то же стекло, перевёрнутое. Нужно, когда Low-E оказывается на
+       поверхности №2 — фигура та же, но её надо показать зеркально. */
+    var mirror=spec.mirror===true;
+    if(mirror||Object.keys(inset).length||Object.keys(ops).length)out[String(key)]={inset:inset,edgeOps:ops,mirror:mirror};
+  });
+  return out;
+}
+function shapeLiteSpec(def,liteIndex){var l=(def&&def.lites)||{};return l[String(liteIndex)]||{inset:{},edgeOps:{},mirror:false};}
+function shapeLiteMirrored(def,liteIndex){return !!shapeLiteSpec(def,liteIndex).mirror;}
+function shapeLiteInsetFor(def,liteIndex,edgeId){
+  var spec=shapeLiteSpec(def,liteIndex),raw=spec.inset[String(edgeId)];
+  if(raw==null||raw==='')return 0;
+  var p=fabParseDimStrict(raw);
+  return p.ok&&p.v>0?p.v:0;
+}
 function normalizeShapeDef(s){
   s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),params=shapePlainObject(s.params),edgeOps=shapePlainObject(s.edgeOps),ops={};
   Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
@@ -135,6 +167,14 @@ function normalizeShapeDef(s){
        ввод по конкретным кромкам, как обработка в Edge Set. */
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
+    /* Форма, заведённая автоматически по Width × Height строки заказа,
+       принадлежит этой строке: в библиотеке форм её не показывают и живёт она
+       ровно столько, сколько живёт строка. */
+    ownerLineId:shapeTextValue(s.ownerLineId,''),
+    /* Раскладка по лайтам. Ступенчатый пакет: у первого стекла контур формы, а
+       второе меньше на отступ — поэтому у лайта есть свой inset по кромкам и
+       своя обработка. Пусто = лайт повторяет форму строки. */
+    lites:shapeNormalizeLiteSpecs(s.lites),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'
