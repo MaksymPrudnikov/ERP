@@ -1296,6 +1296,28 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {onlyLite,liteLeft:Object.keys((salesShapeByRef(soDraft.lines[0].shapeRef).lites['1']||{}).edgeOps||{}),
         effect:plan.lites.map(l=>l.groups[0].ops.map(o=>o.type).join('+'))};
     })()`), {onlyLite:{lite:['A'],shared:[]},liteLeft:[],effect:['CNC Shape Polish','CNC Shape Polish']});
+    /* Пакет из разных стёкол больше не проваливает редактор формы. Правило
+       «одна толщина на строку» писалось до расчёта по лайтам: теперь у формы
+       лайта берётся толщина ЕГО стекла, а у общей — самое толстое из тех, что
+       на ней живут. Закрываемся только когда толщины нет вообще. */
+    eq('пакет 6 + 12 не ломает редактор формы', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t60\\tMIX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      m.unitType='double';
+      m.panes[0].category='vision';m.panes[0].glassProductId=g(6).id;m.panes[0].thicknessMm=6;
+      m.panes[1].category='vision';m.panes[1].glassProductId=g(12).id;m.panes[1].thicknessMm=12;
+      salesOrderConfigureShape(0);
+      const shared={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};
+      salesBridgeCancel('shape');
+      salesOpenLiteShape(line.id,0);const lite1={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};saveShape();
+      salesOpenLiteShape(line.id,1);const lite2={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};saveShape();
+      tab='sales';render();
+      salesOrderConfigureShape(0);
+      const orphan=!!document.querySelector('.shape-lite-note.own');
+      return {shared,lite1,lite2,orphanWarning:(sLiteSplitOpen=true,render(),!!document.querySelector('.shape-lite-cards .shape-lite-note.own'))};
+    })()`), {shared:{thickness:'12',valid:true},lite1:{thickness:'6',valid:true},lite2:{thickness:'12',valid:true},orphanWarning:true});
     /* Кнопка AR · ALL AROUND — решение по всей форме, значит и по всем лайтам.
        Раньше она отрабатывала молча: форма получала полировку, а лайт со своей
        старой обработкой продолжал уходить в производство и в счёт арисом, при

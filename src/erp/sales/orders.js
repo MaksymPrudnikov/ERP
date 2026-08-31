@@ -692,13 +692,28 @@ function salesLineGlassThicknesses(line){
  });
  return out.sort((a,b)=>a-b);
 }
-function salesApplyLineGlassThicknessToShape(line,shape){
- if(!shape)return null;const values=salesLineGlassThicknesses(line);
+/* Толщина для припуска в редакторе формы. Раньше пакет из разных стёкол
+   проваливал редактор целиком («Glass thickness … must come from the selected
+   Sales Makeup»): одной безопасной толщины у такого юнита не было. Теперь есть —
+   каждый лайт считается со своей, поэтому:
+   · открыта форма конкретного лайта → берём толщину ЭТОГО стекла;
+   · открыта общая форма → берём самое толстое из стёкол, которые на ней живут:
+     предпросмотр показывает худший случай припуска, а настоящий рез всё равно
+     считается по каждому лайту отдельно.
+   Закрываемся только когда толщины нет вообще. */
+function salesApplyLineGlassThicknessToShape(line,shape,liteIndex){
+ if(!shape)return null;
+ const lites=salesLineLites(line);
+ if(liteIndex!=null){
+  const one=lites.find(function(l){return l.index===liteIndex;});
+  if(one&&+one.thicknessMm>0){shape.thickness=String(one.thicknessMm);return +one.thicknessMm;}
+ }
+ const values=salesLineGlassThicknesses(line);
  if(values.length===1){shape.thickness=String(values[0]);return values[0];}
- /* Mixed-thickness IGUs do not have one safe allowance. Fail closed instead of
-    silently using the old 6 mm default. A production rule can be added later if
-    the owner defines how edgework should behave for mixed lite thicknesses. */
- if(values.length>1)shape.thickness='';
+ const shared=lites.filter(function(l){return !salesLineLiteShape(line,l.index);}).map(function(l){return +l.thicknessMm;}).filter(function(v){return v>0;});
+ const pool=shared.length?shared:values.filter(function(v){return +v>0;});
+ if(pool.length){const mx=Math.max.apply(null,pool);shape.thickness=String(mx);return mx;}
+ shape.thickness='';
  return null;
 }
 function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s),ready=r&&(r.valid||(r.externalFile&&r.sourceValid));return s&&ready?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
@@ -841,7 +856,7 @@ function salesOpenLiteShape(lineId,liteIndex){
  salesBridge={kind:'shape',lineId:line.id,liteIndex:liteIndex};
  tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
  sEdit=i;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));
- salesApplyLineGlassThicknessToShape(line,sDraft);
+ salesApplyLineGlassThicknessToShape(line,sDraft,liteIndex);
  soEdgeworkLineId=null;
  render();
 }
