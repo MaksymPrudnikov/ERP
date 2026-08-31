@@ -88,6 +88,47 @@ function shapeNormalizeManufacturingItem(raw){
   }
   return out;
 }
+/* ---------- Оформление размерных цепочек ----------
+   Как размер ПОКАЗАН на чертеже: от какого края меряем, отодвинут ли он от
+   детали, показан ли вообще. Это не геометрия и не производственный факт,
+   поэтому оно живёт отдельной картой `dims` на уровне фигуры, а не внутри
+   элемента, и НЕ входит в отпечаток ревизии (см. shapeFingerprint): решение
+   «этот размер мешает, убери его с листа» не должно выглядеть как новая
+   геометрия и поднимать тревогу у привязанной раскладки Muntin.
+
+   Ключи осей: `h` — горизонтальная цепочка, `v` — вертикальная, `e` — цепочка
+   вдоль кромки (у фурнитуры она одна, и её направление зависит от выбранной
+   кромки, поэтому осью h/v её называть нельзя).
+
+   `ref` — от какого конца меряем. У отверстия эту роль играют его собственные
+   `hRef`/`vRef`: они там были с самого начала и переносить их сюда значило бы
+   тронуть отпечатки всех сохранённых фигур. */
+const SHAPE_DIM_AXES=['h','v','e'];
+const SHAPE_DIM_OFF_MIN=-4,SHAPE_DIM_OFF_MAX=12;
+function shapeNormalizeDims(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
+    var src=shapePlainObject(raw[id]),entry={};
+    SHAPE_DIM_AXES.forEach(function(axis){
+      var a=shapePlainObject(src[axis]),rec={};
+      if(a.hide===true)rec.hide=true;
+      var off=Math.round(+a.off||0);
+      if(off)rec.off=Math.max(SHAPE_DIM_OFF_MIN,Math.min(SHAPE_DIM_OFF_MAX,off));
+      var ref=shapeTextValue(a.ref,'').trim();
+      if(ref)rec.ref=ref.slice(0,8);
+      if(Object.keys(rec).length)entry[axis]=rec;
+    });
+    if(Object.keys(entry).length)out[String(id)]=entry;
+  });
+  return out;
+}
+function shapeDimRec(def,id,axis){
+  var all=(def&&def.dims)||{},entry=all[String(id)]||{};
+  return entry[axis]||{};
+}
+function shapeDimHidden(def,id,axis){return shapeDimRec(def,id,axis).hide===true;}
+function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis).off||0);}
+function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
 function shapeNormalizeManufacturingItems(raw){
   return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
 }
@@ -196,6 +237,8 @@ function normalizeShapeDef(s){
        второе меньше на отступ — поэтому у лайта есть свой inset по кромкам и
        своя обработка. Пусто = лайт повторяет форму строки. */
     lites:shapeNormalizeLiteSpecs(s.lites),
+    /* Оформление размеров на чертеже. В отпечаток ревизии не входит. */
+    dims:shapeNormalizeDims(s.dims),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'

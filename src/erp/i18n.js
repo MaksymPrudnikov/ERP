@@ -790,6 +790,20 @@ const I18N_EN={
   "Эти Hole / Hardware / Stamp были созданы старой логикой и действительно меняют Cutting Shape. Удали их или оставь только если это намеренная cutting geometry.": "These Hole / Hardware / Stamp items were created by the legacy logic and really modify the Cutting Shape. Delete them unless that cutting geometry is intentional.",
 
   "Каталог стекла · точки поставки · фурнитура · обзор базы": "Glass catalog · supply points · hardware · database overview",
+
+  /* Привязка размеров и управление ими на чертеже. 1 сентября 2026. */
+  "Привязка": "Reference",
+  "Размер на чертеже": "Dimension on the drawing",
+  "Скрыть": "Hide",
+  "Показать": "Show",
+  "Горизонтальный": "Horizontal",
+  "Вертикальный": "Vertical",
+  "ближе": "closer",
+  "дальше": "further",
+  "скрыть": "hide",
+  "показать": "show",
+  "от верхнего угла до центра": "from the top corner to the center",
+  "от правого угла до центра": "from the right corner to the center",
   /* Cutout — одна категория, справочник фурнитуры и модели.
      Порядок 31 августа 2026. */
   "+ Новая модель": "+ New model",

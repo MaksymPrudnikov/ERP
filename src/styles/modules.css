@@ -245,3 +245,27 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-mi-marker.patch line,.shape-mi-marker.patch circle{stroke:#1f7a46;fill:#1f7a46}
 .shape-mi-marker.patch text{fill:#186c3c}
 .shape-mi-card-body>label:only-child{grid-column:1/-1}
+
+/* Управление размерной цепочкой прямо на чертеже: линия кликабельна,
+   рядом с ней появляется панель. Скрытый размер оставляет след — иначе его
+   нечем было бы вернуть, не открывая карточку. */
+.shape-dim-hit{stroke:transparent;stroke-width:14;fill:none;cursor:pointer}
+.shape-mi-prod-dims{cursor:pointer}
+.shape-mi-prod-dims.active line:not(.shape-dim-hit){stroke:#7f56d9!important}
+.shape-mi-prod-dims.active text{fill:#5925dc!important}
+.shape-dim-ghost{cursor:pointer}
+.shape-dim-ghost circle{fill:#fff;stroke:#98a2b3;stroke-width:1.2;stroke-dasharray:2.5 2.5}
+.shape-dim-ghost text{fill:#667085;font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace}
+.shape-dim-menu>rect{fill:#101828;opacity:.92}
+.shape-dim-btn{cursor:pointer}
+.shape-dim-btn rect{fill:transparent}
+.shape-dim-btn:hover rect{fill:rgba(255,255,255,.14)}
+.shape-dim-btn text{fill:#fff;font:600 9px system-ui,-apple-system,'Segoe UI',sans-serif;paint-order:normal;stroke:none}
+.shape-cut-dims .shape-cut-center{fill:#b42318;stroke:#fff;stroke-width:1}
+/* Кнопки того же размера в карточке: скрытый размер возвращают отсюда. */
+.shape-dim-controls{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;padding-top:8px;margin-top:2px;border-top:1px dashed var(--line2)}
+.shape-dim-control{display:flex;align-items:center;gap:4px}
+.shape-dim-control>span{margin-right:2px;color:var(--mut);font-size:8.5px;text-transform:uppercase;letter-spacing:.04em}
+.shape-dim-control button{padding:2px 7px;font-size:9px;line-height:1.5}
+.shape-dim-control button.off{background:#fdefee;border-color:#f3c9c5;color:#b42318}
+.shape-dim-control>i{font-style:normal;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut)}

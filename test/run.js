@@ -871,6 +871,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('метка без модели не меняет форму записи, отпечаток старой ревизии стоит на месте',
       {keys:modelSnapshot.legacyKeys,fingerprint:modelSnapshot.legacyFingerprint},
       {keys:['distance','edge','id','note','type'],fingerprint:'shp-7fcc0fad'});
+    /* Оформление размера — не геометрия. Если бы карта `dims` входила в
+       отпечаток, решение «этот размер мешает, убери его с листа» выглядело бы
+       как новая геометрия и поднимало тревогу у привязанной раскладки Muntin. */
+    eq('оформление размеров не входит в отпечаток ревизии и переживает нормализацию', await p.evaluate(() => {
+      const base=normalizeShapeDef(newShapeDef('rectangle'));base.w='20';base.h='40';
+      base.manufacturingItems=[shapeNormalizeManufacturingItem({id:'m1',type:'patch',edge:'left',distance:6})];
+      const plain=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+      const styled=normalizeShapeDef(Object.assign(JSON.parse(JSON.stringify(base)),{dims:{m1:{e:{hide:true,off:3,ref:'end'}},junk:{q:{off:1}},empty:{h:{}}}}));
+      return {same:shapeFingerprint(plain)===shapeFingerprint(styled),dims:styled.dims,
+        clamped:normalizeShapeDef(Object.assign(JSON.parse(JSON.stringify(base)),{dims:{m1:{e:{off:99}}}})).dims};
+    }), {same:true,dims:{m1:{e:{hide:true,off:3,ref:'end'}}},clamped:{m1:{e:{off:12}}}});
     eq('модель хранится снимком: переименование справочника не трогает заказ',
       {keys:modelSnapshot.namedKeys,changed:modelSnapshot.namedChanges,shown:modelSnapshot.shown,custom:modelSnapshot.custom},
       {keys:['distance','edge','id','model','modelId','note','type'],changed:true,shown:'Vienna 180',custom:true});
@@ -2490,11 +2501,71 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         title:(root.querySelector('.shape-mi-card b')||{}).textContent,
         marker:[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent),
         model:!!root.querySelector('.shape-mi-card.expanded select')};
+      /* Привязка вдоль сегмента работает и здесь: seg1 длиной 20″, 4″ от начала
+         это 16″ от конца. Сама величина в записи не меняется. */
+      shapeSetDimRef('d1','e','end');
+      out.fromEnd=[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent);
+      out.stored=sDraft.manufacturingItems[0].distance;
       sEdit=null;sDraft=null;render();return out;
-    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch #1 · PH20',marker:['PATCH 1 · PH20 · seg1 @ 4″'],model:true});
+    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch #1 · PH20',marker:['PATCH 1 · PH20 · seg1 @ 4″'],model:true,
+      fromEnd:['PATCH 1 · PH20 · seg1 @ 16″'],stored:4});
     await t.c.close();
 
     t = await page();
+    eq('у фурнитуры навигация как у отверстия: привязка меняет показанное, но не хранимое', await t.p.evaluate(() => {
+      const dim=()=>document.querySelector('.shape-mi-prod-dims text').textContent;
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';sView='production';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'m1',type:'patch',edge:'left',distance:6})];
+      sManufacturingOpen=true;render();
+      const start=dim();
+      shapeSetDimRef('m1','e','end');
+      const fromTop={shown:dim(),stored:sDraft.manufacturingItems[0].distance};
+      /* Ввод идёт ОТ ПРИВЯЗКИ, хранится по-прежнему от начала кромки. */
+      shapeSetManufacturingDistance('m1','5');
+      const typed={stored:sDraft.manufacturingItems[0].distance,shown:dim()};
+      const card=document.querySelector('.shape-mi-card small').textContent;
+      sEdit=null;sDraft=null;render();
+      return {start,fromTop,typed,card};
+    }), {start:'6″',fromTop:{shown:'34″',stored:6},typed:{stored:35,shown:'5″'},
+      card:'drawing onlyLeft · 5″ from the top corner to the center'});
+
+    /* Владелец: «иногда патч прямо от края и странно указывать 0». Размер
+       убирается с листа и возвращается по следу — насовсем он не пропадает. */
+    eq('размер убирается с чертежа и возвращается по следу', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';sView='production';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'m1',type:'patch',edge:'left',distance:0})];
+      sManufacturingOpen=true;render();
+      const zero=document.querySelector('.shape-mi-prod-dims text').textContent;
+      shapeToggleDimHide('m1','e');
+      const hidden={chains:document.querySelectorAll('.shape-mi-prod-dims').length,ghost:document.querySelectorAll('.shape-dim-ghost').length};
+      sManufacturingSelected='m1';render();
+      const selected={ghost:document.querySelectorAll('.shape-dim-ghost').length};
+      shapeSelectDim('m1','e');
+      const menu=[...document.querySelectorAll('.shape-dim-btn text')].map(x=>x.textContent);
+      shapeToggleDimHide('m1','e');
+      const back={text:document.querySelector('.shape-mi-prod-dims text').textContent,dims:JSON.parse(JSON.stringify(sDraft.dims||{}))};
+      const lineX=()=>Math.round(+document.querySelector('.shape-mi-prod-dims line').getAttribute('x1'));
+      const at0=lineX();shapeNudgeDim('m1','e',2);const moved=lineX();shapeNudgeDim('m1','e',-2);
+      sEdit=null;sDraft=null;sManufacturingSelected=null;sDimEdit=null;render();
+      return {zero,hidden,selected,menu,back,shift:at0-moved};
+    }), {zero:'0″',hidden:{chains:0,ghost:0},selected:{ghost:1},menu:['closer','further','show'],
+      back:{text:'0″',dims:{}},shift:28});
+
+    eq('внутренний вырез получает размеры до центра, как отверстие', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';sView='production';
+      sDraft.features=[newShapeFeature('cutout',shapeDraftGeometry())];
+      const id=sDraft.features[0].id;sManufacturingOpen=true;render();
+      const first=[...document.querySelectorAll('.shape-cut-dims text')].map(x=>x.textContent);
+      const center=document.querySelectorAll('.shape-cut-center').length;
+      shapeSetDimRef(id,'v','top');
+      const fromTop=[...document.querySelectorAll('.shape-cut-dims text')].map(x=>x.textContent);
+      /* Ввод до центра, а в записи по-прежнему нижний левый угол контура. */
+      shapeSetDimRef(id,'v','bottom');shapeSetCutoutCenter(0,'v','15');
+      const moved={y:sDraft.features[0].y,shown:[...document.querySelectorAll('.shape-cut-dims text')].map(x=>x.textContent)};
+      sEdit=null;sDraft=null;render();
+      return {first,center,fromTop,moved};
+    }), {first:['10″','10″'],center:1,fromTop:['10″','30″'],moved:{y:'13',shown:['10″','15″']}});
+
     eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
       function cyrillicUi(){
         const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
