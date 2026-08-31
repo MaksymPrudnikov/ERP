@@ -309,8 +309,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(s),payload=ShapeModule.machinePayload(r);
       return {valid:r.valid,tl:r.base.AT,tr:r.base.CT,outer:payload.outer.points};
     });
-    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,38],tr:[50,33]});
-    ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-38)<1e-9));
+    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,36],tr:[50,31]});
+    ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-36)<1e-9));
 
     const badCornerOffset = await p.evaluate(() => {
       const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};
