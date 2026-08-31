@@ -193,6 +193,14 @@ function shapeBorderFootprint(points,plan){
     pad:sides,
     sides:Object.keys(sides).filter(function(k){return sides[k]>0;}).sort()};
 }
+/* Название операции из кода вида: 'hinge' → 'Hinge', 'bottom_pivot' → 'Bottom
+   Pivot'. Словаря видов здесь намеренно нет: справочник фурнитуры живёт в базе,
+   а этот модуль — чистая геометрия и в базу не ходит. Имя конкретной модели
+   («Vienna 180») приезжает снимком в самой метке. */
+function shapeMiOperationName(type){
+  return String(type==null?'':type).split(/[-_\s]+/).filter(Boolean)
+    .map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ')||'Hardware';
+}
 function shapeDerivedRequirements(def,geo,fg){
   var req=[],groups={};
   (geo.edges||[]).forEach(function(e){shapeEdgeOps(def,e.id).forEach(function(op){var key=op.type+'|'+(op.angle||'')+'|'+(op.width||'');if(!groups[key])groups[key]={operation:op.type,edgeIds:[],params:{}};if(groups[key].edgeIds.indexOf(e.id)<0)groups[key].edgeIds.push(e.id);if(op.angle)groups[key].params.angle=op.angle;if(op.width)groups[key].params.width=op.width;});});
@@ -203,15 +211,19 @@ function shapeDerivedRequirements(def,geo,fg){
   if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
   /* Manufacturing items belong to the production drawing, not cutting geometry.
      They still create production requirements so the shop does not lose the
-     requested manipulation. Only a generic Hole has a confirmed station here:
-     Clamp/Hinge stay SERVICE requirements until their real prep template/route
-     is defined by the owner. */
+     requested manipulation. A generic Hole is the only drilled station here;
+     every hardware mark stays a SERVICE requirement, because its seat is made
+     by hand from a named template. The mark therefore carries what and where,
+     never a machined shape. */
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
       req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
-    }else if(item.type==='clamp'||item.type==='hinge'){
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:item.type==='clamp'?'Clamp':'Hinge',stationClass:'SERVICE',manufacturingItemId:item.id,params:{edge:item.edge,distance:item.distance}});
+    }else{
+      /* Любая фурнитура на кромке, включая виды, добавленные владельцем.
+         Станция SERVICE, а не CNC: посадочное место делает человек по
+         своему шаблону, и станка, который его режет, у цеха нет. */
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edge:item.edge,distance:item.distance,model:item.model||''}});
     }
   });
   return req;

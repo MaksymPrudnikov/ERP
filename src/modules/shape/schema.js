@@ -53,9 +53,20 @@ function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf
 /* Manufacturing marks are annotations tied to a Shape revision.
    They do NOT modify cutting geometry or the original DXF. Services and pricing
    are derived from these marks elsewhere; the Shape stores only what/where. */
-const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','hole'];
+/* Вид метки — ОТКРЫТЫЙ список. Справочник фурнитуры живёт в базе, а не
+   в коде: владелец добавляет пивоты и прочее сам, без правки кода.
+   Закрытый список здесь означал бы тихую потерю данных: старая нормализация
+   отдавала 'hole' на любой незнакомый тип, и патч на кромке при первой же
+   загрузке становился бы отверстием в нулевой точке. Здесь остались заводские
+   виды только как заготовка для пустого справочника; проверка идёт по формату кода. */
+const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','patch','hole'];
+const SHAPE_MI_TYPE_RE=/^[a-z][a-z0-9_-]{0,23}$/;
+function shapeManufacturingItemType(v){var t=shapeTextValue(v,'').trim().toLowerCase();return SHAPE_MI_TYPE_RE.test(t)?t:'hole';}
+/* Отверстие задаётся точкой внутри стекла, вся остальная фурнитура —
+   кромкой и расстоянием до её центра. Правило одно — и место у него одно. */
+function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
 function shapeNormalizeManufacturingItem(raw){
-  raw=shapePlainObject(raw);var type=SHAPE_MANUFACTURING_ITEM_TYPES.indexOf(raw.type)>=0?raw.type:'hole';
+  raw=shapePlainObject(raw);var type=shapeManufacturingItemType(raw.type);
   var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
@@ -64,6 +75,16 @@ function shapeNormalizeManufacturingItem(raw){
   }else{
     var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
     if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;
+    /* Модель фурнитуры: id справочника и ИМЯ снимком. Имя не украшение —
+       по нему человек в цеху находит свой шаблон, а справочник могли
+       переименовать уже после того, как заказ приняли. Пустой id при
+       заполненном имени = «своя модель», вписанная руками.
+       Оба поля пишутся ТОЛЬКО когда заполнены: отпечаток ревизии считается
+       по JSON меток, и пустые ключи сдвинули бы его у всех старых фигур —
+       привязанная раскладка Muntin решила бы, что геометрия изменилась. */
+    var modelId=shapeTextValue(raw.modelId,'').trim().slice(0,64),model=shapeTextValue(raw.model,'').trim().slice(0,60);
+    if(modelId)out.modelId=modelId;
+    if(model)out.model=model;
   }
   return out;
 }

@@ -220,3 +220,28 @@ table.excel-grid td.off{color:#b3bcc4;background:#fafbfc;padding:4px 7px}
 svg.shape-mini{width:88px;height:64px;flex:none;border:1px solid var(--line2);border-radius:7px;background:#fff}
 svg.shape-mini path{fill:rgba(46,144,250,.07);stroke:#2f7da8;stroke-width:1.6}
 svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
+
+/* Cutout — одна категория, две подписанные группы. Метка на карточке
+   дублирует подпись группы намеренно: группа уезжает вверх при прокрутке. */
+.shape-cut-group{margin-top:10px}
+.shape-cut-group+.shape-cut-group{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.shape-cut-group-head{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.shape-cut-group-head>b{font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+.shape-cut-group-head>small{color:var(--mut);font-size:9px}
+.shape-cut-group.marks .shape-cut-group-head>b{color:#175f9e}
+.shape-cut-group.cuts .shape-cut-group-head>b{color:#b42318}
+.shape-cut-flag{display:inline-block;margin-right:6px;padding:1px 5px;border-radius:5px;font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em;text-transform:uppercase;vertical-align:1px}
+.shape-cut-flag.draw{background:#eef4fa;color:#175f9e;border:1px solid #cfe0ef}
+.shape-cut-flag.cut{background:#fdefee;color:#b42318;border:1px solid #f3c9c5}
+/* Вид, заведённый владельцем, обязан выглядеть как элемент интерфейса, а не
+   как чёрный прямоугольник по умолчанию: цвета видов clamp/hinge/hole ниже
+   специфичнее и продолжают действовать. */
+.shape-mi-kind{background:#f2f4f7;color:#475467;border:1px solid var(--line)}
+.shape-mi-kind.patch{background:#eaf7ef;color:#186c3c;border:1px solid #b7ddc6}
+.shape-mi-marker rect{fill:#f2f4f7;stroke:#667085;stroke-width:1.6}
+.shape-mi-marker path,.shape-mi-marker line{fill:none;stroke:#667085;stroke-width:1.2}
+.shape-mi-marker text{fill:#475467}
+.shape-mi-marker.patch rect{fill:#eaf7ef;stroke:#1f7a46;stroke-width:1.6}
+.shape-mi-marker.patch line,.shape-mi-marker.patch circle{stroke:#1f7a46;fill:#1f7a46}
+.shape-mi-marker.patch text{fill:#186c3c}
+.shape-mi-card-body>label:only-child{grid-column:1/-1}

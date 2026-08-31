@@ -829,6 +829,51 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Manufacturing items сохраняются в ревизии и дают требования цеху', {valid:manufacturing.valid,count:manufacturing.count,hole:manufacturing.hole,edge:manufacturing.edge,req:manufacturing.req}, {valid:true,count:3,hole:[3.0625,12.125,'3/4'],edge:['right',6.125],req:['DRILLING:Drill Hole','SERVICE:Clamp','SERVICE:Hinge']});
     eq('Manufacturing items не попадают в Cutting Geometry / machine payload', {cutting:manufacturing.cutting,machineReq:manufacturing.machineReq}, {cutting:[0,0],machineReq:0});
     eq('Manufacturing items меняют fingerprint ревизии, DXF сохраняет requirements отдельно', {fingerprint:manufacturing.fingerprintChanged,external:manufacturing.external}, {fingerprint:true,external:{sourceValid:true,requirements:['Clamp']}});
+
+    /* Виды меток — открытый список. Раньше нормализация отдавала 'hole' на
+       любой незнакомый тип: патч на кромке превращался в отверстие в нулевой
+       точке, то есть в чужую деталь. */
+    const openKinds = await p.evaluate(() => {
+      const patch=shapeNormalizeManufacturingItem({id:'p',type:'patch',edge:'top',distance:6,modelId:'hw-patch-ph20',model:'PH20'});
+      const own=shapeNormalizeManufacturingItem({id:'v',type:'pivot',edge:'left',distance:3});
+      const junk=shapeNormalizeManufacturingItem({id:'j',type:'ПЕТЛЯ 1',edge:'left',distance:3});
+      const d=normalizeShapeDef(newShapeDef('rectangle'));d.w='20';d.h='40';d.manufacturingItems=[patch,own];
+      const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r);
+      return {patch:[patch.type,patch.edge,patch.distance,patch.modelId,patch.model],
+        own:[own.type,own.edge,own.distance],junk:junk.type,
+        req:(r.requirements||[]).filter(q=>q.source==='MANUFACTURING').map(q=>q.stationClass+':'+q.operation),
+        models:(r.requirements||[]).filter(q=>q.source==='MANUFACTURING').map(q=>q.params.model),
+        cutting:[r.cutting.holes.length,r.cutting.hardware.length,r.cutting.points.length],
+        machineReq:(payload&&payload.requirements||[]).filter(q=>q.source==='MANUFACTURING').length};
+    });
+    eq('вид метки — открытый список, незнакомый тип не становится отверстием', {patch:openKinds.patch,own:openKinds.own,junk:openKinds.junk},
+      {patch:['patch','top',6,'hw-patch-ph20','PH20'],own:['pivot','left',3],junk:'hole'});
+    eq('патч и добавленный вид дают требование SERVICE с именем модели', {req:openKinds.req,models:openKinds.models}, {req:['SERVICE:Patch','SERVICE:Pivot'],models:['PH20','']});
+    eq('патч и добавленный вид не попадают в Cutting Geometry / machine payload', {cutting:openKinds.cutting,machineReq:openKinds.machineReq}, {cutting:[0,0,4],machineReq:0});
+
+    /* Отпечаток ревизии считается по JSON меток. Пустые поля модели в записи
+       сдвинули бы его у КАЖДОЙ старой фигуры с зажимом или петлёй, и
+       привязанная раскладка Muntin решила бы, что геометрия изменилась. */
+    const modelSnapshot = await p.evaluate(() => {
+      const legacy=shapeNormalizeManufacturingItem({id:'c1',type:'clamp',edge:'left',distance:4});
+      const named=shapeNormalizeManufacturingItem({id:'c2',type:'hinge',edge:'right',distance:6,modelId:'hw-hinge-vienna-180',model:'Vienna 180'});
+      const base=normalizeShapeDef(newShapeDef('rectangle'));base.w='20';base.h='40';
+      const withLegacy=JSON.parse(JSON.stringify(base));withLegacy.manufacturingItems=[legacy];
+      const withNamed=JSON.parse(JSON.stringify(base));withNamed.manufacturingItems=[named];
+      /* переименование в справочнике не переписывает принятый заказ */
+      const row=hardwareModelById('hw-hinge-vienna-180'),before=row.name;row.name='Vienna 180 SS';
+      const shown=hardwareItemModelName(named);row.name=before;
+      return {legacyKeys:Object.keys(legacy).sort(),namedKeys:Object.keys(named).sort(),
+        legacyFingerprint:shapeFingerprint(normalizeShapeDef(withLegacy)),
+        namedChanges:shapeFingerprint(normalizeShapeDef(withNamed))!==shapeFingerprint(base),
+        shown:shown,custom:hardwareItemIsCustomModel(shapeNormalizeManufacturingItem({id:'c3',type:'hinge',edge:'left',distance:1,model:'Своя петля'}))};
+    });
+    eq('метка без модели не меняет форму записи, отпечаток старой ревизии стоит на месте',
+      {keys:modelSnapshot.legacyKeys,fingerprint:modelSnapshot.legacyFingerprint},
+      {keys:['distance','edge','id','note','type'],fingerprint:'shp-7fcc0fad'});
+    eq('модель хранится снимком: переименование справочника не трогает заказ',
+      {keys:modelSnapshot.namedKeys,changed:modelSnapshot.namedChanges,shown:modelSnapshot.shown,custom:modelSnapshot.custom},
+      {keys:['distance','edge','id','model','modelId','note','type'],changed:true,shown:'Vienna 180',custom:true});
     await c.close();
   }
 
@@ -1280,6 +1325,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
       const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,resetCatalog};
     }), {flatSaved:.1,miterSaved:null,flatEffective:.1,miterEffective:null,resetCatalog:.1});
+
+    eq('добавленный вид фурнитуры попадает в счёт без ставки, а не нулём', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-patch-price';sh.w='20';sh.h='40';sh.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'p',type:'patch',edge:'left',distance:4,modelId:'hw-patch-ph20',model:'PH20'}),
+        shapeNormalizeManufacturingItem({id:'h',type:'hinge',edge:'right',distance:5,modelId:'hw-hinge-vienna-180',model:'Vienna 180'})
+      ];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const mi=salesLineChargeRows(line).filter(r=>r.key.indexOf('MI:')===0);
+      /* Один и тот же разбор меток обязан работать в обеих ветках расчёта:
+         обычной и через Service Set. Копия этого кода уже расходилась однажды. */
+      const shared=salesManufacturingChargeRows(DB.shapeDef[0].manufacturingItems,salesPricingThickness(line));
+      return {rows:mi.map(r=>[r.key,r.label,r.catalogRate,salesChargeShortLabel(r)]),
+        unpriced:salesLinePricingSummary(line).unpriced,
+        shared:JSON.stringify(shared.map(r=>[r.key,r.label,r.catalogRate]))===JSON.stringify(mi.map(r=>[r.key,r.label,r.catalogRate]))};
+    }), {rows:[['MI:patch:8-10','Patch',null,'PATCH'],['MI:hinge:8-10','Hinge',15,'HNG']],unpriced:1,shared:true});
     await dxfSales.c.close();
   }
 
@@ -2343,6 +2404,120 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               html.indexOf('default #2') > 0, html.indexOf('off-catalog') > 0,
               inner.allowedSurfaces, free.indexOf('off-catalog') < 0];
     }), [true, true, true, [4], true]);
+    await t.c.close();
+  }
+
+  /* --- 5h. Cutout: одна категория и справочник фурнитуры -------------
+     Владелец 31 августа 2026: «давай сделаем это одной категорией Cutout» и
+     «hole тоже туда». Проверяем не оформление, а то, ради чего категорию не
+     свели плоским списком: половина элементов меняет файл раскроя, половина
+     нет, и это должно быть видно на каждой карточке. */
+  {
+    console.log('Cutout · справочник фурнитуры');
+    let t = await page();
+    eq('справочник фурнитуры засевается один раз: удалённая заводская строка не возвращается', await t.p.evaluate(() => {
+      const seeded={kinds:DB.hardwareKind.map(k=>k.code),hinge:hardwareModelsFor('hinge').map(m=>m.name),seed:DB.hardwareSeed};
+      DB.hardwareModel=DB.hardwareModel.filter(m=>m.id!=='hw-clamp-scu4');
+      DB.hardwareKind.push(normalizeHardwareKind({code:'pivot',name:'Пивот',nameEn:'Pivot',short:'PVT'}));
+      DB.hardwareModel.push(normalizeHardwareModel({id:'own-1',kind:'pivot',name:'Мой пивот'}));
+      normalizeHardwareCatalog();
+      const afterDelete={scu4:!!hardwareModelById('hw-clamp-scu4'),ownKind:!!hardwareKindRow('pivot'),ownModel:!!hardwareModelById('own-1')};
+      /* подъём версии — единственный случай, когда заводские строки приезжают снова */
+      DB.hardwareSeed=0;normalizeHardwareCatalog();
+      return {seeded,afterDelete,afterBump:!!hardwareModelById('hw-clamp-scu4'),ownSurvivedBump:!!hardwareModelById('own-1')};
+    }), {
+      seeded:{kinds:['hinge','clamp','patch'],hinge:['Geneva 135 / 45','Geneva 180','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 90'],seed:1},
+      afterDelete:{scu4:false,ownKind:true,ownModel:true},afterBump:true,ownSurvivedBump:true});
+    eq('битая строка справочника отбрасывается, модель без вида остаётся видимой', await t.p.evaluate(() => {
+      DB.hardwareKind=DB.hardwareKind.concat([{code:'ПЕТЛЯ',name:'x',nameEn:'x'},{code:'ok-kind',name:'',nameEn:''}]);
+      DB.hardwareModel=DB.hardwareModel.concat([{id:'no-name',kind:'hinge',name:''},{id:'orphan',kind:'ghost',name:'Ghost'}]);
+      normalizeHardwareCatalog();
+      return {badCode:!!hardwareKindRow('петля'),noName:!!hardwareKindRow('ok-kind'),
+        noModelName:!!hardwareModelById('no-name'),orphan:!!hardwareModelById('orphan'),orphanKind:!!hardwareKindRow('ghost')};
+    }), {badCode:false,noName:false,noModelName:false,orphan:true,orphanKind:false});
+    await t.c.close();
+
+    t = await page();
+    eq('Cutout — одна категория с двумя подписанными группами и меткой на карточке', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'m1',type:'hinge',edge:'left',distance:6,modelId:'hw-hinge-vienna-180',model:'Vienna 180'}),
+        shapeNormalizeManufacturingItem({id:'m2',type:'hole',x:3,y:8,diameter:'3/4',hRef:'left',vRef:'bottom'})];
+      sDraft.features=[newShapeFeature('cutout',shapeDraftGeometry())];
+      sManufacturingOpen=true;sManufacturingSelected='m1';render();
+      const root=document.getElementById('app');
+      const kinds=[...root.querySelectorAll('.shape-cut-group.marks .shape-mi-toolbar button')].map(b=>b.textContent.trim());
+      const model=root.querySelector('.shape-mi-card.expanded select');
+      const marker=[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent).join(' | ');
+      const out={accordions:[...root.querySelectorAll('.shape-accordion-head b')].map(x=>x.textContent),
+        cutout:root.querySelectorAll('.shape-cutout').length,
+        groups:[...root.querySelectorAll('.shape-cut-group-head b')].map(x=>x.textContent),
+        flags:{draw:root.querySelectorAll('.shape-cut-flag.draw').length,cut:root.querySelectorAll('.shape-cut-flag.cut').length},
+        kinds:kinds,
+        modelOptions:model?[...model.options].map(o=>o.textContent):[],
+        markerHasModel:marker.indexOf('Vienna 180')>=0};
+      sEdit=null;sDraft=null;render();return out;
+    /* Двух секций больше нет: «Manufacturing items» и «Geometry modifiers» сведены
+       в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
+    }), {accordions:['Edge processing','Cutout'],cutout:1,
+      groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
+      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch'],
+      modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 90','Own model'],
+      markerHasModel:true});
+    eq('выбранная модель видна и после того, как её выключили или удалили из справочника', await t.p.evaluate(() => {
+      function field(){const c=document.querySelector('.shape-mi-card.expanded');const sel=c.querySelector('select');
+        return {selected:sel.options[sel.selectedIndex].textContent,note:c.querySelector('label small').textContent};}
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:4,modelId:'hw-hinge-vienna-180',model:'Vienna 180'})];
+      sManufacturingOpen=true;sManufacturingSelected='a';render();const listed=field();
+      hardwareModelById('hw-hinge-vienna-180').active=false;render();const off=field();
+      DB.hardwareModel=DB.hardwareModel.filter(m=>m.id!=='hw-hinge-vienna-180');render();const gone=field();
+      sEdit=null;sDraft=null;render();return {listed,off,gone};
+    }), {listed:{selected:'Vienna 180',note:'from the hardware catalog'},
+      off:{selected:'Vienna 180',note:'this model is switched off in the catalog'},
+      gone:{selected:'Vienna 180',note:'this model is not in the catalog'}});
+    eq('у фигуры из DXF в категории только метки: своей геометрии в ERP нет', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');
+      sDraft.source={kind:'dxf',fileName:'d.dxf',fileSize:900,uploadedAt:'2026-08-31T10:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[20,0],[20,40],[0,40]],width16:320,height16:640}};
+      sDraft.w='20';sDraft.h='40';sDraft.thickness='10';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'d1',type:'patch',edgeId:'seg1',distance:4,modelId:'hw-patch-ph20',model:'PH20'})];
+      sManufacturingOpen=true;sManufacturingSelected='d1';render();
+      const root=document.getElementById('app');
+      const out={cutout:root.querySelectorAll('.shape-cutout').length,
+        marks:root.querySelectorAll('.shape-cut-group.marks').length,
+        cuts:root.querySelectorAll('.shape-cut-group.cuts').length,
+        kind:(root.querySelector('.shape-mi-kind')||{}).textContent,
+        title:(root.querySelector('.shape-mi-card b')||{}).textContent,
+        marker:[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent),
+        model:!!root.querySelector('.shape-mi-card.expanded select')};
+      sEdit=null;sDraft=null;render();return out;
+    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch #1 · PH20',marker:['PATCH 1 · PH20 · seg1 @ 4″'],model:true});
+    await t.c.close();
+
+    t = await page();
+    eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
+      function cyrillicUi(){
+        const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
+        while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('[data-raw]'))continue;const v=n.nodeValue.trim();if(/[А-Яа-яЁё]/.test(v))out.add(v);}
+        root.querySelectorAll('[placeholder],[title]').forEach(el=>{if(el.closest('[data-raw]'))return;['placeholder','title'].forEach(a=>{const v=el.getAttribute(a)||'';if(/[А-Яа-яЁё]/.test(v))out.add(a+': '+v);});});
+        return [...out];
+      }
+      setLang('en');
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'m1',type:'patch',edge:'left',distance:6}),
+        shapeNormalizeManufacturingItem({id:'m2',type:'hole',x:3,y:8,diameter:'3/4',hRef:'left',vRef:'bottom'})];
+      sDraft.features=[newShapeFeature('cutout',shapeDraftGeometry()),newShapeFeature('radius',shapeDraftGeometry())];
+      sManufacturingOpen=true;sManufacturingSelected='m1';render();
+      const editor=cyrillicUi();
+      sManufacturingCustomId='m1';render();const custom=cyrillicUi();
+      sManufacturingCustomId=null;sEdit=null;sDraft=null;
+      tab='masterdata';mdTab='hardware';render();const catalog=cyrillicUi();
+      mdHwKindNew();render();const kindForm=cyrillicUi();mdHwKindEdit=null;
+      mdHwModelNew();render();const modelForm=cyrillicUi();mdHwModelEdit=null;
+      mdTab='glass';setLang('ru');render();
+      return editor.concat(custom,catalog,kindForm,modelForm);
+    }), []);
     await t.c.close();
   }
 

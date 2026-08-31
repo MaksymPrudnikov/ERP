@@ -32,6 +32,7 @@
     "src/erp/data.js",
     "src/erp/shopfloor/data.js",
     "src/erp/masterdata/units.js",
+    "src/erp/masterdata/hardware.js",
     "src/erp/masterdata/glass-catalog.js",
     "src/erp/masterdata/glass.js",
     "src/erp/customers/data.js",

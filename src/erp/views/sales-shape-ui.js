@@ -5,6 +5,10 @@
    ===================================================================== */
 
 let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=true,sManufacturingPlace=null,sManufacturingSelected=null;
+/* Карточка, у которой открыт ввод своей модели. Состояние экрана, а не
+   данных: пока имя не вписано, «своя модель» и «модель не выбрана» выглядят
+   в записи одинаково — у обеих пустые id и имя. */
+let sManufacturingCustomId=null;
 
 /* Формы, принадлежащие строкам заказа, в библиотеке не показываются: каждая
    вставленная строка заводит свой прямоугольник, и двести строк заказа сделали
@@ -72,7 +76,11 @@ function setShapeExtraOut(id,k,v){
   refreshShapeEditor();
 }
 function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='cutting')return;sView=v;refreshShapeEditor();return;}sView=v;refreshShapeEditor();}
-function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features')sFeaturesOpen=!sFeaturesOpen;if(section==='manufacturing')sManufacturingOpen=!sManufacturingOpen;render();}
+/* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
+   «Geometry modifiers»), и одно и то же посадочное место можно было завести
+   двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
+   для старых вызовов и на разметку больше не влияет. */
+function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features'||section==='manufacturing'||section==='cutout')sManufacturingOpen=!sManufacturingOpen;render();}
 function toggleShapeFeatureCard(id){sFeatureExpandedId=sFeatureExpandedId===id?null:id;render();}
 
 function setShapeType(type){
@@ -90,8 +98,20 @@ function setShapeType(type){
    Shape revision and is visible on the Production Drawing, but it never changes
    the DXF/cutting contour. Commercial Services are calculated from the marks. */
 function shapeManufacturingItems(){if(!sDraft.manufacturingItems)sDraft.manufacturingItems=[];return sDraft.manufacturingItems;}
-function shapeManufacturingItemTitle(type){return type==='clamp'?'Clamp':type==='hinge'?'Hinge':type==='hole'?'Hole':type;}
-function shapeManufacturingShort(type){return type==='clamp'?'CLMP':type==='hinge'?'HNG':type==='hole'?'HOLE':String(type||'').toUpperCase();}
+/* Имя и короткий код вида приходят из справочника фурнитуры: там владелец
+   заводит пивоты и всё остальное сам. Hole в справочнике нет намеренно —
+   отверстие не фурнитура, у него своя единица и свой прайс по диаметру. */
+function shapeManufacturingItemTitle(type){
+  if(type==='hole')return 'Hole';
+  return hardwareKindIsKnown(type)?hardwareKindName(type):shapeMiOperationName(type);
+}
+function shapeManufacturingShort(type){return type==='hole'?'HOLE':hardwareKindShort(type);}
+/* Модель, как её видит цех. Пусто = модель ещё не выбрана: это не ошибка
+   расчёта, но по чертежу тогда непонятно, какой шаблон брать. */
+function shapeManufacturingModelName(item){return hardwareItemModelName(item);}
+/* Имя модели в подписи метки на чертеже: по нему человек в цеху берёт нужный
+   шаблон. Пустая модель — пустой хвост, лишнего разделителя не появляется. */
+function shapeMarkModelSuffix(item){var m=shapeManufacturingModelName(item);return m?' · '+m:'';}
 function shapeSnapManufacturing16(v){var n=+v;return isFinite(n)?Math.round(n*16)/16:NaN;}
 function shapeFrac16(v){
   var n=shapeSnapManufacturing16(v);if(!isFinite(n))return '';var sign=n<0?'-':'';n=Math.abs(n);var whole=Math.floor(n+1e-9),num=Math.round((n-whole)*16);if(num===16){whole++;num=0;}if(!num)return sign+String(whole);var a=num,b=16;while(b){var t=a%b;a=b;b=t;}num/=a;var den=16/a;return sign+(whole?whole+' ':'')+num+'/'+den;
@@ -127,7 +147,9 @@ function shapeSetManufacturingHoleDistance(id,axis,v){
   item.x=x;item.y=y;render();
 }
 function shapeManufacturingEdgeLabel(edge){return edge==='left'?'Left':edge==='right'?'Right':edge==='top'?'Top':'Bottom';}
-function shapeManufacturingEdgeOrigin(edge){return edge==='left'||edge==='right'?'от нижнего угла':'от левого угла';}
+/* Расстояние меряется от угла ДО ЦЕНТРА фурнитуры — требование владельца:
+   человек прикладывает шаблон по центру посадочного места, а не по краю. */
+function shapeManufacturingEdgeOrigin(edge){return edge==='left'||edge==='right'?'от нижнего угла до центра':'от левого угла до центра';}
 function shapeManufacturingEdgeDefs(g){
   if(!g||!Array.isArray(g.P)||g.P.length<3)return {};
   var segs=g.P.map(function(a,i){var b=g.P[(i+1)%g.P.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);return {a:a,b:b,dx:dx,dy:dy,len:len,mx:(a[0]+b[0])/2,my:(a[1]+b[1])/2,h:Math.abs(dx)>=Math.abs(dy)};}).filter(function(e){return e.len>1e-9;});
@@ -155,7 +177,7 @@ function shapeSetManufacturingDistance(id,v){
   var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item||item.type==='hole')return;var parsed=fabParseDimStrict(v),g=shapeManufacturingGeometry(),e=shapeManufacturingEdgeDef(item.edge,g);if(!parsed.ok||!e){alert('Enter a valid distance in inches.');render();return;}var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0||d>e.len+1e-9){alert('The distance must stay on the selected glass edge.');render();return;}item.distance=d;render();
 }
 function shapeStartManufacturingPlacement(type){
-  if(SHAPE_MANUFACTURING_ITEM_TYPES.indexOf(type)<0)return;
+  if(type!=='hole'&&!hardwareKindIsKnown(type))return;
   var r=shapeDraftResult();
   if(!shapeIsDxfSource(sDraft)&&!r.valid){alert('Fix the Shape geometry before placing a manufacturing item.');return;}
   sManufacturingOpen=true;sManufacturingPlace={type:type,diameter:type==='hole'?'3/4':''};sManufacturingSelected=null;sView='production';render();
@@ -169,6 +191,31 @@ function shapeSetManufacturingField(id,k,v){
   else item[k]=String(v==null?'':v);
   refreshShapeEditor();
 }
+/* ---------- Модель фурнитуры ----------
+   Владелец: «у него есть заготовленные шаблоны петель, он видит например
+   Vienna 180 и использует тот шаблон». Поэтому метка несёт название модели,
+   а не размеры выреза: размеры знает шаблон в руках человека.
+   `__custom` = модели нет в справочнике, имя вписывается руками. */
+const SHAPE_MI_CUSTOM_MODEL='__custom';
+function shapeManufacturingItemById(id){return shapeManufacturingItems().find(function(x){return x.id===id;})||null;}
+function shapeSetManufacturingModel(id,value){
+  var item=shapeManufacturingItemById(id);if(!item||item.type==='hole')return;
+  if(value===SHAPE_MI_CUSTOM_MODEL){sManufacturingCustomId=id;item.modelId='';render();return;}
+  sManufacturingCustomId=null;
+  if(!value){item.modelId='';item.model='';render();return;}
+  var row=hardwareModelById(value);
+  if(!row){alert('This hardware model is no longer in the catalog.');render();return;}
+  /* Имя кладётся снимком рядом с id: справочник переименуют, а принятый
+     заказ обязан показывать то, что заказывали. */
+  item.modelId=row.id;item.model=row.name;render();
+}
+function shapeSetManufacturingModelText(id,value){
+  var item=shapeManufacturingItemById(id);if(!item||item.type==='hole')return;
+  item.modelId='';item.model=String(value==null?'':value).trim().slice(0,60);
+  /* refreshShapeEditor, а не render: иначе поле теряет фокус на каждой букве. */
+  refreshShapeEditor();
+}
+function shapeManufacturingModelIsCustom(item){return hardwareItemIsCustomModel(item)||sManufacturingCustomId===(item&&item.id);}
 function shapeDxfPreviewTransform(source){
   source=shapeNormalizeSource(source);var P=source.preview.points||[];if(P.length<3)return null;
   var b=fabEdgeBounds(P),W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),vw=760,vh=390,padL=88,padR=88,padT=62,padB=72;
@@ -226,6 +273,9 @@ function shapeManufacturingMarkersSvg(source,T){
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
+    /* Свой значок нарисован только у зажима: у него другая посадка. Остальная
+       фурнитура, включая виды, добавленные владельцем, берёт общий значок —
+       что именно стоит, говорит подпись с кодом вида и именем модели. */
     if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-8' y='-8' width='16' height='16' rx='2'/><path d='M -3 -6 V 6 M 3 -6 V 6'/></g>`;
     else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-10' y='-6' width='20' height='12' rx='2'/><line x1='0' y1='-6' x2='0' y2='6'/><circle cx='-4' cy='0' r='1.5'/><circle cx='4' cy='0' r='1.5'/></g>`;
     var edge=item.edge||e.edge,sameEdgeIndex=items.slice(0,i).filter(function(x){return x.type!=='hole'&&x.edge===edge;}).length,lane=sameEdgeIndex%4;
@@ -238,7 +288,7 @@ function shapeManufacturingMarkersSvg(source,T){
         <line x1='${dimX}' y1='${y}' x2='${x}' y2='${y}' class='shape-mi-prod-guide'/>
         <text x='${textX}' y='${midY}' text-anchor='middle' transform='rotate(-90 ${textX} ${midY})'>${esc(shapeDim16(pt.distance||0))}</text>
       </g>`;
-      labelTextSvg=`<text x='${labelX}' y='${y-8}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
+      labelTextSvg=`<text data-raw x='${labelX}' y='${y-8}' text-anchor='${labelAnchor}'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+lane*18):T.Y(g.b.minY)+(30+lane*18),originX=T.X(e.start[0]),midX=(originX+x)/2,textY=dimY+(edge==='top'?-10:14),labelY=edge==='top'?y+18:y-10;
       dimSvg=`<g class='shape-mi-prod-dims'>
@@ -247,7 +297,7 @@ function shapeManufacturingMarkersSvg(source,T){
         <line x1='${x}' y1='${dimY}' x2='${x}' y2='${y}' class='shape-mi-prod-guide'/>
         <text x='${midX}' y='${textY}' text-anchor='middle'>${esc(shapeDim16(pt.distance||0))}</text>
       </g>`;
-      labelTextSvg=`<text x='${x+13}' y='${labelY}' text-anchor='start'>${esc(label)}</text>`;
+      labelTextSvg=`<text data-raw x='${x+13}' y='${labelY}' text-anchor='start'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     }
     return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
@@ -257,33 +307,85 @@ function shapeServiceEntries(){return shapeManufacturingItems().map(function(ite
 function shapeDerivedServices(){
   var groups=Object.create(null),invalid=[];
   shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type);if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty++;});
+  /* Геометрия из той же категории тоже становится начислением, поэтому и в
+     сводке она рядом: категория одна — итог по ней тоже один. У внешнего DXF
+     своей геометрии в ERP нет, там этот блок пуст. */
+  if(!shapeIsDxfSource(sDraft)){
+    var feats=(sDraft&&sDraft.features)||[];
+    var radius=feats.filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
+    if(radius)groups['feature:radius']={label:'Radius Corner',qty:radius};
+    var cutout=feats.filter(function(f){return f.type==='cutout';}).length;
+    if(cutout)groups['feature:cutout']={label:'Cutout',qty:cutout};
+  }
   return {rows:Object.keys(groups).map(function(k){return groups[k];}),invalid:invalid};
 }
 function shapeManufacturingServicesHTML(){
-  var svc=shapeDerivedServices();if(!svc.rows.length)return `<div class='shape-service-summary empty-service'><b>Services</b><span>Добавь Hole / Clamp / Hinge — количество и сервисы появятся здесь автоматически.</span></div>`;
+  var svc=shapeDerivedServices();if(!svc.rows.length)return `<div class='shape-service-summary empty-service'><b>Services</b><span>Добавь элемент в Cutout — количество и сервисы появятся здесь автоматически.</span></div>`;
   return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · автоматически из чертежа</b><small>Цена рассчитывается в Sales Order. Геометрия и количество здесь не являются денежными полями.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div></div>`;
 }
-function shapeManufacturingEditor(){
-  var items=shapeManufacturingItems(),placing=sManufacturingPlace,body=`<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("clamp")'>+ Clamp</button><button class='sm' onclick='shapeStartManufacturingPlacement("hinge")'>+ Hinge</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button><span>Clamp / Hinge привязываются к краю. Hole задаётся двумя размерными привязками с точностью 1/16″.</span></div>`;
-  if(placing)body+=`<div class='shape-mi-place'><b><span>${placing.moveId?'Переместить':'Добавить'}</span>: ${esc(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Кликни внутри стекла для стартовой точки, затем точно задай Left/Right и Top/Bottom.':'Кликни возле нужного края; элемент привяжется к Left / Right / Top / Bottom.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Отмена</button></div>`;
+/* ---------- Метки: Hole и фурнитура ----------
+   Кнопки видов приходят из справочника фурнитуры, а не из кода: владелец
+   добавляет пивот или что угодно ещё сам, и кнопка появляется сама. */
+function shapeMarksToolbarHTML(hint){
+  var kinds=hardwareKinds();
+  return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button>${kinds.map(function(k){
+    return `<button class='sm' onclick='shapeStartManufacturingPlacement("${esc(k.code)}")'>+ ${raw(hardwareKindName(k.code))}</button>`;
+  }).join('')}<span>${hint}</span></div>`;
+}
+/* Выбор модели. Владелец: «у него есть заготовленные шаблоны петель, он видит
+   например Vienna 180 и использует тот шаблон» — значит цеху нужно название, а
+   не размеры выреза.
+
+   Выбранная модель показывается ВСЕГДА, даже если её выключили в справочнике
+   или удалили оттуда: иначе принятый заказ молча потерял бы имя, по которому
+   цех берёт шаблон. Выключенная и пропавшая — это разные случаи, и подпись
+   под полем говорит, какой именно. */
+function shapeMarkModelFieldHTML(item){
+  if(item.type==='hole')return '';
+  var models=hardwareModelsFor(item.type),custom=shapeManufacturingModelIsCustom(item);
+  var current=custom?'':String(item.modelId||''),row=current?hardwareModelById(current):null;
+  var listed=!!row&&models.some(function(m){return m.id===current;});
+  var orphan=!!current&&!row,inactive=!!row&&!listed;
+  var chosen=custom||!!current;
+  var note=custom?'вписывается руками':(orphan?'модели нет в справочнике':(inactive?'модель выключена в справочнике':(models.length?'из справочника фурнитуры':'справочник этого вида пуст — впиши модель руками')));
+  var options=`<option value='' ${chosen?'':'selected'}>— не выбрана —</option>`+
+    (orphan||inactive?`<option value='${esc(current)}' selected data-raw>${esc(shapeManufacturingModelName(item)||current)}</option>`:'')+
+    models.map(function(m){return `<option value='${esc(m.id)}' ${current===m.id?'selected':''} data-raw>${esc(m.name)}</option>`;}).join('')+
+    `<option value='${SHAPE_MI_CUSTOM_MODEL}' ${custom?'selected':''}>Своя модель</option>`;
+  return `<label>Модель<select class='${chosen?'':'bad'}' onchange='shapeSetManufacturingModel("${esc(item.id)}",this.value)'>${options}</select><small>${note}</small></label>`+
+    (custom?`<label>Название модели<input data-raw value='${esc(item.model||'')}' placeholder='Vienna 180' oninput='shapeSetManufacturingModelText("${esc(item.id)}",this.value)'></label>`:'');
+}
+/* Метка на карточке. Дублирует подпись группы намеренно: группа уезжает вверх
+   при прокрутке, а ошибиться здесь стоит уехавшего файла раскроя. */
+function shapeCutFlagHTML(changesCut){
+  return changesCut?`<span class='shape-cut-flag cut'>меняет рез</span>`:`<span class='shape-cut-flag draw'>только чертёж</span>`;
+}
+function shapeMarkTitleHTML(item,i){
+  var model=shapeManufacturingModelName(item);
+  return `${raw(shapeManufacturingItemTitle(item.type))} #${i+1}${model?' · '+raw(model):''}`;
+}
+function shapeMarksBodyHTML(){
+  var items=shapeManufacturingItems(),placing=sManufacturingPlace;
+  var body=shapeMarksToolbarHTML('Hole — двумя привязками до центра, шаг 1/16″. Фурнитура встаёт на кромку: край и расстояние до её центра.');
+  if(placing)body+=`<div class='shape-mi-place'><b><span>${placing.moveId?'Переместить':'Добавить'}</span>: ${raw(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Кликни внутри стекла для стартовой точки, затем точно задай Left/Right и Top/Bottom.':'Кликни возле нужного края; элемент привяжется к Left / Right / Top / Bottom.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Отмена</button></div>`;
   var g=shapeManufacturingGeometry(),defs=shapeManufacturingEdgeDefs(g);
   body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){
     var expanded=item.id===sManufacturingSelected,d=item.type==='hole'?fabParseDimStrict(item.diameter):null,summary,fields;
     if(item.type==='hole'){
       var pos=shapeManufacturingHolePosition(item,g)||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};
-      summary='Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);
+      summary=`<span data-raw>${esc('Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance))}</span>`;
       fields=`<div class='shape-mi-hole-position-grid'>
         <div class='shape-mi-axis-card'><label>Горизонтальная привязка<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Расстояние до центра<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'><small>от ${pos.hRef==='right'?'правого':'левого'} габарита · 1/16″</small></label></div>
         <div class='shape-mi-axis-card'><label>Вертикальная привязка<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Расстояние до центра<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'><small>от ${pos.vRef==='top'?'верхнего':'нижнего'} габарита · 1/16″</small></label></div>
       </div><label>Диаметр<input id='mi_d_${esc(item.id)}' value='${esc(item.diameter)}' oninput='shapeSetManufacturingField("${esc(item.id)}","diameter",this.value)' onchange='render()'></label>`;
     }else{
-      var edge=item.edge||'left',ed=defs[edge],max=ed?shapeDim16(ed.len):'—';summary=`<span>${esc(shapeManufacturingEdgeLabel(edge))}</span> · <span data-raw>${esc(shapeDim16(item.distance||0))}</span> <span>${esc(shapeManufacturingEdgeOrigin(edge))}</span>`;
-      fields=`<div class='shape-mi-coordinate-grid'><label>Край стекла<select onchange='shapeSetManufacturingEdge("${esc(item.id)}",this.value)'>${['left','right','bottom','top'].map(function(k){return `<option value='${k}' ${edge===k?'selected':''}>${shapeManufacturingEdgeLabel(k)}</option>`;}).join('')}</select><small>элемент остаётся на finished edge</small></label><label><span>${edge==='left'||edge==='right'?'Расстояние от нижнего угла':'Расстояние от левого угла'}</span><input value='${esc(shapeFrac16(item.distance||0))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small><span>Длина края</span> <span data-raw>${esc(max)}</span> · 1/16″</small></label></div>`;
+      var edge=item.edge||'left',ed=defs[edge],max=ed?shapeDim16(ed.len):'—';
+      summary=`<span>${esc(shapeManufacturingEdgeLabel(edge))}</span> · <span data-raw>${esc(shapeDim16(item.distance||0))}</span> <span>${esc(shapeManufacturingEdgeOrigin(edge))}</span>`;
+      fields=shapeMarkModelFieldHTML(item)+`<div class='shape-mi-coordinate-grid'><label>Край стекла<select onchange='shapeSetManufacturingEdge("${esc(item.id)}",this.value)'>${['left','right','bottom','top'].map(function(k){return `<option value='${k}' ${edge===k?'selected':''}>${shapeManufacturingEdgeLabel(k)}</option>`;}).join('')}</select><small>элемент остаётся на finished edge</small></label><label><span>${edge==='left'||edge==='right'?'Расстояние от нижнего угла до центра':'Расстояние от левого угла до центра'}</span><input value='${esc(shapeFrac16(item.distance||0))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small><span>Длина края</span> <span data-raw>${esc(max)}</span> · 1/16″</small></label></div>`;
     }
-    var summaryMarkup=item.type==='hole'?esc(summary):summary;
-    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${item.type}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${esc(shapeManufacturingItemTitle(item.type))} #${i+1}</b><small>${summaryMarkup}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Примечание<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Выбрать на чертеже</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Удалить</button></div></div>`:''}</div>`;
+    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${shapeMarkTitleHTML(item,i)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Примечание<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Выбрать на чертеже</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Удалить</button></div></div>`:''}</div>`;
   }).join(''):'<div class="empty compact">Пока нет производственных элементов</div>'}</div>`;
-  return `<div class='shape-subsection shape-accordion shape-manufacturing'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("manufacturing")'><span><b>Manufacturing items</b><small>Clamp / Hinge = позиция на краю · Hole = Left/Right + Top/Bottom → Production Drawing → Service</small></span><span class='shape-accordion-state'>${items.length?items.length+' items':'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>${body}${shapeManufacturingServicesHTML()}</div>`:''}</div>`;
+  return body;
 }
 function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
@@ -783,10 +885,37 @@ function shapeFeatureSummary(f,geo){
   if(f.type==='hardware')return (f.name||'Hardware')+' · '+(f.edgeId||'—')+' @ '+f.distance;
   if(f.type==='stamp')return f.text||'Stamp';return '';
 }
-function shapeFeaturesEditor(geo){
-  var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Corner radius',hardware:'Legacy hardware prep',stamp:'Legacy stamp'};
+/* Геометрия, которая ДЕЙСТВИТЕЛЬНО меняет контур реза: внутренний вырез и
+   радиусный угол. Всё остальное в этой категории — метки на чертёж. */
+function shapeGeometryBodyHTML(geo){
+  var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Radius corner',hardware:'Legacy hardware prep',stamp:'Legacy stamp'};
   var count=sDraft.features.length,legacy=sDraft.features.filter(function(f){return f.type==='hole'||f.type==='hardware'||f.type==='stamp';}).length;
-  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("features")'><span><b>Geometry modifiers</b><small>Только то, что реально изменяет Cutting Shape: Cutout / Radius.</small></span><span class='shape-accordion-state'>${count?count+' элементов':'нет элементов'}<i>${sFeaturesOpen?'−':'+'}</i></span></button>${sFeaturesOpen?`<div class='shape-accordion-body'><div class='validation-box infobox compact-warning'>Hole / Clamp / Hinge добавляются только через Manufacturing items и не попадают в Cutting Shape.</div><div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius</button>`:''}</div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy cutting items: ${legacy}</b><span>Эти Hole / Hardware / Stamp были созданы старой логикой и действительно меняют Cutting Shape. Удали их или оставь только если это намеренная cutting geometry.</span></div>`:''}<div class='shape-feature-list'>${count?sDraft.features.map(function(f,i){var expanded=sFeatureExpandedId===f.id;return `<div class='shape-feature-card collapsed-card${expanded?' expanded':''}'><div class='shape-feature-card-head'><button type='button' class='shape-feature-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span><b>${esc(titles[f.type]||f.type)}</b><small>${esc(shapeFeatureSummary(f,geo))}</small></span><i>${expanded?'−':'+'}</i></button><button class='sm dl' onclick='removeShapeFeature(${i})'>×</button></div>${expanded?`<div class='shape-feature-fields'>${shapeFeatureFields(f,i,geo)}</div>`:''}</div>`;}).join(''):'<div class="empty compact">Geometry modifiers не добавлены</div>'}</div></div>`:''}</div>`;
+  return `<div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Internal cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius corner</button>`:''}<span>Эти элементы уходят в файл раскроя и на станок.</span></div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy cutting items: ${legacy}</b><span>Эти Hole / Hardware / Stamp были созданы старой логикой и действительно меняют Cutting Shape. Удали их или оставь только если это намеренная cutting geometry.</span></div>`:''}<div class='shape-feature-list'>${count?sDraft.features.map(function(f,i){
+    var expanded=sFeatureExpandedId===f.id;
+    return `<div class='shape-feature-card collapsed-card${expanded?' expanded':''}'><div class='shape-feature-card-head'><button type='button' class='shape-feature-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span><b>${esc(titles[f.type]||f.type)}</b><small>${shapeCutFlagHTML(true)}<span data-raw>${esc(shapeFeatureSummary(f,geo))}</span></small></span><i>${expanded?'−':'+'}</i></button><button class='sm dl' onclick='removeShapeFeature(${i})'>×</button></div>${expanded?`<div class='shape-feature-fields'>${shapeFeatureFields(f,i,geo)}</div>`:''}</div>`;
+  }).join(''):'<div class="empty compact">Изменений контура нет</div>'}</div>`;
+}
+/* ---------- Cutout — ОДНА категория ----------
+   Решение владельца 31 августа 2026: «давай сделаем это одной категорией
+   Cutout — там будут hinge clamp patch cutout radius corner», и следом «hole
+   тоже туда». Цех уже считает их одной семьёй: станция FAB описана как работа
+   по ТЕЛУ стекла (hole · notch · cutout · radius · hinge · clamp), в отличие
+   от EDGE — работы по периметру (erp/shopfloor/data).
+
+   Плоским списком свести нельзя, и это не оформление: половина элементов
+   меняет файл раскроя, а половина нет. Перепутанная кнопка означала бы молча
+   уехавший рез — деталь приедет с вырезом, которого никто не заказывал.
+   Поэтому внутри категории две подписанные группы плюс метка на карточке.
+
+   Редактор ОДИН на оба источника. У фигуры из DXF своей геометрии в ERP нет —
+   контур принадлежит файлу из Fusion 360, — поэтому вторая группа там просто
+   не показывается; список меток для DXF подменяет shape-production-ui. */
+function shapeCutoutEditor(geo){
+  var external=shapeIsDxfSource(sDraft),marks=shapeManufacturingItems().length,cuts=external?0:(sDraft.features||[]).length,total=marks+cuts;
+  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Cutout</b><small>Hole · фурнитура · вырез · радиусный угол</small></span><span class='shape-accordion-state'>${total?esc(total+' элементов'):'нет элементов'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
+    <div class='shape-cut-group marks'><div class='shape-cut-group-head'><b>Не меняет рез</b><small>чертёж и цена · в файл раскроя не уходит</small></div>${shapeMarksBodyHTML()}</div>
+    ${external?'':`<div class='shape-cut-group cuts'><div class='shape-cut-group-head'><b>Меняет форму реза</b><small>уходит в раскрой и на станок</small></div>${shapeGeometryBodyHTML(geo)}</div>`}
+    ${shapeManufacturingServicesHTML()}</div>`:''}</div>`;
 }
 function shapeArtifacts(r){
   if(r.externalFile)return `<div class='shape-artifacts dxf-source'><b>Файл раскроя текущей ревизии</b><span>DXF из Fusion 360 используется как внешний файл раскроя. ERP хранит метаданные, превью-контура и габариты, но не хранит исходное содержимое DXF и не может скачать файл повторно.</span><small>ERP-экспорт Production SVG, Cutting SVG, Machine JSON и Generic DXF для этой ревизии отключён: он не должен подменять внешний раскрой.</small></div>`;
@@ -803,7 +932,7 @@ function shapeForm(){
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
-  var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeManufacturingEditor()}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeManufacturingEditor()}${shapeEdgeworkEditor()}${shapeFeaturesEditor(geo)}`;
+  var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
   var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
