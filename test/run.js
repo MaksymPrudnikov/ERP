@@ -591,9 +591,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
       return { steep, plain };
     });
-    /* Подпись уклона относится ко ВСЕМУ участку, поэтому стоит по его середине
-       и вынесена наружу перпендикулярно. У конца она жалась к углу и к соседним
-       размерам. */
+    /* Подпись уклона стоит в ЦЕНТРЕ ЗАЗОРА между пунктирной базой и ребром, на
+       уровне того конца, где зазор шире всего: там уход физически виден — между
+       отвесом/уровнем и стеклом. Сверено с эталонным чертежом: у наклонной с
+       низким концом на 470 и базой на 110 подпись стоит на 290, ровно посередине.
+       Ни центр линии, ни сам конец не годятся: по центру число повисает вдоль
+       ребра, у конца садится на угол. */
     const calloutAtEnd = await p.evaluate(() => {
       const prevTab = tab, prevSub = subtab;
       tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
@@ -619,8 +622,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         toMiddle: Math.round(d((L.x1+L.x2)/2, (L.y1+L.y2)/2))
       };
     });
-    ok('выноска уклона стоит по центру ребра, а не с краю',
-      calloutAtEnd && calloutAtEnd.toMiddle < calloutAtEnd.toNearestEnd, JSON.stringify(calloutAtEnd));
+    ok('выноска уклона стоит у конца скоса, в зазоре до базы',
+      calloutAtEnd && calloutAtEnd.toNearestEnd < calloutAtEnd.toMiddle, JSON.stringify(calloutAtEnd));
 
     eq('подписи не затирают друг друга на крутом скосе', legible.steep.hits, 0);
     eq('и ни одна не ложится на контур', legible.steep.onLine, 0);
