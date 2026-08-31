@@ -1509,7 +1509,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       if(m.panes.length<2)m.panes.push(salesDefaultPane(1));m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;m.panes[1].glassProductId='';m.panes[1].thicknessMm=12;
       salesOrderConfigureShape(0);sDraft.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];const mixed=ShapeModule.compute(sDraft);
       return {th12,allow12,th10,allow10,mixedThickness:sDraft.thickness,mixedValid:mixed.valid,mixedError:(mixed.errors||[]).join(' | ')};
-    }), {th12:'12',allow12:3/16,th10:'10',allow10:1/8,mixedThickness:'',mixedValid:false,mixedError:'Glass thickness for edge-processing allowance must come from the selected Sales Makeup.'});
+    /* Пакет из разных стёкол больше не закрывается: раньше одной безопасной
+       толщины у него не было, теперь каждый лайт считается со своей, а общая
+       форма показывает худший случай припуска — самое толстое стекло юнита. */
+    }), {th12:'12',allow12:3/16,th10:'10',allow10:1/8,mixedThickness:'12',mixedValid:true,mixedError:''});
     await t.c.close();
   }
 
