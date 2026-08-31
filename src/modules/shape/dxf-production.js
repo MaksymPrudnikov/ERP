@@ -63,14 +63,23 @@ function shapeValidateEdgeOperations(ops,edgeId){
 }
 
 /* Не используем нулевой fallback там, где технологическая таблица неизвестна. */
+/* Цеховые значения припуска, подтверждены владельцем 31 августа 2026 — из
+   кода их вывести нельзя.
+   Rough Arris = 0 ВСЕГДА: ручная зачистка фаски контур не съедает, она только
+   делает кромку безопасной, поэтому лист под неё не увеличивается никогда. */
 function shapeProductionAllowanceRule(op,thicknessMm){
   var type=typeof op==='string'?op:(op&&op.type)||'',mm=Number(thicknessMm);
   if(type==='Rough Arris')return {ok:true,value:0};
-  if(type==='CNC Shape Polish')return {ok:true,value:.25};
+  /* Толстое стекло полируется с большим съёмом: до 15 mm — 1/4", 15–19 — 1/2". */
+  if(type==='CNC Shape Polish'){
+    if(mm>=15&&mm<=19)return {ok:true,value:.5};
+    return {ok:true,value:.25};
+  }
   if(type==='Flat Polish'||type==='Mitering'||type==='Beveling'){
     if(mm>=3&&mm<=6)return {ok:true,value:1/16};
     if(mm>=8&&mm<=10)return {ok:true,value:1/8};
     if(mm>=12&&mm<=15)return {ok:true,value:3/16};
+    if(mm>=16&&mm<=19)return {ok:true,value:.5};
     return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
   }
   return {ok:true,value:0};

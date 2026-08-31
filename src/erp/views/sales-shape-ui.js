@@ -6,8 +6,12 @@
 
 let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=true,sManufacturingPlace=null,sManufacturingSelected=null;
 
+/* Формы, принадлежащие строкам заказа, в библиотеке не показываются: каждая
+   вставленная строка заводит свой прямоугольник, и двести строк заказа сделали
+   бы этот список нечитаемым. Открываются они из своей строки. */
 function viewShapeSkill(){
-  var rows=DB.shapeDef.map(function(s,i){
+  var rows=DB.shapeDef.map(function(s,i){return {s:s,i:i};}).filter(function(x){return !salesShapeIsLineOwned(x.s);}).map(function(x){
+    var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
     var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
@@ -19,8 +23,8 @@ function viewShapeSkill(){
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
 }
 
-function openShapeNew(type){sEdit='new';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
-function openShapeEdit(i){sEdit=i;sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
+function openShapeNew(type){sEdit='new';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
+function openShapeEdit(i){sEdit=i;sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
 function shapeFileSizeText(bytes){
   var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
 }
@@ -537,17 +541,175 @@ function shapeGenericControls(){
 function shapeGroups(){var g=shapeDraftGeometry();return g.ok?shapeEdgeGroups(g):[];}
 function shapeGroupAt(i){return shapeGroups()[i]||null;}
 function shapeOperationAt(groupIndex,type){var g=shapeGroupAt(groupIndex);if(!g)return null;return ((sDraft.edgeOps||{})[g.id]||[]).find(function(x){return x.type===type;})||null;}
+/* Rough Arris, Flat Polish и CNC Shape Polish — взаимоисключающие базовые
+   обработки: на кромке может быть ровно одна. Выбор новой ПОДМЕНЯЕТ прежнюю,
+   а не добавляется к ней. Раньше кнопка просто дописывала операцию, и выбор
+   CNC поверх уже стоявшей полировки давал ошибку «mutually exclusive
+   finishes» и блокировал рез — вместо того, чтобы сделать очевидное. */
+/* Переключатель обработки кромки ОДИН на проект: раньше рядом жило второе
+   определение в shape-production-ui.js, и правки в этом расходились с тем, что
+   реально работало. Логика значений по умолчанию и взаимного исключения
+   базовых обработок — в shapeProdToggleOps. */
 function toggleShapeEdgeOp(groupIndex,opIndex,on){
-  var g=shapeGroupAt(groupIndex),type=SHAPE_EDGE_OPS[opIndex];if(!g||!type)return;if(!sDraft.edgeOps)sDraft.edgeOps={};var list=(sDraft.edgeOps[g.id]||[]).slice();
-  list=list.filter(function(x){return x.type!==type;});if(on)list.push(shapeNormalizeOp({type:type}));if(list.length)sDraft.edgeOps[g.id]=list;else delete sDraft.edgeOps[g.id];render();
+  var g=shapeGroupAt(groupIndex),type=SHAPE_EDGE_OPS[opIndex];if(!g||!type)return;
+  /* Выбран конкретный лайт — пишем в его обработку, она перекрывает общую. */
+  var store=sEdgeLite==null?(sDraft.edgeOps||(sDraft.edgeOps={})):shapeLiteOpsDraft(sEdgeLite,g.id).edgeOps;
+  var list=shapeProdToggleOps(store[g.id]||[],type,on);
+  if(list.length)store[g.id]=list;else delete store[g.id];
+  /* «Все лайты» означает ВСЕ: правка на этой вкладке снимает собственную
+     обработку лайтов по этой кромке, иначе выбор молча не срабатывал бы —
+     у лайта своя обработка сильнее общей. Отступ лайта не трогаем: это
+     геометрия, а не кромка. */
+  if(sEdgeLite==null&&sDraft.lites)Object.keys(sDraft.lites).forEach(function(key){
+    var spec=sDraft.lites[key];
+    if(spec&&spec.edgeOps&&spec.edgeOps[g.id])delete spec.edgeOps[g.id];
+  });
+  render();
 }
 function setShapeOpParam(groupIndex,type,k,v){var op=shapeOperationAt(groupIndex,type);if(op)op[k]=v;refreshShapeEditor();}
+/* Раскладка формы по лайтам. Ступенчатый пакет: у первого стекла контур формы,
+   а второе меньше на отступ — поэтому у лайта есть свой inset по кромкам и своя
+   обработка. Пока выбран «Все лайты», правится общая обработка формы. */
+/* объявлено var, а не let: sales/orders.js загружается раньше и сбрасывает
+   вкладку при открытии формы из строки заказа. */
+var sEdgeLite=null;
+function shapeEditorLites(){
+  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return [];
+  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm};}):[];
+}
+function setShapeEdgeLite(v){sEdgeLite=v===''||v==null?null:+v;render();}
+function shapeLiteOpsDraft(liteIndex,edgeId){
+  if(!sDraft.lites)sDraft.lites={};
+  var key=String(liteIndex);
+  if(!sDraft.lites[key])sDraft.lites[key]={inset:{},edgeOps:{}};
+  if(!sDraft.lites[key].edgeOps)sDraft.lites[key].edgeOps={};
+  if(!sDraft.lites[key].inset)sDraft.lites[key].inset={};
+  return sDraft.lites[key];
+}
+function setShapeLiteInset(groupIndex,value){
+  var g=shapeGroupAt(groupIndex);if(!g||sEdgeLite==null)return;
+  var spec=shapeLiteOpsDraft(sEdgeLite,g.id),t=String(value==null?'':value).trim();
+  if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
+  refreshShapeEditor();
+}
+/* Кромка без базовой обработки уйдёт в производство с той, что задана на
+   стекле строки (арис до 8 mm, полировка от 10 mm). Всё, что задано ЗДЕСЬ, —
+   база номер один и её перекрывает; подсказка показывает, что применится,
+   если тут не трогать ничего. */
+function shapeBaseEdgeworkHint(has){
+  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return '';
+  if(SHAPE_PRIMARY_FINISHES.some(function(t){return has(t);}))return '';
+  var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
+  var kind=line?salesLineBaseEdgeworkKind(line):'';
+  return kind?`<small class='shape-edge-base' title='${esc(glassBaseEdgeworkLabel(kind))}'><span>от стекла</span> <span data-raw>${esc(kind==='polish'?'Flat':'Rough')}</span></small>`:'';
+}
+/* Вкладки лайтов: «Все лайты» правит общую обработку формы, вкладка лайта —
+   его отступ и его кромку. Показываем только когда лайтов больше одного. */
+/* Открыта СВОЯ форма лайта — говорим об этом в шапке редактора, а не внутри
+   свёрнутой секции кромок, иначе подсказку не видно. */
+function shapeLiteBanner(){
+  if(!salesBridge||salesBridge.kind!=='shape'||salesBridge.liteIndex==null)return '';
+  return `<div class='shape-lite-note own'>Это собственная форма <b>Lite ${salesBridge.liteIndex+1}</b> строки заказа. Остальные лайты живут на общей форме строки.</div>`;
+}
+function shapeEdgeLiteTabs(){
+  if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
+  var lites=shapeEditorLites();
+  if(lites.length<2)return '';
+  return `<div class='shape-lite-tabs'><button type='button' class='${sEdgeLite==null?'on':''}' onclick='setShapeEdgeLite("")'>Все лайты</button>`
+   +lites.map(function(l){
+     var spec=(sDraft.lites||{})[String(l.index)]||{},marks=Object.keys(spec.inset||{}).length+Object.keys(spec.edgeOps||{}).length;
+     return `<button type='button' class='${sEdgeLite===l.index?'on':''}' onclick='setShapeEdgeLite(${l.index})'>${esc(l.label)}${l.mm?' · '+esc(l.mm)+' mm':''}${marks?' <i>'+marks+'</i>':''}</button>`;
+    }).join('')
+   +`</div><div class='shape-lite-note'>${sEdgeLite==null?'Общая обработка формы: действует на все лайты, если у лайта не задано своё.':'Обработка этого стекла. Пусто = берётся общая обработка формы или базовая кромка стекла. Геометрия лайта — в секции «Лайты юнита».'}</div>`;
+}
+/* ---------- Лайты: разделение юнита ----------
+   Стекла в юните почти всегда повторяют одну фигуру, поэтому раздельная
+   геометрия — исключение, и место ему на виду, а не внутри обработки кромок.
+   Здесь три ответа на вопрос «чем это стекло отличается»:
+   · зеркало — та же фигура, перевёрнутая (Low-E на #2 и любой другой случай);
+   · отступ — тот же контур, но стекло уже на заданную величину по кромкам;
+   · своя форма — контур, который отступом не описывается. */
+var sLiteSplitOpen=false;
+function toggleShapeLiteSplit(){sLiteSplitOpen=!sLiteSplitOpen;render();}
+function setShapeLiteMirror(liteIndex,on){
+  var spec=shapeLiteOpsDraft(liteIndex,null);
+  spec.mirror=!!on;
+  if(!spec.mirror&&!Object.keys(spec.inset).length&&!Object.keys(spec.edgeOps).length)delete sDraft.lites[String(liteIndex)];
+  render();
+}
+/* Маленький контур для карточки лайта и для строки в окне кромки: без него
+   зеркало и отступ никак не проверить — на общем чертеже формы они не видны,
+   потому что описывают отдельное стекло, а не саму форму. */
+function shapeMiniContourSvg(points,cls){
+  var P=(points||[]).filter(function(p){return p&&isFinite(p[0])&&isFinite(p[1]);});
+  if(P.length<3)return '';
+  var b=fabEdgeBounds(P),W=Math.max(.01,b.maxX-b.minX),H=Math.max(.01,b.maxY-b.minY);
+  var vw=88,vh=64,pad=6,sc=Math.min((vw-pad*2)/W,(vh-pad*2)/H);
+  var ox=(vw-W*sc)/2,oy=(vh-H*sc)/2;
+  var d=P.map(function(p,i){return (i?'L ':'M ')+(ox+(p[0]-b.minX)*sc).toFixed(2)+' '+(vh-oy-(p[1]-b.minY)*sc).toFixed(2);}).join(' ')+' Z';
+  return `<svg class='shape-mini ${cls||''}' viewBox='0 0 ${vw} ${vh}' aria-hidden='true'><path d='${d}'/></svg>`;
+}
+/* Контур конкретного лайта прямо из редактора: своя форма → её контур, иначе
+   контур формы с отступом лайта; зеркало применяется последним. */
+function shapeLiteContourPoints(liteIndex){
+  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  var own=line?salesLineLiteShape(line,liteIndex):null;
+  var def=own||sDraft,r=def?ShapeModule.compute(def):null;
+  if(!r||!r.valid||!r.cutting||!r.cutting.finishedPoints)return null;
+  var pts=r.cutting.finishedPoints.map(function(p){return p.slice();});
+  if(!own){
+    var groups=shapeGroups(),insets=groups.map(function(g){return shapeLiteInsetFor(sDraft,liteIndex,g.id);});
+    if(insets.some(function(v){return v>0;})&&insets.length===pts.length){
+      var inner=shapeInsetVariable(pts,insets);
+      if(inner.valid)pts=inner.points;
+    }
+  }
+  if(shapeLiteMirrored(sDraft,liteIndex)){
+    var bb=fabEdgeBounds(pts),sum=bb.minX+bb.maxX;
+    pts=pts.map(function(p){return [sum-p[0],p[1]];});
+  }
+  return pts;
+}
+function shapeLiteSplitEditor(){
+  if(salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)return '';
+  var lites=shapeEditorLites();
+  if(lites.length<2)return '';
+  var line=(typeof soDraft!=='undefined'&&soDraft&&salesBridge)?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+  var groups=shapeGroups(),changed=0;
+  var rows=lites.map(function(l){
+    var spec=(sDraft.lites||{})[String(l.index)]||{},own=line?salesLineLiteShape(line,l.index):null;
+    var insetCount=Object.keys(spec.inset||{}).length;
+    if(own||spec.mirror||insetCount)changed++;
+    var state=own?`<span class='pill info' data-raw>${esc(own.name)}</span>`
+      :(spec.mirror?`<span class='pill info'>Зеркало</span>`:'')+(insetCount?`<span class='pill info'>Отступ</span>`:'')||`<span class='pill'>Как у формы</span>`;
+    var actions=own
+      ? `<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Открыть</button><button type='button' class='sm dl' onclick='salesReattachLiteShape("${esc(line.id)}",${l.index})'>Вернуть на общую</button>`
+      : `<label class='shape-lite-mirror'><input type='checkbox' ${spec.mirror?'checked':''} onchange='setShapeLiteMirror(${l.index},this.checked)'><span>Зеркало</span></label>`
+        +(line?`<button type='button' class='sm' onclick='salesOpenLiteShape("${esc(line.id)}",${l.index})'>Своя форма</button>`:'');
+    var insets=own?'':`<div class='shape-lite-insets'><span>Отступ по кромкам</span>${groups.map(function(g,gi){
+      var v=(spec.inset||{})[g.id]||'';
+      return `<label><b>${esc(g.id)}</b><input value='${esc(v)}' placeholder='0' onchange='setShapeLiteInsetFor(${l.index},${gi},this.value)'></label>`;
+     }).join('')}</div>`;
+    var thumb=shapeMiniContourSvg(shapeLiteContourPoints(l.index),(spec.mirror?'mirrored':''));
+    return `<div class='shape-lite-card'><div class='shape-lite-card-head'>${thumb}<b>${esc(l.label)}</b><small>${l.mm?esc(l.mm)+' mm':''}</small>${state}<span class='sp'></span>${actions}</div>${insets}</div>`;
+  }).join('');
+  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeLiteSplit()'><span><b>Лайты юнита</b><small>зеркало · отступ · своя форма</small></span><span class='shape-accordion-state'>${changed?`<span data-raw>${changed}</span> с отличиями`:'все по общей форме'}<i>${sLiteSplitOpen?'−':'+'}</i></span></button>${sLiteSplitOpen?`<div class='shape-lite-cards'>${rows}</div>`:''}</div>`;
+}
+/* Отступ конкретного лайта: тот же ввод, что и в колонке кромок, но заданный
+   явно для лайта — вкладку переключать не нужно. */
+function setShapeLiteInsetFor(liteIndex,groupIndex,value){
+  var g=shapeGroupAt(groupIndex);if(!g)return;
+  var spec=shapeLiteOpsDraft(liteIndex,g.id),t=String(value==null?'':value).trim();
+  if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
+  render();
+}
 function shapeEdgeworkEditor(){
   var groups=shapeGroups();if(!groups.length)return `<div class='validation-box badbox'>Сначала исправь основной контур — кромки не определены.</div>`;
   var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
-  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Обработка кромок</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'без обработки'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'><div class='shape-edgework-row shape-edgework-labels'><span>Кромка</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
-    var ops=(sDraft.edgeOps||{})[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn(g.length)}</small></span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+  return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Обработка кромок</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'без обработки'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Кромка</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
+    var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 

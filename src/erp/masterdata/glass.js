@@ -50,6 +50,20 @@
 
 const MATERIAL_AVAILABILITY=['stock','order','special','inactive'];
 const GLASS_SUBSTRATES=['clear','low_iron','tinted','patterned','wired'];
+/* Базовая кромка стекла. Правило владельца 31 августа 2026: Rough Arris до
+   8 mm, Flat Polish от 10 mm. CNC базовой кромкой не бывает — это исключение и
+   задаётся на форме. Пустое значение = авто по толщине; на продукте оно
+   переопределяется руками: зеркалам 5/6 mm ставят полировку, потому что
+   клиенты чаще заказывают именно её. */
+const GLASS_BASE_EDGEWORK=['','arris','polish'];
+function glassAutoBaseEdgework(mm){const v=+mm;return Number.isFinite(v)&&v>=10?'polish':'arris';}
+function glassBaseEdgework(product){
+ if(!product)return '';
+ const set=GLASS_BASE_EDGEWORK.includes(product.baseEdgework)?product.baseEdgework:'';
+ return set||glassAutoBaseEdgework(product.thicknessMm);
+}
+function glassBaseEdgeworkLabel(kind){return kind==='polish'?'Flat Polish':kind==='arris'?'Rough Arris':'—';}
+function glassBaseEdgeworkOp(kind){return kind==='polish'?{type:'Flat Polish'}:kind==='arris'?{type:'Rough Arris'}:null;}
 const GLASS_COATING_FAMILIES=['uncoated','lowe','reflective'];
 const GLASS_TEMPER_MODES=['temperable','temper_required','annealed_only','unknown'];
 /* exposure_rule определяется СПОСОБОМ НАНЕСЕНИЯ, а не эмиссивностью:
@@ -127,6 +141,7 @@ function normalizeGlassProduct(p){
   exposureRule:GLASS_EXPOSURE_RULES.includes(p.exposureRule)?p.exposureRule:'any',
   allowedSurfaces:normalizeSurfaceList(p.allowedSurfaces),
   edgeDeletion:p.edgeDeletion===true,
+  baseEdgework:GLASS_BASE_EDGEWORK.includes(p.baseEdgework)?p.baseEdgework:'',
   deposition:GLASS_DEPOSITIONS.includes(p.deposition)?p.deposition:'',
   stocked:p.stocked===true,
   legacyCode:mdString(p.legacyCode),note:mdString(p.note),

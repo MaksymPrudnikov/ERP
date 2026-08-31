@@ -102,6 +102,7 @@ function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['v
 function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
 function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
 function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesSimpleOptions('heatTreatment',p.heatTreatmentId)}</select></div>`;}
+
 /* Surface buttons need literal calls; keeping this helper separate avoids
    generating unsafe/eval-style handlers. */
 function salesFritSurfaceSelector(p,index){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Frit Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.frit.surface===n?'on':''}" onclick="salesPaneSetFrit(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;}
@@ -178,6 +179,8 @@ function salesLaminatedInterlayers(p,index){
   return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesSimpleOptions('interlayerProduct',layer.productId)}</select></div><div><label>Layers / Actual Thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><button type="button" class="mu-lam-film-remove" title="Remove film" ${rows.length<=1?'disabled':''} onclick="salesPaneRemoveLamInterlayer(${index},${slot})">×</button></div>`;
  }).join('')}</div>`;
 }
+/* У ламината кромка ОДНА на всю склейку — плёнка её не делит, поэтому выбор
+   стоит один на лайт, а не по плёнкам. */
 function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
 function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span></summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
 function salesCavitySection(c,index){

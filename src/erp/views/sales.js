@@ -25,6 +25,10 @@ function salesOrderEditor(){
 }
 function salesLineShapeCell(l,i){
  const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
+ /* Простой прямоугольник строки — это её собственная геометрия, а не выбранная
+    из библиотеки форма: в таблице он не занимает место именем, а зовёт туда,
+    где правится геометрия и кромка. */
+ if(salesShapeIsLineRect(s))return `<div class="line-config-cell"><button class="line-link-btn rect" title="Rectangle from Width × Height — open to change geometry or edgework" onclick="salesOrderConfigureShape(${i})">Rect</button></div>`;
  const currentRev=s.revision||0,stale=l.shapeRef.revision!=null&&currentRev!==l.shapeRef.revision;return `<div class="line-config-cell"><button class="line-link-btn ${stale?'stale':'linked'}" onclick="salesOrderConfigureShape(${i})">${esc(s.name)}${stale?' · stale':''}</button><button class="line-x" title="Unlink" onclick="salesUnlinkShape(${i})">×</button></div>`;
 }
 function salesLineMuntinCell(l,i){

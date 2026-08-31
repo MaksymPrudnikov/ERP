@@ -18,7 +18,7 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -165,9 +165,19 @@ function salesCavitySetWidth(i,size){
 function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!(l.muntinRef&&l.muntinRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
 function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
-function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+/* Форма принадлежала строке — уходит вместе с ней. */
+function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);salesDropLineOwnedShape(soDraft.lines[i]);const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
-function salesLineDimChange(i,key,el){const n=salesDimTo16(el.value);if(!n){soDraft.lines[i][key+'16']=null;el.classList.add('bad');return;}soDraft.lines[i][key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');}
+function salesLineDimChange(i,key,el){
+ const line=soDraft.lines[i],n=salesDimTo16(el.value);
+ if(!n){line[key+'16']=null;el.classList.add('bad');return;}
+ line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
+ /* Размеры появились или изменились — заводим/двигаем форму строки. */
+ /* Форма заводится/двигается молча: render() здесь увёл бы каретку из строки
+    при переходе Tab между Width, Height и Mark. */
+ if(!salesEnsureLineShape(line))salesSyncShapeFromLine(line);
+ touch();
+}
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
@@ -558,7 +568,12 @@ function salesExcelApply(){
   const v=salesExcelValidateRow(row);
   if(v.blank)return;
   if(!v.ok||!v.mu){keep.push(row);return;}
-  soDraft.lines.push(normalizeSalesOrderLine({makeupId:v.mu.id,serviceSetId:v.set?v.set.id:'',qty:v.qty,width16:v.width16,height16:v.height16,mark:v.mark}));
+  const fresh=normalizeSalesOrderLine({makeupId:v.mu.id,qty:v.qty,width16:v.width16,height16:v.height16,mark:v.mark});
+  soDraft.lines.push(fresh);
+  salesEnsureLineShape(fresh);
+  /* Колонка Set в буфере — это рецепт: операции ложатся в форму строки, ссылки
+     на строке не остаётся. */
+  if(v.set)salesApplySetOpsToShape(fresh,v.set);
   added++;
  });
  if(!added)return;
@@ -588,6 +603,16 @@ const SALES_SERVICE_RATE_TABLE={
  hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
  roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15}
 };
+/* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
+   ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
+   разных стекла и две разные ставки. */
+function salesPricingBandFor(mm){
+ const t=+mm;
+ if(t===6)return {ok:true,thickness:t,band:'6'};
+ if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
+ if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
+ return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
+}
 function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t===6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
@@ -679,15 +704,279 @@ function salesApplyLineGlassThicknessToShape(line,shape){
 function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s),ready=r&&(r.valid||(r.externalFile&&r.sourceValid));return s&&ready?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
 function salesMuntinRefFrom(m){return m?{id:m.id,shapeId:m.shapeId||'',shapeRevision:m.shapeRevision==null?null:m.shapeRevision}:{id:'',shapeId:'',shapeRevision:null};}
 function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s),external=r&&r.externalFile&&r.sourceValid;if(!r||(!r.valid&&!external))return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);if(line.muntinRef&&line.muntinRef.id&&line.muntinRef.shapeId!==s.id)line.muntinRef=normalizeMuntinRef({});return true;}
+/* ---------- Геометрия строки: всегда настоящий прямоугольник ----------
+   Раньше строка без формы считалась «неявным прямоугольником» — отдельной
+   веткой расчёта, у которой кромки не было в принципе. Из-за этого кромку
+   приходилось держать в Edgework Set, а он спорил с формой и переживал её
+   смену. Теперь у строки с размерами появляется НАСТОЯЩАЯ форма-прямоугольник,
+   кромка живёт на ней, и менять её можно там же, где и всю геометрию.
+
+   Форма принадлежит строке (`ownerLineId`): в библиотеку форм она не
+   показывается и удаляется вместе со строкой. Пока форма остаётся
+   прямоугольником, ХОЗЯИН РАЗМЕРОВ — строка: ввод в таблице и вставка из Excel
+   пишут в форму. Как только форму превратили в скошенную, с вырезом или
+   загрузили DXF — хозяином становится форма, а поля размера в строке
+   блокируются, как и раньше. */
+function salesShapeIsLineOwned(s){return !!(s&&s.ownerLineId);}
+function salesShapeIsLineRect(s){
+ return !!(salesShapeIsLineOwned(s)&&s.type==='rectangle'&&!(s.features||[]).length&&!shapeIsDxfSource(s));
+}
+function salesLineOwnsDimensions(line){
+ const s=salesShapeByRef(line&&line.shapeRef);
+ return !s||salesShapeIsLineRect(s);
+}
+function salesEnsureLineShape(line){
+ if(!soDraft||!line)return null;
+ const current=salesShapeByRef(line.shapeRef);
+ if(current)return current;
+ if(!(salesStoredDim16(line.width16)&&salesStoredDim16(line.height16)))return null;
+ const def=newShapeDef('rectangle');
+ def.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+((soDraft.lines||[]).indexOf(line)+1)));
+ def.w=salesDimFrom16(line.width16);def.h=salesDimFrom16(line.height16);
+ def.ownerLineId=line.id;
+ salesApplyLineGlassThicknessToShape(line,def);
+ const saved=normalizeShapeDef(def);
+ DB.shapeDef.push(saved);
+ line.shapeRef=normalizeShapeRef({id:saved.id,revision:saved.revision||0});
+ return saved;
+}
+/* Размер правится в строке — форма обязана поехать следом, иначе рез посчитают
+   по старой геометрии. */
+function salesSyncShapeFromLine(line){
+ const s=salesShapeByRef(line&&line.shapeRef);
+ if(!salesShapeIsLineRect(s))return false;
+ const w=salesDimFrom16(line.width16),h=salesDimFrom16(line.height16);
+ if(!w||!h)return false;
+ if(s.w===w&&s.h===h)return false;
+ s.w=w;s.h=h;s.revision=Math.max(0,Math.floor(+s.revision||0))+1;
+ line.shapeRef=normalizeShapeRef({id:s.id,revision:s.revision});
+ return true;
+}
+function salesEnsureAllLineShapes(){
+ if(!soDraft)return 0;
+ let made=0;
+ (soDraft.lines||[]).forEach(function(line){
+  if(salesEnsureLineShape(line))made++;else salesSyncShapeFromLine(line);
+  salesMigrateLineEdgeworkToShape(line);
+ });
+ return made;
+}
+/* Старые заказы: обработка, которая жила в Edgework Set и в ручных правках
+   строки, один раз переезжает в форму — иначе сохранённый заказ потерял бы
+   кромку вместе с отменой этих двух источников. Правки строки ложатся поверх
+   набора, как они и работали. После переезда на строке не остаётся ничего. */
+function salesMigrateLineEdgeworkToShape(line){
+ if(!line)return false;
+ const set=line.serviceSetId?salesServiceSetById(soDraft,line.serviceSetId):null;
+ const overrides=(line.serviceOverrides&&line.serviceOverrides.edges)||{};
+ const hasOverrides=Object.keys(overrides).length>0;
+ if(!set&&!hasOverrides)return false;
+ const shape=salesEnsureLineShape(line)||salesShapeByRef(line.shapeRef);
+ if(!shape)return false;
+ if(set&&!Object.keys(shape.edgeOps||{}).length)salesApplySetOpsToShape(line,set);
+ if(hasOverrides){
+  const ops=shape.edgeOps||{};
+  Object.keys(overrides).forEach(function(id){const list=salesServiceOps(overrides[id]);if(list.length)ops[id]=list;else delete ops[id];});
+  shape.edgeOps=ops;shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+ }
+ line.serviceSetId='';line.serviceOverrides={pinnedTopology:'',edges:{}};
+ return true;
+}
+
+/* ---------- Отдельная форма на лайт ----------
+   Ступенчатый пакет с фигурой: у 10 мм один контур, у 6 мм — другой, меньший,
+   и отступом от общего он не выводится. Такой лайт получает СВОЮ форму: копию
+   общей на момент отделения, дальше живёт своей жизнью. Форма принадлежит
+   строке (`ownerLineId`), в библиотеку не показывается и удаляется вместе со
+   строкой. Лайт без своей формы живёт на общей — с отступом, если он задан. */
+function salesLineLiteShapeRef(line,liteIndex){
+ const map=(line&&line.liteShapes)||{};
+ return map[String(liteIndex)]||null;
+}
+function salesLineLiteShape(line,liteIndex){
+ const ref=salesLineLiteShapeRef(line,liteIndex);
+ return ref?salesShapeByRef(ref):null;
+}
+function salesLineShapeForLite(line,liteIndex){
+ return salesLineLiteShape(line,liteIndex)||salesLineGeometryShape(line);
+}
+function salesDetachLiteShape(lineId,liteIndex){
+ const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
+ const base=line&&salesLineGeometryShape(line);
+ if(!line||!base)return null;
+ if(salesLineLiteShape(line,liteIndex))return salesLineLiteShape(line,liteIndex);
+ const copy=normalizeShapeDef(JSON.parse(JSON.stringify(base)));
+ copy.id=newShapeId();
+ copy.ownerLineId=line.id;
+ copy.name=(base.name||'Shape')+' · Lite '+(liteIndex+1);
+ /* Копия отвечает только за свой лайт: чужие раскладки по лайтам ей не нужны. */
+ copy.lites={};
+ const own=(base.lites||{})[String(liteIndex)];
+ if(own&&own.edgeOps)copy.edgeOps=Object.assign({},copy.edgeOps,JSON.parse(JSON.stringify(own.edgeOps)));
+ DB.shapeDef.push(copy);
+ if(!line.liteShapes)line.liteShapes={};
+ line.liteShapes[String(liteIndex)]=normalizeShapeRef({id:copy.id,revision:copy.revision||0});
+ touch();
+ return copy;
+}
+function salesReattachLiteShape(lineId,liteIndex){
+ const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
+ const shape=line&&salesLineLiteShape(line,liteIndex);
+ if(!line||!shape)return false;
+ if(!confirm('Return this lite to the shared Shape? Its own geometry will be deleted.'))return false;
+ const i=DB.shapeDef.findIndex(function(x){return x.id===shape.id;});
+ if(i>=0&&!(DB.muntinDef||[]).some(function(m){return m.shapeId===shape.id;}))DB.shapeDef.splice(i,1);
+ delete line.liteShapes[String(liteIndex)];
+ touch();render();
+ return true;
+}
+/* Открыть форму лайта в конфигураторе: если своей ещё нет — отделить и открыть. */
+function salesOpenLiteShape(lineId,liteIndex){
+ const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
+ if(!line)return;
+ const shape=salesLineLiteShape(line,liteIndex)||salesDetachLiteShape(lineId,liteIndex);
+ if(!shape)return alert('Line needs Width and Height first.');
+ const i=DB.shapeDef.findIndex(function(x){return x.id===shape.id;});
+ salesBridge={kind:'shape',lineId:line.id,liteIndex:liteIndex};
+ tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ sEdit=i;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));
+ salesApplyLineGlassThicknessToShape(line,sDraft);
+ soEdgeworkLineId=null;
+ render();
+}
+/* Уборка: форма лайта уходит вместе со строкой. */
+function salesDropLineLiteShapes(line){
+ const map=(line&&line.liteShapes)||{};
+ Object.keys(map).forEach(function(key){
+  const ref=map[key],i=DB.shapeDef.findIndex(function(x){return x.id===ref.id;});
+  if(i>=0&&!(DB.muntinDef||[]).some(function(m){return m.shapeId===ref.id;}))DB.shapeDef.splice(i,1);
+ });
+}
+/* Форма принадлежала строке — со строкой и уходит, чтобы не копиться в базе. */
+function salesDropLineOwnedShape(line){
+ const s=salesShapeByRef(line&&line.shapeRef);
+ if(!salesShapeIsLineOwned(s))return false;
+ if((DB.muntinDef||[]).some(function(m){return m.shapeId===s.id;}))return false;
+ const i=DB.shapeDef.findIndex(function(x){return x.id===s.id;});
+ if(i<0)return false;
+ DB.shapeDef.splice(i,1);
+ return true;
+}
+/* ---------- Кромка считается ПО ЛАЙТАМ ----------
+   Правила цеха, владелец 31 августа 2026:
+   · стеклопакет (double / triple) — арис на всех лайтах в 99% случаев: кромка
+     спрятана внутри пакета, её задача только безопасность реза;
+   · одиночное стекло — по толщине: арис до 8 mm, полировка от 10 mm;
+   · ламинат — ОДНА кромка на всю склейку: плёнка не делит её на два стекла,
+     поэтому толщина берётся суммарная и обработка у обеих сторон одинаковая.
+   Ручное значение на самом продукте стекла (Master Data) перебивает всё —
+   ради зеркал 5/6 mm, которым клиенты заказывают полировку.
+
+   Комбинация 10 + 6 в пакете — это два разных стекла: у каждого своя кромка,
+   свой припуск и свой размер реза. Раньше строка считалась одним куском, и
+   такой пакет упирался в «Exact Makeup thickness is unresolved». */
+function salesPaneGlassThicknessMm(pane){
+ if(!pane)return NaN;
+ if(pane.category==='laminated'){
+  const lam=pane.laminated||{},plies=[lam.outer,lam.inner],films=lam.interlayers||[];
+  let total=0,known=true;
+  plies.forEach(function(ply){
+   const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
+   if(Number.isFinite(v)&&v>0)total+=v;else known=false;
+  });
+  films.forEach(function(film){
+   const v=+film.thicknessMm,layers=Math.max(1,Math.floor(+film.layers||1));
+   if(Number.isFinite(v)&&v>0)total+=v*layers;
+  });
+  return known?total:NaN;
+ }
+ const g=glassProductById(pane.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:pane.thicknessMm);
+ return Number.isFinite(v)&&v>0?v:NaN;
+}
+function salesPaneBaseEdgework(pane,unitType){
+ if(!pane)return '';
+ /* Выбор на самом лайте сильнее всего: у пакета бывает, что одно стекло
+    полируют, а второе только зачищают. */
+ if(SALES_PANE_EDGEWORK.indexOf(pane.edgework)>0)return pane.edgework;
+ /* Ручное значение на продукте — сильнее правила по толщине. */
+ if(pane.category!=='laminated'){
+  const g=glassProductById(pane.glassProductId);
+  if(g&&g.baseEdgework)return g.baseEdgework;
+ }
+ if(unitType==='double'||unitType==='triple')return 'arris';
+ const mm=salesPaneGlassThicknessMm(pane);
+ return Number.isFinite(mm)&&mm>=10?'polish':'arris';
+}
+function salesPaneAutoEdgework(pane,unitType){
+ const copy=Object.assign({},pane,{edgework:''});
+ return salesPaneBaseEdgework(copy,unitType);
+}
+/* Тот же выбор, но для лайта КОНКРЕТНОЙ строки: окно Effective Production
+   открывается из строки заказа, и makeup там может быть не тот, что выбран
+   сейчас в билдере. */
+function salesLineSetLiteEdgework(lineId,paneIndex,v){
+ const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
+ const m=line?salesMakeupById(soDraft,line.makeupId):null,p=m&&m.panes[paneIndex];
+ if(!p)return;
+ p.edgework=SALES_PANE_EDGEWORK.indexOf(v)>0?v:'';
+ m.updatedAt=new Date().toISOString();touch();render();
+}
+function salesPaneSetEdgework(i,v){
+ const m=salesCurrentMakeup(),p=m&&m.panes[i];if(!p)return;
+ p.edgework=SALES_PANE_EDGEWORK.indexOf(v)>0?v:'';
+ m.updatedAt=new Date().toISOString();touch();render();
+}
+function salesLineLites(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+ if(!m)return [];
+ return (m.panes||[]).map(function(pane,i){
+  const mm=salesPaneGlassThicknessMm(pane),kind=salesPaneBaseEdgework(pane,m.unitType);
+  return {
+   index:i,label:'Lite '+(i+1),laminated:pane.category==='laminated',
+   thicknessMm:Number.isFinite(mm)?mm:null,baseEdgework:kind,
+   baseOps:glassBaseEdgeworkOp(kind)?[shapeNormalizeOp(glassBaseEdgeworkOp(kind))].filter(Boolean):[]
+  };
+ });
+}
+/* Совместимость: там, где по-прежнему нужен один ответ на строку, берём
+   самую строгую обработку — полировка строже ариса. */
+function salesLineBaseEdgeworkKind(line){
+ let kind='';
+ salesLineLites(line).forEach(function(l){if(l.baseEdgework==='polish')kind='polish';else if(l.baseEdgework==='arris'&&kind!=='polish')kind='arris';});
+ return kind;
+}
+function salesLineBaseEdgeworkOps(line){
+ const op=glassBaseEdgeworkOp(salesLineBaseEdgeworkKind(line));
+ return op?[shapeNormalizeOp(op)].filter(Boolean):[];
+}
 function salesOrderConfigureShape(i){
- const line=soDraft.lines[i];if(!line)return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeworkOpen=false;sFeaturesOpen=false;
+ const line=soDraft.lines[i];if(!line)return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
  const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
  else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
  salesApplyLineGlassThicknessToShape(line,sDraft);
  render();
 }
-function salesBridgeOnShapeSaved(id){if(!salesBridge||salesBridge.kind!=='shape'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),s=DB.shapeDef.find(x=>x.id===id);if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
-function salesUnlinkShape(i){const l=soDraft.lines[i];if(!l)return;if(l.muntinRef&&l.muntinRef.id&&!confirm('This Shape is linked to a Muntin layout. Unlink both?'))return;l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});render();}
+function salesBridgeOnShapeSaved(id){
+ if(!salesBridge||salesBridge.kind!=='shape'||!soDraft)return false;
+ const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),s=DB.shapeDef.find(x=>x.id===id);
+ /* Сохранили форму ЛАЙТА — размеры строки от неё не зависят: строка живёт по
+    общей форме, а у лайта своя геометрия. */
+ if(line&&s&&salesBridge.liteIndex!=null){
+  if(!line.liteShapes)line.liteShapes={};
+  line.liteShapes[String(salesBridge.liteIndex)]=normalizeShapeRef({id:s.id,revision:s.revision||0});
+ }
+ else if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
+/* Строка без геометрии больше не существует: сброс формы возвращает простой
+   прямоугольник по её же Width × Height, а не пустоту. */
+function salesUnlinkShape(i){
+ const l=soDraft.lines[i];if(!l)return;
+ if(l.muntinRef&&l.muntinRef.id&&!confirm('This Shape is linked to a Muntin layout. Unlink both?'))return;
+ salesDropLineOwnedShape(l);
+ l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});
+ salesEnsureLineShape(l);
+ touch();render();
+}
 function salesOrderConfigureMuntin(i){
  const line=soDraft.lines[i];if(!line)return;const shape=salesShapeByRef(line.shapeRef);if(!shape)return alert('Configure the Shape for this line first.');salesBridge={kind:'muntin',lineId:line.id};tab='configurators';subtab='muntin';mFieldErrors={};
  const current=salesMuntinByRef(line.muntinRef);if(current){mEdit=DB.muntinDef.findIndex(m=>m.id===current.id);mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);}

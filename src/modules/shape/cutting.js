@@ -4,17 +4,22 @@
    Generic DXF — нейтральный обменный файл, не постпроцессор конкретного CNC.
    ===================================================================== */
 
-function shapeOffsetVariable(points,distances){
+/* Рез только растёт, поэтому здесь отрицательные значения гасятся. Внутрь
+   контур уводит shapeInsetVariable — она нужна ступенчатому пакету, где второе
+   стекло меньше первого на заданный отступ. */
+function shapeOffsetVariable(points,distances){return shapeOffsetSigned(points,(distances||[]).map(function(d){return Math.max(0,+d||0);}));}
+function shapeInsetVariable(points,distances){return shapeOffsetSigned(points,(distances||[]).map(function(d){return -Math.max(0,+d||0);}));}
+function shapeOffsetSigned(points,distances){
   if(!points||points.length<3)return {valid:false,error:'Offset requires a closed contour.'};
   var n=points.length,orient=fabSignedArea(points),lines=[],i;
   for(i=0;i<n;i++){
     var a=points[i],b=points[(i+1)%n],dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<1e-9)return {valid:false,error:'Offset source contains a degenerate edge.'};
-    var d=Math.max(0,+distances[i]||0),nx=orient<0?-dy/L:dy/L,ny=orient<0?dx/L:-dx/L;
+    var d=+distances[i]||0,nx=orient<0?-dy/L:dy/L,ny=orient<0?dx/L:-dx/L;
     lines.push({a:[a[0]+nx*d,a[1]+ny*d],b:[b[0]+nx*d,b[1]+ny*d],d:d,sourceId:i});
   }
   var out=[];
   for(i=0;i<n;i++){
-    var prev=lines[(i-1+n)%n],cur=lines[i],hit=fabLineIntersection(prev.a,prev.b,cur.a,cur.b),v=points[i],lim=Math.max(.25,Math.max(prev.d,cur.d)*10);
+    var prev=lines[(i-1+n)%n],cur=lines[i],hit=fabLineIntersection(prev.a,prev.b,cur.a,cur.b),v=points[i],lim=Math.max(.25,Math.max(Math.abs(prev.d),Math.abs(cur.d))*10);
     if(!hit)hit=[(prev.b[0]+cur.a[0])/2,(prev.b[1]+cur.a[1])/2];
     if(Math.hypot(hit[0]-v[0],hit[1]-v[1])>lim)return {valid:false,error:'Cutting offset creates an excessive miter at contour vertex '+(i+1)+'.'};
     out.push(hit);
