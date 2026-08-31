@@ -212,7 +212,21 @@ function shapeAnnDisplay(r,S,F){
   if(!N)return ident;
   var AE=r.geometry.edges||[],NE=N.edges||[],map={},k;
 
-  if(NE.length===AE.length&&AE.length){
+  /* Отображение ПО ВЕРШИНАМ: каждая точка сдвигается от своего места на
+     нейтральном контуре на усиленное отклонение. Многоугольник замыкается сам
+     собой, невязки не возникает.
+
+     Прежний путь складывал усиленные ВЕКТОРА рёбер, они не сходились, и всю
+     накопленную невязку сваливали в верхнюю сторону. Уклон низа в 13/16
+     раздувался до двух десятков пикселей, эта разница падала в верх, чей
+     собственный перепад был всего 1-3/16 — и знак переворачивался: на чертеже
+     верх задирался вправо, хотя в изделии и в DXF он опускался. */
+  if(N.points.length===r.points.length&&r.points.length){
+    for(var z=0;z<r.points.length;z++){
+      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
+      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
+    }
+  }else if(NE.length===AE.length&&AE.length){
     var vecs=[],i,a,n,nv,av;
     for(i=0;i<AE.length;i++){
       a=AE[i];n=NE[i];
@@ -238,11 +252,6 @@ function shapeAnnDisplay(r,S,F){
     var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2,cy=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
     var tx=F.x0+F.dw/2-cx,ty=F.y0+F.dh/2-cy;
     for(k in map)if(Object.prototype.hasOwnProperty.call(map,k))map[k]=[map[k][0]+tx,map[k][1]+ty];
-  }else if(N.points.length===r.points.length){
-    for(var z=0;z<r.points.length;z++){
-      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
-      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
-    }
   }else return ident;
 
   return function(p){
