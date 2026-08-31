@@ -28,14 +28,62 @@ function shapeAnnText(x,y,txt,o){
   o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
   return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
+/* ---------- раскладка подписей без наложений ----------
+   Подпись рисуется с белой обводкой, поэтому наложение не «сливается», а
+   ЗАТИРАЕТ то, что под ним: соседнее число пропадает целиком, и на чертеже
+   вместо двух размеров остаётся один. Держим список занятых прямоугольников и
+   отодвигаем новую подпись по заданному направлению, пока не найдётся место.
+   Направление всегда «наружу от фигуры», чтобы подпись не уезжала на геометрию. */
+var SS_ANN_BOXES=[];
+function shapeAnnResetBoxes(){SS_ANN_BOXES=[];}
+function shapeAnnBoxOf(x,y,txt,o){
+  var size=o.size||11,w=String(txt).length*size*.62,h=size*1.15;
+  if(o.rot){var q=w;w=h;h=q;}
+  var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
+  return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
+}
+function shapeAnnFree(b){
+  for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
+    if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
+  return true;
+}
+function shapeAnnPlace(x,y,txt,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
+    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
+  }
+  return shapeAnnText(x,y,txt,o);
+}
+/* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
+   ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
+   к чужому. */
+function shapeAnnPlace2(x,y,l1,l2,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2,gap=(o.size||11)+6;
+  /* Блок из двух строк растёт ВНИЗ. Вынесенный вверх, он возвращался бы к линии
+     нижней строкой — угол ложился на контур. Сдвигаем блок целиком, чтобы
+     наружу уходил он весь, а не только первая строка. */
+  if(l2&&step[1]<0)y-=gap;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,
+        b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
+    if(shapeAnnFree(b1)&&(!b2||shapeAnnFree(b2))){
+      SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
+      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+    }
+  }
+  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+}
 function shapeAnnDimH(x1,x2,y,label){
   if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText((x1+x2)/2,y-6,label,{size:10,weight:600});
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
 }
 function shapeAnnDimV(x,y1,y2,label){
   if(Math.abs(y2-y1)<0.5)return '';
   var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText(x-8,cy,label,{size:10,weight:600,rot:-90});
+  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -386,7 +434,9 @@ function shapeAnnSkewOf(p1,p2,vert){
   return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
 }
 function shapeAnnCallouts(r,S,DP){
-  var out='';
+  var out='',dp=(r.points||[]).map(DP),n=dp.length||1,
+      cx=dp.reduce(function(a,p){return a+p[0];},0)/n,
+      cy=dp.reduce(function(a,p){return a+p[1];},0)/n;
   (r.edges||[]).forEach(function(g){
     if(!g.segments||!g.segments.length)return;
     var side=shapeAnnSide(S,g.id);if(!side)return;
@@ -399,15 +449,20 @@ function shapeAnnCallouts(r,S,DP){
          она наезжала на вершину и на соседние размеры — особенно на крутом
          скосе, где оба конца заняты. Середина принадлежит только этому участку,
          поэтому и читается однозначно, к какому ребру относится число. */
+      /* Отступ берётся ПЕРПЕНДИКУЛЯРНО самому участку и наружу от фигуры.
+         Сдвиг «вверх по стороне» на крутом скосе не спасал: линия поднимается
+         быстрее отступа, и подпись ложилась прямо на неё. */
       var d1=DP(sg.p1),d2=DP(sg.p2),
-          pad=16,x=(d1[0]+d2[0])/2,y=(d1[1]+d2[1])/2;
-      if(side==='left')x-=pad;else if(side==='right')x+=pad;
-      else if(side==='top')y-=pad;else y+=pad+8;
-      var anchor=vert?(side==='left'?'end':'start'):'middle';
-      out+=shapeAnnText(x,y,shapeAnnDim(k.off),{size:9,anchor:anchor,weight:600});
+          mx=(d1[0]+d2[0])/2,my=(d1[1]+d2[1])/2,
+          ex=d2[0]-d1[0],ey=d2[1]-d1[1],el=Math.hypot(ex,ey)||1,
+          nx=-ey/el,ny=ex/el;
+      if((mx-cx)*nx+(my-cy)*ny<0){nx=-nx;ny=-ny;}
+      var pad=24,x=mx+nx*pad,y=my+ny*pad,
+          anchor=Math.abs(nx)>.6?(nx>0?'start':'end'):'middle';
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
-      if(k.deg>=2)out+=shapeAnnText(x,y+10,'('+k.deg.toFixed(1)+'°)',{size:8,anchor:anchor,weight:600});
+      out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
+        {size:13,anchor:anchor,weight:600},[nx,ny]);
     });
   });
   return out;
@@ -439,6 +494,9 @@ function shapeAnnotationLayer(result,F,active){
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   var smart=S&&S.shape&&S.shape.type==='smart';
+  /* Реестр занятых мест живёт ровно один чертёж: иначе второй чертёж считал бы
+     занятыми места первого и разгонял бы подписи в пустоту. */
+  shapeAnnResetBoxes();
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);

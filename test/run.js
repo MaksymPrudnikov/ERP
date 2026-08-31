@@ -542,6 +542,53 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('и такой угол меткой прямого не помечается', tightSquare.marks, 0);
     eq('габаритная пара больше не дублирует цепочки', tightSquare.quoted, []);
 
+    /* Подпись рисуется с белой обводкой: наложение не «сливается», а ЗАТИРАЕТ
+       соседнее число целиком. Плюс мелкий шрифт — чертёж показывается меньше
+       своего viewBox, и 8 px превращались в нечитаемые 5. Проверяем на трёх
+       формах сразу: ни одного пересечения подписей, ни одной подписи на контуре,
+       шрифт не мельче 13. */
+    const legible = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape';
+      function boxes(){
+        const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+        const T = [...doc.querySelectorAll('text')].map(t => {
+          const s = t.textContent.trim(), size = +(t.getAttribute('font-size') || 11);
+          const rot = /rotate\(-?90/.test(t.getAttribute('transform') || '');
+          let w = s.length * size * 0.62, h = size * 1.15; if (rot) { const q = w; w = h; h = q; }
+          const anchor = t.getAttribute('text-anchor') || 'middle';
+          const x = +t.getAttribute('x'), y = +t.getAttribute('y');
+          const ax = anchor === 'start' ? 0 : anchor === 'end' ? -w : -w / 2;
+          return { s, size, x1:x+ax, y1:y-h, x2:x+ax+w, y2:y+3 };
+        }).filter(b => !/PRODUCTION|Shape s|Area|Finished geometry|SMART|SO ·/.test(b.s));
+        let hits = 0;
+        for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) {
+          const a = T[i], b = T[j];
+          if (a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1) hits++;
+        }
+        const lines = [...doc.querySelectorAll('line')].filter(l => +l.getAttribute('stroke-width') >= 1.2)
+          .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }));
+        const onLine = T.filter(b => lines.some(L => {
+          for (let t = 0; t <= 40; t++) { const x = L.x1 + (L.x2-L.x1)*t/40, y = L.y1 + (L.y2-L.y1)*t/40;
+            if (x > b.x1 && x < b.x2 && y > b.y1 && y < b.y2) return true; } return false; })).length;
+        return { hits, onLine, minSize: Math.min(...T.map(b => b.size)) };
+      }
+      openShapeNew('smart'); sDraft.w='48'; sDraft.h='36'; sDraft.smart.C.len='55';
+      sDraft.smart.corners.bl='single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      Object.keys(sDraft.smart.extraEdges).forEach(k => { sDraft.smart.extraEdges[k].len='4'; });
+      render();
+      const steep = boxes();
+      openShapeNew('smart'); sDraft.w='48'; sDraft.h='36'; render();
+      const plain = boxes();
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { steep, plain };
+    });
+    eq('подписи не затирают друг друга на крутом скосе', legible.steep.hits, 0);
+    eq('и ни одна не ложится на контур', legible.steep.onLine, 0);
+    ok('шрифт размеров читаемый', Math.min(legible.steep.minSize, legible.plain.minSize) >= 13,
+      Math.min(legible.steep.minSize, legible.plain.minSize));
+
     eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
     ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);
     ok('микро-уклон 1/8″ на 48″ остаётся различимым', magScale.smallBot >= 12, magScale.smallBot);
