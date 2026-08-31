@@ -200,7 +200,12 @@ const DEFAULT={
     без версии выглядели бы уже актуальными, пересев не сработал бы никогда
     ровно там, где он и нужен. Ноль означает «версия неизвестна». */
  refVersion:0,
- shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
- muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
+ /* Форм по умолчанию нет. Демо-прямоугольник был тестовым балластом: тянулся
+    за каждым новым запуском и мозолил глаза в списке. Форма заводится из
+    строки заказа или из рабочего места Configurators. */
+ shapeDef:[],
+ /* Раскладка по умолчанию тоже убрана: она ссылалась на демо-форму s1 и без
+    неё оставляла висячую ссылку. Раскладка заводится на реальной форме. */
+ muntinDef:[]
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
