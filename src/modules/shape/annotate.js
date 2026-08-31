@@ -269,20 +269,31 @@ function shapeAnnOverhead(r,F,left,right){
     +shapeAnnText((bl+br)/2,yB+14,'Overhead View',{size:11,weight:700});
 }
 
-/* ---------- прямоугольные метки угла (чертёжная договорённость) ---------- */
+/* ---------- прямоугольные метки угла (чертёжная договорённость) ----------
+   Метка ставится ТОЛЬКО там, где угол действительно прямой, и только если в
+   фигуре есть хоть один непрямой. На чистом прямоугольнике четыре квадратика —
+   шум: отмечать нечего, когда прямое всё. Смысл метки в том, чтобы среди
+   скошенных углов показать те, что остались точными.
+
+   Допуск 0.02 по косинусу — это около 1.1°. Прежние 0.08 (4.6°) объявляли
+   прямым угол, который на чертеже уже заметно скошен. */
 function shapeAnnRightAngles(r,DP){
-  var P=r.points,out='';
+  var P=r.points,out='',square=[],skewed=0;
   for(var i=0;i<P.length;i++){
     var a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];
     var v1=[a[0]-b[0],a[1]-b[1]],v2=[c[0]-b[0],c[1]-b[1]],l1=Math.hypot(v1[0],v1[1]),l2=Math.hypot(v2[0],v2[1]);
     if(l1<1e-6||l2<1e-6)continue;
-    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>.08)continue;
-    var q=DP(b),qa=DP(a),qc=DP(c);
+    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>.02){skewed++;continue;}
+    square.push([a,b,c]);
+  }
+  if(!skewed)return '';
+  square.forEach(function(t){
+    var a=t[0],b=t[1],c=t[2],q=DP(b),qa=DP(a),qc=DP(c);
     var s1=[qa[0]-q[0],qa[1]-q[1]],s2=[qc[0]-q[0],qc[1]-q[1]],sl1=Math.hypot(s1[0],s1[1])||1,sl2=Math.hypot(s2[0],s2[1])||1,z=8;
     var u1=[s1[0]/sl1,s1[1]/sl1],u2=[s2[0]/sl2,s2[1]/sl2];
     var pA=[q[0]+u1[0]*z,q[1]+u1[1]*z],pB=[pA[0]+u2[0]*z,pA[1]+u2[1]*z],pC=[q[0]+u2[0]*z,q[1]+u2[1]*z];
     out+='<path d="M'+pA[0]+' '+pA[1]+' L'+pB[0]+' '+pB[1]+' L'+pC[0]+' '+pC[1]+'" fill="none" stroke="#101828" stroke-width=".7"/>';
-  }
+  });
   return out;
 }
 
@@ -355,45 +366,49 @@ function shapeAnnChains(r,S,DP,box){
 }
 
 /* ---------- локальные выноски уклона ----------
-   Чертёж ставит величину у того конца сегмента, чей уклон она описывает.
-   При реальном локте нулевой «to» переносит выноску «past» на перелом. */
+   У КАЖДОГО скошенного участка своя подпись: величина ухода, под ней угол.
+
+   Угол считается по СОБСТВЕННОМУ пробегу участка. У стороны свои две точки, и
+   всё, что откусили нотч или наклон соседней стороны, её пробег уменьшает:
+   верх шириной 48 при нотче 10 и отвесе 4 имеет пробег 34, и угол берётся от
+   него, а не от габарита. Считаем по ИНЖЕНЕРНЫМ координатам — на экранных угол
+   вышел бы от усиленной картинки, а не от изделия.
+
+   Раньше выноски строились по полям модели, поэтому верхняя сторона D не
+   получала подписи вообще: у неё нет своих полей ввода. Теперь источник —
+   геометрия, и подписывается всё нарисованное, включая D и рёбра нотча. */
+function shapeAnnSkewOf(p1,p2,vert){
+  var run=Math.abs(vert?(p2[1]-p1[1]):(p2[0]-p1[0])),
+      off=Math.abs(vert?(p2[0]-p1[0]):(p2[1]-p1[1]));
+  return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
+}
 function shapeAnnCallouts(r,S,DP){
-  var m=(S.shape&&S.shape.smart)||null;if(!m)return '';
   var out='';
   (r.edges||[]).forEach(function(g){
+    if(!g.segments||!g.segments.length)return;
+    var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
-    function label(q,val){
-      val=Math.abs(inch(val||'0'));if(val<1/64)return;
-      out+=shapeAnnText(vert?q[0]+7:q[0],vert?q[1]-2:q[1]-6,shapeAnnDim(val),{size:8,anchor:vert?'start':'middle',weight:600});
-    }
-    /* Скос ребра нотча подписывается ВСЕГДА, в обоих режимах: у нотча нет
-       локтя, но его уход от отвеса/уровня — такой же производственный размер,
-       и без него внутренние скосы читались бы только по картинке. */
-    var inf=shapeAnnExtraInfo(S,g.id);
-    if(inf){
-      var x=(m.extraEdges||{})[g.id]||{},ov=Math.abs(inch(x.out||'0'));
-      if(ov>1/64){
-        var mid=[(sp[0][0]+sp[sp.length-1][0])/2,(sp[0][1]+sp[sp.length-1][1])/2];
-        var arrow=inf.axis==='v'?(x.dir==='right'?'→':x.dir==='left'?'←':''):(x.dir==='up'?'↑':x.dir==='down'?'↓':'');
-        out+=shapeAnnText(inf.axis==='v'?mid[0]+9:mid[0],inf.axis==='v'?mid[1]:mid[1]-9,
-          arrow+' '+shapeAnnDim(ov),{size:8,anchor:inf.axis==='v'?'start':'middle',weight:600,color:'#95430f'});
-      }
-      return;
-    }
-    if(m.elbowsOn){
-      var E=(g.id==='A'||g.id==='B'||g.id==='C')?(m[g.id]||{}).elbow:null;
-      if(!E)return;
-      var h=Math.abs(inch(E.elbowLen||'0')),to=Math.abs(inch(E.to||'0')),past=Math.abs(inch(E.past||'0'));
-      if(h>1e-9&&sp.length>=3){
-        if(to>1/64)label(sp[0],E.to);
-        if(past>1/64)label(to<1/64?sp[1]:sp[sp.length-1],E.past);
-      }else if(past>1/64)label(sp[sp.length-1],E.past);
-    }else{
-      if(g.id!=='A'&&g.id!=='B'&&g.id!=='C')return;
-      var v=Math.abs(inch((m[g.id]||{}).out||'0'));
-      if(v>1/64)label(sp[sp.length-1],v);
-    }
+    /* База та же, что у пунктира: внешняя огибающая стороны. Подпись садится
+       у конца, который от неё дальше — там уход виден, там его и ищут. */
+    var ax=vert?0:1,
+        ref=(side==='left'||side==='top')
+          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
+          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
+    g.segments.forEach(function(sg){
+      var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
+      if(!(k.off>1/64))return;
+      var d1=DP(sg.p1),d2=DP(sg.p2),
+          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
+          pad=14,x=far[0],y=far[1];
+      if(side==='left')x-=pad;else if(side==='right')x+=pad;
+      else if(side==='top')y-=pad;else y+=pad+8;
+      var anchor=vert?(side==='left'?'end':'start'):'middle';
+      out+=shapeAnnText(x,y,shapeAnnDim(k.off),{size:9,anchor:anchor,weight:600});
+      /* Угол печатается, только когда его есть смысл читать: при долях градуса
+         скобки — шум, эталон их тоже не ставит. */
+      if(k.deg>=2)out+=shapeAnnText(x,y+10,'('+k.deg.toFixed(1)+'°)',{size:8,anchor:anchor,weight:600});
+    });
   });
   return out;
 }

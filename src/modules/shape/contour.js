@@ -45,18 +45,32 @@ function ssBase(S){
       A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
       Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
       Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
-      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1],
-      Dp=ssTopPath(S,AT,CT);
-  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по КОНЦАМ:
-     излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная длина
-     ломаной, поэтому берётся по всем звеньям, иначе излом терялся бы в отчётах. */
-  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,
-    Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
+  /* Верхняя сторона идёт от ВЕРХА лесенки, а не от угла габарита.
+     Раньше D строилась хордой AT→CT, а лесенку нотча потом принудительно
+     сажали на эту хорду. Хорда за ширину нотча успевала опуститься, и ровно на
+     столько молча укорачивался введённый стояк: 12 превращалось в 9-1/2, левая
+     сторона переставала складываться в заданную высоту, а контур уходил в резку
+     коротким. В Smart-Shape верх начинается от верха стояка — делаем так же,
+     и тогда пробег и угол верха совпадают с эталоном. */
+  var Ttl=ssCornerTotals(S,'tl'),Ttr=ssCornerTotals(S,'tr'),
+      dD0=(CT[0]-AT[0])>=0?1:-1,
+      /* Начало лесенки — реальный конец подрезанной стороны: при уклоне A/C он
+         смещён по X, и брать вершину габарита нельзя. */
+      aT=ssPointAt(Ap,1,AT[1]-Ttl.v),cT=ssPointAt(Cp,1,CT[1]-Ttr.v),
+      DL=[aT[0]+dD0*Ttl.h,aT[1]+Ttl.v],
+      DR=[cT[0]-dD0*Ttr.h,cT[1]+Ttr.v],
+      Dp=ssTopPath(S,DL,DR);
+  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по её СОБСТВЕННЫМ
+     концам: излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная
+     длина ломаной, по всем звеньям, иначе излом терялся бы в отчётах. */
+  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,DL:DL,DR:DR,
+    Dlen:Math.abs(DR[0]-DL[0]),Dsigned:DR[0]-DL[0],Dout:Math.abs(DR[1]-DL[1]),
     Dtrue:ssPathLen(Dp),
-    DdirY:(CT[1]-AT[1])>1e-9?'up':(CT[1]-AT[1])<-1e-9?'down':null,
+    DdirY:(DR[1]-DL[1])>1e-9?'up':(DR[1]-DL[1])<-1e-9?'down':null,
     /* Уход второго отрезка излома — выводимая величина, её показывает матрица
        рёбер в ячейке «Outage past elbow» для D. */
-    DpastOut:Dp.length>2?Math.abs(CT[1]-Dp[1][1]):Math.abs(CT[1]-AT[1])};
+    DpastOut:Dp.length>2?Math.abs(DR[1]-Dp[1][1]):Math.abs(DR[1]-DL[1])};
 }
 function ssPointAt(P,ax,val){
   for(var i=0;i<P.length-1;i++){

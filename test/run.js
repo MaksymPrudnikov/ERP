@@ -462,6 +462,57 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
       return { ratio: +(wedge.leftPx / wedge.rightPx).toFixed(2), wedgeTop: wedge.topSkew, smallBot: small.botSkew, smallTop: small.topSkew };
     });
+    /* Нотч со скошенным верхом. D строилась хордой от угла до угла, а лесенку
+       принудительно сажали на эту хорду — введённый стояк 12 молча становился
+       9-1/2, левая сторона переставала складываться в заданную высоту, и в резку
+       уходил короткий контур. Числа сверены со Smart-Shape на тех же входных. */
+    const notchSlope = await p.evaluate(() => {
+      const rr = v => Math.round(v * 1e6) / 1e6;
+      const s = { id:'t', name:'t', w:'48', h:'36', smart: ssNormalize({}) };
+      s.smart.C.len = '24'; s.smart.corners.tl = 'single';
+      const S = { w:s.w, h:s.h, shape:{ type:'smart', smart:s.smart } };
+      ssSyncExtra(S);
+      S.shape.smart.extraEdges.E.len = '12';
+      S.shape.smart.extraEdges.F.len = '10';
+      const G = ssContour(S), B = G.base, len = {};
+      G.segs.forEach(x => { len[x.id] = (len[x.id] || 0) + Math.hypot(x.p2[0]-x.p1[0], x.p2[1]-x.p1[1]); });
+      const xs = G.pts.map(q => q[0]), ys = G.pts.map(q => q[1]);
+      return {
+        riser: rr(len.E), shelf: rr(len.F), left: rr(len.A),
+        run: rr(B.Dlen), drop: rr(B.Dout),
+        deg: +(Math.atan2(B.Dout, B.Dlen) * 180 / Math.PI).toFixed(1),
+        w: rr(Math.max(...xs) - Math.min(...xs)), h: rr(Math.max(...ys) - Math.min(...ys))
+      };
+    });
+    eq('введённый стояк нотча равен нарисованному', { riser: notchSlope.riser, shelf: notchSlope.shelf }, { riser: 12, shelf: 10 });
+    eq('верх считается от верха лесенки, как в Smart-Shape', { run: notchSlope.run, drop: notchSlope.drop, deg: notchSlope.deg }, { run: 38, drop: 12, deg: 17.5 });
+    eq('габарит равен заданному, а не срезанному хордой', { w: notchSlope.w, h: notchSlope.h }, { w: 48, h: 36 });
+    eq('левая сторона плюс стояк дают заданную высоту', notchSlope.left + notchSlope.riser, 36);
+
+    /* Выноска уклона: величина и угол по собственному пробегу ребра. Раньше
+       верхняя сторона не подписывалась вовсе — её исключала явная строка. */
+    const skewCallout = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '24';
+      sDraft.smart.corners.tl = 'single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      sDraft.smart.extraEdges.E.len = '12'; sDraft.smart.extraEdges.F.len = '10';
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      const texts = [...doc.querySelectorAll('text')].map(t => t.textContent.trim());
+      const marks = [...doc.querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      /* Чистый прямоугольник: отмечать нечего, когда прямое всё. */
+      openShapeNew('smart'); sDraft.w = '48'; sDraft.h = '36'; render();
+      const plain = [...new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml')
+        .querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { hasDrop: texts.includes('12'), hasAngle: texts.includes('(17.5°)'), marks, plain };
+    });
+    eq('верхняя сторона получила выноску уклона с углом', { drop: skewCallout.hasDrop, angle: skewCallout.hasAngle }, { drop: true, angle: true });
+    eq('квадратики стоят у четырёх прямых углов из шести', skewCallout.marks, 4);
+    eq('на чистом прямоугольнике квадратиков нет', skewCallout.plain, 0);
+
     eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
     ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);
     ok('микро-уклон 1/8″ на 48″ остаётся различимым', magScale.smallBot >= 12, magScale.smallBot);
