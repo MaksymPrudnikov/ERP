@@ -2507,11 +2507,61 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       out.fromEnd=[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent);
       out.stored=sDraft.manufacturingItems[0].distance;
       sEdit=null;sDraft=null;render();return out;
-    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch #1 · PH20',marker:['PATCH 1 · PH20 · seg1 @ 4″'],model:true,
-      fromEnd:['PATCH 1 · PH20 · seg1 @ 16″'],stored:4});
+    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch · PH20',marker:['PATCH · PH20 · seg1 @ 4″'],model:true,
+      fromEnd:['PATCH · PH20 · seg1 @ 16″'],stored:4});
     await t.c.close();
 
     t = await page();
+    /* Категория закрыта, пока её не открыли: редактор начинается с размеров и
+       кромки, а не с пустого списка меток. Метки на чертеже при этом видны —
+       закрытая карточка ничего не прячет с листа. */
+    eq('категория Cutout закрыта до первого клика, метки на чертеже остаются', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'a',type:'clamp',edge:'bottom',distance:44.25})];
+      render();
+      const closed={body:document.querySelectorAll('.shape-cutout .shape-accordion-body').length,
+        marks:document.querySelectorAll('.shape-mi-marker').length};
+      toggleShapeSection('cutout');
+      const opened=document.querySelectorAll('.shape-cutout .shape-accordion-body').length;
+      sEdit=null;sDraft=null;render();return {closed,opened};
+    }), {closed:{body:0,marks:1},opened:1});
+
+    /* Сквозной номер («вторая петля #2, патч за ней #3») убран: порядок ввода
+       читался как номер изделия. */
+    eq('у меток нет сквозного номера ни в карточке, ни на чертеже', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:32,modelId:'hw-hinge-geneva-90',model:'Geneva 90'}),
+        shapeNormalizeManufacturingItem({id:'b',type:'hinge',edge:'left',distance:4,modelId:'hw-hinge-geneva-90',model:'Geneva 90'}),
+        shapeNormalizeManufacturingItem({id:'c',type:'patch',edge:'right',distance:34,modelId:'hw-patch-ph20',model:'PH20'}),
+        shapeNormalizeManufacturingItem({id:'d',type:'clamp',edge:'bottom',distance:44.25})];
+      sManufacturingOpen=true;render();
+      const out={cards:[...document.querySelectorAll('.shape-mi-card-toggle b')].map(x=>x.textContent),
+        labels:[...document.querySelectorAll('.shape-mi-marker>text')].map(x=>x.textContent)};
+      sEdit=null;sDraft=null;render();return out;
+    }), {cards:['Hinge · Geneva 90','Hinge · Geneva 90','Patch · PH20','Clamp'],
+      labels:['HNG · Geneva 90','HNG · Geneva 90','PATCH · PH20','CLMP']});
+
+    /* Зажим на нижней кромке рисовал ВЕРТИКАЛЬНУЮ цепочку с повёрнутым текстом:
+       направление выводилось из ключа оси, а ключ `e` у фурнитуры о направлении
+       не говорит ничего. Координата Y при этом вставала вместо X. */
+    eq('размер фурнитуры на верхней и нижней кромке идёт горизонтально', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'d',type:'clamp',edge:'bottom',distance:44.25}),
+        shapeNormalizeManufacturingItem({id:'e',type:'hinge',edge:'left',distance:4})];
+      sManufacturingOpen=true;render();
+      function chain(cls){
+        const g=document.querySelector('.shape-mi-marker.'+cls+' .shape-mi-prod-dims');
+        const line=g.querySelector('line'),text=g.querySelector('text');
+        return {horizontal:Math.abs(+line.getAttribute('y1')-+line.getAttribute('y2'))<0.5,
+          rotated:!!(text.getAttribute('transform')||''),text:text.textContent};
+      }
+      const out={bottom:chain('clamp'),left:chain('hinge')};
+      sEdit=null;sDraft=null;render();return out;
+    }), {bottom:{horizontal:true,rotated:false,text:'44 1/4″'},
+      left:{horizontal:false,rotated:true,text:'4″'}});
+
     eq('у фурнитуры навигация как у отверстия: привязка меняет показанное, но не хранимое', await t.p.evaluate(() => {
       const dim=()=>document.querySelector('.shape-mi-prod-dims text').textContent;
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';sView='production';

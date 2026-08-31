@@ -269,3 +269,15 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-dim-control button{padding:2px 7px;font-size:9px;line-height:1.5}
 .shape-dim-control button.off{background:#fdefee;border-color:#f3c9c5;color:#b42318}
 .shape-dim-control>i{font-style:normal;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut)}
+
+/* Названия в редакторе фигуры были набраны 10–11 px и читались с трудом.
+   Блок идёт последним и перекрывает прежние размеры, не трогая остальную
+   типографику экрана. */
+.shape-accordion-head b{font-size:13px;letter-spacing:-.01em}
+.shape-accordion-head small{font-size:10px}
+.shape-accordion-state{font-size:10.5px}
+.shape-mi-card-toggle b,.shape-feature-card-toggle b{font-size:12.5px}
+.shape-mi-card-toggle small,.shape-feature-card-toggle small{font-size:9.5px}
+.shape-mi-kind{min-width:46px;height:30px;font-size:9.5px}
+.shape-cut-group-head>b{font-size:11px}
+.shape-cut-group-head>small{font-size:9.5px}

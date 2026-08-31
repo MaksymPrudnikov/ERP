@@ -4,7 +4,7 @@
    Геометрия и экспорт принадлежат modules/shape/*; экран только редактирует.
    ===================================================================== */
 
-let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=true,sManufacturingPlace=null,sManufacturingSelected=null;
+let sEdit=null,sDraft=null,sView='setup',sEdgeworkOpen=false,sFeaturesOpen=false,sFeatureExpandedId=null,sSourceOpen=false,sManufacturingOpen=false,sManufacturingPlace=null,sManufacturingSelected=null;
 /* Карточка, у которой открыт ввод своей модели. Состояние экрана, а не
    данных: пока имя не вписано, «своя модель» и «модель не выбрана» выглядят
    в записи одинаково — у обеих пустые id и имя. */
@@ -29,8 +29,8 @@ function viewShapeSkill(){
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
 }
 
-function openShapeNew(type){sEdit='new';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
-function openShapeEdit(i){sEdit=i;sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=true;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
+function openShapeNew(type){sEdit='new';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;render();}
+function openShapeEdit(i){sEdit=i;sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));render();}
 function shapeFileSizeText(bytes){
   var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
 }
@@ -372,7 +372,13 @@ function shapeDimMenuSvg(id,axis,cx,cy){
    axis 'h' — линия горизонтальна на y=pos, 'v' и 'e' — вертикальна на x=pos.
    dir — в какую сторону «дальше от детали». */
 function shapeDimChainSvg(o){
-  var vertical=o.axis!=='h',hidden=shapeDimHidden(sDraft,o.id,o.axis);
+  /* Направление приходит ЯВНО, а не из ключа оси. Ключ `e` у фурнитуры говорит
+     «цепочка вдоль кромки» и о направлении не знает ничего: на левой и правой
+     кромке она вертикальная, на верхней и нижней — горизонтальная. Пока
+     направление выводилось из ключа, зажим на нижней кромке получал
+     вертикальную линию с повёрнутым текстом и координатой Y, поставленной
+     вместо X. */
+  var vertical=o.vertical!=null?!!o.vertical:o.axis!=='h',hidden=shapeDimHidden(sDraft,o.id,o.axis);
   var pos=o.pos+o.dir*shapeDimOffset(sDraft,o.id,o.axis)*SHAPE_DIM_STEP;
   var active=shapeDimIsActive(o.id,o.axis);
   var pick=`onclick='event.stopPropagation();shapeSelectDim("${esc(o.id)}","${esc(o.axis)}")'`;
@@ -409,7 +415,7 @@ function shapeManufacturingMarkersSvg(source,T){
   var items=shapeManufacturingItems();if(!items.length)return '';var g={P:T.P,b:T.b},holes=items.filter(function(x){return x.type==='hole';});
   return shapeDimArrowDefs()+items.map(function(item,i){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
-    var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',code=shapeManufacturingShort(item.type),num=i+1,label=code+' '+num;
+    var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeManufacturingShort(item.type);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g);if(!pos)return '';
       var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item),lane=holeIndex%4;
@@ -440,11 +446,11 @@ function shapeManufacturingMarkersSvg(source,T){
     var dimSvg='',labelTextSvg='';
     if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+lane*18):T.X(g.b.maxX)+(34+lane*18),originY=T.Y(origin[1]),labelX=edge==='left'?x+15:x-15,labelAnchor=edge==='left'?'start':'end';
-      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
+      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
       labelTextSvg=`<text data-raw x='${labelX}' y='${y-8}' text-anchor='${labelAnchor}'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+lane*18):T.Y(g.b.minY)+(30+lane*18),originX=T.X(origin[0]),labelY=edge==='top'?y+18:y-10;
-      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
+      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
       labelTextSvg=`<text data-raw x='${x+13}' y='${labelY}' text-anchor='start'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
@@ -530,9 +536,12 @@ function shapeMarkModelFieldHTML(item){
 function shapeCutFlagHTML(changesCut){
   return changesCut?`<span class='shape-cut-flag cut'>меняет рез</span>`:`<span class='shape-cut-flag draw'>только чертёж</span>`;
 }
-function shapeMarkTitleHTML(item,i){
+/* Номера у меток нет намеренно. Он был сквозным по всему списку, и вторая петля
+   становилась «#2», патч за ней — «#3», зажим — «#4»: порядок ввода читался как
+   номер изделия. Метку опознают по виду, модели и её собственному размеру. */
+function shapeMarkTitleHTML(item){
   var model=shapeManufacturingModelName(item);
-  return `${raw(shapeManufacturingItemTitle(item.type))} #${i+1}${model?' · '+raw(model):''}`;
+  return `${raw(shapeManufacturingItemTitle(item.type))}${model?' · '+raw(model):''}`;
 }
 function shapeMarksBodyHTML(){
   var items=shapeManufacturingItems(),placing=sManufacturingPlace;
@@ -562,7 +571,7 @@ function shapeMarksBodyHTML(){
         <div class='shape-mi-axis-card'><label>Привязка<select onchange='shapeSetDimRef("${esc(item.id)}","e",this.value)'>${refOpts.map(function(o){return `<option value='${o[0]}' ${(fromEnd?'end':'start')===o[0]?'selected':''}>${o[1]}</option>`;}).join('')}</select></label><label>Расстояние до центра<input value='${esc(shapeFrac16(shown))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small><span>${esc(shapeMiOriginText(edge,fromEnd))}</span> · <span>Длина края</span> <span data-raw>${esc(max)}</span></small></label></div>
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Размер на чертеже'}]);
     }
-    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${shapeMarkTitleHTML(item,i)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Примечание<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Выбрать на чертеже</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Удалить</button></div></div>`:''}</div>`;
+    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Примечание<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Выбрать на чертеже</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Удалить</button></div></div>`:''}</div>`;
   }).join(''):'<div class="empty compact">Пока нет производственных элементов</div>'}</div>`;
   return body;
 }
@@ -1047,7 +1056,7 @@ function shapeEdgeworkEditor(){
   }).join('')}</div></div>`:''}</div>`;
 }
 
-function addShapeFeature(type){var geo=shapeDraftGeometry();sFeaturesOpen=true;sFeatureExpandedId=null;sDraft.features.push(newShapeFeature(type,geo));render();}
+function addShapeFeature(type){var geo=shapeDraftGeometry();sManufacturingOpen=true;sFeatureExpandedId=null;sDraft.features.push(newShapeFeature(type,geo));render();}
 function setShapeFeature(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;refreshShapeEditor();}
 function setShapeFeatureAndRender(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;render();}
 function removeShapeFeature(i){sDraft.features.splice(i,1);render();}
