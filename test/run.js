@@ -146,7 +146,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('угловой блок Single → рёбра E/F', corner.ids, ['E', 'F']);
     eq('пустые угловые рёбра = невалидно', corner.blocked, false);
-    eq('срезанный угол 4×4 → 6 точек, площадь 1728−16', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1712 });
+    /* Угловой блок ДОСТРАИВАЕТСЯ снаружи, а не вырезается: длины рёбер вводятся
+       от края до края, поэтому стояк 4 идёт сверх левого ребра 36 и панель
+       становится 48 × 40. Так же в Smart-Shape: там правая сторона 60, а нотч
+       под ней добавляет ещё 4-1/8 и 1/8. */
+    eq('угловой блок 4×4 достраивается снаружи: 6 точек, 48 × 40', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1816 });
 
     /* Скос ребра нотча. Перпендикулярный вынос входит в суммы угла, поэтому
        контур обязан остаться замкнутым, а габарит — прежним. Разошлось —
@@ -172,13 +176,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return { flatValid: flat.valid, skewValid: skew.valid, gaps,
         w: skew.width, h: skew.height,
         sameBox: flat.width === skew.width && flat.height === skew.height,
-        areaChanged: Math.abs(flat.area - skew.area) > 1e-9,
+        tipMoved: JSON.stringify(flat.points) !== JSON.stringify(skew.points),
         tooBigRejected: !tooBig.valid, noDirRejected: !noDir.valid };
     });
     eq('скос ребра нотча не рвёт контур и не двигает габарит',
       { flat: notchSkew.flatValid, skew: notchSkew.skewValid, gaps: notchSkew.gaps, box: notchSkew.sameBox, w: notchSkew.w, h: notchSkew.h },
-      { flat: true, skew: true, gaps: 0, box: true, w: 48, h: 36 });
-    eq('скос ребра нотча меняет площадь детали', notchSkew.areaChanged, true);
+      { flat: true, skew: true, gaps: 0, box: true, w: 48, h: 46 });
+    /* Площадь здесь не меняется по геометрии: обе соседние вершины лежат на одной
+       высоте, и вершина стояка едет параллельно хорде между ними. Проверять надо
+       форму — что скос вообще сдвинул точку. */
+    eq('скос ребра нотча сдвигает вершину стояка', notchSkew.tipMoved, true);
     eq('скос больше самого ребра отклоняется', notchSkew.tooBigRejected, true);
     eq('скос без направления отклоняется', notchSkew.noDirRejected, true);
 
@@ -302,8 +309,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(s),payload=ShapeModule.machinePayload(r);
       return {valid:r.valid,tl:r.base.AT,tr:r.base.CT,outer:payload.outer.points};
     });
-    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,36],tr:[48,33]});
-    ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-36)<1e-9));
+    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,38],tr:[50,33]});
+    ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-38)<1e-9));
 
     const badCornerOffset = await p.evaluate(() => {
       const s={id:'t',name:'t',w:'48',h:'36',smart:ssNormalize({})};
@@ -485,9 +492,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       };
     });
     eq('введённый стояк нотча равен нарисованному', { riser: notchSlope.riser, shelf: notchSlope.shelf }, { riser: 12, shelf: 10 });
-    eq('верх считается от верха лесенки, как в Smart-Shape', { run: notchSlope.run, drop: notchSlope.drop, deg: notchSlope.deg }, { run: 38, drop: 12, deg: 17.5 });
-    eq('габарит равен заданному, а не срезанному хордой', { w: notchSlope.w, h: notchSlope.h }, { w: 48, h: 36 });
-    eq('левая сторона плюс стояк дают заданную высоту', notchSlope.left + notchSlope.riser, 36);
+    eq('верх считается от верха лесенки, как в Smart-Shape', { run: notchSlope.run, drop: notchSlope.drop, deg: notchSlope.deg }, { run: 38, drop: 24, deg: 32.3 });
+    eq('габарит = ширина на левое ребро плюс стояк', { w: notchSlope.w, h: notchSlope.h }, { w: 48, h: 48 });
+    eq('левое ребро нарисовано ровно введённым', notchSlope.left, 36);
 
     /* Выноска уклона: величина и угол по собственному пробегу ребра. Раньше
        верхняя сторона не подписывалась вовсе — её исключала явная строка. */
@@ -507,7 +514,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const plain = [...new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml')
         .querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
-      return { hasDrop: texts.includes('12'), hasAngle: texts.includes('(17.5°)'), marks, plain };
+      return { hasDrop: texts.includes('24'), hasAngle: texts.includes('(32.3°)'), marks, plain };
     });
     eq('верхняя сторона получила выноску уклона с углом', { drop: skewCallout.hasDrop, angle: skewCallout.hasAngle }, { drop: true, angle: true });
     eq('квадратики стоят у четырёх прямых углов из шести', skewCallout.marks, 4);

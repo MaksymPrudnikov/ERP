@@ -361,7 +361,7 @@ function refreshShapeEditor(){
   }
   if(sDraft.type==='smart'){
     var bs=r.valid&&r.base;
-    syncField('emDlen',bs?dimIn16(bs.Dtrue):'AUTO');
+    syncField('emDlen',bs?dimIn16(bs.Dlen):'AUTO');
     syncField('emDout',bs?dimIn16(bs.Dout):'0');
     syncField('emDpast',bs?dimIn16(bs.DpastOut):'—');
     syncField('emClen',shapeCEffective(),true);
@@ -429,7 +429,7 @@ function shapeEdgeMatrix(){
     if(e==='A')return cell(e,`<input id='emAlen' data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
     if(e==='B')return cell(e,`<input id='emBlen' data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'>`);
     if(e==='C')return cell(e,`<input id='emClen' data-vfield='num' data-live-placeholder value='${esc(m.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'>`);
-    return cell(e,`<input class='ro' id='emDlen' readonly value='${base?esc(dimIn16(base.Dtrue)):'AUTO'}'>`);
+    return cell(e,`<input class='ro' id='emDlen' readonly value='${base?esc(dimIn16(base.Dlen)):'AUTO'}'>`);
   }
   var rows=[{k:'Length',cells:cols.map(lengthCell).join('')}];
   if(!m.elbowsOn){

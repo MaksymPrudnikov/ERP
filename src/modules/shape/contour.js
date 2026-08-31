@@ -6,17 +6,36 @@
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* Длина ребра — это длина САМОГО ребра, а угловая лесенка идёт СВЕРХ неё.
+   Ввели C = 60 — правая сторона ровно 60, стояк нотча добавляется ниже, и
+   сторона целиком выходит длиннее. Так устроен Smart-Shape: там E = 60 это
+   правая сторона, а нотч C = 5 и D = 8 сидят под ней отдельными рёбрами.
+
+   Внутри контур по-прежнему строится от габарита и потом подрезается
+   лесенками, поэтому здесь длина раздувается ровно на то, что лесенки съедят,
+   а уход умножается на то же отношение. Иначе введённые 7/8 размазывались по
+   укороченному отрезку и печатались на чертеже как 13/16. */
+function ssEdgeEaten(S,e){
+  if(e==='A')return {pre:ssCornerTotals(S,'bl').v,post:ssCornerTotals(S,'tl').v};
+  if(e==='C')return {pre:ssCornerTotals(S,'br').v,post:ssCornerTotals(S,'tr').v};
+  if(e==='B')return {pre:ssCornerTotals(S,'bl').h,post:ssCornerTotals(S,'br').h};
+  return {pre:0,post:0};
+}
 function ssEdgeLocal(S,e){
-  var m=ssModel(S),s=m[e],vert=(e==='A'||e==='C'),L=ssEdgeLen(S,e);
+  var m=ssModel(S),s=m[e],vert=(e==='A'||e==='C'),L=ssEdgeLen(S,e),
+      eat=ssEdgeEaten(S,e),Lf=L+eat.pre+eat.post,k=L>1e-9?Lf/L:1;
   if(!m.elbowsOn){
-    var o=ssNN(s.out);
-    if(vert)return [[0,0],[s.dir==='right'?o:s.dir==='left'?-o:0,L]];
-    return [[0,0],[L,s.dir==='up'?o:s.dir==='down'?-o:0]];
+    var o=ssNN(s.out)*k;
+    if(vert)return [[0,0],[s.dir==='right'?o:s.dir==='left'?-o:0,Lf]];
+    return [[0,0],[Lf,s.dir==='up'?o:s.dir==='down'?-o:0]];
   }
-  var E=s.elbow,to=ssNN(E.to),past=ssNN(E.past),h=Math.min(ssNN(E.elbowLen),L),M=ssMode(E.mode)||{s1:0,s2:0};
-  var o1=M.s1*to,o2=o1+M.s2*past,coll=(h<=1e-9||h>=L-1e-9);
-  if(vert)return coll?[[0,0],[o2,L]]:[[0,0],[o1,h],[o2,L]];
-  return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
+  /* Излом отсчитывается от начала САМОГО ребра, поэтому его положение сдвигается
+     на то, что лесенка съела в начале. */
+  var E=s.elbow,to=ssNN(E.to)*k,past=ssNN(E.past)*k,
+      h=Math.min(ssNN(E.elbowLen),L)+eat.pre,M=ssMode(E.mode)||{s1:0,s2:0};
+  var o1=M.s1*to,o2=o1+M.s2*past,coll=(h<=eat.pre+1e-9||h>=Lf-1e-9);
+  if(vert)return coll?[[0,0],[o2,Lf]]:[[0,0],[o1,h],[o2,Lf]];
+  return coll?[[0,0],[Lf,o2]]:[[0,0],[h,o1],[Lf,o2]];
 }
 function ssPathLen(P){var t=0;for(var i=1;i<P.length;i++)t+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return t;}
 /* Верхняя сторона D замыкает контур, поэтому её концы НЕ свободны: начало —
