@@ -115,15 +115,16 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
-function salesInterlayerDefaultThickness(productId){const p=mdById('interlayerProduct',productId),n=+(p&&p.thicknessMm);return Number.isFinite(n)&&n>0?n:null;}
 function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)?Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,n)):(def==null?1:def);}
 function salesInterlayerThicknessForLayers(layers){return +(salesInterlayerLayerCount(layers)*SALES_INTERLAYER_LAYER_MM).toFixed(2);}
 function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,Math.round(n/SALES_INTERLAYER_LAYER_MM)));}
 function normalizeSalesInterlayer(layer,defaultProductId){
- const legacyId=typeof layer==='string';layer=legacyId?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
- const productId=salesString(layer.productId)||defaultProductId,explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount;
- const oldThickness=layer.thicknessMm==null||layer.thicknessMm===''?(legacyId?salesInterlayerDefaultThickness(productId):null):layer.thicknessMm;
- const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit):salesInterlayerLayersFromThickness(oldThickness);
+ layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
+ const sourceProductId=salesString(layer.productId)||defaultProductId,migration=interlayerProductMigration(sourceProductId);
+ const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||'INT-PVB';
+ const explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount,oldThickness=layer.thicknessMm;
+ const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit)
+  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness):(migration?migration.layers:1));
  return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers)};
 }
 function normalizeSalesInterlayers(lam,d){
@@ -139,7 +140,7 @@ function salesDefaultPane(i){
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
-  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB030')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
+  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
@@ -286,4 +287,24 @@ function salesMakeupSummary(m){
 }
 function salesMakeupThicknessMm(m){
  let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
+}
+
+/* Catalog temperMode remains a hard production fact, but exceptional orders
+   are allowed. Return messages for an explicit save-time confirmation instead
+   of silently accepting the mismatch or blocking the operator completely. */
+function salesTemperCompatibilityWarnings(order){
+ const out=[];
+ (order&&order.makeups||[]).forEach(m=>(m.panes||[]).forEach((p,index)=>{
+  const rows=p.category==='laminated'
+   ?[['OUTER PLY',p.laminated&&p.laminated.outer],['INNER PLY',p.laminated&&p.laminated.inner]]
+   :[['',p]];
+  rows.forEach(row=>{
+   const spec=row[1]||{},g=glassProductById(spec.glassProductId),ht=mdById('heatTreatment',spec.heatTreatmentId),fired=spec.heatTreatmentId==='HT-HS'||spec.heatTreatmentId==='HT-FT';
+   if(!g)return;
+   const where='Makeup '+m.code+' · Lite '+(index+1)+(row[0]?' · '+row[0]:'');
+   if(glassNeedsFurnace(g)&&!fired)out.push(where+': '+(g.code||g.name)+' requires furnace processing, but '+(ht?ht.name:'no heat treatment')+' is selected.');
+   if(glassBannedFromFurnace(g)&&fired)out.push(where+': '+(g.code||g.name)+' cannot be heat-treated, but '+(ht?ht.name:'a furnace treatment')+' is selected.');
+  });
+ }));
+ return out;
 }

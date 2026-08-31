@@ -994,7 +994,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Laminated мигрирует старые поля в две плиты со своей закалкой', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB060'}},0);
       return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm])};
-    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:[['INT-PVB060',4,1.52]]});
+    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:[['INT-PVB',4,1.52]]});
+    eq('продукт плёнки и количество слоёв хранятся отдельно', await t.p.evaluate(() => {
+      const film=salesDefaultPane(0).laminated.interlayers[0],rows=activeSimple('interlayerProduct');
+      return {film:[film.productId,film.layers,film.thicknessMm],canonical:rows.some(x=>x.id==='INT-PVB'&&x.code==='PVB'&&x.thicknessMm==null),legacy:rows.some(x=>['INT-PVB030','INT-PVB060','INT-SGP035'].includes(x.id))};
+    }), {film:['INT-PVB',1,.38],canonical:true,legacy:false});
     eq('Laminated фильтрует каждую плиту и показывает две независимые закалки', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',laminated:{outer:{manufacturer:'Vitro',thicknessMm:6,visionType:'lowe'},inner:{manufacturer:'Vitro',thicknessMm:6,visionType:'uncoated'}}},0),host=document.createElement('div');
       host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelector('.mu-lam-glass select'),coating=[...outer.querySelectorAll('label')].find(x=>x.textContent==='Select Coating').parentElement.querySelector('select');
@@ -1006,14 +1010,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesPaneSetLamPlyType(0,'outer','frit');salesPaneSetLamFrit(0,'outer','position','in_film');salesPaneSetLamFrit(0,'outer','color','Acid Etched');
       const host=document.createElement('div');host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),pos=outer.querySelector('.mu-lam-frit-grid select');
       return {defaults,outer:[p.laminated.outer.visionType,p.laminated.outer.frit.enabled,p.laminated.outer.frit.position,p.laminated.outer.frit.color],inner:[p.laminated.inner.frit.enabled,p.laminated.inner.frit.position,p.laminated.inner.frit.color],types:[...outer.querySelectorAll('.mu-type-buttons button')].map(x=>[x.textContent,x.classList.contains('on')]),grids:host.querySelectorAll('.mu-lam-frit-grid').length,positions:[...pos.options].map(x=>x.textContent),summary:salesPaneProductSummary(p,0)};
-    }), {defaults:['outside','outside',false,false],outer:['uncoated',true,'in_film','Acid Etched'],inner:[false,'outside','White'],types:[['Low-E',false],['Reflective',false],['Frit',true],['Uncoated',false]],grids:1,positions:['#1 · Outside film (default)','Into film'],summary:'6CLEAR · FRIT into film + PVB030 0.38 mm + 6CLEAR'});
+    }), {defaults:['outside','outside',false,false],outer:['uncoated',true,'in_film','Acid Etched'],inner:[false,'outside','White'],types:[['Low-E',false],['Reflective',false],['Frit',true],['Uncoated',false]],grids:1,positions:['#1 · Outside film (default)','Into film'],summary:'6CLEAR · FRIT into film + PVB 0.38 mm + 6CLEAR'});
+    eq('Laminated Frit показывает поверхность выбранного Lite и ply', await t.p.evaluate(() => {
+      const p=salesDefaultPane(1);p.category='laminated';p.laminated.outer.frit.enabled=true;p.laminated.inner.frit.enabled=true;
+      const host=document.createElement('div');host.innerHTML=salesLaminatedFields(p,1);
+      const option=side=>host.querySelector('[data-lam-ply="'+side+'"] .mu-lam-frit-grid select option').textContent;
+      return {surfaces:[salesLaminatedFritOutsideSurface(1,'outer'),salesLaminatedFritOutsideSurface(1,'inner')],options:[option('outer'),option('inner')],summary:salesPaneProductSummary(p,1)};
+    }), {surfaces:[3,4],options:['#3 · Outside film (default)','#4 · Outside film (default)'],summary:'6CLEAR · FRIT #3 + PVB 0.38 mm + 6CLEAR · FRIT #4'});
     eq('Laminated смешивает типы плёнки с отдельным количеством слоёв', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();const m=salesCurrentMakeup(),p=m.panes[0];p.category='laminated';m.unitType='single';m.panes=[p];m.cavities=[];
       salesPaneSetLamInterlayer(0,0,'INT-EVA-UC');salesPaneAddLamInterlayer(0);salesPaneSetLamInterlayer(0,1,'INT-EVA-MW');
       salesPaneSetLamInterlayerLayers(0,0,1);salesPaneSetLamInterlayerLayers(0,1,4);
       const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[1];
-      return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2)};
-    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.90'});
+      return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2),production:salesPaneGlassThicknessMm(p).toFixed(2)};
+    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.90',production:'13.90'});
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
@@ -1080,6 +1090,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;salesOrderSave();
       return {blocked,savedAfterSize:DB.salesOrder.length===1};
     }), {blocked:true,savedAfterSize:true});
+    eq('несовместимая закалка предупреждает, но разрешает явное сохранение', await t.p.evaluate(() => {
+      DB.salesOrder=[];DB.customer=[{id:'CUS-WARN',code:'CW',legalName:'Warning test',displayName:'Warning test',status:'active',contacts:[],addresses:[]}];
+      tab='sales';render();salesOrderNew();soDraft.customerId='CUS-WARN';soDraft.lines[0].width16=160;soDraft.lines[0].height16=160;
+      const banned=activeGlassProducts().find(glassBannedFromFurnace),required=activeGlassProducts().find(glassNeedsFurnace),m=soDraft.makeups[0];
+      const pane=(g,heat,index)=>normalizeSalesPane({category:'vision',manufacturer:g.manufacturer,thicknessMm:g.thicknessMm,visionType:g.coatingFamily,glassProductId:g.id,heatTreatmentId:heat},index);
+      m.unitType='double';m.panes=[pane(banned,'HT-FT',0),pane(required,'HT-AN',1)];
+      const warnings=salesTemperCompatibilityWarnings(soDraft),prompts=[],oldConfirm=window.confirm,answers=[false,true];
+      window.confirm=message=>{prompts.push(message);return answers.shift();};
+      salesOrderSave();const afterCancel=DB.salesOrder.length;salesOrderSave();const afterConfirm=DB.salesOrder.length;window.confirm=oldConfirm;
+      return {warningCount:warnings.length,afterCancel,afterConfirm,prompts:prompts.length,hasBanned:prompts[0].includes(banned.code),hasRequired:prompts[0].includes(required.code),offersOverride:prompts[0].includes('Save this order anyway?')};
+    }), {warningCount:2,afterCancel:0,afterConfirm:1,prompts:2,hasBanned:true,hasRequired:true,offersOverride:true});
     /* Excel paste. Ввод — таблица с колонками Qty | Width | Height | Mark:
        проверяем и разбор буфера, и то, что на экране именно колонки, а не одна
        строка текста (на ней владелец и споткнулся: набранное через пробелы

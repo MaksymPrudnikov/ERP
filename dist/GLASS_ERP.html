@@ -540,7 +540,7 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-08-31 09:55';
+var ERP_BUILD='2026-08-31 10:39';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4907,13 +4907,20 @@ DEFAULT.spacerVariant=[
 ].map(x=>({id:x[0],system:x[1],size:x[2],name:x[1]+' '+x[2]+'″',code:x[0],availability:'order',supplier:'',leadTimeDays:null,active:true}));
 DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
 DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
-/* EVA colour families are selectable materials, but their actual layer
-   thickness is supplier / job specific. Keep it null instead of inventing a
-   number; the Laminated builder asks the operator for the real millimetres. */
+/* Interlayer Product answers only WHAT film is used. Thickness is not part of
+   the product: the Laminated builder stores the independently selected number
+   of 0.38 mm layers. Old ids encoded .030 / .060 / .035 in the product itself;
+   keep an explicit migration map so saved orders retain their physical stack. */
+const INTERLAYER_PRODUCT_ALIASES={
+ 'INT-PVB030':{id:'INT-PVB',layers:2},
+ 'INT-PVB060':{id:'INT-PVB',layers:4},
+ 'INT-SGP035':{id:'INT-SGP',layers:2}
+};
+function interlayerProductMigration(id){return INTERLAYER_PRODUCT_ALIASES[mdString(id)]||null;}
+function interlayerCanonicalProductId(id){const old=interlayerProductMigration(id);return old?old.id:mdString(id);}
 DEFAULT.interlayerProduct=[
- {id:'INT-PVB030',name:'PVB Clear .030',code:'PVB030',thicknessMm:.762},
- {id:'INT-PVB060',name:'PVB Clear .060',code:'PVB060',thicknessMm:1.524},
- {id:'INT-SGP035',name:'Structural interlayer .035',code:'SGP035',thicknessMm:.889},
+ {id:'INT-PVB',name:'PVB Clear',code:'PVB',thicknessMm:null},
+ {id:'INT-SGP',name:'Structural Interlayer',code:'SGP',thicknessMm:null},
  {id:'INT-EVA-UC',name:'EVA Ultra Clear',code:'EVA-UC',thicknessMm:null},
  {id:'INT-EVA-MW',name:'EVA Milky Way',code:'EVA-MW',thicknessMm:null}
 ].map(x=>normalizeSimpleMaterial(x,'interlayer'));
@@ -4966,9 +4973,12 @@ function normalizeMasterData(){
 
  [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
   const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));
-  /* Add only missing built-in film types to an existing browser database.
-     Re-seeding the whole reference table would erase user-maintained rows. */
-  if(k==='interlayerProduct')DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  /* Migrate only the old built-in thickness-as-product rows. Custom film
+     products remain untouched, while canonical built-ins are added if absent. */
+  if(k==='interlayerProduct'){
+   DB[k]=DB[k].filter(x=>!x||!interlayerProductMigration(x.id));
+   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
@@ -5558,15 +5568,16 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
-function salesInterlayerDefaultThickness(productId){const p=mdById('interlayerProduct',productId),n=+(p&&p.thicknessMm);return Number.isFinite(n)&&n>0?n:null;}
 function salesInterlayerLayerCount(v,def){const n=Math.round(+v);return Number.isFinite(n)?Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,n)):(def==null?1:def);}
 function salesInterlayerThicknessForLayers(layers){return +(salesInterlayerLayerCount(layers)*SALES_INTERLAYER_LAYER_MM).toFixed(2);}
 function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)||n<=0)return 1;return Math.max(1,Math.min(SALES_MAX_INTERLAYER_LAYERS,Math.round(n/SALES_INTERLAYER_LAYER_MM)));}
 function normalizeSalesInterlayer(layer,defaultProductId){
- const legacyId=typeof layer==='string';layer=legacyId?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
- const productId=salesString(layer.productId)||defaultProductId,explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount;
- const oldThickness=layer.thicknessMm==null||layer.thicknessMm===''?(legacyId?salesInterlayerDefaultThickness(productId):null):layer.thicknessMm;
- const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit):salesInterlayerLayersFromThickness(oldThickness);
+ layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
+ const sourceProductId=salesString(layer.productId)||defaultProductId,migration=interlayerProductMigration(sourceProductId);
+ const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||'INT-PVB';
+ const explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount,oldThickness=layer.thicknessMm;
+ const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit)
+  :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness):(migration?migration.layers:1));
  return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers)};
 }
 function normalizeSalesInterlayers(lam,d){
@@ -5582,7 +5593,7 @@ function salesDefaultPane(i){
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
-  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB030')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
+  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
@@ -5729,6 +5740,26 @@ function salesMakeupSummary(m){
 }
 function salesMakeupThicknessMm(m){
  let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
+}
+
+/* Catalog temperMode remains a hard production fact, but exceptional orders
+   are allowed. Return messages for an explicit save-time confirmation instead
+   of silently accepting the mismatch or blocking the operator completely. */
+function salesTemperCompatibilityWarnings(order){
+ const out=[];
+ (order&&order.makeups||[]).forEach(m=>(m.panes||[]).forEach((p,index)=>{
+  const rows=p.category==='laminated'
+   ?[['OUTER PLY',p.laminated&&p.laminated.outer],['INNER PLY',p.laminated&&p.laminated.inner]]
+   :[['',p]];
+  rows.forEach(row=>{
+   const spec=row[1]||{},g=glassProductById(spec.glassProductId),ht=mdById('heatTreatment',spec.heatTreatmentId),fired=spec.heatTreatmentId==='HT-HS'||spec.heatTreatmentId==='HT-FT';
+   if(!g)return;
+   const where='Makeup '+m.code+' · Lite '+(index+1)+(row[0]?' · '+row[0]:'');
+   if(glassNeedsFurnace(g)&&!fired)out.push(where+': '+(g.code||g.name)+' requires furnace processing, but '+(ht?ht.name:'no heat treatment')+' is selected.');
+   if(glassBannedFromFurnace(g)&&fired)out.push(where+': '+(g.code||g.name)+' cannot be heat-treated, but '+(ht?ht.name:'a furnace treatment')+' is selected.');
+  });
+ }));
+ return out;
 }
 
 /* ==== src/erp/icons.js ==== */
@@ -7129,6 +7160,8 @@ function salesOrderSave(){
  if(noDim.length)return fail(e,noDim.length===1
    ?'Line '+noDim[0]+' has no width or height. Enter the size or remove the line.'
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
+ const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
+ if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
@@ -7235,7 +7268,7 @@ function salesLamFritDotChange(i,side,el){const f=salesPaneEnsureLamFrit(salesPa
 function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=salesMarginTo16(el.value);if(!f||n==null){el.classList.add('bad');return;}f[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');}
 function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
 function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB030'));render();}
+function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB'));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
@@ -7986,8 +8019,11 @@ function salesPaneGlassThicknessMm(pane){
    if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   films.forEach(function(film){
-   const v=+film.thicknessMm,layers=Math.max(1,Math.floor(+film.layers||1));
-   if(Number.isFinite(v)&&v>0)total+=v*layers;
+   /* thicknessMm is already the total derived from the selected layer count.
+      Multiplying it by layers again made production see four 0.38 mm layers
+      as 6.08 mm instead of 1.52 mm. */
+   const v=salesInterlayerThicknessForLayers(film&&film.layers);
+   if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   return known?total:NaN;
  }
@@ -8659,12 +8695,16 @@ function salesSpacerSystemLabel(sp){
  return code?code+' — '+sp.system:sp.system;
 }
 function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>${label}</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+value===n?'on':''}" onclick="${handler}(${n})">#${n}</button>`).join('')}</div></div>`;}
+/* A laminated pane has two plies but still occupies one Lite position. The
+   outer ply faces the first numbered surface of that Lite; the inner ply
+   faces its second surface. */
+function salesLaminatedFritOutsideSurface(index,side){const nums=salesPaneSurfaces(index);return side==='inner'?nums[1]:nums[0];}
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'outside film'));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
-  return [part(a,outer)].concat(films,part(b,inner)).filter(Boolean).join(' + ')||'Laminated';
+  return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
  if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
@@ -8746,7 +8786,8 @@ function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);ret
    laminate may combine, for example, EVA Ultra Clear and EVA Milky Way. */
 function salesLaminatedFritFields(p,index,side){
  const f=p.laminated[side].frit;if(!f||!f.enabled)return '';
- return `<div class="mu-subgrid mu-lam-frit-grid"><div><label>Frit Position</label><select onchange="salesPaneSetLamFrit(${index},'${side}','position',this.value)">${[['outside','#1 · Outside film (default)'],['in_film','Into film']].map(x=>salesOption(x[0],x[1],f.position,true)).join('')}</select></div><div><label>Frit Product</label><select onchange="salesPaneSetLamFrit(${index},'${side}','productId',this.value)">${salesSimpleOptions('fritProduct',f.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetLamFrit(${index},'${side}','color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,f.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetLamFrit(${index},'${side}','pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,f.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(f.dotMm)}" onchange="salesLamFritDotChange(${index},'${side}',this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetLamFrit(${index},'${side}','marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,f.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(f.marginW16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(f.marginH16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginH16',this)"></div><div><label>Production marking</label><input value="${esc(f.marking)}" oninput="salesPaneSetLamFritText(${index},'${side}','marking',this.value)"></div></div>`;
+ const outsideSurface=salesLaminatedFritOutsideSurface(index,side);
+ return `<div class="mu-subgrid mu-lam-frit-grid"><div><label>Frit Position</label><select onchange="salesPaneSetLamFrit(${index},'${side}','position',this.value)">${[['outside','#'+outsideSurface+' · Outside film (default)'],['in_film','Into film']].map(x=>salesOption(x[0],x[1],f.position,true)).join('')}</select></div><div><label>Frit Product</label><select onchange="salesPaneSetLamFrit(${index},'${side}','productId',this.value)">${salesSimpleOptions('fritProduct',f.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetLamFrit(${index},'${side}','color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,f.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetLamFrit(${index},'${side}','pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,f.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(f.dotMm)}" onchange="salesLamFritDotChange(${index},'${side}',this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetLamFrit(${index},'${side}','marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,f.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(f.marginW16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(f.marginH16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginH16',this)"></div><div><label>Production marking</label><input value="${esc(f.marking)}" oninput="salesPaneSetLamFritText(${index},'${side}','marking',this.value)"></div></div>`;
 }
 function salesLaminatedPlyFields(p,index,side,label){
  const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];

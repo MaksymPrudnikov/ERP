@@ -350,13 +350,20 @@ DEFAULT.spacerVariant=[
 ].map(x=>({id:x[0],system:x[1],size:x[2],name:x[1]+' '+x[2]+'″',code:x[0],availability:'order',supplier:'',leadTimeDays:null,active:true}));
 DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
 DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
-/* EVA colour families are selectable materials, but their actual layer
-   thickness is supplier / job specific. Keep it null instead of inventing a
-   number; the Laminated builder asks the operator for the real millimetres. */
+/* Interlayer Product answers only WHAT film is used. Thickness is not part of
+   the product: the Laminated builder stores the independently selected number
+   of 0.38 mm layers. Old ids encoded .030 / .060 / .035 in the product itself;
+   keep an explicit migration map so saved orders retain their physical stack. */
+const INTERLAYER_PRODUCT_ALIASES={
+ 'INT-PVB030':{id:'INT-PVB',layers:2},
+ 'INT-PVB060':{id:'INT-PVB',layers:4},
+ 'INT-SGP035':{id:'INT-SGP',layers:2}
+};
+function interlayerProductMigration(id){return INTERLAYER_PRODUCT_ALIASES[mdString(id)]||null;}
+function interlayerCanonicalProductId(id){const old=interlayerProductMigration(id);return old?old.id:mdString(id);}
 DEFAULT.interlayerProduct=[
- {id:'INT-PVB030',name:'PVB Clear .030',code:'PVB030',thicknessMm:.762},
- {id:'INT-PVB060',name:'PVB Clear .060',code:'PVB060',thicknessMm:1.524},
- {id:'INT-SGP035',name:'Structural interlayer .035',code:'SGP035',thicknessMm:.889},
+ {id:'INT-PVB',name:'PVB Clear',code:'PVB',thicknessMm:null},
+ {id:'INT-SGP',name:'Structural Interlayer',code:'SGP',thicknessMm:null},
  {id:'INT-EVA-UC',name:'EVA Ultra Clear',code:'EVA-UC',thicknessMm:null},
  {id:'INT-EVA-MW',name:'EVA Milky Way',code:'EVA-MW',thicknessMm:null}
 ].map(x=>normalizeSimpleMaterial(x,'interlayer'));
@@ -409,9 +416,12 @@ function normalizeMasterData(){
 
  [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
   const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));
-  /* Add only missing built-in film types to an existing browser database.
-     Re-seeding the whole reference table would erase user-maintained rows. */
-  if(k==='interlayerProduct')DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  /* Migrate only the old built-in thickness-as-product rows. Custom film
+     products remain untouched, while canonical built-ins are added if absent. */
+  if(k==='interlayerProduct'){
+   DB[k]=DB[k].filter(x=>!x||!interlayerProductMigration(x.id));
+   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
