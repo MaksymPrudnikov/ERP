@@ -44,6 +44,8 @@ function salesOrderSave(){
  if(noDim.length)return fail(e,noDim.length===1
    ?'Line '+noDim[0]+' has no width or height. Enter the size or remove the line.'
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
+ const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
+ if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
@@ -150,7 +152,7 @@ function salesLamFritDotChange(i,side,el){const f=salesPaneEnsureLamFrit(salesPa
 function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=salesMarginTo16(el.value);if(!f||n==null){el.classList.add('bad');return;}f[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');}
 function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
 function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB030'));render();}
+function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB'));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
@@ -901,8 +903,11 @@ function salesPaneGlassThicknessMm(pane){
    if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   films.forEach(function(film){
-   const v=+film.thicknessMm,layers=Math.max(1,Math.floor(+film.layers||1));
-   if(Number.isFinite(v)&&v>0)total+=v*layers;
+   /* thicknessMm is already the total derived from the selected layer count.
+      Multiplying it by layers again made production see four 0.38 mm layers
+      as 6.08 mm instead of 1.52 mm. */
+   const v=salesInterlayerThicknessForLayers(film&&film.layers);
+   if(Number.isFinite(v)&&v>0)total+=v;else known=false;
   });
   return known?total:NaN;
  }
