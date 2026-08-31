@@ -314,6 +314,123 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('отклонение угла без направления блокируется', badCornerOffset, false);
 
+    /* Верхняя сторона D. Её концы задаёт замыкание контура, поэтому проверяем
+       две вещи сразу: излом появляется — и концы при этом НЕ сдвигаются.
+       До правки D была прямым отрезком [AT,CT], и ступень на верху задать было
+       нечем: из двух горизонтальных сторон управлялась только нижняя. */
+    const topElbow = await p.evaluate(() => {
+      const rr = v => Math.round(v * 1e6) / 1e6;
+      const mk = mode => {
+        const s = { id:'t', name:'t', w:'40', h:'40', smart: ssNormalize({}) };
+        s.smart.elbowsOn = true;
+        s.smart.D.elbow = { to:'4', elbowLen:'10', past:'0', mode };
+        const S = { w:s.w, h:s.h, shape:{ type:'smart', smart:s.smart } };
+        const G = ssContour(S);
+        return { segs: G.segs.filter(x => x.id === 'D').map(x => [[rr(x.p1[0]),rr(x.p1[1])],[rr(x.p2[0]),rr(x.p2[1])]]),
+                 AT: G.base.AT.map(rr), CT: G.base.CT.map(rr), valid: ShapeModule.compute(s).valid };
+      };
+      const up = mk('m1'), down = mk('m3');
+      return { up: up.segs, down: down.segs, AT: up.AT, CT: up.CT, valid: up.valid };
+    });
+    eq('излом верхней стороны даёт ступень', topElbow.up, [[[0,40],[10,44]],[[10,44],[40,40]]]);
+    eq('излом верхней стороны вниз — зеркало', topElbow.down, [[[0,40],[10,36]],[[10,36],[40,40]]]);
+    eq('излом верхней стороны не двигает её концы', { AT: topElbow.AT, CT: topElbow.CT }, { AT:[0,40], CT:[40,40] });
+    ok('форма с изломом верха валидна', topElbow.valid);
+
+    /* Нижняя сторона трогаться не должна: числа сняты до правки. */
+    const bottomElbow = await p.evaluate(() => {
+      const rr = v => Math.round(v * 1e6) / 1e6;
+      const s = { id:'t', name:'t', w:'40', h:'40', smart: ssNormalize({}) };
+      s.smart.elbowsOn = true;
+      s.smart.B.elbow = { to:'0', elbowLen:'10', past:'4', mode:'m1' };
+      const S = { w:s.w, h:s.h, shape:{ type:'smart', smart:s.smart } };
+      return ssContour(S).segs.map(x => [x.id, [rr(x.p1[0]),rr(x.p1[1])], [rr(x.p2[0]),rr(x.p2[1])]]);
+    });
+    eq('излом нижней стороны не изменился', bottomElbow,
+      [['A',[0,0],[0,40]],['D',[0,40],[40,44]],['C',[40,44],[40,4]],['B',[40,4],[10,0]],['B',[10,0],[0,0]]]);
+
+    /* Излом без уклона хотя бы с одной стороны раньше молча выбрасывался:
+       длина введена, на чертеже ничего, причина нигде не названа. */
+    const elbowNoOutage = await p.evaluate(() => {
+      const s = { id:'t', name:'t', w:'40', h:'40', smart: ssNormalize({}) };
+      s.smart.elbowsOn = true;
+      s.smart.B.elbow = { to:'0', elbowLen:'10', past:'0', mode:'m1' };
+      const r = ShapeModule.compute(s);
+      return { valid: r.valid, msg: (r.errors || []).join(' ') };
+    });
+    eq('излом без уклона больше не проглатывается', elbowNoOutage.valid, false);
+    ok('и причина названа', /at least one side of the elbow/.test(elbowNoOutage.msg), elbowNoOutage.msg);
+
+    /* Сохранённые формы записи D не имеют — она должна достраиваться при чтении,
+       не меняя геометрию. */
+    const legacyNoD = await p.evaluate(() => {
+      const m = ssNormalize({}); delete m.D;
+      const r = ShapeModule.compute({ id:'t', name:'t', w:'40', h:'40', smart: m });
+      const d = r.definition && r.definition.smart;
+      return { valid: r.valid, hasD: !!(d && d.D && d.D.elbow), pts: r.points ? r.points.length : 0 };
+    });
+    eq('старая модель без D читается и достраивается', { valid: legacyNoD.valid, hasD: legacyNoD.hasD }, { valid:true, hasD:true });
+    eq('и остаётся прямоугольником', legacyNoD.pts, 4);
+
+    /* Производственный чертёж рисует не саму форму, а отклонения от базы, усиленные
+       для читаемости. База обязана быть прямоугольной. Пока в ней оставалась разная
+       высота слева и справа, ровный верх получал ненулевое отклонение, усиление
+       перелетало через ноль — и верх рисовался наклонным, хотя уход у него нулевой.
+       Случай снят с реального заказа: A 36, B 48 с уклоном 1/8 вниз, C 36 1/8. */
+    const levelTop = await p.evaluate(() => {
+      const rr = v => Math.round(v * 1e6) / 1e6;
+      /* Чертёж рисуется из открытого черновика — маркеры производства читают sDraft. */
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36';
+      sDraft.smart.C.len = '36 1/8'; sDraft.smart.B.out = '1/8'; sDraft.smart.B.dir = 'down';
+      const S = shapeDraftLine(), N = shapeAnnNeutralGeometry(S), real = ssContour(S);
+      /* Контур чертежа идёт первым и в порядке обхода A → D → C → B. */
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      const L = [...doc.querySelectorAll('line')].slice(0, 4)
+        .map(l => ({ y1:+l.getAttribute('y1'), y2:+l.getAttribute('y2') }));
+      const top = L.reduce((a, b) => (a.y1 + a.y2) < (b.y1 + b.y2) ? a : b);
+      const out = { neutral: N.points.map(q => [rr(q[0]), rr(q[1])]), Dout: real.base.Dout, topSkew: rr(Math.abs(top.y1 - top.y2)) };
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return out;
+    });
+    /* Автоматически считается только D. Пустое C — это подстановка «как A», а не
+       расчёт, поэтому в поле должен стоять фактический размер, а не слово AUTO:
+       иначе правая сторона нигде не видна и её приходится держать в голове. */
+    /* Проверять надо ЖИВОЙ ввод, а не свежий рендер. Первая версия этого теста
+       смотрела только что построенную разметку и потому не заметила, что при
+       наборе подсказка застывает: редактор не перерисовывает левую колонку,
+       а слой перевода кэшировал первое значение placeholder и возвращал его
+       навсегда. Поэтому здесь именно input-событие, как от рук. */
+    const cHint = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = ''; render();
+      const snap = () => ({
+        matrixA: document.getElementById('emAlen').value,
+        masterA: document.getElementById('shapeHField').value,
+        cPh: document.getElementById('emClen').getAttribute('placeholder'),
+        masterCPh: document.getElementById('shapeCField').getAttribute('placeholder'),
+        cRo: document.getElementById('emClen').hasAttribute('readonly'),
+        dRo: document.getElementById('emDlen').hasAttribute('readonly')
+      });
+      const before = snap();
+      const cell = document.getElementById('emAlen');
+      cell.focus(); cell.value = '40 1/2'; cell.dispatchEvent(new Event('input', { bubbles:true }));
+      const after = snap(), focus = document.activeElement && document.activeElement.id;
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { before, after, focus };
+    });
+    eq('пустое C подсказывает фактический размер, а не AUTO', cHint.before.cPh, '36″');
+    eq('подсказка едет за высотой при живом вводе', { cPh: cHint.after.cPh, masterCPh: cHint.after.masterCPh }, { cPh: '40 1/2″', masterCPh: '40 1/2″' });
+    eq('размер в шапке и в матрице не расходятся', { matrixA: cHint.after.matrixA, masterA: cHint.after.masterA }, { matrixA: '40 1/2', masterA: '40 1/2' });
+    eq('каретка остаётся в том поле, где печатают', cHint.focus, 'emAlen');
+    eq('C остаётся вводимым, автоматической остаётся только D', { c: cHint.after.cRo, d: cHint.after.dRo }, { c: false, d: true });
+
+    eq('база чертежа — прямоугольник, а не форма с уклоном', levelTop.neutral, [[0,0],[0,36],[48,36],[48,0]]);
+    eq('ровный верх остаётся ровным в геометрии', levelTop.Dout, 0);
+    eq('ровный верх рисуется ровным', levelTop.topSkew, 0);
+
     const bad = await p.evaluate(() => {
       const s = { id: 't', name: 't', w: '48', h: '36', smart: ssNormalize({}) };
       s.smart.C.len = '0';
@@ -2041,7 +2158,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='configurators';subtab='shape';openShapeNew('smart');
       sDraft.smart.corners.tl='single';const S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;sEdgeworkOpen=true;sFeaturesOpen=true;sManufacturingOpen=true;
       sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hole',type:'hole',x:.5,y:.5,diameter:'3/4',hRef:'left',vRef:'bottom'}),shapeNormalizeManufacturingItem({id:'qa-clamp',type:'clamp',edge:'right',distance:.5}),shapeNormalizeManufacturingItem({id:'qa-hinge',type:'hinge',edge:'bottom',distance:.5})];sManufacturingSelected='qa-hole';render();
-      const left=cyrillicUi();sEdit=null;sDraft=null;sEdgeworkOpen=false;sFeaturesOpen=false;sManufacturingOpen=true;sManufacturingSelected=null;render();return left;
+      const left=cyrillicUi();
+      /* Локти — отдельный проход. Под матрицей рёбер у них своя строка-подсказка,
+         и пока проверялось только выключенное состояние, её перевод никто не смотрел. */
+      sDraft.smart.elbowsOn=true;render();const withElbows=cyrillicUi();
+      sEdit=null;sDraft=null;sEdgeworkOpen=false;sFeaturesOpen=false;sManufacturingOpen=true;sManufacturingSelected=null;render();return left.concat(withElbows);
     }), []);
     eq('Production Shape DXF editor EN без русского остатка', await t.p.evaluate(() => {
       function cyrillicUi(){

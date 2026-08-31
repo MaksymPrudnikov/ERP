@@ -11,7 +11,7 @@
 function ssIsModel(m){
   if(!(m&&typeof m==='object'&&m.corners&&m.extraEdges
     &&m.cornerOffsets&&['tl','tr','br','bl'].every(function(k){return m.cornerOffsets[k];})
-    &&m.A&&m.A.elbow&&m.B&&m.B.elbow&&m.C&&m.C.elbow))return false;
+    &&m.A&&m.A.elbow&&m.B&&m.B.elbow&&m.C&&m.C.elbow&&m.D&&m.D.elbow))return false;
   /* Нормализованной считается только модель, которая держит инвариант
      «нет углового блока — нет координат углов». Без этой проверки ранний выход
      пропускал уже сохранённые данные мимо нормализации, и скрытый вынос угла
@@ -26,7 +26,12 @@ function ssNormalize(m){
   if(ssIsModel(m))return m;
   m=(m&&typeof m==='object')?m:{};
   var out={elbowsOn:m.elbowsOn!==false};
-  ['A','B','C'].forEach(function(e){
+  /* D хранится наравне с A/B/C, но входными у неё являются только форма излома:
+     elbow.elbowLen, elbow.to и elbow.mode. Длина, полный уход и elbow.past
+     ВЫВОДЯТСЯ из замыкания контура — концы D заданы верхом A и верхом C.
+     Единая структура записи нужна, чтобы модель, валидация и матрица рёбер
+     работали со всеми четырьмя сторонами одинаково, без ветвлений по имени. */
+  ['A','B','C','D'].forEach(function(e){
     var s=(m[e]&&typeof m[e]==='object')?m[e]:{},el=(s.elbow&&typeof s.elbow==='object')?s.elbow:{};
     out[e]={len:s.len==null?'':String(s.len),out:s.out==null?'0':String(s.out),dir:s.dir||null,
       elbow:{to:el.to==null?'0':String(el.to),elbowLen:el.elbowLen==null?'0':String(el.elbowLen),

@@ -514,7 +514,7 @@ const I18N_EN={
   "горизонтальное": "horizontal",
   "уход от отвеса": "out of plumb",
   "уход от уровня": "out of level",
-  "составной перелом стороны · D считается автоматически": "compound edge break · D is calculated automatically",
+  "составной перелом стороны · у D длина и уход за изломом считаются автоматически": "compound edge break · on D the length and the outage past the elbow are calculated automatically",
   "простой уклон стороны · D считается автоматически": "simple edge slope · D is calculated automatically",
   "каждое ребро нотча можно скосить отдельно": "each notch edge can be skewed independently",
   "Значения появятся, когда угловой блок получит рёбра": "Values appear when the corner block has edges",
@@ -913,6 +913,11 @@ function applyLang(root=document.body){
    node.nodeValue = LANG==='en' ? tx(original) : original;
  }
  document.querySelectorAll('[placeholder]').forEach(el=>{
+   /* Подсказка, которая считается на ходу, кэшу не подлежит: кэш запоминает
+      ПЕРВОЕ значение и потом возвращает его навсегда — поле застывало на старом
+      числе, сколько бы размер ни меняли. Такие поля помечены и живут своей
+      жизнью; переводить там нечего, в них размеры. */
+   if(el.hasAttribute('data-live-placeholder'))return;
    let rec=_attrOriginal.get(el);if(!rec){rec={};_attrOriginal.set(el,rec);}if(rec.placeholder===undefined)rec.placeholder=el.getAttribute('placeholder')||'';
    el.setAttribute('placeholder',LANG==='en'?tx(rec.placeholder):rec.placeholder);
  });

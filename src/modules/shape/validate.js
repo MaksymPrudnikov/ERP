@@ -23,12 +23,35 @@ function ssValidate(S){
     ['to','elbowLen','past'].forEach(function(k){var r=fabParseDimStrict(E[k]);if(E[k]!==''&&!r.ok)bad=k;else if(r.ok&&r.v<0)bad=k;});
     if(bad){errors.push('Edge '+e+': "'+E[bad]+'" is not a valid '+(bad==='elbowLen'?'elbow length':'outage')+'.');return;}
     var to=ssNN(E.to),past=ssNN(E.past),h=ssNN(E.elbowLen);
+    if(h>L+1e-9){errors.push('Edge '+e+': elbow length '+dimIn(h)+' is longer than the edge ('+dimIn(L)+').');return;}
+    /* Излом без уклона хотя бы с одной стороны геометрически НЕ существует —
+       сторона выходит прямой. Раньше такой ввод молча выбрасывался: человек
+       задавал длину излома, на чертеже не менялось ничего и причина нигде
+       не называлась. Теперь это ошибка с текстом. */
+    if(h>1e-9&&to<=0&&past<=0){errors.push('Edge '+e+': an edge with an elbow must be out of plumb / level on at least one side of the elbow.');return;}
     if(to<=0&&past<=0)return;
     if(!E.mode){errors.push('Edge '+e+': pick the elbow form (direction of the skew).');return;}
-    if(h>L+1e-9){errors.push('Edge '+e+': elbow length '+dimIn(h)+' is longer than the edge ('+dimIn(L)+').');return;}
     /* elbow length 0 (или равный ребру) — обычный способ задать простой уклон:
        ребро берётся прямым, предупреждать не о чем. */
   });
+  /* Верхняя сторона проверяется отдельно: у неё входными являются только длина
+     излома, уход первого отрезка и форма. Длину стороны и уход второго отрезка
+     задаёт замыкание контура, вводить их нельзя, значит и проверять нечего. */
+  if(!errors.length&&m.elbowsOn){
+    var ED=m.D.elbow,badD=null;
+    ['to','elbowLen'].forEach(function(k){var r=fabParseDimStrict(ED[k]);if(ED[k]!==''&&!r.ok)badD=k;else if(r.ok&&r.v<0)badD=k;});
+    if(badD)errors.push('Edge D (top): "'+ED[badD]+'" is not a valid '+(badD==='elbowLen'?'elbow length':'outage')+'.');
+    else{
+      var hD=ssNN(ED.elbowLen),toD=ssNN(ED.to),GD=ssBase(S),spanD=Math.abs(GD.Dsigned),dropD=Math.abs(GD.Dout);
+      if(hD>1e-9){
+        if(hD>=spanD-1e-9)errors.push('Edge D (top): elbow length '+dimIn(hD)+' leaves no room on a side of '+dimIn(spanD)+'.');
+        else if(!ED.mode)errors.push('Edge D (top): pick the elbow form (direction of the skew).');
+        /* Уход второго отрезка выводится из замыкания. Если стороны выходят на
+           одну высоту, а первый отрезок не уведён, ломаная вырождается в прямую. */
+        else if(toD<=0&&dropD<=1e-9)errors.push('Edge D (top): an edge with an elbow must be out of level on at least one side of the elbow.');
+      }
+    }
+  }
   if(errors.length)return {errors:errors,warns:warns};
   SS_ORDER.forEach(function(k){
     var c=m.cornerOffsets[k]||{};

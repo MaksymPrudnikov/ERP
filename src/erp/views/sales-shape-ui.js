@@ -350,11 +350,27 @@ function refreshShapeEditor(){
   /* Перерисовываем только SVG-иконки и вычисляемые readonly-ячейки: полный
      ререндер левой колонки сбил бы фокус в поле, где сейчас печатают. */
   ['A','B','C','D'].forEach(function(e){var el=document.getElementById('oi_'+e);if(el)el.innerHTML=shapeOutageIcon(e);});
-  if(sDraft.type==='smart'){
-    var bs=r.valid&&r.base,dl=document.getElementById('emDlen'),dv=document.getElementById('emDout');
-    if(dl)dl.value=bs?dimIn(bs.Dtrue):'AUTO';
-    if(dv)dv.value=bs?dimIn(bs.Dout):'0';
+  /* Размер живёт сразу в двух местах — в шапке и в матрице, — а подсказка у C
+     показывает фактическую высоту. Всё это надо подтягивать здесь, иначе поле,
+     в котором сейчас НЕ печатают, остаётся со старым значением: набрали 50 в
+     матрице, а в шапке всё ещё 36. Поле под кареткой не трогаем никогда. */
+  var act=document.activeElement;
+  function syncField(id,val,asPlaceholder){
+    var el=document.getElementById(id);if(!el||el===act)return;
+    if(asPlaceholder)el.setAttribute('placeholder',val);else el.value=val;
   }
+  if(sDraft.type==='smart'){
+    var bs=r.valid&&r.base;
+    syncField('emDlen',bs?dimIn(bs.Dtrue):'AUTO');
+    syncField('emDout',bs?dimIn(bs.Dout):'0');
+    syncField('emDpast',bs?dimIn(bs.DpastOut):'—');
+    syncField('emClen',shapeCEffective(),true);
+    syncField('shapeCField',shapeCEffective(),true);
+    syncField('emClen',sDraft.smart.C.len||'');
+    syncField('shapeCField',sDraft.smart.C.len||'');
+  }
+  syncField('emAlen',sDraft.h);syncField('shapeHField',sDraft.h);
+  syncField('emBlen',sDraft.w);syncField('shapeWField',sDraft.w);
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
   if(p)applyLang(p);if(d)applyLang(d);
@@ -369,7 +385,10 @@ function shapeEdgeIsVert(e){return e==='A'||e==='C';}
 function shapeOutageIcon(edge){
   var m=sDraft.smart,s=m[edge]||{},vert=shapeEdgeIsVert(edge),W=44,H=30,pad=5,col=shapeEdgeColor(edge),d;
   function seg(x1,y1,x2,y2){return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round"/>';}
-  if(edge==='D'){d=seg(pad,H/2,W-pad,H/2);return `<svg viewBox='0 0 ${W} ${H}' class='outage-icon'>${d}</svg>`;}
+  /* Простого уклона у D нет: без локтей её форма целиком задана концами, и
+     выбирать нечего — рисуем прямую. С локтями показываем заданный излом;
+     уход второго отрезка выводится, поэтому в превью он идёт ровно. */
+  if(edge==='D'&&!m.elbowsOn){d=seg(pad,H/2,W-pad,H/2);return `<svg viewBox='0 0 ${W} ${H}' class='outage-icon'>${d}</svg>`;}
   var o=ssNN(s.out),lean=o>0?7:0;
   if(m.elbowsOn){
     var E=s.elbow||{},M=ssMode(E.mode)||{s1:0,s2:0},h=ssNN(E.elbowLen),to=ssNN(E.to),past=ssNN(E.past);
@@ -383,14 +402,23 @@ function shapeOutageIcon(edge){
   }
   return `<svg viewBox='0 0 ${W} ${H}' class='outage-icon'>${d}</svg>`;
 }
+/* Пустое C означает «правая сторона как A» — это подстановка, а не расчёт.
+   Раньше в поле стояло слово AUTO, и фактический размер правой стороны не был
+   виден нигде: оператор должен был держать в голове, чему он равен. Показываем
+   само число. Связь с A сохраняется — поменяли высоту, подсказка поехала за ней.
+   Автоматически считается только D, у неё и поля длины нет. */
+function shapeCEffective(){
+  var r=fabParseDimStrict(sDraft.h);
+  return r.ok&&r.v>0?dimIn(r.v):'= A';
+}
 function shapeEdgeMatrix(){
   var m=sDraft.smart,cols=['A','B','C','D'],r=shapeDraftResult(),base=(r.valid&&r.base)||null;
   var head=cols.map(function(e){return `<span class='em-col' style='color:${shapeEdgeColor(e)}'>${e}</span>`;}).join('');
   function cell(e,html){return `<span class='em-cell'>${html}</span>`;}
   function lengthCell(e){
-    if(e==='A')return cell(e,`<input data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
-    if(e==='B')return cell(e,`<input data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'>`);
-    if(e==='C')return cell(e,`<input data-vfield='num' value='${esc(m.C.len||'')}' placeholder='AUTO = A' oninput='setShapeC(this.value)'>`);
+    if(e==='A')return cell(e,`<input id='emAlen' data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
+    if(e==='B')return cell(e,`<input id='emBlen' data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'>`);
+    if(e==='C')return cell(e,`<input id='emClen' data-vfield='num' data-live-placeholder value='${esc(m.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'>`);
     return cell(e,`<input class='ro' id='emDlen' readonly value='${base?esc(dimIn(base.Dtrue)):'AUTO'}'>`);
   }
   var rows=[{k:'Length',cells:cols.map(lengthCell).join('')}];
@@ -405,21 +433,28 @@ function shapeEdgeMatrix(){
       return cell(e,`<div class='outage-pick'><span class='oi' id='oi_${e}'>${shapeOutageIcon(e)}</span><select onchange='setShapeSimple("${e}","dir",this.value)'>${opts.map(function(x){return `<option value='${x[0]}' ${(m[e].dir||'')===x[0]?'selected':''}>${x[1]}</option>`;}).join('')}</select></div>`);
     }).join('')});
   }else{
+    /* У D вводятся только положение излома и уход ПЕРВОГО отрезка. Уход второго
+       выводится из замыкания контура — концы стороны заданы верхом A и верхом C,
+       поэтому ячейка «Outage past elbow» у неё остаётся показывающей. */
     [['to','Outage to elbow'],['elbowLen','Elbow length'],['past','Outage past elbow']].forEach(function(f){
       rows.push({k:f[1],cells:cols.map(function(e){
-        return e==='D'?cell(e,`<input class='ro' readonly value='${f[0]==='past'&&base?esc(dimIn(base.Dout)):'—'}'>`)
-          :cell(e,`<input data-vfield='num' value='${esc(m[e].elbow[f[0]]||'0')}' oninput='setShapeElbow("${e}","${f[0]}",this.value)' onblur='shapeZeroIfEmpty(this)'>`);
+        if(e==='D'&&f[0]==='past')return cell(e,`<input id='emDpast' class='ro' readonly value='${base?esc(dimIn(base.DpastOut)):'—'}'>`);
+        return cell(e,`<input data-vfield='num' value='${esc(m[e].elbow[f[0]]||'0')}' oninput='setShapeElbow("${e}","${f[0]}",this.value)' onblur='shapeZeroIfEmpty(this)'>`);
       }).join('')});
     });
     rows.push({k:'Elbow form',cells:cols.map(function(e){
-      if(e==='D')return cell(e,`<div class='outage-pick ro'>${shapeOutageIcon(e)}</div>`);
-      return cell(e,`<div class='outage-pick'><span class='oi' id='oi_${e}'>${shapeOutageIcon(e)}</span><select onchange='setShapeElbow("${e}","mode",this.value)'><option value=''>—</option>${SS_MODES.map(function(x){return `<option value='${x.id}' ${m[e].elbow.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'}/${x.s2>0?'+':'−'}</option>`;}).join('')}</select></div>`);
+      /* Для D значим только знак первого отрезка: второй досчитывается. Поэтому
+         вместо четырёх режимов даём два и называем их по смыслу — вверх/вниз
+         от уровня, как спрашивают на замере. */
+      var opts=e==='D'?[['','—'],['m1','↑ Up'],['m3','↓ Down']]
+        :[['','—']].concat(SS_MODES.map(function(x){return [x.id,x.id.toUpperCase()+' · '+(x.s1>0?'+':'−')+'/'+(x.s2>0?'+':'−')];}));
+      return cell(e,`<div class='outage-pick'><span class='oi' id='oi_${e}'>${shapeOutageIcon(e)}</span><select onchange='setShapeElbow("${e}","mode",this.value)'>${opts.map(function(x){return `<option value='${x[0]}' ${(m[e].elbow.mode||'')===x[0]?'selected':''}>${x[1]}</option>`;}).join('')}</select></div>`);
     }).join('')});
   }
   return `<div class='edge-matrix'>
     <div class='em-row em-head'><span class='em-key'>Edge</span>${head}</div>
     ${rows.map(function(x){return `<div class='em-row'><span class='em-key'>${esc(x.k)}</span>${x.cells}</div>`;}).join('')}
-    <div class='em-row em-foot'><span class='em-key'><button class='${m.elbowsOn?'on':''}' onclick='setShapeElbows(${m.elbowsOn?'false':'true'})'>${m.elbowsOn?'Hide Elbows':'Show Elbows'}</button></span><span class='em-note'>${m.elbowsOn?'составной перелом стороны':'простой уклон стороны'} · D считается автоматически</span></div>
+    <div class='em-row em-foot'><span class='em-key'><button class='${m.elbowsOn?'on':''}' onclick='setShapeElbows(${m.elbowsOn?'false':'true'})'>${m.elbowsOn?'Hide Elbows':'Show Elbows'}</button></span><span class='em-note'>${m.elbowsOn?'составной перелом стороны · у D длина и уход за изломом считаются автоматически':'простой уклон стороны · D считается автоматически'}</span></div>
   </div>`;
 }
 /* Визуальная область: угловые блоки иконками вокруг превью фигуры. */
@@ -447,7 +482,7 @@ function shapeSmartVisual(){
   </div>`;
 }
 function shapeEdgeEditor(edge){
-  var m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right',shown=edge==='A'?sDraft.h:edge==='B'?sDraft.w:(s.len||'AUTO = A');
+  var m=sDraft.smart,s=m[edge],vert=edge==='A'||edge==='C',name=edge==='A'?'A · Left / Height':edge==='B'?'B · Bottom / Width':'C · Right',shown=edge==='A'?sDraft.h:edge==='B'?sDraft.w:(s.len||shapeCEffective());
   if(!m.elbowsOn)return `<div class='edge-card'><div class='edge-card-head'><b>${name}</b><span>${esc(shown)}</span></div><div class='edge-fields'><div><label>Out of plumb / level</label><input value='${esc(s.out||'0')}' oninput='setShapeSimple("${edge}","out",this.value)'></div><div><label>Direction</label><select onchange='setShapeSimple("${edge}","dir",this.value)'><option value=''>—</option>${(vert?[['left','Left'],['right','Right']]:[['up','Up'],['down','Down']]).map(function(x){return `<option value='${x[0]}' ${s.dir===x[0]?'selected':''}>${x[1]}</option>`;}).join('')}</select></div></div></div>`;
   var E=s.elbow;return `<div class='edge-card'><div class='edge-card-head'><b>${name}</b><span>${esc(shown)}</span></div><div class='edge-fields four'><div><label>Outage to elbow</label><input value='${esc(E.to)}' oninput='setShapeElbow("${edge}","to",this.value)'></div><div><label>Elbow length</label><input value='${esc(E.elbowLen)}' oninput='setShapeElbow("${edge}","elbowLen",this.value)'></div><div><label>Outage past elbow</label><input value='${esc(E.past)}' oninput='setShapeElbow("${edge}","past",this.value)'></div><div><label>Elbow form</label><select onchange='setShapeElbow("${edge}","mode",this.value)'><option value=''>—</option>${SS_MODES.map(function(x){return `<option value='${x.id}' ${E.mode===x.id?'selected':''}>${x.id.toUpperCase()} · ${x.s1>0?'+':'−'} / ${x.s2>0?'+':'−'}</option>`;}).join('')}</select></div></div></div>`;
 }
@@ -757,7 +792,7 @@ function shapeForm(){
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
-  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input value='${esc(sDraft.smart.C.len||'')}' placeholder='= A' oninput='setShapeC(this.value)'></div>`:''}</div>`;
+  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input id='shapeCField' data-live-placeholder value='${esc(sDraft.smart.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'></div>`:''}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeManufacturingEditor()}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeManufacturingEditor()}${shapeEdgeworkEditor()}${shapeFeaturesEditor(geo)}`;
   var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>

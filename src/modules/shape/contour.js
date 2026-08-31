@@ -18,6 +18,22 @@ function ssEdgeLocal(S,e){
   if(vert)return coll?[[0,0],[o2,L]]:[[0,0],[o1,h],[o2,L]];
   return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
 }
+function ssPathLen(P){var t=0;for(var i=1;i<P.length;i++)t+=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);return t;}
+/* Верхняя сторона D замыкает контур, поэтому её концы НЕ свободны: начало —
+   верх A, конец — верх C. Отсюда длина и полный уход по вертикали выводятся и
+   вводу не подлежат. Свободна только форма МЕЖДУ концами — излом.
+   Задаются положение излома (elbowLen вдоль пробега) и уход первого отрезка от
+   УРОВНЯ (to); уход второго получается сам, как остаток до конечной точки.
+   Ровно так это устроено в Smart-Shape: у D серой была только Length. */
+function ssTopPath(S,AT,CT){
+  var m=ssModel(S),s=m.D;
+  if(!m.elbowsOn||!s)return [AT,CT];
+  var E=s.elbow||{},h=ssNN(E.elbowLen),to=ssNN(E.to),M=ssMode(E.mode),run=CT[0]-AT[0],span=Math.abs(run);
+  /* Излом нулевой длины, во всю сторону или без выбранной формы — это прямая
+     сторона, а не ошибка: так же ведут себя A/B/C. */
+  if(!(h>1e-9)||h>=span-1e-9||!M)return [AT,CT];
+  return [AT,[AT[0]+(run>=0?1:-1)*h,AT[1]+M.s1*to],CT];
+}
 function ssOff(P,o){return P.map(function(p){return [p[0]+o[0],p[1]+o[1]];});}
 function ssCornerMorph(P,a,b){
   if(P.length<2)return P.slice();
@@ -29,11 +45,18 @@ function ssBase(S){
       A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
       Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
       Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
-      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
-  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:[AT,CT],
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1],
+      Dp=ssTopPath(S,AT,CT);
+  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по КОНЦАМ:
+     излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная длина
+     ломаной, поэтому берётся по всем звеньям, иначе излом терялся бы в отчётах. */
+  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,
     Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
-    Dtrue:Math.hypot(CT[0]-AT[0],CT[1]-AT[1]),
-    DdirY:(CT[1]-AT[1])>1e-9?'up':(CT[1]-AT[1])<-1e-9?'down':null};
+    Dtrue:ssPathLen(Dp),
+    DdirY:(CT[1]-AT[1])>1e-9?'up':(CT[1]-AT[1])<-1e-9?'down':null,
+    /* Уход второго отрезка излома — выводимая величина, её показывает матрица
+       рёбер в ячейке «Outage past elbow» для D. */
+    DpastOut:Dp.length>2?Math.abs(CT[1]-Dp[1][1]):Math.abs(CT[1]-AT[1])};
 }
 function ssPointAt(P,ax,val){
   for(var i=0;i<P.length-1;i++){

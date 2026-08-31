@@ -90,9 +90,26 @@ function shapeAnnNeutralGeometry(S){
   if(!S||!S.shape||S.shape.type!=='smart')return null;
   try{
     var m=JSON.parse(JSON.stringify(ssNormalize(S.shape.smart)));
-    ['A','B','C'].forEach(function(e){
+    /* D обнуляется наравне с остальными: её излом — такое же отклонение от
+       уровня. Длина излома НЕ трогается, иначе у нейтрального контура пропало бы
+       звено и сегменты перестали бы сходиться с реальным один в один. */
+    ['A','B','C','D'].forEach(function(e){
       m[e].out='0';m[e].dir=null;
       m[e].elbow.to='0';m[e].elbow.past='0';
+    });
+    /* База обязана быть ПРЯМОУГОЛЬНОЙ, иначе усиление считается от кривой
+       отсчёта. Разная высота слева и справа — это и есть уход верха от уровня,
+       поэтому C приравнивается к A; иначе ровный верх получал ненулевое
+       отклонение и рисовался наклонным. По той же причине обнуляются
+       координаты углов и скосы рёбер нотча: это всё уходы от отвеса и уровня.
+       Длины рёбер и состав углов при этом сохраняются — топология не меняется. */
+    m.C.len='';
+    ['tl','tr','br','bl'].forEach(function(k){
+      var c=m.cornerOffsets[k];if(!c)return;
+      c.plumb='0';c.plumbDir=null;c.level='0';c.levelDir=null;
+    });
+    Object.keys(m.extraEdges).forEach(function(k){
+      m.extraEdges[k].out='0';m.extraEdges[k].dir=null;
     });
     var N={w:S.w,h:S.h,shape:{type:'smart',smart:m}},q=ssContour(N);
     if(!q||q.pts.length<3)return null;
