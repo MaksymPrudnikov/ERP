@@ -540,7 +540,7 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-08-31 14:30';
+var ERP_BUILD='2026-08-31 19:14';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -566,6 +566,17 @@ function frac64(v){
   return (whole?whole+' ':'')+n+'/'+d;
 }
 function dimIn(v){return frac64(v)+'″';}
+/* Рабочая сетка изделия — 1/16″. Показывать размер стекла точнее сетки нельзя:
+   цех такого не отрежет, а на чертеже 43-1/32 или 49-53/64 читается как ложная
+   точность — эти дроби рождаются из вычисленных длин, а не из ввода.
+   Каталожные величины остаются на frac64: ширина спейсера 17/32″ — настоящий
+   размер продукта, и округлять её до 1/2″ нельзя. */
+function frac16(v){
+  v=+v||0;var whole=Math.floor(v+1e-9),n=Math.round((v-whole)*16);if(n===16){whole++;n=0;}
+  if(!n)return String(whole);var a=n,b=16;while(b){var t=a%b;a=b;b=t;}n/=a;var d=16/a;
+  return (whole?whole+' ':'')+n+'/'+d;
+}
+function dimIn16(v){return frac16(v)+'″';}
 function fabParseDimStrict(v){
   if(typeof v==='number')return isFinite(v)?{ok:true,v:v}:{ok:false,v:0};
   var t=String(v==null?'':v).trim().replace(/[\u2033\u201D"]/g,'');
@@ -811,6 +822,32 @@ function ssCornerDelta(S,corner){
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* Длина ребра — это длина САМОГО ребра, а угловая лесенка идёт СВЕРХ неё.
+   Ввели C = 60 — правая сторона ровно 60, стояк нотча добавляется ниже, и
+   сторона целиком выходит длиннее. Так устроен Smart-Shape: там E = 60 это
+   правая сторона, а нотч C = 5 и D = 8 сидят под ней отдельными рёбрами.
+
+   Контур строится ОБХОДОМ по периметру: каждая сторона ставится там, где
+   закончилась предыдущая лесенка, и берёт свою длину как есть. Прежний подход —
+   растянуть стороны по габариту и потом подрезать лесенками — введённые числа
+   не держал: подрезка считалась по концам СОСЕДЕЙ, и стоило соседу наклониться,
+   как 48 превращалось в 47-15/16, а стояк 5 — в 5-1/3. */
+/* Куда приходит лесенка угла, если вести её от конца вертикальной стороны.
+   Эта точка задаёт начало следующей стороны — так каждое введённое ребро
+   попадает на чертёж своей длиной, а не остатком после чужой подрезки. */
+function ssStairEnd(S,corner,pVert){
+  var T=ssCornerTotals(S,corner),g=SS_CG[corner];
+  if(!T.vals.length)return [pVert[0],pVert[1]];
+  return [pVert[0]+g.h[0]*T.h-g.v[0]*T.v,pVert[1]+g.h[1]*T.h-g.v[1]*T.v];
+}
+/* Обратный ход: где начинается лесенка, если известен её конец. Нужен в правом
+   нижнем углу — там обход идёт от низа к правой стороне, то есть против
+   направления самой лесенки. */
+function ssStairStart(S,corner,pHoriz){
+  var T=ssCornerTotals(S,corner),g=SS_CG[corner];
+  if(!T.vals.length)return [pHoriz[0],pHoriz[1]];
+  return [pHoriz[0]-g.h[0]*T.h+g.v[0]*T.v,pHoriz[1]-g.h[1]*T.h+g.v[1]*T.v];
+}
 function ssEdgeLocal(S,e){
   var m=ssModel(S),s=m[e],vert=(e==='A'||e==='C'),L=ssEdgeLen(S,e);
   if(!m.elbowsOn){
@@ -818,7 +855,8 @@ function ssEdgeLocal(S,e){
     if(vert)return [[0,0],[s.dir==='right'?o:s.dir==='left'?-o:0,L]];
     return [[0,0],[L,s.dir==='up'?o:s.dir==='down'?-o:0]];
   }
-  var E=s.elbow,to=ssNN(E.to),past=ssNN(E.past),h=Math.min(ssNN(E.elbowLen),L),M=ssMode(E.mode)||{s1:0,s2:0};
+  var E=s.elbow,to=ssNN(E.to),past=ssNN(E.past),h=Math.min(ssNN(E.elbowLen),L),
+      M=ssMode(E.mode)||{s1:0,s2:0};
   var o1=M.s1*to,o2=o1+M.s2*past,coll=(h<=1e-9||h>=L-1e-9);
   if(vert)return coll?[[0,0],[o2,L]]:[[0,0],[o1,h],[o2,L]];
   return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
@@ -847,21 +885,38 @@ function ssCornerMorph(P,a,b){
 }
 function ssBase(S){
   var dBL=ssCornerDelta(S,'bl'),dTL=ssCornerDelta(S,'tl'),dBR=ssCornerDelta(S,'br'),dTR=ssCornerDelta(S,'tr'),
-      A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
-      Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
+      BL=[dBL[0],dBL[1]],
+      /* Обход по периметру. A стоит от левого нижнего угла; низ начинается там,
+         куда пришла лесенка BL; правая — там, куда пришла лесенка BR. Каждая
+         сторона берёт СВОЮ длину, поэтому введённое и нарисованное совпадают. */
+      Ap=ssCornerMorph(ssEdgeLocal(S,'A'),dBL,dTL),AT=Ap[Ap.length-1],
+      B0=ssOff(ssEdgeLocal(S,'B'),ssStairEnd(S,'bl',BL)),
       Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
-      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1],
-      Dp=ssTopPath(S,AT,CT);
-  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по КОНЦАМ:
-     излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная длина
-     ломаной, поэтому берётся по всем звеньям, иначе излом терялся бы в отчётах. */
-  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,
-    Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
+      C0=ssOff(ssEdgeLocal(S,'C'),ssStairStart(S,'br',BR)),
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
+  /* Верхняя сторона идёт от ВЕРХА лесенки, а не от угла габарита.
+     Раньше D строилась хордой AT→CT, а лесенку нотча потом принудительно
+     сажали на эту хорду. Хорда за ширину нотча успевала опуститься, и ровно на
+     столько молча укорачивался введённый стояк: 12 превращалось в 9-1/2, левая
+     сторона переставала складываться в заданную высоту, а контур уходил в резку
+     коротким. В Smart-Shape верх начинается от верха стояка — делаем так же,
+     и тогда пробег и угол верха совпадают с эталоном. */
+  var Ttl=ssCornerTotals(S,'tl'),Ttr=ssCornerTotals(S,'tr'),
+      dD0=(CT[0]-AT[0])>=0?1:-1,
+      /* Верх начинается там, куда пришла лесенка от верха A, и кончается там,
+         куда пришла лесенка от верха C. Стороны при этом не подрезаются. */
+      DL=ssStairEnd(S,'tl',AT),DR=ssStairEnd(S,'tr',CT),
+      Dp=ssTopPath(S,DL,DR);
+  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по её СОБСТВЕННЫМ
+     концам: излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная
+     длина ломаной, по всем звеньям, иначе излом терялся бы в отчётах. */
+  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,DL:DL,DR:DR,
+    Dlen:Math.abs(DR[0]-DL[0]),Dsigned:DR[0]-DL[0],Dout:Math.abs(DR[1]-DL[1]),
     Dtrue:ssPathLen(Dp),
-    DdirY:(CT[1]-AT[1])>1e-9?'up':(CT[1]-AT[1])<-1e-9?'down':null,
+    DdirY:(DR[1]-DL[1])>1e-9?'up':(DR[1]-DL[1])<-1e-9?'down':null,
     /* Уход второго отрезка излома — выводимая величина, её показывает матрица
        рёбер в ячейке «Outage past elbow» для D. */
-    DpastOut:Dp.length>2?Math.abs(CT[1]-Dp[1][1]):Math.abs(CT[1]-AT[1])};
+    DpastOut:Dp.length>2?Math.abs(DR[1]-Dp[1][1]):Math.abs(DR[1]-DL[1])};
 }
 function ssPointAt(P,ax,val){
   for(var i=0;i<P.length-1;i++){
@@ -911,11 +966,10 @@ function ssContour(S){
   /* Сначала вертикальные стороны: их подрезанные концы задают, откуда реально
      начинаются горизонтальные стороны. Брать вершину габарита нельзя — при
      уклоне A/C конец стороны смещён по X, и лесенка нотча не сходилась. */
-  var spanA=ssSpan(G.Ap,1,G.BL[1]+T.bl.v,G.AT[1]-T.tl.v),
-      spanC=ssSpan(G.Cp.slice().reverse(),1,G.CT[1]-T.tr.v,G.BR[1]+T.br.v);
-  var aTop=spanA[spanA.length-1],aBot=spanA[0],cTop=spanC[0],cBot=spanC[spanC.length-1];
-  var spanD=ssSpan(G.Dp,0,aTop[0]+dD*T.tl.h,cTop[0]-dD*T.tr.h),
-      spanB=ssSpan(G.Bp.slice().reverse(),0,cBot[0]+dB*T.br.h,aBot[0]-dB*T.bl.h);
+  /* Стороны БОЛЬШЕ НЕ ПОДРЕЗАЮТСЯ: каждая нарисована во всю свою длину, а
+     лесенки стоят между ними. Подрезка считалась по концам соседей и съедала
+     введённые числа, стоило соседу наклониться. */
+  var spanA=G.Ap,spanC=G.Cp.slice().reverse(),spanD=G.Dp,spanB=G.Bp.slice().reverse();
   var segs=[];
   function push(P,id){for(var i=0;i<P.length-1;i++)segs.push({id:id,p1:P[i],p2:P[i+1]});}
   push(spanA,'A');
@@ -1951,21 +2005,89 @@ function shapeCheckDxf(result){
 
 /* ---------- формат размера: 9 15/16 → 9-15/16, как на чертежах цеха ---------- */
 function shapeAnnDim(v){
-  try{return String(dimIn(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
+  try{return String(dimIn16(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
   catch(e){return String(v==null?'':v);}
 }
 function shapeAnnText(x,y,txt,o){
   o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
   return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
+/* ---------- раскладка подписей без наложений ----------
+   Подпись рисуется с белой обводкой, поэтому наложение не «сливается», а
+   ЗАТИРАЕТ то, что под ним: соседнее число пропадает целиком, и на чертеже
+   вместо двух размеров остаётся один. Держим список занятых прямоугольников и
+   отодвигаем новую подпись по заданному направлению, пока не найдётся место.
+   Направление всегда «наружу от фигуры», чтобы подпись не уезжала на геометрию. */
+var SS_ANN_BOXES=[];
+function shapeAnnResetBoxes(){SS_ANN_BOXES=[];}
+/* Место занимают не только подписи, но и САМ КОНТУР. Пока реестр знал лишь про
+   соседние числа, подпись честно обходила их — и садилась на линию или
+   прижималась к углу. Засеваем реестр точками контура, и раскладка обходит
+   геометрию сама, без отдельных правил на каждый случай. */
+function shapeAnnSeedContour(pts){
+  for(var i=0;i<pts.length;i++){
+    var a=pts[i],b=pts[(i+1)%pts.length],
+        L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
+    for(var k=0;k<=n;k++){
+      var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
+      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
+    }
+  }
+}
+function shapeAnnBoxOf(x,y,txt,o){
+  var size=o.size||11,w=String(txt).length*size*.62,h=size*1.15;
+  if(o.rot){var q=w;w=h;h=q;}
+  var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
+  return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
+}
+function shapeAnnFree(b,skipContour){
+  for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
+    if(skipContour&&o.c)continue;
+    if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
+  return true;
+}
+function shapeAnnPlace(x,y,txt,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
+    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
+  }
+  return shapeAnnText(x,y,txt,o);
+}
+/* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
+   ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
+   к чужому. */
+function shapeAnnPlace2(x,y,l1,l2,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2,gap=(o.size||11)+6;
+  /* Блок из двух строк растёт ВНИЗ. Вынесенный вверх, он возвращался бы к линии
+     нижней строкой — угол ложился на контур. Сдвигаем блок целиком, чтобы
+     наружу уходил он весь, а не только первая строка. */
+  if(l2&&step[1]<0)y-=gap;
+  /* Выноска уклона стоит в СВОЁМ зазоре, и контур ей не помеха: зазор им и
+     ограничен. Узкий зазор подпись не вмещает — реестр выталкивал её за пунктир,
+     и число уходило от того места, которое описывает. Поэтому контур для неё
+     прозрачен, а отодвигают её только другие числа. */
+  var skip=!!o.overContour;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,
+        b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
+    if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
+      SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
+      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+    }
+  }
+  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+}
 function shapeAnnDimH(x1,x2,y,label){
   if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText((x1+x2)/2,y-6,label,{size:10,weight:600});
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
 }
 function shapeAnnDimV(x,y1,y2,label){
   if(Math.abs(y2-y1)<0.5)return '';
   var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText(x-8,cy,label,{size:10,weight:600,rot:-90});
+  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -2050,13 +2172,22 @@ function shapeAnnNeutralGeometry(S){
 }
 
 /* ---------- усиление отклонения ----------
-   Малый уклон растягивается до различимой величины, большой — почти не
-   трогается. Рёбра угловых блоков усиливаются слабее (0.55), иначе короткая
-   ступенька визуально забивает основной уклон стороны. */
+   Малый уклон растягивается до различимой величины, настоящий — остаётся собой.
+   Рёбра угловых блоков поднимаются слабее (0.55), иначе короткая ступенька
+   визуально забивает основной уклон стороны.
+
+   Величина приходит в ПИКСЕЛЯХ, уже умноженная на масштаб чертежа. Прежняя
+   формула не усиливала, а подменяла: результат не зависел от входа и упирался
+   в потолок 46 px. При ширине чертежа ~660 px перепад верха в 40″ — это 660 px,
+   и он рисовался как 46. Клин 50 → 10 выходил почти прямоугольником, а размерные
+   линии ставились по искажённой форме и налезали друг на друга.
+
+   Правило простое: показанное отклонение НИКОГДА не меньше настоящего. */
 function shapeAnnMag(v,damp){
   var a=Math.abs(v);if(a<.12)return 0;
-  var sg=v<0?-1:1,base=a<=10?(20+0.2*a):Math.min(46,22+14*(a-10));
-  return sg*base*(damp==null?1:damp);
+  var sg=v<0?-1:1,d=(damp==null?1:damp);
+  var minVisible=Math.min(46,20+0.2*a)*d;
+  return sg*Math.max(a,minVisible);
 }
 /* Возвращает функцию DP: точка инженерная → точка экранная (с усилением). */
 function shapeAnnDisplay(r,S,F){
@@ -2065,7 +2196,21 @@ function shapeAnnDisplay(r,S,F){
   if(!N)return ident;
   var AE=r.geometry.edges||[],NE=N.edges||[],map={},k;
 
-  if(NE.length===AE.length&&AE.length){
+  /* Отображение ПО ВЕРШИНАМ: каждая точка сдвигается от своего места на
+     нейтральном контуре на усиленное отклонение. Многоугольник замыкается сам
+     собой, невязки не возникает.
+
+     Прежний путь складывал усиленные ВЕКТОРА рёбер, они не сходились, и всю
+     накопленную невязку сваливали в верхнюю сторону. Уклон низа в 13/16
+     раздувался до двух десятков пикселей, эта разница падала в верх, чей
+     собственный перепад был всего 1-3/16 — и знак переворачивался: на чертеже
+     верх задирался вправо, хотя в изделии и в DXF он опускался. */
+  if(N.points.length===r.points.length&&r.points.length){
+    for(var z=0;z<r.points.length;z++){
+      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
+      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
+    }
+  }else if(NE.length===AE.length&&AE.length){
     var vecs=[],i,a,n,nv,av;
     for(i=0;i<AE.length;i++){
       a=AE[i];n=NE[i];
@@ -2091,11 +2236,6 @@ function shapeAnnDisplay(r,S,F){
     var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2,cy=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
     var tx=F.x0+F.dw/2-cx,ty=F.y0+F.dh/2-cy;
     for(k in map)if(Object.prototype.hasOwnProperty.call(map,k))map[k]=[map[k][0]+tx,map[k][1]+ty];
-  }else if(N.points.length===r.points.length){
-    for(var z=0;z<r.points.length;z++){
-      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
-      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
-    }
   }else return ident;
 
   return function(p){
@@ -2190,20 +2330,34 @@ function shapeAnnOverhead(r,F,left,right){
     +shapeAnnText((bl+br)/2,yB+14,'Overhead View',{size:11,weight:700});
 }
 
-/* ---------- прямоугольные метки угла (чертёжная договорённость) ---------- */
+/* ---------- прямоугольные метки угла (чертёжная договорённость) ----------
+   Метка ставится ТОЛЬКО там, где угол действительно прямой, и только если в
+   фигуре есть хоть один непрямой. На чистом прямоугольнике четыре квадратика —
+   шум: отмечать нечего, когда прямое всё. Смысл метки в том, чтобы среди
+   скошенных углов показать те, что остались точными.
+
+   Допуск фактически нулевой. Метка утверждает «этот угол прямой», и уход даже
+   в 1/16″ делает утверждение ложным: угол уже не прямой, а на увеличенном
+   чертеже это ещё и видно. Прежние 0.08 объявляли прямым угол в 85°, а 0.02 —
+   угол в 89.28°. Настоящие прямые углы дают косинус ровно 0, поэтому 1e-6
+   отсекает всё скошенное и ничего не теряет на дробях дюйма. */
 function shapeAnnRightAngles(r,DP){
-  var P=r.points,out='';
+  var P=r.points,out='',square=[],skewed=0;
   for(var i=0;i<P.length;i++){
     var a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];
     var v1=[a[0]-b[0],a[1]-b[1]],v2=[c[0]-b[0],c[1]-b[1]],l1=Math.hypot(v1[0],v1[1]),l2=Math.hypot(v2[0],v2[1]);
     if(l1<1e-6||l2<1e-6)continue;
-    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>.08)continue;
-    var q=DP(b),qa=DP(a),qc=DP(c);
+    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>1e-6){skewed++;continue;}
+    square.push([a,b,c]);
+  }
+  if(!skewed)return '';
+  square.forEach(function(t){
+    var a=t[0],b=t[1],c=t[2],q=DP(b),qa=DP(a),qc=DP(c);
     var s1=[qa[0]-q[0],qa[1]-q[1]],s2=[qc[0]-q[0],qc[1]-q[1]],sl1=Math.hypot(s1[0],s1[1])||1,sl2=Math.hypot(s2[0],s2[1])||1,z=8;
     var u1=[s1[0]/sl1,s1[1]/sl1],u2=[s2[0]/sl2,s2[1]/sl2];
     var pA=[q[0]+u1[0]*z,q[1]+u1[1]*z],pB=[pA[0]+u2[0]*z,pA[1]+u2[1]*z],pC=[q[0]+u2[0]*z,q[1]+u2[1]*z];
     out+='<path d="M'+pA[0]+' '+pA[1]+' L'+pB[0]+' '+pB[1]+' L'+pC[0]+' '+pC[1]+'" fill="none" stroke="#101828" stroke-width=".7"/>';
-  }
+  });
   return out;
 }
 
@@ -2276,45 +2430,58 @@ function shapeAnnChains(r,S,DP,box){
 }
 
 /* ---------- локальные выноски уклона ----------
-   Чертёж ставит величину у того конца сегмента, чей уклон она описывает.
-   При реальном локте нулевой «to» переносит выноску «past» на перелом. */
+   У КАЖДОГО скошенного участка своя подпись: величина ухода, под ней угол.
+
+   Угол считается по СОБСТВЕННОМУ пробегу участка. У стороны свои две точки, и
+   всё, что откусили нотч или наклон соседней стороны, её пробег уменьшает:
+   верх шириной 48 при нотче 10 и отвесе 4 имеет пробег 34, и угол берётся от
+   него, а не от габарита. Считаем по ИНЖЕНЕРНЫМ координатам — на экранных угол
+   вышел бы от усиленной картинки, а не от изделия.
+
+   Раньше выноски строились по полям модели, поэтому верхняя сторона D не
+   получала подписи вообще: у неё нет своих полей ввода. Теперь источник —
+   геометрия, и подписывается всё нарисованное, включая D и рёбра нотча. */
+function shapeAnnSkewOf(p1,p2,vert){
+  var run=Math.abs(vert?(p2[1]-p1[1]):(p2[0]-p1[0])),
+      off=Math.abs(vert?(p2[0]-p1[0]):(p2[1]-p1[1]));
+  return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
+}
 function shapeAnnCallouts(r,S,DP){
-  var m=(S.shape&&S.shape.smart)||null;if(!m)return '';
   var out='';
   (r.edges||[]).forEach(function(g){
+    if(!g.segments||!g.segments.length)return;
+    var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
-    function label(q,val){
-      val=Math.abs(inch(val||'0'));if(val<1/64)return;
-      out+=shapeAnnText(vert?q[0]+7:q[0],vert?q[1]-2:q[1]-6,shapeAnnDim(val),{size:8,anchor:vert?'start':'middle',weight:600});
-    }
-    /* Скос ребра нотча подписывается ВСЕГДА, в обоих режимах: у нотча нет
-       локтя, но его уход от отвеса/уровня — такой же производственный размер,
-       и без него внутренние скосы читались бы только по картинке. */
-    var inf=shapeAnnExtraInfo(S,g.id);
-    if(inf){
-      var x=(m.extraEdges||{})[g.id]||{},ov=Math.abs(inch(x.out||'0'));
-      if(ov>1/64){
-        var mid=[(sp[0][0]+sp[sp.length-1][0])/2,(sp[0][1]+sp[sp.length-1][1])/2];
-        var arrow=inf.axis==='v'?(x.dir==='right'?'→':x.dir==='left'?'←':''):(x.dir==='up'?'↑':x.dir==='down'?'↓':'');
-        out+=shapeAnnText(inf.axis==='v'?mid[0]+9:mid[0],inf.axis==='v'?mid[1]:mid[1]-9,
-          arrow+' '+shapeAnnDim(ov),{size:8,anchor:inf.axis==='v'?'start':'middle',weight:600,color:'#95430f'});
-      }
-      return;
-    }
-    if(m.elbowsOn){
-      var E=(g.id==='A'||g.id==='B'||g.id==='C')?(m[g.id]||{}).elbow:null;
-      if(!E)return;
-      var h=Math.abs(inch(E.elbowLen||'0')),to=Math.abs(inch(E.to||'0')),past=Math.abs(inch(E.past||'0'));
-      if(h>1e-9&&sp.length>=3){
-        if(to>1/64)label(sp[0],E.to);
-        if(past>1/64)label(to<1/64?sp[1]:sp[sp.length-1],E.past);
-      }else if(past>1/64)label(sp[sp.length-1],E.past);
-    }else{
-      if(g.id!=='A'&&g.id!=='B'&&g.id!=='C')return;
-      var v=Math.abs(inch((m[g.id]||{}).out||'0'));
-      if(v>1/64)label(sp[sp.length-1],v);
-    }
+    /* База стороны — её внешняя огибающая, ровно та же линия, что рисует пунктир. */
+    var ax=vert?0:1,
+        ref=(side==='left'||side==='top')
+          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
+          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
+    g.segments.forEach(function(sg){
+      var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
+      if(!(k.off>1/64))return;
+      /* Подпись садится на СЕРЕДИНУ своего участка и выносится наружу. У конца
+         она наезжала на вершину и на соседние размеры — особенно на крутом
+         скосе, где оба конца заняты. Середина принадлежит только этому участку,
+         поэтому и читается однозначно, к какому ребру относится число. */
+      /* Подпись садится в ЦЕНТР ЗАЗОРА между пунктирной базой и ребром, на
+         уровне того КОНЦА, где зазор шире всего. Это и есть место, где уход
+         физически виден: между отвесом/уровнем и стеклом.
+         Ни центр линии, ни сам конец не подходят — по центру число повисает
+         вдоль ребра, у конца садится на угол. Если зазор узкий, подпись
+         отодвинет реестр: он знает про контур и не даст сесть на линию. */
+      var d1=DP(sg.p1),d2=DP(sg.p2),
+          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
+          gap=ref-far[ax],sg0=gap<0?-1:1,
+          x=ax===0?(ref+far[0])/2:far[0],
+          y=ax===0?far[1]:(ref+far[1])/2,
+          anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
+      /* Угол печатается, только когда его есть смысл читать: при долях градуса
+         скобки — шум, эталон их тоже не ставит. */
+      out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
+        {size:13,anchor:anchor,weight:600,overContour:true},step);
+    });
   });
   return out;
 }
@@ -2345,6 +2512,10 @@ function shapeAnnotationLayer(result,F,active){
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   var smart=S&&S.shape&&S.shape.type==='smart';
+  /* Реестр занятых мест живёт ровно один чертёж: иначе второй чертёж считал бы
+     занятыми места первого и разгонял бы подписи в пустоту. Контур засевается
+     сразу, чтобы ни одна подпись не села на линию. */
+  shapeAnnResetBoxes();shapeAnnSeedContour(disp);
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);
@@ -2386,7 +2557,7 @@ function shapeEdgeGroups(geo){
 /* Короткая цеховая запись обработки: 45° Back Mitre · FP · Bevel 1″ (Front). */
 function shapeOpText(o){
   if(o.type==='Mitering')return (o.angle||45)+'° '+((o.side||'back')==='front'?'Front':'Back')+' Mitre';
-  if(o.type==='Beveling')return 'Bevel '+dimIn(inch(o.width||'1'))+' ('+((o.side||'front')==='back'?'Back':'Front')+')';
+  if(o.type==='Beveling')return 'Bevel '+dimIn16(inch(o.width||'1'))+' ('+((o.side||'front')==='back'?'Back':'Front')+')';
   if(o.type==='Flat Polish')return 'FP';
   if(o.type==='Rough Arris')return 'RA';
   if(o.type==='CNC Shape Polish')return 'CNC';
@@ -2405,7 +2576,7 @@ function shapeEdgeLabelsSvg(result,F,layer){
     var ops=shapeEdgeOps(result.definition,g.id).map(shapeOpText);
     /* Когда работают цепочки размеров и цветной контур, подпись несёт ТОЛЬКО
        обработку — длина уже стоит в цепочке, а ребро опознаётся цветом. */
-    var txt=(layer&&layer.contour&&layer.smart)?ops.join(' + '):(g.id+' · '+dimIn(g.length)+(ops.length?' · '+ops.join(' + '):''));
+    var txt=(layer&&layer.contour&&layer.smart)?ops.join(' + '):(g.id+' · '+dimIn16(g.length)+(ops.length?' · '+ops.join(' + '):''));
     if(!txt)return;
     if(cen){
       /* На производственном чертеже внешняя полоса занята цепочками размеров,
@@ -2424,8 +2595,8 @@ function shapeEdgeLabelsSvg(result,F,layer){
 }
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
-  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(dimIn(h.diameter))+' · X '+shapeXml(dimIn(h.center[0]))+' · Y '+shapeXml(dimIn(h.center[1]))+'</text>';});
-  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn(c.width))+' × '+shapeXml(dimIn(c.height))+'</text>';});
+  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(dimIn16(h.diameter))+' · X '+shapeXml(dimIn16(h.center[0]))+' · Y '+shapeXml(dimIn16(h.center[1]))+'</text>';});
+  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn16(c.width))+' × '+shapeXml(dimIn16(c.height))+'</text>';});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="10" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]);out+='<rect x="'+(x-24)+'" y="'+(y-9)+'" width="48" height="18" fill="none" stroke="#101828"/><text x="'+x+'" y="'+(y+3)+'" text-anchor="middle" font-size="8" fill="#101828">'+shapeXml(s.text)+'</text>';});return out;
 }
@@ -2456,8 +2627,15 @@ function shapeProductionSvg(result){
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
              :('<path d="'+L.path+'" fill="#f9fafb" stroke="#101828" stroke-width="2"/>');
   o+=L.annotations;
-  o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn(F.W));
-  o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn(F.H));
+  /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
+     каждая сторона уже расписана по участкам, и общий размер вставал вторым
+     числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
+     «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
+     вовсе — он читается из карточек Finished и Cut size под чертежом. */
+  if(!L.smart){
+    o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn16(F.W));
+    o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn16(F.H));
+  }
   o+=shapeEdgeLabelsSvg(result,F,L)+shapeProductionFeaturesSvg(result,F);
   o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
@@ -2483,10 +2661,10 @@ function shapeBorderOverlaySvg(c,X,Y){
   var seg=function(x1,y1,x2,y2){return '<line x1="'+x1.toFixed(2)+'" y1="'+y1.toFixed(2)+'" x2="'+x2.toFixed(2)+'" y2="'+y2.toFixed(2)+'" stroke="'+col+'" stroke-width="1"/>';};
   var txt=function(x,y,s2,a){return '<text x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" text-anchor="'+a+'" font-size="10" font-weight="700" fill="'+col+'">'+shapeXml(s2)+'</text>';};
   o+='<rect x="'+X(z.x0).toFixed(2)+'" y="'+Y(z.y1).toFixed(2)+'" width="'+(X(z.x1)-X(z.x0)).toFixed(2)+'" height="'+(Y(z.y0)-Y(z.y1)).toFixed(2)+'" fill="none" stroke="'+col+'" stroke-width="1.4" stroke-dasharray="8 5"/>';
-  if(z.pad.left>0)o+=seg(X(z.x0),Y(cy),X(z.b.minX),Y(cy))+txt((X(z.x0)+X(z.b.minX))/2,Y(cy)-5,dimIn(z.pad.left),'middle');
-  if(z.pad.right>0)o+=seg(X(z.b.maxX),Y(cy),X(z.x1),Y(cy))+txt((X(z.b.maxX)+X(z.x1))/2,Y(cy)-5,dimIn(z.pad.right),'middle');
-  if(z.pad.top>0)o+=seg(X(cx),Y(z.b.maxY),X(cx),Y(z.y1))+txt(X(cx)+5,(Y(z.b.maxY)+Y(z.y1))/2+3,dimIn(z.pad.top),'start');
-  if(z.pad.bottom>0)o+=seg(X(cx),Y(z.b.minY),X(cx),Y(z.y0))+txt(X(cx)+5,(Y(z.b.minY)+Y(z.y0))/2+3,dimIn(z.pad.bottom),'start');
+  if(z.pad.left>0)o+=seg(X(z.x0),Y(cy),X(z.b.minX),Y(cy))+txt((X(z.x0)+X(z.b.minX))/2,Y(cy)-5,dimIn16(z.pad.left),'middle');
+  if(z.pad.right>0)o+=seg(X(z.b.maxX),Y(cy),X(z.x1),Y(cy))+txt((X(z.b.maxX)+X(z.x1))/2,Y(cy)-5,dimIn16(z.pad.right),'middle');
+  if(z.pad.top>0)o+=seg(X(cx),Y(z.b.maxY),X(cx),Y(z.y1))+txt(X(cx)+5,(Y(z.b.maxY)+Y(z.y1))/2+3,dimIn16(z.pad.top),'start');
+  if(z.pad.bottom>0)o+=seg(X(cx),Y(z.b.minY),X(cx),Y(z.y0))+txt(X(cx)+5,(Y(z.b.minY)+Y(z.y0))/2+3,dimIn16(z.pad.bottom),'start');
   return o+txt(X(z.x1),Y(z.y1)-6,'SAFETY BORDER','end');
 }
 function shapeCuttingSvg(result){
@@ -2503,7 +2681,7 @@ function shapeCuttingSvg(result){
      положить соседнюю деталь или подвести край листа. Сам контур реза внутри
      неё не меняется. */
   o+=shapeBorderOverlaySvg(c,F.X,F.Y);
-  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn(c.height));
+  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn16(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn16(c.height));
   o+='<g font-size="10" fill="#667085"><text x="24" y="'+(F.vh-50)+'">Solid = cutting contour · dashed = finished contour · orange = safety border (nesting clearance, never cut)</text><text x="24" y="'+(F.vh-32)+'">Generic geometry tolerance '+shapeXml(c.toleranceIn.toFixed(4)+'\u2033')+' · verify machine-specific postprocessor before production</text></g>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Cutting Shape">'+o+'</svg>';
 }
@@ -3592,8 +3770,13 @@ const DEFAULT={
     без версии выглядели бы уже актуальными, пересев не сработал бы никогда
     ровно там, где он и нужен. Ноль означает «версия неизвестна». */
  refVersion:0,
- shapeDef:[{id:'s1', name:'Rectangle 48×36', w:'48', h:'36', smart:{elbowsOn:false,A:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},B:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},C:{len:'',out:'0',dir:null,elbow:{to:'0',elbowLen:'0',past:'0',mode:null}},corners:{tl:'none',tr:'none',br:'none',bl:'none'},extraEdges:{},cornerOffsets:{tl:{plumb:'0',plumbDir:null,level:'0',levelDir:null},tr:{plumb:'0',plumbDir:null,level:'0',levelDir:null},br:{plumb:'0',plumbDir:null,level:'0',levelDir:null},bl:{plumb:'0',plumbDir:null,level:'0',levelDir:null}}}}],
- muntinDef:[{id:'m1', name:'Adaptive 2V × 1H', shapeId:'s1', muntin:{enabled:true,productId:'mb058_black',flipped:false,layout:{type:'grid',verticalBars:2,horizontalBars:1},production:{mode:'equal',edgeInsetX:0.4375,edgeInsetY:0.4375,endClearance:0,edgeMode:'offset',verticalPositions:[],horizontalPositions:[]}}}]
+ /* Форм по умолчанию нет. Демо-прямоугольник был тестовым балластом: тянулся
+    за каждым новым запуском и мозолил глаза в списке. Форма заводится из
+    строки заказа или из рабочего места Configurators. */
+ shapeDef:[],
+ /* Раскладка по умолчанию тоже убрана: она ссылалась на демо-форму s1 и без
+    неё оставляла висячую ссылку. Раскладка заводится на реальной форме. */
+ muntinDef:[]
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
 
@@ -8985,7 +9168,7 @@ function viewShapeSkill(){
     var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
     var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
-    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
   var presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Для DXF из Fusion 360 ERP хранит метаданные, лёгкий 2D-контур превью и габариты; исходное содержимое DXF в localStorage не сохраняется.</span></div>`}
@@ -9193,7 +9376,7 @@ function shapeManufacturingMarkersSvg(source,T){
         </g>
         <circle cx='${x}' cy='${y}' r='${r}'/>
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*4}' y='${diamY+(diamDirY<0?-4:12)}' text-anchor='${diamAnchor}'>Ø ${esc(dimIn(dia))}</text>
+        <text x='${diamX+diamDirX*4}' y='${diamY+(diamDirY<0?-4:12)}' text-anchor='${diamAnchor}'>Ø ${esc(dimIn16(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
@@ -9242,7 +9425,7 @@ function shapeManufacturingEditor(){
     var expanded=item.id===sManufacturingSelected,d=item.type==='hole'?fabParseDimStrict(item.diameter):null,summary,fields;
     if(item.type==='hole'){
       var pos=shapeManufacturingHolePosition(item,g)||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};
-      summary='Ø '+(d&&d.ok?dimIn(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);
+      summary='Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);
       fields=`<div class='shape-mi-hole-position-grid'>
         <div class='shape-mi-axis-card'><label>Горизонтальная привязка<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Расстояние до центра<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'><small>от ${pos.hRef==='right'?'правого':'левого'} габарита · 1/16″</small></label></div>
         <div class='shape-mi-axis-card'><label>Вертикальная привязка<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Расстояние до центра<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'><small>от ${pos.vRef==='top'?'верхнего':'нижнего'} габарита · 1/16″</small></label></div>
@@ -9260,7 +9443,7 @@ function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
-  var widthLabel=dimIn(source.preview.width16/16),heightLabel=dimIn(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?shapeManufacturingMarkersSvg(source,T):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
+  var widthLabel=dimIn16(source.preview.width16/16),heightLabel=dimIn16(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?shapeManufacturingMarkersSvg(source,T):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
     <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
@@ -9293,7 +9476,7 @@ function shapePreviewMarkup(r){
 function shapeDerivedHTML(r){
   if(r&&r.externalFile){
     if(!r.sourceValid){var sourceErrors=(r.errors&&r.errors.length?r.errors:[r.reason||'Invalid DXF source']);return `<div class='validation-box badbox'><b>Ошибка DXF-файла</b>${sourceErrors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;}
-    return `<div class='smart-kpis'><div><span>Width</span><b>${dimIn(r.width)}</b></div><div><span>Height</span><b>${dimIn(r.height)}</b></div><div><span>Продажная площадь</span><b>${(r.billableArea/144).toFixed(2)} ft²</b></div><div><span>Grid</span><b>1/16″</b></div></div>
+    return `<div class='smart-kpis'><div><span>Width</span><b>${dimIn16(r.width)}</b></div><div><span>Height</span><b>${dimIn16(r.height)}</b></div><div><span>Продажная площадь</span><b>${(r.billableArea/144).toFixed(2)} ft²</b></div><div><span>Grid</span><b>1/16″</b></div></div>
       <div class='validation-box okbox'><b>DXF проверен и принят</b><div>Габариты округлены до ближайшей 1/16″. Продажная площадь считается по габаритному прямоугольнику Width × Height. Исходное содержимое DXF в localStorage не сохраняется.</div></div>`;
   }
   if(!r.valid){
@@ -9301,7 +9484,7 @@ function shapeDerivedHTML(r){
     return `<div class='validation-box badbox'><b>Ошибка геометрии</b>${errors.map(function(x){return '<div>'+esc(moduleErrorText({reason:x}))+'</div>';}).join('')}</div>`;
   }
   var req=r.requirements||[],warns=r.warns||[];
-  return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn(r.width)} × ${dimIn(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn(r.cutting.width)} × ${dimIn(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'не задан':dimIn(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Оплачиваемый габарит</span><b>${dimIn(r.cutting.footprint.width)} × ${dimIn(r.cutting.footprint.height)}</b></div>`:''}</div>
+  return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn16(r.width)} × ${dimIn16(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn16(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn16(r.cutting.width)} × ${dimIn16(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'не задан':dimIn16(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Оплачиваемый габарит</span><b>${dimIn16(r.cutting.footprint.width)} × ${dimIn16(r.cutting.footprint.height)}</b></div>`:''}</div>
     ${typeof shapeProdBorderField==='function'?shapeProdBorderField():''}
     <div class='shape-requirements'><b>Производственные требования</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>Дополнительных операций нет</span>'}</div>
     ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(moduleErrorText({reason:w}));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Контур валиден · Production Drawing и Cutting Geometry синхронизированы · ${esc(r.fingerprint)}</div>`}`;
@@ -9332,9 +9515,9 @@ function refreshShapeEditor(){
   }
   if(sDraft.type==='smart'){
     var bs=r.valid&&r.base;
-    syncField('emDlen',bs?dimIn(bs.Dtrue):'AUTO');
-    syncField('emDout',bs?dimIn(bs.Dout):'0');
-    syncField('emDpast',bs?dimIn(bs.DpastOut):'—');
+    syncField('emDlen',bs?dimIn16(bs.Dlen):'AUTO');
+    syncField('emDout',bs?dimIn16(bs.Dout):'0');
+    syncField('emDpast',bs?dimIn16(bs.DpastOut):'—');
     syncField('emClen',shapeCEffective(),true);
     syncField('shapeCField',shapeCEffective(),true);
     syncField('emClen',sDraft.smart.C.len||'');
@@ -9380,7 +9563,17 @@ function shapeOutageIcon(edge){
    Автоматически считается только D, у неё и поля длины нет. */
 function shapeCEffective(){
   var r=fabParseDimStrict(sDraft.h);
-  return r.ok&&r.v>0?dimIn(r.v):'= A';
+  return r.ok&&r.v>0?dimIn16(r.v):'= A';
+}
+/* Размеры в шапке нужны только тем типам, у которых НЕТ матрицы рёбер.
+   У Smart-Shape матрица уже содержит A, B и C — шапка повторяла те же три числа
+   вторым набором полей, и одно и то же приходилось вводить дважды. Круг,
+   прямоугольник и остальные пресеты матрицы не имеют, им шапка остаётся. */
+function shapeMasterSizeFields(){
+  if(sDraft.type==='smart')return '';
+  var w=`<div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>`;
+  var h=sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
+  return w+h;
 }
 function shapeEdgeMatrix(){
   var m=sDraft.smart,cols=['A','B','C','D'],r=shapeDraftResult(),base=(r.valid&&r.base)||null;
@@ -9390,12 +9583,12 @@ function shapeEdgeMatrix(){
     if(e==='A')return cell(e,`<input id='emAlen' data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
     if(e==='B')return cell(e,`<input id='emBlen' data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'>`);
     if(e==='C')return cell(e,`<input id='emClen' data-vfield='num' data-live-placeholder value='${esc(m.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'>`);
-    return cell(e,`<input class='ro' id='emDlen' readonly value='${base?esc(dimIn(base.Dtrue)):'AUTO'}'>`);
+    return cell(e,`<input class='ro' id='emDlen' readonly value='${base?esc(dimIn16(base.Dlen)):'AUTO'}'>`);
   }
   var rows=[{k:'Length',cells:cols.map(lengthCell).join('')}];
   if(!m.elbowsOn){
     rows.push({k:'Out of plumb / level',cells:cols.map(function(e){
-      return e==='D'?cell(e,`<input class='ro' id='emDout' readonly value='${base?esc(dimIn(base.Dout)):'0'}'>`)
+      return e==='D'?cell(e,`<input class='ro' id='emDout' readonly value='${base?esc(dimIn16(base.Dout)):'0'}'>`)
         :cell(e,`<input data-vfield='num' value='${esc(m[e].out||'0')}' oninput='setShapeSimple("${e}","out",this.value)' onblur='shapeZeroIfEmpty(this)'>`);
     }).join('')});
     rows.push({k:'Define Outage',cells:cols.map(function(e){
@@ -9409,7 +9602,7 @@ function shapeEdgeMatrix(){
        поэтому ячейка «Outage past elbow» у неё остаётся показывающей. */
     [['to','Outage to elbow'],['elbowLen','Elbow length'],['past','Outage past elbow']].forEach(function(f){
       rows.push({k:f[1],cells:cols.map(function(e){
-        if(e==='D'&&f[0]==='past')return cell(e,`<input id='emDpast' class='ro' readonly value='${base?esc(dimIn(base.DpastOut)):'—'}'>`);
+        if(e==='D'&&f[0]==='past')return cell(e,`<input id='emDpast' class='ro' readonly value='${base?esc(dimIn16(base.DpastOut)):'—'}'>`);
         return cell(e,`<input data-vfield='num' value='${esc(m[e].elbow[f[0]]||'0')}' oninput='setShapeElbow("${e}","${f[0]}",this.value)' onblur='shapeZeroIfEmpty(this)'>`);
       }).join('')});
     });
@@ -9719,7 +9912,7 @@ function shapeEdgeworkEditor(){
   var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
   return `<div class='shape-subsection shape-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Обработка кромок</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'без обработки'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Кромка</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
     var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Сторона<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 
@@ -9733,7 +9926,7 @@ function shapeFeatureFields(f,i,geo){
   if(f.type==='cutout')return input('Width','width')+input('Height','height')+input('X from origin','x')+input('Y from origin','y')+input('Corner radius','cornerRadius');
   if(f.type==='stamp')return input('X from origin','x')+input('Y from origin','y')+input('Stamp text','text');
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
-  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
+  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn16(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
   return '';
 }
 
@@ -9763,7 +9956,7 @@ function shapeForm(){
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
-  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input id='shapeCField' data-live-placeholder value='${esc(sDraft.smart.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'></div>`:''}</div>`;
+  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeManufacturingEditor()}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeManufacturingEditor()}${shapeEdgeworkEditor()}${shapeFeaturesEditor(geo)}`;
   var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
@@ -9861,22 +10054,22 @@ function shapeProdBorderField(){
      плюс бордер → оплачиваемый габарит. Без этой цепочки непонятно, какое
      число откуда берётся. */
   var chain=`<div class='shape-border-chain'>`+
-    `<span><i>Finished</i><b>${esc(dimIn(ctx.fw))} × ${esc(dimIn(ctx.fh))}</b></span>`+
+    `<span><i>Finished</i><b>${esc(dimIn16(ctx.fw))} × ${esc(dimIn16(ctx.fh))}</b></span>`+
     `<em>+ edge allowance</em>`+
-    `<span><i>Cut</i><b>${esc(dimIn(cut.width))} × ${esc(dimIn(cut.height))}</b></span>`+
+    `<span><i>Cut</i><b>${esc(dimIn16(cut.width))} × ${esc(dimIn16(cut.height))}</b></span>`+
     `<em>+ safety border</em>`+
-    `<span><i>Billable</i><b>${esc(dimIn(fp.width))} × ${esc(dimIn(fp.height))}</b></span>`+
+    `<span><i>Billable</i><b>${esc(dimIn16(fp.width))} × ${esc(dimIn16(fp.height))}</b></span>`+
     `</div>`;
   var rows=plan.edges.map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
     var tag=e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
       :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
     return `<div class='shape-border-row'><b>${esc(id)}</b><span>${esc(shapeBorderEdgeLabel(id))}</span>`+
-      `<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn(plan.base):'—')}' oninput='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`+
-      `${tag}<i>${e.value>0?esc(dimIn(e.value)):''}</i></div>`;
+      `<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' oninput='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`+
+      `${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div>`;
   }).join('');
   return `<div class='shape-prod-border'>
-    <div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn(plan.autoValue))}' oninput='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset to calculated</button>`:`<span class='pill ok'>AUTO</span>`}</div>
+    <div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' oninput='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset to calculated</button>`:`<span class='pill ok'>AUTO</span>`}</div>
     ${chain}
     <div class='shape-border-rows'>${rows}</div>
     <small>${plan.manualRequired
@@ -9897,7 +10090,7 @@ viewShapeSkill=function(){
     var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
     var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
-    var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn(r.width)+' × '+dimIn(r.height)):(r.valid?dimIn(r.width)+' × '+dimIn(r.height):'<span class="bad pill">Invalid</span>');
+    var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
   var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
@@ -9978,7 +10171,7 @@ function shapeProdDxfFileRow(){
 function shapeProdMasterFields(){
   var external=shapeIsDxfSource(sDraft),common=`<div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='shapeProdChooseType(this.value)'>${shapeProdTypeOptions()}</select>${external?'':shapeProdDxfFileRow()}</div>`;
   if(external)return `<div class='grid shape-master-fields shape-prod-master'>${common}<div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>${shapeProdDxfFileRow()}`;
-  return `<div class='grid shape-master-fields shape-prod-master'>${common}<div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>${sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`}${sDraft.type==='smart'?`<div><label>C · Right height</label><input id='shapeCField' data-live-placeholder value='${esc(sDraft.smart.C.len||'')}' placeholder='${esc(shapeCEffective())}' oninput='setShapeC(this.value)'></div>`:''}</div>`;
+  return `<div class='grid shape-master-fields shape-prod-master'>${common}${shapeMasterSizeFields()}</div>`;
 }
 
 /* ---------- Edge processing: shared invariant ---------- */
@@ -10079,8 +10272,8 @@ function shapeProdDxfEdgeProcessing(){
     <button type='button' class='shape-accordion-head' onclick='sEdgeworkOpen=!sEdgeworkOpen;render()'><span><b>Edge processing</b><small>Shape-owned processing · finished DXF → derived cutting allowance</small></span><span class='shape-accordion-state'>${count?count+' operations':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>
     ${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='shape-prod-thickness'><label>Shape thickness<select onchange='sDraft.thickness=this.value;render()'>${[3,4,5,6,8,10,12,15,19].map(function(n){return `<option value='${n}' ${th===n?'selected':''}>${n} mm</option>`;}).join('')}</select></label><small>Standalone Shape cutting only. Sales Makeup supplies runtime thickness later.</small></div>
       <div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>${groups.length} physical segments</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdDxfUniform('Rough Arris')?'on':''}' onclick='shapeProdApplyDxfAR("Rough Arris")'>AR · Arris</button><button class='${shapeProdDxfUniform('Flat Polish')?'on':''}' onclick='shapeProdApplyDxfAR("Flat Polish")'>AR · Polish</button><button class='${shapeProdDxfUniform('CNC Shape Polish')?'on':''}' onclick='shapeProdApplyDxfAR("CNC Shape Polish")'>AR · CNC</button><button onclick='shapeProdClearDxfAR()'>Clear AR</button></div></div>
-      ${selected?`<div class='shape-prod-selected'><span>Selected</span><b>${esc(selected.id.toUpperCase())} · ${esc(dimIn(selected.length))}</b><span>${selected.allowance==null?'BLOCKED':selected.allowance?'+'+esc(dimIn(selected.allowance)):'0″'}</span></div>`:''}
-      <div class='shape-prod-exceptions'><button type='button' onclick='shapeProdExceptionsOpen=!shapeProdExceptionsOpen;render()'><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' onclick='shapeProdSetDxfEdge("${esc(edge.id)}")'><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' onclick='event.stopPropagation()'><input type='checkbox' ${on?'checked':''} onchange='shapeProdToggleDxfOp("${esc(edge.id)}","${esc(type)}",this.checked)'><span>${esc(type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':'Bevel')}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
+      ${selected?`<div class='shape-prod-selected'><span>Selected</span><b>${esc(selected.id.toUpperCase())} · ${esc(dimIn16(selected.length))}</b><span>${selected.allowance==null?'BLOCKED':selected.allowance?'+'+esc(dimIn16(selected.allowance)):'0″'}</span></div>`:''}
+      <div class='shape-prod-exceptions'><button type='button' onclick='shapeProdExceptionsOpen=!shapeProdExceptionsOpen;render()'><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' onclick='shapeProdSetDxfEdge("${esc(edge.id)}")'><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn16(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' onclick='event.stopPropagation()'><input type='checkbox' ${on?'checked':''} onchange='shapeProdToggleDxfOp("${esc(edge.id)}","${esc(type)}",this.checked)'><span>${esc(type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':'Bevel')}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn16(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
     </div>`:''}
   </div>`;
 }
@@ -10118,14 +10311,14 @@ const __shapeProdManufacturingMarkers=shapeManufacturingMarkersSvg;
 shapeManufacturingMarkersSvg=function(source,T){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingMarkers(source,T);
   var items=shapeManufacturingItems();if(!items.length)return'';
-  return items.map(function(item,i){var selected=item.id===sManufacturingSelected?' selected':'',label=shapeManufacturingShort(item.type)+' '+(i+1);if(item.type==='hole'){var x=T.X(item.x),y=T.Y(item.y),d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2));return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'><circle cx='${x}' cy='${y}' r='${r}'/><text x='${x+r+6}' y='${y-6}'>${esc(label)} · Ø ${esc(dimIn(dia))}</text></g>`;}var pt=shapeManufacturingEdgePoint(item,{P:T.P,b:T.b});if(!pt)return'';var e=pt.edge,x=T.X(pt.x),y=T.Y(pt.y),ang=Math.atan2(T.Y(e.end[1])-T.Y(e.start[1]),T.X(e.end[0])-T.X(e.start[0]))*180/Math.PI,mark=item.type==='clamp'?`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-8' y='-8' width='16' height='16' rx='2'/><path d='M -3 -6 V 6 M 3 -6 V 6'/></g>`:`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-10' y='-6' width='20' height='12' rx='2'/><line x1='0' y1='-6' x2='0' y2='6'/></g>`;return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${mark}<text x='${x+12}' y='${y-10}'>${esc(label+' · '+item.edgeId+' @ '+shapeDim16(pt.distance))}</text></g>`;}).join('');
+  return items.map(function(item,i){var selected=item.id===sManufacturingSelected?' selected':'',label=shapeManufacturingShort(item.type)+' '+(i+1);if(item.type==='hole'){var x=T.X(item.x),y=T.Y(item.y),d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2));return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'><circle cx='${x}' cy='${y}' r='${r}'/><text x='${x+r+6}' y='${y-6}'>${esc(label)} · Ø ${esc(dimIn16(dia))}</text></g>`;}var pt=shapeManufacturingEdgePoint(item,{P:T.P,b:T.b});if(!pt)return'';var e=pt.edge,x=T.X(pt.x),y=T.Y(pt.y),ang=Math.atan2(T.Y(e.end[1])-T.Y(e.start[1]),T.X(e.end[0])-T.X(e.start[0]))*180/Math.PI,mark=item.type==='clamp'?`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-8' y='-8' width='16' height='16' rx='2'/><path d='M -3 -6 V 6 M 3 -6 V 6'/></g>`:`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-10' y='-6' width='20' height='12' rx='2'/><line x1='0' y1='-6' x2='0' y2='6'/></g>`;return `<g class='shape-mi-marker ${item.type}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";render()'>${mark}<text x='${x+12}' y='${y-10}'>${esc(label+' · '+item.edgeId+' @ '+shapeDim16(pt.distance))}</text></g>`;}).join('');
 };
 const __shapeProdManufacturingEditor=shapeManufacturingEditor;
 shapeManufacturingEditor=function(){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdManufacturingEditor();
   var items=shapeManufacturingItems(),placing=sManufacturingPlace,edges=ShapeModule.dxfEdges(sDraft),body=`<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("clamp")'>+ Clamp</button><button class='sm' onclick='shapeStartManufacturingPlacement("hinge")'>+ Hinge</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button><span>Clamp / Hinge bind to an exact physical SEG. Hole keeps coordinate references.</span></div>`;
   if(placing)body+=`<div class='shape-mi-place'><b>${placing.moveId?'Move':'Add'}: ${esc(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Click inside the glass.':'Click near the exact DXF segment.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Cancel</button></div>`;
-  body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){var expanded=item.id===sManufacturingSelected,summary='',fields='';if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),pos=shapeManufacturingHolePosition(item,shapeManufacturingGeometry())||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};summary='Ø '+(d&&d.ok?dimIn(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);fields=`<div class='shape-mi-hole-position-grid'><div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'></label></div><div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'></label></div></div><label>Diameter<input id='mi_d_${esc(item.id)}' value='${esc(item.diameter)}' oninput='shapeSetManufacturingField("${esc(item.id)}","diameter",this.value)' onchange='render()'></label>`;}else{var edge=shapeProdDxfEdgeById(item.edgeId),max=edge?shapeDim16(edge.length):'—';summary=(item.edgeId||'Missing SEG')+' · '+shapeDim16(item.distance||0)+' from segment start';fields=`<div class='shape-mi-coordinate-grid'><label>Physical segment<select onchange='shapeProdSetManufacturingSegment("${esc(item.id)}",this.value)'>${edges.map(function(x){return `<option value='${esc(x.id)}' ${item.edgeId===x.id?'selected':''}>${esc(x.id.toUpperCase())} · ${esc(dimIn(x.length))}</option>`;}).join('')}</select><small>Exact finished DXF segment</small></label><label>Distance from segment start<input value='${esc(shapeFrac16(item.distance||0))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small>Segment length ${esc(max)} · 1/16″</small></label></div>`;}return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${item.type}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${esc(shapeManufacturingItemTitle(item.type))} #${i+1}</b><small>${esc(summary)}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;}).join(''):'<div class="empty compact">No manufacturing items yet</div>'}</div>`;
+  body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){var expanded=item.id===sManufacturingSelected,summary='',fields='';if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),pos=shapeManufacturingHolePosition(item,shapeManufacturingGeometry())||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};summary='Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance);fields=`<div class='shape-mi-hole-position-grid'><div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'></label></div><div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'></label></div></div><label>Diameter<input id='mi_d_${esc(item.id)}' value='${esc(item.diameter)}' oninput='shapeSetManufacturingField("${esc(item.id)}","diameter",this.value)' onchange='render()'></label>`;}else{var edge=shapeProdDxfEdgeById(item.edgeId),max=edge?shapeDim16(edge.length):'—';summary=(item.edgeId||'Missing SEG')+' · '+shapeDim16(item.distance||0)+' from segment start';fields=`<div class='shape-mi-coordinate-grid'><label>Physical segment<select onchange='shapeProdSetManufacturingSegment("${esc(item.id)}",this.value)'>${edges.map(function(x){return `<option value='${esc(x.id)}' ${item.edgeId===x.id?'selected':''}>${esc(x.id.toUpperCase())} · ${esc(dimIn16(x.length))}</option>`;}).join('')}</select><small>Exact finished DXF segment</small></label><label>Distance from segment start<input value='${esc(shapeFrac16(item.distance||0))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small>Segment length ${esc(max)} · 1/16″</small></label></div>`;}return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${item.type}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${esc(shapeManufacturingItemTitle(item.type))} #${i+1}</b><small>${esc(summary)}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;}).join(''):'<div class="empty compact">No manufacturing items yet</div>'}</div>`;
   return `<div class='shape-subsection shape-accordion shape-manufacturing'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("manufacturing")'><span><b>Manufacturing items</b><small>Clamp / Hinge = exact SEG + distance · Hole = coordinate references</small></span><span class='shape-accordion-state'>${items.length?items.length+' items':'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>${body}${shapeManufacturingServicesHTML()}</div>`:''}</div>`;
 };
 
@@ -10135,12 +10328,12 @@ function shapeProdDxfProductionSvg(){
   var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
   var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
   var markers=shapeManufacturingMarkersSvg(sDraft.source,T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
-  return `<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${edges}${markers}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>MAX WIDTH ${esc(dimIn(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>MAX HEIGHT ${esc(dimIn(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`;
+  return `<div class='shape-prod-dxf-card'>${sManufacturingPlace?`<div class='shape-prod-place-note'><b>Placement mode:</b> click ${sManufacturingPlace.type==='hole'?'inside the finished contour':'near the required physical SEG'}.</div>`:''}<svg class='shape-dxf-svg shape-prod-dxf-svg${placing}' viewBox='0 0 ${T.vw} ${T.vh}' ${sManufacturingPlace?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}><defs><marker id='shapeProdArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs><path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>${edges}${markers}<line x1='${T.x0}' y1='${topY}' x2='${T.x0+T.dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${T.x0+T.dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>MAX WIDTH ${esc(dimIn16(T.W))}</text><line x1='${leftX}' y1='${T.y0}' x2='${leftX}' y2='${T.y0+T.dh}' class='shape-dxf-dim-line' marker-start='url(#shapeProdArrow)' marker-end='url(#shapeProdArrow)'/><text x='${leftX-10}' y='${T.y0+T.dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${T.y0+T.dh/2})'>MAX HEIGHT ${esc(dimIn16(T.H))}</text></svg><div class='shape-prod-dxf-help'><b>FINISHED contour</b><span>Edge processing derives Cutting. Manufacturing Items do not change the outer cutting contour.</span></div></div>`;
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
   var finished=plan.finishedPoints,cut=plan.points,all=finished.concat(cut).concat(shapeBorderFramePoints(plan)),b=fabEdgeBounds(all),vw=820,vh=480,p=70,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-2*p)/W,(vh-2*p)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
-  return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference · amber dashed = safety border (nesting clearance, never cut)</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/>${shapeBorderOverlaySvg(plan,X,Y)}</svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn(cb.maxY-cb.minY))}</b></span></div></div>`;
+  return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference · amber dashed = safety border (nesting clearance, never cut)</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/>${shapeBorderOverlaySvg(plan,X,Y)}</svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn16(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn16(cb.maxY-cb.minY))}</b></span></div></div>`;
 }
 const __shapeProdPreviewMarkup=shapePreviewMarkup;
 shapePreviewMarkup=function(r){if(sDraft&&shapeIsDxfSource(sDraft))return sView==='cutting'?shapeProdDxfCuttingSvg():shapeProdDxfProductionSvg();return __shapeProdPreviewMarkup(r);};
@@ -10149,8 +10342,8 @@ shapeDerivedHTML=function(r){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdDerivedHTML(r);
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn(pr.width))} × ${esc(dimIn(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn(pr.cutting.width))} × ${esc(dimIn(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){

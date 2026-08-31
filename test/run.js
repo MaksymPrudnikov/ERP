@@ -146,7 +146,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('угловой блок Single → рёбра E/F', corner.ids, ['E', 'F']);
     eq('пустые угловые рёбра = невалидно', corner.blocked, false);
-    eq('срезанный угол 4×4 → 6 точек, площадь 1728−16', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1712 });
+    /* Угловой блок ДОСТРАИВАЕТСЯ снаружи, а не вырезается: длины рёбер вводятся
+       от края до края, поэтому стояк 4 идёт сверх левого ребра 36 и панель
+       становится 48 × 40. Так же в Smart-Shape: там правая сторона 60, а нотч
+       под ней добавляет ещё 4-1/8 и 1/8. */
+    eq('угловой блок 4×4 достраивается снаружи: 6 точек, 48 × 40', { pts: corner.pts, area: corner.area }, { pts: 6, area: 1816 });
 
     /* Скос ребра нотча. Перпендикулярный вынос входит в суммы угла, поэтому
        контур обязан остаться замкнутым, а габарит — прежним. Разошлось —
@@ -172,13 +176,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return { flatValid: flat.valid, skewValid: skew.valid, gaps,
         w: skew.width, h: skew.height,
         sameBox: flat.width === skew.width && flat.height === skew.height,
-        areaChanged: Math.abs(flat.area - skew.area) > 1e-9,
+        tipMoved: JSON.stringify(flat.points) !== JSON.stringify(skew.points),
         tooBigRejected: !tooBig.valid, noDirRejected: !noDir.valid };
     });
     eq('скос ребра нотча не рвёт контур и не двигает габарит',
       { flat: notchSkew.flatValid, skew: notchSkew.skewValid, gaps: notchSkew.gaps, box: notchSkew.sameBox, w: notchSkew.w, h: notchSkew.h },
-      { flat: true, skew: true, gaps: 0, box: true, w: 48, h: 36 });
-    eq('скос ребра нотча меняет площадь детали', notchSkew.areaChanged, true);
+      { flat: true, skew: true, gaps: 0, box: true, w: 48, h: 46 });
+    /* Площадь здесь не меняется по геометрии: обе соседние вершины лежат на одной
+       высоте, и вершина стояка едет параллельно хорде между ними. Проверять надо
+       форму — что скос вообще сдвинул точку. */
+    eq('скос ребра нотча сдвигает вершину стояка', notchSkew.tipMoved, true);
     eq('скос больше самого ребра отклоняется', notchSkew.tooBigRejected, true);
     eq('скос без направления отклоняется', notchSkew.noDirRejected, true);
 
@@ -302,7 +309,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(s),payload=ShapeModule.machinePayload(r);
       return {valid:r.valid,tl:r.base.AT,tr:r.base.CT,outer:payload.outer.points};
     });
-    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,36],tr:[48,33]});
+    eq('отклонения TL/TR меняют finished и cutting geometry', {valid:cornerOffsets.valid,tl:cornerOffsets.tl,tr:cornerOffsets.tr}, {valid:true,tl:[2,36],tr:[50,31]});
     ok('отклонения углов попадают в machine payload', cornerOffsets.outer.some(p=>Math.abs(p[0]-2)<1e-9&&Math.abs(p[1]-36)<1e-9));
 
     const badCornerOffset = await p.evaluate(() => {
@@ -406,11 +413,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const prevTab = tab, prevSub = subtab;
       tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
       sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = ''; render();
+      /* У Smart-Shape размеры живут ТОЛЬКО в матрице: шапка их больше не
+         дублирует, поэтому и проверять здесь нечего, кроме матрицы. */
       const snap = () => ({
         matrixA: document.getElementById('emAlen').value,
-        masterA: document.getElementById('shapeHField').value,
         cPh: document.getElementById('emClen').getAttribute('placeholder'),
-        masterCPh: document.getElementById('shapeCField').getAttribute('placeholder'),
         cRo: document.getElementById('emClen').hasAttribute('readonly'),
         dRo: document.getElementById('emDlen').hasAttribute('readonly')
       });
@@ -422,14 +429,243 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return { before, after, focus };
     });
     eq('пустое C подсказывает фактический размер, а не AUTO', cHint.before.cPh, '36″');
-    eq('подсказка едет за высотой при живом вводе', { cPh: cHint.after.cPh, masterCPh: cHint.after.masterCPh }, { cPh: '40 1/2″', masterCPh: '40 1/2″' });
-    eq('размер в шапке и в матрице не расходятся', { matrixA: cHint.after.matrixA, masterA: cHint.after.masterA }, { matrixA: '40 1/2', masterA: '40 1/2' });
+    eq('подсказка едет за высотой при живом вводе', cHint.after.cPh, '40 1/2″');
+    eq('матрица держит введённый размер', cHint.after.matrixA, '40 1/2');
     eq('каретка остаётся в том поле, где печатают', cHint.focus, 'emAlen');
     eq('C остаётся вводимым, автоматической остаётся только D', { c: cHint.after.cRo, d: cHint.after.dRo }, { c: false, d: true });
 
     eq('база чертежа — прямоугольник, а не форма с уклоном', levelTop.neutral, [[0,0],[0,36],[48,36],[48,0]]);
     eq('ровный верх остаётся ровным в геометрии', levelTop.Dout, 0);
     eq('ровный верх рисуется ровным', levelTop.topSkew, 0);
+
+    /* Усиление обязано работать в одну сторону: поднимать то, что иначе не видно,
+       и не трогать настоящий уклон. Прежняя формула подменяла величину и упиралась
+       в потолок 46 px, поэтому клин 50 → 10 при ширине чертежа 660 px выходил
+       почти прямоугольником, а размерные линии ставились по искажённой форме. */
+    const magScale = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape';
+      function probe(w, h, cLen, bOut, bDir){
+        openShapeNew('smart');
+        sDraft.w = w; sDraft.h = h;
+        if (cLen) sDraft.smart.C.len = cLen;
+        if (bOut) { sDraft.smart.B.out = bOut; sDraft.smart.B.dir = bDir; }
+        render();
+        const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+        const L = [...doc.querySelectorAll('line')].slice(0, 4)
+          .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }));
+        const vert = L.filter(l => Math.abs(l.x1 - l.x2) < 1).sort((a, b) => a.x1 - b.x1);
+        const top = L.reduce((a, b) => (a.y1 + a.y2) < (b.y1 + b.y2) ? a : b);
+        const bot = L.reduce((a, b) => (a.y1 + a.y2) > (b.y1 + b.y2) ? a : b);
+        return {
+          leftPx: vert.length ? Math.abs(vert[0].y2 - vert[0].y1) : 0,
+          rightPx: vert.length > 1 ? Math.abs(vert[vert.length-1].y2 - vert[vert.length-1].y1) : 0,
+          topSkew: Math.round(Math.abs(top.y1 - top.y2)),
+          botSkew: Math.round(Math.abs(bot.y1 - bot.y2))
+        };
+      }
+      const wedge = probe('40', '50', '10');
+      const small = probe('48', '36', '36 1/8', '1/8', 'down');
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { ratio: +(wedge.leftPx / wedge.rightPx).toFixed(2), wedgeTop: wedge.topSkew, smallBot: small.botSkew, smallTop: small.topSkew };
+    });
+    /* Нотч со скошенным верхом. D строилась хордой от угла до угла, а лесенку
+       принудительно сажали на эту хорду — введённый стояк 12 молча становился
+       9-1/2, левая сторона переставала складываться в заданную высоту, и в резку
+       уходил короткий контур. Числа сверены со Smart-Shape на тех же входных. */
+    const notchSlope = await p.evaluate(() => {
+      const rr = v => Math.round(v * 1e6) / 1e6;
+      const s = { id:'t', name:'t', w:'48', h:'36', smart: ssNormalize({}) };
+      s.smart.C.len = '24'; s.smart.corners.tl = 'single';
+      const S = { w:s.w, h:s.h, shape:{ type:'smart', smart:s.smart } };
+      ssSyncExtra(S);
+      S.shape.smart.extraEdges.E.len = '12';
+      S.shape.smart.extraEdges.F.len = '10';
+      const G = ssContour(S), B = G.base, len = {};
+      G.segs.forEach(x => { len[x.id] = (len[x.id] || 0) + Math.hypot(x.p2[0]-x.p1[0], x.p2[1]-x.p1[1]); });
+      const xs = G.pts.map(q => q[0]), ys = G.pts.map(q => q[1]);
+      return {
+        riser: rr(len.E), shelf: rr(len.F), left: rr(len.A),
+        run: rr(B.Dlen), drop: rr(B.Dout),
+        deg: +(Math.atan2(B.Dout, B.Dlen) * 180 / Math.PI).toFixed(1),
+        w: rr(Math.max(...xs) - Math.min(...xs)), h: rr(Math.max(...ys) - Math.min(...ys))
+      };
+    });
+    eq('введённый стояк нотча равен нарисованному', { riser: notchSlope.riser, shelf: notchSlope.shelf }, { riser: 12, shelf: 10 });
+    eq('верх считается от верха лесенки, как в Smart-Shape', { run: notchSlope.run, drop: notchSlope.drop, deg: notchSlope.deg }, { run: 38, drop: 24, deg: 32.3 });
+    eq('габарит = ширина на левое ребро плюс стояк', { w: notchSlope.w, h: notchSlope.h }, { w: 48, h: 48 });
+    eq('левое ребро нарисовано ровно введённым', notchSlope.left, 36);
+
+    /* Выноска уклона: величина и угол по собственному пробегу ребра. Раньше
+       верхняя сторона не подписывалась вовсе — её исключала явная строка. */
+    const skewCallout = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '24';
+      sDraft.smart.corners.tl = 'single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      sDraft.smart.extraEdges.E.len = '12'; sDraft.smart.extraEdges.F.len = '10';
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      const texts = [...doc.querySelectorAll('text')].map(t => t.textContent.trim());
+      const marks = [...doc.querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      /* Чистый прямоугольник: отмечать нечего, когда прямое всё. */
+      openShapeNew('smart'); sDraft.w = '48'; sDraft.h = '36'; render();
+      const plain = [...new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml')
+        .querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { hasDrop: texts.includes('24'), hasAngle: texts.includes('(32.3°)'), marks, plain };
+    });
+    eq('верхняя сторона получила выноску уклона с углом', { drop: skewCallout.hasDrop, angle: skewCallout.hasAngle }, { drop: true, angle: true });
+    eq('квадратики стоят у четырёх прямых углов из шести', skewCallout.marks, 4);
+    eq('на чистом прямоугольнике квадратиков нет', skewCallout.plain, 0);
+
+    /* Уход в 1/16″ — это уже не прямой угол, и метка о прямом угле там ложь.
+       Прежние допуски (0.08, затем 0.02) объявляли прямыми углы в 85° и 89.28°.
+       Заодно проверяем, что габаритная пара с кавычкой больше не дублирует
+       цепочки: снизу читалось «48» и тут же «48″». */
+    const tightSquare = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36';
+      sDraft.smart.B.out = '1/16'; sDraft.smart.B.dir = 'up';
+      render();
+      const r = shapeDraftResult();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(r, false), 'image/svg+xml');
+      const marks = [...doc.querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      const quoted = [...doc.querySelectorAll('text')].map(t => t.textContent.trim())
+        .filter(s => /^[\d\-\/ ]+[″”"]$/.test(s));
+      const P = r.points;
+      const worst = Math.max(...P.map((b, i) => {
+        const a = P[(i - 1 + P.length) % P.length], c = P[(i + 1) % P.length];
+        const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+        const cos = (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(v1[0], v1[1]) * Math.hypot(v2[0], v2[1]));
+        return Math.abs(90 - Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI);
+      }));
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { marks, quoted, offBy: +worst.toFixed(3) };
+    });
+    ok('уход 1/16″ действительно уводит угол от прямого', tightSquare.offBy > 0.05, tightSquare.offBy);
+    eq('и такой угол меткой прямого не помечается', tightSquare.marks, 0);
+    eq('габаритная пара больше не дублирует цепочки', tightSquare.quoted, []);
+
+    /* Подпись рисуется с белой обводкой: наложение не «сливается», а ЗАТИРАЕТ
+       соседнее число целиком. Плюс мелкий шрифт — чертёж показывается меньше
+       своего viewBox, и 8 px превращались в нечитаемые 5. Проверяем на трёх
+       формах сразу: ни одного пересечения подписей, ни одной подписи на контуре,
+       шрифт не мельче 13. */
+    const legible = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape';
+      function boxes(){
+        const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+        const T = [...doc.querySelectorAll('text')].map(t => {
+          const s = t.textContent.trim(), size = +(t.getAttribute('font-size') || 11);
+          const rot = /rotate\(-?90/.test(t.getAttribute('transform') || '');
+          let w = s.length * size * 0.62, h = size * 1.15; if (rot) { const q = w; w = h; h = q; }
+          const anchor = t.getAttribute('text-anchor') || 'middle';
+          const x = +t.getAttribute('x'), y = +t.getAttribute('y');
+          const ax = anchor === 'start' ? 0 : anchor === 'end' ? -w : -w / 2;
+          return { s, size, x1:x+ax, y1:y-h, x2:x+ax+w, y2:y+3 };
+        }).filter(b => !/PRODUCTION|Shape s|Area|Finished geometry|SMART|SO ·/.test(b.s));
+        let hits = 0;
+        for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) {
+          const a = T[i], b = T[j];
+          if (a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1) hits++;
+        }
+        const lines = [...doc.querySelectorAll('line')].filter(l => +l.getAttribute('stroke-width') >= 1.2)
+          .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }));
+        const onLine = T.filter(b => lines.some(L => {
+          for (let t = 0; t <= 40; t++) { const x = L.x1 + (L.x2-L.x1)*t/40, y = L.y1 + (L.y2-L.y1)*t/40;
+            if (x > b.x1 && x < b.x2 && y > b.y1 && y < b.y2) return true; } return false; })).length;
+        /* Мало не пересекаться — надо ещё и отстоять: подпись впритык к линии
+           читается не лучше, чем на ней. */
+        const gapTo = (b, L) => { let m = 1e9;
+          for (let t = 0; t <= 60; t++) { const x = L.x1 + (L.x2-L.x1)*t/60, y = L.y1 + (L.y2-L.y1)*t/60;
+            const dx = Math.max(b.x1-x, 0, x-b.x2), dy = Math.max(b.y1-y, 0, y-b.y2);
+            m = Math.min(m, Math.hypot(dx, dy)); } return m; };
+        const minGap = Math.round(Math.min(...T.map(b => Math.min(...lines.map(L => gapTo(b, L))))));
+        return { hits, onLine, minGap, minSize: Math.min(...T.map(b => b.size)) };
+      }
+      openShapeNew('smart'); sDraft.w='48'; sDraft.h='36'; sDraft.smart.C.len='55';
+      sDraft.smart.corners.bl='single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      Object.keys(sDraft.smart.extraEdges).forEach(k => { sDraft.smart.extraEdges[k].len='4'; });
+      render();
+      const steep = boxes();
+      openShapeNew('smart'); sDraft.w='48'; sDraft.h='36'; render();
+      const plain = boxes();
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { steep, plain };
+    });
+    /* Подпись уклона стоит в ЦЕНТРЕ ЗАЗОРА между пунктирной базой и ребром, на
+       уровне того конца, где зазор шире всего: там уход физически виден — между
+       отвесом/уровнем и стеклом. Сверено с эталонным чертежом: у наклонной с
+       низким концом на 470 и базой на 110 подпись стоит на 290, ровно посередине.
+       Ни центр линии, ни сам конец не годятся: по центру число повисает вдоль
+       ребра, у конца садится на угол. */
+    const calloutAtEnd = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      /* Ровно одна скошенная сторона и ровно одна выноска — тогда пара
+         «ребро ↔ подпись» однозначна и тест меряет именно то, что нужно. */
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '60';
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      /* Контур рисуется цветом ребра, размерные линии — тёмным #101828.
+         Верхняя сторона — та, что выше всех по экрану. */
+      const edges = [...doc.querySelectorAll('line')]
+        .filter(l => +l.getAttribute('stroke-width') >= 1.2 && (l.getAttribute('stroke') || '') !== '#101828')
+        .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }))
+        .sort((a, b) => (a.y1 + a.y2) - (b.y1 + b.y2));
+      const L = edges[0];
+      const lab = [...doc.querySelectorAll('text')].map(t => ({ s:t.textContent.trim(), x:+t.getAttribute('x'), y:+t.getAttribute('y') }))
+        .filter(t => /°/.test(t.s))[0];
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      if (!L || !lab) return null;
+      const d = (px, py) => Math.hypot(lab.x - px, lab.y - py);
+      return {
+        toNearestEnd: Math.round(Math.min(d(L.x1, L.y1), d(L.x2, L.y2))),
+        toMiddle: Math.round(d((L.x1+L.x2)/2, (L.y1+L.y2)/2))
+      };
+    });
+    ok('выноска уклона стоит у конца скоса, в зазоре до базы',
+      calloutAtEnd && calloutAtEnd.toNearestEnd < calloutAtEnd.toMiddle, JSON.stringify(calloutAtEnd));
+
+    eq('подписи не затирают друг друга на крутом скосе', legible.steep.hits, 0);
+    eq('и ни одна не ложится на контур', legible.steep.onLine, 0);
+    ok('подписи отстоят от контура, а не жмутся к нему', legible.steep.minGap >= 8, legible.steep.minGap);
+    ok('шрифт размеров читаемый', Math.min(legible.steep.minSize, legible.plain.minSize) >= 13,
+      Math.min(legible.steep.minSize, legible.plain.minSize));
+
+    /* Рабочая сетка изделия — 1/16″, а форматирование шло через frac64: длины,
+       посчитанные из геометрии, печатались как 43-1/32 и 49-53/64. Цех такого не
+       отрежет, а на чертеже это читается как ложная точность. Каталожные размеры
+       (ширина спейсера 17/32″) остаются на frac64 и здесь не участвуют. */
+    const grid16 = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '50';
+      sDraft.smart.A.out = '1/16'; sDraft.smart.A.dir = 'left';
+      sDraft.smart.B.out = '2';    sDraft.smart.B.dir = 'up';
+      sDraft.smart.C.out = '7/8';  sDraft.smart.C.dir = 'left';
+      sDraft.smart.corners.br = 'single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      Object.keys(sDraft.smart.extraEdges).forEach(k => { sDraft.smart.extraEdges[k].len = '4'; });
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      const texts = [...doc.querySelectorAll('text')].map(t => t.textContent.trim());
+      const cells = [...document.querySelectorAll('.em-row input')].map(i => i.value || i.getAttribute('placeholder') || '');
+      const denoms = [...new Set((texts.concat(cells).join(' ').match(/\/(\d+)/g) || []).map(s => +s.slice(1)))].sort((a, b) => a - b);
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return denoms;
+    });
+    eq('на чертеже и в матрице только сетка 1/16', grid16.filter(d => 16 % d !== 0), []);
+
+    eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
+    ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);
+    ok('микро-уклон 1/8″ на 48″ остаётся различимым', magScale.smallBot >= 12, magScale.smallBot);
+    eq('и ровный верх при этом не наклоняется', magScale.smallTop, 0);
 
     const bad = await p.evaluate(() => {
       const s = { id: 't', name: 't', w: '48', h: '36', smart: ssNormalize({}) };

@@ -21,21 +21,89 @@
 
 /* ---------- формат размера: 9 15/16 → 9-15/16, как на чертежах цеха ---------- */
 function shapeAnnDim(v){
-  try{return String(dimIn(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
+  try{return String(dimIn16(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
   catch(e){return String(v==null?'':v);}
 }
 function shapeAnnText(x,y,txt,o){
   o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
   return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
+/* ---------- раскладка подписей без наложений ----------
+   Подпись рисуется с белой обводкой, поэтому наложение не «сливается», а
+   ЗАТИРАЕТ то, что под ним: соседнее число пропадает целиком, и на чертеже
+   вместо двух размеров остаётся один. Держим список занятых прямоугольников и
+   отодвигаем новую подпись по заданному направлению, пока не найдётся место.
+   Направление всегда «наружу от фигуры», чтобы подпись не уезжала на геометрию. */
+var SS_ANN_BOXES=[];
+function shapeAnnResetBoxes(){SS_ANN_BOXES=[];}
+/* Место занимают не только подписи, но и САМ КОНТУР. Пока реестр знал лишь про
+   соседние числа, подпись честно обходила их — и садилась на линию или
+   прижималась к углу. Засеваем реестр точками контура, и раскладка обходит
+   геометрию сама, без отдельных правил на каждый случай. */
+function shapeAnnSeedContour(pts){
+  for(var i=0;i<pts.length;i++){
+    var a=pts[i],b=pts[(i+1)%pts.length],
+        L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
+    for(var k=0;k<=n;k++){
+      var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
+      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
+    }
+  }
+}
+function shapeAnnBoxOf(x,y,txt,o){
+  var size=o.size||11,w=String(txt).length*size*.62,h=size*1.15;
+  if(o.rot){var q=w;w=h;h=q;}
+  var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
+  return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
+}
+function shapeAnnFree(b,skipContour){
+  for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
+    if(skipContour&&o.c)continue;
+    if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
+  return true;
+}
+function shapeAnnPlace(x,y,txt,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
+    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
+  }
+  return shapeAnnText(x,y,txt,o);
+}
+/* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
+   ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
+   к чужому. */
+function shapeAnnPlace2(x,y,l1,l2,o,step){
+  o=o||{};step=step||[0,-1];
+  var d=(o.size||11)+2,gap=(o.size||11)+6;
+  /* Блок из двух строк растёт ВНИЗ. Вынесенный вверх, он возвращался бы к линии
+     нижней строкой — угол ложился на контур. Сдвигаем блок целиком, чтобы
+     наружу уходил он весь, а не только первая строка. */
+  if(l2&&step[1]<0)y-=gap;
+  /* Выноска уклона стоит в СВОЁМ зазоре, и контур ей не помеха: зазор им и
+     ограничен. Узкий зазор подпись не вмещает — реестр выталкивал её за пунктир,
+     и число уходило от того места, которое описывает. Поэтому контур для неё
+     прозрачен, а отодвигают её только другие числа. */
+  var skip=!!o.overContour;
+  for(var k=0;k<16;k++){
+    var px=x+step[0]*k*d,py=y+step[1]*k*d,
+        b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
+    if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
+      SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
+      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+    }
+  }
+  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+}
 function shapeAnnDimH(x1,x2,y,label){
   if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText((x1+x2)/2,y-6,label,{size:10,weight:600});
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
 }
 function shapeAnnDimV(x,y1,y2,label){
   if(Math.abs(y2-y1)<0.5)return '';
   var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnText(x-8,cy,label,{size:10,weight:600,rot:-90});
+  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -120,13 +188,22 @@ function shapeAnnNeutralGeometry(S){
 }
 
 /* ---------- усиление отклонения ----------
-   Малый уклон растягивается до различимой величины, большой — почти не
-   трогается. Рёбра угловых блоков усиливаются слабее (0.55), иначе короткая
-   ступенька визуально забивает основной уклон стороны. */
+   Малый уклон растягивается до различимой величины, настоящий — остаётся собой.
+   Рёбра угловых блоков поднимаются слабее (0.55), иначе короткая ступенька
+   визуально забивает основной уклон стороны.
+
+   Величина приходит в ПИКСЕЛЯХ, уже умноженная на масштаб чертежа. Прежняя
+   формула не усиливала, а подменяла: результат не зависел от входа и упирался
+   в потолок 46 px. При ширине чертежа ~660 px перепад верха в 40″ — это 660 px,
+   и он рисовался как 46. Клин 50 → 10 выходил почти прямоугольником, а размерные
+   линии ставились по искажённой форме и налезали друг на друга.
+
+   Правило простое: показанное отклонение НИКОГДА не меньше настоящего. */
 function shapeAnnMag(v,damp){
   var a=Math.abs(v);if(a<.12)return 0;
-  var sg=v<0?-1:1,base=a<=10?(20+0.2*a):Math.min(46,22+14*(a-10));
-  return sg*base*(damp==null?1:damp);
+  var sg=v<0?-1:1,d=(damp==null?1:damp);
+  var minVisible=Math.min(46,20+0.2*a)*d;
+  return sg*Math.max(a,minVisible);
 }
 /* Возвращает функцию DP: точка инженерная → точка экранная (с усилением). */
 function shapeAnnDisplay(r,S,F){
@@ -135,7 +212,21 @@ function shapeAnnDisplay(r,S,F){
   if(!N)return ident;
   var AE=r.geometry.edges||[],NE=N.edges||[],map={},k;
 
-  if(NE.length===AE.length&&AE.length){
+  /* Отображение ПО ВЕРШИНАМ: каждая точка сдвигается от своего места на
+     нейтральном контуре на усиленное отклонение. Многоугольник замыкается сам
+     собой, невязки не возникает.
+
+     Прежний путь складывал усиленные ВЕКТОРА рёбер, они не сходились, и всю
+     накопленную невязку сваливали в верхнюю сторону. Уклон низа в 13/16
+     раздувался до двух десятков пикселей, эта разница падала в верх, чей
+     собственный перепад был всего 1-3/16 — и знак переворачивался: на чертеже
+     верх задирался вправо, хотя в изделии и в DXF он опускался. */
+  if(N.points.length===r.points.length&&r.points.length){
+    for(var z=0;z<r.points.length;z++){
+      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
+      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
+    }
+  }else if(NE.length===AE.length&&AE.length){
     var vecs=[],i,a,n,nv,av;
     for(i=0;i<AE.length;i++){
       a=AE[i];n=NE[i];
@@ -161,11 +252,6 @@ function shapeAnnDisplay(r,S,F){
     var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2,cy=(Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
     var tx=F.x0+F.dw/2-cx,ty=F.y0+F.dh/2-cy;
     for(k in map)if(Object.prototype.hasOwnProperty.call(map,k))map[k]=[map[k][0]+tx,map[k][1]+ty];
-  }else if(N.points.length===r.points.length){
-    for(var z=0;z<r.points.length;z++){
-      var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
-      map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
-    }
   }else return ident;
 
   return function(p){
@@ -260,20 +346,34 @@ function shapeAnnOverhead(r,F,left,right){
     +shapeAnnText((bl+br)/2,yB+14,'Overhead View',{size:11,weight:700});
 }
 
-/* ---------- прямоугольные метки угла (чертёжная договорённость) ---------- */
+/* ---------- прямоугольные метки угла (чертёжная договорённость) ----------
+   Метка ставится ТОЛЬКО там, где угол действительно прямой, и только если в
+   фигуре есть хоть один непрямой. На чистом прямоугольнике четыре квадратика —
+   шум: отмечать нечего, когда прямое всё. Смысл метки в том, чтобы среди
+   скошенных углов показать те, что остались точными.
+
+   Допуск фактически нулевой. Метка утверждает «этот угол прямой», и уход даже
+   в 1/16″ делает утверждение ложным: угол уже не прямой, а на увеличенном
+   чертеже это ещё и видно. Прежние 0.08 объявляли прямым угол в 85°, а 0.02 —
+   угол в 89.28°. Настоящие прямые углы дают косинус ровно 0, поэтому 1e-6
+   отсекает всё скошенное и ничего не теряет на дробях дюйма. */
 function shapeAnnRightAngles(r,DP){
-  var P=r.points,out='';
+  var P=r.points,out='',square=[],skewed=0;
   for(var i=0;i<P.length;i++){
     var a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];
     var v1=[a[0]-b[0],a[1]-b[1]],v2=[c[0]-b[0],c[1]-b[1]],l1=Math.hypot(v1[0],v1[1]),l2=Math.hypot(v2[0],v2[1]);
     if(l1<1e-6||l2<1e-6)continue;
-    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>.08)continue;
-    var q=DP(b),qa=DP(a),qc=DP(c);
+    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>1e-6){skewed++;continue;}
+    square.push([a,b,c]);
+  }
+  if(!skewed)return '';
+  square.forEach(function(t){
+    var a=t[0],b=t[1],c=t[2],q=DP(b),qa=DP(a),qc=DP(c);
     var s1=[qa[0]-q[0],qa[1]-q[1]],s2=[qc[0]-q[0],qc[1]-q[1]],sl1=Math.hypot(s1[0],s1[1])||1,sl2=Math.hypot(s2[0],s2[1])||1,z=8;
     var u1=[s1[0]/sl1,s1[1]/sl1],u2=[s2[0]/sl2,s2[1]/sl2];
     var pA=[q[0]+u1[0]*z,q[1]+u1[1]*z],pB=[pA[0]+u2[0]*z,pA[1]+u2[1]*z],pC=[q[0]+u2[0]*z,q[1]+u2[1]*z];
     out+='<path d="M'+pA[0]+' '+pA[1]+' L'+pB[0]+' '+pB[1]+' L'+pC[0]+' '+pC[1]+'" fill="none" stroke="#101828" stroke-width=".7"/>';
-  }
+  });
   return out;
 }
 
@@ -346,45 +446,58 @@ function shapeAnnChains(r,S,DP,box){
 }
 
 /* ---------- локальные выноски уклона ----------
-   Чертёж ставит величину у того конца сегмента, чей уклон она описывает.
-   При реальном локте нулевой «to» переносит выноску «past» на перелом. */
+   У КАЖДОГО скошенного участка своя подпись: величина ухода, под ней угол.
+
+   Угол считается по СОБСТВЕННОМУ пробегу участка. У стороны свои две точки, и
+   всё, что откусили нотч или наклон соседней стороны, её пробег уменьшает:
+   верх шириной 48 при нотче 10 и отвесе 4 имеет пробег 34, и угол берётся от
+   него, а не от габарита. Считаем по ИНЖЕНЕРНЫМ координатам — на экранных угол
+   вышел бы от усиленной картинки, а не от изделия.
+
+   Раньше выноски строились по полям модели, поэтому верхняя сторона D не
+   получала подписи вообще: у неё нет своих полей ввода. Теперь источник —
+   геометрия, и подписывается всё нарисованное, включая D и рёбра нотча. */
+function shapeAnnSkewOf(p1,p2,vert){
+  var run=Math.abs(vert?(p2[1]-p1[1]):(p2[0]-p1[0])),
+      off=Math.abs(vert?(p2[0]-p1[0]):(p2[1]-p1[1]));
+  return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
+}
 function shapeAnnCallouts(r,S,DP){
-  var m=(S.shape&&S.shape.smart)||null;if(!m)return '';
   var out='';
   (r.edges||[]).forEach(function(g){
+    if(!g.segments||!g.segments.length)return;
+    var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
-    function label(q,val){
-      val=Math.abs(inch(val||'0'));if(val<1/64)return;
-      out+=shapeAnnText(vert?q[0]+7:q[0],vert?q[1]-2:q[1]-6,shapeAnnDim(val),{size:8,anchor:vert?'start':'middle',weight:600});
-    }
-    /* Скос ребра нотча подписывается ВСЕГДА, в обоих режимах: у нотча нет
-       локтя, но его уход от отвеса/уровня — такой же производственный размер,
-       и без него внутренние скосы читались бы только по картинке. */
-    var inf=shapeAnnExtraInfo(S,g.id);
-    if(inf){
-      var x=(m.extraEdges||{})[g.id]||{},ov=Math.abs(inch(x.out||'0'));
-      if(ov>1/64){
-        var mid=[(sp[0][0]+sp[sp.length-1][0])/2,(sp[0][1]+sp[sp.length-1][1])/2];
-        var arrow=inf.axis==='v'?(x.dir==='right'?'→':x.dir==='left'?'←':''):(x.dir==='up'?'↑':x.dir==='down'?'↓':'');
-        out+=shapeAnnText(inf.axis==='v'?mid[0]+9:mid[0],inf.axis==='v'?mid[1]:mid[1]-9,
-          arrow+' '+shapeAnnDim(ov),{size:8,anchor:inf.axis==='v'?'start':'middle',weight:600,color:'#95430f'});
-      }
-      return;
-    }
-    if(m.elbowsOn){
-      var E=(g.id==='A'||g.id==='B'||g.id==='C')?(m[g.id]||{}).elbow:null;
-      if(!E)return;
-      var h=Math.abs(inch(E.elbowLen||'0')),to=Math.abs(inch(E.to||'0')),past=Math.abs(inch(E.past||'0'));
-      if(h>1e-9&&sp.length>=3){
-        if(to>1/64)label(sp[0],E.to);
-        if(past>1/64)label(to<1/64?sp[1]:sp[sp.length-1],E.past);
-      }else if(past>1/64)label(sp[sp.length-1],E.past);
-    }else{
-      if(g.id!=='A'&&g.id!=='B'&&g.id!=='C')return;
-      var v=Math.abs(inch((m[g.id]||{}).out||'0'));
-      if(v>1/64)label(sp[sp.length-1],v);
-    }
+    /* База стороны — её внешняя огибающая, ровно та же линия, что рисует пунктир. */
+    var ax=vert?0:1,
+        ref=(side==='left'||side==='top')
+          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
+          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
+    g.segments.forEach(function(sg){
+      var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
+      if(!(k.off>1/64))return;
+      /* Подпись садится на СЕРЕДИНУ своего участка и выносится наружу. У конца
+         она наезжала на вершину и на соседние размеры — особенно на крутом
+         скосе, где оба конца заняты. Середина принадлежит только этому участку,
+         поэтому и читается однозначно, к какому ребру относится число. */
+      /* Подпись садится в ЦЕНТР ЗАЗОРА между пунктирной базой и ребром, на
+         уровне того КОНЦА, где зазор шире всего. Это и есть место, где уход
+         физически виден: между отвесом/уровнем и стеклом.
+         Ни центр линии, ни сам конец не подходят — по центру число повисает
+         вдоль ребра, у конца садится на угол. Если зазор узкий, подпись
+         отодвинет реестр: он знает про контур и не даст сесть на линию. */
+      var d1=DP(sg.p1),d2=DP(sg.p2),
+          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
+          gap=ref-far[ax],sg0=gap<0?-1:1,
+          x=ax===0?(ref+far[0])/2:far[0],
+          y=ax===0?far[1]:(ref+far[1])/2,
+          anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
+      /* Угол печатается, только когда его есть смысл читать: при долях градуса
+         скобки — шум, эталон их тоже не ставит. */
+      out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
+        {size:13,anchor:anchor,weight:600,overContour:true},step);
+    });
   });
   return out;
 }
@@ -415,6 +528,10 @@ function shapeAnnotationLayer(result,F,active){
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   var smart=S&&S.shape&&S.shape.type==='smart';
+  /* Реестр занятых мест живёт ровно один чертёж: иначе второй чертёж считал бы
+     занятыми места первого и разгонял бы подписи в пустоту. Контур засевается
+     сразу, чтобы ни одна подпись не села на линию. */
+  shapeAnnResetBoxes();shapeAnnSeedContour(disp);
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);

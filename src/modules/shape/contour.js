@@ -6,6 +6,32 @@
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* Длина ребра — это длина САМОГО ребра, а угловая лесенка идёт СВЕРХ неё.
+   Ввели C = 60 — правая сторона ровно 60, стояк нотча добавляется ниже, и
+   сторона целиком выходит длиннее. Так устроен Smart-Shape: там E = 60 это
+   правая сторона, а нотч C = 5 и D = 8 сидят под ней отдельными рёбрами.
+
+   Контур строится ОБХОДОМ по периметру: каждая сторона ставится там, где
+   закончилась предыдущая лесенка, и берёт свою длину как есть. Прежний подход —
+   растянуть стороны по габариту и потом подрезать лесенками — введённые числа
+   не держал: подрезка считалась по концам СОСЕДЕЙ, и стоило соседу наклониться,
+   как 48 превращалось в 47-15/16, а стояк 5 — в 5-1/3. */
+/* Куда приходит лесенка угла, если вести её от конца вертикальной стороны.
+   Эта точка задаёт начало следующей стороны — так каждое введённое ребро
+   попадает на чертёж своей длиной, а не остатком после чужой подрезки. */
+function ssStairEnd(S,corner,pVert){
+  var T=ssCornerTotals(S,corner),g=SS_CG[corner];
+  if(!T.vals.length)return [pVert[0],pVert[1]];
+  return [pVert[0]+g.h[0]*T.h-g.v[0]*T.v,pVert[1]+g.h[1]*T.h-g.v[1]*T.v];
+}
+/* Обратный ход: где начинается лесенка, если известен её конец. Нужен в правом
+   нижнем углу — там обход идёт от низа к правой стороне, то есть против
+   направления самой лесенки. */
+function ssStairStart(S,corner,pHoriz){
+  var T=ssCornerTotals(S,corner),g=SS_CG[corner];
+  if(!T.vals.length)return [pHoriz[0],pHoriz[1]];
+  return [pHoriz[0]-g.h[0]*T.h+g.v[0]*T.v,pHoriz[1]-g.h[1]*T.h+g.v[1]*T.v];
+}
 function ssEdgeLocal(S,e){
   var m=ssModel(S),s=m[e],vert=(e==='A'||e==='C'),L=ssEdgeLen(S,e);
   if(!m.elbowsOn){
@@ -13,7 +39,8 @@ function ssEdgeLocal(S,e){
     if(vert)return [[0,0],[s.dir==='right'?o:s.dir==='left'?-o:0,L]];
     return [[0,0],[L,s.dir==='up'?o:s.dir==='down'?-o:0]];
   }
-  var E=s.elbow,to=ssNN(E.to),past=ssNN(E.past),h=Math.min(ssNN(E.elbowLen),L),M=ssMode(E.mode)||{s1:0,s2:0};
+  var E=s.elbow,to=ssNN(E.to),past=ssNN(E.past),h=Math.min(ssNN(E.elbowLen),L),
+      M=ssMode(E.mode)||{s1:0,s2:0};
   var o1=M.s1*to,o2=o1+M.s2*past,coll=(h<=1e-9||h>=L-1e-9);
   if(vert)return coll?[[0,0],[o2,L]]:[[0,0],[o1,h],[o2,L]];
   return coll?[[0,0],[L,o2]]:[[0,0],[h,o1],[L,o2]];
@@ -42,21 +69,38 @@ function ssCornerMorph(P,a,b){
 }
 function ssBase(S){
   var dBL=ssCornerDelta(S,'bl'),dTL=ssCornerDelta(S,'tl'),dBR=ssCornerDelta(S,'br'),dTR=ssCornerDelta(S,'tr'),
-      A0=ssEdgeLocal(S,'A'),B0=ssEdgeLocal(S,'B'),BR0=B0[B0.length-1],C0=ssOff(ssEdgeLocal(S,'C'),BR0),BL=[dBL[0],dBL[1]],
-      Ap=ssCornerMorph(A0,dBL,dTL),AT=Ap[Ap.length-1],
+      BL=[dBL[0],dBL[1]],
+      /* Обход по периметру. A стоит от левого нижнего угла; низ начинается там,
+         куда пришла лесенка BL; правая — там, куда пришла лесенка BR. Каждая
+         сторона берёт СВОЮ длину, поэтому введённое и нарисованное совпадают. */
+      Ap=ssCornerMorph(ssEdgeLocal(S,'A'),dBL,dTL),AT=Ap[Ap.length-1],
+      B0=ssOff(ssEdgeLocal(S,'B'),ssStairEnd(S,'bl',BL)),
       Bp=ssCornerMorph(B0,dBL,dBR),BR=Bp[Bp.length-1],
-      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1],
-      Dp=ssTopPath(S,AT,CT);
-  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по КОНЦАМ:
-     излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная длина
-     ломаной, поэтому берётся по всем звеньям, иначе излом терялся бы в отчётах. */
-  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,
-    Dlen:Math.abs(CT[0]-AT[0]),Dsigned:CT[0]-AT[0],Dout:Math.abs(CT[1]-AT[1]),
+      C0=ssOff(ssEdgeLocal(S,'C'),ssStairStart(S,'br',BR)),
+      Cp=ssCornerMorph(C0,dBR,dTR),CT=Cp[Cp.length-1];
+  /* Верхняя сторона идёт от ВЕРХА лесенки, а не от угла габарита.
+     Раньше D строилась хордой AT→CT, а лесенку нотча потом принудительно
+     сажали на эту хорду. Хорда за ширину нотча успевала опуститься, и ровно на
+     столько молча укорачивался введённый стояк: 12 превращалось в 9-1/2, левая
+     сторона переставала складываться в заданную высоту, а контур уходил в резку
+     коротким. В Smart-Shape верх начинается от верха стояка — делаем так же,
+     и тогда пробег и угол верха совпадают с эталоном. */
+  var Ttl=ssCornerTotals(S,'tl'),Ttr=ssCornerTotals(S,'tr'),
+      dD0=(CT[0]-AT[0])>=0?1:-1,
+      /* Верх начинается там, куда пришла лесенка от верха A, и кончается там,
+         куда пришла лесенка от верха C. Стороны при этом не подрезаются. */
+      DL=ssStairEnd(S,'tl',AT),DR=ssStairEnd(S,'tr',CT),
+      Dp=ssTopPath(S,DL,DR);
+  /* Dlen / Dout / DdirY описывают сторону в целом и считаются по её СОБСТВЕННЫМ
+     концам: излом внутри не меняет ни пробег, ни полный уход. Dtrue — истинная
+     длина ломаной, по всем звеньям, иначе излом терялся бы в отчётах. */
+  return {BL:BL,AT:AT,BR:BR,CT:CT,Ap:Ap,Bp:Bp,Cp:Cp,Dp:Dp,DL:DL,DR:DR,
+    Dlen:Math.abs(DR[0]-DL[0]),Dsigned:DR[0]-DL[0],Dout:Math.abs(DR[1]-DL[1]),
     Dtrue:ssPathLen(Dp),
-    DdirY:(CT[1]-AT[1])>1e-9?'up':(CT[1]-AT[1])<-1e-9?'down':null,
+    DdirY:(DR[1]-DL[1])>1e-9?'up':(DR[1]-DL[1])<-1e-9?'down':null,
     /* Уход второго отрезка излома — выводимая величина, её показывает матрица
        рёбер в ячейке «Outage past elbow» для D. */
-    DpastOut:Dp.length>2?Math.abs(CT[1]-Dp[1][1]):Math.abs(CT[1]-AT[1])};
+    DpastOut:Dp.length>2?Math.abs(DR[1]-Dp[1][1]):Math.abs(DR[1]-DL[1])};
 }
 function ssPointAt(P,ax,val){
   for(var i=0;i<P.length-1;i++){
@@ -106,11 +150,10 @@ function ssContour(S){
   /* Сначала вертикальные стороны: их подрезанные концы задают, откуда реально
      начинаются горизонтальные стороны. Брать вершину габарита нельзя — при
      уклоне A/C конец стороны смещён по X, и лесенка нотча не сходилась. */
-  var spanA=ssSpan(G.Ap,1,G.BL[1]+T.bl.v,G.AT[1]-T.tl.v),
-      spanC=ssSpan(G.Cp.slice().reverse(),1,G.CT[1]-T.tr.v,G.BR[1]+T.br.v);
-  var aTop=spanA[spanA.length-1],aBot=spanA[0],cTop=spanC[0],cBot=spanC[spanC.length-1];
-  var spanD=ssSpan(G.Dp,0,aTop[0]+dD*T.tl.h,cTop[0]-dD*T.tr.h),
-      spanB=ssSpan(G.Bp.slice().reverse(),0,cBot[0]+dB*T.br.h,aBot[0]-dB*T.bl.h);
+  /* Стороны БОЛЬШЕ НЕ ПОДРЕЗАЮТСЯ: каждая нарисована во всю свою длину, а
+     лесенки стоят между ними. Подрезка считалась по концам соседей и съедала
+     введённые числа, стоило соседу наклониться. */
+  var spanA=G.Ap,spanC=G.Cp.slice().reverse(),spanD=G.Dp,spanB=G.Bp.slice().reverse();
   var segs=[];
   function push(P,id){for(var i=0;i<P.length-1;i++)segs.push({id:id,p1:P[i],p2:P[i+1]});}
   push(spanA,'A');

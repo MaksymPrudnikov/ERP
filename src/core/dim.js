@@ -22,6 +22,17 @@ function frac64(v){
   return (whole?whole+' ':'')+n+'/'+d;
 }
 function dimIn(v){return frac64(v)+'″';}
+/* Рабочая сетка изделия — 1/16″. Показывать размер стекла точнее сетки нельзя:
+   цех такого не отрежет, а на чертеже 43-1/32 или 49-53/64 читается как ложная
+   точность — эти дроби рождаются из вычисленных длин, а не из ввода.
+   Каталожные величины остаются на frac64: ширина спейсера 17/32″ — настоящий
+   размер продукта, и округлять её до 1/2″ нельзя. */
+function frac16(v){
+  v=+v||0;var whole=Math.floor(v+1e-9),n=Math.round((v-whole)*16);if(n===16){whole++;n=0;}
+  if(!n)return String(whole);var a=n,b=16;while(b){var t=a%b;a=b;b=t;}n/=a;var d=16/a;
+  return (whole?whole+' ':'')+n+'/'+d;
+}
+function dimIn16(v){return frac16(v)+'″';}
 function fabParseDimStrict(v){
   if(typeof v==='number')return isFinite(v)?{ok:true,v:v}:{ok:false,v:0};
   var t=String(v==null?'':v).trim().replace(/[\u2033\u201D"]/g,'');
