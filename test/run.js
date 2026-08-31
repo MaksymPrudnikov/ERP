@@ -571,7 +571,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         const onLine = T.filter(b => lines.some(L => {
           for (let t = 0; t <= 40; t++) { const x = L.x1 + (L.x2-L.x1)*t/40, y = L.y1 + (L.y2-L.y1)*t/40;
             if (x > b.x1 && x < b.x2 && y > b.y1 && y < b.y2) return true; } return false; })).length;
-        return { hits, onLine, minSize: Math.min(...T.map(b => b.size)) };
+        /* Мало не пересекаться — надо ещё и отстоять: подпись впритык к линии
+           читается не лучше, чем на ней. */
+        const gapTo = (b, L) => { let m = 1e9;
+          for (let t = 0; t <= 60; t++) { const x = L.x1 + (L.x2-L.x1)*t/60, y = L.y1 + (L.y2-L.y1)*t/60;
+            const dx = Math.max(b.x1-x, 0, x-b.x2), dy = Math.max(b.y1-y, 0, y-b.y2);
+            m = Math.min(m, Math.hypot(dx, dy)); } return m; };
+        const minGap = Math.round(Math.min(...T.map(b => Math.min(...lines.map(L => gapTo(b, L))))));
+        return { hits, onLine, minGap, minSize: Math.min(...T.map(b => b.size)) };
       }
       openShapeNew('smart'); sDraft.w='48'; sDraft.h='36'; sDraft.smart.C.len='55';
       sDraft.smart.corners.bl='single';
@@ -584,9 +591,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
       return { steep, plain };
     });
-    /* Уход набирается от края до края и «приходит» в дальний от базы конец —
-       там его и подписывают, рядом с угловым квадратиком. По центру участка
-       число повисало ни к чему не привязанным. */
+    /* Подпись уклона относится ко ВСЕМУ участку, поэтому стоит по его середине
+       и вынесена наружу перпендикулярно. У конца она жалась к углу и к соседним
+       размерам. */
     const calloutAtEnd = await p.evaluate(() => {
       const prevTab = tab, prevSub = subtab;
       tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
@@ -612,11 +619,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         toMiddle: Math.round(d((L.x1+L.x2)/2, (L.y1+L.y2)/2))
       };
     });
-    ok('выноска уклона стоит у конца ребра, а не по его центру',
-      calloutAtEnd && calloutAtEnd.toNearestEnd < calloutAtEnd.toMiddle, JSON.stringify(calloutAtEnd));
+    ok('выноска уклона стоит по центру ребра, а не с краю',
+      calloutAtEnd && calloutAtEnd.toMiddle < calloutAtEnd.toNearestEnd, JSON.stringify(calloutAtEnd));
 
     eq('подписи не затирают друг друга на крутом скосе', legible.steep.hits, 0);
     eq('и ни одна не ложится на контур', legible.steep.onLine, 0);
+    ok('подписи отстоят от контура, а не жмутся к нему', legible.steep.minGap >= 8, legible.steep.minGap);
     ok('шрифт размеров читаемый', Math.min(legible.steep.minSize, legible.plain.minSize) >= 13,
       Math.min(legible.steep.minSize, legible.plain.minSize));
 

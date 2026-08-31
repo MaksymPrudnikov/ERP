@@ -36,6 +36,20 @@ function shapeAnnText(x,y,txt,o){
    Направление всегда «наружу от фигуры», чтобы подпись не уезжала на геометрию. */
 var SS_ANN_BOXES=[];
 function shapeAnnResetBoxes(){SS_ANN_BOXES=[];}
+/* Место занимают не только подписи, но и САМ КОНТУР. Пока реестр знал лишь про
+   соседние числа, подпись честно обходила их — и садилась на линию или
+   прижималась к углу. Засеваем реестр точками контура, и раскладка обходит
+   геометрию сама, без отдельных правил на каждый случай. */
+function shapeAnnSeedContour(pts){
+  for(var i=0;i<pts.length;i++){
+    var a=pts[i],b=pts[(i+1)%pts.length],
+        L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
+    for(var k=0;k<=n;k++){
+      var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
+      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5});
+    }
+  }
+}
 function shapeAnnBoxOf(x,y,txt,o){
   var size=o.size||11,w=String(txt).length*size*.62,h=size*1.15;
   if(o.rot){var q=w;w=h;h=q;}
@@ -434,20 +448,14 @@ function shapeAnnSkewOf(p1,p2,vert){
   return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
 }
 function shapeAnnCallouts(r,S,DP){
-  var out='';
+  var out='',dp=(r.points||[]).map(DP),np=dp.length||1,
+      cx=dp.reduce(function(a,p){return a+p[0];},0)/np,
+      cy=dp.reduce(function(a,p){return a+p[1];},0)/np;
   (r.edges||[]).forEach(function(g){
     if(!g.segments||!g.segments.length)return;
     var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
-    /* База стороны — её внешняя огибающая, та же, что у пунктира. Уход
-       набирается от одного конца к другому и «приходит» в дальний от базы:
-       там его и подписывают, рядом с угловым квадратиком. По центру участка
-       число повисало ни к чему не привязанным. */
-    var ax=vert?0:1,
-        ref=(side==='left'||side==='top')
-          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
-          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
     g.segments.forEach(function(sg){
       var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
       if(!(k.off>1/64))return;
@@ -455,22 +463,19 @@ function shapeAnnCallouts(r,S,DP){
          она наезжала на вершину и на соседние размеры — особенно на крутом
          скосе, где оба конца заняты. Середина принадлежит только этому участку,
          поэтому и читается однозначно, к какому ребру относится число. */
-      /* Подпись садится в СЕРЕДИНУ ЗАЗОРА между пунктирной базой и дальним от
-         неё концом ребра — там уход и меряется, от края до края. Ни центр самой
-         линии, ни её конец не годятся: в первом случае число повисает ни к чему
-         не привязанным, во втором садится на угловой квадратик.
-         Вдоль ребра слегка отступаем от вершины, чтобы не наехать на угол. */
+      /* Подпись садится по СЕРЕДИНЕ своего участка и выносится наружу от фигуры
+         ПЕРПЕНДИКУЛЯРНО ему. Середина принадлежит только этому ребру, поэтому
+         однозначно читается, к чему относится число; у конца оно жалось к углу.
+         Перпендикуляр обязателен: сдвиг «вверх по стороне» на крутом скосе не
+         спасал — линия поднимается быстрее отступа, и подпись ложилась на неё.
+         От самой линии её дополнительно держит реестр, знающий про контур. */
       var d1=DP(sg.p1),d2=DP(sg.p2),
-          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
-          near=far===d1?d2:d1,inset=.10,
-          ax0=far[0]+(near[0]-far[0])*inset,ay0=far[1]+(near[1]-far[1])*inset,
-          gap=ref-far[ax],sg0=gap<0?-1:1,
-          /* При крошечном уходе зазор схлопывается и середина ложится на ребро —
-             тогда отодвигаем на фиксированную величину. */
-          off=Math.abs(gap)>=34?gap/2:sg0*20,
-          x=ax===0?far[0]+off:ax0,
-          y=ax===0?ay0:far[1]+off,
-          anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
+          mx=(d1[0]+d2[0])/2,my=(d1[1]+d2[1])/2,
+          ex=d2[0]-d1[0],ey=d2[1]-d1[1],el=Math.hypot(ex,ey)||1,
+          nx=-ey/el,ny=ex/el;
+      if((mx-cx)*nx+(my-cy)*ny<0){nx=-nx;ny=-ny;}
+      var pad=20,x=mx+nx*pad,y=my+ny*pad,
+          anchor='middle',step=[nx,ny];
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
@@ -507,8 +512,9 @@ function shapeAnnotationLayer(result,F,active){
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   var smart=S&&S.shape&&S.shape.type==='smart';
   /* Реестр занятых мест живёт ровно один чертёж: иначе второй чертёж считал бы
-     занятыми места первого и разгонял бы подписи в пустоту. */
-  shapeAnnResetBoxes();
+     занятыми места первого и разгонял бы подписи в пустоту. Контур засевается
+     сразу, чтобы ни одна подпись не села на линию. */
+  shapeAnnResetBoxes();shapeAnnSeedContour(disp);
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);
