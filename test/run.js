@@ -1296,6 +1296,28 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {onlyLite,liteLeft:Object.keys((salesShapeByRef(soDraft.lines[0].shapeRef).lites['1']||{}).edgeOps||{}),
         effect:plan.lites.map(l=>l.groups[0].ops.map(o=>o.type).join('+'))};
     })()`), {onlyLite:{lite:['A'],shared:[]},liteLeft:[],effect:['CNC Shape Polish','CNC Shape Polish']});
+    /* Пакет из разных стёкол больше не проваливает редактор формы. Правило
+       «одна толщина на строку» писалось до расчёта по лайтам: теперь у формы
+       лайта берётся толщина ЕГО стекла, а у общей — самое толстое из тех, что
+       на ней живут. Закрываемся только когда толщины нет вообще. */
+    eq('пакет 6 + 12 не ломает редактор формы', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t30\\t60\\tMIX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      m.unitType='double';
+      m.panes[0].category='vision';m.panes[0].glassProductId=g(6).id;m.panes[0].thicknessMm=6;
+      m.panes[1].category='vision';m.panes[1].glassProductId=g(12).id;m.panes[1].thicknessMm=12;
+      salesOrderConfigureShape(0);
+      const shared={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};
+      salesBridgeCancel('shape');
+      salesOpenLiteShape(line.id,0);const lite1={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};saveShape();
+      salesOpenLiteShape(line.id,1);const lite2={thickness:sDraft.thickness,valid:ShapeModule.compute(sDraft).valid};saveShape();
+      tab='sales';render();
+      salesOrderConfigureShape(0);
+      const orphan=!!document.querySelector('.shape-lite-note.own');
+      return {shared,lite1,lite2,orphanWarning:(sLiteSplitOpen=true,render(),!!document.querySelector('.shape-lite-cards .shape-lite-note.own'))};
+    })()`), {shared:{thickness:'12',valid:true},lite1:{thickness:'6',valid:true},lite2:{thickness:'12',valid:true},orphanWarning:true});
     /* Кнопка AR · ALL AROUND — решение по всей форме, значит и по всем лайтам.
        Раньше она отрабатывала молча: форма получала полировку, а лайт со своей
        старой обработкой продолжал уходить в производство и в счёт арисом, при
@@ -1487,7 +1509,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       if(m.panes.length<2)m.panes.push(salesDefaultPane(1));m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;m.panes[1].glassProductId='';m.panes[1].thicknessMm=12;
       salesOrderConfigureShape(0);sDraft.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];const mixed=ShapeModule.compute(sDraft);
       return {th12,allow12,th10,allow10,mixedThickness:sDraft.thickness,mixedValid:mixed.valid,mixedError:(mixed.errors||[]).join(' | ')};
-    }), {th12:'12',allow12:3/16,th10:'10',allow10:1/8,mixedThickness:'',mixedValid:false,mixedError:'Glass thickness for edge-processing allowance must come from the selected Sales Makeup.'});
+    /* Пакет из разных стёкол больше не закрывается: раньше одной безопасной
+       толщины у него не было, теперь каждый лайт считается со своей, а общая
+       форма показывает худший случай припуска — самое толстое стекло юнита. */
+    }), {th12:'12',allow12:3/16,th10:'10',allow10:1/8,mixedThickness:'12',mixedValid:true,mixedError:''});
     await t.c.close();
   }
 

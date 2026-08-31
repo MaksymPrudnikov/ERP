@@ -30,6 +30,7 @@ const I18N_EN={
   "Отступ по кромкам": "Inset per edge",
   "Своя форма": "Own shape",
   "Обработка этого стекла. Пусто = берётся общая обработка формы или базовая кромка стекла. Геометрия лайта — в секции «Лайты юнита».": "Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.",
+  "Ни один лайт не живёт на этой форме — у каждого своя. Правки здесь ни на что не повлияют, пока лайт не вернут кнопкой «Вернуть на общую».": "No lite lives on this Shape — each has its own. Changes here affect nothing until a lite is sent back with “Back to shared”.",
   "Все лайты": "All lites",
   "Общая обработка формы: действует на все лайты, если у лайта не задано своё.": "Shape-wide edgework: applies to every lite unless the lite has its own.",
   "Отступ — насколько ЭТО стекло уже формы по кромке (ступенчатый пакет). Пустая обработка = берётся общая обработка формы или базовая кромка стекла.": "Inset — how much narrower THIS glass is than the Shape on that edge (stepped unit). Empty edgework = the Shape-wide one, or the base edgework of the glass.",
