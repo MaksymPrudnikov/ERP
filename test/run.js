@@ -406,11 +406,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const prevTab = tab, prevSub = subtab;
       tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
       sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = ''; render();
+      /* У Smart-Shape размеры живут ТОЛЬКО в матрице: шапка их больше не
+         дублирует, поэтому и проверять здесь нечего, кроме матрицы. */
       const snap = () => ({
         matrixA: document.getElementById('emAlen').value,
-        masterA: document.getElementById('shapeHField').value,
         cPh: document.getElementById('emClen').getAttribute('placeholder'),
-        masterCPh: document.getElementById('shapeCField').getAttribute('placeholder'),
         cRo: document.getElementById('emClen').hasAttribute('readonly'),
         dRo: document.getElementById('emDlen').hasAttribute('readonly')
       });
@@ -422,8 +422,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return { before, after, focus };
     });
     eq('пустое C подсказывает фактический размер, а не AUTO', cHint.before.cPh, '36″');
-    eq('подсказка едет за высотой при живом вводе', { cPh: cHint.after.cPh, masterCPh: cHint.after.masterCPh }, { cPh: '40 1/2″', masterCPh: '40 1/2″' });
-    eq('размер в шапке и в матрице не расходятся', { matrixA: cHint.after.matrixA, masterA: cHint.after.masterA }, { matrixA: '40 1/2', masterA: '40 1/2' });
+    eq('подсказка едет за высотой при живом вводе', cHint.after.cPh, '40 1/2″');
+    eq('матрица держит введённый размер', cHint.after.matrixA, '40 1/2');
     eq('каретка остаётся в том поле, где печатают', cHint.focus, 'emAlen');
     eq('C остаётся вводимым, автоматической остаётся только D', { c: cHint.after.cRo, d: cHint.after.dRo }, { c: false, d: true });
 
@@ -630,6 +630,30 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     ok('подписи отстоят от контура, а не жмутся к нему', legible.steep.minGap >= 8, legible.steep.minGap);
     ok('шрифт размеров читаемый', Math.min(legible.steep.minSize, legible.plain.minSize) >= 13,
       Math.min(legible.steep.minSize, legible.plain.minSize));
+
+    /* Рабочая сетка изделия — 1/16″, а форматирование шло через frac64: длины,
+       посчитанные из геометрии, печатались как 43-1/32 и 49-53/64. Цех такого не
+       отрежет, а на чертеже это читается как ложная точность. Каталожные размеры
+       (ширина спейсера 17/32″) остаются на frac64 и здесь не участвуют. */
+    const grid16 = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '50';
+      sDraft.smart.A.out = '1/16'; sDraft.smart.A.dir = 'left';
+      sDraft.smart.B.out = '2';    sDraft.smart.B.dir = 'up';
+      sDraft.smart.C.out = '7/8';  sDraft.smart.C.dir = 'left';
+      sDraft.smart.corners.br = 'single';
+      const S0 = shapeDraftLine(); ssSyncExtra(S0); sDraft.smart = S0.shape.smart;
+      Object.keys(sDraft.smart.extraEdges).forEach(k => { sDraft.smart.extraEdges[k].len = '4'; });
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      const texts = [...doc.querySelectorAll('text')].map(t => t.textContent.trim());
+      const cells = [...document.querySelectorAll('.em-row input')].map(i => i.value || i.getAttribute('placeholder') || '');
+      const denoms = [...new Set((texts.concat(cells).join(' ').match(/\/(\d+)/g) || []).map(s => +s.slice(1)))].sort((a, b) => a - b);
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return denoms;
+    });
+    eq('на чертеже и в матрице только сетка 1/16', grid16.filter(d => 16 % d !== 0), []);
 
     eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
     ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);

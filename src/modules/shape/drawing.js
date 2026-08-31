@@ -22,7 +22,7 @@ function shapeEdgeGroups(geo){
 /* Короткая цеховая запись обработки: 45° Back Mitre · FP · Bevel 1″ (Front). */
 function shapeOpText(o){
   if(o.type==='Mitering')return (o.angle||45)+'° '+((o.side||'back')==='front'?'Front':'Back')+' Mitre';
-  if(o.type==='Beveling')return 'Bevel '+dimIn(inch(o.width||'1'))+' ('+((o.side||'front')==='back'?'Back':'Front')+')';
+  if(o.type==='Beveling')return 'Bevel '+dimIn16(inch(o.width||'1'))+' ('+((o.side||'front')==='back'?'Back':'Front')+')';
   if(o.type==='Flat Polish')return 'FP';
   if(o.type==='Rough Arris')return 'RA';
   if(o.type==='CNC Shape Polish')return 'CNC';
@@ -41,7 +41,7 @@ function shapeEdgeLabelsSvg(result,F,layer){
     var ops=shapeEdgeOps(result.definition,g.id).map(shapeOpText);
     /* Когда работают цепочки размеров и цветной контур, подпись несёт ТОЛЬКО
        обработку — длина уже стоит в цепочке, а ребро опознаётся цветом. */
-    var txt=(layer&&layer.contour&&layer.smart)?ops.join(' + '):(g.id+' · '+dimIn(g.length)+(ops.length?' · '+ops.join(' + '):''));
+    var txt=(layer&&layer.contour&&layer.smart)?ops.join(' + '):(g.id+' · '+dimIn16(g.length)+(ops.length?' · '+ops.join(' + '):''));
     if(!txt)return;
     if(cen){
       /* На производственном чертеже внешняя полоса занята цепочками размеров,
@@ -60,8 +60,8 @@ function shapeEdgeLabelsSvg(result,F,layer){
 }
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
-  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(dimIn(h.diameter))+' · X '+shapeXml(dimIn(h.center[0]))+' · Y '+shapeXml(dimIn(h.center[1]))+'</text>';});
-  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn(c.width))+' × '+shapeXml(dimIn(c.height))+'</text>';});
+  fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(dimIn16(h.diameter))+' · X '+shapeXml(dimIn16(h.center[0]))+' · Y '+shapeXml(dimIn16(h.center[1]))+'</text>';});
+  fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn16(c.width))+' × '+shapeXml(dimIn16(c.height))+'</text>';});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="10" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]);out+='<rect x="'+(x-24)+'" y="'+(y-9)+'" width="48" height="18" fill="none" stroke="#101828"/><text x="'+x+'" y="'+(y+3)+'" text-anchor="middle" font-size="8" fill="#101828">'+shapeXml(s.text)+'</text>';});return out;
 }
@@ -98,8 +98,8 @@ function shapeProductionSvg(result){
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
   if(!L.smart){
-    o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn(F.W));
-    o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn(F.H));
+    o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn16(F.W));
+    o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn16(F.H));
   }
   o+=shapeEdgeLabelsSvg(result,F,L)+shapeProductionFeaturesSvg(result,F);
   o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
@@ -126,10 +126,10 @@ function shapeBorderOverlaySvg(c,X,Y){
   var seg=function(x1,y1,x2,y2){return '<line x1="'+x1.toFixed(2)+'" y1="'+y1.toFixed(2)+'" x2="'+x2.toFixed(2)+'" y2="'+y2.toFixed(2)+'" stroke="'+col+'" stroke-width="1"/>';};
   var txt=function(x,y,s2,a){return '<text x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" text-anchor="'+a+'" font-size="10" font-weight="700" fill="'+col+'">'+shapeXml(s2)+'</text>';};
   o+='<rect x="'+X(z.x0).toFixed(2)+'" y="'+Y(z.y1).toFixed(2)+'" width="'+(X(z.x1)-X(z.x0)).toFixed(2)+'" height="'+(Y(z.y0)-Y(z.y1)).toFixed(2)+'" fill="none" stroke="'+col+'" stroke-width="1.4" stroke-dasharray="8 5"/>';
-  if(z.pad.left>0)o+=seg(X(z.x0),Y(cy),X(z.b.minX),Y(cy))+txt((X(z.x0)+X(z.b.minX))/2,Y(cy)-5,dimIn(z.pad.left),'middle');
-  if(z.pad.right>0)o+=seg(X(z.b.maxX),Y(cy),X(z.x1),Y(cy))+txt((X(z.b.maxX)+X(z.x1))/2,Y(cy)-5,dimIn(z.pad.right),'middle');
-  if(z.pad.top>0)o+=seg(X(cx),Y(z.b.maxY),X(cx),Y(z.y1))+txt(X(cx)+5,(Y(z.b.maxY)+Y(z.y1))/2+3,dimIn(z.pad.top),'start');
-  if(z.pad.bottom>0)o+=seg(X(cx),Y(z.b.minY),X(cx),Y(z.y0))+txt(X(cx)+5,(Y(z.b.minY)+Y(z.y0))/2+3,dimIn(z.pad.bottom),'start');
+  if(z.pad.left>0)o+=seg(X(z.x0),Y(cy),X(z.b.minX),Y(cy))+txt((X(z.x0)+X(z.b.minX))/2,Y(cy)-5,dimIn16(z.pad.left),'middle');
+  if(z.pad.right>0)o+=seg(X(z.b.maxX),Y(cy),X(z.x1),Y(cy))+txt((X(z.b.maxX)+X(z.x1))/2,Y(cy)-5,dimIn16(z.pad.right),'middle');
+  if(z.pad.top>0)o+=seg(X(cx),Y(z.b.maxY),X(cx),Y(z.y1))+txt(X(cx)+5,(Y(z.b.maxY)+Y(z.y1))/2+3,dimIn16(z.pad.top),'start');
+  if(z.pad.bottom>0)o+=seg(X(cx),Y(z.b.minY),X(cx),Y(z.y0))+txt(X(cx)+5,(Y(z.b.minY)+Y(z.y0))/2+3,dimIn16(z.pad.bottom),'start');
   return o+txt(X(z.x1),Y(z.y1)-6,'SAFETY BORDER','end');
 }
 function shapeCuttingSvg(result){
@@ -146,7 +146,7 @@ function shapeCuttingSvg(result){
      положить соседнюю деталь или подвести край листа. Сам контур реза внутри
      неё не меняется. */
   o+=shapeBorderOverlaySvg(c,F.X,F.Y);
-  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn(c.height));
+  o+=shapeDimH(F.x0,F.x0+F.dw,F.y0+F.dh+58,dimIn16(c.width));o+=shapeDimV(F.x0-62,F.y0,F.y0+F.dh,dimIn16(c.height));
   o+='<g font-size="10" fill="#667085"><text x="24" y="'+(F.vh-50)+'">Solid = cutting contour · dashed = finished contour · orange = safety border (nesting clearance, never cut)</text><text x="24" y="'+(F.vh-32)+'">Generic geometry tolerance '+shapeXml(c.toleranceIn.toFixed(4)+'\u2033')+' · verify machine-specific postprocessor before production</text></g>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Cutting Shape">'+o+'</svg>';
 }
