@@ -584,6 +584,37 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
       return { steep, plain };
     });
+    /* Уход набирается от края до края и «приходит» в дальний от базы конец —
+       там его и подписывают, рядом с угловым квадратиком. По центру участка
+       число повисало ни к чему не привязанным. */
+    const calloutAtEnd = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      /* Ровно одна скошенная сторона и ровно одна выноска — тогда пара
+         «ребро ↔ подпись» однозначна и тест меряет именно то, что нужно. */
+      sDraft.w = '48'; sDraft.h = '36'; sDraft.smart.C.len = '60';
+      render();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+      /* Контур рисуется цветом ребра, размерные линии — тёмным #101828.
+         Верхняя сторона — та, что выше всех по экрану. */
+      const edges = [...doc.querySelectorAll('line')]
+        .filter(l => +l.getAttribute('stroke-width') >= 1.2 && (l.getAttribute('stroke') || '') !== '#101828')
+        .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }))
+        .sort((a, b) => (a.y1 + a.y2) - (b.y1 + b.y2));
+      const L = edges[0];
+      const lab = [...doc.querySelectorAll('text')].map(t => ({ s:t.textContent.trim(), x:+t.getAttribute('x'), y:+t.getAttribute('y') }))
+        .filter(t => /°/.test(t.s))[0];
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      if (!L || !lab) return null;
+      const d = (px, py) => Math.hypot(lab.x - px, lab.y - py);
+      return {
+        toNearestEnd: Math.round(Math.min(d(L.x1, L.y1), d(L.x2, L.y2))),
+        toMiddle: Math.round(d((L.x1+L.x2)/2, (L.y1+L.y2)/2))
+      };
+    });
+    ok('выноска уклона стоит у конца ребра, а не по его центру',
+      calloutAtEnd && calloutAtEnd.toNearestEnd < calloutAtEnd.toMiddle, JSON.stringify(calloutAtEnd));
+
     eq('подписи не затирают друг друга на крутом скосе', legible.steep.hits, 0);
     eq('и ни одна не ложится на контур', legible.steep.onLine, 0);
     ok('шрифт размеров читаемый', Math.min(legible.steep.minSize, legible.plain.minSize) >= 13,
