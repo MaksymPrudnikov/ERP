@@ -431,6 +431,42 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('ровный верх остаётся ровным в геометрии', levelTop.Dout, 0);
     eq('ровный верх рисуется ровным', levelTop.topSkew, 0);
 
+    /* Усиление обязано работать в одну сторону: поднимать то, что иначе не видно,
+       и не трогать настоящий уклон. Прежняя формула подменяла величину и упиралась
+       в потолок 46 px, поэтому клин 50 → 10 при ширине чертежа 660 px выходил
+       почти прямоугольником, а размерные линии ставились по искажённой форме. */
+    const magScale = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape';
+      function probe(w, h, cLen, bOut, bDir){
+        openShapeNew('smart');
+        sDraft.w = w; sDraft.h = h;
+        if (cLen) sDraft.smart.C.len = cLen;
+        if (bOut) { sDraft.smart.B.out = bOut; sDraft.smart.B.dir = bDir; }
+        render();
+        const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(shapeDraftResult(), false), 'image/svg+xml');
+        const L = [...doc.querySelectorAll('line')].slice(0, 4)
+          .map(l => ({ x1:+l.getAttribute('x1'), y1:+l.getAttribute('y1'), x2:+l.getAttribute('x2'), y2:+l.getAttribute('y2') }));
+        const vert = L.filter(l => Math.abs(l.x1 - l.x2) < 1).sort((a, b) => a.x1 - b.x1);
+        const top = L.reduce((a, b) => (a.y1 + a.y2) < (b.y1 + b.y2) ? a : b);
+        const bot = L.reduce((a, b) => (a.y1 + a.y2) > (b.y1 + b.y2) ? a : b);
+        return {
+          leftPx: vert.length ? Math.abs(vert[0].y2 - vert[0].y1) : 0,
+          rightPx: vert.length > 1 ? Math.abs(vert[vert.length-1].y2 - vert[vert.length-1].y1) : 0,
+          topSkew: Math.round(Math.abs(top.y1 - top.y2)),
+          botSkew: Math.round(Math.abs(bot.y1 - bot.y2))
+        };
+      }
+      const wedge = probe('40', '50', '10');
+      const small = probe('48', '36', '36 1/8', '1/8', 'down');
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { ratio: +(wedge.leftPx / wedge.rightPx).toFixed(2), wedgeTop: wedge.topSkew, smallBot: small.botSkew, smallTop: small.topSkew };
+    });
+    eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
+    ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);
+    ok('микро-уклон 1/8″ на 48″ остаётся различимым', magScale.smallBot >= 12, magScale.smallBot);
+    eq('и ровный верх при этом не наклоняется', magScale.smallTop, 0);
+
     const bad = await p.evaluate(() => {
       const s = { id: 't', name: 't', w: '48', h: '36', smart: ssNormalize({}) };
       s.smart.C.len = '0';
