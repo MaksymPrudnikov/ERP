@@ -540,7 +540,7 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-08-31 16:40';
+var ERP_BUILD='2026-08-31 16:53';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2392,14 +2392,17 @@ function shapeAnnSkewOf(p1,p2,vert){
   return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
 }
 function shapeAnnCallouts(r,S,DP){
-  var out='',dp=(r.points||[]).map(DP),np=dp.length||1,
-      cx=dp.reduce(function(a,p){return a+p[0];},0)/np,
-      cy=dp.reduce(function(a,p){return a+p[1];},0)/np;
+  var out='';
   (r.edges||[]).forEach(function(g){
     if(!g.segments||!g.segments.length)return;
     var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
+    /* База стороны — её внешняя огибающая, ровно та же линия, что рисует пунктир. */
+    var ax=vert?0:1,
+        ref=(side==='left'||side==='top')
+          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
+          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
     g.segments.forEach(function(sg){
       var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
       if(!(k.off>1/64))return;
@@ -2407,19 +2410,18 @@ function shapeAnnCallouts(r,S,DP){
          она наезжала на вершину и на соседние размеры — особенно на крутом
          скосе, где оба конца заняты. Середина принадлежит только этому участку,
          поэтому и читается однозначно, к какому ребру относится число. */
-      /* Подпись садится по СЕРЕДИНЕ своего участка и выносится наружу от фигуры
-         ПЕРПЕНДИКУЛЯРНО ему. Середина принадлежит только этому ребру, поэтому
-         однозначно читается, к чему относится число; у конца оно жалось к углу.
-         Перпендикуляр обязателен: сдвиг «вверх по стороне» на крутом скосе не
-         спасал — линия поднимается быстрее отступа, и подпись ложилась на неё.
-         От самой линии её дополнительно держит реестр, знающий про контур. */
+      /* Подпись садится в ЦЕНТР ЗАЗОРА между пунктирной базой и ребром, на
+         уровне того КОНЦА, где зазор шире всего. Это и есть место, где уход
+         физически виден: между отвесом/уровнем и стеклом.
+         Ни центр линии, ни сам конец не подходят — по центру число повисает
+         вдоль ребра, у конца садится на угол. Если зазор узкий, подпись
+         отодвинет реестр: он знает про контур и не даст сесть на линию. */
       var d1=DP(sg.p1),d2=DP(sg.p2),
-          mx=(d1[0]+d2[0])/2,my=(d1[1]+d2[1])/2,
-          ex=d2[0]-d1[0],ey=d2[1]-d1[1],el=Math.hypot(ex,ey)||1,
-          nx=-ey/el,ny=ex/el;
-      if((mx-cx)*nx+(my-cy)*ny<0){nx=-nx;ny=-ny;}
-      var pad=20,x=mx+nx*pad,y=my+ny*pad,
-          anchor='middle',step=[nx,ny];
+          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
+          gap=ref-far[ax],sg0=gap<0?-1:1,
+          x=ax===0?(ref+far[0])/2:far[0],
+          y=ax===0?far[1]:(ref+far[1])/2,
+          anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
