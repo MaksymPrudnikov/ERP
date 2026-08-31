@@ -513,6 +513,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('квадратики стоят у четырёх прямых углов из шести', skewCallout.marks, 4);
     eq('на чистом прямоугольнике квадратиков нет', skewCallout.plain, 0);
 
+    /* Уход в 1/16″ — это уже не прямой угол, и метка о прямом угле там ложь.
+       Прежние допуски (0.08, затем 0.02) объявляли прямыми углы в 85° и 89.28°.
+       Заодно проверяем, что габаритная пара с кавычкой больше не дублирует
+       цепочки: снизу читалось «48» и тут же «48″». */
+    const tightSquare = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.w = '48'; sDraft.h = '36';
+      sDraft.smart.B.out = '1/16'; sDraft.smart.B.dir = 'up';
+      render();
+      const r = shapeDraftResult();
+      const doc = new DOMParser().parseFromString(shapeDrawnProductionSvg(r, false), 'image/svg+xml');
+      const marks = [...doc.querySelectorAll('path')].filter(x => x.getAttribute('stroke-width') === '.7').length;
+      const quoted = [...doc.querySelectorAll('text')].map(t => t.textContent.trim())
+        .filter(s => /^[\d\-\/ ]+[″”"]$/.test(s));
+      const P = r.points;
+      const worst = Math.max(...P.map((b, i) => {
+        const a = P[(i - 1 + P.length) % P.length], c = P[(i + 1) % P.length];
+        const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+        const cos = (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(v1[0], v1[1]) * Math.hypot(v2[0], v2[1]));
+        return Math.abs(90 - Math.acos(Math.max(-1, Math.min(1, cos))) * 180 / Math.PI);
+      }));
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return { marks, quoted, offBy: +worst.toFixed(3) };
+    });
+    ok('уход 1/16″ действительно уводит угол от прямого', tightSquare.offBy > 0.05, tightSquare.offBy);
+    eq('и такой угол меткой прямого не помечается', tightSquare.marks, 0);
+    eq('габаритная пара больше не дублирует цепочки', tightSquare.quoted, []);
+
     eq('настоящий клин рисуется в истинной пропорции 50:10', magScale.ratio, 5);
     ok('и его перепад не срезан потолком', magScale.wedgeTop > 300, magScale.wedgeTop);
     ok('микро-уклон 1/8″ на 48″ остаётся различимым', magScale.smallBot >= 12, magScale.smallBot);

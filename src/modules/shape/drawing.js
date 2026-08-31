@@ -92,8 +92,15 @@ function shapeProductionSvg(result){
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
              :('<path d="'+L.path+'" fill="#f9fafb" stroke="#101828" stroke-width="2"/>');
   o+=L.annotations;
-  o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn(F.W));
-  o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn(F.H));
+  /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
+     каждая сторона уже расписана по участкам, и общий размер вставал вторым
+     числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
+     «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
+     вовсе — он читается из карточек Finished и Cut size под чертежом. */
+  if(!L.smart){
+    o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn(F.W));
+    o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn(F.H));
+  }
   o+=shapeEdgeLabelsSvg(result,F,L)+shapeProductionFeaturesSvg(result,F);
   o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';

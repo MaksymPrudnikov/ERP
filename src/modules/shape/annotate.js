@@ -275,15 +275,18 @@ function shapeAnnOverhead(r,F,left,right){
    шум: отмечать нечего, когда прямое всё. Смысл метки в том, чтобы среди
    скошенных углов показать те, что остались точными.
 
-   Допуск 0.02 по косинусу — это около 1.1°. Прежние 0.08 (4.6°) объявляли
-   прямым угол, который на чертеже уже заметно скошен. */
+   Допуск фактически нулевой. Метка утверждает «этот угол прямой», и уход даже
+   в 1/16″ делает утверждение ложным: угол уже не прямой, а на увеличенном
+   чертеже это ещё и видно. Прежние 0.08 объявляли прямым угол в 85°, а 0.02 —
+   угол в 89.28°. Настоящие прямые углы дают косинус ровно 0, поэтому 1e-6
+   отсекает всё скошенное и ничего не теряет на дробях дюйма. */
 function shapeAnnRightAngles(r,DP){
   var P=r.points,out='',square=[],skewed=0;
   for(var i=0;i<P.length;i++){
     var a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];
     var v1=[a[0]-b[0],a[1]-b[1]],v2=[c[0]-b[0],c[1]-b[1]],l1=Math.hypot(v1[0],v1[1]),l2=Math.hypot(v2[0],v2[1]);
     if(l1<1e-6||l2<1e-6)continue;
-    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>.02){skewed++;continue;}
+    if(Math.abs((v1[0]*v2[0]+v1[1]*v2[1])/(l1*l2))>1e-6){skewed++;continue;}
     square.push([a,b,c]);
   }
   if(!skewed)return '';
@@ -389,18 +392,15 @@ function shapeAnnCallouts(r,S,DP){
     var side=shapeAnnSide(S,g.id);if(!side)return;
     var vert=shapeAnnAxis(S,g.id)==='v',sp=shapeAnnGroupPoints(g).map(DP);
     if(sp.length<2)return;
-    /* База та же, что у пунктира: внешняя огибающая стороны. Подпись садится
-       у конца, который от неё дальше — там уход виден, там его и ищут. */
-    var ax=vert?0:1,
-        ref=(side==='left'||side==='top')
-          ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
-          : Math.max.apply(null,sp.map(function(q){return q[ax];}));
     g.segments.forEach(function(sg){
       var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
       if(!(k.off>1/64))return;
+      /* Подпись садится на СЕРЕДИНУ своего участка и выносится наружу. У конца
+         она наезжала на вершину и на соседние размеры — особенно на крутом
+         скосе, где оба конца заняты. Середина принадлежит только этому участку,
+         поэтому и читается однозначно, к какому ребру относится число. */
       var d1=DP(sg.p1),d2=DP(sg.p2),
-          far=Math.abs(d1[ax]-ref)>=Math.abs(d2[ax]-ref)?d1:d2,
-          pad=14,x=far[0],y=far[1];
+          pad=16,x=(d1[0]+d2[0])/2,y=(d1[1]+d2[1])/2;
       if(side==='left')x-=pad;else if(side==='right')x+=pad;
       else if(side==='top')y-=pad;else y+=pad+8;
       var anchor=vert?(side==='left'?'end':'start'):'middle';
