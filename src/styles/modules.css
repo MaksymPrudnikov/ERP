@@ -46,6 +46,10 @@
   body.printing{background:#fff!important}
   body.printing>*{display:none!important}
   body.printing>#printSheetHost{display:block!important;position:static}
+  /* Панель управления размером и след скрытого размера — интерфейс,
+     а не чертёж. В печатную разметку они не попадают уже на сборке; это
+     страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
+  .shape-dim-menu,.shape-dim-ghost{display:none!important}
   .print-sheet{width:100%}
   .print-sheet svg{width:100%;height:auto;max-height:96vh;max-width:100%}
   .print-caption{margin-top:5mm;font:11px Arial,sans-serif;color:#475467}

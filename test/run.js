@@ -2616,6 +2616,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {first,center,fromTop,moved};
     }), {first:['10″','10″'],center:1,fromTop:['10″','30″'],moved:{y:'13',shown:['10″','15″']}});
 
+    /* Панель управления размером — интерфейс, а не чертёж. Она закрывается
+       кликом мимо себя, как любое меню, и не попадает ни в печать, ни в
+       скачиваемый SVG: лист получает деталь, а не следы работы оператора. */
+    eq('панель размера закрывается кликом мимо и не уходит в печать', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:30,modelId:'hw-hinge-geneva-37',model:'Geneva 37'})];
+      sManufacturingOpen=true;sDimEdit=null;render();
+      const open=()=>document.querySelectorAll('.shape-dim-menu').length;
+      const click=sel=>document.querySelector(sel).dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      click('.shape-dim-hit');const onDim=open();
+      /* Панель лежит внутри группы метки, у которой свой обработчик клика —
+         без остановки всплытия она закрывалась от попадания по своему же фону. */
+      click('.shape-dim-menu rect');const inside=open();
+      const lineX=()=>Math.round(+document.querySelector('.shape-mi-prod-dims line').getAttribute('x1'));
+      const before=lineX();
+      [...document.querySelectorAll('.shape-dim-btn')][1].dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      const nudged={menu:open(),moved:lineX()!==before};
+      const printSvg=shapeDrawnProductionSvg(shapeDraftResult(),false);
+      const inPrint=(printSvg.match(/shape-dim-menu/g)||[]).length;
+      click('.module-editor-head h3');const outside=open();
+      /* Скрытый размер: след виден на экране, но на лист не уходит. */
+      shapeToggleDimHide('a','e');sManufacturingSelected='a';render();
+      const ghost={screen:document.querySelectorAll('.shape-dim-ghost').length,
+        print:(shapeDrawnProductionSvg(shapeDraftResult(),false).match(/shape-dim-ghost/g)||[]).length};
+      shapeToggleDimHide('a','e');
+      sEdit=null;sDraft=null;sDimEdit=null;sManufacturingSelected=null;render();
+      return {onDim,inside,nudged,inPrint,outside,ghost};
+    }), {onDim:1,inside:1,nudged:{menu:1,moved:true},inPrint:0,outside:0,ghost:{screen:1,print:0}});
+
     /* Владелец: «GEN37, VIE180 — названия пусть будут тоже укороченные». Рядом с
        меткой полное имя не помещается, а короткое читается и с бумаги. Вывод —
        заготовка: поле модели его перебивает. */

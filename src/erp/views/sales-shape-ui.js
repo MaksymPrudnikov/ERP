@@ -349,6 +349,21 @@ function shapePlaceManufacturingFromEvent(ev,svg){
    пока элемент выбран, на его месте стоит пунктирный след — по нему размер и
    возвращают. */
 const SHAPE_DIM_STEP=14;
+/* Панель управления размером и след скрытого размера — это ИНТЕРФЕЙС, а не
+   чертёж. На печать и в скачиваемый SVG они уходить не должны: лист получает
+   деталь, а не следы работы оператора. Флаг снимается на время сборки
+   непечатной разметки. */
+let shapeDimUi=true;
+/* Меню закрывается кликом мимо него — так ведёт себя любое меню, и без этого
+   оно оставалось раскрытым до повторного клика по самому размеру.
+   Слушатель ставится ОДИН раз на документ: render() пересоздаёт разметку, и
+   обработчик, повешенный на узел, пережил бы ровно одну перерисовку. */
+if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('click',function(ev){
+  if(!sDimEdit)return;
+  var t=ev&&ev.target;
+  if(t&&t.closest&&t.closest('.shape-dim-menu,.shape-mi-prod-dims,.shape-dim-ghost,.shape-dim-controls'))return;
+  sDimEdit=null;render();
+});
 function shapeDimArrowDefs(){
   return `<defs><marker id='shapeMiDimArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>`;
 }
@@ -366,7 +381,10 @@ function shapeDimMenuSvg(id,axis,cx,cy){
   var hidden=shapeDimHidden(sDraft,id,axis);
   var btns=[{t:'closer',a:'shapeNudgeDim',v:-1},{t:'further',a:'shapeNudgeDim',v:1},{t:hidden?'show':'hide',a:'shapeToggleDimHide',v:null}];
   var w=[38,42,hidden?52:40],total=w.reduce(function(n,x){return n+x;},0),h=18,x0=cx-total/2,run=0;
-  return `<g class='shape-dim-menu'><rect x='${x0-4}' y='${cy-h/2-4}' width='${total+8}' height='${h+8}' rx='7'/>${btns.map(function(b,i){
+  /* Клик по самой панели дальше не идёт: она лежит ВНУТРИ группы метки, а у той
+     свой обработчик — он сбрасывал выбор, и панель закрывалась от попадания по
+     собственному фону. */
+  return `<g class='shape-dim-menu' onclick='event.stopPropagation()'><rect x='${x0-4}' y='${cy-h/2-4}' width='${total+8}' height='${h+8}' rx='7'/>${btns.map(function(b,i){
     var bx=x0+run;run+=w[i];
     var call=b.v==null?`${b.a}("${esc(id)}","${esc(axis)}")`:`${b.a}("${esc(id)}","${esc(axis)}",${b.v})`;
     return `<g class='shape-dim-btn' onclick='event.stopPropagation();${call}'><rect x='${bx}' y='${cy-h/2}' width='${w[i]}' height='${h}' rx='4'/><text x='${bx+w[i]/2}' y='${cy+4}' text-anchor='middle'>${b.t}</text></g>`;
@@ -384,12 +402,12 @@ function shapeDimChainSvg(o){
      вместо X. */
   var vertical=o.vertical!=null?!!o.vertical:o.axis!=='h',hidden=shapeDimHidden(sDraft,o.id,o.axis);
   var pos=o.pos+o.dir*shapeDimOffset(sDraft,o.id,o.axis)*SHAPE_DIM_STEP;
-  var active=shapeDimIsActive(o.id,o.axis);
+  var active=shapeDimUi&&shapeDimIsActive(o.id,o.axis);
   var pick=`onclick='event.stopPropagation();shapeSelectDim("${esc(o.id)}","${esc(o.axis)}")'`;
   if(hidden){
     /* След скрытого размера. Видно только когда элемент выбран — иначе лист
-       остаётся чистым, ради чего размер и убирали. */
-    if(!o.selected)return '';
+       остаётся чистым, ради чего размер и убирали. На печати следа нет вообще. */
+    if(!o.selected||!shapeDimUi)return '';
     var gx=vertical?pos:(o.a[0]+o.b[0])/2,gy=vertical?(o.a[1]+o.b[1])/2:pos;
     return `<g class='shape-dim-ghost' ${pick}><circle cx='${gx}' cy='${gy}' r='7'/><text x='${gx}' y='${gy+3.5}' text-anchor='middle'>+</text></g>`+
       (active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(gx,o.T),gy+(vertical?0:22)):'');
@@ -629,6 +647,10 @@ function shapeDxfPreviewSvg(source,includeMarks){
 }
 function shapeDrawnProductionSvg(result,interactive){
   var svg=ShapeModule.productionSvg(result),T=shapeDrawnPreviewTransform(result);if(!T)return svg;
+  var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
+  try{return shapeDrawnProductionBody(svg,T,interactive);}finally{shapeDimUi=uiWas;}
+}
+function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
   var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T);
