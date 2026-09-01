@@ -96,14 +96,20 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
   }
   return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
 }
+/* Стоп-рыска на концах — то же оформление, что у размеров Cutout: видно, до
+   какой ТОЧКИ размер, а не примерно куда смотрит остриё. Smart-Shape рисует свои
+   цепочки здесь, поэтому без этих двух засечек он оставался со старыми
+   «голыми» стрелками, когда весь остальной лист уже перешёл на новые. */
+function shapeAnnTickH(x,y){return '<line x1="'+x+'" y1="'+(y-5)+'" x2="'+x+'" y2="'+(y+5)+'" stroke="#101828" stroke-width="1"/>';}
+function shapeAnnTickV(x,y){return '<line x1="'+(x-5)+'" y1="'+y+'" x2="'+(x+5)+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>';}
 function shapeAnnDimH(x1,x2,y,label){
   if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y)+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
 }
 function shapeAnnDimV(x,y1,y2,label){
   if(Math.abs(y2-y1)<0.5)return '';
   var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
+  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2)+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -528,7 +534,7 @@ function shapeAnnContour(r,DP,active){
 
 /* ---------- сборка ---------- */
 function shapeAnnotationDefs(){
-  return '<defs><marker id="shpArr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M7 1 L1 4 L7 7" fill="none" stroke="#101828" stroke-width=".75"/></marker></defs>';
+  return '<defs><marker id="shpArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#101828" stroke-width=".75"/></marker></defs>';
 }
 /* Возвращает {contour, annotations, box} — контур считается по отображаемым
    точкам, чтобы усиленный уклон и его размеры совпадали друг с другом. */

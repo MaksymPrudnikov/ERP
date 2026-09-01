@@ -272,7 +272,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const host = document.getElementById('printSheetHost');
       const svg = host.querySelector('svg');
       const html = svg.innerHTML;
-      const ids = (html.match(/id="([^"]+)"/g) || []).map(x => x.slice(4, -1));
+      const ids = (html.match(/id=["']([^"']+)["']/g) || []).map(x => x.slice(4, -1));
       const refs = (html.match(/url\(#([^)]+)\)/g) || []).map(x => x.slice(5, -1));
       const resolved = refs.every(id => ids.indexOf(id) >= 0);
       const printing = document.body.classList.contains('printing');
@@ -286,6 +286,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       printSheetCheck,
       { before: 0, made: true, resolved: true, refs: printSheetCheck.refs, printing: true, caption: true, cleared: true, classGone: true });
     ok('в листе печати есть ссылки на маркеры размеров', printSheetCheck.refs > 0);
+
+    /* Кавычки. Разметка Cutout собирается шаблонными строками, и её маркер
+       объявлен через одинарную кавычку. Пока переименование смотрело только на
+       двойные, такой id оставался прежним, а ссылка url(#…) суффикс получала —
+       и на бумаге пропадали ровно красные стрелки размеров Cutout. Проверка
+       предыдущего теста этого не ловила: у голой формы такой маркер не рисуется. */
+    const printIdQuotes = await p.evaluate(() => {
+      const out = printSheetUniqueIds(
+        `<svg><defs><marker id='shapeMiDimArrow'/><marker id="shpArr"/></defs>` +
+        `<line marker-start='url(#shapeMiDimArrow)' marker-end="url(#shpArr)"/></svg>`);
+      const ids = (out.match(/id=["']([^"']+)["']/g) || []).map(x => x.slice(4, -1));
+      const refs = (out.match(/url\(#([^)]+)\)/g) || []).map(x => x.slice(5, -1));
+      return { ids: ids.length, refs: refs.length,
+        resolved: refs.every(r => ids.indexOf(r) >= 0),
+        renamed: ids.every(i => /-pr[a-z0-9]+$/.test(i)) };
+    });
+    eq('переименование id при печати не зависит от кавычек', printIdQuotes,
+      { ids: 2, refs: 2, resolved: true, renamed: true });
 
     /* Новая Smart-Shape — нейтральный шаблон 1×1 без примера геометрии. */
     const neutralStart = await p.evaluate(() => {
@@ -545,6 +563,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('верх считается от верха лесенки, как в Smart-Shape', { run: notchSlope.run, drop: notchSlope.drop, deg: notchSlope.deg }, { run: 38, drop: 24, deg: 32.3 });
     eq('габарит = ширина на левое ребро плюс стояк', { w: notchSlope.w, h: notchSlope.h }, { w: 48, h: 48 });
     eq('левое ребро нарисовано ровно введённым', notchSlope.left, 36);
+
+    /* Владелец: «добавил нотч, поставил обработку, убрал нотч — и всё сломалось».
+       Обработка кромки по рёбрам снятого угла оставалась в edgeOps, форма навсегда
+       падала в «Edge processing references missing edge», а убрать её из интерфейса
+       было нечем: строки такого ребра там больше нет. Обработка основных сторон
+       обязана пережить снятие нотча. */
+    const notchOpsCleanup = await p.evaluate(() => {
+      const prevTab = tab, prevSub = subtab;
+      tab = 'configurators'; subtab = 'shape'; openShapeNew('smart');
+      sDraft.h = '80'; sDraft.w = '26'; setShapeC('79');
+      setShapeCorner('br', 'single'); setShapeExtra('E', '6'); setShapeExtra('F', '6');
+      const ids = shapeGroups().map(g => g.id), fp = SHAPE_EDGE_OPS.indexOf('Flat Polish');
+      toggleShapeEdgeOp(ids.indexOf('A'), fp, true);
+      toggleShapeEdgeOp(ids.indexOf('E'), fp, true);
+      toggleShapeEdgeOp(ids.indexOf('F'), fp, true);
+      const withNotch = { ops: Object.keys(sDraft.edgeOps).sort(), valid: shapeDraftResult().valid };
+      setShapeCorner('br', 'none');
+      const r = shapeDraftResult();
+      /* Красная панель обязана пропасть В ТОМ ЖЕ кадре: она рисуется раньше блока
+         Smart-полей, поэтому уборка только при перерисовке полей опаздывала. */
+      const badbox = [...document.querySelectorAll('.validation-box.badbox')].map(x => x.textContent).join(' ');
+      const out = { withNotch, ops: Object.keys(sDraft.edgeOps).sort(), valid: r.valid,
+        errors: r.errors || [], missingEdgeShown: /missing edge/.test(badbox) };
+      sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
+      return out;
+    });
+    eq('снятый нотч уносит обработку своих рёбер и не блокирует форму', notchOpsCleanup,
+      { withNotch: { ops: ['A', 'E', 'F'], valid: true }, ops: ['A'], valid: true, errors: [],
+        missingEdgeShown: false });
 
     /* Выноска уклона: величина и угол по собственному пробегу ребра. Раньше
        верхняя сторона не подписывалась вовсе — её исключала явная строка. */
@@ -2636,13 +2683,54 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const item=shapeNormalizeManufacturingItem({id:'pair-ui',type:'hole',x:5,y:7,diameter:'3/4',hRef:'left',vRef:'bottom',count:2,spacing:'2 1/8',axis:'horizontal'});sDraft.manufacturingItems=[item];sManufacturingOpen=true;sManufacturingSelected=item.id;render();
       const card=document.querySelector('.shape-mi-card.expanded'),selects=[...card.querySelectorAll('select')],marker=document.querySelector('.shape-mi-marker.hole');
       const cLine=marker.querySelector('.shape-hole-pair-dim .shape-mi-prod-dims>line'),before=cLine&&cLine.getAttribute('y1');shapeNudgeDim(item.id,'c',2);const markerAfter=document.querySelector('.shape-mi-marker.hole'),after=markerAfter.querySelector('.shape-hole-pair-dim .shape-mi-prod-dims>line').getAttribute('y1'),cardAfter=document.querySelector('.shape-mi-card.expanded');
-      const initial={title:(cardAfter.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(cardAfter.querySelector('.shape-mi-kind')||{}).textContent||'',types:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[0].options].map(o=>o.textContent.trim()),axes:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[1].options].map(o=>o.textContent.trim()),circles:markerAfter.querySelectorAll(':scope>circle').length,c2c:[...markerAfter.querySelectorAll('text')].some(x=>x.textContent.includes('2 1/8″ C-C')),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),diameterFont:getComputedStyle(markerAfter.querySelector(':scope>text')).fontSize,positionFont:getComputedStyle(markerAfter.querySelector('.shape-mi-prod-dims text')).fontSize,cControl:shapeDimOffset(sDraft,item.id,'c'),cMoved:before!==after,controls:[...document.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),helperVisible:[...document.querySelectorAll('.shape-cut-group .shape-mi-card-body small,.shape-cut-group-head>small')].some(x=>getComputedStyle(x).display!=='none'),toolbarHints:document.querySelectorAll('.shape-mi-toolbar>span').length};
+      const initial={title:(cardAfter.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(cardAfter.querySelector('.shape-mi-kind')||{}).textContent||'',types:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[0].options].map(o=>o.textContent.trim()),axes:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[1].options].map(o=>o.textContent.trim()),circles:markerAfter.querySelectorAll(':scope>circle').length,c2c:[...markerAfter.querySelectorAll('.shape-hole-pair-dim text')].some(x=>x.textContent.trim()==='2 1/8'),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),diameterFont:getComputedStyle(markerAfter.querySelector(':scope>text')).fontSize,positionFont:getComputedStyle(markerAfter.querySelector('.shape-mi-prod-dims text')).fontSize,cControl:shapeDimOffset(sDraft,item.id,'c'),cMoved:before!==after,controls:[...document.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),helperVisible:[...document.querySelectorAll('.shape-cut-group .shape-mi-card-body small,.shape-cut-group-head>small')].some(x=>getComputedStyle(x).display!=='none'),toolbarHints:document.querySelectorAll('.shape-mi-toolbar>span').length};
       shapeSetHoleAxis(item.id,'vertical');shapeSetHoleSpacing(item.id,'3 1/16');
-      const changed={axis:item.axis,spacing:item.spacing,centers:shapeHoleCenters(item),circles:document.querySelectorAll('.shape-mi-marker.hole>circle').length,c2c:[...document.querySelectorAll('.shape-mi-marker.hole text')].some(x=>x.textContent.includes('3 1/16″ C-C'))};
+      const changed={axis:item.axis,spacing:item.spacing,centers:shapeHoleCenters(item),circles:document.querySelectorAll('.shape-mi-marker.hole>circle').length,c2c:[...document.querySelectorAll('.shape-mi-marker.hole .shape-hole-pair-dim text')].some(x=>x.textContent.trim()==='3 1/16')};
       shapeSetHoleCount(item.id,3);shapeSetHoleTripleSpacing(item.id,'v','3 1/8');shapeSetHoleTripleSpacing(item.id,'h','2 1/4');shapeSetHoleTripleDirection(item.id,'left');shapeNudgeDim(item.id,'cv',2);shapeNudgeDim(item.id,'ch',-1);
       const tripleCard=document.querySelector('.shape-mi-card.expanded'),tripleMarker=document.querySelector('.shape-mi-marker.hole'),triple={title:(tripleCard.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(tripleCard.querySelector('.shape-mi-kind')||{}).textContent||'',centers:shapeHoleCenters(item),circles:tripleMarker.querySelectorAll(':scope>circle').length,labels:[...tripleMarker.querySelectorAll('.shape-hole-pair-dim text')].map(x=>x.textContent.trim()),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),controls:[...tripleCard.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),offsets:[shapeDimOffset(sDraft,item.id,'cv'),shapeDimOffset(sDraft,item.id,'ch')],staleC:!!(sDraft.dims[item.id]&&sDraft.dims[item.id].c)};
-      sEdit=null;sDraft=null;render();return {initial,changed,triple};
-    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'10px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['V 3 1/8″ C-C','H 2 1/4″ C-C'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false}});
+      const svg=document.querySelector('#shapeLivePreview svg'),edgeLabels=[...svg.querySelectorAll('.shape-edge-label-outside')],contour=[...svg.querySelectorAll('line')].filter(x=>Object.values(SHAPE_EDGE_HEX).includes(x.getAttribute('stroke'))),xs=contour.flatMap(x=>[+x.getAttribute('x1'),+x.getAttribute('x2')]),ys=contour.flatMap(x=>[+x.getAttribute('y1'),+x.getAttribute('y2')]),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+      const outside=edgeLabels.every(t=>{const e=contour.find(x=>x.getAttribute('stroke')===SHAPE_EDGE_HEX[t.dataset.edgeId]),mx=(+e.getAttribute('x1')+ +e.getAttribute('x2'))/2,my=(+e.getAttribute('y1')+ +e.getAttribute('y2'))/2,tx=+t.getAttribute('x'),ty=+t.getAttribute('y');return (tx-mx)*(mx-cx)+(ty-my)*(my-cy)>0;});
+      const drawing={noInch:!svg.textContent.includes('″'),noInternalCodes:triple.labels.every(x=>!/[VH]|C-C/.test(x)),edgeLabels:edgeLabels.map(x=>x.textContent.trim()),outside};
+      sEdit=null;sDraft=null;render();return {initial,changed,triple,drawing};
+    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'14px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['3 1/8','2 1/4'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false},drawing:{noInch:true,noInternalCodes:true,edgeLabels:['A 40','D 20','C 40','B 20'],outside:true}});
+    /* Заготовка при дропе. Владелец: «отступ 3 по горизонтали, у двойного между
+       отверстиями 6, у тройного 6 по вертикали и 12 по горизонтали». Высота —
+       по месту дропа, горизонталь — со стандартного отступа от ближнего края. */
+    eq('дроп отверстия приходит с заготовкой 3 / 6 / 6 × 12', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sManufacturingOpen=true;sView='production';render();
+      /* Клик по чертежу: считаем экранную точку обратным ходом того же преобразования. */
+      const drop=(x,y)=>{
+        const svg=document.querySelector('.shape-drawn-production-interactive'),T=shapeDrawnPreviewTransform(shapeDraftResult()),r=svg.getBoundingClientRect();
+        const vx=T.x0+(x-T.b.minX)*T.sc,vy=T.y0+T.dh-(y-T.b.minY)*T.sc;
+        shapePlaceManufacturingFromEvent({clientX:r.left+vx*r.width/T.vw,clientY:r.top+vy*r.height/T.vh},svg);
+      };
+      const last=()=>{const i=shapeManufacturingItems()[shapeManufacturingItems().length-1],p=shapeManufacturingHolePosition(i);
+        return {hRef:p.hRef,h:p.hDistance,v:p.vDistance,centers:shapeHoleCenters(i),dia:i.diameter};};
+      shapeStartManufacturingPlacement('hole',1);drop(11,20);const single=last();
+      shapeStartManufacturingPlacement('hole',2);drop(9,8);const double=last();
+      shapeStartManufacturingPlacement('hole',3);drop(10,14);const triple=last();
+      /* Тот же дроп справа от середины отсчитывает свои 3″ от правого края. */
+      shapeStartManufacturingPlacement('hole',1);drop(40,6);const right=last();
+      /* Перенос уже поставленного отверстия заготовку НЕ применяет: там место решает клик. */
+      const moved=shapeManufacturingItems()[0];shapeMoveManufacturingItem(moved.id);drop(17,25);
+      const afterMove=shapeManufacturingHolePosition(shapeManufacturingItemById(moved.id));
+      /* Оформление размера: стрелка и стоп-рыска на каждом конце, между ними
+         НИЧЕГО. Выносных линий нет вовсе — владелец 1 сентября: «не нужен
+         лабиринт из полос, нужно начало и конец». */
+      const svg=document.querySelector('.shape-drawn-production-interactive');
+      const chain=svg.querySelector('.shape-hole-pair-dim .shape-mi-prod-dims');
+      const style={ticks:chain.querySelectorAll('.shape-dim-tick').length===2,
+        guides:svg.querySelectorAll('.shape-mi-prod-guide').length,
+        arrows:!!chain.querySelector('line[marker-start][marker-end]')};
+      const out={single,double,triple,right,move:{h:afterMove.hDistance,v:afterMove.vDistance},style};
+      sEdit=null;sDraft=null;render();return out;
+      /* v — расстояние до БЛИЖНЕГО горизонтального края, поэтому дроп на высоте 20
+         при высоте стекла 36 читается как 16 от верха. Само место дропа видно в centers. */
+    }), {single:{hRef:'left',h:3,v:16,centers:[[3,20]],dia:'1/2'},
+      double:{hRef:'left',h:3,v:8,centers:[[3,8],[9,8]],dia:'1/2'},
+      triple:{hRef:'left',h:3,v:14,centers:[[3,14],[3,20],[15,20]],dia:'1/2'},
+      right:{hRef:'right',h:3,v:6,centers:[[45,6]],dia:'1/2'},
+      move:{h:17,v:11},style:{ticks:true,guides:0,arrows:true}});
     eq('бесплатный Stamp в Cutout выбирает тип и двигается от четырёх краёв на сетке 1/16', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sManufacturingOpen=true;render();
       addShapeFeature('stamp');
@@ -2653,7 +2741,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const out={initial,options,stored:{x:f.x,y:f.y,text:f.text},point:r.featureGeometry.stamps[0].point,
         cardInMarks:!!document.querySelector('.shape-cut-group.marks .shape-stamp-card'),cardInCuts:!!document.querySelector('.shape-cut-group.cuts .shape-stamp-card'),
         free:(document.querySelector('.shape-service-summary strong')||{}).textContent||'',services:services.rows,
-        drawing:svg.includes('shape-temper-stamp')&&svg.includes('HS Stamp')&&svg.includes('3 1/16″')&&svg.includes('1 7/8″'),
+        drawing:svg.includes('shape-temper-stamp')&&svg.includes('HS Stamp')&&svg.includes('3 1/16')&&svg.includes('1 7/8')&&!svg.includes('″'),
         machine:JSON.stringify(ShapeModule.machinePayload(r)).includes('HS Stamp')};
       setShapeStampType(index,'OWN Stamp');
       out.ownField=!!document.querySelector('.shape-stamp-card input[placeholder="Enter stamp text"]');
@@ -2672,7 +2760,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(sDraft),svg=shapeDrawnProductionSvg(r,false),services=shapeDerivedServices(),payload=ShapeModule.machinePayload(r);
       const out={initial,coverage,sides,stored:{x:f.x,y:f.y,coverage:f.coverage,side:f.side},point:r.featureGeometry.sandblasts[0].point,
         cardInMarks:!!document.querySelector('.shape-cut-group.marks .shape-sandblast-card'),cardInCuts:!!document.querySelector('.shape-cut-group.cuts .shape-sandblast-card'),
-        service:services.rows.map(x=>[x.label,x.qty]),drawing:svg.includes('SANDBLAST')&&svg.includes('PATTERN · BACK')&&svg.includes('5″')&&svg.includes('6″'),
+        service:services.rows.map(x=>[x.label,x.qty]),drawing:svg.includes('SANDBLAST')&&svg.includes('PATTERN · BACK')&&svg.includes('>5<')&&svg.includes('>6<')&&!svg.includes('″'),
         requirement:r.requirements.filter(q=>q.stationClass==='SAND').map(q=>q.operation),machine:JSON.stringify(payload).includes('SANDBLAST')};
       const id=f.id;removeShapeFeature(index);out.deletePrunesDims=!sDraft.dims[id];sEdit=null;sDraft=null;render();return out;
     }), {initial:{x:'24',y:'18',h:'left',v:'bottom'},coverage:['Full covered','Pattern'],sides:['Front','Back'],stored:{x:'43',y:'30',coverage:'pattern',side:'back'},point:[43,30],cardInMarks:true,cardInCuts:false,service:[['Sandblast · Pattern · Back',1]],drawing:true,requirement:['Sandblast · Pattern · Back'],machine:false,deletePrunesDims:true});
@@ -2708,8 +2796,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       out.fromEnd=[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent);
       out.stored=sDraft.manufacturingItems[0].distance;
       sEdit=null;sDraft=null;render();return out;
-    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch · PH20',marker:['PH20 · seg1 @ 4″'],model:true,
-      fromEnd:['PH20 · seg1 @ 16″'],stored:4});
+    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch · PH20',marker:['PH20 · seg1 @ 4'],model:true,
+      fromEnd:['PH20 · seg1 @ 16'],stored:4});
     await t.c.close();
 
     t = await page();
@@ -2760,8 +2848,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }
       const out={bottom:chain('clamp'),left:chain('hinge')};
       sEdit=null;sDraft=null;render();return out;
-    }), {bottom:{horizontal:true,rotated:false,text:'44 1/4″'},
-      left:{horizontal:false,rotated:true,text:'4″'}});
+    }), {bottom:{horizontal:true,rotated:false,text:'44 1/4'},
+      left:{horizontal:false,rotated:true,text:'4'}});
 
     eq('у фурнитуры навигация как у отверстия: привязка меняет показанное, но не хранимое', await t.p.evaluate(() => {
       const dim=()=>document.querySelector('.shape-mi-prod-dims text').textContent;
@@ -2777,7 +2865,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const card=document.querySelector('.shape-mi-card small').textContent;
       sEdit=null;sDraft=null;render();
       return {start,fromTop,typed,card};
-    }), {start:'6″',fromTop:{shown:'34″',stored:6},typed:{stored:35,shown:'5″'},
+    }), {start:'6',fromTop:{shown:'34',stored:6},typed:{stored:35,shown:'5'},
       card:'drawing onlyLeft · 5″ from the top corner to the center'});
 
     /* Владелец: «иногда патч прямо от края и странно указывать 0». Размер
@@ -2799,8 +2887,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const at0=lineX();shapeNudgeDim('m1','e',2);const moved=lineX();shapeNudgeDim('m1','e',-2);
       sEdit=null;sDraft=null;sManufacturingSelected=null;sDimEdit=null;render();
       return {zero,hidden,selected,menu,back,shift:at0-moved};
-    }), {zero:'0″',hidden:{chains:0,ghost:0},selected:{ghost:1},menu:['closer','further','show'],
-      back:{text:'0″',dims:{}},shift:28});
+    /* Кнопки подписаны знаками: словами «closer / further» они перестали
+       помещаться, когда цифры размеров выросли до 14 px. */
+    }), {zero:'0',hidden:{chains:0,ghost:0},selected:{ghost:1},menu:['−','+','show'],
+      back:{text:'0',dims:{}},shift:28});
 
     eq('внутренний вырез получает размеры до центра, как отверстие', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';sView='production';
@@ -2815,7 +2905,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const moved={y:sDraft.features[0].y,shown:[...document.querySelectorAll('.shape-cut-dims text')].map(x=>x.textContent)};
       sEdit=null;sDraft=null;render();
       return {first,center,fromTop,moved};
-    }), {first:['10″','10″'],center:1,fromTop:['10″','30″'],moved:{y:'13',shown:['10″','15″']}});
+    }), {first:['10','10'],center:1,fromTop:['10','30'],moved:{y:'13',shown:['10','15']}});
 
     /* Панель управления размером — интерфейс, а не чертёж. Она закрывается
        кликом мимо себя, как любое меню, и не попадает ни в печать, ни в
@@ -2876,9 +2966,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* Чертёж печатают на бумаге. Подпись, которую нельзя прочитать, для цеха то
        же самое, что её отсутствие, поэтому у неё есть нижняя граница размера, а
        у соседних подписей — гарантия, что они не наезжают друг на друга.
-       Крупные ТОЛЬКО названия: цифры размеров держат кегль остального листа,
-       иначе на одном чертеже оказывается два разных размера чисел. */
-    eq('крупные только названия меток, цифры в кегле листа, подписи не затирают друг друга', await t.p.evaluate(() => {
+       Владелец 1 сентября: цифры размеров были мельче подписи отверстия и не
+       читались. Теперь у них та же нижняя граница, а верхняя — кегль названия. */
+    eq('цифры размеров не мельче подписи отверстия, подписи не затирают друг друга', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
       sDraft.manufacturingItems=[
         shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:30,modelId:'hw-hinge-geneva-37',model:'Geneva 37'}),
@@ -2902,15 +2992,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         .filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>vb[2]||b.y+b.height>vb[3];}).map(t=>t.textContent);
       const label=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-marker>text')).fontSize);
       const dim=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-prod-dims text')).fontSize);
-      /* Кегли чисел самого чертежа: размер метки обязан быть одним из них. */
-      const sheet=[...new Set([...svg.querySelectorAll('text')]
-        .filter(t=>!t.closest('.shape-mi-marker,.shape-mi-prod-dims,.shape-cut-dims'))
-        .map(t=>parseFloat(getComputedStyle(t).fontSize)))];
+      /* Цифра размера не мельче подписи отверстия и не крупнее названия метки. */
+      const hole=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-marker.hole>text')).fontSize);
       const labels=[...svg.querySelectorAll('.shape-mi-marker>text')].map(t=>t.textContent);
       sEdit=null;sDraft=null;render();
-      return {clash,outside,bigLabel:label>=16,dimInSheetRange:sheet.includes(dim),labels};
-    }), {clash:[],outside:[],bigLabel:true,dimInSheetRange:true,
-      labels:['GEN37','GEN37','PH20','SCU4','Ø 3/4″','Ø 1/2″']});
+      return {clash,outside,bigLabel:label>=16,dimReadable:dim>=hole&&dim<=label,labels};
+    }), {clash:[],outside:[],bigLabel:true,dimReadable:true,
+      labels:['GEN37','GEN37','PH20','SCU4','Ø 3/4','Ø 1/2']});
 
     eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
       function cyrillicUi(){

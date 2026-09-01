@@ -111,7 +111,7 @@ function shapeNormalizeManufacturingItem(raw){
   var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
-    out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'3/4');
+    out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'1/2');
     out.hRef=raw.hRef==='right'?'right':'left';out.vRef=raw.vRef==='top'?'top':'bottom';
     var count=shapeHoleCount(raw);
     if(count===2){var spacing=shapeHoleSpacing(raw);out.count=2;out.spacing=isFinite(spacing)&&spacing>0?spacing:2;out.axis=shapeHoleAxis(raw);}

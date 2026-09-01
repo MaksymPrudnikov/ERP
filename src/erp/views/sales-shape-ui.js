@@ -68,7 +68,9 @@ function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
 function setShapeElbow(edge,k,v){sDraft.smart[edge].elbow[k]=v||null;refreshShapeEditor();}
-function setShapeCorner(c,v){var S=shapeDraftLine();S.shape.smart.corners[c]=v;ssSyncExtra(S);sDraft.smart=S.shape.smart;render();}
+/* Чистка идёт ДО render(): панель ошибок рисуется раньше блока Smart-полей, и
+   уборка только в нём оставляла бы красный «missing edge» висеть ещё один кадр. */
+function setShapeCorner(c,v){var S=shapeDraftLine();S.shape.smart.corners[c]=v;ssSyncExtra(S);sDraft.smart=S.shape.smart;shapePruneExtraEdgeOps(sDraft.smart);render();}
 function setShapeCornerOffset(c,k,v){sDraft.smart.cornerOffsets[c][k]=v||(k.indexOf('Dir')>=0?null:'');refreshShapeEditor();}
 function setShapeExtra(id,v){if(!sDraft.smart.extraEdges[id])sDraft.smart.extraEdges[id]={len:'',out:'0',dir:null};sDraft.smart.extraEdges[id].len=v;refreshShapeEditor();}
 /* Скос ребра нотча: out — величина ухода, dir — направление. */
@@ -125,6 +127,8 @@ function shapeFrac16(v){
   var n=shapeSnapManufacturing16(v);if(!isFinite(n))return '';var sign=n<0?'-':'';n=Math.abs(n);var whole=Math.floor(n+1e-9),num=Math.round((n-whole)*16);if(num===16){whole++;num=0;}if(!num)return sign+String(whole);var a=num,b=16;while(b){var t=a%b;a=b;b=t;}num/=a;var den=16/a;return sign+(whole?whole+' ':'')+num+'/'+den;
 }
 function shapeDim16(v){return shapeFrac16(v)+'″';}
+/* Короткое число для листа: единицы указаны в примечании чертежа. */
+function shapeDrawingDim16(v){return shapeFrac16(v);}
 function shapeManufacturingGeometry(){
   if(shapeIsDxfSource(sDraft)){var source=shapeNormalizeSource(sDraft.source),P=source.preview.points||[];if(P.length<3)return null;return {P:P,b:fabEdgeBounds(P)};}
   var r=shapeDraftResult();if(!r||!r.valid||!(r.points||[]).length)return null;return {P:r.points,b:fabEdgeBounds(r.points)};
@@ -171,8 +175,8 @@ function shapePruneHoleInternalDimState(id,keep){
 function shapeSetHoleCount(id,count){
   var item=shapeManufacturingItemById(id);if(!item||item.type!=='hole')return;
   count=+count;var g=shapeManufacturingGeometry(),next,problem;
-  if(count===2){next=Object.assign({},item,{count:2,spacing:isFinite(shapeHoleSpacing(item))?shapeHoleSpacing(item):(isFinite(shapeHoleTripleVSpacing(item))?shapeHoleTripleVSpacing(item):2),axis:shapeHoleAxis(item)});problem=shapeHolePairProblem(next,g);if(problem&&next.axis==='horizontal'){next.axis='vertical';problem=shapeHolePairProblem(next,g);}if(problem){alert(problem);render();return;}item.count=2;item.spacing=next.spacing;item.axis=next.axis;delete item.verticalSpacing;delete item.horizontalSpacing;delete item.horizontalDirection;shapePruneHoleInternalDimState(id,['c']);}
-  else if(count===3){next=Object.assign({},item,{count:3,verticalSpacing:isFinite(shapeHoleTripleVSpacing(item))?shapeHoleTripleVSpacing(item):(isFinite(shapeHoleSpacing(item))?shapeHoleSpacing(item):2),horizontalSpacing:isFinite(shapeHoleTripleHSpacing(item))?shapeHoleTripleHSpacing(item):2,horizontalDirection:shapeHoleTripleDirection(item)});problem=shapeHolePairProblem(next,g);if(problem&&next.horizontalDirection==='right'){next.horizontalDirection='left';problem=shapeHolePairProblem(next,g);}if(problem){alert(problem);render();return;}item.count=3;item.verticalSpacing=next.verticalSpacing;item.horizontalSpacing=next.horizontalSpacing;item.horizontalDirection=next.horizontalDirection;delete item.spacing;delete item.axis;shapePruneHoleInternalDimState(id,['cv','ch']);}
+  if(count===2){next=Object.assign({},item,{count:2,spacing:isFinite(shapeHoleSpacing(item))?shapeHoleSpacing(item):(isFinite(shapeHoleTripleVSpacing(item))?shapeHoleTripleVSpacing(item):SHAPE_HOLE_DROP_SPACING),axis:shapeHoleAxis(item)});problem=shapeHolePairProblem(next,g);if(problem&&next.axis==='horizontal'){next.axis='vertical';problem=shapeHolePairProblem(next,g);}if(problem){alert(problem);render();return;}item.count=2;item.spacing=next.spacing;item.axis=next.axis;delete item.verticalSpacing;delete item.horizontalSpacing;delete item.horizontalDirection;shapePruneHoleInternalDimState(id,['c']);}
+  else if(count===3){next=Object.assign({},item,{count:3,verticalSpacing:isFinite(shapeHoleTripleVSpacing(item))?shapeHoleTripleVSpacing(item):(isFinite(shapeHoleSpacing(item))?shapeHoleSpacing(item):SHAPE_HOLE_DROP_VSPACING),horizontalSpacing:isFinite(shapeHoleTripleHSpacing(item))?shapeHoleTripleHSpacing(item):SHAPE_HOLE_DROP_HSPACING,horizontalDirection:shapeHoleTripleDirection(item)});problem=shapeHolePairProblem(next,g);if(problem&&next.horizontalDirection==='right'){next.horizontalDirection='left';problem=shapeHolePairProblem(next,g);}if(problem){alert(problem);render();return;}item.count=3;item.verticalSpacing=next.verticalSpacing;item.horizontalSpacing=next.horizontalSpacing;item.horizontalDirection=next.horizontalDirection;delete item.spacing;delete item.axis;shapePruneHoleInternalDimState(id,['cv','ch']);}
   else{delete item.count;delete item.spacing;delete item.axis;delete item.verticalSpacing;delete item.horizontalSpacing;delete item.horizontalDirection;shapePruneHoleInternalDimState(id,[]);}
   render();
 }
@@ -362,12 +366,19 @@ function shapeSetCutoutCenter(i,axis,v){
   else{var cy=pos.vRef==='top'?g.b.maxY-d:g.b.minY+d;f.y=frac64(shapeSnapManufacturing16(cy-inch(f.height)/2));}
   render();
 }
+/* Заготовка отверстия при первом дропе — числа владельца. По горизонтали центр
+   встаёт на 3″ от ближнего вертикального края, вертикаль остаётся там, куда
+   положили. Пара расходится на 6″, тройка — 6″ по вертикали и 12″ по горизонтали.
+   Это только стартовые значения: каждое поле правится в карточке после установки,
+   а перенос уже поставленного отверстия заготовку не применяет.
+   Диаметр по умолчанию — 1/2″: 3/4″ идёт редко и только под Serenity. */
+var SHAPE_HOLE_DROP_INSET=3,SHAPE_HOLE_DROP_SPACING=6,SHAPE_HOLE_DROP_VSPACING=6,SHAPE_HOLE_DROP_HSPACING=12,SHAPE_HOLE_DROP_DIAMETER='1/2';
 function shapeStartManufacturingPlacement(type,holeCount){
   if(type!=='hole'&&!hardwareKindIsKnown(type))return;
   var r=shapeDraftResult();
   if(!shapeIsDxfSource(sDraft)&&!r.valid){alert('Fix the Shape geometry before placing a manufacturing item.');return;}
   var count=type==='hole'&&(+holeCount===2||+holeCount===3)?+holeCount:1;
-  sManufacturingOpen=true;sManufacturingPlace={type:type,diameter:type==='hole'?'3/4':'',holeCount:count,spacing:2,axis:'horizontal',verticalSpacing:2,horizontalSpacing:2,horizontalDirection:'right'};sManufacturingSelected=null;sView='production';render();
+  sManufacturingOpen=true;sManufacturingPlace={type:type,diameter:type==='hole'?SHAPE_HOLE_DROP_DIAMETER:'',holeCount:count,spacing:SHAPE_HOLE_DROP_SPACING,axis:'horizontal',verticalSpacing:SHAPE_HOLE_DROP_VSPACING,horizontalSpacing:SHAPE_HOLE_DROP_HSPACING,horizontalDirection:'right'};sManufacturingSelected=null;sView='production';render();
 }
 function shapeCancelManufacturingPlacement(){sManufacturingPlace=null;render();}
 function shapeMoveManufacturingItem(id){var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item)return;sManufacturingPlace={type:item.type,diameter:item.diameter||'',holeCount:shapeHoleCount(item),spacing:shapeHoleSpacing(item),axis:shapeHoleAxis(item),verticalSpacing:shapeHoleTripleVSpacing(item),horizontalSpacing:shapeHoleTripleHSpacing(item),horizontalDirection:shapeHoleTripleDirection(item),moveId:id};sManufacturingSelected=id;render();}
@@ -423,10 +434,17 @@ function shapePlaceManufacturingFromEvent(ev,svg){
   var x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,g={P:T.P,b:T.b};x=shapeSnapManufacturing16(x);y=shapeSnapManufacturing16(y);
   var type=sManufacturingPlace.type,data={};
   if(type==='hole'){
-    if(!fabPointInPoly([x,y],T.P)){alert('Place the hole inside the glass contour.');return;}data.x=x;data.y=y;data.diameter=sManufacturingPlace.diameter||'3/4';
+    if(!fabPointInPoly([x,y],T.P)){alert('Place the hole inside the glass contour.');return;}data.x=x;data.y=y;data.diameter=sManufacturingPlace.diameter||SHAPE_HOLE_DROP_DIAMETER;
     data.hRef=x<=(T.b.minX+T.b.maxX)/2?'left':'right';data.vRef=y<=(T.b.minY+T.b.maxY)/2?'bottom':'top';
-    if(+sManufacturingPlace.holeCount===2){data.count=2;data.spacing=isFinite(+sManufacturingPlace.spacing)?+sManufacturingPlace.spacing:2;data.axis=sManufacturingPlace.axis==='vertical'?'vertical':'horizontal';var pairProblem=shapeHolePairProblem(data,g);if(pairProblem&&data.axis==='horizontal'){data.axis='vertical';pairProblem=shapeHolePairProblem(data,g);}if(pairProblem){alert(pairProblem);return;}}
-    else if(+sManufacturingPlace.holeCount===3){data.count=3;data.verticalSpacing=isFinite(+sManufacturingPlace.verticalSpacing)?+sManufacturingPlace.verticalSpacing:2;data.horizontalSpacing=isFinite(+sManufacturingPlace.horizontalSpacing)?+sManufacturingPlace.horizontalSpacing:2;data.horizontalDirection=sManufacturingPlace.horizontalDirection==='left'?'left':'right';var tripleProblem=shapeHolePairProblem(data,g);if(tripleProblem&&data.horizontalDirection==='right'){data.horizontalDirection='left';tripleProblem=shapeHolePairProblem(data,g);}if(tripleProblem){alert(tripleProblem);return;}}
+    /* Горизонталь новой установки берётся из заготовки, а не из точки клика:
+       отверстия сажают на стандартный отступ от края, а по высоте — по месту.
+       Если на этой форме отступ уводит центр за контур, остаётся точка дропа. */
+    if(!sManufacturingPlace.moveId){
+      var inset=shapeSnapManufacturing16(data.hRef==='right'?T.b.maxX-SHAPE_HOLE_DROP_INSET:T.b.minX+SHAPE_HOLE_DROP_INSET);
+      if(fabPointInPoly([inset,data.y],T.P))data.x=inset;
+    }
+    if(+sManufacturingPlace.holeCount===2){data.count=2;data.spacing=isFinite(+sManufacturingPlace.spacing)?+sManufacturingPlace.spacing:SHAPE_HOLE_DROP_SPACING;data.axis=sManufacturingPlace.axis==='vertical'?'vertical':'horizontal';var pairProblem=shapeHolePairProblem(data,g);if(pairProblem&&data.axis==='horizontal'){data.axis='vertical';pairProblem=shapeHolePairProblem(data,g);}if(pairProblem){alert(pairProblem);return;}}
+    else if(+sManufacturingPlace.holeCount===3){data.count=3;data.verticalSpacing=isFinite(+sManufacturingPlace.verticalSpacing)?+sManufacturingPlace.verticalSpacing:SHAPE_HOLE_DROP_VSPACING;data.horizontalSpacing=isFinite(+sManufacturingPlace.horizontalSpacing)?+sManufacturingPlace.horizontalSpacing:SHAPE_HOLE_DROP_HSPACING;data.horizontalDirection=sManufacturingPlace.horizontalDirection==='left'?'left':'right';var tripleProblem=shapeHolePairProblem(data,g);if(tripleProblem&&data.horizontalDirection==='right'){data.horizontalDirection='left';tripleProblem=shapeHolePairProblem(data,g);}if(tripleProblem){alert(tripleProblem);return;}}
   }else{
     var snap=shapeNearestManufacturingEdge(x,y,g);if(!snap){alert('No valid glass edge is available for this item.');return;}data.edge=snap.edge;data.distance=snap.distance;
   }
@@ -462,7 +480,7 @@ if(typeof document!=='undefined'&&document.addEventListener)document.addEventLis
   sDimEdit=null;render();
 });
 function shapeDimArrowDefs(){
-  return `<defs><marker id='shapeMiDimArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>`;
+  return `<defs><marker id='shapeMiDimArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>`;
 }
 function shapeDimIsActive(id,axis){return !!(sDimEdit&&sDimEdit.id===id&&sDimEdit.axis===axis);}
 /* Панель шириной ~130 держим внутри листа: у размера, отодвинутого к самому
@@ -476,8 +494,11 @@ function shapeDimMenuX(x,T){
    скрытый размер иначе было бы нечем вернуть. */
 function shapeDimMenuSvg(id,axis,cx,cy){
   var hidden=shapeDimHidden(sDraft,id,axis);
-  var btns=[{t:'closer',a:'shapeNudgeDim',v:-1},{t:'further',a:'shapeNudgeDim',v:1},{t:hidden?'show':'hide',a:'shapeToggleDimHide',v:null}];
-  var w=[38,42,hidden?52:40],total=w.reduce(function(n,x){return n+x;},0),h=18,x0=cx-total/2,run=0;
+  /* Знаки вместо слов: цифры размеров выросли до 14 px, и «closer / further /
+     hide» перестали помещаться в свои кнопки — слова налезали друг на друга.
+     − двигает размер ближе, + дальше, как в карточке Cutout. */
+  var btns=[{t:'−',a:'shapeNudgeDim',v:-1},{t:'+',a:'shapeNudgeDim',v:1},{t:hidden?'show':'hide',a:'shapeToggleDimHide',v:null}];
+  var w=[24,24,hidden?46:38],total=w.reduce(function(n,x){return n+x;},0),h=20,x0=cx-total/2,run=0;
   /* Клик по самой панели дальше не идёт: она лежит ВНУТРИ группы метки, а у той
      свой обработчик — он сбрасывал выбор, и панель закрывалась от попадания по
      собственному фону. */
@@ -510,40 +531,56 @@ function shapeDimChainSvg(o){
       (active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(gx,o.T),gy+(vertical?0:22)):'');
   }
   var body,menuX,menuY;
+  /* Рыска на конце стрелки — короткая засечка поперёк размерной линии. По ней
+     видно, до какой ТОЧКИ размер, а не примерно куда смотрит остриё; в цепочке
+     из нескольких размеров засечки соседей сходятся в одну общую границу.
+     trimA / trimB подрезают НАРИСОВАННЫЙ конец, когда он упирается в отверстие:
+     окружность залита белым и рисуется поверх, так что стрелка в самом центре
+     просто не видна. Замеряется всё равно от центра до центра. */
+  var TICK=5,trimA=+o.trimA||0,trimB=+o.trimB||0;
   if(!vertical){
-    var mid=(o.a[0]+o.b[0])/2;
-    body=`<line x1='${o.a[0]}' y1='${pos}' x2='${o.b[0]}' y2='${pos}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
-      <line x1='${o.a[0]}' y1='${pos}' x2='${o.a[0]}' y2='${o.a[1]}' class='shape-mi-prod-guide'/>
-      <line x1='${o.b[0]}' y1='${pos}' x2='${o.b[0]}' y2='${o.b[1]}' class='shape-mi-prod-guide'/>
-      <line class='shape-dim-hit' x1='${o.a[0]}' y1='${pos}' x2='${o.b[0]}' y2='${pos}'/>
-      <text x='${mid}' y='${pos+(o.side>0?15:-9)}' text-anchor='middle'>${esc(o.text)}</text>`;
-    menuX=mid;menuY=pos+(o.side>0?34:-30);
+    var mid=(o.a[0]+o.b[0])/2,sx=o.b[0]>=o.a[0]?1:-1,ax=o.a[0],bx=o.b[0];
+    if(Math.abs(bx-ax)>trimA+trimB+6){ax+=sx*trimA;bx-=sx*trimB;}
+    body=`<line x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
+      <line class='shape-dim-tick' x1='${ax}' y1='${pos-TICK}' x2='${ax}' y2='${pos+TICK}'/>
+      <line class='shape-dim-tick' x1='${bx}' y1='${pos-TICK}' x2='${bx}' y2='${pos+TICK}'/>
+      <line class='shape-dim-hit' x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}'/>
+      <text x='${mid}' y='${pos+(o.side>0?19:-11)}' text-anchor='middle'>${esc(o.text)}</text>`;
+    menuX=mid;menuY=pos+(o.side>0?38:-34);
   }else{
-    var midY=(o.a[1]+o.b[1])/2,tx=pos+(o.side>0?16:-16);
-    body=`<line x1='${pos}' y1='${o.a[1]}' x2='${pos}' y2='${o.b[1]}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
-      <line x1='${pos}' y1='${o.a[1]}' x2='${o.a[0]}' y2='${o.a[1]}' class='shape-mi-prod-guide'/>
-      <line x1='${pos}' y1='${o.b[1]}' x2='${o.b[0]}' y2='${o.b[1]}' class='shape-mi-prod-guide'/>
-      <line class='shape-dim-hit' x1='${pos}' y1='${o.a[1]}' x2='${pos}' y2='${o.b[1]}'/>
+    var midY=(o.a[1]+o.b[1])/2,tx=pos+(o.side>0?19:-19),sy=o.b[1]>=o.a[1]?1:-1,ay=o.a[1],by=o.b[1];
+    if(Math.abs(by-ay)>trimA+trimB+6){ay+=sy*trimA;by-=sy*trimB;}
+    body=`<line x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
+      <line class='shape-dim-tick' x1='${pos-TICK}' y1='${ay}' x2='${pos+TICK}' y2='${ay}'/>
+      <line class='shape-dim-tick' x1='${pos-TICK}' y1='${by}' x2='${pos+TICK}' y2='${by}'/>
+      <line class='shape-dim-hit' x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}'/>
       <text x='${tx}' y='${midY}' text-anchor='middle' transform='rotate(-90 ${tx} ${midY})'>${esc(o.text)}</text>`;
-    menuX=pos+(o.side>0?60:-60);menuY=midY;
+    menuX=pos+(o.side>0?64:-64);menuY=midY;
   }
   return `<g class='shape-mi-prod-dims${active?' active':''}' ${pick}>${body}</g>`+(active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(menuX,o.T),menuY):'');
 }
 
-function shapeHoleInternalDimsSvg(item,centerPx,T,selected,sideRight,sideTop){
+/* Внутренний C-C идёт ПРЯМО от центра к центру: линия сама и есть измеряемое
+   расстояние, поэтому выносные линии ей не нужны. Между центрами ничего нет,
+   стрелки упираются точно в окружности. Сдвинуть линию с ряда, если она мешает,
+   по-прежнему можно кнопками − / +. */
+function shapeHoleInternalDimsSvg(item,centerPx,T,selected,sideRight,sideTop,r){
   var count=shapeHoleCount(item);if(count===1||centerPx.length<count)return '';
+  r=+r||0;
   if(count===2){
     var vertical=shapeHoleAxis(item)==='vertical',dir=vertical?(sideRight?-1:1):(sideTop?1:-1),a=centerPx[0],b=centerPx[1];
-    return `<g class='shape-hole-pair-dim'>${shapeDimChainSvg({id:item.id,axis:'c',vertical:vertical,a:a,b:b,pos:vertical?a[0]+dir*24:a[1]+dir*24,dir:dir,side:dir,text:shapeDim16(shapeHoleSpacing(item))+' C-C',selected:selected,T:T})}</g>`;
+    return `<g class='shape-hole-pair-dim'>${shapeDimChainSvg({id:item.id,axis:'c',vertical:vertical,a:a,b:b,pos:vertical?a[0]:a[1],dir:dir,side:dir,trimA:r,trimB:r,text:shapeDrawingDim16(shapeHoleSpacing(item)),selected:selected,T:T})}</g>`;
   }
-  var lower=centerPx[0],upper=centerPx[1],third=centerPx[2],thirdRight=third[0]>=upper[0],vDir=thirdRight?-1:1,hDir=sideTop?1:-1;
-  var verticalDim=shapeDimChainSvg({id:item.id,axis:'cv',vertical:true,a:lower,b:upper,pos:lower[0]+vDir*24,dir:vDir,side:vDir,text:'V '+shapeDim16(shapeHoleTripleVSpacing(item))+' C-C',selected:selected,T:T});
-  var horizontalDim=shapeDimChainSvg({id:item.id,axis:'ch',vertical:false,a:upper,b:third,pos:upper[1]+hDir*24,dir:hDir,side:hDir,text:'H '+shapeDim16(shapeHoleTripleHSpacing(item))+' C-C',selected:selected,T:T});
+  /* Цифра вертикального C-C уходит в сторону ОТ базовой кромки — там же по ряду
+     отверстия идёт размер положения, и две цифры садились друг на друга. */
+  var lower=centerPx[0],upper=centerPx[1],third=centerPx[2],vDir=sideRight?-1:1,hDir=sideTop?1:-1;
+  var verticalDim=shapeDimChainSvg({id:item.id,axis:'cv',vertical:true,a:lower,b:upper,pos:lower[0],dir:vDir,side:vDir,trimA:r,trimB:r,text:shapeDrawingDim16(shapeHoleTripleVSpacing(item)),selected:selected,T:T});
+  var horizontalDim=shapeDimChainSvg({id:item.id,axis:'ch',vertical:false,a:upper,b:third,pos:upper[1],dir:hDir,side:hDir,trimA:r,trimB:r,text:shapeDrawingDim16(shapeHoleTripleHSpacing(item)),selected:selected,T:T});
   return `<g class='shape-hole-pair-dim'>${verticalDim}${horizontalDim}</g>`;
 }
 
 function shapeManufacturingMarkersSvg(source,T){
-  var items=shapeManufacturingItems();if(!items.length)return '';var g={P:T.P,b:T.b},holes=items.filter(function(x){return x.type==='hole';});
+  var items=shapeManufacturingItems();if(!items.length)return '';var g={P:T.P,b:T.b};
   /* Коридоры размерных линий считаются ОБЩИМ счётчиком на сторону. Отверстие и
      фурнитура выносят размер в одно и то же место слева от детали, и пока у
      каждого семейства был свой отсчёт, их подписи налезали друг на друга —
@@ -578,21 +615,27 @@ function shapeManufacturingMarkersSvg(source,T){
     var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g),centers=shapeHoleCenters(item),centerPx=centers.map(function(c){return [T.X(c[0]),T.Y(c[1])];});if(!pos)return '';
-      var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item);
+      var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY);
       var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
-      /* Горизонтальная цепочка отверстия висит рядом с ним, а не в общем
-         коридоре: её место задаёт само отверстие. */
-      var hDimY=sideTop?y+(24+(holeIndex%4)*CORRIDOR):y-(24+(holeIndex%4)*CORRIDOR);
+      /* Горизонтальный размер идёт ПО РЯДУ отверстия — от кромки прямо к центру.
+         Выносных линий нет вовсе, поэтому смещать линию в коридор нельзя: она
+         повиснет ни от чего. Если ряд занят, размер отодвигается кнопками − / +. */
+      var hDimY=y;
       var vDimX=sideRight?T.X(g.b.maxX)+(26+lane('right')*CORRIDOR):T.X(g.b.minX)-(26+lane('left')*CORRIDOR);
-      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1,diamX=x+diamDirX*(r+24),diamY=y+diamDirY*22,diamAnchor=sideRight?'end':'start';
-      var hChain=shapeDimChainSvg({id:item.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T});
-      var vChain=shapeDimChainSvg({id:item.id,axis:'v',a:[T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T});
-      var pairDim=shapeHoleInternalDimsSvg(item,centerPx,T,chosen,sideRight,sideTop),diameterText=(centerPx.length>1?centerPx.length+' × Ø ':'Ø ')+dimIn16(dia);
+      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1;
+      /* У пары и тройки внутренние C-C занимают промежуток МЕЖДУ центрами, и
+         выноска диаметра ложилась прямо на размерную линию. Уводим её в сторону
+         от остальных отверстий. */
+      if(centerPx.length>1){var restY=centerPx.slice(1).reduce(function(s,c){return s+c[1];},0)/(centerPx.length-1);diamDirY=restY<y?1:-1;}
+      var diamX=x+diamDirX*(r+24),diamY=y+diamDirY*22,diamAnchor=sideRight?'end':'start';
+      var hChain=shapeDimChainSvg({id:item.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,trimB:r,text:shapeDrawingDim16(pos.hDistance),selected:chosen,T:T});
+      var vChain=shapeDimChainSvg({id:item.id,axis:'v',a:[T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDrawingDim16(pos.vDistance),selected:chosen,T:T});
+      var pairDim=shapeHoleInternalDimsSvg(item,centerPx,T,chosen,sideRight,sideTop,r),diameterText=(centerPx.length>1?centerPx.length+' × Ø ':'Ø ')+shapeDrawingDim(dia);
       return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>
         ${hChain}${vChain}${pairDim}
         ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(dimIn16(dia))}</text>
+        <text x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
@@ -609,11 +652,11 @@ function shapeManufacturingMarkersSvg(source,T){
     var dimSvg='',labelTextSvg='';
     if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
-      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
+      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
       labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+band*CORRIDOR):T.Y(g.b.minY)+(30+band*CORRIDOR),originX=T.X(origin[0]),labelY=edge==='top'?y+28:y-18;
-      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
+      dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
       labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
@@ -633,11 +676,11 @@ function shapeCutoutDimsSvg(T){
     var x=T.X(cx),y=T.Y(cy),chosen=sFeatureExpandedId===f.id,lane=i%4;
     var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
     var hRefX=T.X(sideRight?T.b.maxX:T.b.minX),vRefY=T.Y(sideTop?T.b.maxY:T.b.minY);
-    var hDimY=sideTop?y+(36+lane*26):y-(36+lane*26);
+    var hDimY=y;
     var vDimX=sideRight?T.X(T.b.maxX)+(138+lane*26):T.X(T.b.minX)-(138+lane*26);
     return `<g class='shape-cut-dims${chosen?' selected':''}'>`+
-      shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T})+
-      shapeDimChainSvg({id:f.id,axis:'v',a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T})+
+      shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDrawingDim16(pos.hDistance),selected:chosen,T:T})+
+      shapeDimChainSvg({id:f.id,axis:'v',a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDrawingDim16(pos.vDistance),selected:chosen,T:T})+
       `<circle class='shape-cut-center' cx='${x}' cy='${y}' r='3'/></g>`;
   }).join('');
 }
@@ -661,10 +704,10 @@ function shapePointAnnotationDimsSvg(rows,T){
     var f=row.f,pos=shapeStampPosition(f,{P:T.P,b:T.b});if(!pos)return '';
     var x=T.X(pos.point[0]),y=T.Y(pos.point[1]),chosen=sFeatureExpandedId===f.id,lane=i%4,sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
     var hRefX=T.X(sideRight?T.b.maxX:T.b.minX),vRefY=T.Y(sideTop?T.b.maxY:T.b.minY);
-    var hDimY=sideTop?y+(32+lane*24):y-(32+lane*24),vDimX=sideRight?T.X(T.b.maxX)+(92+lane*24):T.X(T.b.minX)-(92+lane*24);
+    var hDimY=y,vDimX=sideRight?T.X(T.b.maxX)+(92+lane*24):T.X(T.b.minX)-(92+lane*24);
     return `<g class='shape-stamp-dims${chosen?' selected':''}'>`+
-      shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T})+
-      shapeDimChainSvg({id:f.id,axis:'v',vertical:true,a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T})+
+      shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDrawingDim16(pos.hDistance),selected:chosen,T:T})+
+      shapeDimChainSvg({id:f.id,axis:'v',vertical:true,a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDrawingDim16(pos.vDistance),selected:chosen,T:T})+
       `</g>`;
   }).join('');
 }
@@ -799,17 +842,17 @@ function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
-  var widthLabel=dimIn16(source.preview.width16/16),heightLabel=dimIn16(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
+  var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
-    <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
+    <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
     <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
     ${markers}
     <line x1='${x0}' y1='${topY}' x2='${x0+dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeDxfArrow)' marker-end='url(#shapeDxfArrow)'/>
-    <line x1='${x0}' y1='${topY-8}' x2='${x0}' y2='${y0}' class='shape-dxf-guide'/><line x1='${x0+dw}' y1='${topY-8}' x2='${x0+dw}' y2='${y0}' class='shape-dxf-guide'/>
-    <text x='${x0+dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>Width ${esc(widthLabel)}</text>
+    <line x1='${x0}' y1='${topY-5}' x2='${x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${x0+dw}' y1='${topY-5}' x2='${x0+dw}' y2='${topY+5}' class='shape-dxf-dim-line'/>
+    <text x='${x0+dw/2}' y='${topY-9}' class='shape-dxf-dim-text' text-anchor='middle'>${esc(widthLabel)}</text>
     <line x1='${leftX}' y1='${y0}' x2='${leftX}' y2='${y0+dh}' class='shape-dxf-dim-line' marker-start='url(#shapeDxfArrow)' marker-end='url(#shapeDxfArrow)'/>
-    <line x1='${leftX-8}' y1='${y0}' x2='${x0}' y2='${y0}' class='shape-dxf-guide'/><line x1='${leftX-8}' y1='${y0+dh}' x2='${x0}' y2='${y0+dh}' class='shape-dxf-guide'/>
-    <text x='${leftX-10}' y='${y0+dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${y0+dh/2})'>Height ${esc(heightLabel)}</text>
+    <line x1='${leftX-5}' y1='${y0}' x2='${leftX+5}' y2='${y0}' class='shape-dxf-dim-line'/><line x1='${leftX-5}' y1='${y0+dh}' x2='${leftX+5}' y2='${y0+dh}' class='shape-dxf-dim-line'/>
+    <text x='${leftX-10}' y='${y0+dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${y0+dh/2})'>${esc(heightLabel)}</text>
   </svg>`;
 }
 function shapeDrawnProductionSvg(result,interactive){
@@ -1084,8 +1127,19 @@ function shapePrintDrawing(){
   var name=(sDraft.name||'').trim()||'Shape';
   printSheet(svg,name+' · '+(cutting?'Cutting Shape':'Production Drawing')+' · Rev '+(sDraft.revision||0));
 }
+/* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
+   ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
+   missing edge». Убрать её из интерфейса было нечем: строки такого ребра больше
+   нет. Основные стороны A/B/C/D существуют всегда и не трогаются. */
+function shapePruneExtraEdgeOps(model){
+  if(!model||!model.extraEdges)return;
+  var live={A:1,B:1,C:1,D:1};Object.keys(model.extraEdges).forEach(function(id){live[id]=1;});
+  var drop=function(ops){if(ops)Object.keys(ops).forEach(function(id){if(!live[id])delete ops[id];});};
+  drop(sDraft.edgeOps);
+  Object.keys(sDraft.lites||{}).forEach(function(key){drop((sDraft.lites[key]||{}).edgeOps);});
+}
 function shapeSmartControls(){
-  var S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;var map=ssEdgeMap(S).all;
+  var S=shapeDraftLine();ssSyncExtra(S);sDraft.smart=S.shape.smart;shapePruneExtraEdgeOps(sDraft.smart);var map=ssEdgeMap(S).all;
   return `${shapeSmartVisual()}
     ${shapeEdgeMatrix()}
     ${shapeCornerSectionsVisible()?`<div class='extra-edges'><div class='corner-title'><b>Corner edge dimensions</b><span>each notch edge can be skewed independently</span></div>${map.length?shapeNotchMatrix(map):`<div class='empty compact'>Values appear when the corner block has edges</div>`}</div>`:''}`;
