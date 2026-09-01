@@ -207,11 +207,11 @@ function shapeValidateComputed(def,geo,fg){
     var a=fg.holes[i],b=fg.holes[j],min=(a.diameter+b.diameter)/2;if(Math.hypot(a.center[0]-b.center[0],a.center[1]-b.center[1])<min-eps)errors.push('Holes '+a.id+' and '+b.id+' overlap.');
   }
   (fg.holes||[]).forEach(function(h){(fg.cutouts||[]).forEach(function(c){if(fabPointInPoly(h.center,c.points)||fabPointPolyDistance(h.center,c.points)<h.diameter/2-eps)errors.push('Hole '+h.id+' overlaps cutout '+c.id+'.');});});
-  (def.manufacturingItems||[]).filter(function(item){return item.type==='hole'&&shapeHoleCount(item)===2;}).forEach(function(item){
-    var d=fabParseDimStrict(item.diameter),spacing=shapeHoleSpacing(item),centers=shapeHoleCenters(item);
-    if(!isFinite(spacing)||!(spacing>0))errors.push('Hole Double '+item.id+': center-to-center distance must be greater than zero.');
-    else if(d.ok&&spacing<d.v-eps)errors.push('Hole Double '+item.id+': center-to-center distance cannot be smaller than the diameter.');
-    if(!centers.every(function(c){return strictlyInside(c);}))errors.push('Hole Double '+item.id+': both centers must stay inside the finished contour.');
+  (def.manufacturingItems||[]).filter(function(item){return item.type==='hole'&&shapeHoleCount(item)>1;}).forEach(function(item){
+    var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item),centers=shapeHoleCenters(item),name=count===3?'Hole Triple ':'Hole Double ';
+    if(count===2){var spacing=shapeHoleSpacing(item);if(!isFinite(spacing)||!(spacing>0))errors.push(name+item.id+': center-to-center distance must be greater than zero.');else if(d.ok&&spacing<d.v-eps)errors.push(name+item.id+': center-to-center distance cannot be smaller than the diameter.');}
+    else{var vs=shapeHoleTripleVSpacing(item),hs=shapeHoleTripleHSpacing(item);if(!isFinite(vs)||!(vs>0))errors.push(name+item.id+': vertical center-to-center distance must be greater than zero.');else if(d.ok&&vs<d.v-eps)errors.push(name+item.id+': vertical center-to-center distance cannot be smaller than the diameter.');if(!isFinite(hs)||!(hs>0))errors.push(name+item.id+': horizontal center-to-center distance must be greater than zero.');else if(d.ok&&hs<d.v-eps)errors.push(name+item.id+': horizontal center-to-center distance cannot be smaller than the diameter.');}
+    if(!centers.every(function(c){return strictlyInside(c);}))errors.push(name+item.id+': all centers must stay inside the finished contour.');
   });
   var th=shapeThicknessMm(def),thicknessNeeded=false;
   Object.keys(def.edgeOps||{}).forEach(function(id){

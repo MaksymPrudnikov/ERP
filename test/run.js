@@ -952,6 +952,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Hole Double хранит C-C и направление, даёт два центра и остаётся обратно совместимым с Single', holeDouble,
       {legacyKeys:['diameter','hRef','id','note','type','vRef','x','y'],pair:{count:2,spacing:2.0625,axis:'horizontal',centers:[[4,5],[6.0625,5]]},valid:true,req:['Drill Hole × 2',2,2.0625,'horizontal',[[4,5],[6.0625,5]]],overlap:false,outside:false,external:{valid:true,operation:'Drill Hole × 2'}});
 
+    const holeTriple = await p.evaluate(() => {
+      const triple=shapeNormalizeManufacturingItem({id:'triple',type:'hole',x:4,y:5,diameter:'3/4',hRef:'left',vRef:'bottom',count:3,verticalSpacing:'3 1/16',horizontalSpacing:'2 1/8',horizontalDirection:'right'});
+      const d=newShapeDef('rectangle');d.w='20';d.h='40';d.manufacturingItems=[triple];d.dims={triple:{cv:{off:2},ch:{hide:true}}};const r=ShapeModule.compute(d),req=r.requirements.find(q=>q.id==='MANUFACTURING:triple'),normalized=normalizeShapeDef(d);
+      const tight=newShapeDef('rectangle');tight.w='20';tight.h='40';tight.manufacturingItems=[shapeNormalizeManufacturingItem({id:'tight',type:'hole',x:4,y:5,diameter:'1',count:3,verticalSpacing:'1/2',horizontalSpacing:'2',horizontalDirection:'right'})];
+      const outside=newShapeDef('rectangle');outside.w='20';outside.h='40';outside.manufacturingItems=[shapeNormalizeManufacturingItem({id:'outside-triple',type:'hole',x:4,y:39,diameter:'3/4',count:3,verticalSpacing:'2',horizontalSpacing:'2',horizontalDirection:'right'})];
+      const external=newShapeDef('rectangle');external.thickness='6';external.source={kind:'dxf',fileName:'hole-triple.dxf',fileSize:900,uploadedAt:'2026-09-01T12:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[20,0],[20,40],[0,40]],width16:320,height16:640}};external.manufacturingItems=[triple];const er=ShapeModule.dxfProductionResult(external),ereq=er.requirements.find(q=>q.id==='MANUFACTURING:triple');
+      return {stored:{count:triple.count,vertical:triple.verticalSpacing,horizontal:triple.horizontalSpacing,direction:triple.horizontalDirection},centers:shapeHoleCenters(triple),valid:r.valid,
+        req:[req.operation,req.params.count,req.params.verticalSpacing,req.params.horizontalSpacing,req.params.horizontalDirection,req.params.centers],tight:ShapeModule.compute(tight).valid,outside:ShapeModule.compute(outside).valid,
+        dims:normalized.dims.triple,external:{valid:er.valid,operation:ereq.operation,centers:ereq.params.centers}};
+    });
+    eq('Hole Triple хранит L-схему, два C-C и три центра; DXF использует тот же контракт', holeTriple,
+      {stored:{count:3,vertical:3.0625,horizontal:2.125,direction:'right'},centers:[[4,5],[4,8.0625],[6.125,8.0625]],valid:true,req:['Drill Hole × 3',3,3.0625,2.125,'right',[[4,5],[4,8.0625],[6.125,8.0625]]],tight:false,outside:false,dims:{cv:{off:2},ch:{hide:true}},external:{valid:true,operation:'Drill Hole × 3',centers:[[4,5],[4,8.0625],[6.125,8.0625]]}});
+
     /* Виды меток — открытый список. Раньше нормализация отдавала 'hole' на
        любой незнакомый тип: патч на кромке превращался в отверстие в нулевой
        точке, то есть в чужую деталь. */
@@ -1451,6 +1464,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
       const row=salesLineChargeRows(line).find(r=>r.key.indexOf('MI:hole:')===0);return {label:row.label,basis:row.basis,unit:row.unit,rate:row.catalogRate,total:row.basis*row.catalogRate};
     }), {label:'Hole 1/2″–1″',basis:2,unit:'pc',rate:6,total:12});
+    eq('Hole Triple начисляется как три отверстия того же диаметра', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-hole-triple-price';sh.w='20';sh.h='40';sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'ht',type:'hole',x:4,y:8,diameter:'3/4',count:3,verticalSpacing:'2',horizontalSpacing:'2',horizontalDirection:'right'})];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const row=salesLineChargeRows(line).find(r=>r.key.indexOf('MI:hole:')===0);return {label:row.label,basis:row.basis,unit:row.unit,rate:row.catalogRate,total:row.basis*row.catalogRate};
+    }), {label:'Hole 1/2″–1″',basis:3,unit:'pc',rate:6,total:18});
     eq('Sandblast создаёт отдельное начисление по покрытию и стороне без выдуманной ставки', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-sandblast-price';sh.w='48';sh.h='36';sh.features=[
         shapeNormalizeFeature({id:'s1',type:'sandblast',x:'24',y:'18',coverage:'full',side:'front'}),
@@ -2609,18 +2628,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
     }), {accordions:['Edge processing','Cutout'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
-      kinds:['+ Hole Single','+ Hole Double','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
+      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
       modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
-    eq('Hole Single / Double разделены, Double рисует два центра и считается как два отверстия', await t.p.evaluate(() => {
+    eq('Библиотека Hole выбирает Single / Double / Triple, C-C двигаются, подсказки скрыты', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
       const item=shapeNormalizeManufacturingItem({id:'pair-ui',type:'hole',x:5,y:7,diameter:'3/4',hRef:'left',vRef:'bottom',count:2,spacing:'2 1/8',axis:'horizontal'});sDraft.manufacturingItems=[item];sManufacturingOpen=true;sManufacturingSelected=item.id;render();
       const card=document.querySelector('.shape-mi-card.expanded'),selects=[...card.querySelectorAll('select')],marker=document.querySelector('.shape-mi-marker.hole');
-      const initial={title:(card.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(card.querySelector('.shape-mi-kind')||{}).textContent||'',types:[...selects[0].options].map(o=>o.textContent.trim()),axes:[...selects[1].options].map(o=>o.textContent.trim()),circles:marker.querySelectorAll(':scope>circle').length,c2c:[...marker.querySelectorAll('text')].some(x=>x.textContent.includes('2 1/8″ C-C')),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),diameterFont:getComputedStyle(marker.querySelector(':scope>text')).fontSize,positionFont:getComputedStyle(marker.querySelector('.shape-mi-prod-dims text')).fontSize};
+      const cLine=marker.querySelector('.shape-hole-pair-dim .shape-mi-prod-dims>line'),before=cLine&&cLine.getAttribute('y1');shapeNudgeDim(item.id,'c',2);const markerAfter=document.querySelector('.shape-mi-marker.hole'),after=markerAfter.querySelector('.shape-hole-pair-dim .shape-mi-prod-dims>line').getAttribute('y1'),cardAfter=document.querySelector('.shape-mi-card.expanded');
+      const initial={title:(cardAfter.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(cardAfter.querySelector('.shape-mi-kind')||{}).textContent||'',types:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[0].options].map(o=>o.textContent.trim()),axes:[...cardAfter.querySelectorAll('.shape-hole-library-fields select')[1].options].map(o=>o.textContent.trim()),circles:markerAfter.querySelectorAll(':scope>circle').length,c2c:[...markerAfter.querySelectorAll('text')].some(x=>x.textContent.includes('2 1/8″ C-C')),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),diameterFont:getComputedStyle(markerAfter.querySelector(':scope>text')).fontSize,positionFont:getComputedStyle(markerAfter.querySelector('.shape-mi-prod-dims text')).fontSize,cControl:shapeDimOffset(sDraft,item.id,'c'),cMoved:before!==after,controls:[...document.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),helperVisible:[...document.querySelectorAll('.shape-cut-group .shape-mi-card-body small,.shape-cut-group-head>small')].some(x=>getComputedStyle(x).display!=='none'),toolbarHints:document.querySelectorAll('.shape-mi-toolbar>span').length};
       shapeSetHoleAxis(item.id,'vertical');shapeSetHoleSpacing(item.id,'3 1/16');
       const changed={axis:item.axis,spacing:item.spacing,centers:shapeHoleCenters(item),circles:document.querySelectorAll('.shape-mi-marker.hole>circle').length,c2c:[...document.querySelectorAll('.shape-mi-marker.hole text')].some(x=>x.textContent.includes('3 1/16″ C-C'))};
-      sEdit=null;sDraft=null;render();return {initial,changed};
-    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'10px'},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true}});
+      shapeSetHoleCount(item.id,3);shapeSetHoleTripleSpacing(item.id,'v','3 1/8');shapeSetHoleTripleSpacing(item.id,'h','2 1/4');shapeSetHoleTripleDirection(item.id,'left');shapeNudgeDim(item.id,'cv',2);shapeNudgeDim(item.id,'ch',-1);
+      const tripleCard=document.querySelector('.shape-mi-card.expanded'),tripleMarker=document.querySelector('.shape-mi-marker.hole'),triple={title:(tripleCard.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(tripleCard.querySelector('.shape-mi-kind')||{}).textContent||'',centers:shapeHoleCenters(item),circles:tripleMarker.querySelectorAll(':scope>circle').length,labels:[...tripleMarker.querySelectorAll('.shape-hole-pair-dim text')].map(x=>x.textContent.trim()),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),controls:[...tripleCard.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),offsets:[shapeDimOffset(sDraft,item.id,'cv'),shapeDimOffset(sDraft,item.id,'ch')],staleC:!!(sDraft.dims[item.id]&&sDraft.dims[item.id].c)};
+      sEdit=null;sDraft=null;render();return {initial,changed,triple};
+    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'10px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['V 3 1/8″ C-C','H 2 1/4″ C-C'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false}});
     eq('бесплатный Stamp в Cutout выбирает тип и двигается от четырёх краёв на сетке 1/16', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sManufacturingOpen=true;render();
       addShapeFeature('stamp');

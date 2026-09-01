@@ -84,13 +84,24 @@ function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf
 const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','patch','hole'];
 const SHAPE_MI_TYPE_RE=/^[a-z][a-z0-9_-]{0,23}$/;
 function shapeManufacturingItemType(v){var t=shapeTextValue(v,'').trim().toLowerCase();return SHAPE_MI_TYPE_RE.test(t)?t:'hole';}
-function shapeHoleCount(item){return item&&+item.count===2?2:1;}
+function shapeHoleCount(item){var n=item&&+item.count;return n===2||n===3?n:1;}
 function shapeHoleAxis(item){return item&&item.axis==='vertical'?'vertical':'horizontal';}
 function shapeHoleSpacing(item){var p=fabParseDimStrict(item&&item.spacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleVSpacing(item){var p=fabParseDimStrict(item&&item.verticalSpacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleHSpacing(item){var p=fabParseDimStrict(item&&item.horizontalSpacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleDirection(item){return item&&item.horizontalDirection==='left'?'left':'right';}
 function shapeHoleCenters(item){
-  var x=+item.x||0,y=+item.y||0,out=[[x,y]];if(shapeHoleCount(item)!==2)return out;
-  var spacing=shapeHoleSpacing(item);if(!isFinite(spacing))spacing=0;
-  out.push(shapeHoleAxis(item)==='vertical'?[x,y+spacing]:[x+spacing,y]);return out;
+  var x=+item.x||0,y=+item.y||0,count=shapeHoleCount(item),out=[[x,y]];if(count===1)return out;
+  if(count===2){var spacing=shapeHoleSpacing(item);if(!isFinite(spacing))spacing=0;out.push(shapeHoleAxis(item)==='vertical'?[x,y+spacing]:[x+spacing,y]);return out;}
+  var vs=shapeHoleTripleVSpacing(item),hs=shapeHoleTripleHSpacing(item);if(!isFinite(vs))vs=0;if(!isFinite(hs))hs=0;
+  out.push([x,y+vs]);out.push([x+(shapeHoleTripleDirection(item)==='left'?-hs:hs),y+vs]);return out;
+}
+function shapeHoleOperation(item){var count=shapeHoleCount(item);return count>1?'Drill Hole × '+count:'Drill Hole';}
+function shapeHoleRequirementParams(item,diameter){
+  var count=shapeHoleCount(item),out={diameter:diameter,count:count,centers:shapeHoleCenters(item)};
+  if(count===2){out.spacing=shapeHoleSpacing(item);out.axis=shapeHoleAxis(item);}
+  else if(count===3){out.verticalSpacing=shapeHoleTripleVSpacing(item);out.horizontalSpacing=shapeHoleTripleHSpacing(item);out.horizontalDirection=shapeHoleTripleDirection(item);}
+  return out;
 }
 /* Отверстие задаётся точкой внутри стекла, вся остальная фурнитура —
    кромкой и расстоянием до её центра. Правило одно — и место у него одно. */
@@ -102,7 +113,9 @@ function shapeNormalizeManufacturingItem(raw){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
     out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'3/4');
     out.hRef=raw.hRef==='right'?'right':'left';out.vRef=raw.vRef==='top'?'top':'bottom';
-    if(shapeHoleCount(raw)===2){var spacing=shapeHoleSpacing(raw);out.count=2;out.spacing=isFinite(spacing)&&spacing>0?spacing:2;out.axis=shapeHoleAxis(raw);}
+    var count=shapeHoleCount(raw);
+    if(count===2){var spacing=shapeHoleSpacing(raw);out.count=2;out.spacing=isFinite(spacing)&&spacing>0?spacing:2;out.axis=shapeHoleAxis(raw);}
+    else if(count===3){var vs=shapeHoleTripleVSpacing(raw),hs=shapeHoleTripleHSpacing(raw);out.count=3;out.verticalSpacing=isFinite(vs)&&vs>0?vs:2;out.horizontalSpacing=isFinite(hs)&&hs>0?hs:2;out.horizontalDirection=shapeHoleTripleDirection(raw);}
   }else{
     var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
     if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;
@@ -129,12 +142,13 @@ function shapeNormalizeManufacturingItem(raw){
 
    Ключи осей: `h` — горизонтальная цепочка, `v` — вертикальная, `e` — цепочка
    вдоль кромки (у фурнитуры она одна, и её направление зависит от выбранной
-   кромки, поэтому осью h/v её называть нельзя).
+   кромки, поэтому осью h/v её называть нельзя). `c` — C-C у Double, `cv` и
+   `ch` — вертикальный и горизонтальный C-C у Triple.
 
    `ref` — от какого конца меряем. У отверстия эту роль играют его собственные
    `hRef`/`vRef`: они там были с самого начала и переносить их сюда значило бы
    тронуть отпечатки всех сохранённых фигур. */
-const SHAPE_DIM_AXES=['h','v','e'];
+const SHAPE_DIM_AXES=['h','v','e','c','cv','ch'];
 const SHAPE_DIM_OFF_MIN=-4,SHAPE_DIM_OFF_MAX=12;
 function shapeNormalizeDims(raw){
   var out={};
