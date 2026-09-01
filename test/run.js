@@ -2630,10 +2630,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sManufacturingOpen=true;render();
       const label=()=>[...document.querySelectorAll('.shape-mi-marker>text')].map(t=>t.textContent);
       const auto=label();
-      /* Своё поле в справочнике перебивает вывод. */
+      /* Своё поле в справочнике перебивает вывод. Правку возвращаем: справочник
+         живёт дольше теста, и следующий увидел бы чужое короткое имя. */
       hardwareModelById('hw-hinge-geneva-37').short='GNV37';render();
       const overridden=label();
       const cards=[...document.querySelectorAll('.shape-mi-card-toggle b')].map(t=>t.textContent);
+      hardwareModelById('hw-hinge-geneva-37').short='';
       sEdit=null;sDraft=null;render();
       return {derived,auto,overridden,cards};
     }), {derived:['GEN37','VIE180','VIE135/45','SCU4','ZENZONE'],
