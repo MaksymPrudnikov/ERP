@@ -165,13 +165,15 @@ function shapeAnnNeutralGeometry(S){
       m[e].out='0';m[e].dir=null;
       m[e].elbow.to='0';m[e].elbow.past='0';
     });
-    /* База обязана быть ПРЯМОУГОЛЬНОЙ, иначе усиление считается от кривой
-       отсчёта. Разная высота слева и справа — это и есть уход верха от уровня,
-       поэтому C приравнивается к A; иначе ровный верх получал ненулевое
-       отклонение и рисовался наклонным. По той же причине обнуляются
-       координаты углов и скосы рёбер нотча: это всё уходы от отвеса и уровня.
-       Длины рёбер и состав углов при этом сохраняются — топология не меняется. */
-    m.C.len='';
+    /* База обязана быть ОРТОГОНАЛЬНОЙ, иначе усиление считается от кривой
+       отсчёта. C нельзя просто приравнять к A: вертикальные рёбра угловых
+       лесенок тоже входят в полную высоту стороны. Например, A=36, нижний
+       правый notch=1 и C=35 дают настоящий ровный верх 36; база с C=36
+       поднимала правую вершину до 37 и сама рисовала ложный скос.
+
+       Поэтому после обнуления скосов длина C выводится из баланса вертикальных
+       рёбер: A + TL + BL = C + TR + BR. Координаты углов и скосы рёбер нотча
+       обнуляются, но их длины и состав сохраняются — топология не меняется. */
     ['tl','tr','br','bl'].forEach(function(k){
       var c=m.cornerOffsets[k];if(!c)return;
       c.plumb='0';c.plumbDir=null;c.level='0';c.levelDir=null;
@@ -179,7 +181,14 @@ function shapeAnnNeutralGeometry(S){
     Object.keys(m.extraEdges).forEach(function(k){
       m.extraEdges[k].out='0';m.extraEdges[k].dir=null;
     });
-    var N={w:S.w,h:S.h,shape:{type:'smart',smart:m}},q=ssContour(N);
+    var N={w:S.w,h:S.h,shape:{type:'smart',smart:m}},cv={};
+    ['tl','tr','br','bl'].forEach(function(k){cv[k]=ssCornerTotals(N,k).v;});
+    var levelC=ssEdgeLen(N,'A')+cv.tl+cv.bl-cv.tr-cv.br;
+    /* Если ортогональная C выродилась бы в ноль, оставляем исходную C: такая
+       экстремальная форма уже имеет крупный видимый уклон и усиление ей не
+       требуется. Главное — не терять сегмент и соответствие вершин. */
+    if(levelC>1e-9)m.C.len=String(Math.round(levelC*1e9)/1e9);
+    var q=ssContour(N);
     if(!q||q.pts.length<3)return null;
     return {points:q.pts,edges:q.segs.map(function(e,i){
       return {id:e.id,segmentId:e.id+':'+i,p1:e.p1.slice(),p2:e.p2.slice(),length:Math.hypot(e.p2[0]-e.p1[0],e.p2[1]-e.p1[1])};

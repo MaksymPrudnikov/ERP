@@ -401,6 +401,54 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit = null; sDraft = null; tab = prevTab; subtab = prevSub; render();
       return out;
     });
+    /* Ровный верх может складываться не только из A/C и уклона B, но и из
+       вертикального ребра угловой лесенки. Случай владельца: A=36, BR notch=1,
+       C=35. В резе D горизонтальна, однако нейтральная база раньше ставила
+       C=36 поверх notch и усиленная визуализация показывала ложный скос.
+
+       Проверяем все четыре угла, весь найденный диапазон сетки, а также Double,
+       Triple и notch со своим скосом — это соседние варианты той же ошибки. */
+    const levelNotches = await p.evaluate(() => {
+      const vals = ['1/16','1/8','1/4','1/2','1','1 1/16','1 1/8','1 1/4','1 1/2','1 5/8','1 7/8','2'];
+      const corners = ['tl','tr','br','bl'], bad = [];
+      let checked = 0;
+      function probe(corner, kind, lens, skew){
+        const s = { id:'t', name:'t', w:'48', h:'36', smart:ssNormalize({}) };
+        s.smart.corners[corner] = kind;
+        const S = { w:s.w, h:s.h, shape:{ type:'smart', smart:s.smart } };
+        ssSyncExtra(S); s.smart = S.shape.smart;
+        const map = ssEdgeMap(S).all;
+        map.forEach(e => { s.smart.extraEdges[e.id].len = Array.isArray(lens) ? lens[e.step] : lens; });
+        if(skew){
+          const hEdge = map.find(e => e.axis === 'h');
+          s.smart.extraEdges[hEdge.id].out = '1/2';
+          s.smart.extraEdges[hEdge.id].dir = 'up';
+        }
+        const T = {};
+        corners.forEach(c => { T[c] = ssCornerTotals(S,c).v; });
+        s.smart.C.len = String(36 + T.tl + T.bl - T.tr - T.br);
+        const r = ShapeModule.compute(s);
+        let shown = Infinity;
+        if(r.valid){
+          const F = shapeDrawingFrame(r.points,{vw:960,vh:700,pL:150,pR:180,pT:95,pB:125});
+          const DP = shapeAnnDisplay(r,r.line,F);
+          shown = Math.max(0,...r.geometry.edges.filter(e => e.id === 'D').map(e => {
+            const a=DP(e.p1), b=DP(e.p2); return Math.abs(a[1]-b[1]);
+          }));
+        }
+        checked++;
+        if(!r.valid || r.base.Dout > 1e-8 || shown > 1e-7){
+          bad.push({ corner, kind, lens, valid:r.valid, real:r.base&&r.base.Dout, shown:+shown.toFixed(3) });
+        }
+      }
+      corners.forEach(c => vals.forEach(v => probe(c,'single',v,false)));
+      corners.forEach(c => {
+        probe(c,'double',['1/16','1/8'],false);
+        probe(c,'triple',['1/16','1/8','3/16'],false);
+      });
+      probe('br','single','2',true);
+      return { checked, bad };
+    });
     /* Автоматически считается только D. Пустое C — это подстановка «как A», а не
        расчёт, поэтому в поле должен стоять фактический размер, а не слово AUTO:
        иначе правая сторона нигде не видна и её приходится держать в голове. */
@@ -437,6 +485,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('база чертежа — прямоугольник, а не форма с уклоном', levelTop.neutral, [[0,0],[0,36],[48,36],[48,0]]);
     eq('ровный верх остаётся ровным в геометрии', levelTop.Dout, 0);
     eq('ровный верх рисуется ровным', levelTop.topSkew, 0);
+    eq('notch не создаёт ложный скос ровного верха', levelNotches.bad, []);
+    eq('проверены четыре угла, Single/Double/Triple и сетка 1/16', levelNotches.checked, 57);
 
     /* Усиление обязано работать в одну сторону: поднимать то, что иначе не видно,
        и не трогать настоящий уклон. Прежняя формула подменяла величину и упиралась
