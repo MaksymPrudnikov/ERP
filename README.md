@@ -1,6 +1,10 @@
 # GLASS ERP — Glazing System
 
 Собственная ERP для стекольного производства. Цель — полная замена Spil Glass.
+
+**Не знаешь, какой файл открыть — начни с [`КАРТА-ПРОЕКТА.md`](КАРТА-ПРОЕКТА.md).**
+Там сказано, что где лежит, какие документы живые, какие архив, и куда писать правки.
+
 Управляющий документ проекта: [`docs/GLASS_ERP_HANDOFF.md`](docs/GLASS_ERP_HANDOFF.md) — его отдают целиком любой новой сессии ИИ.
 Глубокая целевая модель: [`docs/DEEP_ERP_ARCHITECTURE.md`](docs/DEEP_ERP_ARCHITECTURE.md) — CPQ → component genealogy → MES/APS/WMS/QMS → shipping/costing и «цифровой завод».
 

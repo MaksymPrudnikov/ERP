@@ -151,10 +151,13 @@ function shapeDxfRequirements(def){
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeHoleOperation(item),stationClass:'DRILLING',manufacturingItemId:item.id,params:shapeHoleRequirementParams(item,dia)});
     }else{
       req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance,model:item.model||''}});
     }
+  });
+  (def.features||[]).filter(function(f){return f.type==='sandblast';}).forEach(function(s){
+    req.push({id:'SANDBLAST:'+s.id,source:'MANUFACTURING',operation:shapeSandblastServiceLabel(s),stationClass:'SAND',featureId:s.id,params:{coverage:shapeSandblastCoverage(s),side:shapeSandblastSide(s)}});
   });
   return req;
 }
@@ -170,14 +173,24 @@ function shapeValidateDxfProduction(def,edges){
   if(!isFinite(th)||!(th>0))errors.push('Shape thickness must be a positive number for DXF cutting.');
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
-      var d=fabParseDimStrict(item.diameter);
+      var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item),centers=shapeHoleCenters(item),name=count===3?'Hole Triple ':count===2?'Hole Double ':'Hole ';
       if(!d.ok||!(d.v>0))errors.push('Hole '+item.id+': diameter must be greater than zero.');
-      if(!fabPointInPoly([+item.x||0,+item.y||0],points))errors.push('Hole '+item.id+': center must stay inside the finished DXF contour.');
+      if(count===2){var spacing=shapeHoleSpacing(item);if(!isFinite(spacing)||!(spacing>0))errors.push(name+item.id+': center-to-center distance must be greater than zero.');else if(d.ok&&spacing<d.v-1e-8)errors.push(name+item.id+': center-to-center distance cannot be smaller than the diameter.');}
+      else if(count===3){var vs=shapeHoleTripleVSpacing(item),hs=shapeHoleTripleHSpacing(item);if(!isFinite(vs)||!(vs>0))errors.push(name+item.id+': vertical center-to-center distance must be greater than zero.');else if(d.ok&&vs<d.v-1e-8)errors.push(name+item.id+': vertical center-to-center distance cannot be smaller than the diameter.');if(!isFinite(hs)||!(hs>0))errors.push(name+item.id+': horizontal center-to-center distance must be greater than zero.');else if(d.ok&&hs<d.v-1e-8)errors.push(name+item.id+': horizontal center-to-center distance cannot be smaller than the diameter.');}
+      if(!centers.every(function(c){return fabPointInPoly(c,points);}))errors.push(name+item.id+': '+(count>1?'all centers must':'center must')+' stay inside the finished DXF contour.');
       return;
     }
     if(!item.edgeId||!ids[item.edgeId]){errors.push(shapeMiOperationName(item.type)+' '+item.id+': referenced physical DXF segment does not exist.');return;}
     var e=edges.find(function(x){return x.id===item.edgeId;}),distance=+item.distance||0;
     if(distance<0||distance>e.length+1e-8)errors.push(shapeMiOperationName(item.type)+' '+item.id+': distance must stay on '+item.edgeId+'.');
+  });
+  (def.features||[]).filter(function(f){return f.type==='stamp';}).forEach(function(stamp){
+    var point=[inch(stamp.x),inch(stamp.y)];
+    if(!isFinite(point[0])||!isFinite(point[1])||!fabPointInPoly(point,points))errors.push('Stamp '+stamp.id+': annotation must stay inside the finished DXF contour.');
+  });
+  (def.features||[]).filter(function(f){return f.type==='sandblast';}).forEach(function(mark){
+    var point=[inch(mark.x),inch(mark.y)];
+    if(!isFinite(point[0])||!isFinite(point[1])||!fabPointInPoly(point,points))errors.push('Sandblast '+mark.id+': annotation must stay inside the finished DXF contour.');
   });
   return {errors:errors,warns:warns};
 }
@@ -213,7 +226,10 @@ const __shapeDxfFingerprint=shapeFingerprint;
 shapeFingerprint=function(def){
   def=normalizeShapeDef(def||{});
   if(!shapeIsDxfSource(def))return __shapeDxfFingerprint(def);
-  return shapeStableHash('shp-',{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview},thickness:def.thickness,edgeOps:def.edgeOps,manufacturingItems:def.manufacturingItems||[]});
+  var payload={source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview},thickness:def.thickness,edgeOps:def.edgeOps,manufacturingItems:def.manufacturingItems||[]};
+  var annotations=(def.features||[]).filter(function(f){return f.type==='stamp'||f.type==='sandblast';});
+  if(annotations.length)payload.features=annotations;
+  return shapeStableHash('shp-',payload);
 };
 
 function shapeValidateProductionEdgework(def){
@@ -234,7 +250,9 @@ function shapeDxfProductionResult(source){
   if(sv.errors.length)return {valid:false,sourceValid:false,reason:sv.errors[0],errors:sv.errors,warns:sv.warns,definition:def,fingerprint:fingerprint};
   var cutting=shapeDxfCuttingPlan(def),points=preview.points||[],width=preview.width16/16,height=preview.height16/16,area=Math.abs(fabSignedArea(points)),edges=shapeDxfPhysicalEdges(def),requirements=shapeDxfRequirements(def);
   if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting};
-  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],radii:[],all:[]},requirements:requirements,cutting:cutting};
+  var stamps=(def.features||[]).filter(function(f){return f.type==='stamp';}).map(function(f){return {id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};});
+  var sandblasts=(def.features||[]).filter(function(f){return f.type==='sandblast';}).map(function(f){return {id:f.id,type:'sandblast',point:[inch(f.x),inch(f.y)],coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f),text:shapeSandblastText(f),source:f};});
+  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],stamps:stamps,sandblasts:sandblasts,radii:[],all:stamps.concat(sandblasts)},requirements:requirements,cutting:cutting};
 }
 
 const __shapeDxfCompute=ShapeModule.compute;

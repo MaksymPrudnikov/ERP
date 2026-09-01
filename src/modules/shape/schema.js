@@ -4,7 +4,25 @@
    ===================================================================== */
 
 var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
-var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp'];
+var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
+/* A stamp is a free annotation on the production drawing. The selected text is
+   intentionally short: it must remain readable inside the glass contour. Keep
+   accepting older/custom text so saved revisions never lose their marking. */
+var SHAPE_STAMP_TYPES=['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'];
+function shapeStampType(f){
+  f=shapePlainObject(f);var explicit=shapeTextValue(f.stampType,''),text=shapeTextValue(f.text,'');
+  if(SHAPE_STAMP_TYPES.indexOf(explicit)>=0)return explicit;
+  return SHAPE_STAMP_TYPES.indexOf(text)>=0?text:(text?'OWN Stamp':SHAPE_STAMP_TYPES[0]);
+}
+function shapeStampText(f){
+  var type=shapeStampType(f),text=shapeTextValue(shapePlainObject(f).text,'');
+  return type==='OWN Stamp'?(text||'OWN Stamp'):type;
+}
+var SHAPE_SANDBLAST_COVERAGES=['full','pattern'],SHAPE_SANDBLAST_SIDES=['front','back'];
+function shapeSandblastCoverage(f){return shapePlainObject(f).coverage==='pattern'?'pattern':'full';}
+function shapeSandblastSide(f){return shapePlainObject(f).side==='back'?'back':'front';}
+function shapeSandblastServiceLabel(f){return 'Sandblast · '+(shapeSandblastCoverage(f)==='pattern'?'Pattern':'Full covered')+' · '+(shapeSandblastSide(f)==='back'?'Back':'Front');}
+function shapeSandblastText(f){return shapeSandblastServiceLabel(f).toUpperCase();}
 function shapeNewEntityId(prefix){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return prefix+crypto.randomUUID();
   return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
@@ -28,7 +46,11 @@ function shapeNormalizeFeature(f){
   if(type==='cutout')Object.assign(out,{width:shapeTextValue(f.width,'4'),height:shapeTextValue(f.height,'4'),x:shapeTextValue(f.x,'8'),y:shapeTextValue(f.y,'8'),cornerRadius:shapeTextValue(f.cornerRadius,'0')});
   if(type==='radius')Object.assign(out,{vertexId:shapeTextValue(f.vertexId,''),radius:shapeTextValue(f.radius,'1/2')});
   if(type==='hardware')Object.assign(out,{name:shapeTextValue(f.name,'Custom Hardware'),edgeId:shapeTextValue(f.edgeId,''),distance:shapeTextValue(f.distance,'12'),inset:shapeTextValue(f.inset,'0'),prepWidth:shapeTextValue(f.prepWidth,'2'),prepHeight:shapeTextValue(f.prepHeight,'2'),holeDia:shapeTextValue(f.holeDia,'1/2')});
-  if(type==='stamp')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),text:shapeTextValue(f.text,'TEMPER')});
+  if(type==='stamp'){
+    var stampType=shapeStampType(f),stampText=stampType==='OWN Stamp'?shapeTextValue(f.text,''):stampType;
+    Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),stampType:stampType,text:stampText});
+  }
+  if(type==='sandblast')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f)});
   return out;
 }
 function shapeNormalizePolygon(raw){
@@ -62,6 +84,25 @@ function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf
 const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','patch','hole'];
 const SHAPE_MI_TYPE_RE=/^[a-z][a-z0-9_-]{0,23}$/;
 function shapeManufacturingItemType(v){var t=shapeTextValue(v,'').trim().toLowerCase();return SHAPE_MI_TYPE_RE.test(t)?t:'hole';}
+function shapeHoleCount(item){var n=item&&+item.count;return n===2||n===3?n:1;}
+function shapeHoleAxis(item){return item&&item.axis==='vertical'?'vertical':'horizontal';}
+function shapeHoleSpacing(item){var p=fabParseDimStrict(item&&item.spacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleVSpacing(item){var p=fabParseDimStrict(item&&item.verticalSpacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleHSpacing(item){var p=fabParseDimStrict(item&&item.horizontalSpacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleTripleDirection(item){return item&&item.horizontalDirection==='left'?'left':'right';}
+function shapeHoleCenters(item){
+  var x=+item.x||0,y=+item.y||0,count=shapeHoleCount(item),out=[[x,y]];if(count===1)return out;
+  if(count===2){var spacing=shapeHoleSpacing(item);if(!isFinite(spacing))spacing=0;out.push(shapeHoleAxis(item)==='vertical'?[x,y+spacing]:[x+spacing,y]);return out;}
+  var vs=shapeHoleTripleVSpacing(item),hs=shapeHoleTripleHSpacing(item);if(!isFinite(vs))vs=0;if(!isFinite(hs))hs=0;
+  out.push([x,y+vs]);out.push([x+(shapeHoleTripleDirection(item)==='left'?-hs:hs),y+vs]);return out;
+}
+function shapeHoleOperation(item){var count=shapeHoleCount(item);return count>1?'Drill Hole × '+count:'Drill Hole';}
+function shapeHoleRequirementParams(item,diameter){
+  var count=shapeHoleCount(item),out={diameter:diameter,count:count,centers:shapeHoleCenters(item)};
+  if(count===2){out.spacing=shapeHoleSpacing(item);out.axis=shapeHoleAxis(item);}
+  else if(count===3){out.verticalSpacing=shapeHoleTripleVSpacing(item);out.horizontalSpacing=shapeHoleTripleHSpacing(item);out.horizontalDirection=shapeHoleTripleDirection(item);}
+  return out;
+}
 /* Отверстие задаётся точкой внутри стекла, вся остальная фурнитура —
    кромкой и расстоянием до её центра. Правило одно — и место у него одно. */
 function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
@@ -70,8 +111,11 @@ function shapeNormalizeManufacturingItem(raw){
   var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
-    out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'3/4');
+    out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'1/2');
     out.hRef=raw.hRef==='right'?'right':'left';out.vRef=raw.vRef==='top'?'top':'bottom';
+    var count=shapeHoleCount(raw);
+    if(count===2){var spacing=shapeHoleSpacing(raw);out.count=2;out.spacing=isFinite(spacing)&&spacing>0?spacing:2;out.axis=shapeHoleAxis(raw);}
+    else if(count===3){var vs=shapeHoleTripleVSpacing(raw),hs=shapeHoleTripleHSpacing(raw);out.count=3;out.verticalSpacing=isFinite(vs)&&vs>0?vs:2;out.horizontalSpacing=isFinite(hs)&&hs>0?hs:2;out.horizontalDirection=shapeHoleTripleDirection(raw);}
   }else{
     var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
     if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;
@@ -98,12 +142,13 @@ function shapeNormalizeManufacturingItem(raw){
 
    Ключи осей: `h` — горизонтальная цепочка, `v` — вертикальная, `e` — цепочка
    вдоль кромки (у фурнитуры она одна, и её направление зависит от выбранной
-   кромки, поэтому осью h/v её называть нельзя).
+   кромки, поэтому осью h/v её называть нельзя). `c` — C-C у Double, `cv` и
+   `ch` — вертикальный и горизонтальный C-C у Triple.
 
    `ref` — от какого конца меряем. У отверстия эту роль играют его собственные
    `hRef`/`vRef`: они там были с самого начала и переносить их сюда значило бы
    тронуть отпечатки всех сохранённых фигур. */
-const SHAPE_DIM_AXES=['h','v','e'];
+const SHAPE_DIM_AXES=['h','v','e','c','cv','ch'];
 const SHAPE_DIM_OFF_MIN=-4,SHAPE_DIM_OFF_MAX=12;
 function shapeNormalizeDims(raw){
   var out={};

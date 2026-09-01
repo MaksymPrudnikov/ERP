@@ -177,7 +177,11 @@ function printSheetCleanup(){
 function printSheetUniqueIds(svg){
   var n='pr'+Date.now().toString(36);
   return String(svg)
-    .replace(/id="([A-Za-z][\w-]*)"/g,function(m,id){return 'id="'+id+'-'+n+'"';})
+    /* Кавычки могут быть и одинарными: разметка чертежа собирается шаблонными
+       строками, и там id пишется через '. Пока правило смотрело только на ",
+       такие id оставались прежними, а ссылки url(#…) переименовывались — и на
+       бумаге пропадали ровно те стрелки, чей маркер объявлен в шаблоне. */
+    .replace(/id=(["'])([A-Za-z][\w-]*)\1/g,function(m,q,id){return 'id='+q+id+'-'+n+q;})
     .replace(/url\(#([A-Za-z][\w-]*)\)/g,function(m,id){return 'url(#'+id+'-'+n+')';});
 }
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,

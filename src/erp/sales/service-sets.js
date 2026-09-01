@@ -375,6 +375,7 @@ salesLineChargeRows=function(line){
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
   salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
+  salesSandblastChargeRows(saved&&saved.features,ctx).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
