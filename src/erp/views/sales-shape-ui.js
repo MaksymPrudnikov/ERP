@@ -107,7 +107,8 @@ function shapeManufacturingItemTitle(type){
   if(type==='hole')return 'Hole';
   return hardwareKindIsKnown(type)?hardwareKindName(type):shapeMiOperationName(type);
 }
-function shapeManufacturingShort(type){return type==='hole'?'HOLE':hardwareKindShort(type);}
+function shapeHoleName(item){return shapeHoleCount(item)===2?'Hole Double':'Hole Single';}
+function shapeManufacturingShort(type,item){return type==='hole'?(shapeHoleCount(item)===2?'HOL2':'HOLE'):hardwareKindShort(type);}
 /* Модель, как её видит цех. Пусто = модель ещё не выбрана: это не ошибка
    расчёта, но по чертежу тогда непонятно, какой шаблон брать. */
 function shapeManufacturingModelName(item){return hardwareItemModelName(item);}
@@ -116,6 +117,7 @@ function shapeManufacturingModelName(item){return hardwareItemModelName(item);}
    вида рядом с моделью нет намеренно — `GEN37` уже говорит, что это петля. Без
    модели остаётся код вида: `CLMP` лучше, чем пустое место. */
 function shapeMarkDrawingLabel(item){
+  if(item&&item.type==='hole')return shapeHoleName(item).toUpperCase();
   return hardwareItemModelShort(item)||shapeManufacturingShort(item.type);
 }
 function shapeSnapManufacturing16(v){var n=+v;return isFinite(n)?Math.round(n*16)/16:NaN;}
@@ -149,8 +151,32 @@ function shapeSetManufacturingHoleDistance(id,axis,v){
   else if(axis==='v')y=(item.vRef==='top'?g.b.maxY-d:g.b.minY+d);
   else return;
   x=shapeSnapManufacturing16(x);y=shapeSnapManufacturing16(y);
-  if(!fabPointInPoly([x,y],g.P)){alert('The hole center must stay inside the finished glass contour.');render();return;}
+  var moved=Object.assign({},item,{x:x,y:y}),problem=shapeHolePairProblem(moved,g);
+  if(!fabPointInPoly([x,y],g.P)||problem){alert(problem||'The hole center must stay inside the finished glass contour.');render();return;}
   item.x=x;item.y=y;render();
+}
+function shapeHolePairProblem(item,g){
+  if(shapeHoleCount(item)!==2)return '';
+  var spacing=shapeHoleSpacing(item),d=fabParseDimStrict(item.diameter),centers=shapeHoleCenters(item);
+  if(!isFinite(spacing)||!(spacing>0))return 'Center-to-center distance must be greater than zero.';
+  if(d.ok&&spacing<d.v-1e-9)return 'Center-to-center distance cannot be smaller than the hole diameter.';
+  if(!g||!centers.every(function(c){return fabPointInPoly(c,g.P);}))return 'Both hole centers must stay inside the finished glass contour.';
+  return '';
+}
+function shapeSetHoleCount(id,count){
+  var item=shapeManufacturingItemById(id);if(!item||item.type!=='hole')return;
+  if(+count===2){var next=Object.assign({},item,{count:2,spacing:isFinite(shapeHoleSpacing(item))?shapeHoleSpacing(item):2,axis:shapeHoleAxis(item)}),g=shapeManufacturingGeometry(),problem=shapeHolePairProblem(next,g);if(problem&&next.axis==='horizontal'){next.axis='vertical';problem=shapeHolePairProblem(next,g);}if(problem){alert(problem);render();return;}item.count=2;item.spacing=next.spacing;item.axis=next.axis;}
+  else{delete item.count;delete item.spacing;delete item.axis;}
+  render();
+}
+function shapeSetHoleSpacing(id,value){
+  var item=shapeManufacturingItemById(id),p=fabParseDimStrict(value);if(!item||item.type!=='hole'||shapeHoleCount(item)!==2)return;
+  var spacing=p.ok?shapeSnapManufacturing16(p.v):NaN,next=Object.assign({},item,{spacing:spacing}),problem=shapeHolePairProblem(next,shapeManufacturingGeometry());
+  if(problem){alert(problem);render();return;}item.spacing=spacing;render();
+}
+function shapeSetHoleAxis(id,value){
+  var item=shapeManufacturingItemById(id);if(!item||item.type!=='hole'||shapeHoleCount(item)!==2)return;
+  var next=Object.assign({},item,{axis:value==='vertical'?'vertical':'horizontal'}),problem=shapeHolePairProblem(next,shapeManufacturingGeometry());if(problem){alert(problem);render();return;}item.axis=next.axis;render();
 }
 function shapeManufacturingEdgeLabel(edge){return edge==='left'?'Left':edge==='right'?'Right':edge==='top'?'Top':'Bottom';}
 /* ---------- Привязка размера и его оформление ----------
@@ -320,14 +346,14 @@ function shapeSetCutoutCenter(i,axis,v){
   else{var cy=pos.vRef==='top'?g.b.maxY-d:g.b.minY+d;f.y=frac64(shapeSnapManufacturing16(cy-inch(f.height)/2));}
   render();
 }
-function shapeStartManufacturingPlacement(type){
+function shapeStartManufacturingPlacement(type,holeCount){
   if(type!=='hole'&&!hardwareKindIsKnown(type))return;
   var r=shapeDraftResult();
   if(!shapeIsDxfSource(sDraft)&&!r.valid){alert('Fix the Shape geometry before placing a manufacturing item.');return;}
-  sManufacturingOpen=true;sManufacturingPlace={type:type,diameter:type==='hole'?'3/4':''};sManufacturingSelected=null;sView='production';render();
+  sManufacturingOpen=true;sManufacturingPlace={type:type,diameter:type==='hole'?'3/4':'',holeCount:type==='hole'&&+holeCount===2?2:1,spacing:2,axis:'horizontal'};sManufacturingSelected=null;sView='production';render();
 }
 function shapeCancelManufacturingPlacement(){sManufacturingPlace=null;render();}
-function shapeMoveManufacturingItem(id){var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item)return;sManufacturingPlace={type:item.type,diameter:item.diameter||'',moveId:id};sManufacturingSelected=id;render();}
+function shapeMoveManufacturingItem(id){var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item)return;sManufacturingPlace={type:item.type,diameter:item.diameter||'',holeCount:shapeHoleCount(item),spacing:shapeHoleSpacing(item),axis:shapeHoleAxis(item),moveId:id};sManufacturingSelected=id;render();}
 function shapeRemoveManufacturingItem(id){sDraft.manufacturingItems=shapeManufacturingItems().filter(function(x){return x.id!==id;});if(sManufacturingSelected===id)sManufacturingSelected=null;if(sManufacturingPlace&&sManufacturingPlace.moveId===id)sManufacturingPlace=null;render();}
 function shapeSetManufacturingField(id,k,v){
   var item=shapeManufacturingItems().find(function(x){return x.id===id;});if(!item)return;
@@ -382,6 +408,7 @@ function shapePlaceManufacturingFromEvent(ev,svg){
   if(type==='hole'){
     if(!fabPointInPoly([x,y],T.P)){alert('Place the hole inside the glass contour.');return;}data.x=x;data.y=y;data.diameter=sManufacturingPlace.diameter||'3/4';
     data.hRef=x<=(T.b.minX+T.b.maxX)/2?'left':'right';data.vRef=y<=(T.b.minY+T.b.maxY)/2?'bottom':'top';
+    if(+sManufacturingPlace.holeCount===2){data.count=2;data.spacing=isFinite(+sManufacturingPlace.spacing)?+sManufacturingPlace.spacing:2;data.axis=sManufacturingPlace.axis==='vertical'?'vertical':'horizontal';var pairProblem=shapeHolePairProblem(data,g);if(pairProblem&&data.axis==='horizontal'){data.axis='vertical';pairProblem=shapeHolePairProblem(data,g);}if(pairProblem){alert(pairProblem);return;}}
   }else{
     var snap=shapeNearestManufacturingEdge(x,y,g);if(!snap){alert('No valid glass edge is available for this item.');return;}data.edge=snap.edge;data.distance=snap.distance;
   }
@@ -520,21 +547,22 @@ function shapeManufacturingMarkersSvg(source,T){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
     var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
     if(item.type==='hole'){
-      var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g);if(!pos)return '';
+      var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g),centers=shapeHoleCenters(item),centerPx=centers.map(function(c){return [T.X(c[0]),T.Y(c[1])];});if(!pos)return '';
       var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item);
       var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
       /* Горизонтальная цепочка отверстия висит рядом с ним, а не в общем
          коридоре: её место задаёт само отверстие. */
-      var hDimY=sideTop?y+(30+(holeIndex%4)*CORRIDOR):y-(30+(holeIndex%4)*CORRIDOR);
-      var vDimX=sideRight?T.X(g.b.maxX)+(34+lane('right')*CORRIDOR):T.X(g.b.minX)-(34+lane('left')*CORRIDOR);
-      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1,diamX=x+diamDirX*(r+34),diamY=y+diamDirY*30,diamAnchor=sideRight?'end':'start';
+      var hDimY=sideTop?y+(24+(holeIndex%4)*CORRIDOR):y-(24+(holeIndex%4)*CORRIDOR);
+      var vDimX=sideRight?T.X(g.b.maxX)+(26+lane('right')*CORRIDOR):T.X(g.b.minX)-(26+lane('left')*CORRIDOR);
+      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1,diamX=x+diamDirX*(r+24),diamY=y+diamDirY*22,diamAnchor=sideRight?'end':'start';
       var hChain=shapeDimChainSvg({id:item.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T});
       var vChain=shapeDimChainSvg({id:item.id,axis:'v',a:[T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T});
+      var pairDim='';if(centerPx.length===2){var a=centerPx[0],b=centerPx[1],spacingText=shapeDim16(shapeHoleSpacing(item))+' C-C';if(shapeHoleAxis(item)==='vertical'){var pdx=x+24,midY=(a[1]+b[1])/2;pairDim=`<g class='shape-hole-pair-dim'><line x1='${a[0]}' y1='${a[1]}' x2='${pdx}' y2='${a[1]}'/><line x1='${b[0]}' y1='${b[1]}' x2='${pdx}' y2='${b[1]}'/><line x1='${pdx}' y1='${a[1]}' x2='${pdx}' y2='${b[1]}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/><text x='${pdx+11}' y='${midY}' transform='rotate(-90 ${pdx+11} ${midY})' text-anchor='middle'>${esc(spacingText)}</text></g>`;}else{var pdy=y-24,midX=(a[0]+b[0])/2;pairDim=`<g class='shape-hole-pair-dim'><line x1='${a[0]}' y1='${a[1]}' x2='${a[0]}' y2='${pdy}'/><line x1='${b[0]}' y1='${b[1]}' x2='${b[0]}' y2='${pdy}'/><line x1='${a[0]}' y1='${pdy}' x2='${b[0]}' y2='${pdy}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/><text x='${midX}' y='${pdy-7}' text-anchor='middle'>${esc(spacingText)}</text></g>`;}}
       return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>
-        ${hChain}${vChain}
-        <circle cx='${x}' cy='${y}' r='${r}'/>
+        ${hChain}${vChain}${pairDim}
+        ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*6}' y='${labelBaseline(diamX+diamDirX*6,diamY+(diamDirY<0?-6:16),'Ø '+dimIn16(dia),diamAnchor)}' text-anchor='${diamAnchor}'>Ø ${esc(dimIn16(dia))}</text>
+        <text x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),(centerPx.length===2?'2 × Ø ':'Ø ')+dimIn16(dia),diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length===2?'2 × ':''}Ø ${esc(dimIn16(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
@@ -592,9 +620,9 @@ function shapeStampMarkerSvg(T){
 }
 function shapeSandblastMarkerSvg(T){
   return shapeSandblastFeatures().map(function(row){
-    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=shapeSandblastText(f),w=Math.max(150,Math.min(228,label.length*6+18)),selected=sFeatureExpandedId===f.id?' selected':'';
+    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),spec=shapeSandblastDrawingSpec(f,T.W*T.sc),selected=sFeatureExpandedId===f.id?' selected':'';
     if(!isFinite(x)||!isFinite(y))return '';
-    return `<g class='shape-sandblast-mark external${selected}' data-sandblast-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-w/2}' y='${y-10}' width='${w}' height='20' rx='2'/><text data-raw x='${x}' y='${y+3.5}' text-anchor='middle'>${esc(label)}</text></g>`;
+    return `<g class='shape-sandblast-mark external${selected}' data-sandblast-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-spec.w/2}' y='${y-spec.h/2}' width='${spec.w}' height='${spec.h}' rx='2'/><text data-raw x='${x}' y='${y-2}' text-anchor='middle' style='font-size:${spec.font}px'><tspan x='${x}'>${esc(spec.lines[0])}</tspan><tspan x='${x}' dy='${spec.font+2}'>${esc(spec.lines[1])}</tspan></text></g>`;
   }).join('');
 }
 function shapePointAnnotationDimsSvg(rows,T){
@@ -615,10 +643,10 @@ function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStamp
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
 function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
-function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});}
+function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||'',count:shapeHoleCount(item)};});}
 function shapeDerivedServices(){
   var groups=Object.create(null),invalid=[];
-  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type);if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty++;});
+  shapeServiceEntries().forEach(function(item){var key=item.type,label=shapeManufacturingItemTitle(item.type),qty=1;if(item.type==='hole'){var d=fabParseDimStrict(item.diameter),hb=d.ok?shapeHoleServiceBand(d.v):null;qty=item.count;if(!hb){invalid.push(item.id);key='hole-invalid-'+item.id;label='Hole · invalid diameter';}else{key='hole:'+hb.key;label='Hole '+hb.label;}}if(!groups[key])groups[key]={label:label,qty:0};groups[key].qty+=qty;});
   /* Геометрия из той же категории тоже становится начислением, поэтому и в
      сводке она рядом: категория одна — итог по ней тоже один. У внешнего DXF
      своей геометрии в ERP нет, там этот блок пуст. */
@@ -642,7 +670,7 @@ function shapeManufacturingServicesHTML(){
    добавляет пивот или что угодно ещё сам, и кнопка появляется сама. */
 function shapeMarksToolbarHTML(hint){
   var kinds=hardwareKinds();
-  return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button>${kinds.map(function(k){
+  return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole",1)'>+ Hole Single</button><button class='sm' onclick='shapeStartManufacturingPlacement("hole",2)'>+ Hole Double</button>${kinds.map(function(k){
     return `<button class='sm' onclick='shapeStartManufacturingPlacement("${esc(k.code)}")'>+ ${raw(hardwareKindName(k.code))}</button>`;
   }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("sandblast")'>+ Sandblast</button><span>${hint}</span></div>`;
 }
@@ -678,6 +706,7 @@ function shapeCutFlagHTML(changesCut){
    становилась «#2», патч за ней — «#3», зажим — «#4»: порядок ввода читался как
    номер изделия. Метку опознают по виду, модели и её собственному размеру. */
 function shapeMarkTitleHTML(item){
+  if(item&&item.type==='hole')return esc(shapeHoleName(item));
   var model=shapeManufacturingModelName(item);
   return `${raw(shapeManufacturingItemTitle(item.type))}${model?' · '+raw(model):''}`;
 }
@@ -695,19 +724,25 @@ function shapeSandblastCardsHTML(g){
     return `<div class='shape-mi-card shape-stamp-card shape-sandblast-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind sandblast'>SAND</span><span><b>${esc(shapeSandblastServiceLabel(f))}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}<div class='shape-mi-actions'><button class='sm dl' onclick='removeShapeFeature(${i})'>Delete</button></div></div>`:''}</div>`;
   }).join('')}</div>`;
 }
+function shapeHolePairFieldsHTML(item){
+  var count=shapeHoleCount(item),type=`<label>Hole type<select onchange='shapeSetHoleCount("${esc(item.id)}",this.value)'><option value='1' ${count===1?'selected':''}>Hole Single</option><option value='2' ${count===2?'selected':''}>Hole Double</option></select></label>`;
+  if(count!==2)return type;
+  return type+`<label>Pair direction<select onchange='shapeSetHoleAxis("${esc(item.id)}",this.value)'><option value='horizontal' ${shapeHoleAxis(item)==='horizontal'?'selected':''}>Horizontal →</option><option value='vertical' ${shapeHoleAxis(item)==='vertical'?'selected':''}>Vertical ↑</option></select><small>Second center extends right or up from the positioned first center</small></label><label>Center-to-center distance<input id='mi_s_${esc(item.id)}' value='${esc(shapeFrac16(shapeHoleSpacing(item)))}' onchange='shapeSetHoleSpacing("${esc(item.id)}",this.value)'><small>Exact C-C spacing · 1/16″</small></label>`;
+}
 function shapeMarksBodyHTML(){
   var items=shapeManufacturingItems(),placing=sManufacturingPlace;
   var body=shapeMarksToolbarHTML('Hole, Stamp and Sandblast use Left/Right plus Bottom/Top references on a 1/16″ grid. Hardware binds to an edge.');
-  if(placing)body+=`<div class='shape-mi-place'><b><span>${placing.moveId?'Move':'Add'}</span>: ${raw(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Click inside the glass for a starting point, then set Left/Right and Top/Bottom exactly.':'Click near the required edge; the item binds to Left / Right / Top / Bottom.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Cancel</button></div>`;
+  if(placing)body+=`<div class='shape-mi-place'><b><span>${placing.moveId?'Move':'Add'}</span>: ${placing.type==='hole'?esc(shapeHoleName({count:placing.holeCount})):raw(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Click the first center inside the glass, then set Left/Right and Top/Bottom exactly.':'Click near the required edge; the item binds to Left / Right / Top / Bottom.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Cancel</button></div>`;
   var g=shapeManufacturingGeometry(),defs=shapeManufacturingEdgeDefs(g);
   body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){
     var expanded=item.id===sManufacturingSelected,d=item.type==='hole'?fabParseDimStrict(item.diameter):null,summary,fields;
     if(item.type==='hole'){
       var pos=shapeManufacturingHolePosition(item,g)||{hRef:'left',vRef:'bottom',hDistance:0,vDistance:0};
-      summary=`<span data-raw>${esc('Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance))}</span>`;
-      fields=`<div class='shape-mi-hole-position-grid'>
-        <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'><small>from the ${pos.hRef==='right'?'right':'left'} bound · 1/16″</small></label></div>
-        <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'><small>from the ${pos.vRef==='top'?'top':'bottom'} bound · 1/16″</small></label></div>
+      var pair=shapeHoleCount(item)===2?' · C-C '+shapeDim16(shapeHoleSpacing(item))+' · '+(shapeHoleAxis(item)==='vertical'?'Vertical':'Horizontal'):'';
+      summary=`<span data-raw>${esc('Ø '+(d&&d.ok?dimIn16(d.v):item.diameter)+pair+' · '+shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance))}</span>`;
+      fields=shapeHolePairFieldsHTML(item)+`<div class='shape-mi-hole-position-grid'>
+        <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","h",this.value)'><option value='left' ${pos.hRef==='left'?'selected':''}>Left</option><option value='right' ${pos.hRef==='right'?'selected':''}>Right</option></select></label><label>${shapeHoleCount(item)===2?'Distance to first center':'Distance to center'}<input value='${esc(shapeFrac16(pos.hDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","h",this.value)'><small>from the ${pos.hRef==='right'?'right':'left'} bound · 1/16″</small></label></div>
+        <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetManufacturingHoleReference("${esc(item.id)}","v",this.value)'><option value='bottom' ${pos.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${pos.vRef==='top'?'selected':''}>Top</option></select></label><label>${shapeHoleCount(item)===2?'Distance to first center':'Distance to center'}<input value='${esc(shapeFrac16(pos.vDistance))}' onchange='shapeSetManufacturingHoleDistance("${esc(item.id)}","v",this.value)'><small>from the ${pos.vRef==='top'?'top':'bottom'} bound · 1/16″</small></label></div>
       </div><label>Diameter<input id='mi_d_${esc(item.id)}' value='${esc(item.diameter)}' oninput='shapeSetManufacturingField("${esc(item.id)}","diameter",this.value)' onchange='render()'></label>`+shapeDimControlsHTML(item.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
     }else{
       /* Навигация у фурнитуры теперь та же, что у отверстия: сначала край, затем
@@ -723,7 +758,7 @@ function shapeMarksBodyHTML(){
         <div class='shape-mi-axis-card'><label>Reference<select onchange='shapeSetDimRef("${esc(item.id)}","e",this.value)'>${refOpts.map(function(o){return `<option value='${o[0]}' ${(fromEnd?'end':'start')===o[0]?'selected':''}>${o[1]}</option>`;}).join('')}</select></label><label>Distance to center<input value='${esc(shapeFrac16(shown))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small><span>${esc(shapeMiOriginText(edge,fromEnd))}</span> · <span>Edge length</span> <span data-raw>${esc(max)}</span></small></label></div>
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Dimension on the drawing'}]);
     }
-    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;
+    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;
   }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
   body+=shapeStampCardsHTML(g);
   body+=shapeSandblastCardsHTML(g);

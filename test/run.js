@@ -801,13 +801,25 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const externalResult=ShapeModule.dxfProductionResult(external),externalMarked=shapeFingerprint(external);external.features[0].y='50';const externalOutside=ShapeModule.dxfProductionResult(external);
       const normalized=shapeNormalizeFeature({type:'sandblast',coverage:'unknown',side:'unknown'});
       return {valid:r.valid,point:r.featureGeometry.sandblasts[0].point,text:r.featureGeometry.sandblasts[0].text,
-        drawing:drawing.includes('shape-sandblast-mark')&&drawing.includes('SANDBLAST · FULL COVERED · FRONT'),
+        drawing:drawing.includes('shape-sandblast-mark')&&drawing.includes('SANDBLAST')&&drawing.includes('FULL COVERED · FRONT')&&drawing.includes('<tspan'),
         requirement:r.requirements.filter(q=>q.stationClass==='SAND').map(q=>[q.operation,q.params.coverage,q.params.side]),
         machine:JSON.stringify(payload).includes('SANDBLAST'),fingerprint:empty!==withMark,outside:ShapeModule.compute(bad).valid,
         normalized:[normalized.coverage,normalized.side],external:{valid:externalResult.valid,text:externalResult.featureGeometry.sandblasts[0].text,changed:externalEmpty!==externalMarked,outside:externalOutside.valid}};
     });
     eq('Sandblast хранит покрытие и сторону, печатается текстом и не попадает в cutting payload', sandblastModel,
       {valid:true,point:[24,18],text:'SANDBLAST · FULL COVERED · FRONT',drawing:true,requirement:[['Sandblast · Full covered · Front','full','front']],machine:false,fingerprint:true,outside:false,normalized:['full','front'],external:{valid:true,text:'SANDBLAST · PATTERN · BACK',changed:true,outside:false}});
+
+    const slenderSandblast = await p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.w='20';d.h='80';
+      ['A','B','C','D'].forEach(id=>d.edgeOps[id]=[shapeNormalizeOp({type:'Flat Polish'})]);
+      d.features=[shapeNormalizeFeature({id:'sand-slender',type:'sandblast',x:'10',y:'40',coverage:'full',side:'front'})];
+      const r=ShapeModule.compute(d),F=shapeDrawingFrame(r.points),spec=shapeSandblastDrawingSpec(d.features[0],F.W*F.sc),svg=ShapeModule.productionSvg(r);
+      const markAt=svg.indexOf('shape-sandblast-mark'),lastEdgeLabelAt=svg.lastIndexOf('FP');
+      return {valid:r.valid,glassPx:Math.round(F.W*F.sc*10)/10,width:spec.w,font:spec.font,lines:spec.lines,
+        ratio:Math.round(spec.w/(F.W*F.sc)*1000)/1000,tspans:(svg.match(/<tspan/g)||[]).length,edgeLabelsAbove:markAt>=0&&lastEdgeLabelAt>markAt};
+    });
+    eq('Sandblast на узком стекле 20×80 масштабируется и не закрывает подписи кромки', slenderSandblast,
+      {valid:true,glassPx:120,width:86.4,font:6,lines:['SANDBLAST','FULL COVERED · FRONT'],ratio:.72,tspans:2,edgeLabelsAbove:true});
 
     /* --- Safety Border ------------------------------------------------
        Защитный отступ при резке и ломке вдоль скошенных и дуговых кромок.
@@ -925,6 +937,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Manufacturing items сохраняются в ревизии и дают требования цеху', {valid:manufacturing.valid,count:manufacturing.count,hole:manufacturing.hole,edge:manufacturing.edge,req:manufacturing.req}, {valid:true,count:3,hole:[3.0625,12.125,'3/4'],edge:['right',6.125],req:['DRILLING:Drill Hole','SERVICE:Clamp','SERVICE:Hinge']});
     eq('Manufacturing items не попадают в Cutting Geometry / machine payload', {cutting:manufacturing.cutting,machineReq:manufacturing.machineReq}, {cutting:[0,0],machineReq:0});
     eq('Manufacturing items меняют fingerprint ревизии, DXF сохраняет requirements отдельно', {fingerprint:manufacturing.fingerprintChanged,external:manufacturing.external}, {fingerprint:true,external:{sourceValid:true,requirements:['Clamp']}});
+
+    const holeDouble = await p.evaluate(() => {
+      const legacy=shapeNormalizeManufacturingItem({id:'single',type:'hole',x:3,y:4,diameter:'3/4',hRef:'left',vRef:'bottom'});
+      const pair=shapeNormalizeManufacturingItem({id:'double',type:'hole',x:4,y:5,diameter:'3/4',hRef:'left',vRef:'bottom',count:2,spacing:'2 1/16',axis:'horizontal'});
+      const d=newShapeDef('rectangle');d.w='20';d.h='40';d.manufacturingItems=[pair];const r=ShapeModule.compute(d),req=r.requirements.find(q=>q.id==='MANUFACTURING:double');
+      const overlap=newShapeDef('rectangle');overlap.w='20';overlap.h='40';overlap.manufacturingItems=[shapeNormalizeManufacturingItem({id:'overlap',type:'hole',x:4,y:5,diameter:'1',count:2,spacing:'1/2',axis:'horizontal'})];
+      const outside=newShapeDef('rectangle');outside.w='20';outside.h='40';outside.manufacturingItems=[shapeNormalizeManufacturingItem({id:'outside',type:'hole',x:19,y:5,diameter:'3/4',count:2,spacing:'2',axis:'horizontal'})];
+      const external=newShapeDef('rectangle');external.thickness='6';external.source={kind:'dxf',fileName:'hole-double.dxf',fileSize:900,uploadedAt:'2026-09-01T12:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[20,0],[20,40],[0,40]],width16:320,height16:640}};external.manufacturingItems=[pair];const er=ShapeModule.dxfProductionResult(external);
+      return {legacyKeys:Object.keys(legacy).sort(),pair:{count:pair.count,spacing:pair.spacing,axis:pair.axis,centers:shapeHoleCenters(pair)},valid:r.valid,
+        req:[req.operation,req.params.count,req.params.spacing,req.params.axis,req.params.centers],overlap:ShapeModule.compute(overlap).valid,outside:ShapeModule.compute(outside).valid,
+        external:{valid:er.valid,operation:er.requirements.find(q=>q.id==='MANUFACTURING:double').operation}};
+    });
+    eq('Hole Double хранит C-C и направление, даёт два центра и остаётся обратно совместимым с Single', holeDouble,
+      {legacyKeys:['diameter','hRef','id','note','type','vRef','x','y'],pair:{count:2,spacing:2.0625,axis:'horizontal',centers:[[4,5],[6.0625,5]]},valid:true,req:['Drill Hole × 2',2,2.0625,'horizontal',[[4,5],[6.0625,5]]],overlap:false,outside:false,external:{valid:true,operation:'Drill Hole × 2'}});
 
     /* Виды меток — открытый список. Раньше нормализация отдавала 'hole' на
        любой незнакомый тип: патч на кромке превращался в отверстие в нулевой
@@ -1419,6 +1445,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const rows=salesLineChargeRows(line).filter(r=>r.key.indexOf('MI:')===0),total=rows.reduce((n,r)=>n+(r.catalogRate==null?0:r.basis*r.catalogRate),0);
       return {total,rows:rows.map(r=>[r.label,r.basis,r.catalogRate,r.catalogRate==null?null:r.basis*r.catalogRate])};
     }), {total:29,rows:[['Clamp',1,8,8],['Hinge',1,15,15],['Hole 1/2″–1″',1,6,6]]});
+    eq('Hole Double начисляется как два отверстия того же диаметра', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-hole-double-price';sh.w='20';sh.h='40';sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'hd',type:'hole',x:4,y:8,diameter:'3/4',count:2,spacing:'2',axis:'horizontal'})];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const row=salesLineChargeRows(line).find(r=>r.key.indexOf('MI:hole:')===0);return {label:row.label,basis:row.basis,unit:row.unit,rate:row.catalogRate,total:row.basis*row.catalogRate};
+    }), {label:'Hole 1/2″–1″',basis:2,unit:'pc',rate:6,total:12});
     eq('Sandblast создаёт отдельное начисление по покрытию и стороне без выдуманной ставки', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-sandblast-price';sh.w='48';sh.h='36';sh.features=[
         shapeNormalizeFeature({id:'s1',type:'sandblast',x:'24',y:'18',coverage:'full',side:'front'}),
@@ -2577,9 +2609,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
     }), {accordions:['Edge processing','Cutout'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
-      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
+      kinds:['+ Hole Single','+ Hole Double','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
       modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
+    eq('Hole Single / Double разделены, Double рисует два центра и считается как два отверстия', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
+      const item=shapeNormalizeManufacturingItem({id:'pair-ui',type:'hole',x:5,y:7,diameter:'3/4',hRef:'left',vRef:'bottom',count:2,spacing:'2 1/8',axis:'horizontal'});sDraft.manufacturingItems=[item];sManufacturingOpen=true;sManufacturingSelected=item.id;render();
+      const card=document.querySelector('.shape-mi-card.expanded'),selects=[...card.querySelectorAll('select')],marker=document.querySelector('.shape-mi-marker.hole');
+      const initial={title:(card.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(card.querySelector('.shape-mi-kind')||{}).textContent||'',types:[...selects[0].options].map(o=>o.textContent.trim()),axes:[...selects[1].options].map(o=>o.textContent.trim()),circles:marker.querySelectorAll(':scope>circle').length,c2c:[...marker.querySelectorAll('text')].some(x=>x.textContent.includes('2 1/8″ C-C')),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),diameterFont:getComputedStyle(marker.querySelector(':scope>text')).fontSize,positionFont:getComputedStyle(marker.querySelector('.shape-mi-prod-dims text')).fontSize};
+      shapeSetHoleAxis(item.id,'vertical');shapeSetHoleSpacing(item.id,'3 1/16');
+      const changed={axis:item.axis,spacing:item.spacing,centers:shapeHoleCenters(item),circles:document.querySelectorAll('.shape-mi-marker.hole>circle').length,c2c:[...document.querySelectorAll('.shape-mi-marker.hole text')].some(x=>x.textContent.includes('3 1/16″ C-C'))};
+      sEdit=null;sDraft=null;render();return {initial,changed};
+    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'10px'},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true}});
     eq('бесплатный Stamp в Cutout выбирает тип и двигается от четырёх краёв на сетке 1/16', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sManufacturingOpen=true;render();
       addShapeFeature('stamp');
@@ -2609,7 +2650,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(sDraft),svg=shapeDrawnProductionSvg(r,false),services=shapeDerivedServices(),payload=ShapeModule.machinePayload(r);
       const out={initial,coverage,sides,stored:{x:f.x,y:f.y,coverage:f.coverage,side:f.side},point:r.featureGeometry.sandblasts[0].point,
         cardInMarks:!!document.querySelector('.shape-cut-group.marks .shape-sandblast-card'),cardInCuts:!!document.querySelector('.shape-cut-group.cuts .shape-sandblast-card'),
-        service:services.rows.map(x=>[x.label,x.qty]),drawing:svg.includes('SANDBLAST · PATTERN · BACK')&&svg.includes('5″')&&svg.includes('6″'),
+        service:services.rows.map(x=>[x.label,x.qty]),drawing:svg.includes('SANDBLAST')&&svg.includes('PATTERN · BACK')&&svg.includes('5″')&&svg.includes('6″'),
         requirement:r.requirements.filter(q=>q.stationClass==='SAND').map(q=>q.operation),machine:JSON.stringify(payload).includes('SANDBLAST')};
       const id=f.id;removeShapeFeature(index);out.deletePrunesDims=!sDraft.dims[id];sEdit=null;sDraft=null;render();return out;
     }), {initial:{x:'24',y:'18',h:'left',v:'bottom'},coverage:['Full covered','Pattern'],sides:['Front','Back'],stored:{x:'43',y:'30',coverage:'pattern',side:'back'},point:[43,30],cardInMarks:true,cardInCuts:false,service:[['Sandblast · Pattern · Back',1]],drawing:true,requirement:['Sandblast · Pattern · Back'],machine:false,deletePrunesDims:true});

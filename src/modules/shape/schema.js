@@ -84,6 +84,14 @@ function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf
 const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','patch','hole'];
 const SHAPE_MI_TYPE_RE=/^[a-z][a-z0-9_-]{0,23}$/;
 function shapeManufacturingItemType(v){var t=shapeTextValue(v,'').trim().toLowerCase();return SHAPE_MI_TYPE_RE.test(t)?t:'hole';}
+function shapeHoleCount(item){return item&&+item.count===2?2:1;}
+function shapeHoleAxis(item){return item&&item.axis==='vertical'?'vertical':'horizontal';}
+function shapeHoleSpacing(item){var p=fabParseDimStrict(item&&item.spacing);return p.ok?Math.round(p.v*16)/16:NaN;}
+function shapeHoleCenters(item){
+  var x=+item.x||0,y=+item.y||0,out=[[x,y]];if(shapeHoleCount(item)!==2)return out;
+  var spacing=shapeHoleSpacing(item);if(!isFinite(spacing))spacing=0;
+  out.push(shapeHoleAxis(item)==='vertical'?[x,y+spacing]:[x+spacing,y]);return out;
+}
 /* Отверстие задаётся точкой внутри стекла, вся остальная фурнитура —
    кромкой и расстоянием до её центра. Правило одно — и место у него одно. */
 function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
@@ -94,6 +102,7 @@ function shapeNormalizeManufacturingItem(raw){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
     out.x=Math.round(x*16)/16;out.y=Math.round(y*16)/16;out.diameter=shapeTextValue(raw.diameter,'3/4');
     out.hRef=raw.hRef==='right'?'right':'left';out.vRef=raw.vRef==='top'?'top':'bottom';
+    if(shapeHoleCount(raw)===2){var spacing=shapeHoleSpacing(raw);out.count=2;out.spacing=isFinite(spacing)&&spacing>0?spacing:2;out.axis=shapeHoleAxis(raw);}
   }else{
     var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
     if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;

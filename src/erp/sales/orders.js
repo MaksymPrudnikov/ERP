@@ -635,7 +635,7 @@ function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:
 function salesManufacturingChargeRows(items,ctx){
  const rows=[],groups=Object.create(null),order=[];
  (Array.isArray(items)?items:[]).forEach(function(item){
-  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty++;return;}
+  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty+=shapeHoleCount(item);return;}
   const key=item.type;if(!groups[key]){groups[key]={qty:0,kind:item.type};order.push(key);}groups[key].qty++;
  });
  order.forEach(function(k){const g=groups[k];

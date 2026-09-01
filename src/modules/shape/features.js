@@ -219,8 +219,8 @@ function shapeDerivedRequirements(def,geo,fg){
      never a machined shape. */
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
-      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
+      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0,count=shapeHoleCount(item),centers=shapeHoleCenters(item);
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:count===2?'Drill Hole × 2':'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,count:count,centers:centers,spacing:count===2?shapeHoleSpacing(item):0,axis:count===2?shapeHoleAxis(item):''}});
     }else{
       /* Любая фурнитура на кромке, включая виды, добавленные владельцем.
          Станция SERVICE, а не CNC: посадочное место делает человек по

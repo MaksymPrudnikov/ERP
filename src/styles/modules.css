@@ -295,7 +295,8 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
    Белая обводка под текстом (paint-order) обязательна: крупная подпись
    ложится поверх контура и размерных линий. */
 .shape-mi-marker text{font:700 18px ui-monospace,SFMono-Regular,Menlo,monospace;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}
-.shape-mi-marker.hole>text{font:700 18px ui-monospace,SFMono-Regular,Menlo,monospace;stroke-width:5px}
+.shape-mi-marker.hole>text{font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;stroke-width:4px}
+.shape-mi-marker.hole .shape-mi-prod-dims text,.shape-mi-marker.hole .shape-hole-pair-dim text{font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace!important;stroke-width:3px!important}.shape-hole-pair-dim line{fill:none;stroke:#d92d20!important;stroke-width:1.05!important}.shape-hole-pair-dim text{fill:#b42318!important}
 .shape-mi-marker rect{stroke-width:2.2}
 .shape-mi-marker path,.shape-mi-marker line{stroke-width:1.8}
 .shape-mi-marker.hole>circle{stroke-width:2.2}

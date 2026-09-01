@@ -64,7 +64,12 @@ function shapeProductionFeaturesSvg(result,F){
   fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(dimIn16(c.width))+' × '+shapeXml(dimIn16(c.height))+'</text>';});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="10" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-w/2)+'" y="'+(y-10)+'" width="'+w+'" height="20" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+3.5)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
-  (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(150,Math.min(228,String(s.text||'').length*6+18));out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-w/2)+'" y="'+(y-10)+'" width="'+w+'" height="20" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y+3.5)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#075e68">'+shapeXml(s.text)+'</text></g>';});return out;
+  (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
+}
+function shapeSandblastDrawingSpec(f,glassPixelWidth){
+  var line2=(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT'),available=Math.max(44,(+glassPixelWidth||0)*.72);
+  var desired=Math.max(72,line2.length*5.4+16),w=Math.max(44,Math.min(190,available,desired)),font=Math.max(6,Math.min(9,(w-12)/Math.max(8,line2.length*.62)));
+  return {lines:['SANDBLAST',line2],w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10};
 }
 function shapeTitleBlock(result,kind,F){
   var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24;
@@ -102,7 +107,9 @@ function shapeProductionSvg(result){
     o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,dimIn16(F.W));
     o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,dimIn16(F.H));
   }
-  o+=shapeEdgeLabelsSvg(result,F,L)+shapeProductionFeaturesSvg(result,F);
+  /* Feature callouts go down first; edgework labels remain the top layer and
+     can never be hidden by a centered Sandblast note. */
+  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L);
   o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }

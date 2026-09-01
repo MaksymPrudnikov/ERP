@@ -150,8 +150,8 @@ function shapeDxfRequirements(def){
   });
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
-      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
+      var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0,count=shapeHoleCount(item),centers=shapeHoleCenters(item);
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:count===2?'Drill Hole × 2':'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,count:count,centers:centers,spacing:count===2?shapeHoleSpacing(item):0,axis:count===2?shapeHoleAxis(item):''}});
     }else{
       req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance,model:item.model||''}});
     }
@@ -173,9 +173,11 @@ function shapeValidateDxfProduction(def,edges){
   if(!isFinite(th)||!(th>0))errors.push('Shape thickness must be a positive number for DXF cutting.');
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
-      var d=fabParseDimStrict(item.diameter);
+      var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item),spacing=shapeHoleSpacing(item),centers=shapeHoleCenters(item);
       if(!d.ok||!(d.v>0))errors.push('Hole '+item.id+': diameter must be greater than zero.');
-      if(!fabPointInPoly([+item.x||0,+item.y||0],points))errors.push('Hole '+item.id+': center must stay inside the finished DXF contour.');
+      if(count===2&&(!isFinite(spacing)||!(spacing>0)))errors.push('Hole Double '+item.id+': center-to-center distance must be greater than zero.');
+      else if(count===2&&d.ok&&spacing<d.v-1e-8)errors.push('Hole Double '+item.id+': center-to-center distance cannot be smaller than the diameter.');
+      if(!centers.every(function(c){return fabPointInPoly(c,points);})){errors.push((count===2?'Hole Double ':'Hole ')+item.id+': '+(count===2?'both centers must':'center must')+' stay inside the finished DXF contour.');}
       return;
     }
     if(!item.edgeId||!ids[item.edgeId]){errors.push(shapeMiOperationName(item.type)+' '+item.id+': referenced physical DXF segment does not exist.');return;}
