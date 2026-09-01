@@ -2618,8 +2618,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     /* Чертёж печатают на бумаге. Подпись, которую нельзя прочитать, для цеха то
        же самое, что её отсутствие, поэтому у неё есть нижняя граница размера, а
-       у соседних подписей — гарантия, что они не наезжают друг на друга. */
-    eq('подписи меток крупные и не затирают друг друга', await t.p.evaluate(() => {
+       у соседних подписей — гарантия, что они не наезжают друг на друга.
+       Крупные ТОЛЬКО названия: цифры размеров держат кегль остального листа,
+       иначе на одном чертеже оказывается два разных размера чисел. */
+    eq('крупные только названия меток, цифры в кегле листа, подписи не затирают друг друга', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
       sDraft.manufacturingItems=[
         shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:30,modelId:'hw-hinge-geneva-37',model:'Geneva 37'}),
@@ -2643,10 +2645,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         .filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>vb[2]||b.y+b.height>vb[3];}).map(t=>t.textContent);
       const label=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-marker>text')).fontSize);
       const dim=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-prod-dims text')).fontSize);
+      /* Кегли чисел самого чертежа: размер метки обязан быть одним из них. */
+      const sheet=[...new Set([...svg.querySelectorAll('text')]
+        .filter(t=>!t.closest('.shape-mi-marker,.shape-mi-prod-dims,.shape-cut-dims'))
+        .map(t=>parseFloat(getComputedStyle(t).fontSize)))];
       const labels=[...svg.querySelectorAll('.shape-mi-marker>text')].map(t=>t.textContent);
       sEdit=null;sDraft=null;render();
-      return {clash,outside,bigLabel:label>=16,bigDim:dim>=16,labels};
-    }), {clash:[],outside:[],bigLabel:true,bigDim:true,
+      return {clash,outside,bigLabel:label>=16,dimInSheetRange:sheet.includes(dim),labels};
+    }), {clash:[],outside:[],bigLabel:true,dimInSheetRange:true,
       labels:['HNG · Geneva 37','HNG · Geneva 37','PATCH · PH20','CLMP · SCU4','Ø 3/4″','Ø 1/2″']});
 
     eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
