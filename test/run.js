@@ -772,18 +772,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       d.dims={'stamp-1':{h:{ref:'left',off:2},v:{ref:'top',hide:true}}};
       const withUiDims=shapeFingerprint(normalizeShapeDef(d));
       const legacy=shapeNormalizeFeature({id:'old-stamp',type:'stamp',x:'4',y:'2',text:'TEMPER'});
+      const own=shapeNormalizeFeature({id:'own-stamp',type:'stamp',x:'4',y:'2',stampType:'OWN Stamp',text:'ACME & CO'});
+      const ownDef=newShapeDef('rectangle');ownDef.w='48';ownDef.h='36';ownDef.features=[own];
+      const ownResult=ShapeModule.compute(ownDef),ownDrawing=ShapeModule.productionSvg(ownResult);
       const external=newShapeDef('rectangle');external.id='stamp-dxf';external.thickness='6';external.source={kind:'dxf',fileName:'stamp.dxf',fileSize:1200,uploadedAt:'2026-09-01T12:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[48,0],[48,36],[0,36]],width16:768,height16:576}};
       const externalEmpty=shapeFingerprint(external);external.features=[shapeNormalizeFeature({id:'stamp-dxf-1',type:'stamp',x:'46',y:'2',text:'Lami Stamp'})];
       const externalResult=ShapeModule.dxfProductionResult(external),externalMoved=shapeFingerprint(external);
       external.features[0].x='60';const externalOutside=ShapeModule.dxfProductionResult(external);
       return {types:SHAPE_STAMP_TYPES.slice(),valid:r.valid,point:r.featureGeometry.stamps[0].point,text:r.featureGeometry.stamps[0].text,
         drawing:production.includes('shape-temper-stamp')&&production.includes('HS Stamp'),machine:JSON.stringify(payload).includes('HS Stamp'),
-        fingerprint:{added:emptyFingerprint!==withStamp,moved:withStamp!==movedFingerprint,dimsIgnored:withStamp===withUiDims},legacy:legacy.text,
+        fingerprint:{added:emptyFingerprint!==withStamp,moved:withStamp!==movedFingerprint,dimsIgnored:withStamp===withUiDims},legacy:{type:legacy.stampType,text:legacy.text},
+        own:{type:own.stampType,text:ownResult.featureGeometry.stamps[0].text,drawing:ownDrawing.includes('ACME &amp; CO')},
         external:{valid:externalResult.valid,text:externalResult.featureGeometry.stamps[0].text,changed:externalEmpty!==externalMoved,outside:externalOutside.valid}};
     });
     eq('штамп хранит четыре коротких типа и остаётся только на производственном чертеже', {
-      types:stampModel.types,valid:stampModel.valid,point:stampModel.point,text:stampModel.text,drawing:stampModel.drawing,machine:stampModel.machine,legacy:stampModel.legacy
-    }, {types:['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'],valid:true,point:[46,2],text:'HS Stamp',drawing:true,machine:false,legacy:'TEMPER'});
+      types:stampModel.types,valid:stampModel.valid,point:stampModel.point,text:stampModel.text,drawing:stampModel.drawing,machine:stampModel.machine,legacy:stampModel.legacy,own:stampModel.own
+    }, {types:['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'],valid:true,point:[46,2],text:'HS Stamp',drawing:true,machine:false,legacy:{type:'OWN Stamp',text:'TEMPER'},own:{type:'OWN Stamp',text:'ACME & CO',drawing:true}});
     eq('позиция штампа меняет ревизию, оформление размеров — нет; DXF проверяет контур', stampModel.fingerprint, {added:true,moved:true,dimsIgnored:true});
     eq('штамп поддерживается и на производственном чертеже внешнего DXF', stampModel.external, {valid:true,text:'Lami Stamp',changed:true,outside:false});
 
@@ -2554,16 +2558,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       addShapeFeature('stamp');
       const f=sDraft.features.find(x=>x.type==='stamp'),index=sDraft.features.indexOf(f),initial={x:f.x,y:f.y,h:shapeDimRef(sDraft,f.id,'h',''),v:shapeDimRef(sDraft,f.id,'v','')};
       const root=document.getElementById('app'),typeSelect=root.querySelector('.shape-stamp-card select'),options=[...typeSelect.options].map(o=>o.textContent.trim());
-      setShapeFeatureAndRender(index,'text','HS Stamp');shapeSetDimRef(f.id,'h','left');shapeSetStampDistance(index,'h','3 1/16');shapeSetDimRef(f.id,'v','top');shapeSetStampDistance(index,'v','1 7/8');
+      setShapeStampType(index,'HS Stamp');shapeSetDimRef(f.id,'h','left');shapeSetStampDistance(index,'h','3 1/16');shapeSetDimRef(f.id,'v','top');shapeSetStampDistance(index,'v','1 7/8');
       const r=ShapeModule.compute(sDraft),svg=shapeDrawnProductionSvg(r,false),services=shapeDerivedServices();
       const out={initial,options,stored:{x:f.x,y:f.y,text:f.text},point:r.featureGeometry.stamps[0].point,
         cardInMarks:!!document.querySelector('.shape-cut-group.marks .shape-stamp-card'),cardInCuts:!!document.querySelector('.shape-cut-group.cuts .shape-stamp-card'),
         free:(document.querySelector('.shape-service-summary strong')||{}).textContent||'',services:services.rows,
         drawing:svg.includes('shape-temper-stamp')&&svg.includes('HS Stamp')&&svg.includes('3 1/16″')&&svg.includes('1 7/8″'),
         machine:JSON.stringify(ShapeModule.machinePayload(r)).includes('HS Stamp')};
+      setShapeStampType(index,'OWN Stamp');
+      out.ownField=!!document.querySelector('.shape-stamp-card input[placeholder="Enter stamp text"]');
+      setShapeFeatureAndRender(index,'text','ACME GLASS');
+      const ownResult=ShapeModule.compute(sDraft),ownSvg=shapeDrawnProductionSvg(ownResult,false);
+      out.own={type:f.stampType,text:f.text,drawing:ownSvg.includes('ACME GLASS'),card:(document.querySelector('.shape-stamp-card b')||{}).textContent||''};
       const stampId=f.id;removeShapeFeature(index);out.deletePrunesDims=!sDraft.dims[stampId];
       sEdit=null;sDraft=null;render();return out;
-    }), {initial:{x:'46',y:'2',h:'right',v:'bottom'},options:['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'],stored:{x:'3 1/16',y:'34 1/8',text:'HS Stamp'},point:[3.0625,34.125],cardInMarks:true,cardInCuts:false,free:'FREE',services:[],drawing:true,machine:false,deletePrunesDims:true});
+    }), {initial:{x:'46',y:'2',h:'right',v:'bottom'},options:['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'],stored:{x:'3 1/16',y:'34 1/8',text:'HS Stamp'},point:[3.0625,34.125],cardInMarks:true,cardInCuts:false,free:'FREE',services:[],drawing:true,machine:false,ownField:true,own:{type:'OWN Stamp',text:'ACME GLASS',drawing:true,card:'ACME GLASS'},deletePrunesDims:true});
     eq('выбранная модель видна и после того, как её выключили или удалили из справочника', await t.p.evaluate(() => {
       function field(){const c=document.querySelector('.shape-mi-card.expanded');const sel=c.querySelector('select');
         return {selected:sel.options[sel.selectedIndex].textContent,note:c.querySelector('label small').textContent};}

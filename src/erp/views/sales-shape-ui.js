@@ -571,7 +571,7 @@ function shapeCutoutDimsSvg(T){
 }
 function shapeStampMarkerSvg(T){
   return shapeStampFeatures().map(function(row){
-    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=String(f.text||SHAPE_STAMP_TYPES[0]),w=Math.max(62,Math.min(96,label.length*6+18)),selected=sFeatureExpandedId===f.id?' selected':'';
+    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=shapeStampText(f),w=Math.max(62,Math.min(164,label.length*6+18)),selected=sFeatureExpandedId===f.id?' selected':'';
     if(!isFinite(x)||!isFinite(y))return '';
     return `<g class='shape-temper-stamp external${selected}' data-stamp-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-w/2}' y='${y-10}' width='${w}' height='20' rx='2'/><text data-raw x='${x}' y='${y+3.5}' text-anchor='middle'>${esc(label)}</text></g>`;
   }).join('');
@@ -660,7 +660,7 @@ function shapeStampCardsHTML(g){
   var stamps=shapeStampFeatures();if(!stamps.length)return '';
   return `<div class='shape-mi-list shape-stamp-list'>${stamps.map(function(row){
     var f=row.f,i=row.i,expanded=sFeatureExpandedId===f.id,pos=shapeStampPosition(f,g),summary=pos?shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance):'position unavailable';
-    return `<div class='shape-mi-card shape-stamp-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind stamp'>STAMP</span><span><b>${esc(f.text||SHAPE_STAMP_TYPES[0])}</b><small>${shapeCutFlagHTML(false)}<span class='shape-free-pill'>FREE</span><span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}<div class='shape-mi-actions'><button class='sm dl' onclick='removeShapeFeature(${i})'>Delete</button></div></div>`:''}</div>`;
+    return `<div class='shape-mi-card shape-stamp-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind stamp'>STAMP</span><span><b>${esc(shapeStampText(f))}</b><small>${shapeCutFlagHTML(false)}<span class='shape-free-pill'>FREE</span><span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}<div class='shape-mi-actions'><button class='sm dl' onclick='removeShapeFeature(${i})'>Delete</button></div></div>`:''}</div>`;
   }).join('')}</div>`;
 }
 function shapeMarksBodyHTML(){
@@ -1191,6 +1191,10 @@ function addShapeFeature(type){
 }
 function setShapeFeature(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;refreshShapeEditor();}
 function setShapeFeatureAndRender(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;render();}
+function setShapeStampType(i,v){
+  var f=sDraft.features[i];if(!f||f.type!=='stamp'||SHAPE_STAMP_TYPES.indexOf(v)<0)return;
+  f.stampType=v;f.text=v==='OWN Stamp'?'':v;render();
+}
 function removeShapeFeature(i){var f=sDraft.features[i];if(f&&sDraft.dims)delete sDraft.dims[f.id];if(f&&sFeatureExpandedId===f.id)sFeatureExpandedId=null;sDraft.features.splice(i,1);render();}
 function shapeFeatureFields(f,i,geo){
   function input(label,k){return `<label>${label}<input value='${esc(f[k])}' oninput='setShapeFeature(${i},"${k}",this.value)'></label>`;}
@@ -1207,14 +1211,14 @@ function shapeFeatureFields(f,i,geo){
     return geoFields+input('Width','width')+input('Height','height')+input('Corner radius','cornerRadius')+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='stamp'){
-    var sg=shapeManufacturingGeometry(),sp=sg?shapeStampPosition(f,sg):null,current=String(f.text||SHAPE_STAMP_TYPES[0]);
-    var legacy=SHAPE_STAMP_TYPES.indexOf(current)<0?`<option value='${esc(current)}' selected data-raw>${esc(current)} · saved value</option>`:'';
-    var options=legacy+SHAPE_STAMP_TYPES.map(function(t){return `<option value='${esc(t)}' ${current===t?'selected':''}>${esc(t)}</option>`;}).join('');
+    var sg=shapeManufacturingGeometry(),sp=sg?shapeStampPosition(f,sg):null,current=shapeStampType(f);
+    var options=SHAPE_STAMP_TYPES.map(function(t){return `<option value='${esc(t)}' ${current===t?'selected':''}>${esc(t)}</option>`;}).join('');
     var placement=sp?`<div class='shape-mi-hole-position-grid'>
       <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetDimRef("${esc(f.id)}","h",this.value)'><option value='left' ${sp.hRef==='left'?'selected':''}>Left</option><option value='right' ${sp.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(sp.hDistance))}' onchange='shapeSetStampDistance(${i},"h",this.value)'><small>from the ${sp.hRef==='right'?'right':'left'} bound · 1/16″</small></label></div>
       <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetDimRef("${esc(f.id)}","v",this.value)'><option value='bottom' ${sp.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${sp.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(sp.vDistance))}' onchange='shapeSetStampDistance(${i},"v",this.value)'><small>from the ${sp.vRef==='top'?'top':'bottom'} bound · 1/16″</small></label></div>
     </div>`:input('X from origin','x')+input('Y from origin','y');
-    return `<label>Stamp type<select onchange='setShapeFeatureAndRender(${i},"text",this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
+    var own=current==='OWN Stamp'?`<label>Custom stamp text<input maxlength='24' value='${esc(f.text)}' placeholder='Enter stamp text' oninput='setShapeFeature(${i},"text",this.value)'><small>Up to 24 characters · shown on the production drawing</small></label>`:'';
+    return `<label>Stamp type<select onchange='setShapeStampType(${i},this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+own+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
   if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn16(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
@@ -1226,7 +1230,7 @@ function shapeFeatureSummary(f,geo){
   if(f.type==='cutout')return f.width+' × '+f.height+' · X '+f.x+' · Y '+f.y;
   if(f.type==='radius')return (f.vertexId||'—')+' · R '+f.radius;
   if(f.type==='hardware')return (f.name||'Hardware')+' · '+(f.edgeId||'—')+' @ '+f.distance;
-  if(f.type==='stamp')return f.text||'Stamp';return '';
+  if(f.type==='stamp')return shapeStampText(f);return '';
 }
 /* Геометрия, которая ДЕЙСТВИТЕЛЬНО меняет контур реза: внутренний вырез и
    радиусный угол. Всё остальное в этой категории — метки на чертёж. */

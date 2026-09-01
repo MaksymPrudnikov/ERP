@@ -66,7 +66,7 @@ function shapeFeatureGeometry(def,geo){
       var a=shapePointAlongPhysicalEdge(geo,f.edgeId,inch(f.distance));if(!a){var bad={id:f.id,type:'hardware',invalid:true,source:f};out.hardware.push(bad);out.all.push(bad);return;}
       var pg=shapeHardwarePolygon(a,f,orientation),hw={id:f.id,type:'hardware',name:f.name,edgeId:f.edgeId,anchor:a,center:pg.center,points:pg.points,holeDia:inch(f.holeDia),source:f};out.hardware.push(hw);out.all.push(hw);return;
     }
-    if(f.type==='stamp'){var s={id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:f.text||SHAPE_STAMP_TYPES[0],source:f};out.stamps.push(s);out.all.push(s);}
+    if(f.type==='stamp'){var s={id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};out.stamps.push(s);out.all.push(s);}
   });
   return out;
 }
