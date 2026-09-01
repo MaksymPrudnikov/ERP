@@ -60,10 +60,13 @@ function hwShort(v,fallback){
 /* Заводские виды. `system:true` означает «строка пришла из кода». Признак
    информационный: он не даёт прав ни коду, ни владельцу — заводскую строку
    можно переименовать и удалить наравне с любой другой. */
+/* Имена заводских видов английские в обеих колонках: в цеху фурнитуру называют
+   по-английски (Vienna 180, PH20, SCU4), и русский ярлык рядом с ними читался бы
+   как другая сущность. Владелец может переименовать вид в справочнике. */
 DEFAULT.hardwareKind=[
- {code:'hinge',name:'Петля',nameEn:'Hinge',short:'HNG',place:'edge',active:true,system:true,note:''},
- {code:'clamp',name:'Зажим',nameEn:'Clamp',short:'CLMP',place:'edge',active:true,system:true,note:''},
- {code:'patch',name:'Патч',nameEn:'Patch',short:'PATCH',place:'edge',active:true,system:true,note:''}
+ {code:'hinge',name:'Hinge',nameEn:'Hinge',short:'HNG',place:'edge',active:true,system:true,note:''},
+ {code:'clamp',name:'Clamp',nameEn:'Clamp',short:'CLMP',place:'edge',active:true,system:true,note:''},
+ {code:'patch',name:'Patch',nameEn:'Patch',short:'PATCH',place:'edge',active:true,system:true,note:''}
 ];
 /* Модели из списка владельца (31 августа 2026). Имена записаны ровно так, как
    он их прислал: по этому имени человек в цеху находит свой шаблон, и

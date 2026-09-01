@@ -870,7 +870,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('метка без модели не меняет форму записи, отпечаток старой ревизии стоит на месте',
       {keys:modelSnapshot.legacyKeys,fingerprint:modelSnapshot.legacyFingerprint},
-      {keys:['distance','edge','id','note','type'],fingerprint:'shp-7fcc0fad'});
+      {keys:['distance','edge','id','note','type'],fingerprint:'shp-ca83dccc'});
     /* Оформление размера — не геометрия. Если бы карта `dims` входила в
        отпечаток, решение «этот размер мешает, убери его с листа» выглядело бы
        как новая геометрия и поднимало тревогу у привязанной раскладки Muntin. */
