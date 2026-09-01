@@ -179,6 +179,10 @@ function shapeValidateDxfProduction(def,edges){
     var e=edges.find(function(x){return x.id===item.edgeId;}),distance=+item.distance||0;
     if(distance<0||distance>e.length+1e-8)errors.push(shapeMiOperationName(item.type)+' '+item.id+': distance must stay on '+item.edgeId+'.');
   });
+  (def.features||[]).filter(function(f){return f.type==='stamp';}).forEach(function(stamp){
+    var point=[inch(stamp.x),inch(stamp.y)];
+    if(!isFinite(point[0])||!isFinite(point[1])||!fabPointInPoly(point,points))errors.push('Stamp '+stamp.id+': annotation must stay inside the finished DXF contour.');
+  });
   return {errors:errors,warns:warns};
 }
 
@@ -213,7 +217,10 @@ const __shapeDxfFingerprint=shapeFingerprint;
 shapeFingerprint=function(def){
   def=normalizeShapeDef(def||{});
   if(!shapeIsDxfSource(def))return __shapeDxfFingerprint(def);
-  return shapeStableHash('shp-',{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview},thickness:def.thickness,edgeOps:def.edgeOps,manufacturingItems:def.manufacturingItems||[]});
+  var payload={source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview},thickness:def.thickness,edgeOps:def.edgeOps,manufacturingItems:def.manufacturingItems||[]};
+  var stamps=(def.features||[]).filter(function(f){return f.type==='stamp';});
+  if(stamps.length)payload.features=stamps;
+  return shapeStableHash('shp-',payload);
 };
 
 function shapeValidateProductionEdgework(def){
@@ -234,7 +241,8 @@ function shapeDxfProductionResult(source){
   if(sv.errors.length)return {valid:false,sourceValid:false,reason:sv.errors[0],errors:sv.errors,warns:sv.warns,definition:def,fingerprint:fingerprint};
   var cutting=shapeDxfCuttingPlan(def),points=preview.points||[],width=preview.width16/16,height=preview.height16/16,area=Math.abs(fabSignedArea(points)),edges=shapeDxfPhysicalEdges(def),requirements=shapeDxfRequirements(def);
   if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting};
-  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],radii:[],all:[]},requirements:requirements,cutting:cutting};
+  var stamps=(def.features||[]).filter(function(f){return f.type==='stamp';}).map(function(f){return {id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:f.text||SHAPE_STAMP_TYPES[0],source:f};});
+  return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],stamps:stamps,radii:[],all:stamps.slice()},requirements:requirements,cutting:cutting};
 }
 
 const __shapeDxfCompute=ShapeModule.compute;

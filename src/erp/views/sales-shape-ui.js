@@ -83,7 +83,7 @@ function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
    для старых вызовов и на разметку больше не влияет. */
 function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features'||section==='manufacturing'||section==='cutout')sManufacturingOpen=!sManufacturingOpen;render();}
-function toggleShapeFeatureCard(id){sFeatureExpandedId=sFeatureExpandedId===id?null:id;render();}
+function toggleShapeFeatureCard(id){sManufacturingSelected=null;sFeatureExpandedId=sFeatureExpandedId===id?null:id;render();}
 
 function setShapeType(type){
   type=shapeType(type);if(type===sDraft.type)return;
@@ -182,6 +182,44 @@ function shapeCutoutCenterPosition(f,g){
   var left=shapeSnapManufacturing16(cx-g.b.minX),right=shapeSnapManufacturing16(g.b.maxX-cx),
       bottom=shapeSnapManufacturing16(cy-g.b.minY),top=shapeSnapManufacturing16(g.b.maxY-cy);
   return {hRef:hRef,vRef:vRef,hDistance:hRef==='right'?right:left,vDistance:vRef==='top'?top:bottom,center:[cx,cy]};
+}
+/* Stamp position is stored as one canonical point. Left/Right and Bottom/Top
+   only choose which finished bound the operator measures from, exactly like a
+   cutout center. This keeps reference changes out of production geometry. */
+function shapeStampFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type==='stamp';});}
+function shapeStampPosition(f,g){
+  if(!f||!g||!g.b)return null;
+  var x=inch(f.x),y=inch(f.y);if(!isFinite(x)||!isFinite(y))return null;
+  var hRef=shapeDimRef(sDraft,f.id,'h','')||((x-g.b.minX)<=(g.b.maxX-x)?'left':'right');
+  var vRef=shapeDimRef(sDraft,f.id,'v','')||((y-g.b.minY)<=(g.b.maxY-y)?'bottom':'top');
+  if(hRef!=='right')hRef='left';if(vRef!=='top')vRef='bottom';
+  var left=shapeSnapManufacturing16(x-g.b.minX),right=shapeSnapManufacturing16(g.b.maxX-x),
+      bottom=shapeSnapManufacturing16(y-g.b.minY),top=shapeSnapManufacturing16(g.b.maxY-y);
+  return {hRef:hRef,vRef:vRef,hDistance:hRef==='right'?right:left,vDistance:vRef==='top'?top:bottom,point:[x,y]};
+}
+function shapeDefaultStampPoint(g){
+  if(!g||!g.b||!(g.P||[]).length)return [3,1];
+  var b=g.b,w=Math.max(0,b.maxX-b.minX),h=Math.max(0,b.maxY-b.minY),dx=Math.min(2,w/2),dy=Math.min(2,h/2);
+  var candidates=[[b.maxX-dx,b.minY+dy],[b.maxX-dx,b.maxY-dy],[b.minX+dx,b.minY+dy],[b.minX+dx,b.maxY-dy],[(b.minX+b.maxX)/2,(b.minY+b.maxY)/2]];
+  for(var i=0;i<candidates.length;i++){var p=candidates[i].map(shapeSnapManufacturing16);if(fabPointInPoly(p,g.P))return p;}
+  /* A concave contour can have its bounding-box center in empty space. Search
+     from the preferred bottom-right corner inward before falling back. */
+  for(var gy=1;gy<16;gy++)for(var gx=15;gx>0;gx--){
+    var q=[shapeSnapManufacturing16(b.minX+w*gx/16),shapeSnapManufacturing16(b.minY+h*gy/16)];if(fabPointInPoly(q,g.P))return q;
+  }
+  return candidates[4].map(shapeSnapManufacturing16);
+}
+function shapeSetStampDistance(index,axis,value){
+  var f=sDraft&&sDraft.features&&sDraft.features[index],g=shapeManufacturingGeometry(),parsed=fabParseDimStrict(value);if(!f||f.type!=='stamp')return;
+  if(!g||!parsed.ok){alert('Enter a valid stamp position in inches.');render();return;}
+  var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0){alert('Stamp position must be zero or greater.');render();return;}
+  var pos=shapeStampPosition(f,g),x=inch(f.x),y=inch(f.y);if(!pos)return;
+  if(axis==='h')x=pos.hRef==='right'?g.b.maxX-d:g.b.minX+d;
+  else if(axis==='v')y=pos.vRef==='top'?g.b.maxY-d:g.b.minY+d;
+  else return;
+  x=shapeSnapManufacturing16(x);y=shapeSnapManufacturing16(y);
+  if(!fabPointInPoly([x,y],g.P)){alert('The stamp center must stay inside the finished glass contour.');render();return;}
+  f.x=shapeFrac16(x);f.y=shapeFrac16(y);render();
 }
 function shapeDimsMap(){if(!sDraft.dims||typeof sDraft.dims!=='object')sDraft.dims={};return sDraft.dims;}
 function shapeDimEntry(id,axis){var m=shapeDimsMap(),e=m[id]||(m[id]={});return e[axis]||(e[axis]={});}
@@ -531,6 +569,27 @@ function shapeCutoutDimsSvg(T){
       `<circle class='shape-cut-center' cx='${x}' cy='${y}' r='3'/></g>`;
   }).join('');
 }
+function shapeStampMarkerSvg(T){
+  return shapeStampFeatures().map(function(row){
+    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=String(f.text||SHAPE_STAMP_TYPES[0]),w=Math.max(62,Math.min(96,label.length*6+18)),selected=sFeatureExpandedId===f.id?' selected':'';
+    if(!isFinite(x)||!isFinite(y))return '';
+    return `<g class='shape-temper-stamp external${selected}' data-stamp-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-w/2}' y='${y-10}' width='${w}' height='20' rx='2'/><text data-raw x='${x}' y='${y+3.5}' text-anchor='middle'>${esc(label)}</text></g>`;
+  }).join('');
+}
+function shapeStampDimsSvg(T){
+  var stamps=shapeStampFeatures();if(!stamps.length)return '';
+  return stamps.map(function(row,i){
+    var f=row.f,pos=shapeStampPosition(f,{P:T.P,b:T.b});if(!pos)return '';
+    var x=T.X(pos.point[0]),y=T.Y(pos.point[1]),chosen=sFeatureExpandedId===f.id,lane=i%4,sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
+    var hRefX=T.X(sideRight?T.b.maxX:T.b.minX),vRefY=T.Y(sideTop?T.b.maxY:T.b.minY);
+    var hDimY=sideTop?y+(32+lane*24):y-(32+lane*24),vDimX=sideRight?T.X(T.b.maxX)+(92+lane*24):T.X(T.b.minX)-(92+lane*24);
+    return `<g class='shape-stamp-dims${chosen?' selected':''}'>`+
+      shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T})+
+      shapeDimChainSvg({id:f.id,axis:'v',vertical:true,a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T})+
+      `</g>`;
+  }).join('');
+}
+function shapeStampOverlaySvg(T){var marker=shapeStampMarkerSvg(T),dims=shapeStampDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 function shapeServiceEntries(){return shapeManufacturingItems().map(function(item){return {id:item.id,type:item.type,diameter:item.diameter||''};});}
 function shapeDerivedServices(){
@@ -549,8 +608,9 @@ function shapeDerivedServices(){
   return {rows:Object.keys(groups).map(function(k){return groups[k];}),invalid:invalid};
 }
 function shapeManufacturingServicesHTML(){
-  var svc=shapeDerivedServices();if(!svc.rows.length)return `<div class='shape-service-summary empty-service'><b>Services</b><span>Add an item in Cutout — quantity and services appear here automatically.</span></div>`;
-  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · derived from the drawing</b><small>Pricing happens in the Sales Order. Geometry and quantity here are not monetary fields.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div></div>`;
+  var svc=shapeDerivedServices(),stamps=shapeStampFeatures().length;
+  if(!svc.rows.length)return `<div class='shape-service-summary empty-service${stamps?' has-free-stamp':''}'><b>Services</b><span>${stamps?(stamps+(stamps===1?' stamp is':' stamps are')+' FREE drawing annotations. No charge is added.'):'Add an item in Cutout — quantity and services appear here automatically.'}</span>${stamps?`<strong>FREE</strong>`:''}</div>`;
+  return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · derived from the drawing</b><small>Pricing happens in the Sales Order. Stamps are always free.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div>${stamps?`<div class='shape-service-free-row'><span>Stamp × ${stamps}</span><b>FREE</b></div>`:''}</div>`;
 }
 /* ---------- Метки: Hole и фурнитура ----------
    Кнопки видов приходят из справочника фурнитуры, а не из кода: владелец
@@ -559,7 +619,7 @@ function shapeMarksToolbarHTML(hint){
   var kinds=hardwareKinds();
   return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole")'>+ Hole</button>${kinds.map(function(k){
     return `<button class='sm' onclick='shapeStartManufacturingPlacement("${esc(k.code)}")'>+ ${raw(hardwareKindName(k.code))}</button>`;
-  }).join('')}<span>${hint}</span></div>`;
+  }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><span>${hint}</span></div>`;
 }
 /* Выбор модели. Владелец: «у него есть заготовленные шаблоны петель, он видит
    например Vienna 180 и использует тот шаблон» — значит цеху нужно название, а
@@ -596,9 +656,16 @@ function shapeMarkTitleHTML(item){
   var model=shapeManufacturingModelName(item);
   return `${raw(shapeManufacturingItemTitle(item.type))}${model?' · '+raw(model):''}`;
 }
+function shapeStampCardsHTML(g){
+  var stamps=shapeStampFeatures();if(!stamps.length)return '';
+  return `<div class='shape-mi-list shape-stamp-list'>${stamps.map(function(row){
+    var f=row.f,i=row.i,expanded=sFeatureExpandedId===f.id,pos=shapeStampPosition(f,g),summary=pos?shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance):'position unavailable';
+    return `<div class='shape-mi-card shape-stamp-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind stamp'>STAMP</span><span><b>${esc(f.text||SHAPE_STAMP_TYPES[0])}</b><small>${shapeCutFlagHTML(false)}<span class='shape-free-pill'>FREE</span><span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}<div class='shape-mi-actions'><button class='sm dl' onclick='removeShapeFeature(${i})'>Delete</button></div></div>`:''}</div>`;
+  }).join('')}</div>`;
+}
 function shapeMarksBodyHTML(){
   var items=shapeManufacturingItems(),placing=sManufacturingPlace;
-  var body=shapeMarksToolbarHTML('Hole — two references to its center, 1/16″ grid. Hardware sits on an edge: the edge plus the distance to its center.');
+  var body=shapeMarksToolbarHTML('Hole and Stamp use Left/Right plus Bottom/Top references on a 1/16″ grid. Hardware binds to an edge.');
   if(placing)body+=`<div class='shape-mi-place'><b><span>${placing.moveId?'Move':'Add'}</span>: ${raw(shapeManufacturingItemTitle(placing.type))}</b><span>${placing.type==='hole'?'Click inside the glass for a starting point, then set Left/Right and Top/Bottom exactly.':'Click near the required edge; the item binds to Left / Right / Top / Bottom.'}</span><button class='sm' onclick='shapeCancelManufacturingPlacement()'>Cancel</button></div>`;
   var g=shapeManufacturingGeometry(),defs=shapeManufacturingEdgeDefs(g);
   body+=`<div class='shape-mi-list'>${items.length?items.map(function(item,i){
@@ -625,14 +692,15 @@ function shapeMarksBodyHTML(){
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Dimension on the drawing'}]);
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;
-  }).join(''):'<div class="empty compact">No items yet</div>'}</div>`;
+  }).join(''):(shapeStampFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
+  body+=shapeStampCardsHTML(g);
   return body;
 }
 function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
-  var widthLabel=dimIn16(source.preview.width16/16),heightLabel=dimIn16(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?shapeManufacturingMarkersSvg(source,T):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
+  var widthLabel=dimIn16(source.preview.width16/16),heightLabel=dimIn16(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeStampOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='4' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
     <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
@@ -653,8 +721,8 @@ function shapeDrawnProductionSvg(result,interactive){
 function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
-  var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T);
-  var extra=marks+(cuts?(marks?'':shapeDimArrowDefs())+cuts:'');
+  var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T),stamps=shapeStampDimsSvg(T),dims=cuts+stamps;
+  var extra=marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
   if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" onclick="shapePlaceManufacturingFromEvent(event,this)" ');
   return svg;
@@ -1113,10 +1181,17 @@ function shapeEdgeworkEditor(){
   }).join('')}</div></div>`:''}</div>`;
 }
 
-function addShapeFeature(type){var geo=shapeDraftGeometry();sManufacturingOpen=true;sFeatureExpandedId=null;sDraft.features.push(newShapeFeature(type,geo));render();}
+function addShapeFeature(type){
+  var geo=shapeDraftGeometry(),f=newShapeFeature(type,geo);sManufacturingOpen=true;sManufacturingSelected=null;
+  if(type==='stamp'){
+    var point=shapeDefaultStampPoint(shapeManufacturingGeometry());f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
+    shapeDimEntry(f.id,'h').ref='right';shapeDimEntry(f.id,'v').ref='bottom';sFeatureExpandedId=f.id;
+  }else sFeatureExpandedId=null;
+  sDraft.features.push(f);render();
+}
 function setShapeFeature(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;refreshShapeEditor();}
 function setShapeFeatureAndRender(i,k,v){if(sDraft.features[i])sDraft.features[i][k]=v;render();}
-function removeShapeFeature(i){sDraft.features.splice(i,1);render();}
+function removeShapeFeature(i){var f=sDraft.features[i];if(f&&sDraft.dims)delete sDraft.dims[f.id];if(f&&sFeatureExpandedId===f.id)sFeatureExpandedId=null;sDraft.features.splice(i,1);render();}
 function shapeFeatureFields(f,i,geo){
   function input(label,k){return `<label>${label}<input value='${esc(f[k])}' oninput='setShapeFeature(${i},"${k}",this.value)'></label>`;}
   if(f.type==='hole')return input('Diameter','diameter')+input('X from origin','x')+input('Y from origin','y')+input('Min edge clearance','minEdge');
@@ -1131,7 +1206,16 @@ function shapeFeatureFields(f,i,geo){
     </div>`:input('X from origin','x')+input('Y from origin','y');
     return geoFields+input('Width','width')+input('Height','height')+input('Corner radius','cornerRadius')+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
-  if(f.type==='stamp')return input('X from origin','x')+input('Y from origin','y')+input('Stamp text','text');
+  if(f.type==='stamp'){
+    var sg=shapeManufacturingGeometry(),sp=sg?shapeStampPosition(f,sg):null,current=String(f.text||SHAPE_STAMP_TYPES[0]);
+    var legacy=SHAPE_STAMP_TYPES.indexOf(current)<0?`<option value='${esc(current)}' selected data-raw>${esc(current)} · saved value</option>`:'';
+    var options=legacy+SHAPE_STAMP_TYPES.map(function(t){return `<option value='${esc(t)}' ${current===t?'selected':''}>${esc(t)}</option>`;}).join('');
+    var placement=sp?`<div class='shape-mi-hole-position-grid'>
+      <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetDimRef("${esc(f.id)}","h",this.value)'><option value='left' ${sp.hRef==='left'?'selected':''}>Left</option><option value='right' ${sp.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(sp.hDistance))}' onchange='shapeSetStampDistance(${i},"h",this.value)'><small>from the ${sp.hRef==='right'?'right':'left'} bound · 1/16″</small></label></div>
+      <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetDimRef("${esc(f.id)}","v",this.value)'><option value='bottom' ${sp.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${sp.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(sp.vDistance))}' onchange='shapeSetStampDistance(${i},"v",this.value)'><small>from the ${sp.vRef==='top'?'top':'bottom'} bound · 1/16″</small></label></div>
+    </div>`:input('X from origin','x')+input('Y from origin','y');
+    return `<label>Stamp type<select onchange='setShapeFeatureAndRender(${i},"text",this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
+  }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
   if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn16(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
   return '';
@@ -1147,9 +1231,10 @@ function shapeFeatureSummary(f,geo){
 /* Геометрия, которая ДЕЙСТВИТЕЛЬНО меняет контур реза: внутренний вырез и
    радиусный угол. Всё остальное в этой категории — метки на чертёж. */
 function shapeGeometryBodyHTML(geo){
-  var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Radius corner',hardware:'Legacy hardware prep',stamp:'Legacy stamp'};
-  var count=sDraft.features.length,legacy=sDraft.features.filter(function(f){return f.type==='hole'||f.type==='hardware'||f.type==='stamp';}).length;
-  return `<div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Internal cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius corner</button>`:''}<span>These items go into the cutting file and to the machine.</span></div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy cutting items: ${legacy}</b><span>These Hole / Hardware / Stamp items were created by the legacy logic and really modify the Cutting Shape. Delete them unless that cutting geometry is intentional.</span></div>`:''}<div class='shape-feature-list'>${count?sDraft.features.map(function(f,i){
+  var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Radius corner',hardware:'Legacy hardware prep'};
+  var rows=sDraft.features.map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type!=='stamp';}),legacy=rows.filter(function(x){return x.f.type==='hole'||x.f.type==='hardware';}).length;
+  return `<div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Internal cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius corner</button>`:''}<span>These items are fabricated from the finished drawing after edgework.</span></div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy geometry items: ${legacy}</b><span>These older Hole / Hardware features are geometry-bound. Delete them unless that finished geometry is intentional.</span></div>`:''}<div class='shape-feature-list'>${rows.length?rows.map(function(row){
+    var f=row.f,i=row.i;
     var expanded=sFeatureExpandedId===f.id;
     return `<div class='shape-feature-card collapsed-card${expanded?' expanded':''}'><div class='shape-feature-card-head'><button type='button' class='shape-feature-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span><b>${esc(titles[f.type]||f.type)}</b><small>${shapeCutFlagHTML(true)}<span data-raw>${esc(shapeFeatureSummary(f,geo))}</span></small></span><i>${expanded?'−':'+'}</i></button><button class='sm dl' onclick='removeShapeFeature(${i})'>×</button></div>${expanded?`<div class='shape-feature-fields'>${shapeFeatureFields(f,i,geo)}</div>`:''}</div>`;
   }).join(''):'<div class="empty compact">No contour changes</div>'}</div>`;
@@ -1170,9 +1255,9 @@ function shapeGeometryBodyHTML(geo){
    контур принадлежит файлу из Fusion 360, — поэтому вторая группа там просто
    не показывается; список меток для DXF подменяет shape-production-ui. */
 function shapeCutoutEditor(geo){
-  var external=shapeIsDxfSource(sDraft),marks=shapeManufacturingItems().length,cuts=external?0:(sDraft.features||[]).length,total=marks+cuts;
-  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Cutout</b><small>Hole · hardware · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
-    <div class='shape-cut-group marks'><div class='shape-cut-group-head'><b>Does not change the cut</b><small>drawing and price · never enters the cutting file</small></div>${shapeMarksBodyHTML()}</div>
+  var external=shapeIsDxfSource(sDraft),stamps=shapeStampFeatures().length,marks=shapeManufacturingItems().length+stamps,cuts=external?0:(sDraft.features||[]).filter(function(f){return f.type!=='stamp';}).length,total=marks+cuts;
+  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Cutout</b><small>Hole · hardware · stamp · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
+    <div class='shape-cut-group marks'><div class='shape-cut-group-head'><b>Does not change the cut</b><small>drawing marks · paid services shown below · never enters the cutting file</small></div>${shapeMarksBodyHTML()}</div>
     ${external?'':`<div class='shape-cut-group cuts'><div class='shape-cut-group-head'><b>Changes the cutting shape</b><small>goes into cutting and to the machine</small></div>${shapeGeometryBodyHTML(geo)}</div>`}
     ${shapeManufacturingServicesHTML()}</div>`:''}</div>`;
 }

@@ -301,3 +301,23 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-mi-marker.hole>circle{stroke-width:2.2}
 /* Кнопки панели размера — интерфейс, а не чертёж: их не увеличиваем. */
 .shape-dim-btn text{font:600 10px system-ui,-apple-system,'Segoe UI',sans-serif}
+
+/* Stamp is a free drawing annotation stored with the Shape revision. */
+.shape-mi-kind.stamp{background:#fff7e8;color:#8a4b08;border:1px solid #efcf9d}
+.shape-stamp-list{margin-top:6px}
+.shape-stamp-card{border-color:#ead7b6}
+.shape-stamp-card.selected{border-color:#d9a44f;background:#fffaf1}
+.shape-stamp-card-body{grid-template-columns:1fr auto}
+.shape-stamp-card-body>.shape-mi-hole-position-grid,.shape-stamp-card-body>.shape-dim-controls{grid-column:1/-1}
+.shape-stamp-card-body>.shape-mi-actions{align-self:end}
+.shape-free-pill{display:inline-block;margin-right:6px;padding:1px 5px;border:1px solid #b7ddc6;border-radius:5px;background:#eaf7ef;color:#186c3c;font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.03em}
+.shape-stamp-free-note{display:block;margin-top:4px;color:#186c3c;font-size:8px;font-weight:700}
+.shape-service-summary.has-free-stamp{position:relative;padding-right:70px}
+.shape-service-summary.has-free-stamp strong{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#186c3c;font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace}
+.shape-service-free-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-top:1px solid var(--line2);background:#f3faf6;color:#186c3c;font-size:9.5px}
+.shape-temper-stamp.external{cursor:pointer}
+.shape-temper-stamp.external rect{fill:#fff;stroke:#101828;stroke-width:1.4}
+.shape-temper-stamp.external text{fill:#101828;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace}
+.shape-temper-stamp.external.selected rect{stroke:#d97706;stroke-width:2.4}
+.shape-stamp-dims.selected .shape-mi-prod-dims line:not(.shape-dim-hit){stroke:#7f56d9}
+@media(max-width:720px){.shape-stamp-card-body{grid-template-columns:1fr}}

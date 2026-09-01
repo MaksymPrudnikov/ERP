@@ -5,6 +5,10 @@
 
 var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
 var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp'];
+/* A stamp is a free annotation on the production drawing. The selected text is
+   intentionally short: it must remain readable inside the glass contour. Keep
+   accepting older/custom text so saved revisions never lose their marking. */
+var SHAPE_STAMP_TYPES=['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'];
 function shapeNewEntityId(prefix){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return prefix+crypto.randomUUID();
   return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
@@ -28,7 +32,7 @@ function shapeNormalizeFeature(f){
   if(type==='cutout')Object.assign(out,{width:shapeTextValue(f.width,'4'),height:shapeTextValue(f.height,'4'),x:shapeTextValue(f.x,'8'),y:shapeTextValue(f.y,'8'),cornerRadius:shapeTextValue(f.cornerRadius,'0')});
   if(type==='radius')Object.assign(out,{vertexId:shapeTextValue(f.vertexId,''),radius:shapeTextValue(f.radius,'1/2')});
   if(type==='hardware')Object.assign(out,{name:shapeTextValue(f.name,'Custom Hardware'),edgeId:shapeTextValue(f.edgeId,''),distance:shapeTextValue(f.distance,'12'),inset:shapeTextValue(f.inset,'0'),prepWidth:shapeTextValue(f.prepWidth,'2'),prepHeight:shapeTextValue(f.prepHeight,'2'),holeDia:shapeTextValue(f.holeDia,'1/2')});
-  if(type==='stamp')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),text:shapeTextValue(f.text,'TEMPER')});
+  if(type==='stamp')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),text:shapeTextValue(f.text,SHAPE_STAMP_TYPES[0])});
   return out;
 }
 function shapeNormalizePolygon(raw){
