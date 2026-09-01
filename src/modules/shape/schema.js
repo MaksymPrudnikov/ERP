@@ -53,9 +53,20 @@ function shapeIsDxfSource(def){return !!(def&&def.source&&def.source.kind==='dxf
 /* Manufacturing marks are annotations tied to a Shape revision.
    They do NOT modify cutting geometry or the original DXF. Services and pricing
    are derived from these marks elsewhere; the Shape stores only what/where. */
-const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','hole'];
+/* Вид метки — ОТКРЫТЫЙ список. Справочник фурнитуры живёт в базе, а не
+   в коде: владелец добавляет пивоты и прочее сам, без правки кода.
+   Закрытый список здесь означал бы тихую потерю данных: старая нормализация
+   отдавала 'hole' на любой незнакомый тип, и патч на кромке при первой же
+   загрузке становился бы отверстием в нулевой точке. Здесь остались заводские
+   виды только как заготовка для пустого справочника; проверка идёт по формату кода. */
+const SHAPE_MANUFACTURING_ITEM_TYPES=['clamp','hinge','patch','hole'];
+const SHAPE_MI_TYPE_RE=/^[a-z][a-z0-9_-]{0,23}$/;
+function shapeManufacturingItemType(v){var t=shapeTextValue(v,'').trim().toLowerCase();return SHAPE_MI_TYPE_RE.test(t)?t:'hole';}
+/* Отверстие задаётся точкой внутри стекла, вся остальная фурнитура —
+   кромкой и расстоянием до её центра. Правило одно — и место у него одно. */
+function shapeMiIsEdgeBound(item){return !!item&&shapeManufacturingItemType(item.type)!=='hole';}
 function shapeNormalizeManufacturingItem(raw){
-  raw=shapePlainObject(raw);var type=SHAPE_MANUFACTURING_ITEM_TYPES.indexOf(raw.type)>=0?raw.type:'hole';
+  raw=shapePlainObject(raw);var type=shapeManufacturingItemType(raw.type);
   var out={id:shapeTextValue(raw.id,shapeNewEntityId('mi-')),type:type,note:shapeTextValue(raw.note,'')};
   if(type==='hole'){
     var x=shapeDxfCoord(raw.x),y=shapeDxfCoord(raw.y);if(!isFinite(x))x=0;if(!isFinite(y))y=0;
@@ -64,9 +75,60 @@ function shapeNormalizeManufacturingItem(raw){
   }else{
     var edges=['left','right','bottom','top'],edge=edges.indexOf(raw.edge)>=0?raw.edge:'left',distance=shapeDxfCoord(raw.distance);
     if(!isFinite(distance)||distance<0)distance=0;out.edge=edge;out.distance=Math.round(distance*16)/16;
+    /* Модель фурнитуры: id справочника и ИМЯ снимком. Имя не украшение —
+       по нему человек в цеху находит свой шаблон, а справочник могли
+       переименовать уже после того, как заказ приняли. Пустой id при
+       заполненном имени = «своя модель», вписанная руками.
+       Оба поля пишутся ТОЛЬКО когда заполнены: отпечаток ревизии считается
+       по JSON меток, и пустые ключи сдвинули бы его у всех старых фигур —
+       привязанная раскладка Muntin решила бы, что геометрия изменилась. */
+    var modelId=shapeTextValue(raw.modelId,'').trim().slice(0,64),model=shapeTextValue(raw.model,'').trim().slice(0,60);
+    if(modelId)out.modelId=modelId;
+    if(model)out.model=model;
   }
   return out;
 }
+/* ---------- Оформление размерных цепочек ----------
+   Как размер ПОКАЗАН на чертеже: от какого края меряем, отодвинут ли он от
+   детали, показан ли вообще. Это не геометрия и не производственный факт,
+   поэтому оно живёт отдельной картой `dims` на уровне фигуры, а не внутри
+   элемента, и НЕ входит в отпечаток ревизии (см. shapeFingerprint): решение
+   «этот размер мешает, убери его с листа» не должно выглядеть как новая
+   геометрия и поднимать тревогу у привязанной раскладки Muntin.
+
+   Ключи осей: `h` — горизонтальная цепочка, `v` — вертикальная, `e` — цепочка
+   вдоль кромки (у фурнитуры она одна, и её направление зависит от выбранной
+   кромки, поэтому осью h/v её называть нельзя).
+
+   `ref` — от какого конца меряем. У отверстия эту роль играют его собственные
+   `hRef`/`vRef`: они там были с самого начала и переносить их сюда значило бы
+   тронуть отпечатки всех сохранённых фигур. */
+const SHAPE_DIM_AXES=['h','v','e'];
+const SHAPE_DIM_OFF_MIN=-4,SHAPE_DIM_OFF_MAX=12;
+function shapeNormalizeDims(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
+    var src=shapePlainObject(raw[id]),entry={};
+    SHAPE_DIM_AXES.forEach(function(axis){
+      var a=shapePlainObject(src[axis]),rec={};
+      if(a.hide===true)rec.hide=true;
+      var off=Math.round(+a.off||0);
+      if(off)rec.off=Math.max(SHAPE_DIM_OFF_MIN,Math.min(SHAPE_DIM_OFF_MAX,off));
+      var ref=shapeTextValue(a.ref,'').trim();
+      if(ref)rec.ref=ref.slice(0,8);
+      if(Object.keys(rec).length)entry[axis]=rec;
+    });
+    if(Object.keys(entry).length)out[String(id)]=entry;
+  });
+  return out;
+}
+function shapeDimRec(def,id,axis){
+  var all=(def&&def.dims)||{},entry=all[String(id)]||{};
+  return entry[axis]||{};
+}
+function shapeDimHidden(def,id,axis){return shapeDimRec(def,id,axis).hide===true;}
+function shapeDimOffset(def,id,axis){return Math.round(+shapeDimRec(def,id,axis).off||0);}
+function shapeDimRef(def,id,axis,fallback){var r=shapeDimRec(def,id,axis).ref;return r||fallback||'';}
 function shapeNormalizeManufacturingItems(raw){
   return (Array.isArray(raw)?raw:[]).map(shapeNormalizeManufacturingItem).slice(0,200);
 }
@@ -175,6 +237,8 @@ function normalizeShapeDef(s){
        второе меньше на отступ — поэтому у лайта есть свой inset по кромкам и
        своя обработка. Пусто = лайт повторяет форму строки. */
     lites:shapeNormalizeLiteSpecs(s.lites),
+    /* Оформление размеров на чертеже. В отпечаток ревизии не входит. */
+    dims:shapeNormalizeDims(s.dims),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'

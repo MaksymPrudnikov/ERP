@@ -619,12 +619,34 @@ function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
 function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
+/* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
+   заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
+   своя копия этого разбора. Копия и есть болезнь: добавленный владельцем вид
+   фурнитуры попадал бы в счёт только в одной из веток.
+
+   Виды перебираются ОБЩИМ правилом, а не перечислением clamp/hinge: справочник
+   видов открытый. Ставки в прайсе у нового вида нет — строка встанет с `Rate
+   required`, и это правильный ответ. Молчаливый ноль означал бы, что работу
+   сделали и не выставили.
+
+   Имя начисления английское и от языка интерфейса не зависит: оно уходит
+   снимком в заказ и стоит в прайсе владельца (HNGS, CLMP). Модель
+   («Vienna 180») в счёт не идёт — прайс один на вид, а не на модель. */
+function salesManufacturingChargeRows(items,ctx){
+ const rows=[],groups=Object.create(null),order=[];
+ (Array.isArray(items)?items:[]).forEach(function(item){
+  if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!groups[key]){groups[key]={qty:0,holeBand:hb};order.push(key);}groups[key].qty++;return;}
+  const key=item.type;if(!groups[key]){groups[key]={qty:0,kind:item.type};order.push(key);}groups[key].qty++;
+ });
+ order.forEach(function(k){const g=groups[k];
+  if(g.kind)rows.push(salesChargeRow('MI:'+k+':'+ctx.band,shapeMiOperationName(g.kind),g.qty,'pc',salesCatalogRate(k,ctx),'Manufacturing item'));
+  else rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(g.holeBand?g.holeBand.label:'—'),g.qty,'pc',g.holeBand?salesCatalogRate('hole',ctx,g.holeBand.key):null,'Manufacturing item'));
+ });
+ return rows;
+}
 function salesLineChargeRows(line){
  const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
- const miGroups={};items.forEach(function(item){if(item.type==='clamp'||item.type==='hinge'){const key=item.type;if(!miGroups[key])miGroups[key]={qty:0};miGroups[key].qty++;return;}if(item.type==='hole'){const d=fabParseDimStrict(item.diameter),hb=d.ok?salesPricingHoleBand(d.v):null,key=hb?'hole:'+hb.key:'hole:unpriced';if(!miGroups[key])miGroups[key]={qty:0,holeBand:hb};miGroups[key].qty++;}});
- if(miGroups.clamp)rows.push(salesChargeRow('MI:clamp:'+ctx.band,'Clamp',miGroups.clamp.qty,'pc',salesCatalogRate('clamp',ctx),'Manufacturing item'));
- if(miGroups.hinge)rows.push(salesChargeRow('MI:hinge:'+ctx.band,'Hinge',miGroups.hinge.qty,'pc',salesCatalogRate('hinge',ctx),'Manufacturing item'));
- Object.keys(miGroups).filter(k=>k.indexOf('hole:')===0).forEach(function(k){const g=miGroups[k],hb=g.holeBand,rate=hb?salesCatalogRate('hole',ctx,hb.key):null;rows.push(salesChargeRow('MI:'+k+':'+ctx.band,'Hole '+(hb?hb.label:'—'),g.qty,'pc',rate,'Manufacturing item'));});
+ salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
@@ -667,7 +689,12 @@ function salesTogglePricingLine(id){soPricingLineId=soPricingLineId===id?null:id
 function salesOpenLineServices(id){soServiceLineId=id;soServiceOrderOpen=false;render();}
 function salesOpenOrderServices(){soServiceLineId=null;soServiceOrderOpen=true;render();}
 function salesCloseServices(){soServiceLineId=null;soServiceOrderOpen=false;render();}
-function salesChargeShortLabel(row){const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';return l.slice(0,8).toUpperCase();}
+function salesChargeShortLabel(row){
+ /* Короткий код вида берётся из справочника по ключу строки: у добавленного
+    владельцем вида имени в этом коде нет и быть не может. */
+ const kp=String(row.key||'').split(':');
+ if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';

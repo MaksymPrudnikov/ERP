@@ -131,6 +131,7 @@ function normalizeDB(){
  normalizeUsers();
  normalizeSalesModules();
  if(typeof normalizeMasterData==='function')normalizeMasterData();
+ if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
 }

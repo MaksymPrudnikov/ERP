@@ -78,7 +78,7 @@ function render(){
   configurators:['Конфигураторы','Инженерные конфигураторы Shape и Muntinbar'],
   optimization:['Оптимизация','Мост данных к Perfect Cut'],
   production:['Производство','Станции · рабочие места · операции · терминалы'],
-  masterdata:['Справочники','Каталог стекла · точки поставки · обзор базы']
+  masterdata:['Справочники','Каталог стекла · точки поставки · фурнитура · обзор базы']
  }[tab]||['ERP Glazing System','Производственная система'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];

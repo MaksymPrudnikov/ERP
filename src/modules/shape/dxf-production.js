@@ -108,7 +108,8 @@ function shapeDxfTangentAllowanceIssue(groups){
   return null;
 }
 
-/* Clamp/Hinge на DXF хранят конкретный physical SEG + расстояние от его начала. */
+/* Фурнитура на DXF хранит конкретный physical SEG + расстояние от его начала.
+   Вид метки здесь не перечисляется: их список открытый (см. shape/schema). */
 const __shapeDxfNormalizeManufacturingItem=shapeNormalizeManufacturingItem;
 shapeNormalizeManufacturingItem=function(raw){
   raw=shapePlainObject(raw);
@@ -151,8 +152,8 @@ function shapeDxfRequirements(def){
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
       req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:'Drill Hole',stationClass:'DRILLING',manufacturingItemId:item.id,params:{diameter:dia,x:item.x,y:item.y}});
-    }else if(item.type==='clamp'||item.type==='hinge'){
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:item.type==='clamp'?'Clamp':'Hinge',stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance}});
+    }else{
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance,model:item.model||''}});
     }
   });
   return req;
@@ -174,9 +175,9 @@ function shapeValidateDxfProduction(def,edges){
       if(!fabPointInPoly([+item.x||0,+item.y||0],points))errors.push('Hole '+item.id+': center must stay inside the finished DXF contour.');
       return;
     }
-    if(!item.edgeId||!ids[item.edgeId]){errors.push((item.type==='clamp'?'Clamp ':'Hinge ')+item.id+': referenced physical DXF segment does not exist.');return;}
+    if(!item.edgeId||!ids[item.edgeId]){errors.push(shapeMiOperationName(item.type)+' '+item.id+': referenced physical DXF segment does not exist.');return;}
     var e=edges.find(function(x){return x.id===item.edgeId;}),distance=+item.distance||0;
-    if(distance<0||distance>e.length+1e-8)errors.push((item.type==='clamp'?'Clamp ':'Hinge ')+item.id+': distance must stay on '+item.edgeId+'.');
+    if(distance<0||distance>e.length+1e-8)errors.push(shapeMiOperationName(item.type)+' '+item.id+': distance must stay on '+item.edgeId+'.');
   });
   return {errors:errors,warns:warns};
 }

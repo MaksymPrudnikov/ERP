@@ -18,6 +18,7 @@
 const MD_TABS=[
  {k:'glass',    label:'Каталог стекла'},
  {k:'supply',   label:'Точки поставки'},
+ {k:'hardware', label:'Hardware'},
  {k:'overview', label:'Обзор базы'}
 ];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
@@ -28,6 +29,7 @@ let mdTab='glass';
 let mdSearch='',mdMfr='',mdThick='',mdCoating='',mdStatus='all';
 let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
+let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -46,11 +48,11 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'?'':mdImportCard()}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -291,7 +293,142 @@ function mdSheetDelete(id){
  DB.glassSheet=DB.glassSheet.filter(s=>s.id!==id);touch();render();
 }
 
-/* --- 3. Обзор базы ---------------------------------------------------- */
+/* --- 3. Фурнитура ------------------------------------------------------
+   Просьба владельца дословно: «создать так, чтобы я потом мог добавлять
+   информацию о петлях пивотах и клемах и прочее». Поэтому редактируются ОБЕ
+   таблицы — и модели, и сами виды: пивота в присланном списке нет вовсе, а
+   значит добавлять придётся не только строки, но и семейства.
+
+   Геометрии посадочного места здесь нет намеренно. Владелец: «у нас нет
+   машины, которая считает геометрию и потом вырезает петли — это делает
+   человек, у него есть заготовленные шаблоны». Каталог отвечает на вопрос
+   «какой шаблон брать», заказ — «где поставить». Появится станок — к записи
+   модели доцепится геометрия, и заказы переделывать не придётся.
+
+   Позиция, на которую ссылается заказ, НЕ УДАЛЯЕТСЯ — только помечается
+   неактивной. Иначе старый чертёж показал бы метку без имени, и никто не
+   узнал бы, какую петлю ставили. То же правило, что в каталоге стекла. */
+
+function mdHwKindUsage(code){
+ return (DB.shapeDef||[]).reduce((n,s)=>n+((s.manufacturingItems||[]).filter(i=>i.type===code).length),0);
+}
+function mdHwModelUsage(id){
+ return (DB.shapeDef||[]).reduce((n,s)=>n+((s.manufacturingItems||[]).filter(i=>i.modelId===id).length),0);
+}
+function viewMdHardware(){
+ if(mdHwKindEdit!==null)return mdHwKindForm();
+ if(mdHwModelEdit!==null)return mdHwModelForm();
+ const kinds=DB.hardwareKind||[],models=DB.hardwareModel||[];
+ const shown=mdHwFilter?models.filter(m=>m.kind===mdHwFilter):models;
+ const sorted=shown.slice().sort((a,b)=>String(a.kind).localeCompare(String(b.kind))||String(a.series||'').localeCompare(String(b.series||''))||String(a.name).localeCompare(String(b.name)));
+ const orphans=models.filter(m=>!hardwareKindRow(m.kind)).length;
+ return `<div class="sub">The shop works by name: a person sees “Vienna 180” on the drawing and picks that template. So the catalog keeps the model name, not the seat dimensions — the template knows them. Kinds are created here as well: a pivot, or anything else, needs no code change.</div>
+  ${orphans?`<div class="note">Models without a kind: <b>${orphans}</b>. That happens after a kind is deleted — the model itself is not lost, but it needs its kind back.</div>`:''}
+  <div class="section-title"><h3>Kinds</h3><span class="pill info">the kind code goes into the drawing mark</span></div>
+  <table><thead><tr><th>Kind</th><th>Code</th><th>On the drawing</th><th>Models</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
+  <tbody>${kinds.map(k=>{
+   const used=mdHwKindUsage(k.code);
+   return `<tr><td><b>${raw(hardwareKindName(k.code))}</b><div class="mut"><span data-raw>${esc(k.name)} · ${esc(k.nameEn)}</span></div></td>
+    <td class="mono"><span data-raw>${esc(k.code)}</span></td>
+    <td class="mono"><span data-raw>${esc(k.short)}</span></td>
+    <td class="mono">${hardwareModelsFor(k.code,true).length}</td>
+    <td class="mono">${used}</td>
+    <td><span class="pill ${k.active===false?'warn':'ok'}">${k.active===false?'inactive':'active'}</span></td>
+    <td style="white-space:nowrap"><button class="sm" onclick="mdHwKindEditRow('${esc(k.code)}')">Edit</button><button class="sm dl" onclick="mdHwKindDelete('${esc(k.code)}')">×</button></td></tr>`;
+  }).join('')||'<tr><td colspan="7" class="empty">no kinds</td></tr>'}</tbody></table>
+  <div class="row"><button onclick="mdHwKindNew()">+ New kind</button></div>
+  <div class="section-title"><h3>Models</h3><span class="pill info">the name exactly as it reads on the shop template</span></div>
+  <div class="row"><label>Kind</label><select onchange="mdHwFilter=this.value;render()"><option value="">— all —</option>${kinds.map(k=>`<option value="${esc(k.code)}" ${mdHwFilter===k.code?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
+  <table><thead><tr><th>Model</th><th>Kind</th><th>Series</th><th>On the drawing</th><th>Glass thickness</th><th>Supplier code</th><th>On drawings</th><th>Status</th><th></th></tr></thead>
+  <tbody>${sorted.map(m=>{
+   const used=mdHwModelUsage(m.id),kind=hardwareKindRow(m.kind);
+   return `<tr><td><b>${raw(m.name)}</b>${m.note?`<div class="mut">${raw(m.note)}</div>`:''}</td>
+    <td>${kind?raw(hardwareKindName(m.kind)):'<span class="pill warn">no kind</span>'}</td>
+    <td>${m.series?raw(m.series):'<span class="mut">—</span>'}</td>
+    <td class="mono"><b>${raw(hardwareModelShort(m))}</b>${m.short?'':'<div class="mut">auto</div>'}</td>
+    <td class="mono">${m.thickness?raw(m.thickness):'<span class="mut">—</span>'}</td>
+    <td class="mono">${m.supplierCode?raw(m.supplierCode):'<span class="mut">—</span>'}</td>
+    <td class="mono">${used}</td>
+    <td><span class="pill ${m.active===false?'warn':'ok'}">${m.active===false?'inactive':'active'}</span></td>
+    <td style="white-space:nowrap"><button class="sm" onclick="mdHwModelEditRow('${esc(m.id)}')">Edit</button><button class="sm dl" onclick="mdHwModelDelete('${esc(m.id)}')">×</button></td></tr>`;
+  }).join('')||'<tr><td colspan="9" class="empty">no models</td></tr>'}</tbody></table>
+  <div class="row"><button class="pri" onclick="mdHwModelNew()">+ New model</button></div>`;
+}
+function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:'',short:'',active:true,note:''};render();}
+function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));render();}
+function mdHwKindForm(){
+ const r=mdHwKindDraft,isNew=mdHwKindEdit==='new';
+ return `<div class="form"><h3>${isNew?'New hardware kind':'Edit вида'}</h3>
+  <div class="grid">
+   <div><label>Code *</label><input id="md_hwKindCode" value="${esc(r.code)}" placeholder="pivot" ${isNew?'':'readonly class="ro"'}><div class="hint">Latin letters, no spaces. The code goes into the drawing mark and into the pricing key, so it never changes once the kind exists.</div></div>
+   <div><label>Name *</label><input id="md_hwKindName" value="${esc(r.name)}" placeholder="Pivot"></div>
+   <div><label>Name (EN) *</label><input id="md_hwKindNameEn" value="${esc(r.nameEn)}" placeholder="Pivot"><div class="hint">Both columns are filled in here: the interface language picks one of them instead of translating the database.</div></div>
+   <div><label>Drawing code</label><input id="md_hwKindShort" value="${esc(r.short)}" placeholder="PVT" maxlength="6"><div class="hint">Short label next to the mark. Empty — taken from the kind code.</div></div>
+   <div><label>Status</label><select id="md_hwKindActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">An inactive kind gets no button in the editor, but old drawings still read.</div></div>
+  </div>
+  <div style="margin-top:12px"><label>Note</label><input id="md_hwKindNote" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_mdHwKind"></div>
+  <div class="row"><button class="pri" onclick="mdHwKindSave()">Save</button><button onclick="mdHwKindEdit=null;mdHwKindDraft=null;render()">Cancel</button></div></div>`;
+}
+function mdHwKindSave(){
+ const e=document.getElementById('e_mdHwKind');e.style.display='none';
+ const isNew=mdHwKindEdit==='new',code=isNew?mdVal('md_hwKindCode').toLowerCase():mdHwKindDraft.code;
+ if(!code)return fail(e,'The kind code is required');
+ if(!HW_CODE_RE.test(code))return fail(e,'Kind code: latin letters, digits and a hyphen, starting with a letter');
+ if(code==='hole')return fail(e,'The code hole belongs to the drilled hole — it has its own price by diameter');
+ if(isNew&&hardwareKindRow(code))return fail(e,'This kind already exists');
+ const next=normalizeHardwareKind({code,name:mdVal('md_hwKindName'),nameEn:mdVal('md_hwKindNameEn'),short:mdVal('md_hwKindShort'),active:mdVal('md_hwKindActive')==='1',note:mdVal('md_hwKindNote'),system:!isNew&&mdHwKindDraft.system===true});
+ if(!next)return fail(e,'Enter the kind name — at least one of the two');
+ if(!mdVal('md_hwKindName')||!mdVal('md_hwKindNameEn'))return fail(e,'The name is required both in Russian and in English');
+ if(isNew)DB.hardwareKind.push(next);
+ else{const at=DB.hardwareKind.findIndex(k=>k.code===code);if(at<0)return fail(e,'Kind not found');DB.hardwareKind[at]=next;}
+ mdHwKindEdit=null;mdHwKindDraft=null;normalizeHardwareCatalog();touch();render();
+}
+function mdHwKindDelete(code){
+ const used=mdHwKindUsage(code),models=hardwareModelsFor(code,true).length;
+ if(used)return alert('This hardware kind is used by a Shape. Mark it inactive instead.');
+ if(models)return alert('Delete or move the models of this kind first.');
+ if(!confirm('Delete this hardware kind?'))return;
+ DB.hardwareKind=DB.hardwareKind.filter(k=>k.code!==code);touch();render();
+}
+function mdHwModelNew(){mdHwModelEdit='new';mdHwModelDraft={id:'',kind:mdHwFilter||((DB.hardwareKind[0]||{}).code||''),name:'',series:'',thickness:'',supplierCode:'',active:true,note:''};render();}
+function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));render();}
+function mdHwModelForm(){
+ const r=mdHwModelDraft,isNew=mdHwModelEdit==='new',kinds=DB.hardwareKind||[];
+ return `<div class="form"><h3>${isNew?'New hardware model':'Edit модели'}</h3>
+  <div class="grid">
+   <div><label>Kind *</label><select id="md_hwModelKind">${kinds.map(k=>`<option value="${esc(k.code)}" ${k.code===r.kind?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
+   <div><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">Exactly the name the shop uses to find its template. Do not tidy it up.</div></div>
+   <div><label>Series</label><input id="md_hwModelSeries" value="${esc(r.series||'')}" placeholder="Vienna"><div class="hint">Only for the order of the list: Vienna 90 · 135 · 180 end up next to each other.</div></div>
+   <div><label>On the drawing</label><input id="md_hwModelShort" value="${esc(r.short||'')}" placeholder="${esc(hwDeriveModelShort(r.name,r.series)||'GEN37')}" maxlength="10"><div class="hint">Short name next to the mark: Geneva 37 does not fit, GEN37 does. Empty — derived from the name.</div></div>
+   <div><label>Glass thickness</label><input id="md_hwModelThickness" value="${esc(r.thickness||'')}" placeholder="3/8″ · 1/2″"><div class="hint">A note for the salesperson. Not used in calculations: a line listing several sizes has nothing to compute.</div></div>
+   <div><label>Supplier code</label><input id="md_hwModelCode" value="${esc(r.supplierCode||'')}"></div>
+   <div><label>Status</label><select id="md_hwModelActive"><option value="1" ${r.active===false?'':'selected'}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select><div class="hint">An inactive model is not offered in new orders but stays visible in the old ones.</div></div>
+  </div>
+  <div style="margin-top:12px"><label>Note</label><input id="md_hwModelNote" value="${esc(r.note||'')}"></div>
+  <div class="err" id="e_mdHwModel"></div>
+  <div class="row"><button class="pri" onclick="mdHwModelSave()">Save</button><button onclick="mdHwModelEdit=null;mdHwModelDraft=null;render()">Cancel</button></div></div>`;
+}
+function mdHwModelSave(){
+ const e=document.getElementById('e_mdHwModel'),isNew=mdHwModelEdit==='new';e.style.display='none';
+ const kind=mdVal('md_hwModelKind'),name=mdVal('md_hwModelName');
+ if(!kind)return fail(e,'Create a hardware kind first');
+ if(!name)return fail(e,'The model name is required');
+ const next=normalizeHardwareModel({id:isNew?'':mdHwModelDraft.id,kind,name,series:mdVal('md_hwModelSeries'),short:mdVal('md_hwModelShort'),thickness:mdVal('md_hwModelThickness'),supplierCode:mdVal('md_hwModelCode'),active:mdVal('md_hwModelActive')==='1',note:mdVal('md_hwModelNote'),system:!isNew&&mdHwModelDraft.system===true});
+ if(!next)return fail(e,'The model name is required');
+ const clash=(DB.hardwareModel||[]).some(m=>m.id!==next.id&&m.kind===next.kind&&m.name.toLowerCase()===next.name.toLowerCase());
+ if(clash)return fail(e,'A model with this name already exists for this kind');
+ if(isNew)DB.hardwareModel.push(next);
+ else{const at=DB.hardwareModel.findIndex(m=>m.id===next.id);if(at<0)return fail(e,'Model not found');DB.hardwareModel[at]=next;}
+ mdHwModelEdit=null;mdHwModelDraft=null;normalizeHardwareCatalog();touch();render();
+}
+function mdHwModelDelete(id){
+ if(mdHwModelUsage(id))return alert('This hardware model is used by a Shape. Mark it inactive instead.');
+ if(!confirm('Delete this hardware model?'))return;
+ DB.hardwareModel=(DB.hardwareModel||[]).filter(m=>m.id!==id);touch();render();
+}
+
+/* --- 4. Обзор базы ---------------------------------------------------- */
 
 /* Инструмент пользователя сказать «этого не хватает, это лишнее»: все
    коллекции системы одним списком со счётчиками. Пустая таблица здесь — не
@@ -299,6 +436,8 @@ function mdSheetDelete(id){
 const MD_COLLECTIONS=[
  {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло: подложка, покрытие, толщина, закалка'},
  {key:'glassSheet',     label:'Точки поставки',      what:'где и почём: валюта, размер листа, цена, срок'},
+ {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
+ {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
  {key:'heatTreatment',  label:'Термообработка',      what:'annealed · heat strengthened · tempered'},
  {key:'spacerVariant',  label:'Дистанционные рамки', what:'система и размер'},
  {key:'gasProduct',     label:'Газ',                 what:'заполнение камеры'},
@@ -329,7 +468,7 @@ function viewMdOverview(){
   <div class="hint">При смене смысла справочной таблицы версия поднимается, и заводские данные заменяют старые — введённые руками цены поставки при этом не трогаются. Версия справочников: <b data-raw>${DB.refVersion}</b></div>`;
 }
 
-/* --- 4. Импорт -------------------------------------------------------- */
+/* --- 5. Импорт -------------------------------------------------------- */
 
 function mdImportCard(){
  const isGlass=mdTab==='glass';

@@ -787,10 +787,27 @@ const I18N_EN={
   "Кликни по чертежу для приблизительной позиции. После этого открой item и задай точные X / Y.": "Click the drawing for an approximate position. Then open the item and enter exact X / Y.",
   "finished glass · 1/16″": "finished glass · 1/16″",
   "Выбрать на чертеже": "Pick on drawing",
-  "Только то, что реально изменяет Cutting Shape: Cutout / Radius.": "Only geometry that really modifies the Cutting Shape: Cutout / Radius.",
-  "Hole / Clamp / Hinge добавляются только через Manufacturing items и не попадают в Cutting Shape.": "Add Hole / Clamp / Hinge only through Manufacturing items; they do not enter the Cutting Shape.",
   "Эти Hole / Hardware / Stamp были созданы старой логикой и действительно меняют Cutting Shape. Удали их или оставь только если это намеренная cutting geometry.": "These Hole / Hardware / Stamp items were created by the legacy logic and really modify the Cutting Shape. Delete them unless that cutting geometry is intentional.",
-  "Geometry modifiers не добавлены": "No Geometry modifiers added",
+
+  "Каталог стекла · точки поставки · фурнитура · обзор базы": "Glass catalog · supply points · hardware · database overview",
+
+  "Привязка": "Reference",
+  "дальше": "further",
+  "показать": "show",
+  "Вид": "Kind",
+  "Виды": "Kinds",
+  "Модели": "Models",
+  "Модель": "Model",
+  "Пивот": "Pivot",
+  "Толщина стекла": "Glass thickness",
+  "Фурнитура": "Hardware",
+  "активен": "active",
+  "вписывается руками": "typed by hand",
+  "из справочника фурнитуры": "from the hardware catalog",
+  "неактивен": "inactive",
+  "только чертёж": "drawing only",
+  "вида нет": "no kind",
+  "модели нет в справочнике": "this model is not in the catalog",
 };
 const _textOriginal=new WeakMap();
 const _attrOriginal=new WeakMap();
