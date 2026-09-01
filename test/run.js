@@ -2466,7 +2466,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         flags:{draw:root.querySelectorAll('.shape-cut-flag.draw').length,cut:root.querySelectorAll('.shape-cut-flag.cut').length},
         kinds:kinds,
         modelOptions:model?[...model.options].map(o=>o.textContent):[],
-        markerHasModel:marker.indexOf('Vienna 180')>=0};
+        markerHasModel:marker.indexOf('VIE180')>=0};
       sEdit=null;sDraft=null;render();return out;
     /* Двух секций больше нет: «Manufacturing items» и «Geometry modifiers» сведены
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
@@ -2507,8 +2507,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       out.fromEnd=[...root.querySelectorAll('.shape-mi-marker text')].map(x=>x.textContent);
       out.stored=sDraft.manufacturingItems[0].distance;
       sEdit=null;sDraft=null;render();return out;
-    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch · PH20',marker:['PATCH · PH20 · seg1 @ 4″'],model:true,
-      fromEnd:['PATCH · PH20 · seg1 @ 16″'],stored:4});
+    }), {cutout:1,marks:1,cuts:0,kind:'PATCH',title:'Patch · PH20',marker:['PH20 · seg1 @ 4″'],model:true,
+      fromEnd:['PH20 · seg1 @ 16″'],stored:4});
     await t.c.close();
 
     t = await page();
@@ -2540,7 +2540,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         labels:[...document.querySelectorAll('.shape-mi-marker>text')].map(x=>x.textContent)};
       sEdit=null;sDraft=null;render();return out;
     }), {cards:['Hinge · Geneva 90','Hinge · Geneva 90','Patch · PH20','Clamp'],
-      labels:['HNG · Geneva 90','HNG · Geneva 90','PATCH · PH20','CLMP']});
+      labels:['GEN90','GEN90','PH20','CLMP']});
 
     /* Зажим на нижней кромке рисовал ВЕРТИКАЛЬНУЮ цепочку с повёрнутым текстом:
        направление выводилось из ключа оси, а ключ `e` у фурнитуры о направлении
@@ -2616,6 +2616,31 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {first,center,fromTop,moved};
     }), {first:['10″','10″'],center:1,fromTop:['10″','30″'],moved:{y:'13',shown:['10″','15″']}});
 
+    /* Владелец: «GEN37, VIE180 — названия пусть будут тоже укороченные». Рядом с
+       меткой полное имя не помещается, а короткое читается и с бумаги. Вывод —
+       заготовка: поле модели его перебивает. */
+    eq('на чертеже стоит короткое имя модели, а карточка держит полное', await t.p.evaluate(() => {
+      const derived=[['Geneva 37','Geneva'],['Vienna 180','Vienna'],['Vienna 135 / 45','Vienna'],['SCU4',''],['ZenZone','']]
+        .map(p=>hwDeriveModelShort(p[0],p[1]));
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:30,modelId:'hw-hinge-geneva-37',model:'Geneva 37'}),
+        shapeNormalizeManufacturingItem({id:'b',type:'clamp',edge:'bottom',distance:12}),
+        shapeNormalizeManufacturingItem({id:'c',type:'hinge',edge:'right',distance:20,model:'My own hinge'})];
+      sManufacturingOpen=true;render();
+      const label=()=>[...document.querySelectorAll('.shape-mi-marker>text')].map(t=>t.textContent);
+      const auto=label();
+      /* Своё поле в справочнике перебивает вывод. */
+      hardwareModelById('hw-hinge-geneva-37').short='GNV37';render();
+      const overridden=label();
+      const cards=[...document.querySelectorAll('.shape-mi-card-toggle b')].map(t=>t.textContent);
+      sEdit=null;sDraft=null;render();
+      return {derived,auto,overridden,cards};
+    }), {derived:['GEN37','VIE180','VIE135/45','SCU4','ZENZONE'],
+      auto:['GEN37','CLMP','MYOWNHINGE'],
+      overridden:['GNV37','CLMP','MYOWNHINGE'],
+      cards:['Hinge · Geneva 37','Clamp','Hinge · My own hinge']});
+
     /* Чертёж печатают на бумаге. Подпись, которую нельзя прочитать, для цеха то
        же самое, что её отсутствие, поэтому у неё есть нижняя граница размера, а
        у соседних подписей — гарантия, что они не наезжают друг на друга.
@@ -2653,7 +2678,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit=null;sDraft=null;render();
       return {clash,outside,bigLabel:label>=16,dimInSheetRange:sheet.includes(dim),labels};
     }), {clash:[],outside:[],bigLabel:true,dimInSheetRange:true,
-      labels:['HNG · Geneva 37','HNG · Geneva 37','PATCH · PH20','CLMP · SCU4','Ø 3/4″','Ø 1/2″']});
+      labels:['GEN37','GEN37','PH20','SCU4','Ø 3/4″','Ø 1/2″']});
 
     eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
       function cyrillicUi(){

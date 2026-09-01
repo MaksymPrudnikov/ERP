@@ -111,9 +111,13 @@ function shapeManufacturingShort(type){return type==='hole'?'HOLE':hardwareKindS
 /* Модель, как её видит цех. Пусто = модель ещё не выбрана: это не ошибка
    расчёта, но по чертежу тогда непонятно, какой шаблон брать. */
 function shapeManufacturingModelName(item){return hardwareItemModelName(item);}
-/* Имя модели в подписи метки на чертеже: по нему человек в цеху берёт нужный
-   шаблон. Пустая модель — пустой хвост, лишнего разделителя не появляется. */
-function shapeMarkModelSuffix(item){var m=shapeManufacturingModelName(item);return m?' · '+m:'';}
+/* Подпись метки на чертеже. Модель выводится КОРОТКИМ именем: `GEN37` читается
+   и с экрана, и с бумаги, а `HNG · Geneva 37` в ту же строку не влезает. Кода
+   вида рядом с моделью нет намеренно — `GEN37` уже говорит, что это петля. Без
+   модели остаётся код вида: `CLMP` лучше, чем пустое место. */
+function shapeMarkDrawingLabel(item){
+  return hardwareItemModelShort(item)||shapeManufacturingShort(item.type);
+}
 function shapeSnapManufacturing16(v){var n=+v;return isFinite(n)?Math.round(n*16)/16:NaN;}
 function shapeFrac16(v){
   var n=shapeSnapManufacturing16(v);if(!isFinite(n))return '';var sign=n<0?'-':'';n=Math.abs(n);var whole=Math.floor(n+1e-9),num=Math.round((n-whole)*16);if(num===16){whole++;num=0;}if(!num)return sign+String(whole);var a=num,b=16;while(b){var t=a%b;a=b;b=t;}num/=a;var den=16/a;return sign+(whole?whole+' ':'')+num+'/'+den;
@@ -444,7 +448,7 @@ function shapeManufacturingMarkersSvg(source,T){
   }
   return shapeDimArrowDefs()+items.map(function(item,i){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
-    var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeManufacturingShort(item.type);
+    var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g);if(!pos)return '';
       var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item);
@@ -478,11 +482,11 @@ function shapeManufacturingMarkersSvg(source,T){
     if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label+shapeMarkModelSuffix(item),labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
+      labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+band*CORRIDOR):T.Y(g.b.minY)+(30+band*CORRIDOR),originX=T.X(origin[0]),labelY=edge==='top'?y+28:y-18;
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label+shapeMarkModelSuffix(item),'start')}' text-anchor='start'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
+      labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');

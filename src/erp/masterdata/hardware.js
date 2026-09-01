@@ -105,12 +105,27 @@ function normalizeHardwareKind(raw){
     place:HW_PLACES.indexOf(raw.place)>=0?raw.place:'edge',
     active:raw.active!==false,system:raw.system===true,note:hwStr(raw.note)};
 }
+/* Короткое имя модели для чертежа. Серия сокращается до трёх букв, остальное
+   идёт как есть без пробелов: `Geneva 37` → `GEN37`, `Vienna 135 / 45` →
+   `VIE135/45`, `SCU4` → `SCU4`. Это заготовка, а не правило на все времена:
+   поле `short` у модели перебивает вывод. */
+function hwModelShortText(v){return hwStr(v).toUpperCase().replace(/\s+/g,'').replace(/[^A-Z0-9/._-]/g,'');}
+function hwDeriveModelShort(name,series){
+  var n=hwStr(name),s=hwStr(series);
+  if(s&&n.toLowerCase().indexOf(s.toLowerCase())===0)
+    return hwModelShortText(s.slice(0,3)+n.slice(s.length)).slice(0,10);
+  return hwModelShortText(n).slice(0,10);
+}
 function normalizeHardwareModel(raw){
   raw=raw&&typeof raw==='object'?raw:{};
   var name=hwStr(raw.name);if(!name)return null;
   var kind=hwCode(raw.kind);if(!HW_CODE_RE.test(kind))return null;
   return {id:hwStr(raw.id)||hwNewId('hw-'),kind:kind,name:name.slice(0,60),
     series:hwStr(raw.series).slice(0,40),
+    /* Короткое имя для чертежа: `Geneva 37` не влезает в подпись у метки, а
+       `GEN37` читается и с экрана, и с бумаги. Пустое поле означает «вывести
+       автоматически» — свою форму владелец вписывает сам. */
+    short:hwModelShortText(raw.short).slice(0,10),
     /* Толщина стекла и артикул поставщика — справка для менеджера, а не
        расчётные поля: владелец назвал их необязательными, а считать по строке
        вроде «3/8″ · 1/2″» всё равно нечего. */
@@ -198,6 +213,18 @@ function hardwareItemModelName(item){
   var snapshot=hwStr(item.model);if(snapshot)return snapshot;
   var row=hardwareModelById(item.modelId);
   return row?row.name:'';
+}
+/* Что уходит на чертёж. Приоритет: своё поле модели → автовывод из её имени →
+   вывод из имени-снимка самой метки (модель могли удалить из справочника). */
+function hardwareModelShort(row){
+  if(!row)return '';
+  return row.short||hwDeriveModelShort(row.name,row.series);
+}
+function hardwareItemModelShort(item){
+  if(!item)return '';
+  var row=hardwareModelById(item.modelId);
+  if(row)return hardwareModelShort(row);
+  return hwDeriveModelShort(hwStr(item.model),'');
 }
 function hardwareItemIsCustomModel(item){
   return !!(item&&!hwStr(item.modelId)&&hwStr(item.model));
