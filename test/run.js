@@ -2437,7 +2437,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       DB.hardwareSeed=0;normalizeHardwareCatalog();
       return {seeded,afterDelete,afterBump:!!hardwareModelById('hw-clamp-scu4'),ownSurvivedBump:!!hardwareModelById('own-1')};
     }), {
-      seeded:{kinds:['hinge','clamp','patch'],hinge:['Geneva 135 / 45','Geneva 180','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 90'],seed:1},
+      seeded:{kinds:['hinge','clamp','patch'],hinge:['Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90'],seed:2},
       afterDelete:{scu4:false,ownKind:true,ownModel:true},afterBump:true,ownSurvivedBump:true});
     eq('битая строка справочника отбрасывается, модель без вида остаётся видимой', await t.p.evaluate(() => {
       DB.hardwareKind=DB.hardwareKind.concat([{code:'ПЕТЛЯ',name:'x',nameEn:'x'},{code:'ok-kind',name:'',nameEn:''}]);
@@ -2615,6 +2615,39 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit=null;sDraft=null;render();
       return {first,center,fromTop,moved};
     }), {first:['10″','10″'],center:1,fromTop:['10″','30″'],moved:{y:'13',shown:['10″','15″']}});
+
+    /* Чертёж печатают на бумаге. Подпись, которую нельзя прочитать, для цеха то
+       же самое, что её отсутствие, поэтому у неё есть нижняя граница размера, а
+       у соседних подписей — гарантия, что они не наезжают друг на друга. */
+    eq('подписи меток крупные и не затирают друг друга', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sView='production';
+      sDraft.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'a',type:'hinge',edge:'left',distance:30,modelId:'hw-hinge-geneva-37',model:'Geneva 37'}),
+        shapeNormalizeManufacturingItem({id:'b',type:'hinge',edge:'left',distance:6,modelId:'hw-hinge-geneva-37',model:'Geneva 37'}),
+        shapeNormalizeManufacturingItem({id:'c',type:'patch',edge:'right',distance:33,modelId:'hw-patch-ph20',model:'PH20'}),
+        shapeNormalizeManufacturingItem({id:'d',type:'clamp',edge:'bottom',distance:40,modelId:'hw-clamp-scu4',model:'SCU4'}),
+        shapeNormalizeManufacturingItem({id:'e',type:'hole',x:8,y:8,diameter:'3/4',hRef:'left',vRef:'bottom'}),
+        shapeNormalizeManufacturingItem({id:'f',type:'hole',x:40,y:30,diameter:'1/2',hRef:'right',vRef:'top'})];
+      sDraft.features=[newShapeFeature('cutout',shapeDraftGeometry())];
+      sManufacturingOpen=true;render();
+      const svg=document.querySelector('#shapeLivePreview svg');
+      const boxes=[...svg.querySelectorAll('text')].map(t=>{const b=t.getBBox();
+        return {txt:t.textContent.trim(),x:b.x,y:b.y,w:b.width,h:b.height,
+          mine:!!t.closest('.shape-mi-marker,.shape-mi-prod-dims,.shape-cut-dims')};});
+      const hit=(a,b)=>!(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);
+      const clash=[];
+      for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++)
+        if(hit(boxes[i],boxes[j])&&(boxes[i].mine||boxes[j].mine))clash.push(boxes[i].txt+' / '+boxes[j].txt);
+      const vb=svg.getAttribute('viewBox').split(/\s+/).map(Number);
+      const outside=[...svg.querySelectorAll('.shape-mi-marker>text')]
+        .filter(t=>{const b=t.getBBox();return b.x<0||b.y<0||b.x+b.width>vb[2]||b.y+b.height>vb[3];}).map(t=>t.textContent);
+      const label=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-marker>text')).fontSize);
+      const dim=parseFloat(getComputedStyle(svg.querySelector('.shape-mi-prod-dims text')).fontSize);
+      const labels=[...svg.querySelectorAll('.shape-mi-marker>text')].map(t=>t.textContent);
+      sEdit=null;sDraft=null;render();
+      return {clash,outside,bigLabel:label>=16,bigDim:dim>=16,labels};
+    }), {clash:[],outside:[],bigLabel:true,bigDim:true,
+      labels:['HNG · Geneva 37','HNG · Geneva 37','PATCH · PH20','CLMP · SCU4','Ø 3/4″','Ø 1/2″']});
 
     eq('EN без русского остатка: Cutout и справочник фурнитуры', await t.p.evaluate(() => {
       function cyrillicUi(){

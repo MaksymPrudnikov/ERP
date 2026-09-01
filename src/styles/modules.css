@@ -281,3 +281,17 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-mi-kind{min-width:46px;height:30px;font-size:9.5px}
 .shape-cut-group-head>b{font-size:11px}
 .shape-cut-group-head>small{font-size:9.5px}
+
+/* Чертёж читают глазами и печатают на бумаге. Подписи меток были 9–11 px в
+   системе координат листа — на печати их приходилось угадывать. Метка,
+   которую нельзя прочитать, для цеха то же самое, что её отсутствие.
+   Белая обводка под текстом (paint-order) обязательна: крупная подпись
+   ложится поверх контура и размерных линий. */
+.shape-mi-marker text{font:700 18px ui-monospace,SFMono-Regular,Menlo,monospace;paint-order:stroke;stroke:#fff;stroke-width:5px;stroke-linejoin:round}
+.shape-mi-marker.hole>text{font:700 18px ui-monospace,SFMono-Regular,Menlo,monospace;stroke-width:5px}
+.shape-mi-prod-dims text{font:700 17px ui-monospace,SFMono-Regular,Menlo,monospace!important;stroke-width:5px!important}
+.shape-mi-marker rect{stroke-width:2.2}
+.shape-mi-marker path,.shape-mi-marker line{stroke-width:1.8}
+.shape-mi-marker.hole>circle{stroke-width:2.2}
+/* Кнопки панели размера — интерфейс, а не чертёж: их не увеличиваем. */
+.shape-dim-btn text{font:600 10px system-ui,-apple-system,'Segoe UI',sans-serif}

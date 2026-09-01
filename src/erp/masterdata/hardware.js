@@ -82,9 +82,11 @@ DEFAULT.hardwareModel=[
  {id:'hw-hinge-vienna-180',   kind:'hinge',name:'Vienna 180',    series:'Vienna',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-hinge-vienna-135-45',kind:'hinge',name:'Vienna 135 / 45',series:'Vienna',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-hinge-vienna-90',    kind:'hinge',name:'Vienna 90',     series:'Vienna',thickness:'',supplierCode:'',active:true,system:true,note:''},
+ {id:'hw-hinge-vienna-37',    kind:'hinge',name:'Vienna 37',     series:'Vienna',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-hinge-geneva-180',   kind:'hinge',name:'Geneva 180',    series:'Geneva',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-hinge-geneva-135-45',kind:'hinge',name:'Geneva 135 / 45',series:'Geneva',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-hinge-geneva-90',    kind:'hinge',name:'Geneva 90',     series:'Geneva',thickness:'',supplierCode:'',active:true,system:true,note:''},
+ {id:'hw-hinge-geneva-37',    kind:'hinge',name:'Geneva 37',    series:'Geneva',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-clamp-scu4',    kind:'clamp',name:'SCU4',    series:'',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-clamp-uc77',    kind:'clamp',name:'UC77',    series:'',thickness:'',supplierCode:'',active:true,system:true,note:''},
  {id:'hw-clamp-zoom',    kind:'clamp',name:'Zoom',    series:'',thickness:'',supplierCode:'',active:true,system:true,note:''},
@@ -128,7 +130,7 @@ function normalizeHardwareModel(raw){
 
    Именно поэтому hardwareKind / hardwareModel НЕ входят в REFERENCE_TABLES:
    там пересев заменяет таблицу целиком и стёр бы записи владельца (erp/data). */
-const HW_SEED_VERSION=1;
+const HW_SEED_VERSION=2;
 DEFAULT.hardwareSeed=0;
 function normalizeHardwareCatalog(){
   if(!Array.isArray(DB.hardwareKind))DB.hardwareKind=[];

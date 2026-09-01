@@ -413,45 +413,77 @@ function shapeDimChainSvg(o){
 
 function shapeManufacturingMarkersSvg(source,T){
   var items=shapeManufacturingItems();if(!items.length)return '';var g={P:T.P,b:T.b},holes=items.filter(function(x){return x.type==='hole';});
+  /* Коридоры размерных линий считаются ОБЩИМ счётчиком на сторону. Отверстие и
+     фурнитура выносят размер в одно и то же место слева от детали, и пока у
+     каждого семейства был свой отсчёт, их подписи налезали друг на друга —
+     с крупным шрифтом это стало видно сразу. Шаг 26 px подобран под 17 px
+     текста размера. */
+  var corridor={left:0,right:0,top:0,bottom:0},CORRIDOR=26;
+  function lane(side){return corridor[side]++;}
+  /* Подписи меток не должны затирать друг друга. Метки стоят там, где их
+     поставил оператор, и две соседние — патч на кромке и отверстие рядом с ней —
+     легко оказываются на одной высоте. Подпись, наехавшая на соседнюю, для цеха
+     то же самое, что её отсутствие, поэтому вторая уходит выше первой.
+     Ширина считается по моноширинному шрифту: 18 px даёт ~10.8 px на знак. */
+  var placedLabels=[],LABEL_H=18,LABEL_CH=10.8;
+  function labelBaseline(x,y,text,anchor){
+    var w=String(text).length*LABEL_CH;
+    var left=anchor==='end'?x-w:(anchor==='middle'?x-w/2:x);
+    /* Зазор в рамке: две подписи, сошедшиеся вплотную, читаются как одна строка. */
+    var box={x:left-6,y:y-LABEL_H-2,w:w+12,h:LABEL_H+8};
+    for(var guard=0;guard<12;guard++){
+      var clash=null;
+      for(var k=0;k<placedLabels.length;k++){
+        var p=placedLabels[k];
+        if(!(box.x+box.w<p.x||p.x+p.w<box.x||box.y+box.h<p.y||p.y+p.h<box.y)){clash=p;break;}
+      }
+      if(!clash)break;
+      box.y=clash.y-box.h-2;
+    }
+    placedLabels.push(box);
+    return box.y+LABEL_H+2;
+  }
   return shapeDimArrowDefs()+items.map(function(item,i){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
     var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeManufacturingShort(item.type);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g);if(!pos)return '';
-      var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item),lane=holeIndex%4;
+      var hRefX=T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY=T.Y(pos.vRef==='top'?g.b.maxY:g.b.minY),holeIndex=holes.indexOf(item);
       var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
-      var hDimY=sideTop?y+(28+lane*16):y-(28+lane*16);
-      var vDimX=sideRight?T.X(g.b.maxX)+(48+lane*18):T.X(g.b.minX)-(48+lane*18);
-      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1,diamX=x+diamDirX*(r+28),diamY=y+diamDirY*24,diamAnchor=sideRight?'end':'start';
+      /* Горизонтальная цепочка отверстия висит рядом с ним, а не в общем
+         коридоре: её место задаёт само отверстие. */
+      var hDimY=sideTop?y+(30+(holeIndex%4)*CORRIDOR):y-(30+(holeIndex%4)*CORRIDOR);
+      var vDimX=sideRight?T.X(g.b.maxX)+(34+lane('right')*CORRIDOR):T.X(g.b.minX)-(34+lane('left')*CORRIDOR);
+      var diamDirX=sideRight?-1:1,diamDirY=sideTop?-1:1,diamX=x+diamDirX*(r+34),diamY=y+diamDirY*30,diamAnchor=sideRight?'end':'start';
       var hChain=shapeDimChainSvg({id:item.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T});
       var vChain=shapeDimChainSvg({id:item.id,axis:'v',a:[T.X(pos.hRef==='right'?g.b.maxX:g.b.minX),vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T});
       return `<g class='shape-mi-marker hole${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>
         ${hChain}${vChain}
         <circle cx='${x}' cy='${y}' r='${r}'/>
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*4}' y='${diamY+(diamDirY<0?-4:12)}' text-anchor='${diamAnchor}'>Ø ${esc(dimIn16(dia))}</text>
+        <text x='${diamX+diamDirX*6}' y='${labelBaseline(diamX+diamDirX*6,diamY+(diamDirY<0?-6:16),'Ø '+dimIn16(dia),diamAnchor)}' text-anchor='${diamAnchor}'>Ø ${esc(dimIn16(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
     /* Свой значок нарисован только у зажима: у него другая посадка. Остальная
        фурнитура, включая виды, добавленные владельцем, берёт общий значок —
        что именно стоит, говорит подпись с кодом вида и именем модели. */
-    if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-8' y='-8' width='16' height='16' rx='2'/><path d='M -3 -6 V 6 M 3 -6 V 6'/></g>`;
-    else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-10' y='-6' width='20' height='12' rx='2'/><line x1='0' y1='-6' x2='0' y2='6'/><circle cx='-4' cy='0' r='1.5'/><circle cx='4' cy='0' r='1.5'/></g>`;
-    var edge=item.edge||e.edge,sameEdgeIndex=items.slice(0,i).filter(function(x){return x.type!=='hole'&&x.edge===edge;}).length,lane=sameEdgeIndex%4;
+    if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
+    else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
+    var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
        кромки и от привязки не зависит. */
     var fromEnd=shapeMiRefIsEnd(item.id),origin=fromEnd?e.end:e.start,shown=shapeMiShownDistance(item,e.len);
     var dimSvg='',labelTextSvg='';
     if(edge==='left'||edge==='right'){
-      var dimX=edge==='left'?T.X(g.b.minX)-(34+lane*18):T.X(g.b.maxX)+(34+lane*18),originY=T.Y(origin[1]),labelX=edge==='left'?x+15:x-15,labelAnchor=edge==='left'?'start':'end';
+      var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${labelX}' y='${y-8}' text-anchor='${labelAnchor}'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
+      labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label+shapeMarkModelSuffix(item),labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     } else {
-      var dimY=edge==='top'?T.Y(g.b.maxY)-(30+lane*18):T.Y(g.b.minY)+(30+lane*18),originX=T.X(origin[0]),labelY=edge==='top'?y+18:y-10;
+      var dimY=edge==='top'?T.Y(g.b.maxY)-(30+band*CORRIDOR):T.Y(g.b.minY)+(30+band*CORRIDOR),originX=T.X(origin[0]),labelY=edge==='top'?y+28:y-18;
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${x+13}' y='${labelY}' text-anchor='start'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
+      labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label+shapeMarkModelSuffix(item),'start')}' text-anchor='start'>${esc(label+shapeMarkModelSuffix(item))}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
@@ -470,8 +502,8 @@ function shapeCutoutDimsSvg(T){
     var x=T.X(cx),y=T.Y(cy),chosen=sFeatureExpandedId===f.id,lane=i%4;
     var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
     var hRefX=T.X(sideRight?T.b.maxX:T.b.minX),vRefY=T.Y(sideTop?T.b.maxY:T.b.minY);
-    var hDimY=sideTop?y+(34+lane*16):y-(34+lane*16);
-    var vDimX=sideRight?T.X(T.b.maxX)+(70+lane*18):T.X(T.b.minX)-(70+lane*18);
+    var hDimY=sideTop?y+(36+lane*26):y-(36+lane*26);
+    var vDimX=sideRight?T.X(T.b.maxX)+(138+lane*26):T.X(T.b.minX)-(138+lane*26);
     return `<g class='shape-cut-dims${chosen?' selected':''}'>`+
       shapeDimChainSvg({id:f.id,axis:'h',a:[hRefX,y],b:[x,y],pos:hDimY,dir:sideTop?1:-1,side:sideTop?1:-1,text:shapeDim16(pos.hDistance),selected:chosen,T:T})+
       shapeDimChainSvg({id:f.id,axis:'v',a:[hRefX,vRefY],b:[x,y],pos:vDimX,dir:sideRight?1:-1,side:sideRight?1:-1,text:shapeDim16(pos.vDistance),selected:chosen,T:T})+
