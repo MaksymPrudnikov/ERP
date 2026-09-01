@@ -202,6 +202,7 @@ function shapeValidateComputed(def,geo,fg){
     if(h.points&&!h.points.every(function(p){return fabPointInPoly(p,pts)||fabPointPolyDistance(p,pts)<eps;}))errors.push('Hardware '+h.id+': the entire prep must remain inside the finished contour.');
   });
   (fg.stamps||[]).forEach(function(s){if(!fabPointInPoly(s.point,pts))errors.push('Stamp '+s.id+': annotation is outside the finished contour.');});
+  (fg.sandblasts||[]).forEach(function(s){if(!fabPointInPoly(s.point,pts))errors.push('Sandblast '+s.id+': annotation is outside the finished contour.');});
   for(var i=0;i<(fg.holes||[]).length;i++)for(var j=i+1;j<fg.holes.length;j++){
     var a=fg.holes[i],b=fg.holes[j],min=(a.diameter+b.diameter)/2;if(Math.hypot(a.center[0]-b.center[0],a.center[1]-b.center[1])<min-eps)errors.push('Holes '+a.id+' and '+b.id+' overlap.');
   }

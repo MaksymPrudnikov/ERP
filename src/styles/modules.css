@@ -304,9 +304,11 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 
 /* Stamp is a free drawing annotation stored with the Shape revision. */
 .shape-mi-kind.stamp{background:#fff7e8;color:#8a4b08;border:1px solid #efcf9d}
+.shape-mi-kind.sandblast{background:#e9fbfd;color:#075e68;border:1px solid #8ed7df}
 .shape-stamp-list{margin-top:6px}
 .shape-stamp-card{border-color:#ead7b6}
 .shape-stamp-card.selected{border-color:#d9a44f;background:#fffaf1}
+.shape-sandblast-card{border-color:#b7dfe3}.shape-sandblast-card.selected{border-color:#1493a1;background:#f2fcfd}
 .shape-stamp-card-body{grid-template-columns:1fr auto}
 .shape-stamp-card-body>.shape-mi-hole-position-grid,.shape-stamp-card-body>.shape-dim-controls{grid-column:1/-1}
 .shape-stamp-card-body>.shape-mi-actions{align-self:end}
@@ -319,5 +321,6 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-temper-stamp.external rect{fill:#fff;stroke:#101828;stroke-width:1.4}
 .shape-temper-stamp.external text{fill:#101828;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace}
 .shape-temper-stamp.external.selected rect{stroke:#d97706;stroke-width:2.4}
+.shape-sandblast-mark.external{cursor:pointer}.shape-sandblast-mark.external rect{fill:#fff;stroke:#087e8b;stroke-width:1.4;stroke-dasharray:5 3}.shape-sandblast-mark.external text{fill:#075e68;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace}.shape-sandblast-mark.external.selected rect{stroke:#d97706;stroke-width:2.4}
 .shape-stamp-dims.selected .shape-mi-prod-dims line:not(.shape-dim-hit){stroke:#7f56d9}
 @media(max-width:720px){.shape-stamp-card-body{grid-template-columns:1fr}}

@@ -791,6 +791,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('позиция штампа меняет ревизию, оформление размеров — нет; DXF проверяет контур', stampModel.fingerprint, {added:true,moved:true,dimsIgnored:true});
     eq('штамп поддерживается и на производственном чертеже внешнего DXF', stampModel.external, {valid:true,text:'Lami Stamp',changed:true,outside:false});
 
+    const sandblastModel = await p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.id='sandblast-drawn';d.w='48';d.h='36';
+      const empty=shapeFingerprint(d);d.features=[shapeNormalizeFeature({id:'sand-1',type:'sandblast',x:'24',y:'18',coverage:'full',side:'front'})];
+      const r=ShapeModule.compute(d),drawing=ShapeModule.productionSvg(r),payload=ShapeModule.machinePayload(r),withMark=shapeFingerprint(d);
+      const bad=normalizeShapeDef(JSON.parse(JSON.stringify(d)));bad.features[0].x='60';
+      const external=newShapeDef('rectangle');external.id='sandblast-dxf';external.thickness='6';external.source={kind:'dxf',fileName:'sandblast.dxf',fileSize:1200,uploadedAt:'2026-09-01T12:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[48,0],[48,36],[0,36]],width16:768,height16:576}};
+      const externalEmpty=shapeFingerprint(external);external.features=[shapeNormalizeFeature({id:'sand-dxf-1',type:'sandblast',x:'24',y:'18',coverage:'pattern',side:'back'})];
+      const externalResult=ShapeModule.dxfProductionResult(external),externalMarked=shapeFingerprint(external);external.features[0].y='50';const externalOutside=ShapeModule.dxfProductionResult(external);
+      const normalized=shapeNormalizeFeature({type:'sandblast',coverage:'unknown',side:'unknown'});
+      return {valid:r.valid,point:r.featureGeometry.sandblasts[0].point,text:r.featureGeometry.sandblasts[0].text,
+        drawing:drawing.includes('shape-sandblast-mark')&&drawing.includes('SANDBLAST · FULL COVERED · FRONT'),
+        requirement:r.requirements.filter(q=>q.stationClass==='SAND').map(q=>[q.operation,q.params.coverage,q.params.side]),
+        machine:JSON.stringify(payload).includes('SANDBLAST'),fingerprint:empty!==withMark,outside:ShapeModule.compute(bad).valid,
+        normalized:[normalized.coverage,normalized.side],external:{valid:externalResult.valid,text:externalResult.featureGeometry.sandblasts[0].text,changed:externalEmpty!==externalMarked,outside:externalOutside.valid}};
+    });
+    eq('Sandblast хранит покрытие и сторону, печатается текстом и не попадает в cutting payload', sandblastModel,
+      {valid:true,point:[24,18],text:'SANDBLAST · FULL COVERED · FRONT',drawing:true,requirement:[['Sandblast · Full covered · Front','full','front']],machine:false,fingerprint:true,outside:false,normalized:['full','front'],external:{valid:true,text:'SANDBLAST · PATTERN · BACK',changed:true,outside:false}});
+
     /* --- Safety Border ------------------------------------------------
        Защитный отступ при резке и ломке вдоль скошенных и дуговых кромок.
        В контур реза НЕ входит: деталь режется по finished + припуск кромки.
@@ -1401,6 +1419,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const rows=salesLineChargeRows(line).filter(r=>r.key.indexOf('MI:')===0),total=rows.reduce((n,r)=>n+(r.catalogRate==null?0:r.basis*r.catalogRate),0);
       return {total,rows:rows.map(r=>[r.label,r.basis,r.catalogRate,r.catalogRate==null?null:r.basis*r.catalogRate])};
     }), {total:29,rows:[['Clamp',1,8,8],['Hinge',1,15,15],['Hole 1/2″–1″',1,6,6]]});
+    eq('Sandblast создаёт отдельное начисление по покрытию и стороне без выдуманной ставки', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-sandblast-price';sh.w='48';sh.h='36';sh.features=[
+        shapeNormalizeFeature({id:'s1',type:'sandblast',x:'24',y:'18',coverage:'full',side:'front'}),
+        shapeNormalizeFeature({id:'s2',type:'sandblast',x:'20',y:'16',coverage:'pattern',side:'back'})];DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:768,height16:576,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const rows=salesLineChargeRows(line).filter(r=>r.key.indexOf('FEATURE:sandblast-')===0);
+      return {rows:rows.map(r=>[r.key,r.label,r.basis,r.unit,r.catalogRate]),unpriced:salesLinePricingSummary(line).unpriced};
+    }), {rows:[['FEATURE:sandblast-full-front:8-10','Sandblast · Full covered · Front',1,'pc',null],['FEATURE:sandblast-pattern-back:8-10','Sandblast · Pattern · Back',1,'pc',null]],unpriced:2});
 
     eq('Pricing меняет только деньги, geometry basis остаётся системным', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
@@ -2550,7 +2577,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
     }), {accordions:['Edge processing','Cutout'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
-      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp'],
+      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
       modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
     eq('бесплатный Stamp в Cutout выбирает тип и двигается от четырёх краёв на сетке 1/16', await t.p.evaluate(() => {
@@ -2573,6 +2600,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const stampId=f.id;removeShapeFeature(index);out.deletePrunesDims=!sDraft.dims[stampId];
       sEdit=null;sDraft=null;render();return out;
     }), {initial:{x:'46',y:'2',h:'right',v:'bottom'},options:['Temp Stamp','HS Stamp','Lami Stamp','OWN Stamp'],stored:{x:'3 1/16',y:'34 1/8',text:'HS Stamp'},point:[3.0625,34.125],cardInMarks:true,cardInCuts:false,free:'FREE',services:[],drawing:true,machine:false,ownField:true,own:{type:'OWN Stamp',text:'ACME GLASS',drawing:true,card:'ACME GLASS'},deletePrunesDims:true});
+    eq('Sandblast появляется в центре, выбирает Full/Pattern и Front/Back и двигается на 1/16', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='48';sDraft.h='36';sManufacturingOpen=true;render();
+      addShapeFeature('sandblast');
+      const f=sDraft.features.find(x=>x.type==='sandblast'),index=sDraft.features.indexOf(f),initial={x:f.x,y:f.y,h:shapeDimRef(sDraft,f.id,'h',''),v:shapeDimRef(sDraft,f.id,'v','')};
+      const card=document.querySelector('.shape-sandblast-card'),selects=[...card.querySelectorAll('select')],coverage=[...selects[0].options].map(o=>o.textContent.trim()),sides=[...selects[1].options].map(o=>o.textContent.trim());
+      setShapeFeatureAndRender(index,'coverage','pattern');setShapeFeatureAndRender(index,'side','back');shapeSetDimRef(f.id,'h','right');shapeSetSandblastDistance(index,'h','5');shapeSetDimRef(f.id,'v','top');shapeSetSandblastDistance(index,'v','6');
+      const r=ShapeModule.compute(sDraft),svg=shapeDrawnProductionSvg(r,false),services=shapeDerivedServices(),payload=ShapeModule.machinePayload(r);
+      const out={initial,coverage,sides,stored:{x:f.x,y:f.y,coverage:f.coverage,side:f.side},point:r.featureGeometry.sandblasts[0].point,
+        cardInMarks:!!document.querySelector('.shape-cut-group.marks .shape-sandblast-card'),cardInCuts:!!document.querySelector('.shape-cut-group.cuts .shape-sandblast-card'),
+        service:services.rows.map(x=>[x.label,x.qty]),drawing:svg.includes('SANDBLAST · PATTERN · BACK')&&svg.includes('5″')&&svg.includes('6″'),
+        requirement:r.requirements.filter(q=>q.stationClass==='SAND').map(q=>q.operation),machine:JSON.stringify(payload).includes('SANDBLAST')};
+      const id=f.id;removeShapeFeature(index);out.deletePrunesDims=!sDraft.dims[id];sEdit=null;sDraft=null;render();return out;
+    }), {initial:{x:'24',y:'18',h:'left',v:'bottom'},coverage:['Full covered','Pattern'],sides:['Front','Back'],stored:{x:'43',y:'30',coverage:'pattern',side:'back'},point:[43,30],cardInMarks:true,cardInCuts:false,service:[['Sandblast · Pattern · Back',1]],drawing:true,requirement:['Sandblast · Pattern · Back'],machine:false,deletePrunesDims:true});
     eq('выбранная модель видна и после того, как её выключили или удалили из справочника', await t.p.evaluate(() => {
       function field(){const c=document.querySelector('.shape-mi-card.expanded');const sel=c.querySelector('select');
         return {selected:sel.options[sel.selectedIndex].textContent,note:c.querySelector('label small').textContent};}

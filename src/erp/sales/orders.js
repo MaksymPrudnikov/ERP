@@ -644,9 +644,15 @@ function salesManufacturingChargeRows(items,ctx){
  });
  return rows;
 }
+function salesSandblastChargeRows(features,ctx){
+ const groups=Object.create(null),order=[];
+ (Array.isArray(features)?features:[]).filter(f=>f.type==='sandblast').forEach(f=>{const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),key=coverage+':'+side;if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}groups[key].qty++;});
+ return order.map(key=>{const g=groups[key],coverage=shapeSandblastCoverage(g.feature),side=shapeSandblastSide(g.feature);return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,shapeSandblastServiceLabel(g.feature),g.qty,'pc',null,'Shape feature');});
+}
 function salesLineChargeRows(line){
  const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
+ salesSandblastChargeRows(s.features,ctx).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));

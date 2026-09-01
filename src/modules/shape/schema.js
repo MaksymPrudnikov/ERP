@@ -4,7 +4,7 @@
    ===================================================================== */
 
 var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
-var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp'];
+var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
 /* A stamp is a free annotation on the production drawing. The selected text is
    intentionally short: it must remain readable inside the glass contour. Keep
    accepting older/custom text so saved revisions never lose their marking. */
@@ -18,6 +18,11 @@ function shapeStampText(f){
   var type=shapeStampType(f),text=shapeTextValue(shapePlainObject(f).text,'');
   return type==='OWN Stamp'?(text||'OWN Stamp'):type;
 }
+var SHAPE_SANDBLAST_COVERAGES=['full','pattern'],SHAPE_SANDBLAST_SIDES=['front','back'];
+function shapeSandblastCoverage(f){return shapePlainObject(f).coverage==='pattern'?'pattern':'full';}
+function shapeSandblastSide(f){return shapePlainObject(f).side==='back'?'back':'front';}
+function shapeSandblastServiceLabel(f){return 'Sandblast · '+(shapeSandblastCoverage(f)==='pattern'?'Pattern':'Full covered')+' · '+(shapeSandblastSide(f)==='back'?'Back':'Front');}
+function shapeSandblastText(f){return shapeSandblastServiceLabel(f).toUpperCase();}
 function shapeNewEntityId(prefix){
   if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return prefix+crypto.randomUUID();
   return prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
@@ -45,6 +50,7 @@ function shapeNormalizeFeature(f){
     var stampType=shapeStampType(f),stampText=stampType==='OWN Stamp'?shapeTextValue(f.text,''):stampType;
     Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),stampType:stampType,text:stampText});
   }
+  if(type==='sandblast')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f)});
   return out;
 }
 function shapeNormalizePolygon(raw){

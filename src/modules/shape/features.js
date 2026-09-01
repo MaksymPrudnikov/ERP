@@ -57,7 +57,7 @@ function shapeHardwarePolygon(anchor,def,orientation){
   return {center:c,points:[p(-hw,-hh),p(-hw,hh),p(hw,hh),p(hw,-hh)],normal:n,tangent:t};
 }
 function shapeFeatureGeometry(def,geo){
-  var out={holes:[],cutouts:[],hardware:[],stamps:[],radii:[],all:[]},orientation=fabSignedArea(geo.points||[]);
+  var out={holes:[],cutouts:[],hardware:[],stamps:[],sandblasts:[],radii:[],all:[]},orientation=fabSignedArea(geo.points||[]);
   (def.features||[]).forEach(function(f){
     if(f.type==='radius'){out.radii.push({id:f.id,vertexId:f.vertexId,radius:inch(f.radius),source:f});return;}
     if(f.type==='hole'){var h={id:f.id,type:'hole',center:[inch(f.x),inch(f.y)],diameter:inch(f.diameter),minEdge:inch(f.minEdge),source:f};out.holes.push(h);out.all.push(h);return;}
@@ -67,6 +67,7 @@ function shapeFeatureGeometry(def,geo){
       var pg=shapeHardwarePolygon(a,f,orientation),hw={id:f.id,type:'hardware',name:f.name,edgeId:f.edgeId,anchor:a,center:pg.center,points:pg.points,holeDia:inch(f.holeDia),source:f};out.hardware.push(hw);out.all.push(hw);return;
     }
     if(f.type==='stamp'){var s={id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};out.stamps.push(s);out.all.push(s);}
+    if(f.type==='sandblast'){var sb={id:f.id,type:'sandblast',point:[inch(f.x),inch(f.y)],coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f),text:shapeSandblastText(f),source:f};out.sandblasts.push(sb);out.all.push(sb);}
   });
   return out;
 }
@@ -208,6 +209,7 @@ function shapeDerivedRequirements(def,geo,fg){
   (fg.holes||[]).forEach(function(h){var drill=h.diameter>=.375&&h.diameter<=1.5;req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:drill?'Drill Hole':'Machine Hole',stationClass:drill?'DRILLING':'CNC',featureId:h.id,params:{diameter:h.diameter}});});
   (fg.cutouts||[]).forEach(function(c){req.push({id:'FEATURE:'+c.id,source:'FEATURE',operation:'Machine Cutout',stationClass:'CNC',featureId:c.id,params:{width:c.width,height:c.height}});});
   (fg.hardware||[]).forEach(function(h){req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:'Hardware Preparation',stationClass:'CNC',featureId:h.id,params:{template:h.name}});});
+  (fg.sandblasts||[]).forEach(function(s){req.push({id:'SANDBLAST:'+s.id,source:'MANUFACTURING',operation:shapeSandblastServiceLabel(s.source),stationClass:'SAND',featureId:s.id,params:{coverage:s.coverage,side:s.side}});});
   if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
   /* Manufacturing items belong to the production drawing, not cutting geometry.
      They still create production requirements so the shop does not lose the
