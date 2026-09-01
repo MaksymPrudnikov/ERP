@@ -2473,7 +2473,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {accordions:['Edge processing','Cutout'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
       kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch'],
-      modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 90','Own model'],
+      modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
     eq('выбранная модель видна и после того, как её выключили или удалили из справочника', await t.p.evaluate(() => {
       function field(){const c=document.querySelector('.shape-mi-card.expanded');const sel=c.querySelector('select');
