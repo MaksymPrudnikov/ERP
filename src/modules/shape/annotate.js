@@ -472,8 +472,11 @@ function shapeAnnChains(r,S,DP,box,opts,F){
     if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);chain+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp));}
     out+=shapeAnnUiWrap(opts,key,chain,x+dir*62,(ex.min+ex.max)/2,F);
   }
-  hChain('top',box.top-66);hChain('bottom',box.bottom+66);
-  vChain('left',box.left-78);vChain('right',box.right+78);
+  /* На печатном листе цепочки стоят ближе к детали: поле там одно, и пустые
+     поля вокруг фигуры съедают её размер. На экране расстояния прежние. */
+  var near=(opts&&opts.tight)?.5:1;
+  hChain('top',box.top-66*near);hChain('bottom',box.bottom+66*near);
+  vChain('left',box.left-78*near);vChain('right',box.right+78*near);
   return out;
 }
 
@@ -542,11 +545,27 @@ function shapeAnnCallouts(r,S,DP,opts,F){
 var SHAPE_EDGE_HEX={A:'#2828dc',B:'#28b428',C:'#fe8d28',D:'#a00082',E:'#007d7d',F:'#7d0000',G:'#6b4cbc',H:'#916019',I:'#0074ad',J:'#a43e72',K:'#5c7a1f',L:'#a04040'};
 function shapeEdgeColor(id){return SHAPE_EDGE_HEX[id]||'#555';}
 /* Контур рёбрами, а не одним путём: каждое ребро своим цветом. */
-function shapeAnnContour(r,DP,active){
-  var out='';
-  (r.geometry.edges||[]).forEach(function(e){
+function shapeAnnContour(r,DP,active,mono){
+  var edges=r.geometry.edges||[],out='';
+  /* Цех печатает чёрно-белым, и цвет ребра там пропадает: все стороны
+     становятся одинаковыми серыми линиями. Поэтому на печатном варианте
+     сторону называет БУКВА рядом с ней, а не цвет. На экране цвет остаётся —
+     он там работает. */
+  var cx=0,cy=0,n=0;
+  edges.forEach(function(e){var a=DP(e.p1),b=DP(e.p2);cx+=a[0]+b[0];cy+=a[1]+b[1];n+=2;});
+  if(n){cx/=n;cy/=n;}
+  var seen={};
+  edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
-    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+shapeEdgeColor(e.id)+'" stroke-width="'+(sel?4.6:1.3)+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    var col=mono?'#101828':shapeEdgeColor(e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
+    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    if(!mono||seen[e.id])return;
+    seen[e.id]=1;
+    /* Буква садится на середину ребра и отодвигается ВНУТРЬ детали: снаружи
+       уже стоят размерные цепочки и подписи обработки. */
+    var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
+    var lx=mx+dx/d*16,ly=my+dy/d*16;
+    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(e.id)+'</text>';
   });
   return out;
 }
@@ -577,7 +596,7 @@ function shapeAnnotationLayer(result,F,active,opts){
   ann+=shapeAnnOverhead(result,F,box.left,box.right);
   /* Рёбер немного — рисуем цветной контур по рёбрам (как в Designer);
      у круга/многоугольника рёбер много, там цветная россыпь читается хуже. */
-  var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active):'';
+  var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
   return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,
     path:disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z'};
 }

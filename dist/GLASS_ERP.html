@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 51 модулей, 3 стиля.
+  Состав сборки: 53 модулей, 3 стиля.
 -->
 <html lang="ru">
 <head>
@@ -288,7 +288,10 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .em-note{grid-column:2/-1;font-size:9px;color:var(--mut)}
 .shape-controls input.bad,.shape-controls select.bad{border-color:#f04438;background:#fef3f2}
 .shape-controls input.bad:focus{outline-color:#f04438}
-#printSheetHost{display:none}
+/* Хост печати держим в документе, но за экраном: подгонка чертежа под лист
+   меряет его getBBox, а у display:none размеров нет вовсе. position:fixed не
+   растягивает страницу. */
+#printSheetHost{position:fixed;left:-10000px;top:0;width:850px;height:1100px;overflow:hidden}
 .shape-print-btn{margin-left:auto}
 .muntin-print-row{display:flex;justify-content:flex-end;margin-bottom:6px}
 @media print{
@@ -718,6 +721,95 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-notch-row>span:not(.shape-mi-kind){color:var(--mut);font:9px ui-monospace,monospace;white-space:nowrap}
 .shape-notch-row>select{height:28px;padding:3px 6px;font-size:10.5px}
 
+/* Печатный лист чертежа ------------------------------------------------
+   Раскладка владельца: сверху слева тип и размеры, справа заказчик, посередине
+   большой чертёж, снизу путь по станциям мелким шрифтом. Лишних рамок нет —
+   только две разделительные линии; рамки съедают место под чертёж. */
+.print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
+  font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
+/* Все три блока шапки начинаются с ОДНОЙ строки: взгляд идёт по одной линии
+   слева направо, а не ищет, где начинается следующий блок. */
+.sheet-head{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:16px;align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
+.sheet-head.layered{grid-template-columns:auto minmax(0,1fr) auto}
+.sheet-head.layered .sheet-what{text-align:center}
+.sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
+/* У одинарного стекла шапка полупустая — название набирается крупно. */
+.sheet-head:not(.layered) .sheet-title{font-size:20px;line-height:1.2}
+.sheet-head:not(.layered) .sheet-size,
+.sheet-head:not(.layered) .sheet-mass{font-size:12px}
+.sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
+.sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
+.sheet-mass{font-size:10.5px;line-height:1.35;color:#475467}
+.sheet-mk-rows{display:grid;grid-template-columns:auto 104px auto;gap:3px 8px;align-items:center;justify-items:start}
+.mk-row{display:contents}
+.mk-row>span{font-size:11.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
+/* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
+.mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
+  font-family:ui-monospace,Consolas,monospace}
+/* Номер верхней грани стоит вровень с верхом стекла, нижней — с низом: обе
+   цифры в одну строку читались как «1 2» без понимания, какая где. */
+.mk-faces{display:flex;flex-direction:column;justify-content:space-between;height:18px;line-height:1}
+.mk-faces>i{font-style:normal}
+.mk-pane,.mk-cav,.mk-film{display:block;width:104px;height:10px;border:1px solid #101828;background:#e9edf1}
+.mk-pane{height:18px}
+/* Плёнка тоньше стекла и залита точками: в сечении её не спутать со стеклом. */
+.mk-film{height:5px;background:radial-gradient(#101828 .6px,#fff .6px);background-size:3px 3px}
+/* Полость белая, по краям распорка. Сплошной чёрный блок читается как дыра —
+   распорка рисуется штриховкой в рамке, как деталь в сечении. */
+.mk-cav{position:relative;height:14px;background:#fff}
+.mk-cav::before,.mk-cav::after{content:'';position:absolute;top:0;bottom:0;width:11px;
+  border:1px solid #101828;box-sizing:border-box;
+  background:repeating-linear-gradient(45deg,#101828 0 1px,#fff 1px 3px)}
+.mk-cav::before{left:0}.mk-cav::after{right:0}
+/* Покрытие лежит на конкретной ГРАНИ стекла: помечаем её штриховкой, а не
+   утолщением — по штриховке сразу видно, что это слой, а не толстое стекло. */
+.mk-pane{position:relative}
+.mk-pane.coat-out::after,.mk-pane.coat-in::after{content:'';position:absolute;left:0;right:0;height:4px;
+  background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
+.mk-pane.coat-out::after{top:0}
+.mk-pane.coat-in::after{bottom:0}
+.sheet-who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px}
+.sheet-who span{font-size:8.5px;letter-spacing:.08em;color:#7a838f;align-self:center}
+.sheet-who b{font-weight:650;min-height:15px;min-width:150px}
+.sheet-who b>em{font-style:normal;font-weight:700}
+/* Примечание не делит строку с номером и количеством: его читают отдельно. */
+.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3;max-width:230px}
+.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 0}
+.sheet-field svg{width:100%;height:100%;object-fit:contain}
+/* Цех печатает ч/б. Цвет метки в сером не читается, поэтому на листе всё
+   становится чёрным: сторону называет буква, а метку — её значок и подпись.
+   Обводка текста остаётся белой — это подложка, без неё цифры сливаются с
+   линиями. */
+.print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:#101828!important}
+/* Фон листа обводки не имеет и получать её не должен: иначе вокруг чертежа
+   появляется лишняя рамка. */
+.print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
+.print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
+.print-shape-sheet .sheet-field svg text{fill:#101828!important}
+.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:5px}
+.sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
+/* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
+   поедет на стикере. Значит места должен занимать минимум. */
+.sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
+  padding:1px 0}
+.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.sheet-leg>em{font-style:normal;font-size:7.5px;line-height:1.4;color:#344054;
+  font-family:ui-monospace,Consolas,monospace}
+.sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
+.sheet-leg i{font-style:normal;color:#98a2b3;padding:0 5px}
+.sheet-merge>em{font-family:Arial,Helvetica,sans-serif;font-size:8px;color:#475467}
+.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:6px;
+  font-size:7.5px;color:#7a838f}
+/* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
+   листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
+   верх. Обе картинки листа размеры задают себе сами. */
+.print-sheet .print-shape-sheet .sheet-field svg{width:100%!important;height:100%!important;max-height:none!important}
+@media print{
+  .print-sheet .print-shape-sheet{height:96vh}
+}
+
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
    Service Sets + production Shape UX
@@ -794,7 +886,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-09-02 20:01';
+var ERP_BUILD='2026-09-02 23:04';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2948,8 +3040,11 @@ function shapeAnnChains(r,S,DP,box,opts,F){
     if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);chain+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp));}
     out+=shapeAnnUiWrap(opts,key,chain,x+dir*62,(ex.min+ex.max)/2,F);
   }
-  hChain('top',box.top-66);hChain('bottom',box.bottom+66);
-  vChain('left',box.left-78);vChain('right',box.right+78);
+  /* На печатном листе цепочки стоят ближе к детали: поле там одно, и пустые
+     поля вокруг фигуры съедают её размер. На экране расстояния прежние. */
+  var near=(opts&&opts.tight)?.5:1;
+  hChain('top',box.top-66*near);hChain('bottom',box.bottom+66*near);
+  vChain('left',box.left-78*near);vChain('right',box.right+78*near);
   return out;
 }
 
@@ -3018,11 +3113,27 @@ function shapeAnnCallouts(r,S,DP,opts,F){
 var SHAPE_EDGE_HEX={A:'#2828dc',B:'#28b428',C:'#fe8d28',D:'#a00082',E:'#007d7d',F:'#7d0000',G:'#6b4cbc',H:'#916019',I:'#0074ad',J:'#a43e72',K:'#5c7a1f',L:'#a04040'};
 function shapeEdgeColor(id){return SHAPE_EDGE_HEX[id]||'#555';}
 /* Контур рёбрами, а не одним путём: каждое ребро своим цветом. */
-function shapeAnnContour(r,DP,active){
-  var out='';
-  (r.geometry.edges||[]).forEach(function(e){
+function shapeAnnContour(r,DP,active,mono){
+  var edges=r.geometry.edges||[],out='';
+  /* Цех печатает чёрно-белым, и цвет ребра там пропадает: все стороны
+     становятся одинаковыми серыми линиями. Поэтому на печатном варианте
+     сторону называет БУКВА рядом с ней, а не цвет. На экране цвет остаётся —
+     он там работает. */
+  var cx=0,cy=0,n=0;
+  edges.forEach(function(e){var a=DP(e.p1),b=DP(e.p2);cx+=a[0]+b[0];cy+=a[1]+b[1];n+=2;});
+  if(n){cx/=n;cy/=n;}
+  var seen={};
+  edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
-    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+shapeEdgeColor(e.id)+'" stroke-width="'+(sel?4.6:1.3)+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    var col=mono?'#101828':shapeEdgeColor(e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
+    out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
+    if(!mono||seen[e.id])return;
+    seen[e.id]=1;
+    /* Буква садится на середину ребра и отодвигается ВНУТРЬ детали: снаружи
+       уже стоят размерные цепочки и подписи обработки. */
+    var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
+    var lx=mx+dx/d*16,ly=my+dy/d*16;
+    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(e.id)+'</text>';
   });
   return out;
 }
@@ -3053,7 +3164,7 @@ function shapeAnnotationLayer(result,F,active,opts){
   ann+=shapeAnnOverhead(result,F,box.left,box.right);
   /* Рёбер немного — рисуем цветной контур по рёбрам (как в Designer);
      у круга/многоугольника рёбер много, там цветная россыпь читается хуже. */
-  var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active):'';
+  var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
   return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,
     path:disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z'};
 }
@@ -3159,6 +3270,9 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   o+=shapeMetricDimH(box.left,box.right,box.bottom,box.bottom+44,shapeMetricFormat(metric.bbox.widthMm),opts,F);
   o+=shapeMetricDimV(box.left-48,box.left,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F);
   o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(box.left-heightGap-36,box.left-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″')+'</g>';
+  /* На печатном листе своя шапка: периметр и толщина там уже есть, а сводка
+     садилась поверх чертежа вторым набором тех же чисел. */
+  if(opts.sheet)return o+'</g>';
   var summary=[];
   if(opts.liteLabel)summary.push(String(opts.liteLabel));
   /* W/H уже стоят на габаритных линиях; в сводке оставляем только то, чего
@@ -3242,6 +3356,8 @@ function shapeProductionDrawingFrame(result,opts){
   var framePoints=(result.points||[]).slice();
   if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
   var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190;
+  /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
+  if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k);pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
   var LONG=660,SHORT=260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
@@ -3254,8 +3370,11 @@ function shapeProductionSvg(result,opts){
   /* Вид сверху получает отдельное верхнее поле; выбранный лайт тоже входит в
      рамку, чтобы его метрический контур не обрезался собственной формой. */
   var F=shapeProductionDrawingFrame(result,opts);
-  var L=shapeAnnotationLayer(result,F,null,opts.annotation);
-  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+shapeTitleBlock(result,'PRODUCTION DRAWING',F);
+  /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
+     внутри чертежа стали бы вторым набором тех же сведений. */
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var L=shapeAnnotationLayer(result,F,null,ann);
+  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
   if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
@@ -3265,7 +3384,7 @@ function shapeProductionSvg(result,opts){
      друга. Дюймовые цепочки скрываем; отверстия и прочие производственные
      обозначения ниже остаются в исходных единицах согласно спецификации. */
   if(!F.metric)o+=L.annotations;
-  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,opts.metric)+shapeGlassHatchSvg(L);
+  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,Object.assign({},opts.metric,{sheet:sheet}))+shapeGlassHatchSvg(L);
   /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
      каждая сторона уже расписана по участкам, и общий размер вставал вторым
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
@@ -3273,14 +3392,15 @@ function shapeProductionSvg(result,opts){
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
   if(!L.smart&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
-    var wy=L.box.bottom+118+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128-shapeAnnUiShift(annOpts,hKey);
+    var near=sheet?.55:1;
+    var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);
     o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
     o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
   o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation);
-  o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
+  if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
 /* ---------- Safety Border overlay ----------
@@ -6365,6 +6485,32 @@ function importGlassSheetsCsv(text){
  });
  normalizeMasterData();
  return rep;
+}
+
+/* ---------- Вес стекла ----------
+   Считается от ФАКТИЧЕСКОЙ толщины: «10 mm» стекло на деле 9.7 mm, и на
+   больших листах разница уже видна в накладной. Номинал берётся только когда
+   фактического значения в каталоге нет — тогда вес помечается приблизительным.
+   Плотность натрий-кальциевого стекла — именованная константа, а не число
+   внутри выражения: её меняют один раз и в одном месте. */
+const GLASS_DENSITY_KG_M3=2500;
+const GLASS_M2_PER_FT2=0.09290304;
+function glassEffectiveThicknessMm(product){
+  var a=product&&+product.actualThicknessMm;
+  if(isFinite(a)&&a>0)return {mm:a,exact:true};
+  var n=product&&+product.thicknessMm;
+  return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
+}
+/* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
+function glassWeightKg(product,areaFt2){
+  var t=glassEffectiveThicknessMm(product),a=+areaFt2;
+  if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
+  return {kg:a*GLASS_M2_PER_FT2*(t.mm/1000)*GLASS_DENSITY_KG_M3,exact:t.exact};
+}
+function glassWeightText(product,areaFt2){
+  var w=glassWeightKg(product,areaFt2);
+  if(!w)return '';
+  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
 }
 
 /* ==== src/erp/customers/data.js ==== */
@@ -9861,6 +10007,416 @@ function salesEffectiveMachinePayload(line){
   return {ok:true,fingerprint:salesEffectiveProductionFingerprint(line,shape,plan),schema:'glass-erp-order-effective/v1',units:'inch',lineId:line.id,safetyBorder:{value:round(brd.value),state:brd.state,applies:!!brd.applies,edgeIds:(brd.edgeIds||[]).slice()},billableFootprint:{width:round(fp.width),height:round(fp.height),sides:(fp.sides||[]).slice(),pad:{left:round((fp.pad||{}).left),right:round((fp.pad||{}).right),top:round((fp.pad||{}).top),bottom:round((fp.pad||{}).bottom)}},lites:(plan.lites||[]).map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,outer:{closed:true,points:(l.cuttingPoints||[]).map(function(p){return [round(p[0]),round(p[1])];})},width:round(l.cutW),height:round(l.cutH)};}),outer:{closed:true,points:plan.cuttingPoints.map(function(p){return [Math.round(p[0]*1000000)/1000000,Math.round(p[1]*1000000)/1000000];})},snapshot:plan.snapshot};
 }
 
+/* ==== src/erp/sales/print-route.js ==== */
+/* =====================================================================
+   sales/print-route  ·  путь стекла по станциям для печатного листа
+   IN : строка заказа + заказ, либо одна фигура из библиотеки
+   OUT: {lites:[{label,glass,stations:[{code,name,items:[…]}]}], merge}
+   Правило: файл не считает цены и ничего не рисует. Только «что и где делают».
+
+   Маршрут принадлежит СТЕКЛУ, а не юниту. Хендоф 9м: каждое стекло — отдельный
+   объект со своим L-номером, ламинация и сборка пакета — точки слияния, где два
+   номера сходятся. Поэтому у пакета столько полос маршрута, сколько лайтов, а
+   станция слияния одна на лист. Когда L-номера появятся, каждая полоса просто
+   получит свой номер — переделывать лист не придётся.
+   ===================================================================== */
+
+/* Порядок станций и связь операции со станцией берутся из справочника цеха, а
+   не из списка в коде: станции переименуют, и это не должно требовать обхода
+   файлов. */
+function salesRouteStations(){
+  return (DB.station||[]).slice().sort(function(a,b){return (+a.seq||0)-(+b.seq||0);});
+}
+function salesRouteStationName(code){
+  var s=(DB.station||[]).find(function(x){return x.code===code;});
+  if(!s)return code;
+  return (typeof LANG!=='undefined'&&LANG==='en')?(s.nameEn||s.name):(s.name||s.nameEn);
+}
+function salesRouteStationOf(opCode,fallback){
+  var o=(DB.operation||[]).find(function(x){return x.code===opCode;});
+  return (o&&o.station)||fallback;
+}
+const SALES_ROUTE_EDGE_OP={'Rough Arris':'arris_machine','Flat Polish':'polish',
+  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel'};
+const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
+
+function salesRoutePush(map,order,code,text){
+  if(!code||!text)return;
+  if(!map[code]){map[code]={code:code,name:salesRouteStationName(code),items:[]};order.push(code);}
+  if(map[code].items.indexOf(text)<0)map[code].items.push(text);
+}
+
+/* Позиция метки записывается ровно так, как её ввёл оператор: буква кромки, имя
+   стороны, величина и УГОЛ ОТСЧЁТА. Правило не выдумываем — от какого угла
+   мерили, уже выбрано в карточке и лежит в оформлении фигуры. */
+function salesRouteMarkText(shape,geo,item,edgeLen){
+  var name,pos='';
+  if(item.type==='hole'){
+    var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item);
+    name=(count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
+    var hp=geo?shapeManufacturingHolePosition(item,geo):null;
+    if(hp)pos=shapeManufacturingEdgeLabel(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
+      ' · '+shapeManufacturingEdgeLabel(hp.vRef)+' '+shapeFrac16(hp.vDistance);
+    return name+(pos?' — '+pos:'');
+  }
+  name=String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
+    (item.model?' '+item.model:'');
+  var edge=item.edge||'left',letter=SALES_ROUTE_EDGE_LETTER[edge]||'',shown=+item.distance||0;
+  var rec=shape&&shape.dims&&shape.dims[item.id]&&shape.dims[item.id].e;
+  var fromEnd=!!(rec&&rec.ref==='end');
+  if(fromEnd&&isFinite(+edgeLen)&&+edgeLen>0)shown=Math.max(0,+edgeLen-shown);
+  var vert=(edge==='left'||edge==='right');
+  var corner=vert?(fromEnd?'top':'bottom'):(fromEnd?'right':'left');
+  pos=(letter?letter+' · ':'')+shapeManufacturingEdgeLabel(edge)+' · '+
+    shapeFrac16(shown)+' from '+corner;
+  return name+' — '+pos;
+}
+
+/* Один лайт: что с ним делают и на какой станции. */
+function salesRouteLiteStations(shape,result,groups,heatTreatment){
+  var map={},order=[],geo=null;
+  try{geo=(typeof shapeManufacturingGeometry==='function'&&shape===sDraft)?shapeManufacturingGeometry():null;}catch(e){geo=null;}
+  if(!geo&&result&&result.valid&&(result.points||[]).length)geo={P:result.points,b:fabEdgeBounds(result.points)};
+
+  var cut=result&&result.cutting&&result.cutting.valid?result.cutting:null;
+  if(cut)salesRoutePush(map,order,'CUT',dimIn16(cut.width)+' × '+dimIn16(cut.height));
+
+  /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
+  var byOp={},opOrder=[],edgeLen={};
+  (groups||[]).forEach(function(g){
+    edgeLen[g.id]=+g.length||0;
+    (g.ops||[]).forEach(function(op){
+      var t=op&&op.type;if(!t)return;
+      if(!byOp[t]){byOp[t]=[];opOrder.push(t);}
+      if(byOp[t].indexOf(g.id)<0)byOp[t].push(g.id);
+    });
+  });
+  opOrder.forEach(function(t){
+    salesRoutePush(map,order,salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],'EDGE'),
+      byOp[t].join(', ')+' · '+t);
+  });
+
+  /* Тело стекла: отверстия, фурнитура, нотчи, вырезы. */
+  var fab=salesRouteStationOf('fabrication','FAB');
+  (shape&&shape.manufacturingItems||[]).forEach(function(item){
+    var letter=SALES_ROUTE_EDGE_LETTER[item.edge||'left'];
+    salesRoutePush(map,order,fab,salesRouteMarkText(shape,geo,item,edgeLen[letter]));
+  });
+  if(typeof ssNotchList==='function')ssNotchList(shape).forEach(function(n){
+    salesRoutePush(map,order,fab,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase());
+  });
+  (shape&&shape.features||[]).forEach(function(f){
+    if(f.type==='cutout')salesRoutePush(map,order,fab,'INTERNAL CUTOUT');
+    if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,fab,'RADIUS CORNER');
+  });
+
+  /* Печь и то, что она ставит. */
+  if(heatTreatment&&heatTreatment!=='AN')
+    salesRoutePush(map,order,salesRouteStationOf('tempering','HEAT'),
+      heatTreatment==='HS'?'HEAT STRENGTHENING':'TEMPERING');
+  (shape&&shape.features||[]).forEach(function(f){
+    /* Штамп ставит печь — на отожжённом лайте его быть не может. */
+    if(f.type==='stamp'&&heatTreatment&&heatTreatment!=='AN')
+      salesRoutePush(map,order,'HEAT',String(shapeStampText(f)).toUpperCase());
+    if(f.type==='sandblast')salesRoutePush(map,order,salesRouteStationOf('sandblasting','SAND'),
+      String(shapeSandblastServiceLabel(f)).toUpperCase());
+  });
+
+  /* Печатаем в порядке маршрута цеха, а не в порядке заполнения. */
+  var seq=salesRouteStations().map(function(s){return s.code;});
+  var out=seq.filter(function(c){return map[c];}).map(function(c){return map[c];});
+  order.forEach(function(c){if(seq.indexOf(c)<0)out.push(map[c]);});
+  return out;
+}
+
+function salesRouteHeatOf(pane){
+  var ht=pane&&(typeof mdById==='function'?mdById('heatTreatment',pane.heatTreatmentId):null);
+  var code=(ht&&(ht.code||ht.name))||String(pane&&pane.heatTreatmentId||'').replace(/^HT-/,'');
+  return String(code||'AN').toUpperCase();
+}
+
+/* Точка слияния: там, где два стекла становятся одним изделием. */
+function salesRouteMerge(unitType,panes){
+  if((panes||[]).some(function(p){return p&&p.category==='laminated';}))return 'LAM';
+  if(unitType&&unitType!=='single')return 'IGU';
+  return '';
+}
+
+function salesRouteAppendMerge(lites,merge){
+  if(!merge)return lites;
+  var name=salesRouteStationName(merge);
+  lites.forEach(function(l){
+    if(!l.stations.some(function(s){return s.code===merge;}))
+      l.stations.push({code:merge,name:name,items:[name]});
+  });
+  return lites;
+}
+function salesPrintRoute(line,order,shape,result){
+  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  var lites=[],merge='';
+  var mk=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
+  if(mk&&typeof salesEffectiveProductionSnapshot==='function'){
+    var snap=salesEffectiveProductionSnapshot(line,shape,order),views=(snap&&snap.lites)||[];
+    lites=views.map(function(v,i){
+      var pane=(mk.panes||[])[i];
+      return {label:v.label||('Lite '+(i+1)),
+        glass:pane?salesGlassCodeForPane(pane)+' · '+salesRouteHeatOf(pane):'',
+        stations:salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'')};
+    });
+    merge=salesRouteMerge(mk.unitType,mk.panes);
+    salesRouteAppendMerge(lites,merge);
+  }
+  /* Фигура из библиотеки заказа не имеет: маршрут строится по ней самой. */
+  if(!lites.length){
+    var groups=((result&&result.edges)||[]).map(function(g){
+      return {id:g.id,length:g.length,
+        ops:(typeof shapeEdgeOps==='function'?shapeEdgeOps(shape,g.id):[])};
+    });
+    lites=[{label:'',glass:'',stations:salesRouteLiteStations(shape,result,groups,'')}];
+  }
+  return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
+}
+
+/* ==== src/erp/sales/print-sheet.js ==== */
+/* =====================================================================
+   sales/print-sheet  ·  печатный лист чертежа
+   IN : фигура + её результат + строка заказа (может не быть)
+   OUT: разметка листа для printSheetPrepare
+
+   Раскладка задана владельцем: сверху слева тип стекла и размеры, справа
+   заказчик / заказ / PO, посередине большой чертёж, снизу путь стекла по
+   станциям мелким шрифтом — он же служит сверкой с чертежом, отдельной легенды
+   на листе нет. Лишних рамок нет: только две разделительные линии.
+   Нет значения — остаётся пустота, а не прочерк.
+   ===================================================================== */
+
+function salesSheetLineOf(shape){
+  if(typeof soDraft==='undefined'||!soDraft)return null;
+  var id=(typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?salesBridge.lineId:null;
+  var lines=soDraft.lines||[];
+  var line=id?lines.find(function(l){return l.id===id;}):null;
+  if(!line&&shape&&shape.ownerLineId)line=lines.find(function(l){return l.id===shape.ownerLineId;});
+  return line||null;
+}
+function salesSheetLineNumber(line){
+  if(!line||typeof soDraft==='undefined'||!soDraft)return '';
+  var i=(soDraft.lines||[]).indexOf(line);
+  return i<0?'':('L'+(i+1));
+}
+/* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
+   Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
+function salesSheetTitleLines(makeup,line){
+  if(makeup&&(makeup.panes||[]).length>1){
+    var mm=salesMakeupThicknessMm(makeup),kind=makeup.unitType==='triple'?'Triple':'Double';
+    return {name:'Makeup '+String(makeup.code||''),spec:kind+(mm?' '+(Math.round(mm*10)/10)+' mm':'')};
+  }
+  var pane=makeup&&(makeup.panes||[])[0];
+  if(pane&&pane.category==='laminated'&&typeof salesPaneProductSummary==='function')
+    return {name:'Laminated',spec:salesPaneProductSummary(pane,0)};
+  if(pane)return {name:salesGlassNameForPane(pane),spec:''};
+  return {name:(line&&line.mark)||'Production Shape',spec:''};
+}
+/* «10 mm Clear», а не «Clear 10mm»: толщина читается первой. Если она уже
+   вписана в название продукта, оттуда её и убираем, чтобы не повторялась. */
+function salesSheetThicknessFirst(name,mm){
+  var out=String(name||'');
+  if(isFinite(mm)&&mm>0){
+    out=out.replace(new RegExp('\\s*\\b'+mm+'\\s*mm\\b','i'),'').replace(/\s{2,}/g,' ').trim();
+    return (mm+' mm'+(out?' '+out:'')).trim();
+  }
+  return out;
+}
+function salesGlassNameForPane(pane){
+  if(!pane)return '';
+  if(pane.category==='laminated')return 'Laminated';
+  var g=glassProductById(pane.glassProductId),name=g?(g.name||g.code):'',ht=salesRouteHeatOf(pane);
+  return salesSheetThicknessFirst(name,salesPaneGlassThicknessMm(pane))+(ht&&ht!=='AN'?' · '+ht:'');
+}
+/* Состав пакета — ГОРИЗОНТАЛЬНОЕ сечение, как его рисует стекольщик: слои лежат
+   стопкой сверху вниз от наружной стороны к внутренней, подпись стоит слева от
+   своего слоя. Полость показана распорками по краям, покрытие — жирной линией
+   на той грани, где оно на самом деле лежит.
+   Разметка не SVG: на бумаге это несколько прямоугольников и текст, а текст
+   в HTML набирается тем же шрифтом, что и весь лист. */
+/* Один слой стекла: толщина, название, термообработка, поверхность покрытия. */
+function salesSheetPlyText(ply){
+  if(!ply)return '';
+  var g=glassProductById(ply.glassProductId),name=g?(g.name||g.code):'';
+  var mm=+ply.thicknessMm,ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
+  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'');
+}
+/* Плёнка межслойная: сколько слоёв, какой толщины и чего именно. */
+function salesSheetFilmText(film){
+  if(!film)return '';
+  var pr=(typeof mdById==='function')?mdById('interlayerProduct',film.productId):null;
+  var layers=+film.layers||1,mm=+film.thicknessMm;
+  return (layers>1?layers+' × ':'')+(isFinite(mm)&&mm>0?mm+' mm ':'')+((pr&&(pr.code||pr.name))||'');
+}
+/* Какая поверхность помечена у этого слоя: покрытие, спандрел или фрит.
+   Ноль означает «ничем не занята». */
+function salesSheetMarkedSurface(pane){
+  if(!pane)return 0;
+  if(pane.category==='spandrel')return +(pane.spandrel&&pane.spandrel.surface)||0;
+  if(pane.visionType==='frit')return +(pane.frit&&pane.frit.surface)||0;
+  return +pane.coatingSurface||0;
+}
+/* Чем занята поверхность — словом, как в конфигураторе Makeup. */
+function salesSheetSurfaceLabel(pane){
+  if(!pane)return '';
+  if(pane.category==='spandrel')return 'Spandrel'+(pane.spandrel&&pane.spandrel.color?' '+pane.spandrel.color:'');
+  if(pane.visionType==='frit')return 'Frit'+(pane.frit&&pane.frit.color?' '+pane.frit.color:'');
+  if(pane.visionType==='lowe'||pane.visionType==='reflective')
+    return (typeof salesVisionTypeLabel==='function')?salesVisionTypeLabel(pane.visionType):'Coated';
+  return '';
+}
+/* Слоёный ли юнит: пакет, ламинат или спандрел. От этого зависит вся верхняя
+   раскладка листа. */
+function salesSheetIsLayered(makeup){
+  var panes=(makeup&&makeup.panes)||[];
+  if(panes.length>1)return true;
+  return panes.some(function(p){return p&&(p.category==='laminated'||p.category==='spandrel');});
+}
+function salesSheetPaneText(pane,index){
+  if(!pane)return '';
+  if(pane.category==='laminated')
+    return (typeof salesPaneProductSummary==='function')?salesPaneProductSummary(pane,index):'Laminated';
+  var g=glassProductById(pane.glassProductId);
+  var mm=salesPaneGlassThicknessMm(pane),name=g?(g.name||g.code):'';
+  var bits=salesSheetThicknessFirst(name,mm);
+  var ht=salesRouteHeatOf(pane),what=salesSheetSurfaceLabel(pane),sf=salesSheetMarkedSurface(pane);
+  if(what)bits+=' · '+what;
+  if(sf)bits+=' · #'+sf;
+  if(ht&&ht!=='AN')bits+=' · '+ht;
+  return bits;
+}
+function salesSheetCavityText(makeup,i){
+  var c=(makeup.cavities||[])[i-1];
+  var sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);
+  var bits=[sp?(sp.size+(sp.system?' '+sp.system:'')):'',gas?gas.code:''].filter(Boolean);
+  return bits.join(' + ')||('Cavity '+i);
+}
+/* Верхняя грань подписана сверху, нижняя снизу — на своей высоте. Обе в одну
+   строку читались как «1 2» без понимания, где какая. */
+function salesSheetFaceNums(top,bottom){
+  return '<em class="mk-faces"><i>'+(top?'#'+top:'')+'</i><i>'+(bottom?'#'+bottom:'')+'</i></em>';
+}
+function salesSheetMakeupHTML(makeup){
+  var panes=(makeup&&makeup.panes)||[];
+  /* Схема нужна там, где слоёв больше одного: пакет, ламинат, спандрел с его
+     поверхностью. У простого одинарного стекла всё сказано в заголовке слева. */
+  if(!salesSheetIsLayered(makeup))return '';
+  var rows='';
+  panes.forEach(function(p,i){
+    if(i)rows+='<div class="mk-row"><span>cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
+      '<i class="mk-cav"></i><em></em></div>';
+    var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
+    var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
+    /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
+       хендофу 9м это ДВА отдельных стекла со своими L-номерами. Показываем их
+       раздельно, иначе цех не увидит, что именно склеивают. */
+    if(p.category==='laminated'){
+      var lam=p.laminated||{},films=lam.interlayers||[];
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc(salesSheetPlyText(lam.outer))+'</span>'+
+        '<i class="mk-pane'+(sf===surf[0]?' coat-out':'')+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
+      films.forEach(function(f){
+        rows+='<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
+          '<i class="mk-film"></i><em></em></div>';
+      });
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc(salesSheetPlyText(lam.inner))+'</span>'+
+        '<i class="mk-pane'+(sf===surf[1]?' coat-in':'')+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
+      return;
+    }
+    rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
+      '<i class="mk-pane'+face+'"></i>'+salesSheetFaceNums(surf[0],surf[1])+'</div>';
+  });
+  return '<div class="sheet-mk-rows">'+rows+'</div>';
+}
+function salesSheetRouteHTML(route){
+  if(!route||!route.lites.length)return '';
+  var many=route.lites.length>1;
+  /* Колонки — станции в порядке маршрута, только те, что кто-то проходит. */
+  var cols=[];
+  route.lites.forEach(function(l){l.stations.forEach(function(s){
+    if(cols.indexOf(s.code)<0)cols.push(s.code);});});
+  /* Цепочкой, а не таблицей: колонки под две станции растягивались на всю
+     ширину и оставляли пустоту. Здесь строка ровно такой длины, какой нужно. */
+  var body=route.lites.map(function(l){
+    var chain=l.stations.map(function(s){
+      return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
+    }).join('<i>&rsaquo;</i>');
+    return '<div class="sheet-leg">'+
+      (many?'<span>'+esc(l.label)+(l.glass?' · '+esc(l.glass):'')+'</span>':'<span></span>')+
+      '<em>'+chain+'</em></div>';
+  }).join('');
+  return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
+}
+/* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
+function salesShapeSheetHTML(shape,result,svg,kind){
+  var line=salesSheetLineOf(shape);
+  var order=(typeof soDraft!=='undefined')?soDraft:null;
+  var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
+  var areaFt2=result&&result.valid?result.area/144:0;
+  var pane=makeup&&(makeup.panes||[])[0];
+  var weight='';
+  if(makeup&&(makeup.panes||[]).length){
+    var total=0,exact=true,ok=true;
+    (makeup.panes||[]).forEach(function(p){
+      var w=glassWeightKg(glassProductById(p.glassProductId),areaFt2);
+      if(!w){ok=false;return;}
+      total+=w.kg;if(!w.exact)exact=false;
+    });
+    if(ok&&total>0)weight=(exact?'':'~')+(total>=10?Math.round(total):total.toFixed(1))+' kg';
+  }else if(pane)weight=glassWeightText(glassProductById(pane.glassProductId),areaFt2);
+
+  var finished=result&&result.valid?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  var size=finished?'Finished '+finished:'';
+  var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
+  var lineText=salesSheetLineNumber(line);
+  var route=salesPrintRoute(line,order,shape,result);
+
+  var layered=salesSheetIsLayered(makeup),t=salesSheetTitleLines(makeup,line);
+  /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
+     вещи на складе и в отгрузке. */
+  var n=line?(line.qty||1):0;
+  var qty=line?(n+' '+(layered?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
+  /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
+     номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
+  var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
+  return '<div class="print-shape-sheet">'+
+    '<div class="sheet-head'+(layered?' layered':'')+'">'+
+      (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+      '<div class="sheet-what">'+
+        '<div class="sheet-title">'+esc(t.name)+'</div>'+
+        (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
+        (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
+        (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+      '</div>'+
+      '<div class="sheet-who">'+
+        '<span>CUSTOMER</span><b>'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
+        '<span>ORDER</span><b>'+esc(order&&order.businessNumber||'')+'</b>'+
+        '<span>PO</span><b>'+esc(order&&order.customerPO||'')+'</b>'+
+        '<span>LINE</span><b>'+esc(lineText)+(qty?' · <em>'+esc(qty)+'</em>':'')+'</b>'+
+        '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
+      '</div>'+
+    '</div>'+
+    '<div class="sheet-field">'+svg+'</div>'+
+    salesSheetRouteHTML(route)+
+    '<div class="sheet-foot"><span></span>'+
+      '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
+  '</div>';
+}
+/* Чертёж внутри листа занимает всё отведённое место: пустые поля канвы
+   обрезаются по фактическому содержимому, иначе фигура сидит в пустоте. */
+function salesSheetFitDrawing(host){
+  var svg=host&&host.querySelector('.sheet-field svg');if(!svg||!svg.getBBox)return;
+  try{
+    var b=svg.getBBox();if(!(b.width>0&&b.height>0))return;
+    var m=Math.max(6,Math.min(b.width,b.height)*0.02);
+    svg.setAttribute('viewBox',(b.x-m).toFixed(1)+' '+(b.y-m).toFixed(1)+' '+
+      (b.width+m*2).toFixed(1)+' '+(b.height+m*2).toFixed(1));
+  }catch(e){}
+}
+
 /* ==== src/erp/sales/makeup-ui.js ==== */
 /* =====================================================================
    erp/sales/makeup-ui · sales-0.3b-makeup
@@ -10796,9 +11352,11 @@ function shapeDxfPreviewTransform(source){
   var sc=Math.min((vw-padL-padR)/W,(vh-padT-padB)/H),dw=W*sc,dh=H*sc,x0=padL+(vw-padL-padR-dw)/2,y0=padT+(vh-padT-padB-dh)/2;
   return {P:P,b:b,W:W,H:H,vw:vw,vh:vh,sc:sc,dw:dw,dh:dh,x0:x0,y0:y0,X:function(x){return x0+(x-b.minX)*sc;},Y:function(y){return y0+dh-(y-b.minY)*sc;}};
 }
-function shapeDrawnPreviewTransform(result){
+/* Накладка меток считается ТЕМ ЖЕ полем, что и сам чертёж. На печатном листе
+   поля канвы урезаны, и без общего расчёта метки уезжали за контур. */
+function shapeDrawnPreviewTransform(result,extra){
   if(!result||!result.valid||!(result.points||[]).length)return null;
-  var F=shapeProductionDrawingFrame(result,shapeMetricProductionOptions(result));
+  var F=shapeProductionDrawingFrame(result,Object.assign({},shapeMetricProductionOptions(result),extra||{}));
   F.P=result.points;return F;
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
@@ -11242,8 +11800,11 @@ function shapeDxfPreviewSvg(source,includeMarks){
     <text x='${leftX-10}' y='${y0+dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${y0+dh/2})'>${esc(heightLabel)}</text>
   </svg>`;
 }
-function shapeDrawnProductionSvg(result,interactive){
-  var metricOpts=shapeMetricProductionOptions(result,interactive),svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result);if(!T)return svg;
+function shapeDrawnProductionSvg(result,interactive,extra){
+  /* extra — режим печатного листа: он несёт свою шапку и свою подпись, поэтому
+     чертёж рисуется без заголовка и в чёрно-белом варианте. */
+  var metricOpts=Object.assign({},shapeMetricProductionOptions(result,interactive),extra||{});
+  var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
      represented by the active drawing tab. */
@@ -11521,9 +12082,13 @@ function shapePrintDrawing(){
   if(e)e.style.display='none';
   if(r.externalFile){if(e)fail(e,'A DXF file from Fusion 360 is not printed as a Production Shape drawing.');return;}
   if(!r.valid){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
-  var cutting=sView==='cutting',svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false);
-  var name=(sDraft.name||'').trim()||'Shape';
-  printSheet(svg,name+' · '+(cutting?'Cutting Shape':'Production Drawing')+' · Rev '+(sDraft.revision||0));
+  /* Лист несёт свою шапку и маршрут, поэтому чертёж рисуется без собственного
+     заголовка и в чёрно-белом варианте: цех печатает ч/б, и цветом стороны там
+     не различить — их называет буква на кромке. */
+  var cutting=sView==='cutting';
+  var svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
+  var kind=cutting?'CUTTING SHAPE':'PRODUCTION DRAWING';
+  printSheet(salesShapeSheetHTML(sDraft,r,svg,kind),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
@@ -13718,16 +14283,19 @@ function printSheetUniqueIds(svg){
 }
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
-function printSheetPrepare(svg,caption){
+function printSheetPrepare(svg,caption,after){
   if(!svg)return false;
   var h=printSheetHost();
   h.innerHTML='<div class="print-sheet">'+printSheetUniqueIds(svg)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';
   document.body.classList.add('printing');
+  /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
+     по фактическому содержимому, а его можно измерить только в документе. */
+  if(typeof after==='function')try{after(h);}catch(e){}
   return true;
 }
 /* svg — готовая разметка чертежа, caption — подпись под листом (что печатаем). */
-function printSheet(svg,caption){
-  if(!printSheetPrepare(svg,caption))return false;
+function printSheet(svg,caption,after){
+  if(!printSheetPrepare(svg,caption,after))return false;
   window.addEventListener('afterprint',printSheetCleanup,{once:true});
   /* Safari и часть сборок Chromium не шлют afterprint — подстраховываемся. */
   setTimeout(printSheetCleanup,60000);

@@ -186,16 +186,19 @@ function printSheetUniqueIds(svg){
 }
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
-function printSheetPrepare(svg,caption){
+function printSheetPrepare(svg,caption,after){
   if(!svg)return false;
   var h=printSheetHost();
   h.innerHTML='<div class="print-sheet">'+printSheetUniqueIds(svg)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';
   document.body.classList.add('printing');
+  /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
+     по фактическому содержимому, а его можно измерить только в документе. */
+  if(typeof after==='function')try{after(h);}catch(e){}
   return true;
 }
 /* svg — готовая разметка чертежа, caption — подпись под листом (что печатаем). */
-function printSheet(svg,caption){
-  if(!printSheetPrepare(svg,caption))return false;
+function printSheet(svg,caption,after){
+  if(!printSheetPrepare(svg,caption,after))return false;
   window.addEventListener('afterprint',printSheetCleanup,{once:true});
   /* Safari и часть сборок Chromium не шлют afterprint — подстраховываемся. */
   setTimeout(printSheetCleanup,60000);
