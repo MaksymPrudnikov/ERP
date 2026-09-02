@@ -1070,6 +1070,76 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('модель хранится снимком: переименование справочника не трогает заказ',
       {keys:modelSnapshot.namedKeys,changed:modelSnapshot.namedChanges,shown:modelSnapshot.shown,custom:modelSnapshot.custom},
       {keys:['distance','edge','id','model','modelId','note','type'],changed:true,shown:'Vienna 180',custom:true});
+
+    /* Метрический лист — только производное представление готового контура.
+       Проверяем отдельно математику и экранный переключатель, чтобы ни один
+       машинный экспорт не получил скрытую зависимость от UI-состояния. */
+    const metric = await p.evaluate(() => {
+      const f = v => (+v).toFixed(2);
+      const ref = {id:'metric-ref',name:'Metric reference',w:'40',h:'50',smart:ssNormalize({})};
+      ref.smart.C.len='20';
+      const rr=ShapeModule.compute(ref),rm=shapeMetricAnnotations(rr);
+      const rectangle=newShapeDef('rectangle');rectangle.w='48';rectangle.h='36';
+      const rectMetric=shapeMetricAnnotations(ShapeModule.compute(rectangle));
+      const notchPoints=[[0,0],[4,0],[4,4],[2,4],[2,2],[0,2]];
+      const notchResult={points:notchPoints,geometry:{pointEdgeIds:['A','B','C','D','E','F']}};
+      const notch=shapeMetricAnnotations(notchResult),concave=notch.vertices.find(v=>!v.convex);
+      const polygon=shapeMetricAnnotations({points:[[0,0],[7,0],[9,3],[6,8],[1,6]],geometry:{}});
+      return {
+        reference:{ids:rm.segments.map(s=>s.edgeId),lengths:rm.segments.map(s=>f(s.lengthMm)),angles:rm.vertices.map(v=>f(v.angleDeg)),sum:f(rm.vertices.reduce((a,v)=>a+v.angleDeg,0)),perimeter:f(rm.perimeterMm),box:[f(rm.bbox.widthMm),f(rm.bbox.heightMm)]},
+        polygonSum:f(polygon.vertices.reduce((a,v)=>a+v.angleDeg,0)),polygonExpected:f((polygon.vertices.length-2)*180),
+        rectangle:{lengths:rectMetric.segments.map(s=>f(s.lengthMm)),angles:rectMetric.vertices.map(v=>f(v.angleDeg)),perimeter:f(rectMetric.perimeterMm)},
+        notch:concave&&{angle:f(concave.angleDeg),convex:concave.convex},
+        slope:{length:f(rm.segments[1].lengthMm),bearing:rm.segments[1].bearingDeg},
+        renderedUniqueLengths:(ShapeModule.productionSvg(rr,{metric:{}}).match(/class="shape-metric-length"/g)||[]).length,
+        renderedInchReferences:(ShapeModule.productionSvg(rr,{metric:{}}).match(/class="shape-inch-reference(?:\s|\")/g)||[]).length
+      };
+    });
+    eq('метрика эталона 40 × 50 × C20 совпадает с Fusion-образцом', metric.reference, {
+      ids:['A','D','C','B'],lengths:['1270.00','1270.00','508.00','1016.00'],angles:['90.00','53.13','126.87','90.00'],sum:'360.00',perimeter:'4064.00',box:['1016.00','1270.00']
+    });
+    eq('сумма внутренних углов следует (N − 2) × 180', metric.polygonSum, metric.polygonExpected);
+    /* Контур проекта обходится A → D → C → B, поэтому у прямоугольника
+       вертикальная сторона идёт первой; полный набор чисел тот же. */
+    eq('метрика прямоугольника 48 × 36', metric.rectangle, {lengths:['914.40','1219.20','914.40','1219.20'],angles:['90.00','90.00','90.00','90.00'],perimeter:'4267.20'});
+    eq('вогнутая вершина нотча честно показывает 270°', metric.notch, {angle:'270.00',convex:false});
+    ok('скошенная сторона возвращает гипотенузу и ненулевой bearing', metric.slope.length==='1270.00'&&metric.slope.bearing!==0&&Math.abs(metric.slope.bearing)!==90, metric.slope);
+    eq('габаритные прямые рёбра не повторяют W/H, уникальные участки остаются', metric.renderedUniqueLengths, 2);
+    eq('дюймы возвращаются один раз для W/H и уникальных участков', metric.renderedInchReferences, 4);
+
+    const metricUi = await p.evaluate(() => {
+      const oldTab=tab,oldSub=subtab;
+      localStorage.removeItem(SHAPE_METRIC_STORAGE_KEY);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricDetail=false;sMetricOffsets={};sMetricDimEdit=null;
+      tab='configurators';subtab='shape';openShapeNew('rectangle');
+      sDraft.w='48';sDraft.h='36';sDraft.name='Metric UI';sView='production';
+      sDraft.features=[shapeNormalizeFeature({id:'metric-hole',type:'hole',diameter:'1/2',x:'10',y:'10',minEdge:'1/2'}),shapeNormalizeFeature({id:'metric-hw',type:'hardware',name:'Clamp',edgeId:'A',distance:'10',inset:'0',prepWidth:'2',prepHeight:'2',holeDia:'1/2'})];
+      render();
+      const r=shapeDraftResult(),fp=shapeFingerprint(r.definition),machine=JSON.stringify(ShapeModule.machinePayload(r)),dxf=ShapeModule.genericDxf(r),cutting=ShapeModule.cuttingSvg(r);
+      const before={state:sMetricDetail,stored:localStorage.getItem(SHAPE_METRIC_STORAGE_KEY),layers:document.querySelectorAll('.shape-metric-layer').length,hatches:document.querySelectorAll('.shape-glass-hatch').length};
+      toggleShapeMetricDetail();
+      const button=document.querySelector('.shape-metric-toggle'),layer=document.querySelector('.shape-metric-layer');
+      const inchRef=layer&&layer.querySelector('.shape-inch-reference');
+      const on={layers:document.querySelectorAll('.shape-metric-layer').length,pressed:button&&button.getAttribute('aria-pressed'),active:button&&button.classList.contains('on'),title:button&&button.getAttribute('title'),stored:localStorage.getItem(SHAPE_METRIC_STORAGE_KEY),lengths:layer&&layer.querySelectorAll('.shape-metric-length').length,angles:layer&&layer.querySelectorAll('.shape-metric-angle').length,featureLeak:layer&&/[Ø]|CUTOUT|Clamp/.test(layer.textContent),production:shapeDrawnProductionSvg(r,false).includes('shape-metric-layer'),cutting:cutting.includes('shape-metric-layer'),hierarchy:{imperialCount:document.querySelectorAll('.shape-imperial-layer').length,imperialEdgeLabels:document.querySelectorAll('.shape-edge-label-outside').length,inchLayers:layer&&layer.querySelectorAll('.shape-inch-reference-layer').length,inchLabels:layer&&layer.querySelectorAll('.shape-inch-reference').length,inchColor:inchRef&&inchRef.getAttribute('fill'),inchWeight:inchRef&&inchRef.getAttribute('font-weight'),summaryHasBox:/\d+\.\d{2}\s*×\s*\d/.test((layer&&layer.querySelector('.shape-metric-summary').textContent)||''),overallFont:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-size'),overallWeight:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('font-weight'),color:layer&&layer.querySelector('[data-metric-role="width"]').getAttribute('fill'),contourFill:layer&&layer.querySelector('.shape-metric-contour').getAttribute('fill'),movable:layer&&layer.querySelectorAll('.shape-metric-movable').length,hatches:document.querySelectorAll('.shape-glass-hatch').length,hatchLines:document.querySelectorAll('.shape-glass-hatch>g>line').length,cuttingHatch:cutting.includes('shape-glass-hatch')}};
+      const y0=+document.querySelector('[data-metric-role="width"]').getAttribute('y');
+      shapeSelectMetricLabel('overall:width');
+      const menuButtons=document.querySelectorAll('.shape-metric-menu .shape-dim-btn').length;
+      shapeNudgeMetricLabel('overall:width',1);
+      const y1=+document.querySelector('[data-metric-role="width"]').getAttribute('y'),saved=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');
+      const printSvg=shapeDrawnProductionSvg(r,false),printDoc=new DOMParser().parseFromString(printSvg,'image/svg+xml');
+      const move={delta:y1-y0,menuButtons:menuButtons,saved:Object.values(saved).some(function(m){return m&&m['overall:width']===1;}),printMatches:+printDoc.querySelector('[data-metric-role="width"]').getAttribute('y')===y1,printClean:!/(shape-metric-menu|shapeSelectMetricLabel)/.test(printSvg)};
+      sDraft.lites={'1':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{}}};sEdgeLite=1;render();
+      const liteLayer=document.querySelector('.shape-metric-layer');
+      const lite={width:liteLayer&&liteLayer.querySelector('[data-metric-role="width"]').textContent,label:liteLayer&&liteLayer.querySelector('.shape-metric-summary').textContent};
+      const stable={fingerprint:shapeFingerprint(shapeDraftResult().definition)===fp,machine:JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===machine,dxf:ShapeModule.genericDxf(shapeDraftResult())===dxf,cutting:ShapeModule.cuttingSvg(shapeDraftResult())===cutting};
+      setShapeMetricDetail(false);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricOffsets={};sMetricDimEdit=null;sEdgeLite=null;sEdit=null;sDraft=null;tab=oldTab;subtab=oldSub;render();
+      return {before,on,move,lite,stable};
+    });
+    eq('маленькая иконка выключена по умолчанию, включается и запоминается', {before:metricUi.before,on:{layers:metricUi.on.layers,pressed:metricUi.on.pressed,active:metricUi.on.active,title:metricUi.on.title,stored:metricUi.on.stored}}, {before:{state:false,stored:null,layers:0,hatches:0},on:{layers:1,pressed:'true',active:true,title:'Metric detail · mm and angles',stored:'1'}});
+    eq('метрический SVG убирает повтор W/H, но сохраняет все углы', {lengths:metricUi.on.lengths,angles:metricUi.on.angles,featureLeak:metricUi.on.featureLeak,production:metricUi.on.production,cutting:metricUi.on.cutting}, {lengths:0,angles:4,featureLeak:false,production:true,cutting:false});
+    eq('дюймовые справочные размеры серые и отдельно, метрика SemiBold', metricUi.on.hierarchy, {imperialCount:0,imperialEdgeLabels:0,inchLayers:1,inchLabels:2,inchColor:'#98a2b3',inchWeight:'600',summaryHasBox:false,overallFont:'16',overallWeight:'600',color:'#111827',contourFill:'#f2f4f7',movable:6,hatches:1,hatchLines:3,cuttingHatch:false});
+    eq('кнопки −/+ двигают мм, сохраняют положение и не печатают своё меню', metricUi.move, {delta:8,menuButtons:2,saved:true,printMatches:true,printClean:true});
+    ok('выбранный лайт использует свой inset-контур и назван в сводке', metricUi.lite.width==='1168.40'&&metricUi.lite.label.includes('Lite 2'), metricUi.lite);
+    eq('переключатель не меняет fingerprint и машинные файлы', metricUi.stable, {fingerprint:true,machine:true,dxf:true,cutting:true});
     await c.close();
   }
 

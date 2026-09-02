@@ -10,7 +10,72 @@ let sEdit=null,sDraft=null,sView='setup',sWorkspaceTab='designer',sEdgeworkOpen=
    в записи одинаково — у обеих пустые id и имя. */
 let sManufacturingCustomId=null;
 /* Размер, у которого открыта панель управления прямо на чертеже. */
-let sDimEdit=null;
+let sDimEdit=null,sMetricDimEdit=null;
+/* Редко используемый метрический слой — только состояние экрана. Он не входит
+   в Shape definition и потому никогда не меняет ревизию или fingerprint. */
+var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
+try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
+try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
+function setShapeMetricDetail(value){
+  sMetricDetail=!!value;sMetricDimEdit=null;
+  try{localStorage.setItem(SHAPE_METRIC_STORAGE_KEY,sMetricDetail?'1':'0');}catch(e){}
+  render();
+}
+function toggleShapeMetricDetail(){setShapeMetricDetail(!sMetricDetail);}
+function shapeMetricToggleButton(disabled){
+  var off=!!disabled;
+  return `<button type='button' class='shape-metric-toggle ${sMetricDetail&&!off?'on':''}' ${off?'disabled':''} onclick='toggleShapeMetricDetail()' title='Metric detail · mm and angles' aria-label='Metric detail · mm and angles' aria-pressed='${sMetricDetail&&!off?'true':'false'}'><svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M4 19h16M6 19v-3m4 3v-2m4 2v-3m4 3v-2'/><path d='M5 13l5-7 5 7M10 6v7h7'/></svg></button>`;
+}
+function shapeMetricSelectedLite(){
+  var selected=sEdgeLite;
+  if(selected==null&&typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape'&&salesBridge.liteIndex!=null)selected=salesBridge.liteIndex;
+  return selected;
+}
+function shapeMetricOffsetScope(result,selected,mode){
+  var d=(result&&result.definition)||sDraft||{},id=d.id||d.name||'draft';
+  return 'shape:'+String(id)+(mode==='inch'?'|inches':'|lite:'+(selected==null?'outer':selected));
+}
+function shapeCurrentDrawingOffsetScope(result){return sMetricDetail?shapeMetricOffsetScope(result,shapeMetricSelectedLite()):shapeMetricOffsetScope(result,null,'inch');}
+function shapeMetricSaveOffsets(){try{localStorage.setItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY,JSON.stringify(sMetricOffsets));}catch(e){}}
+function shapeSelectMetricLabel(key){
+  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),same=sMetricDimEdit&&sMetricDimEdit.scope===scope&&sMetricDimEdit.key===key;
+  sDimEdit=null;sMetricDimEdit=same?null:{scope:scope,key:key};refreshShapeEditor();
+}
+function shapeNudgeMetricLabel(key,delta){
+  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),map=sMetricOffsets[scope]||(sMetricOffsets[scope]={});
+  var next=Math.max(-4,Math.min(8,(+map[key]||0)+(delta<0?-1:1)));
+  if(next)map[key]=next;else delete map[key];
+  if(!Object.keys(map).length)delete sMetricOffsets[scope];
+  sMetricDimEdit={scope:scope,key:key};shapeMetricSaveOffsets();refreshShapeEditor();
+}
+function shapeMetricProductionOptions(result,interactive){
+  if(!sMetricDetail){
+    var inchScope=shapeMetricOffsetScope(result,null,'inch');
+    return {annotation:{offsets:Object.assign({},sMetricOffsets[inchScope]||{}),interactive:!!interactive,selectedKey:interactive&&sMetricDimEdit&&sMetricDimEdit.scope===inchScope?sMetricDimEdit.key:null}};
+  }
+  var metric={thicknessMm:shapeThicknessMm((result&&result.definition)||sDraft||{})};
+  var selected=shapeMetricSelectedLite(),scope=shapeMetricOffsetScope(result,selected);
+  metric.offsets=Object.assign({},sMetricOffsets[scope]||{});
+  metric.interactive=!!interactive;
+  metric.selectedKey=metric.interactive&&sMetricDimEdit&&sMetricDimEdit.scope===scope?sMetricDimEdit.key:null;
+  if(selected!=null){
+    var lites=shapeEditorLites(),lite=lites.find(function(l){return l.index===selected;});
+    metric.liteLabel=(lite&&lite.label)||('Lite '+(selected+1));
+    if(lite&&isFinite(+lite.mm)&&+lite.mm>0)metric.thicknessMm=+lite.mm;
+    /* На общей форме выбранный лайт может иметь inset, зеркало или свою форму.
+       Контур подменяется явно; сама метрическая функция остаётся чистой. */
+    if(sEdgeLite!=null){
+      var pts=shapeLiteContourPoints(selected);
+      if(pts&&pts.length>=3){
+        metric.points=pts;
+        var line=(typeof soDraft!=='undefined'&&soDraft&&typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.kind==='shape')?(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;}):null;
+        var own=line?salesLineLiteShape(line,selected):null,source=own?ShapeModule.compute(own):result;
+        metric.edgeIds=source&&source.geometry?(source.geometry.edges||[]).map(function(e){return e.id;}):[];
+      }
+    }
+  }
+  return {metric:metric};
+}
 
 /* Формы, принадлежащие строкам заказа, в библиотеке не показываются: каждая
    вставленная строка заводит свой прямоугольник, и двести строк заказа сделали
@@ -467,7 +532,7 @@ function shapeDimPrune(id,axis){
 }
 function shapeSelectDim(id,axis){
   var same=sDimEdit&&sDimEdit.id===id&&sDimEdit.axis===axis;
-  sDimEdit=same?null:{id:id,axis:axis};
+  sMetricDimEdit=null;sDimEdit=same?null:{id:id,axis:axis};
   /* Размер и его карточка — одно и то же: выбрали на чертеже, открылась карточка. */
   if(!same){
     if(shapeManufacturingItemById(id))sManufacturingSelected=id;
@@ -597,9 +662,7 @@ function shapeDxfPreviewTransform(source){
 }
 function shapeDrawnPreviewTransform(result){
   if(!result||!result.valid||!(result.points||[]).length)return null;
-  var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190,pb=fabEdgeBounds(result.points),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph,LONG=660,SHORT=260;
-  var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
-  var F=shapeDrawingFrame(result.points,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
+  var F=shapeProductionDrawingFrame(result,shapeMetricProductionOptions(result));
   F.P=result.points;return F;
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
@@ -653,10 +716,10 @@ let shapeDimUi=true;
    Слушатель ставится ОДИН раз на документ: render() пересоздаёт разметку, и
    обработчик, повешенный на узел, пережил бы ровно одну перерисовку. */
 if(typeof document!=='undefined'&&document.addEventListener)document.addEventListener('click',function(ev){
-  if(!sDimEdit)return;
+  if(!sDimEdit&&!sMetricDimEdit)return;
   var t=ev&&ev.target;
-  if(t&&t.closest&&t.closest('.shape-dim-menu,.shape-mi-prod-dims,.shape-dim-ghost,.shape-dim-controls'))return;
-  sDimEdit=null;render();
+  if(t&&t.closest&&t.closest('.shape-dim-menu,.shape-mi-prod-dims,.shape-dim-ghost,.shape-dim-controls,.shape-metric-movable,.shape-inch-primary-movable'))return;
+  sDimEdit=null;sMetricDimEdit=null;render();
 });
 function shapeDimArrowDefs(){
   return `<defs><marker id='shapeMiDimArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>`;
@@ -1044,7 +1107,7 @@ function shapeDxfPreviewSvg(source,includeMarks){
   </svg>`;
 }
 function shapeDrawnProductionSvg(result,interactive){
-  var svg=ShapeModule.productionSvg(result),T=shapeDrawnPreviewTransform(result);if(!T)return svg;
+  var metricOpts=shapeMetricProductionOptions(result,interactive),svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result);if(!T)return svg;
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
      represented by the active drawing tab. */
@@ -1131,6 +1194,8 @@ function refreshShapeEditor(){
   syncField('emBlen',sDraft.w);syncField('shapeWField',sDraft.w);
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
+  var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting'||shapeIsDxfSource(sDraft);
+  if(metricButton){metricButton.disabled=metricOff;metricButton.classList.toggle('on',sMetricDetail&&!metricOff);metricButton.setAttribute('aria-pressed',sMetricDetail&&!metricOff?'true':'false');}
   if(p)applyLang(p);if(d)applyLang(d);
 }
 
@@ -1473,7 +1538,7 @@ function shapeLiteContourPoints(liteIndex){
   if(!r||!r.valid||!r.cutting||!r.cutting.finishedPoints)return null;
   var pts=r.cutting.finishedPoints.map(function(p){return p.slice();});
   if(!own){
-    var groups=shapeGroups(),insets=groups.map(function(g){return shapeLiteInsetFor(sDraft,liteIndex,g.id);});
+    var insets=(r.geometry.edges||[]).map(function(e){return shapeLiteInsetFor(sDraft,liteIndex,e.id);});
     if(insets.some(function(v){return v>0;})&&insets.length===pts.length){
       var inner=shapeInsetVariable(pts,insets);
       if(inner.valid)pts=inner.points;
@@ -1650,7 +1715,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}

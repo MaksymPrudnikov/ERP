@@ -28,6 +28,19 @@ function shapeAnnText(x,y,txt,o){
   o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
   return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
+/* Экранное оформление дюймовых размеров. Смещение хранится отдельно от
+   Shape definition и в машинные данные не попадает; в печать приходит только
+   итоговая позиция, без кнопок интерфейса. */
+function shapeAnnUiShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
+function shapeAnnUiMenu(opts,key,cx,cy,F){
+  if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
+  var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
+  return '<g class="shape-dim-menu shape-inch-primary-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
+}
+function shapeAnnUiWrap(opts,key,body,cx,cy,F){
+  if(!opts||!opts.interactive)return body;
+  return '<g class="shape-inch-primary-movable'+(opts.selectedKey===key?' active':'')+'" data-inch-primary-key="'+shapeXml(key)+'" onclick="event.stopPropagation();shapeSelectMetricLabel(\''+shapeXml(key)+'\')"><title>Move inch dimension · − / +</title>'+body+'</g>'+shapeAnnUiMenu(opts,key,cx,cy,F);
+}
 /* ---------- раскладка подписей без наложений ----------
    Подпись рисуется с белой обводкой, поэтому наложение не «сливается», а
    ЗАТИРАЕТ то, что под ним: соседнее число пропадает целиком, и на чертеже
@@ -422,25 +435,28 @@ function shapeAnnExtent(r,S,side,DP){
   if(shapeAnnSideAxis(side)==='x'){var xs=pts.map(function(p){return p[0];});return {min:Math.min.apply(null,xs),max:Math.max.apply(null,xs)};}
   var ys=pts.map(function(p){return p[1];});return {min:Math.min.apply(null,ys),max:Math.max.apply(null,ys)};
 }
-function shapeAnnChains(r,S,DP,box){
+function shapeAnnChains(r,S,DP,box,opts,F){
   var out='';
   function hChain(side,y){
     var ex=shapeAnnExtent(r,S,side,DP);if(!ex)return;
+    var key='inch:chain:'+side,dir=side==='top'?-1:1;y+=dir*shapeAnnUiShift(opts,key);var chain='';
     var items=shapeAnnChainItems(r,S,side),total=items.reduce(function(a,q){return a+q.v;},0);
     if(total<1e-9)return;
     var allX=r.points.map(function(p){return p[0];}),engMin=Math.min.apply(null,allX),engMax=Math.max.apply(null,allX);
     var sideXs=[];shapeAnnChainSegments(r,S,side).forEach(function(e){sideXs.push(e.p1[0],e.p2[0]);});
     var lp=Math.max(0,Math.min.apply(null,sideXs)-engMin),rp=Math.max(0,engMax-Math.max.apply(null,sideXs));
     var minSmall=22,cursor=ex.min,width=Math.max(1,ex.max-ex.min);
-    if(lp>1/64&&lp<=2+1e-8){var g1=Math.max(ex.min-box.left,minSmall);out+=shapeAnnDimH(ex.min-g1,ex.min,y,shapeAnnDim(lp));}
+    if(lp>1/64&&lp<=2+1e-8){var g1=Math.max(ex.min-box.left,minSmall);chain+=shapeAnnDimH(ex.min-g1,ex.min,y,shapeAnnDim(lp));}
     items.forEach(function(q,i){
       var w=(i===items.length-1)?(ex.max-cursor):width*q.v/total,nx=cursor+w;
-      out+=shapeAnnDimH(cursor,nx,y,shapeAnnDim(q.v));cursor=nx;
+      chain+=shapeAnnDimH(cursor,nx,y,shapeAnnDim(q.v));cursor=nx;
     });
-    if(rp>1/64&&rp<=2+1e-8){var g2=Math.max(box.right-ex.max,minSmall);out+=shapeAnnDimH(ex.max,ex.max+g2,y,shapeAnnDim(rp));}
+    if(rp>1/64&&rp<=2+1e-8){var g2=Math.max(box.right-ex.max,minSmall);chain+=shapeAnnDimH(ex.max,ex.max+g2,y,shapeAnnDim(rp));}
+    out+=shapeAnnUiWrap(opts,key,chain,(ex.min+ex.max)/2,y+dir*30,F);
   }
   function vChain(side,x){
     var ex=shapeAnnExtent(r,S,side,DP);if(!ex)return;
+    var key='inch:chain:'+side,dir=side==='left'?-1:1;x+=dir*shapeAnnUiShift(opts,key);var chain='';
     var items=shapeAnnChainItems(r,S,side),total=items.reduce(function(a,q){return a+q.v;},0);
     if(total<1e-9)return;
     var allY=r.points.map(function(p){return p[1];}),engMin=Math.min.apply(null,allY),engMax=Math.max.apply(null,allY);
@@ -448,12 +464,13 @@ function shapeAnnChains(r,S,DP,box){
     var bp=Math.max(0,Math.min.apply(null,sideYs)-engMin),tp=Math.max(0,engMax-Math.max.apply(null,sideYs));
     /* экранный Y перевёрнут: цепочка идёт снизу вверх */
     var minSmall=22,cursor=ex.max,height=Math.max(1,ex.max-ex.min);
-    if(bp>1/64&&bp<=2+1e-8){var g1=Math.max(box.bottom-ex.max,minSmall);out+=shapeAnnDimV(x,ex.max,ex.max+g1,shapeAnnDim(bp));}
+    if(bp>1/64&&bp<=2+1e-8){var g1=Math.max(box.bottom-ex.max,minSmall);chain+=shapeAnnDimV(x,ex.max,ex.max+g1,shapeAnnDim(bp));}
     items.forEach(function(q,i){
       var h=(i===items.length-1)?(cursor-ex.min):height*q.v/total,ny=cursor-h;
-      out+=shapeAnnDimV(x,ny,cursor,shapeAnnDim(q.v));cursor=ny;
+      chain+=shapeAnnDimV(x,ny,cursor,shapeAnnDim(q.v));cursor=ny;
     });
-    if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);out+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp));}
+    if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);chain+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp));}
+    out+=shapeAnnUiWrap(opts,key,chain,x+dir*62,(ex.min+ex.max)/2,F);
   }
   hChain('top',box.top-66);hChain('bottom',box.bottom+66);
   vChain('left',box.left-78);vChain('right',box.right+78);
@@ -477,7 +494,7 @@ function shapeAnnSkewOf(p1,p2,vert){
       off=Math.abs(vert?(p2[0]-p1[0]):(p2[1]-p1[1]));
   return {off:off,run:run,deg:run>1e-9?Math.atan2(off,run)*180/Math.PI:0};
 }
-function shapeAnnCallouts(r,S,DP){
+function shapeAnnCallouts(r,S,DP,opts,F){
   var out='';
   (r.edges||[]).forEach(function(g){
     if(!g.segments||!g.segments.length)return;
@@ -489,7 +506,7 @@ function shapeAnnCallouts(r,S,DP){
         ref=(side==='left'||side==='top')
           ? Math.min.apply(null,sp.map(function(q){return q[ax];}))
           : Math.max.apply(null,sp.map(function(q){return q[ax];}));
-    g.segments.forEach(function(sg){
+    g.segments.forEach(function(sg,si){
       var k=shapeAnnSkewOf(sg.p1,sg.p2,vert);
       if(!(k.off>1/64))return;
       /* Подпись садится на СЕРЕДИНУ своего участка и выносится наружу. У конца
@@ -510,8 +527,10 @@ function shapeAnnCallouts(r,S,DP){
           anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
-      out+=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
+      var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;
+      var body=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
         {size:13,anchor:anchor,weight:600,overContour:true},step);
+      out+=shapeAnnUiWrap(opts,key,body,x+step[0]*32,y+step[1]*32,F);
     });
   });
   return out;
@@ -538,7 +557,7 @@ function shapeAnnotationDefs(){
 }
 /* Возвращает {contour, annotations, box} — контур считается по отображаемым
    точкам, чтобы усиленный уклон и его размеры совпадали друг с другом. */
-function shapeAnnotationLayer(result,F,active){
+function shapeAnnotationLayer(result,F,active,opts){
   var S=result.line,DP=shapeAnnDisplay(result,S,F),disp=result.points.map(DP);
   var xs=disp.map(function(p){return p[0];}),ys=disp.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
@@ -550,8 +569,8 @@ function shapeAnnotationLayer(result,F,active){
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);
-    ann+=shapeAnnChains(result,S,DP,box);
-    ann+=shapeAnnCallouts(result,S,DP);
+    ann+=shapeAnnChains(result,S,DP,box,opts,F);
+    ann+=shapeAnnCallouts(result,S,DP,opts,F);
   }
   ann+=shapeAnnWitness(result,S,DP);
   ann+=shapeAnnRightAngles(result,DP);
