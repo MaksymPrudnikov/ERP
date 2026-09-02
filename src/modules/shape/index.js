@@ -14,7 +14,15 @@ function shapeDefToLine(s){
   var n=normalizeShapeDef(s||{});return {w:n.w,h:n.h,shape:{type:n.type,smart:n.smart,params:n.params,polygon:n.polygon,features:n.features,edgeOps:n.edgeOps,definition:n},definition:n};
 }
 function shapeFingerprint(def){
-  var payload=shapeIsDxfSource(def)?{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview}}:{type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:def.smart,features:def.features,edgeOps:def.edgeOps};
+  /* Способ изготовления нотча входит в отпечаток только когда он отличается от
+     ручного. Иначе одно появление поля сменило бы отпечаток каждой уже
+     сохранённой фигуре и все строки заказа разом стали бы «устаревшими» —
+     то же правило, что и для manufacturingItems ниже. */
+  var smart=def.smart;
+  if(smart&&smart.notch&&Object.keys(smart.notch).every(function(k){return smart.notch[k]!=='cnc';})){
+    smart=Object.assign({},smart);delete smart.notch;
+  }
+  var payload=shapeIsDxfSource(def)?{source:{kind:'dxf',fileName:def.source.fileName,fileSize:def.source.fileSize,uploadedAt:def.source.uploadedAt,preview:def.source.preview}}:{type:def.type,w:def.w,h:def.h,thickness:def.thickness,params:def.params,polygon:def.polygon,smart:smart,features:def.features,edgeOps:def.edgeOps};
   /* Preserve every legacy fingerprint when no PR2 items exist. Once a
      manufacturing annotation is added, it becomes part of the Shape revision. */
   if(def.manufacturingItems&&def.manufacturingItems.length)payload.manufacturingItems=def.manufacturingItems;

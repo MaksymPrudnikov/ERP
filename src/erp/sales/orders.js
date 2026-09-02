@@ -603,7 +603,9 @@ function salesExcelApply(){
 const SALES_SERVICE_RATE_TABLE={
  clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
  hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
- roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15}
+ roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15},
+ notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
+ sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
    ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
@@ -644,18 +646,35 @@ function salesManufacturingChargeRows(items,ctx){
  });
  return rows;
 }
-function salesSandblastChargeRows(features,ctx){
+/* Пескоструй считается ПО ПЛОЩАДИ: ставка владельца — 4 доллара за ft² сплошной
+   обработки и 6 за узор, база — Net area стекла. Сторона (Front / Back) на цену
+   не влияет, но остаётся в имени начисления: цеху нужно знать, какую. */
+function salesSandblastChargeRows(features,ctx,areaFt2){
  const groups=Object.create(null),order=[];
  (Array.isArray(features)?features:[]).filter(f=>f.type==='sandblast').forEach(f=>{const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),key=coverage+':'+side;if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}groups[key].qty++;});
- return order.map(key=>{const g=groups[key],coverage=shapeSandblastCoverage(g.feature),side=shapeSandblastSide(g.feature);return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,shapeSandblastServiceLabel(g.feature),g.qty,'pc',null,'Shape feature');});
+ const area=+areaFt2>0?+areaFt2:0;
+ return order.map(key=>{const g=groups[key],coverage=shapeSandblastCoverage(g.feature),side=shapeSandblastSide(g.feature);
+  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,shapeSandblastServiceLabel(g.feature),
+   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');});
+}
+function salesNotchChargeRows(def,ctx){
+  var groups={},order=[];
+  ssNotchList(def).forEach(function(n){if(!groups[n.method]){groups[n.method]=0;order.push(n.method);}groups[n.method]+=n.pieces;});
+  return order.map(function(method){
+    return salesChargeRow('FEATURE:notch-'+method+':'+ctx.band,ssNotchLabel(method),groups[method],'pc',
+      salesCatalogRate(method==='cnc'?'notchCnc':'notchHand',ctx),'Shape feature');
+  });
 }
 function salesLineChargeRows(line){
  const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
- salesSandblastChargeRows(s.features,ctx).forEach(function(row){rows.push(row);});
+ salesSandblastChargeRows(s.features,ctx,r&&r.valid?r.area/144:0).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
+  /* Нотч — работа, а не геометрия: контур раскроя от него не меняется, но угол
+     кто-то должен вырезать и обработать. Ставка за штуку. */
+  salesNotchChargeRows(s,ctx).forEach(function(row){rows.push(row);});
  }
  return rows.filter(x=>x.basis>0);
 }
@@ -700,7 +719,7 @@ function salesChargeShortLabel(row){
     владельцем вида имени в этом коде нет и быть не может. */
  const kp=String(row.key||'').split(':');
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
- const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';return l.slice(0,8).toUpperCase();}
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';

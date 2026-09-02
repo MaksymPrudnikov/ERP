@@ -8,21 +8,21 @@
 html{background:var(--bg)}
 body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}
 .shell{--side-w:250px;display:grid;grid-template-columns:var(--side-w) minmax(0,1fr);min-height:100vh;background:var(--nav)}
-.side{width:var(--side-w);flex:none;align-self:start;background:var(--nav);color:#dbe7ed;padding:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid #203844}
-.brand{padding:22px 18px 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.side{width:var(--side-w);flex:none;align-self:start;background:var(--nav);color:#dbe7ed;padding:0 0 6px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;border-right:1px solid #203844}
+.brand{flex:none;padding:14px 16px 13px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:4px;display:flex;align-items:center;gap:11px}
 .brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#4ba0cf,#23678c);display:grid;place-items:center;color:#fff;box-shadow:0 8px 24px rgba(50,137,184,.25)}
 .brand-mark svg{width:21px;height:21px}
 .brand-copy b{font-size:14px;color:#fff;letter-spacing:.01em}
 .brand-copy span{display:block;font-size:11px;color:#7f9aa8;margin-top:1px}
-.nav-group{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#58717e;padding:17px 18px 6px}
-.nav-item{display:flex;align-items:center;gap:11px;padding:10px 14px;margin:2px 8px;cursor:pointer;color:#aebfc8;font-size:13px;border-radius:8px;transition:.15s}
+.nav-group{flex:none;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#58717e;padding:11px 18px 4px}
+.nav-item{flex:none;display:flex;align-items:center;gap:11px;padding:8px 14px;margin:1px 8px;cursor:pointer;color:#aebfc8;font-size:13px;border-radius:8px;transition:.15s}
 .nav-item svg{width:18px;height:18px;flex:none;opacity:.88}
 .nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
 .nav-item.on{background:var(--nav2);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 #52a8d5}
 .nav-item.soon{opacity:.46;cursor:default}
 .nav-item.soon:hover{background:none;color:#aebfc8}
 .nav-badge{margin-left:auto;font-size:9px;padding:2px 7px;border-radius:20px;background:rgba(255,255,255,.08);color:#9bb0bb;text-transform:uppercase;letter-spacing:.04em}
-.side-footer{margin:18px 14px;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#78919e;font-size:11px}
+.side-footer{flex:none;margin:auto 12px 4px;padding:9px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#78919e;font-size:10px;line-height:1.35}
 .main{flex:1;min-width:0;min-height:100vh;background:var(--bg)}
 header{height:66px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);color:var(--text);padding:0 26px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
 .header-title{display:flex;flex-direction:column}
@@ -39,7 +39,7 @@ button.gh{background:#fff;color:#344651;border-color:var(--line)}
 button.sm{padding:4px 8px;font-size:12px;border-radius:6px}
 button.dl{border-color:#ebcccc;color:#943e3e}
 button:disabled{opacity:.45;cursor:not-allowed}
-main{padding:26px;max-width:1440px}
+main{padding:26px;max-width:none}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px}
 .page-head h2{font-size:24px;line-height:1.2;margin:0 0 5px;letter-spacing:-.02em}
 .page-head p{margin:0;color:var(--mut);font-size:13px;max-width:780px}
@@ -225,3 +225,9 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  .row>button{flex:1}
  .section-title{align-items:flex-start;gap:8px;flex-wrap:wrap}
 }
+
+/* Меню обязано помещаться в один экран: прокрутка внутри сайдбара на 12 пунктов
+   выглядит поломкой. На невысоком мониторе первой уходит справочная сноска —
+   в шапке та же фаза уже написана. */
+@media(max-height:860px){.side-footer{display:none}}
+@media(max-height:700px){.nav-item{padding:6px 14px}.nav-group{padding:8px 18px 3px}}

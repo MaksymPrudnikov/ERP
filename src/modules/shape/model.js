@@ -9,7 +9,7 @@
 /* Ссылочно-стабильная нормализация: если модель уже корректна, возвращаем ТОТ ЖЕ объект.
    Иначе любой вызов ssModel() подменял бы объект, и записи по удержанной ссылке терялись. */
 function ssIsModel(m){
-  if(!(m&&typeof m==='object'&&m.corners&&m.extraEdges
+  if(!(m&&typeof m==='object'&&m.corners&&m.extraEdges&&m.notch
     &&m.cornerOffsets&&['tl','tr','br','bl'].every(function(k){return m.cornerOffsets[k];})
     &&m.A&&m.A.elbow&&m.B&&m.B.elbow&&m.C&&m.C.elbow&&m.D&&m.D.elbow))return false;
   /* Нормализованной считается только модель, которая держит инвариант
@@ -51,6 +51,14 @@ function ssNormalize(m){
     out.cornerOffsets[k]={plumb:c.plumb==null?'0':String(c.plumb),plumbDir:c.plumbDir||null,
       level:c.level==null?'0':String(c.level),levelDir:c.levelDir||null};
   });
+  /* Способ изготовления нотча. Геометрию он не меняет: нотч выпиливают после
+     реза, и на контур раскроя не влияет ни рука, ни станок. Это цена — цех
+     считает ручной и станочный вырез по-разному, а переменных там столько,
+     что решение принимает владелец, а не формула. */
+  out.notch={};
+  ['tl','tr','br','bl'].forEach(function(k){
+    var v=(m.notch||{})[k];out.notch[k]=v==='cnc'?'cnc':'hand';
+  });
   out.extraEdges={};
   var ee=m.extraEdges||{};
   /* У ребра нотча есть не только длина, но и собственный скос: out — величина
@@ -62,6 +70,21 @@ function ssNormalize(m){
   });
   return out;
 }
+/* Нотчи фигуры и выбранный способ изготовления. Геометрию способ не меняет —
+   это работа цеха и её цена. Функция чистая: её зовут и экран Cutout, и расчёт
+   начислений заказа, чтобы у одного факта остался один хозяин. */
+function ssNotchList(def){
+  var m=def&&def.smart;if(!m||!m.corners)return [];
+  if(def.source&&def.source.kind==='dxf')return [];
+  /* pieces — сколько нотчей на самом деле в этом углу. Владелец 2 сентября
+     2026: «дабл это 2 получается, трипл 3, клиент платит за каждую нотчь».
+     Столько же у угла и лишних рёбер: single 2, double 4, triple 6. */
+  return ['tl','tr','br','bl'].filter(function(k){return m.corners[k]&&m.corners[k]!=='none';})
+    .map(function(k){var mode=m.corners[k];
+      return {corner:k,mode:mode,pieces:mode==='triple'?3:mode==='double'?2:1,
+        method:((m.notch||{})[k]==='cnc')?'cnc':'hand'};});
+}
+function ssNotchLabel(method){return method==='cnc'?'CNC notch':'Hand notch';}
 function ssModel(S){if(!ssIsModel(S.shape.smart))S.shape.smart=ssNormalize(S.shape.smart);return S.shape.smart;}
 /* A = высота слева (Height), B = низ (Width), C = высота справа (своё поле), D = AUTO */
 function ssEdgeLen(S,e){

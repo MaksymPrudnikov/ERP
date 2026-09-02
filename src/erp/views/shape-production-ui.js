@@ -56,33 +56,30 @@ function shapeBorderEdgeLabel(id){
 function shapeProdBorderField(){
   var ctx=shapeProdBorderPlan();
   if(!ctx)return '';
-  var plan=ctx.plan,cut=ctx.cut,fp=cut.footprint||{width:cut.width,height:cut.height};
+  var plan=ctx.plan;
   var ov=(sDraft&&sDraft.safetyBorderEdges)||{};
-  /* Откуда и куда: готовый размер → плюс припуск кромки → размер реза →
-     плюс бордер → оплачиваемый габарит. Без этой цепочки непонятно, какое
-     число откуда берётся. */
-  var chain=`<div class='shape-border-chain'>`+
-    `<span><i>Finished</i><b>${esc(dimIn16(ctx.fw))} × ${esc(dimIn16(ctx.fh))}</b></span>`+
-    `<em>+ edge allowance</em>`+
-    `<span><i>Cut</i><b>${esc(dimIn16(cut.width))} × ${esc(dimIn16(cut.height))}</b></span>`+
-    `<em>+ safety border</em>`+
-    `<span><i>Billable</i><b>${esc(dimIn16(fp.width))} × ${esc(dimIn16(fp.height))}</b></span>`+
-    `</div>`;
-  var rows=plan.edges.map(function(e){
+  /* The cutting hull may omit notch edges because they are fabricated after
+     glass cutting. Keep every physical edge visible in the A–F strip anyway;
+     omitted edges are explicit N/A cells instead of silently disappearing. */
+  var shownEdges=plan.edges.slice(),shownBy={};
+  shownEdges.forEach(function(e){shownBy[String(e.id)]=true;});
+  if(!shapeIsDxfSource(sDraft)&&typeof shapeGroups==='function')shapeGroups().forEach(function(g){
+    var id=String(g.id);if(!shownBy[id]){shownEdges.push({id:id,excluded:true,value:0,state:'OFF'});shownBy[id]=true;}
+  });
+  var rows=shownEdges.sort(function(a,b){return String(a.id).localeCompare(String(b.id));}).map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
-    var tag=e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
+    var tag=e.excluded?`<span class='pill'>POST</span>`:e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
       :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
-    return `<div class='shape-border-row'><b>${esc(id)}</b><span>${esc(shapeBorderEdgeLabel(id))}</span>`+
-      `<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' oninput='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`+
-      `${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div>`;
+    var label=shapeBorderEdgeLabel(id);
+    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
+      (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
+      `<div class='shape-border-state'>${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div></div>`;
   }).join('');
   return `<div class='shape-prod-border'>
-    <div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' oninput='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset to calculated</button>`:`<span class='pill ok'>AUTO</span>`}</div>
-    ${chain}
-    <div class='shape-border-rows'>${rows}</div>
-    <small>${plan.manualRequired
+    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}</div><small>${plan.manualRequired
       ? 'No automatic value for this thickness — enter the border manually.'
-      : 'Base value goes to angled and curved edges automatically. Any edge can be set by hand. Nesting clearance, never cut.'}</small>
+      : 'Automatic on angled/curved edges · override any physical edge.'}</small></div>
+    <div class='shape-border-rows'>${rows}</div>
   </div>`;
 }
 
@@ -355,16 +352,33 @@ shapeMarksBodyHTML=function(){
         <div class='shape-mi-axis-card'><label>Measured from<select onchange='shapeSetDimRef("${esc(item.id)}","e",this.value)'><option value='start' ${fromEnd?'':'selected'}>Segment start</option><option value='end' ${fromEnd?'selected':''}>Segment end</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(shown))}' onchange='shapeSetManufacturingDistance("${esc(item.id)}",this.value)'><small>Segment length ${esc(max)} · 1/16″</small></label></div>
       </div>`;
     }
-    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button><button class='sm dl' onclick='shapeRemoveManufacturingItem("${esc(item.id)}")'>Delete</button></div></div>`:''}</div>`;
+    return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('shapeRemoveManufacturingItem(&quot;'+esc(item.id)+'&quot;)')}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button></div></div>`:''}</div>`;
   }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No manufacturing items yet</div>')}</div>`;
   body+=shapeStampCardsHTML(shapeManufacturingGeometry());
   body+=shapeSandblastCardsHTML(shapeManufacturingGeometry());
   return body;
 };
 
-/* ---------- DXF Production / Cutting preview ---------- */
+/* ---------- DXF Production / Cutting preview ----------
+   Обе вкладки чертежа берут ОДНО поле и один масштаб: рамка считается по
+   объединению готового контура, контура реза и safety border. Раньше каждая
+   вкладка строила поле под себя, и при переключении Production <-> Cutting
+   фигура прыгала и меняла размер. Габаритные размеры по-прежнему меряют
+   ГОТОВЫЙ контур: x0/y0/dw/dh описывают именно его, а не объединение. */
+function shapeProdDxfFrame(){
+  var T=shapeDxfPreviewTransform(sDraft&&sDraft.source);if(!T)return null;
+  var all=T.P.slice(),plan=ShapeModule.dxfCuttingPlan(sDraft);
+  if(plan&&plan.valid)all=all.concat(plan.points||[]).concat(shapeBorderFramePoints(plan)||[]);
+  var ub=fabEdgeBounds(all),UW=Math.max(.001,ub.maxX-ub.minX),UH=Math.max(.001,ub.maxY-ub.minY);
+  var vw=T.vw,vh=T.vh,padL=88,padR=88,padT=62,padB=72;
+  var sc=Math.min((vw-padL-padR)/UW,(vh-padT-padB)/UH),uw=UW*sc,uh=UH*sc;
+  var ux=padL+(vw-padL-padR-uw)/2,uy=padT+(vh-padT-padB-uh)/2;
+  var X=function(x){return ux+(x-ub.minX)*sc;},Y=function(y){return uy+uh-(y-ub.minY)*sc;};
+  return {P:T.P,b:T.b,W:T.W,H:T.H,vw:vw,vh:vh,sc:sc,X:X,Y:Y,plan:plan,
+    x0:X(T.b.minX),y0:Y(T.b.maxY),dw:T.W*sc,dh:T.H*sc};
+}
 function shapeProdDxfProductionSvg(){
-  var result=ShapeModule.compute(sDraft),T=shapeDxfPreviewTransform(sDraft.source);if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
+  var result=ShapeModule.compute(sDraft),T=shapeProdDxfFrame();if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
   var P=T.P,path=P.map(function(p,i){return (i?'L':'M')+T.X(p[0]).toFixed(2)+' '+T.Y(p[1]).toFixed(2);}).join(' ')+' Z',groups=shapeProdDxfGroups(),placing=sManufacturingPlace?' placing':'';
   var edges=groups.map(function(g){var selected=g.id===shapeProdSelectedEdgeId,processed=g.ops.length,m=[(g.p1[0]+g.p2[0])/2,(g.p1[1]+g.p2[1])/2];return `<line class='shape-prod-edge-line ${selected?'selected ':''}${processed?'processed':''}' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}'/><line class='shape-prod-edge-hit' x1='${T.X(g.p1[0])}' y1='${T.Y(g.p1[1])}' x2='${T.X(g.p2[0])}' y2='${T.Y(g.p2[1])}' onclick='event.stopPropagation();shapeProdSetDxfEdge("${esc(g.id)}")'/><text class='shape-prod-edge-label' x='${T.X(m[0])}' y='${T.Y(m[1])-7}' text-anchor='middle'>${esc(g.id.toUpperCase())}</text>`;}).join('');
   var markers=shapeManufacturingMarkersSvg(sDraft.source,T)+shapeStampOverlaySvg(T),topY=Math.max(20,T.y0-24),leftX=Math.max(24,T.x0-26);
@@ -372,7 +386,8 @@ function shapeProdDxfProductionSvg(){
 }
 function shapeProdDxfCuttingSvg(){
   var plan=ShapeModule.dxfCuttingPlan(sDraft);if(!plan.valid)return `<div class='shape-prod-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.error||'Invalid cutting input.')}</span></div>`;
-  var finished=plan.finishedPoints,cut=plan.points,all=finished.concat(cut).concat(shapeBorderFramePoints(plan)),b=fabEdgeBounds(all),vw=820,vh=480,p=70,W=Math.max(.001,b.maxX-b.minX),H=Math.max(.001,b.maxY-b.minY),sc=Math.min((vw-2*p)/W,(vh-2*p)/H),X=function(x){return p+(x-b.minX)*sc;},Y=function(y){return vh-p-(y-b.minY)*sc;},path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
+  var T=shapeProdDxfFrame();if(!T)return `<div class='module-invalid'>DXF preview unavailable</div>`;
+  var finished=plan.finishedPoints,cut=plan.points,vw=T.vw,vh=T.vh,X=T.X,Y=T.Y,path=function(P){return P.map(function(q,i){return (i?'L':'M')+X(q[0]).toFixed(2)+' '+Y(q[1]).toFixed(2);}).join(' ')+' Z';},cb=fabEdgeBounds(cut);
   return `<div class='shape-prod-machine-card'><div class='shape-prod-machine-head'><b>MACHINE CUTTING CONTOUR</b><span>Orange = exported cutting geometry · gray dashed = finished reference · amber dashed = safety border (nesting clearance, never cut)</span></div><svg viewBox='0 0 ${vw} ${vh}'><path d='${path(finished)}' class='shape-prod-finished-ref'/><path d='${path(cut)}' class='shape-prod-cutting-main'/>${shapeBorderOverlaySvg(plan,X,Y)}</svg><div class='shape-prod-machine-kpi'><span>CUT WIDTH <b>${esc(dimIn16(cb.maxX-cb.minX))}</b></span><span>CUT HEIGHT <b>${esc(dimIn16(cb.maxY-cb.minY))}</b></span></div></div>`;
 }
 const __shapeProdPreviewMarkup=shapePreviewMarkup;
@@ -383,7 +398,7 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){
@@ -407,11 +422,14 @@ shapeArtifacts=function(r){
 shapeForm=function(){
   shapeProdStripStaleSegments();setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry();
-  var controls=external
-    ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing and manufacturing remain editable.</div>${shapeProdDxfEdgeProcessing()}${shapeCutoutEditor(geo)}`
-    : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}${shapeCutoutEditor(geo)}`;
+  var designer=external
+    ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing remains editable.</div>${shapeProdDxfEdgeProcessing()}`
+    : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
+  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer;
+  var cutoutCount=shapeCutoutItemCount();
+  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button><button class='shape-print-btn' disabled>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button><button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
-  return `<div class='module-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</h3><p>${external?'Finished DXF → Edge processing → Cutout → derived Cutting DXF.':'Finished geometry → Edge processing → Cutout.'}</p></div></div><div class='shape-editor-layout'><div class='shape-controls'>${shapeProdMasterFields()}${controls}</div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div><div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Save revision</button><button onclick='cancelShapeEdit()'>Cancel</button></div></div>`;
+  return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
