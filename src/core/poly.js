@@ -42,6 +42,28 @@ function fabPointSegDistance(p,a,b){
 function fabPointPolyDistance(p,P){
   var d=Infinity;for(var i=0;i<(P||[]).length;i++)d=Math.min(d,fabPointSegDistance(p,P[i],P[(i+1)%P.length]));return d;
 }
+/* Где на самом деле проходит контур на уровне точки. axis 'h' — ищем X, на
+   котором горизонтальный луч через p пересекает контур; axis 'v' — Y
+   вертикального луча. side 'left'/'bottom' берут ближайшее пересечение ДО
+   точки, 'right'/'top' — ближайшее ПОСЛЕ неё.
+   Нужна там, где расстояние меряют «от края»: у скошенной или вырезанной
+   детали габаритный прямоугольник стоит на ДАЛЬНЕМ углу, и отсчёт от габарита
+   давал расстояние до другой стороны стекла. Возвращает null, если с этой
+   стороны луч контур не пересёк. */
+function fabAxisEdgeCoord(P,p,axis,side){
+  if(!P||P.length<3||!p)return null;
+  var horiz=axis==='h',li=horiz?1:0,ci=horiz?0:1;
+  var lv=p[li],at=p[ci],before=(side==='left'||side==='bottom'),eps=1e-9,best=null;
+  for(var i=0,n=P.length;i<n;i++){
+    var a=P[i],b=P[(i+1)%n],av=a[li],bv=b[li];
+    if((av>lv)===(bv>lv))continue;
+    var t=(lv-av)/((bv-av)||1e-30),c=a[ci]+t*(b[ci]-a[ci]);
+    if(!isFinite(c))continue;
+    if(before){if(c>at+eps)continue;if(best==null||c>best)best=c;}
+    else{if(c<at-eps)continue;if(best==null||c<best)best=c;}
+  }
+  return best;
+}
 function fabLineIntersection(a,b,c,d){
   var x1=a[0],y1=a[1],x2=b[0],y2=b[1],x3=c[0],y3=c[1],x4=d[0],y4=d[1];
   var den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);if(Math.abs(den)<1e-10)return null;

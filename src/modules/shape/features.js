@@ -211,6 +211,13 @@ function shapeDerivedRequirements(def,geo,fg){
   (fg.hardware||[]).forEach(function(h){req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:'Hardware Preparation',stationClass:'CNC',featureId:h.id,params:{template:h.name}});});
   (fg.sandblasts||[]).forEach(function(s){req.push({id:'SANDBLAST:'+s.id,source:'MANUFACTURING',operation:shapeSandblastServiceLabel(s.source),stationClass:'SAND',featureId:s.id,params:{coverage:s.coverage,side:s.side}});});
   if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
+  /* Нотч в контур реза не входит — его выпиливают после кромки, от обработанного
+     края. Но работа существует и станцию требует: рукой или на станке. Без этой
+     строки требования показывали одну полировку, и цех не видел выреза вовсе. */
+  ssNotchList(def).forEach(function(n){
+    req.push({id:'NOTCH:'+n.corner,source:'CONTOUR',operation:ssNotchLabel(n.method),
+      stationClass:n.method==='cnc'?'CNC':'SERVICE',params:{corner:n.corner,mode:n.mode,pieces:n.pieces}});
+  });
   /* Manufacturing items belong to the production drawing, not cutting geometry.
      They still create production requirements so the shop does not lose the
      requested manipulation. A generic Hole is the only drilled station here;

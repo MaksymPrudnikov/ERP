@@ -28,14 +28,24 @@ const NAV=[
  {k:'finance', label:'Финансы', icon:'finance', soon:1}
 ];
 let tab='dashboard';
+let sideCollapsed=false;
+try{sideCollapsed=localStorage.getItem('glass_erp_sidebar_collapsed')==='1';}catch(e){}
+
+function setSidebarCollapsed(value,rerender){
+ sideCollapsed=!!value;
+ try{localStorage.setItem('glass_erp_sidebar_collapsed',sideCollapsed?'1':'0');}catch(e){}
+ if(rerender!==false)render();
+}
+function toggleSidebar(){setSidebarCollapsed(!sideCollapsed);}
 
 function renderNav(){
  document.getElementById('side').innerHTML =
-  `<div class="brand"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system · bilingual concept</span></div></div>` +
+  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system · bilingual concept</span></div></div>` +
+  `<button type="button" class="side-toggle" aria-label="${sideCollapsed?'Expand menu':'Collapse menu'}" title="${sideCollapsed?'Expand menu':'Collapse menu'}" onclick="toggleSidebar()"><i>${sideCollapsed?'›':'‹'}</i><span>${sideCollapsed?'Expand menu':'Collapse menu'}</span></button>` +
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
-   if(n.soon) return `<div class="nav-item soon">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">план</span></div>`;
-   return `<div class="nav-item ${tab===n.k?'on':''}" onclick="tab='${n.k}';subtab=null;render()">${ico(n.icon)} <span>${n.label}</span></div>`;
+   if(n.soon) return `<div class="nav-item soon" title="${n.label} · план">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">план</span></div>`;
+   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="tab='${n.k}';subtab=null;render()">${ico(n.icon)} <span>${n.label}</span></div>`;
   }).join('') +
   `<div class="side-footer">Фаза 1 · Фундамент<br>Spil остаётся источником работы до прохождения контрольных фаз.</div>`;
 }
@@ -68,6 +78,8 @@ const raw=s=>{s=String(s??'');
 const fail=(el,m)=>{el.textContent=tx(m);el.style.display='block';};
 
 function render(){
+ document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
+ document.body.classList.toggle('sidebar-collapsed',sideCollapsed);
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={

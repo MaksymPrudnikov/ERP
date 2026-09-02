@@ -375,7 +375,8 @@ salesLineChargeRows=function(line){
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
   salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
-  salesSandblastChargeRows(saved&&saved.features,ctx).forEach(function(row){rows.push(row);});
+  var sandArea=(function(){var r=saved?ShapeModule.compute(saved):null;return r&&r.valid?r.area/144:0;})();
+  salesSandblastChargeRows(saved&&saved.features,ctx,sandArea).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
@@ -410,6 +411,7 @@ salesLineChargeRows=function(line){
   if(saved&&!shapeIsDxfSource(saved)){
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;if(radius)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
     var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',null,'Shape feature'));
+    salesNotchChargeRows(saved,ctx).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
 };
