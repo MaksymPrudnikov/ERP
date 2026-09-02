@@ -21,6 +21,106 @@ function shapeDrawingFrame(points,opts){
    на каждом конце, между ними ничего. */
 function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
 function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
+function shapeMetricMenuSvg(opts,key,cx,cy,F){
+  if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
+  var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
+  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
+}
+function shapeMetricMovableSvg(opts,key,text,cx,cy,F){
+  if(!opts||!opts.interactive)return text;
+  return '<g class="shape-metric-movable'+(opts.selectedKey===key?' active':'')+'" data-metric-label-key="'+shapeXml(key)+'" onclick="event.stopPropagation();shapeSelectMetricLabel(\''+shapeXml(key)+'\')"><title>Move metric label · − / +</title>'+text+'</g>'+shapeMetricMenuSvg(opts,key,cx,cy,F);
+}
+function shapeMetricDimH(x1,x2,edgeY,y,label,opts,F){
+  var c='#111827',key='overall:width',shift=shapeMetricShift(opts,key);y=Math.max(edgeY+24,y+shift);var mid=(x1+x2)/2;
+  var text='<text data-metric-role="width" x="'+mid+'" y="'+(y-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(label)+'</text>';
+  return '<line x1="'+x1+'" y1="'+edgeY+'" x2="'+x1+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x2+'" y1="'+edgeY+'" x2="'+x2+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,mid,y-34,F);
+}
+function shapeMetricDimV(x,edgeX,y1,y2,label,opts,F){
+  var c='#111827',key='overall:height',shift=shapeMetricShift(opts,key);x=Math.min(edgeX-28,x-shift);var mid=(y1+y2)/2,tx=x-11;
+  var text='<text data-metric-role="height" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(label)+'</text>';
+  return '<line x1="'+edgeX+'" y1="'+y1+'" x2="'+(x-8)+'" y2="'+y1+'" stroke="'+c+'" stroke-width="1"/><line x1="'+edgeX+'" y1="'+y2+'" x2="'+(x-8)+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,x-64,mid,F);
+}
+function shapeInchDimH(x1,x2,fromY,y,label){
+  var c='#98a2b3',mid=(x1+x2)/2;
+  return '<line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="width" x="'+mid+'" y="'+(y-7)+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(label)+'</text>';
+}
+function shapeInchDimV(x,fromX,y1,y2,label){
+  var c='#98a2b3',mid=(y1+y2)/2;
+  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-9)+'" y="'+mid+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9)+' '+mid+')">'+shapeXml(label)+'</text>';
+}
+function shapeMetricPositiveAngle(v){while(v<0)v+=Math.PI*2;while(v>=Math.PI*2)v-=Math.PI*2;return v;}
+function shapeMetricLayerSvg(result,F,L,metric,opts){
+  if(!metric||metric.vertices.length<3)return '';
+  opts=opts||{};
+  var P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
+  var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
+  var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker><marker id="shapeInchArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+ic+'" stroke-width=".75"/></marker></defs>';
+  o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  var inchEdges='';
+  metric.segments.forEach(function(seg,i){
+    var a=Q[i],b=Q[(i+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+    /* Горизонтальное/вертикальное ребро, равное полному W/H, уже подписано
+       габаритной цепочкой. Вторую такую же цифру возле кромки не рисуем. */
+    var pdx=Math.abs(seg.p2[0]-seg.p1[0]),pdy=Math.abs(seg.p2[1]-seg.p1[1]);
+    var repeatsWidth=pdy<1e-7&&Math.abs(seg.lengthMm-metric.bbox.widthMm)<.015;
+    var repeatsHeight=pdx<1e-7&&Math.abs(seg.lengthMm-metric.bbox.heightMm)<.015;
+    if(repeatsWidth||repeatsHeight)return;
+    var nx=orient>0?-dy/len:dy/len,ny=orient>0?dx/len:-dx/len;
+    var key='edge:'+i,off=Math.max(6,15+shapeMetricShift(opts,key));
+    var x=(a[0]+b[0])/2+nx*off,y=(a[1]+b[1])/2+ny*off,ang=Math.atan2(dy,dx)*180/Math.PI;
+    if(ang>90)ang-=180;if(ang<-90)ang+=180;
+    var metricText='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">('+shapeMetricFormat(seg.lengthMm)+')</text>';
+    o+=shapeMetricMovableSvg(opts,key,metricText,x,y+27,F);
+    var ix=(a[0]+b[0])/2+nx*(off+21),iy=(a[1]+b[1])/2+ny*(off+21);
+    inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
+  });
+  if(inchEdges)o+='<g class="shape-inch-reference-layer" data-units="in">'+inchEdges+'</g>';
+  metric.vertices.forEach(function(v,i){
+    var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
+    var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
+    var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
+    var r=Math.max(12,Math.min(30,Math.min(Math.hypot(prev[0]-b[0],prev[1]-b[1]),Math.hypot(next[0]-b[0],next[1]-b[1]))*.24));
+    var steps=Math.max(5,Math.ceil(span/(Math.PI/12))),arc='';
+    for(var j=0;j<=steps;j++){var a=a0+delta*j/steps,x=b[0]+Math.cos(a)*r,y=b[1]+Math.sin(a)*r;arc+=(j?' L ':'M ')+x+' '+y;}
+    var mid=a0+delta/2,key='angle:'+i,lr=Math.max(r+5,r+15+shapeMetricShift(opts,key)),lx=b[0]+Math.cos(mid)*lr,ly=b[1]+Math.sin(mid)*lr;
+    o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
+    var angleText='<text class="shape-metric-angle" data-vertex-index="'+i+'" data-convex="'+(v.convex?'true':'false')+'" x="'+lx+'" y="'+(ly+4.5)+'" text-anchor="middle" font-size="13.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">('+shapeMetricFormat(v.angleDeg)+'°)</text>';
+    o+=shapeMetricMovableSvg(opts,key,angleText,lx,ly+27,F);
+  });
+  var xs=Q.map(function(p){return p[0];}),ys=Q.map(function(p){return p[1];});
+  var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
+  /* Габариты держим рядом с деталью: большой пустой коридор создавал ложное
+     ощущение, будто сам контур растянут до размерной линии. */
+  var widthGap=Math.max(24,44+shapeMetricShift(opts,'overall:width'));
+  var heightGap=Math.max(28,48+shapeMetricShift(opts,'overall:height'));
+  o+=shapeMetricDimH(box.left,box.right,box.bottom,box.bottom+44,shapeMetricFormat(metric.bbox.widthMm),opts,F);
+  o+=shapeMetricDimV(box.left-48,box.left,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F);
+  o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(box.left-heightGap-36,box.left-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″')+'</g>';
+  var summary=[];
+  if(opts.liteLabel)summary.push(String(opts.liteLabel));
+  /* W/H уже стоят на габаритных линиях; в сводке оставляем только то, чего
+     больше нигде на листе нет. */
+  summary.push('Perimeter '+shapeMetricFormat(metric.perimeterMm)+' mm');
+  summary.push('Thickness '+shapeMetricFormat(opts.thicknessMm==null?shapeThicknessMm(result.definition):opts.thicknessMm)+' mm');
+  o+='<g class="shape-metric-summary" font-family="Arial,sans-serif" text-anchor="end" fill="'+c+'">'+summary.map(function(s,i){return '<text x="'+(F.vw-24)+'" y="'+(68+i*17)+'" font-size="'+(i===0&&opts.liteLabel?'13':'12')+'" font-weight="600">'+shapeXml(s)+'</text>';}).join('')+'</g>';
+  return o+'</g>';
+}
+/* Архитектурное обозначение стекла: три параллельных диагональных штриха
+   short / long / short. Clip-path гарантирует, что знак не выйдет за контур. */
+function shapeGlassHatchSvg(layer){
+  if(!layer||!layer.path||(layer.points||[]).length<3)return '';
+  var P=layer.points,b=layer.box,w=Math.max(1,b.right-b.left),h=Math.max(1,b.bottom-b.top);
+  var cx=P.reduce(function(s,p){return s+p[0];},0)/P.length,cy=P.reduce(function(s,p){return s+p[1];},0)/P.length;
+  if(typeof fabPointInPoly==='function'&&!fabPointInPoly([cx,cy],P)){cx=(b.left+b.right)/2;cy=(b.top+b.bottom)/2;}
+  var unit=Math.max(16,Math.min(30,Math.min(w,h)*.07)),lens=[unit,unit*1.85,unit],g='';
+  lens.forEach(function(len,i){
+    var off=(i-1)*12,x=cx+off*.7071,y=cy+off*.7071,dx=len*.35355,dy=len*.35355;
+    g+='<line x1="'+(x-dx)+'" y1="'+(y+dy)+'" x2="'+(x+dx)+'" y2="'+(y-dy)+'"/>';
+  });
+  return '<g class="shape-glass-hatch" aria-label="Glass" stroke="#667085" stroke-width="1.15" stroke-linecap="round" opacity=".72"><defs><clipPath id="shapeGlassHatchClip"><path d="'+layer.path+'"/></clipPath></defs><g clip-path="url(#shapeGlassHatchClip)">'+g+'</g></g>';
+}
 function shapeEdgeGroups(geo){
   var g={},order=[];(geo.edges||[]).forEach(function(e){if(!g[e.id]){g[e.id]={id:e.id,length:0,segments:[]};order.push(e.id);}g[e.id].length+=e.length||0;g[e.id].segments.push(e);});return order.map(function(id){return g[id];});
 }
@@ -33,7 +133,7 @@ function shapeOpText(o){
   if(o.type==='CNC Shape Polish')return 'CNC';
   return o.type;
 }
-function shapeEdgeLabelsSvg(result,F,layer){
+function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts){
   var orient=fabSignedArea(result.points),lanes={},out='',DP=(layer&&layer.DP)||function(p){return [F.X(p[0]),F.Y(p[1])];};
   shapeEdgeGroups(result.geometry).forEach(function(g){
     var total=g.length/2,walk=0,seg=g.segments[0],t=.5;for(var i=0;i<g.segments.length;i++){var L=g.segments[i].length||0;if(walk+L>=total){seg=g.segments[i];t=L?(total-walk)/L:.5;break;}walk+=L;}
@@ -43,14 +143,16 @@ function shapeEdgeLabelsSvg(result,F,layer){
     var ops=shapeEdgeOps(result.definition,g.id).map(shapeOpText);
     /* Smart-Shape уже подписывает длины своими цепочками. Для обычных форм
        оставляем короткую запись без символов единиц и декоративных разделителей. */
-    var txt=(layer&&layer.contour&&layer.smart)?ops.join(' + '):([g.id,shapeDrawingDim(g.length)].concat(ops).join(' '));
+    var operationsOnly=!!(layer&&layer.contour&&layer.smart);
+    var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):([g.id,shapeDrawingDim(g.length)].concat(ops).join(' ')));
     if(!txt)return;
     /* A/B/C/D и обработка всегда стоят СНАРУЖИ контура. Короткая подпись
        поворачивается вдоль ребра и не отнимает место у отверстий и петель. */
-    var off=18+lane*14,x=ax+n[0]*off,y=ay-n[1]*off;
+    var moveKey='inch:edge:'+g.id,off=Math.max(6,18+lane*14+(operationsOnly?0:shapeAnnUiShift(layoutOpts,moveKey))),x=ax+n[0]*off,y=ay-n[1]*off;
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    out+='<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
+    var body='<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
+    out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);
   });return out;
 }
 function shapeProductionFeaturesSvg(result,F){
@@ -73,39 +175,51 @@ function shapeTitleBlock(result,kind,F){
 /* Производственный чертёж. Контур берётся из слоя аннотаций: скошенные края
    показываются с усиленным уклоном, чтобы читались в цеху, но ВСЕ подписанные
    размеры остаются истинными. Раскрой (shapeCuttingSvg) усиления не использует. */
-function shapeProductionSvg(result){
-  if(!result||!result.valid)return '<svg viewBox="0 0 960 780"><text x="480" y="390" text-anchor="middle" fill="#b42318">Invalid Shape</text></svg>';
-  /* Вид сверху занимает верхнюю полосу — под него заранее увеличиваем поле,
-     иначе он налезет на верхнюю цепочку размеров. */
+function shapeProductionDrawingFrame(result,opts){
+  opts=opts||{};
+  var metric=opts.metric?shapeMetricAnnotations(result,opts.metric):null;
+  var framePoints=(result.points||[]).slice();
+  if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
   var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190;
-  /* Лист подгоняется под пропорцию детали. Фиксированный широкий лист на
-     высокой узкой детали оставлял половину площади пустой, и чертёж на экране
-     выходил мелким: масштаб задавала пустота, а не стекло. */
-  var pb=fabEdgeBounds(result.points),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
+  var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
   var LONG=660,SHORT=260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
-  var F=shapeDrawingFrame(result.points,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
-  var L=shapeAnnotationLayer(result,F);
+  var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
+  F.metric=metric;return F;
+}
+function shapeProductionSvg(result,opts){
+  if(!result||!result.valid)return '<svg viewBox="0 0 960 780"><text x="480" y="390" text-anchor="middle" fill="#b42318">Invalid Shape</text></svg>';
+  opts=opts||{};
+  /* Вид сверху получает отдельное верхнее поле; выбранный лайт тоже входит в
+     рамку, чтобы его метрический контур не обрезался собственной формой. */
+  var F=shapeProductionDrawingFrame(result,opts);
+  var L=shapeAnnotationLayer(result,F,null,opts.annotation);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+shapeTitleBlock(result,'PRODUCTION DRAWING',F);
   if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
              :('<path d="'+L.path+'" fill="#f9fafb" stroke="#101828" stroke-width="2"/>');
-  o+=L.annotations;
+  /* Метрический режим — отдельный чистый лист, а не два чертежа друг поверх
+     друга. Дюймовые цепочки скрываем; отверстия и прочие производственные
+     обозначения ниже остаются в исходных единицах согласно спецификации. */
+  if(!F.metric)o+=L.annotations;
+  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,opts.metric)+shapeGlassHatchSvg(L);
   /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
      каждая сторона уже расписана по участкам, и общий размер вставал вторым
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
-  if(!L.smart){
-    o+=shapeDimH(L.box.left,L.box.right,L.box.bottom+118,shapeDrawingDim(F.W));
-    o+=shapeDimV(L.box.left-128,L.box.top,L.box.bottom,shapeDrawingDim(F.H));
+  if(!L.smart&&!F.metric){
+    var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
+    var wy=L.box.bottom+118+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128-shapeAnnUiShift(annOpts,hKey);
+    o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
+    o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
-  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L);
-  o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true</text>';
+  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation);
+  o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
 /* ---------- Safety Border overlay ----------

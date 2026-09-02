@@ -16,6 +16,7 @@
     "src/modules/shape/features.js",
     "src/modules/shape/validate.js",
     "src/modules/shape/geometry.js",
+    "src/modules/shape/metric.js",
     "src/modules/shape/cutting.js",
     "src/modules/shape/annotate.js",
     "src/modules/shape/drawing.js",
