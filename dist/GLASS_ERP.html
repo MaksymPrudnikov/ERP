@@ -295,12 +295,12 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-print-btn{margin-left:auto}
 .muntin-print-row{display:flex;justify-content:flex-end;margin-bottom:6px}
 @media print{
-  @page{margin:9mm}
+  @page{size:Letter portrait;margin:11mm 10mm 9mm 14mm}
   /* На время печати на листе остаётся только чертёж: интерфейс, меню и панели
      на бумаге не нужны и съедают место. */
   body.printing{background:#fff!important}
   body.printing>*{display:none!important}
-  body.printing>#printSheetHost{display:block!important;position:static}
+  body.printing>#printSheetHost{display:block!important;position:static;width:auto;height:auto;overflow:visible}
   /* Панель управления размером и след скрытого размера — интерфейс,
      а не чертёж. В печатную разметку они не попадают уже на сборке; это
      страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
@@ -722,28 +722,42 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-notch-row>select{height:28px;padding:3px 6px;font-size:10.5px}
 
 /* Печатный лист чертежа ------------------------------------------------
-   Раскладка владельца: сверху слева тип и размеры, справа заказчик, посередине
-   большой чертёж, снизу путь по станциям мелким шрифтом. Лишних рамок нет —
-   только две разделительные линии; рамки съедают место под чертёж. */
+   Двухуровневая шапка, максимальное поле чертежа и тонкая сверочная полоса маршрута.
+   Четыре кегля на весь HTML-слой: 8 / 10.5 / 18 / 24 px. Лишних рамок нет. */
 .print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
-  font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
-/* Все три блока шапки начинаются с ОДНОЙ строки: взгляд идёт по одной линии
-   слева направо, а не ищет, где начинается следующий блок. */
+  font:10.5px/1.35 Arial,Helvetica,sans-serif;color:#101828}
+/* Шапка — два уровня вместо трёх равноправных колонок. Вверху опознание заказа,
+   ниже материал. При одинарном стекле материал занимает всю строку — пустой
+   колонки от отсутствующей схемы больше нет. */
 .sheet-head{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;
-  gap:16px;align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
-.sheet-head.layered{grid-template-columns:auto minmax(0,1fr) auto}
-.sheet-head.layered .sheet-what{text-align:center}
-.sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
-/* У одинарного стекла шапка полупустая — название набирается крупно. */
-.sheet-head:not(.layered) .sheet-title{font-size:20px;line-height:1.2}
-.sheet-head:not(.layered) .sheet-size,
-.sheet-head:not(.layered) .sheet-mass{font-size:12px}
-.sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
-.sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
-.sheet-mass{font-size:10.5px;line-height:1.35;color:#475467}
+  grid-template-areas:"identity qty" "what what";column-gap:18px;row-gap:8px;
+  align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
+.sheet-head.layered{grid-template-columns:minmax(250px,.86fr) minmax(330px,1.14fr);
+  grid-template-areas:"identity qty" "what makeup"}
+.sheet-identity{grid-area:identity;min-width:0}
+.sheet-eyebrow{display:block;margin-bottom:1px;font-size:8px;font-weight:700;letter-spacing:.12em;color:#667085}
+.sheet-customer{display:block;min-height:23px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:18px;line-height:1.2}
+.sheet-meta{display:flex;align-items:baseline;gap:14px;min-height:18px;margin-top:3px}
+.sheet-meta>span{display:flex;align-items:baseline;gap:4px;min-width:0;white-space:nowrap}
+.sheet-meta small{font-size:8px;letter-spacing:.08em;color:#7a838f}
+.sheet-meta b{font-size:10.5px;font-weight:650;min-width:18px}
+.sheet-note{font-weight:700!important;color:#101828!important}
+.sheet-qty{grid-area:qty;display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;
+  column-gap:5px;align-items:baseline;justify-items:end;justify-content:end;min-width:82px}
+.sheet-qty>span{grid-column:1/-1;font-size:8px;font-weight:700;letter-spacing:.12em;color:#667085}
+.sheet-qty>b{font-size:24px;line-height:1;font-weight:750}
+.sheet-qty>em{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sheet-what{grid-area:what;min-width:0}
+.sheet-title{font-size:18px;font-weight:750;line-height:1.18}
+.sheet-spec{font-size:10.5px;font-weight:650;line-height:1.3;color:#101828}
+.sheet-product-meta{display:flex;gap:12px;align-items:baseline;margin-top:3px}
+.sheet-size,.sheet-mass{font-size:10.5px;line-height:1.3;color:#344054;white-space:nowrap}
+.sheet-mass{color:#475467}
+.sheet-mk{grid-area:makeup;min-width:0}
 .sheet-mk-rows{display:grid;grid-template-columns:auto 104px auto;gap:3px 8px;align-items:center;justify-items:start}
 .mk-row{display:contents}
-.mk-row>span{font-size:11.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
+.mk-row>span{font-size:10.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
 /* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
 .mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
   font-family:ui-monospace,Consolas,monospace}
@@ -769,13 +783,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
 .mk-pane.coat-out::after{top:0}
 .mk-pane.coat-in::after{bottom:0}
-.sheet-who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px}
-.sheet-who span{font-size:8.5px;letter-spacing:.08em;color:#7a838f;align-self:center}
-.sheet-who b{font-weight:650;min-height:15px;min-width:150px}
-.sheet-who b>em{font-style:normal;font-weight:700}
-/* Примечание не делит строку с номером и количеством: его читают отдельно. */
-.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3;max-width:230px}
-.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 0}
+.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 0}
 .sheet-field svg{width:100%;height:100%;object-fit:contain}
 /* Цех печатает ч/б. Цвет метки в сером не читается, поэтому на листе всё
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
@@ -787,27 +795,29 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
-.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:5px}
-.sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
-/* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
-   поедет на стикере. Значит места должен занимать минимум. */
-.sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
-  padding:1px 0}
-.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
+.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:4px}
+.sheet-route-t{font-size:8px;letter-spacing:.12em;color:#667085;font-weight:700;margin-bottom:2px}
+/* Маршрут остаётся тонкой сверочной полосой. Станции и позиции — отдельные flex-элементы:
+   перенос разрешён между ними, но не внутри координаты. */
+.sheet-leg{display:grid;grid-template-columns:104px minmax(0,1fr);gap:7px;align-items:baseline;padding:1px 0}
+.sheet-route.single .sheet-leg{grid-template-columns:0 minmax(0,1fr);gap:0}
+.sheet-leg>span{font-size:8px;font-weight:700;color:#475467;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-.sheet-leg>em{font-style:normal;font-size:7.5px;line-height:1.4;color:#344054;
-  font-family:ui-monospace,Consolas,monospace}
-.sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
-.sheet-leg i{font-style:normal;color:#98a2b3;padding:0 5px}
-.sheet-merge>em{font-family:Arial,Helvetica,sans-serif;font-size:8px;color:#475467}
-.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:6px;
-  font-size:7.5px;color:#7a838f}
+.sheet-stations{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 7px;min-width:0;
+  font-style:normal;font:8px/1.35 ui-monospace,Consolas,monospace;color:#344054}
+.sheet-stop{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:2px 5px;min-width:0}
+.sheet-step{font-style:normal;margin-right:2px;color:#98a2b3}
+.sheet-stop>b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
+.sheet-stop-items{display:inline-flex;flex-wrap:wrap;gap:2px 6px}
+.sheet-stop-items>i{font-style:normal;white-space:nowrap}
+.sheet-stop-items>i+ i::before{content:'·';padding-right:6px;color:#98a2b3}
+.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:#7a838f}
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
    верх. Обе картинки листа размеры задают себе сами. */
 .print-sheet .print-shape-sheet .sheet-field svg{width:100%!important;height:100%!important;max-height:none!important}
 @media print{
-  .print-sheet .print-shape-sheet{height:96vh}
+  .print-sheet .print-shape-sheet{height:259.4mm}
 }
 
 /* ---- src/styles/service-sets.css ---- */
@@ -886,7 +896,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-09-02 23:04';
+var ERP_BUILD='2026-09-03 00:07';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2593,8 +2603,9 @@ function shapeAnnDim(v){
   catch(e){return String(v==null?'':v);}
 }
 function shapeAnnText(x,y,txt,o){
-  o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
-  return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
+  o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'',cls=[];
+  if(o.className)cls.push(o.className);if(o.ann)cls.push('shape-layout-label');
+  return '<text'+(cls.length?' class="'+cls.join(' ')+'"':'')+' x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
 /* Экранное оформление дюймовых размеров. Смещение хранится отдельно от
    Shape definition и в машинные данные не попадает; в печать приходит только
@@ -2627,7 +2638,7 @@ function shapeAnnSeedContour(pts){
         L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
     for(var k=0;k<=n;k++){
       var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
-      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
+      shapeAnnReserveBox({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
     }
   }
 }
@@ -2637,20 +2648,47 @@ function shapeAnnBoxOf(x,y,txt,o){
   var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
   return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
 }
+function shapeAnnReserveBox(b){
+  if(!b)return null;
+  var q={x1:Math.min(+b.x1,+b.x2),y1:Math.min(+b.y1,+b.y2),
+    x2:Math.max(+b.x1,+b.x2),y2:Math.max(+b.y1,+b.y2)};
+  if(!(isFinite(q.x1)&&isFinite(q.y1)&&isFinite(q.x2)&&isFinite(q.y2)))return null;
+  if(b.c)q.c=b.c;if(b.kind)q.kind=b.kind;SS_ANN_BOXES.push(q);return q;
+}
 function shapeAnnFree(b,skipContour){
   for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
     if(skipContour&&o.c)continue;
     if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
   return true;
 }
+function shapeAnnInside(b,bounds){
+  if(!bounds)return true;
+  return b.x1>=(bounds.left||0)&&b.y1>=(bounds.top||0)&&
+    b.x2<=(bounds.right==null?Infinity:bounds.right)&&b.y2<=(bounds.bottom==null?Infinity:bounds.bottom);
+}
+/* Общий поиск места для текста. Вызывающий передаёт допустимые сдвиги:
+   у размера это точки вдоль выноски и вторая её сторона, у обычной подписи — луч
+   наружу. Реестр один для размеров, меток и штампов — именно этого не хватало
+   трём дефектам печатного листа. */
+function shapeAnnResolveText(x,y,txt,o,candidates,skipContour){
+  o=o||{};candidates=(candidates&&candidates.length)?candidates:[[0,0]];
+  var first=null;
+  for(var i=0;i<candidates.length;i++){
+    var p=candidates[i],px=x+(+p[0]||0),py=y+(+p[1]||0),b=shapeAnnBoxOf(px,py,txt,o);
+    if(!first)first={x:px,y:py,box:b};
+    if(shapeAnnInside(b,o.bounds)&&shapeAnnFree(b,skipContour)){
+      shapeAnnReserveBox(b);return {x:px,y:py,box:b,moved:i>0};
+    }
+  }
+  /* Даже в переполненном кадре реестр запоминает fallback: следующая подпись не
+     сядет туда же и не скроет обе. */
+  shapeAnnReserveBox(first.box);return {x:first.x,y:first.y,box:first.box,moved:false,forced:true};
+}
 function shapeAnnPlace(x,y,txt,o,step){
   o=o||{};step=step||[0,-1];
-  var d=(o.size||11)+2;
-  for(var k=0;k<16;k++){
-    var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
-    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
-  }
-  return shapeAnnText(x,y,txt,o);
+  var d=(o.size||11)+2,c=[];for(var k=0;k<16;k++)c.push([step[0]*k*d,step[1]*k*d]);
+  var p=shapeAnnResolveText(x,y,txt,o,c,false);
+  return shapeAnnText(p.x,p.y,txt,Object.assign({},o,{ann:true}));
 }
 /* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
    ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
@@ -2671,11 +2709,14 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
     var px=x+step[0]*k*d,py=y+step[1]*k*d,
         b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
     if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
-      SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
-      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+      shapeAnnReserveBox(b1);if(b2)shapeAnnReserveBox(b2);
+      var ao=Object.assign({},o,{ann:true});
+      return shapeAnnText(px,py,l1,ao)+(l2?shapeAnnText(px,py+gap,l2,ao):'');
     }
   }
-  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+  var fo=Object.assign({},o,{ann:true});
+  shapeAnnReserveBox(shapeAnnBoxOf(x,y,l1,o));if(l2)shapeAnnReserveBox(shapeAnnBoxOf(x,y+gap,l2,o));
+  return shapeAnnText(x,y,l1,fo)+(l2?shapeAnnText(x,y+gap,l2,fo):'');
 }
 /* Стоп-рыска на концах — то же оформление, что у размеров Cutout: видно, до
    какой ТОЧКИ размер, а не примерно куда смотрит остриё. Smart-Shape рисует свои
@@ -3153,6 +3194,7 @@ function shapeAnnotationLayer(result,F,active,opts){
      занятыми места первого и разгонял бы подписи в пустоту. Контур засевается
      сразу, чтобы ни одна подпись не села на линию. */
   shapeAnnResetBoxes();shapeAnnSeedContour(disp);
+  ((opts&&opts.obstacles)||[]).forEach(shapeAnnReserveBox);
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);
@@ -3191,8 +3233,16 @@ function shapeDrawingFrame(points,opts){
 }
 /* Габаритный размер оформлен так же, как размеры на детали: стрелка и стоп-рыска
    на каждом конце, между ними ничего. */
-function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
-function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+function shapeDrawingDimLabel(x,y,label,vertical,span,color){
+  var o={size:13,weight:700,anchor:'middle',rot:vertical?-90:0,color:color||'#344054',halo:3.2};
+  if(typeof shapeAnnResolveText!=='function')return shapeAnnText(x,y,label,o);
+  var d=Math.max(18,Math.min(54,Math.abs(span)*.22)),c=[[0,0],vertical?[0,-d]:[-d,0],vertical?[0,d]:[d,0],
+    vertical?[0,-d*1.7]:[-d*1.7,0],vertical?[0,d*1.7]:[d*1.7,0],vertical?[28,0]:[0,24]];
+  var p=shapeAnnResolveText(x,y,label,o,c,false);
+  return shapeAnnText(p.x,p.y,label,Object.assign({},o,{ann:true}));
+}
+function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/>'+shapeDrawingDimLabel((x1+x2)/2,y-8,label,false,x2-x1,color);}
+function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/>'+shapeDrawingDimLabel(x-10,cy,label,true,y2-y1,color);}
 function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
 function shapeMetricMenuSvg(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
@@ -3326,9 +3376,21 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts){
     var moveKey='inch:edge:'+g.id,off=Math.max(6,18+lane*14+(operationsOnly?0:shapeAnnUiShift(layoutOpts,moveKey))),x=ax+n[0]*off,y=ay-n[1]*off;
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var body='<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
+    var po={size:9,anchor:'middle',rot:ang,bounds:{left:4,top:4,right:F.vw-4,bottom:F.vh-4}},step=[n[0]*14,-n[1]*14],c=[];
+    for(var ci=0;ci<8;ci++)c.push([step[0]*ci,step[1]*ci]);
+    var pp=typeof shapeAnnResolveText==='function'?shapeAnnResolveText(x,y,txt,po,c,false):{x:x,y:y};x=pp.x;y=pp.y;
+    var body='<text class="shape-edge-label-outside shape-layout-label" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
     out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);
   });return out;
+}
+/* Фиксированные знаки занимают место ДО раскладки текста. Положение штампа задано
+   заказом и не двигается; его обходят подписи и размеры. */
+function shapeProductionFeatureObstacles(result,F){
+  var fg=result&&result.featureGeometry||{},out=[];
+  (fg.holes||[]).forEach(function(h){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc)+4;out.push({x1:x-r,y1:y-r,x2:x+r,y2:y+r,kind:'feature'});});
+  (fg.stamps||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out.push({x1:x-w/2-4,y1:y-14,x2:x+w/2+4,y2:y+14,kind:'stamp'});});
+  (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out.push({x1:x-spec.w/2-4,y1:y-spec.h/2-4,x2:x+spec.w/2+4,y2:y+spec.h/2+4,kind:'feature'});});
+  return out;
 }
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
@@ -3372,7 +3434,8 @@ function shapeProductionSvg(result,opts){
   var F=shapeProductionDrawingFrame(result,opts);
   /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
      внутри чертежа стали бы вторым набором тех же сведений. */
-  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet,
+    obstacles:shapeProductionFeatureObstacles(result,F)});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
   if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
@@ -10183,10 +10246,10 @@ function salesPrintRoute(line,order,shape,result){
    IN : фигура + её результат + строка заказа (может не быть)
    OUT: разметка листа для printSheetPrepare
 
-   Раскладка задана владельцем: сверху слева тип стекла и размеры, справа
-   заказчик / заказ / PO, посередине большой чертёж, снизу путь стекла по
-   станциям мелким шрифтом — он же служит сверкой с чертежом, отдельной легенды
-   на листе нет. Лишних рамок нет: только две разделительные линии.
+   Композиция строится по скорости чтения в цеху: сначала заказчик и
+   количество, затем стекло / состав, после них — самый крупный блок с чертежом.
+   Маршрут внизу только сверяет операции с чертежом. Лишних рамок нет: объём
+   отдан фигуре, структуру держат пробелы и две разделительные линии.
    Нет значения — остаётся пустота, а не прочерк.
    ===================================================================== */
 
@@ -10334,21 +10397,19 @@ function salesSheetMakeupHTML(makeup){
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
   var many=route.lites.length>1;
-  /* Колонки — станции в порядке маршрута, только те, что кто-то проходит. */
-  var cols=[];
-  route.lites.forEach(function(l){l.stations.forEach(function(s){
-    if(cols.indexOf(s.code)<0)cols.push(s.code);});});
-  /* Цепочкой, а не таблицей: колонки под две станции растягивались на всю
-     ширину и оставляли пустоту. Здесь строка ровно такой длины, какой нужно. */
+  /* Каждая позиция — неразрывный кусок. Длинный маршрут переносится между
+     операциями или станциями, но не разрывает «3 from bottom» посередине. */
   var body=route.lites.map(function(l){
-    var chain=l.stations.map(function(s){
-      return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
-    }).join('<i>&rsaquo;</i>');
+    var chain=l.stations.map(function(s,i){
+      return '<span class="sheet-stop">'+(i?'<i class="sheet-step">&rsaquo;</i>':'')+
+        '<b>'+esc(s.code)+'</b><span class="sheet-stop-items">'+
+        s.items.map(function(t){return '<i>'+esc(t)+'</i>';}).join('')+'</span></span>';
+    }).join('');
     return '<div class="sheet-leg">'+
       (many?'<span>'+esc(l.label)+(l.glass?' · '+esc(l.glass):'')+'</span>':'<span></span>')+
-      '<em>'+chain+'</em></div>';
+      '<em class="sheet-stations">'+chain+'</em></div>';
   }).join('');
-  return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
+  return '<div class="sheet-route'+(many?'':' single')+'"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
 function salesShapeSheetHTML(shape,result,svg,kind){
@@ -10378,26 +10439,33 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
   var n=line?(line.qty||1):0;
-  var qty=line?(n+' '+(layered?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
-  /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
-     номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
-  var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
+  var qtyUnit=layered?(n===1?'unit':'units'):(n===1?'pc':'pcs');
+  /* NOTE — только метка строки заказа. Свободный line.notes не подмешиваем: иначе одно
+     поле на листе начинает означать два разных типа данных. */
+  var note=line&&line.mark||'';
   return '<div class="print-shape-sheet">'+
     '<div class="sheet-head'+(layered?' layered':'')+'">'+
-      (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+      '<div class="sheet-identity">'+
+        '<span class="sheet-eyebrow">CUSTOMER</span>'+
+        '<b class="sheet-customer">'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
+        '<div class="sheet-meta">'+
+          '<span><small>ORDER</small><b>'+esc(order&&order.businessNumber||'')+'</b></span>'+
+          '<span><small>PO</small><b>'+esc(order&&order.customerPO||'')+'</b></span>'+
+          '<span><small>LINE</small><b>'+esc(lineText)+'</b></span>'+
+          '<span><small>NOTE</small><b class="sheet-note">'+esc(note)+'</b></span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sheet-qty"><span>QTY</span><b>'+esc(line?n:'')+'</b><em>'+esc(line?qtyUnit:'')+'</em></div>'+
       '<div class="sheet-what">'+
+        '<span class="sheet-eyebrow">'+(layered?'GLASS MAKEUP':'GLASS')+'</span>'+
         '<div class="sheet-title">'+esc(t.name)+'</div>'+
         (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
-        (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
-        (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+        '<div class="sheet-product-meta">'+
+          (size?'<span class="sheet-size">'+esc(size)+'</span>':'')+
+          (mass?'<span class="sheet-mass">'+esc(mass)+'</span>':'')+
+        '</div>'+
       '</div>'+
-      '<div class="sheet-who">'+
-        '<span>CUSTOMER</span><b>'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
-        '<span>ORDER</span><b>'+esc(order&&order.businessNumber||'')+'</b>'+
-        '<span>PO</span><b>'+esc(order&&order.customerPO||'')+'</b>'+
-        '<span>LINE</span><b>'+esc(lineText)+(qty?' · <em>'+esc(qty)+'</em>':'')+'</b>'+
-        '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
-      '</div>'+
+      (layered?'<div class="sheet-mk"><span class="sheet-eyebrow">SECTION · EXTERIOR ↓ INTERIOR</span>'+salesSheetMakeupHTML(makeup)+'</div>':'')+
     '</div>'+
     '<div class="sheet-field">'+svg+'</div>'+
     salesSheetRouteHTML(route)+
@@ -11444,6 +11512,17 @@ function shapeDimMenuSvg(id,axis,cx,cy){
     return `<g class='shape-dim-btn' onclick='event.stopPropagation();${call}'><rect x='${bx}' y='${cy-h/2}' width='${w[i]}' height='${h}' rx='4'/><text x='${bx+w[i]/2}' y='${cy+4}' text-anchor='middle'>${b.t}</text></g>`;
   }).join('')}</g>`;
 }
+/* Цифра двигается вдоль СВОЕЙ выноски; если обе части заняты, пробуется другая
+   сторона линии. Так она не теряет связь с измеряемым отрезком, но обходит штамп, соседний
+   размер или подпись отверстия. */
+function shapeDimLabelPosition(x,y,text,vertical,a,b,side,T){
+  if(typeof shapeAnnResolveText!=='function')return {x:x,y:y};
+  var span=Math.abs(vertical?(b[1]-a[1]):(b[0]-a[0])),d=Math.max(16,Math.min(58,span*.23));
+  var along=vertical?[[0,0],[0,-d],[0,d],[0,-d*1.7],[0,d*1.7]]:[[0,0],[-d,0],[d,0],[-d*1.7,0],[d*1.7,0]];
+  var cross=vertical?(side>0?-38:38):(side>0?-30:30),other=along.map(function(p){return vertical?[cross,p[1]]:[p[0],cross];});
+  var o={size:14,anchor:'middle',rot:vertical?-90:0,bounds:{left:5,top:5,right:(T&&T.vw||960)-5,bottom:(T&&T.vh||780)-5}};
+  return shapeAnnResolveText(x,y,text,o,along.concat(other),false);
+}
 /* o = {id, axis, a:[x,y], b:[x,y], pos, dir, text, side, selected}
    axis 'h' — линия горизонтальна на y=pos, 'v' и 'e' — вертикальна на x=pos.
    dir — в какую сторону «дальше от детали». */
@@ -11477,20 +11556,22 @@ function shapeDimChainSvg(o){
   if(!vertical){
     var mid=(o.a[0]+o.b[0])/2,sx=o.b[0]>=o.a[0]?1:-1,ax=o.a[0],bx=o.b[0];
     if(Math.abs(bx-ax)>trimA+trimB+6){ax+=sx*trimA;bx-=sx*trimB;}
+    var hp=shapeDimLabelPosition(mid,pos+(o.side>0?19:-11),o.text,false,o.a,o.b,o.side,o.T);
     body=`<line x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
       <line class='shape-dim-tick' x1='${ax}' y1='${pos-TICK}' x2='${ax}' y2='${pos+TICK}'/>
       <line class='shape-dim-tick' x1='${bx}' y1='${pos-TICK}' x2='${bx}' y2='${pos+TICK}'/>
       <line class='shape-dim-hit' x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}'/>
-      <text x='${mid}' y='${pos+(o.side>0?19:-11)}' text-anchor='middle'>${esc(o.text)}</text>`;
+      <text class='shape-layout-label' x='${hp.x}' y='${hp.y}' text-anchor='middle'>${esc(o.text)}</text>`;
     menuX=mid;menuY=pos+(o.side>0?38:-34);
   }else{
     var midY=(o.a[1]+o.b[1])/2,tx=pos+(o.side>0?19:-19),sy=o.b[1]>=o.a[1]?1:-1,ay=o.a[1],by=o.b[1];
     if(Math.abs(by-ay)>trimA+trimB+6){ay+=sy*trimA;by-=sy*trimB;}
+    var vp=shapeDimLabelPosition(tx,midY,o.text,true,o.a,o.b,o.side,o.T);
     body=`<line x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${ay}' x2='${pos+TICK}' y2='${ay}'/>
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${by}' x2='${pos+TICK}' y2='${by}'/>
       <line class='shape-dim-hit' x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}'/>
-      <text x='${tx}' y='${midY}' text-anchor='middle' transform='rotate(-90 ${tx} ${midY})'>${esc(o.text)}</text>`;
+      <text class='shape-layout-label' x='${vp.x}' y='${vp.y}' text-anchor='middle' transform='rotate(-90 ${vp.x} ${vp.y})'>${esc(o.text)}</text>`;
     menuX=pos+(o.side>0?64:-64);menuY=midY;
   }
   return `<g class='shape-mi-prod-dims${active?' active':''}' ${pick}>${body}</g>`+(active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(menuX,o.T),menuY):'');
@@ -11528,29 +11609,20 @@ function shapeManufacturingMarkersSvg(source,T){
      легко оказываются на одной высоте. Подпись, наехавшая на соседнюю, для цеха
      то же самое, что её отсутствие, поэтому вторая уходит выше первой.
      Ширина считается по моноширинному шрифту: 18 px даёт ~10.8 px на знак. */
-  var placedLabels=[],LABEL_H=18,LABEL_CH=10.8;
+  var LABEL_H=18;
   function labelBaseline(x,y,text,anchor){
-    var w=String(text).length*LABEL_CH;
-    var left=anchor==='end'?x-w:(anchor==='middle'?x-w/2:x);
-    /* Зазор в рамке: две подписи, сошедшиеся вплотную, читаются как одна строка. */
-    var box={x:left-6,y:y-LABEL_H-2,w:w+12,h:LABEL_H+8};
-    for(var guard=0;guard<12;guard++){
-      var clash=null;
-      for(var k=0;k<placedLabels.length;k++){
-        var p=placedLabels[k];
-        if(!(box.x+box.w<p.x||p.x+p.w<box.x||box.y+box.h<p.y||p.y+p.h<box.y)){clash=p;break;}
-      }
-      if(!clash)break;
-      box.y=clash.y-box.h-2;
-    }
-    placedLabels.push(box);
-    return box.y+LABEL_H+2;
+    if(typeof shapeAnnResolveText!=='function')return y;
+    var c=[];for(var k=0;k<10;k++)c.push([0,-k*(LABEL_H+7)]);
+    for(var j=1;j<6;j++)c.push([0,j*(LABEL_H+7)]);
+    return shapeAnnResolveText(x,y,text,{size:18,anchor:anchor,
+      bounds:{left:5,top:5,right:T.vw-5,bottom:T.vh-5}},c,false).y;
   }
   return shapeDimArrowDefs()+items.map(function(item,i){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
     var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g),centers=shapeHoleCenters(item),centerPx=centers.map(function(c){return [T.X(c[0]),T.Y(c[1])];});if(!pos)return '';
+      centerPx.forEach(function(c){if(typeof shapeAnnReserveBox==='function')shapeAnnReserveBox({x1:c[0]-r-4,y1:c[1]-r-4,x2:c[0]+r+4,y2:c[1]+r+4,kind:'mark'});});
       /* Выноска начинается ОТ ТОЙ ЖЕ кромки, по которой посчитана цифра. */
       var hRefX=T.X(pos.hDatum),vRefY=T.Y(pos.vDatum);
       var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
@@ -11576,7 +11648,7 @@ function shapeManufacturingMarkersSvg(source,T){
         ${hChain}${vChain}${pairDim}
         ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>
+        <text class='shape-layout-label' x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
@@ -11585,6 +11657,7 @@ function shapeManufacturingMarkersSvg(source,T){
        что именно стоит, говорит подпись с кодом вида и именем модели. */
     if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
     else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
+    if(typeof shapeAnnReserveBox==='function')shapeAnnReserveBox({x1:x-21,y1:y-18,x2:x+21,y2:y+18,kind:'mark'});
     var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
@@ -11594,11 +11667,11 @@ function shapeManufacturingMarkersSvg(source,T){
     if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
+      labelTextSvg=`<text class='shape-layout-label' data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+band*CORRIDOR):T.Y(g.b.minY)+(30+band*CORRIDOR),originX=T.X(origin[0]),labelY=edge==='top'?y+28:y-18;
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
+      labelTextSvg=`<text class='shape-layout-label' data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
@@ -11787,6 +11860,9 @@ function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
+  if(includeMarks&&typeof shapeAnnResetBoxes==='function'){
+    shapeAnnResetBoxes();shapeAnnSeedContour(P.map(function(p){return [X(p[0]),Y(p[1])];}));
+  }
   var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>

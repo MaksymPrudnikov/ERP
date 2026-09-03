@@ -752,6 +752,17 @@ function shapeDimMenuSvg(id,axis,cx,cy){
     return `<g class='shape-dim-btn' onclick='event.stopPropagation();${call}'><rect x='${bx}' y='${cy-h/2}' width='${w[i]}' height='${h}' rx='4'/><text x='${bx+w[i]/2}' y='${cy+4}' text-anchor='middle'>${b.t}</text></g>`;
   }).join('')}</g>`;
 }
+/* Цифра двигается вдоль СВОЕЙ выноски; если обе части заняты, пробуется другая
+   сторона линии. Так она не теряет связь с измеряемым отрезком, но обходит штамп, соседний
+   размер или подпись отверстия. */
+function shapeDimLabelPosition(x,y,text,vertical,a,b,side,T){
+  if(typeof shapeAnnResolveText!=='function')return {x:x,y:y};
+  var span=Math.abs(vertical?(b[1]-a[1]):(b[0]-a[0])),d=Math.max(16,Math.min(58,span*.23));
+  var along=vertical?[[0,0],[0,-d],[0,d],[0,-d*1.7],[0,d*1.7]]:[[0,0],[-d,0],[d,0],[-d*1.7,0],[d*1.7,0]];
+  var cross=vertical?(side>0?-38:38):(side>0?-30:30),other=along.map(function(p){return vertical?[cross,p[1]]:[p[0],cross];});
+  var o={size:14,anchor:'middle',rot:vertical?-90:0,bounds:{left:5,top:5,right:(T&&T.vw||960)-5,bottom:(T&&T.vh||780)-5}};
+  return shapeAnnResolveText(x,y,text,o,along.concat(other),false);
+}
 /* o = {id, axis, a:[x,y], b:[x,y], pos, dir, text, side, selected}
    axis 'h' — линия горизонтальна на y=pos, 'v' и 'e' — вертикальна на x=pos.
    dir — в какую сторону «дальше от детали». */
@@ -785,20 +796,22 @@ function shapeDimChainSvg(o){
   if(!vertical){
     var mid=(o.a[0]+o.b[0])/2,sx=o.b[0]>=o.a[0]?1:-1,ax=o.a[0],bx=o.b[0];
     if(Math.abs(bx-ax)>trimA+trimB+6){ax+=sx*trimA;bx-=sx*trimB;}
+    var hp=shapeDimLabelPosition(mid,pos+(o.side>0?19:-11),o.text,false,o.a,o.b,o.side,o.T);
     body=`<line x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
       <line class='shape-dim-tick' x1='${ax}' y1='${pos-TICK}' x2='${ax}' y2='${pos+TICK}'/>
       <line class='shape-dim-tick' x1='${bx}' y1='${pos-TICK}' x2='${bx}' y2='${pos+TICK}'/>
       <line class='shape-dim-hit' x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}'/>
-      <text x='${mid}' y='${pos+(o.side>0?19:-11)}' text-anchor='middle'>${esc(o.text)}</text>`;
+      <text class='shape-layout-label' x='${hp.x}' y='${hp.y}' text-anchor='middle'>${esc(o.text)}</text>`;
     menuX=mid;menuY=pos+(o.side>0?38:-34);
   }else{
     var midY=(o.a[1]+o.b[1])/2,tx=pos+(o.side>0?19:-19),sy=o.b[1]>=o.a[1]?1:-1,ay=o.a[1],by=o.b[1];
     if(Math.abs(by-ay)>trimA+trimB+6){ay+=sy*trimA;by-=sy*trimB;}
+    var vp=shapeDimLabelPosition(tx,midY,o.text,true,o.a,o.b,o.side,o.T);
     body=`<line x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}' marker-start='url(#shapeMiDimArrow)' marker-end='url(#shapeMiDimArrow)'/>
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${ay}' x2='${pos+TICK}' y2='${ay}'/>
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${by}' x2='${pos+TICK}' y2='${by}'/>
       <line class='shape-dim-hit' x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}'/>
-      <text x='${tx}' y='${midY}' text-anchor='middle' transform='rotate(-90 ${tx} ${midY})'>${esc(o.text)}</text>`;
+      <text class='shape-layout-label' x='${vp.x}' y='${vp.y}' text-anchor='middle' transform='rotate(-90 ${vp.x} ${vp.y})'>${esc(o.text)}</text>`;
     menuX=pos+(o.side>0?64:-64);menuY=midY;
   }
   return `<g class='shape-mi-prod-dims${active?' active':''}' ${pick}>${body}</g>`+(active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(menuX,o.T),menuY):'');
@@ -836,29 +849,20 @@ function shapeManufacturingMarkersSvg(source,T){
      легко оказываются на одной высоте. Подпись, наехавшая на соседнюю, для цеха
      то же самое, что её отсутствие, поэтому вторая уходит выше первой.
      Ширина считается по моноширинному шрифту: 18 px даёт ~10.8 px на знак. */
-  var placedLabels=[],LABEL_H=18,LABEL_CH=10.8;
+  var LABEL_H=18;
   function labelBaseline(x,y,text,anchor){
-    var w=String(text).length*LABEL_CH;
-    var left=anchor==='end'?x-w:(anchor==='middle'?x-w/2:x);
-    /* Зазор в рамке: две подписи, сошедшиеся вплотную, читаются как одна строка. */
-    var box={x:left-6,y:y-LABEL_H-2,w:w+12,h:LABEL_H+8};
-    for(var guard=0;guard<12;guard++){
-      var clash=null;
-      for(var k=0;k<placedLabels.length;k++){
-        var p=placedLabels[k];
-        if(!(box.x+box.w<p.x||p.x+p.w<box.x||box.y+box.h<p.y||p.y+p.h<box.y)){clash=p;break;}
-      }
-      if(!clash)break;
-      box.y=clash.y-box.h-2;
-    }
-    placedLabels.push(box);
-    return box.y+LABEL_H+2;
+    if(typeof shapeAnnResolveText!=='function')return y;
+    var c=[];for(var k=0;k<10;k++)c.push([0,-k*(LABEL_H+7)]);
+    for(var j=1;j<6;j++)c.push([0,j*(LABEL_H+7)]);
+    return shapeAnnResolveText(x,y,text,{size:18,anchor:anchor,
+      bounds:{left:5,top:5,right:T.vw-5,bottom:T.vh-5}},c,false).y;
   }
   return shapeDimArrowDefs()+items.map(function(item,i){
     var pt=item.type==='hole'?{x:item.x,y:item.y}:shapeManufacturingEdgePoint(item,g);if(!pt)return '';
     var x=T.X(pt.x),y=T.Y(pt.y),chosen=item.id===sManufacturingSelected,selected=chosen?' selected':'',label=shapeMarkDrawingLabel(item);
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok&&d.v>0?d.v:.75,r=Math.max(4,Math.min(14,dia*T.sc/2)),pos=shapeManufacturingHolePosition(item,g),centers=shapeHoleCenters(item),centerPx=centers.map(function(c){return [T.X(c[0]),T.Y(c[1])];});if(!pos)return '';
+      centerPx.forEach(function(c){if(typeof shapeAnnReserveBox==='function')shapeAnnReserveBox({x1:c[0]-r-4,y1:c[1]-r-4,x2:c[0]+r+4,y2:c[1]+r+4,kind:'mark'});});
       /* Выноска начинается ОТ ТОЙ ЖЕ кромки, по которой посчитана цифра. */
       var hRefX=T.X(pos.hDatum),vRefY=T.Y(pos.vDatum);
       var sideRight=pos.hRef==='right',sideTop=pos.vRef==='top';
@@ -884,7 +888,7 @@ function shapeManufacturingMarkersSvg(source,T){
         ${hChain}${vChain}${pairDim}
         ${centerPx.map(function(c){return `<circle cx='${c[0]}' cy='${c[1]}' r='${r}'/>`;}).join('')}
         <line x1='${x+diamDirX*r}' y1='${y+diamDirY*r}' x2='${diamX}' y2='${diamY}' class='shape-mi-hole-leader'/>
-        <text x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>
+        <text class='shape-layout-label' x='${diamX+diamDirX*4}' y='${labelBaseline(diamX+diamDirX*4,diamY+(diamDirY<0?-5:13),diameterText,diamAnchor)}' text-anchor='${diamAnchor}'>${centerPx.length>1?centerPx.length+' × ':''}Ø ${esc(shapeDrawingDim(dia))}</text>
       </g>`;
     }
     var e=pt.edge,ex1=T.X(e.start[0]),ey1=T.Y(e.start[1]),ex2=T.X(e.end[0]),ey2=T.Y(e.end[1]),ang=Math.atan2(ey2-ey1,ex2-ex1)*180/Math.PI,mark;
@@ -893,6 +897,7 @@ function shapeManufacturingMarkersSvg(source,T){
        что именно стоит, говорит подпись с кодом вида и именем модели. */
     if(item.type==='clamp')mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-13' y='-13' width='26' height='26' rx='3'/><path d='M -5 -10 V 10 M 5 -10 V 10'/></g>`;
     else mark=`<g transform='translate(${x} ${y}) rotate(${ang})'><rect x='-16' y='-10' width='32' height='20' rx='3'/><line x1='0' y1='-10' x2='0' y2='10'/><circle cx='-7' cy='0' r='2.4'/><circle cx='7' cy='0' r='2.4'/></g>`;
+    if(typeof shapeAnnReserveBox==='function')shapeAnnReserveBox({x1:x-21,y1:y-18,x2:x+21,y2:y+18,kind:'mark'});
     var edge=item.edge||e.edge,band=lane(edge==='left'||edge==='right'?edge:edge)%4;
     /* Откуда меряем — выбор оператора, как Left/Right у отверстия. Хранится в
        карте оформления: сама величина `distance` всегда считается от начала
@@ -902,11 +907,11 @@ function shapeManufacturingMarkersSvg(source,T){
     if(edge==='left'||edge==='right'){
       var dimX=edge==='left'?T.X(g.b.minX)-(34+band*CORRIDOR):T.X(g.b.maxX)+(34+band*CORRIDOR),originY=T.Y(origin[1]),labelX=edge==='left'?x+24:x-24,labelAnchor=edge==='left'?'start':'end';
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:true,a:[T.X(origin[0]),originY],b:[x,y],pos:dimX,dir:edge==='left'?-1:1,side:edge==='left'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
+      labelTextSvg=`<text class='shape-layout-label' data-raw x='${labelX}' y='${labelBaseline(labelX,y-14,label,labelAnchor)}' text-anchor='${labelAnchor}'>${esc(label)}</text>`;
     } else {
       var dimY=edge==='top'?T.Y(g.b.maxY)-(30+band*CORRIDOR):T.Y(g.b.minY)+(30+band*CORRIDOR),originX=T.X(origin[0]),labelY=edge==='top'?y+28:y-18;
       dimSvg=shapeDimChainSvg({id:item.id,axis:'e',vertical:false,a:[originX,T.Y(origin[1])],b:[x,y],pos:dimY,dir:edge==='top'?-1:1,side:edge==='top'?-1:1,text:shapeDrawingDim16(shown),selected:chosen,T:T});
-      labelTextSvg=`<text data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
+      labelTextSvg=`<text class='shape-layout-label' data-raw x='${x+20}' y='${labelBaseline(x+20,labelY,label,'start')}' text-anchor='start'>${esc(label)}</text>`;
     }
     return `<g class='shape-mi-marker ${esc(item.type)}${selected}' onclick='event.stopPropagation();sManufacturingSelected="${esc(item.id)}";sDimEdit=null;render()'>${dimSvg}${mark}${labelTextSvg}</g>`;
   }).join('');
@@ -1095,6 +1100,9 @@ function shapeDxfPreviewSvg(source,includeMarks){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
+  if(includeMarks&&typeof shapeAnnResetBoxes==='function'){
+    shapeAnnResetBoxes();shapeAnnSeedContour(P.map(function(p){return [X(p[0]),Y(p[1])];}));
+  }
   var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>

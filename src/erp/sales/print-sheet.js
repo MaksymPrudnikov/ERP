@@ -3,10 +3,10 @@
    IN : фигура + её результат + строка заказа (может не быть)
    OUT: разметка листа для printSheetPrepare
 
-   Раскладка задана владельцем: сверху слева тип стекла и размеры, справа
-   заказчик / заказ / PO, посередине большой чертёж, снизу путь стекла по
-   станциям мелким шрифтом — он же служит сверкой с чертежом, отдельной легенды
-   на листе нет. Лишних рамок нет: только две разделительные линии.
+   Композиция строится по скорости чтения в цеху: сначала заказчик и
+   количество, затем стекло / состав, после них — самый крупный блок с чертежом.
+   Маршрут внизу только сверяет операции с чертежом. Лишних рамок нет: объём
+   отдан фигуре, структуру держат пробелы и две разделительные линии.
    Нет значения — остаётся пустота, а не прочерк.
    ===================================================================== */
 
@@ -154,21 +154,19 @@ function salesSheetMakeupHTML(makeup){
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
   var many=route.lites.length>1;
-  /* Колонки — станции в порядке маршрута, только те, что кто-то проходит. */
-  var cols=[];
-  route.lites.forEach(function(l){l.stations.forEach(function(s){
-    if(cols.indexOf(s.code)<0)cols.push(s.code);});});
-  /* Цепочкой, а не таблицей: колонки под две станции растягивались на всю
-     ширину и оставляли пустоту. Здесь строка ровно такой длины, какой нужно. */
+  /* Каждая позиция — неразрывный кусок. Длинный маршрут переносится между
+     операциями или станциями, но не разрывает «3 from bottom» посередине. */
   var body=route.lites.map(function(l){
-    var chain=l.stations.map(function(s){
-      return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
-    }).join('<i>&rsaquo;</i>');
+    var chain=l.stations.map(function(s,i){
+      return '<span class="sheet-stop">'+(i?'<i class="sheet-step">&rsaquo;</i>':'')+
+        '<b>'+esc(s.code)+'</b><span class="sheet-stop-items">'+
+        s.items.map(function(t){return '<i>'+esc(t)+'</i>';}).join('')+'</span></span>';
+    }).join('');
     return '<div class="sheet-leg">'+
       (many?'<span>'+esc(l.label)+(l.glass?' · '+esc(l.glass):'')+'</span>':'<span></span>')+
-      '<em>'+chain+'</em></div>';
+      '<em class="sheet-stations">'+chain+'</em></div>';
   }).join('');
-  return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
+  return '<div class="sheet-route'+(many?'':' single')+'"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
 function salesShapeSheetHTML(shape,result,svg,kind){
@@ -198,26 +196,33 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
   var n=line?(line.qty||1):0;
-  var qty=line?(n+' '+(layered?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
-  /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
-     номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
-  var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
+  var qtyUnit=layered?(n===1?'unit':'units'):(n===1?'pc':'pcs');
+  /* NOTE — только метка строки заказа. Свободный line.notes не подмешиваем: иначе одно
+     поле на листе начинает означать два разных типа данных. */
+  var note=line&&line.mark||'';
   return '<div class="print-shape-sheet">'+
     '<div class="sheet-head'+(layered?' layered':'')+'">'+
-      (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+      '<div class="sheet-identity">'+
+        '<span class="sheet-eyebrow">CUSTOMER</span>'+
+        '<b class="sheet-customer">'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
+        '<div class="sheet-meta">'+
+          '<span><small>ORDER</small><b>'+esc(order&&order.businessNumber||'')+'</b></span>'+
+          '<span><small>PO</small><b>'+esc(order&&order.customerPO||'')+'</b></span>'+
+          '<span><small>LINE</small><b>'+esc(lineText)+'</b></span>'+
+          '<span><small>NOTE</small><b class="sheet-note">'+esc(note)+'</b></span>'+
+        '</div>'+
+      '</div>'+
+      '<div class="sheet-qty"><span>QTY</span><b>'+esc(line?n:'')+'</b><em>'+esc(line?qtyUnit:'')+'</em></div>'+
       '<div class="sheet-what">'+
+        '<span class="sheet-eyebrow">'+(layered?'GLASS MAKEUP':'GLASS')+'</span>'+
         '<div class="sheet-title">'+esc(t.name)+'</div>'+
         (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
-        (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
-        (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+        '<div class="sheet-product-meta">'+
+          (size?'<span class="sheet-size">'+esc(size)+'</span>':'')+
+          (mass?'<span class="sheet-mass">'+esc(mass)+'</span>':'')+
+        '</div>'+
       '</div>'+
-      '<div class="sheet-who">'+
-        '<span>CUSTOMER</span><b>'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
-        '<span>ORDER</span><b>'+esc(order&&order.businessNumber||'')+'</b>'+
-        '<span>PO</span><b>'+esc(order&&order.customerPO||'')+'</b>'+
-        '<span>LINE</span><b>'+esc(lineText)+(qty?' · <em>'+esc(qty)+'</em>':'')+'</b>'+
-        '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
-      '</div>'+
+      (layered?'<div class="sheet-mk"><span class="sheet-eyebrow">SECTION · EXTERIOR ↓ INTERIOR</span>'+salesSheetMakeupHTML(makeup)+'</div>':'')+
     '</div>'+
     '<div class="sheet-field">'+svg+'</div>'+
     salesSheetRouteHTML(route)+

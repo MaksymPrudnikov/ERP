@@ -46,12 +46,12 @@
 .shape-print-btn{margin-left:auto}
 .muntin-print-row{display:flex;justify-content:flex-end;margin-bottom:6px}
 @media print{
-  @page{margin:9mm}
+  @page{size:Letter portrait;margin:11mm 10mm 9mm 14mm}
   /* На время печати на листе остаётся только чертёж: интерфейс, меню и панели
      на бумаге не нужны и съедают место. */
   body.printing{background:#fff!important}
   body.printing>*{display:none!important}
-  body.printing>#printSheetHost{display:block!important;position:static}
+  body.printing>#printSheetHost{display:block!important;position:static;width:auto;height:auto;overflow:visible}
   /* Панель управления размером и след скрытого размера — интерфейс,
      а не чертёж. В печатную разметку они не попадают уже на сборке; это
      страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
@@ -473,28 +473,42 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-notch-row>select{height:28px;padding:3px 6px;font-size:10.5px}
 
 /* Печатный лист чертежа ------------------------------------------------
-   Раскладка владельца: сверху слева тип и размеры, справа заказчик, посередине
-   большой чертёж, снизу путь по станциям мелким шрифтом. Лишних рамок нет —
-   только две разделительные линии; рамки съедают место под чертёж. */
+   Двухуровневая шапка, максимальное поле чертежа и тонкая сверочная полоса маршрута.
+   Четыре кегля на весь HTML-слой: 8 / 10.5 / 18 / 24 px. Лишних рамок нет. */
 .print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
-  font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
-/* Все три блока шапки начинаются с ОДНОЙ строки: взгляд идёт по одной линии
-   слева направо, а не ищет, где начинается следующий блок. */
+  font:10.5px/1.35 Arial,Helvetica,sans-serif;color:#101828}
+/* Шапка — два уровня вместо трёх равноправных колонок. Вверху опознание заказа,
+   ниже материал. При одинарном стекле материал занимает всю строку — пустой
+   колонки от отсутствующей схемы больше нет. */
 .sheet-head{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;
-  gap:16px;align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
-.sheet-head.layered{grid-template-columns:auto minmax(0,1fr) auto}
-.sheet-head.layered .sheet-what{text-align:center}
-.sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
-/* У одинарного стекла шапка полупустая — название набирается крупно. */
-.sheet-head:not(.layered) .sheet-title{font-size:20px;line-height:1.2}
-.sheet-head:not(.layered) .sheet-size,
-.sheet-head:not(.layered) .sheet-mass{font-size:12px}
-.sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
-.sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
-.sheet-mass{font-size:10.5px;line-height:1.35;color:#475467}
+  grid-template-areas:"identity qty" "what what";column-gap:18px;row-gap:8px;
+  align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
+.sheet-head.layered{grid-template-columns:minmax(250px,.86fr) minmax(330px,1.14fr);
+  grid-template-areas:"identity qty" "what makeup"}
+.sheet-identity{grid-area:identity;min-width:0}
+.sheet-eyebrow{display:block;margin-bottom:1px;font-size:8px;font-weight:700;letter-spacing:.12em;color:#667085}
+.sheet-customer{display:block;min-height:23px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:18px;line-height:1.2}
+.sheet-meta{display:flex;align-items:baseline;gap:14px;min-height:18px;margin-top:3px}
+.sheet-meta>span{display:flex;align-items:baseline;gap:4px;min-width:0;white-space:nowrap}
+.sheet-meta small{font-size:8px;letter-spacing:.08em;color:#7a838f}
+.sheet-meta b{font-size:10.5px;font-weight:650;min-width:18px}
+.sheet-note{font-weight:700!important;color:#101828!important}
+.sheet-qty{grid-area:qty;display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;
+  column-gap:5px;align-items:baseline;justify-items:end;justify-content:end;min-width:82px}
+.sheet-qty>span{grid-column:1/-1;font-size:8px;font-weight:700;letter-spacing:.12em;color:#667085}
+.sheet-qty>b{font-size:24px;line-height:1;font-weight:750}
+.sheet-qty>em{font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.sheet-what{grid-area:what;min-width:0}
+.sheet-title{font-size:18px;font-weight:750;line-height:1.18}
+.sheet-spec{font-size:10.5px;font-weight:650;line-height:1.3;color:#101828}
+.sheet-product-meta{display:flex;gap:12px;align-items:baseline;margin-top:3px}
+.sheet-size,.sheet-mass{font-size:10.5px;line-height:1.3;color:#344054;white-space:nowrap}
+.sheet-mass{color:#475467}
+.sheet-mk{grid-area:makeup;min-width:0}
 .sheet-mk-rows{display:grid;grid-template-columns:auto 104px auto;gap:3px 8px;align-items:center;justify-items:start}
 .mk-row{display:contents}
-.mk-row>span{font-size:11.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
+.mk-row>span{font-size:10.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
 /* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
 .mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
   font-family:ui-monospace,Consolas,monospace}
@@ -520,13 +534,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
 .mk-pane.coat-out::after{top:0}
 .mk-pane.coat-in::after{bottom:0}
-.sheet-who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px}
-.sheet-who span{font-size:8.5px;letter-spacing:.08em;color:#7a838f;align-self:center}
-.sheet-who b{font-weight:650;min-height:15px;min-width:150px}
-.sheet-who b>em{font-style:normal;font-weight:700}
-/* Примечание не делит строку с номером и количеством: его читают отдельно. */
-.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3;max-width:230px}
-.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 0}
+.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 0}
 .sheet-field svg{width:100%;height:100%;object-fit:contain}
 /* Цех печатает ч/б. Цвет метки в сером не читается, поэтому на листе всё
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
@@ -538,25 +546,27 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
-.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:5px}
-.sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
-/* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
-   поедет на стикере. Значит места должен занимать минимум. */
-.sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
-  padding:1px 0}
-.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
+.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:4px}
+.sheet-route-t{font-size:8px;letter-spacing:.12em;color:#667085;font-weight:700;margin-bottom:2px}
+/* Маршрут остаётся тонкой сверочной полосой. Станции и позиции — отдельные flex-элементы:
+   перенос разрешён между ними, но не внутри координаты. */
+.sheet-leg{display:grid;grid-template-columns:104px minmax(0,1fr);gap:7px;align-items:baseline;padding:1px 0}
+.sheet-route.single .sheet-leg{grid-template-columns:0 minmax(0,1fr);gap:0}
+.sheet-leg>span{font-size:8px;font-weight:700;color:#475467;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
-.sheet-leg>em{font-style:normal;font-size:7.5px;line-height:1.4;color:#344054;
-  font-family:ui-monospace,Consolas,monospace}
-.sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
-.sheet-leg i{font-style:normal;color:#98a2b3;padding:0 5px}
-.sheet-merge>em{font-family:Arial,Helvetica,sans-serif;font-size:8px;color:#475467}
-.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:6px;
-  font-size:7.5px;color:#7a838f}
+.sheet-stations{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 7px;min-width:0;
+  font-style:normal;font:8px/1.35 ui-monospace,Consolas,monospace;color:#344054}
+.sheet-stop{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:2px 5px;min-width:0}
+.sheet-step{font-style:normal;margin-right:2px;color:#98a2b3}
+.sheet-stop>b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
+.sheet-stop-items{display:inline-flex;flex-wrap:wrap;gap:2px 6px}
+.sheet-stop-items>i{font-style:normal;white-space:nowrap}
+.sheet-stop-items>i+ i::before{content:'·';padding-right:6px;color:#98a2b3}
+.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:#7a838f}
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
    верх. Обе картинки листа размеры задают себе сами. */
 .print-sheet .print-shape-sheet .sheet-field svg{width:100%!important;height:100%!important;max-height:none!important}
 @media print{
-  .print-sheet .print-shape-sheet{height:96vh}
+  .print-sheet .print-shape-sheet{height:259.4mm}
 }

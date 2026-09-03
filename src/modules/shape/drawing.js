@@ -19,8 +19,16 @@ function shapeDrawingFrame(points,opts){
 }
 /* Габаритный размер оформлен так же, как размеры на детали: стрелка и стоп-рыска
    на каждом конце, между ними ничего. */
-function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
-function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+function shapeDrawingDimLabel(x,y,label,vertical,span,color){
+  var o={size:13,weight:700,anchor:'middle',rot:vertical?-90:0,color:color||'#344054',halo:3.2};
+  if(typeof shapeAnnResolveText!=='function')return shapeAnnText(x,y,label,o);
+  var d=Math.max(18,Math.min(54,Math.abs(span)*.22)),c=[[0,0],vertical?[0,-d]:[-d,0],vertical?[0,d]:[d,0],
+    vertical?[0,-d*1.7]:[-d*1.7,0],vertical?[0,d*1.7]:[d*1.7,0],vertical?[28,0]:[0,24]];
+  var p=shapeAnnResolveText(x,y,label,o,c,false);
+  return shapeAnnText(p.x,p.y,label,Object.assign({},o,{ann:true}));
+}
+function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/>'+shapeDrawingDimLabel((x1+x2)/2,y-8,label,false,x2-x1,color);}
+function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/>'+shapeDrawingDimLabel(x-10,cy,label,true,y2-y1,color);}
 function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
 function shapeMetricMenuSvg(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
@@ -154,9 +162,21 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts){
     var moveKey='inch:edge:'+g.id,off=Math.max(6,18+lane*14+(operationsOnly?0:shapeAnnUiShift(layoutOpts,moveKey))),x=ax+n[0]*off,y=ay-n[1]*off;
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
-    var body='<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
+    var po={size:9,anchor:'middle',rot:ang,bounds:{left:4,top:4,right:F.vw-4,bottom:F.vh-4}},step=[n[0]*14,-n[1]*14],c=[];
+    for(var ci=0;ci<8;ci++)c.push([step[0]*ci,step[1]*ci]);
+    var pp=typeof shapeAnnResolveText==='function'?shapeAnnResolveText(x,y,txt,po,c,false):{x:x,y:y};x=pp.x;y=pp.y;
+    var body='<text class="shape-edge-label-outside shape-layout-label" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
     out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);
   });return out;
+}
+/* Фиксированные знаки занимают место ДО раскладки текста. Положение штампа задано
+   заказом и не двигается; его обходят подписи и размеры. */
+function shapeProductionFeatureObstacles(result,F){
+  var fg=result&&result.featureGeometry||{},out=[];
+  (fg.holes||[]).forEach(function(h){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc)+4;out.push({x1:x-r,y1:y-r,x2:x+r,y2:y+r,kind:'feature'});});
+  (fg.stamps||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out.push({x1:x-w/2-4,y1:y-14,x2:x+w/2+4,y2:y+14,kind:'stamp'});});
+  (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out.push({x1:x-spec.w/2-4,y1:y-spec.h/2-4,x2:x+spec.w/2+4,y2:y+spec.h/2+4,kind:'feature'});});
+  return out;
 }
 function shapeProductionFeaturesSvg(result,F){
   var fg=result.featureGeometry,out='';
@@ -200,7 +220,8 @@ function shapeProductionSvg(result,opts){
   var F=shapeProductionDrawingFrame(result,opts);
   /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
      внутри чертежа стали бы вторым набором тех же сведений. */
-  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet,
+    obstacles:shapeProductionFeatureObstacles(result,F)});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
   if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';

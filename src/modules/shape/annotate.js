@@ -25,8 +25,9 @@ function shapeAnnDim(v){
   catch(e){return String(v==null?'':v);}
 }
 function shapeAnnText(x,y,txt,o){
-  o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
-  return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
+  o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'',cls=[];
+  if(o.className)cls.push(o.className);if(o.ann)cls.push('shape-layout-label');
+  return '<text'+(cls.length?' class="'+cls.join(' ')+'"':'')+' x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
 }
 /* Экранное оформление дюймовых размеров. Смещение хранится отдельно от
    Shape definition и в машинные данные не попадает; в печать приходит только
@@ -59,7 +60,7 @@ function shapeAnnSeedContour(pts){
         L=Math.hypot(b[0]-a[0],b[1]-a[1]),n=Math.max(1,Math.ceil(L/14));
     for(var k=0;k<=n;k++){
       var t=k/n,x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t;
-      SS_ANN_BOXES.push({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
+      shapeAnnReserveBox({x1:x-5,y1:y-5,x2:x+5,y2:y+5,c:1});
     }
   }
 }
@@ -69,20 +70,47 @@ function shapeAnnBoxOf(x,y,txt,o){
   var ax=o.anchor==='start'?0:(o.anchor==='end'?-w:-w/2);
   return {x1:x+ax-1.5,y1:y-h,x2:x+ax+w+1.5,y2:y+3};
 }
+function shapeAnnReserveBox(b){
+  if(!b)return null;
+  var q={x1:Math.min(+b.x1,+b.x2),y1:Math.min(+b.y1,+b.y2),
+    x2:Math.max(+b.x1,+b.x2),y2:Math.max(+b.y1,+b.y2)};
+  if(!(isFinite(q.x1)&&isFinite(q.y1)&&isFinite(q.x2)&&isFinite(q.y2)))return null;
+  if(b.c)q.c=b.c;if(b.kind)q.kind=b.kind;SS_ANN_BOXES.push(q);return q;
+}
 function shapeAnnFree(b,skipContour){
   for(var i=0;i<SS_ANN_BOXES.length;i++){var o=SS_ANN_BOXES[i];
     if(skipContour&&o.c)continue;
     if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
   return true;
 }
+function shapeAnnInside(b,bounds){
+  if(!bounds)return true;
+  return b.x1>=(bounds.left||0)&&b.y1>=(bounds.top||0)&&
+    b.x2<=(bounds.right==null?Infinity:bounds.right)&&b.y2<=(bounds.bottom==null?Infinity:bounds.bottom);
+}
+/* Общий поиск места для текста. Вызывающий передаёт допустимые сдвиги:
+   у размера это точки вдоль выноски и вторая её сторона, у обычной подписи — луч
+   наружу. Реестр один для размеров, меток и штампов — именно этого не хватало
+   трём дефектам печатного листа. */
+function shapeAnnResolveText(x,y,txt,o,candidates,skipContour){
+  o=o||{};candidates=(candidates&&candidates.length)?candidates:[[0,0]];
+  var first=null;
+  for(var i=0;i<candidates.length;i++){
+    var p=candidates[i],px=x+(+p[0]||0),py=y+(+p[1]||0),b=shapeAnnBoxOf(px,py,txt,o);
+    if(!first)first={x:px,y:py,box:b};
+    if(shapeAnnInside(b,o.bounds)&&shapeAnnFree(b,skipContour)){
+      shapeAnnReserveBox(b);return {x:px,y:py,box:b,moved:i>0};
+    }
+  }
+  /* Даже в переполненном кадре реестр запоминает fallback: следующая подпись не
+     сядет туда же и не скроет обе. */
+  shapeAnnReserveBox(first.box);return {x:first.x,y:first.y,box:first.box,moved:false,forced:true};
+}
 function shapeAnnPlace(x,y,txt,o,step){
   o=o||{};step=step||[0,-1];
-  var d=(o.size||11)+2;
-  for(var k=0;k<16;k++){
-    var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
-    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
-  }
-  return shapeAnnText(x,y,txt,o);
+  var d=(o.size||11)+2,c=[];for(var k=0;k<16;k++)c.push([step[0]*k*d,step[1]*k*d]);
+  var p=shapeAnnResolveText(x,y,txt,o,c,false);
+  return shapeAnnText(p.x,p.y,txt,Object.assign({},o,{ann:true}));
 }
 /* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
    ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
@@ -103,11 +131,14 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
     var px=x+step[0]*k*d,py=y+step[1]*k*d,
         b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
     if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
-      SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
-      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+      shapeAnnReserveBox(b1);if(b2)shapeAnnReserveBox(b2);
+      var ao=Object.assign({},o,{ann:true});
+      return shapeAnnText(px,py,l1,ao)+(l2?shapeAnnText(px,py+gap,l2,ao):'');
     }
   }
-  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+  var fo=Object.assign({},o,{ann:true});
+  shapeAnnReserveBox(shapeAnnBoxOf(x,y,l1,o));if(l2)shapeAnnReserveBox(shapeAnnBoxOf(x,y+gap,l2,o));
+  return shapeAnnText(x,y,l1,fo)+(l2?shapeAnnText(x,y+gap,l2,fo):'');
 }
 /* Стоп-рыска на концах — то же оформление, что у размеров Cutout: видно, до
    какой ТОЧКИ размер, а не примерно куда смотрит остриё. Smart-Shape рисует свои
@@ -585,6 +616,7 @@ function shapeAnnotationLayer(result,F,active,opts){
      занятыми места первого и разгонял бы подписи в пустоту. Контур засевается
      сразу, чтобы ни одна подпись не села на линию. */
   shapeAnnResetBoxes();shapeAnnSeedContour(disp);
+  ((opts&&opts.obstacles)||[]).forEach(shapeAnnReserveBox);
   var ann='';
   if(smart){
     ann+=shapeAnnRefLines(result,S,DP);
