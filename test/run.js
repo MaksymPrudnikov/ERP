@@ -3288,12 +3288,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
       const host=document.getElementById('printSheetHost');
       const leg=host.querySelector('.sheet-leg');
+      const sheet=host.querySelector('.print-shape-sheet');
       const out={label:leg.querySelector('span')?leg.querySelector('span').textContent:'',
         bare:host.querySelectorAll('.sheet-leg.bare').length,
-        scheme:getComputedStyle(document.documentElement).colorScheme};
+        scheme:getComputedStyle(document.documentElement).colorScheme,
+        /* Штриховки слоёв нарисованы фоном: без exact браузер фоны не печатает,
+           и с бумаги пропадали покрытие, распорка и плёнка. */
+        printAdjust:getComputedStyle(sheet).printColorAdjust||
+          getComputedStyle(sheet).webkitPrintColorAdjust};
       printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
       return out;
-    }), {label:'Lite 1 · CL6 · AN',bare:0,scheme:'light'});
+    }), {label:'Lite 1 · CL6 · AN',bare:0,scheme:'light',printAdjust:'exact'});
 
     /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
        панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
