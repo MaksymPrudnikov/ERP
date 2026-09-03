@@ -140,7 +140,7 @@ function shapeTriangleVertices(q){
    Ориентация как в эталоне: снизу горизонтальная сторона, у чётного числа
    сторон горизонтальной выходит и верхняя. Обход по часовой стрелке от левого
    нижнего угла — как у прямоугольника, чтобы рёбра нумеровались привычно. */
-var SHAPE_POLYGON_MIN_SIDES=3,SHAPE_POLYGON_MAX_SIDES=60;
+var SHAPE_POLYGON_MIN_SIDES=3,SHAPE_POLYGON_MAX_SIDES=14;
 function shapeRegularPolygonValues(rawParams){
   var p=rawParams&&typeof rawParams==='object'?rawParams:{},errors=[];
   var rawSides=String(p.sides==null?'':p.sides).trim(),n=rawSides===''?NaN:Number(rawSides);

@@ -1584,8 +1584,8 @@ function shapePolyRefresh(){
 }
 function shapePolygonControls(){
   var q=shapePolyDraftValues(),p=sDraft.params||{},read=shapePolyReadout(q);
-  return `<div class='shape-subsection shape-para-editor shape-poly-editor'><div class='corner-title'><b>Polygon measurements</b><span>regular polygon · all sides equal</span></div>
-    <div class='shape-para-main'><div id='shapePolyVisual' class='shape-para-visual'>${shapePolyDiagram()}</div><div class='shape-para-entry'><label>Number of Sides<input id='shapePolySidesField' data-vfield='num' value='${esc(p.sides)}' oninput='setShapeParam("sides",this.value)'></label><label>Side Length<input id='shapePolySideField' data-vfield='len' value='${esc(p.sideLength)}' oninput='setShapeParam("sideLength",this.value)'></label></div></div>
+  return `<div class='shape-subsection shape-para-editor shape-poly-editor'><div class='corner-title'><b>Polygon measurements</b><span>regular polygon · 3–${SHAPE_POLYGON_MAX_SIDES} equal sides</span></div>
+    <div class='shape-para-main'><div id='shapePolyVisual' class='shape-para-visual'>${shapePolyDiagram()}</div><div class='shape-para-entry'><label>Number of Sides<input id='shapePolySidesField' type='number' min='${SHAPE_POLYGON_MIN_SIDES}' max='${SHAPE_POLYGON_MAX_SIDES}' step='1' inputmode='numeric' data-vfield='num' value='${esc(p.sides)}' oninput='setShapeParam("sides",this.value)'></label><label>Side Length<input id='shapePolySideField' data-vfield='len' value='${esc(p.sideLength)}' oninput='setShapeParam("sideLength",this.value)'></label></div></div>
     <div class='shape-para-readout'><span><small>Width</small><b id='shapePolyReadWidth'>${esc(read.width)}</b></span><span><small>Height</small><b id='shapePolyReadHeight'>${esc(read.height)}</b></span><span><small>Perimeter</small><b id='shapePolyReadPerimeter'>${esc(read.perimeter)}</b></span></div></div>`;
 }
 /* Свободный контур по точкам: пришёл из старого Polygon и остаётся здесь без

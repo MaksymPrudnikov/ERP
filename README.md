@@ -72,6 +72,21 @@ build/build.js + build/manifest.json   →  dist/GLASS_ERP.html
 test/run.js                            →  регрессионные тесты
 ```
 
+### Shape catalog · 3 сентября 2026
+
+Production Shape поддерживает четыре пользовательских типа: `Raked Rectangle`
+(Long/Short Height и сторона скоса), `Triangle` (Square или Diagonal),
+правильный `Polygon` (3–14 сторон) и `Custom Shape` (упорядоченные точки X/Y).
+Для `Custom Shape` габарит выводится из точек. Старые свободные polygon-контуры
+и DXF imports мигрируют в этот тип; старые notch-типы сохраняются только для
+чтения существующих записей.
+
+Cutting geometry использует точный finished contour и отдельный safety border.
+Вогнутые участки `Custom Shape` и внешнего DXF сохраняются в CNC contour; только
+исторические параметрические notch-типы сводятся к внешней оболочке как
+post-edge операции. Polygon ограничен 14 сторонами, чтобы метрический чертёж
+оставался читаемым.
+
 ### Как чинить что-то одно
 
 | Что чинишь | Какой файл трогать |

@@ -28,13 +28,11 @@ function shapeOffsetSigned(points,distances){
   if(Math.abs(fabSignedArea(out))<1e-6)return {valid:false,error:'Cutting offset encloses no area.'};
   return {valid:true,points:out};
 }
-/* ---------- Внешняя оболочка контура ----------
-   Стол режет только наружный контур: нотчи, угловые блоки и любые вогнутые
-   вырезы выпиливаются позже, от обработанной кромки. Поэтому перед offset
-   контур сводится к выпуклой оболочке — вогнутые участки исчезают, скосы и
-   наклонные стороны остаются как есть.
-   Припуск исчезнувших кромок не теряется: ребро оболочки берёт максимум из
-   припусков всех кромок, которые оно перекрыло. */
+/* ---------- Подготовка исторических post-edge notch ----------
+   Параметрические legacy notch-пресеты режутся только по внешней оболочке:
+   сам notch выполняется после edgework. Это отдельный исторический контракт;
+   Custom Shape и внешний DXF проходят через shapePrepareCuttingContour() без
+   выпуклого схлопывания и сохраняют точный пользовательский контур. */
 function shapeConcaveVertex(P,i,orient){
   var n=P.length,a=P[(i-1+n)%n],b=P[i],c=P[(i+1)%n];
   return ((b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]))*orient<-1e-7;
@@ -89,23 +87,32 @@ function shapeFillNotches(points,dist,ids){
   }
   return {points:P,dist:D,ids:I,reduced:removed>0,removed:removed};
 }
+/* Custom Shape и внешний DXF уже являются явным finished contour. Их вогнутые
+   участки нельзя «исправлять» выпуклой оболочкой: это меняет то, что должен
+   вырезать станок, и может многократно увеличить путь реза. Исторические
+   preset-notch остаются в режиме post-edge, поэтому для них по-прежнему нужна
+   shapeFillNotches(). */
+function shapePrepareCuttingContour(points,dist,ids,preserveConcave){
+  if(preserveConcave)return {points:(points||[]).map(function(p){return p.slice();}),dist:(dist||[]).slice(),ids:(ids||[]).slice(),reduced:false,removed:0};
+  return shapeFillNotches(points,dist,ids);
+}
 function shapeCuttingGeometry(def,geo,fg){
   var points=(geo.points||[]).map(function(p){return p.slice();}),ids=geo.pointEdgeIds||[],dist=points.map(function(_,i){var e=(geo.edges||[])[i]||{id:ids[i]};return shapeEdgeAllowance(def,e);});
-  var hull=shapeFillNotches(points,dist,ids);
-  var off=shapeOffsetVariable(hull.points,hull.dist);if(!off.valid)return {valid:false,error:off.error,finishedPoints:points,points:[],holes:[],cutouts:[],hardware:[],warnings:[]};
+  var contour=shapePrepareCuttingContour(points,dist,ids,def&&def.type==='custom');
+  var off=shapeOffsetVariable(contour.points,contour.dist);if(!off.valid)return {valid:false,error:off.error,finishedPoints:points,points:[],holes:[],cutouts:[],hardware:[],warnings:[]};
   var b=fabEdgeBounds(off.points),curves=(geo.edges||[]).some(function(e){return e.type!=='line';}),warnings=[];
   if(curves)warnings.push('Curved cutting contour is tessellated to the Shape sampling tolerance; verify the target machine postprocessor.');
-  /* Первичная резка — только внешний контур. Порядок цеха: рез → кромка →
-     отверстия/нотчи/подготовка под фурнитуру. Всё, что делается ПОСЛЕ кромки,
-     базируется на обработанном крае и в cutting-файл не попадает никогда —
-     это не исключение для отдельной детали, а безусловное правило.
-     Готовый чертёж по-прежнему показывает их из featureGeometry. */
+  /* Первичная резка — подготовленный внешний контур: точный для Custom Shape,
+     оболочка для исторического post-edge notch. Порядок цеха остаётся
+     рез → кромка → отверстия/отдельные cutout и подготовка под фурнитуру.
+     Отдельные manufacturing features в cutting-файл не попадают; готовый
+     чертёж по-прежнему показывает их из featureGeometry. */
   var holes=[],cutouts=[],hardware=[];
   var types={};(geo.edges||[]).forEach(function(e){if(e&&e.id!=null)types[e.id]=e.type;});
-  var border=shapeSafetyBorderPlan(def,hull.points,hull.ids,types),footprint=shapeBorderFootprint(off.points,border);
+  var border=shapeSafetyBorderPlan(def,contour.points,contour.ids,types),footprint=shapeBorderFootprint(off.points,border);
   if(border.manualRequired)warnings.push('Safety Border has no automatic value for this thickness — set it manually before cutting.');
-  if(hull.reduced)warnings.push('Notches and cutouts are excluded from the cutting contour — they are fabricated after edgework.');
-  return {valid:true,points:off.points,finishedPoints:points,edgeIds:(hull.ids||[]).slice(),allowances:(hull.dist||[]).slice(),notchesRemoved:hull.removed,holes:holes,cutouts:cutouts,hardware:hardware,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,safetyBorder:border,footprint:footprint,warnings:warnings,toleranceIn:1/256};
+  if(contour.reduced)warnings.push('Notches and cutouts are excluded from the cutting contour — they are fabricated after edgework.');
+  return {valid:true,points:off.points,finishedPoints:points,edgeIds:(contour.ids||[]).slice(),allowances:(contour.dist||[]).slice(),notchesRemoved:contour.removed,holes:holes,cutouts:cutouts,hardware:hardware,minX:b.minX,maxX:b.maxX,minY:b.minY,maxY:b.maxY,width:b.maxX-b.minX,height:b.maxY-b.minY,safetyBorder:border,footprint:footprint,warnings:warnings,toleranceIn:1/256};
 }
 function shapeMachinePayload(result){
   if(!result||!result.valid||!result.cutting||!result.cutting.valid)return null;

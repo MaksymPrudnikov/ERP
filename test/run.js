@@ -970,13 +970,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       function mk(params){const d=newShapeDef('polygon');Object.assign(d.params,params);return normalizeShapeDef(d);}
       function pts(def){const r=ShapeModule.compute(def);return (r.points||[]).map(p=>p.map(v=>+v.toFixed(3)));}
       function err(def){return (ShapeModule.compute(def).errors||[])[0]||'';}
-      const hex=newShapeDef('polygon'),tri=mk({sides:'3',sideLength:'12'}),oct=mk({sides:'8',sideLength:'9'});
+      const hex=newShapeDef('polygon'),tri=mk({sides:'3',sideLength:'12'}),oct=mk({sides:'8',sideLength:'9'}),fourteen=mk({sides:'14',sideLength:'12'}),fifteen=mk({sides:'15',sideLength:'12'});
       /* Свободный контур, сохранённый старым Polygon, обязан уехать в Custom
          Shape со своими точками: форма на экране не должна измениться. */
       const legacy=normalizeShapeDef({id:'old-poly',type:'polygon',w:'48',h:'36',polygon:[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'36'},{id:'PV3',x:'48',y:'36'},{id:'PV4',x:'30',y:'10'}]});
       const resaved=normalizeShapeDef(JSON.parse(JSON.stringify(hex)));
       tab='configurators';subtab='shape';openShapeNew('polygon');
-      const polyUi={editor:!!document.querySelector('.shape-poly-editor'),entry:document.querySelectorAll('.shape-poly-editor .shape-para-entry input').length,widthReadonly:!!(document.querySelector('#shapeWField')||{}).readOnly,width:(document.querySelector('#shapeWField')||{}).value||''};
+      const polyUi={editor:!!document.querySelector('.shape-poly-editor'),entry:document.querySelectorAll('.shape-poly-editor .shape-para-entry input').length,widthReadonly:!!(document.querySelector('#shapeWField')||{}).readOnly,width:(document.querySelector('#shapeWField')||{}).value||'',sidesMin:document.querySelector('#shapePolySidesField')?.getAttribute('min')||'',sidesMax:document.querySelector('#shapePolySidesField')?.getAttribute('max')||''};
       setShapeParam('sides','8');setShapeParam('sideLength','9');
       const live={w:sDraft.w,h:sDraft.h,edges:ShapeModule.compute(sDraft).geometry.edges.length};
       openShapeNew('custom');
@@ -988,6 +988,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         tri:{w:tri.w,h:tri.h,pts:pts(tri)},oct:{w:oct.w,h:oct.h,corners:pts(oct).length},
         legacy:{type:legacy.type,pts:pts(legacy),ids:legacy.polygon.map(v=>v.id)},
         resavedType:resaved.type,
+        limit:{valid14:ShapeModule.compute(fourteen).valid,valid15:ShapeModule.compute(fifteen).valid},
         errors:[err(mk({sides:'2',sideLength:'12'})),err(mk({sides:'6.5',sideLength:'12'})),err(mk({sides:'6',sideLength:'0'}))],
         polyUi:polyUi,live:live,customUi:customUi,added:added};
     });
@@ -997,8 +998,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       oct:{w:'21 3/4',h:'21 3/4',corners:8},
       legacy:{type:'custom',pts:[[0,0],[0,36],[48,36],[30,10]],ids:['PV1','PV2','PV3','PV4']},
       resavedType:'polygon',
-      errors:['Polygon: Number of Sides must be between 3 and 60.','Polygon: Number of Sides must be a whole number.','Polygon: Side Length must be greater than zero.'],
-      polyUi:{editor:true,entry:2,widthReadonly:true,width:'24'},
+      limit:{valid14:true,valid15:false},
+      errors:['Polygon: Number of Sides must be between 3 and 14.','Polygon: Number of Sides must be a whole number.','Polygon: Side Length must be greater than zero.'],
+      polyUi:{editor:true,entry:2,widthReadonly:true,width:'24',sidesMin:'3',sidesMax:'14'},
       live:{w:'21 3/4',h:'21 3/4',edges:8},
       customUi:{rows:4,points:true},
       added:{rows:5,id:'PV5',contour:5}
@@ -1053,6 +1055,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       dupError:'Custom Shape point PV3 repeats point PV2.',
       ui:{readonly:true,label:'B · Width · from points'},
       live:{draft:'60',field:'60'}
+    });
+    const customCutting = await p.evaluate(() => {
+      const points=[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'40'},{id:'PV3',x:'18',y:'40'},{id:'PV4',x:'18',y:'22'},{id:'PV5',x:'30',y:'22'},{id:'PV6',x:'30',y:'40'},{id:'PV7',x:'48',y:'40'},{id:'PV8',x:'48',y:'0'}];
+      const d=normalizeShapeDef({id:'custom-concave',type:'custom',thickness:'6',polygon:points}),plain=ShapeModule.compute(d);
+      points.forEach(function(v){d.edgeOps['E:'+v.id]=[shapeNormalizeOp({type:'Flat Polish'})];});
+      const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r);
+      const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+      const legacy=normalizeShapeDef({id:'legacy-notch',type:'notch-middle',w:'48',h:'36',params:{width:'8',depth:'8',fromLeft:'20'}}),legacyResult=ShapeModule.compute(legacy);
+      return {valid:r.valid,finished:plain.points,plainSame:same(plain.cutting&&plain.cutting.points,plain.points),removed:r.cutting&&r.cutting.notchesRemoved,
+        pointCount:r.cutting&&r.cutting.points.length,allowances:r.cutting&&r.cutting.allowances.filter(x=>x>0).length,machineSame:same(payload&&payload.outer&&payload.outer.points,r.cutting&&r.cutting.points),warning:(r.cutting&&r.cutting.warnings||[]).some(x=>x.indexOf('Notches and cutouts are excluded')>=0),
+        legacyRemoved:legacyResult.cutting&&legacyResult.cutting.notchesRemoved,legacyWarning:(legacyResult.cutting&&legacyResult.cutting.warnings||[]).some(x=>x.indexOf('Notches and cutouts are excluded')>=0)};
+    });
+    eq('Custom Shape: вогнутый контур не превращается в выпуклую оболочку перед резкой', customCutting, {
+      valid:true,
+      finished:[[0,0],[0,40],[18,40],[18,22],[30,22],[30,40],[48,40],[48,0]],
+      plainSame:true,removed:0,pointCount:8,allowances:8,machineSame:true,warning:false,legacyRemoved:2,legacyWarning:true
     });
     /* Свободный контур на чертеже выглядит как Smart-Shape: цвет на каждую
        сторону, буква вместо машинного id и длина рядом — на скосе это
@@ -1251,16 +1269,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const badUnits=shapeParseFusionDxf(sample.replace('$INSUNITS\n70\n1','$INSUNITS\n70\n4'));
       const openContour=shapeParseFusionDxf(sample.replace('90\n4\n70\n1','90\n4\n70\n0'));
       const bad=ShapeModule.compute(Object.assign({},d,{source:{kind:'dxf',fileName:'panel.txt',fileSize:0,uploadedAt:''}}));
+      const concavePoints=[[0,0],[0,40],[18,40],[18,22],[30,22],[30,40],[48,40],[48,0]],concave=normalizeShapeDef({id:'fusion-concave',type:'rectangle',w:'48',h:'40',thickness:'6',source:{kind:'dxf',fileName:'concave.DXF',fileSize:54321,uploadedAt:'2026-08-24T15:00:00.000Z',note:'',preview:{units:'in',points:concavePoints,width16:768,height16:640}}}),concaveResult=ShapeModule.dxfProductionResult(concave),concaveCut=concaveResult.cutting;
       return {legacySource:legacy.source,legacyFingerprintStable:shapeFingerprint(legacy)===oldFingerprint,
         parsed:{ok:parsed.ok,width16:parsed.preview.width16,height16:parsed.preview.height16,points:parsed.preview.points.length,badUnits:badUnits.ok,open:openContour.ok},
         external:{valid:r.valid,external:r.externalFile,sourceValid:r.sourceValid,cutting:!!r.cutting,fingerprint:!!r.fingerprint,width16:Math.round(r.width*16),height16:Math.round(r.height*16),billable:+(r.billableArea/144).toFixed(4)},
-        muntin:{valid:mr.valid,code:mr.code},bad:{sourceValid:bad.sourceValid}};
+        muntin:{valid:mr.valid,code:mr.code},bad:{sourceValid:bad.sourceValid},concave:{valid:concaveResult.valid,cuttingValid:!!(concaveCut&&concaveCut.valid),points:concaveCut&&concaveCut.points.length,removed:concaveCut&&concaveCut.notchesRemoved,exact:!!(concaveCut&&JSON.stringify(concaveCut.points)===JSON.stringify(concavePoints))}};
     });
     eq('legacy Shape получает drawn source без изменения fingerprint', {source:dxfSource.legacySource,stable:dxfSource.legacyFingerprintStable}, {source:{kind:'drawn',fileName:'',fileSize:0,uploadedAt:'',note:''},stable:true});
     eq('Fusion DXF читается в inches и округляется до 1/16', dxfSource.parsed, {ok:true,width16:391,height16:1295,points:4,badUnits:false,open:false});
     eq('DXF source fail-closed для Cutting Geometry, но даёт габариты и billable area', dxfSource.external, {valid:false,external:true,sourceValid:true,cutting:false,fingerprint:true,width16:391,height16:1295,billable:13.7355});
     eq('Muntin не использует внешний DXF как рассчитанную ERP-геометрию', dxfSource.muntin, {valid:false,code:'MUNTIN_SHAPE_INVALID'});
     eq('битый DXF source отклоняется', dxfSource.bad, {sourceValid:false});
+    eq('вогнутый DXF сохраняет точный cutting contour без convex hull', dxfSource.concave, {valid:true,cuttingValid:true,points:8,removed:0,exact:true});
 
     const manufacturing = await p.evaluate(() => {
       const base=newShapeDef('rectangle');base.id='mi-base';base.w='20';base.h='40';
