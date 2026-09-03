@@ -3326,10 +3326,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         anyInside:labels.some(x=>x.inside),
         /* У вертикального ребра C появились стрелки размерной линии. */
         arrows:host.innerHTML.split('marker-start="url(#shapeMetricArrow)"').length-1,
+        inchArrows:host.innerHTML.split('marker-start="url(#shapeInchArrow)"').length-1,
         inchSize:host.querySelector('.shape-inch-edge-reference').getAttribute('font-size')};
       host.remove();sEdit=null;sDraft=null;render();
       return out;
-    }), {edges:['C','D'],anyInside:false,arrows:3,inchSize:'12'});
+    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:3,inchSize:'12'});
 
     /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
        панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
