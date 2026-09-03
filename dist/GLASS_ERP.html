@@ -728,7 +728,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    Раскладка владельца: сверху слева тип и размеры, справа заказчик, посередине
    большой чертёж, снизу путь по станциям мелким шрифтом. Лишних рамок нет —
    только две разделительные линии; рамки съедают место под чертёж. */
-.print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
+/* Штриховки слоёв нарисованы фоном, а фоны браузер по умолчанию НЕ печатает:
+   на бумаге пропадали и покрытие, и распорка, и плёнка — ровно те пометки,
+   ради которых схема на листе и стоит. Свойство наследуется, поэтому
+   объявляем его один раз на весь лист. */
+.print-shape-sheet{-webkit-print-color-adjust:exact;print-color-adjust:exact;
+  display:flex;flex-direction:column;height:100%;min-height:0;
   font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
 /* Три опоры, по которым лист опознают, стоят ОДНОЙ строкой поверх всего:
    заказчик слева, PO по центру, номер заказа справа. Кегль крупнее прочего на
@@ -915,7 +920,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-09-03 02:08';
+var ERP_BUILD='2026-09-03 02:19';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
