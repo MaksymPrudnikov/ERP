@@ -87,7 +87,7 @@ function viewShapeSkill(){
     var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
-  var presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  var presetOptions=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Для DXF из Fusion 360 ERP хранит метаданные, лёгкий 2D-контур превью и габариты; исходное содержимое DXF в localStorage не сохраняется.</span></div>`}
     ${sEdit!==null?shapeForm():''}
     <table><thead><tr><th>Название / тип</th><th>Габарит</th><th>Кромок</th><th>Features</th><th>Статус</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>
@@ -127,8 +127,40 @@ function shapeSourceEditor(){
 function shapeDraftLine(){return shapeDefToLine(sDraft);}
 function shapeDraftGeometry(){try{return shapeGeometry(shapeDraftLine());}catch(e){return {ok:false,error:e.message,points:[],edges:[],vertices:[]};}}
 function shapeDraftResult(){try{return ShapeModule.compute(sDraft);}catch(e){return {valid:false,reason:e.message,errors:[e.message]};}}
-function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}refreshShapeEditor();}
-function setShapeParam(k,v){sDraft.params[k]=v;refreshShapeEditor();}
+function shapeParaDraftValues(){return shapeParallelogramValues(sDraft.w,sDraft.h,sDraft.params||{});}
+function shapeParaRemember(q){
+  if(!q||!q.ok)return q;if(!sDraft.params)sDraft.params={};
+  sDraft.params.outOfSquare=shapeParaDimText(q.outOfSquare);
+  sDraft.params.diagonal=shapeParaDimText(q.diagonal);
+  sDraft.params.angle=shapeParaAngleText(q.angle);
+  if(q.mode==='diagonal-angle'){
+    if(q.sideways)sDraft.h=shapeParaDimText(q.height);else sDraft.w=shapeParaDimText(q.width);
+  }
+  return q;
+}
+function shapeParaApplyResolved(){return shapeParaRemember(shapeParaDraftValues());}
+function setShapeParaMeasure(v){
+  shapeParaRemember(shapeParaDraftValues());sDraft.params.measureMode=shapeParaMeasure(v);shapeParaApplyResolved();render();
+}
+function setShapeParaDirection(v){
+  shapeParaRemember(shapeParaDraftValues());sDraft.params.slopeDirection=shapeParaDirection(v);shapeParaApplyResolved();render();
+}
+function shapeTriDraftValues(){return shapeTriangleValues(sDraft.w,sDraft.h,sDraft.params||{});}
+/* Второй набор измерений пересчитывается на каждом вводе. Поэтому переключение
+   Measure не двигает уже построенный треугольник: режим берёт готовые числа,
+   а не строит фигуру заново из того, что осталось в полях. */
+function shapeTriRemember(q){
+  if(!q||!q.ok)return q;if(!sDraft.params)sDraft.params={};
+  if(q.mode==='diagonal'){sDraft.h=shapeParaDimText(q.height);sDraft.params.topOffset=shapeParaDimText(q.topOffset);}
+  else{sDraft.params.leftEdge=shapeParaDimText(q.leftEdge);sDraft.params.rightEdge=shapeParaDimText(q.rightEdge);}
+  return q;
+}
+function shapeTriApplyResolved(){return shapeTriRemember(shapeTriDraftValues());}
+function setShapeTriMeasure(v){
+  shapeTriRemember(shapeTriDraftValues());sDraft.params.measureMode=shapeTriMeasure(v);shapeTriApplyResolved();render();
+}
+function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();refreshShapeEditor();}
+function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();refreshShapeEditor();}
 function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=S.shape.smart;refreshShapeEditor();}
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
@@ -169,7 +201,7 @@ function setShapeType(type){
   var linked=Object.keys(sDraft.edgeOps||{}).length||(sDraft.features||[]).some(function(f){return f.type==='radius'||f.type==='hardware';});
   if(linked&&!confirm('Changing the shape type will remove topology-bound radii, hardware prep and edgework. Continue?')){render();return;}
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);sDraft.edgeOps={};sDraft.features=(sDraft.features||[]).filter(function(f){return f.type!=='radius'&&f.type!=='hardware';});
-  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='polygon'||type==='custom')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
   render();
 }
@@ -1197,6 +1229,10 @@ function refreshShapeEditor(){
   }
   syncField('emAlen',sDraft.h);syncField('shapeHField',sDraft.h);
   syncField('emBlen',sDraft.w);syncField('shapeWField',sDraft.w);
+  if(sDraft.type==='parallelogram')shapeParaRefresh();
+  if(sDraft.type==='triangle')shapeTriRefresh();
+  if(sDraft.type==='polygon')shapePolyRefresh();
+  if(sDraft.type==='custom')shapeCustomApplyResolved();
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
   var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting'||shapeIsDxfSource(sDraft);
@@ -1245,8 +1281,12 @@ function shapeCEffective(){
    прямоугольник и остальные пресеты матрицы не имеют, им шапка остаётся. */
 function shapeMasterSizeFields(){
   if(sDraft.type==='smart')return '';
+  if(sDraft.type==='parallelogram')return shapeParaMasterSizeFields();
+  if(sDraft.type==='triangle')return shapeTriMasterSizeFields();
+  if(sDraft.type==='polygon')return shapePolyMasterSizeFields();
+  if(sDraft.type==='custom')return shapeCustomMasterSizeFields();
   var w=`<div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>`;
-  var h=sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
+  var h=sDraft.type==='circle'?'':`<div><label>${sDraft.type==='raked'?'Long Height':'A · Height'}</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
   return w+h;
 }
 function shapeEdgeMatrix(){
@@ -1368,6 +1408,7 @@ function shapeMarkFields(){
   document.querySelectorAll('#shapeEditorRoot [data-vfield]').forEach(function(el){
     var kind=el.getAttribute('data-vfield'),v=String(el.value==null?'':el.value).trim(),bad;
     if(kind==='len')bad=!(inch(v)>0);
+    else if(kind==='angle')bad=!(v!==''&&isFinite(+v)&&+v>=0&&+v<90);
     else bad=(v!==''&&!fabParseDimStrict(v).ok);
     el.classList.toggle('bad',!!bad);
   });
@@ -1415,15 +1456,164 @@ function shapeSmartControls(){
     ${shapeEdgeMatrix()}
     ${shapeCornerSectionsVisible()?`<div class='extra-edges'><div class='corner-title'><b>Corner edge dimensions</b><span>each notch edge can be skewed independently</span></div>${map.length?shapeNotchMatrix(map):`<div class='empty compact'>Values appear when the corner block has edges</div>`}</div>`:''}`;
 }
-function shapePolygonControls(){
-  return `<div class='shape-subsection'><div class='corner-title'><b>Polygon vertices</b><span>IDs remain stable for radii and revisions</span></div><div class='shape-vertex-grid'>${sDraft.polygon.map(function(v,i){return `<div class='shape-vertex-row'><b>${esc(v.id)}</b><label>X<input value='${esc(v.x)}' oninput='setPolygonCoord(${i},"x",this.value)'></label><label>Y<input value='${esc(v.y)}' oninput='setPolygonCoord(${i},"y",this.value)'></label><button class='sm dl' ${sDraft.polygon.length<=3?'disabled':''} onclick='removePolygonVertex(${i})'>×</button></div>`;}).join('')}</div><button class='sm' onclick='addPolygonVertex()'>Add vertex</button></div>`;
+function shapeParaMasterSizeFields(){
+  var q=shapeParaDraftValues(),derived=q.mode==='diagonal-angle';
+  var wDerived=derived&&!q.sideways,hDerived=derived&&q.sideways;
+  return `<div><label>B · Width${wDerived?' · calculated':''}</label><input id='shapeWField' data-vfield='len' class='${wDerived?'ro':''}' ${wDerived?'readonly':''} value='${esc(wDerived&&q.ok?shapeParaDimText(q.width):sDraft.w)}' oninput='setShapeField("w",this.value)'></div>
+    <div><label>A · Height${hDerived?' · calculated':''}</label><input id='shapeHField' data-vfield='len' class='${hDerived?'ro':''}' ${hDerived?'readonly':''} value='${esc(hDerived&&q.ok?shapeParaDimText(q.height):sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
 }
-function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;refreshShapeEditor();}
-function addPolygonVertex(){var last=sDraft.polygon[sDraft.polygon.length-1]||{x:'0',y:'0'};sDraft.polygon.push({id:shapeNewEntityId('PV-'),x:String(inch(last.x)+4),y:String(inch(last.y))});render();}
-function removePolygonVertex(i){if(sDraft.polygon.length<=3)return;sDraft.polygon.splice(i,1);render();}
+function shapeParaDiagram(){
+  var q=shapeParaDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  var arrow=SHAPE_PARA_DIRECTIONS.find(function(x){return x.id===q.direction;});
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Parallelogram measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>OOS ${esc(shapeParaDimText(q.outOfSquare))}″</text><text class='dir' x='${vw/2}' y='16' text-anchor='middle'>${esc(arrow.arrow+' '+arrow.label)}</text></svg>`;
+}
+function shapeParaReadout(q){return q&&q.ok?{oos:shapeParaDimText(q.outOfSquare)+'″',diagonal:shapeParaDimText(q.diagonal)+'″',angle:shapeParaAngleText(q.angle)+'°'}:{oos:'—',diagonal:'—',angle:'—'};}
+function shapeParaRefresh(){
+  var q=shapeParaApplyResolved(),v=shapeParaReadout(q),act=document.activeElement;
+  function val(id,value){var el=document.getElementById(id);if(el&&el!==act)el.value=value;}
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  if(q&&q.ok){
+    if(q.mode!=='height-oos')val('shapeParaOosField',v.oos);
+    if(q.mode!=='height-diagonal'&&q.mode!=='diagonal-angle')val('shapeParaDiagonalField',v.diagonal);
+    if(q.mode!=='diagonal-angle'&&q.mode!=='height-angle')val('shapeParaAngleField',shapeParaAngleText(q.angle));
+    if(q.mode==='diagonal-angle'){if(q.sideways)val('shapeHField',shapeParaDimText(q.height));else val('shapeWField',shapeParaDimText(q.width));}
+  }
+  txt('shapeParaReadOos',v.oos);txt('shapeParaReadDiagonal',v.diagonal);txt('shapeParaReadAngle',v.angle);
+  var visual=document.getElementById('shapeParaVisual');if(visual)visual.innerHTML=shapeParaDiagram();
+}
+function shapeParaControls(){
+  var q=shapeParaDraftValues(),mode=q.mode,read=shapeParaReadout(q);
+  function input(id,label,key,value,kind){return `<label>${label}<input id='${id}' data-vfield='${kind||'num'}' value='${esc(value)}' oninput='setShapeParam("${key}",this.value)'></label>`;}
+  var fields='';
+  if(mode==='height-oos')fields=input('shapeParaOosField','Out of square','outOfSquare',sDraft.params.outOfSquare,'num');
+  if(mode==='height-diagonal')fields=input('shapeParaDiagonalField','Diagonal Length','diagonal',sDraft.params.diagonal,'len');
+  if(mode==='diagonal-angle')fields=input('shapeParaDiagonalField','Diagonal Length','diagonal',sDraft.params.diagonal,'len')+input('shapeParaAngleField','OOS Angle','angle',sDraft.params.angle,'angle');
+  if(mode==='height-angle')fields=input('shapeParaAngleField','OOS Angle','angle',sDraft.params.angle,'angle');
+  return `<div class='shape-subsection shape-para-editor'><div class='corner-title'><b>Parallelogram measurements</b><span>finished size · fractions supported</span></div>
+    <label>Measure<select onchange='setShapeParaMeasure(this.value)'>${SHAPE_PARA_MEASURES.map(function(x){return `<option value='${x.id}' ${mode===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></label>
+    <div class='shape-para-main'><div id='shapeParaVisual' class='shape-para-visual'>${shapeParaDiagram()}</div><div class='shape-para-entry'>${fields}<label>Slope Direction<div class='shape-para-directions'>${SHAPE_PARA_DIRECTIONS.map(function(x){return `<button type='button' class='${q.direction===x.id?'on':''}' onclick='setShapeParaDirection("${x.id}")'><i>${x.arrow}</i>${x.label}</button>`;}).join('')}</div></label></div></div>
+    <div class='shape-para-readout'><span><small>Out of square</small><b id='shapeParaReadOos'>${esc(read.oos)}</b></span><span><small>Diagonal</small><b id='shapeParaReadDiagonal'>${esc(read.diagonal)}</b></span><span><small>OOS Angle</small><b id='shapeParaReadAngle'>${esc(read.angle)}</b></span></div></div>`;
+}
+/* Треугольник переиспользует раскладку измерений параллелограмма — схема,
+   поля ввода и строка расчёта. Одна и та же сетка на всех фигурах с режимами
+   ввода: оператор не переучивается, переходя с фигуры на фигуру. */
+function shapeTriMasterSizeFields(){
+  var q=shapeTriDraftValues(),derived=q.mode==='diagonal';
+  return `<div><label>B · Bottom</label><input id='shapeWField' data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>
+    <div><label>A · Height${derived?' · calculated':''}</label><input id='shapeHField' data-vfield='len' class='${derived?'ro':''}' ${derived?'readonly':''} value='${esc(derived&&q.ok?shapeParaDimText(q.height):sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
+}
+function shapeTriReadout(q){
+  return q&&q.ok?{offset:shapeParaDimText(q.topOffset)+'″',left:shapeParaDimText(q.leftEdge)+'″',right:shapeParaDimText(q.rightEdge)+'″'}:{offset:'—',left:'—',right:'—'};
+}
+function shapeTriDiagram(){
+  var q=shapeTriDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  var ax=X(q.topOffset).toFixed(1),ay=Y(q.height).toFixed(1),base=Y(0).toFixed(1);
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Triangle measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><line x1='${ax}' y1='${ay}' x2='${ax}' y2='${base}' stroke='#b42318' stroke-width='1' stroke-dasharray='4 3'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Bottom ${esc(shapeParaDimText(q.bottom))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>Offset ${esc(shapeParaDimText(q.topOffset))}″</text></svg>`;
+}
+function shapeTriRefresh(){
+  var q=shapeTriApplyResolved(),v=shapeTriReadout(q),act=document.activeElement;
+  function val(id,value){var el=document.getElementById(id);if(el&&el!==act)el.value=value;}
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  if(q&&q.ok){
+    if(q.mode!=='square')val('shapeTriOffsetField',shapeParaDimText(q.topOffset));
+    if(q.mode!=='diagonal'){val('shapeTriLeftField',shapeParaDimText(q.leftEdge));val('shapeTriRightField',shapeParaDimText(q.rightEdge));}
+  }
+  txt('shapeTriReadOffset',v.offset);txt('shapeTriReadLeft',v.left);txt('shapeTriReadRight',v.right);
+  var visual=document.getElementById('shapeTriVisual');if(visual)visual.innerHTML=shapeTriDiagram();
+}
+function shapeTriangleControls(){
+  var q=shapeTriDraftValues(),mode=q.mode,read=shapeTriReadout(q),p=sDraft.params||{};
+  function input(id,label,key,value,kind){return `<label>${label}<input id='${id}' data-vfield='${kind||'num'}' value='${esc(value)}' oninput='setShapeParam("${key}",this.value)'></label>`;}
+  var fields=mode==='diagonal'
+    ?input('shapeTriLeftField','Left Edge','leftEdge',p.leftEdge,'len')+input('shapeTriRightField','Right Edge','rightEdge',p.rightEdge,'len')
+    :input('shapeTriOffsetField','Top Offset','topOffset',p.topOffset,'len');
+  return `<div class='shape-subsection shape-para-editor shape-tri-editor'><div class='corner-title'><b>Triangle measurements</b><span>finished size · fractions supported</span></div>
+    <label>Measure<select onchange='setShapeTriMeasure(this.value)'>${SHAPE_TRI_MEASURES.map(function(x){return `<option value='${x.id}' ${mode===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></label>
+    <div class='shape-para-main'><div id='shapeTriVisual' class='shape-para-visual'>${shapeTriDiagram()}</div><div class='shape-para-entry'>${fields}</div></div>
+    <div class='shape-para-readout'><span><small>Top offset</small><b id='shapeTriReadOffset'>${esc(read.offset)}</b></span><span><small>Left edge</small><b id='shapeTriReadLeft'>${esc(read.left)}</b></span><span><small>Right edge</small><b id='shapeTriReadRight'>${esc(read.right)}</b></span></div></div>`;
+}
+function shapeCustomApplyResolved(){
+  var b=shapeCustomBounds(sDraft.polygon);
+  if(b){sDraft.w=shapeParaDimText(b.width);sDraft.h=shapeParaDimText(b.height);}
+  return b;
+}
+function shapeCustomMasterSizeFields(){
+  var b=shapeCustomBounds(sDraft.polygon);
+  return `<div><label>B · Width · from points</label><input id='shapeWField' data-vfield='len' class='ro' readonly value='${esc(b?shapeParaDimText(b.width):sDraft.w)}'></div>
+    <div><label>A · Height · from points</label><input id='shapeHField' data-vfield='len' class='ro' readonly value='${esc(b?shapeParaDimText(b.height):sDraft.h)}'></div>`;
+}
+function shapePolyDraftValues(){return shapeRegularPolygonValues(sDraft.params||{});}
+/* Габарит правильного многоугольника задан числом сторон и стороной, поэтому
+   W и H живут в черновике как посчитанные значения: карточки Finished и Cut
+   size, раскрой и печать читают их оттуда же, откуда у остальных фигур. */
+function shapePolyRemember(q){
+  if(!q||!q.ok)return q;
+  sDraft.w=shapeParaDimText(q.width);sDraft.h=shapeParaDimText(q.height);
+  return q;
+}
+function shapePolyApplyResolved(){return shapePolyRemember(shapePolyDraftValues());}
+function shapePolyReadout(q){
+  return q&&q.ok?{width:shapeParaDimText(q.width)+'″',height:shapeParaDimText(q.height)+'″',perimeter:shapeParaDimText(q.perimeter)+'″'}:{width:'—',height:'—',perimeter:'—'};
+}
+function shapePolyMasterSizeFields(){
+  var q=shapePolyDraftValues();
+  return `<div><label>B · Width · calculated</label><input id='shapeWField' data-vfield='len' class='ro' readonly value='${esc(q.ok?shapeParaDimText(q.width):sDraft.w)}'></div>
+    <div><label>A · Height · calculated</label><input id='shapeHField' data-vfield='len' class='ro' readonly value='${esc(q.ok?shapeParaDimText(q.height):sDraft.h)}'></div>`;
+}
+function shapePolyDiagram(){
+  var q=shapePolyDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Polygon measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>${q.sides} × ${esc(shapeParaDimText(q.sideLength))}″</text></svg>`;
+}
+function shapePolyRefresh(){
+  var q=shapePolyApplyResolved(),v=shapePolyReadout(q);
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  txt('shapePolyReadWidth',v.width);txt('shapePolyReadHeight',v.height);txt('shapePolyReadPerimeter',v.perimeter);
+  var visual=document.getElementById('shapePolyVisual');if(visual)visual.innerHTML=shapePolyDiagram();
+}
+function shapePolygonControls(){
+  var q=shapePolyDraftValues(),p=sDraft.params||{},read=shapePolyReadout(q);
+  return `<div class='shape-subsection shape-para-editor shape-poly-editor'><div class='corner-title'><b>Polygon measurements</b><span>regular polygon · all sides equal</span></div>
+    <div class='shape-para-main'><div id='shapePolyVisual' class='shape-para-visual'>${shapePolyDiagram()}</div><div class='shape-para-entry'><label>Number of Sides<input id='shapePolySidesField' data-vfield='num' value='${esc(p.sides)}' oninput='setShapeParam("sides",this.value)'></label><label>Side Length<input id='shapePolySideField' data-vfield='len' value='${esc(p.sideLength)}' oninput='setShapeParam("sideLength",this.value)'></label></div></div>
+    <div class='shape-para-readout'><span><small>Width</small><b id='shapePolyReadWidth'>${esc(read.width)}</b></span><span><small>Height</small><b id='shapePolyReadHeight'>${esc(read.height)}</b></span><span><small>Perimeter</small><b id='shapePolyReadPerimeter'>${esc(read.perimeter)}</b></span></div></div>`;
+}
+/* Свободный контур по точкам: пришёл из старого Polygon и остаётся здесь без
+   изменений — те же ID вершин, те же радиусы и та же обработка кромки. */
+function shapeCustomControls(){
+  return `<div class='shape-subsection'><div class='corner-title'><b>Custom Shape points</b><span>order sets the outline · last point closes back to the first · minimum three</span></div><div class='shape-vertex-grid'>${sDraft.polygon.map(function(v,i){return `<div class='shape-vertex-row'><b>${esc(v.id)}</b><label>X<input value='${esc(v.x)}' oninput='setPolygonCoord(${i},"x",this.value)'></label><label>Y<input value='${esc(v.y)}' oninput='setPolygonCoord(${i},"y",this.value)'></label><button class='sm dl' ${sDraft.polygon.length<=3?'disabled':''} onclick='removePolygonVertex(${i})'>×</button></div>`;}).join('')}</div><button class='sm' onclick='addPolygonVertex()'>Add point</button></div>`;
+}
+function shapeRakedControls(){
+  var p=sDraft.params||{},side=shapeRakeSide(p.rakeSide),shortSide=shapeRakeShortSide(p.shortSide);
+  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>Short Height</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>Short Side</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div></div></div>`;
+}
+function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;shapeCustomApplyResolved();refreshShapeEditor();}
+/* Номер точки должен читаться человеком: он стоит и в таблице, и в коде
+   ребра (E:PV5). Берём следующий свободный номер, а не UUID. */
+function addPolygonVertex(){
+  var last=sDraft.polygon[sDraft.polygon.length-1]||{x:'0',y:'0'};
+  var used=sDraft.polygon.map(function(v){return Math.max(0,parseInt(String(v.id||'').replace(/[^0-9]/g,''),10)||0);});
+  var next=Math.max.apply(null,used.concat([sDraft.polygon.length]))+1;
+  sDraft.polygon.push({id:'PV'+next,x:String(inch(last.x)+4),y:String(inch(last.y))});shapeCustomApplyResolved();render();
+}
+function removePolygonVertex(i){if(sDraft.polygon.length<=3)return;sDraft.polygon.splice(i,1);shapeCustomApplyResolved();render();}
 function shapeGenericControls(){
+  if(sDraft.type==='parallelogram')return shapeParaControls();
+  if(sDraft.type==='raked')return shapeRakedControls();
+  if(sDraft.type==='triangle')return shapeTriangleControls();
+  if(sDraft.type==='polygon')return shapePolygonControls();
   var specs=shapeParamSpecsFor(sDraft.type);
-  return `${specs.length?`<div class='shape-subsection'><div class='corner-title'><b>Shape parameters</b><span>inches · fractions supported</span></div><div class='grid'>${specs.map(function(s){return `<div><label>${esc(s.label)}</label><input value='${esc(sDraft.params[s.key])}' oninput='setShapeParam("${s.key}",this.value)'></div>`;}).join('')}</div></div>`:''}${sDraft.type==='polygon'?shapePolygonControls():''}`;
+  return `${specs.length?`<div class='shape-subsection'><div class='corner-title'><b>Shape parameters</b><span>inches · fractions supported</span></div><div class='grid'>${specs.map(function(s){return `<div><label>${esc(s.label)}</label><input value='${esc(sDraft.params[s.key])}' oninput='setShapeParam("${s.key}",this.value)'></div>`;}).join('')}</div></div>`:''}${sDraft.type==='custom'?shapeCustomControls():''}`;
 }
 
 function shapeGroups(){var g=shapeDraftGeometry();return g.ok?shapeEdgeGroups(g):[];}
@@ -1597,12 +1787,12 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   render();
 }
 function shapeEdgeworkEditor(){
-  var groups=shapeGroups();
+  var groups=shapeGroups(),edgeNames=shapeEdgeNames(shapeDraftGeometry());
   if(!groups.length)return `<div class='shape-subsection shape-accordion shape-edgework-disabled' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>Waiting for a valid physical contour</small></span><span class='shape-accordion-state'>finish shape dimensions<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='validation-box badbox'>Finish the main contour first — Edge processing will appear automatically when all physical edges are defined.</div></div>`:''}</div>`;
   var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
   return `<div class='shape-subsection shape-accordion' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Edge work</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
     var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 
@@ -1657,7 +1847,7 @@ function shapeFeatureFields(f,i,geo){
       bPlacement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
-  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn16(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
+  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${(function(names){return shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc((names[e.id]||e.id)+' · '+dimIn16(e.length))}</option>`;}).join('');})(shapeEdgeNames(geo))}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
   return '';
 }
 
@@ -1721,7 +1911,7 @@ function shapeForm(){
   /* Полный render() пересоздаёт DOM, поэтому подсветку полей ставим сразу
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
-  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
   var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;

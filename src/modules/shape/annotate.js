@@ -544,9 +544,26 @@ function shapeAnnCallouts(r,S,DP,opts,F){
    на чертеже не нужны подписи «A · 48″» — размеры несут цепочки. */
 var SHAPE_EDGE_HEX={A:'#2828dc',B:'#28b428',C:'#fe8d28',D:'#a00082',E:'#007d7d',F:'#7d0000',G:'#6b4cbc',H:'#916019',I:'#0074ad',J:'#a43e72',K:'#5c7a1f',L:'#a04040'};
 function shapeEdgeColor(id){return SHAPE_EDGE_HEX[id]||'#555';}
+/* Свободный контур и правильный многоугольник нумеруют рёбра машинными id:
+   E:PV3, E:V7. Оператору нужна буква стороны, как у остальных фигур, и она
+   выдаётся по порядку обхода контура. Сам id не меняется — по нему привязаны
+   обработка кромки, радиусы и фурнитура, и старые формы не ломаются. */
+function shapeEdgeDisplayName(id,index){
+  var s=String(id==null?'':id);
+  if(/^[A-Z]+[0-9]*$/.test(s))return s;
+  var n=index|0,out='';
+  do{out=String.fromCharCode(65+n%26)+out;n=Math.floor(n/26)-1;}while(n>=0);
+  return out;
+}
+function shapeEdgeNames(geo){
+  var map=Object.create(null),order=[];
+  ((geo&&geo.edges)||[]).forEach(function(e){if(map[e.id]===undefined){map[e.id]=null;order.push(e.id);}});
+  order.forEach(function(id,i){map[id]=shapeEdgeDisplayName(id,i);});
+  return map;
+}
 /* Контур рёбрами, а не одним путём: каждое ребро своим цветом. */
 function shapeAnnContour(r,DP,active,mono){
-  var edges=r.geometry.edges||[],out='';
+  var edges=r.geometry.edges||[],out='',names=shapeEdgeNames(r.geometry);
   /* Цех печатает чёрно-белым, и цвет ребра там пропадает: все стороны
      становятся одинаковыми серыми линиями. Поэтому на печатном варианте
      сторону называет БУКВА рядом с ней, а не цвет. На экране цвет остаётся —
@@ -557,7 +574,7 @@ function shapeAnnContour(r,DP,active,mono){
   var seen={};
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
-    var col=mono?'#101828':shapeEdgeColor(e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
+    var col=mono?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
     out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
     if(!mono||seen[e.id])return;
     seen[e.id]=1;
@@ -565,7 +582,7 @@ function shapeAnnContour(r,DP,active,mono){
        уже стоят размерные цепочки и подписи обработки. */
     var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
     var lx=mx+dx/d*16,ly=my+dy/d*16;
-    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(e.id)+'</text>';
+    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(names[e.id]||e.id)+'</text>';
   });
   return out;
 }

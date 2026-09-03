@@ -851,6 +851,32 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   .print-sheet .print-shape-sheet{height:96vh}
 }
 
+/* Parallelogram measuring modes ------------------------------------- */
+.shape-para-editor>label{display:block;font-size:9.5px}
+.shape-para-editor>label>select{margin-top:4px}
+.shape-para-main{display:grid;grid-template-columns:minmax(180px,1fr) minmax(170px,.9fr);gap:9px;align-items:stretch;margin-top:8px}
+.shape-para-visual{min-height:150px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:#fbfcfd}
+.shape-para-visual svg{width:100%;height:150px}
+.shape-para-visual text{font:600 10px ui-monospace,monospace;fill:#b42318}
+.shape-para-visual text.dir{font-size:11px;fill:#175cd3}
+.shape-para-invalid{padding:14px;color:var(--bad,#b42318);font-size:10px;text-align:center}
+.shape-para-entry{display:flex;flex-direction:column;gap:7px}
+.shape-para-entry>label{font-size:9.5px}
+.shape-para-entry input{margin-top:3px}
+.shape-para-directions{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}
+.shape-para-directions button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 4px;font-size:9.5px}
+.shape-para-directions button i{font-size:13px;font-style:normal;line-height:1}
+.shape-para-directions button.on{border-color:#7ab8d3;background:#eaf6fb;color:#175f83;font-weight:700}
+.shape-para-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px}
+.shape-para-readout>span{min-width:0;padding:6px 7px;border:1px solid var(--line);border-radius:7px;background:#f8fafb}
+.shape-para-readout small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em}
+.shape-para-readout b{display:block;margin-top:2px;font:600 10.5px ui-monospace,monospace}
+.shape-master-fields input.ro{background:#f2f4f7;color:var(--mut)}
+@media(max-width:720px){
+  .shape-para-main{grid-template-columns:1fr}
+  .shape-para-readout{grid-template-columns:repeat(3,1fr)}
+}
+
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
    Service Sets + production Shape UX
@@ -927,7 +953,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-09-03 13:43';
+var ERP_BUILD='2026-09-03 19:43';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -1440,16 +1466,219 @@ var SHAPE_PRESETS=[
   {id:'raked',code:'RAKE',label:'Raked Rectangle'},
   {id:'triangle',code:'TRI',label:'Triangle'},
   {id:'polygon',code:'POLY',label:'Polygon'},
+  {id:'custom',code:'CUST',label:'Custom Shape'},
   {id:'circle',code:'CIRC',label:'Circle'},
   {id:'ellipse',code:'ELL',label:'Ellipse'},
   {id:'oval',code:'OVAL',label:'Oval / Capsule'},
-  {id:'notch-left',code:'N-L',label:'Notch Left'},
-  {id:'notch-right',code:'N-R',label:'Notch Right'},
-  {id:'notch-middle',code:'N-M',label:'Notch Middle'},
-  {id:'notch-both',code:'N-B',label:'Notch Both'},
-  {id:'notch-left-double',code:'N-L2',label:'Notch Left Double'},
-  {id:'notch-right-double',code:'N-R2',label:'Notch Right Double'}
+  {id:'notch-left',code:'N-L',label:'Notch Left',legacy:true},
+  {id:'notch-right',code:'N-R',label:'Notch Right',legacy:true},
+  {id:'notch-middle',code:'N-M',label:'Notch Middle',legacy:true},
+  {id:'notch-both',code:'N-B',label:'Notch Both',legacy:true},
+  {id:'notch-left-double',code:'N-L2',label:'Notch Left Double',legacy:true},
+  {id:'notch-right-double',code:'N-R2',label:'Notch Right Double',legacy:true}
 ];
+/* Parallelogram is measured several different ways on site.  Keep the four
+   entry modes in the engineering module (rather than only in the UI), so an
+   imported/saved definition produces the same contour, DXF and edge lengths.
+
+   Left/Right: Width is the physical horizontal edge and Height is the plumb
+   projection of the sloping side.  Up/Down is the same construction turned
+   through 90 degrees: Height is the physical vertical edge and Width is the
+   level projection of the sloping top/bottom edge. */
+var SHAPE_PARA_MEASURES=[
+  {id:'height-oos',label:'Height and OOS'},
+  {id:'height-diagonal',label:'Height and Diagonal'},
+  {id:'diagonal-angle',label:'Diagonal and Angle'},
+  {id:'height-angle',label:'Height and Angle'}
+];
+var SHAPE_PARA_DIRECTIONS=[
+  {id:'left',label:'Left',arrow:'←'},
+  {id:'right',label:'Right',arrow:'→'},
+  {id:'up',label:'Up',arrow:'↑'},
+  {id:'down',label:'Down',arrow:'↓'}
+];
+function shapeParaMeasure(v){return SHAPE_PARA_MEASURES.some(function(x){return x.id===v;})?v:'height-oos';}
+function shapeParaDirection(v){return SHAPE_PARA_DIRECTIONS.some(function(x){return x.id===v;})?v:'right';}
+function shapeParaAngleText(v){return isFinite(v)?(+v.toFixed(2)).toFixed(2):'';}
+/* Editable/saved fields follow the rest of ERP and store a bare fraction.
+   The inch mark belongs only to diagrams and readouts. */
+function shapeParaDimText(v){return isFinite(v)?frac16(v):'';}
+var SHAPE_RAKE_SIDES=[{id:'top',label:'Top'},{id:'bottom',label:'Bottom'},{id:'left',label:'Left'},{id:'right',label:'Right'}];
+var SHAPE_RAKE_SHORT_SIDES=[{id:'left',label:'Left'},{id:'right',label:'Right'}];
+function shapeRakeSide(v){v=String(v||'').toLowerCase();return ['top','bottom','left','right'].indexOf(v)>=0?v:'top';}
+function shapeRakeShortSide(v){return String(v||'').toLowerCase()==='left'?'left':'right';}
+/* Raked Rectangle uses the long height as its stable master height.  For the
+   historic model, leftDrop/rightDrop were the two top offsets; migrate those
+   values into the same long/short-height construction without changing its
+   contour. */
+function shapeRakedValues(widthRaw,longHeightRaw,rawParams){
+  var p=rawParams&&typeof rawParams==='object'?rawParams:{},errors=[],Wq=fabParseDimStrict(widthRaw),Hq=fabParseDimStrict(longHeightRaw);
+  if(!Wq.ok)errors.push('Raked Rectangle: Width is not a valid dimension.');
+  if(!Hq.ok)errors.push('Raked Rectangle: Long Height is not a valid dimension.');
+  var W=Wq.ok?Wq.v:NaN,H=Hq.ok?Hq.v:NaN,legacy=p.leftDrop!=null||p.rightDrop!=null,shortQ=fabParseDimStrict(p.shortHeight),shortH=shortQ.ok?shortQ.v:NaN,rake=shapeRakeSide(p.rakeSide),shortSide=shapeRakeShortSide(p.shortSide),leftH,rightH;
+  if(legacy){
+    var ld=fabParseDimStrict(p.leftDrop),rd=fabParseDimStrict(p.rightDrop);
+    if(!ld.ok||!rd.ok)errors.push('Raked Rectangle: legacy top drops are not valid dimensions.');
+    else{leftH=H-ld.v;rightH=H-rd.v;shortH=Math.min(leftH,rightH);shortSide=leftH<=rightH?'left':'right';rake='top';}
+  }else{
+    if(!shortQ.ok)errors.push('Raked Rectangle: Short Height is not a valid dimension.');
+    leftH=shortSide==='left'?shortH:H;rightH=shortSide==='right'?shortH:H;
+  }
+  if(isFinite(W)&&W<=0)errors.push('Raked Rectangle: Width must be greater than zero.');
+  if(isFinite(H)&&H<=0)errors.push('Raked Rectangle: Long Height must be greater than zero.');
+  if(isFinite(shortH)&&(shortH<=0||shortH>H))errors.push('Raked Rectangle: Short Height must be greater than zero and no greater than Long Height.');
+  if(!isFinite(leftH)||!isFinite(rightH)||leftH<=0||rightH<=0)errors.push('Raked Rectangle: both side heights must be greater than zero.');
+  return {ok:errors.length===0,errors:errors,width:W,longHeight:H,shortHeight:shortH,leftHeight:leftH,rightHeight:rightH,rakeSide:rake,shortSide:shortSide,legacy:legacy};
+}
+function shapeRakedVertices(q){
+  var W=q.width,H=q.longHeight,L=q.leftHeight,R=q.rightHeight,V=[];
+  if(q.rakeSide==='top')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,L,'D'),shapeVertex('TR',W,R,'C'),shapeVertex('BR',W,0,'B')];
+  else if(q.rakeSide==='bottom')V=[shapeVertex('BL',0,H-L,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,H-R,'B')];
+  else if(q.rakeSide==='left'){
+    var topX=q.shortSide==='left'?H-q.shortHeight:0,bottomX=q.shortSide==='left'?0:H-q.shortHeight;
+    V=[shapeVertex('BL',bottomX,0,'A'),shapeVertex('TL',topX,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
+  }else{
+    var topR=q.shortSide==='left'?W:W-(H-q.shortHeight),bottomR=q.shortSide==='left'?W-(H-q.shortHeight):W;
+    V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',topR,H,'C'),shapeVertex('BR',bottomR,0,'B')];
+  }
+  return shapeLineTopology(V);
+}
+/* Triangle. Оператор снимает треугольник одним из двух способов: «квадратным»
+   набором (низ, высота и смещение вершины) или тремя сторонами — как рулеткой
+   на объекте. Оба набора описывают ОДИН контур, поэтому переключение режима
+   фигуру не двигает: недостающая пара считается из имеющейся. */
+var SHAPE_TRI_MEASURES=[{id:'square',label:'Square Mode · Height and Top Offset'},{id:'diagonal',label:'Diagonal Mode · Left and Right edges'}];
+function shapeTriMeasure(v){v=String(v||'').toLowerCase();return SHAPE_TRI_MEASURES.some(function(x){return x.id===v;})?v:'square';}
+function shapeTriangleValues(bottomRaw,heightRaw,rawParams){
+  var p=rawParams&&typeof rawParams==='object'?rawParams:{},errors=[],mode=shapeTriMeasure(p.measureMode);
+  var Bq=fabParseDimStrict(bottomRaw),B=Bq.ok?Bq.v:NaN,height=NaN,offset=NaN,left=NaN,right=NaN;
+  if(!Bq.ok)errors.push('Triangle: Bottom is not a valid dimension.');
+  if(isFinite(B)&&B<=0)errors.push('Triangle: Bottom must be greater than zero.');
+  if(mode==='diagonal'){
+    var Lq=fabParseDimStrict(p.leftEdge),Rq=fabParseDimStrict(p.rightEdge);
+    if(!Lq.ok)errors.push('Triangle: Left Edge is not a valid dimension.');
+    if(!Rq.ok)errors.push('Triangle: Right Edge is not a valid dimension.');
+    left=Lq.ok?Lq.v:NaN;right=Rq.ok?Rq.v:NaN;
+    if(isFinite(left)&&left<=0)errors.push('Triangle: Left Edge must be greater than zero.');
+    if(isFinite(right)&&right<=0)errors.push('Triangle: Right Edge must be greater than zero.');
+    /* Три стороны либо замыкаются, либо нет — это школьное неравенство, и
+       честная ошибка здесь лучше, чем NaN, уехавший в контур. */
+    if(isFinite(B)&&B>0&&isFinite(left)&&left>0&&isFinite(right)&&right>0){
+      if(left+right<=B||B+left<=right||B+right<=left)errors.push('Triangle: Bottom, Left and Right edges do not close a triangle.');
+      else{
+        offset=(B*B+left*left-right*right)/(2*B);
+        var sq=left*left-offset*offset;height=sq>0?Math.sqrt(sq):NaN;
+        if(!(height>0))errors.push('Triangle: Bottom, Left and Right edges do not close a triangle.');
+        else if(offset<0||offset>B)errors.push('Triangle: Left and Right edges put the apex outside the Bottom edge.');
+      }
+    }
+  }else{
+    var Hq=fabParseDimStrict(heightRaw),Oq=fabParseDimStrict(p.topOffset);
+    if(!Hq.ok)errors.push('Triangle: Height is not a valid dimension.');
+    if(!Oq.ok)errors.push('Triangle: Top Offset is not a valid dimension.');
+    height=Hq.ok?Hq.v:NaN;offset=Oq.ok?Oq.v:NaN;
+    if(isFinite(height)&&height<=0)errors.push('Triangle: Height must be greater than zero.');
+    if(isFinite(offset)&&isFinite(B)&&(offset<0||offset>B))errors.push('Triangle: Top Offset must be between zero and Bottom.');
+    if(isFinite(height)&&isFinite(offset)&&isFinite(B)){left=Math.hypot(offset,height);right=Math.hypot(B-offset,height);}
+  }
+  return {ok:errors.length===0,errors:errors,mode:mode,bottom:B,height:height,topOffset:offset,leftEdge:left,rightEdge:right};
+}
+/* Вершины и коды рёбер те же, что были у старого треугольника: сохранённая
+   обработка кромки A/B/C переживает переход на режимы ввода. */
+function shapeTriangleVertices(q){
+  return shapeLineTopology([shapeVertex('BL',0,0,'A'),shapeVertex('APEX',q.topOffset,q.height,'C'),shapeVertex('BR',q.bottom,0,'B')]);
+}
+/* Polygon — правильный многоугольник: оператор задаёт число сторон и длину
+   стороны, координаты вершин система считает сама. Свободный контур по точкам
+   никуда не делся, он живёт отдельным типом Custom Shape.
+   Ориентация как в эталоне: снизу горизонтальная сторона, у чётного числа
+   сторон горизонтальной выходит и верхняя. Обход по часовой стрелке от левого
+   нижнего угла — как у прямоугольника, чтобы рёбра нумеровались привычно. */
+var SHAPE_POLYGON_MIN_SIDES=3,SHAPE_POLYGON_MAX_SIDES=60;
+function shapeRegularPolygonValues(rawParams){
+  var p=rawParams&&typeof rawParams==='object'?rawParams:{},errors=[];
+  var rawSides=String(p.sides==null?'':p.sides).trim(),n=rawSides===''?NaN:Number(rawSides);
+  var Sq=fabParseDimStrict(p.sideLength),side=Sq.ok?Sq.v:NaN;
+  if(!isFinite(n)||Math.floor(n)!==n)errors.push('Polygon: Number of Sides must be a whole number.');
+  else if(n<SHAPE_POLYGON_MIN_SIDES||n>SHAPE_POLYGON_MAX_SIDES)errors.push('Polygon: Number of Sides must be between '+SHAPE_POLYGON_MIN_SIDES+' and '+SHAPE_POLYGON_MAX_SIDES+'.');
+  if(!Sq.ok)errors.push('Polygon: Side Length is not a valid dimension.');
+  else if(!(side>0))errors.push('Polygon: Side Length must be greater than zero.');
+  var points=[],width=NaN,height=NaN,radius=NaN,apothem=NaN;
+  if(!errors.length){
+    radius=side/(2*Math.sin(Math.PI/n));apothem=side/(2*Math.tan(Math.PI/n));
+    var xs=[],ys=[],i,a;
+    for(i=0;i<n;i++){
+      a=-Math.PI/2-Math.PI/n-i*2*Math.PI/n;
+      points.push([radius*Math.cos(a),radius*Math.sin(a)]);xs.push(points[i][0]);ys.push(points[i][1]);
+    }
+    var minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys);
+    width=Math.max.apply(null,xs)-minX;height=Math.max.apply(null,ys)-minY;
+    points=points.map(function(q){return [q[0]-minX,q[1]-minY];});
+  }
+  return {ok:errors.length===0,errors:errors,sides:n,sideLength:side,radius:radius,apothem:apothem,width:width,height:height,perimeter:isFinite(n)&&isFinite(side)?n*side:NaN,points:points};
+}
+function shapeRegularPolygonVertices(q){
+  return shapeLineTopology(q.points.map(function(pt,i){var id='V'+(i+1);return shapeVertex(id,pt[0],pt[1],'E:'+id,id);}));
+}
+function shapeParaParsed(raw,label,errors){
+  var q=fabParseDimStrict(raw);
+  if(!q.ok){errors.push('Parallelogram: '+label+' is not a valid dimension.');return NaN;}
+  return q.v;
+}
+/* Resolve the active measurement pair into one canonical construction.
+   The return value deliberately contains both input and calculated values;
+   callers can show the latter for checking without keeping a second geometry. */
+function shapeParallelogramValues(widthRaw,heightRaw,rawParams){
+  var p=rawParams&&typeof rawParams==='object'?rawParams:{},errors=[];
+  var mode=shapeParaMeasure(p.measureMode),direction=shapeParaDirection(p.slopeDirection);
+  var sideways=direction==='left'||direction==='right';
+  /* Diagonal + Angle derives Height for Left/Right and Width for Up/Down.
+     Do not reject a stale hidden value that does not participate in the mode. */
+  var W=(!sideways&&mode==='diagonal-angle')?NaN:shapeParaParsed(widthRaw,'Width',errors);
+  var H=(sideways&&mode==='diagonal-angle')?NaN:shapeParaParsed(heightRaw,'Height',errors);
+  var oos=NaN,diagonal=NaN,angle=NaN,component=sideways?H:W;
+  if(mode==='height-oos'){
+    oos=shapeParaParsed(p.outOfSquare,'Out of square',errors);
+    if(isFinite(component)&&isFinite(oos)){diagonal=Math.hypot(component,oos);angle=Math.atan2(oos,component)*180/Math.PI;}
+  }else if(mode==='height-diagonal'){
+    diagonal=shapeParaParsed(p.diagonal,'Diagonal Length',errors);
+    if(isFinite(component)&&isFinite(diagonal)){
+      if(diagonal+1e-9<component)errors.push('Parallelogram: Diagonal Length cannot be shorter than the perpendicular Height / Width.');
+      else{oos=Math.sqrt(Math.max(0,diagonal*diagonal-component*component));angle=Math.atan2(oos,component)*180/Math.PI;}
+    }
+  }else if(mode==='diagonal-angle'){
+    diagonal=shapeParaParsed(p.diagonal,'Diagonal Length',errors);
+    var aq=Number(p.angle);if(String(p.angle==null?'':p.angle).trim()===''||!isFinite(aq))errors.push('Parallelogram: OOS Angle is not a valid angle.');else angle=aq;
+    if(isFinite(diagonal)&&isFinite(angle)&&angle>=0&&angle<90){
+      component=diagonal*Math.cos(angle*Math.PI/180);oos=diagonal*Math.sin(angle*Math.PI/180);
+      if(sideways)H=component;else W=component;
+    }
+  }else{
+    var ar=Number(p.angle);if(String(p.angle==null?'':p.angle).trim()===''||!isFinite(ar))errors.push('Parallelogram: OOS Angle is not a valid angle.');else angle=ar;
+    if(isFinite(component)&&isFinite(angle)&&angle>=0&&angle<90){oos=component*Math.tan(angle*Math.PI/180);diagonal=Math.hypot(component,oos);}
+  }
+  if(isFinite(W)&&!(W>0))errors.push('Parallelogram: Width must be greater than zero.');
+  if(isFinite(H)&&!(H>0))errors.push('Parallelogram: Height must be greater than zero.');
+  if(isFinite(oos)&&oos<0)errors.push('Parallelogram: Out of square cannot be negative.');
+  if(isFinite(diagonal)&&!(diagonal>0))errors.push('Parallelogram: Diagonal Length must be greater than zero.');
+  if(isFinite(angle)&&(angle<0||angle>=90))errors.push('Parallelogram: OOS Angle must be from 0° up to, but not including, 90°.');
+  return {ok:errors.length===0,errors:errors,mode:mode,direction:direction,sideways:sideways,
+    width:W,height:H,outOfSquare:oos,diagonal:diagonal,angle:angle};
+}
+/* Вырезы больше не заводятся отдельными типами: любой notch рисуется точками
+   в Custom Shape. Сами типы остаются в каталоге — сохранённые формы обязаны
+   открываться, — но из списка создания исчезают. Текущий тип показываем всегда,
+   иначе у старой формы селект показал бы чужую строку. */
+function shapePresetChoices(current){
+  return SHAPE_PRESETS.filter(function(p){return !p.legacy||p.id===current;});
+}
+/* Габарит Custom Shape не вводится руками, а следует за координатами точек. */
+function shapeCustomBounds(points){
+  var xs=[],ys=[];
+  (points||[]).forEach(function(v){var x=fabParseDimStrict(v&&v.x),y=fabParseDimStrict(v&&v.y);if(x.ok&&y.ok){xs.push(x.v);ys.push(y.v);}});
+  if(xs.length<3)return null;
+  return {width:Math.max.apply(null,xs)-Math.min.apply(null,xs),height:Math.max.apply(null,ys)-Math.min.apply(null,ys)};
+}
 function shapePresetInfo(id){for(var i=0;i<SHAPE_PRESETS.length;i++)if(SHAPE_PRESETS[i].id===id)return SHAPE_PRESETS[i];return SHAPE_PRESETS[0];}
 function shapeType(id){return SHAPE_PRESETS.some(function(x){return x.id===id;})?id:'smart';}
 function shapeClamp(v,a,b){v=+v||0;return Math.max(a,Math.min(b,v));}
@@ -1457,7 +1686,7 @@ function shapeParamNumber(p,k,d){var r=fabParseDimStrict(p&&p[k]);return r.ok?r.
 function shapeDefaultParams(type){
   var all={
     'corner-offset':{tlx:'0',tly:'0',trx:'0',try:'0',brx:'0',bry:'0',blx:'0',bly:'0'},
-    parallelogram:{skew:'4'},raked:{leftDrop:'0',rightDrop:'6'},triangle:{apexX:'24'},
+    parallelogram:{measureMode:'height-oos',outOfSquare:'4',diagonal:'36 1/4',angle:'6.34',slopeDirection:'right'},raked:{shortHeight:'30',rakeSide:'top',shortSide:'right'},triangle:{measureMode:'square',topOffset:'24',leftEdge:'43 1/4',rightEdge:'43 1/4'},polygon:{sides:'6',sideLength:'12'},
     'notch-left':{depth:'6',height:'12',fromBottom:'12'},'notch-right':{depth:'6',height:'12',fromBottom:'12'},
     'notch-middle':{width:'8',depth:'8',fromLeft:'20'},'notch-both':{depth:'6',height:'10',fromBottom:'12'},
     'notch-left-double':{depth1:'4',height1:'8',gap:'8',depth2:'7',height2:'8'},
@@ -1509,24 +1738,34 @@ function shapePresetTopology(S){
   if(t==='circle')return shapeSampleEllipse(W,H,'circle');
   if(t==='ellipse')return shapeSampleEllipse(W,H,'ellipse');
   if(t==='oval')return shapeSampleCapsule(W,H);
-  if(t==='polygon'){
+  if(t==='custom'){
     var raw=(S.shape&&S.shape.polygon)||[];
     V=raw.map(function(v,i){return shapeVertex(v.id||('V'+(i+1)),shapeParamNumber(v,'x',0),shapeParamNumber(v,'y',0),'E:'+(v.id||('V'+(i+1))),'V'+(i+1));});
     return shapeLineTopology(V);
   }
+  if(t==='polygon'){
+    var pq=shapeRegularPolygonValues(p);
+    if(pq.ok){W=pq.width;H=pq.height;return shapeRegularPolygonVertices(pq);}
+  }
   if(t==='rectangle')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
   if(t==='parallelogram'){
-    var sk=shapeParamNumber(p,'skew',0);V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',sk,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W-sk,0,'B')];
+    var para=shapeParallelogramValues(S.w,S.h,p),sk=para.outOfSquare;W=para.width;H=para.height;
+    if(para.direction==='right')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',sk,H,'D'),shapeVertex('TR',sk+W,H,'C'),shapeVertex('BR',W,0,'B')];
+    if(para.direction==='left')V=[shapeVertex('BL',sk,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',sk+W,0,'B')];
+    if(para.direction==='up')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H+sk,'C'),shapeVertex('BR',W,sk,'B')];
+    if(para.direction==='down')V=[shapeVertex('BL',0,sk,'A'),shapeVertex('TL',0,H+sk,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
   }
   if(t==='raked'){
-    var ld=shapeParamNumber(p,'leftDrop',0),rd=shapeParamNumber(p,'rightDrop',0);V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H-ld,'D'),shapeVertex('TR',W,H-rd,'C'),shapeVertex('BR',W,0,'B')];
+    var rq=shapeRakedValues(S.w,S.h,p);if(rq.ok){W=rq.width;H=rq.longHeight;return shapeRakedVertices(rq);}
   }
   if(t==='corner-offset'){
     var tlx=shapeParamNumber(p,'tlx',0),tly=shapeParamNumber(p,'tly',0),trx=shapeParamNumber(p,'trx',0),tryy=shapeParamNumber(p,'try',0),brx=shapeParamNumber(p,'brx',0),bry=shapeParamNumber(p,'bry',0),blx=shapeParamNumber(p,'blx',0),bly=shapeParamNumber(p,'bly',0);
     V=[shapeVertex('BL',blx,bly,'A'),shapeVertex('TL',tlx,H-tly,'D'),shapeVertex('TR',W-trx,H-tryy,'C'),shapeVertex('BR',W-brx,bry,'B')];
   }
   if(t==='triangle'){
-    var ax=shapeParamNumber(p,'apexX',W/2);V=[shapeVertex('BL',0,0,'A'),shapeVertex('APEX',ax,H,'C'),shapeVertex('BR',W,0,'B')];
+    var tq=shapeTriangleValues(S.w,S.h,p);
+    if(tq.ok){W=tq.bottom;H=tq.height;return shapeTriangleVertices(tq);}
+    var ax=shapeParamNumber(p,'topOffset',W/2);V=[shapeVertex('BL',0,0,'A'),shapeVertex('APEX',ax,H,'C'),shapeVertex('BR',W,0,'B')];
   }
   function notchSide(left,doubleNotch){
     var fb=shapeParamNumber(p,'fromBottom',12),d=shapeParamNumber(p,'depth',6),nh=shapeParamNumber(p,'height',12);
@@ -1819,12 +2058,44 @@ function shapeLiteInsetFor(def,liteIndex,edgeId){
   return p.ok&&p.v>0?p.v:0;
 }
 function normalizeShapeDef(s){
-  s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),params=shapePlainObject(s.params),edgeOps=shapePlainObject(s.edgeOps),ops={};
+  s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),rawParams=shapePlainObject(s.params),params=Object.assign({},rawParams),edgeOps=shapePlainObject(s.edgeOps),ops={};
+  var normalizedW=shapeTextValue(s.w,type==='circle'?'36':'48'),normalizedH=shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36');
+  /* Raked Rectangle used to store two top drops.  Convert that legacy pair to
+     the new long/short-height vocabulary once, while retaining the same top
+     contour and avoiding stale legacy fields overriding later edits. */
+  if(type==='raked'&&params.shortHeight==null&&(params.leftDrop!=null||params.rightDrop!=null)){
+    var rh=fabParseDimStrict(normalizedH),rld=fabParseDimStrict(params.leftDrop),rrd=fabParseDimStrict(params.rightDrop);
+    if(rh.ok&&rld.ok&&rrd.ok){var lh=rh.v-rld.v,rrh=rh.v-rrd.v;params.shortHeight=shapeParaDimText(Math.min(lh,rrh));params.rakeSide='top';params.shortSide=lh<=rrh?'left':'right';}
+    delete params.leftDrop;delete params.rightDrop;
+  }
+  /* Polygon раньше означал свободный контур по точкам. Теперь это правильный
+     многоугольник, а свободный контур — отдельный тип Custom Shape. Всё, что
+     сохранено списком точек и без числа сторон, уезжает в Custom вместе со
+     своими координатами: ни одна сохранённая форма не меняется.
+     Сюда же приходят старые импорты DXF: они тоже сохранялись как polygon. */
+  if(type==='polygon'&&rawParams.sides==null&&Array.isArray(s.polygon)&&s.polygon.length>=3){
+    type='custom';defaults=shapeDefaultParams(type);
+  }
+  /* Треугольник хранил apexX — то же смещение вершины под старым именем.
+     Переносим значение и убираем ключ, чтобы старое поле не спорило с новым. */
+  if(type==='triangle'&&params.apexX!=null){
+    if(params.topOffset==null)params.topOffset=shapeTextValue(params.apexX,'');
+    delete params.apexX;
+  }
+  /* Legacy Parallelogram stored Width as its complete bounding box and `skew`
+     as a single positive offset.  Convert to the physical-edge Width used by
+     the measurement modes while keeping the old contour in exactly the same
+     place (up to translation for a negative legacy skew). */
+  if(type==='parallelogram'&&params.measureMode==null&&params.outOfSquare==null&&params.skew!=null){
+    var oldSkew=fabParseDimStrict(params.skew),oldWidth=fabParseDimStrict(normalizedW),legacyDirection=oldSkew.ok&&oldSkew.v<0?'left':'right';
+    params={measureMode:'height-oos',outOfSquare:oldSkew.ok?shapeParaDimText(Math.abs(oldSkew.v)):shapeTextValue(params.skew,''),diagonal:'',angle:'',slopeDirection:legacyDirection};
+    if(oldSkew.ok&&oldWidth.ok&&oldWidth.v-oldSkew.v>0)normalizedW=shapeParaDimText(oldWidth.v-oldSkew.v);
+  }
   Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
   Object.keys(edgeOps).forEach(function(id){var list=Array.isArray(edgeOps[id])?edgeOps[id]:[],clean=list.map(shapeNormalizeOp).filter(Boolean);if(clean.length)ops[id]=clean;});
   var source=shapeNormalizeSource(s.source),out={
     id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
-    w:shapeTextValue(s.w,type==='circle'?'36':'48'),h:shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36'),
+    w:normalizedW,h:normalizedH,
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
     /* Safety Border: базовое значение (пусто = AUTO по толщине) плюс ручной
        ввод по конкретным кромкам, как обработка в Edge Set. */
@@ -1846,6 +2117,44 @@ function normalizeShapeDef(s){
   };
   if(source.kind==='dxf'&&source.preview.width16>0&&source.preview.height16>0){out.w=frac64(source.preview.width16/16);out.h=frac64(source.preview.height16/16);}
   else if(type==='circle'&&s.h==null)out.h=out.w;
+  if(type==='parallelogram'){
+    out.params.measureMode=shapeParaMeasure(out.params.measureMode);out.params.slopeDirection=shapeParaDirection(out.params.slopeDirection);
+    var para=shapeParallelogramValues(out.w,out.h,out.params);
+    if(para.ok){
+      /* Persist calculated companions so switching Measure mode preserves the
+         visible shape.  Only the projection derived by Diagonal + Angle is
+         allowed to replace a master Width/Height field. */
+      if(para.mode==='diagonal-angle'){
+        if(para.sideways)out.h=shapeParaDimText(para.height);else out.w=shapeParaDimText(para.width);
+      }
+      if(para.mode!=='height-oos')out.params.outOfSquare=shapeParaDimText(para.outOfSquare);
+      if(para.mode!=='height-diagonal'&&para.mode!=='diagonal-angle')out.params.diagonal=shapeParaDimText(para.diagonal);
+      if(para.mode!=='diagonal-angle'&&para.mode!=='height-angle')out.params.angle=shapeParaAngleText(para.angle);
+    }
+  }
+  /* Тот же приём, что и у параллелограмма: посчитанный набор сохраняется рядом
+     с введённым, поэтому смена Measure у треугольника не двигает контур. */
+  if(type==='triangle'){
+    out.params.measureMode=shapeTriMeasure(out.params.measureMode);
+    var tri=shapeTriangleValues(out.w,out.h,out.params);
+    if(tri.ok){
+      if(tri.mode==='diagonal'){out.h=shapeParaDimText(tri.height);out.params.topOffset=shapeParaDimText(tri.topOffset);}
+      else{out.params.leftEdge=shapeParaDimText(tri.leftEdge);out.params.rightEdge=shapeParaDimText(tri.rightEdge);}
+    }
+  }
+  /* У Custom Shape габарит тоже не вводится: он следует за точками контура,
+     поэтому Finished, Cut size и раскрой читают его из тех же координат. */
+  if(type==='custom'){
+    var cb=shapeCustomBounds(out.polygon);
+    if(cb){out.w=shapeParaDimText(cb.width);out.h=shapeParaDimText(cb.height);}
+  }
+  /* У правильного многоугольника габарит целиком выводится из числа сторон и
+     длины стороны. Записываем его в w/h: карточки Finished и Cut size, раскрой
+     и печать читают габарит оттуда же, откуда у остальных фигур. */
+  if(type==='polygon'){
+    var poly=shapeRegularPolygonValues(out.params);
+    if(poly.ok){out.w=shapeParaDimText(poly.width);out.h=shapeParaDimText(poly.height);}
+  }
   return out;
 }
 function newShapeDef(type){
@@ -1857,7 +2166,7 @@ function newShapeDef(type){
   type=shapeType(type||'smart');
   var W=type==='smart'?'1':(type==='circle'?'36':'48'),H=type==='smart'?'1':(type==='circle'?'36':'36');
   var out=normalizeShapeDef({id:shapeNewEntityId('s'),name:'',type:type,w:W,h:H,params:shapeDefaultParams(type),smart:defaultSmartModel(),features:[],edgeOps:{}});
-  if(type==='polygon')out.polygon=shapeNormalizePolygon(null);return out;
+  if(type==='polygon'||type==='custom')out.polygon=shapeNormalizePolygon(null);return out;
 }
 function newSmartShapeDef(){return newShapeDef('smart');}
 function newShapeFeature(type,context){
@@ -1867,6 +2176,10 @@ function newShapeFeature(type,context){
   return f;
 }
 function shapeParamSpecsFor(type){
+  if(type==='parallelogram')return [];
+  if(type==='raked')return [{key:'shortHeight',label:'Short Height'}];
+  if(type==='triangle')return [];
+  if(type==='polygon'||type==='custom')return [];
   var labels={skew:'Skew',leftDrop:'Left top drop',rightDrop:'Right top drop',apexX:'Apex X',tlx:'TL X',tly:'TL Y',trx:'TR X',try:'TR Y',brx:'BR X',bry:'BR Y',blx:'BL X',bly:'BL Y',depth:'Notch depth',height:'Notch height',fromBottom:'From bottom',width:'Notch width',fromLeft:'From left',depth1:'Depth 1',height1:'Height 1',gap:'Gap',depth2:'Depth 2',height2:'Height 2'};
   return Object.keys(shapeDefaultParams(type)).map(function(k){return {key:k,label:labels[k]||k};});
 }
@@ -2225,18 +2538,33 @@ function shapeValidateDefinitionInputs(def){
   var values={};shapeParamSpecsFor(type).forEach(function(s){values[s.key]=dim(s.key);});
   function nonnegative(k){if(isFinite(values[k])&&values[k]<0)errors.push(shapePresetInfo(type).label+': '+k+' cannot be negative.');}
   Object.keys(values).forEach(nonnegative);
-  if(type==='parallelogram'&&isFinite(values.skew)&&Math.abs(values.skew)>=W)errors.push('Parallelogram: absolute skew must be less than Width.');
-  if(type==='raked'&&((isFinite(values.leftDrop)&&values.leftDrop>=H)||(isFinite(values.rightDrop)&&values.rightDrop>=H)))errors.push('Raked Rectangle: top drops must be less than Height.');
-  if(type==='triangle'&&isFinite(values.apexX)&&(values.apexX<0||values.apexX>W))errors.push('Triangle: Apex X must be between 0 and Width.');
+  if(type==='parallelogram')errors=errors.concat(shapeParallelogramValues(def.w,def.h,p).errors);
+  if(type==='raked'){
+    var rq=shapeRakedValues(def.w,def.h,p);errors=errors.concat(rq.errors||[]);
+    if(['top','bottom','left','right'].indexOf(String(p.rakeSide||'top').toLowerCase())<0)errors.push('Raked Rectangle: Rake Side must be Top, Bottom, Left or Right.');
+    if(['left','right'].indexOf(String(p.shortSide||'right').toLowerCase())<0)errors.push('Raked Rectangle: Short Side must be Left or Right.');
+  }
+  if(type==='triangle'){
+    errors=errors.concat(shapeTriangleValues(def.w,def.h,p).errors||[]);
+    if(SHAPE_TRI_MEASURES.every(function(x){return x.id!==String(p.measureMode||'square').toLowerCase();}))errors.push('Triangle: Measure must be Square Mode or Diagonal Mode.');
+  }
   if(type.indexOf('notch-left')===0||type.indexOf('notch-right')===0){
     if(type.indexOf('double')>=0){if(!(values.depth1>0&&values.depth1<W&&values.depth2>0&&values.depth2<W))errors.push('Double notch depths must be greater than zero and less than Width.');if(!(values.height1>0&&values.height2>0&&values.gap>=0&&values.height1+values.gap+values.height2<H))errors.push('Double notch heights and gap must fit inside Height.');}
     else{if(!(values.depth>0&&values.depth<W))errors.push('Notch depth must be greater than zero and less than Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Notch height and position must fit inside Height.');}
   }
   if(type==='notch-middle'){if(!(values.width>0&&values.fromLeft>=0&&values.fromLeft+values.width<W))errors.push('Middle notch width and position must fit inside Width.');if(!(values.depth>0&&values.depth<H))errors.push('Middle notch depth must be greater than zero and less than Height.');}
   if(type==='notch-both'){if(!(values.depth>0&&values.depth<W/2))errors.push('Both-notch depth must be greater than zero and less than half Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Both-notch height and position must fit inside Height.');}
-  if(type==='polygon'){
-    if((def.polygon||[]).length<3)errors.push('Polygon requires at least three vertices.');
-    (def.polygon||[]).forEach(function(v){['x','y'].forEach(function(k){if(!fabParseDimStrict(v[k]).ok)errors.push('Polygon vertex '+v.id+': '+k.toUpperCase()+' is not a valid dimension.');});});
+  if(type==='polygon')errors=errors.concat(shapeRegularPolygonValues(p).errors||[]);
+  if(type==='custom'){
+    var cpts=def.polygon||[];
+    if(cpts.length<3)errors.push('Custom Shape requires at least three points.');
+    cpts.forEach(function(v,i){
+      ['x','y'].forEach(function(k){if(!fabParseDimStrict(v[k]).ok)errors.push('Custom Shape point '+v.id+': '+k.toUpperCase()+' is not a valid dimension.');});
+      /* Две совпавшие подряд точки дают ребро нулевой длины: контур ещё не
+         пересечён, но обработка кромки уже некуда встать. */
+      var prev=cpts[(i-1+cpts.length)%cpts.length],x=fabParseDimStrict(v.x),y=fabParseDimStrict(v.y),px=fabParseDimStrict(prev.x),py=fabParseDimStrict(prev.y);
+      if(prev!==v&&x.ok&&y.ok&&px.ok&&py.ok&&Math.abs(x.v-px.v)<1e-9&&Math.abs(y.v-py.v)<1e-9)errors.push('Custom Shape point '+v.id+' repeats point '+prev.id+'.');
+    });
   }
   return errors;
 }
@@ -2359,6 +2687,14 @@ function shapeValidateComputed(def,geo,fg){
 
 function shapeGeometry(S){
   var W=inch(S.w),H=inch(S.h),kind=(S.shape&&S.shape.type)||'smart';
+  /* Diagonal + Angle calculates one master projection.  Resolve it before the
+     common Width/Height gate so the calculated dimension is the one validated
+     and used everywhere downstream. */
+  if(kind==='parallelogram'){
+    var para=shapeParallelogramValues(S.w,S.h,(S.shape&&S.shape.params)||{});
+    if(!para.ok)return {ok:false,error:para.errors[0],errors:para.errors,W:para.width,H:para.height,pts:[],type:kind};
+    W=para.width;H=para.height;
+  }
   if(W<=0||H<=0)return {ok:false,error:'Enter valid width and height.',W:W,H:H,pts:[],type:kind,minX:0,minY:0,maxX:W,maxY:H};
   if(kind==='smart'){
     if(!S.shape.smart)S.shape.smart=ssNormalize({});
@@ -3153,9 +3489,26 @@ function shapeAnnCallouts(r,S,DP,opts,F){
    на чертеже не нужны подписи «A · 48″» — размеры несут цепочки. */
 var SHAPE_EDGE_HEX={A:'#2828dc',B:'#28b428',C:'#fe8d28',D:'#a00082',E:'#007d7d',F:'#7d0000',G:'#6b4cbc',H:'#916019',I:'#0074ad',J:'#a43e72',K:'#5c7a1f',L:'#a04040'};
 function shapeEdgeColor(id){return SHAPE_EDGE_HEX[id]||'#555';}
+/* Свободный контур и правильный многоугольник нумеруют рёбра машинными id:
+   E:PV3, E:V7. Оператору нужна буква стороны, как у остальных фигур, и она
+   выдаётся по порядку обхода контура. Сам id не меняется — по нему привязаны
+   обработка кромки, радиусы и фурнитура, и старые формы не ломаются. */
+function shapeEdgeDisplayName(id,index){
+  var s=String(id==null?'':id);
+  if(/^[A-Z]+[0-9]*$/.test(s))return s;
+  var n=index|0,out='';
+  do{out=String.fromCharCode(65+n%26)+out;n=Math.floor(n/26)-1;}while(n>=0);
+  return out;
+}
+function shapeEdgeNames(geo){
+  var map=Object.create(null),order=[];
+  ((geo&&geo.edges)||[]).forEach(function(e){if(map[e.id]===undefined){map[e.id]=null;order.push(e.id);}});
+  order.forEach(function(id,i){map[id]=shapeEdgeDisplayName(id,i);});
+  return map;
+}
 /* Контур рёбрами, а не одним путём: каждое ребро своим цветом. */
 function shapeAnnContour(r,DP,active,mono){
-  var edges=r.geometry.edges||[],out='';
+  var edges=r.geometry.edges||[],out='',names=shapeEdgeNames(r.geometry);
   /* Цех печатает чёрно-белым, и цвет ребра там пропадает: все стороны
      становятся одинаковыми серыми линиями. Поэтому на печатном варианте
      сторону называет БУКВА рядом с ней, а не цвет. На экране цвет остаётся —
@@ -3166,7 +3519,7 @@ function shapeAnnContour(r,DP,active,mono){
   var seen={};
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
-    var col=mono?'#101828':shapeEdgeColor(e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
+    var col=mono?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
     out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
     if(!mono||seen[e.id])return;
     seen[e.id]=1;
@@ -3174,7 +3527,7 @@ function shapeAnnContour(r,DP,active,mono){
        уже стоят размерные цепочки и подписи обработки. */
     var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
     var lx=mx+dx/d*16,ly=my+dy/d*16;
-    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(e.id)+'</text>';
+    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(names[e.id]||e.id)+'</text>';
   });
   return out;
 }
@@ -3234,6 +3587,135 @@ function shapeDrawingFrame(points,opts){
    на каждом конце, между ними ничего. */
 function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
 function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="13" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+/* Parallelogram OOS is a production measurement, not only an editor input.
+   Show it at both displaced ends, inset into the drawing frame so the marks do
+   not hang outside the shape preview: Right = top-left + bottom-right, Left
+   is mirrored; Up/Down use the same convention rotated through 90 degrees.
+   The value remains engineering-true even when another drawing layer
+   exaggerates a very small slope. */
+function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
+  var d=result&&result.definition;
+  if(!d||d.type!=='parallelogram'||!L)return '';
+  var q=shapeParallelogramValues(d.w,d.h,d.params||{});
+  if(!q.ok||!(q.outOfSquare>1/64))return '';
+  /* Rounded corners make the sampled contour longer than four points.  The
+     OOS datum still belongs to the four construction vertices, which survive
+     in geometry.vertices and are projected through the same display map. */
+  var byId={},vertices=(result.geometry&&result.geometry.vertices)||[];
+  vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
+  var P=[byId.BL,byId.TL,byId.TR,byId.BR];
+  if(P.some(function(p){return !p;})){
+    if(!L.points||L.points.length!==4)return '';
+    P=L.points;
+  }
+  var box=L.box,sideways=q.direction==='left'||q.direction==='right';
+  var label=metricMode?shapeMetricFormat(q.outOfSquare*SHAPE_MM_PER_INCH):shapeAnnDim(q.outOfSquare);
+  var units=metricMode?'mm':'in',ref='#98a2b3',out='';
+  function refV(x){return '<line class="shape-para-oos-reference" x1="'+x+'" y1="'+box.top+'" x2="'+x+'" y2="'+box.bottom+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>';}
+  function refH(y){return '<line class="shape-para-oos-reference" x1="'+box.left+'" y1="'+y+'" x2="'+box.right+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>';}
+  function dimH(x1,x2,fromY,y,pos,key,sign){
+    /* Keep the OOS datum on the corresponding top/bottom line.  A nudge may
+       still move it forward/backward, but the default drawing reads directly
+       on the extension line instead of floating in a second row. */
+    y+=sign*shapeAnnUiShift(opts,key);y=Math.max(box.top,Math.min(box.bottom,y));var mid=(x1+x2)/2,span=Math.abs(x2-x1),dim='';
+    if(span>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
+    else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickH(mid,y);
+    dim+=shapeAnnText(mid,y-8,label,{size:14,weight:700});
+    var body='<g class="shape-para-oos-dimension horizontal" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
+    return shapeAnnUiWrap(opts,key,body,mid,y-28,F);
+  }
+  function dimV(y1,y2,fromX,x,pos,key,sign){
+    x+=sign*shapeAnnUiShift(opts,key);x=Math.max(box.left,Math.min(box.right,x));var mid=(y1+y2)/2,span=Math.abs(y2-y1),dim='';
+    if(span>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
+    else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickV(x,mid);
+    dim+=shapeAnnText(x-10,mid,label,{size:14,weight:700,rot:-90});
+    var body='<g class="shape-para-oos-dimension vertical" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+fromX+'" y1="'+y1+'" x2="'+x+'" y2="'+y1+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+x+'" y2="'+y2+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
+    return shapeAnnUiWrap(opts,key,body,x-28,mid,F);
+  }
+  if(sideways){
+    out+=refV(box.left)+refV(box.right);
+    if(q.direction==='right')out+=dimH(box.left,P[1][0],P[1][1],P[1][1],'top-left','inch:para:oos:top-left',1)+dimH(P[3][0],box.right,P[3][1],P[3][1],'bottom-right','inch:para:oos:bottom-right',-1);
+    else out+=dimH(P[2][0],box.right,P[2][1],P[2][1],'top-right','inch:para:oos:top-right',1)+dimH(box.left,P[0][0],P[0][1],P[0][1],'bottom-left','inch:para:oos:bottom-left',-1);
+  }else{
+    out+=refH(box.top)+refH(box.bottom);
+    if(q.direction==='up')out+=dimV(box.top,P[1][1],P[1][0],P[1][0],'top-left','inch:para:oos:top-left',1)+dimV(P[3][1],box.bottom,P[3][0],P[3][0],'bottom-right','inch:para:oos:bottom-right',-1);
+    else out+=dimV(box.top,P[2][1],P[2][0],P[2][0],'top-right','inch:para:oos:top-right',-1)+dimV(P[0][1],box.bottom,P[0][0],P[0][0],'bottom-left','inch:para:oos:bottom-left',1);
+  }
+  return '<g class="shape-para-oos-layer" aria-label="Out of square '+shapeXml(label)+' '+units+'">'+out+'</g>';
+}
+/* Raked Rectangle has one intentional, useful difference: Long Height minus
+   Short Height.  Читается она там же, где у параллелограмма читается Out of
+   square, — в углу, который рез забрал.  Размер стоит на продолжении короткой
+   стороны, между базой полной высоты (пунктирный габарит на листе уже её
+   показывает) и вершиной, до которой контур реально доходит: он не пересекает
+   стекло, не спорит с подписью угла внутри того же угла и не выходит из кадра.
+   Кнопки −/+ двигают его внутрь детали, как и остальные размеры. */
+function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
+  var d=result&&result.definition;
+  if(!d||d.type!=='raked'||!L)return '';
+  var q=shapeRakedValues(d.w,d.h,d.params||{}),delta=q.longHeight-q.shortHeight;
+  if(!q.ok||!(delta>1/64))return '';
+  var byId={},vertices=(result.geometry&&result.geometry.vertices)||[];
+  vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
+  var topo=shapeRakedVertices(q),plan={},fallback={};
+  (topo.vertices||[]).forEach(function(v){plan[v.id]=[v.x,v.y];fallback[v.id]=L.DP([v.x,v.y]);});
+  var ends={top:['TL','TR'],bottom:['BL','BR'],left:['TL','BL'],right:['TR','BR']}[q.rakeSide];
+  if(!ends||!plan[ends[0]]||!plan[ends[1]])return '';
+  /* Какой конец реза длинный, решает сама геометрия, а не пара флагов: у
+     верхнего реза это более высокая вершина, у правого — та, что держит полную
+     ширину. Так разница не переворачивается ни на одной из четырёх сторон. */
+  var axis=(q.rakeSide==='top'||q.rakeSide==='bottom')?1:0,far=(q.rakeSide==='top'||q.rakeSide==='right')?1:-1,
+      longId=(plan[ends[0]][axis]-plan[ends[1]][axis])*far>0?ends[0]:ends[1],shortId=longId===ends[0]?ends[1]:ends[0],
+      LP=byId[longId]||fallback[longId],SP=byId[shortId]||fallback[shortId];
+  if(!LP||!SP)return '';
+  var box=L.box,units=metricMode?'mm':'in',key='inch:raked:difference',ref='#98a2b3',ink='#101828',lead=26,
+      label=metricMode?shapeMetricFormat(delta*SHAPE_MM_PER_INCH):shapeAnnDim(delta),shift=shapeAnnUiShift(opts,key),
+      head='<g class="shape-raked-difference '+(axis?'vertical':'horizontal')+'" data-raked-role="difference" data-raked-value="'+shapeXml(delta)+'" data-units="'+units+'">',
+      body,dim,cx,cy;
+  if(axis){
+    var inX=SP[0]<=(box.left+box.right)/2?1:-1,x=Math.max(box.left,Math.min(box.right,SP[0]+inX*shift)),
+        y1=Math.min(LP[1],SP[1]),y2=Math.max(LP[1],SP[1]),mid=(y1+y2)/2;
+    if(y2-y1>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
+    else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickV(x,mid);
+    body=head+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:13,weight:700,rot:-90})+'</g>';
+    cx=x+inX*28;cy=mid;
+  }else{
+    var inY=SP[1]<=(box.top+box.bottom)/2?1:-1,y=Math.max(box.top,Math.min(box.bottom,SP[1]+inY*shift)),
+        x1=Math.min(LP[0],SP[0]),x2=Math.max(LP[0],SP[0]),midX=(x1+x2)/2;
+    if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
+    else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(midX,y);
+    body=head+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:13,weight:700})+'</g>';
+    cx=midX;cy=y+inY*28;
+  }
+  return '<g class="shape-raked-difference-layer" aria-label="Height difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
+}
+/* У треугольника единственная величина, которой нет ни в габаритах, ни в
+   подписях рёбер, — смещение вершины от левого нижнего угла. Показываем его
+   тем же языком, что OOS у параллелограмма и разницу у Raked: в пустом углу
+   габарита, на уровне вершины, с движением по −/+. */
+function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
+  var d=result&&result.definition;
+  if(!d||d.type!=='triangle'||!L)return '';
+  var q=shapeTriangleValues(d.w,d.h,d.params||{});
+  if(!q.ok||!(q.topOffset>1/64))return '';
+  var byId={},vertices=(result.geometry&&result.geometry.vertices)||[];
+  vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
+  var apex=byId.APEX,bl=byId.BL;
+  if(!apex||!bl)return '';
+  var box=L.box,units=metricMode?'mm':'in',key='inch:tri:offset',ref='#98a2b3',ink='#101828',
+      label=metricMode?shapeMetricFormat(q.topOffset*SHAPE_MM_PER_INCH):shapeAnnDim(q.topOffset),
+      y=Math.max(box.top,Math.min(box.bottom,apex[1]+shapeAnnUiShift(opts,key))),
+      x1=Math.min(bl[0],apex[0]),x2=Math.max(bl[0],apex[0]),mid=(x1+x2)/2,dim;
+  if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
+  else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(mid,y);
+  var body='<g class="shape-tri-offset" data-tri-role="offset" data-tri-value="'+shapeXml(q.topOffset)+'" data-units="'+units+'"><line x1="'+bl[0]+'" y1="'+bl[1]+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8" stroke-dasharray="6 4"/><line x1="'+apex[0]+'" y1="'+apex[1]+'" x2="'+apex[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(mid,y+15,label,{size:13,weight:700})+'</g>';
+  return '<g class="shape-tri-offset-layer" aria-label="Top offset '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,mid,y+28,F)+'</g>';
+}
+/* Фигуры, у которых свои размеры рёбер стоят в том же коридоре, что и
+   габаритная цепочка: у них метрический лист идёт без дюймового эха и с
+   разведёнными интервалами, иначе внизу собирается каша из четырёх чисел.
+   У прямоугольника и круга ребро равно габариту и второй подписи не рождает. */
+var SHAPE_METRIC_CLEAN_TYPES=['parallelogram','raked','triangle','polygon','custom'];
 function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
 function shapeMetricMenuSvg(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
@@ -3249,18 +3731,21 @@ function shapeMetricDimH(x1,x2,edgeY,y,label,opts,F){
   var text='<text data-metric-role="width" x="'+mid+'" y="'+(y-9)+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">'+shapeXml(label)+'</text>';
   return '<line x1="'+x1+'" y1="'+edgeY+'" x2="'+x1+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x2+'" y1="'+edgeY+'" x2="'+x2+'" y2="'+(y+8)+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,mid,y-34,F);
 }
-function shapeMetricDimV(x,edgeX,y1,y2,label,opts,F){
-  var c='#111827',key='overall:height',shift=shapeMetricShift(opts,key);x=Math.min(edgeX-28,x-shift);var mid=(y1+y2)/2,tx=x-11;
+/* Габаритная высота стоит у той стороны детали, которая эту высоту держит:
+   аргумент right зеркалит выноски, стрелку подписи и кнопки −/+. */
+function shapeMetricDimV(x,edgeX,y1,y2,label,opts,F,right){
+  var c='#111827',key='overall:height',shift=shapeMetricShift(opts,key),s=right?-1:1;
+  x=right?Math.max(edgeX+28,x+shift):Math.min(edgeX-28,x-shift);var mid=(y1+y2)/2,tx=x-11*s;
   var text='<text data-metric-role="height" x="'+tx+'" y="'+mid+'" text-anchor="middle" font-size="16" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate(-90 '+tx+' '+mid+')">'+shapeXml(label)+'</text>';
-  return '<line x1="'+edgeX+'" y1="'+y1+'" x2="'+(x-8)+'" y2="'+y1+'" stroke="'+c+'" stroke-width="1"/><line x1="'+edgeX+'" y1="'+y2+'" x2="'+(x-8)+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,x-64,mid,F);
+  return '<line x1="'+edgeX+'" y1="'+y1+'" x2="'+(x-8*s)+'" y2="'+y1+'" stroke="'+c+'" stroke-width="1"/><line x1="'+edgeX+'" y1="'+y2+'" x2="'+(x-8*s)+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/>'+shapeMetricMovableSvg(opts,key,text,x-64*s,mid,F);
 }
 function shapeInchDimH(x1,x2,fromY,y,label){
   var c='#98a2b3',mid=(x1+x2)/2;
   return '<line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="width" x="'+mid+'" y="'+(y-8)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(label)+'</text>';
 }
-function shapeInchDimV(x,fromX,y1,y2,label){
-  var c='#98a2b3',mid=(y1+y2)/2;
-  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-10)+'" y="'+mid+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9)+' '+mid+')">'+shapeXml(label)+'</text>';
+function shapeInchDimV(x,fromX,y1,y2,label,right){
+  var c='#98a2b3',mid=(y1+y2)/2,s=right?-1:1;
+  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7*s)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7*s)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-10*s)+'" y="'+mid+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9*s)+' '+mid+')">'+shapeXml(label)+'</text>';
 }
 /* Ребро, стоящее по оси, подписывается настоящей размерной линией со
    стрелками и выносками — как габарит слева и снизу. У косого ребра линия под
@@ -3273,16 +3758,72 @@ function shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,inch){
     '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+c+'" stroke-width="'+lw+'" marker-start="url(#'+arrow+')" marker-end="url(#'+arrow+')"/>';
 }
 function shapeMetricPositiveAngle(v){while(v<0)v+=Math.PI*2;while(v>=Math.PI*2)v-=Math.PI*2;return v;}
+/* Дуга в контуре разложена на сотни отрезков. Подписывать каждый нельзя: у
+   круга в метрике выходило больше двух тысяч чисел друг на друге. Кривая
+   получает ОДНУ подпись, и берётся она из самой геометрии, а не из типа
+   фигуры: так же подписываются дуги, пришедшие из DXF.
+   Через три точки группы строится окружность, и если ВСЯ группа ложится на
+   неё, это настоящая дуга — у неё есть радиус. У эллипса радиус переменный,
+   проверка не проходит, и подписи нет: обе оси уже стоят габаритами. */
+function shapeMetricArcFit(pts){
+  if(!pts||pts.length<4)return null;
+  var a=pts[0],b=pts[Math.floor(pts.length/3)],c=pts[Math.floor(pts.length*2/3)];
+  var d=2*(a[0]*(b[1]-c[1])+b[0]*(c[1]-a[1])+c[0]*(a[1]-b[1]));
+  if(Math.abs(d)<1e-9)return null;
+  var sa=a[0]*a[0]+a[1]*a[1],sb=b[0]*b[0]+b[1]*b[1],sc=c[0]*c[0]+c[1]*c[1];
+  var cx=(sa*(b[1]-c[1])+sb*(c[1]-a[1])+sc*(a[1]-b[1]))/d;
+  var cy=(sa*(c[0]-b[0])+sb*(a[0]-c[0])+sc*(b[0]-a[0]))/d;
+  var r=Math.hypot(a[0]-cx,a[1]-cy);
+  if(!(r>0))return null;
+  var dev=0,step=Math.max(1,Math.floor(pts.length/16));
+  for(var i=0;i<pts.length;i+=step)dev=Math.max(dev,Math.abs(Math.hypot(pts[i][0]-cx,pts[i][1]-cy)-r));
+  if(dev>Math.max(r*.005,1e-4))return null;
+  var ends=Math.hypot(pts[0][0]-pts[pts.length-1][0],pts[0][1]-pts[pts.length-1][1]);
+  return {cx:cx,cy:cy,r:r,closed:ends<r*.1};
+}
+function shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F){
+  var groups={},order=[],out='';
+  metric.segments.forEach(function(seg,i){
+    if(!arcSeg[i])return;
+    if(!groups[seg.edgeId]){groups[seg.edgeId]=[];order.push(seg.edgeId);}
+    groups[seg.edgeId].push(seg);
+  });
+  order.forEach(function(id){
+    var segs=groups[id],pts=segs.map(function(s){return s.p1;});
+    pts.push(segs[segs.length-1].p2);
+    var fit=shapeMetricArcFit(pts);
+    if(!fit)return;
+    var C=DP([fit.cx,fit.cy]),rim=DP([fit.cx+fit.r,fit.cy]),rd=Math.hypot(rim[0]-C[0],rim[1]-C[1]);
+    var rMm=shapeMetricRound(fit.r*SHAPE_MM_PER_INCH);
+    if(fit.closed){
+      /* Круг меряют диаметром через центр — так его и подписываем. */
+      out+='<g class="shape-metric-diameter" data-edge-id="'+shapeXml(id)+'" data-diameter-mm="'+shapeMetricFormat(rMm*2)+'"><line x1="'+(C[0]-rd)+'" y1="'+C[1]+'" x2="'+(C[0]+rd)+'" y2="'+C[1]+'" stroke="'+c+'" stroke-width="1.15" marker-start="url(#shapeMetricArrow)" marker-end="url(#shapeMetricArrow)"/><text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+C[0]+'" y="'+(C[1]-9)+'" text-anchor="middle" font-size="15" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">\u00d8 '+shapeMetricFormat(rMm*2)+'</text></g>';
+    }else{
+      var mid=segs[Math.floor(segs.length/2)].p1,M=DP(mid),tx=(C[0]+M[0])/2,ty=(C[1]+M[1])/2;
+      out+='<g class="shape-metric-radius" data-edge-id="'+shapeXml(id)+'" data-radius-mm="'+shapeMetricFormat(rMm)+'"><line x1="'+C[0]+'" y1="'+C[1]+'" x2="'+M[0]+'" y2="'+M[1]+'" stroke="'+c+'" stroke-width="1.15" marker-end="url(#shapeMetricArrow)"/><text class="shape-metric-length" data-edge-id="'+shapeXml(id)+'" x="'+tx+'" y="'+(ty-8)+'" text-anchor="middle" font-size="14" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">R '+shapeMetricFormat(rMm)+'</text></g>';
+    }
+  });
+  return out;
+}
 function shapeMetricLayerSvg(result,F,L,metric,opts){
   if(!metric||metric.vertices.length<3)return '';
   opts=opts||{};
-  var P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  /* Печатный лист всегда идёт как чистая метрика: поля у него урезаны, и
+     дюймовое эхо там не помещается — половина числа уезжала за край бумаги. */
+  var cleanMetric=!!opts.cleanParallelogram||!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
   var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker><marker id="shapeInchArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+ic+'" stroke-width=".75"/></marker></defs>';
   o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
+  /* Отрезки одной дуги идут подряд под общим id ребра. Если их набралось
+     много, это тесселяция кривой, а не настоящие рёбра: подписи по отрезкам
+     не рисуем вовсе, кривая получит одну свою ниже. */
+  var arcCount={};
+  metric.segments.forEach(function(seg){arcCount[seg.edgeId]=(arcCount[seg.edgeId]||0)+1;});
+  var arcSeg=metric.segments.map(function(seg){return arcCount[seg.edgeId]>=8;});
   var inchEdges='',inchDims='';
   metric.segments.forEach(function(seg,i){
+    if(arcSeg[i])return;
     var a=Q[i],b=Q[(i+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
     /* Горизонтальное/вертикальное ребро, равное полному W/H, уже подписано
        габаритной цепочкой. Вторую такую же цифру возле кромки не рисуем. */
@@ -3296,39 +3837,71 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Ребро по оси получает размерную линию, и число отходит от неё дальше;
        у косого ребра число по-прежнему лежит вдоль самого ребра. */
     var axis=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
-    var key='edge:'+i,base=axis?44:15,off=Math.max(6,base+shapeMetricShift(opts,key));
+    /* На печатном листе поля урезаны: ряд размеров рёбер придвигаем к детали,
+       иначе он и габаритная цепочка не помещаются вдвоём под нижней кромкой. */
+    var key='edge:'+i,base=axis?(opts.sheet?34:(cleanMetric?50:44)):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
     if(axis)o+=shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,false);
     var lead=axis?off+11:off,inchLead=axis?off+41:lead+21;
-    if(axis)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
+    if(axis&&!cleanMetric)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
     var x=mx+nx*lead,y=my+ny*lead,ang=Math.atan2(dy,dx)*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var metricText='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">('+shapeMetricFormat(seg.lengthMm)+')</text>';
     o+=shapeMetricMovableSvg(opts,key,metricText,x,y+27,F);
     var ix=mx+nx*inchLead,iy=my+ny*inchLead;
-    inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
+    if(!cleanMetric)inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
   });
-  if(inchEdges||inchDims)o+='<g class="shape-inch-reference-layer" data-units="in">'+inchDims+inchEdges+'</g>';
+  if(!cleanMetric&&(inchEdges||inchDims))o+='<g class="shape-inch-reference-layer" data-units="in">'+inchDims+inchEdges+'</g>';
   metric.vertices.forEach(function(v,i){
+    /* Точка внутри дуги — не угол, и касательный стык двух рёбер тоже: 180°
+     подписывать нечем. */
+    if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
+    if(Math.abs(v.angleDeg-180)<.5)return;
     var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
     var r=Math.max(12,Math.min(30,Math.min(Math.hypot(prev[0]-b[0],prev[1]-b[1]),Math.hypot(next[0]-b[0],next[1]-b[1]))*.24));
     var steps=Math.max(5,Math.ceil(span/(Math.PI/12))),arc='';
     for(var j=0;j<=steps;j++){var a=a0+delta*j/steps,x=b[0]+Math.cos(a)*r,y=b[1]+Math.sin(a)*r;arc+=(j?' L ':'M ')+x+' '+y;}
-    var mid=a0+delta/2,key='angle:'+i,lr=Math.max(r+5,r+15+shapeMetricShift(opts,key)),lx=b[0]+Math.cos(mid)*lr,ly=b[1]+Math.sin(mid)*lr;
+    var mid=a0+delta/2,key='angle:'+i,lr=Math.max(r+5,r+15+(cleanMetric?10:0)+shapeMetricShift(opts,key)),lx=b[0]+Math.cos(mid)*lr,ly=b[1]+Math.sin(mid)*lr;
     o+='<path class="shape-metric-angle-arc" data-vertex-index="'+i+'" d="'+arc+'" fill="none" stroke="'+c+'" stroke-width="1.15"/>';
     var angleText='<text class="shape-metric-angle" data-vertex-index="'+i+'" data-convex="'+(v.convex?'true':'false')+'" x="'+lx+'" y="'+(ly+4.5)+'" text-anchor="middle" font-size="13.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill">('+shapeMetricFormat(v.angleDeg)+'°)</text>';
     o+=shapeMetricMovableSvg(opts,key,angleText,lx,ly+27,F);
   });
+  o+=shapeMetricCurvesSvg(metric,arcSeg,DP,c,opts,F);
   var xs=Q.map(function(p){return p[0];}),ys=Q.map(function(p){return p[1];});
   var box={left:Math.min.apply(null,xs),right:Math.max.apply(null,xs),top:Math.min.apply(null,ys),bottom:Math.max.apply(null,ys)};
   /* Габариты держим рядом с деталью: большой пустой коридор создавал ложное
      ощущение, будто сам контур растянут до размерной линии. */
+  /* Габаритную цепочку ставим у той стороны, которая габарит и держит. У
+     smart-shape высокая сторона бывает справа — цепочка слева тогда наезжала
+     на собственный размер короткой левой кромки. Если полной стороны нет ни
+     слева, ни справа (обе кромки косые), цепочку уносим за их ряд. */
+  var fullLeft=false,fullRight=false,fullBottom=false;
+  metric.segments.forEach(function(seg,i){
+    var a=Q[i],pdx=Math.abs(seg.p2[0]-seg.p1[0]),pdy=Math.abs(seg.p2[1]-seg.p1[1]);
+    if(pdx<1e-7&&Math.abs(seg.lengthMm-metric.bbox.heightMm)<.015){
+      if(Math.abs(a[0]-box.left)<.5)fullLeft=true;else if(Math.abs(a[0]-box.right)<.5)fullRight=true;
+    }
+    if(pdy<1e-7&&Math.abs(seg.lengthMm-metric.bbox.widthMm)<.015&&Math.abs(a[1]-box.bottom)<.5)fullBottom=true;
+  });
+  var heightRight=!fullLeft&&fullRight;
   var widthGap=Math.max(24,44+shapeMetricShift(opts,'overall:width'));
   var heightGap=Math.max(28,48+shapeMetricShift(opts,'overall:height'));
-  o+=shapeMetricDimH(box.left,box.right,box.bottom,box.bottom+44,shapeMetricFormat(metric.bbox.widthMm),opts,F);
-  o+=shapeMetricDimV(box.left-48,box.left,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F);
-  o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(box.left-heightGap-36,box.left-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″')+'</g>';
+  /* On a parallelogram the physical bottom edge has its own 1219.20 mm
+     dimension.  Put the overall bounding width (for example 1752.60 mm)
+     on a clearly separate next row, so the two readings have an unambiguous
+     order.  The compact print sheet keeps the shorter offset to stay in frame. */
+  var wideRow=opts.sheet?82:104;
+  var overallWidthGap=cleanMetric?wideRow:(fullBottom?44:wideRow);
+  o+=shapeMetricDimH(box.left,box.right,box.bottom,box.bottom+overallWidthGap,shapeMetricFormat(metric.bbox.widthMm),opts,F);
+  /* Up/Down puts the OOS dimension on a vertical end of the piece.  Keep the
+     overall height beyond the edge-length dimension so labels never share the
+     same side corridor. */
+  var wideSide=opts.sheet?62:104;
+  var overallHeightGap=cleanMetric?wideSide:((fullLeft||fullRight)?48:wideSide);
+  var heightEdge=heightRight?box.right:box.left;
+  o+=shapeMetricDimV(heightRight?heightEdge+overallHeightGap:heightEdge-overallHeightGap,heightEdge,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F,heightRight);
+  if(!cleanMetric)o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(heightRight?heightEdge+heightGap+36:heightEdge-heightGap-36,heightRight?heightEdge+heightGap+8:heightEdge-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″',heightRight)+'</g>';
   /* На печатном листе своя шапка: периметр и толщина там уже есть, а сводка
      садилась поверх чертежа вторым набором тех же чисел. */
   if(opts.sheet)return o+'</g>';
@@ -3367,8 +3940,9 @@ function shapeOpText(o){
   if(o.type==='CNC Shape Polish')return 'CNC';
   return o.type;
 }
-function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts){
+function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
   var orient=fabSignedArea(result.points),lanes={},out='',DP=(layer&&layer.DP)||function(p){return [F.X(p[0]),F.Y(p[1])];};
+  var edgeNames=shapeEdgeNames(result.geometry);
   shapeEdgeGroups(result.geometry).forEach(function(g){
     var total=g.length/2,walk=0,seg=g.segments[0],t=.5;for(var i=0;i<g.segments.length;i++){var L=g.segments[i].length||0;if(walk+L>=total){seg=g.segments[i];t=L?(total-walk)/L:.5;break;}walk+=L;}
     var dx=seg.p2[0]-seg.p1[0],dy=seg.p2[1]-seg.p1[1],L=Math.hypot(dx,dy)||1,n=orient<0?[-dy/L,dx/L]:[dy/L,-dx/L],key=Math.abs(n[0])>Math.abs(n[1])?(n[0]>0?'R':'L'):(n[1]>0?'T':'B'),lane=lanes[key]||0;lanes[key]=lane+1;
@@ -3378,11 +3952,21 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts){
     /* Smart-Shape уже подписывает длины своими цепочками. Для обычных форм
        оставляем короткую запись без символов единиц и декоративных разделителей. */
     var operationsOnly=!!(layer&&layer.contour&&layer.smart);
-    var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):([g.id,shapeDrawingDim(g.length)].concat(ops).join(' ')));
+    /* Машинный id ребра на чертеже не нужен: сторону называет буква, как у
+       Smart-Shape, а рядом стоит её длина — на скосах это единственный размер. */
+    var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):([edgeNames[g.id]||g.id,shapeDrawingDim(g.length)].concat(ops).join(' ')));
     if(!txt)return;
     /* A/B/C/D и обработка всегда стоят СНАРУЖИ контура. Короткая подпись
        поворачивается вдоль ребра и не отнимает место у отверстий и петель. */
-    var moveKey='inch:edge:'+g.id,off=Math.max(6,18+lane*14+(operationsOnly?0:shapeAnnUiShift(layoutOpts,moveKey))),x=ax+n[0]*off,y=ay-n[1]*off;
+    /* В метрике возле ребра уже стоит его длина в мм, и обработка кромки
+       должна разойтись с ней. У ребра по оси число уносит далеко (50 и дальше),
+       поэтому обработке хватает обычного места у кромки. У косого ребра число
+       стоит в 23 — обработку уводим за него, иначе FP садится прямо на
+       (304.80). Дорожки lane здесь не нужны: подписи и так стоят каждая у
+       своего ребра, а сдвиг по дорожкам уводил их в габаритную цепочку. */
+    var axisEdge=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
+    var metricOff=axisEdge?18:(metricClean?40:52);
+    var moveKey='inch:edge:'+g.id,off=metricMode?metricOff:Math.max(6,18+lane*14+(operationsOnly?0:shapeAnnUiShift(layoutOpts,moveKey))),x=ax+n[0]*off,y=ay-n[1]*off;
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var body='<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="9" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
@@ -3434,7 +4018,7 @@ function shapeProductionSvg(result,opts){
   var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
-  if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
+  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
@@ -3443,7 +4027,11 @@ function shapeProductionSvg(result,opts){
      друга. Дюймовые цепочки скрываем; отверстия и прочие производственные
      обозначения ниже остаются в исходных единицах согласно спецификации. */
   if(!F.metric)o+=L.annotations;
-  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,Object.assign({},opts.metric,{sheet:sheet}))+shapeGlassHatchSvg(L);
+  var metricClean=SHAPE_METRIC_CLEAN_TYPES.indexOf(result.definition.type)>=0;
+  if(F.metric){var paraMetric=Object.assign({},opts.metric,{sheet:sheet,cleanParallelogram:metricClean});o+=shapeMetricLayerSvg(result,F,L,F.metric,paraMetric)+shapeGlassHatchSvg(L);}
+  o+=shapeParallelogramOosSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
+  o+=shapeRakedDifferenceSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
+  o+=shapeTriangleOffsetSvg(result,F,L,F.metric?(opts.metric||ann):ann,!!F.metric);
   /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
      каждая сторона уже расписана по участкам, и общий размер вставал вторым
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
@@ -3458,7 +4046,7 @@ function shapeProductionSvg(result,opts){
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
-  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation);
+  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation,metricClean);
   if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
@@ -10897,7 +11485,7 @@ function viewShapeSkill(){
     var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
-  var presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  var presetOptions=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Для DXF из Fusion 360 ERP хранит метаданные, лёгкий 2D-контур превью и габариты; исходное содержимое DXF в localStorage не сохраняется.</span></div>`}
     ${sEdit!==null?shapeForm():''}
     <table><thead><tr><th>Название / тип</th><th>Габарит</th><th>Кромок</th><th>Features</th><th>Статус</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>
@@ -10937,8 +11525,40 @@ function shapeSourceEditor(){
 function shapeDraftLine(){return shapeDefToLine(sDraft);}
 function shapeDraftGeometry(){try{return shapeGeometry(shapeDraftLine());}catch(e){return {ok:false,error:e.message,points:[],edges:[],vertices:[]};}}
 function shapeDraftResult(){try{return ShapeModule.compute(sDraft);}catch(e){return {valid:false,reason:e.message,errors:[e.message]};}}
-function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}refreshShapeEditor();}
-function setShapeParam(k,v){sDraft.params[k]=v;refreshShapeEditor();}
+function shapeParaDraftValues(){return shapeParallelogramValues(sDraft.w,sDraft.h,sDraft.params||{});}
+function shapeParaRemember(q){
+  if(!q||!q.ok)return q;if(!sDraft.params)sDraft.params={};
+  sDraft.params.outOfSquare=shapeParaDimText(q.outOfSquare);
+  sDraft.params.diagonal=shapeParaDimText(q.diagonal);
+  sDraft.params.angle=shapeParaAngleText(q.angle);
+  if(q.mode==='diagonal-angle'){
+    if(q.sideways)sDraft.h=shapeParaDimText(q.height);else sDraft.w=shapeParaDimText(q.width);
+  }
+  return q;
+}
+function shapeParaApplyResolved(){return shapeParaRemember(shapeParaDraftValues());}
+function setShapeParaMeasure(v){
+  shapeParaRemember(shapeParaDraftValues());sDraft.params.measureMode=shapeParaMeasure(v);shapeParaApplyResolved();render();
+}
+function setShapeParaDirection(v){
+  shapeParaRemember(shapeParaDraftValues());sDraft.params.slopeDirection=shapeParaDirection(v);shapeParaApplyResolved();render();
+}
+function shapeTriDraftValues(){return shapeTriangleValues(sDraft.w,sDraft.h,sDraft.params||{});}
+/* Второй набор измерений пересчитывается на каждом вводе. Поэтому переключение
+   Measure не двигает уже построенный треугольник: режим берёт готовые числа,
+   а не строит фигуру заново из того, что осталось в полях. */
+function shapeTriRemember(q){
+  if(!q||!q.ok)return q;if(!sDraft.params)sDraft.params={};
+  if(q.mode==='diagonal'){sDraft.h=shapeParaDimText(q.height);sDraft.params.topOffset=shapeParaDimText(q.topOffset);}
+  else{sDraft.params.leftEdge=shapeParaDimText(q.leftEdge);sDraft.params.rightEdge=shapeParaDimText(q.rightEdge);}
+  return q;
+}
+function shapeTriApplyResolved(){return shapeTriRemember(shapeTriDraftValues());}
+function setShapeTriMeasure(v){
+  shapeTriRemember(shapeTriDraftValues());sDraft.params.measureMode=shapeTriMeasure(v);shapeTriApplyResolved();render();
+}
+function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();refreshShapeEditor();}
+function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();refreshShapeEditor();}
 function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=S.shape.smart;refreshShapeEditor();}
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
@@ -10979,7 +11599,7 @@ function setShapeType(type){
   var linked=Object.keys(sDraft.edgeOps||{}).length||(sDraft.features||[]).some(function(f){return f.type==='radius'||f.type==='hardware';});
   if(linked&&!confirm('Changing the shape type will remove topology-bound radii, hardware prep and edgework. Continue?')){render();return;}
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);sDraft.edgeOps={};sDraft.features=(sDraft.features||[]).filter(function(f){return f.type!=='radius'&&f.type!=='hardware';});
-  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='polygon'||type==='custom')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
   render();
 }
@@ -12007,6 +12627,10 @@ function refreshShapeEditor(){
   }
   syncField('emAlen',sDraft.h);syncField('shapeHField',sDraft.h);
   syncField('emBlen',sDraft.w);syncField('shapeWField',sDraft.w);
+  if(sDraft.type==='parallelogram')shapeParaRefresh();
+  if(sDraft.type==='triangle')shapeTriRefresh();
+  if(sDraft.type==='polygon')shapePolyRefresh();
+  if(sDraft.type==='custom')shapeCustomApplyResolved();
   shapeMarkFields();shapeFitPreview();
   document.querySelectorAll('[data-shape-view]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-shape-view')===sView);});
   var metricButton=document.querySelector('.shape-metric-toggle'),metricOff=sView==='cutting'||shapeIsDxfSource(sDraft);
@@ -12055,8 +12679,12 @@ function shapeCEffective(){
    прямоугольник и остальные пресеты матрицы не имеют, им шапка остаётся. */
 function shapeMasterSizeFields(){
   if(sDraft.type==='smart')return '';
+  if(sDraft.type==='parallelogram')return shapeParaMasterSizeFields();
+  if(sDraft.type==='triangle')return shapeTriMasterSizeFields();
+  if(sDraft.type==='polygon')return shapePolyMasterSizeFields();
+  if(sDraft.type==='custom')return shapeCustomMasterSizeFields();
   var w=`<div><label>${sDraft.type==='circle'?'Diameter':'B · Width'}</label><input id='shapeWField' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>`;
-  var h=sDraft.type==='circle'?'':`<div><label>A · Height</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
+  var h=sDraft.type==='circle'?'':`<div><label>${sDraft.type==='raked'?'Long Height':'A · Height'}</label><input id='shapeHField' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
   return w+h;
 }
 function shapeEdgeMatrix(){
@@ -12178,6 +12806,7 @@ function shapeMarkFields(){
   document.querySelectorAll('#shapeEditorRoot [data-vfield]').forEach(function(el){
     var kind=el.getAttribute('data-vfield'),v=String(el.value==null?'':el.value).trim(),bad;
     if(kind==='len')bad=!(inch(v)>0);
+    else if(kind==='angle')bad=!(v!==''&&isFinite(+v)&&+v>=0&&+v<90);
     else bad=(v!==''&&!fabParseDimStrict(v).ok);
     el.classList.toggle('bad',!!bad);
   });
@@ -12225,15 +12854,164 @@ function shapeSmartControls(){
     ${shapeEdgeMatrix()}
     ${shapeCornerSectionsVisible()?`<div class='extra-edges'><div class='corner-title'><b>Corner edge dimensions</b><span>each notch edge can be skewed independently</span></div>${map.length?shapeNotchMatrix(map):`<div class='empty compact'>Values appear when the corner block has edges</div>`}</div>`:''}`;
 }
-function shapePolygonControls(){
-  return `<div class='shape-subsection'><div class='corner-title'><b>Polygon vertices</b><span>IDs remain stable for radii and revisions</span></div><div class='shape-vertex-grid'>${sDraft.polygon.map(function(v,i){return `<div class='shape-vertex-row'><b>${esc(v.id)}</b><label>X<input value='${esc(v.x)}' oninput='setPolygonCoord(${i},"x",this.value)'></label><label>Y<input value='${esc(v.y)}' oninput='setPolygonCoord(${i},"y",this.value)'></label><button class='sm dl' ${sDraft.polygon.length<=3?'disabled':''} onclick='removePolygonVertex(${i})'>×</button></div>`;}).join('')}</div><button class='sm' onclick='addPolygonVertex()'>Add vertex</button></div>`;
+function shapeParaMasterSizeFields(){
+  var q=shapeParaDraftValues(),derived=q.mode==='diagonal-angle';
+  var wDerived=derived&&!q.sideways,hDerived=derived&&q.sideways;
+  return `<div><label>B · Width${wDerived?' · calculated':''}</label><input id='shapeWField' data-vfield='len' class='${wDerived?'ro':''}' ${wDerived?'readonly':''} value='${esc(wDerived&&q.ok?shapeParaDimText(q.width):sDraft.w)}' oninput='setShapeField("w",this.value)'></div>
+    <div><label>A · Height${hDerived?' · calculated':''}</label><input id='shapeHField' data-vfield='len' class='${hDerived?'ro':''}' ${hDerived?'readonly':''} value='${esc(hDerived&&q.ok?shapeParaDimText(q.height):sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
 }
-function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;refreshShapeEditor();}
-function addPolygonVertex(){var last=sDraft.polygon[sDraft.polygon.length-1]||{x:'0',y:'0'};sDraft.polygon.push({id:shapeNewEntityId('PV-'),x:String(inch(last.x)+4),y:String(inch(last.y))});render();}
-function removePolygonVertex(i){if(sDraft.polygon.length<=3)return;sDraft.polygon.splice(i,1);render();}
+function shapeParaDiagram(){
+  var q=shapeParaDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  var arrow=SHAPE_PARA_DIRECTIONS.find(function(x){return x.id===q.direction;});
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Parallelogram measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>OOS ${esc(shapeParaDimText(q.outOfSquare))}″</text><text class='dir' x='${vw/2}' y='16' text-anchor='middle'>${esc(arrow.arrow+' '+arrow.label)}</text></svg>`;
+}
+function shapeParaReadout(q){return q&&q.ok?{oos:shapeParaDimText(q.outOfSquare)+'″',diagonal:shapeParaDimText(q.diagonal)+'″',angle:shapeParaAngleText(q.angle)+'°'}:{oos:'—',diagonal:'—',angle:'—'};}
+function shapeParaRefresh(){
+  var q=shapeParaApplyResolved(),v=shapeParaReadout(q),act=document.activeElement;
+  function val(id,value){var el=document.getElementById(id);if(el&&el!==act)el.value=value;}
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  if(q&&q.ok){
+    if(q.mode!=='height-oos')val('shapeParaOosField',v.oos);
+    if(q.mode!=='height-diagonal'&&q.mode!=='diagonal-angle')val('shapeParaDiagonalField',v.diagonal);
+    if(q.mode!=='diagonal-angle'&&q.mode!=='height-angle')val('shapeParaAngleField',shapeParaAngleText(q.angle));
+    if(q.mode==='diagonal-angle'){if(q.sideways)val('shapeHField',shapeParaDimText(q.height));else val('shapeWField',shapeParaDimText(q.width));}
+  }
+  txt('shapeParaReadOos',v.oos);txt('shapeParaReadDiagonal',v.diagonal);txt('shapeParaReadAngle',v.angle);
+  var visual=document.getElementById('shapeParaVisual');if(visual)visual.innerHTML=shapeParaDiagram();
+}
+function shapeParaControls(){
+  var q=shapeParaDraftValues(),mode=q.mode,read=shapeParaReadout(q);
+  function input(id,label,key,value,kind){return `<label>${label}<input id='${id}' data-vfield='${kind||'num'}' value='${esc(value)}' oninput='setShapeParam("${key}",this.value)'></label>`;}
+  var fields='';
+  if(mode==='height-oos')fields=input('shapeParaOosField','Out of square','outOfSquare',sDraft.params.outOfSquare,'num');
+  if(mode==='height-diagonal')fields=input('shapeParaDiagonalField','Diagonal Length','diagonal',sDraft.params.diagonal,'len');
+  if(mode==='diagonal-angle')fields=input('shapeParaDiagonalField','Diagonal Length','diagonal',sDraft.params.diagonal,'len')+input('shapeParaAngleField','OOS Angle','angle',sDraft.params.angle,'angle');
+  if(mode==='height-angle')fields=input('shapeParaAngleField','OOS Angle','angle',sDraft.params.angle,'angle');
+  return `<div class='shape-subsection shape-para-editor'><div class='corner-title'><b>Parallelogram measurements</b><span>finished size · fractions supported</span></div>
+    <label>Measure<select onchange='setShapeParaMeasure(this.value)'>${SHAPE_PARA_MEASURES.map(function(x){return `<option value='${x.id}' ${mode===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></label>
+    <div class='shape-para-main'><div id='shapeParaVisual' class='shape-para-visual'>${shapeParaDiagram()}</div><div class='shape-para-entry'>${fields}<label>Slope Direction<div class='shape-para-directions'>${SHAPE_PARA_DIRECTIONS.map(function(x){return `<button type='button' class='${q.direction===x.id?'on':''}' onclick='setShapeParaDirection("${x.id}")'><i>${x.arrow}</i>${x.label}</button>`;}).join('')}</div></label></div></div>
+    <div class='shape-para-readout'><span><small>Out of square</small><b id='shapeParaReadOos'>${esc(read.oos)}</b></span><span><small>Diagonal</small><b id='shapeParaReadDiagonal'>${esc(read.diagonal)}</b></span><span><small>OOS Angle</small><b id='shapeParaReadAngle'>${esc(read.angle)}</b></span></div></div>`;
+}
+/* Треугольник переиспользует раскладку измерений параллелограмма — схема,
+   поля ввода и строка расчёта. Одна и та же сетка на всех фигурах с режимами
+   ввода: оператор не переучивается, переходя с фигуры на фигуру. */
+function shapeTriMasterSizeFields(){
+  var q=shapeTriDraftValues(),derived=q.mode==='diagonal';
+  return `<div><label>B · Bottom</label><input id='shapeWField' data-vfield='len' value='${esc(sDraft.w)}' oninput='setShapeField("w",this.value)'></div>
+    <div><label>A · Height${derived?' · calculated':''}</label><input id='shapeHField' data-vfield='len' class='${derived?'ro':''}' ${derived?'readonly':''} value='${esc(derived&&q.ok?shapeParaDimText(q.height):sDraft.h)}' oninput='setShapeField("h",this.value)'></div>`;
+}
+function shapeTriReadout(q){
+  return q&&q.ok?{offset:shapeParaDimText(q.topOffset)+'″',left:shapeParaDimText(q.leftEdge)+'″',right:shapeParaDimText(q.rightEdge)+'″'}:{offset:'—',left:'—',right:'—'};
+}
+function shapeTriDiagram(){
+  var q=shapeTriDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  var ax=X(q.topOffset).toFixed(1),ay=Y(q.height).toFixed(1),base=Y(0).toFixed(1);
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Triangle measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><line x1='${ax}' y1='${ay}' x2='${ax}' y2='${base}' stroke='#b42318' stroke-width='1' stroke-dasharray='4 3'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Bottom ${esc(shapeParaDimText(q.bottom))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>Offset ${esc(shapeParaDimText(q.topOffset))}″</text></svg>`;
+}
+function shapeTriRefresh(){
+  var q=shapeTriApplyResolved(),v=shapeTriReadout(q),act=document.activeElement;
+  function val(id,value){var el=document.getElementById(id);if(el&&el!==act)el.value=value;}
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  if(q&&q.ok){
+    if(q.mode!=='square')val('shapeTriOffsetField',shapeParaDimText(q.topOffset));
+    if(q.mode!=='diagonal'){val('shapeTriLeftField',shapeParaDimText(q.leftEdge));val('shapeTriRightField',shapeParaDimText(q.rightEdge));}
+  }
+  txt('shapeTriReadOffset',v.offset);txt('shapeTriReadLeft',v.left);txt('shapeTriReadRight',v.right);
+  var visual=document.getElementById('shapeTriVisual');if(visual)visual.innerHTML=shapeTriDiagram();
+}
+function shapeTriangleControls(){
+  var q=shapeTriDraftValues(),mode=q.mode,read=shapeTriReadout(q),p=sDraft.params||{};
+  function input(id,label,key,value,kind){return `<label>${label}<input id='${id}' data-vfield='${kind||'num'}' value='${esc(value)}' oninput='setShapeParam("${key}",this.value)'></label>`;}
+  var fields=mode==='diagonal'
+    ?input('shapeTriLeftField','Left Edge','leftEdge',p.leftEdge,'len')+input('shapeTriRightField','Right Edge','rightEdge',p.rightEdge,'len')
+    :input('shapeTriOffsetField','Top Offset','topOffset',p.topOffset,'len');
+  return `<div class='shape-subsection shape-para-editor shape-tri-editor'><div class='corner-title'><b>Triangle measurements</b><span>finished size · fractions supported</span></div>
+    <label>Measure<select onchange='setShapeTriMeasure(this.value)'>${SHAPE_TRI_MEASURES.map(function(x){return `<option value='${x.id}' ${mode===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></label>
+    <div class='shape-para-main'><div id='shapeTriVisual' class='shape-para-visual'>${shapeTriDiagram()}</div><div class='shape-para-entry'>${fields}</div></div>
+    <div class='shape-para-readout'><span><small>Top offset</small><b id='shapeTriReadOffset'>${esc(read.offset)}</b></span><span><small>Left edge</small><b id='shapeTriReadLeft'>${esc(read.left)}</b></span><span><small>Right edge</small><b id='shapeTriReadRight'>${esc(read.right)}</b></span></div></div>`;
+}
+function shapeCustomApplyResolved(){
+  var b=shapeCustomBounds(sDraft.polygon);
+  if(b){sDraft.w=shapeParaDimText(b.width);sDraft.h=shapeParaDimText(b.height);}
+  return b;
+}
+function shapeCustomMasterSizeFields(){
+  var b=shapeCustomBounds(sDraft.polygon);
+  return `<div><label>B · Width · from points</label><input id='shapeWField' data-vfield='len' class='ro' readonly value='${esc(b?shapeParaDimText(b.width):sDraft.w)}'></div>
+    <div><label>A · Height · from points</label><input id='shapeHField' data-vfield='len' class='ro' readonly value='${esc(b?shapeParaDimText(b.height):sDraft.h)}'></div>`;
+}
+function shapePolyDraftValues(){return shapeRegularPolygonValues(sDraft.params||{});}
+/* Габарит правильного многоугольника задан числом сторон и стороной, поэтому
+   W и H живут в черновике как посчитанные значения: карточки Finished и Cut
+   size, раскрой и печать читают их оттуда же, откуда у остальных фигур. */
+function shapePolyRemember(q){
+  if(!q||!q.ok)return q;
+  sDraft.w=shapeParaDimText(q.width);sDraft.h=shapeParaDimText(q.height);
+  return q;
+}
+function shapePolyApplyResolved(){return shapePolyRemember(shapePolyDraftValues());}
+function shapePolyReadout(q){
+  return q&&q.ok?{width:shapeParaDimText(q.width)+'″',height:shapeParaDimText(q.height)+'″',perimeter:shapeParaDimText(q.perimeter)+'″'}:{width:'—',height:'—',perimeter:'—'};
+}
+function shapePolyMasterSizeFields(){
+  var q=shapePolyDraftValues();
+  return `<div><label>B · Width · calculated</label><input id='shapeWField' data-vfield='len' class='ro' readonly value='${esc(q.ok?shapeParaDimText(q.width):sDraft.w)}'></div>
+    <div><label>A · Height · calculated</label><input id='shapeHField' data-vfield='len' class='ro' readonly value='${esc(q.ok?shapeParaDimText(q.height):sDraft.h)}'></div>`;
+}
+function shapePolyDiagram(){
+  var q=shapePolyDraftValues(),g=shapeDraftGeometry();
+  if(!q.ok||!g.ok)return `<div class='shape-para-invalid'>Enter a valid measurement set</div>`;
+  var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
+  function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
+  var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Polygon measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>${q.sides} × ${esc(shapeParaDimText(q.sideLength))}″</text></svg>`;
+}
+function shapePolyRefresh(){
+  var q=shapePolyApplyResolved(),v=shapePolyReadout(q);
+  function txt(id,value){var el=document.getElementById(id);if(el)el.textContent=value;}
+  txt('shapePolyReadWidth',v.width);txt('shapePolyReadHeight',v.height);txt('shapePolyReadPerimeter',v.perimeter);
+  var visual=document.getElementById('shapePolyVisual');if(visual)visual.innerHTML=shapePolyDiagram();
+}
+function shapePolygonControls(){
+  var q=shapePolyDraftValues(),p=sDraft.params||{},read=shapePolyReadout(q);
+  return `<div class='shape-subsection shape-para-editor shape-poly-editor'><div class='corner-title'><b>Polygon measurements</b><span>regular polygon · all sides equal</span></div>
+    <div class='shape-para-main'><div id='shapePolyVisual' class='shape-para-visual'>${shapePolyDiagram()}</div><div class='shape-para-entry'><label>Number of Sides<input id='shapePolySidesField' data-vfield='num' value='${esc(p.sides)}' oninput='setShapeParam("sides",this.value)'></label><label>Side Length<input id='shapePolySideField' data-vfield='len' value='${esc(p.sideLength)}' oninput='setShapeParam("sideLength",this.value)'></label></div></div>
+    <div class='shape-para-readout'><span><small>Width</small><b id='shapePolyReadWidth'>${esc(read.width)}</b></span><span><small>Height</small><b id='shapePolyReadHeight'>${esc(read.height)}</b></span><span><small>Perimeter</small><b id='shapePolyReadPerimeter'>${esc(read.perimeter)}</b></span></div></div>`;
+}
+/* Свободный контур по точкам: пришёл из старого Polygon и остаётся здесь без
+   изменений — те же ID вершин, те же радиусы и та же обработка кромки. */
+function shapeCustomControls(){
+  return `<div class='shape-subsection'><div class='corner-title'><b>Custom Shape points</b><span>order sets the outline · last point closes back to the first · minimum three</span></div><div class='shape-vertex-grid'>${sDraft.polygon.map(function(v,i){return `<div class='shape-vertex-row'><b>${esc(v.id)}</b><label>X<input value='${esc(v.x)}' oninput='setPolygonCoord(${i},"x",this.value)'></label><label>Y<input value='${esc(v.y)}' oninput='setPolygonCoord(${i},"y",this.value)'></label><button class='sm dl' ${sDraft.polygon.length<=3?'disabled':''} onclick='removePolygonVertex(${i})'>×</button></div>`;}).join('')}</div><button class='sm' onclick='addPolygonVertex()'>Add point</button></div>`;
+}
+function shapeRakedControls(){
+  var p=sDraft.params||{},side=shapeRakeSide(p.rakeSide),shortSide=shapeRakeShortSide(p.shortSide);
+  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>Short Height</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>Short Side</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div></div></div>`;
+}
+function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;shapeCustomApplyResolved();refreshShapeEditor();}
+/* Номер точки должен читаться человеком: он стоит и в таблице, и в коде
+   ребра (E:PV5). Берём следующий свободный номер, а не UUID. */
+function addPolygonVertex(){
+  var last=sDraft.polygon[sDraft.polygon.length-1]||{x:'0',y:'0'};
+  var used=sDraft.polygon.map(function(v){return Math.max(0,parseInt(String(v.id||'').replace(/[^0-9]/g,''),10)||0);});
+  var next=Math.max.apply(null,used.concat([sDraft.polygon.length]))+1;
+  sDraft.polygon.push({id:'PV'+next,x:String(inch(last.x)+4),y:String(inch(last.y))});shapeCustomApplyResolved();render();
+}
+function removePolygonVertex(i){if(sDraft.polygon.length<=3)return;sDraft.polygon.splice(i,1);shapeCustomApplyResolved();render();}
 function shapeGenericControls(){
+  if(sDraft.type==='parallelogram')return shapeParaControls();
+  if(sDraft.type==='raked')return shapeRakedControls();
+  if(sDraft.type==='triangle')return shapeTriangleControls();
+  if(sDraft.type==='polygon')return shapePolygonControls();
   var specs=shapeParamSpecsFor(sDraft.type);
-  return `${specs.length?`<div class='shape-subsection'><div class='corner-title'><b>Shape parameters</b><span>inches · fractions supported</span></div><div class='grid'>${specs.map(function(s){return `<div><label>${esc(s.label)}</label><input value='${esc(sDraft.params[s.key])}' oninput='setShapeParam("${s.key}",this.value)'></div>`;}).join('')}</div></div>`:''}${sDraft.type==='polygon'?shapePolygonControls():''}`;
+  return `${specs.length?`<div class='shape-subsection'><div class='corner-title'><b>Shape parameters</b><span>inches · fractions supported</span></div><div class='grid'>${specs.map(function(s){return `<div><label>${esc(s.label)}</label><input value='${esc(sDraft.params[s.key])}' oninput='setShapeParam("${s.key}",this.value)'></div>`;}).join('')}</div></div>`:''}${sDraft.type==='custom'?shapeCustomControls():''}`;
 }
 
 function shapeGroups(){var g=shapeDraftGeometry();return g.ok?shapeEdgeGroups(g):[];}
@@ -12407,12 +13185,12 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   render();
 }
 function shapeEdgeworkEditor(){
-  var groups=shapeGroups();
+  var groups=shapeGroups(),edgeNames=shapeEdgeNames(shapeDraftGeometry());
   if(!groups.length)return `<div class='shape-subsection shape-accordion shape-edgework-disabled' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>Waiting for a valid physical contour</small></span><span class='shape-accordion-state'>finish shape dimensions<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='validation-box badbox'>Finish the main contour first — Edge processing will appear automatically when all physical edges are defined.</div></div>`:''}</div>`;
   var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
   return `<div class='shape-subsection shape-accordion' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Edge work</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
     var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 
@@ -12467,7 +13245,7 @@ function shapeFeatureFields(f,i,geo){
       bPlacement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
-  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc(e.id+' · '+dimIn16(e.length))}</option>`;}).join('')}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
+  if(f.type==='hardware')return input('Template / name','name')+`<label>Physical edge<select onchange='setShapeFeatureAndRender(${i},"edgeId",this.value)'>${(function(names){return shapeEdgeGroups(geo).map(function(e){return `<option value='${esc(e.id)}' ${e.id===f.edgeId?'selected':''}>${esc((names[e.id]||e.id)+' · '+dimIn16(e.length))}</option>`;}).join('');})(shapeEdgeNames(geo))}</select></label>`+input('Distance along edge','distance')+input('Inset','inset')+input('Prep width','prepWidth')+input('Prep height','prepHeight')+input('Hole diameter','holeDia');
   return '';
 }
 
@@ -12531,7 +13309,7 @@ function shapeForm(){
   /* Полный render() пересоздаёт DOM, поэтому подсветку полей ставим сразу
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
-  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=SHAPE_PRESETS.map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
+  var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
   var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
@@ -12635,12 +13413,15 @@ function shapeProdBorderField(){
   if(!shapeIsDxfSource(sDraft)&&typeof shapeGroups==='function')shapeGroups().forEach(function(g){
     var id=String(g.id);if(!shownBy[id]){shownEdges.push({id:id,excluded:true,value:0,state:'OFF'});shownBy[id]=true;}
   });
-  var rows=shownEdges.sort(function(a,b){return String(a.id).localeCompare(String(b.id));}).map(function(e){
+  /* Порядок карточек — порядок обхода контура: буква стороны и сортировка
+     теперь совпадают, а машинный id E:PV12 сортировался между PV1 и PV2. */
+  var edgeNames=shapeEdgeNames(shapeDraftGeometry());
+  var rows=shownEdges.sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
     var tag=e.excluded?`<span class='pill'>POST</span>`:e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
       :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
     var label=shapeBorderEdgeLabel(id);
-    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
+    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
       (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
       `<div class='shape-border-state'>${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div></div>`;
   }).join('');
@@ -12667,7 +13448,7 @@ viewShapeSkill=function(){
     var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
-  var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
+  var opts=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
   return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
     <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${library.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
 };
@@ -12695,7 +13476,7 @@ setShapeType=function(type){
   if(changing)shapeProdClearGeometryBoundData();
   if(shapeIsDxfSource(sDraft))sDraft.source=shapeNormalizeSource(null);
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);
-  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='polygon'||type==='custom')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
   render();
 };
@@ -12727,7 +13508,7 @@ removeShapeDxf=function(){
 
 /* ---------- Compact master/source ---------- */
 function shapeProdTypeOptions(){
-  return SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
+  return shapePresetChoices(sDraft.type).map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
     `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF · Fusion 360</option>`;
 }
 function shapeProdChooseType(value){

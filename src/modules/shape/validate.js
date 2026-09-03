@@ -110,18 +110,33 @@ function shapeValidateDefinitionInputs(def){
   var values={};shapeParamSpecsFor(type).forEach(function(s){values[s.key]=dim(s.key);});
   function nonnegative(k){if(isFinite(values[k])&&values[k]<0)errors.push(shapePresetInfo(type).label+': '+k+' cannot be negative.');}
   Object.keys(values).forEach(nonnegative);
-  if(type==='parallelogram'&&isFinite(values.skew)&&Math.abs(values.skew)>=W)errors.push('Parallelogram: absolute skew must be less than Width.');
-  if(type==='raked'&&((isFinite(values.leftDrop)&&values.leftDrop>=H)||(isFinite(values.rightDrop)&&values.rightDrop>=H)))errors.push('Raked Rectangle: top drops must be less than Height.');
-  if(type==='triangle'&&isFinite(values.apexX)&&(values.apexX<0||values.apexX>W))errors.push('Triangle: Apex X must be between 0 and Width.');
+  if(type==='parallelogram')errors=errors.concat(shapeParallelogramValues(def.w,def.h,p).errors);
+  if(type==='raked'){
+    var rq=shapeRakedValues(def.w,def.h,p);errors=errors.concat(rq.errors||[]);
+    if(['top','bottom','left','right'].indexOf(String(p.rakeSide||'top').toLowerCase())<0)errors.push('Raked Rectangle: Rake Side must be Top, Bottom, Left or Right.');
+    if(['left','right'].indexOf(String(p.shortSide||'right').toLowerCase())<0)errors.push('Raked Rectangle: Short Side must be Left or Right.');
+  }
+  if(type==='triangle'){
+    errors=errors.concat(shapeTriangleValues(def.w,def.h,p).errors||[]);
+    if(SHAPE_TRI_MEASURES.every(function(x){return x.id!==String(p.measureMode||'square').toLowerCase();}))errors.push('Triangle: Measure must be Square Mode or Diagonal Mode.');
+  }
   if(type.indexOf('notch-left')===0||type.indexOf('notch-right')===0){
     if(type.indexOf('double')>=0){if(!(values.depth1>0&&values.depth1<W&&values.depth2>0&&values.depth2<W))errors.push('Double notch depths must be greater than zero and less than Width.');if(!(values.height1>0&&values.height2>0&&values.gap>=0&&values.height1+values.gap+values.height2<H))errors.push('Double notch heights and gap must fit inside Height.');}
     else{if(!(values.depth>0&&values.depth<W))errors.push('Notch depth must be greater than zero and less than Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Notch height and position must fit inside Height.');}
   }
   if(type==='notch-middle'){if(!(values.width>0&&values.fromLeft>=0&&values.fromLeft+values.width<W))errors.push('Middle notch width and position must fit inside Width.');if(!(values.depth>0&&values.depth<H))errors.push('Middle notch depth must be greater than zero and less than Height.');}
   if(type==='notch-both'){if(!(values.depth>0&&values.depth<W/2))errors.push('Both-notch depth must be greater than zero and less than half Width.');if(!(values.height>0&&values.fromBottom>=0&&values.fromBottom+values.height<H))errors.push('Both-notch height and position must fit inside Height.');}
-  if(type==='polygon'){
-    if((def.polygon||[]).length<3)errors.push('Polygon requires at least three vertices.');
-    (def.polygon||[]).forEach(function(v){['x','y'].forEach(function(k){if(!fabParseDimStrict(v[k]).ok)errors.push('Polygon vertex '+v.id+': '+k.toUpperCase()+' is not a valid dimension.');});});
+  if(type==='polygon')errors=errors.concat(shapeRegularPolygonValues(p).errors||[]);
+  if(type==='custom'){
+    var cpts=def.polygon||[];
+    if(cpts.length<3)errors.push('Custom Shape requires at least three points.');
+    cpts.forEach(function(v,i){
+      ['x','y'].forEach(function(k){if(!fabParseDimStrict(v[k]).ok)errors.push('Custom Shape point '+v.id+': '+k.toUpperCase()+' is not a valid dimension.');});
+      /* Две совпавшие подряд точки дают ребро нулевой длины: контур ещё не
+         пересечён, но обработка кромки уже некуда встать. */
+      var prev=cpts[(i-1+cpts.length)%cpts.length],x=fabParseDimStrict(v.x),y=fabParseDimStrict(v.y),px=fabParseDimStrict(prev.x),py=fabParseDimStrict(prev.y);
+      if(prev!==v&&x.ok&&y.ok&&px.ok&&py.ok&&Math.abs(x.v-px.v)<1e-9&&Math.abs(y.v-py.v)<1e-9)errors.push('Custom Shape point '+v.id+' repeats point '+prev.id+'.');
+    });
   }
   return errors;
 }
