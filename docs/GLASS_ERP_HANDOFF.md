@@ -32,6 +32,11 @@ Cutting Shape повторяет вогнутую форму, а `Cut size` ос
 Проверка: `node build/check-manifest.js` — 53 модуля; `node test/run.js` и
 `TARGET=dist node test/run.js` — **383 passed, 0 failed** каждый.
 
+Сборщик также исправлен: метка `ERP_BUILD` теперь является стабильным
+fingerprint содержимого исходной сборки, а не текущим временем. Поэтому
+повторный `node build/build.js` не создаёт ложный diff в `dist` без изменений
+в `src`.
+
 Версия 3.7 · 3 сентября 2026 — добавлены новые типы Shape: `Raked Rectangle`,
 `Triangle`, правильный `Polygon` и `Custom Shape`; свободные контуры, включая
 старые polygon/DXF-импорты, получили явный тип. В тот же проход проверены

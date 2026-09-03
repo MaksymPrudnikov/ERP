@@ -11,6 +11,7 @@
    ===================================================================== */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const M = JSON.parse(fs.readFileSync(path.join(__dirname, 'manifest.json'), 'utf8'));
@@ -19,6 +20,10 @@ const read = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
 const css = M.styles.map(f => `/* ---- ${f} ---- */\n${read(f)}`).join('\n');
 const js  = M.scripts.map(f => `/* ==== ${f} ==== */\n${read(f)}`).join('\n');
 const shell = read('src/shell.html').replace(/^<body>\s*/, '').replace(/<\/body>[\s\S]*$/, '').trim();
+const buildFingerprint = crypto.createHash('sha256')
+  .update(css + '\n' + js + '\n' + shell)
+  .digest('hex')
+  .slice(0, 12);
 
 const html = `<!DOCTYPE html>
 <!--
@@ -39,9 +44,9 @@ ${css}
 <body>
 ${shell}
 <script>
-/* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
-   вручную не редактируется. */
-var ERP_BUILD='${new Date().toISOString().slice(0, 16).replace('T', ' ')}';
+/* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
+   а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
+var ERP_BUILD='${buildFingerprint}';
 ${js}
 </script>
 </body>
