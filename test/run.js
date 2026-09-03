@@ -3300,6 +3300,75 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return out;
     }), {label:'Lite 1 · CL6 · AN',bare:0,scheme:'light',printAdjust:'exact'});
 
+    /* Размеры рёбер стояли ВНУТРИ контура: нормаль бралась из соглашения об
+       обходе, а не из проверки. Справа они наезжали на угловые подписи и на
+       габаритную стрелку. Заодно ребро по оси получает настоящую размерную
+       линию, а дюймы набраны крупнее. */
+    eq('размеры рёбер стоят снаружи контура, у осевого ребра есть размерная линия', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('raked');
+      sDraft.w='48';sDraft.h='36';sDraft.params.leftDrop='0';sDraft.params.rightDrop='16';
+      sView='production';render();
+      const r=shapeDraftResult();
+      const host=document.createElement('div');
+      host.innerHTML=shapeDrawnProductionSvg(r,false,{metric:{}});
+      document.body.appendChild(host);
+      /* Контур в экранных координатах — по нему и судим, снаружи ли подпись. */
+      const d=host.querySelector('.shape-metric-contour').getAttribute('d');
+      const poly=d.replace(/[MLZ]/g,' ').trim().split(/\s+/).map(Number);
+      const P=[];for(let i=0;i<poly.length;i+=2)P.push([poly[i],poly[i+1]]);
+      const inside=(p,P)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){
+        const a=P[i],b=P[j];
+        if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;};
+      const labels=[...host.querySelectorAll('.shape-metric-length')].map(x=>({
+        edge:x.getAttribute('data-edge-id'),
+        inside:inside([+x.getAttribute('x'),+x.getAttribute('y')],P)}));
+      const out={edges:labels.map(x=>x.edge).sort(),
+        anyInside:labels.some(x=>x.inside),
+        /* У вертикального ребра C появились стрелки размерной линии. */
+        arrows:host.innerHTML.split('marker-start="url(#shapeMetricArrow)"').length-1,
+        inchArrows:host.innerHTML.split('marker-start="url(#shapeInchArrow)"').length-1,
+        inchSize:host.querySelector('.shape-inch-edge-reference').getAttribute('font-size')};
+      host.remove();sEdit=null;sDraft=null;render();
+      return out;
+    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:3,inchSize:'12'});
+
+    /* Печатный хост был задан в пикселях под книжный Letter. На бумаге это
+       неверно всегда: в книжной он ШИРЕ печатного поля и лист обрезался по
+       краю, в альбомной — уже его, и треть страницы пустовала. Размер листа на
+       печати задаёт страница, а не константа. Проверяем в обеих ориентациях. */
+    eq('лист занимает печатное поле в обеих ориентациях', await t.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();
+      const m=soDraft.makeups[0];m.unitType='double';
+      m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:26*16,height16:28*16});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('triangle');
+      sDraft.w='26';sDraft.h='28';salesBridge={kind:'shape',lineId:line.id};
+      sView='production';render();
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+        'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      return true;
+    }) && await (async () => {
+      await t.p.emulateMedia({media:'print'});
+      const out={};
+      for(const [name,size] of [['portrait',{width:748,height:988}],['landscape',{width:988,height:748}]]){
+        await t.p.setViewportSize(size);
+        out[name]=await t.p.evaluate(() => {
+          const h=document.getElementById('printSheetHost');
+          const w=Math.round(h.getBoundingClientRect().width);
+          const sh=Math.round(h.querySelector('.print-shape-sheet').getBoundingClientRect().height);
+          return {fills:w===window.innerWidth,fits:sh<=window.innerHeight};
+        });
+      }
+      await t.p.emulateMedia({media:null});
+      await t.p.setViewportSize({width:1280,height:900});
+      await t.p.evaluate(() => {
+        printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      });
+      return out;
+    })(), {portrait:{fills:true,fits:true},landscape:{fills:true,fits:true}});
+
     /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
        панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
     eq('вес ламината складывается из обоих стёкол и плёнки', await t.p.evaluate(() => {

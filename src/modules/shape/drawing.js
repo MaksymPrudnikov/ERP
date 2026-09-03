@@ -43,11 +43,21 @@ function shapeMetricDimV(x,edgeX,y1,y2,label,opts,F){
 }
 function shapeInchDimH(x1,x2,fromY,y,label){
   var c='#98a2b3',mid=(x1+x2)/2;
-  return '<line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="width" x="'+mid+'" y="'+(y-7)+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(label)+'</text>';
+  return '<line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+(y+7)+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="width" x="'+mid+'" y="'+(y-8)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill">'+shapeXml(label)+'</text>';
 }
 function shapeInchDimV(x,fromX,y1,y2,label){
   var c='#98a2b3',mid=(y1+y2)/2;
-  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-9)+'" y="'+mid+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9)+' '+mid+')">'+shapeXml(label)+'</text>';
+  return '<line x1="'+fromX+'" y1="'+y1+'" x2="'+(x-7)+'" y2="'+y1+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+(x-7)+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".75"/><line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+c+'" stroke-width=".8" marker-start="url(#shapeInchArrow)" marker-end="url(#shapeInchArrow)"/><text class="shape-inch-reference" data-inch-role="height" x="'+(x-10)+'" y="'+mid+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate(-90 '+(x-9)+' '+mid+')">'+shapeXml(label)+'</text>';
+}
+/* Ребро, стоящее по оси, подписывается настоящей размерной линией со
+   стрелками и выносками — как габарит слева и снизу. У косого ребра линия под
+   углом читается хуже самой цифры вдоль него, поэтому там линии нет. */
+function shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,inch){
+  var e=5,w=inch?'.75':'1',lw=inch?'.8':'1.15',arrow=inch?'shapeInchArrow':'shapeMetricArrow';
+  var x1=a[0]+nx*off,y1=a[1]+ny*off,x2=b[0]+nx*off,y2=b[1]+ny*off;
+  return '<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+(a[0]+nx*(off+e))+'" y2="'+(a[1]+ny*(off+e))+'" stroke="'+c+'" stroke-width="'+w+'"/>'+
+    '<line x1="'+b[0]+'" y1="'+b[1]+'" x2="'+(b[0]+nx*(off+e))+'" y2="'+(b[1]+ny*(off+e))+'" stroke="'+c+'" stroke-width="'+w+'"/>'+
+    '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+c+'" stroke-width="'+lw+'" marker-start="url(#'+arrow+')" marker-end="url(#'+arrow+')"/>';
 }
 function shapeMetricPositiveAngle(v){while(v<0)v+=Math.PI*2;while(v>=Math.PI*2)v-=Math.PI*2;return v;}
 function shapeMetricLayerSvg(result,F,L,metric,opts){
@@ -58,7 +68,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker><marker id="shapeInchArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+ic+'" stroke-width=".75"/></marker></defs>';
   o+='<path class="shape-metric-contour" d="'+path+'" fill="#f2f4f7" fill-opacity=".72" stroke="#344054" stroke-width="1.2"/>';
-  var inchEdges='';
+  var inchEdges='',inchDims='';
   metric.segments.forEach(function(seg,i){
     var a=Q[i],b=Q[(i+1)%Q.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
     /* Горизонтальное/вертикальное ребро, равное полному W/H, уже подписано
@@ -68,15 +78,23 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     var repeatsHeight=pdx<1e-7&&Math.abs(seg.lengthMm-metric.bbox.heightMm)<.015;
     if(repeatsWidth||repeatsHeight)return;
     var nx=orient>0?-dy/len:dy/len,ny=orient>0?dx/len:-dx/len;
-    var key='edge:'+i,off=Math.max(6,15+shapeMetricShift(opts,key));
-    var x=(a[0]+b[0])/2+nx*off,y=(a[1]+b[1])/2+ny*off,ang=Math.atan2(dy,dx)*180/Math.PI;
+    var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2;
+    if(fabPointInPoly([mx+nx*2,my+ny*2],Q)){nx=-nx;ny=-ny;}
+    /* Ребро по оси получает размерную линию, и число отходит от неё дальше;
+       у косого ребра число по-прежнему лежит вдоль самого ребра. */
+    var axis=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
+    var key='edge:'+i,base=axis?44:15,off=Math.max(6,base+shapeMetricShift(opts,key));
+    if(axis)o+=shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,false);
+    var lead=axis?off+11:off,inchLead=axis?off+41:lead+21;
+    if(axis)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
+    var x=mx+nx*lead,y=my+ny*lead,ang=Math.atan2(dy,dx)*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var metricText='<text class="shape-metric-length" data-edge-id="'+shapeXml(seg.edgeId)+'" data-length-mm="'+shapeMetricFormat(seg.lengthMm)+'" x="'+x+'" y="'+(y+4.5)+'" text-anchor="middle" font-size="14.5" font-weight="600" fill="'+c+'" stroke="#fff" stroke-width="5" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">('+shapeMetricFormat(seg.lengthMm)+')</text>';
     o+=shapeMetricMovableSvg(opts,key,metricText,x,y+27,F);
-    var ix=(a[0]+b[0])/2+nx*(off+21),iy=(a[1]+b[1])/2+ny*(off+21);
-    inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="10.5" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
+    var ix=mx+nx*inchLead,iy=my+ny*inchLead;
+    inchEdges+='<text class="shape-inch-reference shape-inch-edge-reference" data-edge-id="'+shapeXml(seg.edgeId)+'" x="'+ix+'" y="'+(iy+3.5)+'" text-anchor="middle" font-size="12" font-weight="600" fill="'+ic+'" stroke="#fff" stroke-width="3" paint-order="stroke fill" transform="rotate('+ang+' '+ix+' '+iy+')">'+shapeXml(shapeDrawingDim(seg.lengthMm/SHAPE_MM_PER_INCH))+'″</text>';
   });
-  if(inchEdges)o+='<g class="shape-inch-reference-layer" data-units="in">'+inchEdges+'</g>';
+  if(inchEdges||inchDims)o+='<g class="shape-inch-reference-layer" data-units="in">'+inchDims+inchEdges+'</g>';
   metric.vertices.forEach(function(v,i){
     var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);

@@ -51,7 +51,8 @@
      на бумаге не нужны и съедают место. */
   body.printing{background:#fff!important}
   body.printing>*{display:none!important}
-  body.printing>#printSheetHost{display:block!important;position:static}
+  body.printing>#printSheetHost{display:block!important;position:static;
+    width:auto;height:auto;overflow:visible}
   /* Панель управления размером и след скрытого размера — интерфейс,
      а не чертёж. В печатную разметку они не попадают уже на сборке; это
      страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
@@ -504,6 +505,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-nums{order:2;margin-top:0}
 .sheet-mk{order:3;margin:0}
 .sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
+/* Одинарное стекло: тип стекла — единственное, что о нём сказано, и схемы
+   пакета рядом нет. Набираем его крупно, а числа уводим к правому краю, где у
+   слоёного юнита стоит схема — иначе полоса выглядит полупустой. */
+.sheet-side:not(.layered) .sheet-title{font-size:34px;line-height:1.1}
+.sheet-side:not(.layered) .sheet-qty{margin-top:4px;font-size:22px}
+.sheet-side:not(.layered) .sheet-nums{justify-self:end}
 
 .sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
 .sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
