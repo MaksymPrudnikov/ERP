@@ -39,14 +39,17 @@ function salesRoutePush(map,order,code,text){
 /* Позиция метки записывается ровно так, как её ввёл оператор: буква кромки, имя
    стороны, величина и УГОЛ ОТСЧЁТА. Правило не выдумываем — от какого угла
    мерили, уже выбрано в карточке и лежит в оформлении фигуры. */
+/* Сторона называется буквой — той же, что стоит на чертеже. Слово Left рядом
+   с буквой A ничего не добавляло, только удлиняло строку. */
+function salesRouteEdgeLetter(edge){return SALES_ROUTE_EDGE_LETTER[edge]||String(edge||'');}
 function salesRouteMarkText(shape,geo,item,edgeLen){
   var name,pos='';
   if(item.type==='hole'){
     var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item);
     name=(count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
     var hp=geo?shapeManufacturingHolePosition(item,geo):null;
-    if(hp)pos=shapeManufacturingEdgeLabel(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
-      ' · '+shapeManufacturingEdgeLabel(hp.vRef)+' '+shapeFrac16(hp.vDistance);
+    if(hp)pos=salesRouteEdgeLetter(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
+      ' · '+salesRouteEdgeLetter(hp.vRef)+' '+shapeFrac16(hp.vDistance);
     return name+(pos?' — '+pos:'');
   }
   name=String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
@@ -57,8 +60,7 @@ function salesRouteMarkText(shape,geo,item,edgeLen){
   if(fromEnd&&isFinite(+edgeLen)&&+edgeLen>0)shown=Math.max(0,+edgeLen-shown);
   var vert=(edge==='left'||edge==='right');
   var corner=vert?(fromEnd?'top':'bottom'):(fromEnd?'right':'left');
-  pos=(letter?letter+' · ':'')+shapeManufacturingEdgeLabel(edge)+' · '+
-    shapeFrac16(shown)+' from '+corner;
+  pos=(letter?letter+' ':'')+shapeFrac16(shown)+' from '+salesRouteEdgeLetter(corner);
   return name+' — '+pos;
 }
 

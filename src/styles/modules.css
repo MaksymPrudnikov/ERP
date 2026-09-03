@@ -478,23 +478,42 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    только две разделительные линии; рамки съедают место под чертёж. */
 .print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
   font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
-/* Все три блока шапки начинаются с ОДНОЙ строки: взгляд идёт по одной линии
-   слева направо, а не ищет, где начинается следующий блок. */
-.sheet-head{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;
-  gap:16px;align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
-.sheet-head.layered{grid-template-columns:auto minmax(0,1fr) auto}
-.sheet-head.layered .sheet-what{text-align:center}
+/* Три опоры, по которым лист опознают, стоят ОДНОЙ строкой поверх всего:
+   заказчик слева, PO по центру, номер заказа справа. Кегль крупнее прочего на
+   листе — эту строку читают первой, ещё не взяв лист в руки. */
+.sheet-id{flex:none;display:grid;grid-template-columns:1fr auto 1fr;gap:14px;
+  align-items:baseline;padding-bottom:6px;border-bottom:1px solid #101828}
+.sheet-id-p{text-align:center}
+.sheet-id-o{text-align:right}
+.sheet-id span{font-size:13.5px;font-weight:700;color:#475467;margin-right:6px}
+.sheet-id b{font-size:16px;font-weight:700;color:#101828}
+.sheet-id-o b{display:inline-block;min-width:5ch}
+/* Раскладка листа ОДНА на все чертежи: полоса сведений сверху, чертёж во всю
+   ширину под ней. Никаких вариантов по фигуре — лист не должен разъезжаться от
+   детали к детали. В полосе слева изделие, посередине числа, справа состав. */
+.sheet-body{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);
+  gap:8px;padding:7px 0}
+.sheet-side{grid-row:1;--mk-w:220px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  gap:4px 22px;align-items:baseline}
+.sheet-name{order:1}
+.sheet-nums{order:2;margin-top:0}
+.sheet-mk{order:3;margin:0}
 .sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
-/* У одинарного стекла шапка полупустая — название набирается крупно. */
-.sheet-head:not(.layered) .sheet-title{font-size:20px;line-height:1.2}
-.sheet-head:not(.layered) .sheet-size,
-.sheet-head:not(.layered) .sheet-mass{font-size:12px}
+
 .sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
 .sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
 .sheet-mass{font-size:10.5px;line-height:1.35;color:#475467}
-.sheet-mk-rows{display:grid;grid-template-columns:auto 104px auto;gap:3px 8px;align-items:center;justify-items:start}
+.sheet-mk{margin:5px 0 3px}
+/* Количество идёт третьей строкой названия: «Makeup A / Double 25.5 mm /
+   10 units» — один блок про изделие. */
+.sheet-qty{margin-top:2px;font-size:16px;font-weight:700;color:#101828}
+.sheet-nums{display:flex;flex-direction:column;gap:1px;margin-top:5px}
+.sheet-mk-rows{display:grid;grid-template-columns:minmax(0,1fr) var(--mk-w,168px) auto;
+  gap:4px 6px;align-items:center;justify-items:start}
 .mk-row{display:contents}
-.mk-row>span{font-size:11.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
+/* Подпись слоя переносится по словам: длинное имя дистанционной рамки иначе
+   выталкивает схему за край листа. */
+.mk-row>span{font-size:10.5px;line-height:1.25;color:#101828;text-align:right;justify-self:end}
 /* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
 .mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
   font-family:ui-monospace,Consolas,monospace}
@@ -502,14 +521,15 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    цифры в одну строку читались как «1 2» без понимания, какая где. */
 .mk-faces{display:flex;flex-direction:column;justify-content:space-between;height:18px;line-height:1}
 .mk-faces>i{font-style:normal}
-.mk-pane,.mk-cav,.mk-film{display:block;width:104px;height:10px;border:1px solid #101828;background:#e9edf1}
+.mk-pane,.mk-cav,.mk-film{display:block;width:var(--mk-w,168px);height:10px;
+  border:1px solid #101828;background:#e9edf1}
 .mk-pane{height:18px}
 /* Плёнка тоньше стекла и залита точками: в сечении её не спутать со стеклом. */
 .mk-film{height:5px;background:radial-gradient(#101828 .6px,#fff .6px);background-size:3px 3px}
 /* Полость белая, по краям распорка. Сплошной чёрный блок читается как дыра —
    распорка рисуется штриховкой в рамке, как деталь в сечении. */
 .mk-cav{position:relative;height:14px;background:#fff}
-.mk-cav::before,.mk-cav::after{content:'';position:absolute;top:0;bottom:0;width:11px;
+.mk-cav::before,.mk-cav::after{content:'';position:absolute;top:0;bottom:0;width:9px;
   border:1px solid #101828;box-sizing:border-box;
   background:repeating-linear-gradient(45deg,#101828 0 1px,#fff 1px 3px)}
 .mk-cav::before{left:0}.mk-cav::after{right:0}
@@ -520,13 +540,18 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
 .mk-pane.coat-out::after{top:0}
 .mk-pane.coat-in::after{bottom:0}
-.sheet-who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px}
+.sheet-who{margin-top:3px;display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:3px 10px;font-size:12px}
 .sheet-who span{font-size:8.5px;letter-spacing:.08em;color:#7a838f;align-self:center}
-.sheet-who b{font-weight:650;min-height:15px;min-width:150px}
+.sheet-who b{font-weight:650;min-height:15px;min-width:0}
 .sheet-who b>em{font-style:normal;font-weight:700}
 /* Примечание не делит строку с номером и количеством: его читают отдельно. */
-.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3;max-width:230px}
-.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 0}
+.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3}
+.sheet-field{grid-row:2;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}
+/* Хост печати имеет размер бумаги, а лист внутри на экране высоты не имел:
+   раскладку выбирают по фактическому месту, и мерили её по схлопнутому блоку.
+   Печати правило не касается — там высоту задаёт своё @media print. */
+@media screen{#printSheetHost .print-sheet{height:100%}}
 .sheet-field svg{width:100%;height:100%;object-fit:contain}
 /* Цех печатает ч/б. Цвет метки в сером не читается, поэтому на листе всё
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
@@ -542,6 +567,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
 /* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
    поедет на стикере. Значит места должен занимать минимум. */
+.sheet-leg.bare{grid-template-columns:minmax(0,1fr)}
 .sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
   padding:1px 0}
 .sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;

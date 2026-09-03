@@ -187,7 +187,7 @@ function shapeProductionDrawingFrame(result,opts){
   /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
   if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k);pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
-  var LONG=660,SHORT=260;
+  var LONG=opts.sheet?880:660,SHORT=opts.sheet?200:260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
   var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
   F.metric=metric;return F;

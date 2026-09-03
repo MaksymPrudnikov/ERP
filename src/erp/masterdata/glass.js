@@ -670,11 +670,21 @@ function glassEffectiveThicknessMm(product){
   var n=product&&+product.thicknessMm;
   return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
 }
+/* Плёнка легче стекла. Одна цифра на все интерлееры: PVB ~ 1070, EVA ~ 950,
+   а доля плёнки в весе юнита около процента — точнее делить смысла нет. */
+const GLASS_INTERLAYER_DENSITY_KG_M3=1070;
+/* Вес слоя известной толщины. Ламинат — это стёкла И плёнка между ними, и
+   каждый слой считается своей плотностью. */
+function glassLayerWeightKg(mm,density,areaFt2){
+  var a=+areaFt2;
+  if(!(+mm>0)||!isFinite(a)||a<=0)return 0;
+  return a*GLASS_M2_PER_FT2*(+mm/1000)*density;
+}
 /* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
 function glassWeightKg(product,areaFt2){
   var t=glassEffectiveThicknessMm(product),a=+areaFt2;
   if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
-  return {kg:a*GLASS_M2_PER_FT2*(t.mm/1000)*GLASS_DENSITY_KG_M3,exact:t.exact};
+  return {kg:glassLayerWeightKg(t.mm,GLASS_DENSITY_KG_M3,areaFt2),exact:t.exact};
 }
 function glassWeightText(product,areaFt2){
   var w=glassWeightKg(product,areaFt2);

@@ -21,7 +21,7 @@ function salesSheetLineOf(shape){
 function salesSheetLineNumber(line){
   if(!line||typeof soDraft==='undefined'||!soDraft)return '';
   var i=(soDraft.lines||[]).indexOf(line);
-  return i<0?'':('L'+(i+1));
+  return i<0?'':String(i+1);
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
@@ -127,7 +127,7 @@ function salesSheetMakeupHTML(makeup){
   if(!salesSheetIsLayered(makeup))return '';
   var rows='';
   panes.forEach(function(p,i){
-    if(i)rows+='<div class="mk-row"><span>cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
+    if(i)rows+='<div class="mk-row"><span>Cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
       '<i class="mk-cav"></i><em></em></div>';
     var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
     var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
@@ -153,24 +153,49 @@ function salesSheetMakeupHTML(makeup){
 }
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
-  var many=route.lites.length>1;
-  /* Колонки — станции в порядке маршрута, только те, что кто-то проходит. */
-  var cols=[];
-  route.lites.forEach(function(l){l.stations.forEach(function(s){
-    if(cols.indexOf(s.code)<0)cols.push(s.code);});});
   /* Цепочкой, а не таблицей: колонки под две станции растягивались на всю
      ширину и оставляли пустоту. Здесь строка ровно такой длины, какой нужно. */
   var body=route.lites.map(function(l){
     var chain=l.stations.map(function(s){
       return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
     }).join('<i>&rsaquo;</i>');
-    return '<div class="sheet-leg">'+
-      (many?'<span>'+esc(l.label)+(l.glass?' · '+esc(l.glass):'')+'</span>':'<span></span>')+
+    /* Подписан и одинарный лайт: без подписи слева оставалась пустая колонка,
+       и строка маршрута начиналась с провала. */
+    var name=[l.label,l.glass].filter(Boolean).join(' · ');
+    return '<div class="sheet-leg'+(name?'':' bare')+'">'+
+      (name?'<span>'+esc(name)+'</span>':'')+
       '<em>'+chain+'</em></div>';
   }).join('');
   return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
+/* Вес одного слоя пакета. У ламината это ОБА стекла и плёнка между ними:
+   лист показывал вес одной панели, и 6 + 6 весил как шестёрка — вдвое меньше
+   настоящего. По этой цифре в цехе считают подъём. */
+function salesSheetPaneWeightKg(pane,areaFt2){
+  if(!pane)return null;
+  if(pane.category!=='laminated')
+    return glassWeightKg(glassProductById(pane.glassProductId),areaFt2);
+  var lam=pane.laminated||{},total=0,exact=true,got=false;
+  [lam.outer,lam.inner].forEach(function(ply){
+    if(!ply)return;
+    var w=glassWeightKg(glassProductById(ply.glassProductId),areaFt2);
+    if(!w){
+      var mm=+ply.thicknessMm;
+      if(!(mm>0))return;
+      w={kg:glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areaFt2),exact:false};
+    }
+    total+=w.kg;if(!w.exact)exact=false;got=true;
+  });
+  (lam.interlayers||[]).forEach(function(f){
+    total+=glassLayerWeightKg(f&&f.thicknessMm,GLASS_INTERLAYER_DENSITY_KG_M3,areaFt2);
+  });
+  return got&&total>0?{kg:total,exact:exact}:null;
+}
+function salesSheetWeightText(w){
+  if(!w)return '';
+  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+}
 function salesShapeSheetHTML(shape,result,svg,kind){
   var line=salesSheetLineOf(shape);
   var order=(typeof soDraft!=='undefined')?soDraft:null;
@@ -181,12 +206,12 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   if(makeup&&(makeup.panes||[]).length){
     var total=0,exact=true,ok=true;
     (makeup.panes||[]).forEach(function(p){
-      var w=glassWeightKg(glassProductById(p.glassProductId),areaFt2);
+      var w=salesSheetPaneWeightKg(p,areaFt2);
       if(!w){ok=false;return;}
       total+=w.kg;if(!w.exact)exact=false;
     });
-    if(ok&&total>0)weight=(exact?'':'~')+(total>=10?Math.round(total):total.toFixed(1))+' kg';
-  }else if(pane)weight=glassWeightText(glassProductById(pane.glassProductId),areaFt2);
+    if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
+  }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
 
   var finished=result&&result.valid?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
@@ -203,28 +228,50 @@ function salesShapeSheetHTML(shape,result,svg,kind){
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
   return '<div class="print-shape-sheet">'+
-    '<div class="sheet-head'+(layered?' layered':'')+'">'+
-      (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
-      '<div class="sheet-what">'+
-        '<div class="sheet-title">'+esc(t.name)+'</div>'+
-        (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
-        (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
-        (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
-      '</div>'+
-      '<div class="sheet-who">'+
-        '<span>CUSTOMER</span><b>'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
-        '<span>ORDER</span><b>'+esc(order&&order.businessNumber||'')+'</b>'+
-        '<span>PO</span><b>'+esc(order&&order.customerPO||'')+'</b>'+
-        '<span>LINE</span><b>'+esc(lineText)+(qty?' · <em>'+esc(qty)+'</em>':'')+'</b>'+
-        '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
+    /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
+       заказчик слева, PO по центру, номер заказа справа. */
+    '<div class="sheet-id">'+
+      '<div class="sheet-id-c"><span>Customer:</span><b>'+
+        esc(order?salesCustomerDisplay(order.customerId):'')+'</b></div>'+
+      '<div class="sheet-id-p"><span>PO:</span><b>'+
+        esc(order&&order.customerPo||'')+'</b></div>'+
+      '<div class="sheet-id-o"><span>Order Number:</span><b>'+
+        esc(order&&order.businessNumber||'')+'</b></div>'+
+    '</div>'+
+    /* Чертёж слева во всю высоту, состав и числа — колонкой справа. */
+    '<div class="sheet-body">'+
+      '<div class="sheet-field">'+svg+'</div>'+
+      '<div class="sheet-side'+(layered?' layered':'')+'">'+
+        '<div class="sheet-name">'+
+          '<div class="sheet-title">'+esc(t.name)+'</div>'+
+          (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
+          (qty?'<div class="sheet-qty">'+esc(qty)+'</div>':'')+
+        '</div>'+
+        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+        '<div class="sheet-nums">'+
+          (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
+          (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+          '<div class="sheet-who">'+
+            '<span>LINE</span><b>'+esc(lineText)+'</b>'+
+            '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
     '</div>'+
-    '<div class="sheet-field">'+svg+'</div>'+
     salesSheetRouteHTML(route)+
     '<div class="sheet-foot"><span></span>'+
       '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
   '</div>';
 }
+/* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
+   умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры
+   узкая колонка режет чертёж по ширине, он не добирает и двух третей высоты, а
+   низ листа уходит в пустоту. Тогда состав встаёт полосой наверх — и там он
+   тоже справа — а чертёж забирает всю ширину.
+
+   Сравнивать площади двух раскладок нельзя: полоса стоит листу около десятой
+   части высоты, а колонка — трети ширины, и по площади полоса выигрывала
+   всегда, даже у стоячей фигуры, которой колонка ничем не мешает. */
 /* Чертёж внутри листа занимает всё отведённое место: пустые поля канвы
    обрезаются по фактическому содержимому, иначе фигура сидит в пустоте. */
 function salesSheetFitDrawing(host){

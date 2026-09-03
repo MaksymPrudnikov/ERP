@@ -18,6 +18,9 @@
  --text:#17212b;--mut:#6c7a86;--nav:#12232e;--nav2:#183340;--blue:#2f7da8;
  --blue2:#eaf4fa;--green:#27815a;--green2:#e9f6ef;--amber:#a86c13;--amber2:#fff5df;
  --red:#a84444;--red2:#fdeeee;--shadow:0 8px 28px rgba(28,52,66,.06);
+ /* Оболочка светлая. Без этого браузер красит РОДНЫЕ элементы формы по
+    системной теме: в тёмной системе чернели чекбоксы и выпадающие списки. */
+ color-scheme:light;
 }
 html{background:var(--bg)}
 body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}
@@ -727,23 +730,42 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    только две разделительные линии; рамки съедают место под чертёж. */
 .print-shape-sheet{display:flex;flex-direction:column;height:100%;min-height:0;
   font:11px/1.4 Arial,Helvetica,sans-serif;color:#101828}
-/* Все три блока шапки начинаются с ОДНОЙ строки: взгляд идёт по одной линии
-   слева направо, а не ищет, где начинается следующий блок. */
-.sheet-head{flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;
-  gap:16px;align-items:start;padding-bottom:7px;border-bottom:1px solid #101828}
-.sheet-head.layered{grid-template-columns:auto minmax(0,1fr) auto}
-.sheet-head.layered .sheet-what{text-align:center}
+/* Три опоры, по которым лист опознают, стоят ОДНОЙ строкой поверх всего:
+   заказчик слева, PO по центру, номер заказа справа. Кегль крупнее прочего на
+   листе — эту строку читают первой, ещё не взяв лист в руки. */
+.sheet-id{flex:none;display:grid;grid-template-columns:1fr auto 1fr;gap:14px;
+  align-items:baseline;padding-bottom:6px;border-bottom:1px solid #101828}
+.sheet-id-p{text-align:center}
+.sheet-id-o{text-align:right}
+.sheet-id span{font-size:13.5px;font-weight:700;color:#475467;margin-right:6px}
+.sheet-id b{font-size:16px;font-weight:700;color:#101828}
+.sheet-id-o b{display:inline-block;min-width:5ch}
+/* Раскладка листа ОДНА на все чертежи: полоса сведений сверху, чертёж во всю
+   ширину под ней. Никаких вариантов по фигуре — лист не должен разъезжаться от
+   детали к детали. В полосе слева изделие, посередине числа, справа состав. */
+.sheet-body{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);
+  gap:8px;padding:7px 0}
+.sheet-side{grid-row:1;--mk-w:220px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  gap:4px 22px;align-items:baseline}
+.sheet-name{order:1}
+.sheet-nums{order:2;margin-top:0}
+.sheet-mk{order:3;margin:0}
 .sheet-title{font-size:13.5px;font-weight:700;line-height:1.35}
-/* У одинарного стекла шапка полупустая — название набирается крупно. */
-.sheet-head:not(.layered) .sheet-title{font-size:20px;line-height:1.2}
-.sheet-head:not(.layered) .sheet-size,
-.sheet-head:not(.layered) .sheet-mass{font-size:12px}
+
 .sheet-spec{font-size:11.5px;font-weight:600;line-height:1.35;color:#101828}
 .sheet-size{margin-top:3px;font-size:10.5px;line-height:1.35;color:#344054}
 .sheet-mass{font-size:10.5px;line-height:1.35;color:#475467}
-.sheet-mk-rows{display:grid;grid-template-columns:auto 104px auto;gap:3px 8px;align-items:center;justify-items:start}
+.sheet-mk{margin:5px 0 3px}
+/* Количество идёт третьей строкой названия: «Makeup A / Double 25.5 mm /
+   10 units» — один блок про изделие. */
+.sheet-qty{margin-top:2px;font-size:16px;font-weight:700;color:#101828}
+.sheet-nums{display:flex;flex-direction:column;gap:1px;margin-top:5px}
+.sheet-mk-rows{display:grid;grid-template-columns:minmax(0,1fr) var(--mk-w,168px) auto;
+  gap:4px 6px;align-items:center;justify-items:start}
 .mk-row{display:contents}
-.mk-row>span{font-size:11.5px;color:#101828;white-space:nowrap;text-align:right;justify-self:end}
+/* Подпись слоя переносится по словам: длинное имя дистанционной рамки иначе
+   выталкивает схему за край листа. */
+.mk-row>span{font-size:10.5px;line-height:1.25;color:#101828;text-align:right;justify-self:end}
 /* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
 .mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
   font-family:ui-monospace,Consolas,monospace}
@@ -751,14 +773,15 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    цифры в одну строку читались как «1 2» без понимания, какая где. */
 .mk-faces{display:flex;flex-direction:column;justify-content:space-between;height:18px;line-height:1}
 .mk-faces>i{font-style:normal}
-.mk-pane,.mk-cav,.mk-film{display:block;width:104px;height:10px;border:1px solid #101828;background:#e9edf1}
+.mk-pane,.mk-cav,.mk-film{display:block;width:var(--mk-w,168px);height:10px;
+  border:1px solid #101828;background:#e9edf1}
 .mk-pane{height:18px}
 /* Плёнка тоньше стекла и залита точками: в сечении её не спутать со стеклом. */
 .mk-film{height:5px;background:radial-gradient(#101828 .6px,#fff .6px);background-size:3px 3px}
 /* Полость белая, по краям распорка. Сплошной чёрный блок читается как дыра —
    распорка рисуется штриховкой в рамке, как деталь в сечении. */
 .mk-cav{position:relative;height:14px;background:#fff}
-.mk-cav::before,.mk-cav::after{content:'';position:absolute;top:0;bottom:0;width:11px;
+.mk-cav::before,.mk-cav::after{content:'';position:absolute;top:0;bottom:0;width:9px;
   border:1px solid #101828;box-sizing:border-box;
   background:repeating-linear-gradient(45deg,#101828 0 1px,#fff 1px 3px)}
 .mk-cav::before{left:0}.mk-cav::after{right:0}
@@ -769,13 +792,18 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
 .mk-pane.coat-out::after{top:0}
 .mk-pane.coat-in::after{bottom:0}
-.sheet-who{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:12px}
+.sheet-who{margin-top:3px;display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:3px 10px;font-size:12px}
 .sheet-who span{font-size:8.5px;letter-spacing:.08em;color:#7a838f;align-self:center}
-.sheet-who b{font-weight:650;min-height:15px;min-width:150px}
+.sheet-who b{font-weight:650;min-height:15px;min-width:0}
 .sheet-who b>em{font-style:normal;font-weight:700}
 /* Примечание не делит строку с номером и количеством: его читают отдельно. */
-.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3;max-width:230px}
-.sheet-field{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:8px 0}
+.sheet-note{font-weight:400;font-size:10.5px;color:#344054;white-space:normal;line-height:1.3}
+.sheet-field{grid-row:2;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center}
+/* Хост печати имеет размер бумаги, а лист внутри на экране высоты не имел:
+   раскладку выбирают по фактическому месту, и мерили её по схлопнутому блоку.
+   Печати правило не касается — там высоту задаёт своё @media print. */
+@media screen{#printSheetHost .print-sheet{height:100%}}
 .sheet-field svg{width:100%;height:100%;object-fit:contain}
 /* Цех печатает ч/б. Цвет метки в сером не читается, поэтому на листе всё
    становится чёрным: сторону называет буква, а метку — её значок и подпись.
@@ -791,6 +819,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
 /* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
    поедет на стикере. Значит места должен занимать минимум. */
+.sheet-leg.bare{grid-template-columns:minmax(0,1fr)}
 .sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
   padding:1px 0}
 .sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
@@ -886,7 +915,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Проставляется здесь,
    вручную не редактируется. */
-var ERP_BUILD='2026-09-02 23:04';
+var ERP_BUILD='2026-09-03 02:08';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -3359,7 +3388,7 @@ function shapeProductionDrawingFrame(result,opts){
   /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
   if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k);pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
-  var LONG=660,SHORT=260;
+  var LONG=opts.sheet?880:660,SHORT=opts.sheet?200:260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
   var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
   F.metric=metric;return F;
@@ -6501,11 +6530,21 @@ function glassEffectiveThicknessMm(product){
   var n=product&&+product.thicknessMm;
   return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
 }
+/* Плёнка легче стекла. Одна цифра на все интерлееры: PVB ~ 1070, EVA ~ 950,
+   а доля плёнки в весе юнита около процента — точнее делить смысла нет. */
+const GLASS_INTERLAYER_DENSITY_KG_M3=1070;
+/* Вес слоя известной толщины. Ламинат — это стёкла И плёнка между ними, и
+   каждый слой считается своей плотностью. */
+function glassLayerWeightKg(mm,density,areaFt2){
+  var a=+areaFt2;
+  if(!(+mm>0)||!isFinite(a)||a<=0)return 0;
+  return a*GLASS_M2_PER_FT2*(+mm/1000)*density;
+}
 /* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
 function glassWeightKg(product,areaFt2){
   var t=glassEffectiveThicknessMm(product),a=+areaFt2;
   if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
-  return {kg:a*GLASS_M2_PER_FT2*(t.mm/1000)*GLASS_DENSITY_KG_M3,exact:t.exact};
+  return {kg:glassLayerWeightKg(t.mm,GLASS_DENSITY_KG_M3,areaFt2),exact:t.exact};
 }
 function glassWeightText(product,areaFt2){
   var w=glassWeightKg(product,areaFt2);
@@ -10049,14 +10088,17 @@ function salesRoutePush(map,order,code,text){
 /* Позиция метки записывается ровно так, как её ввёл оператор: буква кромки, имя
    стороны, величина и УГОЛ ОТСЧЁТА. Правило не выдумываем — от какого угла
    мерили, уже выбрано в карточке и лежит в оформлении фигуры. */
+/* Сторона называется буквой — той же, что стоит на чертеже. Слово Left рядом
+   с буквой A ничего не добавляло, только удлиняло строку. */
+function salesRouteEdgeLetter(edge){return SALES_ROUTE_EDGE_LETTER[edge]||String(edge||'');}
 function salesRouteMarkText(shape,geo,item,edgeLen){
   var name,pos='';
   if(item.type==='hole'){
     var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item);
     name=(count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
     var hp=geo?shapeManufacturingHolePosition(item,geo):null;
-    if(hp)pos=shapeManufacturingEdgeLabel(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
-      ' · '+shapeManufacturingEdgeLabel(hp.vRef)+' '+shapeFrac16(hp.vDistance);
+    if(hp)pos=salesRouteEdgeLetter(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
+      ' · '+salesRouteEdgeLetter(hp.vRef)+' '+shapeFrac16(hp.vDistance);
     return name+(pos?' — '+pos:'');
   }
   name=String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
@@ -10067,8 +10109,7 @@ function salesRouteMarkText(shape,geo,item,edgeLen){
   if(fromEnd&&isFinite(+edgeLen)&&+edgeLen>0)shown=Math.max(0,+edgeLen-shown);
   var vert=(edge==='left'||edge==='right');
   var corner=vert?(fromEnd?'top':'bottom'):(fromEnd?'right':'left');
-  pos=(letter?letter+' · ':'')+shapeManufacturingEdgeLabel(edge)+' · '+
-    shapeFrac16(shown)+' from '+corner;
+  pos=(letter?letter+' ':'')+shapeFrac16(shown)+' from '+salesRouteEdgeLetter(corner);
   return name+' — '+pos;
 }
 
@@ -10201,7 +10242,7 @@ function salesSheetLineOf(shape){
 function salesSheetLineNumber(line){
   if(!line||typeof soDraft==='undefined'||!soDraft)return '';
   var i=(soDraft.lines||[]).indexOf(line);
-  return i<0?'':('L'+(i+1));
+  return i<0?'':String(i+1);
 }
 /* Заголовок листа: у одинарного стекла это само стекло, у пакета — его состав.
    Разбивка L1 / C1 / L2 показывает, что за чем стоит. */
@@ -10307,7 +10348,7 @@ function salesSheetMakeupHTML(makeup){
   if(!salesSheetIsLayered(makeup))return '';
   var rows='';
   panes.forEach(function(p,i){
-    if(i)rows+='<div class="mk-row"><span>cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
+    if(i)rows+='<div class="mk-row"><span>Cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
       '<i class="mk-cav"></i><em></em></div>';
     var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
     var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
@@ -10333,24 +10374,49 @@ function salesSheetMakeupHTML(makeup){
 }
 function salesSheetRouteHTML(route){
   if(!route||!route.lites.length)return '';
-  var many=route.lites.length>1;
-  /* Колонки — станции в порядке маршрута, только те, что кто-то проходит. */
-  var cols=[];
-  route.lites.forEach(function(l){l.stations.forEach(function(s){
-    if(cols.indexOf(s.code)<0)cols.push(s.code);});});
   /* Цепочкой, а не таблицей: колонки под две станции растягивались на всю
      ширину и оставляли пустоту. Здесь строка ровно такой длины, какой нужно. */
   var body=route.lites.map(function(l){
     var chain=l.stations.map(function(s){
       return '<b>'+esc(s.code)+'</b> '+s.items.map(function(t){return esc(t);}).join(' · ');
     }).join('<i>&rsaquo;</i>');
-    return '<div class="sheet-leg">'+
-      (many?'<span>'+esc(l.label)+(l.glass?' · '+esc(l.glass):'')+'</span>':'<span></span>')+
+    /* Подписан и одинарный лайт: без подписи слева оставалась пустая колонка,
+       и строка маршрута начиналась с провала. */
+    var name=[l.label,l.glass].filter(Boolean).join(' · ');
+    return '<div class="sheet-leg'+(name?'':' bare')+'">'+
+      (name?'<span>'+esc(name)+'</span>':'')+
       '<em>'+chain+'</em></div>';
   }).join('');
   return '<div class="sheet-route"><div class="sheet-route-t">ROUTE</div>'+body+'</div>';
 }
 /* Собирает лист. svg — уже готовый чертёж без собственного заголовка. */
+/* Вес одного слоя пакета. У ламината это ОБА стекла и плёнка между ними:
+   лист показывал вес одной панели, и 6 + 6 весил как шестёрка — вдвое меньше
+   настоящего. По этой цифре в цехе считают подъём. */
+function salesSheetPaneWeightKg(pane,areaFt2){
+  if(!pane)return null;
+  if(pane.category!=='laminated')
+    return glassWeightKg(glassProductById(pane.glassProductId),areaFt2);
+  var lam=pane.laminated||{},total=0,exact=true,got=false;
+  [lam.outer,lam.inner].forEach(function(ply){
+    if(!ply)return;
+    var w=glassWeightKg(glassProductById(ply.glassProductId),areaFt2);
+    if(!w){
+      var mm=+ply.thicknessMm;
+      if(!(mm>0))return;
+      w={kg:glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,areaFt2),exact:false};
+    }
+    total+=w.kg;if(!w.exact)exact=false;got=true;
+  });
+  (lam.interlayers||[]).forEach(function(f){
+    total+=glassLayerWeightKg(f&&f.thicknessMm,GLASS_INTERLAYER_DENSITY_KG_M3,areaFt2);
+  });
+  return got&&total>0?{kg:total,exact:exact}:null;
+}
+function salesSheetWeightText(w){
+  if(!w)return '';
+  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+}
 function salesShapeSheetHTML(shape,result,svg,kind){
   var line=salesSheetLineOf(shape);
   var order=(typeof soDraft!=='undefined')?soDraft:null;
@@ -10361,12 +10427,12 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   if(makeup&&(makeup.panes||[]).length){
     var total=0,exact=true,ok=true;
     (makeup.panes||[]).forEach(function(p){
-      var w=glassWeightKg(glassProductById(p.glassProductId),areaFt2);
+      var w=salesSheetPaneWeightKg(p,areaFt2);
       if(!w){ok=false;return;}
       total+=w.kg;if(!w.exact)exact=false;
     });
-    if(ok&&total>0)weight=(exact?'':'~')+(total>=10?Math.round(total):total.toFixed(1))+' kg';
-  }else if(pane)weight=glassWeightText(glassProductById(pane.glassProductId),areaFt2);
+    if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
+  }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
 
   var finished=result&&result.valid?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
@@ -10383,28 +10449,50 @@ function salesShapeSheetHTML(shape,result,svg,kind){
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
   return '<div class="print-shape-sheet">'+
-    '<div class="sheet-head'+(layered?' layered':'')+'">'+
-      (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
-      '<div class="sheet-what">'+
-        '<div class="sheet-title">'+esc(t.name)+'</div>'+
-        (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
-        (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
-        (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
-      '</div>'+
-      '<div class="sheet-who">'+
-        '<span>CUSTOMER</span><b>'+esc(order?salesCustomerDisplay(order.customerId):'')+'</b>'+
-        '<span>ORDER</span><b>'+esc(order&&order.businessNumber||'')+'</b>'+
-        '<span>PO</span><b>'+esc(order&&order.customerPO||'')+'</b>'+
-        '<span>LINE</span><b>'+esc(lineText)+(qty?' · <em>'+esc(qty)+'</em>':'')+'</b>'+
-        '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
+    /* Три опоры, по которым лист опознают, — одной строкой поверх всего:
+       заказчик слева, PO по центру, номер заказа справа. */
+    '<div class="sheet-id">'+
+      '<div class="sheet-id-c"><span>Customer:</span><b>'+
+        esc(order?salesCustomerDisplay(order.customerId):'')+'</b></div>'+
+      '<div class="sheet-id-p"><span>PO:</span><b>'+
+        esc(order&&order.customerPo||'')+'</b></div>'+
+      '<div class="sheet-id-o"><span>Order Number:</span><b>'+
+        esc(order&&order.businessNumber||'')+'</b></div>'+
+    '</div>'+
+    /* Чертёж слева во всю высоту, состав и числа — колонкой справа. */
+    '<div class="sheet-body">'+
+      '<div class="sheet-field">'+svg+'</div>'+
+      '<div class="sheet-side'+(layered?' layered':'')+'">'+
+        '<div class="sheet-name">'+
+          '<div class="sheet-title">'+esc(t.name)+'</div>'+
+          (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
+          (qty?'<div class="sheet-qty">'+esc(qty)+'</div>':'')+
+        '</div>'+
+        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+        '<div class="sheet-nums">'+
+          (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
+          (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
+          '<div class="sheet-who">'+
+            '<span>LINE</span><b>'+esc(lineText)+'</b>'+
+            '<span>NOTE</span><b class="sheet-note">'+esc(note)+'</b>'+
+          '</div>'+
+        '</div>'+
       '</div>'+
     '</div>'+
-    '<div class="sheet-field">'+svg+'</div>'+
     salesSheetRouteHTML(route)+
     '<div class="sheet-foot"><span></span>'+
       '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
   '</div>';
 }
+/* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
+   умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры
+   узкая колонка режет чертёж по ширине, он не добирает и двух третей высоты, а
+   низ листа уходит в пустоту. Тогда состав встаёт полосой наверх — и там он
+   тоже справа — а чертёж забирает всю ширину.
+
+   Сравнивать площади двух раскладок нельзя: полоса стоит листу около десятой
+   части высоты, а колонка — трети ширины, и по площади полоса выигрывала
+   всегда, даже у стоячей фигуры, которой колонка ничем не мешает. */
 /* Чертёж внутри листа занимает всё отведённое место: пустые поля канвы
    обрезаются по фактическому содержимому, иначе фигура сидит в пустоте. */
 function salesSheetFitDrawing(host){
