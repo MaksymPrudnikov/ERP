@@ -3300,6 +3300,37 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return out;
     }), {label:'Lite 1 · CL6 · AN',bare:0,scheme:'light',printAdjust:'exact'});
 
+    /* Размеры рёбер стояли ВНУТРИ контура: нормаль бралась из соглашения об
+       обходе, а не из проверки. Справа они наезжали на угловые подписи и на
+       габаритную стрелку. Заодно ребро по оси получает настоящую размерную
+       линию, а дюймы набраны крупнее. */
+    eq('размеры рёбер стоят снаружи контура, у осевого ребра есть размерная линия', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('raked');
+      sDraft.w='48';sDraft.h='36';sDraft.params.leftDrop='0';sDraft.params.rightDrop='16';
+      sView='production';render();
+      const r=shapeDraftResult();
+      const host=document.createElement('div');
+      host.innerHTML=shapeDrawnProductionSvg(r,false,{metric:{}});
+      document.body.appendChild(host);
+      /* Контур в экранных координатах — по нему и судим, снаружи ли подпись. */
+      const d=host.querySelector('.shape-metric-contour').getAttribute('d');
+      const poly=d.replace(/[MLZ]/g,' ').trim().split(/\s+/).map(Number);
+      const P=[];for(let i=0;i<poly.length;i+=2)P.push([poly[i],poly[i+1]]);
+      const inside=(p,P)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){
+        const a=P[i],b=P[j];
+        if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;};
+      const labels=[...host.querySelectorAll('.shape-metric-length')].map(x=>({
+        edge:x.getAttribute('data-edge-id'),
+        inside:inside([+x.getAttribute('x'),+x.getAttribute('y')],P)}));
+      const out={edges:labels.map(x=>x.edge).sort(),
+        anyInside:labels.some(x=>x.inside),
+        /* У вертикального ребра C появились стрелки размерной линии. */
+        arrows:host.innerHTML.split('marker-start="url(#shapeMetricArrow)"').length-1,
+        inchSize:host.querySelector('.shape-inch-edge-reference').getAttribute('font-size')};
+      host.remove();sEdit=null;sDraft=null;render();
+      return out;
+    }), {edges:['C','D'],anyInside:false,arrows:3,inchSize:'12'});
+
     /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
        панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
     eq('вес ламината складывается из обоих стёкол и плёнки', await t.p.evaluate(() => {
