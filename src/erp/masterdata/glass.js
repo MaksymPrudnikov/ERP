@@ -655,3 +655,39 @@ function importGlassSheetsCsv(text){
  normalizeMasterData();
  return rep;
 }
+
+/* ---------- Вес стекла ----------
+   Считается от ФАКТИЧЕСКОЙ толщины: «10 mm» стекло на деле 9.7 mm, и на
+   больших листах разница уже видна в накладной. Номинал берётся только когда
+   фактического значения в каталоге нет — тогда вес помечается приблизительным.
+   Плотность натрий-кальциевого стекла — именованная константа, а не число
+   внутри выражения: её меняют один раз и в одном месте. */
+const GLASS_DENSITY_KG_M3=2500;
+const GLASS_M2_PER_FT2=0.09290304;
+function glassEffectiveThicknessMm(product){
+  var a=product&&+product.actualThicknessMm;
+  if(isFinite(a)&&a>0)return {mm:a,exact:true};
+  var n=product&&+product.thicknessMm;
+  return isFinite(n)&&n>0?{mm:n,exact:false}:{mm:0,exact:false};
+}
+/* Плёнка легче стекла. Одна цифра на все интерлееры: PVB ~ 1070, EVA ~ 950,
+   а доля плёнки в весе юнита около процента — точнее делить смысла нет. */
+const GLASS_INTERLAYER_DENSITY_KG_M3=1070;
+/* Вес слоя известной толщины. Ламинат — это стёкла И плёнка между ними, и
+   каждый слой считается своей плотностью. */
+function glassLayerWeightKg(mm,density,areaFt2){
+  var a=+areaFt2;
+  if(!(+mm>0)||!isFinite(a)||a<=0)return 0;
+  return a*GLASS_M2_PER_FT2*(+mm/1000)*density;
+}
+/* areaFt2 — площадь ОДНОГО стекла. Возвращает {kg, exact} либо null. */
+function glassWeightKg(product,areaFt2){
+  var t=glassEffectiveThicknessMm(product),a=+areaFt2;
+  if(!(t.mm>0)||!isFinite(a)||a<=0)return null;
+  return {kg:glassLayerWeightKg(t.mm,GLASS_DENSITY_KG_M3,areaFt2),exact:t.exact};
+}
+function glassWeightText(product,areaFt2){
+  var w=glassWeightKg(product,areaFt2);
+  if(!w)return '';
+  return (w.exact?'':'~')+(w.kg>=10?Math.round(w.kg):w.kg.toFixed(1))+' kg';
+}

@@ -98,6 +98,9 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
   o+=shapeMetricDimH(box.left,box.right,box.bottom,box.bottom+44,shapeMetricFormat(metric.bbox.widthMm),opts,F);
   o+=shapeMetricDimV(box.left-48,box.left,box.top,box.bottom,shapeMetricFormat(metric.bbox.heightMm),opts,F);
   o+='<g class="shape-inch-reference-layer shape-inch-overall" data-units="in">'+shapeInchDimH(box.left,box.right,box.bottom+widthGap+8,box.bottom+widthGap+34,shapeDrawingDim(metric.bbox.widthMm/SHAPE_MM_PER_INCH)+'″')+shapeInchDimV(box.left-heightGap-36,box.left-heightGap-8,box.top,box.bottom,shapeDrawingDim(metric.bbox.heightMm/SHAPE_MM_PER_INCH)+'″')+'</g>';
+  /* На печатном листе своя шапка: периметр и толщина там уже есть, а сводка
+     садилась поверх чертежа вторым набором тех же чисел. */
+  if(opts.sheet)return o+'</g>';
   var summary=[];
   if(opts.liteLabel)summary.push(String(opts.liteLabel));
   /* W/H уже стоят на габаритных линиях; в сводке оставляем только то, чего
@@ -181,8 +184,10 @@ function shapeProductionDrawingFrame(result,opts){
   var framePoints=(result.points||[]).slice();
   if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
   var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190;
+  /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
+  if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k);pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
-  var LONG=660,SHORT=260;
+  var LONG=opts.sheet?880:660,SHORT=opts.sheet?200:260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
   var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
   F.metric=metric;return F;
@@ -193,8 +198,11 @@ function shapeProductionSvg(result,opts){
   /* Вид сверху получает отдельное верхнее поле; выбранный лайт тоже входит в
      рамку, чтобы его метрический контур не обрезался собственной формой. */
   var F=shapeProductionDrawingFrame(result,opts);
-  var L=shapeAnnotationLayer(result,F,null,opts.annotation);
-  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+shapeTitleBlock(result,'PRODUCTION DRAWING',F);
+  /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
+     внутри чертежа стали бы вторым набором тех же сведений. */
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var L=shapeAnnotationLayer(result,F,null,ann);
+  var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
   if(result.definition.type!=='rectangle')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
@@ -204,7 +212,7 @@ function shapeProductionSvg(result,opts){
      друга. Дюймовые цепочки скрываем; отверстия и прочие производственные
      обозначения ниже остаются в исходных единицах согласно спецификации. */
   if(!F.metric)o+=L.annotations;
-  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,opts.metric)+shapeGlassHatchSvg(L);
+  if(F.metric)o+=shapeMetricLayerSvg(result,F,L,F.metric,Object.assign({},opts.metric,{sheet:sheet}))+shapeGlassHatchSvg(L);
   /* Габаритная пара нужна только там, где нет цепочек по сторонам. У Smart-Shape
      каждая сторона уже расписана по участкам, и общий размер вставал вторым
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
@@ -212,14 +220,15 @@ function shapeProductionSvg(result,opts){
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
   if(!L.smart&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
-    var wy=L.box.bottom+118+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128-shapeAnnUiShift(annOpts,hKey);
+    var near=sheet?.55:1;
+    var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);
     o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
     o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
   o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation);
-  o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
+  if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
 /* ---------- Safety Border overlay ----------

@@ -3111,6 +3111,223 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {hand:[['Hand notch',1,'pc',15]],cnc:[['CNC notch',1,'pc',15]],doubled:[['CNC notch',2,'pc',15]],
       sand:[['Sandblast · Pattern · Front',13.6111,'ft²',6]],netArea:13.6111});
 
+    /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
+       нету никакой информации на чертеже». Лист собран по его наброску: сверху
+       слева тип и размеры, справа заказчик, посередине чертёж, снизу путь по
+       станциям. printSheetPrepare отделён от системного диалога ради этой
+       проверки — window.print() не зовём. */
+    eq('печатный лист несёт заказ, вес и путь стекла по станциям', await t.p.evaluate(() => {
+      /* Стекло с ФАКТИЧЕСКОЙ толщиной: «10 mm» на деле 9.7 mm, и вес считается
+         от неё. 50″ × 80″ = 27.78 ft² → 62 kg, а не 64.5 по номиналу. */
+      DB.glassProduct=[normalizeGlassProduct({id:'G10',code:'CL10',name:'Clear 10mm',
+        thicknessMm:10,actualThicknessMm:9.7,substrate:'clear',coatingFamily:'uncoated'})];
+      DB.customer=[{id:'C1',displayName:'Acme Glazing Ltd',legalName:'Acme Glazing Ltd',code:'ACME'}];
+      soDraft=newSalesOrderDraft();soDraft.customerId='C1';soDraft.businessNumber='SO-1042';soDraft.customerPo='8891';
+      const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];
+      m.panes[0].glassProductId='G10';m.panes[0].thicknessMm=10;m.panes[0].heatTreatmentId='HT-FT';
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:4,width16:800,height16:1280,mark:'D-2'});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('rectangle');
+      sDraft.w='50';sDraft.h='80';sDraft.thickness='10';
+      salesBridge={kind:'shape',lineId:line.id};
+      const fp=SHAPE_EDGE_OPS.indexOf('Flat Polish');
+      shapeGroups().forEach(function(g,i){toggleShapeEdgeOp(i,fp,true);});
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'g1',type:'hinge',edge:'left',
+        distance:33,modelId:'hw-hinge-vienna-180',model:'Vienna 180'})];
+      sView='production';render();
+      const r=shapeDraftResult(),before=r.fingerprint;
+      const dxfBefore=ShapeModule.genericDxf(r),payloadBefore=JSON.stringify(ShapeModule.machinePayload(r));
+      const svg=shapeDrawnProductionSvg(r,false,{sheet:true});
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,svg,'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost'),html=host.innerHTML;
+      const out={
+        /* Заказчик слева, PO по центру, номер заказа справа — одной строкой. */
+        order:[...host.querySelectorAll('.sheet-id b')].map(function(x){return x.textContent;}),
+        /* Имя поля берём из самой модели заказа: лист читал customerPO, а в
+           заказе оно customerPo, и PO на бумагу не попадал. */
+        poField:Object.keys(normalizeSalesOrder({})).indexOf('customerPo')>=0,
+        idAlign:[...host.querySelectorAll('.sheet-id>div')].map(function(x){return x.className;}),
+        /* Номер строки и примечание стоят в колонке состава, количество —
+           крупным числом под схемой пакета. */
+        line:[...host.querySelectorAll('.sheet-who b')].map(function(x){return x.textContent;})[0],
+        note:[...host.querySelectorAll('.sheet-who b')].map(function(x){return x.textContent;})[1],
+        qty:(host.querySelector('.sheet-qty')||{}).textContent,
+        size:(host.querySelector('.sheet-size')||{}).textContent,
+        mass:(host.querySelector('.sheet-mass')||{}).textContent,
+        stations:[...host.querySelectorAll('.sheet-route .sheet-leg:not(.sheet-merge) b')].map(function(x){return x.textContent;}),
+        hinge:[...host.querySelectorAll('.sheet-route .sheet-leg em')].map(function(x){return x.textContent;})
+          .filter(function(x){return x.indexOf('HINGE')>=0;})
+          .map(function(x){return (x.match(/HINGE[^›]*/)||[''])[0].trim();})[0]||'',
+        letters:[...host.querySelectorAll('.shape-edge-letter')].map(function(x){return x.textContent;}),
+        /* Полного UUID на листе быть не должно: цеху он не нужен, а место ест. */
+        uuidOnSheet:html.indexOf(r.definition.id)>=0,
+        /* Cut size печатается ОДИН раз — в станции CUT, а не ещё и в шапке. */
+        cutTwice:(html.match(/50 1\/4/g)||[]).length,
+        fingerprintKept:shapeDraftResult().fingerprint===before,
+        machineKept:ShapeModule.genericDxf(shapeDraftResult())===dxfBefore&&
+          JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===payloadBefore};
+      printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      return out;
+    }), {order:['Acme Glazing Ltd','8891','SO-1042'],poField:true,
+      idAlign:['sheet-id-c','sheet-id-p','sheet-id-o'],
+      line:'1',note:'D-2',qty:'4 pcs',
+      size:'Finished 50″ × 80″',mass:'27.78 sq ft · 63 kg',
+      stations:['CUT','EDGE','FAB','HEAT'],
+      /* Сторона названа буквой — слово Left рядом с буквой A было повтором,
+         а точка отсчёта названа буквой соседней стороны: её видно на чертеже. */
+      hinge:'HINGE Vienna 180 — A 33 from B',
+      letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,
+      fingerprintKept:true,machineKept:true});
+
+    /* Пакет — один лист, но путь у каждого стекла свой: хендоф 9м, каждое стекло
+       отдельный объект, сборка пакета — точка слияния. */
+    eq('у пакета своя полоса маршрута на каждый лайт и одна станция слияния', await t.p.evaluate(() => {
+      DB.glassProduct=[normalizeGlassProduct({id:'G10',code:'CL10',name:'Clear 10mm',thicknessMm:10,actualThicknessMm:9.7}),
+        normalizeGlassProduct({id:'G6',code:'CL6',name:'Clear 6mm',thicknessMm:6,actualThicknessMm:5.85})];
+      soDraft=newSalesOrderDraft();
+      const m=soDraft.makeups[0];m.unitType='double';m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+      m.panes[0].glassProductId='G10';m.panes[0].thicknessMm=10;m.panes[0].heatTreatmentId='HT-FT';
+      m.panes[1].glassProductId='G6';m.panes[1].thicknessMm=6;m.panes[1].heatTreatmentId='HT-AN';
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:800,height16:1280});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='50';sDraft.h='80';
+      salesBridge={kind:'shape',lineId:line.id};
+      addShapeFeature('stamp');sView='production';render();
+      const route=salesPrintRoute(line,soDraft,sDraft,shapeDraftResult());
+      const out={lites:route.lites.length,merge:route.merge,
+        labels:route.lites.map(function(l){return l.label;}),
+        /* Штамп ставит печь: на отожжённом лайте его быть не может. */
+        heat:route.lites.map(function(l){
+          var h=l.stations.filter(function(s){return s.code==='HEAT';})[0];
+          return h?h.items.length:0;})};
+      soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();return out;
+    }), {lites:2,merge:'IGU',labels:['Lite 1','Lite 2'],heat:[2,0]});
+
+    /* Фигура из библиотеки заказа не имеет: поля пустые, лист печатается. */
+    eq('лист библиотечной фигуры печатается с пустыми полями заказа', await t.p.evaluate(() => {
+      soDraft=null;salesBridge=null;
+      tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
+      sView='production';render();
+      const r=shapeDraftResult();
+      const ok=printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+        'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost');
+      const out={prepared:ok,
+        idCells:[...host.querySelectorAll('.sheet-id b')].map(function(x){return x.textContent;}),
+        cells:host.querySelectorAll('.sheet-who b').length,
+        values:[...host.querySelectorAll('.sheet-who b')].map(function(x){return x.textContent;}),
+        makeup:host.querySelectorAll('.sheet-mk-rows').length,
+        lite:host.querySelectorAll('.sheet-lite-name').length,
+        stations:[...host.querySelectorAll('.sheet-route .sheet-leg:not(.sheet-merge) b')].map(function(x){return x.textContent;})};
+      printSheetCleanup();sEdit=null;sDraft=null;render();return out;
+    }), {prepared:true,idCells:['','',''],cells:2,values:['',''],makeup:0,lite:0,stations:['CUT']});
+
+    /* Раскладка у листа ОДНА на все фигуры: владелец — «для узких низких
+       широких эта шапка с заказчиком, мейкапом и чертежами база». Полоса
+       сведений сверху во всю ширину, чертёж под ней во всю ширину; от фигуры к
+       фигуре не меняется ничего, кроме самого чертежа. */
+    eq('лист устроен одинаково у любой фигуры: полоса сверху, чертёж под ней', await t.p.evaluate(async () => {
+      const seen={};
+      for(const c of [{n:'tall',w:'12',h:'36'},{n:'wide',w:'60',h:'80'}]){
+        soDraft=newSalesOrderDraft();
+        const m=soDraft.makeups[0];m.unitType='double';
+        m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+        const line=normalizeSalesOrderLine({makeupId:m.id,qty:10,
+          width16:Math.round(+c.w*16),height16:Math.round(+c.h*16)});
+        soDraft.lines=[line];
+        tab='configurators';subtab='shape';openShapeNew('rectangle');
+        sDraft.w=c.w;sDraft.h=c.h;salesBridge={kind:'shape',lineId:line.id};
+        sView='production';render();
+        const r=shapeDraftResult();
+        printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+          'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+        const host=document.getElementById('printSheetHost');
+        const body=host.querySelector('.sheet-body').getBoundingClientRect();
+        const side=host.querySelector('.sheet-side').getBoundingClientRect();
+        const field=host.querySelector('.sheet-field').getBoundingClientRect();
+        const sheet=host.querySelector('.print-shape-sheet').getBoundingClientRect();
+        seen[c.n]={
+          /* Полоса стоит первой и занимает всю ширину, чертёж идёт под ней. */
+          strip:[Math.round(side.left-body.left),Math.round(side.top-body.top),Math.round(side.width)],
+          fieldFull:Math.round(field.width)===Math.round(body.width),
+          fieldUnder:Math.round(field.top)>=Math.round(side.bottom),
+          /* Порядок в полосе: изделие, числа, состав. */
+          order:[...host.querySelectorAll('.sheet-side>div')]
+            .sort((a,b)=>a.getBoundingClientRect().left-b.getBoundingClientRect().left)
+            .map(x=>x.className),
+          /* Количество — третья строка блока изделия. */
+          nameLines:[...host.querySelectorAll('.sheet-name>div')].map(x=>x.className),
+          /* Маршрут и подвал остаются на листе, ничего не выдавлено. */
+          fits:Math.round(sheet.height)<=host.clientHeight};
+        printSheetCleanup();
+      }
+      soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      return {same:JSON.stringify(seen.tall.strip)===JSON.stringify(seen.wide.strip),
+        under:seen.tall.fieldUnder&&seen.wide.fieldUnder,
+        full:seen.tall.fieldFull&&seen.wide.fieldFull,
+        order:seen.tall.order,nameLines:seen.tall.nameLines,
+        fits:seen.tall.fits&&seen.wide.fits};
+    }), {same:true,under:true,full:true,
+      order:['sheet-name','sheet-nums','sheet-mk'],
+      nameLines:['sheet-title','sheet-spec','sheet-qty'],fits:true});
+
+    /* Одинарное стекло тоже подписано в маршруте: без подписи слева зияла
+       пустая колонка, и строка начиналась с провала. Заодно проверяем, что
+       оболочка объявлена светлой — иначе браузер красит РОДНЫЕ чекбоксы и
+       списки по системной теме, и в тёмной системе они чернеют. */
+    eq('маршрут подписывает и одинарное стекло, оболочка объявлена светлой', await t.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();
+      const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.cavities=[];
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:48*16,height16:36*16});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('rectangle');
+      sDraft.w='48';sDraft.h='36';salesBridge={kind:'shape',lineId:line.id};
+      sView='production';render();
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+        'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost');
+      const leg=host.querySelector('.sheet-leg');
+      const out={label:leg.querySelector('span')?leg.querySelector('span').textContent:'',
+        bare:host.querySelectorAll('.sheet-leg.bare').length,
+        scheme:getComputedStyle(document.documentElement).colorScheme};
+      printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      return out;
+    }), {label:'Lite 1 · CL6 · AN',bare:0,scheme:'light'});
+
+    /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
+       панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
+    eq('вес ламината складывается из обоих стёкол и плёнки', await t.p.evaluate(() => {
+      DB.glassProduct=[normalizeGlassProduct({id:'G6',code:'CL6',name:'Clear 6mm',
+        thicknessMm:6,actualThicknessMm:5.66,substrate:'clear',coatingFamily:'uncoated'})];
+      soDraft=newSalesOrderDraft();
+      const m=soDraft.makeups[0];m.unitType='single';m.cavities=[];
+      const pane=salesDefaultPane(0);pane.category='laminated';
+      pane.laminated.outer.glassProductId='G6';pane.laminated.outer.thicknessMm=6;
+      pane.laminated.inner.glassProductId='G6';pane.laminated.inner.thicknessMm=6;
+      m.panes=[pane];
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:800,height16:1280});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('rectangle');
+      sDraft.w='50';sDraft.h='80';salesBridge={kind:'shape',lineId:line.id};
+      sView='production';render();
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+        'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost');
+      /* 27.78 ft² = 2.5806 м². Стекло: 2 × 2.5806 × 0.00566 × 2500 = 73.0 кг.
+         Плёнка 0.38 мм при 1070 кг/м³ добавляет килограмм. */
+      const out={mass:(host.querySelector('.sheet-mass')||{}).textContent,
+        ply:Math.round(glassWeightKg(glassProductById('G6'),27.7778).kg),
+        /* Одинарное стекло той же шестёрки весит ровно вдвое меньше. */
+        single:(function(){
+          const w=salesSheetPaneWeightKg(salesDefaultPane(0),27.7778);return w?Math.round(w.kg):null;})(),
+        /* Пакет и ламинат считают юнитами, а не штуками. */
+        qty:(host.querySelector('.sheet-qty')||{}).textContent};
+      printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      return out;
+    }), {mass:'27.78 sq ft · 74 kg',ply:37,single:37,qty:'1 unit'});
+
     /* Сквозной номер («вторая петля #2, патч за ней #3») убран: порядок ввода
        читался как номер изделия. */
     eq('у меток нет сквозного номера ни в карточке, ни на чертеже', await t.p.evaluate(() => {

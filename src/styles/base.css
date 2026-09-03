@@ -4,6 +4,9 @@
  --text:#17212b;--mut:#6c7a86;--nav:#12232e;--nav2:#183340;--blue:#2f7da8;
  --blue2:#eaf4fa;--green:#27815a;--green2:#e9f6ef;--amber:#a86c13;--amber2:#fff5df;
  --red:#a84444;--red2:#fdeeee;--shadow:0 8px 28px rgba(28,52,66,.06);
+ /* Оболочка светлая. Без этого браузер красит РОДНЫЕ элементы формы по
+    системной теме: в тёмной системе чернели чекбоксы и выпадающие списки. */
+ color-scheme:light;
 }
 html{background:var(--bg)}
 body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:var(--bg)}

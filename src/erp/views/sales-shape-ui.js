@@ -660,9 +660,11 @@ function shapeDxfPreviewTransform(source){
   var sc=Math.min((vw-padL-padR)/W,(vh-padT-padB)/H),dw=W*sc,dh=H*sc,x0=padL+(vw-padL-padR-dw)/2,y0=padT+(vh-padT-padB-dh)/2;
   return {P:P,b:b,W:W,H:H,vw:vw,vh:vh,sc:sc,dw:dw,dh:dh,x0:x0,y0:y0,X:function(x){return x0+(x-b.minX)*sc;},Y:function(y){return y0+dh-(y-b.minY)*sc;}};
 }
-function shapeDrawnPreviewTransform(result){
+/* Накладка меток считается ТЕМ ЖЕ полем, что и сам чертёж. На печатном листе
+   поля канвы урезаны, и без общего расчёта метки уезжали за контур. */
+function shapeDrawnPreviewTransform(result,extra){
   if(!result||!result.valid||!(result.points||[]).length)return null;
-  var F=shapeProductionDrawingFrame(result,shapeMetricProductionOptions(result));
+  var F=shapeProductionDrawingFrame(result,Object.assign({},shapeMetricProductionOptions(result),extra||{}));
   F.P=result.points;return F;
 }
 function shapePlaceManufacturingFromEvent(ev,svg){
@@ -1106,8 +1108,11 @@ function shapeDxfPreviewSvg(source,includeMarks){
     <text x='${leftX-10}' y='${y0+dh/2}' class='shape-dxf-dim-text' text-anchor='middle' transform='rotate(-90 ${leftX-10} ${y0+dh/2})'>${esc(heightLabel)}</text>
   </svg>`;
 }
-function shapeDrawnProductionSvg(result,interactive){
-  var metricOpts=shapeMetricProductionOptions(result,interactive),svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result);if(!T)return svg;
+function shapeDrawnProductionSvg(result,interactive,extra){
+  /* extra — режим печатного листа: он несёт свою шапку и свою подпись, поэтому
+     чертёж рисуется без заголовка и в чёрно-белом варианте. */
+  var metricOpts=Object.assign({},shapeMetricProductionOptions(result,interactive),extra||{});
+  var svg=ShapeModule.productionSvg(result,metricOpts),T=shapeDrawnPreviewTransform(result,extra);if(!T)return svg;
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
      represented by the active drawing tab. */
@@ -1385,9 +1390,13 @@ function shapePrintDrawing(){
   if(e)e.style.display='none';
   if(r.externalFile){if(e)fail(e,'A DXF file from Fusion 360 is not printed as a Production Shape drawing.');return;}
   if(!r.valid){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
-  var cutting=sView==='cutting',svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false);
-  var name=(sDraft.name||'').trim()||'Shape';
-  printSheet(svg,name+' · '+(cutting?'Cutting Shape':'Production Drawing')+' · Rev '+(sDraft.revision||0));
+  /* Лист несёт свою шапку и маршрут, поэтому чертёж рисуется без собственного
+     заголовка и в чёрно-белом варианте: цех печатает ч/б, и цветом стороны там
+     не различить — их называет буква на кромке. */
+  var cutting=sView==='cutting';
+  var svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
+  var kind=cutting?'CUTTING SHAPE':'PRODUCTION DRAWING';
+  printSheet(salesShapeSheetHTML(sDraft,r,svg,kind),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
