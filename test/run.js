@@ -3332,6 +3332,43 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return out;
     }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:3,inchSize:'12'});
 
+    /* Печатный хост был задан в пикселях под книжный Letter. На бумаге это
+       неверно всегда: в книжной он ШИРЕ печатного поля и лист обрезался по
+       краю, в альбомной — уже его, и треть страницы пустовала. Размер листа на
+       печати задаёт страница, а не константа. Проверяем в обеих ориентациях. */
+    eq('лист занимает печатное поле в обеих ориентациях', await t.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();
+      const m=soDraft.makeups[0];m.unitType='double';
+      m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:26*16,height16:28*16});
+      soDraft.lines=[line];
+      tab='configurators';subtab='shape';openShapeNew('triangle');
+      sDraft.w='26';sDraft.h='28';salesBridge={kind:'shape',lineId:line.id};
+      sView='production';render();
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),
+        'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
+      return true;
+    }) && await (async () => {
+      await t.p.emulateMedia({media:'print'});
+      const out={};
+      for(const [name,size] of [['portrait',{width:748,height:988}],['landscape',{width:988,height:748}]]){
+        await t.p.setViewportSize(size);
+        out[name]=await t.p.evaluate(() => {
+          const h=document.getElementById('printSheetHost');
+          const w=Math.round(h.getBoundingClientRect().width);
+          const sh=Math.round(h.querySelector('.print-shape-sheet').getBoundingClientRect().height);
+          return {fills:w===window.innerWidth,fits:sh<=window.innerHeight};
+        });
+      }
+      await t.p.emulateMedia({media:null});
+      await t.p.setViewportSize({width:1280,height:900});
+      await t.p.evaluate(() => {
+        printSheetCleanup();soDraft=null;salesBridge=null;sEdit=null;sDraft=null;render();
+      });
+      return out;
+    })(), {portrait:{fills:true,fits:true},landscape:{fills:true,fits:true}});
+
     /* Ламинат — это ДВА стекла и плёнка между ними. Лист считал вес по одной
        панели, и 6 + 6 весил как шестёрка: вдвое меньше настоящего. */
     eq('вес ламината складывается из обоих стёкол и плёнки', await t.p.evaluate(() => {

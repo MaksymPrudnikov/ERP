@@ -51,7 +51,8 @@
      на бумаге не нужны и съедают место. */
   body.printing{background:#fff!important}
   body.printing>*{display:none!important}
-  body.printing>#printSheetHost{display:block!important;position:static}
+  body.printing>#printSheetHost{display:block!important;position:static;
+    width:auto;height:auto;overflow:visible}
   /* Панель управления размером и след скрытого размера — интерфейс,
      а не чертёж. В печатную разметку они не попадают уже на сборке; это
      страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
