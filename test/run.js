@@ -1276,18 +1276,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const badUnits=shapeParseFusionDxf(sample.replace('$INSUNITS\n70\n1','$INSUNITS\n70\n4'));
       const openContour=shapeParseFusionDxf(sample.replace('90\n4\n70\n1','90\n4\n70\n0'));
       const bad=ShapeModule.compute(Object.assign({},d,{source:{kind:'dxf',fileName:'panel.txt',fileSize:0,uploadedAt:''}}));
-      const concavePoints=[[0,0],[0,40],[18,40],[18,22],[30,22],[30,40],[48,40],[48,0]],concave=normalizeShapeDef({id:'fusion-concave',type:'rectangle',w:'48',h:'40',thickness:'6',source:{kind:'dxf',fileName:'concave.DXF',fileSize:54321,uploadedAt:'2026-08-24T15:00:00.000Z',note:'',preview:{units:'in',points:concavePoints,width16:768,height16:640}}}),concaveResult=ShapeModule.dxfProductionResult(concave),concaveCut=concaveResult.cutting;
+      const concavePoints=[[0,0],[0,40],[18,40],[18,22],[30,22],[30,40],[48,40],[48,0]],concave=normalizeShapeDef({id:'fusion-concave',type:'rectangle',w:'48',h:'40',thickness:'6',source:{kind:'dxf',fileName:'concave.DXF',fileSize:54321,uploadedAt:'2026-08-24T15:00:00.000Z',note:'',preview:{units:'in',points:concavePoints,width16:768,height16:640}}}),concaveResult=ShapeModule.dxfProductionResult(concave),concaveCut=concaveResult.cutting,concavePayload=ShapeModule.machinePayload(concaveResult),concaveDxf=ShapeModule.genericDxf(concaveResult);
       return {legacySource:legacy.source,legacyFingerprintStable:shapeFingerprint(legacy)===oldFingerprint,
         parsed:{ok:parsed.ok,width16:parsed.preview.width16,height16:parsed.preview.height16,points:parsed.preview.points.length,badUnits:badUnits.ok,open:openContour.ok},
         external:{valid:r.valid,external:r.externalFile,sourceValid:r.sourceValid,cutting:!!r.cutting,fingerprint:!!r.fingerprint,width16:Math.round(r.width*16),height16:Math.round(r.height*16),billable:+(r.billableArea/144).toFixed(4)},
-        muntin:{valid:mr.valid,code:mr.code},bad:{sourceValid:bad.sourceValid},concave:{valid:concaveResult.valid,cuttingValid:!!(concaveCut&&concaveCut.valid),points:concaveCut&&concaveCut.points.length,removed:concaveCut&&concaveCut.notchesRemoved,exact:!!(concaveCut&&JSON.stringify(concaveCut.points)===JSON.stringify(concavePoints))}};
+        muntin:{valid:mr.valid,code:mr.code},bad:{sourceValid:bad.sourceValid},concave:{valid:concaveResult.valid,cuttingValid:!!(concaveCut&&concaveCut.valid),points:concaveCut&&concaveCut.points.length,removed:concaveCut&&concaveCut.notchesRemoved,exact:!!(concaveCut&&JSON.stringify(concaveCut.points)===JSON.stringify(concavePoints)),machineExact:!!(concavePayload&&JSON.stringify(concavePayload.outer.points)===JSON.stringify(concavePoints)),dxfVertices:(concaveDxf&&concaveDxf.match(/\nVERTEX\n/g)||[]).length}};
     });
     eq('legacy Shape получает drawn source без изменения fingerprint', {source:dxfSource.legacySource,stable:dxfSource.legacyFingerprintStable}, {source:{kind:'drawn',fileName:'',fileSize:0,uploadedAt:'',note:''},stable:true});
     eq('Fusion DXF читается в inches и округляется до 1/16', dxfSource.parsed, {ok:true,width16:391,height16:1295,points:4,badUnits:false,open:false});
     eq('DXF source fail-closed для Cutting Geometry, но даёт габариты и billable area', dxfSource.external, {valid:false,external:true,sourceValid:true,cutting:false,fingerprint:true,width16:391,height16:1295,billable:13.7355});
     eq('Muntin не использует внешний DXF как рассчитанную ERP-геометрию', dxfSource.muntin, {valid:false,code:'MUNTIN_SHAPE_INVALID'});
     eq('битый DXF source отклоняется', dxfSource.bad, {sourceValid:false});
-    eq('вогнутый DXF сохраняет точный cutting contour без convex hull', dxfSource.concave, {valid:true,cuttingValid:true,points:8,removed:0,exact:true});
+    eq('вогнутый DXF сохраняет точный cutting contour без convex hull', dxfSource.concave, {valid:true,cuttingValid:true,points:8,removed:0,exact:true,machineExact:true,dxfVertices:8});
 
     const manufacturing = await p.evaluate(() => {
       const base=newShapeDef('rectangle');base.id='mi-base';base.w='20';base.h='40';
