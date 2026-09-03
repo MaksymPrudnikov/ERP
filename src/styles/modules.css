@@ -598,3 +598,29 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 @media print{
   .print-sheet .print-shape-sheet{height:96vh}
 }
+
+/* Parallelogram measuring modes ------------------------------------- */
+.shape-para-editor>label{display:block;font-size:9.5px}
+.shape-para-editor>label>select{margin-top:4px}
+.shape-para-main{display:grid;grid-template-columns:minmax(180px,1fr) minmax(170px,.9fr);gap:9px;align-items:stretch;margin-top:8px}
+.shape-para-visual{min-height:150px;display:grid;place-items:center;border:1px solid var(--line);border-radius:9px;background:#fbfcfd}
+.shape-para-visual svg{width:100%;height:150px}
+.shape-para-visual text{font:600 10px ui-monospace,monospace;fill:#b42318}
+.shape-para-visual text.dir{font-size:11px;fill:#175cd3}
+.shape-para-invalid{padding:14px;color:var(--bad,#b42318);font-size:10px;text-align:center}
+.shape-para-entry{display:flex;flex-direction:column;gap:7px}
+.shape-para-entry>label{font-size:9.5px}
+.shape-para-entry input{margin-top:3px}
+.shape-para-directions{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px}
+.shape-para-directions button{display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 4px;font-size:9.5px}
+.shape-para-directions button i{font-size:13px;font-style:normal;line-height:1}
+.shape-para-directions button.on{border-color:#7ab8d3;background:#eaf6fb;color:#175f83;font-weight:700}
+.shape-para-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px}
+.shape-para-readout>span{min-width:0;padding:6px 7px;border:1px solid var(--line);border-radius:7px;background:#f8fafb}
+.shape-para-readout small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em}
+.shape-para-readout b{display:block;margin-top:2px;font:600 10.5px ui-monospace,monospace}
+.shape-master-fields input.ro{background:#f2f4f7;color:var(--mut)}
+@media(max-width:720px){
+  .shape-para-main{grid-template-columns:1fr}
+  .shape-para-readout{grid-template-columns:repeat(3,1fr)}
+}

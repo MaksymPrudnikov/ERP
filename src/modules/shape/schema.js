@@ -263,12 +263,44 @@ function shapeLiteInsetFor(def,liteIndex,edgeId){
   return p.ok&&p.v>0?p.v:0;
 }
 function normalizeShapeDef(s){
-  s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),params=shapePlainObject(s.params),edgeOps=shapePlainObject(s.edgeOps),ops={};
+  s=shapePlainObject(s);var type=s.type==null||s.type===''?'smart':String(s.type),defaults=shapeDefaultParams(type),rawParams=shapePlainObject(s.params),params=Object.assign({},rawParams),edgeOps=shapePlainObject(s.edgeOps),ops={};
+  var normalizedW=shapeTextValue(s.w,type==='circle'?'36':'48'),normalizedH=shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36');
+  /* Raked Rectangle used to store two top drops.  Convert that legacy pair to
+     the new long/short-height vocabulary once, while retaining the same top
+     contour and avoiding stale legacy fields overriding later edits. */
+  if(type==='raked'&&params.shortHeight==null&&(params.leftDrop!=null||params.rightDrop!=null)){
+    var rh=fabParseDimStrict(normalizedH),rld=fabParseDimStrict(params.leftDrop),rrd=fabParseDimStrict(params.rightDrop);
+    if(rh.ok&&rld.ok&&rrd.ok){var lh=rh.v-rld.v,rrh=rh.v-rrd.v;params.shortHeight=shapeParaDimText(Math.min(lh,rrh));params.rakeSide='top';params.shortSide=lh<=rrh?'left':'right';}
+    delete params.leftDrop;delete params.rightDrop;
+  }
+  /* Polygon раньше означал свободный контур по точкам. Теперь это правильный
+     многоугольник, а свободный контур — отдельный тип Custom Shape. Всё, что
+     сохранено списком точек и без числа сторон, уезжает в Custom вместе со
+     своими координатами: ни одна сохранённая форма не меняется.
+     Сюда же приходят старые импорты DXF: они тоже сохранялись как polygon. */
+  if(type==='polygon'&&rawParams.sides==null&&Array.isArray(s.polygon)&&s.polygon.length>=3){
+    type='custom';defaults=shapeDefaultParams(type);
+  }
+  /* Треугольник хранил apexX — то же смещение вершины под старым именем.
+     Переносим значение и убираем ключ, чтобы старое поле не спорило с новым. */
+  if(type==='triangle'&&params.apexX!=null){
+    if(params.topOffset==null)params.topOffset=shapeTextValue(params.apexX,'');
+    delete params.apexX;
+  }
+  /* Legacy Parallelogram stored Width as its complete bounding box and `skew`
+     as a single positive offset.  Convert to the physical-edge Width used by
+     the measurement modes while keeping the old contour in exactly the same
+     place (up to translation for a negative legacy skew). */
+  if(type==='parallelogram'&&params.measureMode==null&&params.outOfSquare==null&&params.skew!=null){
+    var oldSkew=fabParseDimStrict(params.skew),oldWidth=fabParseDimStrict(normalizedW),legacyDirection=oldSkew.ok&&oldSkew.v<0?'left':'right';
+    params={measureMode:'height-oos',outOfSquare:oldSkew.ok?shapeParaDimText(Math.abs(oldSkew.v)):shapeTextValue(params.skew,''),diagonal:'',angle:'',slopeDirection:legacyDirection};
+    if(oldSkew.ok&&oldWidth.ok&&oldWidth.v-oldSkew.v>0)normalizedW=shapeParaDimText(oldWidth.v-oldSkew.v);
+  }
   Object.keys(defaults).forEach(function(k){if(params[k]==null)params[k]=defaults[k];else params[k]=shapeTextValue(params[k]);});
   Object.keys(edgeOps).forEach(function(id){var list=Array.isArray(edgeOps[id])?edgeOps[id]:[],clean=list.map(shapeNormalizeOp).filter(Boolean);if(clean.length)ops[id]=clean;});
   var source=shapeNormalizeSource(s.source),out={
     id:shapeTextValue(s.id,shapeNewEntityId('s')),name:shapeTextValue(s.name,''),type:type,
-    w:shapeTextValue(s.w,type==='circle'?'36':'48'),h:shapeTextValue(s.h,type==='circle'?(s.w||'36'):'36'),
+    w:normalizedW,h:normalizedH,
     thickness:shapeTextValue(s.thickness,'6'),params:params,polygon:shapeNormalizePolygon(s.polygon),
     /* Safety Border: базовое значение (пусто = AUTO по толщине) плюс ручной
        ввод по конкретным кромкам, как обработка в Edge Set. */
@@ -290,6 +322,44 @@ function normalizeShapeDef(s){
   };
   if(source.kind==='dxf'&&source.preview.width16>0&&source.preview.height16>0){out.w=frac64(source.preview.width16/16);out.h=frac64(source.preview.height16/16);}
   else if(type==='circle'&&s.h==null)out.h=out.w;
+  if(type==='parallelogram'){
+    out.params.measureMode=shapeParaMeasure(out.params.measureMode);out.params.slopeDirection=shapeParaDirection(out.params.slopeDirection);
+    var para=shapeParallelogramValues(out.w,out.h,out.params);
+    if(para.ok){
+      /* Persist calculated companions so switching Measure mode preserves the
+         visible shape.  Only the projection derived by Diagonal + Angle is
+         allowed to replace a master Width/Height field. */
+      if(para.mode==='diagonal-angle'){
+        if(para.sideways)out.h=shapeParaDimText(para.height);else out.w=shapeParaDimText(para.width);
+      }
+      if(para.mode!=='height-oos')out.params.outOfSquare=shapeParaDimText(para.outOfSquare);
+      if(para.mode!=='height-diagonal'&&para.mode!=='diagonal-angle')out.params.diagonal=shapeParaDimText(para.diagonal);
+      if(para.mode!=='diagonal-angle'&&para.mode!=='height-angle')out.params.angle=shapeParaAngleText(para.angle);
+    }
+  }
+  /* Тот же приём, что и у параллелограмма: посчитанный набор сохраняется рядом
+     с введённым, поэтому смена Measure у треугольника не двигает контур. */
+  if(type==='triangle'){
+    out.params.measureMode=shapeTriMeasure(out.params.measureMode);
+    var tri=shapeTriangleValues(out.w,out.h,out.params);
+    if(tri.ok){
+      if(tri.mode==='diagonal'){out.h=shapeParaDimText(tri.height);out.params.topOffset=shapeParaDimText(tri.topOffset);}
+      else{out.params.leftEdge=shapeParaDimText(tri.leftEdge);out.params.rightEdge=shapeParaDimText(tri.rightEdge);}
+    }
+  }
+  /* У Custom Shape габарит тоже не вводится: он следует за точками контура,
+     поэтому Finished, Cut size и раскрой читают его из тех же координат. */
+  if(type==='custom'){
+    var cb=shapeCustomBounds(out.polygon);
+    if(cb){out.w=shapeParaDimText(cb.width);out.h=shapeParaDimText(cb.height);}
+  }
+  /* У правильного многоугольника габарит целиком выводится из числа сторон и
+     длины стороны. Записываем его в w/h: карточки Finished и Cut size, раскрой
+     и печать читают габарит оттуда же, откуда у остальных фигур. */
+  if(type==='polygon'){
+    var poly=shapeRegularPolygonValues(out.params);
+    if(poly.ok){out.w=shapeParaDimText(poly.width);out.h=shapeParaDimText(poly.height);}
+  }
   return out;
 }
 function newShapeDef(type){
@@ -301,7 +371,7 @@ function newShapeDef(type){
   type=shapeType(type||'smart');
   var W=type==='smart'?'1':(type==='circle'?'36':'48'),H=type==='smart'?'1':(type==='circle'?'36':'36');
   var out=normalizeShapeDef({id:shapeNewEntityId('s'),name:'',type:type,w:W,h:H,params:shapeDefaultParams(type),smart:defaultSmartModel(),features:[],edgeOps:{}});
-  if(type==='polygon')out.polygon=shapeNormalizePolygon(null);return out;
+  if(type==='polygon'||type==='custom')out.polygon=shapeNormalizePolygon(null);return out;
 }
 function newSmartShapeDef(){return newShapeDef('smart');}
 function newShapeFeature(type,context){
@@ -311,6 +381,10 @@ function newShapeFeature(type,context){
   return f;
 }
 function shapeParamSpecsFor(type){
+  if(type==='parallelogram')return [];
+  if(type==='raked')return [{key:'shortHeight',label:'Short Height'}];
+  if(type==='triangle')return [];
+  if(type==='polygon'||type==='custom')return [];
   var labels={skew:'Skew',leftDrop:'Left top drop',rightDrop:'Right top drop',apexX:'Apex X',tlx:'TL X',tly:'TL Y',trx:'TR X',try:'TR Y',brx:'BR X',bry:'BR Y',blx:'BL X',bly:'BL Y',depth:'Notch depth',height:'Notch height',fromBottom:'From bottom',width:'Notch width',fromLeft:'From left',depth1:'Depth 1',height1:'Height 1',gap:'Gap',depth2:'Depth 2',height2:'Height 2'};
   return Object.keys(shapeDefaultParams(type)).map(function(k){return {key:k,label:labels[k]||k};});
 }

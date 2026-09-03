@@ -8,6 +8,14 @@
 
 function shapeGeometry(S){
   var W=inch(S.w),H=inch(S.h),kind=(S.shape&&S.shape.type)||'smart';
+  /* Diagonal + Angle calculates one master projection.  Resolve it before the
+     common Width/Height gate so the calculated dimension is the one validated
+     and used everywhere downstream. */
+  if(kind==='parallelogram'){
+    var para=shapeParallelogramValues(S.w,S.h,(S.shape&&S.shape.params)||{});
+    if(!para.ok)return {ok:false,error:para.errors[0],errors:para.errors,W:para.width,H:para.height,pts:[],type:kind};
+    W=para.width;H=para.height;
+  }
   if(W<=0||H<=0)return {ok:false,error:'Enter valid width and height.',W:W,H:H,pts:[],type:kind,minX:0,minY:0,maxX:W,maxY:H};
   if(kind==='smart'){
     if(!S.shape.smart)S.shape.smart=ssNormalize({});

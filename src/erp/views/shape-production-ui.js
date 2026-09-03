@@ -66,12 +66,15 @@ function shapeProdBorderField(){
   if(!shapeIsDxfSource(sDraft)&&typeof shapeGroups==='function')shapeGroups().forEach(function(g){
     var id=String(g.id);if(!shownBy[id]){shownEdges.push({id:id,excluded:true,value:0,state:'OFF'});shownBy[id]=true;}
   });
-  var rows=shownEdges.sort(function(a,b){return String(a.id).localeCompare(String(b.id));}).map(function(e){
+  /* Порядок карточек — порядок обхода контура: буква стороны и сортировка
+     теперь совпадают, а машинный id E:PV12 сортировался между PV1 и PV2. */
+  var edgeNames=shapeEdgeNames(shapeDraftGeometry());
+  var rows=shownEdges.sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
     var tag=e.excluded?`<span class='pill'>POST</span>`:e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
       :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
     var label=shapeBorderEdgeLabel(id);
-    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
+    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
       (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
       `<div class='shape-border-state'>${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div></div>`;
   }).join('');
@@ -98,7 +101,7 @@ viewShapeSkill=function(){
     var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
-  var opts=SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
+  var opts=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
   return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
     <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${library.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
 };
@@ -126,7 +129,7 @@ setShapeType=function(type){
   if(changing)shapeProdClearGeometryBoundData();
   if(shapeIsDxfSource(sDraft))sDraft.source=shapeNormalizeSource(null);
   sDraft.type=type;sDraft.params=shapeDefaultParams(type);
-  if(type==='polygon')sDraft.polygon=shapeNormalizePolygon(null);
+  if(type==='polygon'||type==='custom')sDraft.polygon=shapeNormalizePolygon(null);
   if(type==='circle')sDraft.h=sDraft.w;
   render();
 };
@@ -158,7 +161,7 @@ removeShapeDxf=function(){
 
 /* ---------- Compact master/source ---------- */
 function shapeProdTypeOptions(){
-  return SHAPE_PRESETS.map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
+  return shapePresetChoices(sDraft.type).map(function(p){return `<option value='${esc(p.id)}' ${!shapeIsDxfSource(sDraft)&&p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('')+
     `<option value='__DXF__' ${shapeIsDxfSource(sDraft)?'selected':''}>DXF · Fusion 360</option>`;
 }
 function shapeProdChooseType(value){

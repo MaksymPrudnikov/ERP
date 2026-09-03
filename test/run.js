@@ -799,6 +799,309 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
     });
     eq('все каталожные Shape имеют валидные defaults', schemaV2.presets.filter(x=>!x.valid), []);
+    const paraModes = await p.evaluate(() => {
+      function make(mode,direction,params){
+        const d=newShapeDef('parallelogram');d.w='37 1/2';d.h='80';
+        d.params=Object.assign({},d.params,{measureMode:mode,slopeDirection:direction},params||{});
+        const q=shapeParallelogramValues(d.w,d.h,d.params),r=ShapeModule.compute(d);
+        return {valid:r.valid,q:{w:+q.width.toFixed(3),h:+q.height.toFixed(3),oos:+q.outOfSquare.toFixed(3),diagonal:+q.diagonal.toFixed(3),angle:+q.angle.toFixed(3)},
+          points:r.points.map(p=>p.map(v=>+v.toFixed(3)))};
+      }
+      function drawing(direction,opts){
+        const d=newShapeDef('parallelogram');d.w='40';d.h='36';Object.assign(d.params,{measureMode:'height-oos',outOfSquare:'4',slopeDirection:direction});
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),opts||{}),'image/svg+xml');
+        const dims=[...doc.querySelectorAll('.shape-para-oos-dimension')];
+        return {refs:doc.querySelectorAll('.shape-para-oos-reference').length,
+          axes:dims.map(x=>x.classList.contains('horizontal')?'h':'v'),positions:dims.map(x=>x.getAttribute('data-oos-position')),
+          values:dims.map(x=>x.getAttribute('data-oos-value')),labels:dims.map(x=>(x.querySelector('text')||{}).textContent||''),
+          oldReference:doc.querySelectorAll('rect[stroke-dasharray="7 6"]').length};
+      }
+      const legacy=normalizeShapeDef({id:'old-para',name:'Old PARA',type:'parallelogram',w:'48',h:'36',params:{skew:'4'}}),legacyResult=ShapeModule.compute(legacy);
+      const badDiagonal=newShapeDef('parallelogram');badDiagonal.w='37 1/2';badDiagonal.h='80';Object.assign(badDiagonal.params,{measureMode:'height-diagonal',diagonal:'79'});
+      const badAngle=newShapeDef('parallelogram');badAngle.w='37 1/2';badAngle.h='80';Object.assign(badAngle.params,{measureMode:'height-angle',angle:'90'});
+      const rounded=newShapeDef('parallelogram');rounded.w='40';rounded.h='36';rounded.params.outOfSquare='4';rounded.features=[shapeNormalizeFeature({type:'radius',vertexId:'BL',radius:'1'})];
+      const tiny=newShapeDef('parallelogram');tiny.w='1000';tiny.h='1000';tiny.params.outOfSquare='1/16';
+      const calculated=newShapeDef('parallelogram');calculated.w='37 1/2';calculated.h='80';Object.assign(calculated.params,{measureMode:'height-diagonal',diagonal:'81'});
+      function oosLabels(def){const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(def)),'image/svg+xml');return [...doc.querySelectorAll('.shape-para-oos-dimension text')].map(x=>x.textContent.trim());}
+      function oosInteractive(offsets,selectedKey){
+        const d=newShapeDef('parallelogram');d.w='40';d.h='36';d.params.outOfSquare='4';
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),{annotation:{interactive:true,offsets:offsets||{},selectedKey:selectedKey||null}}),'image/svg+xml');
+        const line=doc.querySelector('[data-inch-primary-key="inch:para:oos:top-left"] .shape-para-oos-dimension line[marker-start]');
+        return {wrappers:doc.querySelectorAll('.shape-para-oos-layer .shape-inch-primary-movable').length,menus:doc.querySelectorAll('.shape-para-oos-layer .shape-inch-primary-menu').length,y:line&&+line.getAttribute('y1')};
+      }
+      const oosInteractiveBase=oosInteractive({},null),oosInteractiveMoved=oosInteractive({'inch:para:oos:top-left':1},'inch:para:oos:top-left');
+      const noOosRect=newShapeDef('rectangle'),noOosSmart=newShapeDef('smart');
+      return {
+        modes:{
+          oos:make('height-oos','right',{outOfSquare:'12 11/16'}),
+          diagonal:make('height-diagonal','right',{diagonal:'81'}),
+          diagonalAngle:make('diagonal-angle','right',{diagonal:'81',angle:'9.01'}),
+          heightAngle:make('height-angle','right',{angle:'9.01'})
+        },
+        directions:{
+          left:make('height-oos','left',{outOfSquare:'12 11/16'}).points,
+          right:make('height-oos','right',{outOfSquare:'12 11/16'}).points,
+          up:make('height-oos','up',{outOfSquare:'12 11/16'}).points,
+          down:make('height-oos','down',{outOfSquare:'12 11/16'}).points
+        },
+        drawings:{right:drawing('right'),left:drawing('left'),up:drawing('up'),down:drawing('down'),metric:drawing('right',{metric:{}}),sheet:drawing('right',{sheet:true})},
+        drawingSafety:{rounded:oosLabels(rounded),tiny:oosLabels(tiny),calculated:oosLabels(calculated),interactive:{base:{wrappers:oosInteractiveBase.wrappers,menus:oosInteractiveBase.menus},moved:{wrappers:oosInteractiveMoved.wrappers,menus:oosInteractiveMoved.menus},delta:oosInteractiveMoved.y-oosInteractiveBase.y},
+          rectangle:(ShapeModule.productionSvg(ShapeModule.compute(noOosRect)).match(/shape-para-oos-layer/g)||[]).length,
+          smart:(ShapeModule.productionSvg(ShapeModule.compute(noOosSmart)).match(/shape-para-oos-layer/g)||[]).length,
+          cutting:(ShapeModule.cuttingSvg(ShapeModule.compute(rounded)).match(/shape-para-oos-layer/g)||[]).length},
+        legacy:{w:legacy.w,mode:legacy.params.measureMode,oos:legacy.params.outOfSquare,direction:legacy.params.slopeDirection,points:legacyResult.points},
+        invalid:{shortDiagonal:ShapeModule.compute(badDiagonal).valid,rightAngle:ShapeModule.compute(badAngle).valid}
+      };
+    });
+    eq('Parallelogram: Height + OOS вычисляет диагональ и угол', paraModes.modes.oos.q, {w:37.5,h:80,oos:12.688,diagonal:81,angle:9.012});
+    eq('Parallelogram: Height + Diagonal вычисляет OOS', paraModes.modes.diagonal.q, {w:37.5,h:80,oos:12.689,diagonal:81,angle:9.012});
+    eq('Parallelogram: Diagonal + Angle вычисляет Height', paraModes.modes.diagonalAngle.q, {w:37.5,h:80.001,oos:12.685,diagonal:81,angle:9.01});
+    eq('Parallelogram: Height + Angle вычисляет OOS и диагональ', paraModes.modes.heightAngle.q, {w:37.5,h:80,oos:12.685,diagonal:80.999,angle:9.01});
+    eq('Parallelogram: направления Left / Right / Up / Down меняют нужную пару углов', paraModes.directions, {
+      left:[[12.688,0],[0,80],[37.5,80],[50.188,0]],right:[[0,0],[12.688,80],[50.188,80],[37.5,0]],
+      up:[[0,0],[0,80],[37.5,92.688],[37.5,12.688]],down:[[0,12.688],[0,92.688],[37.5,80],[37.5,0]]
+    });
+    eq('Parallelogram: OOS стоит на чертеже у двух смещённых концов', paraModes.drawings, {
+      right:{refs:2,axes:['h','h'],positions:['top-left','bottom-right'],values:['4','4'],labels:['4','4'],oldReference:0},
+      left:{refs:2,axes:['h','h'],positions:['top-right','bottom-left'],values:['4','4'],labels:['4','4'],oldReference:0},
+      up:{refs:2,axes:['v','v'],positions:['top-left','bottom-right'],values:['4','4'],labels:['4','4'],oldReference:0},
+      down:{refs:2,axes:['v','v'],positions:['top-right','bottom-left'],values:['4','4'],labels:['4','4'],oldReference:0},
+      metric:{refs:2,axes:['h','h'],positions:['top-left','bottom-right'],values:['4','4'],labels:['101.60','101.60'],oldReference:0},
+      sheet:{refs:2,axes:['h','h'],positions:['top-left','bottom-right'],values:['4','4'],labels:['4','4'],oldReference:0}
+    });
+    eq('Parallelogram: OOS не исчезает при radius, малом размере и расчёте из diagonal', paraModes.drawingSafety, {
+      rounded:['4','4'],tiny:['1/16','1/16'],calculated:['12-11/16','12-11/16'],interactive:{base:{wrappers:2,menus:0},moved:{wrappers:2,menus:1},delta:8},rectangle:0,smart:0,cutting:0
+    });
+    eq('Parallelogram: старый skew мигрируется без изменения контура', paraModes.legacy, {w:'44',mode:'height-oos',oos:'4',direction:'right',points:[[0,0],[4,36],[48,36],[44,0]]});
+    eq('Parallelogram: невозможные diagonal/angle блокируются', paraModes.invalid, {shortDiagonal:false,rightAngle:false});
+    const rakedModes = await p.evaluate(() => {
+      function make(rakeSide,shortSide){
+        const d=newShapeDef('raked');d.w='48';d.h='36';Object.assign(d.params,{shortHeight:'24',rakeSide:rakeSide,shortSide:shortSide});
+        const r=ShapeModule.compute(d);return {valid:r.valid,points:r.points.map(p=>p.map(v=>+v.toFixed(3))),area:+r.area.toFixed(3)};
+      }
+      const old=normalizeShapeDef({id:'old-rake',type:'raked',w:'48',h:'36',params:{leftDrop:'0',rightDrop:'12'}});
+      function drawing(metric){
+        const d=newShapeDef('raked');d.w='48';d.h='36';Object.assign(d.params,{shortHeight:'30',rakeSide:'top',shortSide:'right'});
+        const svg=ShapeModule.productionSvg(ShapeModule.compute(d),metric?{metric:{}}:{}),doc=new DOMParser().parseFromString(svg,'image/svg+xml');
+        return {labels:[...doc.querySelectorAll('.shape-raked-difference[data-raked-role="difference"] text')].map(x=>x.textContent.trim()),units:doc.querySelector('.shape-raked-difference[data-raked-role="difference"]')?.getAttribute('data-units')||'',dimensions:doc.querySelectorAll('.shape-raked-difference-layer .shape-raked-difference').length,inchRefs:doc.querySelectorAll('.shape-metric-layer .shape-inch-reference-layer').length};
+      }
+      /* Разница стоит в углу, который забрал рез: линия идёт по продолжению
+         короткой стороны от базы полной высоты до вершины контура. Проверяем
+         это геометрией самого SVG, а не координатами, списанными с картинки. */
+      function anchor(rakeSide,shortSide){
+        const d=newShapeDef('raked');d.w='48';d.h='36';Object.assign(d.params,{shortHeight:'30',rakeSide:rakeSide,shortSide:shortSide});
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d),{}),'image/svg+xml');
+        const g=doc.querySelector('.shape-raked-difference'),line=[...g.querySelectorAll('line')].find(l=>l.getAttribute('marker-start')),n=a=>+line.getAttribute(a);
+        const pts=doc.querySelector('path[fill="#fff"]').getAttribute('d').split(' ').map(Number).filter(v=>!isNaN(v));
+        const xs=pts.filter((v,i)=>i%2===0),ys=pts.filter((v,i)=>i%2===1),vertical=g.getAttribute('class').indexOf('vertical')>=0;
+        const fixed=vertical?n('x1'):n('y1'),ends=vertical?[n('y1'),n('y2')]:[n('x1'),n('x2')];
+        const datum=vertical?(rakeSide==='top'?Math.min.apply(null,ys):Math.max.apply(null,ys)):(rakeSide==='left'?Math.min.apply(null,xs):Math.max.apply(null,xs));
+        const near=Math.abs(ends[0]-datum)<Math.abs(ends[1]-datum)?ends[0]:ends[1],far=near===ends[0]?ends[1]:ends[0];
+        let onCorner=false;
+        for(let k=0;k<xs.length;k++){const px=vertical?xs[k]:ys[k],py=vertical?ys[k]:xs[k];if(Math.abs(px-fixed)<.6&&Math.abs(py-far)<.6)onCorner=true;}
+        return {cls:vertical?'vertical':'horizontal',square:Math.round(vertical?n('x1')-n('x2'):n('y1')-n('y2')),datum:Math.round(near-datum),onCorner:onCorner};
+      }
+      function anchors(){
+        const axes=[],offDatum=[],offCorner=[];
+        ['top','bottom','left','right'].forEach(r=>['left','right'].forEach(s=>{
+          const a=anchor(r,s),k=r+'/'+s;axes.push(k+':'+a.cls);
+          if(a.square!==0||a.datum!==0)offDatum.push(k);
+          if(!a.onCorner)offCorner.push(k);
+        }));
+        return {axes:axes,offDatum:offDatum,offCorner:offCorner};
+      }
+      tab='configurators';subtab='shape';openShapeNew('raked');
+      const ui={long:document.querySelector('#shapeHField')?.previousElementSibling?.textContent||'',short:document.querySelector('.shape-raked-editor input')?.value||'',rake:[...document.querySelectorAll('.shape-raked-editor select')][0]?.options.length||0,shortSide:[...document.querySelectorAll('.shape-raked-editor select')][1]?.options.length||0};
+      sEdit=null;sDraft=null;render();
+      return {topRight:make('top','right'),topLeft:make('top','left'),bottomRight:make('bottom','right'),left:make('left','right'),right:make('right','left'),legacy:{short:old.params.shortHeight,rake:old.params.rakeSide,side:old.params.shortSide,hasDrops:old.params.leftDrop!=null||old.params.rightDrop!=null},ui:ui,drawing:{inch:drawing(false),metric:drawing(true)},anchors:anchors()};
+    });
+    eq('Raked Rectangle: long/short height и четыре стороны', rakedModes, {
+      topRight:{valid:true,points:[[0,0],[0,36],[48,24],[48,0]],area:1440},
+      topLeft:{valid:true,points:[[0,0],[0,24],[48,36],[48,0]],area:1440},
+      bottomRight:{valid:true,points:[[0,0],[0,36],[48,36],[48,12]],area:1440},
+      left:{valid:true,points:[[12,0],[0,36],[48,36],[48,0]],area:1512},
+      right:{valid:true,points:[[0,0],[0,36],[48,36],[36,0]],area:1512},
+      legacy:{short:'24',rake:'top',side:'right',hasDrops:false},
+      ui:{long:'Long Height',short:'30',rake:4,shortSide:2},
+      drawing:{inch:{labels:['6'],units:'in',dimensions:1,inchRefs:0},metric:{labels:['152.40'],units:'mm',dimensions:1,inchRefs:0}},
+      anchors:{axes:['top/left:vertical','top/right:vertical','bottom/left:vertical','bottom/right:vertical','left/left:horizontal','left/right:horizontal','right/left:horizontal','right/right:horizontal'],offDatum:[],offCorner:[]}
+    });
+    const triModes = await p.evaluate(() => {
+      function mk(params){const d=newShapeDef('triangle');d.w='48';d.h='36';Object.assign(d.params,params);return normalizeShapeDef(d);}
+      function pts(def){const r=ShapeModule.compute(def);return (r.points||[]).map(p=>p.map(v=>+v.toFixed(3)));}
+      function set(q){return {mode:q.measureMode,offset:q.topOffset,left:q.leftEdge,right:q.rightEdge};}
+      const square=mk({measureMode:'square',topOffset:'12'}),diagonal=mk({measureMode:'diagonal',leftEdge:'37 15/16',rightEdge:'50 15/16'});
+      const legacy=normalizeShapeDef({id:'old-tri',type:'triangle',w:'48',h:'36',params:{apexX:'12'}});
+      const impossible=ShapeModule.compute(mk({measureMode:'diagonal',leftEdge:'5',rightEdge:'5'}));
+      const outside=ShapeModule.compute(mk({measureMode:'square',topOffset:'60'}));
+      function drawing(metric){
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(square),metric?{metric:{}}:{}),'image/svg+xml');
+        const g=doc.querySelector('.shape-tri-offset[data-tri-role="offset"]');
+        return {label:g?g.querySelector('text').textContent.trim():'',units:g?g.getAttribute('data-units'):'',layers:doc.querySelectorAll('.shape-tri-offset-layer').length};
+      }
+      /* Прямоугольный треугольник: вершина стоит ровно над левым низом, мерить
+         нечего — размера смещения на чертеже быть не должно. */
+      const rightAngle=ShapeModule.productionSvg(ShapeModule.compute(mk({measureMode:'square',topOffset:'0'})),{});
+      tab='configurators';subtab='shape';openShapeNew('triangle');
+      const ui={bottom:document.querySelector('#shapeWField')?.previousElementSibling?.textContent||'',modes:document.querySelector('.shape-tri-editor select')?.options.length||0,entry:document.querySelectorAll('.shape-tri-editor .shape-para-entry input').length};
+      sDraft.w='48';sDraft.h='36';Object.assign(sDraft.params,{measureMode:'square',topOffset:'12'});shapeTriApplyResolved();render();
+      const apexBefore=pts(sDraft)[1];setShapeTriMeasure('diagonal');const apexAfter=pts(sDraft)[1];
+      const switched={mode:sDraft.params.measureMode,heightReadonly:!!(document.querySelector('#shapeHField')||{}).readOnly,steady:Math.hypot(apexAfter[0]-apexBefore[0],apexAfter[1]-apexBefore[1])<1/16};
+      sEdit=null;sDraft=null;render();
+      return {square:{set:set(square.params),pts:pts(square)},diagonal:{h:diagonal.h,set:set(diagonal.params),pts:pts(diagonal)},
+        legacy:{set:set(legacy.params),apexGone:legacy.params.apexX===undefined,pts:pts(legacy)},
+        impossible:{valid:impossible.valid,error:(impossible.errors||[])[0]||''},
+        outside:{valid:outside.valid,error:(outside.errors||[])[0]||''},
+        rightAngle:rightAngle.indexOf('shape-tri-offset-layer')<0,
+        ui:ui,switched:switched,drawing:{inch:drawing(false),metric:drawing(true)}};
+    });
+    eq('Triangle: режимы Square и Diagonal, старый apexX и смещение вершины на чертеже', triModes, {
+      square:{set:{mode:'square',offset:'12',left:'37 15/16',right:'50 15/16'},pts:[[0,0],[12,36],[48,0]]},
+      diagonal:{h:'36',set:{mode:'diagonal',offset:'11 15/16',left:'37 15/16',right:'50 15/16'},pts:[[0,0],[11.965,36.001],[48,0]]},
+      legacy:{set:{mode:'square',offset:'12',left:'37 15/16',right:'50 15/16'},apexGone:true,pts:[[0,0],[12,36],[48,0]]},
+      impossible:{valid:false,error:'Triangle: Bottom, Left and Right edges do not close a triangle.'},
+      outside:{valid:false,error:'Triangle: Top Offset must be between zero and Bottom.'},
+      rightAngle:true,
+      ui:{bottom:'B · Bottom',modes:2,entry:1},
+      switched:{mode:'diagonal',heightReadonly:true,steady:true},
+      drawing:{inch:{label:'12',units:'in',layers:1},metric:{label:'304.80',units:'mm',layers:1}}
+    });
+    const polyModes = await p.evaluate(() => {
+      function mk(params){const d=newShapeDef('polygon');Object.assign(d.params,params);return normalizeShapeDef(d);}
+      function pts(def){const r=ShapeModule.compute(def);return (r.points||[]).map(p=>p.map(v=>+v.toFixed(3)));}
+      function err(def){return (ShapeModule.compute(def).errors||[])[0]||'';}
+      const hex=newShapeDef('polygon'),tri=mk({sides:'3',sideLength:'12'}),oct=mk({sides:'8',sideLength:'9'});
+      /* Свободный контур, сохранённый старым Polygon, обязан уехать в Custom
+         Shape со своими точками: форма на экране не должна измениться. */
+      const legacy=normalizeShapeDef({id:'old-poly',type:'polygon',w:'48',h:'36',polygon:[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'36'},{id:'PV3',x:'48',y:'36'},{id:'PV4',x:'30',y:'10'}]});
+      const resaved=normalizeShapeDef(JSON.parse(JSON.stringify(hex)));
+      tab='configurators';subtab='shape';openShapeNew('polygon');
+      const polyUi={editor:!!document.querySelector('.shape-poly-editor'),entry:document.querySelectorAll('.shape-poly-editor .shape-para-entry input').length,widthReadonly:!!(document.querySelector('#shapeWField')||{}).readOnly,width:(document.querySelector('#shapeWField')||{}).value||''};
+      setShapeParam('sides','8');setShapeParam('sideLength','9');
+      const live={w:sDraft.w,h:sDraft.h,edges:ShapeModule.compute(sDraft).geometry.edges.length};
+      openShapeNew('custom');
+      const customUi={rows:document.querySelectorAll('.shape-vertex-row').length,points:!!document.querySelector('.shape-vertex-grid')};
+      addPolygonVertex();
+      const added={rows:document.querySelectorAll('.shape-vertex-row').length,id:sDraft.polygon[sDraft.polygon.length-1].id,contour:ShapeModule.compute(sDraft).points.length};
+      sEdit=null;sDraft=null;render();
+      return {hex:{w:hex.w,h:hex.h,sides:hex.params.sides,side:hex.params.sideLength,pts:pts(hex)},
+        tri:{w:tri.w,h:tri.h,pts:pts(tri)},oct:{w:oct.w,h:oct.h,corners:pts(oct).length},
+        legacy:{type:legacy.type,pts:pts(legacy),ids:legacy.polygon.map(v=>v.id)},
+        resavedType:resaved.type,
+        errors:[err(mk({sides:'2',sideLength:'12'})),err(mk({sides:'6.5',sideLength:'12'})),err(mk({sides:'6',sideLength:'0'}))],
+        polyUi:polyUi,live:live,customUi:customUi,added:added};
+    });
+    eq('Polygon: правильный многоугольник, а свободный контур переехал в Custom Shape', polyModes, {
+      hex:{w:'24',h:'20 13/16',sides:'6',side:'12',pts:[[6,0],[0,10.392],[6,20.785],[18,20.785],[24,10.392],[18,0]]},
+      tri:{w:'12',h:'10 3/8',pts:[[0,0],[6,10.392],[12,0]]},
+      oct:{w:'21 3/4',h:'21 3/4',corners:8},
+      legacy:{type:'custom',pts:[[0,0],[0,36],[48,36],[30,10]],ids:['PV1','PV2','PV3','PV4']},
+      resavedType:'polygon',
+      errors:['Polygon: Number of Sides must be between 3 and 60.','Polygon: Number of Sides must be a whole number.','Polygon: Side Length must be greater than zero.'],
+      polyUi:{editor:true,entry:2,widthReadonly:true,width:'24'},
+      live:{w:'21 3/4',h:'21 3/4',edges:8},
+      customUi:{rows:4,points:true},
+      added:{rows:5,id:'PV5',contour:5}
+    });
+    /* Кривая в метрике получает одну подпись вместо подписи на каждый отрезок
+       тесселяции: у круга их было больше двух тысяч, и лист не читался. */
+    const curveMetric = await p.evaluate(() => {
+      function stat(type,w,h){
+        const d=newShapeDef(type);d.w=w;d.h=h;
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(normalizeShapeDef(d)),{metric:{}}),'image/svg+xml');
+        return {texts:doc.querySelectorAll('text').length,
+          diameter:[...doc.querySelectorAll('.shape-metric-diameter text')].map(x=>x.textContent.trim()),
+          radius:[...doc.querySelectorAll('.shape-metric-radius text')].map(x=>x.textContent.trim()),
+          lengths:[...doc.querySelectorAll('.shape-metric-layer .shape-metric-length')].map(x=>x.textContent.trim()).sort(),
+          angles:doc.querySelectorAll('.shape-metric-angle').length};
+      }
+      return {circle:stat('circle','36','36'),ellipse:stat('ellipse','48','30'),oval:stat('oval','60','24'),rect:stat('rectangle','48','36')};
+    });
+    eq('Метрика кривых: диаметр у круга, радиусы у овала, оси у эллипса', curveMetric, {
+      circle:{texts:12,diameter:['Ø 914.40'],radius:[],lengths:['Ø 914.40'],angles:0},
+      ellipse:{texts:11,diameter:[],radius:[],lengths:[],angles:0},
+      oval:{texts:17,diameter:[],radius:['R 304.80','R 304.80'],lengths:['(914.40)','(914.40)','R 304.80','R 304.80'],angles:0},
+      rect:{texts:15,diameter:[],radius:[],lengths:[],angles:4}
+    });
+    const customShape = await p.evaluate(() => {
+      const creation=shapePresetChoices().map(x=>x.id);
+      /* Вырезы ушли из списка создания, но сохранённая форма обязана открыться:
+         тип остаётся в каталоге и показывается в селекте своей же формы. */
+      const legacy=normalizeShapeDef({id:'old-notch',type:'notch-middle',w:'48',h:'36',params:{width:'8',depth:'8',fromLeft:'20'}});
+      const legacyResult=ShapeModule.compute(legacy);
+      const sized=normalizeShapeDef({id:'c1',type:'custom',w:'99',h:'99',polygon:[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'20'},{id:'PV3',x:'30',y:'20'},{id:'PV4',x:'30',y:'5'},{id:'PV5',x:'12',y:'0'}]});
+      const cross=ShapeModule.compute(normalizeShapeDef({id:'c2',type:'custom',polygon:[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'30',y:'30'},{id:'PV3',x:'30',y:'0'},{id:'PV4',x:'0',y:'30'}]}));
+      const dup=ShapeModule.compute(normalizeShapeDef({id:'c3',type:'custom',polygon:[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'20'},{id:'PV3',x:'0',y:'20'},{id:'PV4',x:'30',y:'20'},{id:'PV5',x:'30',y:'0'}]}));
+      tab='configurators';subtab='shape';openShapeNew('custom');
+      const ui={readonly:!!(document.querySelector('#shapeWField')||{}).readOnly,label:document.querySelector('#shapeWField')?.previousElementSibling?.textContent||''};
+      setPolygonCoord(2,'x','60');
+      const live={draft:sDraft.w,field:(document.querySelector('#shapeWField')||{}).value||''};
+      sEdit=null;sDraft=null;render();
+      return {notchInCreation:creation.filter(id=>id.indexOf('notch')===0),
+        customOffered:creation.indexOf('custom')>=0,
+        legacy:{valid:legacyResult.valid,points:(legacyResult.points||[]).length,shown:shapePresetChoices('notch-middle').map(x=>x.id).filter(id=>id.indexOf('notch')===0)},
+        sized:{w:sized.w,h:sized.h},
+        crossError:(cross.errors||[])[0]||'',
+        dupError:(dup.errors||[])[0]||'',
+        ui:ui,live:live};
+    });
+    eq('Custom Shape ведёт габарит по точкам, а notch-типы ушли из создания', customShape, {
+      notchInCreation:[],customOffered:true,
+      legacy:{valid:true,points:8,shown:['notch-middle']},
+      sized:{w:'30',h:'20'},
+      crossError:'Finished contour self-intersects.',
+      dupError:'Custom Shape point PV3 repeats point PV2.',
+      ui:{readonly:true,label:'B · Width · from points'},
+      live:{draft:'60',field:'60'}
+    });
+    /* Свободный контур на чертеже выглядит как Smart-Shape: цвет на каждую
+       сторону, буква вместо машинного id и длина рядом — на скосе это
+       единственный размер, который вообще есть. */
+    const customDrawing = await p.evaluate(() => {
+      const pts=[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'30'},{id:'PV3',x:'36',y:'30'},{id:'PV4',x:'36',y:'12'},{id:'PV5',x:'20',y:'0'}];
+      const d=normalizeShapeDef({id:'c-draw',type:'custom',polygon:pts});
+      const r=ShapeModule.compute(d);
+      const parse=o=>new DOMParser().parseFromString(ShapeModule.productionSvg(r,o),'image/svg+xml');
+      const screen=parse({}),sheet=parse({sheet:true});
+      const poly=normalizeShapeDef(Object.assign(newShapeDef('polygon'),{params:{sides:'5',sideLength:'12'}}));
+      const polyDoc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(poly),{}),'image/svg+xml');
+      tab='configurators';subtab='shape';openShapeNew('custom');
+      sDraft.polygon=pts.map(p=>Object.assign({},p));shapeCustomApplyResolved();sEdgeworkOpen=true;render();
+      const ui={edgework:[...document.querySelectorAll('.shape-edge-code b')].map(b=>b.textContent),
+        border:[...document.querySelectorAll('.shape-border-edge b')].map(b=>b.textContent)};
+      sEdgeworkOpen=false;sEdit=null;sDraft=null;render();
+      return {labels:[...screen.querySelectorAll('.shape-edge-label-outside')].map(t=>t.textContent.trim()),
+        colors:[...new Set([...screen.querySelectorAll('line[stroke-width="1.3"]')].map(l=>l.getAttribute('stroke')))],
+        monoLetters:[...sheet.querySelectorAll('.shape-edge-letter')].map(t=>t.textContent.trim()),
+        polygonLabels:[...polyDoc.querySelectorAll('.shape-edge-label-outside')].map(t=>t.textContent.trim()),
+        machineId:[...screen.querySelectorAll('.shape-edge-label-outside')].some(t=>t.textContent.indexOf('PV')>=0),
+        ui:ui};
+    });
+    eq('Custom Shape и Polygon: цветные стороны, буквы вместо E:PV и длина скоса', customDrawing, {
+      labels:['A 30','B 36','C 18','D 20','E 20'],
+      colors:['#2828dc','#28b428','#fe8d28','#a00082','#007d7d'],
+      monoLetters:['A','B','C','D','E'],
+      polygonLabels:['A 12','B 12','C 12','D 12','E 12'],
+      machineId:false,
+      ui:{edgework:['A','B','C','D','E'],border:['A','B','C','D','E']}
+    });
+    const paraUi = await p.evaluate(() => {
+      const prevTab=tab,prevSub=subtab;tab='configurators';subtab='shape';openShapeNew('parallelogram');
+      sDraft.w='37 1/2';sDraft.h='80';Object.assign(sDraft.params,{measureMode:'diagonal-angle',diagonal:'81',angle:'9.01',slopeDirection:'right'});render();
+      const modes=[...document.querySelectorAll('.shape-para-editor select option')].map(x=>x.textContent.trim());
+      const directions=[...document.querySelectorAll('.shape-para-directions button')].map(x=>x.textContent.trim());
+      const right={heightReadonly:document.getElementById('shapeHField').readOnly,height:document.getElementById('shapeHField').value};
+      setShapeParaDirection('up');
+      const up={widthReadonly:document.getElementById('shapeWField').readOnly,width:document.getElementById('shapeWField').value,hasInch:document.getElementById('shapeWField').value.includes('″')};
+      sEdit=null;sDraft=null;tab=prevTab;subtab=prevSub;render();return {modes,directions,right,up};
+    });
+    eq('Parallelogram UI: четыре Measure и четыре Slope Direction', {modes:paraUi.modes,directions:paraUi.directions}, {
+      modes:['Height and OOS','Height and Diagonal','Diagonal and Angle','Height and Angle'],directions:['←Left','→Right','↑Up','↓Down']
+    });
+    eq('Parallelogram UI: расчётное поле меняется при повороте, знак дюйма в input не пишется', paraUi, {
+      modes:['Height and OOS','Height and Diagonal','Diagonal and Angle','Height and Angle'],directions:['←Left','→Right','↑Up','↓Down'],
+      right:{heightReadonly:true,height:'80'},up:{widthReadonly:true,width:'80',hasInch:false}
+    });
     /* Порядок цеха: рез → кромка → отверстия/нотчи. Всё, что после кромки,
        базируется на обработанном крае и в cutting-файл не попадает никогда. */
     eq('отверстия, вырезы и фурнитура НЕ попадают в cutting payload', {valid:schemaV2.valid,rounded:schemaV2.rounded,holes:schemaV2.payloadHoles,cutouts:schemaV2.payloadCutouts,hardware:schemaV2.payloadHardware,stampLeaked:schemaV2.stampLeaked}, {valid:true,rounded:true,holes:0,cutouts:0,hardware:0,stampLeaked:false});
@@ -2077,7 +2380,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t30\\t50\\tMIR',0);salesExcelApply();
       salesOrderConfigureShape(0);
-      setShapeType('triangle');sDraft.params.apexX='6';
+      setShapeType('triangle');sDraft.params.topOffset='6';
       sLiteSplitOpen=true;render();
       const section=!!document.querySelector('.shape-lite-cards');
       const insideEdgework=!!document.querySelector('.shape-edgework-matrix .shape-lite-insets');
@@ -3326,11 +3629,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         anyInside:labels.some(x=>x.inside),
         /* У вертикального ребра C появились стрелки размерной линии. */
         arrows:host.innerHTML.split('marker-start="url(#shapeMetricArrow)"').length-1,
-        inchArrows:host.innerHTML.split('marker-start="url(#shapeInchArrow)"').length-1,
-        inchSize:host.querySelector('.shape-inch-edge-reference').getAttribute('font-size')};
+         inchArrows:host.innerHTML.split('marker-start="url(#shapeInchArrow)"').length-1,
+         inchSize:host.querySelector('.shape-inch-edge-reference')?.getAttribute('font-size')||null};
       host.remove();sEdit=null;sDraft=null;render();
       return out;
-    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:3,inchSize:'12'});
+    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:0,inchSize:null});
 
     /* Печатный хост был задан в пикселях под книжный Letter. На бумаге это
        неверно всегда: в книжной он ШИРЕ печатного поля и лист обрезался по
