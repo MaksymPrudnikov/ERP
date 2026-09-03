@@ -186,6 +186,8 @@ MuntinModule.compute(shape, muntinDef)
 
 ```bash
 npm ci               # только playwright, строго по lock-файлу
+node build/check-manifest.js
+node build/check-reproducible.js  # одинаковый dist для LF и CRLF
 node test/run.js     # прогон по src/
 TARGET=dist node test/run.js
 ```

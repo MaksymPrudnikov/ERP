@@ -67,6 +67,9 @@ jobs:
       - name: Проверить, что все модули зарегистрированы
         run: node build/check-manifest.js
 
+      - name: Проверить воспроизводимость сборки
+        run: node build/check-reproducible.js
+
       - name: Собрать dist/GLASS_ERP.html
         run: node build/build.js
 

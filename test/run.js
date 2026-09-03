@@ -1061,16 +1061,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const d=normalizeShapeDef({id:'custom-concave',type:'custom',thickness:'6',polygon:points}),plain=ShapeModule.compute(d);
       points.forEach(function(v){d.edgeOps['E:'+v.id]=[shapeNormalizeOp({type:'Flat Polish'})];});
       const r=ShapeModule.compute(d),payload=ShapeModule.machinePayload(r);
+      const reversed=points.slice().reverse().map(function(v,i){return {id:'RV'+(i+1),x:v.x,y:v.y};});
+      const rd=normalizeShapeDef({id:'custom-concave-reversed',type:'custom',thickness:'6',polygon:reversed});
+      reversed.forEach(function(v){rd.edgeOps['E:'+v.id]=[shapeNormalizeOp({type:'Flat Polish'})];});
+      const rr=ShapeModule.compute(rd),rb=fabEdgeBounds(r.cutting.points),rrb=fabEdgeBounds(rr.cutting.points);
       const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
       const legacy=normalizeShapeDef({id:'legacy-notch',type:'notch-middle',w:'48',h:'36',params:{width:'8',depth:'8',fromLeft:'20'}}),legacyResult=ShapeModule.compute(legacy);
       return {valid:r.valid,finished:plain.points,plainSame:same(plain.cutting&&plain.cutting.points,plain.points),removed:r.cutting&&r.cutting.notchesRemoved,
         pointCount:r.cutting&&r.cutting.points.length,allowances:r.cutting&&r.cutting.allowances.filter(x=>x>0).length,machineSame:same(payload&&payload.outer&&payload.outer.points,r.cutting&&r.cutting.points),warning:(r.cutting&&r.cutting.warnings||[]).some(x=>x.indexOf('Notches and cutouts are excluded')>=0),
+        orientation:{ccwValid:rr.valid,cwBounds:[rb.minX,rb.minY,rb.maxX,rb.maxY],ccwBounds:[rrb.minX,rrb.minY,rrb.maxX,rrb.maxY],cwArea:Math.abs(fabSignedArea(r.cutting.points)),ccwArea:Math.abs(fabSignedArea(rr.cutting.points))},
         legacyRemoved:legacyResult.cutting&&legacyResult.cutting.notchesRemoved,legacyWarning:(legacyResult.cutting&&legacyResult.cutting.warnings||[]).some(x=>x.indexOf('Notches and cutouts are excluded')>=0)};
     });
     eq('Custom Shape: вогнутый контур не превращается в выпуклую оболочку перед резкой', customCutting, {
       valid:true,
       finished:[[0,0],[0,40],[18,40],[18,22],[30,22],[30,40],[48,40],[48,0]],
-      plainSame:true,removed:0,pointCount:8,allowances:8,machineSame:true,warning:false,legacyRemoved:2,legacyWarning:true
+      plainSame:true,removed:0,pointCount:8,allowances:8,machineSame:true,warning:false,
+      orientation:{ccwValid:true,cwBounds:[-0.0625,-0.0625,48.0625,40.0625],ccwBounds:[-0.0625,-0.0625,48.0625,40.0625],cwArea:1717.265625,ccwArea:1717.265625},
+      legacyRemoved:2,legacyWarning:true
     });
     /* Свободный контур на чертеже выглядит как Smart-Shape: цвет на каждую
        сторону, буква вместо машинного id и длина рядом — на скосе это

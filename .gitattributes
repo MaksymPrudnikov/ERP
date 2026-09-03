@@ -17,4 +17,4 @@
 #
 # Последний рубеж — CI: он сам пересобирает dist из модулей, гоняет по нему
 # тесты и в main коммитит канонический файл.
-dist/GLASS_ERP.html -merge
+dist/GLASS_ERP.html text eol=lf -merge

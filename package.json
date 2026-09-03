@@ -5,6 +5,7 @@
   "description": "ERP для стекольного производства — модульный прототип (замена Spil Glass)",
   "scripts": {
     "build": "node build/build.js",
+    "check:build": "node build/check-reproducible.js",
     "test": "node test/run.js",
     "test:dist": "TARGET=dist node test/run.js"
   },
