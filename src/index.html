@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <!--
-  GLASS ERP — режим разработки.
-  Этот файл подключает модули из src/ отдельными <script src>: правишь модуль,
-  жмёшь F5 — без сборки. Работает при открытии с диска (file://) в Chrome.
-  Для передачи одним файлом: node build/build.js → dist/GLASS_ERP.html
+  GLASS ERP — Glazing System — версия по модулям.
+  СБОРКА — не редактировать руками. Генерируется из build/manifest.json и
+  src/shell.html через build/build.js.
+
+  Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
+  только при смене состава модулей (build/manifest.json) или правке шапки
+  (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
+  Состав: 53 модулей, 3 стиля.
 -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GLASS ERP — Glazing System (dev)</title>
+<title>GLASS ERP — Glazing System — по модулям</title>
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/modules.css">
 <link rel="stylesheet" href="styles/service-sets.css">
@@ -19,7 +23,7 @@
 <nav class="side" id="side"></nav>
 <div class="main">
 <header>
-  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Производственная система · прототип</span></div>
+  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Производственная система · прототип</span><span class="header-build" id="hdrBuild"></span></div>
   <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
   <div class="lang-switch" aria-label="Language">
@@ -34,6 +38,11 @@
 <main id="app"></main>
 </div>
 </div>
+<script>
+/* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
+   а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
+var ERP_BUILD='7a9e5f7f8c2d';
+</script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
 <script src="modules/shape/consts.js"></script>
