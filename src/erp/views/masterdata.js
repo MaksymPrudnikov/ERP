@@ -270,7 +270,7 @@ function mdSheetForm(){
    <div><label>Лист, ширина (in)</label><input id="md_sheetW" type="number" step="0.1" min="0" value="${r.sheetWIn==null?'':r.sheetWIn}"></div>
    <div><label>Лист, высота (in)</label><input id="md_sheetH" type="number" step="0.1" min="0" value="${r.sheetHIn==null?'':r.sheetHIn}"><div class="hint">Размер заполняется парой: половина габарита хуже, чем его отсутствие.</div></div>
    <div><label>Единица закупки</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select><div class="hint">Не всякий товар покупается площадью — коробку или бочку площадью не мерят.</div></div>
-   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА. Цены продажи в справочнике нет вообще — она вычисляется.</div></div>
+   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА, у точки поставки. Цена ПРОДАЖИ живёт у продукта в каталоге стекла — колонки Price AN и Price FT.</div></div>
    <div><label>Дата цены</label><input id="md_sheetDate" value="${esc(r.priceDate)}" placeholder="2026-08-22"><div class="hint">Прайс без даты не говорит, насколько он устарел.</div></div>
    <div><label>Фрахт, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Срок поставки, дней</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
@@ -584,7 +584,7 @@ function mdHwModelDelete(id){
    коллекции системы одним списком со счётчиками. Пустая таблица здесь — не
    ошибка, а честный ответ «сюда ещё ничего не завели». */
 const MD_COLLECTIONS=[
- {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло: подложка, покрытие, толщина, закалка'},
+ {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло и почём продаём: подложка, покрытие, толщина, закалка, две цены'},
  {key:'glassSheet',     label:'Точки поставки',      what:'где и почём: валюта, размер листа, цена, срок'},
  {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
  {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
@@ -592,8 +592,8 @@ const MD_COLLECTIONS=[
  {key:'spacerVariant',  label:'Дистанционные рамки', what:'семейство для цены, номинал для выбора, факт для расчёта'},
  {key:'gasProduct',     label:'Газ',                 what:'заполнение камеры'},
  {key:'sealantProduct', label:'Герметики',           what:'первичный и вторичный контур'},
- {key:'interlayerProduct',label:'Плёнки ламинации',  what:'PVB и структурные плёнки'},
- {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать'},
+ {key:'interlayerProduct',label:'Плёнки ламинации',  what:'EVA и SGP по исполнениям, цена за слой'},
+ {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать, надбавка за sq ft'},
  {key:'spandrelProduct',label:'Спандрел',            what:'непрозрачные панели'},
  {key:'station',        label:'Станции маршрута',    what:'одиннадцать шагов маршрута'},
  {key:'operation',      label:'Операции',            what:'что именно делают и до или после печи'},

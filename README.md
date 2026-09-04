@@ -57,7 +57,7 @@ src/
 ├── erp/                      ОБОЛОЧКА — домены, экраны, RU/EN, хранилище
 │   ├── data.js  icons.js  i18n.js  nav.js  storage.js
 │   ├── customers/ data.js    Customer Master
-│   ├── masterdata/ glass.js  glass / spacer / gas / seal / interlayer seed catalog
+│   ├── masterdata/ glass.js  каталог стекла с ценами продажи, рамки, газ, герметики, плёнки
 │   ├── sales/                 Draft Sales domain
 │   │   ├── data.js            SalesOrder · OrderMakeup · OrderLine schema
 │   │   ├── orders.js          draft behavior · Excel · Shape/Muntin bridge
