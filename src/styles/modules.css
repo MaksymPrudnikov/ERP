@@ -624,3 +624,59 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   .shape-para-main{grid-template-columns:1fr}
   .shape-para-readout{grid-template-columns:repeat(3,1fr)}
 }
+
+/* Фактическая толщина рамки: подсказка в пустом поле — это НОМИНАЛ, а не
+   введённое значение. Без приглушения они выглядят одинаково, и таблица врёт,
+   будто факт заполнен по всему ряду. */
+.md-mm::placeholder{color:#a8b3bf;font-style:italic}
+.md-mm:placeholder-shown{background:#fbfcfd}
+
+/* Строка лайта: шесть полей в один ряд — производитель, толщина, стекло, тип,
+   термообработка, цена. Спецификация типа идёт вторым рядом и появляется
+   только когда есть что уточнять. */
+.mu-field-grid-6{grid-template-columns:minmax(110px,.75fr) minmax(85px,.5fr) minmax(240px,1.35fr) minmax(120px,.7fr) minmax(150px,.85fr) minmax(120px,.6fr)}
+/* Второй ряд остаётся рядом покрытия (класс сохранён), но колонок в нём две:
+   само покрытие и поверхность. Стекло уехало в первый ряд. */
+.mu-second-row{display:grid;gap:6px;align-items:start;grid-template-columns:minmax(260px,1.3fr) minmax(150px,.75fr) minmax(0,1fr);margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Цена — обычная ячейка ряда. Ручная правка красит поле, ↺ возвращает каталог
+   и появляется только у правленой цены, чтобы не занимать место зря. */
+.mu-price-cell{display:flex;align-items:center;gap:5px}
+.mu-price-cell input{text-align:right;font-variant-numeric:tabular-nums;width:100%;min-width:0}
+.mu-price-cell.edited input{border-color:#e2c07a;background:var(--amber2);color:var(--amber);font-weight:600}
+.mu-price-reset{
+ flex:0 0 29px;width:29px;height:31px;padding:0;display:grid;place-items:center;
+ border:1px solid var(--line);background:var(--panel);border-radius:6px;
+ color:var(--mut);cursor:pointer;font-size:14px;line-height:1;
+}
+.mu-price-reset:hover{color:var(--blue);border-color:var(--blue)}
+@media (max-width:1100px){.mu-field-grid-6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* В камере теперь пять полей: рамка, ширина, газ, герметик и цена. */
+.mu-cavity-grid{grid-template-columns:minmax(230px,1.15fr) minmax(90px,.42fr) minmax(130px,.6fr) minmax(165px,.72fr) minmax(120px,.6fr);max-width:none}
+@media (max-width:1100px){.mu-cavity-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Цена в свёрнутой строке: та же информация, что в раскрытой, но одним взглядом. */
+.mu-price-badge{
+ justify-self:end;margin-left:8px;font-size:11px;font-variant-numeric:tabular-nums;
+ padding:1px 7px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+}
+.mu-price-badge.edited{border-color:#e2c07a;background:var(--amber2);color:var(--amber);font-weight:600}
+.mu-price-badge.none{color:var(--mut)}
+.mu-section>summary{grid-template-columns:12px max-content max-content minmax(0,1fr) max-content}
+.mu-cavity>summary{grid-template-columns:12px max-content minmax(0,1fr) max-content}
+.mu-total-price b{font-variant-numeric:tabular-nums}
+/* Закалка вразрез с каталогом: подсвечиваем место ошибки, но не запрещаем. */
+.mu-conflict select{border-color:var(--amber);background:var(--amber2)}
+.mu-conflict-note{display:block;margin-top:3px;font-size:10px;color:var(--amber)}
+
+/* Цена сборки и общая толщина стоят рядом, разделённые чертой: это два разных
+   ответа, но смотрят на них одним взглядом. */
+/* Итоги прижаты к правому краю строки: там же, где цены в строках лайтов,
+   и глаз читает всю колонку цен одной вертикалью. */
+.mu-unit-row{grid-template-columns:90px minmax(280px,430px) 1fr}
+.mu-totals{margin-left:auto}
+.mu-totals{display:flex;align-items:baseline;gap:14px;justify-self:end;white-space:nowrap}
+.mu-totals .mu-total{display:flex}
+.mu-totals .mu-total + .mu-total{padding-left:14px;border-left:1px solid var(--line)}
+
+/* Плёнка: семейство, исполнение, слои, цена — четыре поля в ряд. */
+.mu-lam-film{grid-template-columns:22px minmax(90px,.5fr) minmax(170px,1.1fr) minmax(150px,.9fr) minmax(120px,.6fr) 28px}

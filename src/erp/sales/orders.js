@@ -7,6 +7,10 @@
 let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
+/* Аккордеон держит открытой одну секцию: так экран не разъезжается. Но чтобы
+   сравнить цены по всем лайтам сразу, нужен режим «раскрыть все» — он живёт
+   здесь, а не в DOM, иначе перерисовка его теряла бы. */
+let soExpandAll=false;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 let salesBridge=null;
 
@@ -17,6 +21,7 @@ function salesApplyCustomerDefaults(id){
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
 function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
@@ -144,19 +149,47 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
 function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
+/* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
+function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
+function salesLamPlyInnerSetPrice(i,v){salesSetLamPlyPrice(i,"inner",v);}
+function salesSetLamPlyPrice(i,side,v){
+ const p=salesCurrentMakeup().panes[i],ply=p&&p.laminated&&p.laminated[side];
+ if(!ply)return;
+ ply.priceOverride=salesNonNegOrNull(v);
+ render();
+}
 function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);if(ply)ply.heatTreatmentId=v;render();}
 function salesPaneEnsureLamFrit(ply){if(!ply)return null;if(!ply.frit)ply.frit=salesDefaultLaminatedFrit();return ply.frit;}
 function salesPaneSetLamFrit(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(!f)return;if(key==='position'){if(!SALES_LAMINATED_FRIT_POSITIONS.includes(v))return;f.position=v;}else f[key]=v;render();}
 function salesPaneSetLamFritText(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(f)f[key]=v;}
 function salesLamFritDotChange(i,side,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=+String(el.value).trim();if(!f||!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}f.dotMm=n;el.value=String(n);el.classList.remove('bad');}
 function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=salesMarginTo16(el.value);if(!f||n==null){el.classList.add('bad');return;}f[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');}
+/* Сменили семейство — берём первую плёнку внутри него: EVA Frosted White не
+   существует в SGP, и держать «выбранным» несуществующее нельзя. */
+function salesPaneSetLamInterlayerFamily(i,slot,family){
+ const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ if(!layer)return;
+ const first=activeSimple('interlayerProduct').filter(x=>interlayerFamilyOf(x.id)===family)[0];
+ if(first)layer.productId=first.id;
+ render();
+}
+function salesPaneSetLamInterlayerPrice(i,slot,v){
+ const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ if(!layer)return;
+ layer.priceOverride=salesNonNegOrNull(v);
+ render();
+}
 function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
 function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB'));render();}
+function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
    если она выпускается в этом размере; иначе берём первый доступный вариант. */
+/* Пустое поле снимает ручную цену и возвращает каталожную: это законный
+   ответ «беру как в прайсе», а не ошибка ввода. */
+function salesPaneSetPrice(i,v){const p=salesCurrentMakeup().panes[i];if(!p)return;p.priceOverride=salesNonNegOrNull(v);touch();render();}
+function salesCavitySetPrice(i,v){const c=salesCurrentMakeup().cavities[i];if(!c)return;c.priceOverride=salesNonNegOrNull(v);touch();render();}
 function salesCavitySetWidth(i,size){
  const c=salesCurrentMakeup().cavities[i];if(!c)return;
  const current=salesCavitySpacer(c),rows=salesActiveSpacerVariants().filter(x=>x.size===size);
@@ -665,8 +698,54 @@ function salesNotchChargeRows(def,ctx){
       salesCatalogRate(method==='cnc'?'notchCnc':'notchHand',ctx),'Shape feature');
   });
 }
+/* Фрит и спандрел — РАБОТА, а не свойство листа: керамику наносят и запекают.
+   Поэтому цена стекла остаётся базовой, а нанесение приходит начислением в
+   сервисы строки — рядом с пескоструем и обработкой кромки, где ставку и
+   правят. Начисление считается по площади и по каждому лайту, который его
+   несёт: в тройном пакете фрит может стоять на двух стёклах. */
+function salesGlazingChargeRows(line,areaFt2){
+ const rows=[],area=+areaFt2>0?+areaFt2:0;
+ if(!area||!line)return rows;
+ const m=(soDraft&&Array.isArray(soDraft.makeups)?soDraft.makeups:[]).find(x=>x.id===line.makeupId);
+ if(!m)return rows;
+ const frit=Object.create(null),spandrel=Object.create(null),order=[];
+ (m.panes||[]).forEach(function(p,i){
+  if(p.category==='spandrel'){
+   const id=(p.spandrel&&p.spandrel.productId)||'';
+   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
+   return;
+  }
+  if(p.category==='vision'&&p.visionType==='frit'){
+   const id=(p.frit&&p.frit.productId)||'';
+   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+  }
+ });
+ order.forEach(function(k){
+  const isFrit=k.indexOf('frit:')===0;
+  const g=isFrit?frit[k]:spandrel[k];
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
+  rows.push(salesChargeRow(
+   'GLAZE:'+k,
+   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' lites':''),
+   +(area*g.qty).toFixed(4),'ft²',
+   (prod&&prod.salePrice!=null)?prod.salePrice:null,
+   'Makeup'));
+ });
+ return rows;
+}
+/* Площадь строки: у фигурной детали её считает Shape, у прямоугольной она
+   выводится из габаритов. Начисления за остекление нужны в обоих случаях —
+   фрит наносят и на прямоугольник, у которого никакого Shape нет. */
+function salesLineAreaFt2(line){
+ const s=salesShapeByRef(line&&line.shapeRef);
+ if(s){const r=ShapeModule.compute(s);if(r&&r.valid)return r.area/144;}
+ const w=(+(line&&line.width16)||0)/16,h=(+(line&&line.height16)||0)/16;
+ return (w>0&&h>0)?(w*h)/144:0;
+}
 function salesLineChargeRows(line){
- const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
+ const rows=[];
+ salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+ const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSandblastChargeRows(s.features,ctx,r&&r.valid?r.area/144:0).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});

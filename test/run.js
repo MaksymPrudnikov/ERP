@@ -1649,7 +1649,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [4, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    ]), [6, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
     /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
        за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
     eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
@@ -1661,7 +1661,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [4, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [6, 11, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
@@ -1676,7 +1676,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 18, 4, true, true]);
+    }), [true, 11, 22, 18, 6, true, true]);
     await t.c.close();
 
     t = await page();
@@ -1749,7 +1749,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition.length,
               next.station[0].code, next.user[0].workPosition];
-    }), [4, 11, 22, 'CUT', 'CNC1']);
+    }), [6, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();
@@ -2028,14 +2028,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Laminated мигрирует старые поля в две плиты со своей закалкой', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB060'}},0);
       return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm])};
-    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:[['INT-PVB',4,1.52]]});
+    }), {outer:'GL-6CLEAR',inner:'GL-6CLEAR',outerHeat:'HT-HS',innerHeat:'HT-HS',films:[['INT-EVA-CL',4,1.52]]});
     eq('продукт плёнки и количество слоёв хранятся отдельно', await t.p.evaluate(() => {
       const film=salesDefaultPane(0).laminated.interlayers[0],rows=activeSimple('interlayerProduct');
-      return {film:[film.productId,film.layers,film.thicknessMm],canonical:rows.some(x=>x.id==='INT-PVB'&&x.code==='PVB'&&x.thicknessMm==null),legacy:rows.some(x=>['INT-PVB030','INT-PVB060','INT-SGP035'].includes(x.id))};
-    }), {film:['INT-PVB',1,.38],canonical:true,legacy:false});
+      return {film:[film.productId,film.layers,film.thicknessMm],canonical:rows.some(x=>x.id==='INT-EVA-CL'&&x.code==='EVA-CL'&&x.thicknessMm==null),legacy:rows.some(x=>['INT-PVB030','INT-PVB060','INT-SGP035'].includes(x.id))};
+    }), {film:['INT-EVA-CL',1,.38],canonical:true,legacy:false});
     eq('Laminated фильтрует каждую плиту и показывает две независимые закалки', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',laminated:{outer:{manufacturer:'Vitro',thicknessMm:6,visionType:'lowe'},inner:{manufacturer:'Vitro',thicknessMm:6,visionType:'uncoated'}}},0),host=document.createElement('div');
-      host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelector('.mu-lam-glass select'),coating=[...outer.querySelectorAll('label')].find(x=>x.textContent==='Select Coating').parentElement.querySelector('select');
+      host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),glass=outer.querySelector('.mu-lam-glass select'),coating=[...outer.querySelectorAll('label')].find(x=>x.textContent==='Selected Coating').parentElement.querySelector('select');
       return {cards:host.querySelectorAll('[data-lam-ply]').length,heat:[...host.querySelectorAll('.mu-lam-ply label')].filter(x=>x.textContent==='Heat Treatment').length,candidates:salesLaminatedPlyCandidates(p.laminated.outer).length,glassOptions:glass.options.length,firstCoating:coating.value};
     }), {cards:2,heat:2,candidates:92,glassOptions:14,firstCoating:'Solarban 60'});
     eq('Frit назначается одной laminated ply: снаружи плёнки по умолчанию или в плёнку', await t.p.evaluate(() => {
@@ -2043,32 +2043,32 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const defaults=[p.laminated.outer.frit.position,p.laminated.inner.frit.position,p.laminated.outer.frit.enabled,p.laminated.inner.frit.enabled];
       salesPaneSetLamPlyType(0,'outer','frit');salesPaneSetLamFrit(0,'outer','position','in_film');salesPaneSetLamFrit(0,'outer','color','Acid Etched');
       const host=document.createElement('div');host.innerHTML=salesLaminatedFields(p,0);const outer=host.querySelector('[data-lam-ply="outer"]'),pos=outer.querySelector('.mu-lam-frit-grid select');
-      return {defaults,outer:[p.laminated.outer.visionType,p.laminated.outer.frit.enabled,p.laminated.outer.frit.position,p.laminated.outer.frit.color],inner:[p.laminated.inner.frit.enabled,p.laminated.inner.frit.position,p.laminated.inner.frit.color],types:[...outer.querySelectorAll('.mu-type-buttons button')].map(x=>[x.textContent,x.classList.contains('on')]),grids:host.querySelectorAll('.mu-lam-frit-grid').length,positions:[...pos.options].map(x=>x.textContent),summary:salesPaneProductSummary(p,0)};
-    }), {defaults:['outside','outside',false,false],outer:['uncoated',true,'in_film','Acid Etched'],inner:[false,'outside','White'],types:[['Low-E',false],['Reflective',false],['Frit',true],['Uncoated',false]],grids:1,positions:['#1 · Outside film (default)','Into film'],summary:'6CLEAR · FRIT into film + PVB 0.38 mm + 6CLEAR'});
+      return {defaults,outer:[p.laminated.outer.visionType,p.laminated.outer.frit.enabled,p.laminated.outer.frit.position,p.laminated.outer.frit.color],inner:[p.laminated.inner.frit.enabled,p.laminated.inner.frit.position,p.laminated.inner.frit.color],types:[...[...outer.querySelectorAll('label')].find(x=>x.textContent==='Type').parentElement.querySelector('select').options].map(x=>[x.textContent,x.selected]),grids:host.querySelectorAll('.mu-lam-frit-grid').length,positions:[...pos.options].map(x=>x.textContent),summary:salesPaneProductSummary(p,0)};
+    }), {defaults:['outside','outside',false,false],outer:['uncoated',true,'in_film','Acid Etched'],inner:[false,'outside','White'],types:[['Uncoated',false],['Low-E',false],['Reflective',false],['Frit',true]],grids:1,positions:['#1 · Outside film (default)','Into film'],summary:'6CLEAR · FRIT into film + EVA-CL 0.38 mm + 6CLEAR'});
     eq('Laminated Frit показывает поверхность выбранного Lite и ply', await t.p.evaluate(() => {
       const p=salesDefaultPane(1);p.category='laminated';p.laminated.outer.frit.enabled=true;p.laminated.inner.frit.enabled=true;
       const host=document.createElement('div');host.innerHTML=salesLaminatedFields(p,1);
       const option=side=>host.querySelector('[data-lam-ply="'+side+'"] .mu-lam-frit-grid select option').textContent;
       return {surfaces:[salesLaminatedFritOutsideSurface(1,'outer'),salesLaminatedFritOutsideSurface(1,'inner')],options:[option('outer'),option('inner')],summary:salesPaneProductSummary(p,1)};
-    }), {surfaces:[3,4],options:['#3 · Outside film (default)','#4 · Outside film (default)'],summary:'6CLEAR · FRIT #3 + PVB 0.38 mm + 6CLEAR · FRIT #4'});
+    }), {surfaces:[3,4],options:['#3 · Outside film (default)','#4 · Outside film (default)'],summary:'6CLEAR · FRIT #3 + EVA-CL 0.38 mm + 6CLEAR · FRIT #4'});
     eq('Laminated смешивает типы плёнки с отдельным количеством слоёв', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();const m=salesCurrentMakeup(),p=m.panes[0];p.category='laminated';m.unitType='single';m.panes=[p];m.cavities=[];
       salesPaneSetLamInterlayer(0,0,'INT-EVA-UC');salesPaneAddLamInterlayer(0);salesPaneSetLamInterlayer(0,1,'INT-EVA-MW');
       salesPaneSetLamInterlayerLayers(0,0,1);salesPaneSetLamInterlayerLayers(0,1,4);
-      const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[1];
+      const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[2];
       return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2),production:salesPaneGlassThicknessMm(p).toFixed(2)};
     }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.90',production:'13.90'});
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
-    eq('Cavity выбирается в порядке Width → Spacer → Gas → Sealant', await t.p.evaluate(() => {
+    eq('Cavity выбирается в порядке Spacer → Width → Gas → Sealant → Price', await t.p.evaluate(() => {
       const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
       host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
-      return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[0].options].map(x=>x.textContent),spacers:[...selects[1].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
-    }), {labels:['Width','Spacer','Gas','Sealant'],widths:['3/8″','7/16″','1/2″','17/32″','5/8″'],spacers:['BWE — Black Warm Edge','AL — Aluminum'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · SIL'});
+      return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[1].options].map(x=>x.textContent),spacers:[...selects[0].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
+    }), {labels:['Spacer','Width','Gas','Sealant','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
     eq('смена Width сохраняет spacer-систему и фильтрует недоступные размеры', await t.p.evaluate(() => {
-      salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;salesCavitySetWidth(0,'7/16');return {same,fallback:c.spacerVariantId};
-    }), {same:'SP-AL-058',fallback:'SP-BWE-716'});
+      salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;c.spacerVariantId='SP-SS-012';salesCavitySetWidth(0,'3/8');return {same,fallback:c.spacerVariantId};
+    }), {same:'SP-AL-058',fallback:'SP-AL-038'});
     eq('Frit и Spandrel имеют независимые surface', await t.p.evaluate(() => {
       const p=normalizeSalesPane({visionType:'frit',frit:{surface:2},spandrel:{surface:1}},0);return {frit:p.frit.surface,spandrel:p.spandrel.surface,coating:p.coatingSurface};
     }), {frit:2,spandrel:1,coating:null});
@@ -2989,8 +2989,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const coated = salesVisionFieldsSafe(p, 0);
       p.visionType = 'uncoated'; p.glassProductId = glassProductByCode('6CLEAR').id;
       const plain = salesVisionFieldsSafe(p, 0);
-      return [coated.indexOf('Select Coating') > 0, coated.indexOf('On Glass') > 0,
-              plain.indexOf('Select Coating') < 0, plain.indexOf('>Glass<') > 0];
+      return [coated.indexOf('Selected Coating') > 0, coated.indexOf('On Glass') > 0,
+              plain.indexOf('Selected Coating') < 0, plain.indexOf('>Glass<') > 0];
     }), [true, true, true, true]);
 
     /* Смена покрытия переносит базовое стекло: человек выбрал Azuria и на

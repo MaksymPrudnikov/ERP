@@ -117,8 +117,20 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
    `glassSheet` в списке пересева НЕТ намеренно: там лежат цены и сроки,
    введённые руками, а пересев заменяет таблицу заводской — то есть стёр бы
    их при следующем же подъёме версии. Заводского содержимого у поставки не
-   бывает (см. erp/masterdata/glass). */
-const REFERENCE_VERSION=4;
+   бывает (см. erp/masterdata/glass).
+
+   4 → 5: в `spacerVariant` встали все семь систем рамок со складским рядом
+   размеров — было восемь позиций двух систем. Появились семейство (на нём
+   висит цена) и ФАКТИЧЕСКАЯ толщина, отдельная от номинала: 7/16 у Aluminum
+   11.1 мм, а у Black Warm Edge 11.5, и общая толщина пакета считалась по
+   номиналу, то есть занижалась. В `sealantProduct` добавлен полисульфид —
+   базовый вторичный герметик прайса, без которого самый ходовой вариант не
+   заносился вообще.
+
+   5 → 6: плёнки разбиты по исполнению (SGP Ultra Clear · Clear · Frosted,
+   EVA Ultra Clear · Clear · Frosted White · Milky Way) и получили цену за слой;
+   у фрита и спандрела появилась надбавка за sq ft. */
+const REFERENCE_VERSION=6;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -134,7 +146,17 @@ function reseedReferenceTables(hadSaved){
  const have=Number.isInteger(+DB.refVersion)?+DB.refVersion:0;
  if(have>=REFERENCE_VERSION)return false;
  const done=[];
+ /* Фактические толщины рамок вводит пользователь руками — заводскими данными
+    они пустые. Пересев меняет СОСТАВ таблицы, но введённое стирать нельзя: это
+    ровно та причина, по которой glassSheet вообще не пересевается. Ключ — id
+    рамки, поэтому правка переживает и добавление новых позиций. */
+ const keptSpacerMm={};
+ (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{
+  const mm=x&&+x.thicknessMm;
+  if(x&&x.id&&isFinite(mm)&&mm>0)keptSpacerMm[x.id]=mm;
+ });
  REFERENCE_TABLES.forEach(k=>{if(Array.isArray(DEFAULT[k])){DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));done.push(k);}});
+ (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));
