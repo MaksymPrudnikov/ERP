@@ -683,6 +683,7 @@ const I18N_EN={
   "annealed · heat strengthened · tempered": "annealed · heat strengthened · tempered",
   "Дистанционные рамки": "Spacers",
   "система и размер": "system and size",
+  "семейство для цены, номинал для выбора, факт для расчёта": "family sets the price, nominal picks the spacer, actual drives the calculation",
   "Газ": "Gas",
   "заполнение камеры": "cavity fill",
   "Герметики": "Sealants",

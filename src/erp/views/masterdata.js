@@ -18,6 +18,7 @@
 const MD_TABS=[
  {k:'glass',    label:'Каталог стекла'},
  {k:'supply',   label:'Точки поставки'},
+ {k:'spacer',   label:'Spacers & rates'},
  {k:'hardware', label:'Hardware'},
  {k:'overview', label:'Обзор базы'}
 ];
@@ -29,6 +30,7 @@ let mdTab='glass';
 let mdSearch='',mdMfr='',mdThick='',mdCoating='',mdStatus='all';
 let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
+let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdImportReport=null;
 
@@ -48,11 +50,11 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'?'':mdImportCard()}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -102,9 +104,24 @@ function viewMdGlass(){
    ${[['all','Все'],['stocked','На складе'],['preorder','По предзаказу'],['inactive','Снятые']].map(x=>`<button class="sm ${mdStatus===x[0]?'customer-filter-on':''}" onclick="mdStatus='${x[0]}';render()">${x[1]}</button>`).join('')}
    <span class="mut">Показано: ${shown.length} / ${rows.length}</span>
   </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Код</th><th>Название</th><th>Толщина</th><th>Подложка</th><th>Покрытие</th><th>Закалка</th><th>Поверхности</th><th>Склад</th><th>Поставка</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Код</th><th>Название</th><th>Толщина</th><th>Подложка</th><th>Покрытие</th><th>Закалка</th><th>Price AN</th><th>Price FT</th><th>Поверхности</th><th>Склад</th><th>Поставка</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">позиции не найдены</td></tr>'}</tbody></table></div>
   ${rows.length>shown.length?`<div class="hint">Сузь поиск или фильтр, чтобы увидеть остальные позиции: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
+}
+/* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
+   позициям, и форма на каждую превратила бы это в работу на день. Пустое поле
+   значит «в прайсе цены нет» — ровно как «no price» в присланном листе. */
+function mdGlassPriceInput(p,field){
+ const v=p[field];
+ return `<input class="md-mm" type="number" step="0.01" min="0" style="width:82px" value="${v==null?'':v}" placeholder="—" onchange="mdGlassSetPrice('${esc(p.id)}','${field}',this.value)">`;
+}
+function mdGlassSetPrice(id,field,v){
+ const p=(DB.glassProduct||[]).find(x=>x.id===id);if(!p)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){p[field]=null;touch();render();return;}
+ const n=+typed;
+ if(!isFinite(n)||n<0){render();return;}
+ p[field]=Math.round(n*100)/100;touch();render();
 }
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
@@ -115,6 +132,8 @@ function mdGlassRow(p){
   <td>${esc(glassLabel('substrate',p.substrate))}</td>
   <td>${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}</td>
   <td><span class="pill ${temper}">${esc(glassLabel('temperMode',p.temperMode))}</span></td>
+  <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
+  <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
   <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
   <td>${p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
   <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">нет</span>'}</td>
@@ -251,7 +270,7 @@ function mdSheetForm(){
    <div><label>Лист, ширина (in)</label><input id="md_sheetW" type="number" step="0.1" min="0" value="${r.sheetWIn==null?'':r.sheetWIn}"></div>
    <div><label>Лист, высота (in)</label><input id="md_sheetH" type="number" step="0.1" min="0" value="${r.sheetHIn==null?'':r.sheetHIn}"><div class="hint">Размер заполняется парой: половина габарита хуже, чем его отсутствие.</div></div>
    <div><label>Единица закупки</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select><div class="hint">Не всякий товар покупается площадью — коробку или бочку площадью не мерят.</div></div>
-   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА. Цены продажи в справочнике нет вообще — она вычисляется.</div></div>
+   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА, у точки поставки. Цена ПРОДАЖИ живёт у продукта в каталоге стекла — колонки Price AN и Price FT.</div></div>
    <div><label>Дата цены</label><input id="md_sheetDate" value="${esc(r.priceDate)}" placeholder="2026-08-22"><div class="hint">Прайс без даты не говорит, насколько он устарел.</div></div>
    <div><label>Фрахт, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Срок поставки, дней</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
@@ -291,6 +310,137 @@ function mdSheetSave(){
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;
  DB.glassSheet=DB.glassSheet.filter(s=>s.id!==id);touch();render();
+}
+
+/* --- 3. Дистанционные рамки -------------------------------------------
+   Экран на английском, как и конструктор Makeup: Width · Spacer · Gas ·
+   Sealant там уже английские, и рамки читаются рядом с ними одним языком.
+
+   Фактическая толщина правится ПРЯМО В ТАБЛИЦЕ, а не через форму: заполнять
+   её придётся по всему ряду, и открывать сорок девять форм подряд — работа,
+   которую никто не доводит до конца. Форма нужна, только чтобы завести новую
+   позицию или снять её с наличия.
+
+   Номинал стоит рядом с фактом намеренно: расхождение видно сразу, и опечатка
+   в миллиметрах (115 вместо 11.5) не уезжает в расчёт пакета молча. */
+/* Надбавки за обработку: фрит и спандрел продаются поверх цены стекла своей
+   ставкой за sq ft. Держим их рядом с рамками, потому что вопрос один и тот же —
+   «сколько стоит то, что мы делаем с листом», и правится так же, в строке. */
+function mdSurchargeTable(){
+ const rows=[]
+  .concat((DB.fritProduct||[]).map(x=>({x:x,kind:'fritProduct',group:'Frit'})))
+  .concat((DB.spandrelProduct||[]).map(x=>({x:x,kind:'spandrelProduct',group:'Spandrel'})));
+ if(!rows.length)return '';
+ return `<div class="sub" style="margin-top:22px">Surcharges are added on top of the glass price, per sq ft. Frit and spandrel keep the glass they are applied to — painting a lite is cheaper than buying a different one.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
+  <tbody>${rows.map(r=>`<tr>
+   <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
+   <td>${esc(r.group)}</td>
+   <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" onchange="mdSurchargeSet('${esc(r.kind)}','${esc(r.x.id)}',this.value)"></td>
+   <td>${r.x.active===false?'<span class="pill warn">off</span>':'<span class="pill ok">active</span>'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+function mdSurchargeSet(kind,id,v){
+ const row=(DB[kind]||[]).find(x=>x.id===id);if(!row)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){row.salePrice=null;touch();render();return;}
+ const n=+typed;
+ if(!isFinite(n)||n<0){render();return;}
+ row.salePrice=Math.round(n*100)/100;touch();render();
+}
+function viewMdSpacer(){
+ if(mdSpacerEdit!==null)return mdSpacerForm();
+ const all=(DB.spacerVariant||[]).slice();
+ all.sort((a,b)=>{
+  const fa=SPACER_FAMILIES.indexOf(spacerFamilyOf(a)),fb=SPACER_FAMILIES.indexOf(spacerFamilyOf(b));
+  if(fa!==fb)return fa-fb;
+  if(a.system!==b.system)return String(a.system).localeCompare(String(b.system));
+  const qa=spacerSizeParts(a.size),qb=spacerSizeParts(b.size);
+  return (qa?qa.value:0)-(qb?qb.value:0);
+ });
+ return `<div class="sub">A spacer answers three different questions. <b>Family</b> drives the IGU surround price, <b>nominal size</b> is how the spacer is picked and named, <b>actual thickness</b> feeds the overall unit thickness. They do not always match: 7/16 is 11.1 mm in Aluminum and 11.5 mm in Black Warm Edge. Until an actual value is entered, the unit is calculated from the nominal size.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Family</th><th>Nominal</th><th>Nominal, mm</th><th>Actual, mm</th><th>Difference</th><th>Availability</th><th></th></tr></thead>
+  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
+  <div class="row"><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
+  ${mdSurchargeTable()}`;
+}
+function mdSpacerRow(sp){
+ const nominal=spacerNominalMm(sp.size),fact=mdNum(sp.thicknessMm);
+ const diff=fact!=null&&nominal!=null?Math.round((fact-nominal)*10)/10:null;
+ return `<tr>
+  <td><b>${raw(sp.system)}</b><div class="mut mono">${raw(sp.id)}</div></td>
+  <td>${esc(SPACER_FAMILY_LABELS[spacerFamilyOf(sp)]||spacerFamilyOf(sp))}</td>
+  <td class="mono"><b>${raw(sp.size)}″</b></td>
+  <td class="mono mut">${nominal==null?'—':esc(nominal.toFixed(1))}</td>
+  <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" onchange="mdSpacerSetThickness('${esc(sp.id)}',this.value)"></td>
+  <td class="mono">${diff==null?'<span class="mut">—</span>':(diff===0?'<span class="mut">same</span>':'<b>'+esc((diff>0?'+':'')+diff.toFixed(1))+'</b>')}</td>
+  <td><span class="pill ${sp.availability==='stock'?'ok':sp.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',sp.availability))}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdSpacerEditRow('${esc(sp.id)}')">Edit</button>
+   <button class="sm dl" onclick="mdSpacerDelete('${esc(sp.id)}')">×</button></td></tr>`;
+}
+/* Пустое поле возвращает рамку к номиналу — это законный ответ «факт неизвестен»,
+   а не ошибка ввода. Ноль и мусор не принимаются: рамки 0 мм не бывает. */
+function mdSpacerSetThickness(id,v){
+ const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){sp.thicknessMm=null;touch();render();return;}
+ const mm=+typed;
+ if(!isFinite(mm)||mm<=0){render();return;}
+ sp.thicknessMm=Math.round(mm*100)/100;touch();render();
+}
+function mdSpacerNew(){
+ mdSpacerEdit='new';
+ mdSpacerDraft={id:'',family:'warm_edge',system:'Black Warm Edge',size:'',thicknessMm:null,availability:'stock',supplier:'',leadTimeDays:null,active:true};
+ render();
+}
+function mdSpacerEditRow(id){
+ const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
+ mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));render();
+}
+function mdSpacerForm(){
+ const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
+ const nominal=spacerNominalMm(r.size);
+ return `<div class="form"><h3>${isNew?'New spacer':'Edit spacer'}</h3>
+  <div class="grid">
+   <div><label>System *</label><select id="md_spSystem">${SPACER_SYSTEMS.map(x=>`<option data-raw value="${esc(x.system)}" ${x.system===r.system?'selected':''}>${esc(x.system)} · ${esc(SPACER_FAMILY_LABELS[x.family])}</option>`).join('')}</select><div class="hint">Family comes with the system — the surround price hangs on it.</div></div>
+   <div><label>Nominal size *</label><input id="md_spSize" value="${esc(r.size)}" placeholder="17/32"><div class="hint">As a fraction, the way it is printed on the box. Nominal from it: ${nominal==null?'—':esc(nominal.toFixed(1)+' mm')}</div></div>
+   <div><label>Actual thickness, mm</label><input id="md_spMm" type="number" step="0.1" min="0" value="${r.thicknessMm==null?'':r.thicknessMm}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"><div class="hint">Empty — unit thickness is calculated from the nominal size.</div></div>
+   <div><label>Availability</label><select id="md_spAvail">${mdVocabOptions('availability',r.availability)}</select></div>
+   <div><label>Supplier</label><input id="md_spSupplier" value="${esc(r.supplier)}"></div>
+   <div><label>Lead time, days</label><input id="md_spLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
+  </div>
+  <div class="err" id="e_mdSpacer"></div>
+  <div class="row"><button class="pri" onclick="mdSpacerSave()">Save</button><button onclick="mdSpacerEdit=null;mdSpacerDraft=null;render()">Cancel</button></div></div>`;
+}
+function mdSpacerSave(){
+ const e=document.getElementById('e_mdSpacer');e.style.display='none';
+ const system=mdVal('md_spSystem'),size=mdVal('md_spSize');
+ if(!system||!size)return fail(e,'System and nominal size are required');
+ const q=spacerSizeParts(size);
+ if(!q)return fail(e,'Nominal size is a fraction, for example 17/32');
+ const known=SPACER_SYSTEMS.find(x=>x.system===system);
+ const id=mdSpacerEdit==='new'?'SP-'+(known?known.code:'X')+'-'+spacerSizeKey(size):mdSpacerDraft.id;
+ if(mdSpacerEdit==='new'&&(DB.spacerVariant||[]).some(x=>x.id===id))return fail(e,'This spacer already exists: '+id);
+ const mmTyped=mdVal('md_spMm'),leadTyped=mdVal('md_spLead');
+ const mm=mmTyped===''?null:+mmTyped;
+ if(mm!=null&&(!isFinite(mm)||mm<=0))return fail(e,'Actual thickness: a positive number of millimetres');
+ const next={
+  id:id,family:known?known.family:'aluminum',system:system,size:size,
+  thicknessMm:mm,
+  name:system+' '+size+'″',code:id,
+  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),
+  leadTimeDays:leadTyped===''?null:+leadTyped,active:mdSpacerDraft.active!==false
+ };
+ if(mdSpacerEdit==='new')DB.spacerVariant.push(next);
+ else{const at=DB.spacerVariant.findIndex(x=>x.id===mdSpacerDraft.id);if(at<0)return fail(e,'Spacer not found');DB.spacerVariant[at]=next;}
+ mdSpacerEdit=null;mdSpacerDraft=null;normalizeMasterData();touch();render();
+}
+/* Рамка может стоять в уже сохранённом заказе, поэтому удаление говорит об этом
+   прямо: снять с наличия обычно правильнее, чем стереть. */
+function mdSpacerDelete(id){
+ const used=(DB.salesOrder||[]).some(o=>(o.makeups||[]).some(m=>(m.cavities||[]).some(c=>c.spacerVariantId===id)));
+ if(!confirm(used?'This spacer is used in saved orders. Delete anyway? It will become unknown there.':'Delete this spacer?'))return;
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x.id!==id);touch();render();
 }
 
 /* --- 3. Фурнитура ------------------------------------------------------
@@ -434,16 +584,16 @@ function mdHwModelDelete(id){
    коллекции системы одним списком со счётчиками. Пустая таблица здесь — не
    ошибка, а честный ответ «сюда ещё ничего не завели». */
 const MD_COLLECTIONS=[
- {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло: подложка, покрытие, толщина, закалка'},
+ {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло и почём продаём: подложка, покрытие, толщина, закалка, две цены'},
  {key:'glassSheet',     label:'Точки поставки',      what:'где и почём: валюта, размер листа, цена, срок'},
  {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
  {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
  {key:'heatTreatment',  label:'Термообработка',      what:'annealed · heat strengthened · tempered'},
- {key:'spacerVariant',  label:'Дистанционные рамки', what:'система и размер'},
+ {key:'spacerVariant',  label:'Дистанционные рамки', what:'семейство для цены, номинал для выбора, факт для расчёта'},
  {key:'gasProduct',     label:'Газ',                 what:'заполнение камеры'},
  {key:'sealantProduct', label:'Герметики',           what:'первичный и вторичный контур'},
- {key:'interlayerProduct',label:'Плёнки ламинации',  what:'PVB и структурные плёнки'},
- {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать'},
+ {key:'interlayerProduct',label:'Плёнки ламинации',  what:'EVA и SGP по исполнениям, цена за слой'},
+ {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать, надбавка за sq ft'},
  {key:'spandrelProduct',label:'Спандрел',            what:'непрозрачные панели'},
  {key:'station',        label:'Станции маршрута',    what:'одиннадцать шагов маршрута'},
  {key:'operation',      label:'Операции',            what:'что именно делают и до или после печи'},

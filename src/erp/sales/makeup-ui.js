@@ -15,7 +15,18 @@ function salesBaseGlassCandidates(p){return salesSortGlass(activeGlassProducts()
    уже на нужном языке, а имя товара переводчик не трогает. */
 /* Короткого кода в списке НЕТ намеренно: он уже стоит в шапке Lite и в коде
    makeup, а в строке выбора только мешает читать имя. */
-function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+/* Толщина выбрана отдельным полем, поэтому из подписи убирается её хвост:
+   «Clear 6mm» рядом с Thickness 6 mm — это два ответа на один вопрос, и
+   владелец справедливо на них указал. Толщина в СЕРЕДИНЕ названия остаётся
+   («LoE 272 on 6 mm Clear»): там она описывает подложку покрытия. */
+function salesGlassLabel(g){
+ const name=String((g&&g.name)||'');
+ const parts=name.split(' ');
+ const tail=parts[parts.length-1]||'';
+ /* Хвост вида «6mm» или «6.5mm» убирается, «6 mm» в середине названия — нет. */
+ return /^[0-9]+(\.[0-9]+)?mm$/i.test(tail)?parts.slice(0,-1).join(' '):name;
+}
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,salesGlassLabel(g)+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
 /* --- Два шага выбора покрытого стекла --------------------------------
    Раньше шаг был один, и Vitro 6 мм Low-E выкатывал 92 строки списком.
    Теперь как у самого поставщика: сначала покрытие, потом на каком стекле. */
@@ -73,6 +84,20 @@ function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSur
    outer ply faces the first numbered surface of that Lite; the inner ply
    faces its second surface. */
 function salesLaminatedFritOutsideSurface(index,side){const nums=salesPaneSurfaces(index);return side==='inner'?nums[1]:nums[0];}
+/* Цена в свёрнутой строке: владелец сравнивает лайты, не раскрывая каждый.
+   Прочерк значит «в прайсе цены нет», и это видно так же ясно, как число. */
+function salesPriceBadge(v,edited){
+ if(v==null)return '<span class="mu-price-badge none">—</span>';
+ return '<span class="mu-price-badge'+(edited?' edited':'')+'">'+esc((+v).toFixed(2))+'</span>';
+}
+function salesPanePriceBadge(p){
+ const cat=salesPaneCatalogPrice(p),v=p.priceOverride!=null?p.priceOverride:cat;
+ return salesPriceBadge(v,p.priceOverride!=null);
+}
+function salesCavityPriceBadge(c){
+ const cat=salesCavityCatalogPrice(c),v=c.priceOverride!=null?c.priceOverride:cat;
+ return salesPriceBadge(v,c.priceOverride!=null);
+}
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
@@ -91,6 +116,8 @@ function salesAccordionToggle(el,key){
  if(!el)return;
  if(!el.open){if(soOpenSectionKey===key)soOpenSectionKey=null;return;}
  soOpenSectionKey=key;
+ /* В режиме «раскрыть все» соседи остаются открытыми: он для того и включён. */
+ if(soExpandAll)return;
  const stack=el.closest('.mu-stack');if(!stack)return;
  stack.querySelectorAll('details.mu-section[open]').forEach(x=>{if(x!==el)x.open=false;});
 }
@@ -101,7 +128,7 @@ function salesCavitySummary(c){
 function salesMakeupTabs(){
  const selected=salesCurrentMakeup();return `<div class="mu-strip"><div class="mu-strip-scroll">${soDraft.makeups.map(m=>`<button type="button" class="mu-tab ${selected&&selected.id===m.id?'on':''}" onclick="salesSelectMakeup('${esc(m.id)}')"><b>${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></button>`).join('')}</div><button type="button" class="mu-add" onclick="salesAddMakeup()">+ Makeup</button></div>`;
 }
-function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYPE</span><div class="mu-segment">${[['single','Single Lite'],['double','Double'],['triple','Triple']].map(x=>`<button type="button" class="${m.unitType===x[0]?'on':''}" onclick="salesSetUnitType('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="mu-total"><span>Overall</span><b>${salesMakeupThicknessMm(m)==null?'—':salesMakeupThicknessMm(m).toFixed(1)+' mm'}</b></div></div>`;}
+function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYPE</span><div class="mu-segment">${[['single','Single Lite'],['double','Double'],['triple','Triple']].map(x=>`<button type="button" class="${m.unitType===x[0]?'on':''}" onclick="salesSetUnitType('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="mu-totals">${(function(){const u=salesMakeupUnitPrice(m);return `<div class="mu-total mu-total-price"><span>Makeup</span><b>${u.known?u.total.toFixed(2):u.total.toFixed(2)+` +?`}</b></div>`;})()}<div class="mu-total"><span>Overall</span><b>${salesMakeupThicknessMm(m)==null?'—':salesMakeupThicknessMm(m).toFixed(1)+' mm'}</b></div></div></div>`;}
 function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['vision','Vision'],['spandrel','Spandrel'],['laminated','Laminated']].map(x=>`<button type="button" class="${p.category===x[0]?'on':''}" onclick="salesSetPaneCategory(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
 function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
 function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
@@ -133,6 +160,42 @@ function salesCoatingSurfaceSelector(p,index){
    списком, и Solarban 60 на двенадцати подложках приходилось искать глазами.
    У непокрытого стекла и фрита промежуточного шага нет — там выбирают само
    стекло, и второй список был бы пустой формальностью. */
+/* Порядок полей задан владельцем: производитель, толщина, стекло, тип,
+   термообработка, цена — всё одной строкой. Спецификация выбранного типа
+   (покрытие, поверхность, фрит) уезжает во второй ряд и у Uncoated не
+   появляется вовсе: там уточнять нечего, и пустой ряд только съедал высоту. */
+/* Цена стоит в той же строке, что и остальные поля: она такое же свойство
+   позиции, как толщина, и отдельного блока под неё не нужно. Каталожная
+   ставка показывается подсказкой ↺ и появляется только когда цену правили. */
+function salesPriceCell(kind,index,cat,over){
+ const has=over!=null,shown=has?over:cat;
+ const val=shown==null?'':(+shown).toFixed(2);
+ const ph=cat==null?'—':(+cat).toFixed(2);
+ return `<div class="mu-price-cell${has?' edited':''}">`
+  +`<input type="number" step="0.01" min="0" value="${esc(val)}" placeholder="${esc(ph)}" onchange="sales${kind}SetPrice(${index},this.value)" aria-label="Price per sq ft">`
+  +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${esc(ph)}" onclick="sales${kind}SetPrice(${index},'')">↺</button>`:'')
+  +`</div>`;
+}
+/* Каталожной цены продажи у стекла пока нет — она появится вместе с прайсом.
+   До тех пор поле пустое: показывать выдуманное число хуже, чем прочерк. */
+function salesLitePriceField(p,index){
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride)}</div>`;
+}
+function salesCavityPriceField(c,index){
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Cavity',index,salesCavityCatalogPrice(c),c.priceOverride)}</div>`;
+}
+/* Каталог говорит «только закалённым», а в позиции стоит Annealed — цены на
+   такую пару в прайсе нет. Прочерк в цене это уже показывает, но глазу нужно
+   место ошибки, а не только её следствие: поле закалки подсвечивается.
+   Запрета нет — бывает, что так и надо, и человек продолжает осознанно. */
+function salesHeatFieldChecked(p,index){
+ const html=salesHeatField(p,index);
+ if(!salesPaneTemperConflict(p))return html;
+ const g=glassProductById(p.glassProductId);
+ const note=glassNeedsFurnace(g)?`catalog: temper required`:`catalog: no tempering`;
+ return html.replace(`<div>`,`<div class="mu-conflict">`)
+  .replace(`</select>`,`</select><span class="mu-conflict-note">`+note+`</span>`);
+}
 function salesVisionFieldsSafe(p,index){
  const isFrit=p.visionType==='frit',coated=p.visionType==='lowe'||p.visionType==='reflective';
  const coatings=coated?salesGlassCoatings(p):[];
@@ -140,57 +203,85 @@ function salesVisionFieldsSafe(p,index){
  const rows=coated?salesGlassVariants(p,coating):salesGlassCandidates(p);
  const glassSelect=`<select onchange="salesPaneSetProduct(${index},this.value)">${
   coated?salesGlassVariantOptions(rows,p.glassProductId):salesGlassProductOptions(rows,p.glassProductId)}</select>`;
- return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div>${salesHeatField(p,index)}</div>
-  <div class="mu-coating-grid">
-   ${coated
-    ?`<div><label>Select Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(p,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>`
-    /* ПУСТАЯ ячейка, а не пропущенная: в Double и Triple лайты стоят один под
-       другим, и поле, съехавшее на колонку влево у непокрытого стекла,
-       заставляло глаз прыгать по всей сетке. Колонки держим на месте. */
-    :'<div class="mu-cell-empty"></div>'}
-   <div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div>
-   ${coated?salesCoatingSurfaceSelector(p,index):'<div class="mu-cell-empty"></div>'}
-  </div>
+ const typeSelect=`<select onchange="salesPaneSetVisionType(${index},this.value)">${
+  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
+   .map(x=>salesOption(x[0],x[1],p.visionType,true)).join('')}</select>`;
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label>${typeSelect}</div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(p,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>${salesCoatingSurfaceSelector(p,index)}</div>`:''}
   ${isFrit?salesFritFields(p,index):''}`;
 }
-function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatField(p,index)}</div><div class="mu-subgrid"><div><label>Spandrel Product</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;}
-/* Laminated is a real stack, not one unfiltered glass list. Each ply gets the
-   same narrowing chain as Vision (manufacturer → thickness → type → coating /
-   glass) plus its own heat treatment. Interlayers are repeatable because a
-   laminate may combine, for example, EVA Ultra Clear and EVA Milky Way. */
+/* Спандрел описывается тем же рядом, что и обычный лайт: производитель,
+   толщина, стекло, тип, термообработка, цена. Раньше здесь была своя сетка из
+   четырёх полей без цены, и глазу приходилось искать её в другом месте — а
+   сравнивают лайты между собой, значит и выглядеть они должны одинаково.
+   Место TYPE занимает продукт спандрела: он и есть тип этой позиции. */
+function salesSpandrelFields(p,index){
+ const rows=salesBaseGlassCandidates(p);
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+}
+/* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
+   толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
+   у каждой своя — внутренний лист может быть дороже внешнего. Итог позиции
+   складывается из обеих плит и плёнки. */
+function salesLaminatedPlyFields(p,index,side,label){
+ const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
+ const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
+ const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
+ const typeSelect=`<select onchange="salesPaneSetLamPlyType(${index},'${side}',this.value)">${
+  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
+   .map(x=>salesOption(x[0],x[1],isFrit?'frit':ply.visionType,true)).join('')}</select>`;
+ return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div>
+  <div class="mu-field-grid mu-field-grid-6">
+   <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
+   <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
+   <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
+   <div><label>Type</label>${typeSelect}</div>
+   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
+   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
+  </div>
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
+  ${salesLaminatedFritFields(p,index,side)}</div>`;
+}
 function salesLaminatedFritFields(p,index,side){
  const f=p.laminated[side].frit;if(!f||!f.enabled)return '';
  const outsideSurface=salesLaminatedFritOutsideSurface(index,side);
  return `<div class="mu-subgrid mu-lam-frit-grid"><div><label>Frit Position</label><select onchange="salesPaneSetLamFrit(${index},'${side}','position',this.value)">${[['outside','#'+outsideSurface+' · Outside film (default)'],['in_film','Into film']].map(x=>salesOption(x[0],x[1],f.position,true)).join('')}</select></div><div><label>Frit Product</label><select onchange="salesPaneSetLamFrit(${index},'${side}','productId',this.value)">${salesSimpleOptions('fritProduct',f.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetLamFrit(${index},'${side}','color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,f.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetLamFrit(${index},'${side}','pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,f.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(f.dotMm)}" onchange="salesLamFritDotChange(${index},'${side}',this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetLamFrit(${index},'${side}','marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,f.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(f.marginW16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(f.marginH16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginH16',this)"></div><div><label>Production marking</label><input value="${esc(f.marking)}" oninput="salesPaneSetLamFritText(${index},'${side}','marking',this.value)"></div></div>`;
 }
-function salesLaminatedPlyFields(p,index,side,label){
- const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
- const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
- const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
- return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div><div class="mu-lam-ply-grid">
-  <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
-  <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
-  <div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${(isFrit?x[0]==='frit':ply.visionType===x[0])?'on':''}" onclick="salesPaneSetLamPlyType(${index},'${side}','${x[0]}')">${x[1]}</button>`).join('')}</div></div>
-  <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
-  ${coated?`<div><label>Select Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>`:''}
-  <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
- </div>${salesLaminatedFritFields(p,index,side)}</div>`;
+function salesInterlayerFamilyOptions(current){
+ return INTERLAYER_FAMILIES.map(f=>salesOption(f.id,f.label,current,true)).join('');
+}
+function salesInterlayerTypeOptions(family,current){
+ return activeSimple('interlayerProduct')
+  .filter(x=>interlayerFamilyOf(x.id)===family)
+  .map(x=>salesOption(x.id,x.name,current,true)).join('');
+}
+function salesInterlayerPriceCell(index,slot,layer){
+ const prod=mdById('interlayerProduct',layer.productId);
+ const cat=prod&&prod.salePrice!=null?prod.salePrice:null;
+ const has=layer.priceOverride!=null;
+ const shown=has?layer.priceOverride:cat;
+ return `<div class="mu-price-cell${has?' edited':''}">`
+  +`<input type="number" step="0.01" min="0" value="${shown==null?'':(+shown).toFixed(2)}" placeholder="${cat==null?'—':(+cat).toFixed(2)}" onchange="salesPaneSetLamInterlayerPrice(${index},${slot},this.value)" aria-label="Price per layer">`
+  +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${cat==null?'—':(+cat).toFixed(2)}" onclick="salesPaneSetLamInterlayerPrice(${index},${slot},'')">↺</button>`:'')
+  +`</div>`;
 }
 function salesLaminatedInterlayers(p,index){
  const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
  return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · up to ${SALES_MAX_INTERLAYER_LAYERS} layers each</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
   const selected=String(salesInterlayerLayerCount(layer.layers));
   const layerOptions=Array.from({length:SALES_MAX_INTERLAYER_LAYERS},(_,i)=>{const n=i+1,mm=salesInterlayerThicknessForLayers(n);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
-  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesSimpleOptions('interlayerProduct',layer.productId)}</select></div><div><label>Layers / Actual Thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><button type="button" class="mu-lam-film-remove" title="Remove film" ${rows.length<=1?'disabled':''} onclick="salesPaneRemoveLamInterlayer(${index},${slot})">×</button></div>`;
+  const family=interlayerFamilyOf(layer.productId);
+  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select onchange="salesPaneSetLamInterlayerFamily(${index},${slot},this.value)">${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,slot,layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} onclick="salesPaneRemoveLamInterlayer(${index},${slot})" title="Remove film">×</button></div>`;
  }).join('')}</div>`;
 }
 /* У ламината кромка ОДНА на всю склейку — плёнка её не делит, поэтому выбор
    стоит один на лайт, а не по плёнкам. */
 function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
-function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span></summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
+function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soExpandAll||soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span>${salesPanePriceBadge(p)}</summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
 function salesCavitySection(c,index){
- const key='cavity-'+index,isOpen=soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
+ const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
- return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span></summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div></div></div></details>`;
+ return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
-function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
+function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="Держать все секции открытыми">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
