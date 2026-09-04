@@ -877,6 +877,62 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   .shape-para-readout{grid-template-columns:repeat(3,1fr)}
 }
 
+/* Фактическая толщина рамки: подсказка в пустом поле — это НОМИНАЛ, а не
+   введённое значение. Без приглушения они выглядят одинаково, и таблица врёт,
+   будто факт заполнен по всему ряду. */
+.md-mm::placeholder{color:#a8b3bf;font-style:italic}
+.md-mm:placeholder-shown{background:#fbfcfd}
+
+/* Строка лайта: шесть полей в один ряд — производитель, толщина, стекло, тип,
+   термообработка, цена. Спецификация типа идёт вторым рядом и появляется
+   только когда есть что уточнять. */
+.mu-field-grid-6{grid-template-columns:minmax(110px,.75fr) minmax(85px,.5fr) minmax(240px,1.35fr) minmax(120px,.7fr) minmax(150px,.85fr) minmax(120px,.6fr)}
+/* Второй ряд остаётся рядом покрытия (класс сохранён), но колонок в нём две:
+   само покрытие и поверхность. Стекло уехало в первый ряд. */
+.mu-second-row{display:grid;gap:6px;align-items:start;grid-template-columns:minmax(260px,1.3fr) minmax(150px,.75fr) minmax(0,1fr);margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
+/* Цена — обычная ячейка ряда. Ручная правка красит поле, ↺ возвращает каталог
+   и появляется только у правленой цены, чтобы не занимать место зря. */
+.mu-price-cell{display:flex;align-items:center;gap:5px}
+.mu-price-cell input{text-align:right;font-variant-numeric:tabular-nums;width:100%;min-width:0}
+.mu-price-cell.edited input{border-color:#e2c07a;background:var(--amber2);color:var(--amber);font-weight:600}
+.mu-price-reset{
+ flex:0 0 29px;width:29px;height:31px;padding:0;display:grid;place-items:center;
+ border:1px solid var(--line);background:var(--panel);border-radius:6px;
+ color:var(--mut);cursor:pointer;font-size:14px;line-height:1;
+}
+.mu-price-reset:hover{color:var(--blue);border-color:var(--blue)}
+@media (max-width:1100px){.mu-field-grid-6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* В камере теперь пять полей: рамка, ширина, газ, герметик и цена. */
+.mu-cavity-grid{grid-template-columns:minmax(230px,1.15fr) minmax(90px,.42fr) minmax(130px,.6fr) minmax(165px,.72fr) minmax(120px,.6fr);max-width:none}
+@media (max-width:1100px){.mu-cavity-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Цена в свёрнутой строке: та же информация, что в раскрытой, но одним взглядом. */
+.mu-price-badge{
+ justify-self:end;margin-left:8px;font-size:11px;font-variant-numeric:tabular-nums;
+ padding:1px 7px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+}
+.mu-price-badge.edited{border-color:#e2c07a;background:var(--amber2);color:var(--amber);font-weight:600}
+.mu-price-badge.none{color:var(--mut)}
+.mu-section>summary{grid-template-columns:12px max-content max-content minmax(0,1fr) max-content}
+.mu-cavity>summary{grid-template-columns:12px max-content minmax(0,1fr) max-content}
+.mu-total-price b{font-variant-numeric:tabular-nums}
+/* Закалка вразрез с каталогом: подсвечиваем место ошибки, но не запрещаем. */
+.mu-conflict select{border-color:var(--amber);background:var(--amber2)}
+.mu-conflict-note{display:block;margin-top:3px;font-size:10px;color:var(--amber)}
+
+/* Цена сборки и общая толщина стоят рядом, разделённые чертой: это два разных
+   ответа, но смотрят на них одним взглядом. */
+/* Итоги прижаты к правому краю строки: там же, где цены в строках лайтов,
+   и глаз читает всю колонку цен одной вертикалью. */
+.mu-unit-row{grid-template-columns:90px minmax(280px,430px) 1fr}
+.mu-totals{margin-left:auto}
+.mu-totals{display:flex;align-items:baseline;gap:14px;justify-self:end;white-space:nowrap}
+.mu-totals .mu-total{display:flex}
+.mu-totals .mu-total + .mu-total{padding-left:14px;border-left:1px solid var(--line)}
+
+/* Плёнка: семейство, исполнение, слои, цена — четыре поля в ряд. */
+.mu-lam-film{grid-template-columns:22px minmax(90px,.5fr) minmax(170px,1.1fr) minmax(150px,.9fr) minmax(120px,.6fr) 28px}
+
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
    Service Sets + production Shape UX
@@ -953,7 +1009,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7a9e5f7f8c2d';
+var ERP_BUILD='d7bf3e04524d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5130,8 +5186,20 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
    `glassSheet` в списке пересева НЕТ намеренно: там лежат цены и сроки,
    введённые руками, а пересев заменяет таблицу заводской — то есть стёр бы
    их при следующем же подъёме версии. Заводского содержимого у поставки не
-   бывает (см. erp/masterdata/glass). */
-const REFERENCE_VERSION=4;
+   бывает (см. erp/masterdata/glass).
+
+   4 → 5: в `spacerVariant` встали все семь систем рамок со складским рядом
+   размеров — было восемь позиций двух систем. Появились семейство (на нём
+   висит цена) и ФАКТИЧЕСКАЯ толщина, отдельная от номинала: 7/16 у Aluminum
+   11.1 мм, а у Black Warm Edge 11.5, и общая толщина пакета считалась по
+   номиналу, то есть занижалась. В `sealantProduct` добавлен полисульфид —
+   базовый вторичный герметик прайса, без которого самый ходовой вариант не
+   заносился вообще.
+
+   5 → 6: плёнки разбиты по исполнению (SGP Ultra Clear · Clear · Frosted,
+   EVA Ultra Clear · Clear · Frosted White · Milky Way) и получили цену за слой;
+   у фрита и спандрела появилась надбавка за sq ft. */
+const REFERENCE_VERSION=6;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -5147,7 +5215,17 @@ function reseedReferenceTables(hadSaved){
  const have=Number.isInteger(+DB.refVersion)?+DB.refVersion:0;
  if(have>=REFERENCE_VERSION)return false;
  const done=[];
+ /* Фактические толщины рамок вводит пользователь руками — заводскими данными
+    они пустые. Пересев меняет СОСТАВ таблицы, но введённое стирать нельзя: это
+    ровно та причина, по которой glassSheet вообще не пересевается. Ключ — id
+    рамки, поэтому правка переживает и добавление новых позиций. */
+ const keptSpacerMm={};
+ (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{
+  const mm=x&&+x.thicknessMm;
+  if(x&&x.id&&isFinite(mm)&&mm>0)keptSpacerMm[x.id]=mm;
+ });
  REFERENCE_TABLES.forEach(k=>{if(Array.isArray(DEFAULT[k])){DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));done.push(k);}});
+ (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));
@@ -6025,10 +6103,10 @@ const GLASS_PRODUCTS_CSV=[
 'Cardinal,6Q366,LoE 366 on 6mm Clear,clear,lowe,6,5.7,TEMPERED,cavity_only,"2,3",,sputtered,,,YES,2157,LoE366-6.CIG,IGDB v69.0,0.702923,0.268693,0.068949,0.047942,0.369307,0.546933,0.840000,0.019943,2,1.000000',
 'Cardinal,8Q366,LoE 366 on 8mm Clear,clear,lowe,8,7.8,TEMPERED,cavity_only,"2,3",,sputtered,,,,2131,LoE366-8.CIG,IGDB v69.0,0.694830,0.264112,0.070054,0.048401,0.327263,0.547039,0.840000,0.019943,2,1.000000',
 'Cardinal,6E180ESC,LoE 180ESC on 6mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2034,LoE180ESC-6.CIG,IGDB v71.0,0.859435,0.665672,0.089337,0.078880,0.129735,0.161239,0.840000,0.079644,2,1.000000',
-'Cardinal,3E+272,LoE 272 on 3 mm Clear,clear,lowe,3,3,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2011,LoE272-3.CIG,IGDB v97.0,0.793236,0.428964,0.055959,0.043317,0.324730,0.418146,0.840000,0.041910,2,1.000000',
-'Cardinal,4E+272,LoE 272 on 4 mm Clear,clear,lowe,4,3.9,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2012,LoE272-4.CIG,IGDB v97.0,0.790245,0.424458,0.055952,0.043152,0.309671,0.417985,0.840000,0.041910,2,1.000000',
+'Cardinal,3E272,LoE 272 on 3 mm Clear,clear,lowe,3,3,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2011,LoE272-3.CIG,IGDB v97.0,0.793236,0.428964,0.055959,0.043317,0.324730,0.418146,0.840000,0.041910,2,1.000000',
+'Cardinal,4E272,LoE 272 on 4 mm Clear,clear,lowe,4,3.9,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2012,LoE272-4.CIG,IGDB v97.0,0.790245,0.424458,0.055952,0.043152,0.309671,0.417985,0.840000,0.041910,2,1.000000',
 'Cardinal,4E366,LoE 366 on 4mm Clear,clear,lowe,4,3.9,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2155,LoE366-4.CIG,IGDB v69.0,0.710994,0.273583,0.069734,0.048592,0.418731,0.547177,0.840000,0.019943,2,1.000000',
-'Cardinal,6E+272,LoE 272 on 6 mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2014,LoE272-6.CIG,IGDB v97.0,0.779911,0.411298,0.055222,0.042074,0.274092,0.417340,0.840000,0.041910,2,1.000000',
+'Cardinal,6E272,LoE 272 on 6 mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2014,LoE272-6.CIG,IGDB v97.0,0.779911,0.411298,0.055222,0.042074,0.274092,0.417340,0.840000,0.041910,2,1.000000',
 'Cardinal,6E366,LoE 366 on 6mm Clear,clear,lowe,6,5.7,NO TEMPERABLE,cavity_only,"2,3",,sputtered,,"парная версия по закалке, оптика общая с близнецом",YES,2157,LoE366-6.CIG,IGDB v69.0,0.702923,0.268693,0.068949,0.047942,0.369307,0.546933,0.840000,0.019943,2,1.000000',
 'Cardinal,10PUREVISION,PureVision - 10mm,low_iron,uncoated,10,9.5,,any,,,,,,,878,PureVision-10.CIG,IGDB v89.0,0.897976,0.816012,0.082199,0.082199,0.077132,0.077132,0.840000,0.840000,,1.000000',
 'Cardinal,12PUREVISION,PureVision - 12mm,low_iron,uncoated,12,12.1,,any,,,,,,,879,PureVision-12.CIG,IGDB v89.0,0.892993,0.791772,0.081769,0.081769,0.075343,0.075343,0.840000,0.840000,,1.000000',
@@ -6558,8 +6636,10 @@ const GLASS_DEPOSITIONS=['pyrolytic','sputtered'];
 /* Толщины каталога — предел пользователя, а не мира. Строка вне диапазона
    отклоняется с названным диапазоном в причине: расширять — здесь. */
 const GLASS_MIN_MM=3, GLASS_MAX_MM=19;
-/* Коды Cardinal `3Q340+` и `3E+272` — фирменные обозначения, а не опечатки:
-   плюс в коде законен. */
+/* Плюс в коде законен: `3Q340+` — фирменное обозначение Cardinal (LoE 340+).
+   А вот `3E+272` фирменным НЕ был: так Excel записал 3E272, приняв код за
+   научную нотацию, и порча уехала в каталог вместе с импортом. Исправлено
+   4 сентября 2026; регулярка плюс по-прежнему пропускает — он нужен 340+. */
 const GLASS_CODE_RE=/^[A-Za-z0-9][A-Za-z0-9+._/-]{0,39}$/;
 /* Валюта точки поставки. Список не закрываем: пользователь пересчитывает
    прайсы вручную и вносит по канадским меркам, но чужая строка с USD обязана
@@ -6610,6 +6690,72 @@ function normalizeSurfaceList(v){
  });
  return out.sort((a,b)=>a-b);
 }
+/* ---- Прайс продажи -----------------------------------------------------
+   Лист владельца от 4 сентября 2026: у позиции ДВЕ цены за sq ft — без
+   закалки и с закалкой, и Heat Treatment в конструкторе выбирает нужную.
+   Пустое значение значит «в прайсе цены нет»: у восьми позиций листа её нет
+   вовсе, и показывать вместо неё ноль было бы враньём.
+
+   Ключ — код продукта. Коды 3E272 · 4E272 · 6E272 Excel записывает научной
+   нотацией (3.0000000000000002E+272), и раньше порча уехала в каталог. И там,
+   и здесь коды приведены к настоящему виду. */
+const GLASS_SALE_PRICES={
+ '6LAM015':[8.65,null],
+ '4Q180ESC':[null,7.45],
+ '6Q270':[null,8.65],
+ '4Q272':[null,7.45],
+ '6Q272':[null,8.65],
+ '4Q366':[null,7.85],
+ '6Q366':[null,9.2],
+ '6E180ESC':[6.25,null],
+ '3E272':[5,null],
+ '4E272':[5.45,null],
+ '4E366':[5.85,null],
+ '6E272':[6.25,null],
+ '6E366':[6.65,null],
+ '6SOLARE':[8.27,11.9],
+ '6SUPERGREY':[9.25,10.85],
+ '10CLEAR':[7.35,9.05],
+ '12CLEAR':[8.3,10.8],
+ '16CLEAR':[24.25,34.5],
+ '19CLEAR':[32.1,41.8],
+ '3CLEAR':[3.7,null],
+ '4CLEAR':[4.2,5.2],
+ '5CLEAR':[4.7,5.6],
+ '6CLEAR':[4.85,5.85],
+ '8CLEAR':[7.3,8.8],
+ '4SBN60':[6,null],
+ '4SBN60VT':[null,7.85],
+ '5SBN60VT':[null,7.65],
+ '6SBN60':[7.36,null],
+ '6SBN60VT':[null,8.65],
+ '6SOLARBLUE':[10.75,12.75],
+ '10SOLARBRONZE':[23.5,25.5],
+ '12SOLARBRONZE':[28.8,31.8],
+ '6SOLARBRONZE':[6.85,7.85],
+ '6SOLARCOOL-SBZ':[8.4,10.95],
+ '6SOLARCOOL-SGY':[8.4,10.95],
+ '10SOLARGRAY':[22.5,24.5],
+ '12SOLARGRAY':[28.8,31.8],
+ '6SOLARGRAY':[6.85,7.85],
+ '6SOLEXIA':[7.13,8.45],
+ '10STARPHIRE':[14.65,16.65],
+ '12STARPHIRE':[18.9,21.8],
+ '16STARPHIRE':[52.9,58.75],
+ '19STARPHIRE':[41.7,72.45],
+ '6STARPHIRE':[9.65,10.65],
+ '8STARPHIRE':[7.43,12.2]
+};
+/* Цены проставляются продукту, если он их ещё не имеет: заведённая руками
+   цена всегда старше заводской и переписываться не должна. */
+function glassApplySalePrices(){
+ (DB.glassProduct||[]).forEach(function(p){
+  const row=GLASS_SALE_PRICES[p.code];
+  if(!row)return;
+  if(p.salePriceAnnealed==null)p.salePriceAnnealed=row[0];
+  if(p.salePriceTempered==null)p.salePriceTempered=row[1];
+ });
+}
 function normalizeGlassProduct(p){
  p=p&&typeof p==='object'?p:{};
  /* `family` — имя поля прежней схемы; читаем, чтобы сохранённый браузер не
@@ -6629,6 +6775,8 @@ function normalizeGlassProduct(p){
   deposition:GLASS_DEPOSITIONS.includes(p.deposition)?p.deposition:'',
   stocked:p.stocked===true,
   legacyCode:mdString(p.legacyCode),note:mdString(p.note),
+  salePriceAnnealed:mdNonNeg(p.salePriceAnnealed),
+  salePriceTempered:mdNonNeg(p.salePriceTempered),
   stockingUnit:mdUnitCode(p.stockingUnit,GLASS_DEFAULT_UNIT),
   salesUnit:mdUnitCode(p.salesUnit,GLASS_DEFAULT_UNIT),
   optics:normalizeGlassOptics(p.optics),
@@ -6823,39 +6971,133 @@ DEFAULT.glassProduct=glassSeedProducts();
    заменяет справочник заводским, то есть стёр бы все введённые цены. */
 DEFAULT.glassSheet=[];
 
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
 
 DEFAULT.heatTreatment=[
  {id:'HT-AN',name:'Annealed',code:'AN'},{id:'HT-HS',name:'Heat Strengthened',code:'HS'},{id:'HT-FT',name:'Tempered',code:'FT'}
 ].map(x=>normalizeSimpleMaterial(x,'heatTreatment'));
-DEFAULT.spacerVariant=[
- ['SP-BWE-038','Black Warm Edge','3/8'],['SP-BWE-716','Black Warm Edge','7/16'],['SP-BWE-012','Black Warm Edge','1/2'],['SP-BWE-1732','Black Warm Edge','17/32'],['SP-BWE-058','Black Warm Edge','5/8'],
- ['SP-AL-038','Aluminum','3/8'],['SP-AL-012','Aluminum','1/2'],['SP-AL-058','Aluminum','5/8']
-].map(x=>({id:x[0],system:x[1],size:x[2],name:x[1]+' '+x[2]+'″',code:x[0],availability:'order',supplier:'',leadTimeDays:null,active:true}));
+/* Дистанционная рамка отвечает на ТРИ разных вопроса, и ответы у неё расходятся:
+
+     семейство   определяет ЦЕНУ           Aluminum · Warm Edge · Stainless
+     номинал     определяет ВЫБОР          дробь, по ней рамку и называют
+     факт, мм    определяет РАСЧЁТ пакета  7/16 у Aluminum 11.1, у Black Warm Edge 11.5
+
+   Держать одно число на все три значит однажды собрать пакет не той толщины.
+
+   thicknessMm заводскими данными НЕ заполняется намеренно. Пустое поле честно
+   говорит «фактическая толщина не подтверждена», и расчёт показывает номинал
+   с пометкой. Заполненное значение введено руками и переживает пересев
+   справочников — см. reseedReferenceTables в erp/data. */
+const SPACER_SYSTEMS=[
+ {code:'AL',  family:'aluminum',  system:'Aluminum'},
+ {code:'BL',  family:'aluminum',  system:'Black Aluminum'},
+ {code:'WWE', family:'warm_edge', system:'White Warm Edge'},
+ {code:'LGWE',family:'warm_edge', system:'Light Grey Warm Edge'},
+ {code:'BWE', family:'warm_edge', system:'Black Warm Edge'},
+ {code:'SS',  family:'stainless', system:'Stainless Steel'},
+ {code:'BSS', family:'stainless', system:'Black Stainless Steel'}
+];
+const SPACER_FAMILIES=['aluminum','warm_edge','stainless'];
+const SPACER_FAMILY_LABELS={aluminum:'Aluminum',warm_edge:'Warm Edge',stainless:'Stainless Steel'};
+/* Наличие по типам: таблица склада, сентябрь 2026. У Aluminum весь ряд,
+   у Stainless три позиции — размеры семейств не совпадают. */
+const SPACER_STOCK={
+ AL:  ['3/16','7/32','1/4','5/16','3/8','13/32','7/16','15/32','1/2','17/32','9/16','5/8','11/16','3/4','27/32','15/16'],
+ BL:  ['3/16','3/8','7/16','1/2','17/32','9/16','5/8','11/16'],
+ WWE: ['3/8','1/2','17/32','5/8','11/16'],
+ LGWE:['5/16','3/8','1/2','17/32','11/16'],
+ BWE: ['5/16','3/8','7/16','1/2','17/32','9/16','5/8','11/16','27/32'],
+ SS:  ['7/16','1/2','5/8'],
+ BSS: ['17/32','5/8','27/32']
+};
+/* Дробь разбирается здесь своими силами, а не через fabParseDim: справочнику
+   нужна ровно одна форма записи, зависимость от модуля размеров ему ни к чему. */
+function spacerSizeParts(size){
+ const p=String(size==null?'':size).trim().split('/');
+ if(p.length!==2)return null;
+ const a=+p[0],b=+p[1];
+ if(!isFinite(a)||!isFinite(b)||b<=0||a<0)return null;
+ return {num:p[0].trim(),den:p[1].trim(),value:a/b};
+}
+function spacerNominalMm(size){const q=spacerSizeParts(size);return q?Math.round(q.value*25.4*10)/10:null;}
+function spacerSizeKey(size){const q=spacerSizeParts(size);return q?(q.num+q.den).padStart(3,'0'):'';}
+/* Толщина для расчёта: фактическая, если она введена, иначе номинал из дроби.
+   Фактическую вводят руками по мере получения данных от поставщика — до тех
+   пор пакет считается по номиналу. */
+function spacerThicknessMm(sp){
+ if(!sp)return null;
+ const actual=mdNum(sp.thicknessMm);
+ return actual!=null&&actual>0?actual:spacerNominalMm(sp.size);
+}
+/* Семейство у старых записей не хранилось — выводим его из кода id, а если и он
+   чужой, то из названия системы. Цена висит на семействе, пустым оно быть не может. */
+function spacerFamilyOf(sp){
+ const f=mdString(sp&&sp.family);
+ if(SPACER_FAMILIES.indexOf(f)>=0)return f;
+ const parts=String((sp&&sp.id)||'').split('-');
+ const known=parts.length>2&&parts[0]==='SP'?SPACER_SYSTEMS.find(x=>x.code===parts[1].toUpperCase()):null;
+ if(known)return known.family;
+ const sys=String((sp&&sp.system)||'').toLowerCase();
+ if(sys.indexOf('stainless')>=0)return 'stainless';
+ if(sys.indexOf('warm')>=0)return 'warm_edge';
+ return 'aluminum';
+}
+DEFAULT.spacerVariant=SPACER_SYSTEMS.reduce(function(out,s){
+ return out.concat((SPACER_STOCK[s.code]||[]).map(function(size){
+  const id='SP-'+s.code+'-'+spacerSizeKey(size);
+  return {id:id,family:s.family,system:s.system,size:size,thicknessMm:null,name:s.system+' '+size+'″',code:id,availability:'stock',supplier:'',leadTimeDays:null,active:true};
+ }));
+},[]);
 DEFAULT.gasProduct=[{id:'GAS-AIR',name:'Air',code:'AIR'},{id:'GAS-ARGON',name:'Argon',code:'ARG'}].map(x=>normalizeSimpleMaterial(x,'gas'));
-DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
+/* Полисульфид — базовый вторичный герметик прайса, силикон дороже и идёт
+   опцией. Без него самый ходовой вариант в систему не заносился вообще. */
+DEFAULT.sealantProduct=[{id:'SEAL-PIB',name:'PIB',code:'PIB'},{id:'SEAL-PS',name:'Polysulphide',code:'PS'},{id:'SEAL-SIL',name:'Silicone',code:'SIL'},{id:'SEAL-HM',name:'Hot Melt',code:'HM'}].map(x=>normalizeSimpleMaterial(x,'sealant'));
 /* Interlayer Product answers only WHAT film is used. Thickness is not part of
    the product: the Laminated builder stores the independently selected number
    of 0.38 mm layers. Old ids encoded .030 / .060 / .035 in the product itself;
    keep an explicit migration map so saved orders retain their physical stack. */
 const INTERLAYER_PRODUCT_ALIASES={
- 'INT-PVB030':{id:'INT-PVB',layers:2},
- 'INT-PVB060':{id:'INT-PVB',layers:4},
- 'INT-SGP035':{id:'INT-SGP',layers:2}
+ 'INT-PVB':{id:'INT-EVA-CL',layers:2},
+ 'INT-SGP':{id:'INT-SGP-CL',layers:2},
+ 'INT-PVB030':{id:'INT-EVA-CL',layers:2},
+ 'INT-PVB060':{id:'INT-EVA-CL',layers:4},
+ 'INT-SGP035':{id:'INT-SGP-CL',layers:2}
 };
 function interlayerProductMigration(id){return INTERLAYER_PRODUCT_ALIASES[mdString(id)]||null;}
 function interlayerCanonicalProductId(id){const old=interlayerProductMigration(id);return old?old.id:mdString(id);}
+/* Плёнка выбирается в два шага, как её и заказывают: сначала СЕМЕЙСТВО
+   (EVA или SGP), потом исполнение внутри него. Цена задана за один слой
+   0.38 мм и правится в справочнике.
+
+   PVB из базы убран намеренно: цеха он больше не касается, цены в прайсе у него
+   нет, и оставлять его значением по умолчанию значило бы отдавать ламинат
+   без цены. Сохранённые позиции со старым PVB переезжают на EVA Clear
+   через INTERLAYER_PRODUCT_ALIASES. */
+const INTERLAYER_FAMILIES=[
+ {id:'eva',label:'EVA'},
+ {id:'sgp',label:'SGP'}
+];
 DEFAULT.interlayerProduct=[
- {id:'INT-PVB',name:'PVB Clear',code:'PVB',thicknessMm:null},
- {id:'INT-SGP',name:'Structural Interlayer',code:'SGP',thicknessMm:null},
- {id:'INT-EVA-UC',name:'EVA Ultra Clear',code:'EVA-UC',thicknessMm:null},
- {id:'INT-EVA-MW',name:'EVA Milky Way',code:'EVA-MW',thicknessMm:null}
-].map(x=>normalizeSimpleMaterial(x,'interlayer'));
+ {id:'INT-EVA-CL',family:'eva',name:'EVA Clear',code:'EVA-CL',thicknessMm:null,salePrice:3.00},
+ {id:'INT-EVA-UC',family:'eva',name:'EVA Ultra Clear',code:'EVA-UC',thicknessMm:null,salePrice:3.00},
+ {id:'INT-EVA-FW',family:'eva',name:'EVA Frosted White',code:'EVA-FW',thicknessMm:null,salePrice:3.00},
+ {id:'INT-EVA-MW',family:'eva',name:'EVA Milky Way',code:'EVA-MW',thicknessMm:null,salePrice:3.00},
+ {id:'INT-SGP-CL',family:'sgp',name:'SGP Clear',code:'SGP-CL',thicknessMm:null,salePrice:5.00},
+ {id:'INT-SGP-UC',family:'sgp',name:'SGP Ultra Clear',code:'SGP-UC',thicknessMm:null,salePrice:5.00},
+ {id:'INT-SGP-FR',family:'sgp',name:'SGP Frosted',code:'SGP-FR',thicknessMm:null,salePrice:5.00}
+].map(x=>Object.assign(normalizeSimpleMaterial(x,'interlayer'),{family:mdString(x.family)}));
+const INTERLAYER_DEFAULT_ID='INT-EVA-CL';
+function interlayerFamilyOf(id){
+ const p=mdById('interlayerProduct',id);
+ const f=mdString(p&&p.family);
+ if(f)return f;
+ return String(id||'').indexOf('SGP')>=0?'sgp':'eva';
+}
 DEFAULT.fritProduct=[
- {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER'},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG'}
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:3.10},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:3.10}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER'},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL'}
+ {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
@@ -6885,6 +7127,7 @@ function normalizeMasterData(){
  DB.glassProduct=DB.glassProduct.filter(x=>x&&typeof x==='object').map(normalizeGlassProduct)
   .map(p=>{if(!p.id&&p.code)p.id=glassProductId(p.code);return p;})
   .filter(p=>p.id&&p.name&&!gSeen[p.id]&&(gSeen[p.id]=true));
+ glassApplySalePrices();
 
  /* Строка поставки на продукт, которого в каталоге нет, НЕ выбрасывается.
     Пользователь переименовывает коды каталога под цех, и выброшенная строка
@@ -6909,7 +7152,7 @@ function normalizeMasterData(){
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
- DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),system:mdString(x.system),size:mdString(x.size),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
 
 /* --- 6. Выборки ------------------------------------------------------- */
@@ -7515,7 +7758,7 @@ function normalizeSalesLaminatedFrit(raw,d){
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
-function salesDefaultLaminatedPly(g){return {manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',frit:salesDefaultLaminatedFrit()};}
+function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',frit:salesDefaultLaminatedFrit()};}
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
  const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
@@ -7527,7 +7770,7 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
  const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
- const out={manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
@@ -7537,11 +7780,11 @@ function salesInterlayerLayersFromThickness(v){const n=+v;if(!Number.isFinite(n)
 function normalizeSalesInterlayer(layer,defaultProductId){
  layer=typeof layer==='string'?{productId:layer}:(layer&&typeof layer==='object'?layer:{});
  const sourceProductId=salesString(layer.productId)||defaultProductId,migration=interlayerProductMigration(sourceProductId);
- const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||'INT-PVB';
+ const productId=interlayerCanonicalProductId(sourceProductId)||interlayerCanonicalProductId(defaultProductId)||INTERLAYER_DEFAULT_ID;
  const explicit=layer.layers!=null&&layer.layers!==''?layer.layers:layer.layerCount,oldThickness=layer.thicknessMm;
  const layers=explicit!=null&&explicit!==''?salesInterlayerLayerCount(explicit)
   :(oldThickness!=null&&oldThickness!==''?salesInterlayerLayersFromThickness(oldThickness):(migration?migration.layers:1));
- return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers)};
+ return {productId,layers,thicknessMm:salesInterlayerThicknessForLayers(layers),priceOverride:salesNonNegOrNull(layer.priceOverride)};
 }
 function normalizeSalesInterlayers(lam,d){
  let rows=Array.isArray(lam.interlayers)?lam.interlayers:(Array.isArray(lam.interlayerProductIds)?lam.interlayerProductIds:(lam.interlayerProductId?[lam.interlayerProductId]:d.interlayers));
@@ -7556,13 +7799,131 @@ function salesDefaultPane(i){
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
-  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},'INT-PVB')],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
+  laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID)],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
+/* ---- Цены позиции ----------------------------------------------------
+   Обвязка считается по-настоящему: базовая ставка висит на СЕМЕЙСТВЕ рамки,
+   силикон дороже полисульфида, аргон добавляется сверху. Цены продажи стекла
+   в каталоге пока нет — функция честно возвращает null, и поле остаётся
+   пустым, пока прайс не заведён. */
+const SALES_SURROUND_BASE={aluminum:2.40,warm_edge:2.85,stainless:2.85};
+const SALES_SURROUND_ARGON=0.25;
+const SALES_SURROUND_SILICONE=0.20;
+function salesCavityCatalogPrice(c){
+ if(!c)return null;
+ const sp=mdById('spacerVariant',c.spacerVariantId);
+ if(!sp)return null;
+ let p=SALES_SURROUND_BASE[spacerFamilyOf(sp)];
+ if(p==null)return null;
+ const seal=mdById('sealantProduct',c.secondarySealantId);
+ if(seal&&/sil/i.test(seal.code||seal.name||''))p+=SALES_SURROUND_SILICONE;
+ const gas=mdById('gasProduct',c.gasProductId);
+ if(gas&&gas.code!=='AIR')p+=SALES_SURROUND_ARGON;
+ return Math.round(p*100)/100;
+}
+/* Цена лайта = стекло из прайса + надбавка за то, что на нём делают.
+   Spandrel и Frit продаются поверх стекла своей ставкой из справочника, а не
+   вместо него: покрасить лист дешевле, чем купить другой лист. */
+/* Цена ламината складывается из того, что в нём физически есть: два стекла плюс
+   плёнки по числу слоёв. Считать его «как одно стекло» значит потерять половину
+   стоимости — внутренний лист и плёнка стоят не меньше внешнего. */
+function salesPlyCatalogPrice(ply){
+ if(!ply)return null;
+ const g=glassProductById(ply.glassProductId);
+ if(!g)return null;
+ const ht=mdById('heatTreatment',ply.heatTreatmentId);
+ const code=String((ht&&ht.code)||'').toUpperCase();
+ const base=(code==='FT'||code==='HS')?g.salePriceTempered:g.salePriceAnnealed;
+ return base==null?null:base;
+}
+function salesPlyPrice(ply){
+ /* Ручная цена плиты старше каталожной — её ввели, глядя на конкретный заказ. */
+ if(ply&&ply.priceOverride!=null)return ply.priceOverride;
+ if(!ply)return null;
+ const g=glassProductById(ply.glassProductId);
+ if(!g)return null;
+ const ht=mdById('heatTreatment',ply.heatTreatmentId);
+ const code=String((ht&&ht.code)||'').toUpperCase();
+ const base=(code==='FT'||code==='HS')?g.salePriceTempered:g.salePriceAnnealed;
+ if(base==null)return null;
+ return base;
+}
+function salesLaminatedPrice(p){
+ const lam=(p&&p.laminated)||{};
+ const a=salesPlyPrice(lam.outer),b=salesPlyPrice(lam.inner);
+ if(a==null||b==null)return null;
+ let total=a+b,known=true;
+ (lam.interlayers||[]).forEach(function(x){
+  const prod=mdById('interlayerProduct',x.productId);
+  const layers=salesInterlayerLayerCount(x.layers!=null?x.layers:2);
+  const rate=x.priceOverride!=null?x.priceOverride:(prod?prod.salePrice:null);
+  if(rate==null){known=false;return;}
+  total+=rate*layers;
+ });
+ /* Плёнка без цены делает неизвестной всю позицию: показать сумму двух стёкол
+    как цену ламината значит занизить её молча. */
+ return known?Math.round(total*100)/100:null;
+}
+function salesPaneCatalogPrice(p){
+ if(!p)return null;
+ if(p.category===`laminated`)return salesLaminatedPrice(p);
+ const g=glassProductById(p.glassProductId);
+ if(!g)return null;
+ const ht=mdById('heatTreatment',p.heatTreatmentId);
+ const code=String((ht&&ht.code)||'').toUpperCase();
+ const tempered=code==='FT'||code==='HS';
+ const base=tempered?g.salePriceTempered:g.salePriceAnnealed;
+ /* Стекло без цены в прайсе — прочерк, а не надбавка сама по себе:
+    складывать надбавку с неизвестной базой значит выдать неполную цену за полную. */
+ if(base==null)return null;
+ /* Фрит и спандрел сюда НЕ входят: это работа, и она приходит начислением
+    в сервисы строки (salesGlazingChargeRows). Цена лайта — цена листа. */
+ return base;
+}
+/* Закалка выбрана вразрез с каталогом: стекло идёт только закалённым, а в
+   позиции стоит Annealed. Цены на такую пару в прайсе нет, и это не молчаливый
+   ноль — интерфейс подсвечивает несоответствие. */
+function salesPaneTemperConflict(p){
+ const g=glassProductById(p&&p.glassProductId);
+ if(!g)return false;
+ const ht=mdById('heatTreatment',p&&p.heatTreatmentId);
+ const code=String((ht&&ht.code)||'').toUpperCase();
+ if(glassNeedsFurnace(g)&&code==='AN')return true;
+ return !!(glassBannedFromFurnace(g)&&(code==='FT'||code==='HS'));
+}
+/* Итог сборки: сумма ставок за sq ft по всем лайтам и камерам. Площадь сюда не
+   входит — она у строки заказа, а не у makeup: один и тот же makeup стоит в
+   позициях разного размера. Сервисы и обработка кромки считаются отдельно. */
+function salesMakeupUnitPrice(m){
+ if(!m)return {total:0,known:true};
+ let total=0,known=true;
+ (m.panes||[]).forEach(function(p){
+  const v=p.priceOverride!=null?p.priceOverride:salesPaneCatalogPrice(p);
+  if(v==null)known=false;else total+=v;
+ });
+ (m.cavities||[]).forEach(function(c){
+  const v=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c);
+  if(v==null)known=false;else total+=v;
+ });
+ return {total:Math.round(total*100)/100,known:known};
+}
+function salesPriceValue(cat,over){return over!=null?over:cat;}
+function salesNonNegOrNull(v){const n=+v;return v===``||v==null||!isFinite(n)||n<0?null:Math.round(n*100)/100;}
 function salesActiveSpacerVariants(){return (DB.spacerVariant||[]).filter(x=>x.active!==false&&x.availability!=='inactive');}
 function salesCavitySpacer(c){return mdById('spacerVariant',c&&c.spacerVariantId)||salesActiveSpacerVariants()[0]||null;}
-function salesSpacerWidths(){return [...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];}
-function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-SIL'};}
+/* Размеры в выпадающем списке — по возрастанию, а не в порядке заведения:
+   шестнадцать дробей вперемешку читать невозможно. Сортируем по значению
+   дроби, потому что как текст 1/2 встаёт раньше 3/16. */
+function salesSpacerWidths(){
+ const seen=[...new Set(salesActiveSpacerVariants().map(x=>x.size).filter(Boolean))];
+ return seen.sort((a,b)=>{
+  const qa=spacerSizeParts(a),qb=spacerSizeParts(b);
+  if(qa&&qb)return qa.value-qb.value;
+  return String(a).localeCompare(String(b));
+ });
+}
+function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
    заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
@@ -7593,7 +7954,7 @@ function normalizeSalesPane(p,index){
  const sp=p.spandrel&&typeof p.spandrel==='object'?p.spandrel:{};
  const lam=p.laminated&&typeof p.laminated==='object'?p.laminated:{};
  return {
-  id:salesEntityId(p.id,'LITE'),category,
+  id:salesEntityId(p.id,'LITE'),category,priceOverride:salesNonNegOrNull(p.priceOverride),
   edgework:SALES_PANE_EDGEWORK.includes(p.edgework)?p.edgework:'',
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
@@ -7606,7 +7967,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));
@@ -7701,8 +8062,11 @@ function salesGlassCodeForPane(p){
 function salesMakeupSummary(m){
  const bits=[];m.panes.forEach((p,i)=>{if(i){const c=m.cavities[i-1],sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);bits.push((sp?sp.size+' '+sp.system:'Cavity')+(gas&&gas.code!=='AIR'?' '+gas.code:''));}bits.push(salesGlassCodeForPane(p));});return bits.join(' / ');
 }
+/* Толщина пакета складывается из стёкол и КАМЕР, а камера — это фактическая
+   толщина рамки, а не её название. Раньше здесь разбиралась дробь из size, и
+   пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
 function salesMakeupThicknessMm(m){
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const sp=mdById('spacerVariant',c.spacerVariantId),r=sp&&fabParseDimStrict(sp.size);if(r&&r.ok)total+=r.v*25.4;else known=false;});return known?total:null;
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const mm=spacerThicknessMm(mdById('spacerVariant',c.spacerVariantId));if(mm!=null)total+=mm;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders
@@ -8451,6 +8815,7 @@ const I18N_EN={
   "annealed · heat strengthened · tempered": "annealed · heat strengthened · tempered",
   "Дистанционные рамки": "Spacers",
   "система и размер": "system and size",
+  "семейство для цены, номинал для выбора, факт для расчёта": "family sets the price, nominal picks the spacer, actual drives the calculation",
   "Газ": "Gas",
   "заполнение камеры": "cavity fill",
   "Герметики": "Sealants",
@@ -9120,6 +9485,10 @@ function saveCustomer(){
 let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
+/* Аккордеон держит открытой одну секцию: так экран не разъезжается. Но чтобы
+   сравнить цены по всем лайтам сразу, нужен режим «раскрыть все» — он живёт
+   здесь, а не в DOM, иначе перерисовка его теряла бы. */
+let soExpandAll=false;
 let soPricingLineId=null,soServiceLineId=null,soServiceOrderOpen=false;
 let salesBridge=null;
 
@@ -9130,6 +9499,7 @@ function salesApplyCustomerDefaults(id){
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
 function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
@@ -9257,19 +9627,47 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
 function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
+/* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
+function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
+function salesLamPlyInnerSetPrice(i,v){salesSetLamPlyPrice(i,"inner",v);}
+function salesSetLamPlyPrice(i,side,v){
+ const p=salesCurrentMakeup().panes[i],ply=p&&p.laminated&&p.laminated[side];
+ if(!ply)return;
+ ply.priceOverride=salesNonNegOrNull(v);
+ render();
+}
 function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);if(ply)ply.heatTreatmentId=v;render();}
 function salesPaneEnsureLamFrit(ply){if(!ply)return null;if(!ply.frit)ply.frit=salesDefaultLaminatedFrit();return ply.frit;}
 function salesPaneSetLamFrit(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(!f)return;if(key==='position'){if(!SALES_LAMINATED_FRIT_POSITIONS.includes(v))return;f.position=v;}else f[key]=v;render();}
 function salesPaneSetLamFritText(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(f)f[key]=v;}
 function salesLamFritDotChange(i,side,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=+String(el.value).trim();if(!f||!Number.isFinite(n)||n<=0){el.classList.add('bad');return;}f.dotMm=n;el.value=String(n);el.classList.remove('bad');}
 function salesLamFritMarginChange(i,side,key,el){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side)),n=salesMarginTo16(el.value);if(!f||n==null){el.classList.add('bad');return;}f[key]=n;el.value=salesMarginFrom16(n);el.classList.remove('bad');}
+/* Сменили семейство — берём первую плёнку внутри него: EVA Frosted White не
+   существует в SGP, и держать «выбранным» несуществующее нельзя. */
+function salesPaneSetLamInterlayerFamily(i,slot,family){
+ const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ if(!layer)return;
+ const first=activeSimple('interlayerProduct').filter(x=>interlayerFamilyOf(x.id)===family)[0];
+ if(first)layer.productId=first.id;
+ render();
+}
+function salesPaneSetLamInterlayerPrice(i,slot,v){
+ const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];
+ if(!layer)return;
+ layer.priceOverride=salesNonNegOrNull(v);
+ render();
+}
 function salesPaneSetLamInterlayer(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.productId=v;layer.layers=salesInterlayerLayerCount(layer.layers);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
 function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().panes[i],layer=p&&p.laminated&&p.laminated.interlayers[slot];if(!layer)return;layer.layers=salesInterlayerLayerCount(v);layer.thicknessMm=salesInterlayerThicknessForLayers(layer.layers);render();}
-function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},'INT-PVB'));render();}
+function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
    если она выпускается в этом размере; иначе берём первый доступный вариант. */
+/* Пустое поле снимает ручную цену и возвращает каталожную: это законный
+   ответ «беру как в прайсе», а не ошибка ввода. */
+function salesPaneSetPrice(i,v){const p=salesCurrentMakeup().panes[i];if(!p)return;p.priceOverride=salesNonNegOrNull(v);touch();render();}
+function salesCavitySetPrice(i,v){const c=salesCurrentMakeup().cavities[i];if(!c)return;c.priceOverride=salesNonNegOrNull(v);touch();render();}
 function salesCavitySetWidth(i,size){
  const c=salesCurrentMakeup().cavities[i];if(!c)return;
  const current=salesCavitySpacer(c),rows=salesActiveSpacerVariants().filter(x=>x.size===size);
@@ -9778,8 +10176,54 @@ function salesNotchChargeRows(def,ctx){
       salesCatalogRate(method==='cnc'?'notchCnc':'notchHand',ctx),'Shape feature');
   });
 }
+/* Фрит и спандрел — РАБОТА, а не свойство листа: керамику наносят и запекают.
+   Поэтому цена стекла остаётся базовой, а нанесение приходит начислением в
+   сервисы строки — рядом с пескоструем и обработкой кромки, где ставку и
+   правят. Начисление считается по площади и по каждому лайту, который его
+   несёт: в тройном пакете фрит может стоять на двух стёклах. */
+function salesGlazingChargeRows(line,areaFt2){
+ const rows=[],area=+areaFt2>0?+areaFt2:0;
+ if(!area||!line)return rows;
+ const m=(soDraft&&Array.isArray(soDraft.makeups)?soDraft.makeups:[]).find(x=>x.id===line.makeupId);
+ if(!m)return rows;
+ const frit=Object.create(null),spandrel=Object.create(null),order=[];
+ (m.panes||[]).forEach(function(p,i){
+  if(p.category==='spandrel'){
+   const id=(p.spandrel&&p.spandrel.productId)||'';
+   const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
+   return;
+  }
+  if(p.category==='vision'&&p.visionType==='frit'){
+   const id=(p.frit&&p.frit.productId)||'';
+   const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+  }
+ });
+ order.forEach(function(k){
+  const isFrit=k.indexOf('frit:')===0;
+  const g=isFrit?frit[k]:spandrel[k];
+  const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
+  rows.push(salesChargeRow(
+   'GLAZE:'+k,
+   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' lites':''),
+   +(area*g.qty).toFixed(4),'ft²',
+   (prod&&prod.salePrice!=null)?prod.salePrice:null,
+   'Makeup'));
+ });
+ return rows;
+}
+/* Площадь строки: у фигурной детали её считает Shape, у прямоугольной она
+   выводится из габаритов. Начисления за остекление нужны в обоих случаях —
+   фрит наносят и на прямоугольник, у которого никакого Shape нет. */
+function salesLineAreaFt2(line){
+ const s=salesShapeByRef(line&&line.shapeRef);
+ if(s){const r=ShapeModule.compute(s);if(r&&r.valid)return r.area/144;}
+ const w=(+(line&&line.width16)||0)/16,h=(+(line&&line.height16)||0)/16;
+ return (w>0&&h>0)?(w*h)/144:0;
+}
 function salesLineChargeRows(line){
- const s=salesShapeByRef(line&&line.shapeRef),rows=[];if(!s)return rows;const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
+ const rows=[];
+ salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+ const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
  salesSandblastChargeRows(s.features,ctx,r&&r.valid?r.area/144:0).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
@@ -10547,7 +10991,11 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
 
 /* Billing and Cutting read the SAME effective snapshot. */
 salesLineChargeRows=function(line){
-  var shape=salesLineGeometryShape(line),rows=[],ctx=salesPricingThickness(line);if(!shape)return rows;
+  var rows=[];
+  /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
+     считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
+  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
   salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
@@ -11147,7 +11595,18 @@ function salesBaseGlassCandidates(p){return salesSortGlass(activeGlassProducts()
    уже на нужном языке, а имя товара переводчик не трогает. */
 /* Короткого кода в списке НЕТ намеренно: он уже стоит в шапке Lite и в коде
    makeup, а в строке выбора только мешает читать имя. */
-function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,g.name+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
+/* Толщина выбрана отдельным полем, поэтому из подписи убирается её хвост:
+   «Clear 6mm» рядом с Thickness 6 mm — это два ответа на один вопрос, и
+   владелец справедливо на них указал. Толщина в СЕРЕДИНЕ названия остаётся
+   («LoE 272 on 6 mm Clear»): там она описывает подложку покрытия. */
+function salesGlassLabel(g){
+ const name=String((g&&g.name)||'');
+ const parts=name.split(' ');
+ const tail=parts[parts.length-1]||'';
+ /* Хвост вида «6mm» или «6.5mm» убирается, «6 mm» в середине названия — нет. */
+ return /^[0-9]+(\.[0-9]+)?mm$/i.test(tail)?parts.slice(0,-1).join(' '):name;
+}
+function salesGlassProductOptions(rows,selected){return `<option value="">— select —</option>`+salesSortGlass(rows,false).map(g=>salesOption(g.id,salesGlassLabel(g)+(glassIsPreorder(g)?' · '+glassLabel('stock','preorder'):''),selected,true)).join('');}
 /* --- Два шага выбора покрытого стекла --------------------------------
    Раньше шаг был один, и Vitro 6 мм Low-E выкатывал 92 строки списком.
    Теперь как у самого поставщика: сначала покрытие, потом на каком стекле. */
@@ -11205,6 +11664,20 @@ function salesSurfaceSelector(label,index,value,handler){const nums=salesPaneSur
    outer ply faces the first numbered surface of that Lite; the inner ply
    faces its second surface. */
 function salesLaminatedFritOutsideSurface(index,side){const nums=salesPaneSurfaces(index);return side==='inner'?nums[1]:nums[0];}
+/* Цена в свёрнутой строке: владелец сравнивает лайты, не раскрывая каждый.
+   Прочерк значит «в прайсе цены нет», и это видно так же ясно, как число. */
+function salesPriceBadge(v,edited){
+ if(v==null)return '<span class="mu-price-badge none">—</span>';
+ return '<span class="mu-price-badge'+(edited?' edited':'')+'">'+esc((+v).toFixed(2))+'</span>';
+}
+function salesPanePriceBadge(p){
+ const cat=salesPaneCatalogPrice(p),v=p.priceOverride!=null?p.priceOverride:cat;
+ return salesPriceBadge(v,p.priceOverride!=null);
+}
+function salesCavityPriceBadge(c){
+ const cat=salesCavityCatalogPrice(c),v=c.priceOverride!=null?c.priceOverride:cat;
+ return salesPriceBadge(v,c.priceOverride!=null);
+}
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
@@ -11223,6 +11696,8 @@ function salesAccordionToggle(el,key){
  if(!el)return;
  if(!el.open){if(soOpenSectionKey===key)soOpenSectionKey=null;return;}
  soOpenSectionKey=key;
+ /* В режиме «раскрыть все» соседи остаются открытыми: он для того и включён. */
+ if(soExpandAll)return;
  const stack=el.closest('.mu-stack');if(!stack)return;
  stack.querySelectorAll('details.mu-section[open]').forEach(x=>{if(x!==el)x.open=false;});
 }
@@ -11233,7 +11708,7 @@ function salesCavitySummary(c){
 function salesMakeupTabs(){
  const selected=salesCurrentMakeup();return `<div class="mu-strip"><div class="mu-strip-scroll">${soDraft.makeups.map(m=>`<button type="button" class="mu-tab ${selected&&selected.id===m.id?'on':''}" onclick="salesSelectMakeup('${esc(m.id)}')"><b>${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></button>`).join('')}</div><button type="button" class="mu-add" onclick="salesAddMakeup()">+ Makeup</button></div>`;
 }
-function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYPE</span><div class="mu-segment">${[['single','Single Lite'],['double','Double'],['triple','Triple']].map(x=>`<button type="button" class="${m.unitType===x[0]?'on':''}" onclick="salesSetUnitType('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="mu-total"><span>Overall</span><b>${salesMakeupThicknessMm(m)==null?'—':salesMakeupThicknessMm(m).toFixed(1)+' mm'}</b></div></div>`;}
+function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYPE</span><div class="mu-segment">${[['single','Single Lite'],['double','Double'],['triple','Triple']].map(x=>`<button type="button" class="${m.unitType===x[0]?'on':''}" onclick="salesSetUnitType('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="mu-totals">${(function(){const u=salesMakeupUnitPrice(m);return `<div class="mu-total mu-total-price"><span>Makeup</span><b>${u.known?u.total.toFixed(2):u.total.toFixed(2)+` +?`}</b></div>`;})()}<div class="mu-total"><span>Overall</span><b>${salesMakeupThicknessMm(m)==null?'—':salesMakeupThicknessMm(m).toFixed(1)+' mm'}</b></div></div></div>`;}
 function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['vision','Vision'],['spandrel','Spandrel'],['laminated','Laminated']].map(x=>`<button type="button" class="${p.category===x[0]?'on':''}" onclick="salesSetPaneCategory(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
 function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
 function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
@@ -11265,6 +11740,42 @@ function salesCoatingSurfaceSelector(p,index){
    списком, и Solarban 60 на двенадцати подложках приходилось искать глазами.
    У непокрытого стекла и фрита промежуточного шага нет — там выбирают само
    стекло, и второй список был бы пустой формальностью. */
+/* Порядок полей задан владельцем: производитель, толщина, стекло, тип,
+   термообработка, цена — всё одной строкой. Спецификация выбранного типа
+   (покрытие, поверхность, фрит) уезжает во второй ряд и у Uncoated не
+   появляется вовсе: там уточнять нечего, и пустой ряд только съедал высоту. */
+/* Цена стоит в той же строке, что и остальные поля: она такое же свойство
+   позиции, как толщина, и отдельного блока под неё не нужно. Каталожная
+   ставка показывается подсказкой ↺ и появляется только когда цену правили. */
+function salesPriceCell(kind,index,cat,over){
+ const has=over!=null,shown=has?over:cat;
+ const val=shown==null?'':(+shown).toFixed(2);
+ const ph=cat==null?'—':(+cat).toFixed(2);
+ return `<div class="mu-price-cell${has?' edited':''}">`
+  +`<input type="number" step="0.01" min="0" value="${esc(val)}" placeholder="${esc(ph)}" onchange="sales${kind}SetPrice(${index},this.value)" aria-label="Price per sq ft">`
+  +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${esc(ph)}" onclick="sales${kind}SetPrice(${index},'')">↺</button>`:'')
+  +`</div>`;
+}
+/* Каталожной цены продажи у стекла пока нет — она появится вместе с прайсом.
+   До тех пор поле пустое: показывать выдуманное число хуже, чем прочерк. */
+function salesLitePriceField(p,index){
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Pane',index,salesPaneCatalogPrice(p),p.priceOverride)}</div>`;
+}
+function salesCavityPriceField(c,index){
+ return `<div><label>Price · sq ft</label>${salesPriceCell('Cavity',index,salesCavityCatalogPrice(c),c.priceOverride)}</div>`;
+}
+/* Каталог говорит «только закалённым», а в позиции стоит Annealed — цены на
+   такую пару в прайсе нет. Прочерк в цене это уже показывает, но глазу нужно
+   место ошибки, а не только её следствие: поле закалки подсвечивается.
+   Запрета нет — бывает, что так и надо, и человек продолжает осознанно. */
+function salesHeatFieldChecked(p,index){
+ const html=salesHeatField(p,index);
+ if(!salesPaneTemperConflict(p))return html;
+ const g=glassProductById(p.glassProductId);
+ const note=glassNeedsFurnace(g)?`catalog: temper required`:`catalog: no tempering`;
+ return html.replace(`<div>`,`<div class="mu-conflict">`)
+  .replace(`</select>`,`</select><span class="mu-conflict-note">`+note+`</span>`);
+}
 function salesVisionFieldsSafe(p,index){
  const isFrit=p.visionType==='frit',coated=p.visionType==='lowe'||p.visionType==='reflective';
  const coatings=coated?salesGlassCoatings(p):[];
@@ -11272,60 +11783,88 @@ function salesVisionFieldsSafe(p,index){
  const rows=coated?salesGlassVariants(p,coating):salesGlassCandidates(p);
  const glassSelect=`<select onchange="salesPaneSetProduct(${index},this.value)">${
   coated?salesGlassVariantOptions(rows,p.glassProductId):salesGlassProductOptions(rows,p.glassProductId)}</select>`;
- return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${p.visionType===x[0]?'on':''}" onclick="salesPaneSetVisionType(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div></div>${salesHeatField(p,index)}</div>
-  <div class="mu-coating-grid">
-   ${coated
-    ?`<div><label>Select Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(p,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>`
-    /* ПУСТАЯ ячейка, а не пропущенная: в Double и Triple лайты стоят один под
-       другим, и поле, съехавшее на колонку влево у непокрытого стекла,
-       заставляло глаз прыгать по всей сетке. Колонки держим на месте. */
-    :'<div class="mu-cell-empty"></div>'}
-   <div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div>
-   ${coated?salesCoatingSurfaceSelector(p,index):'<div class="mu-cell-empty"></div>'}
-  </div>
+ const typeSelect=`<select onchange="salesPaneSetVisionType(${index},this.value)">${
+  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
+   .map(x=>salesOption(x[0],x[1],p.visionType,true)).join('')}</select>`;
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>${coated?'On Glass':(isFrit?'Base Glass':'Glass')}</label>${glassSelect}${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label>${typeSelect}</div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetCoating(${index},this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(p,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select><div class="mu-glass-meta"><span class="mut" data-raw>${esc(coatings.length)} coatings · ${esc(rows.length)} variants</span></div></div>${salesCoatingSurfaceSelector(p,index)}</div>`:''}
   ${isFrit?salesFritFields(p,index):''}`;
 }
-function salesSpandrelFields(p,index){const rows=salesBaseGlassCandidates(p);return `<div class="mu-field-grid mu-field-grid-4">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div>${salesHeatField(p,index)}</div><div class="mu-subgrid"><div><label>Spandrel Product</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div><div><label>Color</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;}
-/* Laminated is a real stack, not one unfiltered glass list. Each ply gets the
-   same narrowing chain as Vision (manufacturer → thickness → type → coating /
-   glass) plus its own heat treatment. Interlayers are repeatable because a
-   laminate may combine, for example, EVA Ultra Clear and EVA Milky Way. */
+/* Спандрел описывается тем же рядом, что и обычный лайт: производитель,
+   толщина, стекло, тип, термообработка, цена. Раньше здесь была своя сетка из
+   четырёх полей без цены, и глазу приходилось искать её в другом месте — а
+   сравнивают лайты между собой, значит и выглядеть они должны одинаково.
+   Место TYPE занимает продукт спандрела: он и есть тип этой позиции. */
+function salesSpandrelFields(p,index){
+ const rows=salesBaseGlassCandidates(p);
+ return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
+  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+}
+/* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
+   толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
+   у каждой своя — внутренний лист может быть дороже внешнего. Итог позиции
+   складывается из обеих плит и плёнки. */
+function salesLaminatedPlyFields(p,index,side,label){
+ const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
+ const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
+ const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
+ const typeSelect=`<select onchange="salesPaneSetLamPlyType(${index},'${side}',this.value)">${
+  [['uncoated','Uncoated'],['lowe','Low-E'],['reflective','Reflective'],['frit','Frit']]
+   .map(x=>salesOption(x[0],x[1],isFrit?'frit':ply.visionType,true)).join('')}</select>`;
+ return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div>
+  <div class="mu-field-grid mu-field-grid-6">
+   <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
+   <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
+   <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
+   <div><label>Type</label>${typeSelect}</div>
+   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
+   <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
+  </div>
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
+  ${salesLaminatedFritFields(p,index,side)}</div>`;
+}
 function salesLaminatedFritFields(p,index,side){
  const f=p.laminated[side].frit;if(!f||!f.enabled)return '';
  const outsideSurface=salesLaminatedFritOutsideSurface(index,side);
  return `<div class="mu-subgrid mu-lam-frit-grid"><div><label>Frit Position</label><select onchange="salesPaneSetLamFrit(${index},'${side}','position',this.value)">${[['outside','#'+outsideSurface+' · Outside film (default)'],['in_film','Into film']].map(x=>salesOption(x[0],x[1],f.position,true)).join('')}</select></div><div><label>Frit Product</label><select onchange="salesPaneSetLamFrit(${index},'${side}','productId',this.value)">${salesSimpleOptions('fritProduct',f.productId)}</select></div><div><label>Colour</label><select onchange="salesPaneSetLamFrit(${index},'${side}','color',this.value)">${FRIT_COLORS.map(x=>salesOption(x,x,f.color,true)).join('')}</select></div><div><label>Pattern</label><select onchange="salesPaneSetLamFrit(${index},'${side}','pattern',this.value)">${FRIT_PATTERNS.map(x=>salesOption(x,x,f.pattern,true)).join('')}</select></div><div><label>Dot diameter, mm</label><input value="${esc(f.dotMm)}" onchange="salesLamFritDotChange(${index},'${side}',this)"></div><div><label>Margin measured from</label><select onchange="salesPaneSetLamFrit(${index},'${side}','marginFrom',this.value)">${FRIT_MARGIN_CORNERS.map(x=>salesOption(x,x,f.marginFrom,true)).join('')}</select></div><div><label>Margin — width</label><input value="${esc(salesMarginFrom16(f.marginW16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginW16',this)"></div><div><label>Margin — height</label><input value="${esc(salesMarginFrom16(f.marginH16))}" placeholder="1" onchange="salesLamFritMarginChange(${index},'${side}','marginH16',this)"></div><div><label>Production marking</label><input value="${esc(f.marking)}" oninput="salesPaneSetLamFritText(${index},'${side}','marking',this.value)"></div></div>`;
 }
-function salesLaminatedPlyFields(p,index,side,label){
- const ply=p.laminated[side],isFrit=!!(ply.frit&&ply.frit.enabled),coated=!isFrit&&(ply.visionType==='lowe'||ply.visionType==='reflective'),coatings=coated?salesGlassCoatings(ply):[];
- const coating=coated?(salesCurrentCoating(ply)||coatings[0]||''):'',rows=coated?salesGlassVariants(ply,coating):salesLaminatedPlyCandidates(ply);
- const glassSelect=coated?salesGlassVariantOptions(rows,ply.glassProductId):salesGlassProductOptions(rows,ply.glassProductId);
- return `<div class="mu-lam-ply" data-lam-ply="${side}"><div class="mu-lam-ply-title"><b>${label}</b><span>${esc(rows.length)} matches</span></div><div class="mu-lam-ply-grid">
-  <div><label>Manufacturer</label><select onchange="salesPaneSetLamPly(${index},'${side}','manufacturer',this.value)">${salesManufacturers().map(x=>salesOption(x,x,ply.manufacturer,true)).join('')}</select></div>
-  <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
-  <div class="mu-type-field"><label>TYPE</label><div class="mu-type-buttons">${[['lowe','Low-E'],['reflective','Reflective'],['frit','Frit'],['uncoated','Uncoated']].map(x=>`<button type="button" class="${(isFrit?x[0]==='frit':ply.visionType===x[0])?'on':''}" onclick="salesPaneSetLamPlyType(${index},'${side}','${x[0]}')">${x[1]}</button>`).join('')}</div></div>
-  <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
-  ${coated?`<div><label>Select Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>`:''}
-  <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
- </div>${salesLaminatedFritFields(p,index,side)}</div>`;
+function salesInterlayerFamilyOptions(current){
+ return INTERLAYER_FAMILIES.map(f=>salesOption(f.id,f.label,current,true)).join('');
+}
+function salesInterlayerTypeOptions(family,current){
+ return activeSimple('interlayerProduct')
+  .filter(x=>interlayerFamilyOf(x.id)===family)
+  .map(x=>salesOption(x.id,x.name,current,true)).join('');
+}
+function salesInterlayerPriceCell(index,slot,layer){
+ const prod=mdById('interlayerProduct',layer.productId);
+ const cat=prod&&prod.salePrice!=null?prod.salePrice:null;
+ const has=layer.priceOverride!=null;
+ const shown=has?layer.priceOverride:cat;
+ return `<div class="mu-price-cell${has?' edited':''}">`
+  +`<input type="number" step="0.01" min="0" value="${shown==null?'':(+shown).toFixed(2)}" placeholder="${cat==null?'—':(+cat).toFixed(2)}" onchange="salesPaneSetLamInterlayerPrice(${index},${slot},this.value)" aria-label="Price per layer">`
+  +(has?`<button type="button" class="mu-price-reset" title="Reset to catalog ${cat==null?'—':(+cat).toFixed(2)}" onclick="salesPaneSetLamInterlayerPrice(${index},${slot},'')">↺</button>`:'')
+  +`</div>`;
 }
 function salesLaminatedInterlayers(p,index){
  const rows=p.laminated.interlayers||[],canAdd=rows.length<SALES_MAX_INTERLAYERS;
  return `<div class="mu-lam-films"><div class="mu-lam-films-head"><div><b>INTERLAYER STACK</b><span>Mix film types · up to ${SALES_MAX_INTERLAYER_LAYERS} layers each</span></div><button type="button" ${canAdd?'':'disabled'} onclick="salesPaneAddLamInterlayer(${index})">+ Add Film</button></div>${rows.map((layer,slot)=>{
   const selected=String(salesInterlayerLayerCount(layer.layers));
   const layerOptions=Array.from({length:SALES_MAX_INTERLAYER_LAYERS},(_,i)=>{const n=i+1,mm=salesInterlayerThicknessForLayers(n);return salesOption(String(n),n+' '+(n===1?'layer':'layers')+' · '+mm.toFixed(2)+' mm',selected,true);}).join('');
-  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesSimpleOptions('interlayerProduct',layer.productId)}</select></div><div><label>Layers / Actual Thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><button type="button" class="mu-lam-film-remove" title="Remove film" ${rows.length<=1?'disabled':''} onclick="salesPaneRemoveLamInterlayer(${index},${slot})">×</button></div>`;
+  const family=interlayerFamilyOf(layer.productId);
+  return `<div class="mu-lam-film"><span class="mu-lam-film-num">${slot+1}</span><div><label>Film</label><select onchange="salesPaneSetLamInterlayerFamily(${index},${slot},this.value)">${salesInterlayerFamilyOptions(family)}</select></div><div><label>Type</label><select onchange="salesPaneSetLamInterlayer(${index},${slot},this.value)">${salesInterlayerTypeOptions(family,layer.productId)}</select></div><div><label>Layers / actual thickness</label><select onchange="salesPaneSetLamInterlayerLayers(${index},${slot},this.value)">${layerOptions}</select></div><div><label>Price / layer</label>${salesInterlayerPriceCell(index,slot,layer)}</div><button type="button" class="mu-lam-film-del" ${rows.length>1?'':'disabled'} onclick="salesPaneRemoveLamInterlayer(${index},${slot})" title="Remove film">×</button></div>`;
  }).join('')}</div>`;
 }
 /* У ламината кромка ОДНА на всю склейку — плёнка её не делит, поэтому выбор
    стоит один на лайт, а не по плёнкам. */
 function salesLaminatedFields(p,index){return `<div class="mu-lam-stack">${salesLaminatedPlyFields(p,index,'outer','OUTER PLY')}${salesLaminatedInterlayers(p,index)}${salesLaminatedPlyFields(p,index,'inner','INNER PLY')}</div>`;}
-function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span></summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
+function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===total-1?'INSIDE':'MIDDLE',surfaces=salesPaneSurfaces(index),key='lite-'+index,isOpen=soExpandAll||soOpenSectionKey===key;return `<details class="mu-section mu-lite" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>LITE ${index+1} · ${side}</b><span class="mu-surface-tags">#${surfaces[0]} &nbsp; #${surfaces[1]}</span><span class="mu-summary">${esc(salesPaneProductSummary(p,index))}</span>${salesPanePriceBadge(p)}</summary><div class="mu-section-body"><div class="mu-lite-top">${salesLiteCategoryTabs(p,index)}</div>${p.category==='vision'?salesVisionFieldsSafe(p,index):p.category==='spandrel'?salesSpandrelFields(p,index):salesLaminatedFields(p,index)}</div></details>`;}
 function salesCavitySection(c,index){
- const key='cavity-'+index,isOpen=soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
+ const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
- return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span></summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div></div></div></details>`;
+ return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
-function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
+function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="Держать все секции открытыми">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
 
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
@@ -14521,6 +15060,7 @@ function sfImportCsv(inp,which){
 const MD_TABS=[
  {k:'glass',    label:'Каталог стекла'},
  {k:'supply',   label:'Точки поставки'},
+ {k:'spacer',   label:'Spacers & rates'},
  {k:'hardware', label:'Hardware'},
  {k:'overview', label:'Обзор базы'}
 ];
@@ -14532,6 +15072,7 @@ let mdTab='glass';
 let mdSearch='',mdMfr='',mdThick='',mdCoating='',mdStatus='all';
 let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
+let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdImportReport=null;
 
@@ -14551,11 +15092,11 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'?'':mdImportCard()}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -14605,9 +15146,24 @@ function viewMdGlass(){
    ${[['all','Все'],['stocked','На складе'],['preorder','По предзаказу'],['inactive','Снятые']].map(x=>`<button class="sm ${mdStatus===x[0]?'customer-filter-on':''}" onclick="mdStatus='${x[0]}';render()">${x[1]}</button>`).join('')}
    <span class="mut">Показано: ${shown.length} / ${rows.length}</span>
   </div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Код</th><th>Название</th><th>Толщина</th><th>Подложка</th><th>Покрытие</th><th>Закалка</th><th>Поверхности</th><th>Склад</th><th>Поставка</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Код</th><th>Название</th><th>Толщина</th><th>Подложка</th><th>Покрытие</th><th>Закалка</th><th>Price AN</th><th>Price FT</th><th>Поверхности</th><th>Склад</th><th>Поставка</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">позиции не найдены</td></tr>'}</tbody></table></div>
   ${rows.length>shown.length?`<div class="hint">Сузь поиск или фильтр, чтобы увидеть остальные позиции: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
+}
+/* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
+   позициям, и форма на каждую превратила бы это в работу на день. Пустое поле
+   значит «в прайсе цены нет» — ровно как «no price» в присланном листе. */
+function mdGlassPriceInput(p,field){
+ const v=p[field];
+ return `<input class="md-mm" type="number" step="0.01" min="0" style="width:82px" value="${v==null?'':v}" placeholder="—" onchange="mdGlassSetPrice('${esc(p.id)}','${field}',this.value)">`;
+}
+function mdGlassSetPrice(id,field,v){
+ const p=(DB.glassProduct||[]).find(x=>x.id===id);if(!p)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){p[field]=null;touch();render();return;}
+ const n=+typed;
+ if(!isFinite(n)||n<0){render();return;}
+ p[field]=Math.round(n*100)/100;touch();render();
 }
 function mdGlassRow(p){
  const sheets=glassSheetsFor(p.code).length;
@@ -14618,6 +15174,8 @@ function mdGlassRow(p){
   <td>${esc(glassLabel('substrate',p.substrate))}</td>
   <td>${esc(glassLabel('coatingFamily',p.coatingFamily))}${p.deposition?`<div class="mut">${esc(glassLabel('deposition',p.deposition))}</div>`:''}</td>
   <td><span class="pill ${temper}">${esc(glassLabel('temperMode',p.temperMode))}</span></td>
+  <td>${mdGlassPriceInput(p,"salePriceAnnealed")}</td>
+  <td>${mdGlassPriceInput(p,"salePriceTempered")}</td>
   <td>${p.allowedSurfaces.length?p.allowedSurfaces.map(n=>`<span class="pill" data-raw>#${n}</span>`).join(' '):`<span class="mut">${esc(glassLabel('exposureRule',p.exposureRule))}</span>`}</td>
   <td>${p.stocked?`<span class="pill ok">${esc(glassLabel('stock','stocked'))}</span>`:`<span class="pill info">${esc(glassLabel('stock','preorder'))}</span>`}</td>
   <td>${sheets?`<span class="pill" data-raw>${sheets}</span>`:'<span class="mut">нет</span>'}</td>
@@ -14754,7 +15312,7 @@ function mdSheetForm(){
    <div><label>Лист, ширина (in)</label><input id="md_sheetW" type="number" step="0.1" min="0" value="${r.sheetWIn==null?'':r.sheetWIn}"></div>
    <div><label>Лист, высота (in)</label><input id="md_sheetH" type="number" step="0.1" min="0" value="${r.sheetHIn==null?'':r.sheetHIn}"><div class="hint">Размер заполняется парой: половина габарита хуже, чем его отсутствие.</div></div>
    <div><label>Единица закупки</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select><div class="hint">Не всякий товар покупается площадью — коробку или бочку площадью не мерят.</div></div>
-   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА. Цены продажи в справочнике нет вообще — она вычисляется.</div></div>
+   <div><label>Цена закупки</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА, у точки поставки. Цена ПРОДАЖИ живёт у продукта в каталоге стекла — колонки Price AN и Price FT.</div></div>
    <div><label>Дата цены</label><input id="md_sheetDate" value="${esc(r.priceDate)}" placeholder="2026-08-22"><div class="hint">Прайс без даты не говорит, насколько он устарел.</div></div>
    <div><label>Фрахт, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Срок поставки, дней</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
@@ -14794,6 +15352,137 @@ function mdSheetSave(){
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;
  DB.glassSheet=DB.glassSheet.filter(s=>s.id!==id);touch();render();
+}
+
+/* --- 3. Дистанционные рамки -------------------------------------------
+   Экран на английском, как и конструктор Makeup: Width · Spacer · Gas ·
+   Sealant там уже английские, и рамки читаются рядом с ними одним языком.
+
+   Фактическая толщина правится ПРЯМО В ТАБЛИЦЕ, а не через форму: заполнять
+   её придётся по всему ряду, и открывать сорок девять форм подряд — работа,
+   которую никто не доводит до конца. Форма нужна, только чтобы завести новую
+   позицию или снять её с наличия.
+
+   Номинал стоит рядом с фактом намеренно: расхождение видно сразу, и опечатка
+   в миллиметрах (115 вместо 11.5) не уезжает в расчёт пакета молча. */
+/* Надбавки за обработку: фрит и спандрел продаются поверх цены стекла своей
+   ставкой за sq ft. Держим их рядом с рамками, потому что вопрос один и тот же —
+   «сколько стоит то, что мы делаем с листом», и правится так же, в строке. */
+function mdSurchargeTable(){
+ const rows=[]
+  .concat((DB.fritProduct||[]).map(x=>({x:x,kind:'fritProduct',group:'Frit'})))
+  .concat((DB.spandrelProduct||[]).map(x=>({x:x,kind:'spandrelProduct',group:'Spandrel'})));
+ if(!rows.length)return '';
+ return `<div class="sub" style="margin-top:22px">Surcharges are added on top of the glass price, per sq ft. Frit and spandrel keep the glass they are applied to — painting a lite is cheaper than buying a different one.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Kind</th><th>Surcharge, sq ft</th><th></th></tr></thead>
+  <tbody>${rows.map(r=>`<tr>
+   <td><b>${raw(r.x.name)}</b><div class="mut mono">${raw(r.x.code||r.x.id)}</div></td>
+   <td>${esc(r.group)}</td>
+   <td><input class="md-mm" type="number" step="0.01" min="0" style="width:88px" value="${r.x.salePrice==null?'':r.x.salePrice}" placeholder="—" onchange="mdSurchargeSet('${esc(r.kind)}','${esc(r.x.id)}',this.value)"></td>
+   <td>${r.x.active===false?'<span class="pill warn">off</span>':'<span class="pill ok">active</span>'}</td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+function mdSurchargeSet(kind,id,v){
+ const row=(DB[kind]||[]).find(x=>x.id===id);if(!row)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){row.salePrice=null;touch();render();return;}
+ const n=+typed;
+ if(!isFinite(n)||n<0){render();return;}
+ row.salePrice=Math.round(n*100)/100;touch();render();
+}
+function viewMdSpacer(){
+ if(mdSpacerEdit!==null)return mdSpacerForm();
+ const all=(DB.spacerVariant||[]).slice();
+ all.sort((a,b)=>{
+  const fa=SPACER_FAMILIES.indexOf(spacerFamilyOf(a)),fb=SPACER_FAMILIES.indexOf(spacerFamilyOf(b));
+  if(fa!==fb)return fa-fb;
+  if(a.system!==b.system)return String(a.system).localeCompare(String(b.system));
+  const qa=spacerSizeParts(a.size),qb=spacerSizeParts(b.size);
+  return (qa?qa.value:0)-(qb?qb.value:0);
+ });
+ return `<div class="sub">A spacer answers three different questions. <b>Family</b> drives the IGU surround price, <b>nominal size</b> is how the spacer is picked and named, <b>actual thickness</b> feeds the overall unit thickness. They do not always match: 7/16 is 11.1 mm in Aluminum and 11.5 mm in Black Warm Edge. Until an actual value is entered, the unit is calculated from the nominal size.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>System</th><th>Family</th><th>Nominal</th><th>Nominal, mm</th><th>Actual, mm</th><th>Difference</th><th>Availability</th><th></th></tr></thead>
+  <tbody>${all.map(mdSpacerRow).join('')||'<tr><td colspan="8" class="empty">no spacers</td></tr>'}</tbody></table></div>
+  <div class="row"><button class="pri" onclick="mdSpacerNew()">+ New spacer</button></div>
+  ${mdSurchargeTable()}`;
+}
+function mdSpacerRow(sp){
+ const nominal=spacerNominalMm(sp.size),fact=mdNum(sp.thicknessMm);
+ const diff=fact!=null&&nominal!=null?Math.round((fact-nominal)*10)/10:null;
+ return `<tr>
+  <td><b>${raw(sp.system)}</b><div class="mut mono">${raw(sp.id)}</div></td>
+  <td>${esc(SPACER_FAMILY_LABELS[spacerFamilyOf(sp)]||spacerFamilyOf(sp))}</td>
+  <td class="mono"><b>${raw(sp.size)}″</b></td>
+  <td class="mono mut">${nominal==null?'—':esc(nominal.toFixed(1))}</td>
+  <td><input class="md-mm" type="number" step="0.1" min="0" style="width:88px" value="${fact==null?'':fact}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}" onchange="mdSpacerSetThickness('${esc(sp.id)}',this.value)"></td>
+  <td class="mono">${diff==null?'<span class="mut">—</span>':(diff===0?'<span class="mut">same</span>':'<b>'+esc((diff>0?'+':'')+diff.toFixed(1))+'</b>')}</td>
+  <td><span class="pill ${sp.availability==='stock'?'ok':sp.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',sp.availability))}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdSpacerEditRow('${esc(sp.id)}')">Edit</button>
+   <button class="sm dl" onclick="mdSpacerDelete('${esc(sp.id)}')">×</button></td></tr>`;
+}
+/* Пустое поле возвращает рамку к номиналу — это законный ответ «факт неизвестен»,
+   а не ошибка ввода. Ноль и мусор не принимаются: рамки 0 мм не бывает. */
+function mdSpacerSetThickness(id,v){
+ const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
+ const typed=String(v==null?'':v).trim();
+ if(typed===''){sp.thicknessMm=null;touch();render();return;}
+ const mm=+typed;
+ if(!isFinite(mm)||mm<=0){render();return;}
+ sp.thicknessMm=Math.round(mm*100)/100;touch();render();
+}
+function mdSpacerNew(){
+ mdSpacerEdit='new';
+ mdSpacerDraft={id:'',family:'warm_edge',system:'Black Warm Edge',size:'',thicknessMm:null,availability:'stock',supplier:'',leadTimeDays:null,active:true};
+ render();
+}
+function mdSpacerEditRow(id){
+ const sp=(DB.spacerVariant||[]).find(x=>x.id===id);if(!sp)return;
+ mdSpacerEdit=id;mdSpacerDraft=JSON.parse(JSON.stringify(sp));render();
+}
+function mdSpacerForm(){
+ const r=mdSpacerDraft,isNew=mdSpacerEdit==='new';
+ const nominal=spacerNominalMm(r.size);
+ return `<div class="form"><h3>${isNew?'New spacer':'Edit spacer'}</h3>
+  <div class="grid">
+   <div><label>System *</label><select id="md_spSystem">${SPACER_SYSTEMS.map(x=>`<option data-raw value="${esc(x.system)}" ${x.system===r.system?'selected':''}>${esc(x.system)} · ${esc(SPACER_FAMILY_LABELS[x.family])}</option>`).join('')}</select><div class="hint">Family comes with the system — the surround price hangs on it.</div></div>
+   <div><label>Nominal size *</label><input id="md_spSize" value="${esc(r.size)}" placeholder="17/32"><div class="hint">As a fraction, the way it is printed on the box. Nominal from it: ${nominal==null?'—':esc(nominal.toFixed(1)+' mm')}</div></div>
+   <div><label>Actual thickness, mm</label><input id="md_spMm" type="number" step="0.1" min="0" value="${r.thicknessMm==null?'':r.thicknessMm}" placeholder="${nominal==null?'':esc(nominal.toFixed(1))}"><div class="hint">Empty — unit thickness is calculated from the nominal size.</div></div>
+   <div><label>Availability</label><select id="md_spAvail">${mdVocabOptions('availability',r.availability)}</select></div>
+   <div><label>Supplier</label><input id="md_spSupplier" value="${esc(r.supplier)}"></div>
+   <div><label>Lead time, days</label><input id="md_spLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
+  </div>
+  <div class="err" id="e_mdSpacer"></div>
+  <div class="row"><button class="pri" onclick="mdSpacerSave()">Save</button><button onclick="mdSpacerEdit=null;mdSpacerDraft=null;render()">Cancel</button></div></div>`;
+}
+function mdSpacerSave(){
+ const e=document.getElementById('e_mdSpacer');e.style.display='none';
+ const system=mdVal('md_spSystem'),size=mdVal('md_spSize');
+ if(!system||!size)return fail(e,'System and nominal size are required');
+ const q=spacerSizeParts(size);
+ if(!q)return fail(e,'Nominal size is a fraction, for example 17/32');
+ const known=SPACER_SYSTEMS.find(x=>x.system===system);
+ const id=mdSpacerEdit==='new'?'SP-'+(known?known.code:'X')+'-'+spacerSizeKey(size):mdSpacerDraft.id;
+ if(mdSpacerEdit==='new'&&(DB.spacerVariant||[]).some(x=>x.id===id))return fail(e,'This spacer already exists: '+id);
+ const mmTyped=mdVal('md_spMm'),leadTyped=mdVal('md_spLead');
+ const mm=mmTyped===''?null:+mmTyped;
+ if(mm!=null&&(!isFinite(mm)||mm<=0))return fail(e,'Actual thickness: a positive number of millimetres');
+ const next={
+  id:id,family:known?known.family:'aluminum',system:system,size:size,
+  thicknessMm:mm,
+  name:system+' '+size+'″',code:id,
+  availability:mdVal('md_spAvail'),supplier:mdVal('md_spSupplier'),
+  leadTimeDays:leadTyped===''?null:+leadTyped,active:mdSpacerDraft.active!==false
+ };
+ if(mdSpacerEdit==='new')DB.spacerVariant.push(next);
+ else{const at=DB.spacerVariant.findIndex(x=>x.id===mdSpacerDraft.id);if(at<0)return fail(e,'Spacer not found');DB.spacerVariant[at]=next;}
+ mdSpacerEdit=null;mdSpacerDraft=null;normalizeMasterData();touch();render();
+}
+/* Рамка может стоять в уже сохранённом заказе, поэтому удаление говорит об этом
+   прямо: снять с наличия обычно правильнее, чем стереть. */
+function mdSpacerDelete(id){
+ const used=(DB.salesOrder||[]).some(o=>(o.makeups||[]).some(m=>(m.cavities||[]).some(c=>c.spacerVariantId===id)));
+ if(!confirm(used?'This spacer is used in saved orders. Delete anyway? It will become unknown there.':'Delete this spacer?'))return;
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x.id!==id);touch();render();
 }
 
 /* --- 3. Фурнитура ------------------------------------------------------
@@ -14937,16 +15626,16 @@ function mdHwModelDelete(id){
    коллекции системы одним списком со счётчиками. Пустая таблица здесь — не
    ошибка, а честный ответ «сюда ещё ничего не завели». */
 const MD_COLLECTIONS=[
- {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло: подложка, покрытие, толщина, закалка'},
+ {key:'glassProduct',   label:'Каталог стекла',      what:'что за стекло и почём продаём: подложка, покрытие, толщина, закалка, две цены'},
  {key:'glassSheet',     label:'Точки поставки',      what:'где и почём: валюта, размер листа, цена, срок'},
  {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
  {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
  {key:'heatTreatment',  label:'Термообработка',      what:'annealed · heat strengthened · tempered'},
- {key:'spacerVariant',  label:'Дистанционные рамки', what:'система и размер'},
+ {key:'spacerVariant',  label:'Дистанционные рамки', what:'семейство для цены, номинал для выбора, факт для расчёта'},
  {key:'gasProduct',     label:'Газ',                 what:'заполнение камеры'},
  {key:'sealantProduct', label:'Герметики',           what:'первичный и вторичный контур'},
- {key:'interlayerProduct',label:'Плёнки ламинации',  what:'PVB и структурные плёнки'},
- {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать'},
+ {key:'interlayerProduct',label:'Плёнки ламинации',  what:'EVA и SGP по исполнениям, цена за слой'},
+ {key:'fritProduct',    label:'Силкскрин',           what:'керамика и цифровая печать, надбавка за sq ft'},
  {key:'spandrelProduct',label:'Спандрел',            what:'непрозрачные панели'},
  {key:'station',        label:'Станции маршрута',    what:'одиннадцать шагов маршрута'},
  {key:'operation',      label:'Операции',            what:'что именно делают и до или после печи'},
