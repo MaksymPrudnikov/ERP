@@ -234,7 +234,7 @@ function shapeValidateComputed(def,geo,fg){
     var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
-      if(op.type==='Rough Arris'||op.type==='Flat Polish'||op.type==='CNC Shape Polish')finishes++;
+      if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)finishes++;
       if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'){
         thicknessNeeded=true;
         if(th>0&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
@@ -242,7 +242,7 @@ function shapeValidateComputed(def,geo,fg){
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
-    if(finishes>1)errors.push('Edge '+id+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.');
+    if(finishes>1)errors.push('Edge '+id+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.');
   });
   if(thicknessNeeded&&!(th>0))errors.push('Glass thickness for edge-processing allowance must come from the selected Sales Makeup.');
   return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};

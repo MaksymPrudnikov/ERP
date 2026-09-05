@@ -4,6 +4,11 @@
    ===================================================================== */
 
 var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Короткий ярлык колонки — по ТИПУ, а не по позиции. Позиционные массивы
+   ярлыков лежали в двух экранах, и любой список операций, отличный от полного,
+   молча сдвигал подписи: под «Flat» оказывалась галочка другой операции. */
+var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel'};
+function shapeEdgeOpShort(type){return SHAPE_EDGE_OP_SHORT[type]||String(type||'');}
 var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
 /* A stamp is a free annotation on the production drawing. The selected text is
    intentionally short: it must remain readable inside the glass contour. Keep

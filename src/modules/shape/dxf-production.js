@@ -5,6 +5,13 @@
    ===================================================================== */
 
 const SHAPE_PRIMARY_FINISHES=['Rough Arris','Flat Polish','CNC Shape Polish'];
+/* Перечисление финишей в тексте ошибки собирается из самого списка: добавили
+   финиш — сообщение обновилось само. Список и текст уже жили порознь в двух
+   файлах, и разойтись им было нечем помешать. */
+function shapePrimaryFinishList(){
+  var a=SHAPE_PRIMARY_FINISHES;
+  return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+}
 
 function shapeStableHash(prefix,payload){
   var src=JSON.stringify(payload),h=2166136261;
@@ -58,7 +65,7 @@ function shapeValidateEdgeOperations(ops,edgeId){
     if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
-  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.'};
+  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.'};
   return {ok:true};
 }
 

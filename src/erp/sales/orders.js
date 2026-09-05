@@ -820,8 +820,7 @@ function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===re
 function salesLineGlassThicknesses(line){
  const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];if(!m)return out;
  (m.panes||[]).forEach(p=>{
-  const plies=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[{glassProductId:p.glassProductId,thicknessMm:p.thicknessMm}];
-  plies.forEach(ply=>{const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);if(Number.isFinite(v)&&v>0&&out.indexOf(v)<0)out.push(v);});
+  salesPanePlies(p).forEach(ply=>{if(Number.isFinite(ply.mm)&&ply.mm>0&&out.indexOf(ply.mm)<0)out.push(ply.mm);});
  });
  return out.sort((a,b)=>a-b);
 }
@@ -1024,14 +1023,34 @@ function salesDropLineOwnedShape(line){
    Комбинация 10 + 6 в пакете — это два разных стекла: у каждого своя кромка,
    свой припуск и свой размер реза. Раньше строка считалась одним куском, и
    такой пакет упирался в «Exact Makeup thickness is unresolved». */
+/* Толщина ОДНОГО стекла: продукт каталога сильнее ручного значения. Эта
+   развилка лежала тремя копиями — в подсчёте толщин строки, в сумме ламината и
+   в списке лайтов, — и разъехаться им было нечем помешать. */
+function salesPlyThicknessMm(ply){
+ const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
+ return Number.isFinite(v)&&v>0?v:NaN;
+}
+/* Физические стёкла лайта: у ламината их ДВА, у всего остального одно.
+   Правило владельца: «каждое стекло при резке изначально отдельная панель», —
+   поэтому припуск на рез и банд прайса берутся по этому списку, а НЕ по
+   суммарной толщине склейки. Сумма остаётся у пакета: вес, печать, спейсеры. */
+function salesPanePlies(pane){
+ if(!pane)return [];
+ if(pane.category==='laminated'){
+  const lam=pane.laminated||{};
+  return [lam.outer,lam.inner].map(function(ply,i){
+   return {index:i,role:i?'inner':'outer',mm:salesPlyThicknessMm(ply),glassProductId:ply&&ply.glassProductId};
+  });
+ }
+ return [{index:0,role:'single',mm:salesPlyThicknessMm({glassProductId:pane.glassProductId,thicknessMm:pane.thicknessMm}),glassProductId:pane.glassProductId}];
+}
 function salesPaneGlassThicknessMm(pane){
  if(!pane)return NaN;
  if(pane.category==='laminated'){
-  const lam=pane.laminated||{},plies=[lam.outer,lam.inner],films=lam.interlayers||[];
+  const lam=pane.laminated||{},films=lam.interlayers||[];
   let total=0,known=true;
-  plies.forEach(function(ply){
-   const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
-   if(Number.isFinite(v)&&v>0)total+=v;else known=false;
+  salesPanePlies(pane).forEach(function(ply){
+   if(Number.isFinite(ply.mm)&&ply.mm>0)total+=ply.mm;else known=false;
   });
   films.forEach(function(film){
    /* thicknessMm is already the total derived from the selected layer count.
@@ -1042,8 +1061,7 @@ function salesPaneGlassThicknessMm(pane){
   });
   return known?total:NaN;
  }
- const g=glassProductById(pane.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:pane.thicknessMm);
- return Number.isFinite(v)&&v>0?v:NaN;
+ return salesPlyThicknessMm({glassProductId:pane.glassProductId,thicknessMm:pane.thicknessMm});
 }
 function salesPaneBaseEdgework(pane,unitType){
  if(!pane)return '';
