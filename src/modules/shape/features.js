@@ -101,7 +101,7 @@ function shapeEdgeAllowanceOverride(def,edgeId,parentEdges){
   for(var i=0;i<ids.length;i++){
     if(!Object.prototype.hasOwnProperty.call(raw,ids[i]))continue;
     var p=fabParseDimStrict(raw[ids[i]]==null?'':raw[ids[i]]);
-    if(p.ok&&p.v>=0)return p.v;
+    if(p.ok&&p.v>=0&&p.v<=SHAPE_ALLOWANCE_MAX_IN)return p.v;
   }
   return null;
 }

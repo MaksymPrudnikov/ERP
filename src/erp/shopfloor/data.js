@@ -168,6 +168,25 @@ DEFAULT.workPosition=[
    данные заводятся из цеха. */
 DEFAULT.terminal=[];
 
+/* Припуск на рез — цеховой факт про съём материала станком, поэтому таблица
+   живёт рядом с операциями. Заводские строки берутся у модуля Shape: он же по
+   ним и считает, и второй сид разошёлся бы с первым при первой же правке.
+   Владелец меняет значения в Справочниках — «делаем по памяти» перестаёт быть
+   единственным местом, где эти цифры записаны. */
+DEFAULT.edgeAllowance=ShapeModule.allowanceDefaults();
+
+/* Таблица уезжает в модуль: сам он про DB ничего не знает и знать не должен,
+   а считать обязан по тем же строкам, что показаны в справочнике. Вызывается
+   из normalizeShopFloor, то есть на загрузке, пересеве и импорте разом. */
+function normalizeEdgeAllowance(){
+ DB.edgeAllowance=(Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[]).filter(r=>r&&typeof r==='object');
+ if(!DB.edgeAllowance.length)DB.edgeAllowance=ShapeModule.allowanceDefaults();
+ const rows=ShapeModule.setAllowanceTable(DB.edgeAllowance);
+ /* Пустая или сплошь битая таблица — не повод блокировать рез: модуль
+    откатывается на заводские строки, и это видно в справочнике. */
+ return rows;
+}
+
 /* ---------------------------------------------------------------------
    Выведенные связи. Ничего не хранят — считают из уже введённого.
    --------------------------------------------------------------------- */
@@ -218,7 +237,20 @@ function terminalStations(t){
    заводской. Ронять загрузку он при этом не имеет права — иначе до пересева
    дело не дойдёт вообще.
    --------------------------------------------------------------------- */
+function reseedEdgeAllowance(){
+ const factory=ShapeModule.allowanceDefaults(),have=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[];
+ const mine=Object.create(null);have.forEach(r=>{if(r&&r.id)mine[r.id]=r;});
+ const out=[],seen=Object.create(null);
+ factory.forEach(f=>{
+  seen[f.id]=true;
+  const was=mine[f.id];
+  out.push(was&&was.allowance!=null?Object.assign({},f,{allowance:String(was.allowance)}):Object.assign({},f));
+ });
+ have.forEach(r=>{if(r&&r.id&&!seen[r.id])out.push(r);});
+ DB.edgeAllowance=out;
+}
 function normalizeShopFloor(){
+ normalizeEdgeAllowance();
  const seen=Object.create(null);
  DB.station=(Array.isArray(DB.station)?DB.station:[]).filter(s=>{
   if(!s||typeof s!=='object')return false;

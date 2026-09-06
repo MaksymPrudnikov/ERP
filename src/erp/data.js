@@ -129,8 +129,15 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
 
    5 → 6: плёнки разбиты по исполнению (SGP Ultra Clear · Clear · Frosted,
    EVA Ultra Clear · Clear · Frosted White · Milky Way) и получили цену за слой;
-   у фрита и спандрела появилась надбавка за sq ft. */
-const REFERENCE_VERSION=6;
+   у фрита и спандрела появилась надбавка за sq ft.
+
+   6 → 7: появилась полировка склеенной кромки — операция `lami_polish` рядом с
+   уже заведённой `cnc_lami_polish`, обе на полировочных местах и ЧПУ. Вместе с
+   ними приехала таблица припуска `edgeAllowance`: цифры съёма перестали быть
+   ветками в коде и правятся в Справочниках. У ламината припуск меряется по
+   ПЛИТЕ, а не по суммарной толщине склейки, — до этой версии 6+6 резался на
+   четверть дюйма крупнее, а 3+3, 10+10 и 12+12 не резались вовсе. */
+const REFERENCE_VERSION=7;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -156,6 +163,12 @@ function reseedReferenceTables(hadSaved){
   if(x&&x.id&&isFinite(mm)&&mm>0)keptSpacerMm[x.id]=mm;
  });
  REFERENCE_TABLES.forEach(k=>{if(Array.isArray(DEFAULT[k])){DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));done.push(k);}});
+ /* Припуск пересевается СЛИЯНИЕМ по id, а не заменой. Владельцу прямо сказано
+    править эту таблицу, поэтому список REFERENCE_TABLES ей не подходит: он
+    стирает и правленые значения, и заведённые вручную строки. Диапазон и
+    подпись — «личность» строки и обновляются; само значение припуска
+    принадлежит цеху и переживает пересев. */
+ if(typeof reseedEdgeAllowance==='function'){reseedEdgeAllowance();done.push('edgeAllowance');}
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;

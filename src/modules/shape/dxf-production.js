@@ -78,41 +78,100 @@ function shapeValidateEdgeOperations(ops,edgeId){
    кода их вывести нельзя.
    Rough Arris = 0 ВСЕГДА: ручная зачистка фаски контур не съедает, она только
    делает кромку безопасной, поэтому лист под неё не увеличивается никогда. */
-/* Ламинат меряется по ПЛИТЕ: под инструментом лежит отдельное стекло, а не
-   кусок суммарной толщины. Цифры владельца: 6+6 → 1/16, 8+8 · 10+10 · 12+12 →
-   1/8 на сторону. С монолитом таблицы расходятся на двенадцати миллиметрах
-   (1/8 против 3/16), поэтому признак scope обязателен, а не удобен.
-   Верхний банд открыт: без этого 10+10 и 12+12 блокировали рез вовсе. */
-function shapeLaminatedAllowanceRule(type,mm){
-  if(!(mm>0))return null;
-  if(mm<=6)return {ok:true,value:1/16};
-  if(mm>=8)return {ok:true,value:1/8};
-  return null;
+/* Цеховая таблица припуска. Раньше эти цифры были зашиты сюда ветками if, и
+   поправить их можно было только правкой кода. Теперь это ДАННЫЕ: владелец
+   меняет их в Справочниках, а строки ниже — заводской сид.
+
+   scope='mono' меряется по самому стеклу, scope='lami' — по ПЛИТЕ склейки.
+   Признак обязателен, а не удобен: на двенадцати миллиметрах таблицы
+   расходятся (монолит 3/16, ламинат 1/8).
+
+   Верхний ламинатный банд открыт: 10+10 и 12+12 иначе остаются без правила
+   навсегда. У CNC Shape Polish широкая строка 0–1000 повторяет прежнее «1/4 на
+   всё остальное», а узкая 15–19 её перекрывает — выигрывает самая УЗКАЯ
+   подходящая строка, поэтому порядок строк ничего не решает. */
+function shapeAllowanceRow(op,scope,minMm,maxMm,allowance,note){
+  return {id:'ALW-'+op.replace(/[^A-Za-z]+/g,'').toUpperCase()+'-'+scope.toUpperCase()+'-'+minMm+'-'+maxMm,
+          op:op,scope:scope,minMm:minMm,maxMm:maxMm,allowance:allowance,note:note||''};
+}
+function shapeAllowanceDefaults(){
+  var rows=[],flatLike=['Flat Polish','Mitering','Beveling'];
+  /* Арис не увеличивает лист НИКОГДА: ручная зачистка фаски делает кромку
+     безопасной, но контур не съедает. */
+  rows.push(shapeAllowanceRow('Rough Arris','mono',0,1000,'0','притупление контур не съедает'));
+  rows.push(shapeAllowanceRow('Rough Arris','lami',0,1000,'0','притупление контур не съедает'));
+  flatLike.forEach(function(op){
+    rows.push(shapeAllowanceRow(op,'mono',3,6,'1/16'));
+    rows.push(shapeAllowanceRow(op,'mono',8,10,'1/8'));
+    rows.push(shapeAllowanceRow(op,'mono',12,15,'3/16'));
+    rows.push(shapeAllowanceRow(op,'mono',16,19,'1/2'));
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+  });
+  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',0,1000,'1/4'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','толстое стекло с большим съёмом'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','по толщине ПЛИТЫ'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+  SHAPE_LAMI_ONLY_OPS.forEach(function(op){
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','склеенная кромка, по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','склеенная кромка, по толщине ПЛИТЫ'));
+  });
+  return rows;
+}
+/* Съём на сторону физически не бывает больше пары дюймов. Предел здесь не
+   формальность: «316» вместо «3/16» — валидное число для парсера, и такая
+   опечатка молча увела бы рез на 316 дюймов. */
+var SHAPE_ALLOWANCE_MAX_IN=2;
+function shapeNormalizeAllowanceRows(raw){
+  var out=[];
+  (Array.isArray(raw)?raw:[]).forEach(function(r){
+    if(!r||SHAPE_EDGE_OPS.indexOf(r.op)<0)return;
+    var scope=r.scope==='lami'?'lami':'mono',lo=Number(r.minMm),hi=Number(r.maxMm);
+    var p=fabParseDimStrict(r.allowance==null?'':r.allowance);
+    if(!isFinite(lo)||!isFinite(hi)||lo<0||hi<lo)return;
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return;
+    out.push({id:String(r.id||shapeAllowanceRow(r.op,scope,lo,hi,String(r.allowance)).id),
+              op:r.op,scope:scope,minMm:lo,maxMm:hi,allowance:String(r.allowance).trim(),value:p.v,note:String(r.note==null?'':r.note)});
+  });
+  return out;
+}
+var SHAPE_ALLOWANCE_ROWS=null,SHAPE_ALLOWANCE_FALLBACK=null;
+/* Модуль остаётся самодостаточным: без инъекции работает заводской сид, и
+   тесты самого Shape не требуют поднятой базы ERP. Битая или пустая таблица
+   из базы тоже откатывается сюда, а не блокирует рез. */
+function shapeAllowanceTable(){
+  if(SHAPE_ALLOWANCE_ROWS&&SHAPE_ALLOWANCE_ROWS.length)return SHAPE_ALLOWANCE_ROWS;
+  if(!SHAPE_ALLOWANCE_FALLBACK)SHAPE_ALLOWANCE_FALLBACK=shapeNormalizeAllowanceRows(shapeAllowanceDefaults());
+  return SHAPE_ALLOWANCE_FALLBACK;
+}
+function shapeSetAllowanceTable(rows){
+  var n=shapeNormalizeAllowanceRows(rows);
+  SHAPE_ALLOWANCE_ROWS=n.length?n:null;
+  return SHAPE_ALLOWANCE_ROWS?SHAPE_ALLOWANCE_ROWS.length:0;
+}
+/* Выигрывает самая УЗКАЯ подходящая строка: широкая задаёт умолчание, узкая
+   описывает исключение внутри него. */
+function shapeAllowanceRowFor(type,mm,scope){
+  var rows=shapeAllowanceTable(),best=null,i,r;
+  for(i=0;i<rows.length;i++){
+    r=rows[i];
+    if(r.op!==type||r.scope!==scope)continue;
+    if(!(mm>=r.minMm&&mm<=r.maxMm))continue;
+    if(!best||(r.maxMm-r.minMm)<(best.maxMm-best.minMm))best=r;
+  }
+  return best;
 }
 function shapeProductionAllowanceRule(op,thicknessMm,scope){
   var type=typeof op==='string'?op:(op&&op.type)||'',mm=Number(thicknessMm);
-  if(type==='Rough Arris')return {ok:true,value:0};
-  /* Полировка склеенной кромки существует только на ламинате и всегда идёт по
-     ламинатной таблице — у ЧПУ-варианта своего съёма нет, владелец назвал его
-     «так же как у прошлого лами полиш». */
-  if(scope==='lami'||shapeIsLamiOnlyOp(type)){
-    var lam=shapeLaminatedAllowanceRule(type,mm);
-    if(lam)return lam;
-    if(shapeIsLamiOnlyOp(type))return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
-  }
-  /* Толстое стекло полируется с большим съёмом: до 15 mm — 1/4", 15–19 — 1/2". */
-  if(type==='CNC Shape Polish'){
-    if(mm>=15&&mm<=19)return {ok:true,value:.5};
-    return {ok:true,value:.25};
-  }
-  if(type==='Flat Polish'||type==='Mitering'||type==='Beveling'){
-    if(mm>=3&&mm<=6)return {ok:true,value:1/16};
-    if(mm>=8&&mm<=10)return {ok:true,value:1/8};
-    if(mm>=12&&mm<=15)return {ok:true,value:3/16};
-    if(mm>=16&&mm<=19)return {ok:true,value:.5};
-    return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
-  }
-  return {ok:true,value:0};
+  if(SHAPE_EDGE_OPS.indexOf(type)<0)return {ok:true,value:0};
+  var lami=scope==='lami'||shapeIsLamiOnlyOp(type),row=null;
+  if(lami)row=shapeAllowanceRowFor(type,mm,'lami');
+  /* Плита толще ламинатной таблицы падает в монолитную строку — объяснимое
+     число лучше, чем блокировка. Своей строки нет только у лами-полировки:
+     вне ламината она не выполняется. */
+  if(!row&&!shapeIsLamiOnlyOp(type))row=shapeAllowanceRowFor(type,mm,'mono');
+  if(row)return {ok:true,value:row.value};
+  return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
 }
 
 /* Припуск кромки на производственном пути: ручная правка сильнее таблицы и
@@ -320,6 +379,9 @@ ShapeModule.compute=function(source){
 ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
 ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
 ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
+ShapeModule.setAllowanceTable=shapeSetAllowanceTable;
+ShapeModule.allowanceTable=shapeAllowanceTable;
+ShapeModule.allowanceDefaults=shapeAllowanceDefaults;
 ShapeModule.productionAllowanceForOps=shapeProductionAllowanceForOps;
 ShapeModule.validateEdgeOperations=shapeValidateEdgeOperations;
 ShapeModule.validateProductionEdgework=shapeValidateProductionEdgework;
