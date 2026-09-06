@@ -372,6 +372,8 @@ function shapeOpText(o){
   if(o.type==='Flat Polish')return 'FP';
   if(o.type==='Rough Arris')return 'RA';
   if(o.type==='CNC Shape Polish')return 'CNC';
+  if(o.type==='Lami Polish')return 'LP';
+  if(o.type==='CNC Lami Polish')return 'CNC LP';
   return o.type;
 }
 function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){

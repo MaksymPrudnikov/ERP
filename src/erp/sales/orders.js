@@ -1016,7 +1016,11 @@ function salesDropLineOwnedShape(line){
      спрятана внутри пакета, её задача только безопасность реза;
    · одиночное стекло — по толщине: арис до 8 mm, полировка от 10 mm;
    · ламинат — ОДНА кромка на всю склейку: плёнка не делит её на два стекла,
-     поэтому толщина берётся суммарная и обработка у обеих сторон одинаковая.
+     поэтому обработка у обеих сторон одинаковая. База у него АРИС, а не
+     полировка по толщине: полировать склейку можно двумя разными способами —
+     по каждой плите ДО склейки (дешевле, обычный станок) или по склеенной
+     кромке ПОСЛЕ (Lami Polish / CNC Lami Polish). Работа и цена разные,
+     поэтому выбор делает продажник, а не правило по толщине.
    Ручное значение на самом продукте стекла (Master Data) перебивает всё —
    ради зеркал 5/6 mm, которым клиенты заказывают полировку.
 
@@ -1068,11 +1072,13 @@ function salesPaneBaseEdgework(pane,unitType){
  /* Выбор на самом лайте сильнее всего: у пакета бывает, что одно стекло
     полируют, а второе только зачищают. */
  if(SALES_PANE_EDGEWORK.indexOf(pane.edgework)>0)return pane.edgework;
+ /* Ламинат до выбора продажника — арис. Суммарные 13.52 мм у 6+6 раньше
+    попадали под «от 10 mm полировка», и строка молча уезжала в производство с
+    полировкой, которую никто не заказывал. */
+ if(pane.category==='laminated')return 'arris';
  /* Ручное значение на продукте — сильнее правила по толщине. */
- if(pane.category!=='laminated'){
-  const g=glassProductById(pane.glassProductId);
-  if(g&&g.baseEdgework)return g.baseEdgework;
- }
+ const g=glassProductById(pane.glassProductId);
+ if(g&&g.baseEdgework)return g.baseEdgework;
  if(unitType==='double'||unitType==='triple')return 'arris';
  const mm=salesPaneGlassThicknessMm(pane);
  return Number.isFinite(mm)&&mm>=10?'polish':'arris';

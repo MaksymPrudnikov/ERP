@@ -3,11 +3,21 @@
    Нормализация определения Shape. Старый Smart-Shape остаётся совместимым.
    ===================================================================== */
 
-var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Лами-операции стоят в КОНЦЕ: индекс операции уходит в обработчик чекбокса и
+   в сохранённые формы, поэтому вставка в середину сдвинула бы и то, и другое.
+   Словарь ОДИН на все виды кромки — импорт (storage.validateImportedState)
+   сверяет типы именно по нему, и отдельный список лами-операций уронил бы
+   загрузку файла с уже проставленной лами-полировкой. */
+var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling','Lami Polish','CNC Lami Polish'];
+/* Полировка склеенной кромки: делается ПОСЛЕ ламинации и только на ламинате.
+   Прямая идёт на обычном полировочном станке (его настраивают под толщину
+   пакета и направление), фигурная — на ЧПУ. */
+var SHAPE_LAMI_ONLY_OPS=['Lami Polish','CNC Lami Polish'];
+function shapeIsLamiOnlyOp(type){return SHAPE_LAMI_ONLY_OPS.indexOf(type)>=0;}
 /* Короткий ярлык колонки — по ТИПУ, а не по позиции. Позиционные массивы
    ярлыков лежали в двух экранах, и любой список операций, отличный от полного,
    молча сдвигал подписи: под «Flat» оказывалась галочка другой операции. */
-var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel'};
+var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel','Lami Polish':'LamiP','CNC Lami Polish':'CNC Lami'};
 function shapeEdgeOpShort(type){return SHAPE_EDGE_OP_SHORT[type]||String(type||'');}
 var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
 /* A stamp is a free annotation on the production drawing. The selected text is

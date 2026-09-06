@@ -2469,8 +2469,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {shared:'A,B,C,D',liteInsets:'A,B,C,D',liteOps:'A',
       finished:['20x44','19x43'],cuts:['20x44','19.0625x43'],uniform:false,
       charges:['Rough Arris 209','Flat Polish 43']});
-    /* Ламинат — один кусок: плёнка не делит кромку на два стекла. */
-    eq('ламинат считается одной кромкой, в пакете получает арис', await t.p.evaluate(`(()=>{
+    /* Ламинат — один кусок: плёнка не делит кромку на два стекла. База у него
+       арис и в одиночке тоже: полировать склейку можно двумя способами с разной
+       ценой, поэтому правило по толщине за продажника не решает. */
+    eq('ламинат считается одной кромкой и базово получает арис', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t20\\t44\\tX',0);salesExcelApply();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
@@ -2486,7 +2488,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         alone:{count:alone.length,kind:alone[0].baseEdgework,laminated:alone[0].laminated},
         inUnit:inUnit.map(l=>l.baseEdgework)
       };
-    })()`), {alone:{count:1,kind:'polish',laminated:true},inUnit:['arris','arris']});
+    })()`), {alone:{count:1,kind:'arris',laminated:true},inUnit:['arris','arris']});
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
