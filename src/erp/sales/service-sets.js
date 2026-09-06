@@ -4,7 +4,24 @@
    Shape stays independent; prices/orders stay in ERP.
    ===================================================================== */
 
-const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Набор — рецепт на много строк, и makeup он не знает. Лами-полировка в нём
+   есть, но при применении она ложится ТОЛЬКО на строки со склейкой: на
+   обычном стекле её выполнить нечем. Пропуск не молчаливый — он виден в
+   предпросмотре массового применения. */
+const SALES_SERVICE_SET_OPS=SHAPE_EDGE_OPS;
+function salesSetOpLists(set){
+  if(!set)return [];
+  var s=set.sides||{};
+  return set.mode==='perimeter'?[set.perimeter]:[s.A,s.B,s.C,s.D,s.other];
+}
+function salesSetHasLamiOps(set){
+  return salesSetOpLists(set).some(function(list){
+    return salesServiceOps(list).some(function(o){return shapeIsLamiOnlyOp(o.type);});
+  });
+}
+function salesLineIsLaminated(line){
+  return salesLineLites(line).some(function(l){return l.laminated;});
+}
 
 function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
 function salesServicePlain(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
@@ -212,6 +229,19 @@ function salesEffectiveProductionSnapshot(line,shape,order){
       return {id:g.id,length:g.length,side:g.side,ops:salesServiceOps(liteOps),source:src,allowance:null};
     })});
   });
+  /* Полировка склеенной кромки на обычном стекле — не опечатка в данных, а
+     работа, которую цех физически не выполнит: склеивать нечего. Молча выбросить
+     её нельзя (операция оплачиваемая), поэтому строка встаёт на проверку с
+     конкретной причиной: какой лайт и почему. */
+  for(var li=0;li<liteViews.length;li++){
+    var lv=liteViews[li];
+    if(lv.laminated)continue;
+    for(var lg2=0;lg2<lv.groups.length;lg2++){
+      var bad=lv.groups[lg2].ops.find(function(o){return shapeIsLamiOnlyOp(o.type);});
+      if(bad)return {valid:false,reason:bad.type+' applies to a laminated lite only. '+lv.label+' is a single glass.',
+                     groups:groups,shape:shape,set:set,lamiMisapplied:true,mappingPending:mappingPending};
+    }
+  }
   /* Если у лайтов кромка разная, карточка кромки не должна выдавать одну из них
      за общую: помечаем такие кромки, а раскладка по лайтам показана ниже. */
   groups.forEach(function(g){
@@ -251,12 +281,50 @@ function salesEffectiveBorderPlan(shape,mm,finishedPoints,edgeIds,edgeTypes,cutt
   var plan=shapeSafetyBorderPlan(def,finishedPoints||[],edgeIds||[],edgeTypes||{});
   return {border:plan,footprint:shapeBorderFootprint(cuttingPoints||[],plan)};
 }
+/* Припуск кромки лайта. Считается по СТЕКЛУ, которое лежит под инструментом:
+   у ламината это плита — и когда её полируют по одной до склейки, и когда
+   доводят составную кромку после. Суммарные 12.76 мм у 6+6 давали 3/16 вместо
+   1/16, то есть рез на четверть дюйма крупнее по каждой оси.
+
+   Плиты разной толщины (6+10) дают разные припуски — берём БОЛЬШИЙ: недорез
+   необратим, лишнее снимается. Расхождение видно в карточке кромки, и там же
+   его правят руками по стороне. */
+function salesLiteAllowanceForOps(lite,ops,mm){
+  var list=salesServiceOps(ops);
+  if(!list.length)return {ok:true,value:0};
+  var lam=!!(lite&&lite.laminated),th=lam&&lite.allowanceMm!=null?lite.allowanceMm:mm,best=0,r;
+  for(var i=0;i<list.length;i++){
+    r=ShapeModule.productionAllowanceRule(list[i],th,lam?'lami':'mono');
+    if(!r.ok)return r;
+    best=Math.max(best,+r.value||0);
+  }
+  return {ok:true,value:best};
+}
 /* Контур одного лайта: та же геометрия, свои припуски. Три ветки — простой
    прямоугольник строки, внешний DXF и рассчитанная форма. */
-function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
-  var i,ar;
+/* Порядок припуска на кромке: правка ЛАЙТА → правка формы → таблица. У
+   ламината 6+10 стороны доводят по-разному, и правка принадлежит конкретному
+   стеклу, а не всей строке. */
+function salesLiteEdgeAllowanceOverride(shape,liteIndex,edgeId){
+  if(liteIndex!=null){
+    var spec=shapeLiteSpec(shape,liteIndex),own=spec&&spec.edgeAllowances;
+    if(own){
+      var v=ShapeModule.edgeAllowanceOverride({edgeAllowances:own},edgeId);
+      if(v!=null)return v;
+    }
+  }
+  return ShapeModule.edgeAllowanceOverride(shape,edgeId);
+}
+function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
+  var i,ar,manual;
   for(i=0;i<groups.length;i++){
-    ar=ShapeModule.productionAllowanceForOps(groups[i].ops,mm);
+    ar=salesLiteAllowanceForOps(lite,groups[i].ops,mm);
+    manual=salesLiteEdgeAllowanceOverride(shape,liteIndex,groups[i].id);
+    /* Предложение таблицы показываем рядом с полем ввода даже когда его
+       перебили — иначе не видно, от чего цех отступил. */
+    groups[i].allowanceAuto=ar.ok?ar.value:null;
+    groups[i].allowanceManual=manual!=null;
+    if(manual!=null){groups[i].allowance=manual;continue;}
     if(!ar.ok)return {valid:false,reason:ar.reason,allowanceRuleMissing:true};
     groups[i].allowance=ar.value;
   }
@@ -285,6 +353,12 @@ function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
   }
   var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
   groups.forEach(function(group){if(group.ops.length)effective.edgeOps[group.id]=salesServiceOps(group.ops);});
+  /* ShapeModule считает контур реза сам и берёт припуск от ОДНОЙ скалярной
+     толщины — посчитанные выше значения по плите иначе никуда бы не доехали.
+     Отдаём их полем формы: нотчи, дуги и подготовка контура при этом работают
+     прежним путём, без второго механизма переменного офсета. */
+  effective.edgeAllowances={};
+  groups.forEach(function(group){effective.edgeAllowances[group.id]=String(group.allowance||0);});
   var result=ShapeModule.compute(effective);
   if(!result||!result.valid)return {valid:false,reason:(result&&((result.errors&&result.errors[0])||result.reason))||'Effective Shape cutting failed.'};
   return {valid:true,external:false,effective:effective,result:result,finishedPoints:result.cutting.finishedPoints,cuttingPoints:result.cutting.points,finishedW:result.width,finishedH:result.height,cutW:result.cutting.width,cutH:result.cutting.height,perimeter:result.cutting.perimeter||fabPolylineLength(result.cutting.finishedPoints,true),safetyBorder:result.cutting.safetyBorder,footprint:result.cutting.footprint};
@@ -337,7 +411,7 @@ function salesEffectiveCuttingPlan(line,shape,order){
     /* Своя форма лайта считается сама по себе; отступ применяется только к
        лайтам, живущим на общей форме. */
     var liteShape=lite.shape||shape;
-    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index);
+    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index,lite);
     if(!contour.valid)return {valid:false,blocked:true,reason:lite.label+': '+contour.reason,groups:snap.groups,snapshot:snap,allowanceRuleMissing:contour.allowanceRuleMissing,tangentAllowanceConflict:contour.tangentAllowanceConflict};
     /* Зеркало не меняет ни размеры, ни припуски — только сторону, с которой
        стекло приходит на стол. */
@@ -348,25 +422,49 @@ function salesEffectiveCuttingPlan(line,shape,order){
         finishedPoints:salesMirrorContour(contour.finishedPoints),
         cuttingPoints:salesMirrorContour(contour.cuttingPoints)});
     }
-    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
+    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,plies:lite.plies,laminated:!!lite.laminated,allowanceMm:lite.allowanceMm,pliesVary:!!lite.pliesVary,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
   }
   /* Лист подбирается по самому большому резу пакета. */
   var lead=built[0];
   built.forEach(function(x){if(x.cutW*x.cutH>lead.cutW*lead.cutH)lead=x;});
   var sameCut=built.every(function(x){return x.cutW===lead.cutW&&x.cutH===lead.cutH;});
-  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg)g.allowance=lg.allowance;});
+  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg){g.allowance=lg.allowance;g.allowanceAuto=lg.allowanceAuto;g.allowanceManual=!!lg.allowanceManual;}});
   return Object.assign({},lead,{valid:true,blocked:false,groups:snap.groups,snapshot:snap,lites:built,uniformCut:sameCut,setPendingMapping:snap.mappingPending});
 }
 
+/* По каким стёклам фактически идёт операция кромки.
+
+   Лами-полировка работает по СКЛЕЕННОЙ кромке: один проход по периметру, и
+   толщина у неё пакетная. Всё остальное на ламинате делается ДО склейки — по
+   каждой плите отдельно, то есть два прохода и банд прайса по толщине ПЛИТЫ.
+   Для 6+6 это 0.07+0.07 против 0.28 у Lami Polish, ровно как в прайсе.
+
+   У обычного лайта список из одной цели с прежней толщиной, поэтому в расчёте
+   начислений нет ветки «если ламинат»: сегодняшний счёт — её частный случай. */
+function salesEdgeOpThicknessTargets(lite,op){
+  var packMm=lite&&lite.thicknessMm!=null?lite.thicknessMm:null;
+  if(!lite)return [{thicknessMm:null,count:1}];
+  if(shapeIsLamiOnlyOp(op&&op.type))return [{thicknessMm:packMm,count:1}];
+  var plies=(Array.isArray(lite.plies)?lite.plies:[]).filter(function(p){return Number.isFinite(p.mm)&&p.mm>0;});
+  if(!plies.length)return [{thicknessMm:packMm,count:1}];
+  var seen={},out=[];
+  plies.forEach(function(p){
+    if(seen[p.mm]){seen[p.mm].count++;return;}
+    seen[p.mm]={thicknessMm:p.mm,count:1};out.push(seen[p.mm]);
+  });
+  return out;
+}
 function salesEdgeChargeMetaForServiceSet(op,ctx){
   var id='',label=op.type,rate=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}
   else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
   else return null;
-  return {id:id,label:label,rate:rate};
+  return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -390,23 +488,29 @@ salesLineChargeRows=function(line){
        учётом ступеньки лайта. Если рез заблокирован, счёт всё равно должен
        показывать работу — тогда работаем по снимку. */
     var plan=salesEffectiveCuttingPlan(line,shape,soDraft);
-    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,groups:l.groups};})
+    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,plies:l.plies,laminated:l.laminated,groups:l.groups};})
       :((snap.lites||[]).length?snap.lites:[{label:'',thicknessMm:null,groups:snap.groups}]);
-    var manyThickness=new Set(liteViews.map(function(l){return l.thicknessMm;})).size>1;
     /* Одинаковые операции с одинаковой ставкой складываются в одну строку счёта:
        у пакета 10 + 10 это 256″ ариса, а не две строки по 128″. Разные толщины
        остаются разными строками — у них разные ставки. */
     var acc=Object.create(null),order=[];
     liteViews.forEach(function(lite){
-      var liteCtx=lite.thicknessMm==null?ctx:salesPricingBandFor(lite.thicknessMm);
       lite.groups.forEach(function(group){group.ops.forEach(function(op){
-        var meta=salesEdgeChargeMetaForServiceSet(op,liteCtx);
-        if(!meta||!(group.length>0))return;
-        var key=meta.id+':'+liteCtx.band;
-        if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:liteCtx.band,mm:lite.thicknessMm,rate:meta.rate,length:0};order.push(key);}
-        acc[key].length+=group.length;
+        if(!(group.length>0))return;
+        salesEdgeOpThicknessTargets(lite,op).forEach(function(target){
+          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm);
+          var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
+          if(!meta)return;
+          var key=meta.id+':'+meta.bandKey;
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,length:0};order.push(key);}
+          acc[key].length+=group.length*(target.count||1);
+        });
       });});
     });
+    /* Уточнение толщины в ярлыке нужно, только когда строк с разной толщиной
+       больше одной. Считаем по СОБРАННЫМ строкам, а не по лайтам: у ламината
+       6+6 толщина лайта 12.76, а работа идёт по двум шестёркам. */
+    var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
       rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing'));
@@ -432,10 +536,14 @@ function salesApplySetOpsToShape(line,set){
      Массовое изменение идёт МОДИФИКАЦИЕЙ и не имеет права встать выше: оно
      заполняет только те кромки, где на форме ничего не задано. Раньше оно
      переписывало форму целиком и сносило поставленный вручную CNC. */
-  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false;
+  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false,lam=salesLineIsLaminated(line);
   edges.forEach(function(edge){
     if((ops[edge.id]||[]).length)return;
     var list=set.mode==='perimeter'?salesServiceOps(set.perimeter):salesServiceOps((set.sides&&set.sides[salesSideForPhysicalEdge(line,edge)])||[]);
+    /* Полировать склейку там, где её нет, цех не может — такую операцию из
+       рецепта отбрасываем, вместо того чтобы завести строку в непроходное
+       состояние. Остальное из набора ложится как обычно. */
+    if(!lam)list=list.filter(function(o){return !shapeIsLamiOnlyOp(o.type);});
     if(list.length){ops[edge.id]=salesServiceClone(list);wrote=true;}
   });
   shape.edgeOps=ops;
@@ -444,11 +552,93 @@ function salesApplySetOpsToShape(line,set){
   return wrote;
 }
 
+/* Ручной припуск по стороне. Живёт в ФОРМЕ, а не на строке заказа: форма
+   входит в отпечаток, поэтому правка честно помечает строку «форма
+   изменилась». На строке она поменяла бы размер реза молча — а это уже брак,
+   который никто не заметит. */
+function salesSetEdgeAllowance(lineId,edgeId,v){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesEnsureLineShape(line)||salesShapeByRef(line.shapeRef);if(!shape)return;
+  var t=String(v==null?'':v).trim(),map=Object.assign({},shape.edgeAllowances||{});
+  if(t){
+    var p=fabParseDimStrict(t);
+    /* Мусор и заведомо невозможный съём не принимаем: на экране остаётся
+       прежнее значение, молчаливого нуля не будет. */
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
+    map[edgeId]=t;
+  }else delete map[edgeId];
+  shape.edgeAllowances=map;
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesResetEdgeAllowances(lineId){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesShapeByRef(line.shapeRef);if(!shape)return;
+  if(!shape.edgeAllowances||!Object.keys(shape.edgeAllowances).length)return;
+  shape.edgeAllowances={};
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesHasEdgeAllowanceOverrides(line){
+  var shape=line&&salesShapeByRef(line.shapeRef);
+  return !!(shape&&shape.edgeAllowances&&Object.keys(shape.edgeAllowances).length);
+}
+/* Полировка склейки, оставшаяся на строке без ламината. Возвращает, сколько
+   операций снято. Правит и общую форму, и обработку по лайтам. */
+function salesShapeDropLamiOps(shape){
+  if(!shape)return 0;
+  var dropped=0;
+  function clean(map){
+    var src=salesServicePlain(map),out={};
+    Object.keys(src).forEach(function(id){
+      var list=salesServiceOps(src[id]).filter(function(o){
+        if(shapeIsLamiOnlyOp(o.type)){dropped++;return false;}
+        return true;
+      });
+      if(list.length)out[id]=list;
+    });
+    return out;
+  }
+  shape.edgeOps=clean(shape.edgeOps);
+  var lites=salesServicePlain(shape.lites);
+  Object.keys(lites).forEach(function(k){
+    var spec=lites[k];if(spec&&typeof spec==='object')spec.edgeOps=clean(spec.edgeOps);
+  });
+  if(dropped)shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  return dropped;
+}
+/* Смена типа лайта или состава юнита убирает полировку склейки: склеивать
+   больше нечего. Без этого операция оставалась в форме и держала строку в
+   непроходном состоянии «Lami op on plain lite» — выйти можно было только сняв
+   её вручную с каждой кромки, а причина при этом уже не была видна. */
+function salesSyncLamiOpsForMakeup(makeupId){
+  if(!soDraft||!makeupId)return 0;
+  var dropped=0;
+  (soDraft.lines||[]).forEach(function(line){
+    if(line.makeupId!==makeupId||salesLineIsLaminated(line))return;
+    var shapes=[salesShapeByRef(line.shapeRef)];
+    (salesLineLites(line)||[]).forEach(function(l){
+      var own=salesLineLiteShape(line,l.index);if(own)shapes.push(own);
+    });
+    var n=0;
+    shapes.forEach(function(s){if(s)n+=salesShapeDropLamiOps(s);});
+    if(n){
+      dropped+=n;
+      var main=salesShapeByRef(line.shapeRef);
+      if(main)line.shapeRef=normalizeShapeRef({id:main.id,revision:main.revision});
+    }
+  });
+  return dropped;
+}
 function salesLineServiceStatus(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
+  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
+  if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
@@ -457,7 +647,7 @@ function salesLineServiceStatus(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -467,6 +657,11 @@ function salesLostOverrideEdges(line){
 
 function salesApplyLineEdgeOperation(line,edgeId,type,on){
   var shape=salesLineGeometryShape(line);if(!shape)return {ok:false,reason:'Line has no geometry.'};
+  /* Ставить полировку склейки некуда, если склейки нет. Отказ с причиной —
+     вызывающий её показывает; молчаливое согласие увело бы в производство
+     операцию, которую не выполнить. */
+  if(on&&shapeIsLamiOnlyOp(type)&&!salesLineLites(line).some(function(l){return l.laminated;}))
+    return {ok:false,reason:type+' applies to a laminated lite only. This line has no laminated glass.'};
   if(!line.serviceOverrides)line.serviceOverrides={pinnedTopology:'',edges:{}};
   var base=salesServiceClone(line);base.serviceOverrides={pinnedTopology:'',edges:{}};
   var baseSnap=salesEffectiveProductionSnapshot(base,shape,soDraft),curSnap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!baseSnap.valid||!curSnap.valid)return {ok:false,reason:curSnap.reason||baseSnap.reason};

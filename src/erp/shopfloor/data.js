@@ -94,7 +94,8 @@ DEFAULT.operation=[
  {code:'miter',              station:'EDGE', name:'Митра',                        nameEn:'Mitering',                 stage:'pre_temper',  unit:'in',  note:''},
  {code:'bevel',              station:'EDGE', name:'Фацет',                        nameEn:'Beveling',                 stage:'pre_temper',  unit:'in',  note:''},
  {code:'cnc_shape_polish',   station:'EDGE', name:'Полировка фигурной кромки',    nameEn:'CNC shape polishing',      stage:'pre_temper',  unit:'in',  note:'кромка, но выполняется на ЧПУ — поэтому рабочее место служит двум станциям'},
- {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
+ {code:'lami_polish',        station:'EDGE', name:'Полировка кромки ламината',    nameEn:'Lami polishing',           stage:'post_temper', unit:'in',  afterMerge:true, note:'прямая кромка склеенного пакета на ОБЫЧНОМ полировочном станке: его настраивают под толщину пакета и направление. Только ПОСЛЕ склейки'},
+ {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  afterMerge:true, note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
  {code:'fabrication',        station:'FAB',  name:'Обработка тела стекла',        nameEn:'Fabrication',              stage:'pre_temper',  unit:'pcs', note:'отверстия · ноч · вырезы · радиусы · посадочные места под петли и клемы'},
  {code:'ceramic_frit',       station:'CERP', name:'Керамический фрит',            nameEn:'Ceramic frit',             stage:'pre_temper',  unit:null,  note:'из STATIONS.csv: 3 узора. Рабочего места нет — силкскрин переносится на этапе 5б'},
  {code:'digital_print',      station:'CERP', name:'Цифровая керамическая печать', nameEn:'Digital ceramic print',    stage:'pre_temper',  unit:null,  note:'из STATIONS.csv. Рабочего места нет — силкскрин переносится на этапе 5б'},
@@ -130,9 +131,9 @@ DEFAULT.workPosition=[
  {code:'CUT2',    station:'CUT',  name:'Резка 2',                  nameEn:'Cutting 2',          kind:'machine',operations:['cutting'],                                             defaultOperator:'bairon', defaultHelper:'loie',   maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
  {code:'ARRIS-H', station:'EDGE', name:'Притупление ручное',       nameEn:'Manual arrising',    kind:'manual', operations:['arris_hand'],                                          defaultOperator:'jorje',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'станка нет — руки; габарит не нужен'},
  {code:'ARRIS-M', station:'EDGE', name:'Притупление машинное',     nameEn:'Machine arrising',   kind:'machine',operations:['arris_machine'],                                       defaultOperator:'artur',  defaultHelper:'jose',   maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
  {code:'MITER1',  station:'EDGE', name:'Митра',                    nameEn:'Miter',              kind:'machine',operations:['miter'],                                               defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
  {code:'BEVEL1',  station:'EDGE', name:'Фацетный станок',          nameEn:'Beveling',           kind:'machine',operations:['bevel'],                                               defaultOperator:'',       defaultHelper:'',       maxW:70,  maxL:100, batchMode:'single',note:'габарит был известен — проверить'},
  {code:'CNC1',    station:'FAB',  name:'ЧПУ 1',                    nameEn:'CNC 1',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'joseph', defaultHelper:'',       maxW:60,  maxL:122, batchMode:'single',note:'служит ДВУМ станциям: FAB и EDGE. Габарит проверить'},
@@ -167,6 +168,25 @@ DEFAULT.workPosition=[
    строками. Пустая таблица с CRUD — честное состояние: модель готова,
    данные заводятся из цеха. */
 DEFAULT.terminal=[];
+
+/* Припуск на рез — цеховой факт про съём материала станком, поэтому таблица
+   живёт рядом с операциями. Заводские строки берутся у модуля Shape: он же по
+   ним и считает, и второй сид разошёлся бы с первым при первой же правке.
+   Владелец меняет значения в Справочниках — «делаем по памяти» перестаёт быть
+   единственным местом, где эти цифры записаны. */
+DEFAULT.edgeAllowance=ShapeModule.allowanceDefaults();
+
+/* Таблица уезжает в модуль: сам он про DB ничего не знает и знать не должен,
+   а считать обязан по тем же строкам, что показаны в справочнике. Вызывается
+   из normalizeShopFloor, то есть на загрузке, пересеве и импорте разом. */
+function normalizeEdgeAllowance(){
+ DB.edgeAllowance=(Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[]).filter(r=>r&&typeof r==='object');
+ if(!DB.edgeAllowance.length)DB.edgeAllowance=ShapeModule.allowanceDefaults();
+ const rows=ShapeModule.setAllowanceTable(DB.edgeAllowance);
+ /* Пустая или сплошь битая таблица — не повод блокировать рез: модуль
+    откатывается на заводские строки, и это видно в справочнике. */
+ return rows;
+}
 
 /* ---------------------------------------------------------------------
    Выведенные связи. Ничего не хранят — считают из уже введённого.
@@ -218,7 +238,20 @@ function terminalStations(t){
    заводской. Ронять загрузку он при этом не имеет права — иначе до пересева
    дело не дойдёт вообще.
    --------------------------------------------------------------------- */
+function reseedEdgeAllowance(){
+ const factory=ShapeModule.allowanceDefaults(),have=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[];
+ const mine=Object.create(null);have.forEach(r=>{if(r&&r.id)mine[r.id]=r;});
+ const out=[],seen=Object.create(null);
+ factory.forEach(f=>{
+  seen[f.id]=true;
+  const was=mine[f.id];
+  out.push(was&&was.allowance!=null?Object.assign({},f,{allowance:String(was.allowance)}):Object.assign({},f));
+ });
+ have.forEach(r=>{if(r&&r.id&&!seen[r.id])out.push(r);});
+ DB.edgeAllowance=out;
+}
 function normalizeShopFloor(){
+ normalizeEdgeAllowance();
  const seen=Object.create(null);
  DB.station=(Array.isArray(DB.station)?DB.station:[]).filter(s=>{
   if(!s||typeof s!=='object')return false;
@@ -242,6 +275,12 @@ function normalizeShopFloor(){
    name:sfStr(o.name),nameEn:sfStr(o.nameEn),
    stage:SF_STAGES.includes(o.stage)?o.stage:'any',
    unit:SF_UNITS.includes(o.unit)?o.unit:null,
+   /* «После склейки» — не то же самое, что «после печи»: ламинация и сборка
+      пакета тоже post_temper, но по другой причине. Отдельный признак говорит
+      маршруту, что операция идёт ПОСЛЕ точки слияния компонентов. Без него в
+      этом белом списке поле стиралось бы при каждой загрузке, и маршрут
+      ломался бы только у пользователя, а не в тестах на заводских данных. */
+   afterMerge:o.afterMerge===true,
    note:sfStr(o.note)
   };
  });

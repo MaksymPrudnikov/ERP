@@ -26,6 +26,10 @@ function shapeFingerprint(def){
   /* Preserve every legacy fingerprint when no PR2 items exist. Once a
      manufacturing annotation is added, it becomes part of the Shape revision. */
   if(def.manufacturingItems&&def.manufacturingItems.length)payload.manufacturingItems=def.manufacturingItems;
+  /* Ручной припуск входит в отпечаток, только когда он задан: безусловное поле
+     переклеймило бы каждую сохранённую форму и разом пометило все строки
+     заказов устаревшими. То же правило, что у manufacturingItems выше. */
+  if(def.edgeAllowances&&Object.keys(def.edgeAllowances).length)payload.edgeAllowances=def.edgeAllowances;
   var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }

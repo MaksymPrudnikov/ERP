@@ -3,9 +3,9 @@ CUT1,CUT,Cutting 1,Резка 1,machine,cutting,squidly,ricardo,,,single,сня�
 CUT2,CUT,Cutting 2,Резка 2,machine,cutting,bairon,loie,,,single,снять рабочее поле стола
 ARRIS-H,EDGE,Manual arrising,Притупление ручное,manual,arris_hand,jorje,,,,single,станка нет — руки; габарит не нужен
 ARRIS-M,EDGE,Machine arrising,Притупление машинное,machine,arris_machine,artur,jose,,,single,снять габарит
-POL1,EDGE,Flat polishing 1,Полировка прямой кромки 1,machine,polish,erik,,,,single,снять габарит
-POL2,EDGE,Flat polishing 2,Полировка прямой кромки 2,machine,polish,djima,,,,single,снять габарит
-POL3,EDGE,Flat polishing 3,Полировка прямой кромки 3,machine,polish,huan,,,,single,снять габарит
+POL1,EDGE,Flat polishing 1,Полировка прямой кромки 1,machine,"polish,lami_polish",erik,,,,single,снять габарит
+POL2,EDGE,Flat polishing 2,Полировка прямой кромки 2,machine,"polish,lami_polish",djima,,,,single,снять габарит
+POL3,EDGE,Flat polishing 3,Полировка прямой кромки 3,machine,"polish,lami_polish",huan,,,,single,снять габарит
 MITER1,EDGE,Miter,Митра,machine,miter,erik,,,,single,снять габарит
 BEVEL1,EDGE,Beveling,Фацетный станок,machine,bevel,,,70,100,single,габарит был известен — проверить
 CNC1,FAB,CNC 1,ЧПУ 1,machine,"fabrication,cnc_shape_polish,cnc_lami_polish",joseph,,60,122,single,служит ДВУМ станциям: FAB и EDGE. Габарит проверить
