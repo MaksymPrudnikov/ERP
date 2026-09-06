@@ -265,7 +265,10 @@ function shapeNormalizeLiteSpecs(raw){
     /* Зеркало: то же стекло, перевёрнутое. Нужно, когда Low-E оказывается на
        поверхности №2 — фигура та же, но её надо показать зеркально. */
     var mirror=spec.mirror===true;
-    if(mirror||Object.keys(inset).length||Object.keys(ops).length)out[String(key)]={inset:inset,edgeOps:ops,mirror:mirror};
+    /* Ручной припуск лайта: у ламината 6+10 стороны доводят по-разному, и
+       правка принадлежит конкретному стеклу, а не всей строке. */
+    var allow=shapeNormalizeAllowanceEdges(spec.edgeAllowances);
+    if(mirror||Object.keys(inset).length||Object.keys(ops).length||Object.keys(allow).length)out[String(key)]={inset:inset,edgeOps:ops,mirror:mirror,edgeAllowances:allow};
   });
   return out;
 }
@@ -321,6 +324,7 @@ function normalizeShapeDef(s){
        ввод по конкретным кромкам, как обработка в Edge Set. */
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
+    edgeAllowances:shapeNormalizeAllowanceEdges(s.edgeAllowances),
     /* Форма, заведённая автоматически по Width × Height строки заказа,
        принадлежит этой строке: в библиотеке форм её не показывают и живёт она
        ровно столько, сколько живёт строка. */

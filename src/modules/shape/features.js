@@ -87,7 +87,27 @@ function shapeThicknessMm(def){var v=Number(String(def&&def.thickness==null?'':d
 function shapeOperationAllowance(type,th){var r=shapeProductionAllowanceRule(type,th);return r.ok?(+r.value||0):0;}
 function shapePolishAllowance(th){return shapeOperationAllowance('Flat Polish',th);}
 function shapeEdgeOps(def,id){return (def.edgeOps&&def.edgeOps[id])||[];}
+/* Ручной припуск на кромке. Строка в дюймах по id кромки — то же хранение и
+   тот же строгий парсер, что у safetyBorderEdges: это тоже цеховое число,
+   принадлежащее форме.
+
+   Читается ПЕРВЫМ и ПО НАЛИЧИЮ КЛЮЧА, а не по значению: ноль здесь законен
+   (арис контур не съедает), и проверка «больше нуля» молча вернула бы кромку
+   к табличному припуску. Через это поле ERP передаёт и припуск по ПЛИТЕ
+   ламината: у склейки 6+6 на столе лежат две шестёрки, а не один кусок
+   12.76 мм, и таблица по суммарной толщине дала бы втрое больший съём. */
+function shapeEdgeAllowanceOverride(def,edgeId,parentEdges){
+  var raw=(def&&def.edgeAllowances)||{},ids=[edgeId].concat(parentEdges||[]);
+  for(var i=0;i<ids.length;i++){
+    if(!Object.prototype.hasOwnProperty.call(raw,ids[i]))continue;
+    var p=fabParseDimStrict(raw[ids[i]]==null?'':raw[ids[i]]);
+    if(p.ok&&p.v>=0)return p.v;
+  }
+  return null;
+}
 function shapeEdgeAllowance(def,edge){
+  var ov=shapeEdgeAllowanceOverride(def,edge.id,edge.parentEdges);
+  if(ov!=null)return ov;
   var th=shapeThicknessMm(def),ops=shapeEdgeOps(def,edge.id).slice();
   if(edge.parentEdges)edge.parentEdges.forEach(function(id){ops=ops.concat(shapeEdgeOps(def,id));});
   var vals=ops.map(function(op){return shapeOperationAllowance(op.type,th);});return vals.length?Math.max.apply(null,vals):0;
@@ -122,6 +142,17 @@ function shapeEdgeNeedsBorder(edge,a,b){
    парсером, что Width/Height: «1 1/2», «1-1/2», «1/2», «1.5».
    Считается по подготовленному контуру резки; у legacy post-edge notch это
    контур после его снятия, а у Custom Shape — точный пользовательский контур. */
+/* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
+   Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
+   поле навсегда прибивало бы припуск к нулю. */
+function shapeNormalizeAllowanceEdges(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
+    var t=String(raw[id]==null?'':raw[id]).trim();
+    if(t)out[String(id)]=t;
+  });
+  return out;
+}
 function shapeNormalizeBorderEdges(raw){
   var out={};
   if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){

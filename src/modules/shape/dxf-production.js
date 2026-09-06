@@ -78,9 +78,28 @@ function shapeValidateEdgeOperations(ops,edgeId){
    кода их вывести нельзя.
    Rough Arris = 0 ВСЕГДА: ручная зачистка фаски контур не съедает, она только
    делает кромку безопасной, поэтому лист под неё не увеличивается никогда. */
-function shapeProductionAllowanceRule(op,thicknessMm){
+/* Ламинат меряется по ПЛИТЕ: под инструментом лежит отдельное стекло, а не
+   кусок суммарной толщины. Цифры владельца: 6+6 → 1/16, 8+8 · 10+10 · 12+12 →
+   1/8 на сторону. С монолитом таблицы расходятся на двенадцати миллиметрах
+   (1/8 против 3/16), поэтому признак scope обязателен, а не удобен.
+   Верхний банд открыт: без этого 10+10 и 12+12 блокировали рез вовсе. */
+function shapeLaminatedAllowanceRule(type,mm){
+  if(!(mm>0))return null;
+  if(mm<=6)return {ok:true,value:1/16};
+  if(mm>=8)return {ok:true,value:1/8};
+  return null;
+}
+function shapeProductionAllowanceRule(op,thicknessMm,scope){
   var type=typeof op==='string'?op:(op&&op.type)||'',mm=Number(thicknessMm);
   if(type==='Rough Arris')return {ok:true,value:0};
+  /* Полировка склеенной кромки существует только на ламинате и всегда идёт по
+     ламинатной таблице — у ЧПУ-варианта своего съёма нет, владелец назвал его
+     «так же как у прошлого лами полиш». */
+  if(scope==='lami'||shapeIsLamiOnlyOp(type)){
+    var lam=shapeLaminatedAllowanceRule(type,mm);
+    if(lam)return lam;
+    if(shapeIsLamiOnlyOp(type))return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
+  }
   /* Толстое стекло полируется с большим съёмом: до 15 mm — 1/4", 15–19 — 1/2". */
   if(type==='CNC Shape Polish'){
     if(mm>=15&&mm<=19)return {ok:true,value:.5};
@@ -96,6 +115,13 @@ function shapeProductionAllowanceRule(op,thicknessMm){
   return {ok:true,value:0};
 }
 
+/* Припуск кромки на производственном пути: ручная правка сильнее таблицы и
+   СНИМАЕТ блокировку «правило не заведено» — цех уже назвал число сам. */
+function shapeProductionAllowanceForEdge(def,edgeId,ops,thicknessMm,parentEdges){
+  var ov=shapeEdgeAllowanceOverride(def,edgeId,parentEdges);
+  if(ov!=null)return {ok:true,value:ov,manual:true};
+  return shapeProductionAllowanceForOps(ops,thicknessMm);
+}
 function shapeProductionAllowanceForOps(ops,thicknessMm){
   var max=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
   for(var i=0;i<list.length;i++){
@@ -179,7 +205,7 @@ function shapeValidateDxfProduction(def,edges){
   Object.keys(def.edgeOps||{}).forEach(function(id){
     if(!ids[id]){errors.push('Edge processing references missing DXF edge '+id+'.');return;}
     var v=shapeValidateEdgeOperations(shapeEdgeOps(def,id),id);if(!v.ok)errors.push(v.reason);
-    if(isFinite(th))shapeEdgeOps(def,id).forEach(function(op){var r=shapeProductionAllowanceRule(op,th);if(!r.ok)errors.push('Edge '+id+': '+r.reason);});
+    if(isFinite(th)&&shapeEdgeAllowanceOverride(def,id)==null)shapeEdgeOps(def,id).forEach(function(op){var r=shapeProductionAllowanceRule(op,th);if(!r.ok)errors.push('Edge '+id+': '+r.reason);});
   });
   if(!isFinite(th)||!(th>0))errors.push('Shape thickness must be a positive number for DXF cutting.');
   (def.manufacturingItems||[]).forEach(function(item){
@@ -214,7 +240,7 @@ function shapeDxfCuttingPlan(def){
   if(v.errors.length)return {valid:false,error:v.errors[0],errors:v.errors,warns:v.warns};
   var groups=[],allowances=[];
   for(var i=0;i<edges.length;i++){
-    var e=edges[i],ar=shapeProductionAllowanceForOps(shapeEdgeOps(def,e.id),th);
+    var e=edges[i],ar=shapeProductionAllowanceForEdge(def,e.id,shapeEdgeOps(def,e.id),th,e.parentEdges);
     if(!ar.ok)return {valid:false,error:ar.reason,errors:[ar.reason]};
     allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
   }

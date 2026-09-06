@@ -251,12 +251,31 @@ function salesEffectiveBorderPlan(shape,mm,finishedPoints,edgeIds,edgeTypes,cutt
   var plan=shapeSafetyBorderPlan(def,finishedPoints||[],edgeIds||[],edgeTypes||{});
   return {border:plan,footprint:shapeBorderFootprint(cuttingPoints||[],plan)};
 }
+/* Припуск кромки лайта. Считается по СТЕКЛУ, которое лежит под инструментом:
+   у ламината это плита — и когда её полируют по одной до склейки, и когда
+   доводят составную кромку после. Суммарные 12.76 мм у 6+6 давали 3/16 вместо
+   1/16, то есть рез на четверть дюйма крупнее по каждой оси.
+
+   Плиты разной толщины (6+10) дают разные припуски — берём БОЛЬШИЙ: недорез
+   необратим, лишнее снимается. Расхождение видно в карточке кромки, и там же
+   его правят руками по стороне. */
+function salesLiteAllowanceForOps(lite,ops,mm){
+  var list=salesServiceOps(ops);
+  if(!list.length)return {ok:true,value:0};
+  var lam=!!(lite&&lite.laminated),th=lam&&lite.allowanceMm!=null?lite.allowanceMm:mm,best=0,r;
+  for(var i=0;i<list.length;i++){
+    r=ShapeModule.productionAllowanceRule(list[i],th,lam?'lami':'mono');
+    if(!r.ok)return r;
+    best=Math.max(best,+r.value||0);
+  }
+  return {ok:true,value:best};
+}
 /* Контур одного лайта: та же геометрия, свои припуски. Три ветки — простой
    прямоугольник строки, внешний DXF и рассчитанная форма. */
-function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
+function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
   var i,ar;
   for(i=0;i<groups.length;i++){
-    ar=ShapeModule.productionAllowanceForOps(groups[i].ops,mm);
+    ar=salesLiteAllowanceForOps(lite,groups[i].ops,mm);
     if(!ar.ok)return {valid:false,reason:ar.reason,allowanceRuleMissing:true};
     groups[i].allowance=ar.value;
   }
@@ -285,6 +304,12 @@ function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
   }
   var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
   groups.forEach(function(group){if(group.ops.length)effective.edgeOps[group.id]=salesServiceOps(group.ops);});
+  /* ShapeModule считает контур реза сам и берёт припуск от ОДНОЙ скалярной
+     толщины — посчитанные выше значения по плите иначе никуда бы не доехали.
+     Отдаём их полем формы: нотчи, дуги и подготовка контура при этом работают
+     прежним путём, без второго механизма переменного офсета. */
+  effective.edgeAllowances={};
+  groups.forEach(function(group){effective.edgeAllowances[group.id]=String(group.allowance||0);});
   var result=ShapeModule.compute(effective);
   if(!result||!result.valid)return {valid:false,reason:(result&&((result.errors&&result.errors[0])||result.reason))||'Effective Shape cutting failed.'};
   return {valid:true,external:false,effective:effective,result:result,finishedPoints:result.cutting.finishedPoints,cuttingPoints:result.cutting.points,finishedW:result.width,finishedH:result.height,cutW:result.cutting.width,cutH:result.cutting.height,perimeter:result.cutting.perimeter||fabPolylineLength(result.cutting.finishedPoints,true),safetyBorder:result.cutting.safetyBorder,footprint:result.cutting.footprint};
@@ -337,7 +362,7 @@ function salesEffectiveCuttingPlan(line,shape,order){
     /* Своя форма лайта считается сама по себе; отступ применяется только к
        лайтам, живущим на общей форме. */
     var liteShape=lite.shape||shape;
-    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index);
+    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index,lite);
     if(!contour.valid)return {valid:false,blocked:true,reason:lite.label+': '+contour.reason,groups:snap.groups,snapshot:snap,allowanceRuleMissing:contour.allowanceRuleMissing,tangentAllowanceConflict:contour.tangentAllowanceConflict};
     /* Зеркало не меняет ни размеры, ни припуски — только сторону, с которой
        стекло приходит на стол. */

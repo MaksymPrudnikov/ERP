@@ -235,9 +235,12 @@ function shapeValidateComputed(def,geo,fg){
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
       if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)finishes++;
-      if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'){
-        thicknessNeeded=true;
-        if(th>0&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
+      if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'||shapeIsLamiOnlyOp(op.type)){
+        /* Ручной припуск на кромке отвечает за неё сам: цех назвал число, и
+           отсутствие строки в таблице больше не блокирует рез. */
+        var manual=shapeEdgeAllowanceOverride(def,id)!=null;
+        if(!manual)thicknessNeeded=true;
+        if(!manual&&th>0&&shapeOperationAllowance(op.type,th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
       }
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
