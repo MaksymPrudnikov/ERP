@@ -585,6 +585,53 @@ function salesHasEdgeAllowanceOverrides(line){
   var shape=line&&salesShapeByRef(line.shapeRef);
   return !!(shape&&shape.edgeAllowances&&Object.keys(shape.edgeAllowances).length);
 }
+/* Полировка склейки, оставшаяся на строке без ламината. Возвращает, сколько
+   операций снято. Правит и общую форму, и обработку по лайтам. */
+function salesShapeDropLamiOps(shape){
+  if(!shape)return 0;
+  var dropped=0;
+  function clean(map){
+    var src=salesServicePlain(map),out={};
+    Object.keys(src).forEach(function(id){
+      var list=salesServiceOps(src[id]).filter(function(o){
+        if(shapeIsLamiOnlyOp(o.type)){dropped++;return false;}
+        return true;
+      });
+      if(list.length)out[id]=list;
+    });
+    return out;
+  }
+  shape.edgeOps=clean(shape.edgeOps);
+  var lites=salesServicePlain(shape.lites);
+  Object.keys(lites).forEach(function(k){
+    var spec=lites[k];if(spec&&typeof spec==='object')spec.edgeOps=clean(spec.edgeOps);
+  });
+  if(dropped)shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  return dropped;
+}
+/* Смена типа лайта или состава юнита убирает полировку склейки: склеивать
+   больше нечего. Без этого операция оставалась в форме и держала строку в
+   непроходном состоянии «Lami op on plain lite» — выйти можно было только сняв
+   её вручную с каждой кромки, а причина при этом уже не была видна. */
+function salesSyncLamiOpsForMakeup(makeupId){
+  if(!soDraft||!makeupId)return 0;
+  var dropped=0;
+  (soDraft.lines||[]).forEach(function(line){
+    if(line.makeupId!==makeupId||salesLineIsLaminated(line))return;
+    var shapes=[salesShapeByRef(line.shapeRef)];
+    (salesLineLites(line)||[]).forEach(function(l){
+      var own=salesLineLiteShape(line,l.index);if(own)shapes.push(own);
+    });
+    var n=0;
+    shapes.forEach(function(s){if(s)n+=salesShapeDropLamiOps(s);});
+    if(n){
+      dropped+=n;
+      var main=salesShapeByRef(line.shapeRef);
+      if(main)line.shapeRef=normalizeShapeRef({id:main.id,revision:main.revision});
+    }
+  });
+  return dropped;
+}
 function salesLineServiceStatus(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};

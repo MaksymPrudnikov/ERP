@@ -2642,6 +2642,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {lamOps:{A:['Lami Polish'],B:['Flat Polish']},lamValid:true,
              plainOps:{A:[],B:['Flat Polish']},plainValid:true,setHasLami:true});
 
+    /* Ушла склейка — уходит и полировка склейки. Иначе операция оставалась в
+       форме и держала строку в «Lami op on plain lite» навсегда: выйти можно
+       было только сняв её вручную с каждой кромки. */
+    eq('смена типа лайта убирает полировку склейки', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      const put=()=>{lam(6,6);ops('Lami Polish');if(typeof salesSelectMakeup==='function')salesSelectMakeup(m.id);};
+      const state=()=>({status:salesLineServiceStatus(line).key,
+                        ops:(salesLineGeometryShape(line).edgeOps.A||[]).map(o=>o.type)});
+      put();const onLam=state();
+      salesSetPaneCategory(0,'vision');
+      const afterCategory=state();
+      put();
+      salesSetUnitType('double');salesSetPaneCategory(0,'vision');
+      const afterUnit=state();
+      return {onLam:onLam,afterCategory:afterCategory,afterUnit:afterUnit};
+    })()`), {onLam:{status:'shape',ops:['Lami Polish']},
+             afterCategory:{status:'ready',ops:[]},
+             afterUnit:{status:'ready',ops:[]}});
+
     /* Припуск правится и в форме, и в строке заказа — это ОДНО значение:
        оно живёт в форме, поэтому попадает в отпечаток и рез не меняется молча. */
     eq('припуск из редактора формы доезжает до строки заказа', await t.p.evaluate(`(()=>{${LAM_SETUP}

@@ -88,7 +88,7 @@ function shapeProdAllowanceField(){
       `</div>`;
   }).join('');
   return `<div class='shape-prod-cutallow'>
-    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' title='${esc(tx(lam
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Ламинат: съём считается по ПЛИТЕ склейки':'Припуск на рез'))}' data-hint='${esc(tx(lam
       ? 'Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.'
       : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'))}'>?</span></div></div>
     <div class='shape-allow-rows'>${rows}</div>
@@ -153,7 +153,9 @@ function shapeProdBorderField(){
       `</div>`;
   }).join('');
   return `<div class='shape-prod-border'>
-    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' title='${esc(plan.manualRequired
+    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(plan.manualRequired
+      ? 'No automatic value for this thickness — enter the border manually.'
+      : 'Automatic on angled/curved edges · override any physical edge.')}' data-hint='${esc(plan.manualRequired
       ? 'No automatic value for this thickness — enter the border manually.'
       : 'Automatic on angled/curved edges · override any physical edge.')}'>?</span></div></div>
     <div class='shape-border-rows'>${rows}</div>
