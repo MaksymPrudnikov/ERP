@@ -79,18 +79,19 @@ function shapeProdAllowanceField(){
   var rows=groups.slice().sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(g){
     var id=String(g.id),auto=shapeProdAllowanceAuto(id),v=ov[id]==null?'':String(ov[id]);
     var manual=v!=='';
-    var tag=manual?`<span class='pill warn'>OVERRIDE</span>`:(auto.ok?`<span class='pill ok'>AUTO</span>`:`<span class='pill bad'>NO RULE</span>`);
+    var state=manual?'manual':(auto.ok?'auto':'norule');
+    var tag=`<span class='shape-state-word'>${state==='manual'?'OVERRIDE':state==='auto'?'AUTO':'NO RULE'}</span>`;
     var shown=manual?fabParseDimStrict(v):null;
     var eff=manual?(shown&&shown.ok?shown.v:null):(auto.ok?auto.value:null);
-    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span>${esc(dimIn16(g.length||0))}</span></div>`+
+    return `<div class='shape-allow-row is-${state}'><div class='shape-allow-edge'><b>${esc(edgeNames[id]||id)}</b><span>${esc(dimIn16(g.length||0))}</span>${tag}</div>`+
       `<input value='${esc(v)}' placeholder='${esc(auto.ok?dimIn16(auto.value):'—')}' onchange='setShapeEdgeAllowanceEdge("${esc(id)}",this.value)'>`+
-      `<div class='shape-border-state'>${tag}<i>${eff!=null&&eff>0?esc(dimIn16(eff)):''}</i></div></div>`;
+      `</div>`;
   }).join('');
-  return `<div class='shape-prod-border'>
-    <div class='shape-border-summary'><div class='shape-border-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}</div><small>${lam
+  return `<div class='shape-prod-cutallow'>
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' title='${esc(tx(lam
       ? 'Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.'
-      : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'}</small></div>
-    <div class='shape-border-rows'>${rows}</div>
+      : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'))}'>?</span></div></div>
+    <div class='shape-allow-rows'>${rows}</div>
   </div>`;
 }
 /* Правка сразу поднимает ревизию формы: размер реза меняться молча не имеет
@@ -139,17 +140,22 @@ function shapeProdBorderField(){
   var edgeNames=shapeEdgeNames(shapeDraftGeometry());
   var rows=shownEdges.sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
-    var tag=e.excluded?`<span class='pill'>POST</span>`:e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
-      :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
+    /* Состояние — просто слово в строке с буквой, а цвет несёт сама карточка:
+       пилюля со своим фоном рядом с зелёной подсветкой читалась как второй
+       элемент управления. */
+    var state=e.excluded?'post':e.state==='OVERRIDE'?'manual':e.angled?'auto':'off';
+    var tag=`<span class='shape-state-word'>${state==='post'?'POST':state==='manual'?'MANUAL':state==='auto'?'AUTO':'—'}</span>`;
     var label=shapeBorderEdgeLabel(id);
-    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
-      (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
-      `<div class='shape-border-state'>${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div></div>`;
+    /* Состояние стоит рядом с буквой стороны: отдельной строкой под полем оно
+       занимало треть карточки, а применяемое значение и так видно в поле. */
+    return `<div class='shape-border-row is-${state}'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span>${tag}</div>`+
+      (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.value>0?dimIn16(e.value):(e.angled?dimIn16(plan.base):'—'))}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
+      `</div>`;
   }).join('');
   return `<div class='shape-prod-border'>
-    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}</div><small>${plan.manualRequired
+    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' title='${esc(plan.manualRequired
       ? 'No automatic value for this thickness — enter the border manually.'
-      : 'Automatic on angled/curved edges · override any physical edge.'}</small></div>
+      : 'Automatic on angled/curved edges · override any physical edge.')}'>?</span></div></div>
     <div class='shape-border-rows'>${rows}</div>
   </div>`;
 }
