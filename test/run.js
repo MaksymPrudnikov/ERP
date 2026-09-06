@@ -2619,8 +2619,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       DB.edgeAllowance=ShapeModule.allowanceDefaults();normalizeEdgeAllowance();
       out.restored=r('Flat Polish',12);
       return out;
-    }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,restored:0.1875,
-         keptEdit:0.21875,keptOwn:0.625,factory:0.0625});
+    }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,
+         keptEdit:0.21875,keptOwn:0.625,factory:0.0625,restored:0.1875});
 
     /* Набор — рецепт на много строк, makeup он не знает. Лами-полировка в нём
        есть, но ложится только на строки со склейкой: на обычном стекле её
