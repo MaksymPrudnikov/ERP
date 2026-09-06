@@ -263,7 +263,9 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-view-tabs .shape-metric-toggle{flex:0 0 30px;width:30px;padding:5px;color:#667085}.shape-view-tabs .shape-metric-toggle svg{display:block;width:17px;height:17px;margin:auto}.shape-view-tabs .shape-metric-toggle.on{background:#d9f2fb;color:#155b75;box-shadow:inset 0 0 0 1px #8ecadd,0 1px 4px rgba(20,80,105,.12)}.shape-view-tabs .shape-metric-toggle:disabled{opacity:.32;cursor:default}
 .shape-metric-movable{cursor:pointer}.shape-metric-movable:hover text{fill:#344054}.shape-metric-movable.active text{fill:#101828}.shape-metric-menu{pointer-events:auto}
 .shape-inch-primary-movable{cursor:pointer}.shape-inch-primary-movable:hover text{fill:#344054}.shape-inch-primary-movable.active text{fill:#101828}.shape-inch-primary-menu{pointer-events:auto}
-.shape-accordion{padding-top:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.shape-accordion-head{width:100%;border:0;border-radius:0;background:#f8fafb;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}.shape-accordion-head:hover{background:#f3f7f9;border:0}.shape-accordion-head>span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.shape-accordion-head b{font-size:11px}.shape-accordion-head small{font-size:9px;color:var(--mut);font-weight:400}.shape-accordion-state{display:flex;align-items:center;gap:9px;white-space:nowrap;color:var(--mut);font-size:9.5px}.shape-accordion-state i{width:22px;height:22px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;color:#315f78;font-size:15px;font-style:normal;line-height:1}.shape-accordion-body{padding:9px;border-top:1px solid var(--line2)}.shape-edgework-scroll{overflow-x:hidden;border-top:1px solid var(--line2)}.shape-edgework-matrix{min-width:0}.shape-edgework-row{display:grid;grid-template-columns:minmax(62px,1.15fr) repeat(5,minmax(0,1fr));gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line2)}.shape-edgework-row:last-child{border-bottom:0}.shape-edgework-labels{padding-top:5px;padding-bottom:4px;background:#fbfcfd;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em;text-align:center}.shape-edgework-labels span:first-child{text-align:left}.shape-edge-code{display:flex;align-items:center;gap:7px;min-width:0}.shape-edge-code b{font:11px ui-monospace,monospace;color:#1d2939;overflow:hidden;text-overflow:ellipsis}.shape-edge-code small{color:var(--mut);font:9px ui-monospace,monospace;white-space:nowrap}.shape-op-compact{min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid transparent;border-radius:6px;padding:5px 3px;color:#667085;font-size:8.5px;cursor:pointer}.shape-op-compact:hover{border-color:var(--line);background:#fff}.shape-op-compact.on{border-color:#a9d2e5;background:#edf8fc;color:#175f83;font-weight:700}.shape-op-compact input{width:13px;height:13px;margin:0}.shape-edge-params{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;padding:2px 0}.shape-edge-params label{display:flex;align-items:center;gap:5px;font-size:8.5px;color:var(--mut)}.shape-edge-params input,.shape-edge-params select{width:86px;padding:4px 5px;font-size:9px}
+.shape-accordion{padding-top:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.shape-accordion-head{width:100%;border:0;border-radius:0;background:#f8fafb;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}.shape-accordion-head:hover{background:#f3f7f9;border:0}.shape-accordion-head>span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.shape-accordion-head b{font-size:11px}.shape-accordion-head small{font-size:9px;color:var(--mut);font-weight:400}.shape-accordion-state{display:flex;align-items:center;gap:9px;white-space:nowrap;color:var(--mut);font-size:9.5px}.shape-accordion-state i{width:22px;height:22px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;color:#315f78;font-size:15px;font-style:normal;line-height:1}.shape-accordion-body{padding:9px;border-top:1px solid var(--line2)}.shape-edgework-scroll{overflow-x:auto;border-top:1px solid var(--line2)}.shape-edgework-matrix{min-width:0}/* Число колонок задаёт разметка: операций кромки стало семь, и прибитая
+   пятёрка сваливала лишние две на вторую строку, разъезжаясь с заголовком. */
+.shape-edgework-row{display:grid;grid-template-columns:minmax(58px,1.15fr) repeat(var(--edge-ops,5),minmax(30px,1fr));gap:4px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line2)}/* Семь операций в панель фиксированной ширины с подписями не помещаются, а подпись в ячейке и так дублирует заголовок колонки. Тот же приём уже применён к узким экранам ниже. */.shape-edgework-matrix.compact .shape-op-compact span{display:none}.shape-edgework-matrix.compact .shape-op-compact{padding:5px 2px}.shape-edgework-row:last-child{border-bottom:0}.shape-edgework-labels{padding-top:5px;padding-bottom:4px;background:#fbfcfd;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.04em;text-align:center}.shape-edgework-labels span:first-child{text-align:left}.shape-edge-code{display:flex;align-items:center;gap:7px;min-width:0}.shape-edge-code b{font:11px ui-monospace,monospace;color:#1d2939;overflow:hidden;text-overflow:ellipsis}.shape-edge-code small{color:var(--mut);font:9px ui-monospace,monospace;white-space:nowrap}.shape-op-compact{min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid transparent;border-radius:6px;padding:5px 3px;color:#667085;font-size:8.5px;cursor:pointer}.shape-op-compact:hover{border-color:var(--line);background:#fff}.shape-op-compact.on{border-color:#a9d2e5;background:#edf8fc;color:#175f83;font-weight:700}.shape-op-compact input{width:13px;height:13px;margin:0}.shape-edge-params{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;padding:2px 0}.shape-edge-params label{display:flex;align-items:center;gap:5px;font-size:8.5px;color:var(--mut)}.shape-edge-params input,.shape-edge-params select{width:86px;padding:4px 5px;font-size:9px}
 .muntin-editor-layout{display:grid;grid-template-columns:minmax(420px,.72fr) minmax(540px,1.28fr);gap:14px;align-items:start}.muntin-section{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}.muntin-section>b{display:block;font-size:10.5px;margin-bottom:7px}.muntin-drawing{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff}.muntin-drawing svg{width:100%;height:auto;display:block}.muntin-bom{font-size:10px;margin-top:9px}.muntin-bom th,.muntin-bom td{padding:6px}.muntin-bom th{font-size:9px}
 .notch-block{border:1px solid var(--line);border-radius:8px;padding:7px;margin-bottom:6px}.notch-head{display:flex;align-items:center;gap:7px;margin-bottom:5px}.notch-head b{font:10px ui-monospace,monospace}.notch-head span{margin-left:auto;color:var(--mut);font-size:8.5px}.notch-row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.1fr);gap:5px;align-items:center}.notch-row+.notch-row{margin-top:4px}.notch-head-row{font-size:8.5px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.03em}.notch-head-row span{padding-left:2px}.notch-id{display:flex;flex-direction:column;font:10px ui-monospace,monospace;line-height:1.2}.notch-id small{font-family:inherit;font-size:8px;color:var(--mut);letter-spacing:0;text-transform:none;font-weight:400}.notch-row input,.notch-row select{font-size:10px;padding:5px;min-width:0}.notch-row.skewed input,.notch-row.skewed select{border-color:#f2a16d}.notch-row.skewed .notch-id{color:#95430f}
 .smart-visual{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;gap:6px;align-items:center;justify-items:center;padding:8px;border:1px solid var(--line);border-radius:9px;margin-bottom:9px}
@@ -358,7 +360,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-drawn-production-interactive.placing{cursor:crosshair;outline:2px solid rgba(46,144,250,.22);outline-offset:-2px}.compact-warning{margin:0 0 8px}
 /* PR2 UX v4: exact 1/16" manufacturing coordinates + stable preview + no duplicate cutting controls. */
 .shape-mi-coordinate-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;grid-column:1/-1}.shape-mi-coordinate-grid label{display:flex;flex-direction:column;gap:3px}.shape-mi-coordinate-grid small{color:var(--mut);font-size:8px;line-height:1.2}.shape-mi-coordinate-grid input{font:600 10px ui-monospace,monospace}
-.shape-drawing-preview{height:clamp(440px,64vh,760px);display:flex;align-items:center;justify-content:center}.shape-drawing-preview>svg,.shape-drawing-preview .shape-dxf-preview{width:100%;height:100%}.shape-drawing-preview svg{width:100%;height:100%;max-height:none!important;object-fit:contain}.shape-dxf-preview.visual{display:flex;flex-direction:column;min-height:0}.shape-dxf-preview.visual>.shape-dxf-svg{flex:1;min-height:0;height:100%}
+.shape-drawing-preview{height:clamp(440px,64vh,760px);display:flex;align-items:center;justify-content:center}.shape-drawing-preview>svg,.shape-drawing-preview .shape-dxf-preview{width:100%;height:100%}/* Рамка обтягивает сам чертёж, а не растягивается на всю панель: вертикальная деталь 20×70 вписывалась по высоте и тонула в белом поле втрое шире себя. */.shape-drawing-preview svg{width:auto;height:100%;max-height:none!important}.shape-drawing-preview{width:fit-content;max-width:100%;margin-inline:auto}.shape-dxf-preview.visual{display:flex;flex-direction:column;min-height:0}.shape-dxf-preview.visual>.shape-dxf-svg{flex:1;min-height:0;height:100%}
 @media(max-width:720px){.shape-mi-coordinate-grid{grid-template-columns:1fr}.shape-drawing-preview{height:520px}}
 
 
@@ -388,23 +390,23 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 
 /* Safety Border — базовое значение плюс построчный ввод по кромкам.
    Отступ для безопасной резки и ломки; в контур реза не входит. */
-.shape-prod-border{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(0,2.6fr);gap:8px;align-items:stretch;margin:10px 0;padding:8px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
-.shape-border-summary{min-width:0;display:flex;flex-direction:column;justify-content:center;padding:2px 4px}
-.shape-border-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
-.shape-border-head>b{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
-.shape-border-head label{display:flex;align-items:center;gap:5px;font-size:10px;color:#475467}
-.shape-border-head input{width:74px;padding:5px 6px}
-.shape-border-summary>small{display:block;margin-top:5px;color:#667085;font-size:8.5px;line-height:1.3}
-.shape-border-rows{min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:5px}
-.shape-border-row{min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 6px;border:1px solid var(--line2);border-radius:6px;background:#fbfcfd}
-.shape-border-edge{min-width:0;display:flex;align-items:center;gap:5px}
-.shape-border-edge>b{flex:none;font:700 10px ui-monospace,monospace;color:#101828}
-.shape-border-edge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#667085;font-size:8px}
-.shape-border-row>input{width:100%;min-width:0;padding:3px 5px;font-size:9px}
-.shape-border-row>input:disabled{background:#f2f4f7;color:#98a2b3;border-style:dashed}
-.shape-border-state{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:14px}
-.shape-border-state .pill{padding:1px 4px;font-size:7px}
-.shape-border-state>i{font-style:normal;color:#101828;font-size:8.5px;white-space:nowrap}
+.shape-prod-border,.shape-prod-cutallow{display:grid;grid-template-columns:minmax(212px,.6fr) minmax(0,3fr);gap:8px;align-items:center;margin:10px 0;padding:8px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
+.shape-border-summary,.shape-allow-summary{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 4px}
+.shape-border-head,.shape-allow-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
+/* Заголовок занимает свою строку, Base с состоянием и подсказкой — вторую: в узкой колонке они иначе разъезжались на четыре строки по одному элементу. */.shape-border-head>b,.shape-allow-head>b{flex:1 0 100%;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
+.shape-border-head label,.shape-allow-head label{display:flex;align-items:center;gap:5px;font-size:10px;color:#475467}
+.shape-border-head input,.shape-allow-head input{width:64px;padding:4px 6px}
+/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover,.shape-hint:focus-visible{border-color:#a9d2e5;background:#edf8fc;color:#175f83}/* Своя подсказка, а не нативный title: тот появляется через секунду и легко читается как «просто знак вопроса». Раскрывается вниз-вправо и держится в пределах карточки. */.shape-hint{position:relative}.shape-hint::after{content:attr(data-hint);position:absolute;z-index:40;top:calc(100% + 6px);left:0;width:max-content;max-width:260px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#101828;color:#fff;font-size:9px;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;box-shadow:0 6px 18px rgba(16,24,40,.18)}.shape-hint:hover::after,.shape-hint:focus-visible::after{opacity:1;visibility:visible}
+.shape-border-rows,.shape-allow-rows{min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:5px}
+.shape-border-row,.shape-allow-row{min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 6px;border:1px solid var(--line2);border-radius:6px;background:#fbfcfd}
+/* Состояние стоит в одной строке с буквой и размером: отдельной строкой оно съедало треть карточки. Цвет несёт САМА карточка — зелёная на авто, жёлтая на ручной правке, — поэтому слово рядом идёт без собственного фона. */.shape-border-edge,.shape-allow-edge{min-width:0;display:flex;align-items:center;gap:5px}.shape-state-word{margin-left:auto;flex:none;font-size:7.5px;letter-spacing:.05em;color:#98a2b3}.shape-border-row.is-auto,.shape-allow-row.is-auto{border-color:#bfe3c6;background:#f4fbf5}.shape-border-row.is-auto .shape-state-word,.shape-allow-row.is-auto .shape-state-word{color:#3f7d51}.shape-border-row.is-manual,.shape-allow-row.is-manual{border-color:#e8cf8e;background:#fdf8ec}.shape-border-row.is-manual .shape-state-word,.shape-allow-row.is-manual .shape-state-word{color:#8a6516;font-weight:700}.shape-allow-row.is-norule{border-color:#efc5c5;background:#fdf4f4}.shape-allow-row.is-norule .shape-state-word{color:#913e3e;font-weight:700}
+.shape-border-edge>b,.shape-allow-edge>b{flex:none;font:700 10px ui-monospace,monospace;color:#101828}
+.shape-border-edge>span,.shape-allow-edge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#667085;font-size:8px}
+.shape-border-row>input,.shape-allow-row>input{width:100%;min-width:0;padding:3px 5px;font-size:9px}
+.shape-border-row>input:disabled,.shape-allow-row>input:disabled{background:#f2f4f7;color:#98a2b3;border-style:dashed}
+
+
+
 .header-build{margin-left:10px;font-size:11px;color:#98a2b3;white-space:nowrap}
 
 /* ---- Excel paste: ввод таблицей, колонки как в строках заказа ---- */
@@ -978,7 +980,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .ss-set-matrix{border:1px solid var(--line);border-radius:9px;overflow:hidden}.ss-set-row{display:grid;grid-template-columns:150px minmax(0,1fr) 145px;gap:8px;align-items:start;padding:7px 8px;border-bottom:1px solid var(--line2)}.ss-set-row:last-child{border-bottom:0}.ss-set-row.head{align-items:center;background:#f5f8fa;color:var(--mut);font-size:8px;text-transform:uppercase;letter-spacing:.05em}.ss-set-side b{display:block;font:700 11px ui-monospace,monospace;color:#24343d}.ss-set-side small{display:block;margin-top:2px;color:#607783;font-size:8.5px}.ss-set-op-list{display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap}.ss-op{display:inline-flex;align-items:center;margin:0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:8.5px;cursor:pointer}.ss-op input{display:none}.ss-op.on{background:var(--blue2);border-color:#a5cde0;color:#285e79;font-weight:700}.ss-edge-params,.ss-param-row{display:grid;grid-template-columns:repeat(2,minmax(100px,1fr));gap:5px;margin-top:4px}.ss-edge-params label,.ss-param-row label{font-size:8px}.ss-edge-params input,.ss-edge-params select,.ss-param-row input,.ss-param-row select{padding:5px;font-size:9px}.ss-set-result{font-size:8.5px;color:var(--mut)}.ss-set-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
 
 /* ---------- Effective Production ---------- */
-.ss-line-warning{margin:9px 12px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:9.5px}.ss-line-warning.warn{background:var(--amber2);border-color:#efd9a6;color:#805816}.ss-line-warning.bad{background:var(--red2);border-color:#efc5c5;color:#913e3e}.ss-effective-workspace{display:grid;grid-template-columns:minmax(560px,1.5fr) minmax(300px,.5fr);gap:10px;padding:10px 12px}.ss-effective-visual{border:1px solid var(--line);border-radius:9px;padding:8px;background:#fbfcfd}.ss-effective-svg{width:100%;max-height:550px;background:#fff;border:1px solid var(--line2);border-radius:8px}/* Без этих правил SVG заливает контур чёрным по умолчанию — окно показывало чёрный прямоугольник вместо чертежа. */.ss-effective-svg .finished{fill:rgba(46,144,250,.06);stroke:#2f7da8;stroke-width:2}.ss-effective-svg .cutting{fill:none;stroke:#667085;stroke-width:1.5;stroke-dasharray:7 5}.ss-effective-svg .border-zone{fill:rgba(214,124,22,.06);stroke:#d67c16;stroke-width:1.25;stroke-dasharray:3 4}.ss-line-warning.info{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ss-line-warning.info button{flex:none;padding:4px 9px;font-size:9px}.ss-effective-opset.read-only{display:flex;gap:5px;flex-wrap:wrap}.ss-effective-opset.read-only .ss-op{padding:3px 7px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#9aa7b1;font-size:9px}.ss-effective-opset.read-only .ss-op.on{border-color:#a9cee0;background:var(--blue2);color:#2a617d;font-weight:700}.ss-effective-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px;color:var(--mut);font-size:8.5px}.ss-effective-legend span{display:inline-flex;align-items:center;gap:5px}.ss-effective-legend span::before{content:'';width:14px;border-top-width:2px;border-top-style:solid}.ss-effective-legend .lg-finished::before{border-color:#2f7da8}.ss-effective-legend .lg-cutting::before{border-color:#667085;border-top-style:dashed}.ss-effective-legend .lg-border::before{border-color:#d67c16;border-top-style:dashed}.ss-effective-sizes{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:7px;margin-top:8px}.ss-effective-sizes>div{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}.ss-effective-sizes span{display:block;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.ss-effective-sizes b{display:block;margin-top:2px;font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace}.ss-effective-sizes small{display:block;margin-top:2px;font-size:8.5px;color:var(--mut);line-height:1.35}.ss-effective-sizes .mut b{color:var(--mut)}.ss-effective-edges{display:flex;flex-direction:column;gap:5px}.ss-effective-edge{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}.ss-effective-edge.on{border-color:#9ac7dd;box-shadow:0 0 0 1px #d8ecf5}.ss-effective-edge-head{display:grid;grid-template-columns:78px 1fr auto;gap:7px;align-items:center;padding:6px 7px;cursor:pointer}.ss-effective-edge-head>b{font:700 10px ui-monospace,monospace}.ss-effective-edge-head>span{font-size:8.5px;color:var(--mut)}.ss-source{font-size:8px;color:#6d7d86}.ss-effective-opset{display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 7px}.ss-effective-opset label{display:inline-flex;margin:0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:8px;cursor:pointer}.ss-effective-opset label input{display:none}.ss-effective-opset label.on{background:var(--blue2);border-color:#a6cfe2;color:#285f7c;font-weight:700}.ss-edge-params{padding:0 7px 7px}.ss-line-actions{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px}
+.ss-line-warning{margin:9px 12px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:9.5px}.ss-line-warning.warn{background:var(--amber2);border-color:#efd9a6;color:#805816}.ss-line-warning.bad{background:var(--red2);border-color:#efc5c5;color:#913e3e}.ss-effective-workspace{display:grid;grid-template-columns:minmax(560px,1.5fr) minmax(300px,.5fr);gap:10px;padding:10px 12px}.ss-effective-visual{border:1px solid var(--line);border-radius:9px;padding:8px;background:#fbfcfd}.ss-effective-svg{width:100%;max-height:550px;background:#fff;border:1px solid var(--line2);border-radius:8px}/* Без этих правил SVG заливает контур чёрным по умолчанию — окно показывало чёрный прямоугольник вместо чертежа. */.ss-effective-svg .finished{fill:rgba(46,144,250,.06);stroke:#2f7da8;stroke-width:2}.ss-effective-svg .cutting{fill:none;stroke:#667085;stroke-width:1.5;stroke-dasharray:7 5}.ss-effective-svg .border-zone{fill:rgba(214,124,22,.06);stroke:#d67c16;stroke-width:1.25;stroke-dasharray:3 4}.ss-line-warning.info{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.ss-line-warning.info button{flex:none;padding:4px 9px;font-size:9px}.ss-effective-opset.read-only{display:flex;gap:5px;flex-wrap:wrap}.ss-effective-opset.read-only .ss-op{padding:3px 7px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#9aa7b1;font-size:9px}.ss-effective-opset.read-only .ss-op.none{border-style:dashed;color:#b7c0c8}.ss-effective-opset.read-only .ss-op.on{border-color:#a9cee0;background:var(--blue2);color:#2a617d;font-weight:700}.ss-effective-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:5px;color:var(--mut);font-size:8.5px}.ss-effective-legend span{display:inline-flex;align-items:center;gap:5px}.ss-effective-legend span::before{content:'';width:14px;border-top-width:2px;border-top-style:solid}.ss-effective-legend .lg-finished::before{border-color:#2f7da8}.ss-effective-legend .lg-cutting::before{border-color:#667085;border-top-style:dashed}.ss-effective-legend .lg-border::before{border-color:#d67c16;border-top-style:dashed}.ss-effective-sizes{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:7px;margin-top:8px}.ss-effective-sizes>div{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2)}.ss-effective-sizes span{display:block;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.ss-effective-sizes b{display:block;margin-top:2px;font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace}.ss-effective-sizes small{display:block;margin-top:2px;font-size:8.5px;color:var(--mut);line-height:1.35}.ss-effective-sizes .mut b{color:var(--mut)}.ss-effective-edges{display:flex;flex-direction:column;gap:5px}.ss-effective-edge{border:1px solid var(--line);border-radius:8px;background:#fff;overflow:hidden}.ss-effective-edge.on{border-color:#9ac7dd;box-shadow:0 0 0 1px #d8ecf5}.ss-effective-edge-head{display:grid;grid-template-columns:78px 1fr auto;gap:7px;align-items:center;padding:6px 7px;cursor:pointer}.ss-effective-edge-head>b{font:700 10px ui-monospace,monospace}.ss-effective-edge-head>span{font-size:8.5px;color:var(--mut)}.ss-source{font-size:8px;color:#6d7d86}/* Припуск стороны: поле ввода рядом с предложением таблицы. OVERRIDE подсвечен — отступление от базового значения обязано быть заметным. */.ss-allow{display:inline-flex}.ss-allow input{width:58px;padding:2px 5px;text-align:right;font:600 10px ui-monospace,SFMono-Regular,Menlo,monospace}.ss-allow.auto input{border-color:#bfe3c6;background:#f4fbf5;color:#2f6b41}.ss-allow.manual input{border-color:#e8cf8e;background:#fdf8ec;color:#8a6516;font-weight:700}.ss-effective-opset{display:flex;gap:4px;flex-wrap:wrap;padding:0 7px 7px}.ss-effective-opset label{display:inline-flex;margin:0;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:8px;cursor:pointer}.ss-effective-opset label input{display:none}.ss-effective-opset label.on{background:var(--blue2);border-color:#a6cfe2;color:#285f7c;font-weight:700}.ss-edge-params{padding:0 7px 7px}.ss-line-actions{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px}
 .ss-dxf-map{margin:0 12px 10px;border:1px solid var(--line);border-radius:9px;overflow:hidden}.ss-map-state{display:flex;align-items:center;gap:7px;padding:7px 8px;background:#fbfcfd;border-bottom:1px solid var(--line);font-size:8.5px}.ss-map-state .sp{flex:1}.ss-dxf-map-head,.ss-dxf-map-row{display:grid;grid-template-columns:130px minmax(220px,1fr) 110px;align-items:center}.ss-dxf-map-head{padding:5px 8px;background:#f2f5f7;color:var(--mut);font-size:8px;text-transform:uppercase}.ss-dxf-map-row{padding:6px 8px;border-top:1px solid var(--line2)}.ss-dxf-map-row select{padding:5px;font-size:9px}.ss-machine{margin:0 12px 10px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fbfdfe}.ss-machine.ok{border-color:#b9dfca;background:#f4fbf6}.ss-machine.blocked{border-color:#efc5c5;background:#fff7f7}.ss-machine>div:first-child{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.ss-machine b{font-size:9.5px}.ss-machine small{display:block;color:var(--mut);font-size:8px}.ss-machine code{display:block;margin:5px 0;font-size:8px;color:#687982}.ss-machine>div:last-child{display:flex;gap:6px}.ss-cut-block{margin:0 12px 10px;padding:9px 10px;border:1px solid #efc5c5;border-radius:9px;background:#fff7f7;color:#913e3e;font-size:9.5px}
 
 @media(max-width:1100px){.ss-effective-workspace{grid-template-columns:1fr}.ss-set-workspace{grid-template-columns:1fr}.ss-set-list{border-right:0;border-bottom:1px solid var(--line)}.shape-prod-seg-head,.shape-prod-seg-row{grid-template-columns:90px 1fr 125px}}
@@ -1009,7 +1011,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d7bf3e04524d';
+var ERP_BUILD='2f281e9f290e';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -1854,7 +1856,22 @@ function shapePresetTopology(S){
    Нормализация определения Shape. Старый Smart-Shape остаётся совместимым.
    ===================================================================== */
 
-var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Лами-операции стоят в КОНЦЕ: индекс операции уходит в обработчик чекбокса и
+   в сохранённые формы, поэтому вставка в середину сдвинула бы и то, и другое.
+   Словарь ОДИН на все виды кромки — импорт (storage.validateImportedState)
+   сверяет типы именно по нему, и отдельный список лами-операций уронил бы
+   загрузку файла с уже проставленной лами-полировкой. */
+var SHAPE_EDGE_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling','Lami Polish','CNC Lami Polish'];
+/* Полировка склеенной кромки: делается ПОСЛЕ ламинации и только на ламинате.
+   Прямая идёт на обычном полировочном станке (его настраивают под толщину
+   пакета и направление), фигурная — на ЧПУ. */
+var SHAPE_LAMI_ONLY_OPS=['Lami Polish','CNC Lami Polish'];
+function shapeIsLamiOnlyOp(type){return SHAPE_LAMI_ONLY_OPS.indexOf(type)>=0;}
+/* Короткий ярлык колонки — по ТИПУ, а не по позиции. Позиционные массивы
+   ярлыков лежали в двух экранах, и любой список операций, отличный от полного,
+   молча сдвигал подписи: под «Flat» оказывалась галочка другой операции. */
+var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel','Lami Polish':'LamiP','CNC Lami Polish':'CNC Lami'};
+function shapeEdgeOpShort(type){return SHAPE_EDGE_OP_SHORT[type]||String(type||'');}
 var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
 /* A stamp is a free annotation on the production drawing. The selected text is
    intentionally short: it must remain readable inside the glass contour. Keep
@@ -2101,7 +2118,10 @@ function shapeNormalizeLiteSpecs(raw){
     /* Зеркало: то же стекло, перевёрнутое. Нужно, когда Low-E оказывается на
        поверхности №2 — фигура та же, но её надо показать зеркально. */
     var mirror=spec.mirror===true;
-    if(mirror||Object.keys(inset).length||Object.keys(ops).length)out[String(key)]={inset:inset,edgeOps:ops,mirror:mirror};
+    /* Ручной припуск лайта: у ламината 6+10 стороны доводят по-разному, и
+       правка принадлежит конкретному стеклу, а не всей строке. */
+    var allow=shapeNormalizeAllowanceEdges(spec.edgeAllowances);
+    if(mirror||Object.keys(inset).length||Object.keys(ops).length||Object.keys(allow).length)out[String(key)]={inset:inset,edgeOps:ops,mirror:mirror,edgeAllowances:allow};
   });
   return out;
 }
@@ -2157,6 +2177,7 @@ function normalizeShapeDef(s){
        ввод по конкретным кромкам, как обработка в Edge Set. */
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
+    edgeAllowances:shapeNormalizeAllowanceEdges(s.edgeAllowances),
     /* Форма, заведённая автоматически по Width × Height строки заказа,
        принадлежит этой строке: в библиотеке форм её не показывают и живёт она
        ровно столько, сколько живёт строка. */
@@ -2330,7 +2351,27 @@ function shapeThicknessMm(def){var v=Number(String(def&&def.thickness==null?'':d
 function shapeOperationAllowance(type,th){var r=shapeProductionAllowanceRule(type,th);return r.ok?(+r.value||0):0;}
 function shapePolishAllowance(th){return shapeOperationAllowance('Flat Polish',th);}
 function shapeEdgeOps(def,id){return (def.edgeOps&&def.edgeOps[id])||[];}
+/* Ручной припуск на кромке. Строка в дюймах по id кромки — то же хранение и
+   тот же строгий парсер, что у safetyBorderEdges: это тоже цеховое число,
+   принадлежащее форме.
+
+   Читается ПЕРВЫМ и ПО НАЛИЧИЮ КЛЮЧА, а не по значению: ноль здесь законен
+   (арис контур не съедает), и проверка «больше нуля» молча вернула бы кромку
+   к табличному припуску. Через это поле ERP передаёт и припуск по ПЛИТЕ
+   ламината: у склейки 6+6 на столе лежат две шестёрки, а не один кусок
+   12.76 мм, и таблица по суммарной толщине дала бы втрое больший съём. */
+function shapeEdgeAllowanceOverride(def,edgeId,parentEdges){
+  var raw=(def&&def.edgeAllowances)||{},ids=[edgeId].concat(parentEdges||[]);
+  for(var i=0;i<ids.length;i++){
+    if(!Object.prototype.hasOwnProperty.call(raw,ids[i]))continue;
+    var p=fabParseDimStrict(raw[ids[i]]==null?'':raw[ids[i]]);
+    if(p.ok&&p.v>=0&&p.v<=SHAPE_ALLOWANCE_MAX_IN)return p.v;
+  }
+  return null;
+}
 function shapeEdgeAllowance(def,edge){
+  var ov=shapeEdgeAllowanceOverride(def,edge.id,edge.parentEdges);
+  if(ov!=null)return ov;
   var th=shapeThicknessMm(def),ops=shapeEdgeOps(def,edge.id).slice();
   if(edge.parentEdges)edge.parentEdges.forEach(function(id){ops=ops.concat(shapeEdgeOps(def,id));});
   var vals=ops.map(function(op){return shapeOperationAllowance(op.type,th);});return vals.length?Math.max.apply(null,vals):0;
@@ -2365,6 +2406,17 @@ function shapeEdgeNeedsBorder(edge,a,b){
    парсером, что Width/Height: «1 1/2», «1-1/2», «1/2», «1.5».
    Считается по подготовленному контуру резки; у legacy post-edge notch это
    контур после его снятия, а у Custom Shape — точный пользовательский контур. */
+/* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
+   Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
+   поле навсегда прибивало бы припуск к нулю. */
+function shapeNormalizeAllowanceEdges(raw){
+  var out={};
+  if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
+    var t=String(raw[id]==null?'':raw[id]).trim();
+    if(t)out[String(id)]=t;
+  });
+  return out;
+}
 function shapeNormalizeBorderEdges(raw){
   var out={};
   if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
@@ -2718,15 +2770,18 @@ function shapeValidateComputed(def,geo,fg){
     var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
-      if(op.type==='Rough Arris'||op.type==='Flat Polish'||op.type==='CNC Shape Polish')finishes++;
-      if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'){
-        thicknessNeeded=true;
-        if(th>0&&shapePolishAllowance(th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
+      if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)finishes++;
+      if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'||shapeIsLamiOnlyOp(op.type)){
+        /* Ручной припуск на кромке отвечает за неё сам: цех назвал число, и
+           отсутствие строки в таблице больше не блокирует рез. */
+        var manual=shapeEdgeAllowanceOverride(def,id)!=null;
+        if(!manual)thicknessNeeded=true;
+        if(!manual&&th>0&&shapeOperationAllowance(op.type,th)<=0)errors.push(op.type+' on edge '+id+': no cutting allowance is configured for '+th+' mm glass.');
       }
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
-    if(finishes>1)errors.push('Edge '+id+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.');
+    if(finishes>1)errors.push('Edge '+id+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.');
   });
   if(thicknessNeeded&&!(th>0))errors.push('Glass thickness for edge-processing allowance must come from the selected Sales Makeup.');
   return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};
@@ -4001,6 +4056,8 @@ function shapeOpText(o){
   if(o.type==='Flat Polish')return 'FP';
   if(o.type==='Rough Arris')return 'RA';
   if(o.type==='CNC Shape Polish')return 'CNC';
+  if(o.type==='Lami Polish')return 'LP';
+  if(o.type==='CNC Lami Polish')return 'CNC LP';
   return o.type;
 }
 function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
@@ -4188,6 +4245,10 @@ function shapeFingerprint(def){
   /* Preserve every legacy fingerprint when no PR2 items exist. Once a
      manufacturing annotation is added, it becomes part of the Shape revision. */
   if(def.manufacturingItems&&def.manufacturingItems.length)payload.manufacturingItems=def.manufacturingItems;
+  /* Ручной припуск входит в отпечаток, только когда он задан: безусловное поле
+     переклеймило бы каждую сохранённую форму и разом пометило все строки
+     заказов устаревшими. То же правило, что у manufacturingItems выше. */
+  if(def.edgeAllowances&&Object.keys(def.edgeAllowances).length)payload.edgeAllowances=def.edgeAllowances;
   var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }
@@ -4222,7 +4283,18 @@ const ShapeModule={
    клиентов или заказы: только finished contour -> edgework -> cutting.
    ===================================================================== */
 
-const SHAPE_PRIMARY_FINISHES=['Rough Arris','Flat Polish','CNC Shape Polish'];
+/* Лами-полировка — АЛЬТЕРНАТИВА арису и обычной полировке на той же кромке,
+   а не добавка к ним: кромку доводят либо по каждой плите до склейки, либо по
+   склеенному пакету после. Попав в этот список, они автоматически получают и
+   взаимное исключение, и переключение через shapeTogglePrimaryFinish. */
+const SHAPE_PRIMARY_FINISHES=['Rough Arris','Flat Polish','CNC Shape Polish','Lami Polish','CNC Lami Polish'];
+/* Перечисление финишей в тексте ошибки собирается из самого списка: добавили
+   финиш — сообщение обновилось само. Список и текст уже жили порознь в двух
+   файлах, и разойтись им было нечем помешать. */
+function shapePrimaryFinishList(){
+  var a=SHAPE_PRIMARY_FINISHES;
+  return a.length<2?a.join(''):a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+}
 
 function shapeStableHash(prefix,payload){
   var src=JSON.stringify(payload),h=2166136261;
@@ -4276,7 +4348,7 @@ function shapeValidateEdgeOperations(ops,edgeId){
     if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
-  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': Rough Arris, Flat Polish and CNC Shape Polish are mutually exclusive finishes.'};
+  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.'};
   return {ok:true};
 }
 
@@ -4285,28 +4357,113 @@ function shapeValidateEdgeOperations(ops,edgeId){
    кода их вывести нельзя.
    Rough Arris = 0 ВСЕГДА: ручная зачистка фаски контур не съедает, она только
    делает кромку безопасной, поэтому лист под неё не увеличивается никогда. */
-function shapeProductionAllowanceRule(op,thicknessMm){
+/* Цеховая таблица припуска. Раньше эти цифры были зашиты сюда ветками if, и
+   поправить их можно было только правкой кода. Теперь это ДАННЫЕ: владелец
+   меняет их в Справочниках, а строки ниже — заводской сид.
+
+   scope='mono' меряется по самому стеклу, scope='lami' — по ПЛИТЕ склейки.
+   Признак обязателен, а не удобен: на двенадцати миллиметрах таблицы
+   расходятся (монолит 3/16, ламинат 1/8).
+
+   Верхний ламинатный банд открыт: 10+10 и 12+12 иначе остаются без правила
+   навсегда. У CNC Shape Polish широкая строка 0–1000 повторяет прежнее «1/4 на
+   всё остальное», а узкая 15–19 её перекрывает — выигрывает самая УЗКАЯ
+   подходящая строка, поэтому порядок строк ничего не решает. */
+function shapeAllowanceRow(op,scope,minMm,maxMm,allowance,note){
+  return {id:'ALW-'+op.replace(/[^A-Za-z]+/g,'').toUpperCase()+'-'+scope.toUpperCase()+'-'+minMm+'-'+maxMm,
+          op:op,scope:scope,minMm:minMm,maxMm:maxMm,allowance:allowance,note:note||''};
+}
+function shapeAllowanceDefaults(){
+  var rows=[],flatLike=['Flat Polish','Mitering','Beveling'];
+  /* Арис не увеличивает лист НИКОГДА: ручная зачистка фаски делает кромку
+     безопасной, но контур не съедает. */
+  rows.push(shapeAllowanceRow('Rough Arris','mono',0,1000,'0','притупление контур не съедает'));
+  rows.push(shapeAllowanceRow('Rough Arris','lami',0,1000,'0','притупление контур не съедает'));
+  flatLike.forEach(function(op){
+    rows.push(shapeAllowanceRow(op,'mono',3,6,'1/16'));
+    rows.push(shapeAllowanceRow(op,'mono',8,10,'1/8'));
+    rows.push(shapeAllowanceRow(op,'mono',12,15,'3/16'));
+    rows.push(shapeAllowanceRow(op,'mono',16,19,'1/2'));
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+  });
+  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',0,1000,'1/4'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','толстое стекло с большим съёмом'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','по толщине ПЛИТЫ'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+  SHAPE_LAMI_ONLY_OPS.forEach(function(op){
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','склеенная кромка, по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','склеенная кромка, по толщине ПЛИТЫ'));
+  });
+  return rows;
+}
+/* Съём на сторону физически не бывает больше пары дюймов. Предел здесь не
+   формальность: «316» вместо «3/16» — валидное число для парсера, и такая
+   опечатка молча увела бы рез на 316 дюймов. */
+var SHAPE_ALLOWANCE_MAX_IN=2;
+function shapeNormalizeAllowanceRows(raw){
+  var out=[];
+  (Array.isArray(raw)?raw:[]).forEach(function(r){
+    if(!r||SHAPE_EDGE_OPS.indexOf(r.op)<0)return;
+    var scope=r.scope==='lami'?'lami':'mono',lo=Number(r.minMm),hi=Number(r.maxMm);
+    var p=fabParseDimStrict(r.allowance==null?'':r.allowance);
+    if(!isFinite(lo)||!isFinite(hi)||lo<0||hi<lo)return;
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return;
+    out.push({id:String(r.id||shapeAllowanceRow(r.op,scope,lo,hi,String(r.allowance)).id),
+              op:r.op,scope:scope,minMm:lo,maxMm:hi,allowance:String(r.allowance).trim(),value:p.v,note:String(r.note==null?'':r.note)});
+  });
+  return out;
+}
+var SHAPE_ALLOWANCE_ROWS=null,SHAPE_ALLOWANCE_FALLBACK=null;
+/* Модуль остаётся самодостаточным: без инъекции работает заводской сид, и
+   тесты самого Shape не требуют поднятой базы ERP. Битая или пустая таблица
+   из базы тоже откатывается сюда, а не блокирует рез. */
+function shapeAllowanceTable(){
+  if(SHAPE_ALLOWANCE_ROWS&&SHAPE_ALLOWANCE_ROWS.length)return SHAPE_ALLOWANCE_ROWS;
+  if(!SHAPE_ALLOWANCE_FALLBACK)SHAPE_ALLOWANCE_FALLBACK=shapeNormalizeAllowanceRows(shapeAllowanceDefaults());
+  return SHAPE_ALLOWANCE_FALLBACK;
+}
+function shapeSetAllowanceTable(rows){
+  var n=shapeNormalizeAllowanceRows(rows);
+  SHAPE_ALLOWANCE_ROWS=n.length?n:null;
+  return SHAPE_ALLOWANCE_ROWS?SHAPE_ALLOWANCE_ROWS.length:0;
+}
+/* Выигрывает самая УЗКАЯ подходящая строка: широкая задаёт умолчание, узкая
+   описывает исключение внутри него. */
+function shapeAllowanceRowFor(type,mm,scope){
+  var rows=shapeAllowanceTable(),best=null,i,r;
+  for(i=0;i<rows.length;i++){
+    r=rows[i];
+    if(r.op!==type||r.scope!==scope)continue;
+    if(!(mm>=r.minMm&&mm<=r.maxMm))continue;
+    if(!best||(r.maxMm-r.minMm)<(best.maxMm-best.minMm))best=r;
+  }
+  return best;
+}
+function shapeProductionAllowanceRule(op,thicknessMm,scope){
   var type=typeof op==='string'?op:(op&&op.type)||'',mm=Number(thicknessMm);
-  if(type==='Rough Arris')return {ok:true,value:0};
-  /* Толстое стекло полируется с большим съёмом: до 15 mm — 1/4", 15–19 — 1/2". */
-  if(type==='CNC Shape Polish'){
-    if(mm>=15&&mm<=19)return {ok:true,value:.5};
-    return {ok:true,value:.25};
-  }
-  if(type==='Flat Polish'||type==='Mitering'||type==='Beveling'){
-    if(mm>=3&&mm<=6)return {ok:true,value:1/16};
-    if(mm>=8&&mm<=10)return {ok:true,value:1/8};
-    if(mm>=12&&mm<=15)return {ok:true,value:3/16};
-    if(mm>=16&&mm<=19)return {ok:true,value:.5};
-    return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
-  }
-  return {ok:true,value:0};
+  if(SHAPE_EDGE_OPS.indexOf(type)<0)return {ok:true,value:0};
+  var lami=scope==='lami'||shapeIsLamiOnlyOp(type),row=null;
+  if(lami)row=shapeAllowanceRowFor(type,mm,'lami');
+  /* Плита толще ламинатной таблицы падает в монолитную строку — объяснимое
+     число лучше, чем блокировка. Своей строки нет только у лами-полировки:
+     вне ламината она не выполняется. */
+  if(!row&&!shapeIsLamiOnlyOp(type))row=shapeAllowanceRowFor(type,mm,'mono');
+  if(row)return {ok:true,value:row.value};
+  return {ok:false,value:null,reason:type+' allowance rule is not configured for '+mm+' mm glass.'};
 }
 
-function shapeProductionAllowanceForOps(ops,thicknessMm){
+/* Припуск кромки на производственном пути: ручная правка сильнее таблицы и
+   СНИМАЕТ блокировку «правило не заведено» — цех уже назвал число сам. */
+function shapeProductionAllowanceForEdge(def,edgeId,ops,thicknessMm,parentEdges){
+  var ov=shapeEdgeAllowanceOverride(def,edgeId,parentEdges);
+  if(ov!=null)return {ok:true,value:ov,manual:true};
+  return shapeProductionAllowanceForOps(ops,thicknessMm);
+}
+function shapeProductionAllowanceForOps(ops,thicknessMm,scope){
   var max=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
   for(var i=0;i<list.length;i++){
-    var r=shapeProductionAllowanceRule(list[i],thicknessMm);
+    var r=shapeProductionAllowanceRule(list[i],thicknessMm,scope);
     if(!r.ok)return r;
     max=Math.max(max,r.value||0);
   }
@@ -4386,7 +4543,7 @@ function shapeValidateDxfProduction(def,edges){
   Object.keys(def.edgeOps||{}).forEach(function(id){
     if(!ids[id]){errors.push('Edge processing references missing DXF edge '+id+'.');return;}
     var v=shapeValidateEdgeOperations(shapeEdgeOps(def,id),id);if(!v.ok)errors.push(v.reason);
-    if(isFinite(th))shapeEdgeOps(def,id).forEach(function(op){var r=shapeProductionAllowanceRule(op,th);if(!r.ok)errors.push('Edge '+id+': '+r.reason);});
+    if(isFinite(th)&&shapeEdgeAllowanceOverride(def,id)==null)shapeEdgeOps(def,id).forEach(function(op){var r=shapeProductionAllowanceRule(op,th);if(!r.ok)errors.push('Edge '+id+': '+r.reason);});
   });
   if(!isFinite(th)||!(th>0))errors.push('Shape thickness must be a positive number for DXF cutting.');
   (def.manufacturingItems||[]).forEach(function(item){
@@ -4421,7 +4578,7 @@ function shapeDxfCuttingPlan(def){
   if(v.errors.length)return {valid:false,error:v.errors[0],errors:v.errors,warns:v.warns};
   var groups=[],allowances=[];
   for(var i=0;i<edges.length;i++){
-    var e=edges[i],ar=shapeProductionAllowanceForOps(shapeEdgeOps(def,e.id),th);
+    var e=edges[i],ar=shapeProductionAllowanceForEdge(def,e.id,shapeEdgeOps(def,e.id),th,e.parentEdges);
     if(!ar.ok)return {valid:false,error:ar.reason,errors:[ar.reason]};
     allowances.push(ar.value);groups.push(Object.assign({},e,{allowance:ar.value}));
   }
@@ -4501,6 +4658,10 @@ ShapeModule.compute=function(source){
 ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
 ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
 ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
+ShapeModule.setAllowanceTable=shapeSetAllowanceTable;
+ShapeModule.edgeAllowanceOverride=shapeEdgeAllowanceOverride;
+ShapeModule.allowanceTable=shapeAllowanceTable;
+ShapeModule.allowanceDefaults=shapeAllowanceDefaults;
 ShapeModule.productionAllowanceForOps=shapeProductionAllowanceForOps;
 ShapeModule.validateEdgeOperations=shapeValidateEdgeOperations;
 ShapeModule.validateProductionEdgework=shapeValidateProductionEdgework;
@@ -5198,8 +5359,15 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
 
    5 → 6: плёнки разбиты по исполнению (SGP Ultra Clear · Clear · Frosted,
    EVA Ultra Clear · Clear · Frosted White · Milky Way) и получили цену за слой;
-   у фрита и спандрела появилась надбавка за sq ft. */
-const REFERENCE_VERSION=6;
+   у фрита и спандрела появилась надбавка за sq ft.
+
+   6 → 7: появилась полировка склеенной кромки — операция `lami_polish` рядом с
+   уже заведённой `cnc_lami_polish`, обе на полировочных местах и ЧПУ. Вместе с
+   ними приехала таблица припуска `edgeAllowance`: цифры съёма перестали быть
+   ветками в коде и правятся в Справочниках. У ламината припуск меряется по
+   ПЛИТЕ, а не по суммарной толщине склейки, — до этой версии 6+6 резался на
+   четверть дюйма крупнее, а 3+3, 10+10 и 12+12 не резались вовсе. */
+const REFERENCE_VERSION=7;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -5219,13 +5387,33 @@ function reseedReferenceTables(hadSaved){
     они пустые. Пересев меняет СОСТАВ таблицы, но введённое стирать нельзя: это
     ровно та причина, по которой glassSheet вообще не пересевается. Ключ — id
     рамки, поэтому правка переживает и добавление новых позиций. */
+ /* Габариты рабочих мест снимают в цеху рулеткой, заводскими данными они
+    пустые. Пересев меняет СОСТАВ таблицы, но снятое стирать нельзя — та же
+    причина, что у толщин рамок ниже. Ключ — код места. */
+ const keptPositionSize={};
+ (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
+  if(!x||!x.code)return;
+  const w=+x.maxW,l=+x.maxL;
+  if(isFinite(w)&&w>0||isFinite(l)&&l>0)keptPositionSize[x.code]={maxW:isFinite(w)&&w>0?w:null,maxL:isFinite(l)&&l>0?l:null};
+ });
  const keptSpacerMm={};
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{
   const mm=x&&+x.thicknessMm;
   if(x&&x.id&&isFinite(mm)&&mm>0)keptSpacerMm[x.id]=mm;
  });
  REFERENCE_TABLES.forEach(k=>{if(Array.isArray(DEFAULT[k])){DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));done.push(k);}});
+ /* Припуск пересевается СЛИЯНИЕМ по id, а не заменой. Владельцу прямо сказано
+    править эту таблицу, поэтому список REFERENCE_TABLES ей не подходит: он
+    стирает и правленые значения, и заведённые вручную строки. Диапазон и
+    подпись — «личность» строки и обновляются; само значение припуска
+    принадлежит цеху и переживает пересев. */
+ if(typeof reseedEdgeAllowance==='function'){reseedEdgeAllowance();done.push('edgeAllowance');}
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
+ (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
+  const kept=x&&keptPositionSize[x.code];if(!kept)return;
+  if(kept.maxW!=null)x.maxW=kept.maxW;
+  if(kept.maxL!=null)x.maxL=kept.maxL;
+ });
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));
@@ -5398,7 +5586,8 @@ DEFAULT.operation=[
  {code:'miter',              station:'EDGE', name:'Митра',                        nameEn:'Mitering',                 stage:'pre_temper',  unit:'in',  note:''},
  {code:'bevel',              station:'EDGE', name:'Фацет',                        nameEn:'Beveling',                 stage:'pre_temper',  unit:'in',  note:''},
  {code:'cnc_shape_polish',   station:'EDGE', name:'Полировка фигурной кромки',    nameEn:'CNC shape polishing',      stage:'pre_temper',  unit:'in',  note:'кромка, но выполняется на ЧПУ — поэтому рабочее место служит двум станциям'},
- {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
+ {code:'lami_polish',        station:'EDGE', name:'Полировка кромки ламината',    nameEn:'Lami polishing',           stage:'post_temper', unit:'in',  afterMerge:true, note:'прямая кромка склеенного пакета на ОБЫЧНОМ полировочном станке: его настраивают под толщину пакета и направление. Только ПОСЛЕ склейки'},
+ {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  afterMerge:true, note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
  {code:'fabrication',        station:'FAB',  name:'Обработка тела стекла',        nameEn:'Fabrication',              stage:'pre_temper',  unit:'pcs', note:'отверстия · ноч · вырезы · радиусы · посадочные места под петли и клемы'},
  {code:'ceramic_frit',       station:'CERP', name:'Керамический фрит',            nameEn:'Ceramic frit',             stage:'pre_temper',  unit:null,  note:'из STATIONS.csv: 3 узора. Рабочего места нет — силкскрин переносится на этапе 5б'},
  {code:'digital_print',      station:'CERP', name:'Цифровая керамическая печать', nameEn:'Digital ceramic print',    stage:'pre_temper',  unit:null,  note:'из STATIONS.csv. Рабочего места нет — силкскрин переносится на этапе 5б'},
@@ -5434,9 +5623,9 @@ DEFAULT.workPosition=[
  {code:'CUT2',    station:'CUT',  name:'Резка 2',                  nameEn:'Cutting 2',          kind:'machine',operations:['cutting'],                                             defaultOperator:'bairon', defaultHelper:'loie',   maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
  {code:'ARRIS-H', station:'EDGE', name:'Притупление ручное',       nameEn:'Manual arrising',    kind:'manual', operations:['arris_hand'],                                          defaultOperator:'jorje',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'станка нет — руки; габарит не нужен'},
  {code:'ARRIS-M', station:'EDGE', name:'Притупление машинное',     nameEn:'Machine arrising',   kind:'machine',operations:['arris_machine'],                                       defaultOperator:'artur',  defaultHelper:'jose',   maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
+ {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
  {code:'MITER1',  station:'EDGE', name:'Митра',                    nameEn:'Miter',              kind:'machine',operations:['miter'],                                               defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
  {code:'BEVEL1',  station:'EDGE', name:'Фацетный станок',          nameEn:'Beveling',           kind:'machine',operations:['bevel'],                                               defaultOperator:'',       defaultHelper:'',       maxW:70,  maxL:100, batchMode:'single',note:'габарит был известен — проверить'},
  {code:'CNC1',    station:'FAB',  name:'ЧПУ 1',                    nameEn:'CNC 1',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'joseph', defaultHelper:'',       maxW:60,  maxL:122, batchMode:'single',note:'служит ДВУМ станциям: FAB и EDGE. Габарит проверить'},
@@ -5471,6 +5660,25 @@ DEFAULT.workPosition=[
    строками. Пустая таблица с CRUD — честное состояние: модель готова,
    данные заводятся из цеха. */
 DEFAULT.terminal=[];
+
+/* Припуск на рез — цеховой факт про съём материала станком, поэтому таблица
+   живёт рядом с операциями. Заводские строки берутся у модуля Shape: он же по
+   ним и считает, и второй сид разошёлся бы с первым при первой же правке.
+   Владелец меняет значения в Справочниках — «делаем по памяти» перестаёт быть
+   единственным местом, где эти цифры записаны. */
+DEFAULT.edgeAllowance=ShapeModule.allowanceDefaults();
+
+/* Таблица уезжает в модуль: сам он про DB ничего не знает и знать не должен,
+   а считать обязан по тем же строкам, что показаны в справочнике. Вызывается
+   из normalizeShopFloor, то есть на загрузке, пересеве и импорте разом. */
+function normalizeEdgeAllowance(){
+ DB.edgeAllowance=(Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[]).filter(r=>r&&typeof r==='object');
+ if(!DB.edgeAllowance.length)DB.edgeAllowance=ShapeModule.allowanceDefaults();
+ const rows=ShapeModule.setAllowanceTable(DB.edgeAllowance);
+ /* Пустая или сплошь битая таблица — не повод блокировать рез: модуль
+    откатывается на заводские строки, и это видно в справочнике. */
+ return rows;
+}
 
 /* ---------------------------------------------------------------------
    Выведенные связи. Ничего не хранят — считают из уже введённого.
@@ -5522,7 +5730,20 @@ function terminalStations(t){
    заводской. Ронять загрузку он при этом не имеет права — иначе до пересева
    дело не дойдёт вообще.
    --------------------------------------------------------------------- */
+function reseedEdgeAllowance(){
+ const factory=ShapeModule.allowanceDefaults(),have=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[];
+ const mine=Object.create(null);have.forEach(r=>{if(r&&r.id)mine[r.id]=r;});
+ const out=[],seen=Object.create(null);
+ factory.forEach(f=>{
+  seen[f.id]=true;
+  const was=mine[f.id];
+  out.push(was&&was.allowance!=null?Object.assign({},f,{allowance:String(was.allowance)}):Object.assign({},f));
+ });
+ have.forEach(r=>{if(r&&r.id&&!seen[r.id])out.push(r);});
+ DB.edgeAllowance=out;
+}
 function normalizeShopFloor(){
+ normalizeEdgeAllowance();
  const seen=Object.create(null);
  DB.station=(Array.isArray(DB.station)?DB.station:[]).filter(s=>{
   if(!s||typeof s!=='object')return false;
@@ -5546,6 +5767,12 @@ function normalizeShopFloor(){
    name:sfStr(o.name),nameEn:sfStr(o.nameEn),
    stage:SF_STAGES.includes(o.stage)?o.stage:'any',
    unit:SF_UNITS.includes(o.unit)?o.unit:null,
+   /* «После склейки» — не то же самое, что «после печи»: ламинация и сборка
+      пакета тоже post_temper, но по другой причине. Отдельный признак говорит
+      маршруту, что операция идёт ПОСЛЕ точки слияния компонентов. Без него в
+      этом белом списке поле стиралось бы при каждой загрузке, и маршрут
+      ломался бы только у пользователя, а не в тестах на заводских данных. */
+   afterMerge:o.afterMerge===true,
    note:sfStr(o.note)
   };
  });
@@ -8143,6 +8370,41 @@ function ico(name, cls=''){
    остаётся переключателем в шапке для владельца. */
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
+  /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  "Держать все секции открытыми": "Keep every section expanded",
+  "Припуск на сторону. Пустое поле берёт значение из справочника.": "Cutting allowance per side. An empty field falls back to the reference table.",
+  "Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.": "Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.",
+  "Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.": "An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.",
+  "Припуск на рез": "Cutting allowance",
+  "Съём на сторону: насколько лист больше готового размера, чтобы после кромки выйти в размер. Одна толщина встречается дважды не по ошибке: монолит меряется по стеклу, а ламинат по ПЛИТЕ склейки, потому что при резке каждое стекло отдельная панель. Из совпавших строк выигрывает самая узкая, поэтому широкая задаёт умолчание, а узкая — исключение внутри него.": "Stock removal per side: how much larger the sheet must be so the part comes out to size after edge work. A thickness appearing twice is not a mistake: monolithic glass is measured by the glass itself, laminated by the PLY of the make-up, because at cutting every sheet is a separate panel. Of the matching rows the narrowest wins, so a wide row sets the default and a narrow one is the exception inside it.",
+  "Операция": "Operation",
+  "Мера": "Measured by",
+  "От, мм": "From, mm",
+  "До, мм": "To, mm",
+  "Припуск": "Allowance",
+  "Пример": "Preview",
+  "Monolithic · по стеклу": "Monolithic · per glass",
+  "Laminated · по ПЛИТЕ": "Laminated · per PLY",
+  "притупление контур не съедает": "arrising does not eat into the contour",
+  "по толщине ПЛИТЫ": "by the PLY thickness",
+  "толстое стекло с большим съёмом": "thick glass, larger stock removal",
+  "склеенная кромка, по толщине ПЛИТЫ": "laminated edge, by the PLY thickness",
+  "+ строка": "+ row",
+  "не число": "not a number",
+  "слишком много": "too much",
+  "Что получится с текущими значениями": "What the current values produce",
+  "Случай": "Case",
+  "Припуск на сторону": "Allowance per side",
+  "Монолит 6 мм · Flat Polish": "Monolithic 6 mm · Flat Polish",
+  "Монолит 12 мм · Flat Polish": "Monolithic 12 mm · Flat Polish",
+  "Монолит 10 мм · CNC Shape Polish": "Monolithic 10 mm · CNC Shape Polish",
+  "Ламинат 6+6 · Flat Polish (плита 6)": "Laminated 6+6 · Flat Polish (ply 6)",
+  "Ламинат 6+6 · Lami Polish (плита 6)": "Laminated 6+6 · Lami Polish (ply 6)",
+  "Ламинат 10+10 · Lami Polish (плита 10)": "Laminated 10+10 · Lami Polish (ply 10)",
+  "Ламинат 12+12 · CNC Lami Polish (плита 12)": "Laminated 12+12 · CNC Lami Polish (ply 12)",
+  "Плиты склейки разной толщины": "The plies of this laminate differ in thickness",
+  "Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.": "The allowance is proposed from the thicker ply — check it side by side and correct it if the thinner one loses too much.",
+  " Ламинат: обычная полировка идёт по каждой плите ДО склейки, Lami Polish — по склеенной кромке ПОСЛЕ.": " Laminated: plain polishing runs on every ply BEFORE bonding, Lami Polish works the bonded edge AFTER.",
   "без цены": "unpriced",
   "Цена не заполнена": "Price not set",
   "начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.": "charges have no effective rate. They are not included in the monetary total until a rate is entered.",
@@ -8973,6 +9235,9 @@ function tx(value){
  else if((mm=x.match(/^Загрузить (STATIONS|WORK_POSITIONS)\.csv$/))) x=`Load ${mm[1]}.csv`;
  else if((mm=x.match(/^(\d+) точек$/))) x=`${mm[1]} points`;
  else if((mm=x.match(/^(\d+) рёбер$/))) x=`${mm[1]} edges`;
+ /* Перечисление плит склейки собирается из данных лайта, поэтому переводится
+    правилом, а не словарём: толщины у каждой строки свои. */
+ else if((mm=x.match(/^(.+): плиты (.+) мм$/))) x=`${mm[1]}: plies ${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) физических кромок · allowance и маршрут$/))) x=`${mm[1]} physical edges · allowance and routing`;
  else if((mm=x.match(/^(\d+) операций$/))) x=`${mm[1]} operations`;
  else if((mm=x.match(/^(\d+) элементов$/))) x=`${mm[1]} elements`;
@@ -9541,8 +9806,15 @@ function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soO
 function salesAddMakeup(){const now=new Date().toISOString(),m=normalizeOrderMakeup({code:nextMakeupCode(soDraft),unitType:'double',createdAt:now,updatedAt:now},soDraft.makeups.length);soDraft.makeups.push(m);soMakeupId=m.id;soOpenSectionKey='lite-0';render();}
 function salesDuplicateMakeup(id){const src=salesMakeupById(soDraft,id);if(!src)return;const copy=JSON.parse(JSON.stringify(src));copy.id=salesUid('MU');copy.code=nextMakeupCode(soDraft);copy.createdAt=copy.updatedAt=new Date().toISOString();copy.panes.forEach((p,i)=>p.id=salesUid('LITE'));copy.cavities.forEach(c=>c.id=salesUid('CAV'));soDraft.makeups.push(copy);soMakeupId=copy.id;soOpenSectionKey='lite-0';render();}
 function salesDeleteMakeup(id){const m=salesMakeupById(soDraft,id);if(!m)return;if(soDraft.makeups.length<=1)return alert('A Sales Order must keep at least one Makeup.');const used=soDraft.lines.filter(l=>l.makeupId===id).length;if(used)return alert('Makeup '+m.code+' is used by '+used+' line(s). Reassign those lines first.');if(!confirm('Delete Makeup '+m.code+'?'))return;soDraft.makeups=soDraft.makeups.filter(x=>x.id!==id);if(soMakeupId===id)soMakeupId=soDraft.makeups[0].id;soOpenSectionKey='lite-0';render();}
-function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey='lite-0';render();}
-function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}render();}
+function salesSetUnitType(v){const m=salesCurrentMakeup();if(!m||!SALES_UNIT_TYPES.includes(v))return;const count=salesPaneCount(v);m.unitType=v;while(m.panes.length<count)m.panes.push(salesDefaultPane(m.panes.length));m.panes=m.panes.slice(0,count).map(normalizeSalesPane);while(m.cavities.length<count-1)m.cavities.push(salesDefaultCavity(m.cavities.length));m.cavities=m.cavities.slice(0,Math.max(0,count-1)).map(normalizeSalesCavity);m.updatedAt=new Date().toISOString();soOpenSectionKey='lite-0';
+ /* Обрезка лайтов могла унести последнюю склейку — см. salesSetPaneCategory. */
+ if(typeof salesSyncLamiOpsForMakeup==='function')salesSyncLamiOpsForMakeup(m.id);
+ render();}
+function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[i]||!SALES_LITE_CATEGORIES.includes(v))return;const p=m.panes[i];p.category=v;if(v==='spandrel'){p.visionType='uncoated';p.coatingSurface=null;salesPaneEnsureProduct(p);}
+ /* Ушла склейка — уходит и полировка склейки: иначе строка застревает в
+    «Lami op on plain lite» без очевидного выхода. */
+ if(typeof salesSyncLamiOpsForMakeup==='function')salesSyncLamiOpsForMakeup(m.id);
+ render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
 function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p),rows=activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));return fam==='lowe'||fam==='reflective'?salesSortCoatedGlass(rows):salesSortGlass(rows,false);}
 function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
@@ -10115,6 +10387,10 @@ const SALES_SERVICE_RATE_TABLE={
  clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
  hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
  roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15},
+ /* Полировка склеенной кромки. ЧИСЛО, а не банды: у владельца пока одна ставка
+    на любую толщину склейки. Когда банды появятся, число заменяется объектом
+    вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
+ lamiPolish:.28,cncLamiPolish:.35,
  notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
  sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
@@ -10123,14 +10399,38 @@ const SALES_SERVICE_RATE_TABLE={
    разных стекла и две разные ставки. */
 function salesPricingBandFor(mm){
  const t=+mm;
- if(t===6)return {ok:true,thickness:t,band:'6'};
+ /* Банд «6» открыт вниз: у ламината плиты бывают 3-5 мм, и на точном
+    равенстве шестёрке они оставались без ставки вовсе. Цена та же — решение
+    владельца. */
+ if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};
  if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
  if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
  return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
 }
-function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t===6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
-function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
+/* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
+   Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
+   склейке 10+10: 20.76 мм ни в один банд не попадает. */
+function salesCatalogRate(tableKey,ctx,subKey){
+ const t=SALES_SERVICE_RATE_TABLE[tableKey];if(t==null)return null;
+ if(subKey){const s=t[subKey];if(s==null)return null;if(typeof s==='number')return s;return ctx.ok&&s[ctx.band]!=null?s[ctx.band]:null;}
+ if(typeof t==='number')return t;
+ if(!ctx.ok)return null;
+ return t[ctx.band]!=null?t[ctx.band]:null;
+}
+/* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
+   сохранённых заказов обязаны остаться прежними до символа. У единой ставки
+   'flat', и в день появления бандов лами-строки перейдут на банд сами. Толщина
+   без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
+   и сложились в одну строку счёта. */
+function salesRateBandKey(tableKey,ctx){
+ const t=SALES_SERVICE_RATE_TABLE[tableKey];
+ if(typeof t==='number')return 'flat';
+ if(ctx&&ctx.ok)return ctx.band;
+ const n=+((ctx&&ctx.thickness)||NaN);
+ return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
+}
 function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
@@ -10220,6 +10520,11 @@ function salesLineAreaFt2(line){
  const w=(+(line&&line.width16)||0)/16,h=(+(line&&line.height16)||0)/16;
  return (w>0&&h>0)?(w*h)/144:0;
 }
+/* МЁРТВАЯ ВЕТКА. Рабочая версия — в sales/service-sets.js: манифест грузит её
+   позже, и присваивание перекрывает это объявление. Эта копия не знает про
+   лайты и плиты, поэтому правки счёта идут ТОЛЬКО туда. Удаление вынесено
+   отдельной задачей: тронуть её здесь — значит смешать два несвязанных
+   изменения в одном коммите. */
 function salesLineChargeRows(line){
  const rows=[];
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
@@ -10276,7 +10581,7 @@ function salesChargeShortLabel(row){
     владельцем вида имени в этом коде нет и быть не может. */
  const kp=String(row.key||'').split(':');
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
- const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
@@ -10298,8 +10603,7 @@ function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===re
 function salesLineGlassThicknesses(line){
  const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];if(!m)return out;
  (m.panes||[]).forEach(p=>{
-  const plies=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[{glassProductId:p.glassProductId,thicknessMm:p.thicknessMm}];
-  plies.forEach(ply=>{const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);if(Number.isFinite(v)&&v>0&&out.indexOf(v)<0)out.push(v);});
+  salesPanePlies(p).forEach(ply=>{if(Number.isFinite(ply.mm)&&ply.mm>0&&out.indexOf(ply.mm)<0)out.push(ply.mm);});
  });
  return out.sort((a,b)=>a-b);
 }
@@ -10495,21 +10799,45 @@ function salesDropLineOwnedShape(line){
      спрятана внутри пакета, её задача только безопасность реза;
    · одиночное стекло — по толщине: арис до 8 mm, полировка от 10 mm;
    · ламинат — ОДНА кромка на всю склейку: плёнка не делит её на два стекла,
-     поэтому толщина берётся суммарная и обработка у обеих сторон одинаковая.
+     поэтому обработка у обеих сторон одинаковая. База у него АРИС, а не
+     полировка по толщине: полировать склейку можно двумя разными способами —
+     по каждой плите ДО склейки (дешевле, обычный станок) или по склеенной
+     кромке ПОСЛЕ (Lami Polish / CNC Lami Polish). Работа и цена разные,
+     поэтому выбор делает продажник, а не правило по толщине.
    Ручное значение на самом продукте стекла (Master Data) перебивает всё —
    ради зеркал 5/6 mm, которым клиенты заказывают полировку.
 
    Комбинация 10 + 6 в пакете — это два разных стекла: у каждого своя кромка,
    свой припуск и свой размер реза. Раньше строка считалась одним куском, и
    такой пакет упирался в «Exact Makeup thickness is unresolved». */
+/* Толщина ОДНОГО стекла: продукт каталога сильнее ручного значения. Эта
+   развилка лежала тремя копиями — в подсчёте толщин строки, в сумме ламината и
+   в списке лайтов, — и разъехаться им было нечем помешать. */
+function salesPlyThicknessMm(ply){
+ const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
+ return Number.isFinite(v)&&v>0?v:NaN;
+}
+/* Физические стёкла лайта: у ламината их ДВА, у всего остального одно.
+   Правило владельца: «каждое стекло при резке изначально отдельная панель», —
+   поэтому припуск на рез и банд прайса берутся по этому списку, а НЕ по
+   суммарной толщине склейки. Сумма остаётся у пакета: вес, печать, спейсеры. */
+function salesPanePlies(pane){
+ if(!pane)return [];
+ if(pane.category==='laminated'){
+  const lam=pane.laminated||{};
+  return [lam.outer,lam.inner].map(function(ply,i){
+   return {index:i,role:i?'inner':'outer',mm:salesPlyThicknessMm(ply),glassProductId:ply&&ply.glassProductId};
+  });
+ }
+ return [{index:0,role:'single',mm:salesPlyThicknessMm({glassProductId:pane.glassProductId,thicknessMm:pane.thicknessMm}),glassProductId:pane.glassProductId}];
+}
 function salesPaneGlassThicknessMm(pane){
  if(!pane)return NaN;
  if(pane.category==='laminated'){
-  const lam=pane.laminated||{},plies=[lam.outer,lam.inner],films=lam.interlayers||[];
+  const lam=pane.laminated||{},films=lam.interlayers||[];
   let total=0,known=true;
-  plies.forEach(function(ply){
-   const g=glassProductById(ply&&ply.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:ply&&ply.thicknessMm);
-   if(Number.isFinite(v)&&v>0)total+=v;else known=false;
+  salesPanePlies(pane).forEach(function(ply){
+   if(Number.isFinite(ply.mm)&&ply.mm>0)total+=ply.mm;else known=false;
   });
   films.forEach(function(film){
    /* thicknessMm is already the total derived from the selected layer count.
@@ -10520,19 +10848,20 @@ function salesPaneGlassThicknessMm(pane){
   });
   return known?total:NaN;
  }
- const g=glassProductById(pane.glassProductId),v=+(g&&g.thicknessMm!=null?g.thicknessMm:pane.thicknessMm);
- return Number.isFinite(v)&&v>0?v:NaN;
+ return salesPlyThicknessMm({glassProductId:pane.glassProductId,thicknessMm:pane.thicknessMm});
 }
 function salesPaneBaseEdgework(pane,unitType){
  if(!pane)return '';
  /* Выбор на самом лайте сильнее всего: у пакета бывает, что одно стекло
     полируют, а второе только зачищают. */
  if(SALES_PANE_EDGEWORK.indexOf(pane.edgework)>0)return pane.edgework;
+ /* Ламинат до выбора продажника — арис. Суммарные 13.52 мм у 6+6 раньше
+    попадали под «от 10 mm полировка», и строка молча уезжала в производство с
+    полировкой, которую никто не заказывал. */
+ if(pane.category==='laminated')return 'arris';
  /* Ручное значение на продукте — сильнее правила по толщине. */
- if(pane.category!=='laminated'){
-  const g=glassProductById(pane.glassProductId);
-  if(g&&g.baseEdgework)return g.baseEdgework;
- }
+ const g=glassProductById(pane.glassProductId);
+ if(g&&g.baseEdgework)return g.baseEdgework;
  if(unitType==='double'||unitType==='triple')return 'arris';
  const mm=salesPaneGlassThicknessMm(pane);
  return Number.isFinite(mm)&&mm>=10?'polish':'arris';
@@ -10561,8 +10890,17 @@ function salesLineLites(line){
  if(!m)return [];
  return (m.panes||[]).map(function(pane,i){
   const mm=salesPaneGlassThicknessMm(pane),kind=salesPaneBaseEdgework(pane,m.unitType);
+  /* thicknessMm — толщина ПАКЕТА: её читают вес, печать и общая толщина юнита.
+     Рядом идут плиты: рез и банд прайса считаются по ним, потому что каждое
+     стекло при резке отдельная панель. allowanceMm — ПРЕДЛОЖЕНИЕ припуска для
+     склейки из разных плит (по толстой: недорез необратим, перерез снимается),
+     а последнее слово за ручной правкой по стороне. */
+  const plies=salesPanePlies(pane),known=plies.filter(function(p){return Number.isFinite(p.mm);});
+  const thick=known.map(function(p){return p.mm;});
   return {
    index:i,label:'Lite '+(i+1),laminated:pane.category==='laminated',
+   plies:plies,allowanceMm:thick.length?Math.max.apply(null,thick):null,
+   pliesVary:new Set(thick).size>1,
    thicknessMm:Number.isFinite(mm)?mm:null,baseEdgework:kind,
    baseOps:glassBaseEdgeworkOp(kind)?[shapeNormalizeOp(glassBaseEdgeworkOp(kind))].filter(Boolean):[]
   };
@@ -10624,7 +10962,24 @@ function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return
    Shape stays independent; prices/orders stay in ERP.
    ===================================================================== */
 
-const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Набор — рецепт на много строк, и makeup он не знает. Лами-полировка в нём
+   есть, но при применении она ложится ТОЛЬКО на строки со склейкой: на
+   обычном стекле её выполнить нечем. Пропуск не молчаливый — он виден в
+   предпросмотре массового применения. */
+const SALES_SERVICE_SET_OPS=SHAPE_EDGE_OPS;
+function salesSetOpLists(set){
+  if(!set)return [];
+  var s=set.sides||{};
+  return set.mode==='perimeter'?[set.perimeter]:[s.A,s.B,s.C,s.D,s.other];
+}
+function salesSetHasLamiOps(set){
+  return salesSetOpLists(set).some(function(list){
+    return salesServiceOps(list).some(function(o){return shapeIsLamiOnlyOp(o.type);});
+  });
+}
+function salesLineIsLaminated(line){
+  return salesLineLites(line).some(function(l){return l.laminated;});
+}
 
 function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
 function salesServicePlain(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
@@ -10832,6 +11187,19 @@ function salesEffectiveProductionSnapshot(line,shape,order){
       return {id:g.id,length:g.length,side:g.side,ops:salesServiceOps(liteOps),source:src,allowance:null};
     })});
   });
+  /* Полировка склеенной кромки на обычном стекле — не опечатка в данных, а
+     работа, которую цех физически не выполнит: склеивать нечего. Молча выбросить
+     её нельзя (операция оплачиваемая), поэтому строка встаёт на проверку с
+     конкретной причиной: какой лайт и почему. */
+  for(var li=0;li<liteViews.length;li++){
+    var lv=liteViews[li];
+    if(lv.laminated)continue;
+    for(var lg2=0;lg2<lv.groups.length;lg2++){
+      var bad=lv.groups[lg2].ops.find(function(o){return shapeIsLamiOnlyOp(o.type);});
+      if(bad)return {valid:false,reason:bad.type+' applies to a laminated lite only. '+lv.label+' is a single glass.',
+                     groups:groups,shape:shape,set:set,lamiMisapplied:true,mappingPending:mappingPending};
+    }
+  }
   /* Если у лайтов кромка разная, карточка кромки не должна выдавать одну из них
      за общую: помечаем такие кромки, а раскладка по лайтам показана ниже. */
   groups.forEach(function(g){
@@ -10871,12 +11239,50 @@ function salesEffectiveBorderPlan(shape,mm,finishedPoints,edgeIds,edgeTypes,cutt
   var plan=shapeSafetyBorderPlan(def,finishedPoints||[],edgeIds||[],edgeTypes||{});
   return {border:plan,footprint:shapeBorderFootprint(cuttingPoints||[],plan)};
 }
+/* Припуск кромки лайта. Считается по СТЕКЛУ, которое лежит под инструментом:
+   у ламината это плита — и когда её полируют по одной до склейки, и когда
+   доводят составную кромку после. Суммарные 12.76 мм у 6+6 давали 3/16 вместо
+   1/16, то есть рез на четверть дюйма крупнее по каждой оси.
+
+   Плиты разной толщины (6+10) дают разные припуски — берём БОЛЬШИЙ: недорез
+   необратим, лишнее снимается. Расхождение видно в карточке кромки, и там же
+   его правят руками по стороне. */
+function salesLiteAllowanceForOps(lite,ops,mm){
+  var list=salesServiceOps(ops);
+  if(!list.length)return {ok:true,value:0};
+  var lam=!!(lite&&lite.laminated),th=lam&&lite.allowanceMm!=null?lite.allowanceMm:mm,best=0,r;
+  for(var i=0;i<list.length;i++){
+    r=ShapeModule.productionAllowanceRule(list[i],th,lam?'lami':'mono');
+    if(!r.ok)return r;
+    best=Math.max(best,+r.value||0);
+  }
+  return {ok:true,value:best};
+}
 /* Контур одного лайта: та же геометрия, свои припуски. Три ветки — простой
    прямоугольник строки, внешний DXF и рассчитанная форма. */
-function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
-  var i,ar;
+/* Порядок припуска на кромке: правка ЛАЙТА → правка формы → таблица. У
+   ламината 6+10 стороны доводят по-разному, и правка принадлежит конкретному
+   стеклу, а не всей строке. */
+function salesLiteEdgeAllowanceOverride(shape,liteIndex,edgeId){
+  if(liteIndex!=null){
+    var spec=shapeLiteSpec(shape,liteIndex),own=spec&&spec.edgeAllowances;
+    if(own){
+      var v=ShapeModule.edgeAllowanceOverride({edgeAllowances:own},edgeId);
+      if(v!=null)return v;
+    }
+  }
+  return ShapeModule.edgeAllowanceOverride(shape,edgeId);
+}
+function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
+  var i,ar,manual;
   for(i=0;i<groups.length;i++){
-    ar=ShapeModule.productionAllowanceForOps(groups[i].ops,mm);
+    ar=salesLiteAllowanceForOps(lite,groups[i].ops,mm);
+    manual=salesLiteEdgeAllowanceOverride(shape,liteIndex,groups[i].id);
+    /* Предложение таблицы показываем рядом с полем ввода даже когда его
+       перебили — иначе не видно, от чего цех отступил. */
+    groups[i].allowanceAuto=ar.ok?ar.value:null;
+    groups[i].allowanceManual=manual!=null;
+    if(manual!=null){groups[i].allowance=manual;continue;}
     if(!ar.ok)return {valid:false,reason:ar.reason,allowanceRuleMissing:true};
     groups[i].allowance=ar.value;
   }
@@ -10905,6 +11311,12 @@ function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex){
   }
   var effective=normalizeShapeDef(salesServiceClone(shape));effective.thickness=String(mm);effective.edgeOps={};
   groups.forEach(function(group){if(group.ops.length)effective.edgeOps[group.id]=salesServiceOps(group.ops);});
+  /* ShapeModule считает контур реза сам и берёт припуск от ОДНОЙ скалярной
+     толщины — посчитанные выше значения по плите иначе никуда бы не доехали.
+     Отдаём их полем формы: нотчи, дуги и подготовка контура при этом работают
+     прежним путём, без второго механизма переменного офсета. */
+  effective.edgeAllowances={};
+  groups.forEach(function(group){effective.edgeAllowances[group.id]=String(group.allowance||0);});
   var result=ShapeModule.compute(effective);
   if(!result||!result.valid)return {valid:false,reason:(result&&((result.errors&&result.errors[0])||result.reason))||'Effective Shape cutting failed.'};
   return {valid:true,external:false,effective:effective,result:result,finishedPoints:result.cutting.finishedPoints,cuttingPoints:result.cutting.points,finishedW:result.width,finishedH:result.height,cutW:result.cutting.width,cutH:result.cutting.height,perimeter:result.cutting.perimeter||fabPolylineLength(result.cutting.finishedPoints,true),safetyBorder:result.cutting.safetyBorder,footprint:result.cutting.footprint};
@@ -10957,7 +11369,7 @@ function salesEffectiveCuttingPlan(line,shape,order){
     /* Своя форма лайта считается сама по себе; отступ применяется только к
        лайтам, живущим на общей форме. */
     var liteShape=lite.shape||shape;
-    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index);
+    var contour=salesEffectiveLiteContour(line,liteShape,lite.groups,mm==null?fallbackMm:mm,lite.ownShape?null:lite.index,lite);
     if(!contour.valid)return {valid:false,blocked:true,reason:lite.label+': '+contour.reason,groups:snap.groups,snapshot:snap,allowanceRuleMissing:contour.allowanceRuleMissing,tangentAllowanceConflict:contour.tangentAllowanceConflict};
     /* Зеркало не меняет ни размеры, ни припуски — только сторону, с которой
        стекло приходит на стол. */
@@ -10968,25 +11380,49 @@ function salesEffectiveCuttingPlan(line,shape,order){
         finishedPoints:salesMirrorContour(contour.finishedPoints),
         cuttingPoints:salesMirrorContour(contour.cuttingPoints)});
     }
-    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
+    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,plies:lite.plies,laminated:!!lite.laminated,allowanceMm:lite.allowanceMm,pliesVary:!!lite.pliesVary,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
   }
   /* Лист подбирается по самому большому резу пакета. */
   var lead=built[0];
   built.forEach(function(x){if(x.cutW*x.cutH>lead.cutW*lead.cutH)lead=x;});
   var sameCut=built.every(function(x){return x.cutW===lead.cutW&&x.cutH===lead.cutH;});
-  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg)g.allowance=lg.allowance;});
+  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg){g.allowance=lg.allowance;g.allowanceAuto=lg.allowanceAuto;g.allowanceManual=!!lg.allowanceManual;}});
   return Object.assign({},lead,{valid:true,blocked:false,groups:snap.groups,snapshot:snap,lites:built,uniformCut:sameCut,setPendingMapping:snap.mappingPending});
 }
 
+/* По каким стёклам фактически идёт операция кромки.
+
+   Лами-полировка работает по СКЛЕЕННОЙ кромке: один проход по периметру, и
+   толщина у неё пакетная. Всё остальное на ламинате делается ДО склейки — по
+   каждой плите отдельно, то есть два прохода и банд прайса по толщине ПЛИТЫ.
+   Для 6+6 это 0.07+0.07 против 0.28 у Lami Polish, ровно как в прайсе.
+
+   У обычного лайта список из одной цели с прежней толщиной, поэтому в расчёте
+   начислений нет ветки «если ламинат»: сегодняшний счёт — её частный случай. */
+function salesEdgeOpThicknessTargets(lite,op){
+  var packMm=lite&&lite.thicknessMm!=null?lite.thicknessMm:null;
+  if(!lite)return [{thicknessMm:null,count:1}];
+  if(shapeIsLamiOnlyOp(op&&op.type))return [{thicknessMm:packMm,count:1}];
+  var plies=(Array.isArray(lite.plies)?lite.plies:[]).filter(function(p){return Number.isFinite(p.mm)&&p.mm>0;});
+  if(!plies.length)return [{thicknessMm:packMm,count:1}];
+  var seen={},out=[];
+  plies.forEach(function(p){
+    if(seen[p.mm]){seen[p.mm].count++;return;}
+    seen[p.mm]={thicknessMm:p.mm,count:1};out.push(seen[p.mm]);
+  });
+  return out;
+}
 function salesEdgeChargeMetaForServiceSet(op,ctx){
   var id='',label=op.type,rate=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}
   else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
   else return null;
-  return {id:id,label:label,rate:rate};
+  return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -11010,23 +11446,29 @@ salesLineChargeRows=function(line){
        учётом ступеньки лайта. Если рез заблокирован, счёт всё равно должен
        показывать работу — тогда работаем по снимку. */
     var plan=salesEffectiveCuttingPlan(line,shape,soDraft);
-    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,groups:l.groups};})
+    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,plies:l.plies,laminated:l.laminated,groups:l.groups};})
       :((snap.lites||[]).length?snap.lites:[{label:'',thicknessMm:null,groups:snap.groups}]);
-    var manyThickness=new Set(liteViews.map(function(l){return l.thicknessMm;})).size>1;
     /* Одинаковые операции с одинаковой ставкой складываются в одну строку счёта:
        у пакета 10 + 10 это 256″ ариса, а не две строки по 128″. Разные толщины
        остаются разными строками — у них разные ставки. */
     var acc=Object.create(null),order=[];
     liteViews.forEach(function(lite){
-      var liteCtx=lite.thicknessMm==null?ctx:salesPricingBandFor(lite.thicknessMm);
       lite.groups.forEach(function(group){group.ops.forEach(function(op){
-        var meta=salesEdgeChargeMetaForServiceSet(op,liteCtx);
-        if(!meta||!(group.length>0))return;
-        var key=meta.id+':'+liteCtx.band;
-        if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:liteCtx.band,mm:lite.thicknessMm,rate:meta.rate,length:0};order.push(key);}
-        acc[key].length+=group.length;
+        if(!(group.length>0))return;
+        salesEdgeOpThicknessTargets(lite,op).forEach(function(target){
+          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm);
+          var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
+          if(!meta)return;
+          var key=meta.id+':'+meta.bandKey;
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,length:0};order.push(key);}
+          acc[key].length+=group.length*(target.count||1);
+        });
       });});
     });
+    /* Уточнение толщины в ярлыке нужно, только когда строк с разной толщиной
+       больше одной. Считаем по СОБРАННЫМ строкам, а не по лайтам: у ламината
+       6+6 толщина лайта 12.76, а работа идёт по двум шестёркам. */
+    var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
       rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing'));
@@ -11052,10 +11494,14 @@ function salesApplySetOpsToShape(line,set){
      Массовое изменение идёт МОДИФИКАЦИЕЙ и не имеет права встать выше: оно
      заполняет только те кромки, где на форме ничего не задано. Раньше оно
      переписывало форму целиком и сносило поставленный вручную CNC. */
-  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false;
+  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false,lam=salesLineIsLaminated(line);
   edges.forEach(function(edge){
     if((ops[edge.id]||[]).length)return;
     var list=set.mode==='perimeter'?salesServiceOps(set.perimeter):salesServiceOps((set.sides&&set.sides[salesSideForPhysicalEdge(line,edge)])||[]);
+    /* Полировать склейку там, где её нет, цех не может — такую операцию из
+       рецепта отбрасываем, вместо того чтобы завести строку в непроходное
+       состояние. Остальное из набора ложится как обычно. */
+    if(!lam)list=list.filter(function(o){return !shapeIsLamiOnlyOp(o.type);});
     if(list.length){ops[edge.id]=salesServiceClone(list);wrote=true;}
   });
   shape.edgeOps=ops;
@@ -11064,11 +11510,93 @@ function salesApplySetOpsToShape(line,set){
   return wrote;
 }
 
+/* Ручной припуск по стороне. Живёт в ФОРМЕ, а не на строке заказа: форма
+   входит в отпечаток, поэтому правка честно помечает строку «форма
+   изменилась». На строке она поменяла бы размер реза молча — а это уже брак,
+   который никто не заметит. */
+function salesSetEdgeAllowance(lineId,edgeId,v){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesEnsureLineShape(line)||salesShapeByRef(line.shapeRef);if(!shape)return;
+  var t=String(v==null?'':v).trim(),map=Object.assign({},shape.edgeAllowances||{});
+  if(t){
+    var p=fabParseDimStrict(t);
+    /* Мусор и заведомо невозможный съём не принимаем: на экране остаётся
+       прежнее значение, молчаливого нуля не будет. */
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
+    map[edgeId]=t;
+  }else delete map[edgeId];
+  shape.edgeAllowances=map;
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesResetEdgeAllowances(lineId){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesShapeByRef(line.shapeRef);if(!shape)return;
+  if(!shape.edgeAllowances||!Object.keys(shape.edgeAllowances).length)return;
+  shape.edgeAllowances={};
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesHasEdgeAllowanceOverrides(line){
+  var shape=line&&salesShapeByRef(line.shapeRef);
+  return !!(shape&&shape.edgeAllowances&&Object.keys(shape.edgeAllowances).length);
+}
+/* Полировка склейки, оставшаяся на строке без ламината. Возвращает, сколько
+   операций снято. Правит и общую форму, и обработку по лайтам. */
+function salesShapeDropLamiOps(shape){
+  if(!shape)return 0;
+  var dropped=0;
+  function clean(map){
+    var src=salesServicePlain(map),out={};
+    Object.keys(src).forEach(function(id){
+      var list=salesServiceOps(src[id]).filter(function(o){
+        if(shapeIsLamiOnlyOp(o.type)){dropped++;return false;}
+        return true;
+      });
+      if(list.length)out[id]=list;
+    });
+    return out;
+  }
+  shape.edgeOps=clean(shape.edgeOps);
+  var lites=salesServicePlain(shape.lites);
+  Object.keys(lites).forEach(function(k){
+    var spec=lites[k];if(spec&&typeof spec==='object')spec.edgeOps=clean(spec.edgeOps);
+  });
+  if(dropped)shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  return dropped;
+}
+/* Смена типа лайта или состава юнита убирает полировку склейки: склеивать
+   больше нечего. Без этого операция оставалась в форме и держала строку в
+   непроходном состоянии «Lami op on plain lite» — выйти можно было только сняв
+   её вручную с каждой кромки, а причина при этом уже не была видна. */
+function salesSyncLamiOpsForMakeup(makeupId){
+  if(!soDraft||!makeupId)return 0;
+  var dropped=0;
+  (soDraft.lines||[]).forEach(function(line){
+    if(line.makeupId!==makeupId||salesLineIsLaminated(line))return;
+    var shapes=[salesShapeByRef(line.shapeRef)];
+    (salesLineLites(line)||[]).forEach(function(l){
+      var own=salesLineLiteShape(line,l.index);if(own)shapes.push(own);
+    });
+    var n=0;
+    shapes.forEach(function(s){if(s)n+=salesShapeDropLamiOps(s);});
+    if(n){
+      dropped+=n;
+      var main=salesShapeByRef(line.shapeRef);
+      if(main)line.shapeRef=normalizeShapeRef({id:main.id,revision:main.revision});
+    }
+  });
+  return dropped;
+}
 function salesLineServiceStatus(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
+  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
+  if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
@@ -11077,7 +11605,7 @@ function salesLineServiceStatus(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -11087,6 +11615,11 @@ function salesLostOverrideEdges(line){
 
 function salesApplyLineEdgeOperation(line,edgeId,type,on){
   var shape=salesLineGeometryShape(line);if(!shape)return {ok:false,reason:'Line has no geometry.'};
+  /* Ставить полировку склейки некуда, если склейки нет. Отказ с причиной —
+     вызывающий её показывает; молчаливое согласие увело бы в производство
+     операцию, которую не выполнить. */
+  if(on&&shapeIsLamiOnlyOp(type)&&!salesLineLites(line).some(function(l){return l.laminated;}))
+    return {ok:false,reason:type+' applies to a laminated lite only. This line has no laminated glass.'};
   if(!line.serviceOverrides)line.serviceOverrides={pinnedTopology:'',edges:{}};
   var base=salesServiceClone(line);base.serviceOverrides={pinnedTopology:'',edges:{}};
   var baseSnap=salesEffectiveProductionSnapshot(base,shape,soDraft),curSnap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!baseSnap.valid||!curSnap.valid)return {ok:false,reason:curSnap.reason||baseSnap.reason};
@@ -11148,7 +11681,14 @@ function salesRouteStationOf(opCode,fallback){
   return (o&&o.station)||fallback;
 }
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'arris_machine','Flat Polish':'polish',
-  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel'};
+  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel',
+  'Lami Polish':'lami_polish','CNC Lami Polish':'cnc_lami_polish'};
+/* Признак берётся из справочника операций, а не из списка кодов здесь: заведёт
+   владелец ещё одну операцию по склеенной кромке — маршрут узнает сам. */
+function salesRouteAfterMerge(opCode){
+  var o=(DB.operation||[]).find(function(x){return x.code===opCode;});
+  return !!(o&&o.afterMerge);
+}
 const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
 
 function salesRoutePush(map,order,code,text){
@@ -11187,7 +11727,7 @@ function salesRouteMarkText(shape,geo,item,edgeLen){
 
 /* Один лайт: что с ним делают и на какой станции. */
 function salesRouteLiteStations(shape,result,groups,heatTreatment){
-  var map={},order=[],geo=null;
+  var map={},order=[],afterMap={},afterOrder=[],geo=null;
   try{geo=(typeof shapeManufacturingGeometry==='function'&&shape===sDraft)?shapeManufacturingGeometry():null;}catch(e){geo=null;}
   if(!geo&&result&&result.valid&&(result.points||[]).length)geo={P:result.points,b:fabEdgeBounds(result.points)};
 
@@ -11205,8 +11745,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
     });
   });
   opOrder.forEach(function(t){
-    salesRoutePush(map,order,salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],'EDGE'),
-      byOp[t].join(', ')+' · '+t);
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=byOp[t].join(', ')+' · '+t;
+    /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
+       ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
+       станции, то есть до склейки, и лист печатал бы неправду. */
+    if(salesRouteAfterMerge(code))salesRoutePush(afterMap,afterOrder,station,text);
+    else salesRoutePush(map,order,station,text);
   });
 
   /* Тело стекла: отверстия, фурнитура, нотчи, вырезы. */
@@ -11239,7 +11783,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
   var seq=salesRouteStations().map(function(s){return s.code;});
   var out=seq.filter(function(c){return map[c];}).map(function(c){return map[c];});
   order.forEach(function(c){if(seq.indexOf(c)<0)out.push(map[c]);});
-  return out;
+  return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
 }
 
 function salesRouteHeatOf(pane){
@@ -11255,12 +11799,16 @@ function salesRouteMerge(unitType,panes){
   return '';
 }
 
+/* Точка слияния и всё, что идёт ПОСЛЕ неё, дописываются в конец полосы —
+   вне сортировки по seq, ровно как сама станция слияния. Место работы при этом
+   не меняется: полировка склейки остаётся на EDGE, меняется только момент. */
 function salesRouteAppendMerge(lites,merge){
-  if(!merge)return lites;
-  var name=salesRouteStationName(merge);
+  var name=merge?salesRouteStationName(merge):'';
   lites.forEach(function(l){
-    if(!l.stations.some(function(s){return s.code===merge;}))
+    if(merge&&!l.stations.some(function(s){return s.code===merge;}))
       l.stations.push({code:merge,name:name,items:[name]});
+    (l.afterMerge||[]).forEach(function(s){l.stations.push(s);});
+    delete l.afterMerge;
   });
   return lites;
 }
@@ -11271,10 +11819,10 @@ function salesPrintRoute(line,order,shape,result){
   if(mk&&typeof salesEffectiveProductionSnapshot==='function'){
     var snap=salesEffectiveProductionSnapshot(line,shape,order),views=(snap&&snap.lites)||[];
     lites=views.map(function(v,i){
-      var pane=(mk.panes||[])[i];
+      var pane=(mk.panes||[])[i],st=salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'');
       return {label:v.label||('Lite '+(i+1)),
         glass:pane?salesGlassCodeForPane(pane)+' · '+salesRouteHeatOf(pane):'',
-        stations:salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'')};
+        stations:st.list,afterMerge:st.after};
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
     salesRouteAppendMerge(lites,merge);
@@ -11285,7 +11833,10 @@ function salesPrintRoute(line,order,shape,result){
       return {id:g.id,length:g.length,
         ops:(typeof shapeEdgeOps==='function'?shapeEdgeOps(shape,g.id):[])};
     });
-    lites=[{label:'',glass:'',stations:salesRouteLiteStations(shape,result,groups,'')}];
+    var st0=salesRouteLiteStations(shape,result,groups,'');
+    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after}];
+    /* Даже без слияния хвост обязан доехать: иначе строка молча потеряется. */
+    salesRouteAppendMerge(lites,'');
   }
   return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
 }
@@ -11864,7 +12415,7 @@ function salesCavitySection(c,index){
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
  return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
-function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="Держать все секции открытыми">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
+function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc(tx('Держать все секции открытыми'))}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
 
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
@@ -12037,8 +12588,8 @@ function viewShapeSkill(){
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
 }
 
-function openShapeNew(type){shapeResetMarkAnchors();sEdit='new';sView='setup';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
-function openShapeEdit(i){shapeResetMarkAnchors();sEdit=i;sView='setup';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+function openShapeNew(type){shapeResetMarkAnchors();sEdit='new';sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=newShapeDef(type||'smart');sDraft.name=shapePresetInfo(sDraft.type).label;if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
+function openShapeEdit(i){shapeResetMarkAnchors();sEdit=i;sView='production';sWorkspaceTab='designer';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;sFeatureExpandedId=null;sSourceOpen=false;sManufacturingOpen=false;sManufacturingPlace=null;sManufacturingSelected=null;sManufacturingCustomId=null;sDimEdit=null;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(DB.shapeDef[i])));if(typeof setSidebarCollapsed==='function')setSidebarCollapsed(true,false);render();}
 function shapeFileSizeText(bytes){
   var n=Math.max(0,+bytes||0);if(n<1024)return Math.round(n)+' B';if(n<1024*1024)return (n/1024).toFixed(n<10240?1:0)+' KB';return (n/(1024*1024)).toFixed(1)+' MB';
 }
@@ -13128,6 +13679,7 @@ function shapeDerivedHTML(r){
   var req=r.requirements||[],warns=r.warns||[];
   return `<div class='smart-kpis'><div><span>Finished</span><b>${dimIn16(r.width)} × ${dimIn16(r.height)}</b></div><div><span>Net area</span><b>${(r.area/144).toFixed(2)} ft²</b></div><div><span>Perimeter</span><b>${dimIn16(r.perimeter)}</b></div><div><span>Cut size</span><b>${dimIn16(r.cutting.width)} × ${dimIn16(r.cutting.height)}</b></div>${r.cutting.safetyBorder&&r.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${r.cutting.safetyBorder.manualRequired?'not set':dimIn16(r.cutting.safetyBorder.value)+' · '+esc(r.cutting.safetyBorder.state)}</b></div><div><span>Billable footprint</span><b>${dimIn16(r.cutting.footprint.width)} × ${dimIn16(r.cutting.footprint.height)}</b></div>`:''}</div>
     ${typeof shapeProdBorderField==='function'?shapeProdBorderField():''}
+    ${typeof shapeProdAllowanceField==='function'?shapeProdAllowanceField():''}
     <div class='shape-requirements ${req.length?'':'empty'}'><b>Manufacturing requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div>
     ${warns.length?`<div class='validation-box warnbox'>${warns.map(function(w){return esc(moduleErrorText({reason:w}));}).join('<br>')}</div>`:`<div class='validation-box okbox'>Contour valid · Production Drawing and Cutting Geometry synchronized · ${esc(r.fingerprint)}</div>`}`;
 }
@@ -13597,7 +14149,19 @@ var sEdgeLite=null;
 function shapeEditorLites(){
   if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return [];
   var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm};}):[];
+  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
+}
+/* Есть ли под этой вкладкой склейка. Полировка склеенной кромки предлагается
+   только там, где склеивать есть что: на вкладке конкретного лайта — по нему,
+   на «All lites» — только когда ламинированы ВСЕ (иначе операция уехала бы на
+   обычное стекло вместе с общей обработкой формы). Библиотечная форма про
+   makeup ничего не знает — там гейтить не по чему, показываем всё. */
+function shapeEditorLamiAllowed(){
+  var lites=shapeEditorLites();
+  if(!lites.length)return true;
+  if(sEdgeLite==null)return lites.every(function(l){return l.laminated;});
+  var one=lites.find(function(l){return l.index===sEdgeLite;});
+  return !!(one&&one.laminated);
 }
 function setShapeEdgeLite(v){sEdgeLite=v===''||v==null?null:+v;render();}
 function shapeLiteOpsDraft(liteIndex,edgeId){
@@ -13642,7 +14206,7 @@ function shapeEdgeLiteTabs(){
      var spec=(sDraft.lites||{})[String(l.index)]||{},marks=Object.keys(spec.inset||{}).length+Object.keys(spec.edgeOps||{}).length;
      return `<button type='button' class='${sEdgeLite===l.index?'on':''}' onclick='setShapeEdgeLite(${l.index})'>${esc(l.label)}${l.mm?' · '+esc(l.mm)+' mm':''}${marks?' <i>'+marks+'</i>':''}</button>`;
     }).join('')
-   +`</div><div class='shape-lite-note'>${sEdgeLite==null?'Shape-wide edgework: applies to every lite unless the lite has its own.':'Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.'}</div>`;
+   +`</div><div class='shape-lite-note'>${sEdgeLite==null?'Shape-wide edgework: applies to every lite unless the lite has its own.':'Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.'}${shapeEditorLamiAllowed()&&shapeEditorLites().some(function(l){return l.laminated;})?' Ламинат: обычная полировка идёт по каждой плите ДО склейки, Lami Polish — по склеенной кромке ПОСЛЕ.':''}</div>`;
 }
 /* ---------- Лайты: разделение юнита ----------
    Стекла в юните почти всегда повторяют одну фигуру, поэтому раздельная
@@ -13729,13 +14293,18 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
   render();
 }
+/* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
+   SHAPE_EDGE_OPS, поэтому сокращение этого списка не сдвигает toggle. */
+function shapeEditorEdgeOps(){
+  return shapeEditorLamiAllowed()?SHAPE_EDGE_OPS:SHAPE_EDGE_OPS.filter(function(t){return !shapeIsLamiOnlyOp(t);});
+}
 function shapeEdgeworkEditor(){
   var groups=shapeGroups(),edgeNames=shapeEdgeNames(shapeDraftGeometry());
   if(!groups.length)return `<div class='shape-subsection shape-accordion shape-edgework-disabled' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>Waiting for a valid physical contour</small></span><span class='shape-accordion-state'>finish shape dimensions<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='validation-box badbox'>Finish the main contour first — Edge processing will appear automatically when all physical edges are defined.</div></div>`:''}</div>`;
-  var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0),short=['Rough','Flat','CNC','Miter','Bevel'];
-  return `<div class='shape-subsection shape-accordion' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Edge work</span>${short.map(function(x){return '<span>'+x+'</span>';}).join('')}</div>${groups.map(function(g,gi){
+  var operationCount=Object.keys(sDraft.edgeOps||{}).reduce(function(n,id){return n+(sDraft.edgeOps[id]||[]).length;},0);
+  return `<div class='shape-subsection shape-accordion' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>${groups.length} физических кромок · allowance и маршрут</small></span><span class='shape-accordion-state'>${operationCount?operationCount+' операций':'no processing'}<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-edgework-scroll'><div class='shape-edgework-matrix${shapeEditorEdgeOps().length>5?' compact':''}' style='--edge-ops:${shapeEditorEdgeOps().length}'>${shapeEdgeLiteTabs()}<div class='shape-edgework-row shape-edgework-labels'><span>Edge work</span>${shapeEditorEdgeOps().map(function(t){return '<span>'+esc(shapeEdgeOpShort(t))+'</span>';}).join('')}</div>${groups.map(function(g,gi){
     var ops=(sEdgeLite==null?(sDraft.edgeOps||{}):((sDraft.lites&&sDraft.lites[String(sEdgeLite)]&&sDraft.lites[String(sEdgeLite)].edgeOps)||{}))[g.id]||[],has=function(t){return ops.some(function(o){return o.type===t;});},miter=ops.find(function(o){return o.type==='Mitering';}),bevel=ops.find(function(o){return o.type==='Beveling';});
-    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${SHAPE_EDGE_OPS.map(function(t,oi){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${oi},this.checked)'><span>${short[oi]}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
+    return `<div class='shape-edgework-row'><span class='shape-edge-code'><b>${esc(edgeNames[g.id]||g.id)}</b><small>${dimIn16(g.length)}</small>${sEdgeLite==null?shapeBaseEdgeworkHint(has):''}</span>${shapeEditorEdgeOps().map(function(t){return `<label class='shape-op-compact ${has(t)?'on':''}' title='${esc(t)}'><input type='checkbox' ${has(t)?'checked':''} onchange='toggleShapeEdgeOp(${gi},${SHAPE_EDGE_OPS.indexOf(t)},this.checked)'><span>${esc(shapeEdgeOpShort(t))}</span></label>`;}).join('')}${miter||bevel?`<div class='shape-edge-params'>${miter?`<label>Miter<select onchange='setShapeOpParam(${gi},"Mitering","angle",this.value)'><option value='45' ${+miter.angle===45?'selected':''}>45°</option><option value='22.5' ${+miter.angle===22.5?'selected':''}>22.5°</option></select></label><label>Side<select onchange='setShapeOpParam(${gi},"Mitering","side",this.value)'><option value='back' ${(miter.side||'back')==='back'?'selected':''}>Back mitre</option><option value='front' ${miter.side==='front'?'selected':''}>Front mitre</option></select></label>`:''}${bevel?`<label>Bevel width<input value='${esc(bevel.width)}' oninput='setShapeOpParam(${gi},"Beveling","width",this.value)'></label><label>Side<select onchange='setShapeOpParam(${gi},"Beveling","side",this.value)'><option value='front' ${(bevel.side||'front')==='front'?'selected':''}>Front bevel</option><option value='back' ${bevel.side==='back'?'selected':''}>Back bevel</option></select></label>`:''}</div>`:''}</div>`;
   }).join('')}</div></div>`:''}</div>`;
 }
 
@@ -13857,7 +14426,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
@@ -13945,6 +14514,75 @@ function shapeBorderEdgeLabel(id){
   var d=typeof salesSetSideDescription==='function'?salesSetSideDescription(id):'';
   return d||'Physical edge';
 }
+/* ---------- Cutting allowance ----------
+   Съём на сторону: насколько лист больше готового размера. Значение живёт в
+   ФОРМЕ (shape.edgeAllowances) — то же самое поле, что правится в строке
+   заказа, поэтому правка видна с обеих сторон и попадает в отпечаток формы.
+
+   Устроено как Safety Border рядом: Base пишет одно значение во все стороны,
+   поля ниже правят каждую отдельно, пустое поле = как предлагает таблица. */
+function shapeProdAllowanceScope(){
+  var lites=typeof shapeEditorLites==='function'?shapeEditorLites():[];
+  return lites.length&&lites.some(function(l){return l.laminated;})?'lami':'mono';
+}
+function shapeProdAllowanceAuto(edgeId){
+  var ops=shapeEdgeOps(sDraft,edgeId).map(shapeNormalizeOp).filter(Boolean);
+  if(!ops.length)return {ok:true,value:0};
+  return ShapeModule.productionAllowanceForOps(ops,shapeThicknessMm(sDraft),shapeProdAllowanceScope());
+}
+function shapeProdAllowanceField(){
+  if(!sDraft)return '';
+  var groups=typeof shapeGroups==='function'?shapeGroups():[];
+  if(shapeIsDxfSource(sDraft)&&typeof ShapeModule.dxfEdges==='function')groups=ShapeModule.dxfEdges(sDraft)||[];
+  if(!groups.length)return '';
+  var ov=(sDraft&&sDraft.edgeAllowances)||{},edgeNames=shapeEdgeNames(shapeDraftGeometry());
+  var lam=shapeProdAllowanceScope()==='lami',any=Object.keys(ov).length>0;
+  var rows=groups.slice().sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(g){
+    var id=String(g.id),auto=shapeProdAllowanceAuto(id),v=ov[id]==null?'':String(ov[id]);
+    var manual=v!=='';
+    var state=manual?'manual':(auto.ok?'auto':'norule');
+    var tag=`<span class='shape-state-word'>${state==='manual'?'OVERRIDE':state==='auto'?'AUTO':'NO RULE'}</span>`;
+    var shown=manual?fabParseDimStrict(v):null;
+    var eff=manual?(shown&&shown.ok?shown.v:null):(auto.ok?auto.value:null);
+    return `<div class='shape-allow-row is-${state}'><div class='shape-allow-edge'><b>${esc(edgeNames[id]||id)}</b><span>${esc(dimIn16(g.length||0))}</span>${tag}</div>`+
+      `<input value='${esc(v)}' placeholder='${esc(auto.ok?dimIn16(auto.value):'—')}' onchange='setShapeEdgeAllowanceEdge("${esc(id)}",this.value)'>`+
+      `</div>`;
+  }).join('');
+  return `<div class='shape-prod-cutallow'>
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Ламинат: съём считается по ПЛИТЕ склейки':'Припуск на рез'))}' data-hint='${esc(tx(lam
+      ? 'Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.'
+      : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'))}'>?</span></div></div>
+    <div class='shape-allow-rows'>${rows}</div>
+  </div>`;
+}
+/* Правка сразу поднимает ревизию формы: размер реза меняться молча не имеет
+   права — строки заказа обязаны увидеть, что форма стала другой. */
+function shapeAllowanceTouched(){
+  sDraft.revision=Math.max(0,Math.floor(+sDraft.revision||0))+1;
+  render();
+}
+function setShapeEdgeAllowanceEdge(id,value){
+  var t=String(value==null?'':value).trim(),map=Object.assign({},sDraft.edgeAllowances||{});
+  if(t){
+    var p=fabParseDimStrict(t);
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return render();
+    map[id]=t;
+  }else delete map[id];
+  sDraft.edgeAllowances=map;shapeAllowanceTouched();
+}
+function setShapeEdgeAllowanceAll(value){
+  var t=String(value==null?'':value).trim();
+  if(!t)return resetShapeEdgeAllowances();
+  var p=fabParseDimStrict(t);
+  if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return render();
+  var groups=typeof shapeGroups==='function'?shapeGroups():[],map={};
+  if(shapeIsDxfSource(sDraft)&&typeof ShapeModule.dxfEdges==='function')groups=ShapeModule.dxfEdges(sDraft)||[];
+  groups.forEach(function(g){map[String(g.id)]=t;});
+  sDraft.edgeAllowances=map;shapeAllowanceTouched();
+}
+function resetShapeEdgeAllowances(){
+  sDraft.edgeAllowances={};shapeAllowanceTouched();
+}
 function shapeProdBorderField(){
   var ctx=shapeProdBorderPlan();
   if(!ctx)return '';
@@ -13963,17 +14601,24 @@ function shapeProdBorderField(){
   var edgeNames=shapeEdgeNames(shapeDraftGeometry());
   var rows=shownEdges.sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(e){
     var id=String(e.id),v=ov[id]==null?'':ov[id];
-    var tag=e.excluded?`<span class='pill'>POST</span>`:e.state==='OVERRIDE'?`<span class='pill info'>MANUAL</span>`
-      :e.angled?`<span class='pill ok'>AUTO</span>`:`<span class='pill'>—</span>`;
+    /* Состояние — просто слово в строке с буквой, а цвет несёт сама карточка:
+       пилюля со своим фоном рядом с зелёной подсветкой читалась как второй
+       элемент управления. */
+    var state=e.excluded?'post':e.state==='OVERRIDE'?'manual':e.angled?'auto':'off';
+    var tag=`<span class='shape-state-word'>${state==='post'?'POST':state==='manual'?'MANUAL':state==='auto'?'AUTO':'—'}</span>`;
     var label=shapeBorderEdgeLabel(id);
-    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span></div>`+
-      (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.angled?dimIn16(plan.base):'—')}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
-      `<div class='shape-border-state'>${tag}<i>${e.value>0?esc(dimIn16(e.value)):''}</i></div></div>`;
+    /* Состояние стоит рядом с буквой стороны: отдельной строкой под полем оно
+       занимало треть карточки, а применяемое значение и так видно в поле. */
+    return `<div class='shape-border-row is-${state}'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span title='${esc(label)}'>${esc(label)}</span>${tag}</div>`+
+      (e.excluded?`<input value='' placeholder='N/A' disabled title='Fabricated after glass cutting'>`:`<input value='${esc(v)}' placeholder='${esc(e.value>0?dimIn16(e.value):(e.angled?dimIn16(plan.base):'—'))}' onchange='setShapeSafetyBorderEdge("${esc(id)}",this.value)'>`)+
+      `</div>`;
   }).join('');
   return `<div class='shape-prod-border'>
-    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}</div><small>${plan.manualRequired
+    <div class='shape-border-summary'><div class='shape-border-head'><b>Safety Border</b><label>Base<input value='${esc(sDraft.safetyBorder||'')}' placeholder='${esc(dimIn16(plan.autoValue))}' onchange='setShapeSafetyBorder(this.value)'></label>${plan.state==='OVERRIDE'?`<button type='button' class='sm' onclick='resetShapeSafetyBorder()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(plan.manualRequired
       ? 'No automatic value for this thickness — enter the border manually.'
-      : 'Automatic on angled/curved edges · override any physical edge.'}</small></div>
+      : 'Automatic on angled/curved edges · override any physical edge.')}' data-hint='${esc(plan.manualRequired
+      ? 'No automatic value for this thickness — enter the border manually.'
+      : 'Automatic on angled/curved edges · override any physical edge.')}'>?</span></div></div>
     <div class='shape-border-rows'>${rows}</div>
   </div>`;
 }
@@ -14173,7 +14818,7 @@ function shapeProdDxfEdgeProcessing(){
     ${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='shape-prod-thickness'><label>Shape thickness<select onchange='sDraft.thickness=this.value;render()'>${[3,4,5,6,8,10,12,15,19].map(function(n){return `<option value='${n}' ${th===n?'selected':''}>${n} mm</option>`;}).join('')}</select></label><small>Standalone Shape cutting only. Sales Makeup supplies runtime thickness later.</small></div>
       <div class='shape-prod-ar'><div class='shape-prod-ar-head'><b>AR · ALL AROUND</b><span>${groups.length} physical segments</span></div><div class='shape-prod-ar-actions'><button class='${shapeProdDxfUniform('Rough Arris')?'on':''}' onclick='shapeProdApplyDxfAR("Rough Arris")'>AR · Arris</button><button class='${shapeProdDxfUniform('Flat Polish')?'on':''}' onclick='shapeProdApplyDxfAR("Flat Polish")'>AR · Polish</button><button class='${shapeProdDxfUniform('CNC Shape Polish')?'on':''}' onclick='shapeProdApplyDxfAR("CNC Shape Polish")'>AR · CNC</button><button onclick='shapeProdClearDxfAR()'>Clear AR</button></div></div>
       ${selected?`<div class='shape-prod-selected'><span>Selected</span><b>${esc(selected.id.toUpperCase())} · ${esc(dimIn16(selected.length))}</b><span>${selected.allowance==null?'BLOCKED':selected.allowance?'+'+esc(dimIn16(selected.allowance)):'0″'}</span></div>`:''}
-      <div class='shape-prod-exceptions'><button type='button' onclick='shapeProdExceptionsOpen=!shapeProdExceptionsOpen;render()'><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' onclick='shapeProdSetDxfEdge("${esc(edge.id)}")'><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn16(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' onclick='event.stopPropagation()'><input type='checkbox' ${on?'checked':''} onchange='shapeProdToggleDxfOp("${esc(edge.id)}","${esc(type)}",this.checked)'><span>${esc(type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':'Bevel')}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn16(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
+      <div class='shape-prod-exceptions'><button type='button' onclick='shapeProdExceptionsOpen=!shapeProdExceptionsOpen;render()'><span><b>Per-edge exceptions</b> · open only when a physical edge differs</span><i>${shapeProdExceptionsOpen?'−':'+'}</i></button>${shapeProdExceptionsOpen?`<div class='shape-prod-seg-head'><span>Edge</span><span>Processing</span><span>Allowance</span></div>${groups.map(function(edge){return `<div class='shape-prod-seg-row ${edge.id===shapeProdSelectedEdgeId?'on':''}' onclick='shapeProdSetDxfEdge("${esc(edge.id)}")'><div><b>${esc(edge.id.toUpperCase())}</b><small>${esc(dimIn16(edge.length))}</small></div><div class='shape-prod-opset'>${SHAPE_EDGE_OPS.map(function(type){var on=edge.ops.some(function(op){return op.type===type;});return `<label class='${on?'on':''}' onclick='event.stopPropagation()'><input type='checkbox' ${on?'checked':''} onchange='shapeProdToggleDxfOp("${esc(edge.id)}","${esc(type)}",this.checked)'><span>${esc(shapeEdgeOpShort(type))}</span></label>`;}).join('')}${shapeProdDxfParams(edge)}</div><div class='shape-prod-allow ${edge.allowance==null?'bad':''}'><b>${edge.allowance==null?'BLOCKED':edge.allowance?'+'+esc(dimIn16(edge.allowance)):'0″'}</b><small>${esc(edge.allowanceError||edge.ops.map(function(op){return op.type;}).join(' + ')||'No processing')}</small></div></div>`;}).join('')}`:''}</div>
     </div>`:''}
   </div>`;
 }
@@ -14293,7 +14938,7 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}${shapeProdAllowanceField()}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){
@@ -14325,7 +14970,7 @@ shapeForm=function(){
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`
-    : `<div class='shape-view-tabs'><button data-shape-view='setup' class='${sView==='setup'?'on':''}' onclick='setShapeView("setup")'>Setup</button><button data-shape-view='production' class='${sView==='production'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
+    : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
   return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
 
@@ -14400,7 +15045,9 @@ function viewConfigurators(){
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
 let soEdgeworkLineId=null,soServiceFilter='all',soBulkServiceSetId='',soBulkServicePolicy='keep',soServiceBulkPreview=null;
 
-function salesServiceShort(type){return type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':type==='Beveling'?'Bevel':type;}
+/* Ярлык берётся из общей карты: это была третья копия перечисления, и на
+   лами-операциях она бы отдала полное английское имя вместо короткого кода. */
+function salesServiceShort(type){return shapeEdgeOpShort(type);}
 function salesServiceOpsText(ops){var a=salesServiceOps(ops);return a.length?a.map(function(o){return o.type==='Mitering'?(o.angle||45)+'° '+((o.side||'back')==='front'?'Front':'Back')+' Mitre':o.type==='Beveling'?'Bevel '+(o.width||'1')+'″ ('+((o.side||'front')==='back'?'Back':'Front')+')':salesServiceShort(o.type);}).join(' + '):'None';}
 
 function salesServiceFilteredEntries(){
@@ -14447,6 +15094,7 @@ function salesAssignmentWarning(line,set){
   var test=salesServiceClone(line);test.serviceSetId=set.id;var shape=salesLineGeometryShape(test);if(!shape)return 'Needs geometry';
   if(shapeIsDxfSource(shape)&&set.mode==='sides'&&!salesDxfMappingComplete(test,shape))return 'DXF Set will wait for confirmed side mapping';
   if(salesDxfOverrideStale(test,shape))return 'DXF line override belongs to another physical contour';
+  if(salesSetHasLamiOps(set)&&!salesLineIsLaminated(line))return 'Lami polishing from the set is skipped: this line has no laminated lite';
   var cut=salesEffectiveCuttingPlan(test,shape,soDraft);return cut.valid?'':cut.reason;
 }
 function salesPlanServiceAssignment(setId,policy){
@@ -14626,11 +15274,47 @@ function salesEffectiveCuttingButtons(line,plan){
   return lites.map(function(l){
     return `<span class='ss-machine-lite'><b>${esc(l.label)} · ${esc(l.thickness)} mm</b><button onclick='salesDownloadEffectiveCutting("${esc(line.id)}","svg",${l.index})'>SVG</button><button onclick='salesDownloadEffectiveCutting("${esc(line.id)}","dxf",${l.index})'>DXF</button></span>`;
   }).join('');}
+/* Припуск стороны: показываем, что предложила таблица, и даём поменять.
+   Пустое поле = «как предлагает таблица». Владелец просил именно это: у
+   склейки 6+10 плиты доводят по-разному, и «этот припуск мы обсуждаем каждый
+   раз» — теперь обсуждение заканчивается в строке заказа, а не на словах. */
+function salesEdgeAllowanceCell(line,g){
+  if(g.allowance==null&&g.allowanceAuto==null)return '';
+  var shape=salesLineGeometryShape(line),cur=((shape&&shape.edgeAllowances)||{})[g.id];
+  var auto=g.allowanceAuto==null?null:(g.allowanceAuto?dimIn(g.allowanceAuto):'0″');
+  /* Состояние показывает ЦВЕТ поля — зелёный на авто, жёлтый на ручной правке,
+     как в редакторе формы. Подпись под полем занимала отдельную строку в каждой
+     карточке кромки и повторяла то, что и так видно. */
+  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc(tx('Припуск на сторону. Пустое поле берёт значение из справочника.'))}${auto==null?'':' · '+esc(auto)}'>`
+    +`<input value='${esc(cur==null?'':String(cur))}' placeholder='${esc(auto==null?'auto':auto)}' onchange='salesSetEdgeAllowance("${esc(line.id)}","${esc(g.id)}",this.value)'></span>`;
+}
+/* Плиты разной толщины дают разные припуски, а рез у склейки один. Предлагаем
+   по толстой — недорез необратим, лишнее снимается — и говорим об этом вслух:
+   решение за цехом, и правится оно тут же, по сторонам. */
+function salesLiteAllowanceNote(plan){
+  var vary=(plan&&plan.lites||[]).filter(function(l){return l.pliesVary;});
+  if(!vary.length)return '';
+  var text=vary.map(function(l){
+    var mm=(l.plies||[]).map(function(p){return p.mm;}).join(' / ');
+    return l.label+': плиты '+mm+' мм';
+  }).join(' · ');
+  /* Каждая фраза — свой текстовый узел: перевод накладывается на готовый DOM
+     по узлам, и склеенная строка с подставленными толщинами в словарь не
+     попадёт никогда. */
+  return `<div class='ss-line-warning info'><b>Плиты склейки разной толщины</b><span>${esc(text)}</span><small>Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.</small></div>`;
+}
 function salesLineEdgeworkModal(){
   var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);
   var warning=!snap.valid?`<div class='ss-line-warning bad'>${esc(snap.reason)}</div>`:snap.mappingPending?`<div class='ss-line-warning warn'><b>${esc(set&&set.code||'Bulk Set')} is pending mapping.</b> Shape-owned processing remains active in Services; machine release is blocked until mapping is confirmed.</div>`:!plan.valid?`<div class='ss-line-warning bad'>${esc(plan.reason)}</div>`:lost.length?`<div class='ss-line-warning bad'>Lost override edge(s): ${esc(lost.join(', '))}</div>`:`<div class='ss-line-warning info'><b>Order Effective</b> = edgework of this line's Shape, base <b>Rough Arris / Flat Polish</b> from the glass of its Makeup where the Shape says nothing, and Makeup thickness for the cutting allowance. Nothing is stored on the line, so nothing can go stale.<button class='sm' onclick='salesOpenShapeFromEdgework("\${esc(line.id)}")'>Open Shape</button></div>`;
-  var groups=snap.groups||[];
-  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseLineEdgework()'><div class='sales-service-modal line-modal'><div class='sales-service-modal-head'><div><span>Sales Order line ${esc(line.mark||line.id)}</span><h3>Effective Production</h3><small>${line.shapeRef&&line.shapeRef.id?esc(shape.name):'Width × Height rectangle'}${set?' · '+esc(set.code):''}</small></div><button onclick='salesCloseLineEdgework()'>×</button></div>${warning}<div class='ss-effective-workspace'><div class='ss-effective-visual'>${plan.valid?salesEffectivePreviewSvg(plan):`<div class='ss-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.reason||snap.reason||'Unresolved')}</span></div>`}<div class='ss-effective-legend'><span class='lg-finished'>Finished</span><span class='lg-cutting'>Cutting</span><span class='lg-border'>Safety border</span></div>${plan.valid?salesEffectiveSizesHtml(plan,line):''}</div><div class='ss-effective-edges'>${groups.map(function(g){var ov=Object.prototype.hasOwnProperty.call((line.serviceOverrides&&line.serviceOverrides.edges)||{},g.id);return `<div class='ss-effective-edge'><div class='ss-effective-edge-head'><div><b>${esc(g.id.toUpperCase())}</b><small>${esc(dimIn(g.length))} · ${esc(g.side==='other'?'OTHER':g.side)}</small></div><div><span class='ss-source${g.liteVaries?' varies':''}'>${esc(g.liteVaries?g.source+' · varies by lite':g.source)}</span>${g.allowance==null?'':`<b>${g.allowance?'+'+esc(dimIn(g.allowance)):'0″'}</b>`}</div></div><div class='ss-effective-opset read-only'>${SALES_SERVICE_SET_OPS.map(function(type){var on=(g.effectiveOps||g.ops).some(function(o){return o.type===type;});return `<span class='ss-op ${on?'on':''}'>${esc(salesServiceShort(type))}</span>`;}).join('')}</div></div>`;}).join('')||`<div class='empty compact'>No physical edges available.</div>`}</div></div>${dxf&&set&&set.mode==='sides'?salesDxfMappingHtml(line,shape):''}${salesEffectiveMachineCard(line,shape,plan)}<div class='ss-line-actions'>${salesHasLineEdgeOverrides(line)?`<button onclick='salesRevertAllEdges("${esc(line.id)}")'>Clear all line overrides</button>`:''}${lost.length?`<button class='dl' onclick='salesRemoveLostEdges("${esc(line.id)}")'>Remove lost overrides</button>`:''}${line.shapeRef&&line.shapeRef.id?`<button onclick='salesOpenShapeFromEdgework("${esc(line.id)}")'>Open Shape · standalone</button>`:''}<button class='pri' onclick='salesOpenLineServices("${esc(line.id)}")'>Open Services · same snapshot</button></div></div></div>`;
+  /* Припуск проставляется при расчёте реза, поэтому карточки берут группы из
+     ПЛАНА: у снимка это поле ещё пустое, и колонка припуска не показывалась
+     вовсе. Снимок остаётся запасным вариантом, когда рез заблокирован. */
+  var groups=(plan&&plan.valid&&plan.groups&&plan.groups.length?plan.groups:snap.groups)||[];
+  return `<div class='sales-service-modal-back' onclick='if(event.target===this)salesCloseLineEdgework()'><div class='sales-service-modal line-modal'><div class='sales-service-modal-head'><div><span>Sales Order line ${esc(line.mark||line.id)}</span><h3>Effective Production</h3><small>${line.shapeRef&&line.shapeRef.id?esc(shape.name):'Width × Height rectangle'}${set?' · '+esc(set.code):''}</small></div><button onclick='salesCloseLineEdgework()'>×</button></div>${warning}${salesLiteAllowanceNote(plan)}<div class='ss-effective-workspace'><div class='ss-effective-visual'>${plan.valid?salesEffectivePreviewSvg(plan):`<div class='ss-cut-block'><b>CUTTING BLOCKED</b><span>${esc(plan.reason||snap.reason||'Unresolved')}</span></div>`}<div class='ss-effective-legend'><span class='lg-finished'>Finished</span><span class='lg-cutting'>Cutting</span><span class='lg-border'>Safety border</span></div>${plan.valid?salesEffectiveSizesHtml(plan,line):''}</div><div class='ss-effective-edges'>${groups.map(function(g){var ov=Object.prototype.hasOwnProperty.call((line.serviceOverrides&&line.serviceOverrides.edges)||{},g.id);return `<div class='ss-effective-edge'><div class='ss-effective-edge-head'><div><b>${esc(g.id.toUpperCase())}</b><small>${esc(dimIn(g.length))} · ${esc(g.side==='other'?'OTHER':g.side)}</small></div><div><span class='ss-source${g.liteVaries?' varies':''}'>${esc(g.liteVaries?g.source+' · varies by lite':g.source)}</span>${salesEdgeAllowanceCell(line,g)}</div></div><div class='ss-effective-opset read-only'>${(function(){var picked=SHAPE_EDGE_OPS.filter(function(type){return (g.effectiveOps||g.ops).some(function(o){return o.type===type;});});
+      /* Полоса только читается, поэтому невыбранные операции здесь ничего не
+         сообщают — семь серых чипов на одну активную разносили карточку на две
+         строки. Показываем то, что реально уйдёт в цех. */
+      return picked.length?picked.map(function(type){return `<span class='ss-op on'>${esc(salesServiceShort(type))}</span>`;}).join(''):`<span class='ss-op none'>no edgework</span>`;})()}</div></div>`;}).join('')||`<div class='empty compact'>No physical edges available.</div>`}</div></div>${dxf&&set&&set.mode==='sides'?salesDxfMappingHtml(line,shape):''}${salesEffectiveMachineCard(line,shape,plan)}<div class='ss-line-actions'>${salesHasLineEdgeOverrides(line)?`<button onclick='salesRevertAllEdges("${esc(line.id)}")'>Clear all line overrides</button>`:''}${salesHasEdgeAllowanceOverrides(line)?`<button onclick='salesResetEdgeAllowances("${esc(line.id)}")'>Reset allowances</button>`:''}${lost.length?`<button class='dl' onclick='salesRemoveLostEdges("${esc(line.id)}")'>Remove lost overrides</button>`:''}${line.shapeRef&&line.shapeRef.id?`<button onclick='salesOpenShapeFromEdgework("${esc(line.id)}")'>Open Shape · standalone</button>`:''}<button class='pri' onclick='salesOpenLineServices("${esc(line.id)}")'>Open Services · same snapshot</button></div></div></div>`;
 }
 function salesOpenShapeFromEdgework(lineId){var i=soDraft.lines.findIndex(function(l){return l.id===lineId;});soEdgeworkLineId=null;if(i>=0)salesOrderConfigureShape(i);}
 
@@ -15062,6 +15746,7 @@ const MD_TABS=[
  {k:'supply',   label:'Точки поставки'},
  {k:'spacer',   label:'Spacers & rates'},
  {k:'hardware', label:'Hardware'},
+ {k:'allowance',label:'Припуск на рез'},
  {k:'overview', label:'Обзор базы'}
 ];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
@@ -15092,9 +15777,9 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='allowance'?'':mdImportCard()}`;
 }
 function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
@@ -15639,6 +16324,7 @@ const MD_COLLECTIONS=[
  {key:'spandrelProduct',label:'Спандрел',            what:'непрозрачные панели'},
  {key:'station',        label:'Станции маршрута',    what:'одиннадцать шагов маршрута'},
  {key:'operation',      label:'Операции',            what:'что именно делают и до или после печи'},
+ {key:'edgeAllowance',  label:'Припуск на рез',       what:'съём на сторону: монолит по стеклу, ламинат по плите'},
  {key:'workPosition',   label:'Рабочие места',       what:'где делают: габарит и загрузка'},
  {key:'terminal',       label:'Терминалы',           what:'экраны сканирования в цеху'},
  {key:'customer',       label:'Клиенты',             what:'контакты, адреса, условия'},
@@ -15647,6 +16333,96 @@ const MD_COLLECTIONS=[
  {key:'muntinDef',      label:'Схемы Muntin',        what:'раскладка баров'},
  {key:'user',           label:'Пользователи',        what:'роли и рабочие места'}
 ];
+/* --- Припуск на рез ---------------------------------------------------
+   Съём на сторону: насколько лист обязан быть больше готового размера, чтобы
+   после обработки кромки выйти в размер. Раньше эти цифры были ветками в
+   модуле Shape, и «делаем по памяти» оставалось единственным местом, где они
+   записаны.
+
+   Одна и та же толщина встречается в таблице дважды с РАЗНЫМИ числами, и это
+   не ошибка: монолит меряется по самому стеклу, ламинат — по ПЛИТЕ склейки,
+   потому что при резке каждое стекло отдельная панель.
+
+   Выигрывает самая узкая подходящая строка, поэтому широкая задаёт умолчание,
+   а узкая описывает исключение внутри него — порядок строк ничего не решает. */
+const MD_ALLOWANCE_SCOPES=[{k:'mono',label:'Monolithic · по стеклу'},{k:'lami',label:'Laminated · по ПЛИТЕ'}];
+/* Пробник: владелец видит результат правки, не открывая заказ. */
+const MD_ALLOWANCE_SAMPLES=[
+ {label:'Монолит 6 мм · Flat Polish',op:'Flat Polish',mm:6,scope:'mono'},
+ {label:'Монолит 12 мм · Flat Polish',op:'Flat Polish',mm:12,scope:'mono'},
+ {label:'Монолит 10 мм · CNC Shape Polish',op:'CNC Shape Polish',mm:10,scope:'mono'},
+ {label:'Ламинат 6+6 · Flat Polish (плита 6)',op:'Flat Polish',mm:6,scope:'lami'},
+ {label:'Ламинат 6+6 · Lami Polish (плита 6)',op:'Lami Polish',mm:6,scope:'lami'},
+ {label:'Ламинат 10+10 · Lami Polish (плита 10)',op:'Lami Polish',mm:10,scope:'lami'},
+ {label:'Ламинат 12+12 · CNC Lami Polish (плита 12)',op:'CNC Lami Polish',mm:12,scope:'lami'}
+];
+function mdAllowanceSorted(){
+ return (DB.edgeAllowance||[]).slice().sort((a,b)=>
+  SHAPE_EDGE_OPS.indexOf(a.op)-SHAPE_EDGE_OPS.indexOf(b.op)
+  ||String(a.scope).localeCompare(String(b.scope))
+  ||(+a.minMm)-(+b.minMm));
+}
+function mdAllowanceShow(v){
+ const p=fabParseDimStrict(String(v==null?'':v).trim());
+ if(!p.ok)return '<span class="pill warn">не число</span>';
+ if(p.v>SHAPE_ALLOWANCE_MAX_IN)return '<span class="pill warn">слишком много</span>';
+ return `<span class="mono">${p.v?esc(dimIn(p.v)):'0″'}</span>`;
+}
+function viewMdAllowance(){
+ const rows=mdAllowanceSorted();
+ return `<div class="sub" style="margin-top:6px">Съём на сторону: насколько лист больше готового размера, чтобы после кромки выйти в размер. Одна толщина встречается дважды не по ошибке: монолит меряется по стеклу, а ламинат по ПЛИТЕ склейки, потому что при резке каждое стекло отдельная панель. Из совпавших строк выигрывает самая узкая, поэтому широкая задаёт умолчание, а узкая — исключение внутри него.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Операция</th><th>Мера</th><th>От, мм</th><th>До, мм</th><th>Припуск</th><th>Пример</th><th></th></tr></thead>
+  <tbody>${rows.map(r=>`<tr>
+   <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
+   <td><select onchange="mdAllowanceSet('${esc(r.id)}','scope',this.value)">${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" onchange="mdAllowanceSet('${esc(r.id)}','minMm',this.value)"></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" onchange="mdAllowanceSet('${esc(r.id)}','maxMm',this.value)"></td>
+   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" onchange="mdAllowanceSet('${esc(r.id)}','allowance',this.value)"></td>
+   <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
+   <td><button class="btn-ghost" onclick="mdAllowanceRemove('${esc(r.id)}')">×</button></td>
+  </tr>`).join('')}</tbody></table></div>
+  <div style="margin-top:10px"><button class="btn-ghost" onclick="mdAllowanceAdd()">+ строка</button></div>
+  <div class="sub" style="margin-top:22px">Что получится с текущими значениями</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Случай</th><th>Припуск на сторону</th></tr></thead>
+  <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
+    const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
+    return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">правила нет — рез заблокирован</span>'}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function mdAllowanceSet(id,field,v){
+ const row=(DB.edgeAllowance||[]).find(x=>x.id===id);if(!row)return;
+ const typed=String(v==null?'':v).trim();
+ if(field==='op'){
+  if(SHAPE_EDGE_OPS.indexOf(typed)<0){render();return;}
+  row.op=typed;
+ }else if(field==='scope'){
+  row.scope=typed==='lami'?'lami':'mono';
+ }else if(field==='minMm'||field==='maxMm'){
+  const n=+typed;
+  if(!isFinite(n)||n<0){render();return;}
+  /* Перевёрнутый диапазон молча выбросил бы строку из расчёта — правку не
+     принимаем, старое значение остаётся на экране. */
+  const lo=field==='minMm'?n:+row.minMm,hi=field==='maxMm'?n:+row.maxMm;
+  if(hi<lo){render();return;}
+  row[field]=n;
+ }else if(field==='allowance'){
+  const p=fabParseDimStrict(typed);
+  if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
+  row.allowance=typed;
+ }else return;
+ normalizeEdgeAllowance();touch();render();
+}
+function mdAllowanceAdd(){
+ const rows=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:(DB.edgeAllowance=[]);
+ let id='ALW-OWN-1',i=1;
+ while(rows.some(r=>r&&r.id===id))id='ALW-OWN-'+(++i);
+ rows.push({id:id,op:'Flat Polish',scope:'mono',minMm:0,maxMm:1000,allowance:'1/16',note:''});
+ normalizeEdgeAllowance();touch();render();
+}
+function mdAllowanceRemove(id){
+ DB.edgeAllowance=(DB.edgeAllowance||[]).filter(x=>x&&x.id!==id);
+ normalizeEdgeAllowance();touch();render();
+}
 function viewMdOverview(){
  const rows=MD_COLLECTIONS.map(c=>{
   const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
