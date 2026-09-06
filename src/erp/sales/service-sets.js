@@ -348,7 +348,7 @@ function salesEffectiveCuttingPlan(line,shape,order){
         finishedPoints:salesMirrorContour(contour.finishedPoints),
         cuttingPoints:salesMirrorContour(contour.cuttingPoints)});
     }
-    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
+    built.push(Object.assign({index:lite.index,label:lite.label,thickness:mm==null?fallbackMm:mm,plies:lite.plies,laminated:!!lite.laminated,allowanceMm:lite.allowanceMm,pliesVary:!!lite.pliesVary,baseEdgework:lite.baseEdgework,ownShape:!!lite.ownShape,shapeName:lite.ownShape?(liteShape.name||''):'',mirrored:!!contour.mirrored,groups:lite.groups},contour));
   }
   /* Лист подбирается по самому большому резу пакета. */
   var lead=built[0];
@@ -358,15 +358,39 @@ function salesEffectiveCuttingPlan(line,shape,order){
   return Object.assign({},lead,{valid:true,blocked:false,groups:snap.groups,snapshot:snap,lites:built,uniformCut:sameCut,setPendingMapping:snap.mappingPending});
 }
 
+/* По каким стёклам фактически идёт операция кромки.
+
+   Лами-полировка работает по СКЛЕЕННОЙ кромке: один проход по периметру, и
+   толщина у неё пакетная. Всё остальное на ламинате делается ДО склейки — по
+   каждой плите отдельно, то есть два прохода и банд прайса по толщине ПЛИТЫ.
+   Для 6+6 это 0.07+0.07 против 0.28 у Lami Polish, ровно как в прайсе.
+
+   У обычного лайта список из одной цели с прежней толщиной, поэтому в расчёте
+   начислений нет ветки «если ламинат»: сегодняшний счёт — её частный случай. */
+function salesEdgeOpThicknessTargets(lite,op){
+  var packMm=lite&&lite.thicknessMm!=null?lite.thicknessMm:null;
+  if(!lite)return [{thicknessMm:null,count:1}];
+  if(shapeIsLamiOnlyOp(op&&op.type))return [{thicknessMm:packMm,count:1}];
+  var plies=(Array.isArray(lite.plies)?lite.plies:[]).filter(function(p){return Number.isFinite(p.mm)&&p.mm>0;});
+  if(!plies.length)return [{thicknessMm:packMm,count:1}];
+  var seen={},out=[];
+  plies.forEach(function(p){
+    if(seen[p.mm]){seen[p.mm].count++;return;}
+    seen[p.mm]={thicknessMm:p.mm,count:1};out.push(seen[p.mm]);
+  });
+  return out;
+}
 function salesEdgeChargeMetaForServiceSet(op,ctx){
   var id='',label=op.type,rate=null;
   if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
+  else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}
   else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
   else return null;
-  return {id:id,label:label,rate:rate};
+  return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
 }
 
 /* Billing and Cutting read the SAME effective snapshot. */
@@ -390,23 +414,29 @@ salesLineChargeRows=function(line){
        учётом ступеньки лайта. Если рез заблокирован, счёт всё равно должен
        показывать работу — тогда работаем по снимку. */
     var plan=salesEffectiveCuttingPlan(line,shape,soDraft);
-    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,groups:l.groups};})
+    var liteViews=(plan.valid&&(plan.lites||[]).length)?plan.lites.map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,plies:l.plies,laminated:l.laminated,groups:l.groups};})
       :((snap.lites||[]).length?snap.lites:[{label:'',thicknessMm:null,groups:snap.groups}]);
-    var manyThickness=new Set(liteViews.map(function(l){return l.thicknessMm;})).size>1;
     /* Одинаковые операции с одинаковой ставкой складываются в одну строку счёта:
        у пакета 10 + 10 это 256″ ариса, а не две строки по 128″. Разные толщины
        остаются разными строками — у них разные ставки. */
     var acc=Object.create(null),order=[];
     liteViews.forEach(function(lite){
-      var liteCtx=lite.thicknessMm==null?ctx:salesPricingBandFor(lite.thicknessMm);
       lite.groups.forEach(function(group){group.ops.forEach(function(op){
-        var meta=salesEdgeChargeMetaForServiceSet(op,liteCtx);
-        if(!meta||!(group.length>0))return;
-        var key=meta.id+':'+liteCtx.band;
-        if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:liteCtx.band,mm:lite.thicknessMm,rate:meta.rate,length:0};order.push(key);}
-        acc[key].length+=group.length;
+        if(!(group.length>0))return;
+        salesEdgeOpThicknessTargets(lite,op).forEach(function(target){
+          var tCtx=target.thicknessMm==null?ctx:salesPricingBandFor(target.thicknessMm);
+          var meta=salesEdgeChargeMetaForServiceSet(op,tCtx);
+          if(!meta)return;
+          var key=meta.id+':'+meta.bandKey;
+          if(!acc[key]){acc[key]={id:meta.id,label:meta.label,band:meta.bandKey,mm:target.thicknessMm,rate:meta.rate,length:0};order.push(key);}
+          acc[key].length+=group.length*(target.count||1);
+        });
       });});
     });
+    /* Уточнение толщины в ярлыке нужно, только когда строк с разной толщиной
+       больше одной. Считаем по СОБРАННЫМ строкам, а не по лайтам: у ламината
+       6+6 толщина лайта 12.76, а работа идёт по двум шестёркам. */
+    var manyThickness=new Set(order.map(function(k){return acc[k].mm;})).size>1;
     order.forEach(function(key){
       var x=acc[key];
       rows.push(salesChargeRow('EDGE:'+x.id+':'+x.band,x.label+(manyThickness&&x.mm?' · '+x.mm+' mm':''),x.length,'in',x.rate,'Effective Edge Processing'));

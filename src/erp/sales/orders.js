@@ -637,6 +637,10 @@ const SALES_SERVICE_RATE_TABLE={
  clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
  hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
  roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15},
+ /* Полировка склеенной кромки. ЧИСЛО, а не банды: у владельца пока одна ставка
+    на любую толщину склейки. Когда банды появятся, число заменяется объектом
+    вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
+ lamiPolish:.28,cncLamiPolish:.35,
  notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
  sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
@@ -645,14 +649,38 @@ const SALES_SERVICE_RATE_TABLE={
    разных стекла и две разные ставки. */
 function salesPricingBandFor(mm){
  const t=+mm;
- if(t===6)return {ok:true,thickness:t,band:'6'};
+ /* Банд «6» открыт вниз: у ламината плиты бывают 3-5 мм, и на точном
+    равенстве шестёрке они оставались без ставки вовсе. Цена та же — решение
+    владельца. */
+ if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};
  if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
  if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
  return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
 }
-function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t===6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
-function salesCatalogRate(tableKey,ctx,subKey){if(!ctx.ok)return null;const t=SALES_SERVICE_RATE_TABLE[tableKey];if(!t)return null;if(subKey)return t[subKey]&&t[subKey][ctx.band]!=null?t[subKey][ctx.band]:null;return t[ctx.band]!=null?t[ctx.band]:null;}
+/* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
+   Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
+   склейке 10+10: 20.76 мм ни в один банд не попадает. */
+function salesCatalogRate(tableKey,ctx,subKey){
+ const t=SALES_SERVICE_RATE_TABLE[tableKey];if(t==null)return null;
+ if(subKey){const s=t[subKey];if(s==null)return null;if(typeof s==='number')return s;return ctx.ok&&s[ctx.band]!=null?s[ctx.band]:null;}
+ if(typeof t==='number')return t;
+ if(!ctx.ok)return null;
+ return t[ctx.band]!=null?t[ctx.band]:null;
+}
+/* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
+   сохранённых заказов обязаны остаться прежними до символа. У единой ставки
+   'flat', и в день появления бандов лами-строки перейдут на банд сами. Толщина
+   без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
+   и сложились в одну строку счёта. */
+function salesRateBandKey(tableKey,ctx){
+ const t=SALES_SERVICE_RATE_TABLE[tableKey];
+ if(typeof t==='number')return 'flat';
+ if(ctx&&ctx.ok)return ctx.band;
+ const n=+((ctx&&ctx.thickness)||NaN);
+ return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
+}
 function salesChargeRow(key,label,basis,unit,rate,source){return {key:key,label:label,basis:+basis||0,unit:unit,catalogRate:rate==null?null:+rate,source:source||'Shape'};}
 /* Начисления по меткам (Hole и фурнитура) считаются в ОДНОМ месте. У строки
    заказа две ветки расчёта — обычная и через Service Set, — и в каждой лежала
@@ -798,7 +826,7 @@ function salesChargeShortLabel(row){
     владельцем вида имени в этом коде нет и быть не может. */
  const kp=String(row.key||'').split(':');
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
- const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
@@ -1107,8 +1135,17 @@ function salesLineLites(line){
  if(!m)return [];
  return (m.panes||[]).map(function(pane,i){
   const mm=salesPaneGlassThicknessMm(pane),kind=salesPaneBaseEdgework(pane,m.unitType);
+  /* thicknessMm — толщина ПАКЕТА: её читают вес, печать и общая толщина юнита.
+     Рядом идут плиты: рез и банд прайса считаются по ним, потому что каждое
+     стекло при резке отдельная панель. allowanceMm — ПРЕДЛОЖЕНИЕ припуска для
+     склейки из разных плит (по толстой: недорез необратим, перерез снимается),
+     а последнее слово за ручной правкой по стороне. */
+  const plies=salesPanePlies(pane),known=plies.filter(function(p){return Number.isFinite(p.mm);});
+  const thick=known.map(function(p){return p.mm;});
   return {
    index:i,label:'Lite '+(i+1),laminated:pane.category==='laminated',
+   plies:plies,allowanceMm:thick.length?Math.max.apply(null,thick):null,
+   pliesVary:new Set(thick).size>1,
    thicknessMm:Number.isFinite(mm)?mm:null,baseEdgework:kind,
    baseOps:glassBaseEdgeworkOp(kind)?[shapeNormalizeOp(glassBaseEdgeworkOp(kind))].filter(Boolean):[]
   };
