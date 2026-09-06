@@ -20,6 +20,7 @@ const MD_TABS=[
  {k:'supply',   label:'Точки поставки'},
  {k:'spacer',   label:'Spacers & rates'},
  {k:'hardware', label:'Hardware'},
+ {k:'allowance',label:'Припуск на рез'},
  {k:'overview', label:'Обзор базы'}
 ];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
@@ -50,9 +51,9 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='allowance'?'':mdImportCard()}`;
 }
 function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
@@ -597,6 +598,7 @@ const MD_COLLECTIONS=[
  {key:'spandrelProduct',label:'Спандрел',            what:'непрозрачные панели'},
  {key:'station',        label:'Станции маршрута',    what:'одиннадцать шагов маршрута'},
  {key:'operation',      label:'Операции',            what:'что именно делают и до или после печи'},
+ {key:'edgeAllowance',  label:'Припуск на рез',       what:'съём на сторону: монолит по стеклу, ламинат по плите'},
  {key:'workPosition',   label:'Рабочие места',       what:'где делают: габарит и загрузка'},
  {key:'terminal',       label:'Терминалы',           what:'экраны сканирования в цеху'},
  {key:'customer',       label:'Клиенты',             what:'контакты, адреса, условия'},
@@ -605,6 +607,96 @@ const MD_COLLECTIONS=[
  {key:'muntinDef',      label:'Схемы Muntin',        what:'раскладка баров'},
  {key:'user',           label:'Пользователи',        what:'роли и рабочие места'}
 ];
+/* --- Припуск на рез ---------------------------------------------------
+   Съём на сторону: насколько лист обязан быть больше готового размера, чтобы
+   после обработки кромки выйти в размер. Раньше эти цифры были ветками в
+   модуле Shape, и «делаем по памяти» оставалось единственным местом, где они
+   записаны.
+
+   Одна и та же толщина встречается в таблице дважды с РАЗНЫМИ числами, и это
+   не ошибка: монолит меряется по самому стеклу, ламинат — по ПЛИТЕ склейки,
+   потому что при резке каждое стекло отдельная панель.
+
+   Выигрывает самая узкая подходящая строка, поэтому широкая задаёт умолчание,
+   а узкая описывает исключение внутри него — порядок строк ничего не решает. */
+const MD_ALLOWANCE_SCOPES=[{k:'mono',label:'Monolithic · по стеклу'},{k:'lami',label:'Laminated · по ПЛИТЕ'}];
+/* Пробник: владелец видит результат правки, не открывая заказ. */
+const MD_ALLOWANCE_SAMPLES=[
+ {label:'Монолит 6 мм · Flat Polish',op:'Flat Polish',mm:6,scope:'mono'},
+ {label:'Монолит 12 мм · Flat Polish',op:'Flat Polish',mm:12,scope:'mono'},
+ {label:'Монолит 10 мм · CNC Shape Polish',op:'CNC Shape Polish',mm:10,scope:'mono'},
+ {label:'Ламинат 6+6 · Flat Polish (плита 6)',op:'Flat Polish',mm:6,scope:'lami'},
+ {label:'Ламинат 6+6 · Lami Polish (плита 6)',op:'Lami Polish',mm:6,scope:'lami'},
+ {label:'Ламинат 10+10 · Lami Polish (плита 10)',op:'Lami Polish',mm:10,scope:'lami'},
+ {label:'Ламинат 12+12 · CNC Lami Polish (плита 12)',op:'CNC Lami Polish',mm:12,scope:'lami'}
+];
+function mdAllowanceSorted(){
+ return (DB.edgeAllowance||[]).slice().sort((a,b)=>
+  SHAPE_EDGE_OPS.indexOf(a.op)-SHAPE_EDGE_OPS.indexOf(b.op)
+  ||String(a.scope).localeCompare(String(b.scope))
+  ||(+a.minMm)-(+b.minMm));
+}
+function mdAllowanceShow(v){
+ const p=fabParseDimStrict(String(v==null?'':v).trim());
+ if(!p.ok)return '<span class="pill warn">не число</span>';
+ if(p.v>SHAPE_ALLOWANCE_MAX_IN)return '<span class="pill warn">слишком много</span>';
+ return `<span class="mono">${p.v?esc(dimIn(p.v)):'0″'}</span>`;
+}
+function viewMdAllowance(){
+ const rows=mdAllowanceSorted();
+ return `<div class="sub" style="margin-top:6px">Съём на сторону: насколько лист больше готового размера, чтобы после кромки выйти в размер. Одна толщина встречается дважды не по ошибке — <b>монолит</b> меряется по стеклу, <b>ламинат</b> по ПЛИТЕ склейки: при резке каждое стекло отдельная панель. Из совпавших строк выигрывает самая узкая, поэтому широкая задаёт умолчание, а узкая — исключение внутри него.</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Операция</th><th>Мера</th><th>От, мм</th><th>До, мм</th><th>Припуск</th><th>Пример</th><th></th></tr></thead>
+  <tbody>${rows.map(r=>`<tr>
+   <td><select onchange="mdAllowanceSet('${esc(r.id)}','op',this.value)">${SHAPE_EDGE_OPS.map(o=>`<option value="${esc(o)}" ${o===r.op?'selected':''}>${esc(o)}</option>`).join('')}</select></td>
+   <td><select onchange="mdAllowanceSet('${esc(r.id)}','scope',this.value)">${MD_ALLOWANCE_SCOPES.map(s=>`<option value="${s.k}" ${s.k===r.scope?'selected':''}>${esc(s.label)}</option>`).join('')}</select></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.minMm))}" onchange="mdAllowanceSet('${esc(r.id)}','minMm',this.value)"></td>
+   <td><input class="md-mm" type="number" step="0.1" min="0" style="width:78px" value="${esc(String(r.maxMm))}" onchange="mdAllowanceSet('${esc(r.id)}','maxMm',this.value)"></td>
+   <td><input style="width:92px" value="${esc(String(r.allowance))}" placeholder="1/16" onchange="mdAllowanceSet('${esc(r.id)}','allowance',this.value)"></td>
+   <td>${mdAllowanceShow(r.allowance)}${r.note?`<div class="mut">${esc(r.note)}</div>`:''}</td>
+   <td><button class="btn-ghost" onclick="mdAllowanceRemove('${esc(r.id)}')">×</button></td>
+  </tr>`).join('')}</tbody></table></div>
+  <div style="margin-top:10px"><button class="btn-ghost" onclick="mdAllowanceAdd()">+ строка</button></div>
+  <div class="sub" style="margin-top:22px">Что получится с текущими значениями</div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Случай</th><th>Припуск на сторону</th></tr></thead>
+  <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
+    const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
+    return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">правила нет — рез заблокирован</span>'}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+function mdAllowanceSet(id,field,v){
+ const row=(DB.edgeAllowance||[]).find(x=>x.id===id);if(!row)return;
+ const typed=String(v==null?'':v).trim();
+ if(field==='op'){
+  if(SHAPE_EDGE_OPS.indexOf(typed)<0){render();return;}
+  row.op=typed;
+ }else if(field==='scope'){
+  row.scope=typed==='lami'?'lami':'mono';
+ }else if(field==='minMm'||field==='maxMm'){
+  const n=+typed;
+  if(!isFinite(n)||n<0){render();return;}
+  /* Перевёрнутый диапазон молча выбросил бы строку из расчёта — правку не
+     принимаем, старое значение остаётся на экране. */
+  const lo=field==='minMm'?n:+row.minMm,hi=field==='maxMm'?n:+row.maxMm;
+  if(hi<lo){render();return;}
+  row[field]=n;
+ }else if(field==='allowance'){
+  const p=fabParseDimStrict(typed);
+  if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
+  row.allowance=typed;
+ }else return;
+ normalizeEdgeAllowance();touch();render();
+}
+function mdAllowanceAdd(){
+ const rows=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:(DB.edgeAllowance=[]);
+ let id='ALW-OWN-1',i=1;
+ while(rows.some(r=>r&&r.id===id))id='ALW-OWN-'+(++i);
+ rows.push({id:id,op:'Flat Polish',scope:'mono',minMm:0,maxMm:1000,allowance:'1/16',note:''});
+ normalizeEdgeAllowance();touch();render();
+}
+function mdAllowanceRemove(id){
+ DB.edgeAllowance=(DB.edgeAllowance||[]).filter(x=>x&&x.id!==id);
+ normalizeEdgeAllowance();touch();render();
+}
 function viewMdOverview(){
  const rows=MD_COLLECTIONS.map(c=>{
   const n=Array.isArray(DB[c.key])?DB[c.key].length:0;
