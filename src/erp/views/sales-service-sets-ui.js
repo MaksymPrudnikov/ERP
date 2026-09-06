@@ -244,9 +244,11 @@ function salesEdgeAllowanceCell(line,g){
   if(g.allowance==null&&g.allowanceAuto==null)return '';
   var shape=salesLineGeometryShape(line),cur=((shape&&shape.edgeAllowances)||{})[g.id];
   var auto=g.allowanceAuto==null?null:(g.allowanceAuto?dimIn(g.allowanceAuto):'0″');
-  return `<span class='ss-allow${g.allowanceManual?' manual':''}'>`
-    +`<input value='${esc(cur==null?'':String(cur))}' placeholder='${esc(auto==null?'auto':auto)}' title='Cutting allowance per side. Empty falls back to the table.' onchange='salesSetEdgeAllowance("${esc(line.id)}","${esc(g.id)}",this.value)'>`
-    +`<small>${g.allowanceManual?'OVERRIDE':'AUTO'}${auto==null?'':' · '+esc(auto)}</small></span>`;
+  /* Состояние показывает ЦВЕТ поля — зелёный на авто, жёлтый на ручной правке,
+     как в редакторе формы. Подпись под полем занимала отдельную строку в каждой
+     карточке кромки и повторяла то, что и так видно. */
+  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc(tx('Припуск на сторону. Пустое поле берёт значение из справочника.'))}${auto==null?'':' · '+esc(auto)}'>`
+    +`<input value='${esc(cur==null?'':String(cur))}' placeholder='${esc(auto==null?'auto':auto)}' onchange='salesSetEdgeAllowance("${esc(line.id)}","${esc(g.id)}",this.value)'></span>`;
 }
 /* Плиты разной толщины дают разные припуски, а рез у склейки один. Предлагаем
    по толстой — недорез необратим, лишнее снимается — и говорим об этом вслух:

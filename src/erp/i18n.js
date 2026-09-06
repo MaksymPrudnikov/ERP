@@ -12,6 +12,8 @@
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  "Держать все секции открытыми": "Keep every section expanded",
+  "Припуск на сторону. Пустое поле берёт значение из справочника.": "Cutting allowance per side. An empty field falls back to the reference table.",
   "Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.": "Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.",
   "Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.": "An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.",
   "Припуск на рез": "Cutting allowance",
