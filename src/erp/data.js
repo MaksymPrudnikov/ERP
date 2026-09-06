@@ -157,6 +157,15 @@ function reseedReferenceTables(hadSaved){
     они пустые. Пересев меняет СОСТАВ таблицы, но введённое стирать нельзя: это
     ровно та причина, по которой glassSheet вообще не пересевается. Ключ — id
     рамки, поэтому правка переживает и добавление новых позиций. */
+ /* Габариты рабочих мест снимают в цеху рулеткой, заводскими данными они
+    пустые. Пересев меняет СОСТАВ таблицы, но снятое стирать нельзя — та же
+    причина, что у толщин рамок ниже. Ключ — код места. */
+ const keptPositionSize={};
+ (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
+  if(!x||!x.code)return;
+  const w=+x.maxW,l=+x.maxL;
+  if(isFinite(w)&&w>0||isFinite(l)&&l>0)keptPositionSize[x.code]={maxW:isFinite(w)&&w>0?w:null,maxL:isFinite(l)&&l>0?l:null};
+ });
  const keptSpacerMm={};
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{
   const mm=x&&+x.thicknessMm;
@@ -170,6 +179,11 @@ function reseedReferenceTables(hadSaved){
     принадлежит цеху и переживает пересев. */
  if(typeof reseedEdgeAllowance==='function'){reseedEdgeAllowance();done.push('edgeAllowance');}
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
+ (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
+  const kept=x&&keptPositionSize[x.code];if(!kept)return;
+  if(kept.maxW!=null)x.maxW=kept.maxW;
+  if(kept.maxL!=null)x.maxL=kept.maxL;
+ });
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));

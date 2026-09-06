@@ -27,7 +27,14 @@ function salesRouteStationOf(opCode,fallback){
   return (o&&o.station)||fallback;
 }
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'arris_machine','Flat Polish':'polish',
-  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel'};
+  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel',
+  'Lami Polish':'lami_polish','CNC Lami Polish':'cnc_lami_polish'};
+/* Признак берётся из справочника операций, а не из списка кодов здесь: заведёт
+   владелец ещё одну операцию по склеенной кромке — маршрут узнает сам. */
+function salesRouteAfterMerge(opCode){
+  var o=(DB.operation||[]).find(function(x){return x.code===opCode;});
+  return !!(o&&o.afterMerge);
+}
 const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
 
 function salesRoutePush(map,order,code,text){
@@ -66,7 +73,7 @@ function salesRouteMarkText(shape,geo,item,edgeLen){
 
 /* Один лайт: что с ним делают и на какой станции. */
 function salesRouteLiteStations(shape,result,groups,heatTreatment){
-  var map={},order=[],geo=null;
+  var map={},order=[],afterMap={},afterOrder=[],geo=null;
   try{geo=(typeof shapeManufacturingGeometry==='function'&&shape===sDraft)?shapeManufacturingGeometry():null;}catch(e){geo=null;}
   if(!geo&&result&&result.valid&&(result.points||[]).length)geo={P:result.points,b:fabEdgeBounds(result.points)};
 
@@ -84,8 +91,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
     });
   });
   opOrder.forEach(function(t){
-    salesRoutePush(map,order,salesRouteStationOf(SALES_ROUTE_EDGE_OP[t],'EDGE'),
-      byOp[t].join(', ')+' · '+t);
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=byOp[t].join(', ')+' · '+t;
+    /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
+       ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
+       станции, то есть до склейки, и лист печатал бы неправду. */
+    if(salesRouteAfterMerge(code))salesRoutePush(afterMap,afterOrder,station,text);
+    else salesRoutePush(map,order,station,text);
   });
 
   /* Тело стекла: отверстия, фурнитура, нотчи, вырезы. */
@@ -118,7 +129,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
   var seq=salesRouteStations().map(function(s){return s.code;});
   var out=seq.filter(function(c){return map[c];}).map(function(c){return map[c];});
   order.forEach(function(c){if(seq.indexOf(c)<0)out.push(map[c]);});
-  return out;
+  return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
 }
 
 function salesRouteHeatOf(pane){
@@ -134,12 +145,16 @@ function salesRouteMerge(unitType,panes){
   return '';
 }
 
+/* Точка слияния и всё, что идёт ПОСЛЕ неё, дописываются в конец полосы —
+   вне сортировки по seq, ровно как сама станция слияния. Место работы при этом
+   не меняется: полировка склейки остаётся на EDGE, меняется только момент. */
 function salesRouteAppendMerge(lites,merge){
-  if(!merge)return lites;
-  var name=salesRouteStationName(merge);
+  var name=merge?salesRouteStationName(merge):'';
   lites.forEach(function(l){
-    if(!l.stations.some(function(s){return s.code===merge;}))
+    if(merge&&!l.stations.some(function(s){return s.code===merge;}))
       l.stations.push({code:merge,name:name,items:[name]});
+    (l.afterMerge||[]).forEach(function(s){l.stations.push(s);});
+    delete l.afterMerge;
   });
   return lites;
 }
@@ -150,10 +165,10 @@ function salesPrintRoute(line,order,shape,result){
   if(mk&&typeof salesEffectiveProductionSnapshot==='function'){
     var snap=salesEffectiveProductionSnapshot(line,shape,order),views=(snap&&snap.lites)||[];
     lites=views.map(function(v,i){
-      var pane=(mk.panes||[])[i];
+      var pane=(mk.panes||[])[i],st=salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'');
       return {label:v.label||('Lite '+(i+1)),
         glass:pane?salesGlassCodeForPane(pane)+' · '+salesRouteHeatOf(pane):'',
-        stations:salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'')};
+        stations:st.list,afterMerge:st.after};
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
     salesRouteAppendMerge(lites,merge);
@@ -164,7 +179,10 @@ function salesPrintRoute(line,order,shape,result){
       return {id:g.id,length:g.length,
         ops:(typeof shapeEdgeOps==='function'?shapeEdgeOps(shape,g.id):[])};
     });
-    lites=[{label:'',glass:'',stations:salesRouteLiteStations(shape,result,groups,'')}];
+    var st0=salesRouteLiteStations(shape,result,groups,'');
+    lites=[{label:'',glass:'',stations:st0.list,afterMerge:st0.after}];
+    /* Даже без слияния хвост обязан доехать: иначе строка молча потеряется. */
+    salesRouteAppendMerge(lites,'');
   }
   return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
 }
