@@ -8,7 +8,7 @@
    есть, но при применении она ложится ТОЛЬКО на строки со склейкой: на
    обычном стекле её выполнить нечем. Пропуск не молчаливый — он виден в
    предпросмотре массового применения. */
-const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling','Lami Polish','CNC Lami Polish'];
+const SALES_SERVICE_SET_OPS=SHAPE_EDGE_OPS;
 function salesSetOpLists(set){
   if(!set)return [];
   var s=set.sides||{};

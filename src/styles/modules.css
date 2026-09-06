@@ -138,13 +138,13 @@
 
 /* Safety Border — базовое значение плюс построчный ввод по кромкам.
    Отступ для безопасной резки и ломки; в контур реза не входит. */
-.shape-prod-border,.shape-prod-cutallow{display:grid;grid-template-columns:minmax(150px,.6fr) minmax(0,3fr);gap:8px;align-items:center;margin:10px 0;padding:8px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
+.shape-prod-border,.shape-prod-cutallow{display:grid;grid-template-columns:minmax(212px,.6fr) minmax(0,3fr);gap:8px;align-items:center;margin:10px 0;padding:8px;border:1px solid #e4e7ec;border-radius:8px;background:#fff}
 .shape-border-summary,.shape-allow-summary{min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 4px}
 .shape-border-head,.shape-allow-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
-.shape-border-head>b,.shape-allow-head>b{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
+/* Заголовок занимает свою строку, Base с состоянием и подсказкой — вторую: в узкой колонке они иначе разъезжались на четыре строки по одному элементу. */.shape-border-head>b,.shape-allow-head>b{flex:1 0 100%;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
 .shape-border-head label,.shape-allow-head label{display:flex;align-items:center;gap:5px;font-size:10px;color:#475467}
-.shape-border-head input,.shape-allow-head input{width:74px;padding:5px 6px}
-/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover{border-color:#a9d2e5;background:#edf8fc;color:#175f83}
+.shape-border-head input,.shape-allow-head input{width:64px;padding:4px 6px}
+/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover{border-color:#a9d2e5;background:#edf8fc;color:#175f83}
 .shape-border-rows,.shape-allow-rows{min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:5px}
 .shape-border-row,.shape-allow-row{min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 6px;border:1px solid var(--line2);border-radius:6px;background:#fbfcfd}
 /* Состояние стоит в одной строке с буквой и размером: отдельной строкой оно съедало треть карточки. Цвет несёт САМА карточка — зелёная на авто, жёлтая на ручной правке, — поэтому слово рядом идёт без собственного фона. */.shape-border-edge,.shape-allow-edge{min-width:0;display:flex;align-items:center;gap:5px}.shape-state-word{margin-left:auto;flex:none;font-size:7.5px;letter-spacing:.05em;color:#98a2b3}.shape-border-row.is-auto,.shape-allow-row.is-auto{border-color:#bfe3c6;background:#f4fbf5}.shape-border-row.is-auto .shape-state-word,.shape-allow-row.is-auto .shape-state-word{color:#3f7d51}.shape-border-row.is-manual,.shape-allow-row.is-manual{border-color:#e8cf8e;background:#fdf8ec}.shape-border-row.is-manual .shape-state-word,.shape-allow-row.is-manual .shape-state-word{color:#8a6516;font-weight:700}.shape-allow-row.is-norule{border-color:#efc5c5;background:#fdf4f4}.shape-allow-row.is-norule .shape-state-word{color:#913e3e;font-weight:700}

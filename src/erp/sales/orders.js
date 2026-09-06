@@ -770,6 +770,11 @@ function salesLineAreaFt2(line){
  const w=(+(line&&line.width16)||0)/16,h=(+(line&&line.height16)||0)/16;
  return (w>0&&h>0)?(w*h)/144:0;
 }
+/* МЁРТВАЯ ВЕТКА. Рабочая версия — в sales/service-sets.js: манифест грузит её
+   позже, и присваивание перекрывает это объявление. Эта копия не знает про
+   лайты и плиты, поэтому правки счёта идут ТОЛЬКО туда. Удаление вынесено
+   отдельной задачей: тронуть её здесь — значит смешать два несвязанных
+   изменения в одном коммите. */
 function salesLineChargeRows(line){
  const rows=[];
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
