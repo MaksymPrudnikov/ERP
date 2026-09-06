@@ -1593,7 +1593,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     t = await page();
     eq('четыре справочника цеха заведены и разведены', await t.p.evaluate(() => [
       DB.station.length, DB.operation.length, DB.workPosition.length, DB.terminal.length, DB.level === undefined
-    ]), [11, 18, 22, 0, true]);
+    ]), [11, 19, 22, 0, true]);
     eq('станции идут по порядку, всегда проходятся только три', await t.p.evaluate(() => [
       DB.station.map(s => s.seq), DB.station.filter(s => s.always).map(s => s.code)
     ]), [[1,2,3,4,5,6,7,8,9,10,11], ['CUT','SHIPR','SHIP']]);
@@ -1610,8 +1610,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        быть до печи, а полировка ламината — после. Держи это на станке — и третий
        визит детали затрёт первый, ровно как у Spil. */
     eq('до/после печи — свойство операции, а не станка', await t.p.evaluate(() =>
-      ['fabrication','cnc_shape_polish','cnc_lami_polish'].map(c => DB.operation.find(o => o.code === c).stage)
-    ), ['pre_temper','pre_temper','post_temper']);
+      ['fabrication','cnc_shape_polish','cnc_lami_polish','lami_polish'].map(c => DB.operation.find(o => o.code === c).stage)
+    ), ['pre_temper','pre_temper','post_temper','post_temper']);
+    /* «После склейки» — не то же, что «после печи»: ламинация и сборка пакета
+       тоже post_temper, но по другой причине. Признак отдельный, и он обязан
+       пережить нормализацию — она пересобирает операцию по белому списку. */
+    eq('полировка склеенной кромки помечена как «после слияния»', await t.p.evaluate(() =>
+      ['polish','cnc_shape_polish','lami_polish','cnc_lami_polish','lamination'].map(c => DB.operation.find(o => o.code === c).afterMerge)
+    ), [false, false, true, true, false]);
+    /* Прямую полировку склейки делают на ОБЫЧНОМ полировочном станке — его
+       настраивают под толщину пакета и направление, отдельной машины нет. */
+    eq('прямая полировка склейки живёт на полировочных местах', await t.p.evaluate(() => [
+      operationWorkPositions('lami_polish').map(w => w.code),
+      workPositionStations(DB.workPosition.find(w => w.code === 'POL1'))
+    ]), [['POL1','POL2','POL3'], ['EDGE']]);
     eq('садками работают печь, ламинация, автоклав и линия СП', await t.p.evaluate(() =>
       DB.workPosition.filter(w => w.batchMode === 'batch').map(w => w.code)
     ), ['FURN1','LAM1','AUTOCL1','IGU1']);
@@ -1649,7 +1661,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [6, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    ]), [7, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
     /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
        за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
     eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
@@ -1661,7 +1673,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [6, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [7, 11, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
@@ -1676,7 +1688,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 18, 6, true, true]);
+    }), [true, 11, 22, 19, 7, true, true]);
     await t.c.close();
 
     t = await page();
@@ -1710,8 +1722,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('templates/WORK_POSITIONS.csv принимается целиком', await t.p.evaluate(csv => {
       const r = importWorkPositionsCsv(csv);
       const cnc = DB.workPosition.find(w => w.code === 'CNC1');
-      return [r.accepted, r.updated, r.rejected.length, r.missing.length, cnc.operations];
-    }, positionsCsv), [22, 22, 0, 0, ['fabrication','cnc_shape_polish','cnc_lami_polish']]);
+      const pol = DB.workPosition.find(w => w.code === 'POL1');
+      return [r.accepted, r.updated, r.rejected.length, r.missing.length, cnc.operations, pol.operations];
+    }, positionsCsv), [22, 22, 0, 0, ['fabrication','cnc_shape_polish','cnc_lami_polish'], ['polish','lami_polish']]);
     /* Снятый в цеху габарит доезжает импортом. */
     eq('замер из цеха приезжает файлом', await t.p.evaluate(csv => {
       const measured = csv.replace('roberto,,,,single,', 'roberto,,60,122,single,');
@@ -1749,7 +1762,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition.length,
               next.station[0].code, next.user[0].workPosition];
-    }), [6, 11, 22, 'CUT', 'CNC1']);
+    }), [7, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();
@@ -2489,6 +2502,133 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         inUnit:inUnit.map(l=>l.baseEdgework)
       };
     })()`), {alone:{count:1,kind:'arris',laminated:true},inUnit:['arris','arris']});
+
+    /* ---- Полировка ламината -------------------------------------------
+       Правило владельца: каждое стекло при резке — отдельная панель. Под
+       инструментом лежит ПЛИТА, а не кусок суммарной толщины, поэтому и
+       припуск, и банд прайса берутся по ней. Раньше 6+6 считался как 13.52 мм:
+       рез на четверть дюйма крупнее, а 3+3, 10+10 и 12+12 не резались вовсе. */
+    const LAM_SETUP=`
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t20\t44\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      const g=mm=>(DB.glassProduct||[]).find(x=>+x.thicknessMm===mm);
+      const lam=(a,b)=>{const p=salesDefaultPane(0);p.category='laminated';
+        p.laminated.outer.glassProductId=g(a).id;p.laminated.outer.thicknessMm=a;
+        p.laminated.inner.glassProductId=g(b).id;p.laminated.inner.thicknessMm=b;
+        m.unitType='single';m.panes=[normalizeSalesPane(p,0)];};
+      const solo=mm=>{m.unitType='single';m.panes=[normalizeSalesPane({category:'vision',glassProductId:g(mm).id,thicknessMm:mm},0)];};
+      const ops=t=>{const s=salesLineGeometryShape(line);['A','B','C','D'].forEach(id=>{s.edgeOps[id]=[shapeNormalizeOp({type:t})];});};
+      const cut=()=>{const p=salesEffectiveCuttingPlan(line,salesLineGeometryShape(line),soDraft);return p.valid?[p.cutW,p.cutH]:['blocked'];};
+      const edge=()=>salesLineChargeRows(line).filter(r=>String(r.key).indexOf('EDGE:')===0).map(r=>[r.key,r.basis,r.catalogRate]);`;
+
+    eq('ламинат режется по толщине плиты, а не по сумме склейки', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      const out={};
+      lam(6,6);ops('Flat Polish');out.p66=cut();
+      lam(6,6);ops('Lami Polish');out.lami66=cut();
+      lam(3,3);ops('Flat Polish');out.p33=cut();
+      lam(10,10);ops('Lami Polish');out.lami1010=cut();
+      lam(12,12);ops('Flat Polish');out.p1212=cut();
+      lam(6,10);ops('Flat Polish');out.p610=cut();
+      return out;
+    })()`), {p66:[20.125,44.125],lami66:[20.125,44.125],p33:[20.125,44.125],
+             lami1010:[20.25,44.25],p1212:[20.25,44.25],p610:[20.25,44.25]});
+
+    /* Монолит обязан остаться прежним до знака: таблица переехала в данные, и
+       эта проверка — канарейка заводского сида. */
+    eq('одиночное стекло режется как раньше', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      const out={};
+      solo(6);ops('Flat Polish');out.m6=cut();
+      solo(12);ops('Flat Polish');out.m12=cut();
+      solo(16);ops('Flat Polish');out.m16=cut();
+      solo(10);ops('CNC Shape Polish');out.cnc=cut();
+      solo(6);ops('Rough Arris');out.arris=cut();
+      return out;
+    })()`), {m6:[20.125,44.125],m12:[20.375,44.375],m16:[21,45],cnc:[20.5,44.5],arris:[20,44]});
+
+    /* Цена владельца: 6+6 обычной полировкой — 0.07 по каждой плите, то есть
+       два прохода по периметру; Lami Polish — один проход по 0.28. */
+    eq('обычная полировка ламината считается по плитам, лами — по склейке', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      const out={};
+      lam(6,6);ops('Flat Polish');out.plain=edge();
+      lam(6,6);ops('Lami Polish');out.lami=edge();
+      lam(6,6);ops('CNC Lami Polish');out.cncLami=edge();
+      lam(6,10);ops('Flat Polish');out.mixed=edge();
+      lam(10,10);ops('Lami Polish');out.thick=edge();
+      solo(6);ops('Flat Polish');out.solo=edge();
+      return out;
+    })()`), {plain:[['EDGE:flatPolish:6',256,0.07]],
+             lami:[['EDGE:lamiPolish:flat',128,0.28]],
+             cncLami:[['EDGE:cncLamiPolish:flat',128,0.35]],
+             mixed:[['EDGE:flatPolish:6',128,0.07],['EDGE:flatPolish:8-10',128,0.1]],
+             thick:[['EDGE:lamiPolish:flat',128,0.28]],
+             solo:[['EDGE:flatPolish:6',128,0.07]]});
+
+    /* Полировать склейку там, где склеивать нечего, цех не может. Молча
+       выбросить операцию нельзя — она оплачиваемая. */
+    eq('лами-операция на обычном стекле останавливает строку', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      solo(6);ops('Lami Polish');
+      const snap=salesEffectiveProductionSnapshot(line,salesLineGeometryShape(line),soDraft);
+      const st=salesLineServiceStatus(line);
+      const manual=salesApplyLineEdgeOperation(line,'A','Lami Polish',true);
+      lam(6,6);ops('Lami Polish');
+      return {valid:snap.valid,flag:!!snap.lamiMisapplied,status:st.key,
+              attention:salesLineNeedsServiceAttention(line)===false,
+              manualOk:manual.ok,
+              onLam:salesEffectiveProductionSnapshot(line,salesLineGeometryShape(line),soDraft).valid};
+    })()`), {valid:false,flag:true,status:'lami',attention:true,manualOk:false,onLam:true});
+
+    /* «Этот припуск мы обсуждаем каждый раз»: предложение видно, правка живёт
+       в форме и попадает в отпечаток, поэтому рез не меняется молча. */
+    eq('припуск правится по каждой стороне', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      lam(6,6);ops('Flat Polish');
+      const before=cut();
+      salesSetEdgeAllowance(line.id,'A','1/8');
+      const after=cut();
+      const plan=salesEffectiveCuttingPlan(line,salesLineGeometryShape(line),soDraft);
+      const a=plan.groups.find(x=>x.id==='A'),b=plan.groups.find(x=>x.id==='B');
+      salesSetEdgeAllowance(line.id,'A','316');
+      const typo=cut();
+      salesResetEdgeAllowances(line.id);
+      return {before:before,after:after,manual:[a.allowanceManual,a.allowance,a.allowanceAuto],
+              auto:[b.allowanceManual,b.allowance],typo:typo,reset:cut()};
+    })()`), {before:[20.125,44.125],after:[20.1875,44.125],manual:[true,0.125,0.0625],
+             auto:[false,0.0625],typo:[20.1875,44.125],reset:[20.125,44.125]});
+
+    /* Таблица припуска переехала в справочник и правится владельцем. На
+       двенадцати миллиметрах монолит и ламинат расходятся — признак меры
+       обязателен, а не удобен. */
+    eq('припуск задаётся справочником и правится в нём', await t.p.evaluate(() => {
+      const r=(op,mm,scope)=>{const x=ShapeModule.productionAllowanceRule(op,mm,scope);return x.ok?x.value:'blocked';};
+      const before=[r('Flat Polish',12),r('Flat Polish',12,'lami'),r('Lami Polish',6),r('CNC Shape Polish',25)];
+      const row=DB.edgeAllowance.find(x=>x.op==='Flat Polish'&&x.scope==='lami'&&x.minMm===8);
+      row.allowance='1/4';normalizeEdgeAllowance();
+      const edited=r('Flat Polish',10,'lami');
+      /* Непринятое значение выбрасывает строку целиком, и толщина падает в
+         монолитную — объяснимое число вместо блокировки. */
+      row.allowance='316';normalizeEdgeAllowance();
+      const typo=r('Flat Polish',10,'lami');
+      row.allowance='1/8';normalizeEdgeAllowance();
+      DB.edgeAllowance.find(x=>x.op==='Flat Polish'&&x.scope==='mono'&&x.minMm===12).allowance='7/32';
+      DB.edgeAllowance.push({id:'ALW-OWN-1',op:'Flat Polish',scope:'mono',minMm:20,maxMm:25,allowance:'5/8'});
+      DB.refVersion=6;reseedReferenceTables(true);normalizeEdgeAllowance();
+      return {before:before,edited:edited,typo:typo,
+              keptEdit:r('Flat Polish',12),keptOwn:r('Flat Polish',22),factory:r('Flat Polish',6)};
+    }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,
+         keptEdit:0.21875,keptOwn:0.625,factory:0.0625});
+
+    /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
+       В общей полосе она встала бы по seq станции, то есть ДО склейки. */
+    eq('лами-полировка печатается после точки слияния', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      const codes=()=>{const s=salesLineGeometryShape(line),res=ShapeModule.compute(s);
+        return salesPrintRoute(line,soDraft,s,res).lites.map(l=>l.stations.map(x=>x.code));};
+      const out={};
+      lam(6,6);ops('Lami Polish');out.lami=codes();
+      const s=salesLineGeometryShape(line),res=ShapeModule.compute(s);
+      out.tail=salesPrintRoute(line,soDraft,s,res).lites[0].stations.slice(-1)[0].items.join('|').indexOf('Lami Polish')>=0;
+      lam(6,6);ops('Flat Polish');out.plain=codes();
+      return out;
+    })()`), {lami:[['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM']]});
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];

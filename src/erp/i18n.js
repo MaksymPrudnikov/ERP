@@ -11,6 +11,37 @@
    остаётся переключателем в шапке для владельца. */
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
+  /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  "Припуск на рез": "Cutting allowance",
+  "Съём на сторону: насколько лист больше готового размера, чтобы после кромки выйти в размер. Одна толщина встречается дважды не по ошибке: монолит меряется по стеклу, а ламинат по ПЛИТЕ склейки, потому что при резке каждое стекло отдельная панель. Из совпавших строк выигрывает самая узкая, поэтому широкая задаёт умолчание, а узкая — исключение внутри него.": "Stock removal per side: how much larger the sheet must be so the part comes out to size after edge work. A thickness appearing twice is not a mistake: monolithic glass is measured by the glass itself, laminated by the PLY of the make-up, because at cutting every sheet is a separate panel. Of the matching rows the narrowest wins, so a wide row sets the default and a narrow one is the exception inside it.",
+  "Операция": "Operation",
+  "Мера": "Measured by",
+  "От, мм": "From, mm",
+  "До, мм": "To, mm",
+  "Припуск": "Allowance",
+  "Пример": "Preview",
+  "Monolithic · по стеклу": "Monolithic · per glass",
+  "Laminated · по ПЛИТЕ": "Laminated · per PLY",
+  "притупление контур не съедает": "arrising does not eat into the contour",
+  "по толщине ПЛИТЫ": "by the PLY thickness",
+  "толстое стекло с большим съёмом": "thick glass, larger stock removal",
+  "склеенная кромка, по толщине ПЛИТЫ": "laminated edge, by the PLY thickness",
+  "+ строка": "+ row",
+  "не число": "not a number",
+  "слишком много": "too much",
+  "Что получится с текущими значениями": "What the current values produce",
+  "Случай": "Case",
+  "Припуск на сторону": "Allowance per side",
+  "Монолит 6 мм · Flat Polish": "Monolithic 6 mm · Flat Polish",
+  "Монолит 12 мм · Flat Polish": "Monolithic 12 mm · Flat Polish",
+  "Монолит 10 мм · CNC Shape Polish": "Monolithic 10 mm · CNC Shape Polish",
+  "Ламинат 6+6 · Flat Polish (плита 6)": "Laminated 6+6 · Flat Polish (ply 6)",
+  "Ламинат 6+6 · Lami Polish (плита 6)": "Laminated 6+6 · Lami Polish (ply 6)",
+  "Ламинат 10+10 · Lami Polish (плита 10)": "Laminated 10+10 · Lami Polish (ply 10)",
+  "Ламинат 12+12 · CNC Lami Polish (плита 12)": "Laminated 12+12 · CNC Lami Polish (ply 12)",
+  "Плиты склейки разной толщины": "The plies of this laminate differ in thickness",
+  "Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.": "The allowance is proposed from the thicker ply — check it side by side and correct it if the thinner one loses too much.",
+  " Ламинат: обычная полировка идёт по каждой плите ДО склейки, Lami Polish — по склеенной кромке ПОСЛЕ.": " Laminated: plain polishing runs on every ply BEFORE bonding, Lami Polish works the bonded edge AFTER.",
   "без цены": "unpriced",
   "Цена не заполнена": "Price not set",
   "начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.": "charges have no effective rate. They are not included in the monetary total until a rate is entered.",
@@ -841,6 +872,9 @@ function tx(value){
  else if((mm=x.match(/^Загрузить (STATIONS|WORK_POSITIONS)\.csv$/))) x=`Load ${mm[1]}.csv`;
  else if((mm=x.match(/^(\d+) точек$/))) x=`${mm[1]} points`;
  else if((mm=x.match(/^(\d+) рёбер$/))) x=`${mm[1]} edges`;
+ /* Перечисление плит склейки собирается из данных лайта, поэтому переводится
+    правилом, а не словарём: толщины у каждой строки свои. */
+ else if((mm=x.match(/^(.+): плиты (.+) мм$/))) x=`${mm[1]}: plies ${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) физических кромок · allowance и маршрут$/))) x=`${mm[1]} physical edges · allowance and routing`;
  else if((mm=x.match(/^(\d+) операций$/))) x=`${mm[1]} operations`;
  else if((mm=x.match(/^(\d+) элементов$/))) x=`${mm[1]} elements`;

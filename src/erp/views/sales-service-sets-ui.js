@@ -255,7 +255,10 @@ function salesLiteAllowanceNote(plan){
     var mm=(l.plies||[]).map(function(p){return p.mm;}).join(' / ');
     return l.label+': плиты '+mm+' мм';
   }).join(' · ');
-  return `<div class='ss-line-warning info'><b>Плиты склейки разной толщины.</b> ${esc(text)}. Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.</div>`;
+  /* Каждая фраза — свой текстовый узел: перевод накладывается на готовый DOM
+     по узлам, и склеенная строка с подставленными толщинами в словарь не
+     попадёт никогда. */
+  return `<div class='ss-line-warning info'><b>Плиты склейки разной толщины</b><span>${esc(text)}</span><small>Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.</small></div>`;
 }
 function salesLineEdgeworkModal(){
   var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);
