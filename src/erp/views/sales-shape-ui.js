@@ -1654,7 +1654,19 @@ var sEdgeLite=null;
 function shapeEditorLites(){
   if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return [];
   var line=(soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;});
-  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm};}):[];
+  return line?salesLineLites(line).map(function(l){return {index:l.index,label:l.label,mm:l.thicknessMm,laminated:l.laminated};}):[];
+}
+/* Есть ли под этой вкладкой склейка. Полировка склеенной кромки предлагается
+   только там, где склеивать есть что: на вкладке конкретного лайта — по нему,
+   на «All lites» — только когда ламинированы ВСЕ (иначе операция уехала бы на
+   обычное стекло вместе с общей обработкой формы). Библиотечная форма про
+   makeup ничего не знает — там гейтить не по чему, показываем всё. */
+function shapeEditorLamiAllowed(){
+  var lites=shapeEditorLites();
+  if(!lites.length)return true;
+  if(sEdgeLite==null)return lites.every(function(l){return l.laminated;});
+  var one=lites.find(function(l){return l.index===sEdgeLite;});
+  return !!(one&&one.laminated);
 }
 function setShapeEdgeLite(v){sEdgeLite=v===''||v==null?null:+v;render();}
 function shapeLiteOpsDraft(liteIndex,edgeId){
@@ -1699,7 +1711,7 @@ function shapeEdgeLiteTabs(){
      var spec=(sDraft.lites||{})[String(l.index)]||{},marks=Object.keys(spec.inset||{}).length+Object.keys(spec.edgeOps||{}).length;
      return `<button type='button' class='${sEdgeLite===l.index?'on':''}' onclick='setShapeEdgeLite(${l.index})'>${esc(l.label)}${l.mm?' · '+esc(l.mm)+' mm':''}${marks?' <i>'+marks+'</i>':''}</button>`;
     }).join('')
-   +`</div><div class='shape-lite-note'>${sEdgeLite==null?'Shape-wide edgework: applies to every lite unless the lite has its own.':'Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.'}</div>`;
+   +`</div><div class='shape-lite-note'>${sEdgeLite==null?'Shape-wide edgework: applies to every lite unless the lite has its own.':'Edgework of this glass. Empty = the Shape-wide one, or the base edgework of the glass. Lite geometry lives in the “Lites of the unit” section.'}${shapeEditorLamiAllowed()&&shapeEditorLites().some(function(l){return l.laminated;})?' Ламинат: обычная полировка идёт по каждой плите ДО склейки, Lami Polish — по склеенной кромке ПОСЛЕ.':''}</div>`;
 }
 /* ---------- Лайты: разделение юнита ----------
    Стекла в юните почти всегда повторяют одну фигуру, поэтому раздельная
@@ -1786,10 +1798,11 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
   render();
 }
-/* Какие операции показывать колонками. Пока список полный; фильтр по лайту
-   появится вместе с лами-операциями. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
+/* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
    SHAPE_EDGE_OPS, поэтому сокращение этого списка не сдвигает toggle. */
-function shapeEditorEdgeOps(){return SHAPE_EDGE_OPS;}
+function shapeEditorEdgeOps(){
+  return shapeEditorLamiAllowed()?SHAPE_EDGE_OPS:SHAPE_EDGE_OPS.filter(function(t){return !shapeIsLamiOnlyOp(t);});
+}
 function shapeEdgeworkEditor(){
   var groups=shapeGroups(),edgeNames=shapeEdgeNames(shapeDraftGeometry());
   if(!groups.length)return `<div class='shape-subsection shape-accordion shape-edgework-disabled' id='shapeEdgeworkEditor'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("edgework")'><span><b>Edge processing</b><small>Waiting for a valid physical contour</small></span><span class='shape-accordion-state'>finish shape dimensions<i>${sEdgeworkOpen?'−':'+'}</i></span></button>${sEdgeworkOpen?`<div class='shape-accordion-body'><div class='validation-box badbox'>Finish the main contour first — Edge processing will appear automatically when all physical edges are defined.</div></div>`:''}</div>`;

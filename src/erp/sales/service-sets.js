@@ -212,6 +212,19 @@ function salesEffectiveProductionSnapshot(line,shape,order){
       return {id:g.id,length:g.length,side:g.side,ops:salesServiceOps(liteOps),source:src,allowance:null};
     })});
   });
+  /* Полировка склеенной кромки на обычном стекле — не опечатка в данных, а
+     работа, которую цех физически не выполнит: склеивать нечего. Молча выбросить
+     её нельзя (операция оплачиваемая), поэтому строка встаёт на проверку с
+     конкретной причиной: какой лайт и почему. */
+  for(var li=0;li<liteViews.length;li++){
+    var lv=liteViews[li];
+    if(lv.laminated)continue;
+    for(var lg2=0;lg2<lv.groups.length;lg2++){
+      var bad=lv.groups[lg2].ops.find(function(o){return shapeIsLamiOnlyOp(o.type);});
+      if(bad)return {valid:false,reason:bad.type+' applies to a laminated lite only. '+lv.label+' is a single glass.',
+                     groups:groups,shape:shape,set:set,lamiMisapplied:true,mappingPending:mappingPending};
+    }
+  }
   /* Если у лайтов кромка разная, карточка кромки не должна выдавать одну из них
      за общую: помечаем такие кромки, а раскладка по лайтам показана ниже. */
   groups.forEach(function(g){
@@ -555,7 +568,9 @@ function salesLineServiceStatus(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
-  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
+  var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
+  if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
+  if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
@@ -564,7 +579,7 @@ function salesLineServiceStatus(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -574,6 +589,11 @@ function salesLostOverrideEdges(line){
 
 function salesApplyLineEdgeOperation(line,edgeId,type,on){
   var shape=salesLineGeometryShape(line);if(!shape)return {ok:false,reason:'Line has no geometry.'};
+  /* Ставить полировку склейки некуда, если склейки нет. Отказ с причиной —
+     вызывающий её показывает; молчаливое согласие увело бы в производство
+     операцию, которую не выполнить. */
+  if(on&&shapeIsLamiOnlyOp(type)&&!salesLineLites(line).some(function(l){return l.laminated;}))
+    return {ok:false,reason:type+' applies to a laminated lite only. This line has no laminated glass.'};
   if(!line.serviceOverrides)line.serviceOverrides={pinnedTopology:'',edges:{}};
   var base=salesServiceClone(line);base.serviceOverrides={pinnedTopology:'',edges:{}};
   var baseSnap=salesEffectiveProductionSnapshot(base,shape,soDraft),curSnap=salesEffectiveProductionSnapshot(line,shape,soDraft);if(!baseSnap.valid||!curSnap.valid)return {ok:false,reason:curSnap.reason||baseSnap.reason};
