@@ -2617,6 +2617,46 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,
          keptEdit:0.21875,keptOwn:0.625,factory:0.0625});
 
+    /* Набор — рецепт на много строк, makeup он не знает. Лами-полировка в нём
+       есть, но ложится только на строки со склейкой: на обычном стекле её
+       выполнить нечем, а завести строку в непроходное состояние — хуже, чем
+       отбросить операцию и сказать об этом в предпросмотре. */
+    eq('лами-полировка из набора ложится только на ламинат', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      soDraft.serviceSets=[salesNormalizeServiceSet({id:'SVC-L',code:'SL',mode:'sides',
+        sides:{A:[{type:'Lami Polish'}],B:[{type:'Flat Polish'}],C:[],D:[],other:[]}})];
+      const set=soDraft.serviceSets[0];
+      lam(6,6);salesApplySetOpsToShape(line,set);
+      const onLam=salesLineGeometryShape(line);
+      const lamOps={A:(onLam.edgeOps.A||[]).map(o=>o.type),B:(onLam.edgeOps.B||[]).map(o=>o.type)};
+      const lamValid=salesEffectiveProductionSnapshot(line,onLam,soDraft).valid;
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t20\t44\tY',0);salesExcelApply();
+      soDraft.serviceSets=[set];
+      const plainLine=soDraft.lines[0];
+      salesApplySetOpsToShape(plainLine,set);
+      const onPlain=salesLineGeometryShape(plainLine);
+      return {lamOps:lamOps,lamValid:lamValid,
+              plainOps:{A:(onPlain.edgeOps.A||[]).map(o=>o.type),B:(onPlain.edgeOps.B||[]).map(o=>o.type)},
+              plainValid:salesEffectiveProductionSnapshot(plainLine,onPlain,soDraft).valid,
+              setHasLami:salesSetHasLamiOps(set)};
+    })()`), {lamOps:{A:['Lami Polish'],B:['Flat Polish']},lamValid:true,
+             plainOps:{A:[],B:['Flat Polish']},plainValid:true,setHasLami:true});
+
+    /* Припуск правится и в форме, и в строке заказа — это ОДНО значение:
+       оно живёт в форме, поэтому попадает в отпечаток и рез не меняется молча. */
+    eq('припуск из редактора формы доезжает до строки заказа', await t.p.evaluate(`(()=>{${LAM_SETUP}
+      lam(6,6);ops('Flat Polish');
+      const before=cut();
+      const shape=salesLineGeometryShape(line);
+      shape.edgeAllowances={A:'1/8'};
+      shape.revision=(+shape.revision||0)+1;
+      line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+      const plan=salesEffectiveCuttingPlan(line,salesLineGeometryShape(line),soDraft);
+      const a=plan.groups.find(x=>x.id==='A'),b=plan.groups.find(x=>x.id==='B');
+      return {before:before,after:[plan.cutW,plan.cutH],
+              a:[a.allowanceManual,a.allowance,a.allowanceAuto],b:[b.allowanceManual,b.allowance]};
+    })()`), {before:[20.125,44.125],after:[20.1875,44.125],a:[true,0.125,0.0625],b:[false,0.0625]});
+
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */
     eq('лами-полировка печатается после точки слияния', await t.p.evaluate(`(()=>{${LAM_SETUP}

@@ -7,7 +7,9 @@
 let soServiceSetOpen=false,soServiceSetEditingId=null,soServiceSetDraft=null;
 let soEdgeworkLineId=null,soServiceFilter='all',soBulkServiceSetId='',soBulkServicePolicy='keep',soServiceBulkPreview=null;
 
-function salesServiceShort(type){return type==='Rough Arris'?'Rough':type==='Flat Polish'?'Flat':type==='CNC Shape Polish'?'CNC':type==='Mitering'?'Miter':type==='Beveling'?'Bevel':type;}
+/* Ярлык берётся из общей карты: это была третья копия перечисления, и на
+   лами-операциях она бы отдала полное английское имя вместо короткого кода. */
+function salesServiceShort(type){return shapeEdgeOpShort(type);}
 function salesServiceOpsText(ops){var a=salesServiceOps(ops);return a.length?a.map(function(o){return o.type==='Mitering'?(o.angle||45)+'° '+((o.side||'back')==='front'?'Front':'Back')+' Mitre':o.type==='Beveling'?'Bevel '+(o.width||'1')+'″ ('+((o.side||'front')==='back'?'Back':'Front')+')':salesServiceShort(o.type);}).join(' + '):'None';}
 
 function salesServiceFilteredEntries(){
@@ -54,6 +56,7 @@ function salesAssignmentWarning(line,set){
   var test=salesServiceClone(line);test.serviceSetId=set.id;var shape=salesLineGeometryShape(test);if(!shape)return 'Needs geometry';
   if(shapeIsDxfSource(shape)&&set.mode==='sides'&&!salesDxfMappingComplete(test,shape))return 'DXF Set will wait for confirmed side mapping';
   if(salesDxfOverrideStale(test,shape))return 'DXF line override belongs to another physical contour';
+  if(salesSetHasLamiOps(set)&&!salesLineIsLaminated(line))return 'Lami polishing from the set is skipped: this line has no laminated lite';
   var cut=salesEffectiveCuttingPlan(test,shape,soDraft);return cut.valid?'':cut.reason;
 }
 function salesPlanServiceAssignment(setId,policy){

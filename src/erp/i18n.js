@@ -12,6 +12,8 @@
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  "Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.": "Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.",
+  "Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.": "An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.",
   "Припуск на рез": "Cutting allowance",
   "Съём на сторону: насколько лист больше готового размера, чтобы после кромки выйти в размер. Одна толщина встречается дважды не по ошибке: монолит меряется по стеклу, а ламинат по ПЛИТЕ склейки, потому что при резке каждое стекло отдельная панель. Из совпавших строк выигрывает самая узкая, поэтому широкая задаёт умолчание, а узкая — исключение внутри него.": "Stock removal per side: how much larger the sheet must be so the part comes out to size after edge work. A thickness appearing twice is not a mistake: monolithic glass is measured by the glass itself, laminated by the PLY of the make-up, because at cutting every sheet is a separate panel. Of the matching rows the narrowest wins, so a wide row sets the default and a narrow one is the exception inside it.",
   "Операция": "Operation",

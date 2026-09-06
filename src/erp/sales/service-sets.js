@@ -4,7 +4,24 @@
    Shape stays independent; prices/orders stay in ERP.
    ===================================================================== */
 
-const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling'];
+/* Набор — рецепт на много строк, и makeup он не знает. Лами-полировка в нём
+   есть, но при применении она ложится ТОЛЬКО на строки со склейкой: на
+   обычном стекле её выполнить нечем. Пропуск не молчаливый — он виден в
+   предпросмотре массового применения. */
+const SALES_SERVICE_SET_OPS=['Rough Arris','Flat Polish','CNC Shape Polish','Mitering','Beveling','Lami Polish','CNC Lami Polish'];
+function salesSetOpLists(set){
+  if(!set)return [];
+  var s=set.sides||{};
+  return set.mode==='perimeter'?[set.perimeter]:[s.A,s.B,s.C,s.D,s.other];
+}
+function salesSetHasLamiOps(set){
+  return salesSetOpLists(set).some(function(list){
+    return salesServiceOps(list).some(function(o){return shapeIsLamiOnlyOp(o.type);});
+  });
+}
+function salesLineIsLaminated(line){
+  return salesLineLites(line).some(function(l){return l.laminated;});
+}
 
 function salesServiceClone(x){return JSON.parse(JSON.stringify(x==null?null:x));}
 function salesServicePlain(x){return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}
@@ -519,10 +536,14 @@ function salesApplySetOpsToShape(line,set){
      Массовое изменение идёт МОДИФИКАЦИЕЙ и не имеет права встать выше: оно
      заполняет только те кромки, где на форме ничего не задано. Раньше оно
      переписывало форму целиком и сносило поставленный вручную CNC. */
-  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false;
+  var edges=salesShapePhysicalEdges(shape),ops=salesServicePlain(shape.edgeOps),wrote=false,lam=salesLineIsLaminated(line);
   edges.forEach(function(edge){
     if((ops[edge.id]||[]).length)return;
     var list=set.mode==='perimeter'?salesServiceOps(set.perimeter):salesServiceOps((set.sides&&set.sides[salesSideForPhysicalEdge(line,edge)])||[]);
+    /* Полировать склейку там, где её нет, цех не может — такую операцию из
+       рецепта отбрасываем, вместо того чтобы завести строку в непроходное
+       состояние. Остальное из набора ложится как обычно. */
+    if(!lam)list=list.filter(function(o){return !shapeIsLamiOnlyOp(o.type);});
     if(list.length){ops[edge.id]=salesServiceClone(list);wrote=true;}
   });
   shape.edgeOps=ops;

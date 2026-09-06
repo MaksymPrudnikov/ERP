@@ -53,6 +53,74 @@ function shapeBorderEdgeLabel(id){
   var d=typeof salesSetSideDescription==='function'?salesSetSideDescription(id):'';
   return d||'Physical edge';
 }
+/* ---------- Cutting allowance ----------
+   Съём на сторону: насколько лист больше готового размера. Значение живёт в
+   ФОРМЕ (shape.edgeAllowances) — то же самое поле, что правится в строке
+   заказа, поэтому правка видна с обеих сторон и попадает в отпечаток формы.
+
+   Устроено как Safety Border рядом: Base пишет одно значение во все стороны,
+   поля ниже правят каждую отдельно, пустое поле = как предлагает таблица. */
+function shapeProdAllowanceScope(){
+  var lites=typeof shapeEditorLites==='function'?shapeEditorLites():[];
+  return lites.length&&lites.some(function(l){return l.laminated;})?'lami':'mono';
+}
+function shapeProdAllowanceAuto(edgeId){
+  var ops=shapeEdgeOps(sDraft,edgeId).map(shapeNormalizeOp).filter(Boolean);
+  if(!ops.length)return {ok:true,value:0};
+  return ShapeModule.productionAllowanceForOps(ops,shapeThicknessMm(sDraft),shapeProdAllowanceScope());
+}
+function shapeProdAllowanceField(){
+  if(!sDraft)return '';
+  var groups=typeof shapeGroups==='function'?shapeGroups():[];
+  if(shapeIsDxfSource(sDraft)&&typeof ShapeModule.dxfEdges==='function')groups=ShapeModule.dxfEdges(sDraft)||[];
+  if(!groups.length)return '';
+  var ov=(sDraft&&sDraft.edgeAllowances)||{},edgeNames=shapeEdgeNames(shapeDraftGeometry());
+  var lam=shapeProdAllowanceScope()==='lami',any=Object.keys(ov).length>0;
+  var rows=groups.slice().sort(function(a,b){return String(edgeNames[a.id]||a.id).localeCompare(String(edgeNames[b.id]||b.id));}).map(function(g){
+    var id=String(g.id),auto=shapeProdAllowanceAuto(id),v=ov[id]==null?'':String(ov[id]);
+    var manual=v!=='';
+    var tag=manual?`<span class='pill warn'>OVERRIDE</span>`:(auto.ok?`<span class='pill ok'>AUTO</span>`:`<span class='pill bad'>NO RULE</span>`);
+    var shown=manual?fabParseDimStrict(v):null;
+    var eff=manual?(shown&&shown.ok?shown.v:null):(auto.ok?auto.value:null);
+    return `<div class='shape-border-row'><div class='shape-border-edge'><b>${esc(edgeNames[id]||id)}</b><span>${esc(dimIn16(g.length||0))}</span></div>`+
+      `<input value='${esc(v)}' placeholder='${esc(auto.ok?dimIn16(auto.value):'—')}' onchange='setShapeEdgeAllowanceEdge("${esc(id)}",this.value)'>`+
+      `<div class='shape-border-state'>${tag}<i>${eff!=null&&eff>0?esc(dimIn16(eff)):''}</i></div></div>`;
+  }).join('');
+  return `<div class='shape-prod-border'>
+    <div class='shape-border-summary'><div class='shape-border-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}</div><small>${lam
+      ? 'Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.'
+      : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'}</small></div>
+    <div class='shape-border-rows'>${rows}</div>
+  </div>`;
+}
+/* Правка сразу поднимает ревизию формы: размер реза меняться молча не имеет
+   права — строки заказа обязаны увидеть, что форма стала другой. */
+function shapeAllowanceTouched(){
+  sDraft.revision=Math.max(0,Math.floor(+sDraft.revision||0))+1;
+  render();
+}
+function setShapeEdgeAllowanceEdge(id,value){
+  var t=String(value==null?'':value).trim(),map=Object.assign({},sDraft.edgeAllowances||{});
+  if(t){
+    var p=fabParseDimStrict(t);
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return render();
+    map[id]=t;
+  }else delete map[id];
+  sDraft.edgeAllowances=map;shapeAllowanceTouched();
+}
+function setShapeEdgeAllowanceAll(value){
+  var t=String(value==null?'':value).trim();
+  if(!t)return resetShapeEdgeAllowances();
+  var p=fabParseDimStrict(t);
+  if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN)return render();
+  var groups=typeof shapeGroups==='function'?shapeGroups():[],map={};
+  if(shapeIsDxfSource(sDraft)&&typeof ShapeModule.dxfEdges==='function')groups=ShapeModule.dxfEdges(sDraft)||[];
+  groups.forEach(function(g){map[String(g.id)]=t;});
+  sDraft.edgeAllowances=map;shapeAllowanceTouched();
+}
+function resetShapeEdgeAllowances(){
+  sDraft.edgeAllowances={};shapeAllowanceTouched();
+}
 function shapeProdBorderField(){
   var ctx=shapeProdBorderPlan();
   if(!ctx)return '';
@@ -401,7 +469,7 @@ shapeDerivedHTML=function(r){
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.sourceValid){var errors=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid DXF source'];return `<div class='validation-box badbox'><b>Invalid DXF</b>${errors.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
   if(!pr.valid){var errs=pr.errors&&pr.errors.length?pr.errors:[pr.reason||'Invalid production input'];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div></div><div class='validation-box badbox'><b>Cutting blocked</b>${errs.map(function(x){return `<div>${esc(x)}</div>`;}).join('')}</div>`;}
-  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
+  var req=pr.requirements||[];return `<div class='smart-kpis'><div><span>Finished</span><b>${esc(dimIn16(pr.width))} × ${esc(dimIn16(pr.height))}</b></div><div><span>Thickness</span><b>${esc(String(shapeThicknessMm(sDraft)))} mm</b></div><div><span>Cut size</span><b>${esc(dimIn16(pr.cutting.width))} × ${esc(dimIn16(pr.cutting.height))}</b></div><div><span>Perimeter</span><b>${esc(dimIn16(pr.perimeter))}</b></div>${pr.cutting.safetyBorder&&pr.cutting.safetyBorder.applies?`<div><span>Safety Border</span><b>${esc(dimIn16(pr.cutting.safetyBorder.value))} · ${esc(pr.cutting.safetyBorder.state)}</b></div>`:''}</div>${shapeProdBorderField()}${shapeProdAllowanceField()}<div class='shape-requirements ${req.length?'':'empty'}'><b>Production requirements</b>${req.length?req.map(function(q){return `<span><i>${esc(q.stationClass)}</i> ${esc(q.operation)}${q.edgeIds?' · '+esc(q.edgeIds.join(', ')):''}</span>`;}).join(''):'<span>No additional operations</span>'}</div><div class='validation-box okbox'>Finished DXF, edge processing and Cutting geometry are synchronized · ${esc(pr.fingerprint)}</div>`;
 };
 
 function shapeProdDownloadDxf(kind){

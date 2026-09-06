@@ -181,10 +181,10 @@ function shapeProductionAllowanceForEdge(def,edgeId,ops,thicknessMm,parentEdges)
   if(ov!=null)return {ok:true,value:ov,manual:true};
   return shapeProductionAllowanceForOps(ops,thicknessMm);
 }
-function shapeProductionAllowanceForOps(ops,thicknessMm){
+function shapeProductionAllowanceForOps(ops,thicknessMm,scope){
   var max=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
   for(var i=0;i<list.length;i++){
-    var r=shapeProductionAllowanceRule(list[i],thicknessMm);
+    var r=shapeProductionAllowanceRule(list[i],thicknessMm,scope);
     if(!r.ok)return r;
     max=Math.max(max,r.value||0);
   }
