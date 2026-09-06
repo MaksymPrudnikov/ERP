@@ -380,6 +380,7 @@ ShapeModule.dxfEdges=shapeDxfPhysicalEdges;
 ShapeModule.dxfTopologyFingerprint=shapeDxfTopologyFingerprint;
 ShapeModule.productionAllowanceRule=shapeProductionAllowanceRule;
 ShapeModule.setAllowanceTable=shapeSetAllowanceTable;
+ShapeModule.edgeAllowanceOverride=shapeEdgeAllowanceOverride;
 ShapeModule.allowanceTable=shapeAllowanceTable;
 ShapeModule.allowanceDefaults=shapeAllowanceDefaults;
 ShapeModule.productionAllowanceForOps=shapeProductionAllowanceForOps;

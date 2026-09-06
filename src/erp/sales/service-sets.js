@@ -272,10 +272,29 @@ function salesLiteAllowanceForOps(lite,ops,mm){
 }
 /* Контур одного лайта: та же геометрия, свои припуски. Три ветки — простой
    прямоугольник строки, внешний DXF и рассчитанная форма. */
+/* Порядок припуска на кромке: правка ЛАЙТА → правка формы → таблица. У
+   ламината 6+10 стороны доводят по-разному, и правка принадлежит конкретному
+   стеклу, а не всей строке. */
+function salesLiteEdgeAllowanceOverride(shape,liteIndex,edgeId){
+  if(liteIndex!=null){
+    var spec=shapeLiteSpec(shape,liteIndex),own=spec&&spec.edgeAllowances;
+    if(own){
+      var v=ShapeModule.edgeAllowanceOverride({edgeAllowances:own},edgeId);
+      if(v!=null)return v;
+    }
+  }
+  return ShapeModule.edgeAllowanceOverride(shape,edgeId);
+}
 function salesEffectiveLiteContour(line,shape,groups,mm,liteIndex,lite){
-  var i,ar;
+  var i,ar,manual;
   for(i=0;i<groups.length;i++){
     ar=salesLiteAllowanceForOps(lite,groups[i].ops,mm);
+    manual=salesLiteEdgeAllowanceOverride(shape,liteIndex,groups[i].id);
+    /* Предложение таблицы показываем рядом с полем ввода даже когда его
+       перебили — иначе не видно, от чего цех отступил. */
+    groups[i].allowanceAuto=ar.ok?ar.value:null;
+    groups[i].allowanceManual=manual!=null;
+    if(manual!=null){groups[i].allowance=manual;continue;}
     if(!ar.ok)return {valid:false,reason:ar.reason,allowanceRuleMissing:true};
     groups[i].allowance=ar.value;
   }
@@ -379,7 +398,7 @@ function salesEffectiveCuttingPlan(line,shape,order){
   var lead=built[0];
   built.forEach(function(x){if(x.cutW*x.cutH>lead.cutW*lead.cutH)lead=x;});
   var sameCut=built.every(function(x){return x.cutW===lead.cutW&&x.cutH===lead.cutH;});
-  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg)g.allowance=lg.allowance;});
+  snap.groups.forEach(function(g){var lg=lead.groups.find(function(x){return x.id===g.id;});if(lg){g.allowance=lg.allowance;g.allowanceAuto=lg.allowanceAuto;g.allowanceManual=!!lg.allowanceManual;}});
   return Object.assign({},lead,{valid:true,blocked:false,groups:snap.groups,snapshot:snap,lites:built,uniformCut:sameCut,setPendingMapping:snap.mappingPending});
 }
 
@@ -499,6 +518,39 @@ function salesApplySetOpsToShape(line,set){
   return wrote;
 }
 
+/* Ручной припуск по стороне. Живёт в ФОРМЕ, а не на строке заказа: форма
+   входит в отпечаток, поэтому правка честно помечает строку «форма
+   изменилась». На строке она поменяла бы размер реза молча — а это уже брак,
+   который никто не заметит. */
+function salesSetEdgeAllowance(lineId,edgeId,v){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesEnsureLineShape(line)||salesShapeByRef(line.shapeRef);if(!shape)return;
+  var t=String(v==null?'':v).trim(),map=Object.assign({},shape.edgeAllowances||{});
+  if(t){
+    var p=fabParseDimStrict(t);
+    /* Мусор и заведомо невозможный съём не принимаем: на экране остаётся
+       прежнее значение, молчаливого нуля не будет. */
+    if(!p.ok||!(p.v>=0)||p.v>SHAPE_ALLOWANCE_MAX_IN){render();return;}
+    map[edgeId]=t;
+  }else delete map[edgeId];
+  shape.edgeAllowances=map;
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesResetEdgeAllowances(lineId){
+  var line=soDraft.lines.find(function(l){return l.id===lineId;});if(!line)return;
+  var shape=salesShapeByRef(line.shapeRef);if(!shape)return;
+  if(!shape.edgeAllowances||!Object.keys(shape.edgeAllowances).length)return;
+  shape.edgeAllowances={};
+  shape.revision=Math.max(0,Math.floor(+shape.revision||0))+1;
+  line.shapeRef=normalizeShapeRef({id:shape.id,revision:shape.revision});
+  touch();render();
+}
+function salesHasEdgeAllowanceOverrides(line){
+  var shape=line&&salesShapeByRef(line.shapeRef);
+  return !!(shape&&shape.edgeAllowances&&Object.keys(shape.edgeAllowances).length);
+}
 function salesLineServiceStatus(line){
   var shape=salesLineGeometryShape(line);if(!shape)return {key:'geometry',label:'Needs geometry',cls:'warn'};
   var set=salesServiceSetById(soDraft,line.serviceSetId);if(line.serviceSetId&&!set)return {key:'missing',label:'Missing set',cls:'bad'};
