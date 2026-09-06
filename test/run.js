@@ -2612,9 +2612,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       DB.edgeAllowance.find(x=>x.op==='Flat Polish'&&x.scope==='mono'&&x.minMm===12).allowance='7/32';
       DB.edgeAllowance.push({id:'ALW-OWN-1',op:'Flat Polish',scope:'mono',minMm:20,maxMm:25,allowance:'5/8'});
       DB.refVersion=6;reseedReferenceTables(true);normalizeEdgeAllowance();
-      return {before:before,edited:edited,typo:typo,
-              keptEdit:r('Flat Polish',12),keptOwn:r('Flat Polish',22),factory:r('Flat Polish',6)};
-    }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,
+      const out={before:before,edited:edited,typo:typo,
+                 keptEdit:r('Flat Polish',12),keptOwn:r('Flat Polish',22),factory:r('Flat Polish',6)};
+      /* Справочник — общее состояние страницы: правленые значения протекали в
+         следующие тесты, и 12 мм там резались по 7/32 вместо 3/16. */
+      DB.edgeAllowance=ShapeModule.allowanceDefaults();normalizeEdgeAllowance();
+      out.restored=r('Flat Polish',12);
+      return out;
+    }), {before:[0.1875,0.125,0.0625,0.25],edited:0.25,typo:0.125,restored:0.1875,
          keptEdit:0.21875,keptOwn:0.625,factory:0.0625});
 
     /* Набор — рецепт на много строк, makeup он не знает. Лами-полировка в нём
