@@ -26,7 +26,7 @@ function viewDashboard(){
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'нужны замеры':'готово'}</span></div><div class="kpi-num">${DB.workPosition.length}</div><div class="kpi-label">рабочих мест · ${sized} с габаритом</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">ядро</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей в прототипе</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">контуров Shape · ${DB.muntinDef.length} схем Muntin</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">контуров Shape</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">ожидает данных</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">операционных модулей в новой оболочке</div></div>
   </div>
 

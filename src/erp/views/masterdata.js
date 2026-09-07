@@ -604,7 +604,6 @@ const MD_COLLECTIONS=[
  {key:'customer',       label:'Клиенты',             what:'контакты, адреса, условия'},
  {key:'salesOrder',     label:'Заказы',              what:'заказы с makeup и позициями'},
  {key:'shapeDef',       label:'Контуры Shape',       what:'геометрия деталей'},
- {key:'muntinDef',      label:'Схемы Muntin',        what:'раскладка баров'},
  {key:'user',           label:'Пользователи',        what:'роли и рабочие места'}
 ];
 /* --- Припуск на рез ---------------------------------------------------

@@ -1538,10 +1538,6 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('совпадающие оси мунтина отклоняются', layoutErrors.duplicate, 'MUNTIN_OVERLAP');
     eq('неполный список custom-позиций отклоняется', layoutErrors.wrongCount, 'MUNTIN_CUSTOM_COUNT');
 
-    eq('изменение числа баров очищает устаревшую ошибку поля', await p.evaluate(() => {
-      mDraft=newMuntinDef('s1');mDraft.muntin.production.mode='custom';mFieldErrors={verticalPositions:'old'};
-      setMuntinStruct('verticalBars','0');return !mFieldErrors.verticalPositions;
-    }), true);
 
     eq('быстро созданные определения получают уникальные id', await p.evaluate(() => {
       const ids=[];for(let i=0;i<100;i++){ids.push(newSmartShapeDef().id,newMuntinDef('s1').id);}
@@ -1560,8 +1556,6 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   {
     const { p, c } = await page();
     console.log('контракт Shape → Muntin');
-    const src = fs.readFileSync(path.join(ROOT, 'src/erp/views/sales-muntin-ui.js'), 'utf8');
-    ok('в Muntinbar нет своих Width/Height', !/label>\s*(Width|Height|Ширина|Высота)/i.test(src));
     const follows = await p.evaluate(() => {
       const s = { id: 'g', name: 'g', w: '48', h: '36', smart: ssNormalize({}) };
       const m = { id: 'g', name: 'g', shapeId: 'g', muntin: defaultMuntinModel() };
@@ -1814,22 +1808,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const before=JSON.stringify(DB);try{prepareImportedState({station:[{code:'"><img src=x onerror=alert(1)>',name:'x'}]});}catch(e){}
       return JSON.stringify(DB)===before;
     }), true);
-    eq('импорт ловит осиротевший Muntin', await t.p.evaluate(() => {
-      try{prepareImportedState({shapeDef:[],muntinDef:[{id:'m2',shapeId:'missing',muntin:{}}]});return false;}catch(e){return e.message.includes('references a missing Shape');}
-    }), true);
+    eq('старый импорт отбрасывает отдельный Muntin, включая осиротевшие записи', await t.p.evaluate(() => {
+      const out=prepareImportedState({shapeDef:[],muntinDef:[{id:'m2',shapeId:'missing',muntin:{}}]});
+      return {legacy:Object.prototype.hasOwnProperty.call(out,'muntinDef'),shapes:out.shapeDef.length};
+    }), {legacy:false,shapes:0});
     await t.c.close();
 
     const payload='\"><\/select><img id=xss_probe src=x onerror=window.__xss=1>';
     t = await page(JSON.stringify({shapeDef:[{id:payload,name:'Bad id',w:'48',h:'36',smart:{}}],muntinDef:[]}));
     eq('id фигуры не может внедрить HTML в option', await t.p.evaluate(() => {
-      tab='configurators';subtab='muntin';render();openMuntinNew();return {img:document.querySelectorAll('#xss_probe').length,ran:window.__xss||0};
+      tab='configurators';subtab='shape';render();return {img:document.querySelectorAll('#xss_probe').length,ran:window.__xss||0};
     }), {img:0,ran:0});
     await t.c.close();
 
     t = await page();
-    await t.p.evaluate(() => {DB.shapeDef=[];DB.muntinDef=[];touch();});
+    await t.p.evaluate(() => {DB.shapeDef=[];touch();});
     await t.p.reload();await t.p.waitForTimeout(200);
-    eq('пустые Shape/Muntin сохраняются без повторного seed', await t.p.evaluate(() => ({shape:DB.shapeDef.length,muntin:DB.muntinDef.length})), {shape:0,muntin:0});
+    eq('пустые Shape сохраняются без повторного seed', await t.p.evaluate(() => DB.shapeDef.length), 0);
     await t.c.close();
   }
 
@@ -1845,17 +1840,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin')
       };
     }), {hasOrders:true,hasShape:false,hasMuntin:false});
-    eq('Configurators сохраняет Shape/Muntin', await t.p.evaluate(() => {
+    eq('Configurators сохраняет Shape без отдельного Muntin', await t.p.evaluate(() => {
       tab='configurators';subtab=null;render();
       return {
         hasShape:document.getElementById('app').textContent.includes('Production Shape'),
         hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin'),
         shapeRows:document.querySelectorAll('tbody tr').length
       };
-    }), {hasShape:true,hasMuntin:true,shapeRows:1});
-    eq('Muntin открывается через Configurators', await t.p.evaluate(() => {
+    }), {hasShape:true,hasMuntin:false,shapeRows:1});
+    eq('устаревшая вкладка Muntin возвращает к Shape', await t.p.evaluate(() => {
       tab='configurators';subtab='muntin';render();
-      return document.getElementById('app').textContent.includes('Adaptive Muntin v4.5');
+      return subtab==='shape'&&!document.getElementById('app').textContent.includes('Adaptive Muntin');
     }), true);
     await t.c.close();
 
@@ -2115,9 +2110,25 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:'MISSING',width:'10',height:'10'})];
       try{prepareImportedState({salesOrder:[o]});return false;}catch(e){return /Makeup/.test(e.message);}
     }), true);
-    eq('Muntin link помечается stale при новой Shape revision', await t.p.evaluate(() => {
-      DB.muntinDef=[{id:'M-X',name:'Grid',shapeId:'S-X',shapeRevision:1}];return /stale/.test(salesLineMuntinCell({shapeRef:{id:'S-X',revision:2},muntinRef:{id:'M-X'}},0));
-    }), true);
+    eq('старые ссылки раскладки удаляются при импорте, новые бары и цены каталога сохраняются', await t.p.evaluate(() => {
+      const shape=newShapeDef('rectangle');shape.w='48';shape.h='36';shape.muntin=shapeNormalizeMuntin({enabled:true,verticalBars:2,horizontalBars:1});
+      const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:o.makeups[0].id,width:'48',height:'36',shapeRef:salesShapeRefFrom(shape)})];
+      o.lines[0].muntinRef={id:'M-OLD',shapeId:'missing'};o.lines[0].muntinId='M-OLD';
+      const src=JSON.parse(JSON.stringify(DB));src.refVersion=REFERENCE_VERSION;src.shapeDef=[shape];src.salesOrder=[o];src.muntinDef=[{id:'M-OLD',shapeId:'missing'}];src.glassProduct[0].salePriceAnnealed=987.65;
+      const out=prepareImportedState(src),line=out.salesOrder[0].lines[0];
+      return {oldTable:'muntinDef' in out,oldRef:'muntinRef' in line,oldId:'muntinId' in line,shape:line.shapeRef.id===shape.id,bars:out.shapeDef[0].muntin.verticalBars,price:out.glassProduct[0].salePriceAnnealed};
+    }), {oldTable:false,oldRef:false,oldId:false,shape:true,bars:2,price:987.65});
+    const legacyBoot = await t.p.evaluate(() => {
+      const src=JSON.parse(JSON.stringify(DB));src.refVersion=REFERENCE_VERSION;
+      const o=newSalesOrderDraft();o.lines=[normalizeSalesOrderLine({makeupId:o.makeups[0].id,width:'48',height:'36',mark:'Keep me'})];
+      o.lines[0].muntinRef={id:'M-OLD'};src.salesOrder=[o];src.muntinDef=[{id:'M-OLD',shapeId:'missing'}];
+      src.glassProduct[0].salePriceAnnealed=987.65;localStorage.setItem('glazing_system_v1',JSON.stringify(src));return o.id;
+    });
+    await t.p.reload();
+    eq('загрузка старой базы сохраняет заказ и удаляет старую раскладку из следующего экспорта', await t.p.evaluate(id => {
+      touch();const out=JSON.parse(localStorage.getItem('glazing_system_v1')),o=out.salesOrder.find(x=>x.id===id);
+      return {oldTable:'muntinDef' in out,oldRef:'muntinRef' in o.lines[0],mark:o.lines[0].mark,price:out.glassProduct[0].salePriceAnnealed};
+    },legacyBoot), {oldTable:false,oldRef:false,mark:'Keep me',price:987.65});
     await t.c.close();
 
     /* --- ловушки Этапа 3C: молчаливая потеря работы и перевёрнутые размеры --- */
@@ -2684,7 +2695,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        Раскладка живёт в ФОРМЕ, а не в камере стеклопакета. Заказ сплошь и
        рядом выглядит как десяток одинаковых юнитов и ОДИН с баром: заводить
        ради него второй makeup неправильно, поэтому бар несёт форма, а платит
-       только та строка, чья форма его несёт. Настраивают бар под чертежом —
+       только та строка, чья форма его несёт. Настраивают бар рядом с чертежом —
        там же, где он режется реальным контуром. */
     eq('раскладка живёт в форме: соседняя строка того же makeup не платит', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
@@ -2734,33 +2745,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     /* Настройка живёт в ЛЕВОЙ колонке, рядом с геометрией, вырезами и кромкой,
        и сворачивается как «Lites of the unit»: под чертежом она съедала место
-       у самого чертежа. Галочка включения лежит внутри секции, а включение
-       секцию открывает — иначе включил и не видишь, что включил. */
-    eq('раскладка стоит в левой колонке и сворачивается', await t.p.evaluate(`(()=>{
-      tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
-      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
-      m.unitType='double';salesSelectMakeup(m.id);
+       у самого чертежа. Добавление и удаление находятся в шапке,
+       а сворачивание секции сохраняет раскладку. */
+    eq('раскладка добавляется и удаляется в шапке, сворачивание сохраняет бары', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);m.unitType='double';salesSelectMakeup(m.id);
       salesOrderConfigureShape(0);sMuntinOpen=false;render();
-      const sec=()=>document.querySelector('.shape-muntin-editor');
-      const st=()=>sec().querySelector('.shape-accordion-state').textContent.replace(/\\s+/g,' ').replace(/[+−]\\s*$/,'').trim();
-      const off={inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),
-                 inRight:!!document.querySelector('.shape-preview-side .shape-muntin-editor'),
-                 state:st(),body:!!sec().querySelector('.shape-accordion-body')};
-      toggleShapeMuntinSection();
-      const opened={body:!!sec().querySelector('.shape-accordion-body'),checkbox:!!sec().querySelector('.shape-muntin-head input')};
-      toggleShapeMuntinSection();
-      setShapeMuntinEnabled(true);
-      const autoOpen=!!sec().querySelector('.shape-accordion-body');
-      setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
-      const on={state:st(),fields:[...sec().querySelectorAll('.shape-muntin-row>*>span')].map(s=>s.textContent.trim()),
-                drawnBars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length};
-      cancelShapeEdit();
-      return {off:off,opened:opened,autoOpen:autoOpen,on:on};
-    })()`), {off:{inLeft:true,inRight:false,state:'none',body:false},
-             opened:{body:true,checkbox:true},autoOpen:true,
-             on:{state:'2×1 · 6 sections · 27.00 CAD',
-                 fields:['Profile / colour','Vertical','Horizontal','Sections','Price'],drawnBars:3}});
+      const sec=()=>document.querySelector('.shape-muntin-editor'),action=()=>sec().querySelector('.shape-muntin-action');
+      const off={inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),checkbox:!!sec().querySelector('input[type=checkbox]'),action:action().textContent,body:!!sec().querySelector('.shape-accordion-body')};
+      action().click();setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
+      const on={open:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length};
+      sec().querySelector('button.shape-accordion-head').click();
+      const folded={body:!!sec().querySelector('.shape-accordion-body'),bars:sDraft.muntin.verticalBars,expanded:sec().querySelector('button.shape-accordion-head').getAttribute('aria-expanded')};
+      sDraft.dims={'mb:cv1':{offset:2},'keep:1':{offset:1}};
+      action().click();const removed={enabled:!!sDraft.muntin.enabled,body:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length,dims:Object.keys(sDraft.dims)};
+      cancelShapeEdit();return {off,on,folded,removed};
+    }), {off:{inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
 
     /* Посадка бара принадлежит изделию: зазор от кромки, торцевой зазор и оси
        задаются в форме и меняют и геометрию, и раскрой. На чертеже виден сам
@@ -2974,12 +2974,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page();
-    eq('Sales bridge использует существующие Shape и Muntin configurators', await t.p.evaluate(() => {
+    eq('Sales bridge сохраняет раскладку внутри Shape и возвращает в заказ', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
-      salesOrderConfigureShape(0);saveShape();const shapeId=soDraft.lines[0].shapeRef.id,backFromShape=tab==='sales'&&!!shapeId;
-      salesOrderConfigureMuntin(0);saveMuntin();const muntinId=soDraft.lines[0].muntinRef.id,backFromMuntin=tab==='sales'&&!!muntinId;
-      return {backFromShape,backFromMuntin,shapeIdMatch:DB.muntinDef.find(m=>m.id===muntinId).shapeId===shapeId};
-    }), {backFromShape:true,backFromMuntin:true,shapeIdMatch:true});
+      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);setShapeMuntinSetup('verticalBars',2);saveShape();
+      const shape=salesShapeByRef(soDraft.lines[0].shapeRef);
+      return {back:tab==='sales'&&!!shape,bars:shape.muntin.verticalBars,legacy:'muntinRef' in soDraft.lines[0]};
+    }), {back:true,bars:2,legacy:false});
     eq('Shape edge allowance берёт толщину из выбранного Sales Makeup', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
@@ -4477,8 +4477,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   {
     console.log('mobile');
     const t=await page(undefined,{width:390,height:844});
-    eq('страница Muntin не расширяет viewport', await t.p.evaluate(() => {
-      tab='configurators';subtab='muntin';render();return document.documentElement.scrollWidth<=window.innerWidth;
+    eq('редактор раскладки внутри Shape не расширяет viewport', await t.p.evaluate(() => {
+      tab='configurators';subtab='shape';openShapeNew('rect');sDraft.w='48';sDraft.h='36';setShapeMuntinEnabled(true);return document.documentElement.scrollWidth<=window.innerWidth;
     }), true);
     await t.c.close();
   }

@@ -11,6 +11,12 @@
    остаётся переключателем в шапке для владельца. */
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
+  "Мунтин бар": "Muntin bar",
+  "Добавить раскладку": "Add muntin bar",
+  "Удалить раскладку": "Remove muntin bar",
+  "Инженерный конфигуратор Shape": "Engineering Shape configurator",
+  "Production Shape: геометрия, обработка и раскладка на общем чертеже изделия.": "Production Shape: geometry, edgework and muntin bars on the unit drawing.",
+  "контуров Shape": "Shape contours",
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
   /* Раскладка: галочка в камере и панель в чертеже. */
   "бар внутри стеклопакета": "bar inside the sealed unit",
