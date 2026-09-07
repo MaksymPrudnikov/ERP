@@ -473,6 +473,9 @@ salesLineChargeRows=function(line){
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
   salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  /* Раскладка не зависит от геометрии кромки и считается до выхода по
+     отсутствию контура — как и остекление выше. */
+  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
@@ -638,16 +641,18 @@ function salesLineServiceStatus(line){
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
   var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
   if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
+  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Shape processing',cls:'ok'};
+  if(snap.groups.some(function(g){return g.source==='Glass'&&g.ops.length>0;}))return {key:'ready',label:'Glass edgework',cls:'ok'};
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});

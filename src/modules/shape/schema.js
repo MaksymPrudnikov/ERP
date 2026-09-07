@@ -325,6 +325,8 @@ function normalizeShapeDef(s){
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
     edgeAllowances:shapeNormalizeAllowanceEdges(s.edgeAllowances),
+    /* Раскладка этого изделия целиком: включение, профиль, бары и посадка. */
+    muntin:shapeNormalizeMuntin(s.muntin),
     /* Форма, заведённая автоматически по Width × Height строки заказа,
        принадлежит этой строке: в библиотеке форм её не показывают и живёт она
        ровно столько, сколько живёт строка. */

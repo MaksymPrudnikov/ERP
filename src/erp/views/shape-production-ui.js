@@ -504,7 +504,7 @@ shapeForm=function(){
   var designer=external
     ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing remains editable.</div>${shapeProdDxfEdgeProcessing()}`
     : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
-  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer;
+  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer+(typeof shapeMuntinEditor==='function'?shapeMuntinEditor():'');
   var cutoutCount=shapeCutoutItemCount();
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external

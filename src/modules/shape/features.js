@@ -145,6 +145,42 @@ function shapeEdgeNeedsBorder(edge,a,b){
 /* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
    Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
    поле навсегда прибивало бы припуск к нулю. */
+/* Раскладка принадлежит ИЗДЕЛИЮ, а не составу пакета: один makeup стоит в
+   десятке строк, и бар на одном стекле не должен заводить отдельный состав.
+   Здесь и включение, и профиль, и количество баров, и посадка на стекле:
+   зазор от кромки (sightline), торцевой зазор, отсчёт и сдвинутые оси. */
+var SHAPE_MUNTIN_DEFAULT_PRODUCT='mb058_black';
+function shapeNormalizeMuntin(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  if(!raw.enabled)return {};
+  var bar=function(n){var v=Math.round(+n);return Number.isFinite(v)&&v>=0?Math.min(12,v):0;};
+  var id=String(raw.productId||'').trim();
+  var known=typeof MUNTIN_BARS!=='undefined'&&MUNTIN_BARS.some(function(x){return x.id===id;});
+  var out={enabled:true,
+    productId:known?id:SHAPE_MUNTIN_DEFAULT_PRODUCT,
+    verticalBars:raw.verticalBars==null?1:bar(raw.verticalBars),
+    horizontalBars:raw.horizontalBars==null?1:bar(raw.horizontalBars),
+    flipped:raw.flipped===true};
+  var setup=shapeNormalizeMuntinPositions(raw);
+  Object.keys(setup).forEach(function(k){out[k]=setup[k];});
+  return out;
+}
+function shapeNormalizeMuntinPositions(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  var take=function(list){
+    return (Array.isArray(list)?list:[]).map(function(v){return String(v==null?'':v).trim();});
+  };
+  var trim=function(list){var a=take(list);while(a.length&&!a[a.length-1])a.pop();return a;};
+  var dim=function(v){var t=String(v==null?'':v).trim();return t&&fabParseDimStrict(t).ok?t:'';};
+  var out={},v=trim(raw.vertical),h=trim(raw.horizontal);
+  if(v.length)out.vertical=v;
+  if(h.length)out.horizontal=h;
+  ['edgeInsetX','edgeInsetY','endClearance'].forEach(function(k){
+    var t=dim(raw[k]);if(t)out[k]=t;
+  });
+  if(raw.edgeMode==='axis')out.edgeMode='axis';
+  return out;
+}
 function shapeNormalizeAllowanceEdges(raw){
   var out={};
   if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){

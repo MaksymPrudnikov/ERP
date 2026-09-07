@@ -264,6 +264,15 @@ function salesSpacerWidths(){
   return String(a).localeCompare(String(b));
  });
 }
+/* Делений столько, на сколько прямоугольников бары режут стекло: один
+   горизонтальный даёт два, горизонтальный с вертикальным — четыре. По ним и
+   считается цена. Раскладка принадлежит форме строки: makeup стоит в десятке
+   строк, и бар на одном стекле не должен заводить отдельный состав. */
+function salesMuntinSectionsOf(m){
+ if(!m||!m.enabled)return 0;
+ const v=Math.max(0,+m.verticalBars||0),h=Math.max(0,+m.horizontalBars||0);
+ return (v||h)?(v+1)*(h+1):0;
+}
 function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
