@@ -13,6 +13,18 @@ let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
   /* Раскладка: галочка в камере и панель в чертеже. */
+  "Раскладка": "Muntin",
+  "Профиль и количество баров заданы камерой стеклопакета. Здесь оси двигают, когда равномерная расстановка не подходит: пустое поле оставляет бар на месте.": "The profile and the number of bars come from the cavity of the unit. Here the axes are moved when even spacing does not fit: an empty field leaves the bar where it is.",
+  "Вертикальные оси": "Vertical axes",
+  "Горизонтальные оси": "Horizontal axes",
+  "Вернуть равномерно": "Back to even spacing",
+  "Раскладка (GBG)": "Muntin bar (GBG)",
+  "внутри этой камеры": "inside this cavity",
+  "Профиль / цвет": "Profile / colour",
+  "Вертикальные": "Vertical bars",
+  "Горизонтальные": "Horizontal bars",
+  "Цена за деление": "Rate per section",
+  "Итого раскладка": "Muntin total",
   "раскладка в этой камере": "layout in this cavity",
   "Раскладка внутри камеры · чертёж и BOM": "Layout inside the cavity · drawing and BOM",
   "Раскладка разрешена камерой стеклопакета. Бар режется контуром этой формы, поэтому чертёж и BOM живут здесь же.": "The layout is enabled by the cavity of the unit. The bar is cut by the real contour of this Shape, so the drawing and the BOM live here.",

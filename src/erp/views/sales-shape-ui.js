@@ -188,12 +188,7 @@ function setShapeExtraOut(id,k,v){
   window[name]=function(){var args=arguments;return shapeGeometryEdit(function(){return original.apply(null,args);});};
 });
 function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='cutting')return;sView=v;refreshShapeEditor();return;}sView=v;refreshShapeEditor();}
-function setShapeWorkspaceTab(v){
-  var allowed=v==='cutout'||(v==='muntin'&&shapeMuntinAllowed());
-  sWorkspaceTab=allowed?v:'designer';sDimEdit=null;
-  if(sWorkspaceTab==='muntin')shapeMuntinEnsureDraft();
-  render();
-}
+function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';sDimEdit=null;render();}
 /* Раскладку разрешает КАМЕРА стеклопакета: бар стоит между стёклами, поэтому
    на одиночном стекле его не бывает. Пока галочки нет — вкладки нет, и в
    строке заказа тоже ничего не появляется: услуга редкая. */
@@ -205,17 +200,7 @@ function shapeMuntinAllowed(){
   var line=shapeMuntinLine();
   return !!(line&&typeof salesLineAllowsMuntin==='function'&&salesLineAllowsMuntin(line));
 }
-/* Раскладка живёт отдельной сущностью и ссылается на СОХРАНЁННУЮ форму с её
-   ревизией, поэтому черновик поднимается из уже сохранённой формы строки. */
-function shapeMuntinEnsureDraft(){
-  var line=shapeMuntinLine();if(!line)return null;
-  var shape=salesShapeByRef(line.shapeRef);if(!shape)return null;
-  var current=salesMuntinByRef(line.muntinRef);
-  if(current){mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);mEdit=DB.muntinDef.findIndex(function(m){return m.id===current.id;});}
-  else{mDraft=newMuntinDef(shape.id);mDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||line.id)+' Muntin';pinMuntinShape(mDraft,shape);mEdit='new';}
-  mFieldErrors={};
-  return mDraft;
-}
+
 /* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
    «Geometry modifiers»), и одно и то же посадочное место можно было завести
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
@@ -1179,17 +1164,84 @@ function shapeDrawnProductionSvg(result,interactive,extra){
   var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
   try{return shapeDrawnProductionBody(svg,T,interactive);}finally{shapeDimUi=uiWas;}
 }
+/* ---------- Раскладка на чертеже ----------
+   Бар — часть юнита, а не отдельное изделие: он рисуется на том же
+   производственном чертеже, что и стекло. Отдельного листа и отдельной кнопки
+   печати у раскладки нет — печатается общий чертёж.
+
+   Параметры приходят из КАМЕРЫ makeup (профиль и число баров), геометрию по
+   ним считает модуль: бар режется реальным контуром формы, поэтому позиции
+   берутся из его сегментов, а не раскладываются здесь заново. */
+function shapeMuntinCavityFor(line){
+  if(!line||typeof soDraft==='undefined'||!soDraft)return null;
+  var m=salesMakeupById(soDraft,line.makeupId);if(!m)return null;
+  var found=null;
+  (m.cavities||[]).forEach(function(c){
+    if(found)return;
+    var n=normalizeSalesMuntin(c&&c.muntin);
+    if(n.enabled&&(n.verticalBars||n.horizontalBars))found=n;
+  });
+  return found;
+}
+function shapeMuntinGeoForDraft(){
+  var line=shapeMuntinLine();if(!line)return null;
+  var cav=shapeMuntinCavityFor(line);if(!cav)return null;
+  var shape=sDraft;if(!shape)return null;
+  var def=newMuntinDef(shape.id||'draft');
+  def.muntin=normalizeMuntinModel(def.muntin);
+  def.muntin.productId=cav.productId;
+  def.muntin.layout.verticalBars=cav.verticalBars;
+  def.muntin.layout.horizontalBars=cav.horizontalBars;
+  var r=MuntinModule.compute(shape,def);
+  /* Позиции, сдвинутые вручную, сильнее равномерной раскладки: «двигать бар не
+     эквивалентно» делают здесь, на чертеже. Модуль в ручном режиме требует ось
+     для КАЖДОГО бара, поэтому незаполненные подставляются из равномерного
+     расчёта — иначе один сдвинутый бар уносил с чертежа все остальные. */
+  var custom=(shape.muntinPositions&&typeof shape.muntinPositions==='object')?shape.muntinPositions:null;
+  var manual=custom&&((custom.vertical||[]).some(Boolean)||(custom.horizontal||[]).some(Boolean));
+  if(manual&&r&&r.valid){
+    var fill=function(list,auto,count){
+      var out=[];
+      for(var i=0;i<count;i++){
+        var v=String((list||[])[i]==null?'':(list||[])[i]).trim();
+        var p=v?fabParseDimStrict(v):null;
+        out.push(p&&p.ok?p.v:(auto&&auto[i]!=null?auto[i]:0));
+      }
+      return out;
+    };
+    def.muntin.production.mode='custom';
+    def.muntin.production.verticalPositions=fill(custom.vertical,r.geo.v||[],def.muntin.layout.verticalBars);
+    def.muntin.production.horizontalPositions=fill(custom.horizontal,r.geo.h||[],def.muntin.layout.horizontalBars);
+    var manualResult=MuntinModule.compute(shape,def);
+    if(manualResult&&manualResult.valid)r=manualResult;
+  }
+  return r&&r.valid?{geo:r.geo,M:r.M,def:def,result:r}:null;
+}
+function shapeMuntinBarsSvg(T){
+  var got=shapeMuntinGeoForDraft();if(!got||!T)return '';
+  var g=got.geo,bar=muntinProduct(got.M.productId),face=+g.face||0;
+  if(!(face>0))return '';
+  var fill=bar.exteriorHex||'#202020',half=face/2,out='';
+  function rect(x1,y1,x2,y2){
+    var a=T.X(x1),b=T.Y(y1),c=T.X(x2),d=T.Y(y2);
+    var x=Math.min(a,c),y=Math.min(b,d),w=Math.abs(c-a),h=Math.abs(d-b);
+    if(!(w>0&&h>0))return '';
+    return `<rect class='shape-muntin-bar' x='${x.toFixed(2)}' y='${y.toFixed(2)}' width='${w.toFixed(2)}' height='${h.toFixed(2)}' fill='${fill}' stroke='#101828' stroke-width='.6'/>`;
+  }
+  (g.verticalSegments||[]).forEach(function(s){out+=rect(s.x-half,s.y1,s.x+half,s.y2);});
+  (g.horizontalSegments||[]).forEach(function(s){out+=rect(s.x1,s.y-half,s.x2,s.y+half);});
+  return out;
+}
 function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
   var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T),annotations=shapeAnnotationDimsSvg(T),dims=cuts+annotations;
-  var extra=marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
+  var extra=shapeMuntinBarsSvg(T)+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
   if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" onclick="shapePlaceManufacturingFromEvent(event,this)" ');
   return svg;
 }
 function shapePreviewMarkup(r){
-  if(sWorkspaceTab==='muntin'&&typeof muntinLiveHTML==='function'&&mDraft&&mDraft.muntin)return muntinLiveHTML();
   if(r&&r.externalFile){
     var source=(r.definition&&r.definition.source)||shapeNormalizeSource(null),cutting=sView==='cutting',svg=r.sourceValid?shapeDxfPreviewSvg(source,!cutting):'';
     var title=cutting?'CUTTING DXF · source file':'Production Drawing · DXF';
@@ -1827,6 +1879,47 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
   render();
 }
+/* Раскладка на этом изделии: включает её камера, а здесь двигают оси, когда
+   равномерная расстановка не подходит. Пустое поле — бар стоит равномерно. */
+function shapeMuntinEditor(){
+  var cav=shapeMuntinCavityFor(shapeMuntinLine());
+  if(!cav)return '';
+  var got=shapeMuntinGeoForDraft(),g=got&&got.geo;
+  var pos=(sDraft.muntinPositions&&typeof sDraft.muntinPositions==='object')?sDraft.muntinPositions:{};
+  var bar=muntinProduct(cav.productId);
+  function axis(kind,count,current,auto){
+    if(!count)return '';
+    var rows='';
+    for(var i=0;i<count;i++){
+      var v=(current||[])[i]==null?'':String((current||[])[i]);
+      var ph=auto&&auto[i]!=null?dimIn(auto[i]):'—';
+      rows+=`<label><span>${kind==='vertical'?'V':'H'}${i+1}</span><input value='${esc(v)}' placeholder='${esc(ph)}' onchange='setShapeMuntinPosition("${kind}",${i},this.value)'></label>`;
+    }
+    return `<div class='shape-muntin-axis'><b>${esc(kind==='vertical'?tx('Вертикальные оси'):tx('Горизонтальные оси'))}</b>${rows}</div>`;
+  }
+  var autoV=g?(g.v||[]):[],autoH=g?(g.h||[]):[];
+  var any=(pos.vertical||[]).concat(pos.horizontal||[]).some(function(x){return String(x||'').trim();});
+  return `<div class='shape-subsection shape-muntin-editor'>
+    <div class='shape-prod-note'><b>${esc(tx('Раскладка'))}</b><span>${esc(tx('Профиль и количество баров заданы камерой стеклопакета. Здесь оси двигают, когда равномерная расстановка не подходит: пустое поле оставляет бар на месте.'))}</span></div>
+    <div class='shape-muntin-meta'><span>${esc(bar.label)}</span><span>${cav.verticalBars} × ${cav.horizontalBars}</span><span>${esc(tx('Делений'))} ${(cav.verticalBars+1)*(cav.horizontalBars+1)}</span></div>
+    ${axis('vertical',cav.verticalBars,pos.vertical,autoV)}
+    ${axis('horizontal',cav.horizontalBars,pos.horizontal,autoH)}
+    ${any?`<button type='button' class='sm' onclick='resetShapeMuntinPositions()'>${esc(tx('Вернуть равномерно'))}</button>`:''}
+  </div>`;
+}
+function setShapeMuntinPosition(kind,i,value){
+  var key=kind==='vertical'?'vertical':'horizontal';
+  var pos=Object.assign({vertical:[],horizontal:[]},sDraft.muntinPositions||{});
+  pos.vertical=(pos.vertical||[]).slice();pos.horizontal=(pos.horizontal||[]).slice();
+  var t=String(value==null?'':value).trim();
+  /* Мусор не принимаем: пустое поле — «равномерно», а не «ноль». */
+  if(t&&!fabParseDimStrict(t).ok)return render();
+  pos[key][i]=t;
+  while(pos[key].length&&!String(pos[key][pos[key].length-1]||'').trim())pos[key].pop();
+  sDraft.muntinPositions=(pos.vertical.some(Boolean)||pos.horizontal.some(Boolean))?pos:{};
+  render();
+}
+function resetShapeMuntinPositions(){sDraft.muntinPositions={};render();}
 /* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
    SHAPE_EDGE_OPS, поэтому сокращение этого списка не сдвигает toggle. */
 function shapeEditorEdgeOps(){
@@ -1964,7 +2057,7 @@ function shapeForm(){
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
-    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview${sWorkspaceTab==='muntin'?' wide':''}'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
     <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 

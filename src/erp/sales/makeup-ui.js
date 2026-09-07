@@ -282,6 +282,46 @@ function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===
 function salesCavitySection(c,index){
  const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
- return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div><div><label>Muntin</label><div class="mu-check"><input type="checkbox" ${c.muntin?'checked':''} onchange="salesCavitySetMuntin(${index},this.checked)"><small>${esc(tx('раскладка в этой камере'))}</small></div></div>${salesCavityPriceField(c,index)}</div></div></details>`;
+ return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div>${salesCavityMuntinBlock(c,index)}</div></details>`;
+}
+/* Раскладка внутри камеры: бар стоит между стёклами, поэтому и включается он
+   здесь, вместе с рамкой и газом. Геометрия сюда не переезжает — бар режется
+   контуром формы, и чертёж остаётся в шейпе. */
+function salesCavityMuntinBlock(c,index){
+  const m=normalizeSalesMuntin(c.muntin),bar=muntinProduct(m.productId);
+  const head=`<label class="mu-muntin-head"><input type="checkbox" ${m.enabled?'checked':''} onchange="salesCavitySetMuntin(${index},this.checked)"><b>${esc(tx('Раскладка (GBG)'))}</b><small>${esc(tx('внутри этой камеры'))}</small></label>`;
+  if(!m.enabled)return `<div class="mu-muntin">${head}</div>`;
+  const bars=n=>Array.from({length:13},(_,i)=>i).map(i=>`<option value="${i}" ${i===n?'selected':''}>${i}</option>`).join('');
+  return `<div class="mu-muntin on">${head}
+    <div class="mu-muntin-grid">
+      <div class="mu-muntin-profile"><label>${esc(tx('Профиль / цвет'))}</label>
+        <select onchange="salesCavityMuntinSet(${index},'productId',this.value)">${MUNTIN_BARS.filter(x=>x.enabled!==false).map(x=>`<option value="${esc(x.id)}" ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select>
+        <small>${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(bar.exteriorColor)}</b> · Interior: <b>${esc(bar.interiorColor)}</b></small></div>
+      <div><label>${esc(tx('Вертикальные'))}</label><select onchange="salesCavityMuntinSet(${index},'verticalBars',this.value)">${bars(m.verticalBars)}</select></div>
+      <div><label>${esc(tx('Горизонтальные'))}</label><select onchange="salesCavityMuntinSet(${index},'horizontalBars',this.value)">${bars(m.horizontalBars)}</select></div>
+      <div class="mu-muntin-preview">${salesMuntinFacePreview(bar,m,'exterior')}${salesMuntinFacePreview(bar,m,'interior')}</div>
+    </div>
+    ${salesCavityMuntinPrice(c,index,m)}
+  </div>`;
+}
+/* Вид снаружи и изнутри: у двухцветного бара стороны разного цвета, и увидеть
+   это надо ДО производства, а не на чертеже. */
+function salesMuntinFacePreview(bar,m,side){
+  const hex=side==='interior'?(bar.interiorHex||'#202020'):(bar.exteriorHex||'#202020');
+  const w=64,h=44,pad=3,v=m.verticalBars,hb=m.horizontalBars,t=2.6;
+  let bars='';
+  for(let i=1;i<=v;i++){const x=pad+(w-pad*2)*i/(v+1);bars+=`<rect x="${(x-t/2).toFixed(1)}" y="${pad}" width="${t}" height="${h-pad*2}" fill="${hex}"/>`;}
+  for(let i=1;i<=hb;i++){const y=pad+(h-pad*2)*i/(hb+1);bars+=`<rect x="${pad}" y="${(y-t/2).toFixed(1)}" width="${w-pad*2}" height="${t}" fill="${hex}"/>`;}
+  return `<figure><figcaption>${side==='interior'?'Interior':'Exterior'} · ${esc(side==='interior'?bar.interiorColor:bar.exteriorColor)}</figcaption>
+    <svg viewBox="0 0 ${w} ${h}" role="img"><rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="#eaf1f6" stroke="#c6d5de"/>${bars}</svg></figure>`;
+}
+/* Цена раскладки стоит В КАМЕРЕ, второй строкой после цены обвязки: считают её
+   по квадратам, которые нарезали бары, и продажник видит её там же, где
+   выбирает бары. Ставка одна на любой профиль и правится прямо здесь. */
+function salesCavityMuntinPrice(c,index,m){
+  const sections=salesMuntinSectionsOf(m),rate=salesMuntinRate(c),total=sections&&rate!=null?sections*rate:null;
+  return `<div class="mu-muntin-price"><span>${esc(tx('Делений'))}</span><b>${sections}</b>
+    <span>${esc(tx('Цена за деление'))}</span>${salesPriceCell('CavityMuntin',index,salesMuntinCatalogRate(),c.muntinPriceOverride)}
+    <span>${esc(tx('Итого раскладка'))}</span><b class="mu-muntin-total">${total==null?'—':(+total).toFixed(2)}</b></div>`;
 }
 function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc(tx('Держать все секции открытыми'))}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}

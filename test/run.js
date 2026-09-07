@@ -2700,40 +2700,63 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {off:false,on:true,solo:false,column:false});
 
     /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
-       на два прямоугольника, горизонтальный с вертикальным — на четыре. */
-    eq('раскладка считается по делениям', await t.p.evaluate(`(()=>{
+       на два прямоугольника, горизонтальный с вертикальным — на четыре. Считает
+       её камера, поэтому форма для этого не нужна. */
+    eq('раскладка считается по делениям камеры', await t.p.evaluate(`(()=>{
       const make=(v,h)=>{
         tab='sales';render();salesOrderNew();soDraft.lines=[];
         salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
         const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
-        m.unitType='double';salesSelectMakeup(m.id);salesCavitySetMuntin(0,true);
-        salesOrderConfigureShape(0);setShapeWorkspaceTab('muntin');
-        shapeMuntinSet('verticalBars',v);shapeMuntinSet('horizontalBars',h);
-        shapeMuntinSave();
+        m.unitType='double';salesSelectMakeup(m.id);
+        salesCavitySetMuntin(0,true);
+        salesCavityMuntinSet(0,'verticalBars',v);salesCavityMuntinSet(0,'horizontalBars',h);
         const row=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0);
-        cancelShapeEdit();
         return row?[row.basis,row.catalogRate]:[];
       };
       return {h1:make(0,1),cross:make(1,1),v2h1:make(2,1),none:make(0,0)};
     })()`), {h1:[2,4.5],cross:[4,4.5],v2h1:[6,4.5],none:[]});
 
-    /* Сняли галочку — раскладке негде быть: она отвязывается от строк, иначе
-       осталась бы в заказе невидимой и продолжала считаться в цене. */
-    eq('снятая галочка убирает раскладку и её цену', await t.p.evaluate(`(()=>{
+    /* Ставка правится прямо в камере: «иногда мы делаем цену ниже». */
+    eq('ставка за деление правится в камере', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
-      m.unitType='double';salesSelectMakeup(m.id);salesCavitySetMuntin(0,true);
-      salesOrderConfigureShape(0);setShapeWorkspaceTab('muntin');
-      shapeMuntinSet('verticalBars',1);shapeMuntinSet('horizontalBars',1);
-      shapeMuntinSave();cancelShapeEdit();
-      const linked=!!(line.muntinRef&&line.muntinRef.id);
-      const paid=!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0);
-      salesSelectMakeup(m.id);salesCavitySetMuntin(0,false);
-      return {linked:linked,paid:paid,
-              stillLinked:!!(line.muntinRef&&line.muntinRef.id),
-              stillPaid:!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0)};
-    })()`), {linked:true,paid:true,stillLinked:false,stillPaid:false});
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesCavitySetMuntin(0,true);
+      salesCavityMuntinSet(0,'verticalBars',1);salesCavityMuntinSet(0,'horizontalBars',1);
+      const base=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0).catalogRate;
+      salesCavityMuntinSetPrice(0,'3.00');
+      const cut=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0).catalogRate;
+      salesCavitySetMuntin(0,false);
+      return {base:base,cut:cut,
+              offSections:salesMuntinSections(line),
+              offPaid:!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0)};
+    })()`), {base:4.5,cut:3,offSections:0,offPaid:false});
+
+    /* Бар — часть юнита, поэтому он рисуется на том же производственном
+       чертеже, что и стекло: отдельного листа у раскладки нет. Оси двигают в
+       форме, и один сдвинутый бар не должен уносить с чертежа остальные. */
+    eq('бары рисуются на чертеже формы и двигаются по осям', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t48\t36\tX',0);salesExcelApply();
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesCavitySetMuntin(0,true);
+      salesCavityMuntinSet(0,'verticalBars',2);salesCavityMuntinSet(0,'horizontalBars',1);
+      salesOrderConfigureShape(0);render();
+      const at=()=>[...document.querySelectorAll('#shapeLivePreview .shape-muntin-bar')].map(r=>Math.round(+r.getAttribute('x')));
+      const even=at();
+      setShapeMuntinPosition('vertical',0,'12');
+      const moved=at();
+      setShapeMuntinPosition('vertical',0,'не размер');
+      const junk=at();
+      resetShapeMuntinPositions();
+      const back=at();
+      cancelShapeEdit();
+      return {count:even.length,kept:moved.length,
+              movedFirst:even[0]!==moved[0],restTouched:even.slice(1).join()!==moved.slice(1).join(),
+              junkIgnored:moved.join()===junk.join(),restored:even.join()===back.join()};
+    })()`), {count:3,kept:3,movedFirst:true,restTouched:false,junkIgnored:true,restored:true});
 
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */

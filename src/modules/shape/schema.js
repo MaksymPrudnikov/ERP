@@ -325,6 +325,9 @@ function normalizeShapeDef(s){
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
     edgeAllowances:shapeNormalizeAllowanceEdges(s.edgeAllowances),
+    /* Сдвинутые вручную оси раскладки. Пусто — бары стоят равномерно; список
+       строк в дюймах — «двигать не эквивалентно», по этому изделию. */
+    muntinPositions:shapeNormalizeMuntinPositions(s.muntinPositions),
     /* Форма, заведённая автоматически по Width × Height строки заказа,
        принадлежит этой строке: в библиотеке форм её не показывают и живёт она
        ровно столько, сколько живёт строка. */

@@ -683,3 +683,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 
 /* Плёнка: семейство, исполнение, слои, цена — четыре поля в ряд. */
 .mu-lam-film{grid-template-columns:22px minmax(90px,.5fr) minmax(170px,1.1fr) minmax(150px,.9fr) minmax(120px,.6fr) 28px}
+
+/* Раскладка в редакторе формы: профиль и число баров заданы камерой, здесь двигают оси. */
+.shape-muntin-editor{margin-top:10px;padding:10px;border:1px solid var(--line2);border-radius:9px;background:#fff}
+.shape-muntin-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;font-size:9px;color:var(--mut)}
+.shape-muntin-axis{margin-top:8px}
+.shape-muntin-axis>b{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-muntin-axis label{display:inline-flex;align-items:center;gap:5px;margin:0 6px 6px 0}
+.shape-muntin-axis label span{font:700 9px ui-monospace,monospace;color:#475467}
+.shape-muntin-axis label input{width:78px;padding:4px 6px;font-size:9px}

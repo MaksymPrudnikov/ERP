@@ -191,19 +191,27 @@ function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
-/* Сняли галочку — раскладке в этом makeup больше негде быть: отвязываем её от
-   строк, иначе спроектированный муntin остался бы в заказе невидимым (колонка
-   уже не показывается) и продолжал бы считаться в цене. */
 function salesCavitySetMuntin(i,on){
  const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
- c.muntin=!!on;
- if(!on&&!salesMakeupHasMuntin(m))(soDraft.lines||[]).forEach(function(l){
-  if(l.makeupId===m.id&&l.muntinRef&&l.muntinRef.id)l.muntinRef=normalizeMuntinRef(null);
- });
+ c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{enabled:!!on}));
  render();
 }
+function salesCavityMuntinSet(i,k,v){
+ const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
+ c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{[k]:v}));
+ render();
+}
+function salesCavityMuntinSetPrice(i,v){
+ const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
+ const t=String(v==null?'':v).trim();
+ c.muntinPriceOverride=t===''?null:salesNonNegOrNull(t);
+ render();
+}
+/* Ставка за деление: заводская из прайса, переопределение — на камере. */
+function salesMuntinCatalogRate(){return SALES_SERVICE_RATE_TABLE.muntinSection;}
+function salesMuntinRate(c){const o=c&&c.muntinPriceOverride;return o!=null?+o:salesMuntinCatalogRate();}
 /* Раскладка разрешена, если хоть одна камера makeup её несёт. */
-function salesMakeupHasMuntin(m){return !!(m&&(m.cavities||[]).some(function(c){return c&&c.muntin===true;}));}
+function salesMakeupHasMuntin(m){return !!(m&&(m.cavities||[]).some(function(c){return c&&normalizeSalesMuntin(c.muntin).enabled;}));}
 function salesLineAllowsMuntin(line){
  const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
  return salesMakeupHasMuntin(m);
@@ -878,26 +886,24 @@ function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
-/* Сколько прямоугольников получилось из стекла. Бары идут через всё поле,
-   поэтому делений ровно (вертикальных+1) × (горизонтальных+1): один
-   горизонтальный даёт 2, горизонтальный с вертикальным — 4. */
+/* Раскладка принадлежит КАМЕРЕ, поэтому и деления считаются по ней: одна
+   камера — одна строка счёта. У тройного пакета камер две, и раскладка в
+   каждой своя. */
 function salesMuntinSections(line){
- const def=salesMuntinByRef(line&&line.muntinRef);if(!def)return 0;
- /* Раскладка лежит в def.muntin.layout — уровнем глубже, чем кажется по имени
-    поля: сама сущность несёт ещё имя, ссылку на форму и её ревизию. */
- const M=typeof normalizeMuntinModel==='function'?normalizeMuntinModel(def.muntin):(def.muntin||{});
- const lay=(M&&M.layout&&typeof M.layout==='object')?M.layout:{};
- const v=Math.max(0,Math.floor(+lay.verticalBars||0)),h=Math.max(0,Math.floor(+lay.horizontalBars||0));
- if(!v&&!h)return 0;
- return (v+1)*(h+1);
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+ if(!m)return 0;
+ return (m.cavities||[]).reduce(function(n,c){return n+salesMuntinSectionsOf(c&&c.muntin);},0);
 }
 function salesMuntinChargeRows(line){
- /* Раскладка снятая с камеры уже отвязана от строки, но заказ мог прийти
-    импортом — тогда платить за неё нельзя: делать её негде. */
- if(typeof salesLineAllowsMuntin==='function'&&!salesLineAllowsMuntin(line))return [];
- const n=salesMuntinSections(line);
- if(!n)return [];
- return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesCatalogRate('muntinSection',{ok:true,band:''}),'Muntin')];
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+ if(!m)return [];
+ const many=(m.cavities||[]).length>1,rows=[];
+ (m.cavities||[]).forEach(function(c,i){
+  const n=salesMuntinSectionsOf(c&&c.muntin);
+  if(!n)return;
+  rows.push(salesChargeRow('MUNTIN:cavity'+(i+1),'Muntin sections'+(many?' · Cavity '+(i+1):''),n,'pc',salesMuntinRate(c),'Makeup'));
+ });
+ return rows;
 }
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy

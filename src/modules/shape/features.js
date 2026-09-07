@@ -145,6 +145,14 @@ function shapeEdgeNeedsBorder(edge,a,b){
 /* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
    Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
    поле навсегда прибивало бы припуск к нулю. */
+function shapeNormalizeMuntinPositions(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  var take=function(list){
+    return (Array.isArray(list)?list:[]).map(function(v){return String(v==null?'':v).trim();}).filter(Boolean);
+  };
+  var v=take(raw.vertical),h=take(raw.horizontal);
+  return (v.length||h.length)?{vertical:v,horizontal:h}:{};
+}
 function shapeNormalizeAllowanceEdges(raw){
   var out={};
   if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){

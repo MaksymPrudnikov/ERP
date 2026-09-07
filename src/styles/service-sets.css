@@ -48,7 +48,26 @@
 @media(max-width:1100px){.ss-effective-workspace{grid-template-columns:1fr}.ss-set-workspace{grid-template-columns:1fr}.ss-set-list{border-right:0;border-bottom:1px solid var(--line)}.shape-prod-seg-head,.shape-prod-seg-row{grid-template-columns:90px 1fr 125px}}
 @media(max-width:760px){.shape-workspace-empty{align-items:stretch;flex-direction:column}.shape-workspace-empty .shape-new-row{min-width:0;justify-content:flex-start}.shape-prod-ar-actions{grid-template-columns:1fr 1fr}.shape-prod-seg-head{display:none}.shape-prod-seg-row{grid-template-columns:1fr}.shape-prod-allow{text-align:left;margin-top:5px}.sales-service-modal-back{padding:10px}.ss-set-fields{grid-template-columns:1fr}.ss-side-guide{grid-template-columns:1fr}.ss-side-map{grid-template-columns:74px minmax(100px,1fr) 74px;gap:4px}.ss-side-map-label{flex-direction:column;gap:2px;padding:4px;text-align:center;white-space:normal}.ss-set-row{grid-template-columns:1fr}.ss-set-row.head{display:none}.ss-dxf-map-head{display:none}.ss-dxf-map-row{grid-template-columns:1fr;gap:4px}}
 .ss-effective-lites{margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}.ss-lites-title{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.ss-lite-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0;font-size:10px}.ss-lite-row b{min-width:52px}.ss-lite-row .mm{min-width:58px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut)}.ss-lite-row .ops{flex:1;min-width:120px;color:#2a617d}.ss-lite-row .cut{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#1f6046}.ss-effective-lites small{display:block;margin-top:4px;font-size:8.5px;color:var(--mut)}.ss-lite-pick{padding:3px 6px;font-size:9.5px;min-width:150px}.ss-lite-row .ops{flex:1;min-width:100px}.ss-source.varies{color:var(--amber)}.ss-lite-shape{display:inline-flex;align-items:center;gap:6px;min-width:170px;font-size:9.5px;color:var(--mut)}.ss-lite-shape b{color:var(--text)}.ss-lite-shape i{font-style:italic}.ss-lite-shape button{padding:3px 7px;font-size:9px}.ss-lite-shape .ss-lite-mirror{padding:1px 6px;border-radius:999px;background:var(--blue2);color:#2a617d;font-size:8.5px}
-/* Галочка раскладки в камере: подпись рядом с чекбоксом, а не второй меткой поля. */
-.mu-check{display:flex;align-items:center;gap:6px;min-height:30px}
-.mu-check input{width:14px;height:14px;margin:0;flex:none}
-.mu-check small{color:var(--mut);font-size:9px;line-height:1.3}
+
+/* Раскладка внутри камеры: включение, профиль, число баров и превью того, как
+   бар выглядит снаружи и изнутри. Геометрию здесь не правят — бар режется
+   контуром формы, и чертёж живёт в шейпе. */
+.mu-muntin{margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)}
+.mu-muntin-head{display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
+.mu-muntin-head input{width:15px;height:15px;margin:0;flex:none}
+.mu-muntin-head b{font-size:11px;color:#101828}
+.mu-muntin-head small{color:var(--mut);font-size:9px}
+.mu-muntin-grid{display:grid;grid-template-columns:minmax(180px,1.6fr) 110px 110px minmax(150px,1fr);gap:10px;align-items:start;margin-top:10px}
+.mu-muntin-grid label{display:block;margin-bottom:3px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.mu-muntin-grid select{width:100%}
+.mu-muntin-profile small{display:block;margin-top:5px;color:var(--mut);font-size:8.5px;line-height:1.4}
+.mu-muntin-profile small b{color:#475467}
+.mu-muntin-preview{display:flex;gap:8px}
+.mu-muntin-preview figure{margin:0;flex:1;min-width:0}
+.mu-muntin-preview figcaption{margin-bottom:3px;font-size:7.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu-muntin-preview svg{width:100%;height:auto;display:block;border-radius:4px}
+.mu-muntin-price{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:12px;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
+.mu-muntin-price>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.mu-muntin-price>b{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
+.mu-muntin-price .mu-price-cell{margin:0}
+.mu-muntin-total{color:#1f6046}
