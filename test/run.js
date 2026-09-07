@@ -1549,6 +1549,49 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), 'MUNTIN_SHAPE_REVISION');
 
     eq('grid = 1/16"', await p.evaluate(() => MUNTIN_GRID), 0.0625);
+
+    const centeredGaps = await p.evaluate(() => {
+      const gaps=units=>equalClearPositions(4,units/16+2*7/16+4*5/8,7/16,5/8).clears.map(dimIn);
+      return {oneLarge:gaps(746),twoLarge:gaps(747),twoSmall:gaps(748),oneSmall:gaps(749)};
+    });
+    eq('редкий больший или меньший просвет расположен у центра симметрично', centeredGaps, {
+      oneLarge:['9 5/16″','9 5/16″','9 3/8″','9 5/16″','9 5/16″'],
+      twoLarge:['9 5/16″','9 3/8″','9 5/16″','9 3/8″','9 5/16″'],
+      twoSmall:['9 3/8″','9 5/16″','9 3/8″','9 5/16″','9 3/8″'],
+      oneSmall:['9 3/8″','9 3/8″','9 5/16″','9 3/8″','9 3/8″']
+    });
+    eq('при чётном числе просветов несовпадение пары остаётся у центра', await p.evaluate(() => {
+      return [1,3,5].map(rem=>equalClearPositions(5,(6*149+rem)/16,0,0).clears.map(x=>x*16));
+    }), [[149,149,150,149,149,149],[149,150,150,149,150,149],[150,150,149,150,150,150]]);
+    eq('все остатки для 1–12 баров сохраняют размер, сетку и допустимую симметрию', await p.evaluate(() => {
+      const errors=[],eps=1e-9;
+      for(let count=1;count<=12;count++)for(const base of [0,1,16,149]){
+        const n=count+1;
+        for(let rem=0;rem<n;rem++){
+          const span=2*7/16+count*5/8+(base*n+rem)/16,r=equalClearPositions(count,span,7/16,5/8),c=r.clears;
+          const bad=[];
+          if(c.length!==n||r.positions.length!==count)bad.push('count');
+          if(Math.abs(c.reduce((a,b)=>a+b,0)+2*7/16+count*5/8-span)>eps)bad.push('span');
+          if(Math.min(...c)<0||Math.max(...c)-Math.min(...c)>1/16+eps)bad.push('clear');
+          if(r.positions.some((v,i)=>Math.abs(v*16-Math.round(v*16))>eps||(i&&v-r.positions[i-1]<5/8-eps)))bad.push('axes');
+          if(n%2||rem%2===0){
+            if(c.some((v,i)=>v!==c[n-1-i])||r.positions.some((v,i)=>Math.abs(v+r.positions[count-1-i]-span)>eps))bad.push('mirror');
+          }else if(c.some((v,i)=>i!==n/2-1&&i!==n/2&&v!==c[n-1-i]))bad.push('off-center');
+          if(Math.min(rem,n-rem)===1&&c[Math.floor((n-1)/2)]===c[0]&&n>2)bad.push('rare-gap');
+          if(bad.length)errors.push({count,base,rem,bad});
+        }
+      }
+      return errors;
+    }), []);
+    eq('нестандартный остаток сохраняет точный габарит без сдвига осей с сетки', await p.evaluate(() => {
+      const span=50+1/64,r=equalClearPositions(4,span,7/16,5/8);
+      return {closed:r.clears.reduce((a,b)=>a+b,0)+2*7/16+4*5/8===span,axes:r.positions};
+    }), {closed:true,axes:[10.0625,20,30,39.9375]});
+    eq('ручные оси баров не меняются от нового автоматического распределения', await p.evaluate(() => {
+      const m=defaultMuntinModel();m.layout.verticalBars=4;m.production.mode='custom';m.production.verticalPositions=[5,12,25,42];
+      return productionGeometry(m,50,50).v;
+    }), [5,12,25,42]);
+
     await c.close();
   }
 
@@ -2761,6 +2804,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       action().click();const removed={enabled:!!sDraft.muntin.enabled,body:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length,dims:Object.keys(sDraft.dims)};
       cancelShapeEdit();return {off,on,folded,removed};
     }), {off:{inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
+
+    eq('50×50 с четырьмя вертикальными барами: центральный просвет совпадает на чертеже и печати', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines[0].width16=50*16;soDraft.lines[0].height16=50*16;
+      const m=soDraft.makeups[0];m.unitType='double';salesSelectMakeup(m.id);salesOrderConfigureShape(0);
+      setShapeMuntinEnabled(true);setShapeMuntinSetup('verticalBars',4);setShapeMuntinSetup('horizontalBars',1);
+      const g=shapeMuntinGeoForDraft().geo,labels=root=>[...root.querySelectorAll('.shape-mi-prod-dims.clear text:not([transform])')].map(el=>el.textContent);
+      const printed=document.createElement('div');printed.innerHTML=shapeDrawnProductionSvg(shapeDraftResult(),false,{sheet:true});
+      const out={axes:g.v,screen:labels(document.getElementById('shapeLivePreview')),print:labels(printed)};
+      cancelShapeEdit();return out;
+    }), {axes:[10.0625,20,30,39.9375],screen:['9 5/16″','9 5/16″','9 3/8″','9 5/16″','9 5/16″'],print:['9 5/16″','9 5/16″','9 3/8″','9 5/16″','9 5/16″']});
 
     /* Посадка бара принадлежит изделию: зазор от кромки, торцевой зазор и оси
        задаются в форме и меняют и геометрию, и раскрой. На чертеже виден сам

@@ -13,11 +13,27 @@ function equalClearPositions(count,span,inset,face){
   if(count<=0)return {positions:a,clear:Math.max(0,free),clears:free>0?[free]:[]};
   if(free<0)return {positions:a,clear:0,clears:[]};
   var n=count+1,U=Math.round(free/MUNTIN_GRID),base=Math.floor(U/n),rem=U-base*n;
-  for(i=0;i<n;i++)clears.push(base*MUNTIN_GRID);
-  var order=[],lo=0,hi=n-1;
-  while(lo<=hi){order.push(lo);if(hi!==lo)order.push(hi);lo++;hi--;}
-  for(i=0;i<rem;i++)clears[order[i%n]]+=MUNTIN_GRID;
+  /* Put the less frequent gap size at the center: sometimes it is the
+     larger gap, sometimes the smaller one. Mirrored pairs preserve symmetry
+     whenever the number of gaps and remainder allow it on the 1/16 grid. */
+  var smaller=rem>n/2,k=smaller?n-rem:rem,step=smaller?-MUNTIN_GRID:MUNTIN_GRID;
+  for(i=0;i<n;i++)clears.push((base+(smaller?1:0))*MUNTIN_GRID);
+  var order=[],mid=Math.floor(n/2),lo,hi;
+  if(n%2){
+    if(k%2)order.push(mid);
+    lo=mid-1;hi=mid+1;
+  }else{
+    lo=mid-1;hi=mid;
+    /* An odd remainder cannot mirror across an even number of gaps.
+       Keep the single unmatched gap beside the center; all other pairs
+       still mirror. The tie is measured from the left/bottom origin. */
+    if(k%2){order.push(lo);lo--;hi++;}
+  }
+  while(lo>=0){order.push(lo--,hi++);}
+  for(i=0;i<k;i++)clears[order[i]]+=step;
   var sum=0;for(i=0;i<n;i++)sum+=clears[i];
+  /* A non-grid input can leave less than 1/16 over. Keep that final closure
+     at the far edge so it does not shift all subsequent bar axes off-grid. */
   clears[n-1]+=free-sum;
   var edge=inset;
   for(i=0;i<count;i++){edge+=clears[i];a.push(edge+face/2);edge+=face;}
