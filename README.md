@@ -1,5 +1,7 @@
 # GLASS ERP — Glazing System
 
+> Документация изменений Muntin актуальна для кандидата [PR #54](https://github.com/MaksymPrudnikov/ERP/pull/54) от 7 сентября 2026. Живая версия получает эти изменения после слияния и успешного CI.
+
 Собственная ERP для стекольного производства. Цель — полная замена Spil Glass.
 
 **Не знаешь, какой файл открыть — начни с [`КАРТА-ПРОЕКТА.md`](КАРТА-ПРОЕКТА.md).**
@@ -11,7 +13,7 @@
 **Живая версия: https://maksymprudnikov.github.io/ERP/** — открывается в браузере, ничего скачивать не нужно.
 Режим по модулям (правишь файл → F5): https://maksymprudnikov.github.io/ERP/src/
 
-Текущая стадия: **Фаза 2, развитие Sales** — Customer Master, Draft Sales Orders с order-scoped IGU Makeups, Production Shape, Adaptive Muntin, Effective Production и уточнённый операторский flow выбора стекла/ламината.
+Текущая стадия: **Фаза 2, развитие Sales** — Customer Master, Draft Sales Orders с order-scoped IGU Makeups, Production Shape с раскладкой внутри формы, Effective Production и уточнённый операторский flow выбора стекла/ламината.
 
 ---
 
@@ -51,7 +53,6 @@ src/
 │       ├── clip.js           обрезка бара реальным контуром, перпендикулярный отступ
 │       ├── adaptive.js       shape-adaptive production geometry
 │       ├── bom.js            имена деталей, список раскроя
-│       ├── drawing.js        производственный чертёж (SVG)
 │       └── index.js          ПУБЛИЧНЫЙ КОНТРАКТ: MuntinModule.compute(shape, mdef)
 │
 ├── erp/                      ОБОЛОЧКА — домены, экраны, RU/EN, хранилище
@@ -60,10 +61,10 @@ src/
 │   ├── masterdata/ glass.js  каталог стекла с ценами продажи, рамки, газ, герметики, плёнки
 │   ├── sales/                 Draft Sales domain
 │   │   ├── data.js            SalesOrder · OrderMakeup · OrderLine schema
-│   │   ├── orders.js          draft behavior · Excel · Shape/Muntin bridge
+│   │   ├── orders.js          draft behavior · Excel · Shape bridge с раскладкой изделия
 │   │   ├── makeup-ui.js       compact Lite / Cavity / Laminated Makeup Builder
 │   │   └── service-sets.js    Effective Production · Edgework Sets
-│   └── views/    dashboard · users · customers · sales · sales-shape-ui · sales-muntin-ui · optimization · production
+│   └── views/    dashboard · users · customers · sales · sales-shape-ui · optimization · production
 │
 ├── styles/                   base.css · modules.css · service-sets.css
 └── shell.html                каркас страницы (шапка, меню, контейнер)
@@ -93,10 +94,10 @@ post-edge операции. Polygon ограничен 14 сторонами, ч
 |---|---|
 | «бар мунтина обрезался не по контуру» | `src/modules/muntin/clip.js` |
 | «неправильные просветы между барами» | `src/modules/muntin/layout.js` |
-| «чертёж мунтина выглядит криво» | `src/modules/muntin/drawing.js` |
+| «чертёж мунтина выглядит криво» | `src/erp/views/sales-shape-ui.js` — слой раскладки общего чертежа |
 | «угловой блок строится не так» | `src/modules/shape/contour.js` |
 | «пропускает неверный размер» | `src/modules/shape/validate.js` или `src/core/dim.js` |
-| «экран Muntinbar неудобный» | `src/erp/views/sales-muntin-ui.js` (геометрию не трогаем) |
+| «секция Мунтин бар неудобная» | `src/erp/views/sales-shape-ui.js` — секция «Мунтин бар» |
 | «в EN осталось русское слово» | `src/erp/i18n.js` |
 | «в поток цеха добавить станок» | `src/erp/views/production.js` |
 
@@ -123,7 +124,11 @@ Cavity выбирается как **Width → Spacer → Gas → Sealant**. Pri
 
 Laminated строится как `OUTER PLY → INTERLAYER STACK → INNER PLY`. Каждая ply имеет собственные Manufacturer, Thickness, TYPE, Glass и Heat Treatment. Frit выбирается внутри TYPE отдельно для каждой ply и может находиться снаружи плёнки либо `Into film`. Плёнки можно смешивать; для каждой строки выбираются 1–6 слоёв по 0.38 mm (`0.38 … 2.28 mm`).
 
-Shape и Muntin **не встроены в Makeup** и не переписываются. Строка Sales Order открывает существующий Production Shape / Adaptive Muntin configurator и хранит ссылку на его ревизию. При привязанном Shape размеры строки берутся из Shape; ручные Width/Height блокируются.
+Раскладка хранится в `shape.muntin` и настраивается в редакторе Production Shape: `+` в шапке добавляет её и открывает настройки, `−` удаляет, стрелка сворачивает настройки без изменения изделия. Раскладка рисуется и печатается на общем чертеже; оплачивается строкой заказа по числу делений. Общий геометрический модуль `src/modules/muntin/` по-прежнему считает оси и раскрой баров.
+
+При равномерном делении на сетке 1/16″ редкий больший или меньший просвет помещается к центру, с зеркальными парами там, где позволяет сетка. Ручные позиции баров сохраняются.
+
+Отдельный конфигуратор Muntinbar удалён. По решению владельца от 7 сентября 2026 его старые тестовые `muntinDef` и `muntinRef` игнорируются при загрузке и импорте, без переноса. Остальные данные и новая раскладка в форме сохраняются. Версия справочников ради этого не меняется.
 
 Размеры Sales Order канонически хранятся integer-значением в `1/16″` (`width16`, `height16`), а строковый формат является только представлением.
 
@@ -151,7 +156,7 @@ Master Data seed отделён от supply-фактов: продукт мож�
 
 - `MuntinModule.compute(shape, mdef)` → `{valid, geo, count, totalLengthIn, verticalSegments, horizontalSegments}`
 - `ShapeModule.compute(shapeDef)` → `{valid, width, height, area, points, segs, line}`
-- **в Muntinbar не появляется собственных Width/Height** — размеры только из Shape, иначе получится второй источник геометрии и расхождение размеров
+- **в расчётном ядре Muntin не появляется собственных Width/Height** — размеры только из Shape, иначе получится второй источник геометрии и расхождение размеров
 - эталонные числа раскроя не меняются: трапеция 48×36 при C=30 → бары `33 7/64″ · 31 1/8″ · 47 1/8″`
 
 Всё это проверяется тестами автоматически. Если новый код нарушит любой пункт — сборка не пройдёт.
@@ -167,18 +172,19 @@ ShapeModule.compute(shapeDef)
 // in : {w:'48', h:'36', smart:{A,B,C, corners, extraEdges, elbowsOn}}
 // out: {valid, width, height, area, points:[[x,y]…], segs, line}
 
-MuntinModule.compute(shape, muntinDef)
-// in : фигура из ShapeModule + {shapeId, muntin:{layout, production}}
+MuntinModule.compute(shape, mdef)
+// in : shape — определение фигуры, как для ShapeModule.compute
+//      mdef — временный объект адаптера {shapeId, muntin:{layout, production, …}, …}
 // out: {valid, geo, count, totalLengthIn, verticalSegments, horizontalSegments}
 ```
 
-**Shape — единственный источник размеров стекла.** В Muntinbar нет и не должно быть своих Width/Height: он получает уже созданный Shape по ссылке и считает длины баров по его реальному периметру. Это проверяется тестом.
+**Shape — единственный источник размеров стекла.** Раскладка хранится в `shape.muntin`. Адаптер `shapeMuntinGeoForDraft` в `src/erp/views/sales-shape-ui.js` передаёт определение фигуры и временный `mdef` общему расчётному ядру. Отдельной сохраняемой записи Muntin и отдельного источника Width/Height нет. Это проверяется тестами.
 
 ---
 
 ## Что взято из Glass Configurator v4.5
 
-`modules/shape/*` и `modules/muntin/*` — **перенос, а не переписывание**. Геометрия сохранена дословно: A/B/C/D, elbows, corner blocks, equal-clear на сетке 1/16″, обрезка по реальному контуру, перпендикулярная привязка к кромке.
+`modules/shape/*` и `modules/muntin/*` основаны на переносе геометрии v4.5: A/B/C/D, elbows, corner blocks, equal-clear на сетке 1/16″, обрезка по реальному контуру и перпендикулярная привязка к кромке. Последующие согласованные изменения фиксируются в хендоффе и тестах. 7 сентября 2026 распределение просветов изменено по просьбе владельца: редкий больший или меньший размер помещается у центра, с зеркальными парами там, где позволяет сетка. Эталонные длины реза трапеции сохранены.
 
 Известные особенности исходника чинятся **внутри изолированного модуля отдельным коммитом**, а не попутно с переносом.
 
@@ -194,16 +200,16 @@ node test/run.js     # прогон по src/
 TARGET=dist node test/run.js
 ```
 
-Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape/Muntin bridge и мобильный viewport. Если после правки модуля упал тест вида
+Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
 
-Проверенная точка 30 августа 2026: **222 passed, 0 failed** на `src` и те же **222 passed, 0 failed** на собранном `dist`.
+Проверенная точка 7 сентября 2026, кандидат PR #54: **409 passed, 0 failed** на `src` и те же **409 passed, 0 failed** на собранном `dist`, Chromium Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить `node build/build.js`; собранный `dist` не включать в коммит ветки.
 
-Отчёт последнего аудита: [`docs/REVIEW_2026-08-18.md`](docs/REVIEW_2026-08-18.md).
+Текущие решения и проверки: [`docs/GLASS_ERP_HANDOFF.md`](docs/GLASS_ERP_HANDOFF.md). Аудит 18 августа — [исторический отчёт](docs/REVIEW_2026-08-18.md).
 
 ---
 
 ## Что снаружи и не переписывается
 
-- **Perfect Cut** (R.O. SRL) — оптимизатор раскроя. Свой nesting engine не пишем. Механизм обмена не проектируется, пока не придут реальные настройки коннектора.
+- **Раскрой:** решение об обязательной интеграции с Perfect Cut отменено 1 сентября 2026. Свой оптимизатор запланирован после БД и настоящих заказов; текущий прототип его ещё не реализует. Очередь работ — в хендоффе.
 - **Бухгалтерия** (QuickBooks / Xero / Sage) — AR/AP, GL, payroll, налоги остаются там.

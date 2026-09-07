@@ -39,6 +39,8 @@ function doImport(inp){
    единого сообщения, и починить его можно было только через DevTools.
    Тот же ключ localStorage использовала предыдущая оболочка прототипа,
    так что чужая структура данных там вполне реальна. */
+/* Legacy standalone muntinDef is intentionally ignored: the owner confirmed
+   those layouts were test data. shape.muntin remains part of each shape. */
 function mergeState(src){
  if(!src||typeof src!=='object')return;
  Object.keys(DEFAULT).forEach(k=>{
@@ -72,7 +74,7 @@ function validateImportedState(src){
  unique(src.glassProduct,'id','Glass products');
  unique(src.glassProduct,'code','Glass products',v=>String(v).trim().toUpperCase());
  unique(src.glassSheet,'id','Glass supply');
- unique(src.shapeDef,'id','Shape');unique(src.muntinDef,'id','Muntin');
+ unique(src.shapeDef,'id','Shape');
  const entityId=/^[A-Za-z0-9_-]{1,96}$/;
  (src.shapeDef||[]).forEach((s,i)=>{if(s&&s.id&&!entityId.test(String(s.id)))throw new Error('Shape row '+(i+1)+' has an invalid id.');});
  (src.shapeDef||[]).forEach((s,i)=>{
@@ -84,7 +86,6 @@ function validateImportedState(src){
   const ids=new Set(),subId=/^[A-Za-z0-9:_-]{1,96}$/;(s.features||[]).forEach((f,j)=>{if(!f||!SHAPE_FEATURE_TYPES.includes(f.type))throw new Error('Shape '+(i+1)+', feature '+(j+1)+' has an unknown type.');if(f.id&&!subId.test(String(f.id)))throw new Error('Shape '+(i+1)+' has a feature with an invalid id.');if(f.id&&ids.has(f.id))throw new Error('Shape '+(i+1)+' has duplicate feature ids.');if(f.id)ids.add(f.id);});
   Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
- (src.muntinDef||[]).forEach((m,i)=>{if(m&&m.id&&!entityId.test(String(m.id)))throw new Error('Muntin row '+(i+1)+' has an invalid id.');});
  (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!SF_CODE_RE.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
  (src.workPosition||[]).forEach((w,i)=>{
   if(!w)return;
@@ -113,8 +114,6 @@ function prepareImportedState(src){
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
      экране лежала прежняя модель цеха. Теперь — сразу. */
   if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(true))normalizeDB();
-  const shapeIds=new Set(DB.shapeDef.map(s=>s.id));
-  DB.muntinDef.forEach((m,i)=>{if(!shapeIds.has(m.shapeId))throw new Error('Muntin row '+(i+1)+' references a missing Shape.');});
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
   /* Откатываем и ОТМЕТКУ о пересеве: импорт мог упасть уже после него, и

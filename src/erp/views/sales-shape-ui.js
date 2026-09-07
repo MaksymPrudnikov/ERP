@@ -1166,7 +1166,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
    производственном чертеже, что и стекло. Отдельного листа и отдельной кнопки
    печати у раскладки нет — печатается общий чертёж.
 
-   Параметры приходят из КАМЕРЫ makeup (профиль и число баров), геометрию по
+   Параметры приходят из формы изделия (профиль и число баров), геометрию по
    ним считает модуль: бар режется реальным контуром формы, поэтому позиции
    берутся из его сегментов, а не раскладываются здесь заново. */
 function shapeMuntinGeoForDraft(){
@@ -2040,9 +2040,11 @@ function shapeMuntinEditor(){
   }
   /* Секция сворачивается, как «Lites of the unit» и «Edge processing»: в левой
      колонке 406 px, и развёрнутая настройка занимала бы её целиком. */
-  var head=`<button type='button' class='shape-accordion-head' onclick='toggleShapeMuntinSection()'><span><b>${esc(tx('Раскладка (GBG)'))}</b><small>${esc(tx('бар внутри стеклопакета'))}</small></span><span class='shape-accordion-state'>${state}<i>${sMuntinOpen?'−':'+'}</i></span></button>`;
-  var toggle=`<label class='shape-muntin-head'><input type='checkbox' ${m?'checked':''} onchange='setShapeMuntinEnabled(this.checked)'><span>${esc(tx('Бар в этом изделии'))}</span></label>`;
-  return `<div class='shape-subsection shape-accordion shape-muntin-editor${m?' on':''}'>${head}${sMuntinOpen?`<div class='shape-accordion-body'>${toggle}${body}</div>`:''}</div>`;
+  var title=`<span><b>${esc(tx('Мунтин бар'))}</b><small>${esc(tx('бар внутри стеклопакета'))}</small></span>`;
+  var head=m?`<button type='button' class='shape-accordion-head' aria-expanded='${sMuntinOpen}' aria-controls='shapeMuntinBody' onclick='toggleShapeMuntinSection()'>${title}<span class='shape-accordion-state'>${state}</span><span class='shape-muntin-chevron' aria-hidden='true'>${sMuntinOpen?'⌃':'⌄'}</span></button>`:`<div class='shape-accordion-head'>${title}</div>`;
+  var action=tx(m?'Удалить раскладку':'Добавить раскладку');
+  var toggle=`<button type='button' class='shape-muntin-action${m?' remove':''}' title='${esc(action)}' aria-label='${esc(action)}' onclick='setShapeMuntinEnabled(${!m})'>${m?'−':'+'}</button>`;
+  return `<div class='shape-subsection shape-accordion shape-muntin-editor${m?' on':''}'><div class='shape-muntin-heading'>${head}${toggle}</div>${m&&sMuntinOpen?`<div id='shapeMuntinBody' class='shape-accordion-body'>${body}</div>`:''}</div>`;
 }
 /* Деления и цена нужны и в шапке секции, и в самой строке — считаем один раз. */
 function shapeMuntinPriceText(m){
@@ -2054,10 +2056,10 @@ function shapeMuntinPriceText(m){
     hint:rate==null?'':sections+' × '+Number(rate).toFixed(2)+' '+cur};
 }
 var sMuntinOpen=false;
-function toggleShapeMuntinSection(){sMuntinOpen=!sMuntinOpen;render();}
+function toggleShapeMuntinSection(){if(!shapeMuntinDef())return;sMuntinOpen=!sMuntinOpen;render();}
 function setShapeMuntinEnabled(on){
   sDraft.muntin=shapeNormalizeMuntin(on?Object.assign({},sDraft.muntin||{},{enabled:true}):{});
-  if(on)sMuntinOpen=true;
+  sMuntinOpen=!!on;
   shapeMuntinPruneDims();
   render();
 }
@@ -2238,8 +2240,7 @@ function shapeForm(){
 function saveShape(){
   var e=document.getElementById('e_shape');e.style.display='none';sDraft.name=String(sDraft.name||'').trim();if(!sDraft.name)return fail(e,'Укажи название');
   var r=ShapeModule.compute(sDraft),external=r.externalFile&&r.sourceValid;if(!r.valid&&!external)return fail(e,(r.errors&&r.errors.length?r.errors:[r.reason]).map(function(x){return moduleErrorText({reason:x});}).join(' · '));
-  var prior=sEdit==='new'?null:DB.shapeDef[sEdit],used=prior&&DB.muntinDef.some(function(m){return m.shapeId===prior.id;});
-  if(used&&shapeFingerprint(prior)!==r.fingerprint&&!confirm('This shape is used by a Muntin layout. New geometry will change that layout. Save a new revision?'))return;
+  var prior=sEdit==='new'?null:DB.shapeDef[sEdit];
   var saved=r.definition||normalizeShapeDef(sDraft);saved.name=sDraft.name;saved.revision=prior?(prior.revision||0)+1:1;saved.status='draft';
   if(sEdit==='new')DB.shapeDef.push(saved);else DB.shapeDef[sEdit]=saved;var savedId=saved.id;touch();
   if(typeof salesBridgeOnShapeSaved==='function'&&salesBridgeOnShapeSaved(savedId))return;
@@ -2257,4 +2258,4 @@ function downloadShapeArtifact(kind){
   if(kind==='finished')shapeDownload(ShapeModule.finishedDxf(r),'application/dxf',base+'_finished.dxf');
   if(kind==='check')shapeDownload(ShapeModule.checkDxf(r),'application/dxf',base+'_check.dxf');
 }
-function delShape(i){var s=DB.shapeDef[i];if(DB.muntinDef.some(function(m){return m.shapeId===s.id;}))return alert('Cannot delete — this shape is used by a Muntin layout');if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}
+function delShape(i){var s=DB.shapeDef[i];if(typeof salesShapeHasReferences==='function'&&salesShapeHasReferences(s.id))return alert('Cannot delete — this Shape is used by a Sales Order');if(!confirm('Delete this shape?'))return;DB.shapeDef.splice(i,1);touch();render();}

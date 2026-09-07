@@ -9,9 +9,9 @@
 function normalizeSalesModules(){
   if(!Array.isArray(DB.shapeDef))DB.shapeDef=[];
   var shapeIds=Object.create(null);
-  function uniqueId(raw,prefix){
+  function uniqueId(raw){
     var id=String(raw==null?'':raw).trim();
-    if(!id||shapeIds[id]){do{id=prefix==='s'?newShapeId():newMuntinId();}while(shapeIds[id]);}
+    if(!id||shapeIds[id]){do{id=newShapeId();}while(shapeIds[id]);}
     shapeIds[id]=true;return id;
   }
   DB.shapeDef=DB.shapeDef.map(function(s,i){
@@ -20,15 +20,7 @@ function normalizeSalesModules(){
       var xs=src.points.map(function(p){return +p.x||0}),ys=src.points.map(function(p){return +p.y||0}),minX=Math.min.apply(null,xs),minY=Math.min.apply(null,ys);
       src=Object.assign({},src,{type:'polygon',w:String(Math.max.apply(null,xs)-minX||48),h:String(Math.max.apply(null,ys)-minY||36),polygon:src.points.map(function(p,n){return {id:'PV'+(n+1),x:String((+p.x||0)-minX),y:String((+p.y||0)-minY)};})});
     }
-    var out=normalizeShapeDef(src);out.id=uniqueId(src.id,'s');out.name=String(src.name==null?(shapePresetInfo(out.type).label+' '+(i+1)):src.name);return out;
-  });
-  if(!Array.isArray(DB.muntinDef))DB.muntinDef=[];
-  var firstShapeId=(DB.shapeDef[0]||{}).id||'',muntinIds=Object.create(null);
-  function uniqueMuntinId(raw){var id=String(raw==null?'':raw).trim();if(!id||muntinIds[id]){do{id=newMuntinId();}while(muntinIds[id]);}muntinIds[id]=true;return id;}
-  DB.muntinDef=DB.muntinDef.map(function(m,i){
-    if(m&&typeof m==='object'&&m.muntin){m.id=uniqueMuntinId(m.id);m.name=String(m.name==null?'':m.name);m.shapeId=String(m.shapeId||firstShapeId);m.muntin=normalizeMuntinModel(m.muntin);var ms=DB.shapeDef.find(function(s){return s.id===m.shapeId;});if(ms&&!m.shapeFingerprint)pinMuntinShape(m,ms);return m;}
-    var M=defaultMuntinModel();if(m){M.layout.verticalBars=clampBars(m.cols==null?2:m.cols);M.layout.horizontalBars=clampBars(m.rows==null?1:m.rows);}
-    var out={id:uniqueMuntinId(m&&m.id),name:String((m&&m.name)||('Adaptive Muntin '+(i+1))),shapeId:String((m&&m.shapeId)||firstShapeId),muntin:M},shape=DB.shapeDef.find(function(s){return s.id===out.shapeId;});if(shape)pinMuntinShape(out,shape);return out;
+    var out=normalizeShapeDef(src);out.id=uniqueId(src.id);out.name=String(src.name==null?(shapePresetInfo(out.type).label+' '+(i+1)):src.name);return out;
   });
 }
 
@@ -207,10 +199,9 @@ function skillBadgeHTML(skillObj){
 }
 function salesSkillCards(){
  const cards=[
-  {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'},
-  {id:'muntin', icon:'muntin', title:'Adaptive Muntin', desc:'pinned Shape revision · 1/16″ grid · real cut lengths', meta:'shape-driven · v4.5'}
+  {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'}
  ];
- return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';${c.id==='shape'?'sEdit=null;sDraft=null;':'mEdit=null;mDraft=null;'}render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
+ return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';sEdit=null;sDraft=null;render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
 }
 
 /* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
@@ -252,9 +243,6 @@ const DEFAULT={
  /* Форм по умолчанию нет. Демо-прямоугольник был тестовым балластом: тянулся
     за каждым новым запуском и мозолил глаза в списке. Форма заводится из
     строки заказа или из рабочего места Configurators. */
- shapeDef:[],
- /* Раскладка по умолчанию тоже убрана: она ссылалась на демо-форму s1 и без
-    неё оставляла висячую ссылку. Раскладка заводится на реальной форме. */
- muntinDef:[]
+ shapeDef:[]
 };
 let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;

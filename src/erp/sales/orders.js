@@ -218,7 +218,7 @@ function salesCavitySetWidth(i,size){
  if(next)c.spacerVariantId=next.id;render();
 }
 
-function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!(l.muntinRef&&l.muntinRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
+function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesString(l.mark)&&!salesString(l.notes)&&!(l.shapeRef&&l.shapeRef.id)&&!Object.keys(l.chargePricing||{}).length&&salesPositiveInt(l.qty,1)===1;}
 function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
@@ -871,7 +871,6 @@ function salesOrderGroupBasisText(g){return g.unit==='pc'?g.basis+' pc':dimIn(g.
 function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return '—';if(g.catalogRates.length===1)return salesRateText(g.catalogRates[0],g.unit,currency);return g.catalogRates.map(function(x){return Number(x).toFixed(2);}).join(' / ')+' '+currency+'/'+(g.unit==='pc'?'pc':'in');}
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
-function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
 /* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
    тем же makeup остаются без бара и без цены. */
 function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
@@ -918,8 +917,7 @@ function salesApplyLineGlassThicknessToShape(line,shape,liteIndex){
  return null;
 }
 function salesShapeRefFrom(s){const r=s&&ShapeModule.compute(s),ready=r&&(r.valid||(r.externalFile&&r.sourceValid));return s&&ready?{id:s.id,revision:s.revision||0,fingerprint:r.fingerprint||''}:{id:'',revision:null,fingerprint:''};}
-function salesMuntinRefFrom(m){return m?{id:m.id,shapeId:m.shapeId||'',shapeRevision:m.shapeRevision==null?null:m.shapeRevision}:{id:'',shapeId:'',shapeRevision:null};}
-function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s),external=r&&r.externalFile&&r.sourceValid;if(!r||(!r.valid&&!external))return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);if(line.muntinRef&&line.muntinRef.id&&line.muntinRef.shapeId!==s.id)line.muntinRef=normalizeMuntinRef({});return true;}
+function salesSyncLineFromShape(line,s){const r=s&&ShapeModule.compute(s),external=r&&r.externalFile&&r.sourceValid;if(!r||(!r.valid&&!external))return false;line.width16=Math.round(r.width*16);line.height16=Math.round(r.height*16);line.shapeRef=salesShapeRefFrom(s);return true;}
 /* ---------- Геометрия строки: всегда настоящий прямоугольник ----------
    Раньше строка без формы считалась «неявным прямоугольником» — отдельной
    веткой расчёта, у которой кромки не было в принципе. Из-за этого кромку
@@ -1042,7 +1040,7 @@ function salesReattachLiteShape(lineId,liteIndex){
  if(!line||!shape)return false;
  if(!confirm('Return this lite to the shared Shape? Its own geometry will be deleted.'))return false;
  const i=DB.shapeDef.findIndex(function(x){return x.id===shape.id;});
- if(i>=0&&!(DB.muntinDef||[]).some(function(m){return m.shapeId===shape.id;}))DB.shapeDef.splice(i,1);
+ if(i>=0)DB.shapeDef.splice(i,1);
  delete line.liteShapes[String(liteIndex)];
  touch();render();
  return true;
@@ -1066,14 +1064,13 @@ function salesDropLineLiteShapes(line){
  const map=(line&&line.liteShapes)||{};
  Object.keys(map).forEach(function(key){
   const ref=map[key],i=DB.shapeDef.findIndex(function(x){return x.id===ref.id;});
-  if(i>=0&&!(DB.muntinDef||[]).some(function(m){return m.shapeId===ref.id;}))DB.shapeDef.splice(i,1);
+  if(i>=0)DB.shapeDef.splice(i,1);
  });
 }
 /* Форма принадлежала строке — со строкой и уходит, чтобы не копиться в базе. */
 function salesDropLineOwnedShape(line){
  const s=salesShapeByRef(line&&line.shapeRef);
  if(!salesShapeIsLineOwned(s))return false;
- if((DB.muntinDef||[]).some(function(m){return m.shapeId===s.id;}))return false;
  const i=DB.shapeDef.findIndex(function(x){return x.id===s.id;});
  if(i<0)return false;
  DB.shapeDef.splice(i,1);
@@ -1224,19 +1221,11 @@ function salesBridgeOnShapeSaved(id){
    прямоугольник по её же Width × Height, а не пустоту. */
 function salesUnlinkShape(i){
  const l=soDraft.lines[i];if(!l)return;
- if(l.muntinRef&&l.muntinRef.id&&!confirm('This Shape is linked to a Muntin layout. Unlink both?'))return;
  salesDropLineOwnedShape(l);
- l.shapeRef=normalizeShapeRef({});l.muntinRef=normalizeMuntinRef({});
+ l.shapeRef=normalizeShapeRef({});
  salesEnsureLineShape(l);
  touch();render();
 }
-function salesOrderConfigureMuntin(i){
- const line=soDraft.lines[i];if(!line)return;const shape=salesShapeByRef(line.shapeRef);if(!shape)return alert('Configure the Shape for this line first.');salesBridge={kind:'muntin',lineId:line.id};tab='configurators';subtab='muntin';mFieldErrors={};
- const current=salesMuntinByRef(line.muntinRef);if(current){mEdit=DB.muntinDef.findIndex(m=>m.id===current.id);mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);}
- else{mEdit='new';mDraft=newMuntinDef(shape.id);mDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)))+' Muntin';pinMuntinShape(mDraft,shape);}
- render();
-}
-function salesBridgeOnMuntinSaved(id){if(!salesBridge||salesBridge.kind!=='muntin'||!soDraft)return false;const line=soDraft.lines.find(l=>l.id===salesBridge.lineId),m=DB.muntinDef.find(x=>x.id===id);if(line&&m)line.muntinRef=salesMuntinRefFrom(m);salesBridge=null;mEdit=null;mDraft=null;mFieldErrors={};tab='sales';subtab='orders';touch();render();return true;}
-function salesUnlinkMuntin(i){const l=soDraft.lines[i];if(l){l.muntinRef=normalizeMuntinRef({});render();}}
 
-function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return false;salesBridge=null;if(kind==='shape'){sEdit=null;sDraft=null;}if(kind==='muntin'){mEdit=null;mDraft=null;mFieldErrors={};}tab='sales';subtab='orders';render();return true;}
+
+function salesBridgeCancel(kind){if(!salesBridge||salesBridge.kind!==kind)return false;salesBridge=null;if(kind==='shape'){sEdit=null;sDraft=null;}tab='sales';subtab='orders';render();return true;}

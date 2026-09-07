@@ -1,14 +1,15 @@
 # Stage 3B — Draft Sales Orders / Order-scoped IGU Makeups
 
-Status: implemented 21 Aug 2026; operator-flow refinement verified 30 Aug 2026.
+Status: implemented 21 Aug 2026; Muntin ownership and UI updated 7 Sep 2026 in PR #54. Current decisions take precedence over the dated verification notes below; see [the handoff](GLASS_ERP_HANDOFF.md).
 
 ## Frozen domain boundary
 
 - There is **no global Configuration Library**.
 - Every `SalesOrder` owns its own `makeups[]` (A, B, C…). Codes are local to the order and may repeat in another order.
 - Every physical order line stores a stable `makeupId` plus qty, exact dimensions on the 1/16″ grid, mark and notes.
-- Shape and Muntin remain the existing independent engineering configurators. Sales stores references to their saved definitions; it does not copy/reimplement their geometry.
-- When a line has Shape, Shape is the source of Width/Height. Muntin continues to depend on that Shape.
+- The line references Shape through `shapeRef`. Muntin configuration belongs to `shape.muntin`; it is not a separate saved definition or a Makeup/Cavity property.
+- Shape remains the source of Width/Height. The shared Muntin engine computes bar geometry from the Shape through a temporary adapter object.
+- There is no separate Muntin configurator, drawing or print flow. Legacy test `muntinDef` and line `muntinRef` / `muntinId` fields are discarded during normalization; orders, Shapes and `shape.muntin` survive. `REFERENCE_VERSION` stays 7.
 
 ## Makeup Builder UX
 
@@ -51,7 +52,7 @@ Current selection order is operator-oriented: Clear first, then stocked products
 
 ## Sales entry
 
-Every new Sales Order starts with one blank Order Line. Order lines support compact keyboard-first entry and the current Excel paste flow. The owner requested a separate redesign of Excel paste after this change; do not mix that work into the laminated feature.
+Every new Sales Order starts with one blank Order Line. Order lines support compact keyboard-first entry and Excel paste. The subsequent Excel-paste redesign is already recorded in the handoff; the original request following the 30 Aug laminated refinement is not a new pending task.
 
 Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) so fractional inch input does not introduce floating point drift.
 
@@ -59,17 +60,21 @@ Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) 
 
 - `+ Shape` opens the existing Production Shape UI.
 - Saving Shape returns to Sales, records a reference and synchronizes Width/Height from Shape.
-- `+ Muntin` requires an attached Shape, opens the existing Adaptive Muntin UI and returns its reference to the line.
-- Deleting a Shape/Muntin referenced by a Sales Order is guarded.
+- In the Shape editor, `+` in the Muntin header adds the layout and opens its settings; `−` removes the layout and its dimension overrides. The chevron collapses settings without deleting the layout. There is no internal enable checkbox.
+- Bars and dimensions appear on the common production drawing and printout. Equal-clear layout places the less frequent gap size near the center, preserving mirrored pairs whenever possible on the 1/16″ grid. Manual axes take precedence.
+- A Shape referenced by a Sales Order cannot be deleted. There is no independent Muntin reference to guard.
+- The Muntin charge is calculated per order line from the number of sections. The default rate is CAD 4.50 per section (`SALES_SERVICE_RATE_TABLE.muntinSection`), with a line-level override; engineering modules contain no prices.
 
 ## Verification
 
 - JavaScript syntax check across source/test/build files.
 - Build manifest consistency check.
 - Production `dist/GLASS_ERP.html` build.
-- Real Chromium smoke of Sales, surfaces, Triple, Shape bridge, Muntin bridge, save and JSON round-trip.
+- Real Chromium smoke of Sales, surfaces, Triple, Shape bridge with embedded Muntin, save and JSON round-trip.
 - English UI residue check across active screens.
 - 300-line normal-volume render and 900-line reserve/stress render.
 - Invalid import with a missing Makeup reference is rejected.
 
-The 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It was merged through PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.
+Current candidate PR #54 passed **409/409** checks on each of `src/index.html` and the generated `dist/GLASS_ERP.html` on 7 Sep 2026, using Chromium from Playwright 1.55.0. This includes legacy-data cleanup, header controls, central gap geometry and print consistency. Dense-grid label auto-placement remains a separate open task.
+
+Historical verification: the 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It was merged through PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.
