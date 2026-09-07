@@ -648,6 +648,7 @@ function salesLineServiceStatus(line){
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Shape processing',cls:'ok'};
+  if(snap.groups.some(function(g){return g.source==='Glass'&&g.ops.length>0;}))return {key:'ready',label:'Glass edgework',cls:'ok'};
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }

@@ -2934,6 +2934,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {arris:[{label:'Rough Arris',basis:160,rate:.01}],
       single:[{label:'Flat Polish',basis:160,rate:.13}],
       unit:[{label:'Rough Arris',basis:320,rate:.03}],total:19.2});
+
+    /* Статус строки врал: «No processing» стояло на строке, которой уже
+       выставлен счёт за кромку. Обработка есть — её задало само стекло, а не
+       форма. Ключ остаётся ready: строка в порядке, врала только подпись. */
+    eq('кромка от стекла названа в статусе, а не спрятана под «No processing»', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];salesSelectMakeup(m.id);render();
+      const st=salesLineServiceStatus(line);
+      const snap=salesEffectiveProductionSnapshot(line,salesLineGeometryShape(line),soDraft);
+      return {label:st.label,key:st.key,attention:salesLineNeedsServiceAttention(line),
+              charged:salesLineChargeRows(line).map(r=>r.label),
+              sources:[...new Set(snap.groups.map(g=>g.source))],
+              shown:/Glass edgework/.test(document.querySelector('.sales-lines-table').textContent)};
+    })()`), {label:'Glass edgework',key:'ready',attention:false,
+             charged:['Rough Arris'],sources:['Glass'],shown:true});
     /* 16–19 мм с полировкой раньше блокировали рез целиком. */
     eq('19 мм с Flat Polish режется, а не блокируется', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
