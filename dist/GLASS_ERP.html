@@ -360,7 +360,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-drawn-production-interactive.placing{cursor:crosshair;outline:2px solid rgba(46,144,250,.22);outline-offset:-2px}.compact-warning{margin:0 0 8px}
 /* PR2 UX v4: exact 1/16" manufacturing coordinates + stable preview + no duplicate cutting controls. */
 .shape-mi-coordinate-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;grid-column:1/-1}.shape-mi-coordinate-grid label{display:flex;flex-direction:column;gap:3px}.shape-mi-coordinate-grid small{color:var(--mut);font-size:8px;line-height:1.2}.shape-mi-coordinate-grid input{font:600 10px ui-monospace,monospace}
-.shape-drawing-preview{height:clamp(440px,64vh,760px);display:flex;align-items:center;justify-content:center}.shape-drawing-preview>svg,.shape-drawing-preview .shape-dxf-preview{width:100%;height:100%}/* Рамка обтягивает сам чертёж, а не растягивается на всю панель: вертикальная деталь 20×70 вписывалась по высоте и тонула в белом поле втрое шире себя. */.shape-drawing-preview svg{width:auto;height:100%;max-height:none!important}.shape-drawing-preview{width:fit-content;max-width:100%;margin-inline:auto}.shape-dxf-preview.visual{display:flex;flex-direction:column;min-height:0}.shape-dxf-preview.visual>.shape-dxf-svg{flex:1;min-height:0;height:100%}
+.shape-drawing-preview{height:clamp(440px,64vh,760px);display:flex;align-items:center;justify-content:center}.shape-drawing-preview>svg,.shape-drawing-preview .shape-dxf-preview{width:100%;height:100%}/* Рамка обтягивает сам чертёж, а не растягивается на всю панель: вертикальная деталь 20×70 вписывалась по высоте и тонула в белом поле втрое шире себя. */.shape-drawing-preview svg{width:auto;height:100%;max-height:none!important}.shape-drawing-preview{width:fit-content;max-width:100%;margin-inline:auto}/* Раскладка приносит свою вёрстку — чертёж, BOM и печать: обтягивать её по ширине рисунка нечем. */.shape-drawing-preview.wide{width:100%;display:block;overflow:auto}.shape-dxf-preview.visual{display:flex;flex-direction:column;min-height:0}.shape-dxf-preview.visual>.shape-dxf-svg{flex:1;min-height:0;height:100%}
 @media(max-width:720px){.shape-mi-coordinate-grid{grid-template-columns:1fr}.shape-drawing-preview{height:520px}}
 
 
@@ -396,7 +396,8 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 /* Заголовок занимает свою строку, Base с состоянием и подсказкой — вторую: в узкой колонке они иначе разъезжались на четыре строки по одному элементу. */.shape-border-head>b,.shape-allow-head>b{flex:1 0 100%;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
 .shape-border-head label,.shape-allow-head label{display:flex;align-items:center;gap:5px;font-size:10px;color:#475467}
 .shape-border-head input,.shape-allow-head input{width:64px;padding:4px 6px}
-/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover,.shape-hint:focus-visible{border-color:#a9d2e5;background:#edf8fc;color:#175f83}/* Своя подсказка, а не нативный title: тот появляется через секунду и легко читается как «просто знак вопроса». Раскрывается вниз-вправо и держится в пределах карточки. */.shape-hint{position:relative}.shape-hint::after{content:attr(data-hint);position:absolute;z-index:40;top:calc(100% + 6px);left:0;width:max-content;max-width:260px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#101828;color:#fff;font-size:9px;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;box-shadow:0 6px 18px rgba(16,24,40,.18)}.shape-hint:hover::after,.shape-hint:focus-visible::after{opacity:1;visibility:visible}
+/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover,.shape-hint:focus-visible{border-color:#a9d2e5;background:#edf8fc;color:#175f83}/* Своя подсказка, а не нативный title: тот появляется через секунду и легко читается как «просто знак вопроса». Раскрывается вниз-вправо и держится в пределах карточки. */
+.shape-hint{position:relative}.shape-hint::after{content:attr(data-hint);position:absolute;z-index:40;top:calc(100% + 6px);left:0;width:max-content;max-width:260px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#101828;color:#fff;font-size:9px;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;box-shadow:0 6px 18px rgba(16,24,40,.18)}.shape-hint:hover::after,.shape-hint:focus-visible::after{opacity:1;visibility:visible}
 .shape-border-rows,.shape-allow-rows{min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:5px}
 .shape-border-row,.shape-allow-row{min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 6px;border:1px solid var(--line2);border-radius:6px;background:#fbfcfd}
 /* Состояние стоит в одной строке с буквой и размером: отдельной строкой оно съедало треть карточки. Цвет несёт САМА карточка — зелёная на авто, жёлтая на ручной правке, — поэтому слово рядом идёт без собственного фона. */.shape-border-edge,.shape-allow-edge{min-width:0;display:flex;align-items:center;gap:5px}.shape-state-word{margin-left:auto;flex:none;font-size:7.5px;letter-spacing:.05em;color:#98a2b3}.shape-border-row.is-auto,.shape-allow-row.is-auto{border-color:#bfe3c6;background:#f4fbf5}.shape-border-row.is-auto .shape-state-word,.shape-allow-row.is-auto .shape-state-word{color:#3f7d51}.shape-border-row.is-manual,.shape-allow-row.is-manual{border-color:#e8cf8e;background:#fdf8ec}.shape-border-row.is-manual .shape-state-word,.shape-allow-row.is-manual .shape-state-word{color:#8a6516;font-weight:700}.shape-allow-row.is-norule{border-color:#efc5c5;background:#fdf4f4}.shape-allow-row.is-norule .shape-state-word{color:#913e3e;font-weight:700}
@@ -935,6 +936,65 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Плёнка: семейство, исполнение, слои, цена — четыре поля в ряд. */
 .mu-lam-film{grid-template-columns:22px minmax(90px,.5fr) minmax(170px,1.1fr) minmax(150px,.9fr) minmax(120px,.6fr) 28px}
 
+/* Раскладка в редакторе формы: профиль и число баров заданы камерой, здесь двигают оси. */
+
+.shape-muntin-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;font-size:9px;color:var(--mut)}
+.shape-muntin-axis{margin-top:8px}
+.shape-muntin-axis>b{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-muntin-axis label{display:inline-flex;align-items:center;gap:5px;margin:0 6px 6px 0}
+.shape-muntin-axis label span{font:700 9px ui-monospace,monospace;color:#475467}
+.shape-muntin-axis label input{width:78px;padding:4px 6px;font-size:9px}
+
+.shape-muntin-field{display:flex;flex-direction:column;gap:3px}
+.shape-muntin-note{display:block;margin-top:6px;color:var(--mut);font-size:8.5px}
+.shape-muntin-field>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-muntin-field input,.shape-muntin-field select{width:100%;padding:4px 6px;font-size:9px}
+/* Цветовое кодирование размеров раскладки: зазор — оранжевый, свет — синий,
+   накопительная лесенка — серая, как на цеховом чертеже. */
+.shape-mi-prod-dims.gap line,.shape-dim-ghost.gap circle{stroke:#b36b00}
+.shape-mi-prod-dims.gap text{fill:#b36b00}
+.shape-mi-prod-dims.clear line{stroke:#0057b8}
+.shape-mi-prod-dims.clear text{fill:#0057b8}
+.shape-mi-prod-dims.run line{stroke:#4f4f4f}
+.shape-mi-prod-dims.run text{fill:#4f4f4f}
+.shape-mi-prod-dims.gap .shape-dim-hit,.shape-mi-prod-dims.clear .shape-dim-hit,.shape-mi-prod-dims.run .shape-dim-hit{stroke:transparent}
+.shape-muntin-cut{margin-top:10px;padding:8px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2)}
+.shape-muntin-cut>b{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.shape-muntin-cut>span{display:inline-flex;align-items:baseline;gap:5px;margin:0 8px 4px 0;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
+.shape-muntin-cut>span i{font-style:normal;font-weight:700;color:#475467}
+.shape-muntin-cut>small{display:block;margin-top:4px;color:var(--mut);font-size:8.5px}
+
+.shape-muntin-head{display:flex;align-items:center;gap:8px;margin:0 0 4px;cursor:pointer}
+.shape-muntin-head input{width:15px;height:15px;margin:0;flex:none}
+.shape-muntin-head>span{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#475467}
+.shape-muntin-head small{color:var(--mut);font-size:8.5px}
+/* Вся настройка бара — одной строкой: списки тянутся, числовые поля стоят
+   фиксированно, деления и цена прижаты вправо. Строка живёт под чертежом, где
+   на неё хватает ширины; в узком окне она переносится, а не режется. */
+/* Секция живёт в левой колонке (406 px), поэтому поля переносятся рядами:
+   списки занимают строку целиком, счётчики и итоги встают парами. */
+.shape-muntin-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:9px}
+.shape-muntin-row>.pick{flex:1 1 100%;min-width:0}
+.shape-muntin-row>.num{flex:1 1 96px;min-width:82px}
+.shape-muntin-row>.out{flex:1 1 76px;min-width:64px}
+/* Подпись в одну строку и значение той же высоты, что поле ввода: иначе
+   ячейка становится выше соседних и вся строка идёт лесенкой. */
+.shape-muntin-row>.shape-muntin-field{margin:0}
+.shape-muntin-row>.shape-muntin-field>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shape-muntin-row>.out>b{display:flex;align-items:center;height:23px;padding:0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
+.shape-muntin-row>.out.price>b{color:#175f83}
+.shape-muntin-row select,.shape-muntin-row input{width:100%}
+/* Оси и раскрой — рядом со строкой, а не под ней столбиком. */
+.shape-muntin-tune{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2px 18px}
+.shape-muntin-tune .shape-muntin-axis{margin-top:8px}
+/* Зазоры — такие же короткие поля, как оси, только с подписью словом. */
+.shape-muntin-axis.gaps{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px}
+.shape-muntin-axis.gaps>b{flex:1 0 100%;margin:0}
+.shape-muntin-axis.gaps>.shape-muntin-field{flex:0 0 82px;margin:0}
+.shape-muntin-reset{align-self:center;margin-top:8px}
+
+.shape-muntin-row .shape-muntin-field>b{display:block;padding:4px 0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
+
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
    Service Sets + production Shape UX
@@ -986,6 +1046,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 @media(max-width:1100px){.ss-effective-workspace{grid-template-columns:1fr}.ss-set-workspace{grid-template-columns:1fr}.ss-set-list{border-right:0;border-bottom:1px solid var(--line)}.shape-prod-seg-head,.shape-prod-seg-row{grid-template-columns:90px 1fr 125px}}
 @media(max-width:760px){.shape-workspace-empty{align-items:stretch;flex-direction:column}.shape-workspace-empty .shape-new-row{min-width:0;justify-content:flex-start}.shape-prod-ar-actions{grid-template-columns:1fr 1fr}.shape-prod-seg-head{display:none}.shape-prod-seg-row{grid-template-columns:1fr}.shape-prod-allow{text-align:left;margin-top:5px}.sales-service-modal-back{padding:10px}.ss-set-fields{grid-template-columns:1fr}.ss-side-guide{grid-template-columns:1fr}.ss-side-map{grid-template-columns:74px minmax(100px,1fr) 74px;gap:4px}.ss-side-map-label{flex-direction:column;gap:2px;padding:4px;text-align:center;white-space:normal}.ss-set-row{grid-template-columns:1fr}.ss-set-row.head{display:none}.ss-dxf-map-head{display:none}.ss-dxf-map-row{grid-template-columns:1fr;gap:4px}}
 .ss-effective-lites{margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}.ss-lites-title{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.ss-lite-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:3px 0;font-size:10px}.ss-lite-row b{min-width:52px}.ss-lite-row .mm{min-width:58px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut)}.ss-lite-row .ops{flex:1;min-width:120px;color:#2a617d}.ss-lite-row .cut{font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#1f6046}.ss-effective-lites small{display:block;margin-top:4px;font-size:8.5px;color:var(--mut)}.ss-lite-pick{padding:3px 6px;font-size:9.5px;min-width:150px}.ss-lite-row .ops{flex:1;min-width:100px}.ss-source.varies{color:var(--amber)}.ss-lite-shape{display:inline-flex;align-items:center;gap:6px;min-width:170px;font-size:9.5px;color:var(--mut)}.ss-lite-shape b{color:var(--text)}.ss-lite-shape i{font-style:italic}.ss-lite-shape button{padding:3px 7px;font-size:9px}.ss-lite-shape .ss-lite-mirror{padding:1px 6px;border-radius:999px;background:var(--blue2);color:#2a617d;font-size:8.5px}
+
+/* Раскладка внутри камеры: включение, профиль, число баров и превью того, как
+   бар выглядит снаружи и изнутри. Геометрию здесь не правят — бар режется
+   контуром формы, и чертёж живёт в шейпе. */
+.mu-flip{display:flex;align-items:center;gap:6px;min-height:30px;margin:0;cursor:pointer}
+.mu-flip input{width:14px;height:14px;margin:0;flex:none}
+.mu-flip span{font-size:9.5px;color:#475467}
+
 </style>
 </head>
 <body>
@@ -1011,7 +1079,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2f281e9f290e';
+var ERP_BUILD='15b761db9e64';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2178,6 +2246,8 @@ function normalizeShapeDef(s){
     safetyBorder:shapeTextValue(s.safetyBorder,''),
     safetyBorderEdges:shapeNormalizeBorderEdges(s.safetyBorderEdges),
     edgeAllowances:shapeNormalizeAllowanceEdges(s.edgeAllowances),
+    /* Раскладка этого изделия целиком: включение, профиль, бары и посадка. */
+    muntin:shapeNormalizeMuntin(s.muntin),
     /* Форма, заведённая автоматически по Width × Height строки заказа,
        принадлежит этой строке: в библиотеке форм её не показывают и живёт она
        ровно столько, сколько живёт строка. */
@@ -2409,6 +2479,42 @@ function shapeEdgeNeedsBorder(edge,a,b){
 /* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
    Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
    поле навсегда прибивало бы припуск к нулю. */
+/* Раскладка принадлежит ИЗДЕЛИЮ, а не составу пакета: один makeup стоит в
+   десятке строк, и бар на одном стекле не должен заводить отдельный состав.
+   Здесь и включение, и профиль, и количество баров, и посадка на стекле:
+   зазор от кромки (sightline), торцевой зазор, отсчёт и сдвинутые оси. */
+var SHAPE_MUNTIN_DEFAULT_PRODUCT='mb058_black';
+function shapeNormalizeMuntin(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  if(!raw.enabled)return {};
+  var bar=function(n){var v=Math.round(+n);return Number.isFinite(v)&&v>=0?Math.min(12,v):0;};
+  var id=String(raw.productId||'').trim();
+  var known=typeof MUNTIN_BARS!=='undefined'&&MUNTIN_BARS.some(function(x){return x.id===id;});
+  var out={enabled:true,
+    productId:known?id:SHAPE_MUNTIN_DEFAULT_PRODUCT,
+    verticalBars:raw.verticalBars==null?1:bar(raw.verticalBars),
+    horizontalBars:raw.horizontalBars==null?1:bar(raw.horizontalBars),
+    flipped:raw.flipped===true};
+  var setup=shapeNormalizeMuntinPositions(raw);
+  Object.keys(setup).forEach(function(k){out[k]=setup[k];});
+  return out;
+}
+function shapeNormalizeMuntinPositions(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  var take=function(list){
+    return (Array.isArray(list)?list:[]).map(function(v){return String(v==null?'':v).trim();});
+  };
+  var trim=function(list){var a=take(list);while(a.length&&!a[a.length-1])a.pop();return a;};
+  var dim=function(v){var t=String(v==null?'':v).trim();return t&&fabParseDimStrict(t).ok?t:'';};
+  var out={},v=trim(raw.vertical),h=trim(raw.horizontal);
+  if(v.length)out.vertical=v;
+  if(h.length)out.horizontal=h;
+  ['edgeInsetX','edgeInsetY','endClearance'].forEach(function(k){
+    var t=dim(raw[k]);if(t)out[k]=t;
+  });
+  if(raw.edgeMode==='axis')out.edgeMode='axis';
+  return out;
+}
 function shapeNormalizeAllowanceEdges(raw){
   var out={};
   if(raw&&typeof raw==='object')Object.keys(raw).forEach(function(id){
@@ -4249,6 +4355,7 @@ function shapeFingerprint(def){
      переклеймило бы каждую сохранённую форму и разом пометило все строки
      заказов устаревшими. То же правило, что у manufacturingItems выше. */
   if(def.edgeAllowances&&Object.keys(def.edgeAllowances).length)payload.edgeAllowances=def.edgeAllowances;
+  if(def.muntin&&def.muntin.enabled)payload.muntin=def.muntin;
   var src=JSON.stringify(payload),h=2166136261;
   for(var i=0;i<src.length;i++){h^=src.charCodeAt(i);h=Math.imul(h,16777619);}return 'shp-'+(h>>>0).toString(16).padStart(8,'0');
 }
@@ -8150,6 +8257,15 @@ function salesSpacerWidths(){
   return String(a).localeCompare(String(b));
  });
 }
+/* Делений столько, на сколько прямоугольников бары режут стекло: один
+   горизонтальный даёт два, горизонтальный с вертикальным — четыре. По ним и
+   считается цена. Раскладка принадлежит форме строки: makeup стоит в десятке
+   строк, и бар на одном стекле не должен заводить отдельный состав. */
+function salesMuntinSectionsOf(m){
+ if(!m||!m.enabled)return 0;
+ const v=Math.max(0,+m.verticalBars||0),h=Math.max(0,+m.horizontalBars||0);
+ return (v||h)?(v+1)*(h+1):0;
+}
 function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
@@ -8371,6 +8487,30 @@ function ico(name, cls=''){
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  /* Раскладка: галочка в камере и панель в чертеже. */
+  "бар внутри стеклопакета": "bar inside the sealed unit",
+  "Зазор X": "Gap X",
+  "Зазор Y": "Gap Y",
+  "Торцевой": "End clr",
+  "размеры на чертеже — в свету, от зазора": "drawing dimensions are clear sizes, measured from the gap",
+  "Раскрой баров": "Bar cut list",
+  "нет отрезков": "no segments",
+  "Всего": "Total",
+  "Вернуть по умолчанию": "Back to defaults",
+  "Стороны": "Sides",
+  "Раскладка": "Muntin",
+  "Вертикальные оси": "Vertical axes",
+  "Горизонтальные оси": "Horizontal axes",
+  "Раскладка (GBG)": "Muntin bar (GBG)",
+  "Профиль / цвет": "Profile / colour",
+  "Вертикальные": "Vertical",
+  "Горизонтальные": "Horizontal",
+  "Делений": "Sections",
+  "Цена": "Price",
+  "Зазоры": "Gaps",
+  "делений": "sections",
+  "Бар в этом изделии": "Bar in this unit",
+  "Убрать": "Remove",
   "Держать все секции открытыми": "Keep every section expanded",
   "Припуск на сторону. Пустое поле берёт значение из справочника.": "Cutting allowance per side. An empty field falls back to the reference table.",
   "Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.": "Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.",
@@ -9934,6 +10074,20 @@ function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
+/* Ставка за деление: заводская из прайса; занижают её обычным переопределением
+   строки или заказа, как у любой услуги. */
+function salesMuntinCatalogRate(){return SALES_SERVICE_RATE_TABLE.muntinSection;}
+/* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
+   между стёклами, поэтому у Single Lite раскладки не бывает. */
+function salesLineMuntin(line){
+ const shape=line&&salesShapeByRef(line.shapeRef);
+ const m=shape&&shape.muntin;
+ return m&&m.enabled?m:null;
+}
+function salesLineAllowsMuntin(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+ return !!(m&&(m.cavities||[]).length);
+}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
    если она выпускается в этом размере; иначе берём первый доступный вариант. */
 /* Пустое поле снимает ручную цену и возвращает каталожную: это законный
@@ -10391,6 +10545,11 @@ const SALES_SERVICE_RATE_TABLE={
     на любую толщину склейки. Когда банды появятся, число заменяется объектом
     вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
  lamiPolish:.28,cncLamiPolish:.35,
+ /* Раскладка считается по ДЕЛЕНИЯМ, а не по длине бара: один горизонтальный бар
+    делит стекло на два прямоугольника, горизонтальный с вертикальным — на
+    четыре. Цена одна на любой бар, ставка правится в строке и в заказе, как у
+    всех начислений: «иногда мы делаем цену ниже». */
+ muntinSection:4.50,
  notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
  sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
@@ -10581,7 +10740,7 @@ function salesChargeShortLabel(row){
     владельцем вида имени в этом коде нет и быть не может. */
  const kp=String(row.key||'').split(':');
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
- const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Muntin sections')return 'MUNTIN';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
@@ -10596,6 +10755,16 @@ function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
+/* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
+   тем же makeup остаются без бара и без цены. */
+function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
+function salesMuntinChargeRows(line){
+ const n=salesMuntinSections(line);
+ if(!n||!salesLineAllowsMuntin(line))return [];
+ return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(),'Shape')];
+}
+/* Форма с баром на одиночном стекле: бару там физически негде стоять. */
+function salesLineMuntinMisapplied(line){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line);}
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy
    schema field only as an internal calculation input so old saved definitions and
@@ -11431,6 +11600,9 @@ salesLineChargeRows=function(line){
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
   salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  /* Раскладка не зависит от геометрии кромки и считается до выхода по
+     отсутствию контура — как и остекление выше. */
+  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
@@ -11596,16 +11768,18 @@ function salesLineServiceStatus(line){
   if(salesDxfOverrideStale(line,shape))return {key:'lost',label:'Override needs review',cls:'bad'};
   var snap=salesEffectiveProductionSnapshot(line,shape,soDraft);
   if(!snap.valid&&snap.lamiMisapplied)return {key:'lami',label:'Lami op on plain lite',cls:'bad'};
+  if(typeof salesLineMuntinMisapplied==='function'&&salesLineMuntinMisapplied(line))return {key:'muntin',label:'Muntin on single lite',cls:'bad'};
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Shape processing',cls:'ok'};
+  if(snap.groups.some(function(g){return g.source==='Glass'&&g.ops.length>0;}))return {key:'ready',label:'Glass edgework',cls:'ok'};
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -12683,6 +12857,10 @@ function setShapeExtraOut(id,k,v){
 });
 function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='cutting')return;sView=v;refreshShapeEditor();return;}sView=v;refreshShapeEditor();}
 function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';sDimEdit=null;render();}
+/* Раскладка живёт в форме и от строки заказа не зависит. Проверку «бар на
+   одиночном стекле» делает salesLineMuntinMisapplied: makeup знает строка,
+   а не форма — одну форму берут и в пакет, и в одиночное стекло. */
+
 /* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
    «Geometry modifiers»), и одно и то же посадочное место можно было завести
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
@@ -13060,7 +13238,9 @@ function shapeSelectDim(id,axis){
   var same=sDimEdit&&sDimEdit.id===id&&sDimEdit.axis===axis;
   sMetricDimEdit=null;sDimEdit=same?null:{id:id,axis:axis};
   /* Размер и его карточка — одно и то же: выбрали на чертеже, открылась карточка. */
-  if(!same){
+  /* Размер раскладки не принадлежит ни элементу, ни фиче: раскрывать по нему
+     карточку нечего, а на чужом id разворачивалась пустая. */
+  if(!same&&String(id).indexOf(SHAPE_MUNTIN_DIM)!==0){
     if(shapeManufacturingItemById(id))sManufacturingSelected=id;
     else sFeatureExpandedId=id;
   }
@@ -13297,7 +13477,7 @@ function shapeDimChainSvg(o){
        остаётся чистым, ради чего размер и убирали. На печати следа нет вообще. */
     if(!o.selected||!shapeDimUi)return '';
     var gx=vertical?pos:(o.a[0]+o.b[0])/2,gy=vertical?(o.a[1]+o.b[1])/2:pos;
-    return `<g class='shape-dim-ghost' ${pick}><circle cx='${gx}' cy='${gy}' r='7'/><text x='${gx}' y='${gy+3.5}' text-anchor='middle'>+</text></g>`+
+    return `<g class='shape-dim-ghost${o.cls?' '+o.cls:''}' ${pick}><circle cx='${gx}' cy='${gy}' r='7'/><text x='${gx}' y='${gy+3.5}' text-anchor='middle'>+</text></g>`+
       (active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(gx,o.T),gy+(vertical?0:22)):'');
   }
   var body,menuX,menuY;
@@ -13307,6 +13487,9 @@ function shapeDimChainSvg(o){
      trimA / trimB подрезают НАРИСОВАННЫЙ конец, когда он упирается в отверстие:
      окружность залита белым и рисуется поверх, так что стрелка в самом центре
      просто не видна. Замеряется всё равно от центра до центра. */
+  /* Кегль приходит извне, когда подпись не влезает в свой промежуток: у
+     раскладки просветы бывают узкие, и подпись наезжала на соседнюю. */
+  var fs=o.fs?` font-size='${o.fs}'`:'';
   var TICK=5,trimA=+o.trimA||0,trimB=+o.trimB||0;
   if(!vertical){
     var mid=(o.a[0]+o.b[0])/2,sx=o.b[0]>=o.a[0]?1:-1,ax=o.a[0],bx=o.b[0];
@@ -13315,7 +13498,7 @@ function shapeDimChainSvg(o){
       <line class='shape-dim-tick' x1='${ax}' y1='${pos-TICK}' x2='${ax}' y2='${pos+TICK}'/>
       <line class='shape-dim-tick' x1='${bx}' y1='${pos-TICK}' x2='${bx}' y2='${pos+TICK}'/>
       <line class='shape-dim-hit' x1='${ax}' y1='${pos}' x2='${bx}' y2='${pos}'/>
-      <text x='${mid}' y='${pos+(o.side>0?19:-11)}' text-anchor='middle'>${esc(o.text)}</text>`;
+      <text x='${mid}' y='${pos+(o.side>0?19:-11)}' text-anchor='middle'${fs}>${esc(o.text)}</text>`;
     menuX=mid;menuY=pos+(o.side>0?38:-34);
   }else{
     var midY=(o.a[1]+o.b[1])/2,tx=pos+(o.side>0?19:-19),sy=o.b[1]>=o.a[1]?1:-1,ay=o.a[1],by=o.b[1];
@@ -13324,10 +13507,10 @@ function shapeDimChainSvg(o){
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${ay}' x2='${pos+TICK}' y2='${ay}'/>
       <line class='shape-dim-tick' x1='${pos-TICK}' y1='${by}' x2='${pos+TICK}' y2='${by}'/>
       <line class='shape-dim-hit' x1='${pos}' y1='${ay}' x2='${pos}' y2='${by}'/>
-      <text x='${tx}' y='${midY}' text-anchor='middle' transform='rotate(-90 ${tx} ${midY})'>${esc(o.text)}</text>`;
+      <text x='${tx}' y='${midY}' text-anchor='middle'${fs} transform='rotate(-90 ${tx} ${midY})'>${esc(o.text)}</text>`;
     menuX=pos+(o.side>0?64:-64);menuY=midY;
   }
-  return `<g class='shape-mi-prod-dims${active?' active':''}' ${pick}>${body}</g>`+(active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(menuX,o.T),menuY):'');
+  return `<g class='shape-mi-prod-dims${active?' active':''}${o.cls?' '+o.cls:''}' ${pick}>${body}</g>`+(active?shapeDimMenuSvg(o.id,o.axis,shapeDimMenuX(menuX,o.T),menuY):'');
 }
 
 /* Внутренний C-C идёт ПРЯМО от центра к центру: линия сама и есть измеряемое
@@ -13646,11 +13829,173 @@ function shapeDrawnProductionSvg(result,interactive,extra){
   var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
   try{return shapeDrawnProductionBody(svg,T,interactive);}finally{shapeDimUi=uiWas;}
 }
+/* ---------- Раскладка на чертеже ----------
+   Бар — часть юнита, а не отдельное изделие: он рисуется на том же
+   производственном чертеже, что и стекло. Отдельного листа и отдельной кнопки
+   печати у раскладки нет — печатается общий чертёж.
+
+   Параметры приходят из КАМЕРЫ makeup (профиль и число баров), геометрию по
+   ним считает модуль: бар режется реальным контуром формы, поэтому позиции
+   берутся из его сегментов, а не раскладываются здесь заново. */
+function shapeMuntinGeoForDraft(){
+  var shape=sDraft,cav=shape&&shape.muntin&&shape.muntin.enabled?shape.muntin:null;
+  if(!cav||!(cav.verticalBars||cav.horizontalBars))return null;
+  var def=newMuntinDef(shape.id||'draft');
+  def.muntin=normalizeMuntinModel(def.muntin);
+  def.muntin.productId=cav.productId;
+  def.muntin.layout.verticalBars=cav.verticalBars;
+  def.muntin.layout.horizontalBars=cav.horizontalBars;
+  def.flipped=!!cav.flipped;
+  /* Посадка на стекле: зазор от кромки до первого бара (sightline), торцевой
+     зазор и способ отсчёта. */
+  ['edgeInsetX','edgeInsetY','endClearance'].forEach(function(k){
+    var p=cav[k]?fabParseDimStrict(cav[k]):null;
+    if(p&&p.ok&&p.v>=0)def.muntin.production[k]=p.v;
+  });
+  if(cav.edgeMode==='axis')def.muntin.production.edgeMode='axis';
+  var r=MuntinModule.compute(shape,def);
+  /* Позиции, сдвинутые вручную, сильнее равномерной раскладки: «двигать бар не
+     эквивалентно» делают здесь, на чертеже. Модуль в ручном режиме требует ось
+     для КАЖДОГО бара, поэтому незаполненные подставляются из равномерного
+     расчёта — иначе один сдвинутый бар уносил с чертежа все остальные. */
+  var custom=cav;
+  var manual=(cav.vertical||[]).some(Boolean)||(cav.horizontal||[]).some(Boolean);
+  if(manual&&r&&r.valid){
+    var fill=function(list,auto,count){
+      var out=[];
+      for(var i=0;i<count;i++){
+        var v=String((list||[])[i]==null?'':(list||[])[i]).trim();
+        var p=v?fabParseDimStrict(v):null;
+        out.push(p&&p.ok?p.v:(auto&&auto[i]!=null?auto[i]:0));
+      }
+      return out;
+    };
+    def.muntin.production.mode='custom';
+    def.muntin.production.verticalPositions=fill(custom.vertical,r.geo.v||[],def.muntin.layout.verticalBars);
+    def.muntin.production.horizontalPositions=fill(custom.horizontal,r.geo.h||[],def.muntin.layout.horizontalBars);
+    var manualResult=MuntinModule.compute(shape,def);
+    if(manualResult&&manualResult.valid)r=manualResult;
+  }
+  return r&&r.valid?{geo:r.geo,M:r.M,def:def,result:r}:null;
+}
+function shapeMuntinBarsSvg(T){
+  var got=shapeMuntinGeoForDraft();if(!got||!T)return '';
+  var g=got.geo,bar=muntinProduct(got.M.productId),face=+g.face||0;
+  if(!(face>0))return '';
+  /* Чертёж — вид снаружи, поэтому берётся наружная сторона бара; у
+     развёрнутого двухцветного профиля это вторая. */
+  var flip=!!(got.def&&got.def.flipped);
+  var fill=(flip?bar.interiorHex:bar.exteriorHex)||'#202020',half=face/2,out='';
+  function rect(x1,y1,x2,y2){
+    var a=T.X(x1),b=T.Y(y1),c=T.X(x2),d=T.Y(y2);
+    var x=Math.min(a,c),y=Math.min(b,d),w=Math.abs(c-a),h=Math.abs(d-b);
+    if(!(w>0&&h>0))return '';
+    return `<rect class='shape-muntin-bar' x='${x.toFixed(2)}' y='${y.toFixed(2)}' width='${w.toFixed(2)}' height='${h.toFixed(2)}' fill='${fill}' stroke='#101828' stroke-width='.6'/>`;
+  }
+  (g.verticalSegments||[]).forEach(function(s){out+=rect(s.x-half,s.y1,s.x+half,s.y2);});
+  (g.horizontalSegments||[]).forEach(function(s){out+=rect(s.x1,s.y-half,s.x2,s.y+half);});
+  return out+shapeMuntinSightlineSvg(T,g,half);
+}
+/* Sightline: расстояния в свету — от зазора до первого бара, между барами и до
+   противоположной кромки. Это главное, что читает цех: бар ставят по этим
+   размерам, а не по осям. Меряется по ЛИЦУ бара, поэтому от оси отнимается
+   половина профиля.
+
+   Каждый размер идёт через общий shapeDimChainSvg и потому умеет то же, что
+   размеры отверстий и фурнитуры: клик открывает пилюлю − / + / hide, сдвиг и
+   скрытие живут в sDraft.dims и в отпечаток формы не входят — подвинутая
+   подпись не должна помечать строки заказов устаревшими. */
+const SHAPE_MUNTIN_DIM='mb:';
+function shapeMuntinSightlineSvg(T,g,half){
+  var b=T.b,out='';
+  var ix=Math.max(0,+g.ix||0),iy=Math.max(0,+g.iy||0);
+  var left=b.minX+ix,right=b.maxX-ix,bottom=b.minY+iy,top=b.maxY-iy;
+  if(!(right>left&&top>bottom))return '';
+  out+=`<rect class='shape-muntin-sightline' x='${T.X(left).toFixed(1)}' y='${T.Y(top).toFixed(1)}' width='${(T.X(right)-T.X(left)).toFixed(1)}' height='${(T.Y(bottom)-T.Y(top)).toFixed(1)}' fill='none' stroke='#0057b8' stroke-width='.8' stroke-dasharray='4 3' opacity='.7'/>`;
+  /* Подпись шире своего промежутка — ужимаем кегль, как это делал старый
+     мунтин-чертёж. Иначе в узком просвете подписи наезжают друг на друга. */
+  var fit=function(text,px){var need=String(text).length*11*.57;return need>Math.max(1,px-8)?Math.max(7,Math.round(11*Math.max(1,px-8)/need)):0;};
+  var dimH=function(id,x1,x2,y,value,cls,side){
+    if(!(value>1/64))return '';
+    var a=T.X(x1),c=T.X(x2),yy=T.Y(y),text=dimIn(value);
+    if(Math.abs(c-a)<6)return '';
+    return shapeDimChainSvg({id:SHAPE_MUNTIN_DIM+id,axis:'h',vertical:false,cls:cls,selected:true,T:T,
+      a:[a,yy],b:[c,yy],pos:yy,dir:-1,side:side||-1,text:text,fs:fit(text,Math.abs(c-a))});
+  };
+  var dimV=function(id,y1,y2,x,value,cls,side){
+    if(!(value>1/64))return '';
+    var a=T.Y(y1),c=T.Y(y2),xx=T.X(x),text=dimIn(value);
+    if(Math.abs(c-a)<6)return '';
+    return shapeDimChainSvg({id:SHAPE_MUNTIN_DIM+id,axis:'v',vertical:true,cls:cls,selected:true,T:T,
+      a:[xx,a],b:[xx,c],pos:xx,dir:-1,side:side||-1,text:text,fs:fit(text,Math.abs(c-a))});
+  };
+  var v=(g.v||[]).slice().sort(function(a,c){return a-c;});
+  var h=(g.h||[]).slice().sort(function(a,c){return a-c;});
+  var rowY=bottom+(top-bottom)*0.94,colX=left+(right-left)*0.86;
+  /* Зазор подписан отдельно — по нему видно, откуда идёт отсчёт. */
+  out+=dimH('gx',b.minX,left,rowY,ix,'gap');
+  out+=dimV('gy',b.minY,bottom,colX,iy,'gap');
+  var prev=left,n=0;
+  v.forEach(function(x){out+=dimH('cv'+(++n),prev,x-half,rowY,x-half-prev,'clear');prev=x+half;});
+  if(v.length)out+=dimH('cv'+(++n),prev,right,rowY,right-prev,'clear');
+  prev=bottom;n=0;
+  h.forEach(function(y){out+=dimV('ch'+(++n),prev,y-half,colX,y-half-prev,'clear');prev=y+half;});
+  if(h.length)out+=dimV('ch'+(++n),prev,top,colX,top-prev,'clear');
+  return out+shapeMuntinRunDimsSvg(T,g,half,{left:left,bottom:bottom,v:v,h:h,dimId:SHAPE_MUNTIN_DIM});
+}
+/* Накопительные размеры от зазора: до второго бара, до третьего и так далее.
+   Первый повторил бы первый размер в свету, поэтому пропускается. Считается до
+   БЛИЖНЕГО лица бара — 15 5/16 + 5/8 + 15 1/4 = 31 3/16, ровно как читает цех.
+
+   Лесенка стоит снаружи стекла: габаритная ширина живёт снизу, высота слева,
+   а поля сверху и справа свободны. Шаг полос зажимается по свободному полю —
+   на печатном листе поля урезаны, и десяток баров иначе ушёл бы за лист. */
+function shapeMuntinRunDimsSvg(T,g,half,ctx){
+  var out='',v=ctx.v,h=ctx.h;
+  var glassTop=T.y0,glassRight=T.x0+T.dw;
+  var pitch=function(room,count){return count>0?Math.max(11,Math.min(22,(room-34)/count)):0;};
+  var pv=pitch(glassTop,Math.max(0,v.length-1)),ph=pitch(Math.max(0,T.vw-glassRight),Math.max(0,h.length-1));
+  v.forEach(function(x,i){
+    if(i===0||!(pv>0))return;
+    var value=(x-half)-ctx.left;
+    if(!(value>1/64))return;
+    var y=glassTop-i*pv;
+    out+=shapeDimChainSvg({id:ctx.dimId+'rv'+(i+1),axis:'h',vertical:false,cls:'run',selected:true,T:T,
+      a:[T.X(ctx.left),y],b:[T.X(x-half),y],pos:y,dir:-1,side:-1,text:dimIn(value)});
+  });
+  h.forEach(function(y,i){
+    if(i===0||!(ph>0))return;
+    var value=(y-half)-ctx.bottom;
+    if(!(value>1/64))return;
+    var x=glassRight+i*ph;
+    out+=shapeDimChainSvg({id:ctx.dimId+'rh'+(i+1),axis:'v',vertical:true,cls:'run',selected:true,T:T,
+      a:[x,T.Y(ctx.bottom)],b:[x,T.Y(y-half)],pos:x,dir:1,side:1,text:dimIn(value)});
+  });
+  return out;
+}
+/* Баров стало меньше — оформление исчезнувших размеров осталось бы мусором в
+   форме и вернулось бы, когда бар снова добавят. */
+function shapeMuntinPruneDims(){
+  var all=sDraft&&sDraft.dims;if(!all)return;
+  var m=sDraft.muntin,live={};
+  if(m&&m.enabled){
+    var got=shapeMuntinGeoForDraft(),geo=got&&got.geo;
+    var nv=geo?(geo.v||[]).length:0,nh=geo?(geo.h||[]).length:0,i;
+    live[SHAPE_MUNTIN_DIM+'gx']=1;live[SHAPE_MUNTIN_DIM+'gy']=1;
+    for(i=1;i<=nv+1;i++)live[SHAPE_MUNTIN_DIM+'cv'+i]=1;
+    for(i=1;i<=nh+1;i++)live[SHAPE_MUNTIN_DIM+'ch'+i]=1;
+    for(i=2;i<=nv;i++)live[SHAPE_MUNTIN_DIM+'rv'+i]=1;
+    for(i=2;i<=nh;i++)live[SHAPE_MUNTIN_DIM+'rh'+i]=1;
+  }
+  Object.keys(all).forEach(function(id){
+    if(String(id).indexOf(SHAPE_MUNTIN_DIM)===0&&!live[id])delete all[id];
+  });
+}
 function shapeDrawnProductionBody(svg,T,interactive){
   /* Стрелку размера объявляем один раз: метки объявляют её сами, а если меток
      нет — её объявляет блок выреза, иначе линии остались бы без наконечников. */
   var marks=shapeManufacturingMarkersSvg(null,T),cuts=shapeCutoutDimsSvg(T),annotations=shapeAnnotationDimsSvg(T),dims=cuts+annotations;
-  var extra=marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
+  var extra=shapeMuntinBarsSvg(T)+marks+(dims?(marks?'':shapeDimArrowDefs())+dims:'');
   if(extra)svg=svg.replace('</svg>',extra+'</svg>');
   if(interactive)svg=svg.replace('<svg ','<svg class="shape-drawn-production-interactive'+(sManufacturingPlace?' placing':'')+'" onclick="shapePlaceManufacturingFromEvent(event,this)" ');
   return svg;
@@ -14291,6 +14636,130 @@ function setShapeLiteInsetFor(liteIndex,groupIndex,value){
   var g=shapeGroupAt(groupIndex);if(!g)return;
   var spec=shapeLiteOpsDraft(liteIndex,g.id),t=String(value==null?'':value).trim();
   if(t)spec.inset[g.id]=t;else delete spec.inset[g.id];
+  render();
+}
+/* Раскладка изделия: включение, профиль, стороны, бары, посадка на стекле и
+   раскрой. Живёт в форме, потому что makeup стоит в десятке строк, а бар — на
+   одном стекле; цена при этом обычная услуга строки. */
+function shapeMuntinDef(){
+  var m=sDraft&&sDraft.muntin;
+  return m&&m.enabled?m:null;
+}
+function shapeMuntinEditor(){
+  if(!sDraft)return '';
+  var m=shapeMuntinDef();
+  var state,body='';
+  if(!m){
+    state=esc(tx('нет'));
+  }else{
+    var bar=muntinProduct(m.productId),got=shapeMuntinGeoForDraft(),g=got&&got.geo;
+    var two=bar.exteriorColor!==bar.interiorColor;
+    var bars=function(n){return Array.from({length:13},function(_,i){return i;}).map(function(i){return `<option value='${i}' ${i===n?'selected':''}>${i}</option>`;}).join('');};
+    var P=got?normalizeMuntinModel(got.def.muntin).production:null;
+    var field=function(key,label,auto){
+      var v=m[key]==null?'':String(m[key]);
+      return `<label class='shape-muntin-field num'><span>${esc(label)}</span><input value='${esc(v)}' placeholder='${esc(auto==null?'—':dimIn(auto))}' onchange='setShapeMuntinSetup("${key}",this.value)'></label>`;
+    };
+    /* Стороны выбирают списком, как профиль: галочка «развернуть» не говорит,
+       что окажется снаружи, а список называет обе стороны прямо. */
+    var sides=two?`<label class='shape-muntin-field pick'><span>${esc(tx('Стороны'))}</span><select onchange='setShapeMuntinSetup("flipped",this.value)'><option value='0' ${m.flipped?'':'selected'}>${esc(bar.exteriorColor)} ext · ${esc(bar.interiorColor)} int</option><option value='1' ${m.flipped?'selected':''}>${esc(bar.interiorColor)} ext · ${esc(bar.exteriorColor)} int</option></select></label>`:'';
+    var cut='';
+    if(got&&got.result&&got.result.valid){
+      var segs=(g.verticalSegments||[]).map(function(s){return {id:muntinSegId('V',s),len:s.cut};})
+        .concat((g.horizontalSegments||[]).map(function(s){return {id:muntinSegId('H',s),len:s.cut};}));
+      cut=`<div class='shape-muntin-cut'><b>${esc(tx('Раскрой баров'))}</b>${segs.map(function(s){
+        return `<span><i>${esc(s.id)}</i>${esc(dimIn(s.len))}</span>`;}).join('')||`<span>${esc(tx('нет отрезков'))}</span>`}
+        <small>${esc(tx('Всего'))} ${esc(dimIn(got.result.totalLengthIn))} · ${got.result.count} ${esc(tx('шт'))}</small></div>`;
+    }
+    var axes=function(kind,count,current,auto){
+      if(!count)return '';
+      var rows='';
+      for(var i=0;i<count;i++){
+        var v=(current||[])[i]==null?'':String((current||[])[i]);
+        var ph=auto&&auto[i]!=null?dimIn(auto[i]):'—';
+        rows+=`<label><span>${kind==='vertical'?'V':'H'}${i+1}</span><input value='${esc(v)}' placeholder='${esc(ph)}' onchange='setShapeMuntinPosition("${kind}",${i},this.value)'></label>`;
+      }
+      return `<div class='shape-muntin-axis'><b>${esc(kind==='vertical'?tx('Вертикальные оси'):tx('Горизонтальные оси'))}</b>${rows}</div>`;
+    };
+    var manual=(m.vertical||[]).concat(m.horizontal||[]).some(function(x){return String(x||'').trim();})||m.edgeInsetX||m.edgeInsetY||m.endClearance||m.edgeMode;
+    /* Цена считается из делений. Здесь она прайсовая: скидку дают в строке
+       заказа, а форма общая на много заказов и своей цены не имеет. */
+    var money=shapeMuntinPriceText(m);
+    state=`<span data-raw>${esc(m.verticalBars+'×'+m.horizontalBars)}</span> · <span data-raw>${esc(money.sections)}</span> ${esc(tx('делений'))} · <span data-raw>${esc(money.price)}</span>`;
+    body=`<div class='shape-muntin-row'>
+      <label class='shape-muntin-field pick'><span>${esc(tx('Профиль / цвет'))}</span><select onchange='setShapeMuntinSetup("productId",this.value)'>${MUNTIN_BARS.filter(function(x){return x.enabled!==false;}).map(function(x){return `<option value='${esc(x.id)}' ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></label>
+      ${sides}
+      <label class='shape-muntin-field num'><span>${esc(tx('Вертикальные'))}</span><select onchange='setShapeMuntinSetup("verticalBars",this.value)'>${bars(m.verticalBars)}</select></label>
+      <label class='shape-muntin-field num'><span>${esc(tx('Горизонтальные'))}</span><select onchange='setShapeMuntinSetup("horizontalBars",this.value)'>${bars(m.horizontalBars)}</select></label>
+      <div class='shape-muntin-field out'><span>${esc(tx('Делений'))}</span><b>${money.sections}</b></div>
+      <div class='shape-muntin-field out price'><span>${esc(tx('Цена'))}</span><b>${esc(money.price)}</b></div>
+    </div>
+    <small class='shape-muntin-note'>${esc(tx('размеры на чертеже — в свету, от зазора'))}${money.hint?' · '+esc(money.hint):''}</small>
+    <div class='shape-muntin-tune'>
+      <div class='shape-muntin-axis gaps'><b>${esc(tx('Зазоры'))}</b>
+        ${field('edgeInsetX',tx('Зазор X'),P?P.edgeInsetX:null)}
+        ${field('edgeInsetY',tx('Зазор Y'),P?P.edgeInsetY:null)}
+        ${field('endClearance',tx('Торцевой'),P?P.endClearance:null)}</div>
+      ${axes('vertical',m.verticalBars,m.vertical,g?(g.v||[]):[])}
+      ${axes('horizontal',m.horizontalBars,m.horizontal,g?(g.h||[]):[])}
+      ${manual?`<button type='button' class='sm shape-muntin-reset' onclick='resetShapeMuntinPositions()'>${esc(tx('Вернуть по умолчанию'))}</button>`:''}
+    </div>
+    ${cut}`;
+  }
+  /* Секция сворачивается, как «Lites of the unit» и «Edge processing»: в левой
+     колонке 406 px, и развёрнутая настройка занимала бы её целиком. */
+  var head=`<button type='button' class='shape-accordion-head' onclick='toggleShapeMuntinSection()'><span><b>${esc(tx('Раскладка (GBG)'))}</b><small>${esc(tx('бар внутри стеклопакета'))}</small></span><span class='shape-accordion-state'>${state}<i>${sMuntinOpen?'−':'+'}</i></span></button>`;
+  var toggle=`<label class='shape-muntin-head'><input type='checkbox' ${m?'checked':''} onchange='setShapeMuntinEnabled(this.checked)'><span>${esc(tx('Бар в этом изделии'))}</span></label>`;
+  return `<div class='shape-subsection shape-accordion shape-muntin-editor${m?' on':''}'>${head}${sMuntinOpen?`<div class='shape-accordion-body'>${toggle}${body}</div>`:''}</div>`;
+}
+/* Деления и цена нужны и в шапке секции, и в самой строке — считаем один раз. */
+function shapeMuntinPriceText(m){
+  var sections=(m.verticalBars+1)*(m.horizontalBars+1);
+  var rate=typeof salesMuntinCatalogRate==='function'?salesMuntinCatalogRate():null;
+  var cur=(typeof soDraft!=='undefined'&&soDraft&&soDraft.currency)||'CAD';
+  return {sections:sections,
+    price:rate==null?'—':(sections*rate).toFixed(2)+' '+cur,
+    hint:rate==null?'':sections+' × '+Number(rate).toFixed(2)+' '+cur};
+}
+var sMuntinOpen=false;
+function toggleShapeMuntinSection(){sMuntinOpen=!sMuntinOpen;render();}
+function setShapeMuntinEnabled(on){
+  sDraft.muntin=shapeNormalizeMuntin(on?Object.assign({},sDraft.muntin||{},{enabled:true}):{});
+  if(on)sMuntinOpen=true;
+  shapeMuntinPruneDims();
+  render();
+}
+function setShapeMuntinSetup(key,value){
+  var m=Object.assign({},sDraft.muntin||{});
+  if(!m.enabled)return render();
+  var t=String(value==null?'':value).trim();
+  if(key==='flipped')m.flipped=t==='1'||t==='true';
+  else if(key==='productId'||key==='verticalBars'||key==='horizontalBars')m[key]=t;
+  else if(key==='edgeMode'){if(t==='axis')m.edgeMode='axis';else delete m.edgeMode;}
+  else{
+    /* Мусор не принимаем: пустое поле возвращает заводское значение. */
+    if(t&&!fabParseDimStrict(t).ok)return render();
+    if(t)m[key]=t;else delete m[key];
+  }
+  sDraft.muntin=shapeNormalizeMuntin(m);
+  shapeMuntinPruneDims();
+  render();
+}
+function setShapeMuntinPosition(kind,i,value){
+  var m=Object.assign({},sDraft.muntin||{});
+  if(!m.enabled)return render();
+  var key=kind==='vertical'?'vertical':'horizontal';
+  var list=(m[key]||[]).slice(),t=String(value==null?'':value).trim();
+  if(t&&!fabParseDimStrict(t).ok)return render();
+  list[i]=t;
+  while(list.length&&!String(list[list.length-1]||'').trim())list.pop();
+  m[key]=list;
+  sDraft.muntin=shapeNormalizeMuntin(m);
+  render();
+}
+function resetShapeMuntinPositions(){
+  var m=sDraft.muntin;if(!m||!m.enabled)return;
+  sDraft.muntin=shapeNormalizeMuntin({enabled:true,productId:m.productId,verticalBars:m.verticalBars,horizontalBars:m.horizontalBars,flipped:m.flipped});
   render();
 }
 /* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
@@ -14965,7 +15434,7 @@ shapeForm=function(){
   var designer=external
     ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing remains editable.</div>${shapeProdDxfEdgeProcessing()}`
     : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
-  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer;
+  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer+(typeof shapeMuntinEditor==='function'?shapeMuntinEditor():'');
   var cutoutCount=shapeCutoutItemCount();
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
@@ -15123,7 +15592,7 @@ function salesBulkServiceControls(){
 /* Approved Sales line layout: Set column immediately after MU. */
 salesOrderLines=function(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),hasServices=pricing.charges>0;
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>MU → Set → Qty → Dimensions → Mark → Shape / Muntin → Services</span></div><div class='sales-line-tools'><button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:''}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th><th>MU</th><th>Set</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Muntin</th><th>Services</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}</td><td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td><td class='ss-cell'>${salesSetBadge(l)}</td><td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td><td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td><td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td><td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td><td>${salesLineShapeCell(l,i)}</td><td>${salesLineMuntinCell(l,i)}</td><td class='line-services-cell'>${salesLineServicesSummary(l)}</td><td class='ss-status'><span class='pill ${st.cls}'>${esc(st.label)}</span></td><td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td><td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='14' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div></section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>MU → Set → Qty → Dimensions → Mark → Shape → Services</span></div><div class='sales-line-tools'><button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:''}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th><th>MU</th><th>Set</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Services</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}</td><td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td><td class='ss-cell'>${salesSetBadge(l)}</td><td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td><td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td><td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td><td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td><td>${salesLineShapeCell(l,i)}</td><td class='line-services-cell'>${salesLineServicesSummary(l)}</td><td class='ss-status'><span class='pill ${st.cls}'>${esc(st.label)}</span></td><td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td><td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='13' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div></section>`;
 };
 
 /* ---------- Edgework Set editor ---------- */
