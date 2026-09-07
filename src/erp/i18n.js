@@ -18,7 +18,6 @@ const I18N_EN={
   "Зазор Y": "Gap Y",
   "Торцевой": "End clr",
   "размеры на чертеже — в свету, от зазора": "drawing dimensions are clear sizes, measured from the gap",
-  "шт": "pcs",
   "Раскрой баров": "Bar cut list",
   "нет отрезков": "no segments",
   "Всего": "Total",

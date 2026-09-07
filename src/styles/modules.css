@@ -714,13 +714,16 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    фиксированно, деления и цена прижаты вправо. Строка живёт под чертежом, где
    на неё хватает ширины; в узком окне она переносится, а не режется. */
 .shape-muntin-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:9px}
-.shape-muntin-row>.pick{flex:1 1 150px;min-width:120px;max-width:260px}
-.shape-muntin-row>.num{flex:0 0 82px}
-.shape-muntin-row>.out{flex:0 0 auto;min-width:52px}
+/* Поля УЖИМАЮТСЯ, а не переносятся: ширину подписи задаёт шрифт системы, и
+   прибитая ширина ячейки ломала строку на чужой машине. Минимум держит поле
+   читаемым, дальше подпись обрезается многоточием. */
+.shape-muntin-row>.pick{flex:1 1 150px;min-width:96px;max-width:260px}
+.shape-muntin-row>.num{flex:0 1 82px;min-width:58px}
+.shape-muntin-row>.out{flex:0 1 auto;min-width:46px}
 /* Подпись в одну строку и значение той же высоты, что поле ввода: иначе
    ячейка становится выше соседних и вся строка идёт лесенкой. */
 .shape-muntin-row>.shape-muntin-field{margin:0}
-.shape-muntin-row>.shape-muntin-field>span{white-space:nowrap}
+.shape-muntin-row>.shape-muntin-field>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .shape-muntin-row>.out>b{display:flex;align-items:center;height:23px;padding:0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
 .shape-muntin-row>.out.price>b{color:#175f83}
 .shape-muntin-row select,.shape-muntin-row input{width:100%}

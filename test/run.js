@@ -2825,12 +2825,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        ТОЛЬКО когда он есть: безусловное поле переклеймило бы каждую уже
        сохранённую форму и разом пометило все строки заказов устаревшими. */
     eq('бар входит в отпечаток формы, а его отсутствие — нет', await t.p.evaluate(`(()=>{
-      const plain=normalizeShapeDef({type:'rect',w:'48',h:'36'});
-      const fp=d=>ShapeModule.compute(d).fingerprint;
-      const empty=normalizeShapeDef(Object.assign({},plain,{muntin:{}}));
-      const bar=normalizeShapeDef(Object.assign({},plain,{muntin:{enabled:true,verticalBars:1,horizontalBars:1}}));
-      return {emptyKeepsIt:fp(plain)===fp(empty),barChangesIt:fp(plain)!==fp(bar)};
-    })()`), {emptyKeepsIt:true,barChangesIt:true});
+      const base=Object.assign(newShapeDef('smart'),{w:'48',h:'36'});
+      const fp=d=>ShapeModule.compute(normalizeShapeDef(d)).fingerprint;
+      const plain=fp(base),empty=fp(Object.assign({},base,{muntin:{}}));
+      const bar=fp(Object.assign({},base,{muntin:{enabled:true,verticalBars:1,horizontalBars:1}}));
+      return {computed:!!plain,emptyKeepsIt:plain===empty,barChangesIt:plain!==bar};
+    })()`), {computed:true,emptyKeepsIt:true,barChangesIt:true});
 
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */
