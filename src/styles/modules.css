@@ -713,13 +713,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Вся настройка бара — одной строкой: списки тянутся, числовые поля стоят
    фиксированно, деления и цена прижаты вправо. Строка живёт под чертежом, где
    на неё хватает ширины; в узком окне она переносится, а не режется. */
-.shape-muntin-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:9px}
-/* Поля УЖИМАЮТСЯ, а не переносятся: ширину подписи задаёт шрифт системы, и
-   прибитая ширина ячейки ломала строку на чужой машине. Минимум держит поле
-   читаемым, дальше подпись обрезается многоточием. */
-.shape-muntin-row>.pick{flex:1 1 150px;min-width:96px;max-width:260px}
-.shape-muntin-row>.num{flex:0 1 82px;min-width:58px}
-.shape-muntin-row>.out{flex:0 1 auto;min-width:46px}
+.shape-muntin-row{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:8px;margin-top:9px}
+/* Строка НЕ переносится: ширину подписи и списка задаёт шрифт системы, и любой
+   расчёт «влезет ли» на своей машине врёт на чужой. Поля ужимаются, подпись при
+   нехватке обрезается многоточием. Перенос возвращается только на узком экране,
+   где ужимать уже нечего. */
+.shape-muntin-row>.pick{flex:1 1 150px;min-width:0;max-width:260px}
+.shape-muntin-row>.num{flex:0 1 82px;min-width:0}
+.shape-muntin-row>.out{flex:0 1 auto;min-width:0}
 /* Подпись в одну строку и значение той же высоты, что поле ввода: иначе
    ячейка становится выше соседних и вся строка идёт лесенкой. */
 .shape-muntin-row>.shape-muntin-field{margin:0}
@@ -735,4 +736,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-axis.gaps>b{flex:1 0 100%;margin:0}
 .shape-muntin-axis.gaps>.shape-muntin-field{flex:0 0 82px;margin:0}
 .shape-muntin-reset{align-self:center;margin-top:8px}
+@media(max-width:720px){.shape-muntin-row{flex-wrap:wrap}
+ .shape-muntin-row>.pick{flex:1 1 140px;min-width:120px}
+ .shape-muntin-row>.num{flex:0 0 82px}}
 .shape-muntin-row .shape-muntin-field>b{display:block;padding:4px 0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
