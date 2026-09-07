@@ -33,6 +33,8 @@ const I18N_EN={
   "Делений": "Sections",
   "Цена": "Price",
   "Зазоры": "Gaps",
+  "делений": "sections",
+  "Бар в этом изделии": "Bar in this unit",
   "Убрать": "Remove",
   "Держать все секции открытыми": "Keep every section expanded",
   "Припуск на сторону. Пустое поле берёт значение из справочника.": "Cutting allowance per side. An empty field falls back to the reference table.",

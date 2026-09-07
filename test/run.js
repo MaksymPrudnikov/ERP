@@ -2732,94 +2732,122 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               soloStatus:salesLineServiceStatus(line).key,attention:salesLineNeedsServiceAttention(line)};
     })()`), {paid:true,unitStatus:'ready',solo:false,soloStatus:'muntin',attention:true});
 
-    /* Профиль, стороны, бары, деления и цена стоят ОДНОЙ строкой под чертежом:
-       в левой колонке редактора на них ширины физически не хватает. Зазоры в
-       строку не лезут — это подстройка посадки, и она стоит рядом с осями.
-       Стороны выбирают списком — галочка «развернуть» не называет, что именно
-       окажется снаружи. Одноцветному профилю выбор сторон не нужен. */
-    eq('настройка бара стоит одной строкой под чертежом', await t.p.evaluate(`(()=>{
+    /* Настройка живёт в ЛЕВОЙ колонке, рядом с геометрией, вырезами и кромкой,
+       и сворачивается как «Lites of the unit»: под чертежом она съедала место
+       у самого чертежа. Галочка включения лежит внутри секции, а включение
+       секцию открывает — иначе включил и не видишь, что включил. */
+    eq('раскладка стоит в левой колонке и сворачивается', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);render();
+      salesOrderConfigureShape(0);sMuntinOpen=false;render();
+      const sec=()=>document.querySelector('.shape-muntin-editor');
+      const st=()=>sec().querySelector('.shape-accordion-state').textContent.replace(/\\s+/g,' ').replace(/[+−]\\s*$/,'').trim();
+      const off={inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),
+                 inRight:!!document.querySelector('.shape-preview-side .shape-muntin-editor'),
+                 state:st(),body:!!sec().querySelector('.shape-accordion-body')};
+      toggleShapeMuntinSection();
+      const opened={body:!!sec().querySelector('.shape-accordion-body'),checkbox:!!sec().querySelector('.shape-muntin-head input')};
+      toggleShapeMuntinSection();
       setShapeMuntinEnabled(true);
-      setShapeMuntinSetup('verticalBars',1);setShapeMuntinSetup('horizontalBars',1);
-      const row=()=>document.querySelector('.shape-muntin-row');
-      const cells=()=>[...row().children].map(c=>c.querySelector('span').textContent.trim());
-      const oneLine=()=>{const r=row(),hs=[...r.children].map(c=>c.getBoundingClientRect().height);
-        return Math.round(r.getBoundingClientRect().height)<=Math.round(Math.max(...hs))+1;};
-      const oneTone={cells:cells(),oneLine:oneLine()};
-      setShapeMuntinSetup('productId','mb058_black_white');
-      const sel=[...row().querySelectorAll('select')][1];
-      const twoTone={cells:cells(),oneLine:oneLine(),sides:[...sel.options].map(o=>o.textContent)};
-      const money={sections:row().querySelector('.out b').textContent,price:row().querySelector('.price b').textContent};
-      const gaps=[...document.querySelectorAll('.shape-muntin-axis.gaps .shape-muntin-field>span')].map(s=>s.textContent.trim());
-      const underDrawing=!!document.querySelector('.shape-preview-side .shape-muntin-row');
-      cancelShapeEdit();
-      return {oneTone:oneTone,twoTone:twoTone,money:money,gaps:gaps,underDrawing:underDrawing};
-    })()`), {oneTone:{cells:['Profile / colour','Vertical','Horizontal','Sections','Price'],oneLine:true},
-             twoTone:{cells:['Profile / colour','Sides','Vertical','Horizontal','Sections','Price'],
-                      oneLine:true,sides:['Black ext · White int','White ext · Black int']},
-             money:{sections:'4',price:'18.00 CAD'},gaps:['Gap X','Gap Y','End clr'],underDrawing:true});
-
-    /* Бар — часть юнита, поэтому он рисуется на том же производственном
-       чертеже, что и стекло: отдельного листа у раскладки нет. Оси двигают в
-       форме, и один сдвинутый бар не должен уносить с чертежа остальные. */
-    eq('бары рисуются на чертеже формы и двигаются по осям', await t.p.evaluate(`(()=>{
-      tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
-      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
-      m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);render();
-      setShapeMuntinEnabled(true);
+      const autoOpen=!!sec().querySelector('.shape-accordion-body');
       setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
-      const at=()=>[...document.querySelectorAll('#shapeLivePreview .shape-muntin-bar')].map(r=>Math.round(+r.getAttribute('x')));
-      const even=at();
-      setShapeMuntinPosition('vertical',0,'12');
-      const moved=at();
-      setShapeMuntinPosition('vertical',0,'не размер');
-      const junk=at();
-      resetShapeMuntinPositions();
-      const back=at();
+      const on={state:st(),fields:[...sec().querySelectorAll('.shape-muntin-row>*>span')].map(s=>s.textContent.trim()),
+                drawnBars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length};
       cancelShapeEdit();
-      return {count:even.length,kept:moved.length,
-              movedFirst:even[0]!==moved[0],restTouched:even.slice(1).join()!==moved.slice(1).join(),
-              junkIgnored:moved.join()===junk.join(),restored:even.join()===back.join()};
-    })()`), {count:3,kept:3,movedFirst:true,restTouched:false,junkIgnored:true,restored:true});
+      return {off:off,opened:opened,autoOpen:autoOpen,on:on};
+    })()`), {off:{inLeft:true,inRight:false,state:'none',body:false},
+             opened:{body:true,checkbox:true},autoOpen:true,
+             on:{state:'2×1 · 6 sections · 27.00 CAD',
+                 fields:['Profile / colour','Vertical','Horizontal','Sections','Price'],drawnBars:3}});
 
     /* Посадка бара принадлежит изделию: зазор от кромки, торцевой зазор и оси
        задаются в форме и меняют и геометрию, и раскрой. На чертеже виден сам
-       зазор пунктиром, а размеры в свету отсчитываются ОТ НЕГО, а не от края
-       стекла — по ним цех и ставит бар. */
-    eq('зазор, размеры в свету и раскрой живут в чертеже', await t.p.evaluate(`(()=>{
+       зазор пунктиром, размеры в свету отсчитываются ОТ НЕГО, а не от края
+       стекла, и рядом идёт накопительная лесенка: от зазора до второго бара,
+       до третьего и так далее. Первый накопительный размер повторил бы первый
+       просвет, поэтому лесенка начинается со второго бара. */
+    eq('зазор, размеры в свету, лесенка и раскрой живут в чертеже', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
       salesOrderConfigureShape(0);render();
       setShapeMuntinEnabled(true);
-      setShapeMuntinSetup('verticalBars',1);setShapeMuntinSetup('horizontalBars',1);
-      const dims=()=>[...document.querySelectorAll('#shapeLivePreview text')].map(t=>t.textContent);
+      setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',2);
+      const lab=g=>[...document.querySelectorAll('#shapeLivePreview .shape-mi-prod-dims.'+g+' text')].map(t=>t.textContent);
       const cut=()=>document.querySelector('.shape-muntin-cut').textContent.replace(/\\s+/g,' ').trim();
-      const sightline=document.querySelectorAll('#shapeLivePreview .shape-muntin-sightline').length;
-      const gaps=dims().filter(t=>t==='7/16″').length;
-      const clear=dims().filter(t=>t==='23 1/4″'||t==='17 1/4″').length;
+      /* Подписи не должны наезжать друг на друга — считаем экранными
+         прямоугольниками, потому что вертикальные подписи повёрнуты. */
+      const clash=()=>{const r=[...document.querySelectorAll('#shapeLivePreview .shape-mi-prod-dims text')].map(t=>t.getBoundingClientRect());
+        let c=0;for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++){const a=r[i],b=r[j];
+          if(a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom)c++;}return c;};
+      const g=shapeMuntinGeoForDraft().geo;
+      const v=(g.v||[]).slice().sort((a,b)=>a-b),h=(g.h||[]).slice().sort((a,b)=>a-b);
+      const out={sightline:document.querySelectorAll('#shapeLivePreview .shape-muntin-sightline').length,
+        gap:lab('gap'),clear:lab('clear'),run:lab('run'),overlapping:clash()};
+      /* Накопительный размер идёт от зазора до БЛИЖНЕГО лица бара. */
+      out.fromGap=[dimIn(v[1]-g.face/2-g.ix),dimIn(h[1]-g.face/2-g.iy)];
+      setShapeMuntinSetup('verticalBars',1);setShapeMuntinSetup('horizontalBars',1);
+      out.singleBarRun=lab('run');
       const cut0=cut();
       setShapeMuntinSetup('edgeInsetY','2');
-      const cutInset=cut(),gapShown=dims().filter(t=>t==='2″').length;
+      const cutInset=cut();
       setShapeMuntinSetup('endClearance','1/8');
       const cutClear=cut();
       setShapeMuntinSetup('edgeInsetY','не размер');
-      const junkIgnored=cut()===cutClear;
+      out.junkIgnored=cut()===cutClear;
       resetShapeMuntinPositions();
-      const restored=cut()===cut0;
+      out.restored=cut()===cut0;
+      out.cutChanged=cutInset!==cut0;out.clearanceChanged=cutClear!==cutInset;
       cancelShapeEdit();
-      return {sightline:sightline,gaps:gaps,clear:clear,gapShown:gapShown,
-              cutChanged:cutInset!==cut0,clearanceChanged:cutClear!==cutInset,
-              junkIgnored:junkIgnored,restored:restored};
-    })()`), {sightline:1,gaps:2,clear:4,gapShown:1,
-             cutChanged:true,clearanceChanged:true,junkIgnored:true,restored:true});
+      return out;
+    })()`), {sightline:1,gap:['7/16″','7/16″'],
+             clear:['15 5/16″','15 1/4″','15 5/16″','11 5/16″','11 1/4″','11 5/16″'],
+             run:['31 3/16″','23 3/16″'],overlapping:0,
+             fromGap:['31 3/16″','23 3/16″'],singleBarRun:[],
+             junkIgnored:true,restored:true,cutChanged:true,clearanceChanged:true});
+
+    /* Размеры раскладки — такие же размеры чертежа, как у отверстий и
+       фурнитуры: клик открывает пилюлю − / + / hide, сдвиг и скрытие живут в
+       sDraft.dims. В отпечаток формы оформление НЕ входит — подвинутая подпись
+       не должна помечать все строки заказов устаревшими. На печати ни пилюль,
+       ни следов скрытых размеров нет, а сама лесенка печатается. */
+    eq('размер раскладки двигается, прячется и не меняет отпечаток', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesOrderConfigureShape(0);render();
+      setShapeMuntinEnabled(true);
+      setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',2);
+      const lineY=()=>Math.round(+document.querySelector('#shapeLivePreview .shape-mi-prod-dims.clear line').getAttribute('y1'));
+      const at0=lineY();
+      shapeNudgeDim('mb:cv1','h',2);
+      const out={shift:at0-lineY(),stored:JSON.parse(JSON.stringify(sDraft.dims||{}))};
+      shapeSelectDim('mb:cv1','h');render();
+      out.menu=[...document.querySelectorAll('#shapeLivePreview .shape-dim-btn text')].map(x=>x.textContent);
+      /* Размер раскладки не принадлежит ни элементу, ни фиче — карточке
+         раскрываться не от чего. */
+      out.noFeatureCard=sFeatureExpandedId===null;
+      const fp0=shapeDraftResult().fingerprint;
+      shapeToggleDimHide('mb:cv1','h');
+      out.hidden={clears:document.querySelectorAll('#shapeLivePreview .shape-mi-prod-dims.clear').length,
+                  ghost:document.querySelectorAll('#shapeLivePreview .shape-dim-ghost').length};
+      out.fingerprintSame=shapeDraftResult().fingerprint===fp0;
+      const printed=shapeDrawnProductionSvg(shapeDraftResult(),false,{sheet:true});
+      out.print={menu:/shape-dim-menu/.test(printed),ghost:/shape-dim-ghost/.test(printed),ladder:/mb:rv2/.test(printed)};
+      shapeToggleDimHide('mb:cv1','h');shapeNudgeDim('mb:cv1','h',-2);
+      out.back=JSON.parse(JSON.stringify(sDraft.dims||{}));
+      shapeNudgeDim('mb:rv2','h',2);
+      setShapeMuntinSetup('verticalBars',0);
+      out.prunedWhenBarsGone=Object.keys(sDraft.dims||{}).filter(k=>k.indexOf('mb:')===0).length;
+      cancelShapeEdit();
+      return out;
+    })()`), {shift:28,stored:{'mb:cv1':{h:{off:2}}},menu:['−','+','hide'],noFeatureCard:true,
+             hidden:{clears:5,ghost:1},fingerprintSame:true,
+             print:{menu:false,ghost:false,ladder:true},back:{},prunedWhenBarsGone:0});
 
     /* Бар меняет само изделие, поэтому входит в отпечаток формы. Но входит
        ТОЛЬКО когда он есть: безусловное поле переклеймило бы каждую уже

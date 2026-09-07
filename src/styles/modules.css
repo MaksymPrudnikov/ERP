@@ -401,13 +401,11 @@ body.shape-workspace-mode main#app>.card>.shape-new-row{display:none}
 .shape-cutout-workspace{padding:0 2px 8px}
 .shape-cutout-workspace .shape-cut-group:first-child{margin-top:2px}
 
-body.shape-workspace-mode .shape-preview-side{position:static;min-width:0;min-height:0;height:100%;padding:8px;display:flex;flex-direction:column;overflow:auto}
+body.shape-workspace-mode .shape-preview-side{position:static;min-width:0;min-height:0;height:100%;padding:8px;display:flex;flex-direction:column;overflow:hidden}
 body.shape-workspace-mode .shape-preview-side>.shape-view-tabs{flex:none;margin-bottom:6px}
 body.shape-workspace-mode .shape-view-tabs button{padding:6px 5px}
 body.shape-workspace-mode .shape-drawing-preview{flex:1;min-height:420px;height:auto;max-height:none;border-radius:7px}
 body.shape-workspace-mode #shapeLiveDerived{flex:none;max-height:none;overflow:visible}
-body.shape-workspace-mode .shape-muntin-editor{flex:none;margin:6px 0 0;padding:8px 9px}
-body.shape-workspace-mode .shape-muntin-editor.on{padding:8px 9px}
 body.shape-workspace-mode .smart-kpis{display:flex;gap:0;margin-top:5px;padding:2px 4px;border:1px solid var(--line);border-radius:7px;background:#f8fafb;overflow-x:auto}
 body.shape-workspace-mode .smart-kpis>div{flex:1 0 auto;min-width:125px;padding:4px 8px;border:0;border-right:1px solid var(--line);border-radius:0;background:transparent}
 body.shape-workspace-mode .smart-kpis>div:last-child{border-right:0}
@@ -687,7 +685,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .mu-lam-film{grid-template-columns:22px minmax(90px,.5fr) minmax(170px,1.1fr) minmax(150px,.9fr) minmax(120px,.6fr) 28px}
 
 /* Раскладка в редакторе формы: профиль и число баров заданы камерой, здесь двигают оси. */
-.shape-muntin-editor{margin-top:10px;padding:10px;border:1px solid var(--line2);border-radius:9px;background:#fff}
+
 .shape-muntin-meta{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px;font-size:9px;color:var(--mut)}
 .shape-muntin-axis{margin-top:8px}
 .shape-muntin-axis>b{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
@@ -699,28 +697,34 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-note{display:block;margin-top:6px;color:var(--mut);font-size:8.5px}
 .shape-muntin-field>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
 .shape-muntin-field input,.shape-muntin-field select{width:100%;padding:4px 6px;font-size:9px}
+/* Цветовое кодирование размеров раскладки: зазор — оранжевый, свет — синий,
+   накопительная лесенка — серая, как на цеховом чертеже. */
+.shape-mi-prod-dims.gap line,.shape-dim-ghost.gap circle{stroke:#b36b00}
+.shape-mi-prod-dims.gap text{fill:#b36b00}
+.shape-mi-prod-dims.clear line{stroke:#0057b8}
+.shape-mi-prod-dims.clear text{fill:#0057b8}
+.shape-mi-prod-dims.run line{stroke:#4f4f4f}
+.shape-mi-prod-dims.run text{fill:#4f4f4f}
+.shape-mi-prod-dims.gap .shape-dim-hit,.shape-mi-prod-dims.clear .shape-dim-hit,.shape-mi-prod-dims.run .shape-dim-hit{stroke:transparent}
 .shape-muntin-cut{margin-top:10px;padding:8px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2)}
 .shape-muntin-cut>b{display:block;margin-bottom:5px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
 .shape-muntin-cut>span{display:inline-flex;align-items:baseline;gap:5px;margin:0 8px 4px 0;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
 .shape-muntin-cut>span i{font-style:normal;font-weight:700;color:#475467}
 .shape-muntin-cut>small{display:block;margin-top:4px;color:var(--mut);font-size:8.5px}
 
-.shape-muntin-editor.on{padding:10px}
-.shape-muntin-head{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer}
+.shape-muntin-head{display:flex;align-items:center;gap:8px;margin:0 0 4px;cursor:pointer}
 .shape-muntin-head input{width:15px;height:15px;margin:0;flex:none}
 .shape-muntin-head>span{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#475467}
 .shape-muntin-head small{color:var(--mut);font-size:8.5px}
 /* Вся настройка бара — одной строкой: списки тянутся, числовые поля стоят
    фиксированно, деления и цена прижаты вправо. Строка живёт под чертежом, где
    на неё хватает ширины; в узком окне она переносится, а не режется. */
-.shape-muntin-row{display:flex;flex-wrap:nowrap;align-items:flex-end;gap:8px;margin-top:9px}
-/* Строка НЕ переносится: ширину подписи и списка задаёт шрифт системы, и любой
-   расчёт «влезет ли» на своей машине врёт на чужой. Поля ужимаются, подпись при
-   нехватке обрезается многоточием. Перенос возвращается только на узком экране,
-   где ужимать уже нечего. */
-.shape-muntin-row>.pick{flex:1 1 150px;min-width:0;max-width:260px}
-.shape-muntin-row>.num{flex:0 1 82px;min-width:0}
-.shape-muntin-row>.out{flex:0 1 auto;min-width:0}
+/* Секция живёт в левой колонке (406 px), поэтому поля переносятся рядами:
+   списки занимают строку целиком, счётчики и итоги встают парами. */
+.shape-muntin-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:9px}
+.shape-muntin-row>.pick{flex:1 1 100%;min-width:0}
+.shape-muntin-row>.num{flex:1 1 96px;min-width:82px}
+.shape-muntin-row>.out{flex:1 1 76px;min-width:64px}
 /* Подпись в одну строку и значение той же высоты, что поле ввода: иначе
    ячейка становится выше соседних и вся строка идёт лесенкой. */
 .shape-muntin-row>.shape-muntin-field{margin:0}
@@ -736,7 +740,5 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-axis.gaps>b{flex:1 0 100%;margin:0}
 .shape-muntin-axis.gaps>.shape-muntin-field{flex:0 0 82px;margin:0}
 .shape-muntin-reset{align-self:center;margin-top:8px}
-@media(max-width:720px){.shape-muntin-row{flex-wrap:wrap}
- .shape-muntin-row>.pick{flex:1 1 140px;min-width:120px}
- .shape-muntin-row>.num{flex:0 0 82px}}
+
 .shape-muntin-row .shape-muntin-field>b{display:block;padding:4px 0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
