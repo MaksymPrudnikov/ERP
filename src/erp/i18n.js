@@ -12,6 +12,13 @@
 let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
+  /* Раскладка: галочка в камере и панель в чертеже. */
+  "раскладка в этой камере": "layout in this cavity",
+  "Раскладка внутри камеры · чертёж и BOM": "Layout inside the cavity · drawing and BOM",
+  "Раскладка разрешена камерой стеклопакета. Бар режется контуром этой формы, поэтому чертёж и BOM живут здесь же.": "The layout is enabled by the cavity of the unit. The bar is cut by the real contour of this Shape, so the drawing and the BOM live here.",
+  "Делений": "Sections",
+  "Применить раскладку": "Apply layout",
+  "Убрать": "Remove",
   "Держать все секции открытыми": "Keep every section expanded",
   "Припуск на сторону. Пустое поле берёт значение из справочника.": "Cutting allowance per side. An empty field falls back to the reference table.",
   "Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.": "Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.",

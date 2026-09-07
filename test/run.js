@@ -2680,6 +2680,61 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               a:[a.allowanceManual,a.allowance,a.allowanceAuto],b:[b.allowanceManual,b.allowance]};
     })()`), {before:[20.125,44.125],after:[20.1875,44.125],a:[true,0.125,0.0625],b:[false,0.0625]});
 
+    /* ---- Раскладка (muntin) -------------------------------------------
+       Бар стоит МЕЖДУ стёклами, поэтому его включает камера стеклопакета: на
+       одиночном стекле камер нет и раскладки не бывает. Настраивается она в
+       чертеже — там же, где режется реальным контуром формы, — а отдельной
+       колонки в строках заказа больше нет: услуга редкая. */
+    eq('раскладку включает камера, а не строка заказа', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      const off=salesLineAllowsMuntin(line);
+      salesCavitySetMuntin(0,true);
+      const on=salesLineAllowsMuntin(line);
+      m.unitType='single';m.cavities=[];
+      const solo=salesLineAllowsMuntin(line);
+      return {off:off,on:on,solo:solo,
+              column:document.querySelector('.sales-lines-table').innerHTML.indexOf('>Muntin<')>=0};
+    })()`), {off:false,on:true,solo:false,column:false});
+
+    /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
+       на два прямоугольника, горизонтальный с вертикальным — на четыре. */
+    eq('раскладка считается по делениям', await t.p.evaluate(`(()=>{
+      const make=(v,h)=>{
+        tab='sales';render();salesOrderNew();soDraft.lines=[];
+        salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
+        const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+        m.unitType='double';salesSelectMakeup(m.id);salesCavitySetMuntin(0,true);
+        salesOrderConfigureShape(0);setShapeWorkspaceTab('muntin');
+        shapeMuntinSet('verticalBars',v);shapeMuntinSet('horizontalBars',h);
+        shapeMuntinSave();
+        const row=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0);
+        cancelShapeEdit();
+        return row?[row.basis,row.catalogRate]:[];
+      };
+      return {h1:make(0,1),cross:make(1,1),v2h1:make(2,1),none:make(0,0)};
+    })()`), {h1:[2,4.5],cross:[4,4.5],v2h1:[6,4.5],none:[]});
+
+    /* Сняли галочку — раскладке негде быть: она отвязывается от строк, иначе
+       осталась бы в заказе невидимой и продолжала считаться в цене. */
+    eq('снятая галочка убирает раскладку и её цену', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);salesCavitySetMuntin(0,true);
+      salesOrderConfigureShape(0);setShapeWorkspaceTab('muntin');
+      shapeMuntinSet('verticalBars',1);shapeMuntinSet('horizontalBars',1);
+      shapeMuntinSave();cancelShapeEdit();
+      const linked=!!(line.muntinRef&&line.muntinRef.id);
+      const paid=!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0);
+      salesSelectMakeup(m.id);salesCavitySetMuntin(0,false);
+      return {linked:linked,paid:paid,
+              stillLinked:!!(line.muntinRef&&line.muntinRef.id),
+              stillPaid:!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0)};
+    })()`), {linked:true,paid:true,stillLinked:false,stillPaid:false});
+
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */
     eq('лами-полировка печатается после точки слияния', await t.p.evaluate(`(()=>{${LAM_SETUP}

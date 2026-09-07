@@ -264,7 +264,10 @@ function salesSpacerWidths(){
   return String(a).localeCompare(String(b));
  });
 }
-function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
+/* Раскладка живёт В КАМЕРЕ: бар ставится между стёклами, и на одиночном стекле
+   его не бывает. Поэтому у Single Lite камер нет — и колонки Muntin в строках
+   тоже: услуга редкая, а колонка занимала место в каждом заказе. */
+function salesDefaultCavity(i){return {id:salesUid('CAV'),muntin:false,spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
    заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
@@ -308,7 +311,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),muntin:c.muntin===true,priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));

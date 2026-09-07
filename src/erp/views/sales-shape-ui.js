@@ -188,7 +188,34 @@ function setShapeExtraOut(id,k,v){
   window[name]=function(){var args=arguments;return shapeGeometryEdit(function(){return original.apply(null,args);});};
 });
 function setShapeView(v){if(shapeIsDxfSource(sDraft)){if(v!=='production'&&v!=='cutting')return;sView=v;refreshShapeEditor();return;}sView=v;refreshShapeEditor();}
-function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';sDimEdit=null;render();}
+function setShapeWorkspaceTab(v){
+  var allowed=v==='cutout'||(v==='muntin'&&shapeMuntinAllowed());
+  sWorkspaceTab=allowed?v:'designer';sDimEdit=null;
+  if(sWorkspaceTab==='muntin')shapeMuntinEnsureDraft();
+  render();
+}
+/* Раскладку разрешает КАМЕРА стеклопакета: бар стоит между стёклами, поэтому
+   на одиночном стекле его не бывает. Пока галочки нет — вкладки нет, и в
+   строке заказа тоже ничего не появляется: услуга редкая. */
+function shapeMuntinLine(){
+  if(!salesBridge||salesBridge.kind!=='shape'||typeof soDraft==='undefined'||!soDraft)return null;
+  return (soDraft.lines||[]).find(function(l){return l.id===salesBridge.lineId;})||null;
+}
+function shapeMuntinAllowed(){
+  var line=shapeMuntinLine();
+  return !!(line&&typeof salesLineAllowsMuntin==='function'&&salesLineAllowsMuntin(line));
+}
+/* Раскладка живёт отдельной сущностью и ссылается на СОХРАНЁННУЮ форму с её
+   ревизией, поэтому черновик поднимается из уже сохранённой формы строки. */
+function shapeMuntinEnsureDraft(){
+  var line=shapeMuntinLine();if(!line)return null;
+  var shape=salesShapeByRef(line.shapeRef);if(!shape)return null;
+  var current=salesMuntinByRef(line.muntinRef);
+  if(current){mDraft=JSON.parse(JSON.stringify(current));mDraft.muntin=normalizeMuntinModel(mDraft.muntin);mEdit=DB.muntinDef.findIndex(function(m){return m.id===current.id;});}
+  else{mDraft=newMuntinDef(shape.id);mDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||line.id)+' Muntin';pinMuntinShape(mDraft,shape);mEdit='new';}
+  mFieldErrors={};
+  return mDraft;
+}
 /* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
    «Geometry modifiers»), и одно и то же посадочное место можно было завести
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
@@ -1162,6 +1189,7 @@ function shapeDrawnProductionBody(svg,T,interactive){
   return svg;
 }
 function shapePreviewMarkup(r){
+  if(sWorkspaceTab==='muntin'&&typeof muntinLiveHTML==='function'&&mDraft&&mDraft.muntin)return muntinLiveHTML();
   if(r&&r.externalFile){
     var source=(r.definition&&r.definition.source)||shapeNormalizeSource(null),cutting=sView==='cutting',svg=r.sourceValid?shapeDxfPreviewSvg(source,!cutting):'';
     var title=cutting?'CUTTING DXF · source file':'Production Drawing · DXF';
@@ -1936,7 +1964,7 @@ function shapeForm(){
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
-    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview${sWorkspaceTab==='muntin'?' wide':''}'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
     <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 

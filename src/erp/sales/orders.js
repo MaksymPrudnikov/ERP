@@ -191,6 +191,26 @@ function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
+/* Сняли галочку — раскладке в этом makeup больше негде быть: отвязываем её от
+   строк, иначе спроектированный муntin остался бы в заказе невидимым (колонка
+   уже не показывается) и продолжал бы считаться в цене. */
+function salesCavitySetMuntin(i,on){
+ const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
+ c.muntin=!!on;
+ if(!on&&!salesMakeupHasMuntin(m))(soDraft.lines||[]).forEach(function(l){
+  if(l.makeupId===m.id&&l.muntinRef&&l.muntinRef.id)l.muntinRef=normalizeMuntinRef(null);
+ });
+ render();
+}
+/* Раскладка разрешена, если хоть одна камера makeup её несёт. */
+function salesMakeupHasMuntin(m){return !!(m&&(m.cavities||[]).some(function(c){return c&&c.muntin===true;}));}
+function salesLineAllowsMuntin(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
+ return salesMakeupHasMuntin(m);
+}
+function salesOrderUsesMuntin(){
+ return (soDraft&&soDraft.lines||[]).some(salesLineAllowsMuntin);
+}
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
    если она выпускается в этом размере; иначе берём первый доступный вариант. */
 /* Пустое поле снимает ручную цену и возвращает каталожную: это законный
@@ -648,6 +668,11 @@ const SALES_SERVICE_RATE_TABLE={
     на любую толщину склейки. Когда банды появятся, число заменяется объектом
     вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
  lamiPolish:.28,cncLamiPolish:.35,
+ /* Раскладка считается по ДЕЛЕНИЯМ, а не по длине бара: один горизонтальный бар
+    делит стекло на два прямоугольника, горизонтальный с вертикальным — на
+    четыре. Цена одна на любой бар, ставка правится в строке и в заказе, как у
+    всех начислений: «иногда мы делаем цену ниже». */
+ muntinSection:4.50,
  notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
  sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
@@ -838,7 +863,7 @@ function salesChargeShortLabel(row){
     владельцем вида имени в этом коде нет и быть не может. */
  const kp=String(row.key||'').split(':');
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
- const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
+ const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Muntin sections')return 'MUNTIN';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
  const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${r.unit==='pc'?esc(n):esc(dimIn(n))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
@@ -853,6 +878,27 @@ function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
+/* Сколько прямоугольников получилось из стекла. Бары идут через всё поле,
+   поэтому делений ровно (вертикальных+1) × (горизонтальных+1): один
+   горизонтальный даёт 2, горизонтальный с вертикальным — 4. */
+function salesMuntinSections(line){
+ const def=salesMuntinByRef(line&&line.muntinRef);if(!def)return 0;
+ /* Раскладка лежит в def.muntin.layout — уровнем глубже, чем кажется по имени
+    поля: сама сущность несёт ещё имя, ссылку на форму и её ревизию. */
+ const M=typeof normalizeMuntinModel==='function'?normalizeMuntinModel(def.muntin):(def.muntin||{});
+ const lay=(M&&M.layout&&typeof M.layout==='object')?M.layout:{};
+ const v=Math.max(0,Math.floor(+lay.verticalBars||0)),h=Math.max(0,Math.floor(+lay.horizontalBars||0));
+ if(!v&&!h)return 0;
+ return (v+1)*(h+1);
+}
+function salesMuntinChargeRows(line){
+ /* Раскладка снятая с камеры уже отвязана от строки, но заказ мог прийти
+    импортом — тогда платить за неё нельзя: делать её негде. */
+ if(typeof salesLineAllowsMuntin==='function'&&!salesLineAllowsMuntin(line))return [];
+ const n=salesMuntinSections(line);
+ if(!n)return [];
+ return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesCatalogRate('muntinSection',{ok:true,band:''}),'Muntin')];
+}
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy
    schema field only as an internal calculation input so old saved definitions and

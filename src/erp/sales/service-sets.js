@@ -473,6 +473,9 @@ salesLineChargeRows=function(line){
   /* Остекление (фрит, спандрел) приходит из makeup, а не из геометрии, и
      считается до выхода по отсутствию контура: наносят его и на прямоугольник. */
   salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
+  /* Раскладка не зависит от геометрии кромки и считается до выхода по
+     отсутствию контура — как и остекление выше. */
+  if(typeof salesMuntinChargeRows==='function')salesMuntinChargeRows(line).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var saved=line&&line.shapeRef?salesShapeByRef(line.shapeRef):null,items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
   /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */

@@ -122,6 +122,72 @@ function setShapeEdgeAllowanceAll(value){
 function resetShapeEdgeAllowances(){
   sDraft.edgeAllowances={};shapeAllowanceTouched();
 }
+/* ---------- Muntin в чертеже ----------
+   Раскладку включает КАМЕРА стеклопакета, а настраивают её здесь: бар режется
+   реальным контуром формы, поэтому и панель, и чертёж принадлежат форме.
+   Отдельной колонки в строках заказа больше нет — услуга редкая, а колонка
+   стояла в каждом заказе. */
+function shapeMuntinSectionCount(){
+  var M=mDraft&&mDraft.muntin?normalizeMuntinModel(mDraft.muntin):null;
+  if(!M)return 0;
+  var v=Math.max(0,+M.layout.verticalBars||0),h=Math.max(0,+M.layout.horizontalBars||0);
+  return (v||h)?(v+1)*(h+1):0;
+}
+function shapeMuntinPanel(){
+  var line=shapeMuntinLine();
+  if(!line)return `<div class='validation-box badbox'>Muntin belongs to a Sales Order line.</div>`;
+  if(!salesShapeByRef(line.shapeRef))return `<div class='validation-box badbox'>Save the Shape revision first — the layout is cut by its real contour.</div>`;
+  if(!mDraft||!mDraft.muntin)shapeMuntinEnsureDraft();
+  if(!mDraft)return `<div class='validation-box badbox'>Muntin draft is unavailable.</div>`;
+  var M=normalizeMuntinModel(mDraft.muntin),P=M.production,sections=shapeMuntinSectionCount();
+  var r=MuntinModule.compute(salesShapeByRef(line.shapeRef),mDraft);
+  return `<div class='shape-master-fields'>
+    <div class='shape-prod-note'><b>Muntin</b><span>Раскладка разрешена камерой стеклопакета. Бар режется контуром этой формы, поэтому чертёж и BOM живут здесь же.</span></div>
+    <div class='grid'>
+      <div><label>Muntin profile</label><select onchange='shapeMuntinSet("productId",this.value)'>${MUNTIN_BARS.map(function(x){return `<option value='${esc(x.id)}' ${x.id===M.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></div>
+      <div><label>Vertical bars</label><input type='number' min='0' max='12' value='${M.layout.verticalBars}' onchange='shapeMuntinSet("verticalBars",this.value)'></div>
+      <div><label>Horizontal bars</label><input type='number' min='0' max='12' value='${M.layout.horizontalBars}' onchange='shapeMuntinSet("horizontalBars",this.value)'></div>
+      <div><label>Layout</label><select onchange='shapeMuntinSet("mode",this.value)'><option value='equal' ${P.mode==='equal'?'selected':''}>Equal clear</option><option value='custom' ${P.mode==='custom'?'selected':''}>Custom positions</option></select></div>
+      <div><label>Edge inset X</label><input value='${esc(dimIn(P.edgeInsetX).replace('″',''))}' onchange='shapeMuntinNumber("edgeInsetX",this.value)'></div>
+      <div><label>Edge inset Y</label><input value='${esc(dimIn(P.edgeInsetY).replace('″',''))}' onchange='shapeMuntinNumber("edgeInsetY",this.value)'></div>
+    </div>
+    <div class='shape-muntin-summary'><span>Делений</span><b>${sections}</b><span>Segments</span><b>${r.valid?r.count:'—'}</b><span>Total cut</span><b>${r.valid?esc(dimIn(r.totalLengthIn)):'—'}</b></div>
+    ${r.valid?'':`<div class='validation-box badbox'>${esc(moduleErrorText(r))}</div>`}
+    <div class='row'><button class='pri sm' onclick='shapeMuntinSave()'>Применить раскладку</button>${line.muntinRef&&line.muntinRef.id?`<button class='sm dl' onclick='shapeMuntinRemove()'>Убрать</button>`:''}</div>
+  </div>`;
+}
+function shapeMuntinSet(k,v){
+  if(!mDraft)return;
+  if(k==='productId')mDraft.muntin.productId=v;
+  else if(k==='verticalBars')mDraft.muntin.layout.verticalBars=clampBars(v);
+  else if(k==='horizontalBars')mDraft.muntin.layout.horizontalBars=clampBars(v);
+  else if(k==='mode')mDraft.muntin.production.mode=v;
+  render();
+}
+function shapeMuntinNumber(k,v){
+  if(!mDraft)return;
+  var r=fabParseDimStrict(v);
+  if(r.ok&&r.v>=0)mDraft.muntin.production[k]=r.v;
+  render();
+}
+/* Раскладка — отдельная сущность со своей ревизией формы, поэтому применяется
+   сразу в базу, а не ждёт сохранения черновика формы. */
+function shapeMuntinSave(){
+  var line=shapeMuntinLine();if(!line||!mDraft)return;
+  var shape=salesShapeByRef(line.shapeRef);if(!shape)return;
+  pinMuntinShape(mDraft,shape);
+  var r=MuntinModule.compute(shape,mDraft);
+  if(!r.valid)return alert(moduleErrorText(r));
+  var i=DB.muntinDef.findIndex(function(m){return m.id===mDraft.id;});
+  if(i>=0)DB.muntinDef[i]=JSON.parse(JSON.stringify(mDraft));else DB.muntinDef.push(JSON.parse(JSON.stringify(mDraft)));
+  line.muntinRef=salesMuntinRefFrom(mDraft);
+  touch();render();
+}
+function shapeMuntinRemove(){
+  var line=shapeMuntinLine();if(!line)return;
+  line.muntinRef=normalizeMuntinRef(null);
+  touch();shapeMuntinEnsureDraft();render();
+}
 function shapeProdBorderField(){
   var ctx=shapeProdBorderPlan();
   if(!ctx)return '';
@@ -504,11 +570,15 @@ shapeForm=function(){
   var designer=external
     ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing remains editable.</div>${shapeProdDxfEdgeProcessing()}`
     : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
-  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer;
+  var muntinOn=typeof shapeMuntinAllowed==='function'&&shapeMuntinAllowed();
+  if(sWorkspaceTab==='muntin'&&!muntinOn)sWorkspaceTab='designer';
+  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true)
+    :sWorkspaceTab==='muntin'?shapeMuntinPanel()
+    :shapeProdMasterFields()+designer;
   var cutoutCount=shapeCutoutItemCount();
-  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
+  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button>${muntinOn?`<button type='button' role='tab' aria-selected='${sWorkspaceTab==='muntin'}' class='${sWorkspaceTab==='muntin'?'on':''}' onclick='setShapeWorkspaceTab("muntin")'><span>3</span><b>Muntin</b><small>Раскладка внутри камеры · чертёж и BOM</small>${shapeMuntinSectionCount()?`<i>${shapeMuntinSectionCount()}</i>`:''}</button>`:''}</div>`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
-  return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
+  return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview${sWorkspaceTab==='muntin'?' wide':''}'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
