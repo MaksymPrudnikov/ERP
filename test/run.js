@@ -2712,19 +2712,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       /* Флажок разворота нужен только двухцветному профилю: у остальных обе
          стороны одного цвета, и выбор ничего не меняет. */
       const oneTone={flip:on.querySelectorAll('.mu-flip').length,
-                     note:on.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: Black · Interior: Black')>=0};
+                     note:on.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: Black · Interior: Black')>=0};
       salesCavityMuntinSet(0,'productId','mb058_black_white');
       const two=document.querySelector('[data-mu-section="cavity-0"]');
       const twoTone={flip:two.querySelectorAll('.mu-flip').length,
-                     note:two.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: Black · Interior: White')>=0};
+                     note:two.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: Black · Interior: White')>=0};
       salesCavityMuntinSet(0,'flipped',true);
-      const flipped=document.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: White · Interior: Black')>=0;
+      const flipped=document.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: White · Interior: Black')>=0;
+      /* Профиль, бары, деления и цена стоят одной строкой. */
+      const cells=[...on.querySelectorAll('.mu-muntin-grid>div')].map(d=>d.querySelector('label').textContent.trim());
       return {off:off,
-              onGrid:!!on.querySelector('.mu-muntin-grid'),
-              price:!!on.querySelector('.mu-muntin-price'),
+              cells:cells,
+              price:!!on.querySelector('.mu-muntin-total'),
               oneTone:oneTone,twoTone:twoTone,flipped:flipped};
-    })()`), {off:{block:true,grid:false},onGrid:true,price:true,
-             oneTone:{flip:0,note:true},twoTone:{flip:1,note:true},flipped:true});
+    })()`), {off:{block:true,grid:false},
+             cells:['Profile / colour','Vertical bars','Horizontal bars','Sections','Rate per section','Muntin total'],
+             price:true,oneTone:{flip:0,note:true},twoTone:{flip:1,note:true},flipped:true});
 
     /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
        на два прямоугольника, горизонтальный с вертикальным — на четыре. Считает
@@ -2784,6 +2787,36 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               movedFirst:even[0]!==moved[0],restTouched:even.slice(1).join()!==moved.slice(1).join(),
               junkIgnored:moved.join()===junk.join(),restored:even.join()===back.join()};
     })()`), {count:3,kept:3,movedFirst:true,restTouched:false,junkIgnored:true,restored:true});
+
+    /* Посадка бара на стекле принадлежит изделию: зазор от кромки, торцевой
+       зазор и оси задаются в форме и меняют и геометрию, и раскрой. Размеры в
+       свету рисуются на самом чертеже — по ним цех и ставит бар. */
+    eq('зазоры, оси и раскрой живут в чертеже', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t48\t36\tX',0);salesExcelApply();
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesCavitySetMuntin(0,true);
+      salesCavityMuntinSet(0,'verticalBars',1);salesCavityMuntinSet(0,'horizontalBars',1);
+      salesOrderConfigureShape(0);render();
+      const dims=()=>[...document.querySelectorAll('#shapeLivePreview text')].map(t=>t.textContent).filter(t=>t.indexOf('″')>=0);
+      const cut=()=>document.querySelector('.shape-muntin-cut').textContent.replace(/\s+/g,' ').trim();
+      const sight=dims(),cut0=cut();
+      setShapeMuntinSetup('edgeInsetY','2');
+      const cutInset=cut();
+      setShapeMuntinSetup('endClearance','1/8');
+      const cutClear=cut();
+      setShapeMuntinSetup('edgeInsetY','не размер');
+      const junkIgnored=cut()===cutClear;
+      resetShapeMuntinPositions();
+      const back=cut()===cut0;
+      const fields=[...document.querySelectorAll('.shape-muntin-setup .shape-muntin-field>span')].map(x=>x.textContent.trim());
+      cancelShapeEdit();
+      return {sightlines:sight.length,fields:fields,
+              cutChanged:cutInset!==cut0,clearanceChanged:cutClear!==cutInset,
+              junkIgnored:junkIgnored,restored:back};
+    })()`), {sightlines:4,fields:['Edge gap X','Edge gap Y','Bar end clearance','Edge reference'],
+             cutChanged:true,clearanceChanged:true,junkIgnored:true,restored:true});
 
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */

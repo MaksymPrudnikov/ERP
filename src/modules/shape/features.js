@@ -145,13 +145,24 @@ function shapeEdgeNeedsBorder(edge,a,b){
 /* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
    Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
    поле навсегда прибивало бы припуск к нулю. */
+/* Установочные параметры раскладки на ЭТОМ изделии: зазор от кромки до первого
+   бара (sightline), торцевой зазор, способ отсчёта и вручную сдвинутые оси.
+   Профиль и количество баров задаёт камера — здесь только посадка на стекле. */
 function shapeNormalizeMuntinPositions(raw){
   raw=raw&&typeof raw==='object'?raw:{};
   var take=function(list){
-    return (Array.isArray(list)?list:[]).map(function(v){return String(v==null?'':v).trim();}).filter(Boolean);
+    return (Array.isArray(list)?list:[]).map(function(v){return String(v==null?'':v).trim();});
   };
-  var v=take(raw.vertical),h=take(raw.horizontal);
-  return (v.length||h.length)?{vertical:v,horizontal:h}:{};
+  var trim=function(list){var a=take(list);while(a.length&&!a[a.length-1])a.pop();return a;};
+  var dim=function(v){var t=String(v==null?'':v).trim();return t&&fabParseDimStrict(t).ok?t:'';};
+  var out={},v=trim(raw.vertical),h=trim(raw.horizontal);
+  if(v.length)out.vertical=v;
+  if(h.length)out.horizontal=h;
+  ['edgeInsetX','edgeInsetY','endClearance'].forEach(function(k){
+    var t=dim(raw[k]);if(t)out[k]=t;
+  });
+  if(raw.edgeMode==='axis')out.edgeMode='axis';
+  return out;
 }
 function shapeNormalizeAllowanceEdges(raw){
   var out={};

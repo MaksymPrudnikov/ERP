@@ -298,25 +298,22 @@ function salesCavityMuntinBlock(c,index){
      местами. */
   const two=bar.exteriorColor!==bar.interiorColor;
   const ext=m.flipped?bar.interiorColor:bar.exteriorColor,int=m.flipped?bar.exteriorColor:bar.interiorColor;
+  /* Одна строка: профиль, бары, деления и цена. Раскладка — короткий выбор,
+     и разносить его на два ряда незачем. */
+  const sections=salesMuntinSectionsOf(m),rate=salesMuntinRate(c);
+  const total=sections&&rate!=null?(sections*rate).toFixed(2):'—';
   return `<div class="mu-muntin on">${head}
     <div class="mu-muntin-grid${two?' two-tone':''}">
       <div class="mu-muntin-profile"><label>${esc(tx('Профиль / цвет'))}</label>
-        <select onchange="salesCavityMuntinSet(${index},'productId',this.value)">${MUNTIN_BARS.filter(x=>x.enabled!==false).map(x=>`<option value="${esc(x.id)}" ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select>
-        <small>${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(ext)}</b> · Interior: <b>${esc(int)}</b></small></div>
+        <select onchange="salesCavityMuntinSet(${index},'productId',this.value)">${MUNTIN_BARS.filter(x=>x.enabled!==false).map(x=>`<option value="${esc(x.id)}" ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
       <div><label>${esc(tx('Вертикальные'))}</label><select onchange="salesCavityMuntinSet(${index},'verticalBars',this.value)">${bars(m.verticalBars)}</select></div>
       <div><label>${esc(tx('Горизонтальные'))}</label><select onchange="salesCavityMuntinSet(${index},'horizontalBars',this.value)">${bars(m.horizontalBars)}</select></div>
-      ${two?`<div class="mu-muntin-flip"><label>${esc(tx('Стороны'))}</label><label class="mu-flip"><input type="checkbox" ${m.flipped?'checked':''} onchange="salesCavityMuntinSet(${index},'flipped',this.checked)"><span>${esc(tx('Развернуть бар'))}</span></label></div>`:''}
+      ${two?`<div><label>${esc(tx('Стороны'))}</label><label class="mu-flip"><input type="checkbox" ${m.flipped?'checked':''} onchange="salesCavityMuntinSet(${index},'flipped',this.checked)"><span>${esc(tx('Развернуть'))}</span></label></div>`:''}
+      <div class="mu-muntin-sections"><label>${esc(tx('Делений'))}</label><b>${sections}</b></div>
+      <div><label>${esc(tx('Цена за деление'))}</label>${salesPriceCell('CavityMuntin',index,salesMuntinCatalogRate(),c.muntinPriceOverride)}</div>
+      <div class="mu-muntin-sections"><label>${esc(tx('Итого раскладка'))}</label><b class="mu-muntin-total">${total}</b></div>
     </div>
-    ${salesCavityMuntinPrice(c,index,m)}
+    <small class="mu-muntin-note">${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(ext)}</b> · Interior: <b>${esc(int)}</b></small>
   </div>`;
-}
-/* Цена раскладки стоит В КАМЕРЕ, второй строкой после цены обвязки: считают её
-   по квадратам, которые нарезали бары, и продажник видит её там же, где
-   выбирает бары. Ставка одна на любой профиль и правится прямо здесь. */
-function salesCavityMuntinPrice(c,index,m){
-  const sections=salesMuntinSectionsOf(m),rate=salesMuntinRate(c),total=sections&&rate!=null?sections*rate:null;
-  return `<div class="mu-muntin-price"><span>${esc(tx('Делений'))}</span><b>${sections}</b>
-    <span>${esc(tx('Цена за деление'))}</span>${salesPriceCell('CavityMuntin',index,salesMuntinCatalogRate(),c.muntinPriceOverride)}
-    <span>${esc(tx('Итого раскладка'))}</span><b class="mu-muntin-total">${total==null?'—':(+total).toFixed(2)}</b></div>`;
 }
 function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc(tx('Держать все секции открытыми'))}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}

@@ -13,6 +13,17 @@ let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
   /* Раскладка: галочка в камере и панель в чертеже. */
+  "Зазор по X": "Edge gap X",
+  "Зазор по Y": "Edge gap Y",
+  "Торцевой зазор": "Bar end clearance",
+  "Отсчёт кромки": "Edge reference",
+  "По перпендикуляру": "Perpendicular offset",
+  "По оси": "Axis · legacy",
+  "Раскрой баров": "Bar cut list",
+  "нет отрезков": "no segments",
+  "Всего": "Total",
+  "Вернуть по умолчанию": "Back to defaults",
+  "Профиль и количество баров заданы камерой стеклопакета. Здесь бар сажают на стекло: зазор от кромки, торцевой зазор и оси, когда равномерная расстановка не подходит.": "The profile and the number of bars come from the cavity of the unit. Here the bar is seated on the glass: edge gap, end clearance and the axes when even spacing does not fit.",
   "Стороны": "Sides",
   "Развернуть бар": "Flip the bar",
   "Раскладка": "Muntin",
