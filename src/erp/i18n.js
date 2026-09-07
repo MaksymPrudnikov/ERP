@@ -13,6 +13,8 @@ let LANG=localStorage.getItem('glazing_system_lang') || 'en';
 const I18N_EN={
   /* Припуск на рез: экран справочника, подсказки по плитам и склейке. */
   /* Раскладка: галочка в камере и панель в чертеже. */
+  "Стороны": "Sides",
+  "Развернуть бар": "Flip the bar",
   "Раскладка": "Muntin",
   "Профиль и количество баров заданы камерой стеклопакета. Здесь оси двигают, когда равномерная расстановка не подходит: пустое поле оставляет бар на месте.": "The profile and the number of bars come from the cavity of the unit. Here the axes are moved when even spacing does not fit: an empty field leaves the bar where it is.",
   "Вертикальные оси": "Vertical axes",

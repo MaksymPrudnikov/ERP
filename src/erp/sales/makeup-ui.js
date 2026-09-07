@@ -289,31 +289,26 @@ function salesCavitySection(c,index){
    контуром формы, и чертёж остаётся в шейпе. */
 function salesCavityMuntinBlock(c,index){
   const m=normalizeSalesMuntin(c.muntin),bar=muntinProduct(m.productId);
-  const head=`<label class="mu-muntin-head"><input type="checkbox" ${m.enabled?'checked':''} onchange="salesCavitySetMuntin(${index},this.checked)"><b>${esc(tx('Раскладка (GBG)'))}</b><small>${esc(tx('внутри этой камеры'))}</small></label>`;
+  const head=`<label class="mu-muntin-head"><input type="checkbox" ${m.enabled?'checked':''} onchange="salesCavitySetMuntin(${index},this.checked)"><span>${esc(tx('Раскладка (GBG)'))}</span><small>${esc(tx('внутри этой камеры'))}</small></label>`;
   if(!m.enabled)return `<div class="mu-muntin">${head}</div>`;
   const bars=n=>Array.from({length:13},(_,i)=>i).map(i=>`<option value="${i}" ${i===n?'selected':''}>${i}</option>`).join('');
+  /* Картинки нет: у трёх профилей из четырёх обе стороны одного цвета, и
+     показывать два одинаковых квадрата незачем. Стороны называет подпись, а
+     двухцветному бару нужен флажок — иначе его разворачивали, меняя стёкла
+     местами. */
+  const two=bar.exteriorColor!==bar.interiorColor;
+  const ext=m.flipped?bar.interiorColor:bar.exteriorColor,int=m.flipped?bar.exteriorColor:bar.interiorColor;
   return `<div class="mu-muntin on">${head}
-    <div class="mu-muntin-grid">
+    <div class="mu-muntin-grid${two?' two-tone':''}">
       <div class="mu-muntin-profile"><label>${esc(tx('Профиль / цвет'))}</label>
         <select onchange="salesCavityMuntinSet(${index},'productId',this.value)">${MUNTIN_BARS.filter(x=>x.enabled!==false).map(x=>`<option value="${esc(x.id)}" ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select>
-        <small>${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(bar.exteriorColor)}</b> · Interior: <b>${esc(bar.interiorColor)}</b></small></div>
+        <small>${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(ext)}</b> · Interior: <b>${esc(int)}</b></small></div>
       <div><label>${esc(tx('Вертикальные'))}</label><select onchange="salesCavityMuntinSet(${index},'verticalBars',this.value)">${bars(m.verticalBars)}</select></div>
       <div><label>${esc(tx('Горизонтальные'))}</label><select onchange="salesCavityMuntinSet(${index},'horizontalBars',this.value)">${bars(m.horizontalBars)}</select></div>
-      <div class="mu-muntin-preview">${salesMuntinFacePreview(bar,m,'exterior')}${salesMuntinFacePreview(bar,m,'interior')}</div>
+      ${two?`<div class="mu-muntin-flip"><label>${esc(tx('Стороны'))}</label><label class="mu-flip"><input type="checkbox" ${m.flipped?'checked':''} onchange="salesCavityMuntinSet(${index},'flipped',this.checked)"><span>${esc(tx('Развернуть бар'))}</span></label></div>`:''}
     </div>
     ${salesCavityMuntinPrice(c,index,m)}
   </div>`;
-}
-/* Вид снаружи и изнутри: у двухцветного бара стороны разного цвета, и увидеть
-   это надо ДО производства, а не на чертеже. */
-function salesMuntinFacePreview(bar,m,side){
-  const hex=side==='interior'?(bar.interiorHex||'#202020'):(bar.exteriorHex||'#202020');
-  const w=64,h=44,pad=3,v=m.verticalBars,hb=m.horizontalBars,t=2.6;
-  let bars='';
-  for(let i=1;i<=v;i++){const x=pad+(w-pad*2)*i/(v+1);bars+=`<rect x="${(x-t/2).toFixed(1)}" y="${pad}" width="${t}" height="${h-pad*2}" fill="${hex}"/>`;}
-  for(let i=1;i<=hb;i++){const y=pad+(h-pad*2)*i/(hb+1);bars+=`<rect x="${pad}" y="${(y-t/2).toFixed(1)}" width="${w-pad*2}" height="${t}" fill="${hex}"/>`;}
-  return `<figure><figcaption>${side==='interior'?'Interior':'Exterior'} · ${esc(side==='interior'?bar.interiorColor:bar.exteriorColor)}</figcaption>
-    <svg viewBox="0 0 ${w} ${h}" role="img"><rect x="${pad}" y="${pad}" width="${w-pad*2}" height="${h-pad*2}" fill="#eaf1f6" stroke="#c6d5de"/>${bars}</svg></figure>`;
 }
 /* Цена раскладки стоит В КАМЕРЕ, второй строкой после цены обвязки: считают её
    по квадратам, которые нарезали бары, и продажник видит её там же, где

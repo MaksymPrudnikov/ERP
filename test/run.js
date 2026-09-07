@@ -2709,11 +2709,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const off={block:!!sec.querySelector('.mu-muntin'),grid:!!sec.querySelector('.mu-muntin-grid')};
       salesCavitySetMuntin(0,true);
       const on=document.querySelector('[data-mu-section="cavity-0"]');
+      /* Флажок разворота нужен только двухцветному профилю: у остальных обе
+         стороны одного цвета, и выбор ничего не меняет. */
+      const oneTone={flip:on.querySelectorAll('.mu-flip').length,
+                     note:on.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: Black · Interior: Black')>=0};
+      salesCavityMuntinSet(0,'productId','mb058_black_white');
+      const two=document.querySelector('[data-mu-section="cavity-0"]');
+      const twoTone={flip:two.querySelectorAll('.mu-flip').length,
+                     note:two.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: Black · Interior: White')>=0};
+      salesCavityMuntinSet(0,'flipped',true);
+      const flipped=document.querySelector('.mu-muntin-profile small').textContent.indexOf('Exterior: White · Interior: Black')>=0;
       return {off:off,
               onGrid:!!on.querySelector('.mu-muntin-grid'),
-              previews:on.querySelectorAll('.mu-muntin-preview svg').length,
-              price:!!on.querySelector('.mu-muntin-price')};
-    })()`), {off:{block:true,grid:false},onGrid:true,previews:2,price:true});
+              price:!!on.querySelector('.mu-muntin-price'),
+              oneTone:oneTone,twoTone:twoTone,flipped:flipped};
+    })()`), {off:{block:true,grid:false},onGrid:true,price:true,
+             oneTone:{flip:0,note:true},twoTone:{flip:1,note:true},flipped:true});
 
     /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
        на два прямоугольника, горизонтальный с вертикальным — на четыре. Считает

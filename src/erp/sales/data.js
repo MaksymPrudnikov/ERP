@@ -272,7 +272,7 @@ function salesSpacerWidths(){
    ни отдельной сущности, ни сохранения формы — продажник ставит галочку и сразу
    видит и цену, и бары на чертеже. */
 const SALES_MUNTIN_DEFAULT_PRODUCT='mb058_black';
-function salesDefaultMuntin(){return {enabled:false,productId:SALES_MUNTIN_DEFAULT_PRODUCT,verticalBars:1,horizontalBars:1};}
+function salesDefaultMuntin(){return {enabled:false,productId:SALES_MUNTIN_DEFAULT_PRODUCT,verticalBars:1,horizontalBars:1,flipped:false};}
 function normalizeSalesMuntin(m){
  m=m&&typeof m==='object'?m:{};
  const d=salesDefaultMuntin();
@@ -281,7 +281,10 @@ function normalizeSalesMuntin(m){
  return {enabled:m.enabled===true,
   productId:(typeof MUNTIN_BARS!=='undefined'&&MUNTIN_BARS.some(x=>x.id===id))?id:d.productId,
   verticalBars:m.verticalBars==null?d.verticalBars:bar(m.verticalBars),
-  horizontalBars:m.horizontalBars==null?d.horizontalBars:bar(m.horizontalBars)};
+  horizontalBars:m.horizontalBars==null?d.horizontalBars:bar(m.horizontalBars),
+  /* Двухцветный бар ставят и той, и другой стороной наружу. Без флажка
+     оставалось только менять стёкла местами. */
+  flipped:m.flipped===true};
 }
 /* Делений столько, на сколько прямоугольников бары режут стекло: один
    горизонтальный даёт два, горизонтальный с вертикальным — четыре. По ним и

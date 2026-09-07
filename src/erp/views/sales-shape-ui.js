@@ -1192,6 +1192,7 @@ function shapeMuntinGeoForDraft(){
   def.muntin.productId=cav.productId;
   def.muntin.layout.verticalBars=cav.verticalBars;
   def.muntin.layout.horizontalBars=cav.horizontalBars;
+  def.flipped=!!cav.flipped;
   var r=MuntinModule.compute(shape,def);
   /* Позиции, сдвинутые вручную, сильнее равномерной раскладки: «двигать бар не
      эквивалентно» делают здесь, на чертеже. Модуль в ручном режиме требует ось
@@ -1221,7 +1222,10 @@ function shapeMuntinBarsSvg(T){
   var got=shapeMuntinGeoForDraft();if(!got||!T)return '';
   var g=got.geo,bar=muntinProduct(got.M.productId),face=+g.face||0;
   if(!(face>0))return '';
-  var fill=bar.exteriorHex||'#202020',half=face/2,out='';
+  /* Чертёж — вид снаружи, поэтому берётся наружная сторона бара; у
+     развёрнутого двухцветного профиля это вторая. */
+  var flip=!!(got.def&&got.def.flipped);
+  var fill=(flip?bar.interiorHex:bar.exteriorHex)||'#202020',half=face/2,out='';
   function rect(x1,y1,x2,y2){
     var a=T.X(x1),b=T.Y(y1),c=T.X(x2),d=T.Y(y2);
     var x=Math.min(a,c),y=Math.min(b,d),w=Math.abs(c-a),h=Math.abs(d-b);

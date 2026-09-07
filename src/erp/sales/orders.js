@@ -198,7 +198,7 @@ function salesCavitySetMuntin(i,on){
 }
 function salesCavityMuntinSet(i,k,v){
  const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
- c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{[k]:v}));
+ c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{[k]:k==='flipped'?v===true||v==='true':v}));
  render();
 }
 function salesCavityMuntinSetPrice(i,v){
