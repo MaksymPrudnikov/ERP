@@ -2074,11 +2074,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
-    eq('Cavity выбирается в порядке Spacer → Width → Gas → Sealant → Muntin → Price', await t.p.evaluate(() => {
+    eq('Cavity выбирается в порядке Spacer → Width → Gas → Sealant → Price', await t.p.evaluate(() => {
       const c=normalizeSalesCavity({spacerVariantId:'SP-BWE-012',primarySealantId:'SEAL-HM'},0),host=document.createElement('div');
       host.innerHTML=salesCavitySection(c,0);const selects=[...host.querySelectorAll('.mu-cavity-grid select')];
       return {labels:[...host.querySelectorAll('.mu-cavity-grid label')].map(x=>x.textContent),widths:[...selects[1].options].map(x=>x.textContent),spacers:[...selects[0].options].map(x=>x.textContent),primary:c.primarySealantId,summary:salesCavitySummary(c)};
-    }), {labels:['Spacer','Width','Gas','Sealant','Muntin','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
+    }), {labels:['Spacer','Width','Gas','Sealant','Price · sq ft'],widths:['3/16″','7/32″','1/4″','5/16″','3/8″','13/32″','7/16″','15/32″','1/2″','17/32″','9/16″','5/8″','11/16″','3/4″','27/32″','15/16″'],spacers:['AL — Aluminum','BL — Black Aluminum','WWE — White Warm Edge','LGWE — Light Grey Warm Edge','BWE — Black Warm Edge','SS — Stainless Steel'],primary:'SEAL-PIB',summary:'Black Warm Edge 1/2″ · Argon · PS'});
     eq('смена Width сохраняет spacer-систему и фильтрует недоступные размеры', await t.p.evaluate(() => {
       salesOrderNew();const c=salesCurrentMakeup().cavities[0];c.spacerVariantId='SP-AL-012';salesCavitySetWidth(0,'5/8');const same=c.spacerVariantId;c.spacerVariantId='SP-SS-012';salesCavitySetWidth(0,'3/8');return {same,fallback:c.spacerVariantId};
     }), {same:'SP-AL-058',fallback:'SP-AL-038'});
@@ -2698,6 +2698,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {off:off,on:on,solo:solo,
               column:document.querySelector('.sales-lines-table').innerHTML.indexOf('>Muntin<')>=0};
     })()`), {off:false,on:true,solo:false,column:false});
+
+    /* Раскладка стоит отдельным блоком ПОД полями камеры: она не влияет на
+       обвязку и не должна вклиниваться в её ряд. */
+    eq('раскладка — отдельный блок камеры, а не поле в ряду', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();
+      const m=soDraft.makeups[0];m.unitType='double';salesSelectMakeup(m.id);
+      soOpenSectionKey='cavity-0';render();
+      const sec=document.querySelector('[data-mu-section="cavity-0"]');
+      const off={block:!!sec.querySelector('.mu-muntin'),grid:!!sec.querySelector('.mu-muntin-grid')};
+      salesCavitySetMuntin(0,true);
+      const on=document.querySelector('[data-mu-section="cavity-0"]');
+      return {off:off,
+              onGrid:!!on.querySelector('.mu-muntin-grid'),
+              previews:on.querySelectorAll('.mu-muntin-preview svg').length,
+              price:!!on.querySelector('.mu-muntin-price')};
+    })()`), {off:{block:true,grid:false},onGrid:true,previews:2,price:true});
 
     /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
        на два прямоугольника, горизонтальный с вертикальным — на четыре. Считает
