@@ -2809,6 +2809,31 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
              fromGap:['31 3/16″','23 3/16″'],singleBarRun:[],
              junkIgnored:true,restored:true,cutChanged:true,clearanceChanged:true});
 
+    /* Бар — часть юнита, поэтому он рисуется на том же производственном
+       чертеже, что и стекло: отдельного листа у раскладки нет. Оси двигают в
+       форме, и один сдвинутый бар не должен уносить с чертежа остальные. */
+    eq('бары рисуются на чертеже формы и двигаются по осям', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesOrderConfigureShape(0);render();
+      setShapeMuntinEnabled(true);
+      setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
+      const at=()=>[...document.querySelectorAll('#shapeLivePreview .shape-muntin-bar')].map(r=>Math.round(+r.getAttribute('x')));
+      const even=at();
+      setShapeMuntinPosition('vertical',0,'12');
+      const moved=at();
+      setShapeMuntinPosition('vertical',0,'не размер');
+      const junk=at();
+      resetShapeMuntinPositions();
+      const back=at();
+      cancelShapeEdit();
+      return {count:even.length,kept:moved.length,
+              movedFirst:even[0]!==moved[0],restTouched:even.slice(1).join()!==moved.slice(1).join(),
+              junkIgnored:moved.join()===junk.join(),restored:even.join()===back.join()};
+    })()`), {count:3,kept:3,movedFirst:true,restTouched:false,junkIgnored:true,restored:true});
+
     /* Размеры раскладки — такие же размеры чертежа, как у отверстий и
        фурнитуры: клик открывает пилюлю − / + / hide, сдвиг и скрытие живут в
        sDraft.dims. В отпечаток формы оформление НЕ входит — подвинутая подпись
