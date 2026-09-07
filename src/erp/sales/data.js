@@ -264,38 +264,16 @@ function salesSpacerWidths(){
   return String(a).localeCompare(String(b));
  });
 }
-/* Раскладка живёт В КАМЕРЕ: бар ставится между стёклами, и на одиночном стекле
-   его не бывает — у Single Lite камер нет вовсе.
-
-   Здесь хранятся ПАРАМЕТРЫ (профиль и число баров), а не геометрия: она зависит
-   от формы конкретной строки и считается на лету. Поэтому раскладка не требует
-   ни отдельной сущности, ни сохранения формы — продажник ставит галочку и сразу
-   видит и цену, и бары на чертеже. */
-const SALES_MUNTIN_DEFAULT_PRODUCT='mb058_black';
-function salesDefaultMuntin(){return {enabled:false,productId:SALES_MUNTIN_DEFAULT_PRODUCT,verticalBars:1,horizontalBars:1,flipped:false};}
-function normalizeSalesMuntin(m){
- m=m&&typeof m==='object'?m:{};
- const d=salesDefaultMuntin();
- const bar=n=>{const v=Math.round(+n);return Number.isFinite(v)&&v>=0?Math.min(12,v):0;};
- const id=salesString(m.productId)||d.productId;
- return {enabled:m.enabled===true,
-  productId:(typeof MUNTIN_BARS!=='undefined'&&MUNTIN_BARS.some(x=>x.id===id))?id:d.productId,
-  verticalBars:m.verticalBars==null?d.verticalBars:bar(m.verticalBars),
-  horizontalBars:m.horizontalBars==null?d.horizontalBars:bar(m.horizontalBars),
-  /* Двухцветный бар ставят и той, и другой стороной наружу. Без флажка
-     оставалось только менять стёкла местами. */
-  flipped:m.flipped===true};
-}
 /* Делений столько, на сколько прямоугольников бары режут стекло: один
    горизонтальный даёт два, горизонтальный с вертикальным — четыре. По ним и
-   считается цена. */
+   считается цена. Раскладка принадлежит форме строки: makeup стоит в десятке
+   строк, и бар на одном стекле не должен заводить отдельный состав. */
 function salesMuntinSectionsOf(m){
- const n=normalizeSalesMuntin(m);
- if(!n.enabled)return 0;
- if(!n.verticalBars&&!n.horizontalBars)return 0;
- return (n.verticalBars+1)*(n.horizontalBars+1);
+ if(!m||!m.enabled)return 0;
+ const v=Math.max(0,+m.verticalBars||0),h=Math.max(0,+m.horizontalBars||0);
+ return (v||h)?(v+1)*(h+1):0;
 }
-function salesDefaultCavity(i){return {id:salesUid('CAV'),muntin:salesDefaultMuntin(),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
+function salesDefaultCavity(i){return {id:salesUid('CAV'),spacerVariantId:'SP-BWE-1732',gasProductId:'GAS-ARGON',primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:'SEAL-PS'};}
 function normalizeSurface(v,allowed){const n=+v;return Number.isInteger(n)&&allowed.includes(n)?n:null;}
 /* Спецификация фрита нормализуется по РЕАЛЬНОМУ ассортименту цеха. Старые
    заказы несут 'Black' + 'Full coverage' + coverage:'100' — изделие, которого
@@ -339,7 +317,7 @@ function normalizeSalesPane(p,index){
 /* PIB — обязательный первичный герметик стеклопакета. Он остаётся в данных и
    спецификации, но не является выбором оператора в Cavity. Нормализация также
    исправляет старые черновики, где первичный герметик могли сменить вручную. */
-function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),muntin:normalizeSalesMuntin(c.muntin===true?{enabled:true}:c.muntin),muntinPriceOverride:salesNonNegOrNull(c.muntinPriceOverride),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
+function normalizeSalesCavity(c,index){c=c&&typeof c==='object'?c:{};const d=salesDefaultCavity(index);return {id:salesEntityId(c.id,'CAV'),priceOverride:salesNonNegOrNull(c.priceOverride),spacerVariantId:salesString(c.spacerVariantId)||d.spacerVariantId,gasProductId:salesString(c.gasProductId)||d.gasProductId,primarySealantId:SALES_PRIMARY_SEALANT_ID,secondarySealantId:salesString(c.secondarySealantId)||d.secondarySealantId};}
 function normalizeOrderMakeup(m,index){
  m=m&&typeof m==='object'?m:{};const unitType=SALES_UNIT_TYPES.includes(m.unitType)?m.unitType:'double',count=salesPaneCount(unitType);
  const panes=(Array.isArray(m.panes)?m.panes:[]).slice(0,count);while(panes.length<count)panes.push(salesDefaultPane(panes.length));

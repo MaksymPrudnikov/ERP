@@ -145,9 +145,26 @@ function shapeEdgeNeedsBorder(edge,a,b){
 /* Тот же нормализатор, что у бордера: строка как есть, парсится при чтении.
    Пустая строка means «правки нет» и в объект не попадает — иначе очищенное
    поле навсегда прибивало бы припуск к нулю. */
-/* Установочные параметры раскладки на ЭТОМ изделии: зазор от кромки до первого
-   бара (sightline), торцевой зазор, способ отсчёта и вручную сдвинутые оси.
-   Профиль и количество баров задаёт камера — здесь только посадка на стекле. */
+/* Раскладка принадлежит ИЗДЕЛИЮ, а не составу пакета: один makeup стоит в
+   десятке строк, и бар на одном стекле не должен заводить отдельный состав.
+   Здесь и включение, и профиль, и количество баров, и посадка на стекле:
+   зазор от кромки (sightline), торцевой зазор, отсчёт и сдвинутые оси. */
+var SHAPE_MUNTIN_DEFAULT_PRODUCT='mb058_black';
+function shapeNormalizeMuntin(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  if(!raw.enabled)return {};
+  var bar=function(n){var v=Math.round(+n);return Number.isFinite(v)&&v>=0?Math.min(12,v):0;};
+  var id=String(raw.productId||'').trim();
+  var known=typeof MUNTIN_BARS!=='undefined'&&MUNTIN_BARS.some(function(x){return x.id===id;});
+  var out={enabled:true,
+    productId:known?id:SHAPE_MUNTIN_DEFAULT_PRODUCT,
+    verticalBars:raw.verticalBars==null?1:bar(raw.verticalBars),
+    horizontalBars:raw.horizontalBars==null?1:bar(raw.horizontalBars),
+    flipped:raw.flipped===true};
+  var setup=shapeNormalizeMuntinPositions(raw);
+  Object.keys(setup).forEach(function(k){out[k]=setup[k];});
+  return out;
+}
 function shapeNormalizeMuntinPositions(raw){
   raw=raw&&typeof raw==='object'?raw:{};
   var take=function(list){

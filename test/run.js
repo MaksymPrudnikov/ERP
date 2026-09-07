@@ -2681,99 +2681,99 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     })()`), {before:[20.125,44.125],after:[20.1875,44.125],a:[true,0.125,0.0625],b:[false,0.0625]});
 
     /* ---- Раскладка (muntin) -------------------------------------------
-       Бар стоит МЕЖДУ стёклами, поэтому его включает камера стеклопакета: на
-       одиночном стекле камер нет и раскладки не бывает. Настраивается она в
-       чертеже — там же, где режется реальным контуром формы, — а отдельной
-       колонки в строках заказа больше нет: услуга редкая. */
-    eq('раскладку включает камера, а не строка заказа', await t.p.evaluate(`(()=>{
+       Раскладка живёт в ФОРМЕ, а не в камере стеклопакета. Заказ сплошь и
+       рядом выглядит как десяток одинаковых юнитов и ОДИН с баром: заводить
+       ради него второй makeup неправильно, поэтому бар несёт форма, а платит
+       только та строка, чья форма его несёт. Настраивают бар под чертежом —
+       там же, где он режется реальным контуром. */
+    eq('раскладка живёт в форме: соседняя строка того же makeup не платит', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
-      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
+      salesExcelPasteText('1\\t48\\t36\\tA\\n1\\t48\\t36\\tB',0);salesExcelApply();
+      const a=soDraft.lines[0],b=soDraft.lines[1],m=salesMakeupById(soDraft,a.makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      const off=salesLineAllowsMuntin(line);
-      salesCavitySetMuntin(0,true);
-      const on=salesLineAllowsMuntin(line);
-      m.unitType='single';m.cavities=[];
-      const solo=salesLineAllowsMuntin(line);
-      return {off:off,on:on,solo:solo,
-              column:document.querySelector('.sales-lines-table').innerHTML.indexOf('>Muntin<')>=0};
-    })()`), {off:false,on:true,solo:false,column:false});
-
-    /* Раскладка стоит отдельным блоком ПОД полями камеры: она не влияет на
-       обвязку и не должна вклиниваться в её ряд. */
-    eq('раскладка — отдельный блок камеры, а не поле в ряду', await t.p.evaluate(`(()=>{
-      tab='sales';render();salesOrderNew();
-      const m=soDraft.makeups[0];m.unitType='double';salesSelectMakeup(m.id);
+      salesShapeByRef(a.shapeRef).muntin=shapeNormalizeMuntin({enabled:true,verticalBars:1,horizontalBars:1});
+      const bar=r=>{const x=salesLineChargeRows(r).find(q=>String(q.key).indexOf('MUNTIN')===0);return x?[x.basis,x.catalogRate,x.source]:[];};
       soOpenSectionKey='cavity-0';render();
       const sec=document.querySelector('[data-mu-section="cavity-0"]');
-      const off={block:!!sec.querySelector('.mu-muntin'),grid:!!sec.querySelector('.mu-muntin-grid')};
-      salesCavitySetMuntin(0,true);
-      const on=document.querySelector('[data-mu-section="cavity-0"]');
-      /* Флажок разворота нужен только двухцветному профилю: у остальных обе
-         стороны одного цвета, и выбор ничего не меняет. */
-      const oneTone={flip:on.querySelectorAll('.mu-flip').length,
-                     note:on.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: Black · Interior: Black')>=0};
-      salesCavityMuntinSet(0,'productId','mb058_black_white');
-      const two=document.querySelector('[data-mu-section="cavity-0"]');
-      const twoTone={flip:two.querySelectorAll('.mu-flip').length,
-                     note:two.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: Black · Interior: White')>=0};
-      salesCavityMuntinSet(0,'flipped',true);
-      const flipped=document.querySelector('.mu-muntin-note').textContent.indexOf('Exterior: White · Interior: Black')>=0;
-      /* Профиль, бары, деления и цена стоят одной строкой. */
-      const cells=[...on.querySelectorAll('.mu-muntin-grid>div')].map(d=>d.querySelector('label').textContent.trim());
-      return {off:off,
-              cells:cells,
-              price:!!on.querySelector('.mu-muntin-total'),
-              oneTone:oneTone,twoTone:twoTone,flipped:flipped};
-    })()`), {off:{block:true,grid:false},
-             cells:['Profile / colour','Vertical bars','Horizontal bars','Sections','Rate per section','Muntin total'],
-             price:true,oneTone:{flip:0,note:true},twoTone:{flip:1,note:true},flipped:true});
+      return {sameMakeup:a.makeupId===b.makeupId,withBar:bar(a),neighbour:bar(b),
+              cavityClean:!!sec&&!/muntin/i.test(sec.innerHTML),
+              totals:[+salesLinePricingSummary(a).total.toFixed(2),+salesLinePricingSummary(b).total.toFixed(2)]};
+    })()`), {sameMakeup:true,withBar:[4,4.5,'Shape'],neighbour:[],cavityClean:true,totals:[21.36,3.36]});
 
     /* Цена — за ДЕЛЕНИЯ, а не за длину бара: один горизонтальный делит стекло
-       на два прямоугольника, горизонтальный с вертикальным — на четыре. Считает
-       её камера, поэтому форма для этого не нужна. */
-    eq('раскладка считается по делениям камеры', await t.p.evaluate(`(()=>{
+       на два прямоугольника, горизонтальный с вертикальным — на четыре. */
+    eq('цена раскладки считается по делениям', await t.p.evaluate(`(()=>{
       const make=(v,h)=>{
         tab='sales';render();salesOrderNew();soDraft.lines=[];
-        salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
+        salesExcelPasteText('1\\t40\\t50\\tX',0);salesExcelApply();
         const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
         m.unitType='double';salesSelectMakeup(m.id);
-        salesCavitySetMuntin(0,true);
-        salesCavityMuntinSet(0,'verticalBars',v);salesCavityMuntinSet(0,'horizontalBars',h);
+        salesShapeByRef(line.shapeRef).muntin=shapeNormalizeMuntin({enabled:true,verticalBars:v,horizontalBars:h});
         const row=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0);
         return row?[row.basis,row.catalogRate]:[];
       };
       return {h1:make(0,1),cross:make(1,1),v2h1:make(2,1),none:make(0,0)};
     })()`), {h1:[2,4.5],cross:[4,4.5],v2h1:[6,4.5],none:[]});
 
-    /* Ставка правится прямо в камере: «иногда мы делаем цену ниже». */
-    eq('ставка за деление правится в камере', await t.p.evaluate(`(()=>{
+    /* Бар стоит МЕЖДУ стёклами. Форма общая и про makeup строки не знает,
+       поэтому одиночное стекло с баром ловится на строке: денег не берём и
+       говорим вслух — молча пропущенная услуга и есть потерянные деньги. */
+    eq('бар на одиночном стекле не оплачивается и виден статусом', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\t40\t50\tX',0);salesExcelApply();
+      salesExcelPasteText('1\\t40\\t50\\tX',0);salesExcelApply();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesCavitySetMuntin(0,true);
-      salesCavityMuntinSet(0,'verticalBars',1);salesCavityMuntinSet(0,'horizontalBars',1);
-      const base=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0).catalogRate;
-      salesCavityMuntinSetPrice(0,'3.00');
-      const cut=salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0).catalogRate;
-      salesCavitySetMuntin(0,false);
-      return {base:base,cut:cut,
-              offSections:salesMuntinSections(line),
-              offPaid:!!salesLineChargeRows(line).find(r=>String(r.key).indexOf('MUNTIN')===0)};
-    })()`), {base:4.5,cut:3,offSections:0,offPaid:false});
+      salesShapeByRef(line.shapeRef).muntin=shapeNormalizeMuntin({enabled:true,verticalBars:1,horizontalBars:1});
+      const paid=salesLineChargeRows(line).some(r=>String(r.key).indexOf('MUNTIN')===0);
+      const unitStatus=salesLineServiceStatus(line).key;
+      m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
+      const solo=salesLineChargeRows(line).some(r=>String(r.key).indexOf('MUNTIN')===0);
+      return {paid:paid,unitStatus:unitStatus,solo:solo,
+              soloStatus:salesLineServiceStatus(line).key,attention:salesLineNeedsServiceAttention(line)};
+    })()`), {paid:true,unitStatus:'ready',solo:false,soloStatus:'muntin',attention:true});
+
+    /* Профиль, стороны, бары, деления и цена стоят ОДНОЙ строкой под чертежом:
+       в левой колонке редактора на них ширины физически не хватает. Зазоры в
+       строку не лезут — это подстройка посадки, и она стоит рядом с осями.
+       Стороны выбирают списком — галочка «развернуть» не называет, что именно
+       окажется снаружи. Одноцветному профилю выбор сторон не нужен. */
+    eq('настройка бара стоит одной строкой под чертежом', await t.p.evaluate(`(()=>{
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
+      const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
+      m.unitType='double';salesSelectMakeup(m.id);
+      salesOrderConfigureShape(0);render();
+      setShapeMuntinEnabled(true);
+      setShapeMuntinSetup('verticalBars',1);setShapeMuntinSetup('horizontalBars',1);
+      const row=()=>document.querySelector('.shape-muntin-row');
+      const cells=()=>[...row().children].map(c=>c.querySelector('span').textContent.trim());
+      const oneLine=()=>{const r=row(),hs=[...r.children].map(c=>c.getBoundingClientRect().height);
+        return Math.round(r.getBoundingClientRect().height)<=Math.round(Math.max(...hs))+1;};
+      const oneTone={cells:cells(),oneLine:oneLine()};
+      setShapeMuntinSetup('productId','mb058_black_white');
+      const sel=[...row().querySelectorAll('select')][1];
+      const twoTone={cells:cells(),oneLine:oneLine(),sides:[...sel.options].map(o=>o.textContent)};
+      const money={sections:row().querySelector('.out b').textContent,price:row().querySelector('.price b').textContent};
+      const gaps=[...document.querySelectorAll('.shape-muntin-axis.gaps .shape-muntin-field>span')].map(s=>s.textContent.trim());
+      const underDrawing=!!document.querySelector('.shape-preview-side .shape-muntin-row');
+      cancelShapeEdit();
+      return {oneTone:oneTone,twoTone:twoTone,money:money,gaps:gaps,underDrawing:underDrawing};
+    })()`), {oneTone:{cells:['Profile / colour','Vertical','Horizontal','Sections','Price'],oneLine:true},
+             twoTone:{cells:['Profile / colour','Sides','Vertical','Horizontal','Sections','Price'],
+                      oneLine:true,sides:['Black ext · White int','White ext · Black int']},
+             money:{sections:'4',price:'18.00 CAD'},gaps:['Gap X','Gap Y','End clr'],underDrawing:true});
 
     /* Бар — часть юнита, поэтому он рисуется на том же производственном
        чертеже, что и стекло: отдельного листа у раскладки нет. Оси двигают в
        форме, и один сдвинутый бар не должен уносить с чертежа остальные. */
     eq('бары рисуются на чертеже формы и двигаются по осям', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\t48\t36\tX',0);salesExcelApply();
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesCavitySetMuntin(0,true);
-      salesCavityMuntinSet(0,'verticalBars',2);salesCavityMuntinSet(0,'horizontalBars',1);
       salesOrderConfigureShape(0);render();
+      setShapeMuntinEnabled(true);
+      setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
       const at=()=>[...document.querySelectorAll('#shapeLivePreview .shape-muntin-bar')].map(r=>Math.round(+r.getAttribute('x')));
       const even=at();
       setShapeMuntinPosition('vertical',0,'12');
@@ -2788,35 +2788,49 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               junkIgnored:moved.join()===junk.join(),restored:even.join()===back.join()};
     })()`), {count:3,kept:3,movedFirst:true,restTouched:false,junkIgnored:true,restored:true});
 
-    /* Посадка бара на стекле принадлежит изделию: зазор от кромки, торцевой
-       зазор и оси задаются в форме и меняют и геометрию, и раскрой. Размеры в
-       свету рисуются на самом чертеже — по ним цех и ставит бар. */
-    eq('зазоры, оси и раскрой живут в чертеже', await t.p.evaluate(`(()=>{
+    /* Посадка бара принадлежит изделию: зазор от кромки, торцевой зазор и оси
+       задаются в форме и меняют и геометрию, и раскрой. На чертеже виден сам
+       зазор пунктиром, а размеры в свету отсчитываются ОТ НЕГО, а не от края
+       стекла — по ним цех и ставит бар. */
+    eq('зазор, размеры в свету и раскрой живут в чертеже', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
-      salesExcelPasteText('1\t48\t36\tX',0);salesExcelApply();
+      salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesCavitySetMuntin(0,true);
-      salesCavityMuntinSet(0,'verticalBars',1);salesCavityMuntinSet(0,'horizontalBars',1);
       salesOrderConfigureShape(0);render();
-      const dims=()=>[...document.querySelectorAll('#shapeLivePreview text')].map(t=>t.textContent).filter(t=>t.indexOf('″')>=0);
-      const cut=()=>document.querySelector('.shape-muntin-cut').textContent.replace(/\s+/g,' ').trim();
-      const sight=dims(),cut0=cut();
+      setShapeMuntinEnabled(true);
+      setShapeMuntinSetup('verticalBars',1);setShapeMuntinSetup('horizontalBars',1);
+      const dims=()=>[...document.querySelectorAll('#shapeLivePreview text')].map(t=>t.textContent);
+      const cut=()=>document.querySelector('.shape-muntin-cut').textContent.replace(/\\s+/g,' ').trim();
+      const sightline=document.querySelectorAll('#shapeLivePreview .shape-muntin-sightline').length;
+      const gaps=dims().filter(t=>t==='7/16″').length;
+      const clear=dims().filter(t=>t==='23 1/4″'||t==='17 1/4″').length;
+      const cut0=cut();
       setShapeMuntinSetup('edgeInsetY','2');
-      const cutInset=cut();
+      const cutInset=cut(),gapShown=dims().filter(t=>t==='2″').length;
       setShapeMuntinSetup('endClearance','1/8');
       const cutClear=cut();
       setShapeMuntinSetup('edgeInsetY','не размер');
       const junkIgnored=cut()===cutClear;
       resetShapeMuntinPositions();
-      const back=cut()===cut0;
-      const fields=[...document.querySelectorAll('.shape-muntin-setup .shape-muntin-field>span')].map(x=>x.textContent.trim());
+      const restored=cut()===cut0;
       cancelShapeEdit();
-      return {sightlines:sight.length,fields:fields,
+      return {sightline:sightline,gaps:gaps,clear:clear,gapShown:gapShown,
               cutChanged:cutInset!==cut0,clearanceChanged:cutClear!==cutInset,
-              junkIgnored:junkIgnored,restored:back};
-    })()`), {sightlines:4,fields:['Edge gap X','Edge gap Y','Bar end clearance','Edge reference'],
+              junkIgnored:junkIgnored,restored:restored};
+    })()`), {sightline:1,gaps:2,clear:4,gapShown:1,
              cutChanged:true,clearanceChanged:true,junkIgnored:true,restored:true});
+
+    /* Бар меняет само изделие, поэтому входит в отпечаток формы. Но входит
+       ТОЛЬКО когда он есть: безусловное поле переклеймило бы каждую уже
+       сохранённую форму и разом пометило все строки заказов устаревшими. */
+    eq('бар входит в отпечаток формы, а его отсутствие — нет', await t.p.evaluate(`(()=>{
+      const plain=normalizeShapeDef({type:'rect',w:'48',h:'36'});
+      const fp=d=>ShapeModule.compute(d).fingerprint;
+      const empty=normalizeShapeDef(Object.assign({},plain,{muntin:{}}));
+      const bar=normalizeShapeDef(Object.assign({},plain,{muntin:{enabled:true,verticalBars:1,horizontalBars:1}}));
+      return {emptyKeepsIt:fp(plain)===fp(empty),barChangesIt:fp(plain)!==fp(bar)};
+    })()`), {emptyKeepsIt:true,barChangesIt:true});
 
     /* Полировка склейки — второй заход на ту же станцию, уже после ламинации.
        В общей полосе она встала бы по seq станции, то есть ДО склейки. */

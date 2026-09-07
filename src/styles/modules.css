@@ -144,7 +144,7 @@
 /* Заголовок занимает свою строку, Base с состоянием и подсказкой — вторую: в узкой колонке они иначе разъезжались на четыре строки по одному элементу. */.shape-border-head>b,.shape-allow-head>b{flex:1 0 100%;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}
 .shape-border-head label,.shape-allow-head label{display:flex;align-items:center;gap:5px;font-size:10px;color:#475467}
 .shape-border-head input,.shape-allow-head input{width:64px;padding:4px 6px}
-/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover,.shape-hint:focus-visible{border-color:#a9d2e5;background:#edf8fc;color:#175f83}/* Своя подсказка, а не нативный title: тот появляется через секунду и легко читается как «просто знак вопроса». Раскрывается вниз-вправо и держится в пределах карточки. *//* Панель раскладки: заголовок, пояснение и сводка стояли в одну строку без пробелов. */.shape-prod-note{margin-bottom:10px}.shape-prod-note>b{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#475467}.shape-prod-note>span{display:block;margin-top:3px;color:#667085;font-size:9px;line-height:1.4}.shape-muntin-summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:10px 0 8px;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}.shape-muntin-summary>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}.shape-muntin-summary>b{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828;margin-right:6px}
+/* Пояснение переехало в подсказку по наведению: в потоке оно занимало три строки на блок и вытесняло сами поля. */.shape-hint{flex:none;align-self:center;display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border:1px solid var(--line);border-radius:50%;color:#98a2b3;font-size:8px;cursor:help;user-select:none}.shape-hint:hover,.shape-hint:focus-visible{border-color:#a9d2e5;background:#edf8fc;color:#175f83}/* Своя подсказка, а не нативный title: тот появляется через секунду и легко читается как «просто знак вопроса». Раскрывается вниз-вправо и держится в пределах карточки. */
 .shape-hint{position:relative}.shape-hint::after{content:attr(data-hint);position:absolute;z-index:40;top:calc(100% + 6px);left:0;width:max-content;max-width:260px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#101828;color:#fff;font-size:9px;line-height:1.4;letter-spacing:0;text-transform:none;text-align:left;white-space:normal;opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;box-shadow:0 6px 18px rgba(16,24,40,.18)}.shape-hint:hover::after,.shape-hint:focus-visible::after{opacity:1;visibility:visible}
 .shape-border-rows,.shape-allow-rows{min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:5px}
 .shape-border-row,.shape-allow-row{min-width:0;display:flex;flex-direction:column;gap:3px;padding:5px 6px;border:1px solid var(--line2);border-radius:6px;background:#fbfcfd}
@@ -401,11 +401,13 @@ body.shape-workspace-mode main#app>.card>.shape-new-row{display:none}
 .shape-cutout-workspace{padding:0 2px 8px}
 .shape-cutout-workspace .shape-cut-group:first-child{margin-top:2px}
 
-body.shape-workspace-mode .shape-preview-side{position:static;min-width:0;min-height:0;height:100%;padding:8px;display:flex;flex-direction:column;overflow:hidden}
+body.shape-workspace-mode .shape-preview-side{position:static;min-width:0;min-height:0;height:100%;padding:8px;display:flex;flex-direction:column;overflow:auto}
 body.shape-workspace-mode .shape-preview-side>.shape-view-tabs{flex:none;margin-bottom:6px}
 body.shape-workspace-mode .shape-view-tabs button{padding:6px 5px}
 body.shape-workspace-mode .shape-drawing-preview{flex:1;min-height:420px;height:auto;max-height:none;border-radius:7px}
 body.shape-workspace-mode #shapeLiveDerived{flex:none;max-height:none;overflow:visible}
+body.shape-workspace-mode .shape-muntin-editor{flex:none;margin:6px 0 0;padding:8px 9px}
+body.shape-workspace-mode .shape-muntin-editor.on{padding:8px 9px}
 body.shape-workspace-mode .smart-kpis{display:flex;gap:0;margin-top:5px;padding:2px 4px;border:1px solid var(--line);border-radius:7px;background:#f8fafb;overflow-x:auto}
 body.shape-workspace-mode .smart-kpis>div{flex:1 0 auto;min-width:125px;padding:4px 8px;border:0;border-right:1px solid var(--line);border-radius:0;background:transparent}
 body.shape-workspace-mode .smart-kpis>div:last-child{border-right:0}
@@ -693,8 +695,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-axis label span{font:700 9px ui-monospace,monospace;color:#475467}
 .shape-muntin-axis label input{width:78px;padding:4px 6px;font-size:9px}
 
-.shape-muntin-setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:8px 0}
 .shape-muntin-field{display:flex;flex-direction:column;gap:3px}
+.shape-muntin-note{display:block;margin-top:6px;color:var(--mut);font-size:8.5px}
 .shape-muntin-field>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
 .shape-muntin-field input,.shape-muntin-field select{width:100%;padding:4px 6px;font-size:9px}
 .shape-muntin-cut{margin-top:10px;padding:8px;border:1px solid var(--line2);border-radius:7px;background:var(--panel2)}
@@ -702,3 +704,32 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-cut>span{display:inline-flex;align-items:baseline;gap:5px;margin:0 8px 4px 0;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
 .shape-muntin-cut>span i{font-style:normal;font-weight:700;color:#475467}
 .shape-muntin-cut>small{display:block;margin-top:4px;color:var(--mut);font-size:8.5px}
+
+.shape-muntin-editor.on{padding:10px}
+.shape-muntin-head{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer}
+.shape-muntin-head input{width:15px;height:15px;margin:0;flex:none}
+.shape-muntin-head>span{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#475467}
+.shape-muntin-head small{color:var(--mut);font-size:8.5px}
+/* Вся настройка бара — одной строкой: списки тянутся, числовые поля стоят
+   фиксированно, деления и цена прижаты вправо. Строка живёт под чертежом, где
+   на неё хватает ширины; в узком окне она переносится, а не режется. */
+.shape-muntin-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:9px}
+.shape-muntin-row>.pick{flex:1 1 150px;min-width:120px;max-width:260px}
+.shape-muntin-row>.num{flex:0 0 82px}
+.shape-muntin-row>.out{flex:0 0 auto;min-width:52px}
+/* Подпись в одну строку и значение той же высоты, что поле ввода: иначе
+   ячейка становится выше соседних и вся строка идёт лесенкой. */
+.shape-muntin-row>.shape-muntin-field{margin:0}
+.shape-muntin-row>.shape-muntin-field>span{white-space:nowrap}
+.shape-muntin-row>.out>b{display:flex;align-items:center;height:23px;padding:0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
+.shape-muntin-row>.out.price>b{color:#175f83}
+.shape-muntin-row select,.shape-muntin-row input{width:100%}
+/* Оси и раскрой — рядом со строкой, а не под ней столбиком. */
+.shape-muntin-tune{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2px 18px}
+.shape-muntin-tune .shape-muntin-axis{margin-top:8px}
+/* Зазоры — такие же короткие поля, как оси, только с подписью словом. */
+.shape-muntin-axis.gaps{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px}
+.shape-muntin-axis.gaps>b{flex:1 0 100%;margin:0}
+.shape-muntin-axis.gaps>.shape-muntin-field{flex:0 0 82px;margin:0}
+.shape-muntin-reset{align-self:center;margin-top:8px}
+.shape-muntin-row .shape-muntin-field>b{display:block;padding:4px 0;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}

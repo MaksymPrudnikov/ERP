@@ -52,23 +52,6 @@
 /* Раскладка внутри камеры: включение, профиль, число баров и превью того, как
    бар выглядит снаружи и изнутри. Геометрию здесь не правят — бар режется
    контуром формы, и чертёж живёт в шейпе. */
-.mu-muntin{margin-top:10px;padding-top:10px;border-top:1px solid var(--line2)}
-.mu-muntin-head{display:flex;align-items:center;gap:8px;cursor:pointer;margin:0}
-.mu-muntin-head input{width:15px;height:15px;margin:0;flex:none}
-.mu-muntin-head>span{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#475467}
-.mu-muntin-head small{color:var(--mut);font-size:9px}
-.mu-muntin-grid{display:grid;grid-template-columns:minmax(170px,1.4fr) 92px 92px 78px 108px 96px;gap:10px;align-items:start;margin-top:10px}
-.mu-muntin-grid.two-tone{grid-template-columns:minmax(170px,1.4fr) 92px 92px 118px 78px 108px 96px}
-.mu-muntin-sections>b{display:block;padding:5px 0;font:600 13px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
-.mu-muntin-note{display:block;margin-top:7px;color:var(--mut);font-size:8.5px}
-.mu-muntin-note b{color:#475467}
 .mu-flip{display:flex;align-items:center;gap:6px;min-height:30px;margin:0;cursor:pointer}
 .mu-flip input{width:14px;height:14px;margin:0;flex:none}
 .mu-flip span{font-size:9.5px;color:#475467}
-.mu-muntin-grid label{display:block;margin-bottom:3px;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
-.mu-muntin-grid select{width:100%}
-.mu-muntin-price{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:12px;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2)}
-.mu-muntin-price>span{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
-.mu-muntin-price>b{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#101828}
-.mu-muntin-price .mu-price-cell{margin:0}
-.mu-muntin-total{color:#1f6046}

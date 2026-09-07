@@ -282,38 +282,6 @@ function salesLiteSection(p,index,total){const side=index===0?'OUTSIDE':index===
 function salesCavitySection(c,index){
  const key='cavity-'+index,isOpen=soExpandAll||soOpenSectionKey===key,sp=salesCavitySpacer(c),size=sp?sp.size:'',widths=salesSpacerWidths();
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
- return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div>${salesCavityMuntinBlock(c,index)}</div></details>`;
-}
-/* Раскладка внутри камеры: бар стоит между стёклами, поэтому и включается он
-   здесь, вместе с рамкой и газом. Геометрия сюда не переезжает — бар режется
-   контуром формы, и чертёж остаётся в шейпе. */
-function salesCavityMuntinBlock(c,index){
-  const m=normalizeSalesMuntin(c.muntin),bar=muntinProduct(m.productId);
-  const head=`<label class="mu-muntin-head"><input type="checkbox" ${m.enabled?'checked':''} onchange="salesCavitySetMuntin(${index},this.checked)"><span>${esc(tx('Раскладка (GBG)'))}</span><small>${esc(tx('внутри этой камеры'))}</small></label>`;
-  if(!m.enabled)return `<div class="mu-muntin">${head}</div>`;
-  const bars=n=>Array.from({length:13},(_,i)=>i).map(i=>`<option value="${i}" ${i===n?'selected':''}>${i}</option>`).join('');
-  /* Картинки нет: у трёх профилей из четырёх обе стороны одного цвета, и
-     показывать два одинаковых квадрата незачем. Стороны называет подпись, а
-     двухцветному бару нужен флажок — иначе его разворачивали, меняя стёкла
-     местами. */
-  const two=bar.exteriorColor!==bar.interiorColor;
-  const ext=m.flipped?bar.interiorColor:bar.exteriorColor,int=m.flipped?bar.exteriorColor:bar.interiorColor;
-  /* Одна строка: профиль, бары, деления и цена. Раскладка — короткий выбор,
-     и разносить его на два ряда незачем. */
-  const sections=salesMuntinSectionsOf(m),rate=salesMuntinRate(c);
-  const total=sections&&rate!=null?(sections*rate).toFixed(2):'—';
-  return `<div class="mu-muntin on">${head}
-    <div class="mu-muntin-grid${two?' two-tone':''}">
-      <div class="mu-muntin-profile"><label>${esc(tx('Профиль / цвет'))}</label>
-        <select onchange="salesCavityMuntinSet(${index},'productId',this.value)">${MUNTIN_BARS.filter(x=>x.enabled!==false).map(x=>`<option value="${esc(x.id)}" ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>
-      <div><label>${esc(tx('Вертикальные'))}</label><select onchange="salesCavityMuntinSet(${index},'verticalBars',this.value)">${bars(m.verticalBars)}</select></div>
-      <div><label>${esc(tx('Горизонтальные'))}</label><select onchange="salesCavityMuntinSet(${index},'horizontalBars',this.value)">${bars(m.horizontalBars)}</select></div>
-      ${two?`<div><label>${esc(tx('Стороны'))}</label><label class="mu-flip"><input type="checkbox" ${m.flipped?'checked':''} onchange="salesCavityMuntinSet(${index},'flipped',this.checked)"><span>${esc(tx('Развернуть'))}</span></label></div>`:''}
-      <div class="mu-muntin-sections"><label>${esc(tx('Делений'))}</label><b>${sections}</b></div>
-      <div><label>${esc(tx('Цена за деление'))}</label>${salesPriceCell('CavityMuntin',index,salesMuntinCatalogRate(),c.muntinPriceOverride)}</div>
-      <div class="mu-muntin-sections"><label>${esc(tx('Итого раскладка'))}</label><b class="mu-muntin-total">${total}</b></div>
-    </div>
-    <small class="mu-muntin-note">${esc(dimIn(bar.faceWidthIn))} face × ${esc(dimIn(bar.depthIn))} depth · Exterior: <b>${esc(ext)}</b> · Interior: <b>${esc(int)}</b></small>
-  </div>`;
+ return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
 function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc(tx('Держать все секции открытыми'))}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}

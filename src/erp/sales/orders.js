@@ -191,33 +191,19 @@ function salesPaneSetLamInterlayerLayers(i,slot,v){const p=salesCurrentMakeup().
 function salesPaneAddLamInterlayer(i){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length>=SALES_MAX_INTERLAYERS)return;rows.push(normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID));render();}
 function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes[i],rows=p&&p.laminated&&p.laminated.interlayers;if(!rows||rows.length<=1)return;rows.splice(slot,1);render();}
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
-function salesCavitySetMuntin(i,on){
- const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
- c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{enabled:!!on}));
- render();
-}
-function salesCavityMuntinSet(i,k,v){
- const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
- c.muntin=normalizeSalesMuntin(Object.assign({},c.muntin,{[k]:k==='flipped'?v===true||v==='true':v}));
- render();
-}
-function salesCavityMuntinSetPrice(i,v){
- const m=salesCurrentMakeup(),c=m&&m.cavities[i];if(!c)return;
- const t=String(v==null?'':v).trim();
- c.muntinPriceOverride=t===''?null:salesNonNegOrNull(t);
- render();
-}
-/* Ставка за деление: заводская из прайса, переопределение — на камере. */
+/* Ставка за деление: заводская из прайса; занижают её обычным переопределением
+   строки или заказа, как у любой услуги. */
 function salesMuntinCatalogRate(){return SALES_SERVICE_RATE_TABLE.muntinSection;}
-function salesMuntinRate(c){const o=c&&c.muntinPriceOverride;return o!=null?+o:salesMuntinCatalogRate();}
-/* Раскладка разрешена, если хоть одна камера makeup её несёт. */
-function salesMakeupHasMuntin(m){return !!(m&&(m.cavities||[]).some(function(c){return c&&normalizeSalesMuntin(c.muntin).enabled;}));}
+/* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
+   между стёклами, поэтому у Single Lite раскладки не бывает. */
+function salesLineMuntin(line){
+ const shape=line&&salesShapeByRef(line.shapeRef);
+ const m=shape&&shape.muntin;
+ return m&&m.enabled?m:null;
+}
 function salesLineAllowsMuntin(line){
  const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
- return salesMakeupHasMuntin(m);
-}
-function salesOrderUsesMuntin(){
- return (soDraft&&soDraft.lines||[]).some(salesLineAllowsMuntin);
+ return !!(m&&(m.cavities||[]).length);
 }
 /* Width — первый фильтр. При смене размера сохраняем текущую spacer-систему,
    если она выпускается в этом размере; иначе берём первый доступный вариант. */
@@ -886,25 +872,16 @@ function salesOrderGroupCatalogText(g,currency){if(!g.catalogRates.length)return
 
 function salesShapeByRef(ref){return ref&&ref.id?DB.shapeDef.find(s=>s.id===ref.id)||null:null;}
 function salesMuntinByRef(ref){return ref&&ref.id?DB.muntinDef.find(m=>m.id===ref.id)||null:null;}
-/* Раскладка принадлежит КАМЕРЕ, поэтому и деления считаются по ней: одна
-   камера — одна строка счёта. У тройного пакета камер две, и раскладка в
-   каждой своя. */
-function salesMuntinSections(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
- if(!m)return 0;
- return (m.cavities||[]).reduce(function(n,c){return n+salesMuntinSectionsOf(c&&c.muntin);},0);
-}
+/* Деления этой строки: раскладка живёт в её форме, поэтому соседние строки с
+   тем же makeup остаются без бара и без цены. */
+function salesMuntinSections(line){return salesMuntinSectionsOf(salesLineMuntin(line));}
 function salesMuntinChargeRows(line){
- const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
- if(!m)return [];
- const many=(m.cavities||[]).length>1,rows=[];
- (m.cavities||[]).forEach(function(c,i){
-  const n=salesMuntinSectionsOf(c&&c.muntin);
-  if(!n)return;
-  rows.push(salesChargeRow('MUNTIN:cavity'+(i+1),'Muntin sections'+(many?' · Cavity '+(i+1):''),n,'pc',salesMuntinRate(c),'Makeup'));
- });
- return rows;
+ const n=salesMuntinSections(line);
+ if(!n||!salesLineAllowsMuntin(line))return [];
+ return [salesChargeRow('MUNTIN:section','Muntin sections',n,'pc',salesMuntinCatalogRate(),'Shape')];
 }
+/* Форма с баром на одиночном стекле: бару там физически негде стоять. */
+function salesLineMuntinMisapplied(line){return !!salesLineMuntin(line)&&!salesLineAllowsMuntin(line);}
 /* Edge-processing allowance belongs to the glass selected in the line's Makeup,
    not to a manually entered Shape thickness. The Shape editor keeps the legacy
    schema field only as an internal calculation input so old saved definitions and
