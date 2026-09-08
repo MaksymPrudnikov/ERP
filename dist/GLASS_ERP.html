@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 51 модулей, 3 стиля.
+  Состав сборки: 52 модулей, 3 стиля.
 -->
 <html lang="ru">
 <head>
@@ -754,6 +754,10 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   gap:8px;padding:7px 0}
 .sheet-side{grid-row:1;--mk-w:220px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   gap:4px 22px;align-items:baseline}
+/* Длинные спецификации поверхностей не могут вытеснить Finished / вес.
+   Состав переносит подписи внутри оставшейся колонки. */
+.sheet-side.layered{grid-template-columns:minmax(0,120px) 130px minmax(0,1fr);gap:4px 16px}
+.sheet-side.layered .sheet-name,.sheet-mk{min-width:0;overflow-wrap:anywhere}
 .sheet-name{order:1}
 .sheet-nums{order:2;margin-top:0}
 .sheet-mk{order:3;margin:0}
@@ -807,9 +811,9 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Покрытие лежит на конкретной ГРАНИ стекла: помечаем её штриховкой, а не
    утолщением — по штриховке сразу видно, что это слой, а не толстое стекло. */
 .mk-pane{position:relative}
-.mk-pane.coat-out::after,.mk-pane.coat-in::after{content:'';position:absolute;left:0;right:0;height:4px;
+.mk-pane.coat-out::before,.mk-pane.coat-in::after{content:'';position:absolute;left:0;right:0;height:4px;
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
-.mk-pane.coat-out::after{top:0}
+.mk-pane.coat-out::before{top:0}
 .mk-pane.coat-in::after{bottom:0}
 .sheet-who{margin-top:3px;display:grid;grid-template-columns:auto minmax(0,1fr);
   gap:3px 10px;font-size:12px}
@@ -841,8 +845,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-leg.bare{grid-template-columns:minmax(0,1fr)}
 .sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
   padding:1px 0}
-.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
+.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;overflow-wrap:anywhere}
 .sheet-leg>em{font-style:normal;font-size:7.5px;line-height:1.4;color:#344054;
   font-family:ui-monospace,Consolas,monospace}
 .sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
@@ -1005,6 +1008,9 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-action.remove:hover{color:#b42318;border-color:#f2a29b;background:#fff4f2}
 .shape-muntin-action:focus-visible,.shape-muntin-heading>button:focus-visible{outline:2px solid #175f83;outline-offset:-3px}
 
+/* Sample text must not inherit the monochrome stroke assigned to SVG groups. */
+.frit-pattern-sample text,.frit-setout text{stroke:none!important}
+
 /* ---- src/styles/service-sets.css ---- */
 /* =====================================================================
    Service Sets + production Shape UX
@@ -1089,7 +1095,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='15d3886589cd';
+var ERP_BUILD='a149cc3868f0';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7871,7 +7877,7 @@ function normalizeSalesLaminatedFrit(raw,d){
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
-function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',frit:salesDefaultLaminatedFrit()};}
+function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,frit:salesDefaultLaminatedFrit()};}
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
  const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
@@ -7883,7 +7889,7 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
  const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
- const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
@@ -7908,7 +7914,7 @@ function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
  const ply=salesDefaultLaminatedPly(g);
  return {
-  id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',
+  id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
@@ -8079,7 +8085,7 @@ function normalizeSalesPane(p,index){
   id:salesEntityId(p.id,'LITE'),category,priceOverride:salesNonNegOrNull(p.priceOverride),
   edgework:SALES_PANE_EDGEWORK.includes(p.edgework)?p.edgework:'',
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
-  visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,
+  visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,heatSoak:p.heatSoak===true&&p.heatTreatmentId==='HT-FT',
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
@@ -9786,7 +9792,8 @@ function salesPaneSetCoating(i,coating){
  const same=base?rows.filter(g=>glassBaseName(g)===base)[0]:null;
  salesPaneSetProduct(i,(same||rows[0]).id);
 }
-function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
+function salesSetHeatChoice(p,v){if(!p)return;p.heatSoak=v==='HT-FT-HST';p.heatTreatmentId=p.heatSoak?'HT-FT':v;}
+function salesPaneSetHeat(i,v){salesSetHeatChoice(salesCurrentMakeup().panes[i],v);render();}
 function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
 function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}
 /* Диаметр точки и отступы — числа, а не свободный текст: мусор ловим прямо на
@@ -9835,7 +9842,7 @@ function salesSetLamPlyPrice(i,side,v){
  ply.priceOverride=salesNonNegOrNull(v);
  render();
 }
-function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);if(ply)ply.heatTreatmentId=v;render();}
+function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);salesSetHeatChoice(ply,v);render();}
 function salesPaneEnsureLamFrit(ply){if(!ply)return null;if(!ply.frit)ply.frit=salesDefaultLaminatedFrit();return ply.frit;}
 function salesPaneSetLamFrit(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(!f)return;if(key==='position'){if(!SALES_LAMINATED_FRIT_POSITIONS.includes(v))return;f.position=v;}else f[key]=v;render();}
 function salesPaneSetLamFritText(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(f)f[key]=v;}
@@ -10434,6 +10441,12 @@ function salesGlazingChargeRows(line,areaFt2){
  if(!m)return rows;
  const frit=Object.create(null),spandrel=Object.create(null),order=[];
  (m.panes||[]).forEach(function(p,i){
+  const targets=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[p];
+  targets.forEach(function(ply,j){
+   if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
+   const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',null,'Makeup'));
+  });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
    const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
@@ -11676,13 +11689,13 @@ function salesRouteMarkText(shape,geo,item,edgeLen){
 }
 
 /* Один лайт: что с ним делают и на какой станции. */
-function salesRouteLiteStations(shape,result,groups,heatTreatment){
-  var map={},order=[],afterMap={},afterOrder=[],geo=null;
+function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,heatSoak){
+  var map={},order=[],heatMap={},heatOrder=[],postMap={},postOrder=[],afterMap={},afterOrder=[],geo=null;
   try{geo=(typeof shapeManufacturingGeometry==='function'&&shape===sDraft)?shapeManufacturingGeometry():null;}catch(e){geo=null;}
   if(!geo&&result&&result.valid&&(result.points||[]).length)geo={P:result.points,b:fabEdgeBounds(result.points)};
 
   var cut=result&&result.cutting&&result.cutting.valid?result.cutting:null;
-  if(cut)salesRoutePush(map,order,'CUT',dimIn16(cut.width)+' × '+dimIn16(cut.height));
+  if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height));
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
   var byOp={},opOrder=[],edgeLen={};
@@ -11690,12 +11703,17 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
     edgeLen[g.id]=+g.length||0;
     (g.ops||[]).forEach(function(op){
       var t=op&&op.type;if(!t)return;
-      if(!byOp[t]){byOp[t]=[];opOrder.push(t);}
-      if(byOp[t].indexOf(g.id)<0)byOp[t].push(g.id);
+      var key=salesServiceOpSignature(op);
+      if(!byOp[key]){byOp[key]={op:op,edges:[]};opOrder.push(key);}
+      if(byOp[key].edges.indexOf(g.id)<0)byOp[key].edges.push(g.id);
     });
   });
-  opOrder.forEach(function(t){
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=byOp[t].join(', ')+' · '+t;
+  opOrder.forEach(function(key){
+    var group=byOp[key],op=group.op,t=op.type;
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=group.edges.join(', ')+' · '+t;
+    if(op.angle)text+=' '+op.angle+'°';
+    if(op.width)text+=' · Width '+dimIn16(inch(op.width));
+    if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
     /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
        ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
        станции, то есть до склейки, и лист печатал бы неправду. */
@@ -11713,26 +11731,41 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment){
     salesRoutePush(map,order,fab,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase());
   });
   (shape&&shape.features||[]).forEach(function(f){
+    if(f.type==='hole')salesRoutePush(map,order,fab,'HOLE Ø '+dimIn16(inch(f.diameter))+
+      ' · X '+dimIn16(inch(f.x))+' / Y '+dimIn16(inch(f.y)));
+    if(f.type==='hardware')salesRoutePush(map,order,fab,'HARDWARE '+String(f.name||'')+
+      (f.edgeId?' · '+f.edgeId:'')+(f.distance?' · '+dimIn16(inch(f.distance)):''));
     if(f.type==='cutout')salesRoutePush(map,order,fab,'INTERNAL CUTOUT');
     if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,fab,'RADIUS CORNER');
   });
 
+  /* Makeup несёт работы по поверхности независимо от геометрии и цены.
+     Фрит наносится до печи, спандрел — после (контракт владельца). */
+  (treatments||[]).forEach(function(t){
+    if(t.kind==='frit')salesRoutePush(map,order,
+      salesRouteStationOf(t.spec.productId==='FRIT-DIGITAL'?'digital_print':'ceramic_frit','CERP'),'Frit · '+t.where);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf('painting','PAINT'),t.text);
+  });
   /* Печь и то, что она ставит. */
+  var heatStation=salesRouteStationOf(heatTreatment==='HS'?'heat_strengthening':'tempering','HEAT');
   if(heatTreatment&&heatTreatment!=='AN')
-    salesRoutePush(map,order,salesRouteStationOf('tempering','HEAT'),
+    salesRoutePush(heatMap,heatOrder,heatStation,
       heatTreatment==='HS'?'HEAT STRENGTHENING':'TEMPERING');
   (shape&&shape.features||[]).forEach(function(f){
     /* Штамп ставит печь — на отожжённом лайте его быть не может. */
     if(f.type==='stamp'&&heatTreatment&&heatTreatment!=='AN')
-      salesRoutePush(map,order,'HEAT',String(shapeStampText(f)).toUpperCase());
-    if(f.type==='sandblast')salesRoutePush(map,order,salesRouteStationOf('sandblasting','SAND'),
+      salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase());
+    if(f.type==='sandblast')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
       String(shapeSandblastServiceLabel(f)).toUpperCase());
   });
 
   /* Печатаем в порядке маршрута цеха, а не в порядке заполнения. */
   var seq=salesRouteStations().map(function(s){return s.code;});
-  var out=seq.filter(function(c){return map[c];}).map(function(c){return map[c];});
-  order.forEach(function(c){if(seq.indexOf(c)<0)out.push(map[c]);});
+  function sorted(m,keys){
+    return seq.filter(function(c){return m[c];}).concat(keys.filter(function(c){return seq.indexOf(c)<0;}))
+      .map(function(c){return m[c];});
+  }
+  var out=sorted(map,order).concat(sorted(heatMap,heatOrder),heatSoak&&heatTreatment==='FT'?[{code:salesRouteStationOf('heat_soak','HEAT'),name:salesRouteStationName(salesRouteStationOf('heat_soak','HEAT')),operation:'heat_soak',items:['HEAT SOAK']}]:[],sorted(postMap,postOrder));
   return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
 }
 
@@ -11742,10 +11775,60 @@ function salesRouteHeatOf(pane){
   return String(code||'AN').toUpperCase();
 }
 
+/* Общий контракт поверхности для маршрута и схемы. Внутренние грани ламината
+   не получают выдуманных номеров: у них позиция Into film и конкретная ply.
+   Неактивные поля прежнего Type не являются работами текущего стекла. */
+function salesRouteSurfaceTreatments(pane,index,side){
+  if(!pane)return [];
+  var lam=pane.category==='laminated',ply=lam?(pane.laminated||{})[side]:pane;
+  if(!ply)return [];
+  var surfaces=salesPaneSurfaces(index),out=[];
+  function add(kind,spec,surface,face,position){
+    spec=spec||{};
+    var product=kind==='coating'?null:mdById(kind==='frit'?'fritProduct':'spandrelProduct',spec.productId);
+    var label=kind==='coating'?salesVisionTypeLabel(ply.visionType):
+      kind==='frit'?'Frit':'Spandrel';
+    if(product)label+=' · '+(product.name||product.code);
+    if(spec.color)label+=' · '+spec.color;
+    if(kind==='frit'&&spec.pattern)label+=' · '+spec.pattern;
+    var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';
+    var summary=label+' · '+where,text=summary;
+    if(kind==='frit'){
+      if(spec.dotMm!=null)text+=' · Dot Ø '+spec.dotMm+' mm';
+      var margins=[];
+      if(spec.marginW16!=null)margins.push('W '+dimIn16(spec.marginW16/16));
+      if(spec.marginH16!=null)margins.push('H '+dimIn16(spec.marginH16/16));
+      if(margins.length)text+=' · Margins '+margins.join(' / ')+(spec.marginFrom?' from '+spec.marginFrom:'');
+      if(spec.marking)text+=' · Marking: '+spec.marking;
+    }
+    out.push({kind:kind,spec:spec,surface:surface||0,face:face||'',position:position||'',where:where,summary:summary,text:text});
+  }
+  if(!lam&&pane.category==='spandrel'){
+    var sp=pane.spandrel||{},sf=normalizeSurface(sp.surface,surfaces);
+    add('spandrel',sp,sf,sf===surfaces[0]?'out':sf===surfaces[1]?'in':'');
+    return out;
+  }
+  var f=ply.frit||{};
+  if(lam?f.enabled:pane.visionType==='frit'){
+    var fs=lam?(f.position==='in_film'?0:salesLaminatedFritOutsideSurface(index,side)):normalizeSurface(f.surface,surfaces);
+    var face=lam?((side==='outer')===(f.position!=='in_film')?'out':'in'):
+      fs===surfaces[0]?'out':fs===surfaces[1]?'in':'';
+    add('frit',f,fs,face,lam?f.position:'');
+  }
+  if(ply.visionType==='lowe'||ply.visionType==='reflective'){
+    /* Пока Makeup не хранит выбор грани покрытия на ply, не подменяем его
+       наружной гранью. Legacy-номер панели применим только к своей ply. */
+    var cs=normalizeSurface(lam?pane.coatingSurface:ply.coatingSurface,surfaces);
+    if(lam&&cs!==salesLaminatedFritOutsideSurface(index,side))cs=null;
+    add('coating',{},cs,cs===surfaces[0]?'out':cs===surfaces[1]?'in':'');
+  }
+  return out;
+}
+
 /* Точка слияния: там, где два стекла становятся одним изделием. */
 function salesRouteMerge(unitType,panes){
-  if((panes||[]).some(function(p){return p&&p.category==='laminated';}))return 'LAM';
-  if(unitType&&unitType!=='single')return 'IGU';
+  if(unitType&&unitType!=='single')return salesRouteStationOf('igu_assembly','IGU');
+  if((panes||[]).some(function(p){return p&&p.category==='laminated';}))return salesRouteStationOf('lamination','LAM');
   return '';
 }
 
@@ -11767,12 +11850,23 @@ function salesPrintRoute(line,order,shape,result){
   var lites=[],merge='';
   var mk=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
   if(mk&&typeof salesEffectiveProductionSnapshot==='function'){
-    var snap=salesEffectiveProductionSnapshot(line,shape,order),views=(snap&&snap.lites)||[];
-    lites=views.map(function(v,i){
-      var pane=(mk.panes||[])[i],st=salesRouteLiteStations(shape,result,v.groups,pane?salesRouteHeatOf(pane):'');
-      return {label:v.label||('Lite '+(i+1)),
-        glass:pane?salesGlassCodeForPane(pane)+' · '+salesRouteHeatOf(pane):'',
-        stations:st.list,afterMerge:st.after};
+    var plan=salesEffectiveCuttingPlan(line,shape,order),snap=plan.snapshot||salesEffectiveProductionSnapshot(line,shape,order);
+    var views=(snap&&snap.lites)||[];
+    views.forEach(function(v,i){
+      var pane=(mk.panes||[])[i],lam=pane&&pane.category==='laminated';
+      var liteShape=v.shape||shape,liteResult=liteShape===shape?result:ShapeModule.compute(liteShape);
+      var cut=(plan.lites||[]).find(function(c){return c.index===v.index;});
+      liteResult=Object.assign({},liteResult,{cutting:cut?{valid:true,width:cut.cutW,height:cut.cutH}:null});
+      (lam?['outer','inner']:['']).forEach(function(side){
+        var glass=lam?(pane.laminated||{})[side]:pane,ht=salesRouteHeatOf(glass);
+        var treatments=salesRouteSurfaceTreatments(pane,i,side);
+        var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
+        var g=glass&&glassProductById(glass.glassProductId);
+        var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
+          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after};
+        if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'));
+        lites.push(row);
+      });
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
     salesRouteAppendMerge(lites,merge);
@@ -11844,7 +11938,7 @@ function salesGlassNameForPane(pane){
   if(!pane)return '';
   if(pane.category==='laminated')return 'Laminated';
   var g=glassProductById(pane.glassProductId),name=g?(g.name||g.code):'',ht=salesRouteHeatOf(pane);
-  return salesSheetThicknessFirst(name,salesPaneGlassThicknessMm(pane))+(ht&&ht!=='AN'?' · '+ht:'');
+  return salesSheetThicknessFirst(name,salesPaneGlassThicknessMm(pane))+(ht&&ht!=='AN'?' · '+ht:'')+(pane.heatSoak&&ht==='FT'?' + HST':'');
 }
 /* Состав пакета — ГОРИЗОНТАЛЬНОЕ сечение, как его рисует стекольщик: слои лежат
    стопкой сверху вниз от наружной стороны к внутренней, подпись стоит слева от
@@ -11857,7 +11951,7 @@ function salesSheetPlyText(ply){
   if(!ply)return '';
   var g=glassProductById(ply.glassProductId),name=g?(g.name||g.code):'';
   var mm=+ply.thicknessMm,ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
-  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'');
+  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'')+(ply.heatSoak&&ht==='FT'?' + HST':'');
 }
 /* Плёнка межслойная: сколько слоёв, какой толщины и чего именно. */
 function salesSheetFilmText(film){
@@ -11866,29 +11960,22 @@ function salesSheetFilmText(film){
   var layers=+film.layers||1,mm=+film.thicknessMm;
   return (layers>1?layers+' × ':'')+(isFinite(mm)&&mm>0?mm+' mm ':'')+((pr&&(pr.code||pr.name))||'');
 }
-/* Какая поверхность помечена у этого слоя: покрытие, спандрел или фрит.
-   Ноль означает «ничем не занята». */
-function salesSheetMarkedSurface(pane){
-  if(!pane)return 0;
-  if(pane.category==='spandrel')return +(pane.spandrel&&pane.spandrel.surface)||0;
-  if(pane.visionType==='frit')return +(pane.frit&&pane.frit.surface)||0;
-  return +pane.coatingSurface||0;
+/* Каждая пометка принадлежит своей физической грани; обе грани могут быть
+   заняты. Текст и маршрут читают один и тот же контракт Makeup. */
+function salesSheetTreatmentText(treatments){
+  return (treatments||[]).map(function(t){return t.kind==='frit'?'Frit · '+t.where:t.summary;}).join(' · ');
 }
-/* Чем занята поверхность — словом, как в конфигураторе Makeup. */
-function salesSheetSurfaceLabel(pane){
-  if(!pane)return '';
-  if(pane.category==='spandrel')return 'Spandrel'+(pane.spandrel&&pane.spandrel.color?' '+pane.spandrel.color:'');
-  if(pane.visionType==='frit')return 'Frit'+(pane.frit&&pane.frit.color?' '+pane.frit.color:'');
-  if(pane.visionType==='lowe'||pane.visionType==='reflective')
-    return (typeof salesVisionTypeLabel==='function')?salesVisionTypeLabel(pane.visionType):'Coated';
-  return '';
+function salesSheetTreatmentFaces(treatments){
+  return ['out','in'].filter(function(face){
+    return (treatments||[]).some(function(t){return t.face===face;});
+  }).map(function(face){return ' coat-'+face;}).join('');
 }
 /* Слоёный ли юнит: пакет, ламинат или спандрел. От этого зависит вся верхняя
    раскладка листа. */
 function salesSheetIsLayered(makeup){
   var panes=(makeup&&makeup.panes)||[];
   if(panes.length>1)return true;
-  return panes.some(function(p){return p&&(p.category==='laminated'||p.category==='spandrel');});
+  return panes.some(function(p,i){return p&&(p.category==='laminated'||salesRouteSurfaceTreatments(p,i).length>0);});
 }
 function salesSheetPaneText(pane,index){
   if(!pane)return '';
@@ -11897,10 +11984,9 @@ function salesSheetPaneText(pane,index){
   var g=glassProductById(pane.glassProductId);
   var mm=salesPaneGlassThicknessMm(pane),name=g?(g.name||g.code):'';
   var bits=salesSheetThicknessFirst(name,mm);
-  var ht=salesRouteHeatOf(pane),what=salesSheetSurfaceLabel(pane),sf=salesSheetMarkedSurface(pane);
+  var ht=salesRouteHeatOf(pane),what=salesSheetTreatmentText(salesRouteSurfaceTreatments(pane,index));
   if(what)bits+=' · '+what;
-  if(sf)bits+=' · #'+sf;
-  if(ht&&ht!=='AN')bits+=' · '+ht;
+  if(ht&&ht!=='AN')bits+=' · '+ht+(pane.heatSoak&&ht==='FT'?' + HST':'');
   return bits;
 }
 function salesSheetCavityText(makeup,i){
@@ -11960,21 +12046,21 @@ function salesSheetMakeupHTML(makeup,shape){
         (bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+'</span>'+
         '<i class="mk-cav">'+(bar?bar.svg:'')+'</i><em></em></div>';
     }
-    var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
-    var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
+    var surf=salesPaneSurfaces(i),face=salesSheetTreatmentFaces(salesRouteSurfaceTreatments(p,i));
     /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
        хендофу 9м это ДВА отдельных стекла со своими L-номерами. Показываем их
        раздельно, иначе цех не увидит, что именно склеивают. */
     if(p.category==='laminated'){
       var lam=p.laminated||{},films=lam.interlayers||[];
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc(salesSheetPlyText(lam.outer))+'</span>'+
-        '<i class="mk-pane'+(sf===surf[0]?' coat-out':'')+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
+      var outer=salesRouteSurfaceTreatments(p,i,'outer'),inner=salesRouteSurfaceTreatments(p,i,'inner');
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentText(outer)].filter(Boolean).join(' · '))+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
       films.forEach(function(f){
         rows+='<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
           '<i class="mk-film"></i><em></em></div>';
       });
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc(salesSheetPlyText(lam.inner))+'</span>'+
-        '<i class="mk-pane'+(sf===surf[1]?' coat-in':'')+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentText(inner)].filter(Boolean).join(' · '))+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
       return;
     }
     rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
@@ -12056,7 +12142,8 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
   var n=line?(line.qty||1):0;
-  var qty=line?(n+' '+(layered?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
+  var assembled=makeup&&((makeup.panes||[]).length>1||(makeup.panes||[]).some(function(p){return p.category==='laminated';}));
+  var qty=line?(n+' '+(assembled?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');
@@ -12115,6 +12202,111 @@ function salesSheetFitDrawing(host){
     svg.setAttribute('viewBox',(b.x-m).toFixed(1)+' '+(b.y-m).toFixed(1)+' '+
       (b.width+m*2).toFixed(1)+' '+(b.height+m*2).toFixed(1));
   }catch(e){}
+}
+
+/* ==== src/erp/sales/frit-drawing.js ==== */
+/* Frit drawing annotations only. Pitch comes from the original silkscreen
+   form (handoff 9л); nothing here changes Shape or cutting geometry. */
+const SALES_FRIT_PATTERNS={
+ '2 x 2 square':{dx:2,dy:2,stag:false},
+ '4 x 4 square':{dx:4,dy:4,stag:false},
+ '2 x 4 diamond':{dx:4,dy:2,stag:true}
+};
+function salesFritDrawingSpecs(shape){
+ var line=salesSheetLineOf(shape),mk=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[];
+ var only=typeof salesBridge!=='undefined'&&salesBridge&&salesBridge.liteIndex!=null?salesBridge.liteIndex:null;
+ (mk&&mk.panes||[]).forEach(function(p,i){
+  if(only!=null&&only!==i)return;
+  (p.category==='laminated'?['outer','inner']:['']).forEach(function(side){
+   salesRouteSurfaceTreatments(p,i,side).filter(function(t){return t.kind==='frit';}).forEach(function(t){
+    out.push({id:'F'+(out.length+1),label:'Lite '+(i+1)+(side?(side==='outer'?'a':'b'):''),paneIndex:i,treatment:t,spec:t.spec});
+   });
+  });
+ });
+ return out;
+}
+/* W/H are measured to the CENTRE of the first dot. For a shaped edge the
+   owner has not defined the reference rule, so do not substitute a bbox edge.
+   A separate lite contour is likewise not the shared contour on this sheet. */
+function salesFritFirstDot(record,shape,result){
+ var f=record.spec,P=result&&result.points||[],b=P.length?fabEdgeBounds(P):null;
+ if(!b||P.length!==4||P.some(function(p,i){var q=P[(i+1)%P.length];return Math.abs(p[0]-q[0])>1e-6&&Math.abs(p[1]-q[1])>1e-6;}))
+  return {valid:false,note:'Setout: review shaped edges'};
+ var line=salesSheetLineOf(shape),own=line&&salesLineLiteShape(line,record.paneIndex);
+ if(shapeLiteMirrored(shape,record.paneIndex))return {valid:false,note:'Setout: review mirrored lite'};
+ if(own&&own.id!==shape.id)return {valid:false,note:'Setout: see lite drawing'};
+ var inset=shapeLiteSpec(shape,record.paneIndex);
+ if(inset&&inset.inset&&Object.keys(inset.inset).some(function(k){return inch(inset.inset[k])>0;}))return {valid:false,note:'Setout: see lite drawing'};
+ var right=String(f.marginFrom).indexOf('right')>=0,top=String(f.marginFrom).indexOf('Top')>=0;
+ var w=+f.marginW16/16,h=+f.marginH16/16,edgeX=right?b.maxX:b.minX,edgeY=top?b.maxY:b.minY;
+ var x=edgeX+(right?-w:w),y=edgeY+(top?-h:h);
+ if(!isFinite(w)||!isFinite(h)||w<0||h<0||x<b.minX||x>b.maxX||y<b.minY||y>b.maxY)return {valid:false,note:'Setout outside glass'};
+ return {valid:true,x:x,y:y,edgeX:edgeX,edgeY:edgeY,right:right,top:top,w:w,h:h};
+}
+function salesFritSvgText(x,y,text,size,anchor){
+ return '<text x="'+x+'" y="'+y+'" font-family="Arial, sans-serif" font-size="'+(size||10)+'" text-anchor="'+(anchor||'start')+'" fill="#24313b">'+esc(text)+'</text>';
+}
+function salesFritSampleSvg(record,x,y,note){
+ var f=record.spec,p=SALES_FRIT_PATTERNS[f.pattern],body='',lines=[];
+ var sx=22,sy=33,box=116,pad=10,scale=(box-pad*2)/8;
+ body+='<rect x="'+sx+'" y="'+sy+'" width="'+box+'" height="'+box+'" fill="#fff" stroke="#a8b0b5" stroke-width="0.6"/>';
+ if(p){
+  for(var row=0;row*p.dy<=8;row++)for(var col=0;col*p.dx<=8;col++){
+   var px=col*p.dx+(p.stag&&row%2?p.dx/2:0);if(px>8)continue;
+   body+='<circle class="frit-sample-dot" cx="'+(sx+pad+px*scale)+'" cy="'+(sy+pad+row*p.dy*scale)+'" r="'+Math.max(.6,+f.dotMm/25.4*scale/2)+'" fill="'+(f.color==='White'?'#fff':'#edf0f2')+'" stroke="#111" stroke-width="0.55"/>';
+  }
+ }else{
+  body+=salesFritSvgText(80,86,'CUSTOM',11,'middle')+salesFritSvgText(80,103,'See silk screen sheet',9,'middle');
+ }
+ lines.push((mdById('fritProduct',f.productId)||{}).name||'Frit',f.pattern, f.color+' · Ø '+f.dotMm+' mm');
+ if(p)lines.push('Pitch '+dimIn16(p.dx)+' × '+dimIn16(p.dy)+(p.stag?' · staggered':''));
+ lines.push('W '+dimIn16(f.marginW16/16)+' / H '+dimIn16(f.marginH16/16),f.marginFrom+' → dot centre');
+ if(f.marking)lines.push('Mark: '+f.marking);
+ if(note)lines.push(note);
+ var yy=165;
+ lines.forEach(function(line){
+  /* Production markings are free text: wrap, never truncate. */
+  var words=String(line||'').match(/.{1,27}(?:\s|$)|.{1,27}/g)||[''];
+  words.forEach(function(part){body+=salesFritSvgText(8,yy,part.trim(),9);yy+=12;});
+ });
+ var height=yy+3;
+ return {height:height,svg:'<g class="frit-pattern-sample" data-frit="'+record.id+'" transform="translate('+x+' '+y+')">'+
+  '<rect width="160" height="'+height+'" rx="4" fill="#fff" stroke="#d2d7db" stroke-width="0.7"/>'+
+  salesFritSvgText(8,14,record.id+' · '+record.label+' · '+record.treatment.where,10)+
+  salesFritSvgText(8,27,'PATTERN SAMPLE',8)+body+'</g>'};
+}
+function salesFritSetoutSvg(dot,T,ids){
+ var x=T.X(dot.x),y=T.Y(dot.y),ex=T.X(dot.edgeX),ey=T.Y(dot.edgeY);
+ var dx=dot.right?-1:1,dy=dot.top?1:-1,hY=y+dy*34,vX=x+dx*46;
+ var line=function(a,b,c,d,dashed){return '<line x1="'+a+'" y1="'+b+'" x2="'+c+'" y2="'+d+'" stroke="#44515a" stroke-width="0.7"'+(dashed?' stroke-dasharray="3 3"':'')+'/>';};
+ var arrow=function(a,b,c,d){
+  var angle=Math.atan2(d-b,c-a),s=4,ux=Math.cos(angle),uy=Math.sin(angle),px=-uy,py=ux;
+  return line(a,b,c,d,false)+'<path d="M '+(a+ux*s+px*2)+' '+(b+uy*s+py*2)+' L '+a+' '+b+' L '+(a+ux*s-px*2)+' '+(b+uy*s-py*2)+
+   ' M '+(c-ux*s+px*2)+' '+(d-uy*s+py*2)+' L '+c+' '+d+' L '+(c-ux*s-px*2)+' '+(d-uy*s-py*2)+'" fill="none" stroke="#44515a" stroke-width="0.8"/>';
+ };
+ var out=line(ex,y,ex,hY+dy*5,true)+line(x,y,x,hY+dy*5,true)+arrow(ex,hY,x,hY)+
+  line(x,ey,vX+dx*5,ey,true)+line(x,y,vX+dx*5,y,true)+arrow(vX,ey,vX,y);
+ // Labels sit beyond the short 1-inch segments, so text cannot collide with arrows.
+ out+=salesFritSvgText(x+dx*8,hY+dy*13,'W '+dimIn16(dot.w),10,dx<0?'end':'start');
+ out+=salesFritSvgText(vX+dx*8,y+dy*13,'H '+dimIn16(dot.h),10,dx<0?'end':'start');
+ out+='<circle class="frit-first-dot" data-x="'+dot.x+'" data-y="'+dot.y+'" cx="'+x+'" cy="'+y+'" r="2.5" fill="#fff" stroke="#111" stroke-width="0.8"/>';
+ out+=line(x-5,y,x+5,y,false)+line(x,y-5,x,y+5,false);
+ out+=salesFritSvgText(x+dx*8,y-dy*9,ids,10,dx<0?'end':'start');
+ return '<g class="frit-setout" pointer-events="none">'+out+'</g>';
+}
+function salesFritDecorateSvg(svg,shape,result,T){
+ if(!T||!svg||svg.indexOf('data-frit-decorated')>=0)return svg;
+ var records=salesFritDrawingSpecs(shape);if(!records.length)return svg;
+ var x=T.vw+12,y=Math.max(36,T.Y(T.b.maxY)),extra='',dots={};
+ records.forEach(function(r){
+  var dot=salesFritFirstDot(r,shape,result),sample=salesFritSampleSvg(r,x,y,dot.valid?'':dot.note);
+  extra+=sample.svg;y+=sample.height+10;
+  if(dot.valid){var key=[dot.x,dot.y,dot.edgeX,dot.edgeY].join('|');if(!dots[key])dots[key]={dot:dot,ids:[]};dots[key].ids.push(r.id);}
+ });
+ Object.keys(dots).forEach(function(k){extra+=salesFritSetoutSvg(dots[k].dot,T,dots[k].ids.join(', '));});
+ var height=Math.max(T.vh,y+12),width=x+172;
+ svg=svg.replace('<svg ','<svg data-frit-decorated="true" ').replace(/viewBox="[^"]+"/,'viewBox="0 0 '+width+' '+height+'"');
+ return svg.replace('</svg>',extra+'</svg>');
 }
 
 /* ==== src/erp/sales/makeup-ui.js ==== */
@@ -12221,7 +12413,7 @@ function salesCavityPriceBadge(c){
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
@@ -12229,7 +12421,7 @@ function salesPaneProductSummary(p,index){
  if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
- if(ht&&ht.code!=='AN')bits.push(ht.code);return bits.join(' · ');
+ if(ht&&ht.code!=='AN')bits.push(ht.code+(p.heatSoak&&ht.code==='FT'?' + HST':''));return bits.join(' · ');
 }
 
 function salesAccordionToggle(el,key){
@@ -12252,7 +12444,11 @@ function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYP
 function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['vision','Vision'],['spandrel','Spandrel'],['laminated','Laminated']].map(x=>`<button type="button" class="${p.category===x[0]?'on':''}" onclick="salesSetPaneCategory(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
 function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
 function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
-function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesSimpleOptions('heatTreatment',p.heatTreatmentId)}</select></div>`;}
+function salesHeatOptions(p){
+ const value=p.heatTreatmentId==='HT-FT'&&p.heatSoak?'HT-FT-HST':p.heatTreatmentId;
+ return salesSimpleOptions('heatTreatment',value)+salesOption('HT-FT-HST','FT + HST · Tempered + Heat Soak',value,true);
+}
+function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesHeatOptions(p)}</select></div>`;}
 
 /* Surface buttons need literal calls; keeping this helper separate avoids
    generating unsafe/eval-style handlers. */
@@ -12357,7 +12553,7 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
    <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Type</label>${typeSelect}</div>
-   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
+   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
    <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
   </div>
   ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
@@ -13182,7 +13378,12 @@ function shapeDrawnPreviewTransform(result,extra){
 function shapePlaceManufacturingFromEvent(ev,svg){
   if(!sManufacturingPlace)return;
   var external=shapeIsDxfSource(sDraft),r=shapeDraftResult(),T=external?shapeDxfPreviewTransform(sDraft.source):shapeDrawnPreviewTransform(r);if(!T)return;
-  var rect=svg.getBoundingClientRect(),vx=(ev.clientX-rect.left)*T.vw/Math.max(1,rect.width),vy=(ev.clientY-rect.top)*T.vh/Math.max(1,rect.height);
+  if(ev.target&&ev.target.closest&&ev.target.closest('.frit-pattern-sample'))return;
+  /* Invert the actual SVG transform: pattern samples extend its viewBox and
+     the preview may also have letterboxing. Neither changes glass coordinates. */
+  var point=svg.createSVGPoint(),matrix=svg.getScreenCTM();if(!matrix)return;
+  point.x=ev.clientX;point.y=ev.clientY;point=point.matrixTransform(matrix.inverse());
+  var vx=point.x,vy=point.y;
   var x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,g={P:T.P,b:T.b};x=shapeSnapManufacturing16(x);y=shapeSnapManufacturing16(y);
   var type=sManufacturingPlace.type,data={};
   if(type==='hole'){
@@ -13633,7 +13834,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
      represented by the active drawing tab. */
   if(interactive)svg=svg.replace(/<text x="24" y="[^"]+" font-size="10" fill="#667085">Finished geometry[^<]*<\/text>/,'');
   var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
-  try{return shapeDrawnProductionBody(svg,T,interactive);}finally{shapeDimUi=uiWas;}
+  try{return salesFritDecorateSvg(shapeDrawnProductionBody(svg,T,interactive),sDraft,result,T);}finally{shapeDimUi=uiWas;}
 }
 /* ---------- Раскладка на чертеже ----------
    Бар — часть юнита, а не отдельное изделие: он рисуется на том же
