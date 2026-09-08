@@ -115,20 +115,57 @@ function salesSheetCavityText(makeup,i){
   var bits=[sp?(sp.size+(sp.system?' '+sp.system:'')):'',gas?gas.code:''].filter(Boolean);
   return bits.join(' + ')||('Cavity '+i);
 }
+/* Раскладка принадлежит форме строки, поэтому Makeup сам по себе о ней не
+   знает. Схема сечения получает текущую форму, включая ещё не сохранённый
+   черновик. Размеры профиля берём из каталога, стороны — с учётом разворота. */
+function salesSheetMuntinInfo(shape){
+  var m=shape&&shape.muntin;
+  if(!m||!m.enabled||!(m.verticalBars||m.horizontalBars))return null;
+  var p=muntinProduct(m.productId),flip=!!m.flipped;
+  var outside=flip?p.interiorColor:p.exteriorColor,inside=flip?p.exteriorColor:p.interiorColor;
+  /* Чёрный и белый на производственном листе печатаются чистыми цветами.
+     Для других цветов принимаем только hex, а не произвольный CSS из JSON. */
+  function ink(name,hex){
+    if(/^white$/i.test(name))return '#ffffff';
+    if(/^black$/i.test(name))return '#000000';
+    return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hex||'')?hex:'#000000';
+  }
+  var ext=ink(outside,flip?p.interiorHex:p.exteriorHex);
+  var int=ink(inside,flip?p.exteriorHex:p.interiorHex);
+  var text='Muntin bar: '+p.label;
+  var size=dimIn(p.faceWidthIn)+' × '+dimIn(p.depthIn);
+  /* Каталожная подпись может быть именем профиля без размеров. */
+  if(p.label.indexOf(dimIn(p.faceWidthIn))<0||p.label.indexOf(dimIn(p.depthIn))<0)text+=' · '+size;
+  if(outside!==inside)text+=' · '+outside+' ext / '+inside+' int';
+  var width=Math.max(12,Math.min(60,8*p.faceWidthIn/Math.max(p.depthIn,0.01)));
+  var svg='<svg class="mk-muntin" style="width:'+width+'px;height:8px" width="'+width+'" height="8" viewBox="0 0 '+width+' 8" aria-hidden="true">'+
+    '<rect width="'+width+'" height="8" fill="'+ext+'"/>'+
+    (ext!==int?'<rect y="4" width="'+width+'" height="4" fill="'+int+'"/>':'')+
+    '<rect x="0.5" y="0.5" width="'+(width-1)+'" height="7" fill="none" stroke="#000000" stroke-width="1"/>'+
+    '</svg>';
+  return {text:text,svg:svg};
+}
 /* Верхняя грань подписана сверху, нижняя снизу — на своей высоте. Обе в одну
    строку читались как «1 2» без понимания, где какая. */
 function salesSheetFaceNums(top,bottom){
   return '<em class="mk-faces"><i>'+(top?'#'+top:'')+'</i><i>'+(bottom?'#'+bottom:'')+'</i></em>';
 }
-function salesSheetMakeupHTML(makeup){
+function salesSheetMakeupHTML(makeup,shape){
   var panes=(makeup&&makeup.panes)||[];
   /* Схема нужна там, где слоёв больше одного: пакет, ламинат, спандрел с его
      поверхностью. У простого одинарного стекла всё сказано в заголовке слева. */
   if(!salesSheetIsLayered(makeup))return '';
-  var rows='';
+  var rows='',muntin=salesSheetMuntinInfo(shape),m=shape&&shape.muntin;
+  /* Double имеет единственную камеру. У Triple отсутствие выбора нельзя
+     выдавать за наружную камеру или дублировать раскладку в обеих. */
+  var cavityIndex=panes.length===2?0:(m&&(m.cavityIndex===0||m.cavityIndex===1)?m.cavityIndex:null);
   panes.forEach(function(p,i){
-    if(i)rows+='<div class="mk-row"><span>Cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
-      '<i class="mk-cav"></i><em></em></div>';
+    if(i){
+      var bar=i-1===cavityIndex?muntin:null;
+      rows+='<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
+        (bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+'</span>'+
+        '<i class="mk-cav">'+(bar?bar.svg:'')+'</i><em></em></div>';
+    }
     var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
     var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
     /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
@@ -149,6 +186,8 @@ function salesSheetMakeupHTML(makeup){
     rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
       '<i class="mk-pane'+face+'"></i>'+salesSheetFaceNums(surf[0],surf[1])+'</div>';
   });
+  if(muntin&&panes.length>2&&cavityIndex==null)
+    rows+='<div class="mk-muntin-unassigned">'+esc(muntin.text)+' · Cavity not selected</div>';
   return '<div class="sheet-mk-rows">'+rows+'</div>';
 }
 function salesSheetRouteHTML(route){
@@ -247,7 +286,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
           (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
           (qty?'<div class="sheet-qty">'+esc(qty)+'</div>':'')+
         '</div>'+
-        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup,shape)+'</div>':'')+
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+

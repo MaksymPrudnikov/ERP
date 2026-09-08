@@ -161,6 +161,9 @@ function shapeNormalizeMuntin(raw){
     verticalBars:raw.verticalBars==null?1:bar(raw.verticalBars),
     horizontalBars:raw.horizontalBars==null?1:bar(raw.horizontalBars),
     flipped:raw.flipped===true};
+  /* Камеру выбирают только у Triple. Пустое значение не превращаем в первую
+     камеру: старые записи не содержат подтверждённого положения бара. */
+  if(raw.cavityIndex===0||raw.cavityIndex===1||raw.cavityIndex==='0'||raw.cavityIndex==='1')out.cavityIndex=+raw.cavityIndex;
   var setup=shapeNormalizeMuntinPositions(raw);
   Object.keys(setup).forEach(function(k){out[k]=setup[k];});
   return out;

@@ -1,6 +1,6 @@
 # GLASS ERP — Glazing System
 
-> Документация изменений Muntin актуальна для кандидата [PR #54](https://github.com/MaksymPrudnikov/ERP/pull/54) от 7 сентября 2026. Живая версия получает эти изменения после слияния и успешного CI.
+> Документация изменений Muntin актуальна для ветки `codex/muntin-cavity-sheet` от 8 сентября 2026. Живая версия получает эти изменения после слияния и успешного CI.
 
 Собственная ERP для стекольного производства. Цель — полная замена Spil Glass.
 
@@ -180,6 +180,8 @@ MuntinModule.compute(shape, mdef)
 
 **Shape — единственный источник размеров стекла.** Раскладка хранится в `shape.muntin`. Адаптер `shapeMuntinGeoForDraft` в `src/erp/views/sales-shape-ui.js` передаёт определение фигуры и временный `mdef` общему расчётному ядру. Отдельной сохраняемой записи Muntin и отдельного источника Width/Height нет. Это проверяется тестами.
 
+Схема состава в печатном листе получает `shape` через `salesSheetMakeupHTML(makeup, shape)`: в выбранной камере показан профиль, рядом — тип, ширина, глубина и цвет. Для Triple поле `shape.muntin.cavityIndex` хранит выбор камеры (`0` — наружная, `1` — внутренняя); без выбора печатается `Cavity not selected`. Для Double камера определяется автоматически.
+
 ---
 
 ## Что взято из Glass Configurator v4.5
@@ -203,7 +205,7 @@ TARGET=dist node test/run.js
 Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
 
-Проверенная точка 7 сентября 2026, кандидат PR #54: **409 passed, 0 failed** на `src` и те же **409 passed, 0 failed** на собранном `dist`, Chromium Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить `node build/build.js`; собранный `dist` не включать в коммит ветки.
+Проверенная точка 8 сентября 2026, ветка `codex/muntin-cavity-sheet`: **413 passed, 0 failed** на `src` и те же **413 passed, 0 failed** на собранном `dist`, Chromium Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить `node build/build.js`; собранный `dist` не включать в коммит ветки.
 
 Текущие решения и проверки: [`docs/GLASS_ERP_HANDOFF.md`](docs/GLASS_ERP_HANDOFF.md). Аудит 18 августа — [исторический отчёт](docs/REVIEW_2026-08-18.md).
 
