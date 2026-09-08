@@ -21,6 +21,9 @@ function salesBaseGlassCandidates(p){return salesSortGlass(activeGlassProducts()
    («LoE 272 on 6 mm Clear»): там она описывает подложку покрытия. */
 function salesGlassLabel(g){
  const name=String((g&&g.name)||'');
+ /* В составном имени хвост — толщина второй плиты, а не повтор поля
+    Thickness: `Laminated 3mm + .030" PVB + 3mm` должен остаться целиком. */
+ if(name.indexOf(' + ')>=0)return name;
  const parts=name.split(' ');
  const tail=parts[parts.length-1]||'';
  /* Хвост вида «6mm» или «6.5mm» убирается, «6 mm» в середине названия — нет. */

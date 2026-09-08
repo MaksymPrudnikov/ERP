@@ -81,8 +81,9 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height));
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
-  var byOp={},opOrder=[],edgeLen={};
+  var byOp={},opOrder=[],edgeLen={},contourEdges=[];
   (groups||[]).forEach(function(g){
+    if(contourEdges.indexOf(g.id)<0)contourEdges.push(g.id);
     edgeLen[g.id]=+g.length||0;
     (g.ops||[]).forEach(function(op){
       var t=op&&op.type;if(!t)return;
@@ -93,7 +94,12 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   });
   opOrder.forEach(function(key){
     var group=byOp[key],op=group.op,t=op.type;
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=group.edges.join(', ')+' · '+t;
+    /* Одинаковая операция по всему контуру не нуждается в перечне каждой
+       стороны: станция получает короткое `EDGE - Rough Arris`. Если хотя бы
+       одна сторона отличается, список остаётся и прямо показывает разницу. */
+    var allEdges=contourEdges.length>0&&group.edges.length===contourEdges.length&&
+      contourEdges.every(function(id){return group.edges.indexOf(id)>=0;});
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');

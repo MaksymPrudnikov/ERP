@@ -58,12 +58,16 @@ function salesGlassNameForPane(pane){
    на той грани, где оно на самом деле лежит.
    Разметка не SVG: на бумаге это несколько прямоугольников и текст, а текст
    в HTML набирается тем же шрифтом, что и весь лист. */
-/* Один слой стекла: толщина, название, термообработка, поверхность покрытия. */
+/* В самом чертеже места мало, поэтому используем складской код, а не длинное
+   маркетинговое имя. Термообработка остаётся отдельной явной пометкой: её
+   нельзя угадывать из похожего кода продукта. */
+function salesSheetGlassCode(glass){
+  return String(glass&&(glass.code||glass.name)||'').trim();
+}
 function salesSheetPlyText(ply){
   if(!ply)return '';
-  var g=glassProductById(ply.glassProductId),name=g?(g.name||g.code):'';
-  var mm=+ply.thicknessMm,ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
-  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'')+(ply.heatSoak&&ht==='FT'?' + HST':'');
+  var g=glassProductById(ply.glassProductId),ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
+  return salesSheetGlassCode(g)+(ht&&ht!=='AN'?' '+ht:'')+(ply.heatSoak&&ht==='FT'?' + HST':'');
 }
 /* Плёнка межслойная: сколько слоёв, какой толщины и чего именно. */
 function salesSheetFilmText(film){
@@ -76,6 +80,17 @@ function salesSheetFilmText(film){
    заняты. Текст и маршрут читают один и тот же контракт Makeup. */
 function salesSheetTreatmentText(treatments){
   return (treatments||[]).map(function(t){return t.kind==='frit'?'Frit · '+t.where:t.summary;}).join(' · ');
+}
+/* Короткая подпись поверхности для верхней схемы. Полный рецепт остаётся в
+   маршруте ниже листа; здесь нужны код материала и однозначная грань. */
+function salesSheetTreatmentCode(treatments){
+  return (treatments||[]).map(function(t){
+    if(t.kind==='coating')return t.where;
+    var table=t.kind==='frit'?'fritProduct':'spandrelProduct';
+    var product=(typeof mdById==='function')?mdById(table,t.spec&&t.spec.productId):null;
+    var kind=t.kind==='frit'?'FRIT':'SPDL',code=product&&(product.code||product.name);
+    return [kind,code,t.spec&&t.spec.color,t.where].filter(Boolean).join(' ');
+  }).join(' ');
 }
 function salesSheetTreatmentFaces(treatments){
   return ['out','in'].filter(function(face){
@@ -91,21 +106,26 @@ function salesSheetIsLayered(makeup){
 }
 function salesSheetPaneText(pane,index){
   if(!pane)return '';
-  if(pane.category==='laminated')
-    return (typeof salesPaneProductSummary==='function')?salesPaneProductSummary(pane,index):'Laminated';
   var g=glassProductById(pane.glassProductId);
-  var mm=salesPaneGlassThicknessMm(pane),name=g?(g.name||g.code):'';
-  var bits=salesSheetThicknessFirst(name,mm);
-  var ht=salesRouteHeatOf(pane),what=salesSheetTreatmentText(salesRouteSurfaceTreatments(pane,index));
-  if(what)bits+=' · '+what;
-  if(ht&&ht!=='AN')bits+=' · '+ht+(pane.heatSoak&&ht==='FT'?' + HST':'');
-  return bits;
+  var bits=[salesSheetGlassCode(g)],what=salesSheetTreatmentCode(salesRouteSurfaceTreatments(pane,index));
+  if(what)bits.push(what);
+  var ht=salesRouteHeatOf(pane);
+  if(ht&&ht!=='AN')bits.push(ht+(pane.heatSoak&&ht==='FT'?' + HST':''));
+  return bits.filter(Boolean).join(' ');
+}
+function salesSheetSpacerCode(sp){
+  if(!sp)return '';
+  var systems=typeof SPACER_SYSTEMS!=='undefined'?SPACER_SYSTEMS:[];
+  var known=systems.find(function(s){return s.system===sp.system;});
+  if(known)return known.code;
+  var id=String(sp.id||''),match=id.match(/^SP-([^-]+)-/i);
+  return match?match[1].toUpperCase():String(sp.system||sp.code||'').trim();
 }
 function salesSheetCavityText(makeup,i){
   var c=(makeup.cavities||[])[i-1];
   var sp=mdById('spacerVariant',c&&c.spacerVariantId),gas=mdById('gasProduct',c&&c.gasProductId);
-  var bits=[sp?(sp.size+(sp.system?' '+sp.system:'')):'',gas?gas.code:''].filter(Boolean);
-  return bits.join(' + ')||('Cavity '+i);
+  var spacer=sp?[sp.size,salesSheetSpacerCode(sp)].filter(Boolean).join(' '):'';
+  return spacer+(gas&&gas.code&&gas.code!=='AIR'?('+'+gas.code):'')||('Cavity '+i);
 }
 /* Раскладка принадлежит форме строки, поэтому Makeup сам по себе о ней не
    знает. Схема сечения получает текущую форму, включая ещё не сохранённый
@@ -165,13 +185,13 @@ function salesSheetMakeupHTML(makeup,shape){
     if(p.category==='laminated'){
       var lam=p.laminated||{},films=lam.interlayers||[];
       var outer=salesRouteSurfaceTreatments(p,i,'outer'),inner=salesRouteSurfaceTreatments(p,i,'inner');
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentText(outer)].filter(Boolean).join(' · '))+'</span>'+
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentCode(outer)].filter(Boolean).join(' '))+'</span>'+
         '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
       films.forEach(function(f){
         rows+='<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
           '<i class="mk-film"></i><em></em></div>';
       });
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentText(inner)].filter(Boolean).join(' · '))+'</span>'+
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentCode(inner)].filter(Boolean).join(' '))+'</span>'+
         '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
       return;
     }

@@ -134,6 +134,14 @@ Laminated строится как `OUTER PLY → INTERLAYER STACK → INNER PLY`
 
 Master Data seed отделён от supply-фактов: продукт может позже получить `availability`, supplier, lead time и sheet sizes без изменения Sales schema.
 
+Services строки включают коммерческую надбавку `Shape Unit` — 1.25 CAD за
+billable ft² (`Width × Height`) для любой формы, кроме обычного Rectangle;
+внешний DXF считается Shape. База умножается на Qty и показывается как ft²,
+а не как погонные inches. `Triple IGU` снова выводится отдельной строкой на
+каждый unit, но до реализации регулируемой процентной надбавки не имеет
+выдуманной каталожной ставки. Ближайшие pricing rules и открытые решения по
+их процентной базе описаны в верхнем разделе хендоффа v4.9.
+
 ---
 
 ## Как обновить модуль (без терминала)
@@ -205,7 +213,7 @@ TARGET=dist node test/run.js
 Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
 
-Проверенная точка 8 сентября 2026, ветка `codex/muntin-cavity-sheet`: **413 passed, 0 failed** на `src` и те же **413 passed, 0 failed** на собранном `dist`, Chromium Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить `node build/build.js`; собранный `dist` не включать в коммит ветки.
+Проверенная точка 9 сентября 2026, ветка `codex/bugfix-20260909`: **434 passed, 0 failed** на `src` и те же **434 passed, 0 failed** на собранном `dist`, Chromium Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить `node build/build.js`; собранный `dist` не включать в коммит ветки.
 
 Текущие решения и проверки: [`docs/GLASS_ERP_HANDOFF.md`](docs/GLASS_ERP_HANDOFF.md). Аудит 18 августа — [исторический отчёт](docs/REVIEW_2026-08-18.md).
 
