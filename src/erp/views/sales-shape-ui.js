@@ -708,7 +708,12 @@ function shapeDrawnPreviewTransform(result,extra){
 function shapePlaceManufacturingFromEvent(ev,svg){
   if(!sManufacturingPlace)return;
   var external=shapeIsDxfSource(sDraft),r=shapeDraftResult(),T=external?shapeDxfPreviewTransform(sDraft.source):shapeDrawnPreviewTransform(r);if(!T)return;
-  var rect=svg.getBoundingClientRect(),vx=(ev.clientX-rect.left)*T.vw/Math.max(1,rect.width),vy=(ev.clientY-rect.top)*T.vh/Math.max(1,rect.height);
+  if(ev.target&&ev.target.closest&&ev.target.closest('.frit-pattern-sample'))return;
+  /* Invert the actual SVG transform: pattern samples extend its viewBox and
+     the preview may also have letterboxing. Neither changes glass coordinates. */
+  var point=svg.createSVGPoint(),matrix=svg.getScreenCTM();if(!matrix)return;
+  point.x=ev.clientX;point.y=ev.clientY;point=point.matrixTransform(matrix.inverse());
+  var vx=point.x,vy=point.y;
   var x=T.b.minX+(vx-T.x0)/T.sc,y=T.b.minY+(T.y0+T.dh-vy)/T.sc,g={P:T.P,b:T.b};x=shapeSnapManufacturing16(x);y=shapeSnapManufacturing16(y);
   var type=sManufacturingPlace.type,data={};
   if(type==='hole'){
@@ -1159,7 +1164,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
      represented by the active drawing tab. */
   if(interactive)svg=svg.replace(/<text x="24" y="[^"]+" font-size="10" fill="#667085">Finished geometry[^<]*<\/text>/,'');
   var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
-  try{return shapeDrawnProductionBody(svg,T,interactive);}finally{shapeDimUi=uiWas;}
+  try{return salesFritDecorateSvg(shapeDrawnProductionBody(svg,T,interactive),sDraft,result,T);}finally{shapeDimUi=uiWas;}
 }
 /* ---------- Раскладка на чертеже ----------
    Бар — часть юнита, а не отдельное изделие: он рисуется на том же

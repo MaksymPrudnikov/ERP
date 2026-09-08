@@ -101,7 +101,7 @@ function salesCavityPriceBadge(c){
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code);if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
@@ -109,7 +109,7 @@ function salesPaneProductSummary(p,index){
  if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
- if(ht&&ht.code!=='AN')bits.push(ht.code);return bits.join(' · ');
+ if(ht&&ht.code!=='AN')bits.push(ht.code+(p.heatSoak&&ht.code==='FT'?' + HST':''));return bits.join(' · ');
 }
 
 function salesAccordionToggle(el,key){
@@ -132,7 +132,11 @@ function salesUnitTypeControl(m){return `<div class="mu-unit-row"><span>UNIT TYP
 function salesLiteCategoryTabs(p,index){return `<div class="mu-lite-tabs">${[['vision','Vision'],['spandrel','Spandrel'],['laminated','Laminated']].map(x=>`<button type="button" class="${p.category===x[0]?'on':''}" onclick="salesSetPaneCategory(${index},'${x[0]}')">${x[1]}</button>`).join('')}</div>`;}
 function salesManufacturerField(p,index){return `<div><label>Manufacturer</label><select onchange="salesPaneSetManufacturer(${index},this.value)">${salesManufacturers().map(x=>salesOption(x,x,p.manufacturer,true)).join('')}</select></div>`;}
 function salesThicknessField(p,index){return `<div><label>Thickness</label><select onchange="salesPaneSetThickness(${index},this.value)">${salesThicknessesFor(p).map(x=>salesOption(String(x),x+' mm',String(p.thicknessMm),true)).join('')}</select></div>`;}
-function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesSimpleOptions('heatTreatment',p.heatTreatmentId)}</select></div>`;}
+function salesHeatOptions(p){
+ const value=p.heatTreatmentId==='HT-FT'&&p.heatSoak?'HT-FT-HST':p.heatTreatmentId;
+ return salesSimpleOptions('heatTreatment',value)+salesOption('HT-FT-HST','FT + HST · Tempered + Heat Soak',value,true);
+}
+function salesHeatField(p,index){return `<div><label>Heat Treatment</label><select onchange="salesPaneSetHeat(${index},this.value)">${salesHeatOptions(p)}</select></div>`;}
 
 /* Surface buttons need literal calls; keeping this helper separate avoids
    generating unsafe/eval-style handlers. */
@@ -237,7 +241,7 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div><label>Thickness</label><select onchange="salesPaneSetLamPly(${index},'${side}','thicknessMm',this.value)">${salesThicknessesFor(ply).map(x=>salesOption(String(x),x+' mm',String(ply.thicknessMm),true)).join('')}</select></div>
    <div class="mu-lam-glass"><label>${coated?'On Glass':'Glass'}</label><select onchange="salesPaneSetLamPlyProduct(${index},'${side}',this.value)">${glassSelect}</select>${salesGlassMetaFor(ply.glassProductId)}</div>
    <div><label>Type</label>${typeSelect}</div>
-   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesSimpleOptions('heatTreatment',ply.heatTreatmentId)}</select></div>
+   <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
    <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
   </div>
   ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
