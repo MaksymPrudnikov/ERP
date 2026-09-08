@@ -798,6 +798,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   border:1px solid #101828;box-sizing:border-box;
   background:repeating-linear-gradient(45deg,#101828 0 1px,#fff 1px 3px)}
 .mk-cav::before{left:0}.mk-cav::after{right:0}
+/* Сечение бара в середине камеры: наружная сторона сверху, внутренняя снизу.
+   SVG сохраняет белую заливку с чёрной обводкой и при печати без фонов. */
+.mk-muntin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
+.mk-muntin-text{display:block;font:inherit;margin-top:2px;overflow-wrap:anywhere}
+.mk-muntin-unassigned{grid-column:1/-1;justify-self:end;font-size:10.5px;text-align:right;overflow-wrap:anywhere}
+
 /* Покрытие лежит на конкретной ГРАНИ стекла: помечаем её штриховкой, а не
    утолщением — по штриховке сразу видно, что это слой, а не толстое стекло. */
 .mk-pane{position:relative}
@@ -1083,7 +1089,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1b3151c7cd1c';
+var ERP_BUILD='15d3886589cd';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2499,6 +2505,9 @@ function shapeNormalizeMuntin(raw){
     verticalBars:raw.verticalBars==null?1:bar(raw.verticalBars),
     horizontalBars:raw.horizontalBars==null?1:bar(raw.horizontalBars),
     flipped:raw.flipped===true};
+  /* Камеру выбирают только у Triple. Пустое значение не превращаем в первую
+     камеру: старые записи не содержат подтверждённого положения бара. */
+  if(raw.cavityIndex===0||raw.cavityIndex===1||raw.cavityIndex==='0'||raw.cavityIndex==='1')out.cavityIndex=+raw.cavityIndex;
   var setup=shapeNormalizeMuntinPositions(raw);
   Object.keys(setup).forEach(function(k){out[k]=setup[k];});
   return out;
@@ -8272,6 +8281,10 @@ const I18N_EN={
   "Всего": "Total",
   "Вернуть по умолчанию": "Back to defaults",
   "Стороны": "Sides",
+  "Камера раскладки": "Muntin cavity",
+  "Выберите камеру": "Select cavity",
+  "Камера 1 — наружная": "Cavity 1 — exterior",
+  "Камера 2 — внутренняя": "Cavity 2 — interior",
   "Раскладка": "Muntin",
   "Вертикальные оси": "Vertical axes",
   "Горизонтальные оси": "Horizontal axes",
@@ -11896,20 +11909,57 @@ function salesSheetCavityText(makeup,i){
   var bits=[sp?(sp.size+(sp.system?' '+sp.system:'')):'',gas?gas.code:''].filter(Boolean);
   return bits.join(' + ')||('Cavity '+i);
 }
+/* Раскладка принадлежит форме строки, поэтому Makeup сам по себе о ней не
+   знает. Схема сечения получает текущую форму, включая ещё не сохранённый
+   черновик. Размеры профиля берём из каталога, стороны — с учётом разворота. */
+function salesSheetMuntinInfo(shape){
+  var m=shape&&shape.muntin;
+  if(!m||!m.enabled||!(m.verticalBars||m.horizontalBars))return null;
+  var p=muntinProduct(m.productId),flip=!!m.flipped;
+  var outside=flip?p.interiorColor:p.exteriorColor,inside=flip?p.exteriorColor:p.interiorColor;
+  /* Чёрный и белый на производственном листе печатаются чистыми цветами.
+     Для других цветов принимаем только hex, а не произвольный CSS из JSON. */
+  function ink(name,hex){
+    if(/^white$/i.test(name))return '#ffffff';
+    if(/^black$/i.test(name))return '#000000';
+    return /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hex||'')?hex:'#000000';
+  }
+  var ext=ink(outside,flip?p.interiorHex:p.exteriorHex);
+  var int=ink(inside,flip?p.exteriorHex:p.interiorHex);
+  var text='Muntin bar: '+p.label;
+  var size=dimIn(p.faceWidthIn)+' × '+dimIn(p.depthIn);
+  /* Каталожная подпись может быть именем профиля без размеров. */
+  if(p.label.indexOf(dimIn(p.faceWidthIn))<0||p.label.indexOf(dimIn(p.depthIn))<0)text+=' · '+size;
+  if(outside!==inside)text+=' · '+outside+' ext / '+inside+' int';
+  var width=Math.max(12,Math.min(60,8*p.faceWidthIn/Math.max(p.depthIn,0.01)));
+  var svg='<svg class="mk-muntin" style="width:'+width+'px;height:8px" width="'+width+'" height="8" viewBox="0 0 '+width+' 8" aria-hidden="true">'+
+    '<rect width="'+width+'" height="8" fill="'+ext+'"/>'+
+    (ext!==int?'<rect y="4" width="'+width+'" height="4" fill="'+int+'"/>':'')+
+    '<rect x="0.5" y="0.5" width="'+(width-1)+'" height="7" fill="none" stroke="#000000" stroke-width="1"/>'+
+    '</svg>';
+  return {text:text,svg:svg};
+}
 /* Верхняя грань подписана сверху, нижняя снизу — на своей высоте. Обе в одну
    строку читались как «1 2» без понимания, где какая. */
 function salesSheetFaceNums(top,bottom){
   return '<em class="mk-faces"><i>'+(top?'#'+top:'')+'</i><i>'+(bottom?'#'+bottom:'')+'</i></em>';
 }
-function salesSheetMakeupHTML(makeup){
+function salesSheetMakeupHTML(makeup,shape){
   var panes=(makeup&&makeup.panes)||[];
   /* Схема нужна там, где слоёв больше одного: пакет, ламинат, спандрел с его
      поверхностью. У простого одинарного стекла всё сказано в заголовке слева. */
   if(!salesSheetIsLayered(makeup))return '';
-  var rows='';
+  var rows='',muntin=salesSheetMuntinInfo(shape),m=shape&&shape.muntin;
+  /* Double имеет единственную камеру. У Triple отсутствие выбора нельзя
+     выдавать за наружную камеру или дублировать раскладку в обеих. */
+  var cavityIndex=panes.length===2?0:(m&&(m.cavityIndex===0||m.cavityIndex===1)?m.cavityIndex:null);
   panes.forEach(function(p,i){
-    if(i)rows+='<div class="mk-row"><span>Cavity: '+esc(salesSheetCavityText(makeup,i))+'</span>'+
-      '<i class="mk-cav"></i><em></em></div>';
+    if(i){
+      var bar=i-1===cavityIndex?muntin:null;
+      rows+='<div class="mk-row"><span>Cavity'+(panes.length>2?' '+i:'')+': '+esc(salesSheetCavityText(makeup,i))+
+        (bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+'</span>'+
+        '<i class="mk-cav">'+(bar?bar.svg:'')+'</i><em></em></div>';
+    }
     var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
     var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
     /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
@@ -11930,6 +11980,8 @@ function salesSheetMakeupHTML(makeup){
     rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
       '<i class="mk-pane'+face+'"></i>'+salesSheetFaceNums(surf[0],surf[1])+'</div>';
   });
+  if(muntin&&panes.length>2&&cavityIndex==null)
+    rows+='<div class="mk-muntin-unassigned">'+esc(muntin.text)+' · Cavity not selected</div>';
   return '<div class="sheet-mk-rows">'+rows+'</div>';
 }
 function salesSheetRouteHTML(route){
@@ -12028,7 +12080,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
           (t.spec?'<div class="sheet-spec">'+esc(t.spec)+'</div>':'')+
           (qty?'<div class="sheet-qty">'+esc(qty)+'</div>':'')+
         '</div>'+
-        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup)+'</div>':'')+
+        (layered?'<div class="sheet-mk">'+salesSheetMakeupHTML(makeup,shape)+'</div>':'')+
         '<div class="sheet-nums">'+
           (size?'<div class="sheet-size">'+esc(size)+'</div>':'')+
           (mass?'<div class="sheet-mass">'+esc(mass)+'</div>':'')+
@@ -14408,6 +14460,9 @@ function shapeMuntinEditor(){
   }else{
     var bar=muntinProduct(m.productId),got=shapeMuntinGeoForDraft(),g=got&&got.geo;
     var two=bar.exteriorColor!==bar.interiorColor;
+    var chooseCavity=shapeEditorLites().length>2;
+    var cavityLabel=m.cavityIndex===0?tx('Камера 1 — наружная'):m.cavityIndex===1?tx('Камера 2 — внутренняя'):tx('Выберите камеру');
+    var cavity=chooseCavity?`<label class='shape-muntin-field pick'><span>${esc(tx('Камера раскладки'))}</span><select class='shape-muntin-cavity' onchange='setShapeMuntinSetup("cavityIndex",this.value)'><option value='' ${m.cavityIndex==null?'selected':''}>${esc(tx('Выберите камеру'))}</option><option value='0' ${m.cavityIndex===0?'selected':''}>${esc(tx('Камера 1 — наружная'))}</option><option value='1' ${m.cavityIndex===1?'selected':''}>${esc(tx('Камера 2 — внутренняя'))}</option></select></label>`:'';
     var bars=function(n){return Array.from({length:13},function(_,i){return i;}).map(function(i){return `<option value='${i}' ${i===n?'selected':''}>${i}</option>`;}).join('');};
     var P=got?normalizeMuntinModel(got.def.muntin).production:null;
     var field=function(key,label,auto){
@@ -14440,9 +14495,10 @@ function shapeMuntinEditor(){
        заказа, а форма общая на много заказов и своей цены не имеет. */
     var money=shapeMuntinPriceText(m);
     state=`<span data-raw>${esc(m.verticalBars+'×'+m.horizontalBars)}</span> · <span data-raw>${esc(money.sections)}</span> ${esc(tx('делений'))} · <span data-raw>${esc(money.price)}</span>`;
+    if(chooseCavity)state+=' · '+esc(cavityLabel);
     body=`<div class='shape-muntin-row'>
       <label class='shape-muntin-field pick'><span>${esc(tx('Профиль / цвет'))}</span><select onchange='setShapeMuntinSetup("productId",this.value)'>${MUNTIN_BARS.filter(function(x){return x.enabled!==false;}).map(function(x){return `<option value='${esc(x.id)}' ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></label>
-      ${sides}
+      ${sides}${cavity}
       <label class='shape-muntin-field num'><span>${esc(tx('Вертикальные'))}</span><select onchange='setShapeMuntinSetup("verticalBars",this.value)'>${bars(m.verticalBars)}</select></label>
       <label class='shape-muntin-field num'><span>${esc(tx('Горизонтальные'))}</span><select onchange='setShapeMuntinSetup("horizontalBars",this.value)'>${bars(m.horizontalBars)}</select></label>
       <div class='shape-muntin-field out'><span>${esc(tx('Делений'))}</span><b>${money.sections}</b></div>
@@ -14489,7 +14545,8 @@ function setShapeMuntinSetup(key,value){
   var m=Object.assign({},sDraft.muntin||{});
   if(!m.enabled)return render();
   var t=String(value==null?'':value).trim();
-  if(key==='flipped')m.flipped=t==='1'||t==='true';
+  if(key==='cavityIndex'){if(t==='0'||t==='1')m.cavityIndex=+t;else delete m.cavityIndex;}
+  else if(key==='flipped')m.flipped=t==='1'||t==='true';
   else if(key==='productId'||key==='verticalBars'||key==='horizontalBars')m[key]=t;
   else if(key==='edgeMode'){if(t==='axis')m.edgeMode='axis';else delete m.edgeMode;}
   else{
@@ -14515,7 +14572,7 @@ function setShapeMuntinPosition(kind,i,value){
 }
 function resetShapeMuntinPositions(){
   var m=sDraft.muntin;if(!m||!m.enabled)return;
-  sDraft.muntin=shapeNormalizeMuntin({enabled:true,productId:m.productId,verticalBars:m.verticalBars,horizontalBars:m.horizontalBars,flipped:m.flipped});
+  sDraft.muntin=shapeNormalizeMuntin({enabled:true,productId:m.productId,verticalBars:m.verticalBars,horizontalBars:m.horizontalBars,flipped:m.flipped,cavityIndex:m.cavityIndex});
   render();
 }
 /* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО
