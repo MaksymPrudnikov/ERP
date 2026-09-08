@@ -77,7 +77,7 @@ function saveUser(){
  uDraft.name=(uDraft.name||'').trim();
  if(!uDraft.name) return fail(e,'Укажи имя');
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
- uEdit=null; uDraft=null; touch(); render();
+ normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
 function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
 

@@ -1,0 +1,103 @@
+/* Commercial line metrics. Geometry stays in Shape; visibility never changes
+   the calculation. Monetary amounts here are before energy, tax and delivery. */
+const SALES_METRIC_RULE_DEFAULTS={minimumAreaFt2:4,triplePercent:50,largePercent:50,largeThresholdFt2:60,combination:'additive'};
+DEFAULT.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
+DEFAULT.materialWeightRates=[];
+DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
+DB.materialWeightRates=[];
+function salesNormalizeMetricRules(value){
+ const v=value&&typeof value==='object'?value:{},out={};
+ ['minimumAreaFt2','triplePercent','largePercent','largeThresholdFt2'].forEach(k=>{
+  const n=v[k]===null||v[k]===''?NaN:Number(v[k]);
+  out[k]=Number.isFinite(n)&&n>=0?n:SALES_METRIC_RULE_DEFAULTS[k];
+ });
+ out.combination=['additive','compound'].includes(v.combination)?v.combination:SALES_METRIC_RULE_DEFAULTS.combination;
+ return out;
+}
+function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
+function salesNormalizeWeightRates(){
+ const seen=new Set();
+ DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,rate:mdNonNeg(r.rate),note:mdString(r.note)}));
+ DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
+}
+function salesLineAreas(line,order){
+ const w=(+(line&&line.width16)||0)/16,h=(+(line&&line.height16)||0)/16;
+ const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
+ const valid=(!shape||!!(r&&(r.valid||r.externalFile&&r.sourceValid)))&&w>0&&h>0;
+ const actual=valid?(r?r.area/144:w*h/144):null;
+ const rounded=valid?Math.round(Math.ceil(w)*Math.ceil(h)/144*10)/10:null;
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+}
+function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+function salesLineCommercialPrice(line,order){
+ order=order||soDraft;
+ const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);
+ const services=salesLinePricingSummary(line),materials=areas.valid?rate.total*areas.billable:0;
+ const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
+ const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
+ let incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
+ if(m&&m.unitType==='triple'&&rules.triplePercent>0)adjustments.push({key:'triple',label:'Triple units',percent:rules.triplePercent});
+ if(areas.valid&&areas.billable>rules.largeThresholdFt2&&rules.largePercent>0)adjustments.push({key:'large',label:'Large units > '+rules.largeThresholdFt2+' ft²',percent:rules.largePercent});
+ if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
+ let running=base;
+ adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
+ return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*q),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:q};
+}
+
+/* Coefficients are measured product norms. Empty is unknown, explicit zero is
+   allowed (e.g. consumables already included in a filled-spacer norm). */
+function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
+function salesLineWeight(line,order){
+ order=order||soDraft;
+ const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
+ const plan=shape&&m?salesEffectiveCuttingPlan(line,shape,order):null;
+ const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
+ const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
+ if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
+ const geometry=(i)=>{
+  const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
+  if(!lite)return {area:null,perimeter:null};
+  const area=lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints));
+  return {area:area/144,perimeter:fabPolylineLength(lite.finishedPoints,true)*.0254};
+ };
+ const glass=(ply,label,geo)=>{
+  const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
+  const mm=t.mm||+(ply&&ply.thicknessMm)||0;
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,geo.area):null,t.exact?'':'Nominal thickness estimate');
+ };
+ const surface=(ply,label,geo)=>{
+  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
+  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area');
+ };
+ (m.panes||[]).forEach((p,i)=>{
+  const g=geometry(i),label='Lite '+(i+1);
+  if(p.category==='laminated'){
+   const lam=p.laminated||{};
+   [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
+   (lam.interlayers||[]).forEach(f=>{
+    const prod=mdById('interlayerProduct',f.productId);
+    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume');
+   });
+  }else{glass(p,label,g);surface(p,label,g);}
+ });
+ (m.cavities||[]).forEach((c,i)=>{
+  const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
+  const perimeter=same?a.perimeter:null,area=same?a.area:null,sp=mdById('spacerVariant',c.spacerVariantId),suffix=' · Cavity '+(i+1);
+  norm('spacer:'+c.spacerVariantId,(sp?sp.name:'Spacer')+suffix,perimeter,'kg/m','Norm per finished perimeter; exclude separately listed desiccant');
+  norm('desiccant:'+c.spacerVariantId,'Desiccant'+suffix,perimeter,'kg/m','Use 0 if included in spacer weight');
+  norm('connectors:'+c.spacerVariantId,'Spacer connectors'+suffix,1,'kg/unit','Total connectors per cavity');
+  [c.primarySealantId,c.secondarySealantId].forEach(id=>{const p=mdById('sealantProduct',id);norm('seal:'+id+':'+c.spacerVariantId,(p?p.name:'Sealant')+suffix,perimeter,'kg/m','Applied sealant per finished perimeter for this spacer size');});
+  const gas=mdById('gasProduct',c.gasProductId),mm=sp&&+sp.thicknessMm;
+  norm('gas:'+c.gasProductId,(gas?gas.name:'Gas')+suffix,area!=null&&mm>0?area*GLASS_M2_PER_FT2*mm/1000:null,'kg/m³','Fill-mixture density; nominal cavity volume');
+  if(!same)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Spacer path and cavity volume require confirmation');
+ });
+ const muntin=shape&&shape.muntin;
+ if(muntin&&muntin.enabled&&(m.cavities||[]).length){
+  const got=shapeMuntinGeoFor(shape),prod=muntinProduct(muntin.productId);
+  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length');
+  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit');
+ }
+ (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit'));
+ const missing=rows.filter(r=>r.kg==null).length,known=rows.reduce((s,r)=>s+(r.kg||0),0),complete=rows.length>0&&missing===0;
+ return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,missing:missing};
+}

@@ -22,8 +22,8 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderNew(){salesMetricsPanel=null;salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesMetricsPanel=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -40,6 +40,7 @@ function salesOrderClose(){
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
@@ -227,12 +228,13 @@ function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);sales
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
- if(!n){line[key+'16']=null;el.classList.add('bad');return;}
+ if(!n){line[key+'16']=null;el.classList.add('bad');salesRefreshLineMetrics(line);return;}
  line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
  /* Форма заводится/двигается молча: render() здесь увёл бы каретку из строки
     при переходе Tab между Width, Height и Mark. */
  if(!salesEnsureLineShape(line))salesSyncShapeFromLine(line);
+ salesRefreshLineMetrics(line);
  touch();
 }
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
@@ -779,6 +781,11 @@ function salesGlazingChargeRows(line,areaFt2){
    const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
    return;
   }
+  if(p.category==='laminated')targets.forEach(function(ply){
+   if(!ply||!ply.frit||!ply.frit.enabled)return;
+   const id=ply.frit.productId||'',k='frit:'+id;
+   if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+  });
   if(p.category==='vision'&&p.visionType==='frit'){
    const id=(p.frit&&p.frit.productId)||'';
    const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
@@ -790,7 +797,7 @@ function salesGlazingChargeRows(line,areaFt2){
   const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
   rows.push(salesChargeRow(
    'GLAZE:'+k,
-   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' lites':''),
+   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
    (prod&&prod.salePrice!=null)?prod.salePrice:null,
    'Makeup'));
@@ -813,10 +820,10 @@ function salesLineAreaFt2(line){
    area. Простой Rectangle не является фигурной единицей; внешний DXF является. */
 function salesUnitSurchargeRows(line,shape){
   const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
-  if(m&&m.unitType==='triple')rows.push(salesChargeRow('SURCHARGE:triple-igu','Triple IGU',1,'pc',null,'Makeup surcharge'));
+  /* Triple is a percentage of the finished unit, calculated in line-metrics. */
   if(shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
-    const area=raw>0?raw/144:((+(line&&line.width16)||0)/16)*((+(line&&line.height16)||0)/16)/144;
+    const area=salesLineAreas(line,soDraft).billable;
     if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
   }
   return rows;

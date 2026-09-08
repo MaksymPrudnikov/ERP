@@ -1174,8 +1174,9 @@ function shapeDrawnProductionSvg(result,interactive,extra){
    Параметры приходят из формы изделия (профиль и число баров), геометрию по
    ним считает модуль: бар режется реальным контуром формы, поэтому позиции
    берутся из его сегментов, а не раскладываются здесь заново. */
-function shapeMuntinGeoForDraft(){
-  var shape=sDraft,cav=shape&&shape.muntin&&shape.muntin.enabled?shape.muntin:null;
+function shapeMuntinGeoForDraft(){return shapeMuntinGeoFor(sDraft);}
+function shapeMuntinGeoFor(shape){
+  var cav=shape&&shape.muntin&&shape.muntin.enabled?shape.muntin:null;
   if(!cav||!(cav.verticalBars||cav.horizontalBars))return null;
   var def=newMuntinDef(shape.id||'draft');
   def.muntin=normalizeMuntinModel(def.muntin);

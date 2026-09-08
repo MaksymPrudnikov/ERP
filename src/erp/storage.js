@@ -133,6 +133,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates();
 }
 function boot(){
  let hadSavedState=false;

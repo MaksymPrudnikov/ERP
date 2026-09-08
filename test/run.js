@@ -2003,13 +2003,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:shape-unit');return [row.label,row.basis,row.unit,row.catalogRate];
     }), ['Shape Unit',8,'ft²',1.25]);
 
-    eq('Triple IGU снова появляется отдельным сервисом на каждый unit', await dxfSales.p.evaluate(() => {
+    eq('Triple pricing replaces the old fixed fee with a percentage adjustment', await dxfSales.p.evaluate(() => {
       soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='triple';
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:3,width16:768,height16:576});soDraft.lines=[line];
-      const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:triple-igu'),state=salesChargePricingState(line,row),before=salesLinePricingSummary(line).unpriced;
-      salesSetChargeOrderRate(line.id,row.key,'7.50');const after=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===row.key));
-      return {row:[row.label,row.basis,row.unit,row.catalogRate],basis:salesChargeBasisText(row,line),missing:state.missing,unpriced:before,effective:after.effectiveRate,total:row.basis*line.qty*after.effectiveRate,short:salesChargeShortLabel(row)};
-    }), {row:['Triple IGU',1,'pc',null],basis:'1 pc × 3 = 3 pc',missing:true,unpriced:1,effective:7.5,total:22.5,short:'TRIPLE'});
+      return {fixed:salesLineChargeRows(line).some(r=>r.key==='SURCHARGE:triple-igu'),percent:salesLineCommercialPrice(line,soDraft).adjustments[0].percent};
+    }), {fixed:false,percent:50});
 
     eq('Pricing меняет только деньги, geometry basis остаётся системным', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
@@ -4948,6 +4946,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
+  await require('./line-metrics.js')({page,eq,ok});
   await b.close();
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
