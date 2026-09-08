@@ -1,6 +1,6 @@
 # Stage 3B — Draft Sales Orders / Order-scoped IGU Makeups
 
-Status: implemented 21 Aug 2026; Muntin ownership and UI updated 7 Sep 2026 in PR #54. Current decisions take precedence over the dated verification notes below; see [the handoff](GLASS_ERP_HANDOFF.md).
+Status: implemented 21 Aug 2026; Muntin ownership, cavity selection and print UI updated 8 Sep 2026 in `codex/muntin-cavity-sheet`. Current decisions take precedence over the dated verification notes below; see [the handoff](GLASS_ERP_HANDOFF.md).
 
 ## Frozen domain boundary
 
@@ -61,6 +61,8 @@ Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) 
 - `+ Shape` opens the existing Production Shape UI.
 - Saving Shape returns to Sales, records a reference and synchronizes Width/Height from Shape.
 - In the Shape editor, `+` in the Muntin header adds the layout and opens its settings; `−` removes the layout and its dimension overrides. The chevron collapses settings without deleting the layout. There is no internal enable checkbox.
+- The makeup cross-section receives the current Shape and shows the bar inside its cavity, alongside its catalog profile, face width, depth and colors. Black is solid black; white has a black outline; two-tone profiles respect the exterior/interior orientation and `flipped`.
+- For Triple, the operator selects a cavity in the Shape editor. `shape.muntin.cavityIndex` is `0` for the exterior cavity or `1` for the interior cavity. An unset value prints `Cavity not selected` without assigning or duplicating the bar. Double uses its only cavity. The selection survives revision save, JSON and manual-axis reset, and does not multiply the section charge.
 - Bars and dimensions appear on the common production drawing and printout. Equal-clear layout places the less frequent gap size near the center, preserving mirrored pairs whenever possible on the 1/16″ grid. Manual axes take precedence.
 - A Shape referenced by a Sales Order cannot be deleted. There is no independent Muntin reference to guard.
 - The Muntin charge is calculated per order line from the number of sections. The default rate is CAD 4.50 per section (`SALES_SERVICE_RATE_TABLE.muntinSection`), with a line-level override; engineering modules contain no prices.
@@ -75,6 +77,6 @@ Dimensions are stored canonically as integer sixteenths (`width16`, `height16`) 
 - 300-line normal-volume render and 900-line reserve/stress render.
 - Invalid import with a missing Makeup reference is rejected.
 
-Current candidate PR #54 passed **409/409** checks on each of `src/index.html` and the generated `dist/GLASS_ERP.html` on 7 Sep 2026, using Chromium from Playwright 1.55.0. This includes legacy-data cleanup, header controls, central gap geometry and print consistency. Dense-grid label auto-placement remains a separate open task.
+Current candidate in `codex/muntin-cavity-sheet` passed **413/413** checks on each of `src/index.html` and the generated `dist/GLASS_ERP.html` on 8 Sep 2026, using Chromium from Playwright 1.55.0. This includes legacy-data cleanup, header controls, central gap geometry and print consistency. Dense-grid label auto-placement remains a separate open task.
 
 Historical verification: the 30 Aug 2026 refinement passed **222/222** checks on `src/index.html` and **222/222** on the generated `dist/GLASS_ERP.html`. It was merged through PR #28 (`codex/laminated-frit-type`). CI runs on feature-branch pushes and pull requests; only a successful push to `main` is allowed to auto-commit the rebuilt `dist`.

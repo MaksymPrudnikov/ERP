@@ -546,6 +546,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   border:1px solid #101828;box-sizing:border-box;
   background:repeating-linear-gradient(45deg,#101828 0 1px,#fff 1px 3px)}
 .mk-cav::before{left:0}.mk-cav::after{right:0}
+/* Сечение бара в середине камеры: наружная сторона сверху, внутренняя снизу.
+   SVG сохраняет белую заливку с чёрной обводкой и при печати без фонов. */
+.mk-muntin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
+.mk-muntin-text{display:block;font:inherit;margin-top:2px;overflow-wrap:anywhere}
+.mk-muntin-unassigned{grid-column:1/-1;justify-self:end;font-size:10.5px;text-align:right;overflow-wrap:anywhere}
+
 /* Покрытие лежит на конкретной ГРАНИ стекла: помечаем её штриховкой, а не
    утолщением — по штриховке сразу видно, что это слой, а не толстое стекло. */
 .mk-pane{position:relative}

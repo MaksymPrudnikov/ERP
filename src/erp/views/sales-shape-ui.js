@@ -1986,6 +1986,9 @@ function shapeMuntinEditor(){
   }else{
     var bar=muntinProduct(m.productId),got=shapeMuntinGeoForDraft(),g=got&&got.geo;
     var two=bar.exteriorColor!==bar.interiorColor;
+    var chooseCavity=shapeEditorLites().length>2;
+    var cavityLabel=m.cavityIndex===0?tx('Камера 1 — наружная'):m.cavityIndex===1?tx('Камера 2 — внутренняя'):tx('Выберите камеру');
+    var cavity=chooseCavity?`<label class='shape-muntin-field pick'><span>${esc(tx('Камера раскладки'))}</span><select class='shape-muntin-cavity' onchange='setShapeMuntinSetup("cavityIndex",this.value)'><option value='' ${m.cavityIndex==null?'selected':''}>${esc(tx('Выберите камеру'))}</option><option value='0' ${m.cavityIndex===0?'selected':''}>${esc(tx('Камера 1 — наружная'))}</option><option value='1' ${m.cavityIndex===1?'selected':''}>${esc(tx('Камера 2 — внутренняя'))}</option></select></label>`:'';
     var bars=function(n){return Array.from({length:13},function(_,i){return i;}).map(function(i){return `<option value='${i}' ${i===n?'selected':''}>${i}</option>`;}).join('');};
     var P=got?normalizeMuntinModel(got.def.muntin).production:null;
     var field=function(key,label,auto){
@@ -2018,9 +2021,10 @@ function shapeMuntinEditor(){
        заказа, а форма общая на много заказов и своей цены не имеет. */
     var money=shapeMuntinPriceText(m);
     state=`<span data-raw>${esc(m.verticalBars+'×'+m.horizontalBars)}</span> · <span data-raw>${esc(money.sections)}</span> ${esc(tx('делений'))} · <span data-raw>${esc(money.price)}</span>`;
+    if(chooseCavity)state+=' · '+esc(cavityLabel);
     body=`<div class='shape-muntin-row'>
       <label class='shape-muntin-field pick'><span>${esc(tx('Профиль / цвет'))}</span><select onchange='setShapeMuntinSetup("productId",this.value)'>${MUNTIN_BARS.filter(function(x){return x.enabled!==false;}).map(function(x){return `<option value='${esc(x.id)}' ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></label>
-      ${sides}
+      ${sides}${cavity}
       <label class='shape-muntin-field num'><span>${esc(tx('Вертикальные'))}</span><select onchange='setShapeMuntinSetup("verticalBars",this.value)'>${bars(m.verticalBars)}</select></label>
       <label class='shape-muntin-field num'><span>${esc(tx('Горизонтальные'))}</span><select onchange='setShapeMuntinSetup("horizontalBars",this.value)'>${bars(m.horizontalBars)}</select></label>
       <div class='shape-muntin-field out'><span>${esc(tx('Делений'))}</span><b>${money.sections}</b></div>
@@ -2067,7 +2071,8 @@ function setShapeMuntinSetup(key,value){
   var m=Object.assign({},sDraft.muntin||{});
   if(!m.enabled)return render();
   var t=String(value==null?'':value).trim();
-  if(key==='flipped')m.flipped=t==='1'||t==='true';
+  if(key==='cavityIndex'){if(t==='0'||t==='1')m.cavityIndex=+t;else delete m.cavityIndex;}
+  else if(key==='flipped')m.flipped=t==='1'||t==='true';
   else if(key==='productId'||key==='verticalBars'||key==='horizontalBars')m[key]=t;
   else if(key==='edgeMode'){if(t==='axis')m.edgeMode='axis';else delete m.edgeMode;}
   else{
@@ -2093,7 +2098,7 @@ function setShapeMuntinPosition(kind,i,value){
 }
 function resetShapeMuntinPositions(){
   var m=sDraft.muntin;if(!m||!m.enabled)return;
-  sDraft.muntin=shapeNormalizeMuntin({enabled:true,productId:m.productId,verticalBars:m.verticalBars,horizontalBars:m.horizontalBars,flipped:m.flipped});
+  sDraft.muntin=shapeNormalizeMuntin({enabled:true,productId:m.productId,verticalBars:m.verticalBars,horizontalBars:m.horizontalBars,flipped:m.flipped,cavityIndex:m.cavityIndex});
   render();
 }
 /* Какие операции показывать колонками. Индекс чекбокса берётся из ГЛОБАЛЬНОГО

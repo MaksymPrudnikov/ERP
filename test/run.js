@@ -2805,6 +2805,88 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       cancelShapeEdit();return {off,on,folded,removed};
     }), {off:{inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
 
+    /* Сечение получает именно форму печатаемой строки, включая черновик.
+       Проверяем настоящие размеры в режиме печати: общий CSS для SVG раньше
+       мог растянуть маленький профиль до ширины всего листа. */
+    await t.p.emulateMedia({media:'print'});
+    eq('печатное сечение показывает профиль, ширину и цвета бара внутри камеры', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('double');
+      soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);
+      const out=[];
+      [['mb058_black',false],['mb058_white',false],['mb058_black_white',true],['mb100_black',false]].forEach(c=>{
+        setShapeMuntinSetup('productId',c[0]);setShapeMuntinSetup('flipped',c[1]);
+        const r=shapeDraftResult();
+        printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),''),'',salesSheetFitDrawing);
+        const host=document.getElementById('printSheetHost'),svg=host.querySelector('.mk-muntin');
+        const rect=svg.getBoundingClientRect(),cav=svg.parentElement.getBoundingClientRect();
+        out.push({text:host.querySelector('.mk-muntin-text').textContent,
+          size:[rect.width,rect.height],fills:[...svg.querySelectorAll('rect')].map(x=>x.getAttribute('fill')),
+          outline:svg.lastElementChild.getAttribute('stroke'),
+          inside:rect.left>cav.left&&rect.right<cav.right&&rect.top>cav.top&&rect.bottom<cav.bottom,
+          fits:host.querySelector('.sheet-side').scrollWidth<=host.clientWidth});
+        printSheetCleanup();
+      });
+      cancelShapeEdit();return out;
+    }), [
+      {text:'Muntin bar: Black 5/8″ × 1/4″',size:[20,8],fills:['#000000','none'],outline:'#000000',inside:true,fits:true},
+      {text:'Muntin bar: White 5/8″ × 1/4″',size:[20,8],fills:['#ffffff','none'],outline:'#000000',inside:true,fits:true},
+      {text:'Muntin bar: Black / White 5/8″ × 1/4″ · White ext / Black int',size:[20,8],fills:['#ffffff','#000000','none'],outline:'#000000',inside:true,fits:true},
+      {text:'Muntin bar: Black 1″ × 1/4″',size:[32,8],fills:['#000000','none'],outline:'#000000',inside:true,fits:true}
+    ]);
+    await t.p.emulateMedia({media:'screen'});
+
+    eq('Triple сохраняет выбранную камеру в форме и рисует бар только в ней', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('triple');
+      soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);sDraft.name='Triple cavity';
+      const makeup=soDraft.makeups[0],before=shapeDraftResult().fingerprint;
+      const select=()=>document.querySelector('.shape-muntin-cavity');
+      const initial=select().value;
+      const rows=()=>{const el=document.createElement('div');el.innerHTML=salesSheetMakeupHTML(makeup,sDraft);
+        return [...el.querySelectorAll('.mk-cav')].map(x=>!!x.querySelector('.mk-muntin'));};
+      const missing=rows();
+      select().value='0';select().dispatchEvent(new Event('change',{bubbles:true}));const first=rows();
+      select().value='1';select().dispatchEvent(new Event('change',{bubbles:true}));const second=rows();
+      const fingerprintChanged=before!==shapeDraftResult().fingerprint;
+      setShapeMuntinPosition('vertical',0,'20');resetShapeMuntinPositions();
+      const afterReset=sDraft.muntin.cavityIndex;
+      saveShape();salesOrderConfigureShape(0);
+      const out={initial,missing,first,second,afterReset,saved:sDraft.muntin.cavityIndex,
+        json:normalizeShapeDef(JSON.parse(JSON.stringify(sDraft))).muntin.cavityIndex,
+        selected:select().value,fingerprintChanged,sections:shapeMuntinPriceText(sDraft.muntin).sections};
+      cancelShapeEdit();return out;
+    }), {initial:'',missing:[false,false],first:[true,false],second:[false,true],afterReset:1,saved:1,json:1,selected:'1',fingerprintChanged:true,sections:4});
+
+    eq('раскладка не переносится между строками с одним Makeup, пустая камера не угадывается', await t.p.evaluate(() => {
+      const makeup=normalizeOrderMakeup({unitType:'double'});
+      const yes=newShapeDef('rectangle');yes.muntin=shapeNormalizeMuntin({enabled:true,productId:'mb058_black',cavityIndex:1});
+      const no=newShapeDef('rectangle');
+      const inspect=(m,shape)=>{const el=document.createElement('div');el.innerHTML=salesSheetMakeupHTML(m,shape);
+        return {bars:el.querySelectorAll('.mk-muntin').length,labels:el.querySelectorAll('.mk-muntin-text').length,
+          missing:el.querySelectorAll('.mk-muntin-unassigned').length};};
+      const on=inspect(makeup,yes),off=inspect(makeup,no);
+      const single=inspect(normalizeOrderMakeup({unitType:'single'}),yes);
+      const triple=normalizeOrderMakeup({unitType:'triple'});
+      delete yes.muntin.cavityIndex;const unspecified=inspect(triple,yes);
+      yes.muntin.verticalBars=0;yes.muntin.horizontalBars=0;const empty=inspect(makeup,yes);
+      const invalid=[null,'',false,-1,2,'bad',{},[]].map(v=>shapeNormalizeMuntin({enabled:true,cavityIndex:v}).cavityIndex==null);
+      return {on,off,single,unspecified,empty,invalid:invalid.every(Boolean)};
+    }), {on:{bars:1,labels:1,missing:0},off:{bars:0,labels:0,missing:0},single:{bars:0,labels:0,missing:0},
+      unspecified:{bars:0,labels:0,missing:1},empty:{bars:0,labels:0,missing:0},invalid:true});
+
+    eq('название профиля экранируется, размеры добавляются из каталога', await t.p.evaluate(() => {
+      const p=normalizeMuntinProduct({id:'test-sheet-profile',label:'<img src=x onerror=alert(1)>',faceWidthIn:1,depthIn:.25,
+        exteriorColor:'White',interiorColor:'White',exteriorHex:'bad',interiorHex:'bad'});
+      MUNTIN_BARS.push(p);
+      try{
+        const shape=newShapeDef('rectangle');shape.muntin=shapeNormalizeMuntin({enabled:true,productId:p.id});
+        const el=document.createElement('div');el.innerHTML=salesSheetMakeupHTML(normalizeOrderMakeup({unitType:'double'}),shape);
+        return {image:!!el.querySelector('img'),text:el.querySelector('.mk-muntin-text').textContent,
+          fill:el.querySelector('.mk-muntin rect').getAttribute('fill')};
+      }finally{MUNTIN_BARS.pop();}
+    }), {image:false,text:'Muntin bar: <img src=x onerror=alert(1)> · 1″ × 1/4″',fill:'#ffffff'});
+
     eq('50×50 с четырьмя вертикальными барами: центральный просвет совпадает на чертеже и печати', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();soDraft.lines[0].width16=50*16;soDraft.lines[0].height16=50*16;
       const m=soDraft.makeups[0];m.unitType='double';salesSelectMakeup(m.id);salesOrderConfigureShape(0);
