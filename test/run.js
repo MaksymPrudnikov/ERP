@@ -3031,7 +3031,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       out.tail=salesPrintRoute(line,soDraft,s,res).lites[0].stations.slice(-1)[0].items.join('|').indexOf('Lami Polish')>=0;
       lam(6,6);ops('Flat Polish');out.plain=codes();
       return out;
-    })()`), {lami:[['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM']]});
+    })()`), {lami:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM'],['CUT','EDGE','LAM']]});
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
@@ -4070,6 +4070,227 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       hinge:'HINGE Vienna 180 — A 33 from B',
       letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,
       fingerprintKept:true,machineKept:true});
+
+    /* Surface treatments are independent of geometry and must survive every
+       printable pane/ply position, including drafts and JSON round trips. */
+    eq('Frit / Spandrel: all six surfaces, products and heat treatments reach route and section', await t.p.evaluate(() => {
+      const failures=[];let cases=0;
+      const old=soDraft;
+      for(const count of [1,2,3])for(let i=0;i<count;i++)for(const surface of salesPaneSurfaces(i))
+      for(const kind of ['frit','spandrel'])for(const product of (kind==='frit'?DB.fritProduct:DB.spandrelProduct))
+      for(const ht of ['AN','HS','FT']){
+        soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];
+        m.unitType=['','single','double','triple'][count];m.panes=Array.from({length:count},(_,j)=>salesDefaultPane(j));
+        const pane=m.panes[i];pane.category=kind==='spandrel'?'spandrel':'vision';pane.visionType='frit';
+        pane.heatTreatmentId='HT-'+ht;Object.assign(pane[kind],{productId:product.id,surface,color:'White'});
+        if(kind==='frit')Object.assign(pane.frit,{pattern:'2 x 4 diamond',dotMm:5,marginW16:0,marginH16:16,marginFrom:'Top right',marking:'TEST'});
+        const line=normalizeSalesOrderLine({makeupId:m.id,width16:800,height16:800,qty:1});soDraft.lines=[line];
+        const shape=salesLineGeometryShape(line),r=ShapeModule.compute(shape),route=salesPrintRoute(line,soDraft,shape,r);
+        const stages=route.lites[i].stations,code=kind==='frit'?'CERP':'PAINT',step=stages.find(s=>s.code===code);
+        const text=step?step.items.join(' '):'';
+        const host=document.createElement('div');host.innerHTML=salesSheetMakeupHTML(m,shape);
+        const drawn=host.querySelectorAll('.mk-pane')[i];
+        const ordered=ht==='AN'?!stages.some(s=>s.code==='HEAT'):
+          kind==='frit'?stages.indexOf(step)<stages.findIndex(s=>s.code==='HEAT'):stages.indexOf(step)>stages.findIndex(s=>s.code==='HEAT');
+        const spec=salesRouteSurfaceTreatments(pane,i)[0].text;
+        const exact=spec.includes(product.name)&&spec.includes('White')&&text.includes('#'+surface)&&
+          (kind!=='frit'||(text==='Frit · #'+surface&&['2 x 4 diamond','Dot Ø 5 mm','W 0','H 1','Top right','Marking: TEST'].every(s=>spec.includes(s))));
+        const noLeak=route.lites.every((l,j)=>j===i||!l.stations.some(s=>s.code===code));
+        if(!step||!ordered||!exact||!noLeak||!drawn||!drawn.classList.contains(surface===salesPaneSurfaces(i)[0]?'coat-out':'coat-in'))
+          failures.push([count,i,kind,product.id,surface,ht]);
+        cases++;
+      }
+      soDraft=old;return {cases,failures};
+    }), {cases:144,failures:[]});
+
+    eq('laminated Frit belongs to its ply: outside / into film, independent heat, LAM then IGU', await t.p.evaluate(() => {
+      const failures=[];let cases=0;const old=soDraft;
+      for(const count of [1,2,3])for(let i=0;i<count;i++)for(const side of ['outer','inner'])
+      for(const position of ['outside','in_film'])for(const productId of ['FRIT-CERAMIC','FRIT-DIGITAL']){
+        soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType=['','single','double','triple'][count];
+        m.panes=Array.from({length:count},(_,j)=>salesDefaultPane(j));
+        const pane=m.panes[i];pane.category='laminated';pane.visionType='frit';pane.frit.surface=salesPaneSurfaces(i)[0];
+        pane.heatTreatmentId='HT-FT';pane.laminated.outer.heatTreatmentId='HT-AN';pane.laminated.inner.heatTreatmentId='HT-HS';
+        Object.assign(pane.laminated[side].frit,{enabled:true,position,productId,color:'Acid Etched',pattern:'4 x 4 square'});
+        const line=normalizeSalesOrderLine({makeupId:m.id,width16:800,height16:800,qty:1});soDraft.lines=[line];
+        soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(soDraft)));
+        const saved=soDraft.lines[0],makeup=soDraft.makeups[0],shape=salesLineGeometryShape(saved);
+        const route=salesPrintRoute(saved,soDraft,shape,ShapeModule.compute(shape));
+        const label='Lite '+(i+1)+(side==='outer'?'a':'b'),row=route.lites.find(l=>l.label===label);
+        const text=row.stations.filter(s=>s.code==='CERP').map(s=>s.items.join(' ')).join(' ');
+        const where=position==='in_film'?'Into film':'#'+salesLaminatedFritOutsideSurface(i,side);
+        const host=document.createElement('div');host.innerHTML=salesSheetMakeupHTML(makeup,shape);
+        const drawn=[...host.querySelectorAll('.mk-row')].find(x=>x.textContent.startsWith(label+':'));
+        const face=(side==='outer')===(position!=='in_film')?'coat-out':'coat-in';
+        const rowsOK=route.lites.length===count+1&&route.lites.every(l=>{
+          const codes=l.stations.map(s=>s.code),isLam=l.label==='Lite '+(i+1)+'a'||l.label==='Lite '+(i+1)+'b';
+          return (codes.includes('LAM')===isLam)&&
+            (count===1?codes[codes.length-1]==='LAM':codes[codes.length-1]==='IGU')&&
+            (codes.includes('HEAT')===(l.label==='Lite '+(i+1)+'b'))&&
+            (codes.includes('CERP')===(l.label===label));
+        });
+        if(!rowsOK||!text.includes(where)||text!=='Frit · '+where||
+          !drawn.textContent.includes(where)||!drawn.querySelector('.mk-pane').classList.contains(face))failures.push([count,i,side,position,productId]);
+        cases++;
+      }
+      soDraft=old;return {cases,failures};
+    }), {cases:48,failures:[]});
+
+    eq('Low-E / Reflective surfaces print for Single, Double and Triple; stale coatings do not print', await t.p.evaluate(() => {
+      const failures=[];
+      for(const count of [1,2,3])for(let i=0;i<count;i++)for(const type of ['lowe','reflective'])for(const sf of salesPaneSurfaces(i)){
+        const m=normalizeOrderMakeup({unitType:['','single','double','triple'][count]});
+        m.panes[i].visionType=type;m.panes[i].coatingSurface=sf;
+        const host=document.createElement('div');host.innerHTML=salesSheetMakeupHTML(m);
+        const node=host.querySelectorAll('.mk-pane')[i];
+        if(!host.textContent.includes(salesVisionTypeLabel(type)+' · #'+sf)||!node.classList.contains(sf%2?'coat-out':'coat-in'))failures.push([count,i,type,sf]);
+      }
+      const pane=salesDefaultPane(0);pane.coatingSurface=1;pane.frit.surface=2;pane.spandrel.surface=1;
+      const stale=salesRouteSurfaceTreatments(pane,0).length;
+      pane.visionType='frit';pane.frit.surface=null;
+      const missing=salesRouteSurfaceTreatments(pane,0)[0];
+      pane.category='laminated';pane.laminated.outer.visionType='lowe';pane.coatingSurface=null;
+      const unknown=salesRouteSurfaceTreatments(pane,0,'outer')[0];
+      return {failures,stale,missing:[missing.surface,missing.face,missing.summary.includes('Surface not selected')],
+        unknown:[unknown.surface,unknown.face,unknown.summary.includes('Surface not selected')]};
+    }), {failures:[],stale:0,missing:[0,'',true],unknown:[0,'',true]});
+
+    eq('route retains edge and body services and resolves mapped furnace, frit and painting stations', await t.p.evaluate(() => {
+      const s=newShapeDef('rectangle');s.w='50';s.h='50';
+      s.manufacturingItems=['hole','hinge','clamp','patch'].map((type,i)=>shapeNormalizeManufacturingItem({id:'item'+i,type,edge:'left',distance:10,diameter:'1',model:'Test model'}));
+      s.features=[{type:'hole',diameter:'1/2',x:'3',y:'4'},{type:'hardware',name:'Legacy prep',edgeId:'B',distance:'10'},{type:'cutout'},{type:'radius',radius:'1'},{type:'stamp'}, {type:'sandblast',coverage:'pattern',side:'back'}];
+      const all=Object.keys(SALES_ROUTE_EDGE_OP).filter(t=>!shapeIsLamiOnlyOp(t));
+      const groups=[{id:'A',length:50,ops:all.map(type=>({type}))}];
+      const pane=salesDefaultPane(0);pane.visionType='frit';pane.frit.surface=2;
+      const sp=salesDefaultPane(0);sp.category='spandrel';sp.spandrel.surface=1;
+      const ops=JSON.parse(JSON.stringify(DB.operation));
+      DB.operation.find(x=>x.code==='heat_strengthening').station='CUSTOM-HEAT';
+      DB.operation.find(x=>x.code==='ceramic_frit').station='CUSTOM-FRIT';
+      DB.operation.find(x=>x.code==='painting').station='CUSTOM-PAINT';
+      const row=salesRouteLiteStations(s,{valid:true,cutting:{valid:true,width:50,height:50}},groups,'HS',
+        salesRouteSurfaceTreatments(pane,0).concat(salesRouteSurfaceTreatments(sp,0)));
+      DB.operation=ops;
+      const codes=row.list.map(s=>s.code),text=row.list.flatMap(s=>s.items).join(' ');
+      return {edges:all.every(t=>text.includes(t)),body:['HOLE','HINGE','CLAMP','PATCH','INTERNAL CUTOUT','RADIUS CORNER','SANDBLAST','HARDWARE Legacy prep','HOLE Ø 1/2','BACK'].every(t=>text.includes(t)),
+        order:codes.indexOf('CUSTOM-FRIT')<codes.indexOf('CUSTOM-HEAT')&&codes.indexOf('CUSTOM-HEAT')<codes.indexOf('CUSTOM-PAINT'),
+        furnace:row.list.find(s=>s.code==='CUSTOM-HEAT').items.length,oldFurnace:codes.includes('HEAT')};
+    }), {edges:true,body:true,order:true,furnace:2,oldFurnace:false});
+
+    eq('single Frit sheet includes specification, surface, route and pcs; free text is escaped', await t.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];
+      const pane=m.panes[0];pane.visionType='frit';Object.assign(pane.frit,{surface:2,color:'White',pattern:'2 x 2 square',marking:'<img src=x onerror=alert(1)>'});
+      const line=normalizeSalesOrderLine({makeupId:m.id,width16:800,height16:800,qty:1});soDraft.lines=[line];
+      const shape=salesLineGeometryShape(line);shape.ownerLineId=line.id;
+      const result=ShapeModule.compute(shape),svg=salesFritDecorateSvg(ShapeModule.productionSvg(result,{sheet:true}),shape,result,shapeProductionDrawingFrame(result,{sheet:true}));
+      const host=document.createElement('div');host.innerHTML=salesShapeSheetHTML(shape,result,svg,'');
+      const out={text:['Frit','White','2 x 2 square','#2','CERP'].every(x=>host.textContent.includes(x)),
+        qty:host.querySelector('.sheet-qty').textContent,face:host.querySelector('.mk-pane').classList.contains('coat-in'),
+        escaped:host.querySelectorAll('img').length===0&&host.textContent.replace(/\s/g,'').includes('<imgsrc=xonerror=alert(1)>')};
+      soDraft=null;return out;
+    }), {text:true,qty:'1 pc',face:true,escaped:true});
+
+    eq('route keeps distinct Miter / Bevel parameters and the surface side', await t.p.evaluate(() => {
+      const groups=[
+        {id:'A',ops:[{type:'Mitering',angle:45,side:'front'}]},
+        {id:'B',ops:[{type:'Mitering',angle:22.5,side:'back'}]},
+        {id:'C',ops:[{type:'Beveling',width:'1/2',side:'front'}]},
+        {id:'D',ops:[{type:'Mitering',angle:45,side:'front'}]}
+      ];
+      return salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code==='EDGE').items;
+    }), ['A, D · Mitering 45° · Front','B · Mitering 22.5° · Back','C · Beveling · Width 1/2″ · Front']);
+
+    eq('route uses each lite cutting size and its own body services', await t.p.evaluate(() => {
+      const old=soDraft;soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];
+      m.unitType='double';m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+      const line=normalizeSalesOrderLine({makeupId:m.id,width16:800,height16:800,qty:1});soDraft.lines=[line];
+      const shape=salesLineGeometryShape(line),own=normalizeShapeDef(Object.assign(newShapeDef('rectangle'),{w:'30',h:'40',ownerLineId:line.id,
+        manufacturingItems:[{id:'own-hole',type:'hole',diameter:'1',hDistance:'5',vDistance:'5'}]}));
+      DB.shapeDef.push(own);line.liteShapes={'1':normalizeShapeRef({id:own.id,revision:own.revision})};
+      const plan=salesEffectiveCuttingPlan(line,shape,soDraft),route=salesPrintRoute(line,soDraft,shape,ShapeModule.compute(shape));
+      const out={cuts:route.lites.map((l,i)=>l.stations.find(s=>s.code==='CUT').items[0]===dimIn16(plan.lites[i].cutW)+' × '+dimIn16(plan.lites[i].cutH)),
+        different:plan.lites[0].cutW!==plan.lites[1].cutW,
+        holes:route.lites.map(l=>l.stations.some(s=>s.code==='FAB'&&s.items.some(t=>t.includes('HOLE'))))};
+      DB.shapeDef=DB.shapeDef.filter(s=>s.id!==own.id);soDraft=old;return out;
+    }), {cuts:[true,true],different:true,holes:[false,true]});
+
+    eq('FT + HST stays in the existing heat dropdown and persists per ply', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];
+      salesPaneSetHeat(0,'HT-FT-HST');
+      const el=document.createElement('div');el.innerHTML=salesHeatField(m.panes[0],0);
+      const out={options:[...el.querySelector('select').options].map(x=>x.value),selected:el.querySelector('select').value,
+        stored:[m.panes[0].heatTreatmentId,m.panes[0].heatSoak]};
+      m.panes[0].category='laminated';salesPaneSetLamPlyHeat(0,'outer','HT-FT-HST');salesPaneSetLamPlyHeat(0,'inner','HT-HS');
+      const saved=normalizeSalesOrder(JSON.parse(JSON.stringify(soDraft))),p=saved.makeups[0].panes[0];
+      out.plies=[p.laminated.outer.heatTreatmentId,p.laminated.outer.heatSoak,p.laminated.inner.heatTreatmentId,p.laminated.inner.heatSoak];
+      out.summary=salesPaneProductSummary(p,0).includes('FT + HST');
+      salesPaneSetLamPlyHeat(0,'outer','HT-AN');out.cleared=m.panes[0].laminated.outer.heatSoak;
+      out.invalid=normalizeSalesPane({heatTreatmentId:'HT-HS',heatSoak:true},0).heatSoak;
+      soDraft=null;return out;
+    }), {options:['HT-AN','HT-HS','HT-FT','HT-FT-HST'],selected:'HT-FT-HST',stored:['HT-FT',true],
+      plies:['HT-FT',true,'HT-HS',false],summary:true,cleared:false,invalid:false});
+
+    eq('HST is a separate route visit and charge for the selected glass only', await t.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='double';m.panes=[salesDefaultPane(0),salesDefaultPane(1)];
+      const p=m.panes[1];p.category='laminated';salesSetHeatChoice(p.laminated.inner,'HT-FT-HST');
+      Object.assign(p.laminated.inner.frit,{enabled:true,position:'outside'});
+      const line=normalizeSalesOrderLine({makeupId:m.id,width16:800,height16:800,qty:2});soDraft.lines=[line];
+      const s=salesLineGeometryShape(line),r=ShapeModule.compute(s),rows=salesPrintRoute(line,soDraft,s,r).lites;
+      const target=rows[2].stations,ops=target.flatMap(s=>s.items);
+      const charges=salesLineChargeRows(line).filter(x=>x.key.startsWith('HEATSOAK:'));
+      const out={labels:rows.map(x=>x.label),soaks:rows.map(x=>x.stations.filter(s=>s.operation==='heat_soak').length),
+        order:ops.indexOf('TEMPERING')<ops.indexOf('HEAT SOAK')&&ops.indexOf('HEAT SOAK')<ops.indexOf(salesRouteStationName('LAM')),
+        chargeCount:charges.length,basis:charges[0].basis,rate:charges[0].catalogRate,unit:charges[0].unit,
+        glass:rows[2].glass.includes('FT + HST'),drawing:salesSheetPlyText(p.laminated.inner).includes('FT + HST')};
+      soDraft=null;return out;
+    }), {labels:['Lite 1','Lite 2a','Lite 2b'],soaks:[0,0,1],order:true,chargeCount:1,basis:2500/144,rate:null,unit:'ft²',glass:true,drawing:true});
+
+    eq('Frit first-dot setout uses the four corners and accepts zero margins', await t.p.evaluate(() => {
+      const s=Object.assign(newShapeDef('rectangle'),{w:'40',h:'30'}),r=ShapeModule.compute(s);
+      const points=['Top right','Top left','Bottom right','Bottom left'].map(marginFrom=>{
+        const d=salesFritFirstDot({paneIndex:0,spec:{marginFrom,marginW16:16,marginH16:32}},s,r);return [d.valid,d.x,d.y];
+      });
+      const zero=salesFritFirstDot({paneIndex:0,spec:{marginFrom:'Top right',marginW16:0,marginH16:0}},s,r);
+      const invalid=salesFritFirstDot({paneIndex:0,spec:{marginFrom:'Top right',marginW16:1000,marginH16:0}},s,r);
+      return {points,zero:[zero.valid,zero.x,zero.y],outside:invalid.valid};
+    }), {points:[[true,39,28],[true,1,28],[true,39,2],[true,1,2]],zero:[true,40,30],outside:false});
+
+    eq('Frit pattern samples preserve spacing and Custom never draws a guessed pattern', await t.p.evaluate(() => {
+      const p=salesDefaultPane(0);p.visionType='frit';p.frit.surface=2;
+      const rows=['2 x 2 square','4 x 4 square','2 x 4 diamond','Custom — see silk screen sheet'].map(pattern=>{
+        p.frit.pattern=pattern;const t=salesRouteSurfaceTreatments(p,0)[0],record={id:'F1',label:'Lite 1',treatment:t,spec:t.spec};
+        const el=document.createElement('div');el.innerHTML='<svg>'+salesFritSampleSvg(record,0,0,'').svg+'</svg>';
+        const dots=[...el.querySelectorAll('circle')];return {count:dots.length,white:dots.every(c=>c.getAttribute('fill')==='#fff'),
+          outline:dots.every(c=>c.getAttribute('stroke')==='#111'&&+c.getAttribute('stroke-width')<1),custom:el.textContent.includes('See silk screen sheet')};
+      });return rows;
+    }), [{count:25,white:true,outline:true,custom:false},{count:9,white:true,outline:true,custom:false},
+      {count:13,white:true,outline:true,custom:false},{count:0,white:true,outline:true,custom:true}]);
+
+    eq('Frit sample is outside the drawing and annotations leave geometry and exports intact', await t.p.evaluate(() => {
+      tab='sales';salesOrderNew();salesSetUnitType('single');
+      soDraft.lines[0].width16=640;soDraft.lines[0].height16=640;
+      const m=soDraft.makeups[0];m.panes[0].visionType='frit';m.panes[0].frit.surface=2;
+      salesOrderConfigureShape(0);sView='production';render();
+      const r=shapeDraftResult(),fp=r.fingerprint,payload=JSON.stringify(ShapeModule.machinePayload(r)),dxf=ShapeModule.genericDxf(r);
+      const T=shapeDrawnPreviewTransform(r,{sheet:true}),svg=shapeDrawnProductionSvg(r,false,{sheet:true});
+      const el=document.createElement('div');el.innerHTML=svg;
+      const sample=el.querySelector('.frit-pattern-sample'),x=+sample.getAttribute('transform').match(/translate\(([^ ]+)/)[1];
+      const out={outside:x>T.vw,samples:el.querySelectorAll('.frit-pattern-sample').length,dots:el.querySelectorAll('.frit-first-dot').length,
+        markers:[...el.querySelectorAll('.frit-first-dot')].map(x=>[+x.dataset.x,+x.dataset.y]),
+        noDouble:salesFritDecorateSvg(svg,sDraft,r,T)===svg,
+        geometry:shapeDraftResult().fingerprint===fp&&JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===payload&&ShapeModule.genericDxf(shapeDraftResult())===dxf,
+        cutting:!ShapeModule.cuttingSvg(r).includes('frit-pattern-sample')};
+      sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'frit-move-test',type:'hole',x:8,y:8,diameter:'1'})];render();
+      sManufacturingPlace={type:'hole',diameter:'1',moveId:'frit-move-test'};
+      const live=document.querySelector('#shapeLivePreview>svg'),target=live.querySelector('.frit-pattern-sample');
+      const beforeItems=(sDraft.manufacturingItems||[]).length;
+      shapePlaceManufacturingFromEvent({clientX:0,clientY:0,target},live);
+      out.sampleIgnored=(sDraft.manufacturingItems||[]).length===beforeItems;
+      const frame=shapeDrawnPreviewTransform(shapeDraftResult()),pt=live.createSVGPoint();pt.x=frame.X(20);pt.y=frame.Y(20);
+      const screen=pt.matrixTransform(live.getScreenCTM());
+      shapePlaceManufacturingFromEvent({clientX:screen.x,clientY:screen.y,target:live},live);
+      const item=sDraft.manufacturingItems[sDraft.manufacturingItems.length-1];out.placement=[item.x,item.y];
+      cancelShapeEdit();return out;
+    }), {outside:true,samples:1,dots:1,markers:[[39,39]],noDouble:true,geometry:true,cutting:true,sampleIgnored:true,placement:[20,20]});
 
     /* Пакет — один лист, но путь у каждого стекла свой: хендоф 9м, каждое стекло
        отдельный объект, сборка пакета — точка слияния. */

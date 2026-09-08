@@ -502,6 +502,10 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
   gap:8px;padding:7px 0}
 .sheet-side{grid-row:1;--mk-w:220px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   gap:4px 22px;align-items:baseline}
+/* Длинные спецификации поверхностей не могут вытеснить Finished / вес.
+   Состав переносит подписи внутри оставшейся колонки. */
+.sheet-side.layered{grid-template-columns:minmax(0,120px) 130px minmax(0,1fr);gap:4px 16px}
+.sheet-side.layered .sheet-name,.sheet-mk{min-width:0;overflow-wrap:anywhere}
 .sheet-name{order:1}
 .sheet-nums{order:2;margin-top:0}
 .sheet-mk{order:3;margin:0}
@@ -555,9 +559,9 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* Покрытие лежит на конкретной ГРАНИ стекла: помечаем её штриховкой, а не
    утолщением — по штриховке сразу видно, что это слой, а не толстое стекло. */
 .mk-pane{position:relative}
-.mk-pane.coat-out::after,.mk-pane.coat-in::after{content:'';position:absolute;left:0;right:0;height:4px;
+.mk-pane.coat-out::before,.mk-pane.coat-in::after{content:'';position:absolute;left:0;right:0;height:4px;
   background:repeating-linear-gradient(45deg,#101828 0 1.2px,#fff 1.2px 2.6px)}
-.mk-pane.coat-out::after{top:0}
+.mk-pane.coat-out::before{top:0}
 .mk-pane.coat-in::after{bottom:0}
 .sheet-who{margin-top:3px;display:grid;grid-template-columns:auto minmax(0,1fr);
   gap:3px 10px;font-size:12px}
@@ -589,8 +593,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-leg.bare{grid-template-columns:minmax(0,1fr)}
 .sheet-leg{display:grid;grid-template-columns:112px minmax(0,1fr);gap:8px;align-items:baseline;
   padding:1px 0}
-.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
+.sheet-leg>span{font-size:8.5px;font-weight:650;color:#475467;overflow-wrap:anywhere}
 .sheet-leg>em{font-style:normal;font-size:7.5px;line-height:1.4;color:#344054;
   font-family:ui-monospace,Consolas,monospace}
 .sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
@@ -752,3 +755,6 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-muntin-action:hover{background:#edf6fb;border-color:#175f83}
 .shape-muntin-action.remove:hover{color:#b42318;border-color:#f2a29b;background:#fff4f2}
 .shape-muntin-action:focus-visible,.shape-muntin-heading>button:focus-visible{outline:2px solid #175f83;outline-offset:-3px}
+
+/* Sample text must not inherit the monochrome stroke assigned to SVG groups. */
+.frit-pattern-sample text,.frit-setout text{stroke:none!important}

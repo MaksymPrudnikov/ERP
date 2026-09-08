@@ -50,7 +50,7 @@ function salesGlassNameForPane(pane){
   if(!pane)return '';
   if(pane.category==='laminated')return 'Laminated';
   var g=glassProductById(pane.glassProductId),name=g?(g.name||g.code):'',ht=salesRouteHeatOf(pane);
-  return salesSheetThicknessFirst(name,salesPaneGlassThicknessMm(pane))+(ht&&ht!=='AN'?' · '+ht:'');
+  return salesSheetThicknessFirst(name,salesPaneGlassThicknessMm(pane))+(ht&&ht!=='AN'?' · '+ht:'')+(pane.heatSoak&&ht==='FT'?' + HST':'');
 }
 /* Состав пакета — ГОРИЗОНТАЛЬНОЕ сечение, как его рисует стекольщик: слои лежат
    стопкой сверху вниз от наружной стороны к внутренней, подпись стоит слева от
@@ -63,7 +63,7 @@ function salesSheetPlyText(ply){
   if(!ply)return '';
   var g=glassProductById(ply.glassProductId),name=g?(g.name||g.code):'';
   var mm=+ply.thicknessMm,ht=String(ply.heatTreatmentId||'').replace(/^HT-/,'').toUpperCase();
-  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'');
+  return salesSheetThicknessFirst(name,mm)+(ht&&ht!=='AN'?' · '+ht:'')+(ply.heatSoak&&ht==='FT'?' + HST':'');
 }
 /* Плёнка межслойная: сколько слоёв, какой толщины и чего именно. */
 function salesSheetFilmText(film){
@@ -72,29 +72,22 @@ function salesSheetFilmText(film){
   var layers=+film.layers||1,mm=+film.thicknessMm;
   return (layers>1?layers+' × ':'')+(isFinite(mm)&&mm>0?mm+' mm ':'')+((pr&&(pr.code||pr.name))||'');
 }
-/* Какая поверхность помечена у этого слоя: покрытие, спандрел или фрит.
-   Ноль означает «ничем не занята». */
-function salesSheetMarkedSurface(pane){
-  if(!pane)return 0;
-  if(pane.category==='spandrel')return +(pane.spandrel&&pane.spandrel.surface)||0;
-  if(pane.visionType==='frit')return +(pane.frit&&pane.frit.surface)||0;
-  return +pane.coatingSurface||0;
+/* Каждая пометка принадлежит своей физической грани; обе грани могут быть
+   заняты. Текст и маршрут читают один и тот же контракт Makeup. */
+function salesSheetTreatmentText(treatments){
+  return (treatments||[]).map(function(t){return t.kind==='frit'?'Frit · '+t.where:t.summary;}).join(' · ');
 }
-/* Чем занята поверхность — словом, как в конфигураторе Makeup. */
-function salesSheetSurfaceLabel(pane){
-  if(!pane)return '';
-  if(pane.category==='spandrel')return 'Spandrel'+(pane.spandrel&&pane.spandrel.color?' '+pane.spandrel.color:'');
-  if(pane.visionType==='frit')return 'Frit'+(pane.frit&&pane.frit.color?' '+pane.frit.color:'');
-  if(pane.visionType==='lowe'||pane.visionType==='reflective')
-    return (typeof salesVisionTypeLabel==='function')?salesVisionTypeLabel(pane.visionType):'Coated';
-  return '';
+function salesSheetTreatmentFaces(treatments){
+  return ['out','in'].filter(function(face){
+    return (treatments||[]).some(function(t){return t.face===face;});
+  }).map(function(face){return ' coat-'+face;}).join('');
 }
 /* Слоёный ли юнит: пакет, ламинат или спандрел. От этого зависит вся верхняя
    раскладка листа. */
 function salesSheetIsLayered(makeup){
   var panes=(makeup&&makeup.panes)||[];
   if(panes.length>1)return true;
-  return panes.some(function(p){return p&&(p.category==='laminated'||p.category==='spandrel');});
+  return panes.some(function(p,i){return p&&(p.category==='laminated'||salesRouteSurfaceTreatments(p,i).length>0);});
 }
 function salesSheetPaneText(pane,index){
   if(!pane)return '';
@@ -103,10 +96,9 @@ function salesSheetPaneText(pane,index){
   var g=glassProductById(pane.glassProductId);
   var mm=salesPaneGlassThicknessMm(pane),name=g?(g.name||g.code):'';
   var bits=salesSheetThicknessFirst(name,mm);
-  var ht=salesRouteHeatOf(pane),what=salesSheetSurfaceLabel(pane),sf=salesSheetMarkedSurface(pane);
+  var ht=salesRouteHeatOf(pane),what=salesSheetTreatmentText(salesRouteSurfaceTreatments(pane,index));
   if(what)bits+=' · '+what;
-  if(sf)bits+=' · #'+sf;
-  if(ht&&ht!=='AN')bits+=' · '+ht;
+  if(ht&&ht!=='AN')bits+=' · '+ht+(pane.heatSoak&&ht==='FT'?' + HST':'');
   return bits;
 }
 function salesSheetCavityText(makeup,i){
@@ -166,21 +158,21 @@ function salesSheetMakeupHTML(makeup,shape){
         (bar?'<small class="mk-muntin-text">'+esc(bar.text)+'</small>':'')+'</span>'+
         '<i class="mk-cav">'+(bar?bar.svg:'')+'</i><em></em></div>';
     }
-    var surf=salesPaneSurfaces(i),sf=salesSheetMarkedSurface(p);
-    var face=sf===surf[0]?' coat-out':sf===surf[1]?' coat-in':'';
+    var surf=salesPaneSurfaces(i),face=salesSheetTreatmentFaces(salesRouteSurfaceTreatments(p,i));
     /* Ламинат — не один слой: внутри свои стёкла и плёнки между ними, и по
        хендофу 9м это ДВА отдельных стекла со своими L-номерами. Показываем их
        раздельно, иначе цех не увидит, что именно склеивают. */
     if(p.category==='laminated'){
       var lam=p.laminated||{},films=lam.interlayers||[];
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc(salesSheetPlyText(lam.outer))+'</span>'+
-        '<i class="mk-pane'+(sf===surf[0]?' coat-out':'')+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
+      var outer=salesRouteSurfaceTreatments(p,i,'outer'),inner=salesRouteSurfaceTreatments(p,i,'inner');
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'a: '+esc([salesSheetPlyText(lam.outer),salesSheetTreatmentText(outer)].filter(Boolean).join(' · '))+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(outer)+'"></i>'+salesSheetFaceNums(surf[0],'')+'</div>';
       films.forEach(function(f){
         rows+='<div class="mk-row"><span>film: '+esc(salesSheetFilmText(f))+'</span>'+
           '<i class="mk-film"></i><em></em></div>';
       });
-      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc(salesSheetPlyText(lam.inner))+'</span>'+
-        '<i class="mk-pane'+(sf===surf[1]?' coat-in':'')+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
+      rows+='<div class="mk-row"><span>Lite '+(i+1)+'b: '+esc([salesSheetPlyText(lam.inner),salesSheetTreatmentText(inner)].filter(Boolean).join(' · '))+'</span>'+
+        '<i class="mk-pane'+salesSheetTreatmentFaces(inner)+'"></i>'+salesSheetFaceNums('',surf[1])+'</div>';
       return;
     }
     rows+='<div class="mk-row"><span>Lite '+(i+1)+': '+esc(salesSheetPaneText(p,i))+'</span>'+
@@ -262,7 +254,8 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   /* Одинарное стекло считают штуками, пакет и ламинат — юнитами: это разные
      вещи на складе и в отгрузке. */
   var n=line?(line.qty||1):0;
-  var qty=line?(n+' '+(layered?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
+  var assembled=makeup&&((makeup.panes||[]).length>1||(makeup.panes||[]).some(function(p){return p.category==='laminated';}));
+  var qty=line?(n+' '+(assembled?(n===1?'unit':'units'):(n===1?'pc':'pcs'))):'';
   /* Метка строки — это примечание цеху, поэтому она стоит в NOTE, а не рядом с
      номером: владелец «Note это и есть d2». Свободный текст строки идёт следом. */
   var note=[line&&line.mark,line&&line.notes].filter(Boolean).join(' · ');

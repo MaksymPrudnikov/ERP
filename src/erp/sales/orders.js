@@ -116,7 +116,8 @@ function salesPaneSetCoating(i,coating){
  const same=base?rows.filter(g=>glassBaseName(g)===base)[0]:null;
  salesPaneSetProduct(i,(same||rows[0]).id);
 }
-function salesPaneSetHeat(i,v){salesCurrentMakeup().panes[i].heatTreatmentId=v;render();}
+function salesSetHeatChoice(p,v){if(!p)return;p.heatSoak=v==='HT-FT-HST';p.heatTreatmentId=p.heatSoak?'HT-FT':v;}
+function salesPaneSetHeat(i,v){salesSetHeatChoice(salesCurrentMakeup().panes[i],v);render();}
 function salesPaneSetCoatingSurface(i,v){const p=salesCurrentMakeup().panes[i];p.coatingSurface=normalizeSurface(v,salesPaneSurfaces(i));render();}
 function salesPaneSetFrit(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.frit.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.frit[k]=v;render();}
 /* Диаметр точки и отступы — числа, а не свободный текст: мусор ловим прямо на
@@ -165,7 +166,7 @@ function salesSetLamPlyPrice(i,side,v){
  ply.priceOverride=salesNonNegOrNull(v);
  render();
 }
-function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);if(ply)ply.heatTreatmentId=v;render();}
+function salesPaneSetLamPlyHeat(i,side,v){const ply=salesPaneLamPly(i,side);salesSetHeatChoice(ply,v);render();}
 function salesPaneEnsureLamFrit(ply){if(!ply)return null;if(!ply.frit)ply.frit=salesDefaultLaminatedFrit();return ply.frit;}
 function salesPaneSetLamFrit(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(!f)return;if(key==='position'){if(!SALES_LAMINATED_FRIT_POSITIONS.includes(v))return;f.position=v;}else f[key]=v;render();}
 function salesPaneSetLamFritText(i,side,key,v){const f=salesPaneEnsureLamFrit(salesPaneLamPly(i,side));if(f)f[key]=v;}
@@ -764,6 +765,12 @@ function salesGlazingChargeRows(line,areaFt2){
  if(!m)return rows;
  const frit=Object.create(null),spandrel=Object.create(null),order=[];
  (m.panes||[]).forEach(function(p,i){
+  const targets=p.category==='laminated'?[p.laminated.outer,p.laminated.inner]:[p];
+  targets.forEach(function(ply,j){
+   if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
+   const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',null,'Makeup'));
+  });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
    const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
