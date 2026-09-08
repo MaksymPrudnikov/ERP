@@ -19,6 +19,8 @@ const SALES_MAX_INTERLAYERS=4;
 const SALES_INTERLAYER_LAYER_MM=.38;
 const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
+/* PIB физически добавляет по 0.4 mm с каждой стороны дистанционной рамки. */
+const SALES_PIB_PER_CAVITY_MM=.8;
 
 function salesUid(prefix){
  prefix=prefix||'SO';
@@ -414,7 +416,8 @@ function salesMakeupSummary(m){
    толщина рамки, а не её название. Раньше здесь разбиралась дробь из size, и
    пакет с Black Warm Edge 7/16 получался на 0.4 мм тоньше, чем собранный. */
 function salesMakeupThicknessMm(m){
- let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),films=p.laminated.interlayers||[];if(a&&b&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=(a.thicknessMm||0)+(b.thicknessMm||0)+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const g=glassProductById(p.glassProductId);if(g)total+=g.thicknessMm||0;else known=false;}});m.cavities.forEach(c=>{const mm=spacerThicknessMm(mdById('spacerVariant',c.spacerVariantId));if(mm!=null)total+=mm;else known=false;});return known?total:null;
+ function productMm(g){const q=typeof glassEffectiveThicknessMm==='function'?glassEffectiveThicknessMm(g):null;return q&&q.mm>0?q.mm:null;}
+ let total=0,known=true;m.panes.forEach(p=>{if(p.category==='laminated'){const a=glassProductById(p.laminated.outer&&p.laminated.outer.glassProductId),b=glassProductById(p.laminated.inner&&p.laminated.inner.glassProductId),am=productMm(a),bm=productMm(b),films=p.laminated.interlayers||[];if(am!=null&&bm!=null&&films.length&&films.every(x=>Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0))total+=am+bm+films.reduce((n,x)=>n+(+x.thicknessMm||0),0);else known=false;}else{const mm=productMm(glassProductById(p.glassProductId));if(mm!=null)total+=mm;else known=false;}});m.cavities.forEach(c=>{const mm=spacerThicknessMm(mdById('spacerVariant',c.spacerVariantId));if(mm!=null)total+=mm+SALES_PIB_PER_CAVITY_MM;else known=false;});return known?total:null;
 }
 
 /* Catalog temperMode remains a hard production fact, but exceptional orders

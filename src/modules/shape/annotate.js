@@ -589,7 +589,7 @@ function shapeAnnContour(r,DP,active,mono){
 
 /* ---------- сборка ---------- */
 function shapeAnnotationDefs(){
-  return '<defs><marker id="shpArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#101828" stroke-width=".75"/></marker></defs>';
+  return '<defs><marker id="shpArr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#101828" stroke-width=".75"/></marker><marker id="shapeInchArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="#98a2b3" stroke-width=".75"/></marker></defs>';
 }
 /* Возвращает {contour, annotations, box} — контур считается по отображаемым
    точкам, чтобы усиленный уклон и его размеры совпадали друг с другом. */

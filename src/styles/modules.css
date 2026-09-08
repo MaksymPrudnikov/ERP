@@ -528,9 +528,9 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-mk-rows{display:grid;grid-template-columns:minmax(0,1fr) var(--mk-w,168px) auto;
   gap:4px 6px;align-items:center;justify-items:start}
 .mk-row{display:contents}
-/* Подпись слоя переносится по словам: длинное имя дистанционной рамки иначе
-   выталкивает схему за край листа. */
-.mk-row>span{font-size:10.5px;line-height:1.25;color:#101828;text-align:right;justify-self:end}
+/* В чертеже стоят короткие складские коды. Они держатся одной строкой: перенос
+   FT или толщины ламината визуально привязывал их к следующему слою. */
+.mk-row>span{font-size:10.5px;line-height:1.25;color:#101828;text-align:right;justify-self:end;white-space:nowrap}
 /* Номера поверхностей стоят у своей панели: цех читает «#3 #4» рядом со слоем. */
 .mk-row>em{font-style:normal;font-size:8px;color:#7a838f;white-space:nowrap;
   font-family:ui-monospace,Consolas,monospace}
@@ -586,6 +586,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
+.print-shape-sheet .sheet-field svg .shape-inch-reference{fill:#667085!important}
 .sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:5px}
 .sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
 /* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь

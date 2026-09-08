@@ -1091,15 +1091,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const poly=normalizeShapeDef(Object.assign(newShapeDef('polygon'),{params:{sides:'5',sideLength:'12'}}));
       const polyDoc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(poly),{}),'image/svg+xml');
       tab='configurators';subtab='shape';openShapeNew('custom');
-      sDraft.polygon=pts.map(p=>Object.assign({},p));shapeCustomApplyResolved();sEdgeworkOpen=true;render();
+      sDraft.polygon=pts.map(p=>Object.assign({},p));shapeCustomApplyResolved();sEdgeworkOpen=true;sView='cutting';render();
       const ui={edgework:[...document.querySelectorAll('.shape-edge-code b')].map(b=>b.textContent),
         border:[...document.querySelectorAll('.shape-border-edge b')].map(b=>b.textContent)};
       sEdgeworkOpen=false;sEdit=null;sDraft=null;render();
-      return {labels:[...screen.querySelectorAll('.shape-edge-label-outside')].map(t=>t.textContent.trim()),
+      return {labels:[...screen.querySelectorAll('.shape-edge-label-outside,.shape-inch-edge-length')].map(t=>t.textContent.trim()),
         colors:[...new Set([...screen.querySelectorAll('line[stroke-width="1.3"]')].map(l=>l.getAttribute('stroke')))],
         monoLetters:[...sheet.querySelectorAll('.shape-edge-letter')].map(t=>t.textContent.trim()),
-        polygonLabels:[...polyDoc.querySelectorAll('.shape-edge-label-outside')].map(t=>t.textContent.trim()),
-        machineId:[...screen.querySelectorAll('.shape-edge-label-outside')].some(t=>t.textContent.indexOf('PV')>=0),
+        polygonLabels:[...polyDoc.querySelectorAll('.shape-edge-label-outside,.shape-inch-edge-length')].map(t=>t.textContent.trim()),
+        machineId:[...screen.querySelectorAll('.shape-edge-label-outside,.shape-inch-edge-length')].some(t=>t.textContent.indexOf('PV')>=0),
         ui:ui};
     });
     eq('Custom Shape и Polygon: цветные стороны, буквы вместо E:PV и длина скоса', customDrawing, {
@@ -1984,6 +1984,33 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {rows:rows.map(r=>[r.key,r.label,r.basis,r.unit,r.catalogRate]),unpriced:salesLinePricingSummary(line).unpriced};
     }), {rows:[['FEATURE:sandblast-full-front:8-10','Sandblast · Full covered · Front',12,'ft²',4],['FEATURE:sandblast-pattern-back:8-10','Sandblast · Pattern · Back',12,'ft²',6]],unpriced:0});
 
+    eq('Shape Unit: Rectangle бесплатно, любой Shape — 1.25 за billable ft² на уровне строки', await dxfSales.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=6;
+      const rect=newShapeDef('rectangle');rect.id='qa-plain-rect';rect.w='48';rect.h='36';
+      const raked=newShapeDef('raked');raked.id='qa-raked-surcharge';raked.w='48';raked.h='36';Object.assign(raked.params,{shortHeight:'24',rakeSide:'top',shortSide:'right'});
+      DB.shapeDef=[normalizeShapeDef(rect),normalizeShapeDef(raked)];
+      const plain=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:768,height16:576,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});
+      const shaped=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:768,height16:576,shapeRef:salesShapeRefFrom(DB.shapeDef[1])});soDraft.lines=[plain,shaped];
+      const plainRow=salesLineChargeRows(plain).find(r=>r.key==='SURCHARGE:shape-unit');
+      const row=salesLineChargeRows(shaped).find(r=>r.key==='SURCHARGE:shape-unit'),state=salesChargePricingState(shaped,row);
+      return {rectangle:!!plainRow,row:[row.label,row.basis,row.unit,row.catalogRate],basis:salesChargeBasisText(row,shaped),rate:salesRateText(state.effectiveRate,row.unit,soDraft.currency),total:row.basis*shaped.qty*state.effectiveRate,short:salesChargeShortLabel(row)};
+    }), {rectangle:false,row:['Shape Unit',12,'ft²',1.25],basis:'12.00 ft² × 2 = 24.00 ft²',rate:'1.25 CAD/ft²',total:30,short:'SHAPE'});
+
+    eq('внешний DXF считается Shape Unit даже при базовом типе Rectangle', await dxfSales.p.evaluate(() => {
+      const sh=newShapeDef('rectangle');sh.id='qa-dxf-surcharge';sh.w='24';sh.h='48';sh.source={kind:'dxf',fileName:'custom.dxf',fileSize:100,uploadedAt:'2026-09-08T00:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[24,0],[24,48],[0,48]],width16:384,height16:768}};DB.shapeDef=[normalizeShapeDef(sh)];
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=6;
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:384,height16:768,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
+      const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:shape-unit');return [row.label,row.basis,row.unit,row.catalogRate];
+    }), ['Shape Unit',8,'ft²',1.25]);
+
+    eq('Triple IGU снова появляется отдельным сервисом на каждый unit', await dxfSales.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='triple';
+      const line=normalizeSalesOrderLine({makeupId:m.id,qty:3,width16:768,height16:576});soDraft.lines=[line];
+      const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:triple-igu'),state=salesChargePricingState(line,row),before=salesLinePricingSummary(line).unpriced;
+      salesSetChargeOrderRate(line.id,row.key,'7.50');const after=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===row.key));
+      return {row:[row.label,row.basis,row.unit,row.catalogRate],basis:salesChargeBasisText(row,line),missing:state.missing,unpriced:before,effective:after.effectiveRate,total:row.basis*line.qty*after.effectiveRate,short:salesChargeShortLabel(row)};
+    }), {row:['Triple IGU',1,'pc',null],basis:'1 pc × 3 = 3 pc',missing:true,unpriced:1,effective:7.5,total:22.5,short:'TRIPLE'});
+
     eq('Pricing меняет только деньги, geometry basis остаётся системным', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
       soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;const line=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
@@ -2073,9 +2100,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {n:557,back:'34 13/16'});
     eq('surface номера принадлежат конкретному Lite', await t.p.evaluate(() => [salesPaneSurfaces(0),salesPaneSurfaces(1),salesPaneSurfaces(2)]), [[1,2],[3,4],[5,6]]);
     eq('числовые legacy dimensions трактуются как inches, а width16 остаётся ticks', await t.p.evaluate(() => ({legacy:salesDimTo16(34),stored:normalizeSalesOrderLine({makeupId:'MU-X',width16:544,height16:576}).width16})), {legacy:544,stored:544});
-    eq('Laminated overall thickness включает interlayer', await t.p.evaluate(() => {
+    eq('Laminated overall thickness включает фактические плиты и interlayer', await t.p.evaluate(() => {
       const o=newSalesOrderDraft(),m=o.makeups[0];m.unitType='single';m.panes=[normalizeSalesPane({category:'laminated',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB030'}},0)];m.cavities=[];return salesMakeupThicknessMm(m).toFixed(3);
-    }), '12.760');
+    }), '12.088');
+    eq('толщина пакета берёт фактическое стекло, fallback nominal и 0.8 mm PIB на камеру', await t.p.evaluate(() => {
+      const glass=DB.glassProduct,spacers=DB.spacerVariant;
+      try{
+        DB.glassProduct=[{id:'G-A',thicknessMm:6,actualThicknessMm:5.7},{id:'G-B',thicknessMm:6,actualThicknessMm:6.76}];
+        DB.spacerVariant=[{id:'SP-X',size:'1/2',thicknessMm:12.5,system:'Test'}];
+        const m={panes:[{category:'vision',glassProductId:'G-A'},{category:'vision',glassProductId:'G-B'}],cavities:[{spacerVariantId:'SP-X'}]};
+        const actual=salesMakeupThicknessMm(m).toFixed(2);
+        DB.glassProduct[1].actualThicknessMm=null;
+        return {actual:actual,fallback:salesMakeupThicknessMm(m).toFixed(2),pib:SALES_PIB_PER_CAVITY_MM};
+      }finally{DB.glassProduct=glass;DB.spacerVariant=spacers;}
+    }), {actual:'25.76',fallback:'25.00',pib:.8});
+    eq('подпись стекла сохраняет вторую толщину составного ламината', await t.p.evaluate(() => ({
+      simple:salesGlassLabel({name:'Clear 6mm'}),
+      composite:salesGlassLabel({name:'Laminated 3mm + .030" PVB + 3mm'})
+    })), {simple:'Clear',composite:'Laminated 3mm + .030" PVB + 3mm'});
     eq('Laminated мигрирует старые поля в две плиты со своей закалкой', await t.p.evaluate(() => {
       const p=normalizeSalesPane({category:'laminated',heatTreatmentId:'HT-HS',laminated:{outerGlassProductId:'GL-6CLEAR',innerGlassProductId:'GL-6CLEAR',interlayerProductId:'INT-PVB060'}},0);
       return {outer:p.laminated.outer.glassProductId,inner:p.laminated.inner.glassProductId,outerHeat:p.laminated.outer.heatTreatmentId,innerHeat:p.laminated.inner.heatTreatmentId,films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm])};
@@ -2108,7 +2150,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesPaneSetLamInterlayerLayers(0,0,1);salesPaneSetLamInterlayerLayers(0,1,4);
       const host=document.createElement('div');host.innerHTML=salesLaminatedInterlayers(p,0);const layerSelect=host.querySelectorAll('.mu-lam-film select')[2];
       return {map:[1,2,3,4,5,6].map(salesInterlayerThicknessForLayers),clamped:salesInterlayerLayerCount(7),films:p.laminated.interlayers.map(x=>[x.productId,x.layers,x.thicknessMm]),options:[...layerSelect.options].map(x=>x.textContent),overall:salesMakeupThicknessMm(m).toFixed(2),production:salesPaneGlassThicknessMm(p).toFixed(2)};
-    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.90',production:'13.90'});
+    }), {map:[.38,.76,1.14,1.52,1.9,2.28],clamped:6,films:[['INT-EVA-UC',1,.38],['INT-EVA-MW',4,1.52]],options:['1 layer · 0.38 mm','2 layers · 0.76 mm','3 layers · 1.14 mm','4 layers · 1.52 mm','5 layers · 1.90 mm','6 layers · 2.28 mm'],overall:'13.23',production:'13.90'});
     eq('Makeup accordion начинает с Lite 1 и при переходе сворачивает его', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');const d=[...document.querySelectorAll('.mu-section')],initial=d.filter(x=>x.open).length,first=d.find(x=>x.open)&&d.find(x=>x.open).dataset.muSection;d[1].open=true;salesAccordionToggle(d[1],d[1].dataset.muSection);return {initial,first,open:d.filter(x=>x.open).length,key:soOpenSectionKey,lite1:d[0].open};
     }), {initial:1,first:'lite-0',open:1,key:'cavity-0',lite1:false});
@@ -2836,6 +2878,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     ]);
     await t.p.emulateMedia({media:'screen'});
 
+    eq('печатная схема держит складские коды, FT и толщину ламината в одной строке', await t.p.evaluate(() => {
+      const m=normalizeOrderMakeup({unitType:'double'}),sb=DB.glassProduct.find(x=>x.code==='6SBN60VT'),lam=DB.glassProduct.find(x=>x.code==='6LAM030');
+      m.panes[0].glassProductId=sb.id;m.panes[0].visionType='lowe';m.panes[0].coatingSurface=2;m.panes[0].heatTreatmentId='HT-FT';
+      m.cavities[0].spacerVariantId='SP-BWE-012';m.cavities[0].gasProductId='GAS-ARGON';
+      m.panes[1].glassProductId=lam.id;m.panes[1].visionType='uncoated';m.panes[1].heatTreatmentId='HT-AN';
+      const host=document.createElement('div');host.className='print-shape-sheet';host.innerHTML=salesSheetMakeupHTML(m);document.body.appendChild(host);
+      const rows=[...host.querySelectorAll('.mk-row>span')].map(x=>({text:x.textContent,whiteSpace:getComputedStyle(x).whiteSpace}));
+      host.remove();return rows;
+    }), [
+      {text:'Lite 1: 6SBN60VT #2 FT',whiteSpace:'nowrap'},
+      {text:'Cavity: 1/2 BWE+ARG',whiteSpace:'nowrap'},
+      {text:'Lite 2: 6LAM030',whiteSpace:'nowrap'}
+    ]);
+
     eq('Triple сохраняет выбранную камеру в форме и рисует бар только в ней', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
@@ -3070,22 +3126,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       single:[{label:'Flat Polish',basis:160,rate:.13}],
       unit:[{label:'Rough Arris',basis:320,rate:.03}],total:19.2});
 
-    /* Статус строки врал: «No processing» стояло на строке, которой уже
-       выставлен счёт за кромку. Обработка есть — её задало само стекло, а не
-       форма. Ключ остаётся ready: строка в порядке, врала только подпись. */
-    eq('кромка от стекла названа в статусе, а не спрятана под «No processing»', await t.p.evaluate(`(()=>{
+    /* Оба состояния готовы; qualifier показывает, откуда взялась кромка, и не
+       создаёт впечатление, будто строки находятся на разных стадиях. */
+    eq('статус Ready различает default и custom edge', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
       m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];salesSelectMakeup(m.id);render();
-      const st=salesLineServiceStatus(line);
+      const st=salesLineServiceStatus(line),defaultShown=/Ready · default edge/.test(document.querySelector('.sales-lines-table').textContent);
       const snap=salesEffectiveProductionSnapshot(line,salesLineGeometryShape(line),soDraft);
-      return {label:st.label,key:st.key,attention:salesLineNeedsServiceAttention(line),
-              charged:salesLineChargeRows(line).map(r=>r.label),
+      const shape=salesLineGeometryShape(line);shape.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];render();
+      const custom=salesLineServiceStatus(line);
+      return {defaultLabel:st.label,defaultKey:st.key,customLabel:custom.label,customKey:custom.key,attention:salesLineNeedsServiceAttention(line),
+              charged:salesLineChargeRows(line).map(r=>r.label),defaultShown:defaultShown,customShown:/Ready · custom edge/.test(document.querySelector('.sales-lines-table').textContent),
               sources:[...new Set(snap.groups.map(g=>g.source))],
-              shown:/Glass edgework/.test(document.querySelector('.sales-lines-table').textContent)};
-    })()`), {label:'Glass edgework',key:'ready',attention:false,
-             charged:['Rough Arris'],sources:['Glass'],shown:true});
+              oldLabels:/Shape processing|Glass edgework/.test(document.querySelector('.sales-lines-table').textContent)};
+    })()`), {defaultLabel:'Ready · default edge',defaultKey:'ready',customLabel:'Ready · custom edge',customKey:'shape',attention:false,
+             charged:['Flat Polish','Rough Arris'],defaultShown:true,customShown:true,sources:['Glass'],oldLabels:false});
     /* 16–19 мм с полировкой раньше блокировали рез целиком. */
     eq('19 мм с Flat Polish режется, а не блокируется', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
@@ -3656,7 +3713,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const changed={axis:item.axis,spacing:item.spacing,centers:shapeHoleCenters(item),circles:document.querySelectorAll('.shape-mi-marker.hole>circle').length,c2c:[...document.querySelectorAll('.shape-mi-marker.hole .shape-hole-pair-dim text')].some(x=>x.textContent.trim()==='3 1/16')};
       shapeSetHoleCount(item.id,3);shapeSetHoleTripleSpacing(item.id,'v','3 1/8');shapeSetHoleTripleSpacing(item.id,'h','2 1/4');shapeSetHoleTripleDirection(item.id,'left');shapeNudgeDim(item.id,'cv',2);shapeNudgeDim(item.id,'ch',-1);
       const tripleCard=document.querySelector('.shape-mi-card.expanded'),tripleMarker=document.querySelector('.shape-mi-marker.hole'),triple={title:(tripleCard.querySelector('.shape-mi-card-toggle b')||{}).textContent||'',short:(tripleCard.querySelector('.shape-mi-kind')||{}).textContent||'',centers:shapeHoleCenters(item),circles:tripleMarker.querySelectorAll(':scope>circle').length,labels:[...tripleMarker.querySelectorAll('.shape-hole-pair-dim text')].map(x=>x.textContent.trim()),services:shapeDerivedServices().rows.map(x=>[x.label,x.qty]),controls:[...tripleCard.querySelectorAll('.shape-dim-control>span')].map(x=>x.textContent.trim()),offsets:[shapeDimOffset(sDraft,item.id,'cv'),shapeDimOffset(sDraft,item.id,'ch')],staleC:!!(sDraft.dims[item.id]&&sDraft.dims[item.id].c)};
-      const svg=document.querySelector('#shapeLivePreview svg'),edgeLabels=[...svg.querySelectorAll('.shape-edge-label-outside')],contour=[...svg.querySelectorAll('line')].filter(x=>Object.values(SHAPE_EDGE_HEX).includes(x.getAttribute('stroke'))),xs=contour.flatMap(x=>[+x.getAttribute('x1'),+x.getAttribute('x2')]),ys=contour.flatMap(x=>[+x.getAttribute('y1'),+x.getAttribute('y2')]),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+      const svg=document.querySelector('#shapeLivePreview svg'),edgeLabels=[...svg.querySelectorAll('.shape-edge-label-outside,.shape-inch-edge-length')],contour=[...svg.querySelectorAll('line')].filter(x=>Object.values(SHAPE_EDGE_HEX).includes(x.getAttribute('stroke'))),xs=contour.flatMap(x=>[+x.getAttribute('x1'),+x.getAttribute('x2')]),ys=contour.flatMap(x=>[+x.getAttribute('y1'),+x.getAttribute('y2')]),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
       const outside=edgeLabels.every(t=>{const e=contour.find(x=>x.getAttribute('stroke')===SHAPE_EDGE_HEX[t.dataset.edgeId]),mx=(+e.getAttribute('x1')+ +e.getAttribute('x2'))/2,my=(+e.getAttribute('y1')+ +e.getAttribute('y2'))/2,tx=+t.getAttribute('x'),ty=+t.getAttribute('y');return (tx-mx)*(mx-cx)+(ty-my)*(my-cy)>0;});
       const drawing={noInch:!svg.textContent.includes('″'),noInternalCodes:triple.labels.every(x=>!/[VH]|C-C/.test(x)),edgeLabels:edgeLabels.map(x=>x.textContent.trim()),outside};
       sEdit=null;sDraft=null;render();return {initial,changed,triple,drawing};
@@ -3776,15 +3833,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sDraft.manufacturingItems=[shapeNormalizeManufacturingItem({id:'a',type:'clamp',edge:'bottom',distance:44.25})];
       render();
       const left=document.querySelector('.shape-workspace-left').getBoundingClientRect(),right=document.querySelector('.shape-preview-side').getBoundingClientRect();
-      const borderRows=[...document.querySelectorAll('.shape-border-row')];
-      const initial={tabs:[...document.querySelectorAll('.shape-workspace-tabs b')].map(x=>x.textContent.trim()),active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length,mode:document.body.classList.contains('shape-workspace-mode'),chrome:{icons:[...document.querySelectorAll('.nav-item svg')].filter(x=>x.getBoundingClientRect().width>0).length,labelsHidden:[...document.querySelectorAll('.nav-item>span:nth-child(2)')].every(x=>getComputedStyle(x).display==='none'),headerHidden:getComputedStyle(document.querySelector('header')).display==='none',toggle:document.querySelectorAll('.side-toggle').length,bodyOverflow:getComputedStyle(document.body).overflow,leftOverflow:getComputedStyle(document.querySelector('.shape-controls')).overflowY,rightLarger:right.width>left.width},border:{rows:borderRows.length,oneLine:new Set(borderRows.map(x=>Math.round(x.getBoundingClientRect().top))).size===1,duplicates:document.querySelectorAll('.shape-border-chain').length,derivedOverflow:getComputedStyle(document.getElementById('shapeLiveDerived')).overflow},footer:{screen:document.getElementById('shapeLivePreview').textContent.includes('Finished geometry'),file:shapeDrawnProductionSvg(shapeDraftResult(),false).includes('Finished geometry')}};
+      const initial={tabs:[...document.querySelectorAll('.shape-workspace-tabs b')].map(x=>x.textContent.trim()),active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length,mode:document.body.classList.contains('shape-workspace-mode'),chrome:{icons:[...document.querySelectorAll('.nav-item svg')].filter(x=>x.getBoundingClientRect().width>0).length,labelsHidden:[...document.querySelectorAll('.nav-item>span:nth-child(2)')].every(x=>getComputedStyle(x).display==='none'),headerHidden:getComputedStyle(document.querySelector('header')).display==='none',toggle:document.querySelectorAll('.side-toggle').length,bodyOverflow:getComputedStyle(document.body).overflow,leftOverflow:getComputedStyle(document.querySelector('.shape-controls')).overflowY,rightLarger:right.width>left.width},border:{panels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,rows:document.querySelectorAll('.shape-border-row,.shape-allow-row').length,duplicates:document.querySelectorAll('.shape-border-chain').length,derivedOverflow:getComputedStyle(document.getElementById('shapeLiveDerived')).overflow},footer:{screen:document.getElementById('shapeLivePreview').textContent.includes('Finished geometry'),file:shapeDrawnProductionSvg(shapeDraftResult(),false).includes('Finished geometry')}};
+      setShapeView('cutting');
+      const cuttingRows=[...document.querySelectorAll('.shape-border-row')];
+      const cutting={panels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,borderRows:cuttingRows.length,allowanceRows:document.querySelectorAll('.shape-allow-row').length,oneLine:new Set(cuttingRows.map(x=>Math.round(x.getBoundingClientRect().top))).size===1};
+      setShapeView('production');
       toggleSidebar();
       const expanded={collapsed:document.body.classList.contains('sidebar-collapsed'),labelsVisible:[...document.querySelectorAll('.nav-item>span:nth-child(2)')].every(x=>getComputedStyle(x).display!=='none'),toggleLabel:document.querySelector('.side-toggle').getAttribute('aria-label')};
       toggleSidebar();
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
-      sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,expanded,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Cutout'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{rows:4,oneLine:true,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Cutout',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+      sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,expanded,opened,closed};
+    }), {initial:{tabs:['Shape Designer','Cutout'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Cutout',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -3794,6 +3854,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='configurators';subtab='shape';openShapeNew('smart');sDraft.w='48';sDraft.h='36';setShapeC('36');
       setShapeCorner('br','single');
       const waiting={present:document.querySelectorAll('#shapeEdgeworkEditor').length,disabled:document.querySelectorAll('#shapeEdgeworkEditor.shape-edgework-disabled').length,text:document.getElementById('shapeEdgeworkEditor').textContent.includes('Edge processing')};
+      sView='cutting';
       setShapeExtra('E','2');setShapeExtra('F','4');
       const ready={present:document.querySelectorAll('#shapeEdgeworkEditor').length,disabled:document.querySelectorAll('#shapeEdgeworkEditor.shape-edgework-disabled').length,edges:shapeGroups().map(x=>x.id).sort(),border:[...document.querySelectorAll('.shape-border-edge>b')].map(x=>x.textContent),post:document.querySelectorAll('.shape-border-row input:disabled').length,label:(document.querySelector('#shapeEdgeworkEditor .shape-accordion-head small')||{}).textContent};
       sEdit=null;sDraft=null;render();return {waiting,ready};
@@ -3818,7 +3879,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        занимало ребро F, которого на контуре реза не существует. */
     eq('после нотча Safety Border держит реальные стороны, а B остаётся редактируемым', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('smart');sDraft.w='48';sDraft.h='36';setShapeC('36');
-      setShapeCorner('br','single');setShapeExtra('E','2');setShapeExtra('F','4');render();
+      setShapeCorner('br','single');setShapeExtra('E','2');setShapeExtra('F','4');sView='cutting';render();
       const hull=shapeDraftResult().cutting.edgeIds;
       const rows=[...document.querySelectorAll('.shape-border-row')].map(x=>[x.querySelector('.shape-border-edge>b').textContent,x.querySelector('input').disabled]);
       setShapeSafetyBorderEdge('B','1/2');
@@ -3850,9 +3911,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {contour:[[0,0],[4,22.4375],[59.125,22.4375],[59.125,0]],edgeAt14:2.4958,bboxWouldGive:3,
       h:.5,v:14,leaderStartsAtEdge:true,card:'1/2'});
 
-    /* Обе вкладки DXF-чертежа делят одно поле и одну рамку. Раньше каждая
-       строила поле под себя: при переключении фигура прыгала и меняла размер,
-       а нижняя строка карточки обрезалась и читалась как спрятанное меню. */
+    /* Обе вкладки DXF-чертежа делят один viewBox. Production получает больше
+       экранного места: панели Safety Border / Allowance живут только в Cutting. */
     eq('вкладки DXF-чертежа делят одно поле, подписи под фигурой не режутся', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');
       sDraft.source={kind:'dxf',fileName:'skew.dxf',fileSize:2400,uploadedAt:'2026-09-02T10:00:00.000Z',note:'',
@@ -3861,14 +3921,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const box=document.getElementById('shapeLivePreview'),bb=box.getBoundingClientRect();
       const inside=function(el){if(!el)return false;const r=el.getBoundingClientRect();return r.height>0&&r.bottom<=bb.bottom+1&&r.top>=bb.top-1;};
       const pSvg=box.querySelector('svg'),pFin=pSvg.querySelector('path[fill^="rgba"]').getBoundingClientRect();
-      const pv=pSvg.getAttribute('viewBox'),helpVisible=inside(box.querySelector('.shape-prod-dxf-help'));
+      const pv=pSvg.getAttribute('viewBox'),helpVisible=inside(box.querySelector('.shape-prod-dxf-help')),productionPanels=document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length;
       setShapeView('cutting');
       const cSvg=box.querySelector('svg'),cFin=cSvg.querySelector('.shape-prod-finished-ref').getBoundingClientRect();
-      const out={sameViewBox:pv===cSvg.getAttribute('viewBox'),helpVisible:helpVisible,
+      const out={sameViewBox:pv===cSvg.getAttribute('viewBox'),helpVisible:helpVisible,productionPanels:productionPanels,cuttingPanels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,
         kpiVisible:inside(box.querySelector('.shape-prod-machine-kpi')),
-        stays:Math.abs(cFin.x-pFin.x)<=4&&Math.abs(cFin.width-pFin.width)<=6};
+        productionLarger:pFin.width>cFin.width};
       sEdit=null;sDraft=null;sView='setup';render();return out;
-    }), {sameViewBox:true,helpVisible:true,kpiVisible:true,stays:true});
+    }), {sameViewBox:true,helpVisible:true,productionPanels:0,cuttingPanels:2,kpiVisible:true,productionLarger:true});
 
     /* Нотч выпиливают ПОСЛЕ реза и после кромки, от обработанного края. Пока
        припуск снятых рёбер поднимался в оставшиеся, CNC на рёбрах нотча
@@ -4143,7 +4203,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         m.panes[i].visionType=type;m.panes[i].coatingSurface=sf;
         const host=document.createElement('div');host.innerHTML=salesSheetMakeupHTML(m);
         const node=host.querySelectorAll('.mk-pane')[i];
-        if(!host.textContent.includes(salesVisionTypeLabel(type)+' · #'+sf)||!node.classList.contains(sf%2?'coat-out':'coat-in'))failures.push([count,i,type,sf]);
+        if(!host.textContent.includes('#'+sf)||!node.classList.contains(sf%2?'coat-out':'coat-in'))failures.push([count,i,type,sf]);
       }
       const pane=salesDefaultPane(0);pane.coatingSurface=1;pane.frit.surface=2;pane.spandrel.surface=1;
       const stale=salesRouteSurfaceTreatments(pane,0).length;
@@ -4198,6 +4258,18 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       ];
       return salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code==='EDGE').items;
     }), ['A, D · Mitering 45° · Front','B · Mitering 22.5° · Back','C · Beveling · Width 1/2″ · Front']);
+
+    eq('route collapses a perimeter-wide edge operation but keeps partial sides', await t.p.evaluate(() => {
+      const all=['E:PV1','E:PV2','E:PV3','E:PV4'].map(id=>({id:id,ops:[{type:'Rough Arris'}]}));
+      const mixed=[
+        {id:'A',ops:[{type:'Flat Polish'}]},
+        {id:'B',ops:[{type:'Flat Polish'}]},
+        {id:'C',ops:[{type:'Flat Polish'}]},
+        {id:'D',ops:[{type:'Beveling',width:'1/2',side:'front'}]}
+      ];
+      const items=groups=>salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code==='EDGE').items;
+      return {all:items(all),mixed:items(mixed)};
+    }), {all:['Rough Arris'],mixed:['A, B, C · Flat Polish','D · Beveling · Width 1/2″ · Front']});
 
     eq('route uses each lite cutting size and its own body services', await t.p.evaluate(() => {
       const old=soDraft;soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];
@@ -4444,6 +4516,43 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       host.remove();sEdit=null;sDraft=null;render();
       return out;
     }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:0,inchSize:null});
+
+    eq('дюймовые осевые рёбра получают стрелки, а операция остаётся отдельной меткой', await t.p.evaluate(() => {
+      const oldMetric=sMetricDetail;sMetricDetail=false;
+      tab='configurators';subtab='shape';openShapeNew('raked');
+      sDraft.w='48';sDraft.h='36';sDraft.params.leftDrop='0';sDraft.params.rightDrop='16';
+      let r=shapeDraftResult(),groups=shapeEdgeGroups(r.geometry);
+      const axis=groups.filter(g=>g.segments.length===1&&((Math.abs(g.segments[0].p2[0]-g.segments[0].p1[0])<1e-7)||(Math.abs(g.segments[0].p2[1]-g.segments[0].p1[1])<1e-7))).map(g=>g.id);
+      const angled=groups.map(g=>g.id).find(id=>!axis.includes(id));
+      sDraft.edgeOps[axis[0]]=[shapeNormalizeOp({type:'Rough Arris'})];r=shapeDraftResult();
+      const make=extra=>{const h=document.createElement('div');h.innerHTML=shapeDrawnProductionSvg(r,false,extra);return h;};
+      const screen=make(),printed=make({sheet:true});
+      const dim=screen.querySelector('.shape-inch-edge-dimension[data-edge-id="'+axis[0]+'"]');
+      const op=screen.querySelector('.shape-edge-operation-label[data-edge-id="'+axis[0]+'"]');
+      const out={axis:axis.length>0&&axis.every(id=>!!screen.querySelector('.shape-inch-edge-dimension[data-edge-id="'+id+'"]')),
+        angled:!!angled&&!screen.querySelector('.shape-inch-edge-dimension[data-edge-id="'+angled+'"]')&&!!screen.querySelector('.shape-edge-label-outside[data-edge-id="'+angled+'"]'),
+        arrows:!!dim&&!!dim.querySelector('line[marker-start="url(#shapeInchArrow)"]'),
+        operation:op&&op.textContent,separate:!!dim&&!dim.textContent.includes('RA'),
+        printed:axis.every(id=>!!printed.querySelector('.shape-inch-edge-dimension[data-edge-id="'+id+'"]'))};
+      sMetricDetail=oldMetric;sEdit=null;sDraft=null;render();return out;
+    }), {axis:true,angled:true,arrows:true,operation:'RA',separate:true,printed:true});
+
+    eq('печатный Metric Detail сохраняет компактное дюймовое эхо', await t.p.evaluate(() => {
+      const oldMetric=sMetricDetail,oldPrintSheet=printSheet;sMetricDetail=true;
+      tab='configurators';subtab='shape';openShapeNew('smart');sDraft.w='48';sDraft.h='36';setShapeC('36');sView='production';render();
+      const r=shapeDraftResult(),screen=document.createElement('div'),printed=document.createElement('div');
+      screen.innerHTML=shapeDrawnProductionSvg(r,false);printed.innerHTML=shapeDrawnProductionSvg(r,false,{sheet:true});
+      const compact=[...printed.querySelectorAll('.shape-inch-compact')],vb=printed.querySelector('svg').getAttribute('viewBox').split(/\s+/).map(Number),captured=[];
+      printSheet=function(html){captured.push(html);return true;};shapePrintDrawing();printSheet=oldPrintSheet;
+      const viaPrint=document.createElement('div');viaPrint.innerHTML=captured[0]||'';
+      const edgeInches=[...printed.querySelectorAll('.shape-inch-edge-reference')],overallInches=[...printed.querySelectorAll('.shape-inch-overall .shape-inch-compact')];
+      const out={screen:screen.querySelectorAll('.shape-inch-reference').length>0,
+        compact:compact.length>=2&&edgeInches.every(x=>x.getAttribute('font-size')==='13.5')&&overallInches.every(x=>x.getAttribute('font-size')==='15'),
+        noSecondChains:printed.querySelectorAll('line[marker-start="url(#shapeInchArrow)"]').length===0,
+        coordinates:compact.every(x=>+x.getAttribute('x')>=0&&+x.getAttribute('x')<=vb[2]&&+x.getAttribute('y')>=0&&+x.getAttribute('y')<=vb[3]),
+        throughPrint:viaPrint.querySelectorAll('.shape-inch-compact').length>=2};
+      sMetricDetail=oldMetric;sEdit=null;sDraft=null;render();return out;
+    }), {screen:true,compact:true,noSecondChains:true,coordinates:true,throughPrint:true});
 
     /* Печатный хост был задан в пикселях под книжный Letter. На бумаге это
        неверно всегда: в книжной он ШИРЕ печатного поля и лист обрезался по
