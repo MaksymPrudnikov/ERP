@@ -262,6 +262,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .shape-view-tabs{display:flex;gap:4px;padding:4px;background:#eef2f5;border-radius:8px;margin-bottom:8px}.shape-view-tabs button{flex:1;border:0;background:transparent;padding:7px 5px;font-size:9.5px}.shape-view-tabs button.on{background:#fff;box-shadow:0 1px 5px rgba(20,40,50,.1);font-weight:700}.shape-drawing-preview{border:1px solid var(--line2);border-radius:9px;overflow:hidden;background:#fff}.shape-drawing-preview svg{width:100%;height:auto;display:block;margin:0 auto}.shape-requirements{display:flex;flex-direction:column;gap:4px;margin-top:8px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:10px}.shape-requirements>b{font-size:10.5px}.shape-requirements span{color:#475467}.shape-requirements i{display:inline-block;min-width:68px;color:#175cd3;font-style:normal;font:8.5px ui-monospace,monospace}.shape-artifacts{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:8px}.shape-artifacts>b,.shape-artifacts>small{grid-column:1/-1}.shape-artifacts>b{font-size:10.5px}.shape-artifacts button{padding:6px;font-size:9.5px}.shape-artifacts small{color:var(--mut);font-size:8.5px;line-height:1.35}
 .shape-view-tabs .shape-metric-toggle{flex:0 0 30px;width:30px;padding:5px;color:#667085}.shape-view-tabs .shape-metric-toggle svg{display:block;width:17px;height:17px;margin:auto}.shape-view-tabs .shape-metric-toggle.on{background:#d9f2fb;color:#155b75;box-shadow:inset 0 0 0 1px #8ecadd,0 1px 4px rgba(20,80,105,.12)}.shape-view-tabs .shape-metric-toggle:disabled{opacity:.32;cursor:default}
 .shape-metric-movable{cursor:pointer}.shape-metric-movable:hover text{fill:#344054}.shape-metric-movable.active text{fill:#101828}.shape-metric-menu{pointer-events:auto}
+.shape-hidden-angles{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 8px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:#fff7ed;font-size:9px}.shape-hidden-angles span{font-weight:700;color:#9a3412}.shape-hidden-angles button{padding:4px 7px;font-size:9px}
 .shape-inch-primary-movable{cursor:pointer}.shape-inch-primary-movable:hover text{fill:#344054}.shape-inch-primary-movable.active text{fill:#101828}.shape-inch-primary-menu{pointer-events:auto}
 .shape-accordion{padding-top:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.shape-accordion-head{width:100%;border:0;border-radius:0;background:#f8fafb;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left}.shape-accordion-head:hover{background:#f3f7f9;border:0}.shape-accordion-head>span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.shape-accordion-head b{font-size:11px}.shape-accordion-head small{font-size:9px;color:var(--mut);font-weight:400}.shape-accordion-state{display:flex;align-items:center;gap:9px;white-space:nowrap;color:var(--mut);font-size:9.5px}.shape-accordion-state i,.shape-muntin-action{width:22px;height:22px;border:1px solid var(--line);border-radius:6px;background:#fff;display:grid;place-items:center;color:#315f78;font-size:15px;font-style:normal;line-height:1}.shape-accordion-body{padding:9px;border-top:1px solid var(--line2)}.shape-edgework-scroll{overflow-x:auto;border-top:1px solid var(--line2)}.shape-edgework-matrix{min-width:0}/* Число колонок задаёт разметка: операций кромки стало семь, и прибитая
    пятёрка сваливала лишние две на вторую строку, разъезжаясь с заголовком. */
@@ -1076,14 +1077,14 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sales-lines-table th,.sales-lines-table td{text-align:center;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{text-align:center}.sales-lines-table th.line-metric,.sales-lines-table td.line-metric{min-width:103px;text-align:center;vertical-align:middle}
 .line-metric small{display:block;font-size:10px;font-weight:400;color:var(--muted,#687780);margin-top:3px}
 .line-metric th small{font-weight:400}.metric-cell-btn{background:transparent;border:0;padding:7px 3px;width:100%;text-align:center;font-variant-numeric:tabular-nums;color:inherit;border-radius:5px}.metric-cell-btn:hover{background:var(--blue2,#e9f3f8)}
-.metric-incomplete,.metric-incomplete small{color:#93601c}.metric-order-total{display:flex;align-items:baseline;justify-content:flex-end;gap:16px;flex-wrap:wrap;padding:16px;border-top:1px solid var(--line,#ddd);font-size:12px}.metric-order-total b{font-size:18px;margin-left:10px}.metric-order-total small{display:block;color:#697984;font-size:11px}
+.metric-incomplete,.metric-incomplete small{color:#93601c}.metric-order-total{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line,#ddd);font-size:12px}.metric-order-service-add{align-self:center;border-color:#167052;color:#116047;font-weight:700}.metric-order-total-main{display:flex;align-items:flex-end;justify-content:flex-end;gap:14px;flex-wrap:wrap;text-align:right}.metric-order-total-main>small{color:#697984}.metric-order-charge-lines{display:flex;align-items:baseline;justify-content:flex-end;gap:12px;flex-wrap:wrap}.metric-order-charge-lines>span{white-space:nowrap}.metric-order-charge-lines b{font-size:13px;margin-left:4px;font-variant-numeric:tabular-nums}.metric-order-charge-lines small{display:inline;color:#697984;font-size:10px}.metric-order-charge-lines .metric-grand-total b{font-size:18px}.metric-order-charge-lines .metric-grand-total>small{display:block;color:#93601c}.metric-order-charge-editor{display:grid;gap:10px}.metric-order-charge-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(180px,1.2fr) minmax(180px,1.2fr);align-items:center;gap:12px;padding:12px;border:1px solid var(--line,#ddd);border-radius:8px;opacity:.58}.metric-order-charge-row.on{opacity:1;background:#fbfdfc}.metric-order-charge-row>label{display:flex;align-items:center;gap:8px}.metric-order-charge-row>label:first-child input{width:17px;height:17px}.metric-order-charge-row input[type=number]{width:105px}.metric-order-charge-row select{min-width:165px}.metric-order-charge-row small{color:#697984;line-height:1.35}.metric-order-charge-preview{margin-top:18px;border:1px solid var(--line,#ddd);border-radius:8px}.metric-order-charge-preview .metric-order-service-add{display:none}
 .metric-modal-back{z-index:1200}.metric-modal{max-width:820px;width:calc(100vw - 40px);max-height:90vh;overflow:auto}.metric-modal-wide{max-width:1250px}.metric-modal-body{padding:20px}.metric-modal-body p{font-size:13px;line-height:1.5}.metric-modal-body h4{margin-top:24px}
 .metric-profile{display:flex;align-items:center;gap:15px;font-size:13px}.metric-profile select{min-width:180px}.metric-column-grid{margin:20px 0;border-top:1px solid var(--line,#ddd)}.metric-column-head,.metric-column-row{display:grid;grid-template-columns:28px minmax(130px,1fr) 82px 70px 70px;align-items:center;gap:0;border-bottom:1px solid var(--line,#ddd)}.metric-column-head>*{padding:10px 5px;text-align:center}.metric-column-row>*{padding:8px 5px}.metric-column-row>label{text-align:center}.metric-column-row input{width:17px;height:17px}.metric-column-row.dragging{opacity:.45}.metric-drag{cursor:grab;color:var(--muted,#687780);font-weight:700;letter-spacing:-3px}.metric-move{display:flex;justify-content:center;gap:4px}.metric-move button{min-width:32px;padding:4px 6px}.metric-column-reset{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:8px;padding:11px 5px}.metric-column-reset button{text-align:center}
 .metric-explanation dl{display:grid;grid-template-columns:140px 1fr;gap:14px;font-size:14px;margin:24px 0}.metric-explanation dt{font-weight:600}.metric-explanation dd{margin:0;font-variant-numeric:tabular-nums}.metric-price-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line,#ddd);font-size:13px}.metric-price-row b{white-space:nowrap;font-variant-numeric:tabular-nums}
 .metric-rule-form{display:grid;gap:16px}.metric-rule-form label{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:16px;font-size:13px}.metric-rule-form p{margin:0}.metric-detail-scroll{overflow:auto;margin-top:15px}.metric-weight-table{width:100%;font-size:12px}.metric-weight-table small{display:block;max-width:300px;color:#72808b;margin-top:4px;font-size:10px}.metric-weight-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}.metric-weight-table input{width:100px}.metric-extra{display:flex;gap:8px;margin-bottom:8px}.metric-extra input:first-child{flex:1;min-width:0}.metric-extra input[type=number]{width:125px}
 .metric-print-actions{display:flex;gap:10px;margin-bottom:18px}.metric-print-preview{overflow:auto;border:1px solid #dae0e4;padding:20px;background:white;color:#1b2934}.metric-print-order table{width:100%;border-collapse:collapse;font-size:11px}.metric-print-order th,.metric-print-order td{padding:9px 5px;border-bottom:1px solid #d2dae0;text-align:center;vertical-align:middle}.metric-print-order th small{display:block;font-size:9px}.metric-print-order td small{display:block;font-size:9px}
-@media(max-width:600px){.metric-modal{width:calc(100vw - 16px);max-height:94vh}.metric-modal-body{padding:12px}.metric-profile{flex-wrap:wrap}.metric-column-head,.metric-column-row{grid-template-columns:24px minmax(105px,1fr) 72px 54px 54px;font-size:11px}.metric-column-row>*{padding:8px 2px}.metric-move button{min-width:28px;padding:3px}.metric-column-reset{grid-template-columns:1fr 65px 65px}.metric-rule-form label{grid-template-columns:1fr 90px}.metric-order-total{justify-content:flex-start}.metric-explanation dl{grid-template-columns:1fr}.metric-print-preview{padding:10px}}
-@media print{.print-sheet:has(.metric-print-order){height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.metric-print-order{width:100%;color:#000;background:white}.metric-print-order thead{display:table-header-group}.metric-print-order tr{break-inside:avoid}.metric-print-order table{font-size:8pt;table-layout:auto}.metric-print-order th,.metric-print-order td{padding:4pt 2pt;white-space:normal}.metric-print-order .metric-order-total{break-inside:avoid}}
+@media(max-width:600px){.metric-modal{width:calc(100vw - 16px);max-height:94vh}.metric-modal-body{padding:12px}.metric-profile{flex-wrap:wrap}.metric-column-head,.metric-column-row{grid-template-columns:24px minmax(105px,1fr) 72px 54px 54px;font-size:11px}.metric-column-row>*{padding:8px 2px}.metric-move button{min-width:28px;padding:3px}.metric-column-reset{grid-template-columns:1fr 65px 65px}.metric-rule-form label{grid-template-columns:1fr 90px}.metric-order-total{justify-content:flex-start}.metric-order-total-main,.metric-order-charge-lines{justify-content:flex-start;text-align:left}.metric-order-charge-row{grid-template-columns:1fr}.metric-explanation dl{grid-template-columns:1fr}.metric-print-preview{padding:10px}}
+@media print{.print-sheet:has(.metric-print-order){height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.metric-print-order{width:100%;color:#000;background:white}.metric-print-order thead{display:table-header-group}.metric-print-order tr{break-inside:avoid}.metric-print-order table{font-size:8pt;table-layout:auto}.metric-print-order th,.metric-print-order td{padding:4pt 2pt;white-space:normal}.metric-print-order .metric-order-total{break-inside:avoid}.metric-order-service-add{display:none!important}}
 .sales-line-tools{flex-wrap:wrap;min-width:0;max-width:100%}
 @media(max-width:900px){.sales-order-editor .mu-totals{grid-column:1/-1;justify-self:start;margin-left:0;max-width:100%;flex-wrap:wrap}.sales-lines-head{flex-wrap:wrap}.sales-lines-head>div:first-child{min-width:0}}
 @media(max-width:620px){.sales-line-tools button{flex:0 1 auto}.sales-order-editor .mu-totals{white-space:normal}.sales-order-editor .mu-total{flex-wrap:wrap}}
@@ -1113,7 +1114,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='bc4585ddc506';
+var ERP_BUILD='1fcc70e78ad1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2391,7 +2392,9 @@ function shapeApplyCornerRadii(topo,def){
   }
   for(i=0;i<V.length;i++){
     var a=corners[i],b=corners[(i+1)%V.length],L=Math.hypot(V[(i+1)%V.length].x-V[i].x,V[(i+1)%V.length].y-V[i].y);
-    if((a?a.t:0)+(b?b.t:0)>=L-1e-7)errors.push('Corner radii overlap on edge '+(V[i].outEdge||('E'+(i+1)))+'.');
+    /* Равенство — допустимое касание: два R10 на ребре 20 образуют одну
+       непрерывную полукруглую арку. Ошибка нужна только при пересечении. */
+    if((a?a.t:0)+(b?b.t:0)>L+1e-7)errors.push('Corner radii overlap on edge '+(V[i].outEdge||('E'+(i+1)))+'.');
   }
   if(errors.length)return Object.assign({radiusErrors:errors},topo);
   var points=[],ids=[],arcMeta={},dir=orient<0?-1:1;
@@ -3978,10 +3981,12 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
    У прямоугольника и круга ребро равно габариту и второй подписи не рождает. */
 var SHAPE_METRIC_CLEAN_TYPES=['parallelogram','raked','triangle','polygon','custom'];
 function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
+function shapeMetricHidden(opts,key){return !!(opts&&opts.hiddenKeys&&opts.hiddenKeys[key]);}
 function shapeMetricMenuSvg(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
-  var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
-  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
+  var canHide=String(key).indexOf('angle:')===0,count=canHide?3:2,x=Math.max(46,Math.min((F&&F.vw||960)-46,cx)),w=28,h=20,x0=x-w*count/2;
+  var hide=canHide?'<g class="shape-dim-btn" onclick="event.stopPropagation();shapeToggleMetricLabelHide(\''+shapeXml(key)+'\')"><title>Hide</title><rect x="'+(x0+w*2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w*2+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">Hide</text></g>':'';
+  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*count+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g>'+hide+'</g>';
 }
 function shapeMetricMovableSvg(opts,key,text,cx,cy,F){
   if(!opts||!opts.interactive)return text;
@@ -4073,7 +4078,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
      теряет дюймовое эхо: на бумаге оно идёт ровно на один пункт меньше
      соседнего размера в mm, без второй вынесенной цепочки, которая раньше
      вылезала за поля. */
-  var cleanMetric=!!opts.cleanParallelogram||!!opts.sheet,showInchEcho=!opts.cleanParallelogram,compactInch=!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  var cleanMetric=!!opts.cleanParallelogram,showInchEcho=!opts.cleanParallelogram,compactInch=!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
   var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
@@ -4100,9 +4105,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Ребро по оси получает размерную линию, и число отходит от неё дальше;
        у косого ребра число по-прежнему лежит вдоль самого ребра. */
     var axis=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
-    /* На печатном листе поля урезаны: ряд размеров рёбер придвигаем к детали,
-       иначе он и габаритная цепочка не помещаются вдвоём под нижней кромкой. */
-    var key='edge:'+i,base=axis?(opts.sheet?34:(cleanMetric?50:44)):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
+    var key='edge:'+i,base=axis?(cleanMetric?50:44):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
     if(axis)o+=shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,false);
     var lead=axis?off+11:off,inchLead=axis?off+(compactInch?27:41):lead+(compactInch?16:21);
     if(axis&&showInchEcho&&!compactInch)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
@@ -4118,7 +4121,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Точка внутри дуги — не угол, и касательный стык двух рёбер тоже: 180°
      подписывать нечем. */
     if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
-    if(Math.abs(v.angleDeg-180)<.5)return;
+    if(Math.abs(v.angleDeg-180)<.5||shapeMetricHidden(opts,'angle:'+i))return;
     var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
@@ -4154,14 +4157,14 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
      dimension.  Put the overall bounding width (for example 1752.60 mm)
      on a clearly separate next row, so the two readings have an unambiguous
      order.  The compact print sheet keeps the shorter offset to stay in frame. */
-  var wideRow=opts.sheet?82:104;
+  var wideRow=104;
   var overallWidthGap=cleanMetric?wideRow:(fullBottom?44:wideRow);
   var overallWidthY=box.bottom+overallWidthGap;
   o+=shapeMetricDimH(box.left,box.right,box.bottom,overallWidthY,shapeMetricFormat(metric.bbox.widthMm),opts,F);
   /* Up/Down puts the OOS dimension on a vertical end of the piece.  Keep the
      overall height beyond the edge-length dimension so labels never share the
      same side corridor. */
-  var wideSide=opts.sheet?62:104;
+  var wideSide=104;
   var overallHeightGap=cleanMetric?wideSide:((fullLeft||fullRight)?48:wideSide);
   var heightEdge=heightRight?box.right:box.left;
   var overallHeightX=heightRight?heightEdge+overallHeightGap:heightEdge-overallHeightGap;
@@ -4288,10 +4291,10 @@ function shapeProductionDrawingFrame(result,opts){
   var framePoints=(result.points||[]).slice();
   if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
   var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190;
-  /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
-  if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k)+8;pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
-  var LONG=opts.sheet?880:660,SHORT=opts.sheet?200:260;
+  /* Экран и печать используют один кадр. Печатный лист масштабирует готовый
+     SVG целиком, поэтому ручная расстановка не сжимается повторно. */
+  var LONG=660,SHORT=260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
   var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
   F.metric=metric;return F;
@@ -4304,10 +4307,10 @@ function shapeProductionSvg(result,opts){
   var F=shapeProductionDrawingFrame(result,opts);
   /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
      внутри чертежа стали бы вторым набором тех же сведений. */
-  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
-  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
+  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+L.box.left+'" y="'+L.box.top+'" width="'+(L.box.right-L.box.left)+'" height="'+(L.box.bottom-L.box.top)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
@@ -4328,7 +4331,7 @@ function shapeProductionSvg(result,opts){
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
   if(!L.smart&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
-    var near=sheet?.55:1;
+    var near=1;
     var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);
     o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
     o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
@@ -7844,6 +7847,13 @@ const SALES_MAX_INTERLAYERS=4;
 const SALES_INTERLAYER_LAYER_MM=.38;
 const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
+const SALES_CARD_FEE_RATES={visa:2.34,mastercard:2.39,amex:3.15};
+const SALES_ORDER_CHARGE_DEFAULTS={
+ energy:{enabled:true,rate:9.75},
+ hst:{enabled:true,rate:13},
+ card:{enabled:false,network:'visa',rate:2.34},
+ delivery:{enabled:false,amount:0}
+};
 /* PIB физически добавляет по 0.4 mm с каждой стороны дистанционной рамки. */
 const SALES_PIB_PER_CAVITY_MM=.8;
 
@@ -7872,6 +7882,17 @@ function salesDimTo16(v){
  const r=fabParseDimStrict(v);return r.ok&&r.v>0?Math.round(r.v*16):null;
 }
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
+function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
+function normalizeSalesOrderCharges(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+ const network=Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,raw.card&&raw.card.network)?raw.card.network:'visa';
+ return {
+  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:true,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,9.75)},
+  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:true,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,13)},
+  card:{enabled:!!(raw.card&&raw.card.enabled),network:network,rate:salesOrderChargeNumber(raw.card&&raw.card.rate,SALES_CARD_FEE_RATES[network])},
+  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)}
+ };
+}
 
 function salesDimFrom16(v){return Number.isInteger(v)&&v>0?frac64(v/16):'';}
 /* Отступ узора фрита — размер заказа, а не константа, и ноль в нём законен:
@@ -8184,7 +8205,7 @@ function normalizeSalesOrder(o){
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -8209,7 +8230,7 @@ function validateSalesReferences(){
  DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');});});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
@@ -10561,7 +10582,9 @@ function salesLineAreaFt2(line){
 function salesUnitSurchargeRows(line,shape){
   const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
   /* Triple is a percentage of the finished unit, calculated in line-metrics. */
-  if(shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
+  /* Shape Unit — надбавка за сборку фигурного стеклопакета. Отдельный Single
+     Lite оплачивает свою геометрию и обработки, но не является DGU/TGU. */
+  if(shape&&m&&(m.unitType==='double'||m.unitType==='triple')&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
     const area=salesLineAreas(line,soDraft).billable;
     if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
@@ -11753,10 +11776,25 @@ function salesLineAreas(line,order){
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
  const valid=(!shape||shapeValid)&&lineW>0&&lineH>0&&w>0&&h>0;
  const actual=valid?(shapeValid?r.area/144:w*h/144):null;
- const rounded=valid?Math.round(Math.ceil(w)*Math.ceil(h)/144*10)/10:null;
+ /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
+    занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
+ const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+function salesApplyOrderCharges(subtotal,raw){
+ const c=normalizeSalesOrderCharges(raw),base=salesMoney(Math.max(0,+subtotal||0));
+ const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
+ const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
+ const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
+ const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
+ return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,grand:salesMoney(cardBase+card+delivery)};
+}
+function salesOrderCommercialTotals(order){
+ order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
+ const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
+}
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);
@@ -13025,10 +13063,40 @@ function salesMetricCell(line,c,context,price,a,weight){
   const body=`<b data-raw>${text}</b>`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
-function salesCommercialOrderSummary(){
- let total=0,missing=0,qty=0;
- (soDraft.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,soDraft);qty+=p.qty;if(p.complete)total+=p.line;else missing++;});
- return `<div class="metric-order-total"><span>${salesMetricText('Весь заказ','Entire order')} · ${qty} ${salesMetricText('шт.','units')}</span><span>${salesMetricText('Итого строки','Line totals')} <b data-raw>${missing?'—':salesMoney(total).toFixed(2)+' '+esc(soDraft.currency)}</b>${missing?`<small>${missing} ${salesMetricText('строк с неполной ценой','lines need pricing')}</small>`:''}</span><small>${salesMetricText('До energy surcharge, налога и доставки','Before energy surcharge, tax and delivery')}</small></div>`;
+function salesCommercialOrderSummary(interactive){
+ const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2)+' '+cur:'—';
+ const rows=[`<span>Subtotal <b data-raw>${money(t.subtotal)}</b></span>`];
+ if(c.energy.enabled)rows.push(`<span>ES <small data-raw>${c.energy.rate}%</small> <b data-raw>${money(t.energy)}</b></span>`);
+ if(c.hst.enabled)rows.push(`<span>HST <small data-raw>${c.hst.rate}%</small> <b data-raw>${money(t.hst)}</b></span>`);
+ if(c.card.enabled)rows.push(`<span>${esc(salesCardNetworkLabel(c.card.network))} <small data-raw>${c.card.rate}%</small> <b data-raw>${money(t.card)}</b></span>`);
+ if(c.delivery.enabled)rows.push(`<span>Delivery <b data-raw>${money(t.delivery)}</b></span>`);
+ rows.push(`<span class="metric-grand-total">Total <b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${salesMetricText('строк требуют цены','lines need pricing')}</small>`:''}</span>`);
+ const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
+ return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${salesMetricText('Весь заказ','Entire order')} · ${t.qty} ${salesMetricText('шт.','units')}</small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+}
+function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
+function salesSetOrderChargeEnabled(key,enabled){
+ if(!['energy','hst','card','delivery'].includes(key))return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
+}
+function salesSetOrderChargeValue(key,field,value){
+ if(!soDraft||!['energy','hst','card','delivery'].includes(key)||!['rate','amount'].includes(field))return;
+ const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
+}
+function salesSetCardNetwork(network){
+ if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
+}
+function salesOrderChargesPanel(){
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
+ const pct=(key)=>`<label>${salesMetricText('Ставка','Rate')}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
+ return `<p class="mut">${salesMetricText('Начисления выполняются сверху вниз. Отключённая строка сохраняет свою ставку и может быть включена снова.','Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again.')}</p><div class="metric-order-charge-editor">
+  ${toggle('energy','Energy Surcharge',pct('energy'))}
+  ${toggle('hst','HST',pct('hst')+`<small>${salesMetricText('Способ оплаты сам не отключает налог.','Payment method does not disable tax automatically.')}</small>`)}
+  ${toggle('card','Card fee',`<label>${salesMetricText('Карта','Card')}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
+  ${toggle('delivery','Delivery',`<label>${salesMetricText('Сумма вручную','Manual amount')}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${salesMetricText('Добавляется последней; ES, HST и Card fee на неё не начисляются.','Added last; ES, HST and Card fee do not apply to it.')}</small>`)}
+ </div><div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
@@ -13084,13 +13152,13 @@ function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.wei
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesOrderPrintMarkup(){
- return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary():''}</div>`;
+ return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
 }
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:salesMetricText('Колонки заказа','Order columns'),rules:salesMetricText('Правила цены','Pricing rules'),print:salesMetricText('Предпросмотр печати','Print preview'),area:salesMetricText('Площадь изделия','Unit area'),weight:salesMetricText('Вес изделия','Unit weight'),price:salesMetricText('Цена изделия','Unit price')};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:salesMetricText('Колонки заказа','Order columns'),rules:salesMetricText('Правила цены','Pricing rules'),orderCharges:salesMetricText('Начисления заказа','Order charges'),print:salesMetricText('Предпросмотр печати','Print preview'),area:salesMetricText('Площадь изделия','Unit area'),weight:salesMetricText('Вес изделия','Unit weight'),price:salesMetricText('Цена изделия','Unit price')};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки печати','Print columns')}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${salesMetricText('Печать','Print')}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки печати','Print columns')}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${salesMetricText('Печать','Print')}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal ${panel==='print'?'metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
@@ -13123,9 +13191,10 @@ let sManufacturingCustomId=null;
 let sDimEdit=null,sMetricDimEdit=null;
 /* Редко используемый метрический слой — только состояние экрана. Он не входит
    в Shape definition и потому никогда не меняет ревизию или fingerprint. */
-var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
+var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',SHAPE_METRIC_HIDDEN_STORAGE_KEY='glass_erp_shape_metric_hidden_v1',sMetricDetail=false,sMetricOffsets={},sMetricHidden={};
 try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
 try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
+try{var hiddenStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY)||'{}');if(hiddenStored&&typeof hiddenStored==='object')sMetricHidden=hiddenStored;}catch(e){}
 function setShapeMetricDetail(value){
   sMetricDetail=!!value;sMetricDimEdit=null;
   try{localStorage.setItem(SHAPE_METRIC_STORAGE_KEY,sMetricDetail?'1':'0');}catch(e){}
@@ -13147,6 +13216,7 @@ function shapeMetricOffsetScope(result,selected,mode){
 }
 function shapeCurrentDrawingOffsetScope(result){return sMetricDetail?shapeMetricOffsetScope(result,shapeMetricSelectedLite()):shapeMetricOffsetScope(result,null,'inch');}
 function shapeMetricSaveOffsets(){try{localStorage.setItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY,JSON.stringify(sMetricOffsets));}catch(e){}}
+function shapeMetricSaveHidden(){try{localStorage.setItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY,JSON.stringify(sMetricHidden));}catch(e){}}
 function shapeSelectMetricLabel(key){
   var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),same=sMetricDimEdit&&sMetricDimEdit.scope===scope&&sMetricDimEdit.key===key;
   sDimEdit=null;sMetricDimEdit=same?null:{scope:scope,key:key};refreshShapeEditor();
@@ -13158,6 +13228,19 @@ function shapeNudgeMetricLabel(key,delta){
   if(!Object.keys(map).length)delete sMetricOffsets[scope];
   sMetricDimEdit={scope:scope,key:key};shapeMetricSaveOffsets();refreshShapeEditor();
 }
+function shapeToggleMetricLabelHide(key){
+  if(String(key).indexOf('angle:')!==0)return;
+  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),map=sMetricHidden[scope]||(sMetricHidden[scope]={});
+  if(map[key])delete map[key];else map[key]=true;
+  if(!Object.keys(map).length)delete sMetricHidden[scope];
+  sMetricDimEdit=null;shapeMetricSaveHidden();refreshShapeEditor();
+}
+function shapeMetricHiddenControlsHTML(result){
+  if(!sMetricDetail||sView==='cutting'||result&&result.externalFile)return '';
+  var scope=shapeCurrentDrawingOffsetScope(result),map=sMetricHidden[scope]||{},keys=Object.keys(map).filter(function(k){return map[k]&&k.indexOf('angle:')===0;});
+  if(!keys.length)return '';
+  return `<div class='shape-hidden-angles'><span>Hidden angles</span>${keys.map(function(key){var n=(+key.split(':')[1]||0)+1;return `<button type='button' onclick='shapeToggleMetricLabelHide("${esc(key)}")'>Show angle ${n}</button>`;}).join('')}</div>`;
+}
 function shapeMetricProductionOptions(result,interactive){
   if(!sMetricDetail){
     var inchScope=shapeMetricOffsetScope(result,null,'inch');
@@ -13166,6 +13249,7 @@ function shapeMetricProductionOptions(result,interactive){
   var metric={thicknessMm:shapeThicknessMm((result&&result.definition)||sDraft||{})};
   var selected=shapeMetricSelectedLite(),scope=shapeMetricOffsetScope(result,selected);
   metric.offsets=Object.assign({},sMetricOffsets[scope]||{});
+  metric.hiddenKeys=Object.assign({},sMetricHidden[scope]||{});
   metric.interactive=!!interactive;
   metric.selectedKey=metric.interactive&&sMetricDimEdit&&sMetricDimEdit.scope===scope?sMetricDimEdit.key:null;
   if(selected!=null){
@@ -14479,6 +14563,9 @@ function shapeDerivedHTML(r){
 function refreshShapeEditor(){
   if(!sDraft)return;var r=shapeDraftResult(),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');
   if(p)p.innerHTML=shapePreviewMarkup(r);if(d)d.innerHTML=shapeDerivedHTML(r);
+  var hidden=document.getElementById('shapeHiddenMetricControls');
+  if(!hidden&&p&&p.parentNode){hidden=document.createElement('div');hidden.id='shapeHiddenMetricControls';p.parentNode.insertBefore(hidden,p);}
+  if(hidden)hidden.innerHTML=shapeMetricHiddenControlsHTML(r);
   /* Набор файлов зависит от открытого листа: на чертеже свои, на резке свои.
      Переключение вкладки идёт через refreshShapeEditor, а не через render(),
      поэтому блок надо обновлять здесь — иначе кнопки остаются от того листа,
@@ -15354,7 +15441,7 @@ function shapeForm(){
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
-    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+    </div><div class='shape-preview-side'>${tabs}<div id='shapeHiddenMetricControls'>${shapeMetricHiddenControlsHTML(r)}</div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
     <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 
