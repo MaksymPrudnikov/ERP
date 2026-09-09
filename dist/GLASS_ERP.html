@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 52 модулей, 3 стиля.
+  Состав сборки: 54 модулей, 4 стиля.
 -->
 <html lang="ru">
 <head>
@@ -321,7 +321,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 /* sales 3B · compact order makeups ---------------------------------- */
 .sales-order-editor{--sa:#f2762e;--sa2:#fff4ec;--sink:#263843;--swarm:#f6f8f9;--sline:#e1e6e9;display:flex;flex-direction:column;gap:10px}
 .sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.sales-row-actions{white-space:nowrap}
-.sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;gap:7px}.sales-editor-actions button{padding:6px 10px}
+.sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-editor-actions button{padding:6px 10px}
 .sales-header-compact{display:grid;grid-template-columns:repeat(8,minmax(110px,1fr));gap:7px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px}.sales-header-compact label,.sales-order-editor label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:#7a7974;margin-bottom:3px;font-weight:650}.sales-header-compact input,.sales-header-compact select,.sales-order-editor .mu-section input,.sales-order-editor .mu-section select{height:34px;padding:5px 8px;font-size:12px;border-radius:7px;border-color:#d8d4cc}.sales-hold{font-size:11px;color:#8d3e31;background:#fff4f1;border:1px solid #f1d2c9;border-radius:8px;padding:7px 10px}
 .sales-block{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px}.sales-block-head,.sales-lines-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-block-head>div,.sales-lines-head>div:first-child{display:flex;align-items:baseline;gap:9px}.sales-block-head b,.sales-lines-head b{font-size:11px;letter-spacing:.055em;color:#3c3b37}.sales-block-head span,.sales-lines-head span{font-size:10.5px;color:var(--mut)}
 .mu-strip{display:flex;align-items:stretch;gap:7px;margin-bottom:8px}.mu-strip-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px}.mu-tab{display:flex;align-items:center;gap:7px;min-width:0;max-width:360px;height:34px;padding:4px 8px;border:1px solid var(--sline);background:#faf9f7;border-radius:8px;color:#66635e}.mu-tab b{font-size:12px;min-width:20px}.mu-tab span{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-tab.on{border-color:var(--sa);background:var(--sa2);color:#8f4214;box-shadow:inset 0 0 0 1px #ffd7bc}.mu-add{height:34px;white-space:nowrap;border-style:dashed;color:#715b4b}
@@ -385,6 +385,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 
 /* PR3 release guards: rate provenance and incomplete pricing are explicit. */
 .line-services-money,.sales-order-price-summary{display:flex;flex-direction:column;align-items:flex-end;gap:1px}.line-services-money small,.sales-order-price-summary small{font-size:7.5px;font-weight:800;color:#b54708;white-space:nowrap}.line-services-btn.incomplete,.sales-services-order-btn.incomplete{border-color:#f3c48b!important;background:#fff8ee!important}.sales-pricing-warning{display:flex;align-items:flex-start;gap:10px;margin:9px 12px;padding:8px 10px;border:1px solid #f2cfae;border-radius:8px;background:#fff7ed;color:#8a4b1a;font-size:9px}.sales-pricing-warning b{white-space:nowrap}.sales-pricing-warning span{line-height:1.4}.sales-price-missing{color:#b54708;font-weight:800}.sales-line-service-row.unpriced,.sales-order-service-row.unpriced{background:#fffaf4}.sales-rate-origin{display:inline-flex!important;width:max-content;padding:2px 5px;border-radius:999px;font-weight:800!important;letter-spacing:.04em}.sales-rate-origin.catalog{background:#eef4f8;color:#476579!important}.sales-rate-origin.order{background:#fff1e8;color:#9a4f18!important}.sales-rate-origin.line{background:#f4ebff;color:#6941c6!important}.sales-rate-origin.missing{background:#fff1f0;color:#b42318!important}.sales-service-modal-total.incomplete{flex-wrap:wrap}.sales-service-modal-total.incomplete small{font-size:8px;font-weight:800;color:#b54708}
+.line-services-chips>span.commercial{background:#fff0dc;color:#8a4b1a}.line-services-money small.commercial-total{color:#8a4b1a}.sales-commercial-adjustments{margin:10px 12px 12px;border:1px solid #eccda8;border-radius:9px;overflow:hidden;background:#fffaf4}.sales-commercial-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #f1ddc5}.sales-commercial-head>div{display:flex;align-items:baseline;gap:8px}.sales-commercial-head b{font-size:10px;color:#7b4618}.sales-commercial-head span{font-size:8px;color:#8b6b4e}.sales-commercial-table{display:flex;flex-direction:column}.sales-commercial-row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(210px,1fr) 70px 115px;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid #f4e8da;font-size:9.5px}.sales-commercial-row:last-child{border-bottom:0}.sales-commercial-row.head{background:#fff7ed;color:#8b6b4e;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.035em}.sales-commercial-row>span:first-child{display:flex;flex-direction:column;gap:2px}.sales-commercial-row small{font-size:8px;color:#9a7959}.sales-commercial-row>strong{font:750 10px ui-monospace,monospace;color:#8a4b1a;text-align:right}.sales-commercial-row.incomplete{background:#fff4e8}.sales-commercial-adjustments.order{margin-top:12px}
 
 /* Safety Border — базовое значение плюс построчный ввод по кромкам.
    Отступ для безопасной резки и ломки; в контур реза не входит. */
@@ -1044,7 +1045,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .shape-prod-machine-card{padding:10px;border:1px solid var(--line);border-radius:9px;background:#fff}.shape-prod-machine-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.shape-prod-machine-head b{font-size:10px;color:#9a531c}.shape-prod-machine-head span{font-size:8.5px;color:var(--mut)}.shape-prod-machine-card svg{width:100%;max-height:520px;background:#fff}.shape-prod-finished-ref{fill:none;stroke:#85939b;stroke-width:1.5;stroke-dasharray:7 5}.shape-prod-cutting-main{fill:#fff5ed;stroke:#f2762e;stroke-width:3}.shape-prod-machine-kpi{display:flex;justify-content:center;gap:22px;margin-top:5px;font-size:9px;color:var(--mut)}.shape-prod-machine-kpi b{font:700 10px ui-monospace,monospace;color:#7a461f}.shape-prod-cut-block{display:flex;flex-direction:column;gap:5px;min-height:180px;align-items:center;justify-content:center;border:1px dashed #e1bcbc;border-radius:9px;background:#fff5f5;color:#913e3e}.shape-prod-cut-block span{max-width:620px;text-align:center;font-size:10px}
 
 /* ---------- Sales Set table ---------- */
-.sales-lines-with-services .ss-cell{white-space:nowrap}.ss-order-btn{padding:5px 8px;font-size:10px}.ss-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:3px 7px;border:1px solid #b9d8e8;border-radius:999px;background:var(--blue2);color:#285f7d;font:700 10px ui-monospace,monospace}.ss-badge.override{box-shadow:inset 0 0 0 1px #d6965d}.ss-status{display:inline-flex;align-items:center;padding:3px 7px;border-radius:999px;border:1px solid var(--line);font-size:9px;white-space:nowrap}.ss-status.ok{background:var(--green2);border-color:#b9dfca;color:#236b4b}.ss-status.warn{background:var(--amber2);border-color:#efd9a6;color:#8a5b16}.ss-status.bad{background:var(--red2);border-color:#efc5c5;color:#934242}.ss-status.info{background:var(--blue2);border-color:#bddbea;color:#2b6685}
+.sales-lines-with-services .ss-cell{white-space:nowrap}.ss-order-btn{padding:5px 8px;font-size:10px}.ss-badge{display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:3px 7px;border:1px solid #b9d8e8;border-radius:999px;background:var(--blue2);color:#285f7d;font:700 10px ui-monospace,monospace}.ss-badge.override{box-shadow:inset 0 0 0 1px #d6965d}.ss-badge.issue{background:var(--red2);border-color:#dc7777;color:#8d2f2f;box-shadow:0 0 0 2px rgba(190,50,50,.08)}
 .ss-filters{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0}.ss-filter{padding:4px 7px;border-radius:999px;font-size:9px;color:#60717b}.ss-filter.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d;font-weight:700}.ss-filter span{font:700 9px ui-monospace,monospace}
 .ss-bulk{display:flex;align-items:end;gap:7px;flex-wrap:wrap;padding:8px 9px;border:1px solid var(--line);border-radius:9px;background:#fbfcfd}.ss-bulk label{min-width:150px;margin:0;font-size:9px}.ss-bulk select{margin-top:3px;padding:6px;font-size:10px}.ss-bulk button{padding:6px 9px;font-size:10px}.ss-preview{margin-top:7px;padding:8px 9px;border:1px solid #c7dfeb;border-radius:8px;background:#f3f9fc;font-size:9.5px}.ss-preview-actions{display:flex;gap:6px;margin-top:6px}
 
@@ -1071,6 +1072,22 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .mu-flip input{width:14px;height:14px;margin:0;flex:none}
 .mu-flip span{font-size:9.5px;color:#475467}
 
+/* ---- src/styles/line-metrics.css ---- */
+.sales-lines-table th,.sales-lines-table td{text-align:center;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{text-align:center}.sales-lines-table th.line-metric,.sales-lines-table td.line-metric{min-width:103px;text-align:center;vertical-align:middle}
+.line-metric small{display:block;font-size:10px;font-weight:400;color:var(--muted,#687780);margin-top:3px}
+.line-metric th small{font-weight:400}.metric-cell-btn{background:transparent;border:0;padding:7px 3px;width:100%;text-align:center;font-variant-numeric:tabular-nums;color:inherit;border-radius:5px}.metric-cell-btn:hover{background:var(--blue2,#e9f3f8)}
+.metric-incomplete,.metric-incomplete small{color:#93601c}.metric-order-total{display:flex;align-items:baseline;justify-content:flex-end;gap:16px;flex-wrap:wrap;padding:16px;border-top:1px solid var(--line,#ddd);font-size:12px}.metric-order-total b{font-size:18px;margin-left:10px}.metric-order-total small{display:block;color:#697984;font-size:11px}
+.metric-modal-back{z-index:1200}.metric-modal{max-width:820px;width:calc(100vw - 40px);max-height:90vh;overflow:auto}.metric-modal-wide{max-width:1250px}.metric-modal-body{padding:20px}.metric-modal-body p{font-size:13px;line-height:1.5}.metric-modal-body h4{margin-top:24px}
+.metric-profile{display:flex;align-items:center;gap:15px;font-size:13px}.metric-profile select{min-width:180px}.metric-column-grid{margin:20px 0;border-top:1px solid var(--line,#ddd)}.metric-column-head,.metric-column-row{display:grid;grid-template-columns:28px minmax(130px,1fr) 82px 70px 70px;align-items:center;gap:0;border-bottom:1px solid var(--line,#ddd)}.metric-column-head>*{padding:10px 5px;text-align:center}.metric-column-row>*{padding:8px 5px}.metric-column-row>label{text-align:center}.metric-column-row input{width:17px;height:17px}.metric-column-row.dragging{opacity:.45}.metric-drag{cursor:grab;color:var(--muted,#687780);font-weight:700;letter-spacing:-3px}.metric-move{display:flex;justify-content:center;gap:4px}.metric-move button{min-width:32px;padding:4px 6px}.metric-column-reset{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:8px;padding:11px 5px}.metric-column-reset button{text-align:center}
+.metric-explanation dl{display:grid;grid-template-columns:140px 1fr;gap:14px;font-size:14px;margin:24px 0}.metric-explanation dt{font-weight:600}.metric-explanation dd{margin:0;font-variant-numeric:tabular-nums}.metric-price-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line,#ddd);font-size:13px}.metric-price-row b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.metric-rule-form{display:grid;gap:16px}.metric-rule-form label{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:16px;font-size:13px}.metric-rule-form p{margin:0}.metric-detail-scroll{overflow:auto;margin-top:15px}.metric-weight-table{width:100%;font-size:12px}.metric-weight-table small{display:block;max-width:300px;color:#72808b;margin-top:4px;font-size:10px}.metric-weight-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}.metric-weight-table input{width:100px}.metric-extra{display:flex;gap:8px;margin-bottom:8px}.metric-extra input:first-child{flex:1;min-width:0}.metric-extra input[type=number]{width:125px}
+.metric-print-actions{display:flex;gap:10px;margin-bottom:18px}.metric-print-preview{overflow:auto;border:1px solid #dae0e4;padding:20px;background:white;color:#1b2934}.metric-print-order table{width:100%;border-collapse:collapse;font-size:11px}.metric-print-order th,.metric-print-order td{padding:9px 5px;border-bottom:1px solid #d2dae0;text-align:center;vertical-align:middle}.metric-print-order th small{display:block;font-size:9px}.metric-print-order td small{display:block;font-size:9px}
+@media(max-width:600px){.metric-modal{width:calc(100vw - 16px);max-height:94vh}.metric-modal-body{padding:12px}.metric-profile{flex-wrap:wrap}.metric-column-head,.metric-column-row{grid-template-columns:24px minmax(105px,1fr) 72px 54px 54px;font-size:11px}.metric-column-row>*{padding:8px 2px}.metric-move button{min-width:28px;padding:3px}.metric-column-reset{grid-template-columns:1fr 65px 65px}.metric-rule-form label{grid-template-columns:1fr 90px}.metric-order-total{justify-content:flex-start}.metric-explanation dl{grid-template-columns:1fr}.metric-print-preview{padding:10px}}
+@media print{.print-sheet:has(.metric-print-order){height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.metric-print-order{width:100%;color:#000;background:white}.metric-print-order thead{display:table-header-group}.metric-print-order tr{break-inside:avoid}.metric-print-order table{font-size:8pt;table-layout:auto}.metric-print-order th,.metric-print-order td{padding:4pt 2pt;white-space:normal}.metric-print-order .metric-order-total{break-inside:avoid}}
+.sales-line-tools{flex-wrap:wrap;min-width:0;max-width:100%}
+@media(max-width:900px){.sales-order-editor .mu-totals{grid-column:1/-1;justify-self:start;margin-left:0;max-width:100%;flex-wrap:wrap}.sales-lines-head{flex-wrap:wrap}.sales-lines-head>div:first-child{min-width:0}}
+@media(max-width:620px){.sales-line-tools button{flex:0 1 auto}.sales-order-editor .mu-totals{white-space:normal}.sales-order-editor .mu-total{flex-wrap:wrap}}
+
 </style>
 </head>
 <body>
@@ -1096,7 +1113,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='db4e23f654eb';
+var ERP_BUILD='bc4585ddc506';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5220,7 +5237,10 @@ const normSkill = x => {
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
+ const profileIds=new Set();
  DB.user.forEach(u=>{
+  if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
+  profileIds.add(u.viewProfileId);
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
   const legacy=u.workPosition==null?u.station:u.workPosition;
   const code=String(legacy==null?'':legacy).trim().toUpperCase();
@@ -8156,7 +8176,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing)};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
@@ -8164,7 +8184,7 @@ function normalizeSalesOrder(o){
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -8402,6 +8422,19 @@ const I18N_EN={
   "начислений не имеют действующей ставки. В общий денежный итог они не входят, пока ставка не будет задана.": "charges have no effective rate. They are excluded from the order monetary total until a rate is entered.",
   "Без цены:": "Unpriced:",
   "Сбросить к Catalog": "Reset to Catalog",
+  "Коммерческие надбавки": "Commercial adjustments",
+  "Уже включены в Unit Price один раз": "Already included once in Unit Price",
+  "Правило": "Rule",
+  "Расчёт за unit": "Calculation per unit",
+  "Итог строки": "Line total",
+  "Billable Area выше лимита": "Billable Area above the limit",
+  "Цена неполная": "Price incomplete",
+  "Автоматически из типа Makeup и Billable Area; уже включены в Unit / Line Price": "Applied automatically from Makeup type and Billable Area; already included in Unit / Line Price",
+  "Строки / units": "Lines / units",
+  "Ставка": "Rate",
+  "Итог заказа": "Order total",
+  "Billable Area выше": "Billable Area above",
+  "от исходной цены unit": "of the base unit price",
 
   "Массовое изменение цен": "Bulk price edit",
   "Ставка, изменённая в этом окне, применяется ко всем строкам заказа с таким же сервисом. Геометрия и количество не меняются.": "A rate changed in this window applies to every order line with the same service. Geometry and quantity do not change.",
@@ -9578,7 +9611,7 @@ function saveUser(){
  uDraft.name=(uDraft.name||'').trim();
  if(!uDraft.name) return fail(e,'Укажи имя');
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
- uEdit=null; uDraft=null; touch(); render();
+ normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
 function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
 
@@ -9728,8 +9761,8 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(){salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderNew(){salesMetricsPanel=null;salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesMetricsPanel=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -9746,6 +9779,7 @@ function salesOrderClose(){
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
@@ -9933,12 +9967,14 @@ function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);sales
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
- if(!n){line[key+'16']=null;el.classList.add('bad');return;}
+ if(!n){line[key+'16']=null;el.classList.add('bad');salesRefreshLineMetrics(line);return;}
  line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
  /* Форма заводится/двигается молча: render() здесь увёл бы каретку из строки
     при переходе Tab между Width, Height и Mark. */
- if(!salesEnsureLineShape(line))salesSyncShapeFromLine(line);
+ salesEnsureLineShape(line);
+ salesSyncShapeFromLine(line);
+ salesRefreshLineMetrics(line);
  touch();
 }
 function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDraft.lines[i];if(!l||!l.width16||!l.height16)return;e.preventDefault();salesOrderAddLine(l.makeupId,true);}
@@ -10485,6 +10521,11 @@ function salesGlazingChargeRows(line,areaFt2){
    const k='spandrel:'+id;if(!spandrel[k]){spandrel[k]={id:id,qty:0};order.push(k);}spandrel[k].qty++;
    return;
   }
+  if(p.category==='laminated')targets.forEach(function(ply){
+   if(!ply||!ply.frit||!ply.frit.enabled)return;
+   const id=ply.frit.productId||'',k='frit:'+id;
+   if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
+  });
   if(p.category==='vision'&&p.visionType==='frit'){
    const id=(p.frit&&p.frit.productId)||'';
    const k='frit:'+id;if(!frit[k]){frit[k]={id:id,qty:0};order.push(k);}frit[k].qty++;
@@ -10496,7 +10537,7 @@ function salesGlazingChargeRows(line,areaFt2){
   const prod=mdById(isFrit?'fritProduct':'spandrelProduct',g.id);
   rows.push(salesChargeRow(
    'GLAZE:'+k,
-   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' lites':''),
+   (prod?(prod.name||prod.code):(isFrit?'Frit':'Spandrel'))+(g.qty>1?' × '+g.qty+' glass layers':''),
    +(area*g.qty).toFixed(4),'ft²',
    (prod&&prod.salePrice!=null)?prod.salePrice:null,
    'Makeup'));
@@ -10519,10 +10560,10 @@ function salesLineAreaFt2(line){
    area. Простой Rectangle не является фигурной единицей; внешний DXF является. */
 function salesUnitSurchargeRows(line,shape){
   const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
-  if(m&&m.unitType==='triple')rows.push(salesChargeRow('SURCHARGE:triple-igu','Triple IGU',1,'pc',null,'Makeup surcharge'));
+  /* Triple is a percentage of the finished unit, calculated in line-metrics. */
   if(shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
-    const area=raw>0?raw/144:((+(line&&line.width16)||0)/16)*((+(line&&line.height16)||0)/16)/144;
+    const area=salesLineAreas(line,soDraft).billable;
     if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));
   }
   return rows;
@@ -10595,9 +10636,10 @@ function salesChargeShortLabel(row){
  if(kp[0]==='MI'&&kp[1]&&kp[1]!=='hole'&&hardwareKindIsKnown(kp[1]))return hardwareKindShort(kp[1]);
   const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Muntin sections')return 'MUNTIN';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';if(l==='Triple IGU')return 'TRIPLE';if(l==='Shape Unit')return 'SHAPE';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
- const rows=salesLineChargeRows(line),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';if(!rows.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
- const summary=salesLinePricingSummary(line),chips=rows.slice(0,2).map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).join(''),more=rows.length>2?`<i>+${rows.length-2}</i>`:'';
- return `<button type='button' class='line-services-btn${summary.unpriced?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</span></button>`;
+ const rows=salesLineChargeRows(line),adjustments=salesLineCommercialAdjustments(line,soDraft),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';
+ if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
+ const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${a.key==='triple'?'TRI':'>60'} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
+ return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:'')}</span></button>`;
 }
 function salesOrderChargeGroups(){
  const groups=Object.create(null);(soDraft.lines||[]).forEach(function(line,lineIndex){salesLineChargeRows(line).forEach(function(row){const gk=salesChargeGroupKey(row),q=salesPositiveInt(line.qty,1);if(!groups[gk])groups[gk]={key:gk,label:row.label,unit:row.unit,entries:[],basis:0,catalogRates:[]};const g=groups[gk],st=salesChargePricingState(line,row),basis=row.basis*q;g.entries.push({line:line,lineIndex:lineIndex,row:row,state:st,basis:basis});g.basis+=basis;if(st.catalogRate!=null&&!g.catalogRates.includes(st.catalogRate))g.catalogRates.push(st.catalogRate);});});
@@ -10706,7 +10748,9 @@ function salesEnsureAllLineShapes(){
  if(!soDraft)return 0;
  let made=0;
  (soDraft.lines||[]).forEach(function(line){
-  if(salesEnsureLineShape(line))made++;else salesSyncShapeFromLine(line);
+  const existed=!!salesShapeByRef(line.shapeRef),shape=salesEnsureLineShape(line);
+  if(!existed&&shape)made++;
+  salesSyncShapeFromLine(line);
   salesMigrateLineEdgeworkToShape(line);
  });
  return made;
@@ -10957,6 +11001,7 @@ function salesBridgeOnShapeSaved(id){
    прямоугольник по её же Width × Height, а не пустоту. */
 function salesUnlinkShape(i){
  const l=soDraft.lines[i];if(!l)return;
+ salesDropLineLiteShapes(l);l.liteShapes={};
  salesDropLineOwnedShape(l);
  l.shapeRef=normalizeShapeRef({});
  salesEnsureLineShape(l);
@@ -11667,6 +11712,136 @@ function salesEffectiveMachinePayload(line){
   /* Бордер уезжает отдельным блоком, а не в геометрии outer: столу нужен
      отступ до соседней детали, но контур реза от бордера не меняется. */
   return {ok:true,fingerprint:salesEffectiveProductionFingerprint(line,shape,plan),schema:'glass-erp-order-effective/v1',units:'inch',lineId:line.id,safetyBorder:{value:round(brd.value),state:brd.state,applies:!!brd.applies,edgeIds:(brd.edgeIds||[]).slice()},billableFootprint:{width:round(fp.width),height:round(fp.height),sides:(fp.sides||[]).slice(),pad:{left:round((fp.pad||{}).left),right:round((fp.pad||{}).right),top:round((fp.pad||{}).top),bottom:round((fp.pad||{}).bottom)}},lites:(plan.lites||[]).map(function(l){return {index:l.index,label:l.label,thicknessMm:l.thickness,outer:{closed:true,points:(l.cuttingPoints||[]).map(function(p){return [round(p[0]),round(p[1])];})},width:round(l.cutW),height:round(l.cutH)};}),outer:{closed:true,points:plan.cuttingPoints.map(function(p){return [Math.round(p[0]*1000000)/1000000,Math.round(p[1]*1000000)/1000000];})},snapshot:plan.snapshot};
+}
+
+/* ==== src/erp/sales/line-metrics.js ==== */
+/* Commercial line metrics. Geometry stays in Shape; visibility never changes
+   the calculation. Monetary amounts here are before energy, tax and delivery. */
+const SALES_METRIC_RULE_DEFAULTS={minimumAreaFt2:4,triplePercent:50,largePercent:50,largeThresholdFt2:60,combination:'additive'};
+DEFAULT.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
+const SALES_WEIGHT_RATE_DEFAULTS=[
+ {key:'spacer:SP-BWE-1732',label:'17/32 Black Warm Edge spacer',rate:.030,unit:'kg/ft²',note:'Temporary shop estimate · 30 g/ft²'},
+ {key:'desiccant:SP-BWE-1732',label:'17/32 Black Warm Edge desiccant',rate:.033,unit:'kg/ft²',note:'Shop norm · 33 g/ft²'},
+ {key:'seal:SEAL-PIB:SP-BWE-1732',label:'17/32 Black Warm Edge · PIB',rate:.005,unit:'kg/ft²',note:'Shop norm · 5 g/ft²'},
+ {key:'seal:SEAL-PS:SP-BWE-1732',label:'17/32 Black Warm Edge · Polysulphide + catalyst',rate:.127,unit:'kg/ft²',note:'Shop norm · 127 g/ft²'},
+ {key:'connectors:SP-BWE-1732',label:'17/32 Black Warm Edge · connectors / corners',rate:.040,unit:'kg/unit',note:'Temporary allowance · 40 g per cavity'},
+ {key:'gas:GAS-AIR',label:'Air',rate:1.225,unit:'kg/m³',note:'Reference density; editable for shop conditions'},
+ {key:'gas:GAS-ARGON',label:'Argon',rate:1.784,unit:'kg/m³',note:'Reference density; editable for shop conditions'}
+];
+DEFAULT.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
+DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
+DB.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
+function salesNormalizeMetricRules(value){
+ const v=value&&typeof value==='object'?value:{},out={};
+ ['minimumAreaFt2','triplePercent','largePercent','largeThresholdFt2'].forEach(k=>{
+  const n=v[k]===null||v[k]===''?NaN:Number(v[k]);
+  out[k]=Number.isFinite(n)&&n>=0?n:SALES_METRIC_RULE_DEFAULTS[k];
+ });
+ out.combination=['additive','compound'].includes(v.combination)?v.combination:SALES_METRIC_RULE_DEFAULTS.combination;
+ return out;
+}
+function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
+function salesNormalizeWeightRates(){
+ const seen=new Set();
+ DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
+ SALES_WEIGHT_RATE_DEFAULTS.forEach(d=>{const r=DB.materialWeightRates.find(x=>x.key===d.key);if(!r){DB.materialWeightRates.push(Object.assign({},d));seen.add(d.key);return;}const placeholder=!r.label&&!r.unit&&!r.note;if(placeholder)r.rate=d.rate;if(!r.label)r.label=d.label;if(!r.unit)r.unit=d.unit;if(!r.note)r.note=d.note;});
+ DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
+}
+function salesLineAreas(line,order){
+ const lineW=(+(line&&line.width16)||0)/16,lineH=(+(line&&line.height16)||0)/16;
+ const shape=salesShapeByRef(line&&line.shapeRef),r=shape?ShapeModule.compute(shape):null;
+ const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
+ const valid=(!shape||shapeValid)&&lineW>0&&lineH>0&&w>0&&h>0;
+ const actual=valid?(shapeValid?r.area/144:w*h/144):null;
+ const rounded=valid?Math.round(Math.ceil(w)*Math.ceil(h)/144*10)/10:null;
+ return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
+}
+function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+function salesLineCommercialPrice(line,order){
+ order=order||soDraft;
+ const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);
+ const services=salesLinePricingSummary(line),materials=areas.valid?rate.total*areas.billable:0;
+ const base=salesMoney(materials+services.total/q),rules=salesMetricRules(order),adjustments=[];
+ const unsupportedCurrency=!!(order.currency&&order.currency!=='CAD');
+ let incomplete=!areas.valid||!m||!rate.known||services.unpriced>0||unsupportedCurrency;
+ if(m&&m.unitType==='triple'&&rules.triplePercent>0)adjustments.push({key:'triple',label:'Triple units',percent:rules.triplePercent});
+ if(areas.valid&&areas.billable>rules.largeThresholdFt2&&rules.largePercent>0)adjustments.push({key:'large',label:'Large units > '+rules.largeThresholdFt2+' ft²',percent:rules.largePercent});
+ if(adjustments.length>1&&rules.combination==='pending')incomplete=true;
+ let running=base;
+ adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
+ return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*q),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:q};
+}
+function salesLineCommercialAdjustments(line,order){
+ const price=salesLineCommercialPrice(line,order);
+ return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
+}
+function salesOrderCommercialAdjustments(order){
+ order=order||soDraft;
+ const groups=Object.create(null);
+ (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
+  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,lines:0,qty:0,total:0,incomplete:0,entries:[]};
+  const g=groups[a.key];g.lines++;g.qty+=a.qty;g.entries.push({line:line,lineIndex:lineIndex,adjustment:a});
+  if(a.complete)g.total=salesMoney(g.total+a.lineAmount);else g.incomplete++;
+ }));
+ return Object.keys(groups).map(k=>groups[k]);
+}
+
+/* Coefficients are measured product norms. Empty is unknown, explicit zero is
+   allowed (e.g. consumables already included in a filled-spacer norm). */
+function salesWeightRate(key){const r=(DB.materialWeightRates||[]).find(r=>r.key===key);return r?mdNonNeg(r.rate):null;}
+function salesLineWeight(line,order){
+ order=order||soDraft;
+ const rows=[],m=salesMakeupById(order,line.makeupId),shape=salesLineGeometryShape(line),areas=salesLineAreas(line,order);
+ const plan=shape&&m?salesEffectiveCuttingPlan(line,shape,order):null;
+ const add=(label,kg,note)=>rows.push({label:label,kg:Number.isFinite(kg)&&kg>=0?kg:null,note:note||''});
+ const norm=(key,label,basis,unit,note)=>{const rate=salesWeightRate(key);rows.push({key:key,label:label,basis:basis,unit:unit,rate:rate,kg:rate!=null&&Number.isFinite(basis)&&basis>=0?rate*basis:null,note:note||''});};
+ if(!m||!areas.valid)return {rows:[],kg:null,lineKg:null,knownKg:0,complete:false,missing:1};
+ const geometry=(i)=>{
+  const lite=plan&&plan.valid&&(plan.lites||[]).find(l=>l.index===i);
+  if(!lite)return {area:null,perimeter:null};
+  const area=lite.result&&lite.result.valid?lite.result.area:Math.abs(fabSignedArea(lite.finishedPoints));
+  return {area:area/144,perimeter:fabPolylineLength(lite.finishedPoints,true)*.0254};
+ };
+ const glass=(ply,label,geo)=>{
+  const product=glassProductById(ply&&ply.glassProductId),t=glassEffectiveThicknessMm(product);
+  const mm=t.mm||+(ply&&ply.thicknessMm)||0;
+  add(label+(product?' · '+product.code:''),geo.area!=null&&mm>0?glassLayerWeightKg(mm,GLASS_DENSITY_KG_M3,geo.area):null,t.exact?'':'Nominal thickness estimate');
+ };
+ const surface=(ply,label,geo)=>{
+  if(ply.category==='spandrel')norm('spandrel:'+ply.spandrel.productId,label+' · Spandrel',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied coating norm per finished area');
+  if(ply.visionType==='frit'||ply.frit&&ply.frit.enabled)norm('frit:'+ply.frit.productId+':'+(ply.frit.pattern||'custom'),label+' · Frit',geo.area==null?null:geo.area*GLASS_M2_PER_FT2,'kg/m²','Applied pattern norm per finished area');
+ };
+ (m.panes||[]).forEach((p,i)=>{
+  const g=geometry(i),label='Lite '+(i+1);
+  if(p.category==='laminated'){
+   const lam=p.laminated||{};
+   [lam.outer,lam.inner].forEach((ply,j)=>{if(ply){glass(ply,label+(j?'b':'a'),g);surface(ply,label+(j?'b':'a'),g);}});
+   (lam.interlayers||[]).forEach(f=>{
+    const prod=mdById('interlayerProduct',f.productId);
+    norm('film:'+f.productId,label+' · '+(prod?prod.name:'Interlayer'),g.area==null?null:g.area*GLASS_M2_PER_FT2*(f.thicknessMm/1000),'kg/m³','Density × actual interlayer volume');
+   });
+  }else{glass(p,label,g);surface(p,label,g);}
+ });
+ (m.cavities||[]).forEach((c,i)=>{
+  const a=geometry(i),b=geometry(i+1),same=plan&&plan.valid&&plan.lites[i]&&plan.lites[i+1]&&JSON.stringify(plan.lites[i].finishedPoints)===JSON.stringify(plan.lites[i+1].finishedPoints);
+  const perimeter=same?a.perimeter:null,area=same?a.area:null,sp=mdById('spacerVariant',c.spacerVariantId),suffix=' · Cavity '+(i+1);
+  norm('spacer:'+c.spacerVariantId,(sp?sp.name:'Spacer')+suffix,area,'kg/ft²','Shop norm per finished unit area; exclude separately listed desiccant');
+  norm('desiccant:'+c.spacerVariantId,'Desiccant'+suffix,area,'kg/ft²','Use 0 if included in spacer weight');
+  norm('connectors:'+c.spacerVariantId,'Spacer connectors'+suffix,1,'kg/unit','Total connectors per cavity');
+  [c.primarySealantId,c.secondarySealantId].forEach(id=>{const p=mdById('sealantProduct',id);norm('seal:'+id+':'+c.spacerVariantId,(p?p.name:'Sealant')+suffix,area,'kg/ft²','Shop norm per finished unit area for this spacer size');});
+  const gas=mdById('gasProduct',c.gasProductId),mm=spacerThicknessMm(sp);
+  norm('gas:'+c.gasProductId,(gas?gas.name:'Gas')+suffix,area!=null&&mm>0?area*GLASS_M2_PER_FT2*mm/1000:null,'kg/m³','Fill-mixture density; nominal cavity volume');
+  if(!same)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Spacer path and cavity volume require confirmation');
+ });
+ const muntin=shape&&shape.muntin;
+ if(muntin&&muntin.enabled&&(m.cavities||[]).length){
+  const got=shapeMuntinGeoFor(shape),prod=muntinProduct(muntin.productId);
+  norm('muntin:'+muntin.productId,'Muntin · '+prod.label,got?got.result.totalLengthIn*.0254:null,'kg/m','Calculated bar cut length');
+  norm('muntin-connectors:'+muntin.productId,'Muntin connectors',1,'kg/unit','Total connectors per unit');
+ }
+ (line.weightExtras||[]).forEach(x=>add(x.label||'Additional component',mdNonNeg(x.kg),'Per unit'));
+ const missing=rows.filter(r=>r.kg==null).length,known=rows.reduce((s,r)=>s+(r.kg||0),0),complete=rows.length>0&&missing===0;
+ return {rows:rows,kg:complete?known:null,lineKg:complete?known*salesPositiveInt(line.qty,1):null,knownKg:known,complete:complete,missing:missing};
 }
 
 /* ==== src/erp/sales/print-route.js ==== */
@@ -12705,12 +12880,12 @@ function salesOrderList(){
 function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— выбери Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
 function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=o.businessNumber?'Sales Order '+o.businessNumber:'New Sales Order · Auto Number',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
- return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button class="pri" onclick="salesOrderSave()">Save Draft</button><button onclick="salesOrderClose()">Close</button></div></div>
- <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label><input value="${esc(o.paymentTerms)}" oninput="soDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="soDraft.currency=this.value"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button onclick="salesOrderClose()">Close</button><button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save Draft':'Update'}</button><button onclick="salesOpenMetrics('print')">Print</button></div></div>
+ <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label><input value="${esc(o.paymentTerms)}" oninput="soDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
  ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
  <section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
  ${salesOrderLines()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}</div>`;
 }
 function salesLineShapeCell(l,i){
  const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
@@ -12720,14 +12895,23 @@ function salesLineShapeCell(l,i){
  if(salesShapeIsLineRect(s))return `<div class="line-config-cell"><button class="line-link-btn rect" title="Rectangle from Width × Height — open to change geometry or edgework" onclick="salesOrderConfigureShape(${i})">Rect</button></div>`;
  const currentRev=s.revision||0,stale=l.shapeRef.revision!=null&&currentRev!==l.shapeRef.revision;return `<div class="line-config-cell"><button class="line-link-btn ${stale?'stale':'linked'}" onclick="salesOrderConfigureShape(${i})">${esc(s.name)}${stale?' · stale':''}</button><button class="line-x" title="Unlink" onclick="salesUnlinkShape(${i})">×</button></div>`;
 }
+function salesLineCommercialAdjustmentsHtml(line,currency){
+ const rows=salesLineCommercialAdjustments(line,soDraft);if(!rows.length)return '';
+ return `<section class="sales-commercial-adjustments"><div class="sales-commercial-head"><div><b>Коммерческие надбавки</b><span>Уже включены в Unit Price один раз</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Правило</span><span>Расчёт за unit</span><span>Qty</span><span>Итог строки</span></div>${rows.map(a=>`<div class="sales-commercial-row${a.complete?'':' incomplete'}"><span><b>${esc(a.label)}</b><small>${a.key==='triple'?'Triple IGU':'Billable Area выше лимита'}</small></span><span>${a.complete?`${a.base.toFixed(2)} × ${a.percent}% = <b>${a.unitAmount.toFixed(2)} ${esc(currency)}</b>`:'Цена неполная'}</span><span>${a.qty}</span><strong>${a.complete?a.lineAmount.toFixed(2)+' '+esc(currency):'—'}</strong></div>`).join('')}</div></section>`;
+}
+function salesOrderCommercialAdjustmentsHtml(currency){
+ const groups=salesOrderCommercialAdjustments(soDraft);if(!groups.length)return '';
+ return `<section class="sales-commercial-adjustments order"><div class="sales-commercial-head"><div><b>Коммерческие надбавки</b><span>Автоматически из типа Makeup и Billable Area; уже включены в Unit / Line Price</span></div></div><div class="sales-commercial-table"><div class="sales-commercial-row head"><span>Правило</span><span>Строки / units</span><span>Ставка</span><span>Итог заказа</span></div>${groups.map(g=>`<div class="sales-commercial-row${g.incomplete?' incomplete':''}"><span><b>${esc(g.label)}</b><small>${g.key==='triple'?'Triple IGU':'Billable Area выше '+salesMetricRules(soDraft).largeThresholdFt2+' ft²'}</small></span><span>${g.lines} / ${g.qty}</span><span>+${g.percent}% от исходной цены unit</span><strong>${g.incomplete?'—':g.total.toFixed(2)+' '+esc(currency)}</strong></div>`).join('')}</div></section>`;
+}
 function salesLineServicesModal(line,index){
  const rows=salesLineChargeRows(line),currency=soDraft.currency||'CAD',s=salesShapeByRef(line.shapeRef),ctx=salesPricingThickness(line),thickness=ctx.ok?ctx.thickness+' mm':(ctx.thickness?ctx.thickness+' mm':'—'),summary=salesLinePricingSummary(line);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Строка</span> ${index+1}</span><h3>Сервисы / обработка</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length?`<div class="sales-service-context"><span>Толщина Makeup <b>${esc(thickness)}</b></span><span>Количество строки <b>${esc(line.qty)}</b></span><span>Геометрия / количество <b>только чтение</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Цена не заполнена</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.</span></span></div>`:''}<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Начисление</span><span>Рассчитанная база</span><span>Каталог</span><span>На весь заказ</span><span>Ставка строки</span><span>Итог</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${st.catalogRate==null?'<span class="sales-price-missing">Не задана</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Нужна ставка</span>':final.toFixed(2)+' '+esc(currency)}</strong><button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Использовать Order / Catalog</button></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка этой строки</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:`<div class="empty compact sales-service-empty">В этой строке пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal line-modal"><div class="sales-service-modal-head"><div><span><span>Строка</span> ${index+1}</span><h3>Сервисы / обработка</h3><small>${s?raw(s.name):'Production Shape'}${line.mark?' · '+raw(line.mark):''}</small></div><button onclick="salesCloseServices()">×</button></div>${rows.length||salesLineCommercialAdjustments(line,soDraft).length?`<div class="sales-service-context"><span>Толщина Makeup <b>${esc(thickness)}</b></span><span>Количество строки <b>${esc(line.qty)}</b></span><span>Геометрия / количество <b>только чтение</b></span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Цена не заполнена</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. Они не включены в денежный итог, пока ставка не будет задана.</span></span></div>`:''}${rows.length?`<div class="sales-line-service-table"><div class="sales-line-service-row head"><span>Начисление</span><span>Рассчитанная база</span><span>Каталог</span><span>На весь заказ</span><span>Ставка строки</span><span>Итог</span><span></span></div>${rows.map(function(row){const st=salesChargePricingState(line,row),q=salesPositiveInt(line.qty,1),final=st.effectiveRate==null?null:row.basis*q*st.effectiveRate,lineValue=st.lineRate==null?'':String(st.lineRate),inherited=st.orderRate!=null?st.orderRate:st.catalogRate,origin=st.origin==='line'?'LINE':(st.origin==='order'?'ORDER':(st.origin==='catalog'?'CATALOG':'NO RATE'));return `<div class="sales-line-service-row${st.missing?' unpriced':''}"><span class="sales-price-charge"><b>${esc(row.label)}</b><small>${esc(row.source)}</small></span><span class="sales-price-basis">${esc(salesChargeBasisText(row,line))}</span><span>${st.catalogRate==null?'<span class="sales-price-missing">Не задана</span>':esc(salesRateText(st.catalogRate,row.unit,currency))}</span><span>${esc(salesRateText(st.orderRate,row.unit,currency))}</span><span class="sales-line-rate"><input type="number" min="0" step="0.01" value="${esc(lineValue)}" placeholder="${inherited==null?'':esc(String(inherited))}" onchange="salesSetChargeOrderRate('${esc(line.id)}','${esc(row.key)}',this.value)"><small class="sales-rate-origin ${esc(st.origin)}">${esc(origin)}</small></span><strong>${final==null?'<span class="sales-price-missing">Нужна ставка</span>':final.toFixed(2)+' '+esc(currency)}</strong><button class="sm" onclick="salesResetChargeRate('${esc(line.id)}','${esc(row.key)}')">Использовать Order / Catalog</button></div>`;}).join('')}</div><div class="sales-service-modal-total${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка этой строки</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:''}${salesLineCommercialAdjustmentsHtml(line,currency)}`:`<div class="empty compact sales-service-empty">В этой строке пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
 }
 
 function salesOrderServicesModal(){
  const groups=salesOrderChargeGroups(),currency=soDraft.currency||'CAD',summary=salesOrderPricingSummary();
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Сервисы и цены</h3><span class="sales-bulk-pricing-badge">Массовое изменение цен</span></div><small>Ставка, изменённая в этом окне, применяется ко всем строкам заказа с таким же сервисом. Геометрия и количество не меняются.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length?`<div class="sales-bulk-pricing-banner"><b>Массовое изменение</b><span>Изменение Order rate ниже применяется ко всем совпадающим сервисам этого заказа.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Калькуляция неполная</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. В общий денежный итог они не входят, пока ставка не будет задана.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Сервис / обработка</span><span>База заказа</span><span>Ставка каталога</span><span>Ставка заказа</span><span>Итог</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'',origin=g.orderRate!=null?'ORDER':'CATALOG';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Строк:</span> ${g.entries.length}${g.lineOverrides?' · <span>Исключений:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Без цены:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Не задана</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Нужна ставка</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Сбросить к Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Правило массового изменения</b><span>Изменение ставки заказа применяется ко всем одинаковым сервисам этого заказа и очищает старые исключения по строкам для этого сервиса. После этого отдельную строку можно переопределить через её ячейку Сервисы.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка всего заказа</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:`<div class="empty compact sales-service-empty">В этом заказе пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
+ const commercial=salesOrderCommercialAdjustmentsHtml(currency);
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Сервисы и цены</h3><span class="sales-bulk-pricing-badge">Массовое изменение цен</span></div><small>Ставка, изменённая в этом окне, применяется ко всем строкам заказа с таким же сервисом. Геометрия и количество не меняются.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length||commercial?`${groups.length?`<div class="sales-bulk-pricing-banner"><b>Массовое изменение</b><span>Изменение Order rate ниже применяется ко всем совпадающим сервисам этого заказа.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Калькуляция неполная</b><span><b data-raw>${summary.unpriced}</b> <span>начислений не имеют действующей ставки. В общий денежный итог они не входят, пока ставка не будет задана.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Сервис / обработка</span><span>База заказа</span><span>Ставка каталога</span><span>Ставка заказа</span><span>Итог</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Строк:</span> ${g.entries.length}${g.lineOverrides?' · <span>Исключений:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Без цены:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Не задана</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Нужна ставка</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Сбросить к Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Правило массового изменения</b><span>Изменение ставки заказа применяется ко всем одинаковым сервисам этого заказа и очищает старые исключения по строкам для этого сервиса. После этого отдельную строку можно переопределить через её ячейку Сервисы.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Итого сервисы / обработка всего заказа</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:''}</div>`:''}${commercial}`:`<div class="empty compact sales-service-empty">В этом заказе пока нет сервисов или начислений за обработку.</div>`}</div></div>`;
 }
 
 function salesServicesModal(){if(soServiceOrderOpen)return salesOrderServicesModal();if(soServiceLineId){const i=(soDraft.lines||[]).findIndex(function(l){return l.id===soServiceLineId;});if(i>=0)return salesLineServicesModal(soDraft.lines[i],i);}return '';}
@@ -12749,6 +12933,178 @@ function salesExcelModal(){
   +`<div id="salesExcelGrid" class="excel-grid-wrap">${salesExcelGridInnerHtml()}</div>`
   +`<div class="excel-foot"><span class="excel-tip">Copy the block in Excel, click a cell here and paste — the columns land as they are. Typing works too: Tab moves across, Enter goes down.</span><span id="salesExcelSummary" class="excel-summary">${salesExcelSummaryHtml(c)}</span></div>`
   +`<div class="sales-modal-actions"><button class="sm" onclick="salesExcelAddBlankRows()">+ 5 rows</button><button class="sm" onclick="salesExcelClearGrid()">Clear</button><span class="excel-actions-sp"></span><button onclick="salesExcelClose()">Cancel</button><button class="pri" id="salesExcelAdd" ${c.ready?'':'disabled'} onclick="salesExcelApply()">${esc(salesExcelAddLabel(c))}</button></div></div></div>`;
+}
+
+/* ==== src/erp/views/sales-line-metrics-ui.js ==== */
+/* User-selectable screen and print columns; stored independently of orders. */
+const SALES_METRIC_COLUMNS=[
+ {key:'actual',label:'Actual Area',unit:'ft²',screen:true,print:true},
+ {key:'rounded',label:'Rounded Area',unit:'ft²',screen:true,print:false},
+ {key:'billable',label:'Billable Area',unit:'ft²',screen:false,print:false},
+ {key:'unitWeight',label:'Unit Weight',unit:'kg',screen:false,print:false},
+ {key:'lineWeight',label:'Line Weight',unit:'kg',screen:false,print:false},
+ {key:'unitPrice',label:'Unit Price',unit:'',screen:true,print:true},
+ {key:'lineTotal',label:'Line Total',unit:'',screen:true,print:true}
+];
+const SALES_ORDER_BASE_COLUMNS=[
+ {key:'mu',label:'MU'},{key:'set',label:'Set'},{key:'qty',label:'Qty'},{key:'width',label:'Width'},{key:'height',label:'Height'},
+ {key:'mark',label:'Mark'},{key:'shape',label:'Shape'},{key:'services',label:'Services'},{key:'notes',label:'Notes'}
+];
+const SALES_ORDER_DEFAULT_COLUMN_ORDER=['mu','set','qty','width','height','mark','shape','services'].concat(SALES_METRIC_COLUMNS.map(c=>c.key),['notes']);
+let salesMetricsPanel=null,salesMetricsLineId=null,salesMetricsEditWeights=false;
+let salesViewPrefs=null,salesViewSaveFailed=false,salesMetricDragKey=null;
+const salesMetricText=(ru,en)=>LANG==='ru'?ru:en;
+function salesLoadViewPrefs(){
+ if((DB.user||[]).some(u=>!u.viewProfileId)){normalizeUsers();touch();}
+ if(salesViewPrefs)return salesViewPrefs;
+ try{const p=JSON.parse(localStorage.getItem('glass_erp_line_columns_v1')||'{}');salesViewPrefs=p&&typeof p==='object'&&!Array.isArray(p)?p:{};}catch(e){salesViewPrefs={};}
+ if(!salesViewPrefs.profiles||typeof salesViewPrefs.profiles!=='object'||Array.isArray(salesViewPrefs.profiles))salesViewPrefs.profiles={};
+ if(!(DB.user||[]).some(u=>u.viewProfileId===salesViewPrefs.active))salesViewPrefs.active='browser';
+ return salesViewPrefs;
+}
+function salesSaveViewPrefs(){
+ try{localStorage.setItem('glass_erp_line_columns_v1',JSON.stringify(salesViewPrefs));salesViewSaveFailed=false;}
+ catch(e){salesViewSaveFailed=true;}
+}
+function salesMetricColumnsFor(context){
+ const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{},keys=v[context];
+ const order=salesMetricOrder(),visible=new Set(Array.isArray(keys)?keys:SALES_METRIC_COLUMNS.filter(c=>c[context]).map(c=>c.key));
+ return order.map(key=>SALES_METRIC_COLUMNS.find(c=>c.key===key)).filter(c=>c&&visible.has(c.key));
+}
+function salesOrderColumnOrder(){
+ const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{},known=SALES_ORDER_DEFAULT_COLUMN_ORDER,saved=Array.isArray(v.order)?v.order.filter(k=>known.includes(k)):[];
+ const metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key));
+ if(saved.length&&saved.every(k=>metric.has(k))){const queue=saved.concat(SALES_METRIC_COLUMNS.map(c=>c.key).filter(k=>!saved.includes(k)));return known.map(k=>metric.has(k)?queue.shift():k);}
+ return saved.concat(known.filter(k=>!saved.includes(k)));
+}
+function salesMetricOrder(){
+ const metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key));return salesOrderColumnOrder().filter(k=>metric.has(k));
+}
+function salesSetMetricOrder(order){
+ const current=salesOrderColumnOrder(),metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key)),queue=order.filter(k=>metric.has(k));
+ const next=current.map(k=>metric.has(k)?queue.shift():k);
+ const p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};p.profiles[p.active].order=next;salesSaveViewPrefs();render();
+}
+function salesSetOrderColumnOrder(order){const known=SALES_ORDER_DEFAULT_COLUMN_ORDER,next=order.filter((k,i)=>known.includes(k)&&order.indexOf(k)===i).concat(known.filter(k=>!order.includes(k))),p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};p.profiles[p.active].order=next;salesSaveViewPrefs();render();}
+function salesMoveMetricColumn(key,delta){const order=salesOrderColumnOrder(),at=order.indexOf(key),to=Math.max(0,Math.min(order.length-1,at+delta));if(at<0||at===to)return;order.splice(at,1);order.splice(to,0,key);salesSetOrderColumnOrder(order);}
+function salesMetricDragStart(e,key){salesMetricDragKey=key;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',key);e.currentTarget.classList.add('dragging');}
+function salesMetricDragEnd(e){salesMetricDragKey=null;e.currentTarget.classList.remove('dragging');}
+function salesMetricDrop(e,key){e.preventDefault();const from=salesMetricDragKey||e.dataTransfer.getData('text/plain'),order=salesOrderColumnOrder(),a=order.indexOf(from),b=order.indexOf(key);if(a<0||b<0||a===b)return;order.splice(a,1);order.splice(b,0,from);salesSetOrderColumnOrder(order);}
+function salesSetMetricColumn(context,key,on){
+ if(!['screen','print'].includes(context)||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
+ const p=salesLoadViewPrefs(),keys=salesMetricColumnsFor(context).map(c=>c.key),set=new Set(keys);
+ on?set.add(key):set.delete(key);
+ if(!p.profiles[p.active])p.profiles[p.active]={};
+ p.profiles[p.active][context]=Array.from(set);salesSaveViewPrefs();render();
+}
+function salesSetViewProfile(id){
+ if(id!=='browser'&&!(DB.user||[]).some(u=>u.viewProfileId===id))return;
+ salesLoadViewPrefs().active=id;touch();salesSaveViewPrefs();render();
+}
+function salesResetMetricColumns(context){
+ const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;}
+ salesSaveViewPrefs();render();
+}
+function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
+function salesCloseMetrics(){salesMetricsPanel=null;render();}
+function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки','Columns')}</button><button type="button" onclick="salesOpenMetrics('rules')">${salesMetricText('Правила цены','Pricing rules')}</button>`;}
+function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
+function salesMetricCells(line,context){
+ const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
+ const weight=columns.some(c=>/Weight/.test(c.key))?salesLineWeight(line,soDraft):null;
+ return columns.map(c=>salesMetricCell(line,c,context,price,a,weight)).join('');
+}
+function salesMetricCell(line,c,context,price,a,weight){
+ price=price||salesLineCommercialPrice(line,soDraft);a=a||price.areas;
+ if(!weight&&/Weight/.test(c.key))weight=salesLineWeight(line,soDraft);
+  let value=null,panel='price';
+  if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';}
+  else if(c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='unitPrice'?price.unit:price.line;
+  else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
+  const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
+  const body=`<b data-raw>${text}</b>`;
+  return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
+}
+function salesCommercialOrderSummary(){
+ let total=0,missing=0,qty=0;
+ (soDraft.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,soDraft);qty+=p.qty;if(p.complete)total+=p.line;else missing++;});
+ return `<div class="metric-order-total"><span>${salesMetricText('Весь заказ','Entire order')} · ${qty} ${salesMetricText('шт.','units')}</span><span>${salesMetricText('Итого строки','Line totals')} <b data-raw>${missing?'—':salesMoney(total).toFixed(2)+' '+esc(soDraft.currency)}</b>${missing?`<small>${missing} ${salesMetricText('строк с неполной ценой','lines need pricing')}</small>`:''}</span><small>${salesMetricText('До energy surcharge, налога и доставки','Before energy surcharge, tax and delivery')}</small></div>`;
+}
+function salesColumnsPanel(){
+ const p=salesLoadViewPrefs();
+ const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${salesMetricText('Перетащите колонку','Drag column')}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen','print'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${salesMetricText('Основная колонка заказа','Required order column')}">●</span><span class="metric-required">—</span>`}</div>`;}).join('');
+ return `<label class="metric-profile">${salesMetricText('Настройки вида для','View preferences for')}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${salesMetricText('Этот браузер','This browser')}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${salesMetricText('Выбор, порядок экрана и печати сохраняются автоматически в этом браузере. Перетяните строку или используйте стрелки.','Visibility and order for screen and print save automatically in this browser. Drag a row or use the arrows.')}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${salesMetricText('Колонка','Column')}</span><span>${salesMetricText('Порядок','Order')}</span><b>${salesMetricText('Экран','Screen')}</b><b>${salesMetricText('Печать','Print')}</b></div>${rows}<div class="metric-column-reset"><span>${salesMetricText('Стандартный вид','Standard view')}</span>${['screen','print'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${salesMetricText('Вернуть','Reset')}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${salesMetricText('Не удалось сохранить настройки браузера. Выбор действует до закрытия страницы.','Browser preferences could not be saved. Selections apply until this page closes.')}</p>`:''}`;
+}
+function salesAreaPanel(line){
+ const a=salesLineAreas(line,soDraft);
+ return `<div class="metric-explanation"><p>${salesMetricText('Площади указаны для одного изделия. Qty не меняет площадь одного юнита.','Areas are per unit. Qty does not change a single unit’s area.')}</p><dl><dt>Actual Area</dt><dd>${a.valid?a.actual.toFixed(4):'—'} ft²</dd><dt>Rounded Area</dt><dd>${a.valid?`${a.roundedWidth} × ${a.roundedHeight}″ ÷ 144 → ${a.rounded.toFixed(1)} ft²`:'—'}</dd><dt>Billable Area</dt><dd>${a.valid?a.billable.toFixed(1):'—'} ft²</dd></dl><p>${salesMetricText('Actual Area — площадь готового контура. Rounded Area — габариты, каждый округлён вверх до целого дюйма; площадь округлена до десятых. Billable Area учитывает минимум к оплате.','Actual Area is the finished contour area. Rounded Area uses bounding dimensions, each rounded up to a whole inch, then rounds the area to one decimal place. Billable Area applies the billing minimum.')}</p><p>${salesMetricText('Материалы и Shape Unit считаются от Billable Area. Кромки — по длине, поштучные работы — по количеству; нанесение покрытий сохраняет свою площадь обработки. Вес считается по фактической геометрии.','Materials and Shape Unit use Billable Area. Edges use length, per-piece work uses quantity, and surface treatments retain their processing area. Weight uses actual geometry.')}</p></div>`;
+}
+function salesPricePanel(line){
+ const p=salesLineCommercialPrice(line,soDraft),cur=esc(soDraft.currency),row=(label,value)=>`<div class="metric-price-row"><span>${label}</span><b data-raw>${value==null?'—':value.toFixed(2)+' '+cur}</b></div>`;
+ return `<p class="mut">${salesMetricText('Расчёт для одного готового юнита','Calculation for one finished unit')}</p>${row(salesMetricText('Материалы','Materials')+` · ${p.materialRate.toFixed(2)} × ${p.areas.billable==null?'—':p.areas.billable.toFixed(1)} ft²`,p.missingMaterials||p.unsupportedCurrency?null:p.materials)}${row(salesMetricText('Сервисы и обработка','Services and processing'),p.missingServices||p.unsupportedCurrency?null:p.services)}${row(salesMetricText('Исходная цена юнита','Base unit price'),p.missingMaterials||p.missingServices||p.unsupportedCurrency?null:p.base)}${p.adjustments.map(a=>row(`${esc(a.label)} · +${a.percent}% × ${a.base.toFixed(2)}`,p.complete?a.amount:null)).join('')}${row('Unit Price',p.unit)}${row('Line Total · Qty '+p.qty,p.line)}${p.unsupportedCurrency?`<p class="metric-incomplete">${salesMetricText('Каталог цен задан в CAD. Для USD сначала требуется согласованный пересчёт валюты; итог не подменяется суммой CAD.','Catalog prices are in CAD. USD totals require a defined currency conversion; CAD amounts are not relabelled as USD.')}</p>`:''}${!p.complete?`<p class="metric-incomplete">${salesMetricText('Расчёт неполный: проверьте размеры и цены материалов / сервисов.','Calculation incomplete: check dimensions and material / service prices.')}</p>`:''}<p class="mut">${salesMetricText('Надбавки Triple и Large unit начисляются каждая от исходной цены юнита, включая сервисы. До energy surcharge, налога и доставки.','Triple and Large unit each apply to the base unit price including services. Before energy surcharge, tax and delivery.')}</p><button type="button" onclick="salesMetricsPanel=null;salesOpenLineServices('${esc(line.id)}')">${salesMetricText('Открыть сервисы','Open services')}</button>`;
+}
+function salesRulePanel(){
+ const r=salesMetricRules(soDraft),labels={triplePercent:salesMetricText('Triple units, %','Triple units, %'),largePercent:salesMetricText('Large units, %','Large units, %'),largeThresholdFt2:salesMetricText('Large units: площадь строго больше, ft²','Large units: area strictly above, ft²'),minimumAreaFt2:salesMetricText('Минимальная оплачиваемая площадь, ft²','Minimum billable area, ft²')};
+ return `<form class="metric-rule-form" onsubmit="event.preventDefault();salesSaveMetricRules(this)">${Object.keys(labels).map(k=>`<label>${labels[k]}<input name="${k}" type="number" min="0" step="0.1" required value="${r[k]}"></label>`).join('')}<p>${salesMetricText('Обе надбавки — от исходной цены юнита с сервисами. При двух надбавках по 50%: 100 → 200. Порог проверяется по Billable Area одного изделия, до умножения на Qty.','Both surcharges use the base unit price including services. Two 50% surcharges: 100 → 200. The threshold uses one unit’s Billable Area, before Qty.')}</p><p class="mut">${salesMetricText('Сохранённые заказы удерживают свои правила. Здесь изменения применятся к открытому заказу и станут значениями по умолчанию для новых.','Saved orders retain their rules. Changes here apply to this order and become defaults for new orders.')}</p><button class="pri" type="submit">${salesMetricText('Применить к этому и новым заказам','Apply to this and new orders')}</button></form>`;
+}
+function salesSaveMetricRules(form){
+ const rules={combination:'additive'};
+ for(const key of ['triplePercent','largePercent','largeThresholdFt2','minimumAreaFt2']){const n=Number(form.elements[key].value);if(!Number.isFinite(n)||n<0)return;rules[key]=n;}
+ DB.salesMetricRules=salesNormalizeMetricRules(rules);soDraft.metricRules=Object.assign({},DB.salesMetricRules);touch();salesCloseMetrics();
+}
+function salesWeightNormDisplay(row){
+ if(row.rate==null)return {value:'',unit:row.unit||'',factor:1};
+ if(row.unit==='kg/ft²')return {value:String(Math.round(row.rate*1000000)/1000),unit:'g/ft²',factor:1000};
+ if(row.unit==='kg/unit')return {value:String(Math.round(row.rate*1000000)/1000),unit:'g/unit',factor:1000};
+ return {value:String(Math.round(row.rate*1000000)/1000000),unit:row.unit||'',factor:1};
+}
+function salesWeightBasisDisplay(row){
+ if(!row.key||row.basis==null)return '—';
+ const unit={'kg/ft²':'ft²','kg/unit':'unit','kg/m³':'m³','kg/m':'m','kg/m²':'m²'}[row.unit]||'';
+ const digits=row.unit==='kg/m³'?5:row.unit==='kg/unit'?0:3;
+ return row.basis.toFixed(digits)+(unit?' '+unit:'');
+}
+function salesWeightRow(row,index,editable){
+ const d=salesWeightNormDisplay(row),norm=row.key?(editable?`<input aria-label="Weight norm ${index+1}" type="number" min="0" step="any" value="${d.value}" data-row="${index}" data-factor="${d.factor}" onchange="salesSaveWeightNorm(+this.dataset.row,this.value,+this.dataset.factor)">`:d.value||'—'):'—';
+ return `<tr><td>${raw(row.label)}<small>${esc(row.note)}</small></td><td data-raw>${salesWeightBasisDisplay(row)}</td><td>${norm}<small>${d.unit}</small></td><td data-raw>${row.kg==null?'—':row.kg.toFixed(3)}</td></tr>`;
+}
+function salesWeightPanel(line){
+ const w=salesLineWeight(line,soDraft);
+ return `<p>${salesMetricText('Расчётный вес всех компонентов одного юнита. Пустая норма означает отсутствие данных, а не нулевой вес.','Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.')}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?salesMetricText('Закрыть нормы','Close weight norms'):salesMetricText('Редактировать весовые нормы','Edit weight norms')}</button>${salesMetricsEditWeights?`<p class="mut">${salesMetricText('Нормы общие для этого продукта во всех заказах. Площадные нормы и соединители вводятся в граммах; расчёт сам переводит их в kg.','Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.')}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${salesMetricText('Компонент','Component')}</th><th>${salesMetricText('База','Basis')}</th><th>${salesMetricText('Норма','Norm')}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${salesMetricText('Вес неполный. Известная часть','Weight incomplete. Known components')}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${salesMetricText('позиций требуют данных','items need data')}</p>`:''}<h4>${salesMetricText('Дополнительные компоненты','Additional components')}</h4><p class="mut">${salesMetricText('Только то, что входит в поставку: фурнитура, крепёж и прочее. Метка обработки Clamp / Hinge сама по себе не означает поставку фурнитуры.','Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.')}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${salesMetricText('Компонент','Component')}</button>`;
+}
+function salesMetricsLine(){return soDraft&&(soDraft.lines||[]).find(l=>l.id===salesMetricsLineId);}
+function salesSaveWeightNorm(index,value,factor){
+ const line=salesMetricsLine();if(!line)return;
+ const row=salesLineWeight(line,soDraft).rows[index];if(!row||!row.key)return;
+ const shown=mdNonNeg(value),rate=shown==null?null:shown/(factor||1);if(value.trim()!==''&&shown==null){alert('Enter a non-negative weight norm.');render();return;}
+ const old=(DB.materialWeightRates||[]).find(r=>r.key===row.key);
+ if(old)old.rate=rate;else DB.materialWeightRates.push({key:row.key,rate:rate,note:''});touch();render();
+}
+function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
+function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
+function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
+function salesOrderPrintMarkup(){
+ return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary():''}</div>`;
+}
+function salesMetricsModal(){
+ if(!salesMetricsPanel||!soDraft)return '';
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:salesMetricText('Колонки заказа','Order columns'),rules:salesMetricText('Правила цены','Pricing rules'),print:salesMetricText('Предпросмотр печати','Print preview'),area:salesMetricText('Площадь изделия','Unit area'),weight:salesMetricText('Вес изделия','Unit weight'),price:salesMetricText('Цена изделия','Unit price')};
+ if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки печати','Print columns')}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${salesMetricText('Печать','Print')}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
+ return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal ${panel==='print'?'metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
+}
+/* Refresh computed cells without replacing the input currently receiving Tab. */
+function salesRefreshLineMetrics(line){
+ const tr=Array.from(document.querySelectorAll('tr[data-metrics-line-id]')).find(el=>el.dataset.metricsLineId===line.id);
+ if(tr){
+  const holder=document.createElement('tr');holder.innerHTML=salesMetricCells(line,'screen');
+  const next=Array.from(holder.children);tr.querySelectorAll('td[data-metric]').forEach((cell,i)=>{if(next[i])cell.replaceWith(next[i]);});
+  const services=tr.querySelector('.line-services-cell');if(services)services.innerHTML=salesLineServicesSummary(line);
+ }
+ const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total)total.outerHTML=salesCommercialOrderSummary();
+ const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
+ if(prices){const p=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce((n,g)=>n+g.lines,0);prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}`;}
+ if(tr)applyLang(tr);
 }
 
 /* ==== src/erp/views/sales-shape-ui.js ==== */
@@ -13928,8 +14284,9 @@ function shapeDrawnProductionSvg(result,interactive,extra){
    Параметры приходят из формы изделия (профиль и число баров), геометрию по
    ним считает модуль: бар режется реальным контуром формы, поэтому позиции
    берутся из его сегментов, а не раскладываются здесь заново. */
-function shapeMuntinGeoForDraft(){
-  var shape=sDraft,cav=shape&&shape.muntin&&shape.muntin.enabled?shape.muntin:null;
+function shapeMuntinGeoForDraft(){return shapeMuntinGeoFor(sDraft);}
+function shapeMuntinGeoFor(shape){
+  var cav=shape&&shape.muntin&&shape.muntin.enabled?shape.muntin:null;
   if(!cav||!(cav.verticalBars||cav.horizontalBars))return null;
   var def=newMuntinDef(shape.id||'draft');
   def.muntin=normalizeMuntinModel(def.muntin);
@@ -15606,12 +15963,13 @@ salesAssignSelected=function(makeupId){if(!makeupId||!salesMakeupById(soDraft,ma
 /* Ссылки на набор у строки больше нет — бейдж показывает, ОТКУДА пришла
    кромка: от формы или базовая от стекла. Клик открывает разбор по кромкам. */
 function salesSetBadge(line){
-  var shape=salesLineGeometryShape(line);
-  if(!shape)return `<button type='button' class='ss-badge' title='Line needs Width and Height' onclick='salesOpenLineEdgework("${esc(line.id)}")'>—</button>`;
+  var shape=salesLineGeometryShape(line),status=salesLineServiceStatus(line),attention=salesLineNeedsServiceAttention(line),state=attention?' issue':'';
+  if(!shape)return `<button type='button' class='ss-badge issue' title='${esc(status.label)} · click for details' onclick='salesOpenLineEdgework("${esc(line.id)}")'>!</button>`;
   var own=salesShapePhysicalEdges(shape).some(function(edge){return salesShapeOpsForPhysicalEdge(shape,edge).length>0;});
-  if(own)return `<button type='button' class='ss-badge override' title='Edgework is set on the Shape of this line' onclick='salesOpenLineEdgework("${esc(line.id)}")'>Shape</button>`;
+  if(own)return `<button type='button' class='ss-badge override${state}' title='${esc(attention?status.label+' · click for details':'Edgework is set on the Shape of this line')}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>Shape</button>`;
   var kind=salesLineBaseEdgeworkKind(line);
-  return `<button type='button' class='ss-badge' title='Base edgework from the glass of this Makeup: ${esc(glassBaseEdgeworkLabel(kind))}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>${esc(kind==='polish'?'Polish':kind==='arris'?'Arris':'—')}</button>`;
+  var source=salesShapeIsLineRect(shape)?'Rectangle has no saved Shape edgework. This is the glass default: ':'Base edgework from the glass of this Makeup: ';
+  return `<button type='button' class='ss-badge${state}' title='${esc(attention?status.label+' · click for details':source+glassBaseEdgeworkLabel(kind))}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>${esc(kind==='polish'?'Polish':kind==='arris'?'Arris':'—')}</button>`;
 }
 
 function salesAssignmentWarning(line,set){
@@ -15645,9 +16003,31 @@ function salesBulkServiceControls(){
 }
 
 /* Approved Sales line layout: Set column immediately after MU. */
+function salesOrderScreenColumns(){
+  var metrics=new Set(salesMetricColumnsFor('screen').map(function(c){return c.key;})),base=new Set(SALES_ORDER_BASE_COLUMNS.map(function(c){return c.key;}));
+  return salesOrderColumnOrder().filter(function(key){return base.has(key)||metrics.has(key);});
+}
+function salesOrderColumnHeader(key){
+  var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});
+  if(metric)return `<th class="line-metric" data-metric="${metric.key}"><span data-raw>${metric.label}</span></th>`;
+  var base=SALES_ORDER_BASE_COLUMNS.find(function(c){return c.key===key;});return `<th data-column="${esc(key)}">${esc(base?base.label:key)}</th>`;
+}
+function salesOrderColumnCell(key,l,i,linked,st){
+  var metric=SALES_METRIC_COLUMNS.find(function(c){return c.key===key;});if(metric)return salesMetricCell(l,metric,'screen');
+  if(key==='mu')return `<td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td>`;
+  if(key==='set')return `<td class='ss-cell'>${salesSetBadge(l)}</td>`;
+  if(key==='qty')return `<td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td>`;
+  if(key==='width')return `<td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td>`;
+  if(key==='height')return `<td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td>`;
+  if(key==='mark')return `<td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td>`;
+  if(key==='shape')return `<td>${salesLineShapeCell(l,i)}</td>`;
+  if(key==='services')return `<td class='line-services-cell'>${salesLineServicesSummary(l)}</td>`;
+  if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
+  return '<td></td>';
+}
 function salesOrderLines(){
-  var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),hasServices=pricing.charges>0;
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>MU → Set → Qty → Dimensions → Mark → Shape → Services</span></div><div class='sales-line-tools'><button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:''}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th><th>MU</th><th>Set</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th><th>Shape</th><th>Services</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}</td><td><select class='line-mu' onchange='soDraft.lines[${i}].makeupId=this.value;render()'>${soDraft.makeups.map(function(m){return `<option value='${esc(m.id)}' ${l.makeupId===m.id?'selected':''}>${esc(m.code)}</option>`;}).join('')}</select></td><td class='ss-cell'>${salesSetBadge(l)}</td><td><input class='line-qty' type='number' min='1' step='1' value='${esc(l.qty)}' oninput='soDraft.lines[${i}].qty=salesPositiveInt(this.value,1)' onchange='render()'></td><td><input data-so-width class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.width16))}' placeholder='34 13/16' onchange='salesLineDimChange(${i},"width",this)'></td><td><input class='line-dim' ${linked?'disabled title="Dimensions come from Shape geometry"':''} value='${esc(salesDimFrom16(l.height16))}' placeholder='15 5/16' onchange='salesLineDimChange(${i},"height",this)'></td><td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td><td>${salesLineShapeCell(l,i)}</td><td class='line-services-cell'>${salesLineServicesSummary(l)}</td><td class='ss-status'><span class='pill ${st.cls}'>${esc(st.label)}</span></td><td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td><td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='13' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div></section>`;
+  var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}</td>${columns.map(function(key){return salesOrderColumnCell(key,l,i,linked,st);}).join('')}<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -16269,6 +16649,7 @@ const MD_TABS=[
  {k:'glass',    label:'Каталог стекла'},
  {k:'supply',   label:'Точки поставки'},
  {k:'spacer',   label:'Spacers & rates'},
+ {k:'weight',   label:'Weight norms'},
  {k:'hardware', label:'Hardware'},
  {k:'allowance',label:'Припуск на рез'},
  {k:'overview', label:'Обзор базы'}
@@ -16283,6 +16664,7 @@ let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
 let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
+let mdWeightFilter='';
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -16301,9 +16683,9 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='allowance'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'?'':mdImportCard()}`;
 }
 function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
@@ -16692,6 +17074,25 @@ function mdSpacerDelete(id){
  const used=(DB.salesOrder||[]).some(o=>(o.makeups||[]).some(m=>(m.cavities||[]).some(c=>c.spacerVariantId===id)));
  if(!confirm(used?'This spacer is used in saved orders. Delete anyway? It will become unknown there.':'Delete this spacer?'))return;
  DB.spacerVariant=DB.spacerVariant.filter(x=>x.id!==id);touch();render();
+}
+
+/* Weight coefficients remain editable master data. Area-based shop norms are
+   shown in grams because that is how they are measured, while calculation
+   stores kg in one canonical unit. */
+function mdWeightDisplay(row){if(row.unit==='kg/ft²')return {value:row.rate==null?'':row.rate*1000,unit:'g/ft²',factor:1000};if(row.unit==='kg/unit')return {value:row.rate==null?'':row.rate*1000,unit:'g/unit',factor:1000};return {value:row.rate==null?'':row.rate,unit:row.unit||'kg/unit',factor:1};}
+function mdWeightSearchChange(el){mdWeightFilter=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('mdWeightSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function viewMdWeight(){
+ const q=mdWeightFilter.trim().toLowerCase(),rows=(DB.materialWeightRates||[]).filter(r=>!q||[r.label,r.key,r.note,r.unit].join(' ').toLowerCase().includes(q));
+ return `<div class="sub">Weight norms are shared by every order. Glass uses geometry × thickness × density; the rows below supply measured material consumption. Empty means unknown and keeps Line Weight visibly incomplete.</div>
+  <div class="filters"><input id="mdWeightSearch" value="${esc(mdWeightFilter)}" placeholder="Search component" oninput="mdWeightSearchChange(this)"></div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Component</th><th>Norm</th><th>Unit</th><th>Note</th></tr></thead><tbody>${rows.map(r=>{const d=mdWeightDisplay(r);return `<tr><td><b>${raw(r.label||r.key)}</b><div class="mut mono">${raw(r.key)}</div></td><td><input type="number" min="0" step="any" style="width:110px" value="${d.value}" placeholder="unknown" onchange="mdWeightSet('${esc(r.key)}',this.value,${d.factor})"></td><td>${esc(d.unit)}</td><td>${raw(r.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">No matching norms</td></tr>'}</tbody></table></div>`;
+}
+function mdWeightSet(key,value,factor){
+ const row=(DB.materialWeightRates||[]).find(r=>r.key===key);if(!row)return;
+ const typed=String(value==null?'':value).trim();
+ if(typed===''){row.rate=null;touch();render();return;}
+ const n=Number(typed);if(!Number.isFinite(n)||n<0){render();return;}
+ row.rate=n/(factor||1);touch();render();
 }
 
 /* --- 3. Фурнитура ------------------------------------------------------
@@ -17123,6 +17524,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates();
 }
 function boot(){
  let hadSavedState=false;
