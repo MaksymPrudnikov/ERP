@@ -822,7 +822,9 @@ function salesLineAreaFt2(line){
 function salesUnitSurchargeRows(line,shape){
   const rows=[],m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null;
   /* Triple is a percentage of the finished unit, calculated in line-metrics. */
-  if(shape&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
+  /* Shape Unit — надбавка за сборку фигурного стеклопакета. Отдельный Single
+     Lite оплачивает свою геометрию и обработки, но не является DGU/TGU. */
+  if(shape&&m&&(m.unitType==='double'||m.unitType==='triple')&&(shape.type!=='rectangle'||shapeIsDxfSource(shape))){
     const r=ShapeModule.compute(shape),raw=r&&+r.billableArea;
     const area=salesLineAreas(line,soDraft).billable;
     if(area>0)rows.push(salesChargeRow('SURCHARGE:shape-unit','Shape Unit',+area.toFixed(4),'ft²',salesCatalogRate('shapeUnit',{}),'Shape surcharge'));

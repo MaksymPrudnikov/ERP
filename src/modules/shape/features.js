@@ -23,7 +23,9 @@ function shapeApplyCornerRadii(topo,def){
   }
   for(i=0;i<V.length;i++){
     var a=corners[i],b=corners[(i+1)%V.length],L=Math.hypot(V[(i+1)%V.length].x-V[i].x,V[(i+1)%V.length].y-V[i].y);
-    if((a?a.t:0)+(b?b.t:0)>=L-1e-7)errors.push('Corner radii overlap on edge '+(V[i].outEdge||('E'+(i+1)))+'.');
+    /* Равенство — допустимое касание: два R10 на ребре 20 образуют одну
+       непрерывную полукруглую арку. Ошибка нужна только при пересечении. */
+    if((a?a.t:0)+(b?b.t:0)>L+1e-7)errors.push('Corner radii overlap on edge '+(V[i].outEdge||('E'+(i+1)))+'.');
   }
   if(errors.length)return Object.assign({radiusErrors:errors},topo);
   var points=[],ids=[],arcMeta={},dir=orient<0?-1:1;
