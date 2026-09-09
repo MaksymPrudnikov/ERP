@@ -21,8 +21,19 @@ function shapeGeometry(S){
     if(!S.shape.smart)S.shape.smart=ssNormalize({});
     var sv=ssValidate(S);if(sv.errors.length)return {ok:false,error:sv.errors[0],errors:sv.errors,warns:sv.warns,W:W,H:H,pts:[],type:kind};
     var sq=ssContour(S);if(sq.pts.length<3)return {ok:false,error:'Smart-Shape outline could not be built.',W:W,H:H,pts:[],type:kind};
-    var smartEdges=sq.segs.map(function(e,i){return {id:e.id,segmentId:e.id+':'+i,type:'line',p1:e.p1.slice(),p2:e.p2.slice(),length:Math.hypot(e.p2[0]-e.p1[0],e.p2[1]-e.p1[1])};}),sb=fabEdgeBounds(sq.pts);
-    return {ok:true,W:W,H:H,pts:sq.pts,points:sq.pts,pointEdgeIds:smartEdges.map(function(e){return e.id;}),edges:smartEdges,vertices:[],type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns,radiusErrors:[]};
+    /* Smart Shape used to expose no physical vertices, so Radius Corner was
+       impossible even though its contour is the same ordered line topology as
+       the preset shapes.  Keep the production edge ids, add stable corner ids,
+       and pass that topology through the shared fillet engine. */
+    var canonical={'B>A':'BL','A>D':'TL','D>C':'TR','C>B':'BR'};
+    var smartVertices=sq.pts.map(function(p,i){
+      var prev=sq.segs[(i-1+sq.segs.length)%sq.segs.length],next=sq.segs[i],pair=prev.id+'>'+next.id,id=canonical[pair]||('V'+(i+1));
+      return shapeVertex(id,p[0],p[1],next.id,canonical[pair]?(id+' corner'):('Corner '+(i+1)+' · '+prev.id+' / '+next.id));
+    });
+    var smartEdges=smartVertices.map(function(v,i){var n=smartVertices[(i+1)%smartVertices.length];return {id:v.outEdge,segmentId:v.outEdge+':'+i,type:'line',p1:[v.x,v.y],p2:[n.x,n.y],startVertexId:v.id,endVertexId:n.id,length:Math.hypot(n.x-v.x,n.y-v.y)};});
+    var rounded=shapeApplyCornerRadii({vertices:smartVertices,points:sq.pts,pointEdgeIds:smartEdges.map(function(e){return e.id;}),edges:smartEdges},S.shape.definition||{features:S.shape.features||[]});
+    var smartPoints=rounded.points||sq.pts,sb=fabEdgeBounds(smartPoints);
+    return {ok:true,W:W,H:H,pts:smartPoints,points:smartPoints,pointEdgeIds:rounded.pointEdgeIds||[],edges:rounded.edges||smartEdges,vertices:smartVertices,radiusErrors:rounded.radiusErrors||[],radiusMeta:rounded.radiusMeta||{},type:kind,minX:sb.minX,maxX:sb.maxX,minY:sb.minY,maxY:sb.maxY,bboxW:sb.maxX-sb.minX,bboxH:sb.maxY-sb.minY,sidePaths:sq.sides,smartSegs:sq.segs,smartBase:sq.base,warns:sv.warns};
   }
   var topo=shapePresetTopology(S),rounded=shapeApplyCornerRadii(topo,S.shape.definition||{features:S.shape.features||[]}),pts=rounded.points||[];
   if(pts.length<3)return {ok:false,error:'Shape outline could not be built.',W:W,H:H,pts:[],type:kind};

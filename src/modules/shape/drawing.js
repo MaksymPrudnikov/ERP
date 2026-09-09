@@ -499,7 +499,7 @@ function shapeProductionSvg(result,opts){
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
-  if(!L.smart&&!F.metric){
+  if(!L.smart&&result.definition.type!=='rectangle'&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
     var near=1;
     var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);

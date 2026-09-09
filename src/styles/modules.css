@@ -491,7 +491,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    заказчик слева, PO по центру, номер заказа справа. Кегль крупнее прочего на
    листе — эту строку читают первой, ещё не взяв лист в руки. */
 .sheet-id{flex:none;display:grid;grid-template-columns:1fr auto 1fr;gap:14px;
-  align-items:baseline;padding-bottom:6px;border-bottom:1px solid #101828}
+  align-items:baseline;padding-bottom:3px;border-bottom:1px solid #101828}
 .sheet-id-p{text-align:center}
 .sheet-id-o{text-align:right}
 .sheet-id span{font-size:13.5px;font-weight:700;color:#475467;margin-right:6px}
@@ -501,7 +501,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    ширину под ней. Никаких вариантов по фигуре — лист не должен разъезжаться от
    детали к детали. В полосе слева изделие, посередине числа, справа состав. */
 .sheet-body{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);
-  gap:8px;padding:7px 0}
+  gap:2px;padding:3px 0 2px}
 .sheet-side{grid-row:1;--mk-w:220px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
   gap:4px 22px;align-items:baseline}
 /* Длинные спецификации поверхностей не могут вытеснить Finished / вес.
@@ -589,8 +589,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
 .print-shape-sheet .sheet-field svg .shape-inch-reference{fill:#667085!important}
-.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:5px}
-.sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:4px}
+.sheet-route{flex:0 0 auto;border-top:1px solid #101828;padding-top:3px}
+.sheet-route-t{font-size:7.5px;letter-spacing:.11em;color:#7a838f;font-weight:600;margin-bottom:2px}
 /* Маршрут таблицей: он тут только для сверки с чертежом — настоящий путь
    поедет на стикере. Значит места должен занимать минимум. */
 .sheet-leg.bare{grid-template-columns:minmax(0,1fr)}
@@ -602,7 +602,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-leg b{font-family:Arial,Helvetica,sans-serif;font-size:8px;letter-spacing:.07em;color:#101828}
 .sheet-leg i{font-style:normal;color:#98a2b3;padding:0 5px}
 .sheet-merge>em{font-family:Arial,Helvetica,sans-serif;font-size:8px;color:#475467}
-.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:6px;
+.sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:2px;
   font-size:7.5px;color:#7a838f}
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь

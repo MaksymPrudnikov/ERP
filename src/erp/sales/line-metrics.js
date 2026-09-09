@@ -11,6 +11,7 @@ const SALES_WEIGHT_RATE_DEFAULTS=[
  {key:'gas:GAS-AIR',label:'Air',rate:1.225,unit:'kg/m³',note:'Reference density; editable for shop conditions'},
  {key:'gas:GAS-ARGON',label:'Argon',rate:1.784,unit:'kg/m³',note:'Reference density; editable for shop conditions'}
 ];
+const SALES_SPACER_WEIGHT_REFERENCE={variantId:'SP-BWE-1732',rate:.030};
 DEFAULT.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
 DB.salesMetricRules=Object.assign({},SALES_METRIC_RULE_DEFAULTS);
 DB.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));
@@ -26,8 +27,20 @@ function salesNormalizeMetricRules(value){
 function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.metricRules)||DB.salesMetricRules);}
 function salesNormalizeWeightRates(){
  const seen=new Set();
- DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
+ DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note),derived:r.derived===true}));
  SALES_WEIGHT_RATE_DEFAULTS.forEach(d=>{const r=DB.materialWeightRates.find(x=>x.key===d.key);if(!r){DB.materialWeightRates.push(Object.assign({},d));seen.add(d.key);return;}const placeholder=!r.label&&!r.unit&&!r.note;if(placeholder)r.rate=d.rate;if(!r.label)r.label=d.label;if(!r.unit)r.unit=d.unit;if(!r.note)r.note=d.note;});
+ /* Until a shop measurement overrides a row, every spacer profile uses the
+    confirmed average for 17/32 and scales it by its physical thickness.  The
+    generated rows are ordinary editable master data, so a measured value wins
+    permanently over the estimate. */
+ const ref=mdById('spacerVariant',SALES_SPACER_WEIGHT_REFERENCE.variantId),refMm=spacerThicknessMm(ref);
+ (DB.spacerVariant||[]).forEach(sp=>{
+  const key='spacer:'+sp.id,row=DB.materialWeightRates.find(r=>r.key===key);
+  const mm=spacerThicknessMm(sp),rate=refMm>0&&mm>0?SALES_SPACER_WEIGHT_REFERENCE.rate*mm/refMm:null;
+  if(row&&!row.derived)return;
+  const estimate={key:key,label:(sp.name||sp.id)+' spacer',rate:rate,unit:'kg/ft²',note:'Calculated estimate · 17/32 average × thickness ratio',derived:true};
+  if(row)Object.assign(row,estimate);else DB.materialWeightRates.push(estimate);seen.add(key);
+ });
  DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
 }
 function salesLineAreas(line,order){
@@ -48,7 +61,8 @@ function salesApplyOrderCharges(subtotal,raw){
  const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
  const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
  const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
- return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,grand:salesMoney(cardBase+card+delivery)};
+ const skidDeposit=c.skidDeposit.enabled?salesMoney(c.skidDeposit.amount):0;
+ return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,skidDeposit:skidDeposit,grand:salesMoney(cardBase+card+delivery+skidDeposit)};
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
