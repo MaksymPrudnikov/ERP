@@ -54,6 +54,20 @@ function salesLineCommercialPrice(line,order){
  adjustments.forEach(a=>{a.base=rules.combination==='compound'?running:base;a.amount=salesMoney(a.base*a.percent/100);running=salesMoney(running+a.amount);});
  return {areas:areas,materialRate:rate.total,materials:salesMoney(materials),services:salesMoney(services.total/q),base:base,adjustments:adjustments,unit:incomplete?null:running,line:incomplete?null:salesMoney(running*q),knownSubtotal:running,complete:!incomplete,unsupportedCurrency:unsupportedCurrency,missingMaterials:!m||!rate.known,missingServices:services.unpriced,pendingCombination:adjustments.length>1&&rules.combination==='pending',qty:q};
 }
+function salesLineCommercialAdjustments(line,order){
+ const price=salesLineCommercialPrice(line,order);
+ return price.adjustments.map(a=>({key:a.key,label:a.label,percent:a.percent,base:price.complete?a.base:null,unitAmount:price.complete?a.amount:null,qty:price.qty,lineAmount:price.complete?salesMoney(a.amount*price.qty):null,complete:price.complete}));
+}
+function salesOrderCommercialAdjustments(order){
+ order=order||soDraft;
+ const groups=Object.create(null);
+ (order&&order.lines||[]).forEach((line,lineIndex)=>salesLineCommercialAdjustments(line,order).forEach(a=>{
+  if(!groups[a.key])groups[a.key]={key:a.key,label:a.label,percent:a.percent,lines:0,qty:0,total:0,incomplete:0,entries:[]};
+  const g=groups[a.key];g.lines++;g.qty+=a.qty;g.entries.push({line:line,lineIndex:lineIndex,adjustment:a});
+  if(a.complete)g.total=salesMoney(g.total+a.lineAmount);else g.incomplete++;
+ }));
+ return Object.keys(groups).map(k=>groups[k]);
+}
 
 /* Coefficients are measured product norms. Empty is unknown, explicit zero is
    allowed (e.g. consumables already included in a filled-spacer norm). */

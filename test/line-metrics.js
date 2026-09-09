@@ -28,9 +28,16 @@ module.exports=async function({page,eq,ok}){
   const {l}=metricFixture('triple',120,84,2),p=salesLineCommercialPrice(l,soDraft);
   return {base:p.base,adjustments:p.adjustments.map(a=>[a.base,a.amount]),unit:p.unit,line:p.line};
  }),{base:1750,adjustments:[[1750,875],[1750,875]],unit:3500,line:7000});
+ eq('Triple and over-60 adjustments are visible in the Services cell and both Services dialogs',await t.p.evaluate(()=>{
+  const {l}=metricFixture('triple',120,84,2),price=salesLineCommercialPrice(l,soDraft),serviceTotal=salesLinePricingSummary(l).total;render();
+  const cell=document.querySelector('.line-services-cell').textContent.replace(/\s+/g,' ').trim();salesOpenLineServices(l.id);
+  const lineDialog=document.querySelector('.sales-service-modal').textContent.replace(/\s+/g,' ').trim();salesCloseServices();salesOpenOrderServices();
+  const orderDialog=document.querySelector('.sales-service-modal').textContent.replace(/\s+/g,' ').trim();
+  return {cell:[cell.includes('TRI +50%'),cell.includes('>60 +50%')],line:[lineDialog.includes('Triple units'),lineDialog.includes('Large units > 60 ft²')],order:[orderDialog.includes('Triple units'),orderDialog.includes('Large units > 60 ft²')],cyrillic:Array.from(new Set((lineDialog+orderDialog).match(/[^ ]*[А-Яа-яЁё][^ ]*/g)||[])),serviceTotal:serviceTotal,unit:price.unit};
+ }),{cell:[true,true],line:[true,true],order:[true,true],cyrillic:[],serviceTotal:0,unit:3500});
  eq('60 ft² is not oversized, even when Qty is 100',await t.p.evaluate(()=>{
-  const {l}=metricFixture('triple',120,72,100);return salesLineCommercialPrice(l,soDraft).adjustments.map(a=>a.key);
- }),['triple']);
+  const {l}=metricFixture('triple',120,72,100),html=salesLineServicesSummary(l);return [salesLineCommercialPrice(l,soDraft).adjustments.map(a=>a.key),html.includes('&gt;60')||html.includes('>60')];
+ }),[['triple'],false]);
  eq('surcharges include service charges in their common base',await t.p.evaluate(()=>{
   const {l}=metricFixture('triple',12,12,1);const row=salesLineChargeRows(l)[0];salesEnsureChargePricing(l,row).orderRate=10/row.basis;
   const p=salesLineCommercialPrice(l,soDraft);return [p.base,p.adjustments[0].amount,p.unit];

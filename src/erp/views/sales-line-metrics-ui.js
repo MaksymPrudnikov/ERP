@@ -165,6 +165,6 @@ function salesRefreshLineMetrics(line){
  }
  const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total)total.outerHTML=salesCommercialOrderSummary();
  const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
- if(prices){const p=salesOrderPricingSummary();prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:''}`;}
+ if(prices){const p=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce((n,g)=>n+g.lines,0);prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}`;}
  if(tr)applyLang(tr);
 }
