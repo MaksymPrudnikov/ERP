@@ -7,6 +7,7 @@ const SALES_WEIGHT_RATE_DEFAULTS=[
  {key:'desiccant:SP-BWE-1732',label:'17/32 Black Warm Edge desiccant',rate:.033,unit:'kg/ft²',note:'Shop norm · 33 g/ft²'},
  {key:'seal:SEAL-PIB:SP-BWE-1732',label:'17/32 Black Warm Edge · PIB',rate:.005,unit:'kg/ft²',note:'Shop norm · 5 g/ft²'},
  {key:'seal:SEAL-PS:SP-BWE-1732',label:'17/32 Black Warm Edge · Polysulphide + catalyst',rate:.127,unit:'kg/ft²',note:'Shop norm · 127 g/ft²'},
+ {key:'connectors:SP-BWE-1732',label:'17/32 Black Warm Edge · connectors / corners',rate:.040,unit:'kg/unit',note:'Temporary allowance · 40 g per cavity'},
  {key:'gas:GAS-AIR',label:'Air',rate:1.225,unit:'kg/m³',note:'Reference density; editable for shop conditions'},
  {key:'gas:GAS-ARGON',label:'Argon',rate:1.784,unit:'kg/m³',note:'Reference density; editable for shop conditions'}
 ];
@@ -26,7 +27,7 @@ function salesMetricRules(order){return salesNormalizeMetricRules((order&&order.
 function salesNormalizeWeightRates(){
  const seen=new Set();
  DB.materialWeightRates=(Array.isArray(DB.materialWeightRates)?DB.materialWeightRates:[]).filter(r=>r&&typeof r.key==='string'&&!seen.has(r.key)&&(seen.add(r.key),true)).map(r=>({key:r.key,label:mdString(r.label),rate:mdNonNeg(r.rate),unit:mdString(r.unit),note:mdString(r.note)}));
- SALES_WEIGHT_RATE_DEFAULTS.forEach(d=>{if(!seen.has(d.key)){DB.materialWeightRates.push(Object.assign({},d));seen.add(d.key);}});
+ SALES_WEIGHT_RATE_DEFAULTS.forEach(d=>{const r=DB.materialWeightRates.find(x=>x.key===d.key);if(!r){DB.materialWeightRates.push(Object.assign({},d));seen.add(d.key);return;}const placeholder=!r.label&&!r.unit&&!r.note;if(placeholder)r.rate=d.rate;if(!r.label)r.label=d.label;if(!r.unit)r.unit=d.unit;if(!r.note)r.note=d.note;});
  DB.salesMetricRules=salesNormalizeMetricRules(DB.salesMetricRules);
 }
 function salesLineAreas(line,order){
@@ -97,7 +98,7 @@ function salesLineWeight(line,order){
   norm('desiccant:'+c.spacerVariantId,'Desiccant'+suffix,area,'kg/ft²','Use 0 if included in spacer weight');
   norm('connectors:'+c.spacerVariantId,'Spacer connectors'+suffix,1,'kg/unit','Total connectors per cavity');
   [c.primarySealantId,c.secondarySealantId].forEach(id=>{const p=mdById('sealantProduct',id);norm('seal:'+id+':'+c.spacerVariantId,(p?p.name:'Sealant')+suffix,area,'kg/ft²','Shop norm per finished unit area for this spacer size');});
-  const gas=mdById('gasProduct',c.gasProductId),mm=sp&&+sp.thicknessMm;
+  const gas=mdById('gasProduct',c.gasProductId),mm=spacerThicknessMm(sp);
   norm('gas:'+c.gasProductId,(gas?gas.name:'Gas')+suffix,area!=null&&mm>0?area*GLASS_M2_PER_FT2*mm/1000:null,'kg/m³','Fill-mixture density; nominal cavity volume');
   if(!same)add('Cavity '+(i+1)+' · stepped / differing contours',null,'Spacer path and cavity volume require confirmation');
  });

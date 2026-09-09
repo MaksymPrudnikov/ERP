@@ -449,7 +449,7 @@ function mdSpacerDelete(id){
 /* Weight coefficients remain editable master data. Area-based shop norms are
    shown in grams because that is how they are measured, while calculation
    stores kg in one canonical unit. */
-function mdWeightDisplay(row){return row.unit==='kg/ft²'?{value:row.rate==null?'':row.rate*1000,unit:'g/ft²',factor:1000}:{value:row.rate==null?'':row.rate,unit:row.unit||'kg/unit',factor:1};}
+function mdWeightDisplay(row){if(row.unit==='kg/ft²')return {value:row.rate==null?'':row.rate*1000,unit:'g/ft²',factor:1000};if(row.unit==='kg/unit')return {value:row.rate==null?'':row.rate*1000,unit:'g/unit',factor:1000};return {value:row.rate==null?'':row.rate,unit:row.unit||'kg/unit',factor:1};}
 function mdWeightSearchChange(el){mdWeightFilter=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('mdWeightSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function viewMdWeight(){
  const q=mdWeightFilter.trim().toLowerCase(),rows=(DB.materialWeightRates||[]).filter(r=>!q||[r.label,r.key,r.note,r.unit].join(' ').toLowerCase().includes(q));

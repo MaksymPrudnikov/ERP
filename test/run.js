@@ -3131,16 +3131,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);
       m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];salesSelectMakeup(m.id);render();
-      const st=salesLineServiceStatus(line),defaultShown=/Ready · default edge/.test(document.querySelector('.sales-lines-table').textContent);
+      const st=salesLineServiceStatus(line),defaultBadge=document.querySelector('.sales-lines-table .ss-badge').textContent.trim();
       const snap=salesEffectiveProductionSnapshot(line,salesLineGeometryShape(line),soDraft);
       const shape=salesLineGeometryShape(line);shape.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];render();
       const custom=salesLineServiceStatus(line);
       return {defaultLabel:st.label,defaultKey:st.key,customLabel:custom.label,customKey:custom.key,attention:salesLineNeedsServiceAttention(line),
-              charged:salesLineChargeRows(line).map(r=>r.label),defaultShown:defaultShown,customShown:/Ready · custom edge/.test(document.querySelector('.sales-lines-table').textContent),
+              charged:salesLineChargeRows(line).map(r=>r.label),defaultBadge:defaultBadge,customBadge:document.querySelector('.sales-lines-table .ss-badge').textContent.trim(),
               sources:[...new Set(snap.groups.map(g=>g.source))],
               oldLabels:/Shape processing|Glass edgework/.test(document.querySelector('.sales-lines-table').textContent)};
     })()`), {defaultLabel:'Ready · default edge',defaultKey:'ready',customLabel:'Ready · custom edge',customKey:'shape',attention:false,
-             charged:['Flat Polish','Rough Arris'],defaultShown:true,customShown:true,sources:['Glass'],oldLabels:false});
+             charged:['Flat Polish','Rough Arris'],defaultBadge:'Arris',customBadge:'Shape',sources:['Glass'],oldLabels:false});
     /* 16–19 мм с полировкой раньше блокировали рез целиком. */
     eq('19 мм с Flat Polish режется, а не блокируется', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];

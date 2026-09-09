@@ -10,9 +10,9 @@ const SALES_METRIC_COLUMNS=[
 ];
 const SALES_ORDER_BASE_COLUMNS=[
  {key:'mu',label:'MU'},{key:'set',label:'Set'},{key:'qty',label:'Qty'},{key:'width',label:'Width'},{key:'height',label:'Height'},
- {key:'mark',label:'Mark'},{key:'shape',label:'Shape'},{key:'services',label:'Services'},{key:'status',label:'Status'},{key:'notes',label:'Notes'}
+ {key:'mark',label:'Mark'},{key:'shape',label:'Shape'},{key:'services',label:'Services'},{key:'notes',label:'Notes'}
 ];
-const SALES_ORDER_DEFAULT_COLUMN_ORDER=['mu','set','qty','width','height','mark','shape','services'].concat(SALES_METRIC_COLUMNS.map(c=>c.key),['status','notes']);
+const SALES_ORDER_DEFAULT_COLUMN_ORDER=['mu','set','qty','width','height','mark','shape','services'].concat(SALES_METRIC_COLUMNS.map(c=>c.key),['notes']);
 let salesMetricsPanel=null,salesMetricsLineId=null,salesMetricsEditWeights=false;
 let salesViewPrefs=null,salesViewSaveFailed=false,salesMetricDragKey=null;
 const salesMetricText=(ru,en)=>LANG==='ru'?ru:en;
@@ -69,7 +69,7 @@ function salesResetMetricColumns(context){
 }
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;render();}
-function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки','Columns')}</button><button type="button" onclick="salesOpenMetrics('rules')">${salesMetricText('Правила цены','Pricing rules')}</button><button type="button" onclick="salesOpenMetrics('print')">${salesMetricText('Печать заказа','Print order')}</button>`;}
+function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки','Columns')}</button><button type="button" onclick="salesOpenMetrics('rules')">${salesMetricText('Правила цены','Pricing rules')}</button>`;}
 function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
 function salesMetricCells(line,context){
  const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
@@ -114,15 +114,31 @@ function salesSaveMetricRules(form){
  for(const key of ['triplePercent','largePercent','largeThresholdFt2','minimumAreaFt2']){const n=Number(form.elements[key].value);if(!Number.isFinite(n)||n<0)return;rules[key]=n;}
  DB.salesMetricRules=salesNormalizeMetricRules(rules);soDraft.metricRules=Object.assign({},DB.salesMetricRules);touch();salesCloseMetrics();
 }
+function salesWeightNormDisplay(row){
+ if(row.rate==null)return {value:'',unit:row.unit||'',factor:1};
+ if(row.unit==='kg/ft²')return {value:String(Math.round(row.rate*1000000)/1000),unit:'g/ft²',factor:1000};
+ if(row.unit==='kg/unit')return {value:String(Math.round(row.rate*1000000)/1000),unit:'g/unit',factor:1000};
+ return {value:String(Math.round(row.rate*1000000)/1000000),unit:row.unit||'',factor:1};
+}
+function salesWeightBasisDisplay(row){
+ if(!row.key||row.basis==null)return '—';
+ const unit={'kg/ft²':'ft²','kg/unit':'unit','kg/m³':'m³','kg/m':'m','kg/m²':'m²'}[row.unit]||'';
+ const digits=row.unit==='kg/m³'?5:row.unit==='kg/unit'?0:3;
+ return row.basis.toFixed(digits)+(unit?' '+unit:'');
+}
+function salesWeightRow(row,index,editable){
+ const d=salesWeightNormDisplay(row),norm=row.key?(editable?`<input aria-label="Weight norm ${index+1}" type="number" min="0" step="any" value="${d.value}" data-row="${index}" data-factor="${d.factor}" onchange="salesSaveWeightNorm(+this.dataset.row,this.value,+this.dataset.factor)">`:d.value||'—'):'—';
+ return `<tr><td>${raw(row.label)}<small>${esc(row.note)}</small></td><td data-raw>${salesWeightBasisDisplay(row)}</td><td>${norm}<small>${d.unit}</small></td><td data-raw>${row.kg==null?'—':row.kg.toFixed(3)}</td></tr>`;
+}
 function salesWeightPanel(line){
  const w=salesLineWeight(line,soDraft);
- return `<p>${salesMetricText('Расчётный вес всех компонентов одного юнита. Пустая норма означает отсутствие данных, а не нулевой вес.','Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.')}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?salesMetricText('Закрыть нормы','Close weight norms'):salesMetricText('Редактировать весовые нормы','Edit weight norms')}</button>${salesMetricsEditWeights?`<p class="mut">${salesMetricText('Нормы общие для этого продукта во всех заказах. Используйте данные поставщика или измеренные нормы расхода; для компонентов, уже учтённых в другой норме, укажите 0.','Norms apply to this product across all orders. Use supplier data or measured consumption; enter 0 for components already included in another norm.')}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${salesMetricText('Компонент','Component')}</th><th>${salesMetricText('База','Basis')}</th><th>${salesMetricText('Норма','Norm')}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>`<tr><td>${raw(r.label)}<small>${esc(r.note)}</small></td><td data-raw>${r.key?r.basis==null?'—':r.basis.toFixed(5):'—'}</td><td>${r.key&&salesMetricsEditWeights?`<input aria-label="Weight norm ${i+1}" type="number" min="0" step="any" value="${r.rate==null?'':r.rate}" data-row="${i}" onchange="salesSaveWeightNorm(+this.dataset.row,this.value)">`:r.key?r.rate==null?'—':r.rate:'—'}<small>${r.unit||''}</small></td><td data-raw>${r.kg==null?'—':r.kg.toFixed(3)}</td></tr>`).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${salesMetricText('Вес неполный. Известная часть','Weight incomplete. Known components')}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${salesMetricText('позиций требуют данных','items need data')}</p>`:''}<h4>${salesMetricText('Дополнительные компоненты','Additional components')}</h4><p class="mut">${salesMetricText('Только то, что входит в поставку: фурнитура, крепёж и прочее. Метка обработки Clamp / Hinge сама по себе не означает поставку фурнитуры.','Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.')}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${salesMetricText('Компонент','Component')}</button>`;
+ return `<p>${salesMetricText('Расчётный вес всех компонентов одного юнита. Пустая норма означает отсутствие данных, а не нулевой вес.','Calculated weight of all components in one unit. An empty norm means missing data, not zero weight.')}</p><button type="button" onclick="salesMetricsEditWeights=!salesMetricsEditWeights;render()">${salesMetricsEditWeights?salesMetricText('Закрыть нормы','Close weight norms'):salesMetricText('Редактировать весовые нормы','Edit weight norms')}</button>${salesMetricsEditWeights?`<p class="mut">${salesMetricText('Нормы общие для этого продукта во всех заказах. Площадные нормы и соединители вводятся в граммах; расчёт сам переводит их в kg.','Norms apply across all orders. Area norms and connectors are entered in grams; calculation converts them to kg.')}</p>`:''}<div class="metric-detail-scroll"><table class="metric-weight-table"><thead><tr><th>${salesMetricText('Компонент','Component')}</th><th>${salesMetricText('База','Basis')}</th><th>${salesMetricText('Норма','Norm')}</th><th>kg / unit</th></tr></thead><tbody>${w.rows.map((r,i)=>salesWeightRow(r,i,salesMetricsEditWeights)).join('')}</tbody></table></div><div class="metric-price-row"><span>Unit Weight</span><b data-raw>${w.complete?w.kg.toFixed(2)+' kg':'—'}</b></div><div class="metric-price-row"><span>Line Weight · Qty ${line.qty}</span><b data-raw>${w.complete?w.lineKg.toFixed(2)+' kg':'—'}</b></div>${!w.complete?`<p class="metric-incomplete">${salesMetricText('Вес неполный. Известная часть','Weight incomplete. Known components')}: ${w.knownKg.toFixed(2)} kg/unit · ${w.missing} ${salesMetricText('позиций требуют данных','items need data')}</p>`:''}<h4>${salesMetricText('Дополнительные компоненты','Additional components')}</h4><p class="mut">${salesMetricText('Только то, что входит в поставку: фурнитура, крепёж и прочее. Метка обработки Clamp / Hinge сама по себе не означает поставку фурнитуры.','Supplied items only: hardware, fasteners and other components. A Clamp / Hinge processing mark does not itself mean hardware is supplied.')}</p>${(line.weightExtras||[]).map((x,i)=>`<div class="metric-extra"><input aria-label="Component name ${i+1}" value="${esc(x.label)}" placeholder="Component" oninput="salesSetWeightExtra(${i},'label',this.value)"><input aria-label="Component kg ${i+1}" type="number" min="0" step="any" value="${x.kg==null?'':x.kg}" placeholder="kg / unit" onchange="salesSetWeightExtra(${i},'kg',this.value)"><button type="button" onclick="salesRemoveWeightExtra(${i})">×</button></div>`).join('')}<button type="button" onclick="salesAddWeightExtra()">+ ${salesMetricText('Компонент','Component')}</button>`;
 }
 function salesMetricsLine(){return soDraft&&(soDraft.lines||[]).find(l=>l.id===salesMetricsLineId);}
-function salesSaveWeightNorm(index,value){
+function salesSaveWeightNorm(index,value,factor){
  const line=salesMetricsLine();if(!line)return;
  const row=salesLineWeight(line,soDraft).rows[index];if(!row||!row.key)return;
- const rate=mdNonNeg(value);if(value.trim()!==''&&rate==null){alert('Enter a non-negative weight norm.');render();return;}
+ const shown=mdNonNeg(value),rate=shown==null?null:shown/(factor||1);if(value.trim()!==''&&shown==null){alert('Enter a non-negative weight norm.');render();return;}
  const old=(DB.materialWeightRates||[]).find(r=>r.key===row.key);
  if(old)old.rate=rate;else DB.materialWeightRates.push({key:row.key,rate:rate,note:''});touch();render();
 }

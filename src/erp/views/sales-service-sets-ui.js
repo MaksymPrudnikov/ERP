@@ -44,13 +44,13 @@ salesAssignSelected=function(makeupId){if(!makeupId||!salesMakeupById(soDraft,ma
 /* Ссылки на набор у строки больше нет — бейдж показывает, ОТКУДА пришла
    кромка: от формы или базовая от стекла. Клик открывает разбор по кромкам. */
 function salesSetBadge(line){
-  var shape=salesLineGeometryShape(line);
-  if(!shape)return `<button type='button' class='ss-badge' title='Line needs Width and Height' onclick='salesOpenLineEdgework("${esc(line.id)}")'>—</button>`;
+  var shape=salesLineGeometryShape(line),status=salesLineServiceStatus(line),attention=salesLineNeedsServiceAttention(line),state=attention?' issue':'';
+  if(!shape)return `<button type='button' class='ss-badge issue' title='${esc(status.label)} · click for details' onclick='salesOpenLineEdgework("${esc(line.id)}")'>!</button>`;
   var own=salesShapePhysicalEdges(shape).some(function(edge){return salesShapeOpsForPhysicalEdge(shape,edge).length>0;});
-  if(own)return `<button type='button' class='ss-badge override' title='Edgework is set on the Shape of this line' onclick='salesOpenLineEdgework("${esc(line.id)}")'>Shape</button>`;
+  if(own)return `<button type='button' class='ss-badge override${state}' title='${esc(attention?status.label+' · click for details':'Edgework is set on the Shape of this line')}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>Shape</button>`;
   var kind=salesLineBaseEdgeworkKind(line);
   var source=salesShapeIsLineRect(shape)?'Rectangle has no saved Shape edgework. This is the glass default: ':'Base edgework from the glass of this Makeup: ';
-  return `<button type='button' class='ss-badge' title='${esc(source+glassBaseEdgeworkLabel(kind))}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>${esc(kind==='polish'?'Polish':kind==='arris'?'Arris':'—')}</button>`;
+  return `<button type='button' class='ss-badge${state}' title='${esc(attention?status.label+' · click for details':source+glassBaseEdgeworkLabel(kind))}' onclick='salesOpenLineEdgework("${esc(line.id)}")'>${esc(kind==='polish'?'Polish':kind==='arris'?'Arris':'—')}</button>`;
 }
 
 function salesAssignmentWarning(line,set){
@@ -103,7 +103,6 @@ function salesOrderColumnCell(key,l,i,linked,st){
   if(key==='mark')return `<td><input class='line-mark' value='${esc(l.mark)}' oninput='soDraft.lines[${i}].mark=this.value' onkeydown='salesLineMarkKey(${i},event)'></td>`;
   if(key==='shape')return `<td>${salesLineShapeCell(l,i)}</td>`;
   if(key==='services')return `<td class='line-services-cell'>${salesLineServicesSummary(l)}</td>`;
-  if(key==='status')return `<td class='ss-status'><span class='pill ${st.cls}'>${esc(st.label)}</span></td>`;
   if(key==='notes')return `<td><input class='line-notes line-notes-compact' value='${esc(l.notes)}' oninput='soDraft.lines[${i}].notes=this.value'></td>`;
   return '<td></td>';
 }
