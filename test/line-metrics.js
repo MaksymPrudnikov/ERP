@@ -52,12 +52,12 @@ module.exports=async function({page,eq,ok}){
   const w=salesLineWeight(l,soDraft);return [w.complete,w.kg,w.lineKg,w.missing,w.knownKg>0];
  }),[false,null,null,6,true]);
  eq('Triple mass includes three glasses and both complete cavity assemblies',await t.p.evaluate(()=>{
-  const {l,m}=metricFixture('triple',40,40,2);DB.materialWeightRates=[];
+ const {l,m}=metricFixture('triple',40,40,2);DB.materialWeightRates=[];
   m.cavities.forEach(c=>mdById('spacerVariant',c.spacerVariantId).thicknessMm=12);
   const rates={spacer:.1,desiccant:.02,connectors:.03,seal:.04,gas:1.8};
   salesLineWeight(l,soDraft).rows.filter(r=>r.key).forEach(r=>{if(!DB.materialWeightRates.some(x=>x.key===r.key))DB.materialWeightRates.push({key:r.key,rate:rates[r.key.split(':')[0]]});});
-  const w=salesLineWeight(l,soDraft),a=(40*.0254)**2,p=4*40*.0254;
-  const expected=3*a*.006*2500+2*(p*(.1+.02+.04+.04)+.03+a*.012*1.8);
+  const w=salesLineWeight(l,soDraft),a=(40*.0254)**2,ft2=40*40/144;
+  const expected=3*a*.006*2500+2*(ft2*(.1+.02+.04+.04)+.03+a*.012*1.8);
   return [w.complete,Math.abs(w.kg-expected)<1e-8,Math.abs(w.lineKg-2*expected)<1e-8,w.rows.length];
  }),[true,true,true,15]);
  eq('laminated mass counts both plies and the exact film stack; extra mass persists',await t.p.evaluate(()=>{
@@ -79,6 +79,15 @@ module.exports=async function({page,eq,ok}){
   const {l}=metricFixture('single',48,36,1),s=newShapeDef('raked');s.id='metrics-raked';s.w='48';s.h='36';Object.assign(s.params,{shortHeight:'24',rakeSide:'top',shortSide:'right'});DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
   const a=salesLineAreas(l,soDraft),r=salesLineChargeRows(l).find(r=>r.key==='SURCHARGE:shape-unit');return [a.actual,a.rounded,a.billable,r.basis];
  }),[10,12,12,12]);
+ eq('removing a Shape clears its geometry, lite Shapes and Shape services',await t.p.evaluate(()=>{
+  const {l}=metricFixture('single',12,12,1),old=salesShapeByRef(l.shapeRef);old.type='raked';old.w='41';old.h='50';old.params={shortHeight:'30',rakeSide:'top',shortSide:'right'};old.edgeOps={A:[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})]};
+  const lite=newShapeDef('rectangle');lite.id='metrics-old-lite';lite.ownerLineId=l.id;DB.shapeDef.push(lite);l.liteShapes={'0':salesShapeRefFrom(lite)};const oldId=old.id;
+  salesUnlinkShape(0);const now=salesShapeByRef(l.shapeRef),a=salesLineAreas(l,soDraft);
+  return [DB.shapeDef.some(s=>s.id===oldId),DB.shapeDef.some(s=>s.id===lite.id),salesShapeIsLineRect(now),now.w,now.h,a.actual,a.rounded,salesLineChargeRows(l).some(r=>r.key==='SURCHARGE:shape-unit')];
+ }),[false,false,true,'12','12',1,1,false]);
+ eq('opening an older order repairs a stale line-owned rectangle',await t.p.evaluate(()=>{
+  const {l}=metricFixture('single',12,12,1),s=salesShapeByRef(l.shapeRef);s.w='41';s.h='50';salesEnsureAllLineShapes();const a=salesLineAreas(l,soDraft);return [s.w,s.h,a.actual,a.rounded];
+ }),['12','12',1,1]);
  eq('Frit on each laminated ply is included in service pricing',await t.p.evaluate(()=>{
   const {l,m}=metricFixture('single',48,36,2),p=m.panes[0];p.category='laminated';
   const product=DB.fritProduct[0];product.salePrice=3;
@@ -88,10 +97,11 @@ module.exports=async function({page,eq,ok}){
  await t.p.evaluate(()=>{metricFixture();render();});
  await t.p.locator('[data-so-width]').fill('48');
  await t.p.locator('[data-so-width]').press('Tab');
- eq('changing Width refreshes metrics immediately without losing Tab focus',await t.p.evaluate(()=>({rounded:document.querySelector('td[data-metric="rounded"] b').textContent,price:document.querySelector('td[data-metric="unitPrice"] b').textContent,heightFocused:document.activeElement===document.querySelectorAll('.line-dim')[1]})),{rounded:'24.7',price:'123.50',heightFocused:true});
+ eq('changing Width refreshes Shape and every metric without losing Tab focus',await t.p.evaluate(()=>({shape:salesShapeByRef(soDraft.lines[0].shapeRef).w,actual:document.querySelector('td[data-metric="actual"] b').textContent,rounded:document.querySelector('td[data-metric="rounded"] b').textContent,price:document.querySelector('td[data-metric="unitPrice"] b').textContent,heightFocused:document.activeElement===document.querySelectorAll('.line-dim')[1]})),{shape:'48',actual:'24.5000',rounded:'24.7',price:'123.50',heightFocused:true});
  await t.p.locator('[data-so-width]').fill('');await t.p.locator('[data-so-width]').press('Tab');
  eq('invalid dimension clears the previously displayed price',await t.p.locator('td[data-metric="unitPrice"] b').textContent(),'—');
  await t.p.evaluate(()=>{metricFixture();render();salesOpenMetrics('columns');});
+ eq('table headers stay compact and do not repeat units',await t.p.evaluate(()=>Array.from(document.querySelectorAll('th.line-metric')).every(th=>!/(ft²|CAD|kg)/.test(th.textContent))),true);
  await t.p.getByLabel('screen Unit Weight',{exact:true}).check();
  eq('visibility changes leave pricing untouched',await t.p.evaluate(()=>[salesMetricColumnsFor('screen').some(c=>c.key==='unitWeight'),salesLineCommercialPrice(soDraft.lines[0],soDraft).line]),[true,242]);
  await t.p.getByLabel('print Unit Weight',{exact:true}).uncheck();
@@ -99,13 +109,16 @@ module.exports=async function({page,eq,ok}){
  const profile=await t.p.evaluate(()=>DB.user[0].viewProfileId);
  await t.p.locator('.metric-profile select').selectOption(profile);
  await t.p.getByLabel('screen Line Weight',{exact:true}).check();
+ await t.p.evaluate(()=>salesMoveMetricColumn('lineTotal',-1));
+ await t.p.evaluate(()=>salesMoveMetricColumn('notes',-1));
  await t.p.locator('.metric-profile select').selectOption('browser');
  eq('each profile has its own choices',await t.p.evaluate(()=>salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight')),false);
  await t.p.locator('.metric-profile select').selectOption(profile);
  await t.p.evaluate(()=>{soDraft=null;soEdit=null;});await t.p.reload();
- eq('profile and choices persist after reload',await t.p.evaluate(()=>[salesLoadViewPrefs().active,salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight')]),[profile,true]);
+ eq('profile, choices and reordered base/metric columns persist after reload',await t.p.evaluate(()=>[salesLoadViewPrefs().active,salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight'),salesMetricOrder().indexOf('lineTotal')<salesMetricOrder().indexOf('unitPrice'),salesOrderScreenColumns().indexOf('notes')<salesOrderScreenColumns().indexOf('status')]),[profile,true,true,true]);
  await t.p.evaluate(()=>{tab='sales';salesOrderNew();salesOpenMetrics('columns');salesResetMetricColumns('screen');});
  eq('reset restores only the selected context',await t.p.evaluate(()=>salesMetricColumnsFor('screen').map(c=>c.key)),['actual','rounded','unitPrice','lineTotal']);
+ eq('provided shop weight norms are editable Master Data in grams',await t.p.evaluate(()=>{salesNormalizeWeightRates();mdTab='weight';const r=DB.materialWeightRates.find(x=>x.key==='spacer:SP-BWE-1732');mdWeightSet(r.key,'31',1000);return [r.rate,viewMdWeight().includes('Polysulphide + catalyst')];}),[.031,true]);
  await t.p.evaluate(()=>{salesOpenMetrics('rules');});
  await t.p.locator('input[name="triplePercent"]').fill('40');
  await t.p.getByRole('button',{name:'Apply to this and new orders'}).click();

@@ -8,8 +8,13 @@ const SALES_METRIC_COLUMNS=[
  {key:'unitPrice',label:'Unit Price',unit:'',screen:true,print:true},
  {key:'lineTotal',label:'Line Total',unit:'',screen:true,print:true}
 ];
+const SALES_ORDER_BASE_COLUMNS=[
+ {key:'mu',label:'MU'},{key:'set',label:'Set'},{key:'qty',label:'Qty'},{key:'width',label:'Width'},{key:'height',label:'Height'},
+ {key:'mark',label:'Mark'},{key:'shape',label:'Shape'},{key:'services',label:'Services'},{key:'status',label:'Status'},{key:'notes',label:'Notes'}
+];
+const SALES_ORDER_DEFAULT_COLUMN_ORDER=['mu','set','qty','width','height','mark','shape','services'].concat(SALES_METRIC_COLUMNS.map(c=>c.key),['status','notes']);
 let salesMetricsPanel=null,salesMetricsLineId=null,salesMetricsEditWeights=false;
-let salesViewPrefs=null,salesViewSaveFailed=false;
+let salesViewPrefs=null,salesViewSaveFailed=false,salesMetricDragKey=null;
 const salesMetricText=(ru,en)=>LANG==='ru'?ru:en;
 function salesLoadViewPrefs(){
  if((DB.user||[]).some(u=>!u.viewProfileId)){normalizeUsers();touch();}
@@ -25,8 +30,28 @@ function salesSaveViewPrefs(){
 }
 function salesMetricColumnsFor(context){
  const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{},keys=v[context];
- return SALES_METRIC_COLUMNS.filter(c=>Array.isArray(keys)?keys.includes(c.key):c[context]);
+ const order=salesMetricOrder(),visible=new Set(Array.isArray(keys)?keys:SALES_METRIC_COLUMNS.filter(c=>c[context]).map(c=>c.key));
+ return order.map(key=>SALES_METRIC_COLUMNS.find(c=>c.key===key)).filter(c=>c&&visible.has(c.key));
 }
+function salesOrderColumnOrder(){
+ const p=salesLoadViewPrefs(),v=p.profiles[p.active]||{},known=SALES_ORDER_DEFAULT_COLUMN_ORDER,saved=Array.isArray(v.order)?v.order.filter(k=>known.includes(k)):[];
+ const metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key));
+ if(saved.length&&saved.every(k=>metric.has(k))){const queue=saved.concat(SALES_METRIC_COLUMNS.map(c=>c.key).filter(k=>!saved.includes(k)));return known.map(k=>metric.has(k)?queue.shift():k);}
+ return saved.concat(known.filter(k=>!saved.includes(k)));
+}
+function salesMetricOrder(){
+ const metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key));return salesOrderColumnOrder().filter(k=>metric.has(k));
+}
+function salesSetMetricOrder(order){
+ const current=salesOrderColumnOrder(),metric=new Set(SALES_METRIC_COLUMNS.map(c=>c.key)),queue=order.filter(k=>metric.has(k));
+ const next=current.map(k=>metric.has(k)?queue.shift():k);
+ const p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};p.profiles[p.active].order=next;salesSaveViewPrefs();render();
+}
+function salesSetOrderColumnOrder(order){const known=SALES_ORDER_DEFAULT_COLUMN_ORDER,next=order.filter((k,i)=>known.includes(k)&&order.indexOf(k)===i).concat(known.filter(k=>!order.includes(k))),p=salesLoadViewPrefs();if(!p.profiles[p.active])p.profiles[p.active]={};p.profiles[p.active].order=next;salesSaveViewPrefs();render();}
+function salesMoveMetricColumn(key,delta){const order=salesOrderColumnOrder(),at=order.indexOf(key),to=Math.max(0,Math.min(order.length-1,at+delta));if(at<0||at===to)return;order.splice(at,1);order.splice(to,0,key);salesSetOrderColumnOrder(order);}
+function salesMetricDragStart(e,key){salesMetricDragKey=key;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',key);e.currentTarget.classList.add('dragging');}
+function salesMetricDragEnd(e){salesMetricDragKey=null;e.currentTarget.classList.remove('dragging');}
+function salesMetricDrop(e,key){e.preventDefault();const from=salesMetricDragKey||e.dataTransfer.getData('text/plain'),order=salesOrderColumnOrder(),a=order.indexOf(from),b=order.indexOf(key);if(a<0||b<0||a===b)return;order.splice(a,1);order.splice(b,0,from);salesSetOrderColumnOrder(order);}
 function salesSetMetricColumn(context,key,on){
  if(!['screen','print'].includes(context)||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
  const p=salesLoadViewPrefs(),keys=salesMetricColumnsFor(context).map(c=>c.key),set=new Set(keys);
@@ -39,17 +64,21 @@ function salesSetViewProfile(id){
  salesLoadViewPrefs().active=id;touch();salesSaveViewPrefs();render();
 }
 function salesResetMetricColumns(context){
- const p=salesLoadViewPrefs();if(p.profiles[p.active])delete p.profiles[p.active][context];
+ const p=salesLoadViewPrefs();if(p.profiles[p.active]){delete p.profiles[p.active][context];delete p.profiles[p.active].order;}
  salesSaveViewPrefs();render();
 }
 function salesOpenMetrics(panel,id){salesMetricsPanel=panel;salesMetricsLineId=id||null;salesMetricsEditWeights=false;render();}
 function salesCloseMetrics(){salesMetricsPanel=null;render();}
 function salesMetricsTools(){return `<button type="button" onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки','Columns')}</button><button type="button" onclick="salesOpenMetrics('rules')">${salesMetricText('Правила цены','Pricing rules')}</button><button type="button" onclick="salesOpenMetrics('print')">${salesMetricText('Печать заказа','Print order')}</button>`;}
-function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span><small>${c.unit||esc(soDraft.currency)}</small></th>`).join('');}
+function salesMetricHeaders(context){return salesMetricColumnsFor(context).map(c=>`<th class="line-metric" data-metric="${c.key}"><span data-raw>${c.label}</span></th>`).join('');}
 function salesMetricCells(line,context){
  const columns=salesMetricColumnsFor(context),price=salesLineCommercialPrice(line,soDraft),a=price.areas;
  const weight=columns.some(c=>/Weight/.test(c.key))?salesLineWeight(line,soDraft):null;
- return columns.map(c=>{
+ return columns.map(c=>salesMetricCell(line,c,context,price,a,weight)).join('');
+}
+function salesMetricCell(line,c,context,price,a,weight){
+ price=price||salesLineCommercialPrice(line,soDraft);a=a||price.areas;
+ if(!weight&&/Weight/.test(c.key))weight=salesLineWeight(line,soDraft);
   let value=null,detail='',panel='price';
   if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';detail=c.key==='billable'&&a.billable>a.rounded?salesMetricText('Минимум','Minimum'):'';}
   else if(c.key==='unitPrice'||c.key==='lineTotal'){value=c.key==='unitPrice'?price.unit:price.line;detail=price.complete?'':salesMetricText('Нужна цена','Price incomplete');}
@@ -57,7 +86,6 @@ function salesMetricCells(line,context){
   const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
   const body=`<b data-raw>${text}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
- }).join('');
 }
 function salesCommercialOrderSummary(){
  let total=0,missing=0,qty=0;
@@ -66,7 +94,8 @@ function salesCommercialOrderSummary(){
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
- return `<label class="metric-profile">${salesMetricText('Настройки вида для','View preferences for')}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${salesMetricText('Этот браузер','This browser')}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${salesMetricText('Выбор сохраняется автоматически в этом браузере. Профиль вида не является входом в учётную запись.','Selections save automatically in this browser. A view profile is not an account sign-in.')}</p><div class="metric-column-grid"><span></span><b>${salesMetricText('Экран','Screen')}</b><b>${salesMetricText('Печать','Print')}</b>${SALES_METRIC_COLUMNS.map(c=>`<span data-raw>${c.label}${c.unit?' · '+c.unit:''}</span>${['screen','print'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join('')}`).join('')}<span>${salesMetricText('Стандартный вид','Standard view')}</span>${['screen','print'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${salesMetricText('Вернуть','Reset')}</button>`).join('')}</div>${salesViewSaveFailed?`<p class="metric-incomplete">${salesMetricText('Не удалось сохранить настройки браузера. Выбор действует до закрытия страницы.','Browser preferences could not be saved. Selections apply until this page closes.')}</p>`:''}`;
+ const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${salesMetricText('Перетащите колонку','Drag column')}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen','print'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${salesMetricText('Основная колонка заказа','Required order column')}">●</span><span class="metric-required">—</span>`}</div>`;}).join('');
+ return `<label class="metric-profile">${salesMetricText('Настройки вида для','View preferences for')}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${salesMetricText('Этот браузер','This browser')}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${salesMetricText('Выбор, порядок экрана и печати сохраняются автоматически в этом браузере. Перетяните строку или используйте стрелки.','Visibility and order for screen and print save automatically in this browser. Drag a row or use the arrows.')}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${salesMetricText('Колонка','Column')}</span><span>${salesMetricText('Порядок','Order')}</span><b>${salesMetricText('Экран','Screen')}</b><b>${salesMetricText('Печать','Print')}</b></div>${rows}<div class="metric-column-reset"><span>${salesMetricText('Стандартный вид','Standard view')}</span>${['screen','print'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${salesMetricText('Вернуть','Reset')}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${salesMetricText('Не удалось сохранить настройки браузера. Выбор действует до закрытия страницы.','Browser preferences could not be saved. Selections apply until this page closes.')}</p>`:''}`;
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);

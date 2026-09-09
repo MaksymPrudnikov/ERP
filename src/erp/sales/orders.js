@@ -233,7 +233,8 @@ function salesLineDimChange(i,key,el){
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
  /* Форма заводится/двигается молча: render() здесь увёл бы каретку из строки
     при переходе Tab между Width, Height и Mark. */
- if(!salesEnsureLineShape(line))salesSyncShapeFromLine(line);
+ salesEnsureLineShape(line);
+ salesSyncShapeFromLine(line);
  salesRefreshLineMetrics(line);
  touch();
 }
@@ -1007,7 +1008,9 @@ function salesEnsureAllLineShapes(){
  if(!soDraft)return 0;
  let made=0;
  (soDraft.lines||[]).forEach(function(line){
-  if(salesEnsureLineShape(line))made++;else salesSyncShapeFromLine(line);
+  const existed=!!salesShapeByRef(line.shapeRef),shape=salesEnsureLineShape(line);
+  if(!existed&&shape)made++;
+  salesSyncShapeFromLine(line);
   salesMigrateLineEdgeworkToShape(line);
  });
  return made;
@@ -1258,6 +1261,7 @@ function salesBridgeOnShapeSaved(id){
    прямоугольник по её же Width × Height, а не пустоту. */
 function salesUnlinkShape(i){
  const l=soDraft.lines[i];if(!l)return;
+ salesDropLineLiteShapes(l);l.liteShapes={};
  salesDropLineOwnedShape(l);
  l.shapeRef=normalizeShapeRef({});
  salesEnsureLineShape(l);
