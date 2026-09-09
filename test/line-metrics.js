@@ -102,6 +102,7 @@ module.exports=async function({page,eq,ok}){
  eq('invalid dimension clears the previously displayed price',await t.p.locator('td[data-metric="unitPrice"] b').textContent(),'—');
  await t.p.evaluate(()=>{metricFixture();render();salesOpenMetrics('columns');});
  eq('table headers stay compact and do not repeat units',await t.p.evaluate(()=>Array.from(document.querySelectorAll('th.line-metric')).every(th=>!/(ft²|CAD|kg)/.test(th.textContent))),true);
+ eq('metric cells contain values only; explanations stay behind the click',await t.p.evaluate(()=>document.querySelectorAll('td.line-metric small').length),0);
  await t.p.getByLabel('screen Unit Weight',{exact:true}).check();
  eq('visibility changes leave pricing untouched',await t.p.evaluate(()=>[salesMetricColumnsFor('screen').some(c=>c.key==='unitWeight'),salesLineCommercialPrice(soDraft.lines[0],soDraft).line]),[true,242]);
  await t.p.getByLabel('print Unit Weight',{exact:true}).uncheck();

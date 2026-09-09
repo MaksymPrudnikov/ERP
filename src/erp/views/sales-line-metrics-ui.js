@@ -79,12 +79,12 @@ function salesMetricCells(line,context){
 function salesMetricCell(line,c,context,price,a,weight){
  price=price||salesLineCommercialPrice(line,soDraft);a=a||price.areas;
  if(!weight&&/Weight/.test(c.key))weight=salesLineWeight(line,soDraft);
-  let value=null,detail='',panel='price';
-  if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';detail=c.key==='billable'&&a.billable>a.rounded?salesMetricText('Минимум','Minimum'):'';}
-  else if(c.key==='unitPrice'||c.key==='lineTotal'){value=c.key==='unitPrice'?price.unit:price.line;detail=price.complete?'':salesMetricText('Нужна цена','Price incomplete');}
-  else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';detail=weight.complete?salesMetricText('Расчётный','Calculated'):salesMetricText('Вес неполный','Weight incomplete');}
+  let value=null,panel='price';
+  if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';}
+  else if(c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='unitPrice'?price.unit:price.line;
+  else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
   const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
-  const body=`<b data-raw>${text}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
+  const body=`<b data-raw>${text}</b>`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
 function salesCommercialOrderSummary(){
