@@ -19,6 +19,7 @@ const MD_TABS=[
  {k:'glass',    label:'Каталог стекла'},
  {k:'supply',   label:'Точки поставки'},
  {k:'spacer',   label:'Spacers & rates'},
+ {k:'weight',   label:'Weight norms'},
  {k:'hardware', label:'Hardware'},
  {k:'allowance',label:'Припуск на рез'},
  {k:'overview', label:'Обзор базы'}
@@ -33,6 +34,7 @@ let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
 let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
+let mdWeightFilter='';
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -51,9 +53,9 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='allowance'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'?'':mdImportCard()}`;
 }
 function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
@@ -442,6 +444,25 @@ function mdSpacerDelete(id){
  const used=(DB.salesOrder||[]).some(o=>(o.makeups||[]).some(m=>(m.cavities||[]).some(c=>c.spacerVariantId===id)));
  if(!confirm(used?'This spacer is used in saved orders. Delete anyway? It will become unknown there.':'Delete this spacer?'))return;
  DB.spacerVariant=DB.spacerVariant.filter(x=>x.id!==id);touch();render();
+}
+
+/* Weight coefficients remain editable master data. Area-based shop norms are
+   shown in grams because that is how they are measured, while calculation
+   stores kg in one canonical unit. */
+function mdWeightDisplay(row){if(row.unit==='kg/ft²')return {value:row.rate==null?'':row.rate*1000,unit:'g/ft²',factor:1000};if(row.unit==='kg/unit')return {value:row.rate==null?'':row.rate*1000,unit:'g/unit',factor:1000};return {value:row.rate==null?'':row.rate,unit:row.unit||'kg/unit',factor:1};}
+function mdWeightSearchChange(el){mdWeightFilter=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('mdWeightSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
+function viewMdWeight(){
+ const q=mdWeightFilter.trim().toLowerCase(),rows=(DB.materialWeightRates||[]).filter(r=>!q||[r.label,r.key,r.note,r.unit].join(' ').toLowerCase().includes(q));
+ return `<div class="sub">Weight norms are shared by every order. Glass uses geometry × thickness × density; the rows below supply measured material consumption. Empty means unknown and keeps Line Weight visibly incomplete.</div>
+  <div class="filters"><input id="mdWeightSearch" value="${esc(mdWeightFilter)}" placeholder="Search component" oninput="mdWeightSearchChange(this)"></div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Component</th><th>Norm</th><th>Unit</th><th>Note</th></tr></thead><tbody>${rows.map(r=>{const d=mdWeightDisplay(r);return `<tr><td><b>${raw(r.label||r.key)}</b><div class="mut mono">${raw(r.key)}</div></td><td><input type="number" min="0" step="any" style="width:110px" value="${d.value}" placeholder="unknown" onchange="mdWeightSet('${esc(r.key)}',this.value,${d.factor})"></td><td>${esc(d.unit)}</td><td>${raw(r.note||'')}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">No matching norms</td></tr>'}</tbody></table></div>`;
+}
+function mdWeightSet(key,value,factor){
+ const row=(DB.materialWeightRates||[]).find(r=>r.key===key);if(!row)return;
+ const typed=String(value==null?'':value).trim();
+ if(typed===''){row.rate=null;touch();render();return;}
+ const n=Number(typed);if(!Number.isFinite(n)||n<0){render();return;}
+ row.rate=n/(factor||1);touch();render();
 }
 
 /* --- 3. Фурнитура ------------------------------------------------------

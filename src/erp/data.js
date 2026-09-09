@@ -59,7 +59,10 @@ const normSkill = x => {
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
+ const profileIds=new Set();
  DB.user.forEach(u=>{
+  if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
+  profileIds.add(u.viewProfileId);
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
   const legacy=u.workPosition==null?u.station:u.workPosition;
   const code=String(legacy==null?'':legacy).trim().toUpperCase();

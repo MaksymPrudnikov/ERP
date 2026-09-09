@@ -3,7 +3,8 @@
  "styles": [
   "src/styles/base.css",
   "src/styles/modules.css",
-  "src/styles/service-sets.css"
+  "src/styles/service-sets.css",
+  "src/styles/line-metrics.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -45,11 +46,13 @@
   "src/erp/views/customers.js",
   "src/erp/sales/orders.js",
   "src/erp/sales/service-sets.js",
+  "src/erp/sales/line-metrics.js",
   "src/erp/sales/print-route.js",
   "src/erp/sales/print-sheet.js",
   "src/erp/sales/frit-drawing.js",
   "src/erp/sales/makeup-ui.js",
   "src/erp/views/sales.js",
+  "src/erp/views/sales-line-metrics-ui.js",
   "src/erp/views/sales-shape-ui.js",
   "src/erp/views/shape-production-ui.js",
   "src/erp/views/configurators.js",
