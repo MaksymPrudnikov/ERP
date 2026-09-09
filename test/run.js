@@ -805,8 +805,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(d),bottom=(r.edges||[]).filter(e=>e.id==='B'),dxf=r.valid?ShapeModule.genericDxf(r):'';
       return {valid:r.valid,errors:r.errors||[],bottomStraight:bottom.length,arcs:Object.keys(r.geometry&&r.geometry.radiusMeta||{}).length,dxf:dxf.includes('CUT_OUTER')&&dxf.endsWith('EOF\n')};
     }), {valid:true,errors:[],bottomStraight:0,arcs:2,dxf:true});
+    eq('Smart Shape exposes physical corners and accepts Radius corner', await p.evaluate(() => {
+      const d=newShapeDef('smart');d.w='20';d.h='36';d.smart=ssNormalize({elbowsOn:false,C:{len:'36'}});
+      const base=ShapeModule.compute(d),ids=base.vertices.map(v=>v.id),old=sDraft;sDraft=d;
+      d.features=[shapeNormalizeFeature({type:'radius',vertexId:'BL',radius:'2'})];
+      const r=ShapeModule.compute(d),editor=shapeGeometryBodyHTML(base.geometry);sDraft=old;
+      return {base:base.valid,ids:ids,button:editor.includes('+ Radius corner'),valid:r.valid,rounded:r.points.length>4,arc:Object.keys(r.geometry.radiusMeta||{})};
+    }), {base:true,ids:['BL','TL','TR','BR'],button:true,valid:true,rounded:true,arc:['R:BL']});
+    eq('Rectangle uses only its four edge dimensions, like Smart Shape', await p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.w='60';d.h='80';
+      const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d)),'image/svg+xml');
+      return {edges:[...doc.querySelectorAll('.shape-inch-edge-dimension')].map(x=>x.getAttribute('data-edge-id')),overall:doc.querySelectorAll('[data-inch-primary-key^="inch:overall:"]').length};
+    }), {edges:['A','D','C','B'],overall:0});
     eq('ручной отступ габарита имеет те же координаты на экране и в печати', await p.evaluate(() => {
-      const d=newShapeDef('rectangle');d.w='33';d.h='80';const r=ShapeModule.compute(d);
+      const d=newShapeDef('raked');d.w='33';d.h='80';d.params.shortHeight='60';const r=ShapeModule.compute(d);
       function read(sheet,offsets){
         const annotation={interactive:true,offsets:offsets||{}};
         const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(r,{sheet:sheet,annotation:annotation}),'image/svg+xml');
@@ -4122,8 +4134,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=shapeDraftResult(),before=r.fingerprint;
       const dxfBefore=ShapeModule.genericDxf(r),payloadBefore=JSON.stringify(ShapeModule.machinePayload(r));
       const svg=shapeDrawnProductionSvg(r,false,{sheet:true});
-      printSheetPrepare(salesShapeSheetHTML(sDraft,r,svg,'PRODUCTION DRAWING'),'',salesSheetFitDrawing);
-      const host=document.getElementById('printSheetHost'),html=host.innerHTML;
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,svg,'PRODUCTION DRAWING'),'');
+      const host=document.getElementById('printSheetHost'),drawn=host.querySelector('.sheet-field svg'),originalViewBox=drawn.getAttribute('viewBox').split(/\s+/).map(Number);
+      salesSheetFitDrawing(host);
+      const html=host.innerHTML,fittedViewBox=drawn.getAttribute('viewBox').split(/\s+/).map(Number);
       const out={
         /* Заказчик слева, PO по центру, номер заказа справа — одной строкой. */
         order:[...host.querySelectorAll('.sheet-id b')].map(function(x){return x.textContent;}),
@@ -4147,6 +4161,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         uuidOnSheet:html.indexOf(r.definition.id)>=0,
         /* Cut size печатается ОДИН раз — в станции CUT, а не ещё и в шапке. */
         cutTwice:(html.match(/50 1\/4/g)||[]).length,
+        drawingCropped:fittedViewBox[2]<originalViewBox[2]&&fittedViewBox[3]<originalViewBox[3],
+        blankCanvasRemoved:!drawn.querySelector(':scope > rect:first-of-type'),
         fingerprintKept:shapeDraftResult().fingerprint===before,
         machineKept:ShapeModule.genericDxf(shapeDraftResult())===dxfBefore&&
           JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===payloadBefore};
@@ -4160,7 +4176,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       /* Сторона названа буквой — слово Left рядом с буквой A было повтором,
          а точка отсчёта названа буквой соседней стороны: её видно на чертеже. */
       hinge:'HINGE Vienna 180 — A 33 from B',
-      letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,
+      letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,drawingCropped:true,blankCanvasRemoved:true,
       fingerprintKept:true,machineKept:true});
 
     /* Surface treatments are independent of geometry and must survive every

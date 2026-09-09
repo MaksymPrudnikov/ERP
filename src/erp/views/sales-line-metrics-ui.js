@@ -1,5 +1,6 @@
 /* User-selectable screen and print columns; stored independently of orders. */
 const SALES_METRIC_COLUMNS=[
+ {key:'materials',label:'Materials',unit:'',screen:true,print:false},
  {key:'actual',label:'Actual Area',unit:'ft²',screen:true,print:true},
  {key:'rounded',label:'Rounded Area',unit:'ft²',screen:true,print:false},
  {key:'billable',label:'Billable Area',unit:'ft²',screen:false,print:false},
@@ -21,6 +22,10 @@ function salesLoadViewPrefs(){
  if(salesViewPrefs)return salesViewPrefs;
  try{const p=JSON.parse(localStorage.getItem('glass_erp_line_columns_v1')||'{}');salesViewPrefs=p&&typeof p==='object'&&!Array.isArray(p)?p:{};}catch(e){salesViewPrefs={};}
  if(!salesViewPrefs.profiles||typeof salesViewPrefs.profiles!=='object'||Array.isArray(salesViewPrefs.profiles))salesViewPrefs.profiles={};
+ if(salesViewPrefs.columnsVersion!==2){
+  Object.keys(salesViewPrefs.profiles).forEach(id=>{const v=salesViewPrefs.profiles[id]||{};if(Array.isArray(v.order)&&!v.order.includes('materials')){const at=v.order.indexOf('services');v.order.splice(at<0?v.order.length:at+1,0,'materials');}if(Array.isArray(v.screen)&&!v.screen.includes('materials'))v.screen.unshift('materials');});
+  salesViewPrefs.columnsVersion=2;try{localStorage.setItem('glass_erp_line_columns_v1',JSON.stringify(salesViewPrefs));}catch(e){salesViewSaveFailed=true;}
+ }
  if(!(DB.user||[]).some(u=>u.viewProfileId===salesViewPrefs.active))salesViewPrefs.active='browser';
  return salesViewPrefs;
 }
@@ -81,7 +86,7 @@ function salesMetricCell(line,c,context,price,a,weight){
  if(!weight&&/Weight/.test(c.key))weight=salesLineWeight(line,soDraft);
   let value=null,panel='price';
   if(['actual','rounded','billable'].includes(c.key)){value=a[c.key];panel='area';}
-  else if(c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='unitPrice'?price.unit:price.line;
+  else if(c.key==='materials'||c.key==='unitPrice'||c.key==='lineTotal')value=c.key==='materials'?(!price.missingMaterials&&!price.unsupportedCurrency?price.materials:null):(c.key==='unitPrice'?price.unit:price.line);
   else{value=c.key==='unitWeight'?weight.kg:weight.lineKg;panel='weight';}
   const text=value==null?'—':value.toFixed(c.key==='actual'?4:['rounded','billable'].includes(c.key)?1:2);
   const body=`<b data-raw>${text}</b>`;
@@ -89,22 +94,19 @@ function salesMetricCell(line,c,context,price,a,weight){
 }
 function salesCommercialOrderSummary(interactive){
  const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2)+' '+cur:'—';
- const rows=[`<span>Subtotal <b data-raw>${money(t.subtotal)}</b></span>`];
- if(c.energy.enabled)rows.push(`<span>ES <small data-raw>${c.energy.rate}%</small> <b data-raw>${money(t.energy)}</b></span>`);
- if(c.hst.enabled)rows.push(`<span>HST <small data-raw>${c.hst.rate}%</small> <b data-raw>${money(t.hst)}</b></span>`);
- if(c.card.enabled)rows.push(`<span>${esc(salesCardNetworkLabel(c.card.network))} <small data-raw>${c.card.rate}%</small> <b data-raw>${money(t.card)}</b></span>`);
- if(c.delivery.enabled)rows.push(`<span>Delivery <b data-raw>${money(t.delivery)}</b></span>`);
- rows.push(`<span class="metric-grand-total">Total <b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${salesMetricText('строк требуют цены','lines need pricing')}</small>`:''}</span>`);
+ const item=(key,label,rate,value,shown)=>`<span class="metric-order-charge-item charge-${key}${shown?'':' is-empty'}"><span class="metric-order-charge-label">${label}${rate!=null?` <small data-raw>${rate}%</small>`:''}</span><b data-raw>${shown?money(value):''}</b></span>`;
+ const rows=[item('subtotal','Subtotal',null,t.subtotal,true),item('energy','ES',c.energy.rate,t.energy,c.energy.enabled),item('hst','HST',c.hst.rate,t.hst,c.hst.enabled),item('card',esc(salesCardNetworkLabel(c.card.network)),c.card.rate,t.card,c.card.enabled),item('delivery','Delivery',null,t.delivery,c.delivery.enabled),item('skid','Skid Deposit',null,t.skidDeposit,c.skidDeposit.enabled)];
+ rows.push(`<span class="metric-order-charge-item charge-total metric-grand-total"><span class="metric-order-charge-label">Total</span><b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${salesMetricText('строк требуют цены','lines need pricing')}</small>`:''}</span>`);
  const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
  return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${salesMetricText('Весь заказ','Entire order')} · ${t.qty} ${salesMetricText('шт.','units')}</small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
 }
 function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
 function salesSetOrderChargeEnabled(key,enabled){
- if(!['energy','hst','card','delivery'].includes(key))return;
+ if(!['energy','hst','card','delivery','skidDeposit'].includes(key))return;
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
 }
 function salesSetOrderChargeValue(key,field,value){
- if(!soDraft||!['energy','hst','card','delivery'].includes(key)||!['rate','amount'].includes(field))return;
+ if(!soDraft||!['energy','hst','card','delivery','skidDeposit'].includes(key)||!['rate','amount'].includes(field))return;
  const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
  soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
 }
@@ -118,8 +120,9 @@ function salesOrderChargesPanel(){
  return `<p class="mut">${salesMetricText('Начисления выполняются сверху вниз. Отключённая строка сохраняет свою ставку и может быть включена снова.','Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again.')}</p><div class="metric-order-charge-editor">
   ${toggle('energy','Energy Surcharge',pct('energy'))}
   ${toggle('hst','HST',pct('hst')+`<small>${salesMetricText('Способ оплаты сам не отключает налог.','Payment method does not disable tax automatically.')}</small>`)}
-  ${toggle('card','Card fee',`<label>${salesMetricText('Карта','Card')}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
-  ${toggle('delivery','Delivery',`<label>${salesMetricText('Сумма вручную','Manual amount')}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${salesMetricText('Добавляется последней; ES, HST и Card fee на неё не начисляются.','Added last; ES, HST and Card fee do not apply to it.')}</small>`)}
+   ${toggle('card','Card fee',`<label>${salesMetricText('Карта','Card')}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
+   ${toggle('delivery','Delivery',`<label>${salesMetricText('Фиксированная сумма','Fixed amount')}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${salesMetricText('Не входит в базу ES, HST или Card fee.','Excluded from the ES, HST and Card fee bases.')}</small>`)}
+   ${toggle('skidDeposit','Skid Deposit',`<label>${salesMetricText('Фиксированная сумма','Fixed amount')}<input type="number" min="0" step="0.01" value="${c.skidDeposit.amount}" onchange="salesSetOrderChargeValue('skidDeposit','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${salesMetricText('Депозит клиента за skid; не входит в базу комиссий.','Customer skid deposit; excluded from all fee bases.')}</small>`)}
  </div><div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
@@ -170,7 +173,7 @@ function salesSaveWeightNorm(index,value,factor){
  const row=salesLineWeight(line,soDraft).rows[index];if(!row||!row.key)return;
  const shown=mdNonNeg(value),rate=shown==null?null:shown/(factor||1);if(value.trim()!==''&&shown==null){alert('Enter a non-negative weight norm.');render();return;}
  const old=(DB.materialWeightRates||[]).find(r=>r.key===row.key);
- if(old)old.rate=rate;else DB.materialWeightRates.push({key:row.key,rate:rate,note:''});touch();render();
+ if(old){old.rate=rate;old.derived=false;}else DB.materialWeightRates.push({key:row.key,rate:rate,note:'',derived:false});touch();render();
 }
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}

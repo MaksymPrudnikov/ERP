@@ -329,8 +329,13 @@ function salesShapeSheetHTML(shape,result,svg,kind){
 function salesSheetFitDrawing(host){
   var svg=host&&host.querySelector('.sheet-field svg');if(!svg||!svg.getBBox)return;
   try{
+    /* The first rect is only the white SVG canvas. Including it in getBBox()
+       made the crop equal to the old viewBox, leaving the drawing small inside
+       large invisible margins. The printed sheet already supplies white paper. */
+    var background=svg.querySelector(':scope > rect:first-of-type');
+    if(background&&background.getAttribute('x')==null&&background.getAttribute('y')==null)background.remove();
     var b=svg.getBBox();if(!(b.width>0&&b.height>0))return;
-    var m=Math.max(6,Math.min(b.width,b.height)*0.02);
+    var m=Math.max(3,Math.min(b.width,b.height)*0.01);
     svg.setAttribute('viewBox',(b.x-m).toFixed(1)+' '+(b.y-m).toFixed(1)+' '+
       (b.width+m*2).toFixed(1)+' '+(b.height+m*2).toFixed(1));
   }catch(e){}

@@ -25,23 +25,23 @@ module.exports=async function({page,eq,ok}){
   const aa=salesLineAreas(a,soDraft),bb=salesLineAreas(b,soDraft);
   return [aa.actual.toFixed(4),aa.rounded,aa.billable,bb.actual.toFixed(4),bb.rounded,bb.billable*10];
  }),['18.3333',18.4,18.4,'11.1111',11.2,112]);
- eq('order charges follow Subtotal -> ES -> HST -> Card -> manual Delivery',await t.p.evaluate(()=>{
-  const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,network:'visa',rate:2.34},delivery:{enabled:true,amount:500}};
+ eq('order charges follow Subtotal -> ES -> HST -> Card -> fixed Delivery and Skid Deposit',await t.p.evaluate(()=>{
+  const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,network:'visa',rate:2.34},delivery:{enabled:true,amount:500},skidDeposit:{enabled:true,amount:750}};
   const x=salesApplyOrderCharges(13000,c),deliveryOnly=salesApplyOrderCharges(13000,{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:true,amount:500}});
-  return {x:[x.subtotal,x.energy,x.hstBase,x.hst,x.cardBase,x.card,x.delivery,x.grand],deliveryOnly:deliveryOnly.grand};
- }),{x:[13000,1267.5,14267.5,1854.78,16122.28,377.26,500,16999.54],deliveryOnly:13500});
- eq('new order snapshots ES 9.75 and HST 13 while card and delivery are optional',await t.p.evaluate(()=>{
-  const o=newSalesOrderDraft(),c=o.orderCharges;return [c.energy.enabled,c.energy.rate,c.hst.enabled,c.hst.rate,c.card.enabled,c.card.network,c.card.rate,c.delivery.enabled,c.delivery.amount];
- }),[true,9.75,true,13,false,'visa',2.34,false,0]);
- eq('Service + opens editable ES, HST, card and manual delivery with a live breakdown',await t.p.evaluate(()=>{
+  return {x:[x.subtotal,x.energy,x.hstBase,x.hst,x.cardBase,x.card,x.delivery,x.skidDeposit,x.grand],deliveryOnly:deliveryOnly.grand};
+ }),{x:[13000,1267.5,14267.5,1854.78,16122.28,377.26,500,750,17749.54],deliveryOnly:13500});
+ eq('new order snapshots ES 9.75 and HST 13 while card, delivery and skid deposit are optional',await t.p.evaluate(()=>{
+  const o=newSalesOrderDraft(),c=o.orderCharges;return [c.energy.enabled,c.energy.rate,c.hst.enabled,c.hst.rate,c.card.enabled,c.card.network,c.card.rate,c.delivery.enabled,c.delivery.amount,c.skidDeposit.enabled,c.skidDeposit.amount];
+ }),[true,9.75,true,13,false,'visa',2.34,false,0,false,0]);
+ eq('Service + opens editable charges and fixed delivery/skid amounts with a stable breakdown',await t.p.evaluate(()=>{
   metricFixture('single',47,73.5,2);render();
-  const before={button:document.querySelector('.metric-order-service-add').textContent.trim(),summary:document.querySelector('.metric-order-total').textContent.replace(/\s+/g,' ').trim()};
+  const summary=document.querySelector('.metric-order-total'),before={button:summary.querySelector('.metric-order-service-add').textContent.trim(),labels:[...summary.querySelectorAll('.metric-order-charge-item:not(.is-empty) .metric-order-charge-label')].map(x=>x.textContent.replace(/\s+/g,' ').trim())};
   salesOpenMetrics('orderCharges');
   const modal=document.querySelector('.metric-order-charge-editor'),initial={checked:modal.querySelectorAll('input[type="checkbox"]:checked').length,rates:[...modal.querySelectorAll('input[type="number"]')].map(x=>+x.value),cards:[...modal.querySelectorAll('select option')].map(x=>x.value)};
-  salesSetOrderChargeEnabled('card',true);salesSetOrderChargeEnabled('delivery',true);salesSetOrderChargeValue('delivery','amount','500');
+  salesSetOrderChargeEnabled('card',true);salesSetOrderChargeEnabled('delivery',true);salesSetOrderChargeValue('delivery','amount','500');salesSetOrderChargeEnabled('skidDeposit',true);salesSetOrderChargeValue('skidDeposit','amount','750');
   const after=salesOrderCommercialTotals(soDraft),text=document.querySelector('.metric-order-total').textContent.replace(/\s+/g,' ').trim();
-  return {before,initial,after:[after.subtotal,after.energy,after.hst,after.card,after.delivery,after.grand],shown:['ES','HST','Visa card fee','Delivery','Total'].every(x=>text.includes(x)),printButton:/metric-order-service-add/.test(salesOrderPrintMarkup())};
- }),{before:{button:'Service +',summary:'Service +Entire order · 2 unitsSubtotal 242.00 CADES 9.75% 23.60 CADHST 13% 34.53 CADTotal 300.13 CAD'},initial:{checked:2,rates:[9.75,13,2.34,0],cards:['visa','mastercard','amex']},after:[242,23.6,34.53,7.02,500,807.15],shown:true,printButton:false});
+  return {before,initial,after:[after.subtotal,after.energy,after.hst,after.card,after.delivery,after.skidDeposit,after.grand],shown:['ES','HST','Visa card fee','Delivery','Skid Deposit','Total'].every(x=>text.includes(x)),slots:document.querySelector('.metric-order-charge-preview').querySelectorAll('.metric-order-charge-item').length,printButton:/metric-order-service-add/.test(salesOrderPrintMarkup())};
+ }),{before:{button:'Service +',labels:['Subtotal','ES 9.75%','HST 13%','Total']},initial:{checked:2,rates:[9.75,13,2.34,0,0],cards:['visa','mastercard','amex']},after:[242,23.6,34.53,7.02,500,750,1557.15],shown:true,slots:7,printButton:false});
  eq('Triple base 100 -> 150; Qty is applied once',await t.p.evaluate(()=>{
   const {l}=metricFixture('triple',12,12,3),p=salesLineCommercialPrice(l,soDraft);
   return {base:p.base,adjustments:p.adjustments.map(a=>a.amount),unit:p.unit,line:p.line};
@@ -80,6 +80,12 @@ module.exports=async function({page,eq,ok}){
   const {l}=metricFixture('double',40,40,2);DB.materialWeightRates=[];
   const w=salesLineWeight(l,soDraft);return [w.complete,w.kg,w.lineKg,w.missing,w.knownKg>0];
  }),[false,null,null,6,true]);
+ eq('unmeasured spacer sizes derive an editable estimate from the 17/32 average and thickness',await t.p.evaluate(()=>{
+  DB.materialWeightRates=JSON.parse(JSON.stringify(SALES_WEIGHT_RATE_DEFAULTS));salesNormalizeWeightRates();
+  const ref=mdById('spacerVariant','SP-BWE-1732'),target=mdById('spacerVariant','SP-BL-916'),key='spacer:'+target.id,originalMm=target.thicknessMm;
+  const expected=.03*spacerThicknessMm(target)/spacerThicknessMm(ref);target.thicknessMm=20;salesNormalizeWeightRates();let row=DB.materialWeightRates.find(r=>r.key===key),recalculated=row.rate;mdWeightSet(key,'50',1000);target.thicknessMm=25;salesNormalizeWeightRates();row=DB.materialWeightRates.find(r=>r.key===key);target.thicknessMm=originalMm;
+  return {grams:+(expected*1000).toFixed(3),recalculated:+(recalculated*1000).toFixed(3),manual:+(row.rate*1000).toFixed(3),derived:row.derived,note:row.note,editable:row.unit};
+ }),{grams:31.778,recalculated:44.444,manual:50,derived:false,note:'Calculated estimate · 17/32 average × thickness ratio',editable:'kg/ft²'});
  eq('Triple mass includes three glasses and both complete cavity assemblies',await t.p.evaluate(()=>{
  const {l,m}=metricFixture('triple',40,40,2);DB.materialWeightRates=[];
   m.cavities.forEach(c=>mdById('spacerVariant',c.spacerVariantId).thicknessMm=12);
@@ -148,8 +154,9 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator('.metric-profile select').selectOption(profile);
  await t.p.evaluate(()=>{soDraft=null;soEdit=null;});await t.p.reload();
  eq('profile, choices and reordered base/metric columns persist after reload',await t.p.evaluate(()=>[salesLoadViewPrefs().active,salesMetricColumnsFor('screen').some(c=>c.key==='lineWeight'),salesMetricOrder().indexOf('lineTotal')<salesMetricOrder().indexOf('unitPrice'),salesOrderScreenColumns().indexOf('notes')<salesOrderScreenColumns().indexOf('unitPrice')]),[profile,true,true,true]);
- await t.p.evaluate(()=>{tab='sales';salesOrderNew();salesOpenMetrics('columns');salesResetMetricColumns('screen');});
- eq('reset restores only the selected context',await t.p.evaluate(()=>salesMetricColumnsFor('screen').map(c=>c.key)),['actual','rounded','unitPrice','lineTotal']);
+ await t.p.evaluate(()=>{tab='sales';salesOrderNew();salesSetUnitType('single');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5;p.heatTreatmentId='HT-AN';});const l=normalizeSalesOrderLine({makeupId:m.id,width16:47*16,height16:73.5*16,qty:2});soDraft.lines=[l];salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>salesEnsureChargePricing(l,r).orderRate=0);render();salesOpenMetrics('columns');salesResetMetricColumns('screen');});
+ eq('reset restores only the selected context',await t.p.evaluate(()=>salesMetricColumnsFor('screen').map(c=>c.key)),['materials','actual','rounded','unitPrice','lineTotal']);
+ eq('Materials is visible beside Services and opens the existing unit-price breakdown',await t.p.evaluate(()=>{const cols=salesOrderScreenColumns(),line=soDraft.lines[0],holder=document.createElement('tr');holder.innerHTML=salesMetricCell(line,SALES_METRIC_COLUMNS.find(c=>c.key==='materials'),'screen');document.body.append(holder);const cell=holder.querySelector('button'),value=cell.textContent.trim();cell.click();holder.remove();return {afterServices:cols.indexOf('materials')===cols.indexOf('services')+1,value:value,panel:salesMetricsPanel};}),{afterServices:true,value:'121.00',panel:'price'});
  eq('provided shop weight norms are editable Master Data in grams',await t.p.evaluate(()=>{salesNormalizeWeightRates();mdTab='weight';const r=DB.materialWeightRates.find(x=>x.key==='spacer:SP-BWE-1732');mdWeightSet(r.key,'31',1000);return [r.rate,viewMdWeight().includes('Polysulphide + catalyst')];}),[.031,true]);
  eq('legacy placeholder ones migrate to shop norms; gas uses nominal cavity volume',await t.p.evaluate(()=>{DB.materialWeightRates=SALES_WEIGHT_RATE_DEFAULTS.map(d=>({key:d.key,rate:1,note:''}));salesNormalizeWeightRates();salesOrderNew();salesSetUnitType('double');const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');g.actualThicknessMm=6;m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;});const l=normalizeSalesOrderLine({makeupId:m.id,width16:192,height16:192,qty:1});soDraft.lines=[l];salesEnsureLineShape(l);const w=salesLineWeight(l,soDraft),rate=k=>DB.materialWeightRates.find(r=>r.key===k).rate,gas=w.rows.find(r=>r.key==='gas:GAS-ARGON'),connectors=w.rows.find(r=>r.key==='connectors:SP-BWE-1732'),master=mdWeightDisplay(DB.materialWeightRates.find(r=>r.key==='connectors:SP-BWE-1732'));return [rate('spacer:SP-BWE-1732'),rate('desiccant:SP-BWE-1732'),rate('seal:SEAL-PIB:SP-BWE-1732'),rate('seal:SEAL-PS:SP-BWE-1732'),rate('connectors:SP-BWE-1732'),rate('gas:GAS-ARGON'),gas.basis>0,connectors.kg,salesWeightNormDisplay(connectors),master];}),[.03,.033,.005,.127,.04,1.784,true,.04,{value:'40',unit:'g/unit',factor:1000},{value:40,unit:'g/unit',factor:1000}]);
  eq('Print and saved-order Update live in the order header; row Status is folded into Set',await t.p.evaluate(()=>{soEdit='saved-order';render();const l=soDraft.lines[0],top=document.querySelector('.sales-editor-actions').textContent,head=document.querySelector('.sales-lines-table thead').textContent;salesDropLineOwnedShape(l);l.shapeRef=normalizeShapeRef({});l.width16=null;l.height16=null;render();const badge=document.querySelector('.ss-badge');return [top.includes('Print'),top.includes('Update'),head.includes('Status'),badge.classList.contains('issue'),badge.textContent.trim()];}),[true,true,false,true,'!']);

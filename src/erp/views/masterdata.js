@@ -460,9 +460,9 @@ function viewMdWeight(){
 function mdWeightSet(key,value,factor){
  const row=(DB.materialWeightRates||[]).find(r=>r.key===key);if(!row)return;
  const typed=String(value==null?'':value).trim();
- if(typed===''){row.rate=null;touch();render();return;}
+ if(typed===''){row.rate=null;row.derived=false;touch();render();return;}
  const n=Number(typed);if(!Number.isFinite(n)||n<0){render();return;}
- row.rate=n/(factor||1);touch();render();
+ row.rate=n/(factor||1);row.derived=false;touch();render();
 }
 
 /* --- 3. Фурнитура ------------------------------------------------------

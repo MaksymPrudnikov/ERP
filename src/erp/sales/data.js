@@ -24,7 +24,8 @@ const SALES_ORDER_CHARGE_DEFAULTS={
  energy:{enabled:true,rate:9.75},
  hst:{enabled:true,rate:13},
  card:{enabled:false,network:'visa',rate:2.34},
- delivery:{enabled:false,amount:0}
+ delivery:{enabled:false,amount:0},
+ skidDeposit:{enabled:false,amount:0}
 };
 /* PIB физически добавляет по 0.4 mm с каждой стороны дистанционной рамки. */
 const SALES_PIB_PER_CAVITY_MM=.8;
@@ -62,7 +63,8 @@ function normalizeSalesOrderCharges(raw){
   energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:true,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,9.75)},
   hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:true,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,13)},
   card:{enabled:!!(raw.card&&raw.card.enabled),network:network,rate:salesOrderChargeNumber(raw.card&&raw.card.rate,SALES_CARD_FEE_RATES[network])},
-  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)}
+  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)},
+  skidDeposit:{enabled:!!(raw.skidDeposit&&raw.skidDeposit.enabled),amount:salesOrderChargeNumber(raw.skidDeposit&&raw.skidDeposit.amount,0)}
  };
 }
 
