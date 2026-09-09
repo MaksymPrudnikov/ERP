@@ -87,10 +87,40 @@ function salesMetricCell(line,c,context,price,a,weight){
   const body=`<b data-raw>${text}</b>`;
   return `<td class="line-metric${value==null?' metric-incomplete':''}" data-metric="${c.key}">${context==='screen'?`<button type="button" class="metric-cell-btn" data-line-id="${esc(line.id)}" onclick="salesOpenMetrics('${panel}',this.dataset.lineId)">${body}</button>`:body}</td>`;
 }
-function salesCommercialOrderSummary(){
- let total=0,missing=0,qty=0;
- (soDraft.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,soDraft);qty+=p.qty;if(p.complete)total+=p.line;else missing++;});
- return `<div class="metric-order-total"><span>${salesMetricText('Весь заказ','Entire order')} · ${qty} ${salesMetricText('шт.','units')}</span><span>${salesMetricText('Итого строки','Line totals')} <b data-raw>${missing?'—':salesMoney(total).toFixed(2)+' '+esc(soDraft.currency)}</b>${missing?`<small>${missing} ${salesMetricText('строк с неполной ценой','lines need pricing')}</small>`:''}</span><small>${salesMetricText('До energy surcharge, налога и доставки','Before energy surcharge, tax and delivery')}</small></div>`;
+function salesCommercialOrderSummary(interactive){
+ const t=salesOrderCommercialTotals(soDraft),c=t.charges,cur=esc(soDraft.currency),money=v=>t.complete?v.toFixed(2)+' '+cur:'—';
+ const rows=[`<span>Subtotal <b data-raw>${money(t.subtotal)}</b></span>`];
+ if(c.energy.enabled)rows.push(`<span>ES <small data-raw>${c.energy.rate}%</small> <b data-raw>${money(t.energy)}</b></span>`);
+ if(c.hst.enabled)rows.push(`<span>HST <small data-raw>${c.hst.rate}%</small> <b data-raw>${money(t.hst)}</b></span>`);
+ if(c.card.enabled)rows.push(`<span>${esc(salesCardNetworkLabel(c.card.network))} <small data-raw>${c.card.rate}%</small> <b data-raw>${money(t.card)}</b></span>`);
+ if(c.delivery.enabled)rows.push(`<span>Delivery <b data-raw>${money(t.delivery)}</b></span>`);
+ rows.push(`<span class="metric-grand-total">Total <b data-raw>${money(t.grand)}</b>${t.missing?`<small>${t.missing} ${salesMetricText('строк требуют цены','lines need pricing')}</small>`:''}</span>`);
+ const serviceButton=interactive===false?'':`<button type="button" class="metric-order-service-add" onclick="salesOpenMetrics('orderCharges')">Service +</button>`;
+ return `<div class="metric-order-total">${serviceButton}<div class="metric-order-total-main"><small>${salesMetricText('Весь заказ','Entire order')} · ${t.qty} ${salesMetricText('шт.','units')}</small><div class="metric-order-charge-lines">${rows.join('')}</div></div></div>`;
+}
+function salesCardNetworkLabel(value){return ({visa:'Visa card fee',mastercard:'Mastercard fee',amex:'American Express fee'})[value]||'Card fee';}
+function salesSetOrderChargeEnabled(key,enabled){
+ if(!['energy','hst','card','delivery'].includes(key))return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key].enabled=!!enabled;touch();render();
+}
+function salesSetOrderChargeValue(key,field,value){
+ if(!soDraft||!['energy','hst','card','delivery'].includes(key)||!['rate','amount'].includes(field))return;
+ const n=Number(value);if(!Number.isFinite(n)||n<0){alert('Enter a value of zero or greater.');render();return;}
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges[key][field]=n;touch();render();
+}
+function salesSetCardNetwork(network){
+ if(!Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,network))return;
+ soDraft.orderCharges=normalizeSalesOrderCharges(soDraft.orderCharges);soDraft.orderCharges.card.network=network;soDraft.orderCharges.card.rate=SALES_CARD_FEE_RATES[network];touch();render();
+}
+function salesOrderChargesPanel(){
+ const c=normalizeSalesOrderCharges(soDraft.orderCharges),toggle=(key,label,body)=>`<div class="metric-order-charge-row ${c[key].enabled?'on':''}"><label><input type="checkbox" ${c[key].enabled?'checked':''} onchange="salesSetOrderChargeEnabled('${key}',this.checked)"><b>${label}</b></label>${body}</div>`;
+ const pct=(key)=>`<label>${salesMetricText('Ставка','Rate')}<input type="number" min="0" step="0.01" value="${c[key].rate}" onchange="salesSetOrderChargeValue('${key}','rate',this.value)"><span>%</span></label>`;
+ return `<p class="mut">${salesMetricText('Начисления выполняются сверху вниз. Отключённая строка сохраняет свою ставку и может быть включена снова.','Charges apply from top to bottom. A disabled row keeps its rate and can be enabled again.')}</p><div class="metric-order-charge-editor">
+  ${toggle('energy','Energy Surcharge',pct('energy'))}
+  ${toggle('hst','HST',pct('hst')+`<small>${salesMetricText('Способ оплаты сам не отключает налог.','Payment method does not disable tax automatically.')}</small>`)}
+  ${toggle('card','Card fee',`<label>${salesMetricText('Карта','Card')}<select onchange="salesSetCardNetwork(this.value)">${Object.keys(SALES_CARD_FEE_RATES).map(k=>`<option value="${k}" ${c.card.network===k?'selected':''}>${esc(salesCardNetworkLabel(k))}</option>`).join('')}</select></label>${pct('card')}`)}
+  ${toggle('delivery','Delivery',`<label>${salesMetricText('Сумма вручную','Manual amount')}<input type="number" min="0" step="0.01" value="${c.delivery.amount}" onchange="salesSetOrderChargeValue('delivery','amount',this.value)"><span>${esc(soDraft.currency)}</span></label><small>${salesMetricText('Добавляется последней; ES, HST и Card fee на неё не начисляются.','Added last; ES, HST and Card fee do not apply to it.')}</small>`)}
+ </div><div class="metric-order-charge-preview">${salesCommercialOrderSummary()}</div>`;
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
@@ -146,13 +176,13 @@ function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.wei
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
 function salesOrderPrintMarkup(){
- return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary():''}</div>`;
+ return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
 }
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:salesMetricText('Колонки заказа','Order columns'),rules:salesMetricText('Правила цены','Pricing rules'),print:salesMetricText('Предпросмотр печати','Print preview'),area:salesMetricText('Площадь изделия','Unit area'),weight:salesMetricText('Вес изделия','Unit weight'),price:salesMetricText('Цена изделия','Unit price')};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:salesMetricText('Колонки заказа','Order columns'),rules:salesMetricText('Правила цены','Pricing rules'),orderCharges:salesMetricText('Начисления заказа','Order charges'),print:salesMetricText('Предпросмотр печати','Print preview'),area:salesMetricText('Площадь изделия','Unit area'),weight:salesMetricText('Вес изделия','Unit weight'),price:salesMetricText('Цена изделия','Unit price')};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки печати','Print columns')}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${salesMetricText('Печать','Print')}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${salesMetricText('Колонки печати','Print columns')}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${salesMetricText('Печать','Print')}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
  return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal ${panel==='print'?'metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */

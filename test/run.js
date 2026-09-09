@@ -799,6 +799,32 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         requirements:r.requirements.map(x=>x.stationClass),conflict:ShapeModule.compute(conflict).valid,badParam:ShapeModule.compute(badParam).valid,circle:ShapeModule.compute(circle).valid,badCircle:ShapeModule.compute(badCircle).valid};
     });
     eq('все каталожные Shape имеют валидные defaults', schemaV2.presets.filter(x=>!x.valid), []);
+    eq('два равных радиуса могут сомкнуться в полноценную полукруглую арку', await p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.w='20';d.h='36';
+      d.features=[shapeNormalizeFeature({type:'radius',vertexId:'BL',radius:'10'}),shapeNormalizeFeature({type:'radius',vertexId:'BR',radius:'10'})];
+      const r=ShapeModule.compute(d),bottom=(r.edges||[]).filter(e=>e.id==='B'),dxf=r.valid?ShapeModule.genericDxf(r):'';
+      return {valid:r.valid,errors:r.errors||[],bottomStraight:bottom.length,arcs:Object.keys(r.geometry&&r.geometry.radiusMeta||{}).length,dxf:dxf.includes('CUT_OUTER')&&dxf.endsWith('EOF\n')};
+    }), {valid:true,errors:[],bottomStraight:0,arcs:2,dxf:true});
+    eq('ручной отступ габарита имеет те же координаты на экране и в печати', await p.evaluate(() => {
+      const d=newShapeDef('rectangle');d.w='33';d.h='80';const r=ShapeModule.compute(d);
+      function read(sheet,offsets){
+        const annotation={interactive:true,offsets:offsets||{}};
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(r,{sheet:sheet,annotation:annotation}),'image/svg+xml');
+        const svg=doc.documentElement,g=doc.querySelector('[data-inch-primary-key="inch:overall:width"]'),line=g&&g.querySelector('line[marker-start]'),label=g&&g.querySelector('text');
+        return {viewBox:svg.getAttribute('viewBox'),line:line&&['x1','y1','x2','y2'].map(k=>line.getAttribute(k)),label:label&&[label.getAttribute('x'),label.getAttribute('y')]};
+      }
+      const screen=read(false,{'inch:overall:width':2}),print=read(true,{'inch:overall:width':2}),base=read(false,{});
+      return {same:JSON.stringify(screen)===JSON.stringify(print),shift:+screen.label[1]-+base.label[1],sameFrame:screen.viewBox===print.viewBox};
+    }), {same:true,shift:16,sameFrame:true});
+    eq('штриховая рамка начинается у фактического края отображённого контура', await p.evaluate(() => {
+      const d=newShapeDef('smart');d.w='54';d.h='54';d.smart=ssNormalize({corner:'BL',style:'single',notchW:'4',notchH:'4'});
+      const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d)),'image/svg+xml');
+      const rect=doc.querySelector('rect[stroke-dasharray="7 6"]'),path=doc.querySelector('svg>path[fill="#fff"][stroke="none"]');
+      const nums=(path.getAttribute('d').match(/-?\d+(?:\.\d+)?/g)||[]).map(Number),xs=nums.filter((x,i)=>i%2===0),ys=nums.filter((x,i)=>i%2===1);
+      const actual=[+rect.getAttribute('x'),+rect.getAttribute('y'),+rect.getAttribute('width'),+rect.getAttribute('height')];
+      const contour=[Math.min(...xs),Math.min(...ys),Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys)];
+      return {count:doc.querySelectorAll('rect[stroke-dasharray="7 6"]').length,aligned:actual.every((x,i)=>Math.abs(x-contour[i])<1e-7)};
+    }), {count:1,aligned:true});
     const paraModes = await p.evaluate(() => {
       function make(mode,direction,params){
         const d=newShapeDef('parallelogram');d.w='37 1/2';d.h='80';
@@ -1455,19 +1481,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const menuButtons=document.querySelectorAll('.shape-metric-menu .shape-dim-btn').length;
       shapeNudgeMetricLabel('overall:width',1);
       const y1=+document.querySelector('[data-metric-role="width"]').getAttribute('y'),saved=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');
-      const printSvg=shapeDrawnProductionSvg(r,false),printDoc=new DOMParser().parseFromString(printSvg,'image/svg+xml');
+      const printSvg=shapeDrawnProductionSvg(r,false,{sheet:true}),printDoc=new DOMParser().parseFromString(printSvg,'image/svg+xml');
       const move={delta:y1-y0,menuButtons:menuButtons,saved:Object.values(saved).some(function(m){return m&&m['overall:width']===1;}),printMatches:+printDoc.querySelector('[data-metric-role="width"]').getAttribute('y')===y1,printClean:!/(shape-metric-menu|shapeSelectMetricLabel)/.test(printSvg)};
+      shapeSelectMetricLabel('angle:0');
+      const angleMenuButtons=document.querySelectorAll('.shape-metric-menu .shape-dim-btn').length;
+      shapeToggleMetricLabelHide('angle:0');
+      const hiddenPrint=new DOMParser().parseFromString(shapeDrawnProductionSvg(r,false,{sheet:true}),'image/svg+xml');
+      const hidden={menuButtons:angleMenuButtons,screen:document.querySelectorAll('.shape-metric-angle').length,print:hiddenPrint.querySelectorAll('.shape-metric-angle').length,restore:document.querySelectorAll('.shape-hidden-angles button').length,stored:!!localStorage.getItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY)};
+      shapeToggleMetricLabelHide('angle:0');
       sDraft.lites={'1':{inset:{A:'1',B:'1',C:'1',D:'1'},edgeOps:{}}};sEdgeLite=1;render();
       const liteLayer=document.querySelector('.shape-metric-layer');
       const lite={width:liteLayer&&liteLayer.querySelector('[data-metric-role="width"]').textContent,label:liteLayer&&liteLayer.querySelector('.shape-metric-summary').textContent};
       const stable={fingerprint:shapeFingerprint(shapeDraftResult().definition)===fp,machine:JSON.stringify(ShapeModule.machinePayload(shapeDraftResult()))===machine,dxf:ShapeModule.genericDxf(shapeDraftResult())===dxf,cutting:ShapeModule.cuttingSvg(shapeDraftResult())===cutting};
-      setShapeMetricDetail(false);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);sMetricOffsets={};sMetricDimEdit=null;sEdgeLite=null;sEdit=null;sDraft=null;tab=oldTab;subtab=oldSub;render();
-      return {before,on,move,lite,stable};
+      setShapeMetricDetail(false);localStorage.removeItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY);localStorage.removeItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY);sMetricOffsets={};sMetricHidden={};sMetricDimEdit=null;sEdgeLite=null;sEdit=null;sDraft=null;tab=oldTab;subtab=oldSub;render();
+      return {before,on,move,hidden,lite,stable};
     });
     eq('маленькая иконка выключена по умолчанию, включается и запоминается', {before:metricUi.before,on:{layers:metricUi.on.layers,pressed:metricUi.on.pressed,active:metricUi.on.active,title:metricUi.on.title,stored:metricUi.on.stored}}, {before:{state:false,stored:null,layers:0,hatches:0},on:{layers:1,pressed:'true',active:true,title:'Metric detail · mm and angles',stored:'1'}});
     eq('метрический SVG убирает повтор W/H, но сохраняет все углы', {lengths:metricUi.on.lengths,angles:metricUi.on.angles,featureLeak:metricUi.on.featureLeak,production:metricUi.on.production,cutting:metricUi.on.cutting}, {lengths:0,angles:4,featureLeak:false,production:true,cutting:false});
     eq('дюймовые справочные размеры серые и отдельно, метрика SemiBold', metricUi.on.hierarchy, {imperialCount:0,imperialEdgeLabels:0,inchLayers:1,inchLabels:2,inchColor:'#98a2b3',inchWeight:'600',summaryHasBox:false,overallFont:'16',overallWeight:'600',color:'#111827',contourFill:'#f2f4f7',movable:6,hatches:1,hatchLines:3,cuttingHatch:false});
     eq('кнопки −/+ двигают мм, сохраняют положение и не печатают своё меню', metricUi.move, {delta:8,menuButtons:2,saved:true,printMatches:true,printClean:true});
+    eq('Hide доступен только углу, убирает дугу и значение с экрана и печати', metricUi.hidden, {menuButtons:3,screen:3,print:3,restore:1,stored:true});
     ok('выбранный лайт использует свой inset-контур и назван в сводке', metricUi.lite.width==='1168.40'&&metricUi.lite.label.includes('Lite 2'), metricUi.lite);
     eq('переключатель не меняет fingerprint и машинные файлы', metricUi.stable, {fingerprint:true,machine:true,dxf:true,cutting:true});
     await c.close();
@@ -1984,8 +2017,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {rows:rows.map(r=>[r.key,r.label,r.basis,r.unit,r.catalogRate]),unpriced:salesLinePricingSummary(line).unpriced};
     }), {rows:[['FEATURE:sandblast-full-front:8-10','Sandblast · Full covered · Front',12,'ft²',4],['FEATURE:sandblast-pattern-back:8-10','Sandblast · Pattern · Back',12,'ft²',6]],unpriced:0});
 
-    eq('Shape Unit: Rectangle бесплатно, любой Shape — 1.25 за billable ft² на уровне строки', await dxfSales.p.evaluate(() => {
-      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=6;
+    eq('Shape Unit: только фигурный DGU/TGU, Single Lite бесплатно', await dxfSales.p.evaluate(() => {
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='double';m.panes=[salesDefaultPane(0),salesDefaultPane(1)];m.panes.forEach(p=>{p.glassProductId='';p.thicknessMm=6;});
       const rect=newShapeDef('rectangle');rect.id='qa-plain-rect';rect.w='48';rect.h='36';
       const raked=newShapeDef('raked');raked.id='qa-raked-surcharge';raked.w='48';raked.h='36';Object.assign(raked.params,{shortHeight:'24',rakeSide:'top',shortSide:'right'});
       DB.shapeDef=[normalizeShapeDef(rect),normalizeShapeDef(raked)];
@@ -1993,12 +2026,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const shaped=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:768,height16:576,shapeRef:salesShapeRefFrom(DB.shapeDef[1])});soDraft.lines=[plain,shaped];
       const plainRow=salesLineChargeRows(plain).find(r=>r.key==='SURCHARGE:shape-unit');
       const row=salesLineChargeRows(shaped).find(r=>r.key==='SURCHARGE:shape-unit'),state=salesChargePricingState(shaped,row);
-      return {rectangle:!!plainRow,row:[row.label,row.basis,row.unit,row.catalogRate],basis:salesChargeBasisText(row,shaped),rate:salesRateText(state.effectiveRate,row.unit,soDraft.currency),total:row.basis*shaped.qty*state.effectiveRate,short:salesChargeShortLabel(row)};
-    }), {rectangle:false,row:['Shape Unit',12,'ft²',1.25],basis:'12.00 ft² × 2 = 24.00 ft²',rate:'1.25 CAD/ft²',total:30,short:'SHAPE'});
+      m.unitType='single';m.panes=[m.panes[0]];const singleRow=salesLineChargeRows(shaped).find(r=>r.key==='SURCHARGE:shape-unit');
+      return {rectangle:!!plainRow,single:!!singleRow,row:[row.label,row.basis,row.unit,row.catalogRate],basis:salesChargeBasisText(row,shaped),rate:salesRateText(state.effectiveRate,row.unit,soDraft.currency),total:row.basis*shaped.qty*state.effectiveRate,short:salesChargeShortLabel(row)};
+    }), {rectangle:false,single:false,row:['Shape Unit',12,'ft²',1.25],basis:'12.00 ft² × 2 = 24.00 ft²',rate:'1.25 CAD/ft²',total:30,short:'SHAPE'});
 
     eq('внешний DXF считается Shape Unit даже при базовом типе Rectangle', await dxfSales.p.evaluate(() => {
       const sh=newShapeDef('rectangle');sh.id='qa-dxf-surcharge';sh.w='24';sh.h='48';sh.source={kind:'dxf',fileName:'custom.dxf',fileSize:100,uploadedAt:'2026-09-08T00:00:00.000Z',note:'',preview:{units:'in',points:[[0,0],[24,0],[24,48],[0,48]],width16:384,height16:768}};DB.shapeDef=[normalizeShapeDef(sh)];
-      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=6;
+      soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='double';m.panes=[salesDefaultPane(0),salesDefaultPane(1)];m.panes.forEach(p=>{p.glassProductId='';p.thicknessMm=6;});
       const line=normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:384,height16:768,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
       const row=salesLineChargeRows(line).find(r=>r.key==='SURCHARGE:shape-unit');return [row.label,row.basis,row.unit,row.catalogRate];
     }), ['Shape Unit',8,'ft²',1.25]);

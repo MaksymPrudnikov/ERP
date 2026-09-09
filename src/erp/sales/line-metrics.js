@@ -36,10 +36,25 @@ function salesLineAreas(line,order){
  const shapeValid=!!(r&&(r.valid||r.externalFile&&r.sourceValid)),w=shapeValid&&+r.width>0?+r.width:lineW,h=shapeValid&&+r.height>0?+r.height:lineH;
  const valid=(!shape||shapeValid)&&lineW>0&&lineH>0&&w>0&&h>0;
  const actual=valid?(shapeValid?r.area/144:w*h/144):null;
- const rounded=valid?Math.round(Math.ceil(w)*Math.ceil(h)/144*10)/10:null;
+ /* Коммерческая площадь всегда идёт к следующей десятой. Обычный round
+    занижал 33 × 80 с 18.3333 до 18.3 вместо подтверждённых 18.4 ft². */
+ const rounded=valid?Math.ceil((Math.ceil(w)*Math.ceil(h)/144-1e-10)*10)/10:null;
  return {actual:actual,rounded:rounded,billable:valid?Math.max(rounded,salesMetricRules(order).minimumAreaFt2):null,width:w,height:h,roundedWidth:Math.ceil(w),roundedHeight:Math.ceil(h),valid:valid};
 }
 function salesMoney(value){return Math.round((value+Number.EPSILON)*100)/100;}
+function salesApplyOrderCharges(subtotal,raw){
+ const c=normalizeSalesOrderCharges(raw),base=salesMoney(Math.max(0,+subtotal||0));
+ const energy=c.energy.enabled?salesMoney(base*c.energy.rate/100):0;
+ const hstBase=salesMoney(base+energy),hst=c.hst.enabled?salesMoney(hstBase*c.hst.rate/100):0;
+ const cardBase=salesMoney(hstBase+hst),card=c.card.enabled?salesMoney(cardBase*c.card.rate/100):0;
+ const delivery=c.delivery.enabled?salesMoney(c.delivery.amount):0;
+ return {charges:c,subtotal:base,energy:energy,hstBase:hstBase,hst:hst,cardBase:cardBase,card:card,delivery:delivery,grand:salesMoney(cardBase+card+delivery)};
+}
+function salesOrderCommercialTotals(order){
+ order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
+ const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
+}
 function salesLineCommercialPrice(line,order){
  order=order||soDraft;
  const areas=salesLineAreas(line,order),m=salesMakeupById(order,line.makeupId),rate=salesMakeupUnitPrice(m),q=salesPositiveInt(line.qty,1);

@@ -13,9 +13,10 @@ let sManufacturingCustomId=null;
 let sDimEdit=null,sMetricDimEdit=null;
 /* Редко используемый метрический слой — только состояние экрана. Он не входит
    в Shape definition и потому никогда не меняет ревизию или fingerprint. */
-var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',sMetricDetail=false,sMetricOffsets={};
+var SHAPE_METRIC_STORAGE_KEY='glass_erp_shape_metric_detail',SHAPE_METRIC_OFFSETS_STORAGE_KEY='glass_erp_shape_metric_offsets_v1',SHAPE_METRIC_HIDDEN_STORAGE_KEY='glass_erp_shape_metric_hidden_v1',sMetricDetail=false,sMetricOffsets={},sMetricHidden={};
 try{sMetricDetail=localStorage.getItem(SHAPE_METRIC_STORAGE_KEY)==='1';}catch(e){}
 try{var metricStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY)||'{}');if(metricStored&&typeof metricStored==='object')sMetricOffsets=metricStored;}catch(e){}
+try{var hiddenStored=JSON.parse(localStorage.getItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY)||'{}');if(hiddenStored&&typeof hiddenStored==='object')sMetricHidden=hiddenStored;}catch(e){}
 function setShapeMetricDetail(value){
   sMetricDetail=!!value;sMetricDimEdit=null;
   try{localStorage.setItem(SHAPE_METRIC_STORAGE_KEY,sMetricDetail?'1':'0');}catch(e){}
@@ -37,6 +38,7 @@ function shapeMetricOffsetScope(result,selected,mode){
 }
 function shapeCurrentDrawingOffsetScope(result){return sMetricDetail?shapeMetricOffsetScope(result,shapeMetricSelectedLite()):shapeMetricOffsetScope(result,null,'inch');}
 function shapeMetricSaveOffsets(){try{localStorage.setItem(SHAPE_METRIC_OFFSETS_STORAGE_KEY,JSON.stringify(sMetricOffsets));}catch(e){}}
+function shapeMetricSaveHidden(){try{localStorage.setItem(SHAPE_METRIC_HIDDEN_STORAGE_KEY,JSON.stringify(sMetricHidden));}catch(e){}}
 function shapeSelectMetricLabel(key){
   var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),same=sMetricDimEdit&&sMetricDimEdit.scope===scope&&sMetricDimEdit.key===key;
   sDimEdit=null;sMetricDimEdit=same?null:{scope:scope,key:key};refreshShapeEditor();
@@ -48,6 +50,19 @@ function shapeNudgeMetricLabel(key,delta){
   if(!Object.keys(map).length)delete sMetricOffsets[scope];
   sMetricDimEdit={scope:scope,key:key};shapeMetricSaveOffsets();refreshShapeEditor();
 }
+function shapeToggleMetricLabelHide(key){
+  if(String(key).indexOf('angle:')!==0)return;
+  var r=shapeDraftResult(),scope=shapeCurrentDrawingOffsetScope(r),map=sMetricHidden[scope]||(sMetricHidden[scope]={});
+  if(map[key])delete map[key];else map[key]=true;
+  if(!Object.keys(map).length)delete sMetricHidden[scope];
+  sMetricDimEdit=null;shapeMetricSaveHidden();refreshShapeEditor();
+}
+function shapeMetricHiddenControlsHTML(result){
+  if(!sMetricDetail||sView==='cutting'||result&&result.externalFile)return '';
+  var scope=shapeCurrentDrawingOffsetScope(result),map=sMetricHidden[scope]||{},keys=Object.keys(map).filter(function(k){return map[k]&&k.indexOf('angle:')===0;});
+  if(!keys.length)return '';
+  return `<div class='shape-hidden-angles'><span>Hidden angles</span>${keys.map(function(key){var n=(+key.split(':')[1]||0)+1;return `<button type='button' onclick='shapeToggleMetricLabelHide("${esc(key)}")'>Show angle ${n}</button>`;}).join('')}</div>`;
+}
 function shapeMetricProductionOptions(result,interactive){
   if(!sMetricDetail){
     var inchScope=shapeMetricOffsetScope(result,null,'inch');
@@ -56,6 +71,7 @@ function shapeMetricProductionOptions(result,interactive){
   var metric={thicknessMm:shapeThicknessMm((result&&result.definition)||sDraft||{})};
   var selected=shapeMetricSelectedLite(),scope=shapeMetricOffsetScope(result,selected);
   metric.offsets=Object.assign({},sMetricOffsets[scope]||{});
+  metric.hiddenKeys=Object.assign({},sMetricHidden[scope]||{});
   metric.interactive=!!interactive;
   metric.selectedKey=metric.interactive&&sMetricDimEdit&&sMetricDimEdit.scope===scope?sMetricDimEdit.key:null;
   if(selected!=null){
@@ -1369,6 +1385,9 @@ function shapeDerivedHTML(r){
 function refreshShapeEditor(){
   if(!sDraft)return;var r=shapeDraftResult(),p=document.getElementById('shapeLivePreview'),d=document.getElementById('shapeLiveDerived');
   if(p)p.innerHTML=shapePreviewMarkup(r);if(d)d.innerHTML=shapeDerivedHTML(r);
+  var hidden=document.getElementById('shapeHiddenMetricControls');
+  if(!hidden&&p&&p.parentNode){hidden=document.createElement('div');hidden.id='shapeHiddenMetricControls';p.parentNode.insertBefore(hidden,p);}
+  if(hidden)hidden.innerHTML=shapeMetricHiddenControlsHTML(r);
   /* Набор файлов зависит от открытого листа: на чертеже свои, на резке свои.
      Переключение вкладки идёт через refreshShapeEditor, а не через render(),
      поэтому блок надо обновлять здесь — иначе кнопки остаются от того листа,
@@ -2244,7 +2263,7 @@ function shapeForm(){
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
-    </div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
+    </div><div class='shape-preview-side'>${tabs}<div id='shapeHiddenMetricControls'>${shapeMetricHiddenControlsHTML(r)}</div><div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div>
     <div class='err' id='e_shape'></div><div class='row'><button class='pri' onclick='saveShape()'>Сохранить ревизию</button><button onclick='cancelShapeEdit()'>Отмена</button></div></div>`;
 }
 

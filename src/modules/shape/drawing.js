@@ -151,10 +151,12 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
    У прямоугольника и круга ребро равно габариту и второй подписи не рождает. */
 var SHAPE_METRIC_CLEAN_TYPES=['parallelogram','raked','triangle','polygon','custom'];
 function shapeMetricShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
+function shapeMetricHidden(opts,key){return !!(opts&&opts.hiddenKeys&&opts.hiddenKeys[key]);}
 function shapeMetricMenuSvg(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
-  var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
-  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*2+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g></g>';
+  var canHide=String(key).indexOf('angle:')===0,count=canHide?3:2,x=Math.max(46,Math.min((F&&F.vw||960)-46,cx)),w=28,h=20,x0=x-w*count/2;
+  var hide=canHide?'<g class="shape-dim-btn" onclick="event.stopPropagation();shapeToggleMetricLabelHide(\''+shapeXml(key)+'\')"><title>Hide</title><rect x="'+(x0+w*2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w*2+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">Hide</text></g>':'';
+  return '<g class="shape-dim-menu shape-metric-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(w*count+8)+'" height="'+(h+8)+'" rx="7"/><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',-1)"><rect x="'+x0+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">−</text></g><g class="shape-dim-btn" onclick="event.stopPropagation();shapeNudgeMetricLabel(\''+shapeXml(key)+'\',1)"><rect x="'+(x0+w)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="4"/><text x="'+(x0+w+w/2)+'" y="'+(cy+4)+'" text-anchor="middle">+</text></g>'+hide+'</g>';
 }
 function shapeMetricMovableSvg(opts,key,text,cx,cy,F){
   if(!opts||!opts.interactive)return text;
@@ -246,7 +248,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
      теряет дюймовое эхо: на бумаге оно идёт ровно на один пункт меньше
      соседнего размера в mm, без второй вынесенной цепочки, которая раньше
      вылезала за поля. */
-  var cleanMetric=!!opts.cleanParallelogram||!!opts.sheet,showInchEcho=!opts.cleanParallelogram,compactInch=!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  var cleanMetric=!!opts.cleanParallelogram,showInchEcho=!opts.cleanParallelogram,compactInch=!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
   var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
@@ -273,9 +275,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Ребро по оси получает размерную линию, и число отходит от неё дальше;
        у косого ребра число по-прежнему лежит вдоль самого ребра. */
     var axis=Math.abs(dx)<1e-7||Math.abs(dy)<1e-7;
-    /* На печатном листе поля урезаны: ряд размеров рёбер придвигаем к детали,
-       иначе он и габаритная цепочка не помещаются вдвоём под нижней кромкой. */
-    var key='edge:'+i,base=axis?(opts.sheet?34:(cleanMetric?50:44)):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
+    var key='edge:'+i,base=axis?(cleanMetric?50:44):(cleanMetric?23:15),off=Math.max(6,base+shapeMetricShift(opts,key));
     if(axis)o+=shapeMetricEdgeDimSvg(a,b,nx,ny,off,c,false);
     var lead=axis?off+11:off,inchLead=axis?off+(compactInch?27:41):lead+(compactInch?16:21);
     if(axis&&showInchEcho&&!compactInch)inchDims+=shapeMetricEdgeDimSvg(a,b,nx,ny,off+30,ic,true);
@@ -291,7 +291,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
     /* Точка внутри дуги — не угол, и касательный стык двух рёбер тоже: 180°
      подписывать нечем. */
     if(arcSeg[i]&&arcSeg[(i-1+arcSeg.length)%arcSeg.length])return;
-    if(Math.abs(v.angleDeg-180)<.5)return;
+    if(Math.abs(v.angleDeg-180)<.5||shapeMetricHidden(opts,'angle:'+i))return;
     var b=Q[i],prev=Q[(i-1+Q.length)%Q.length],next=Q[(i+1)%Q.length];
     var a0=Math.atan2(next[1]-b[1],next[0]-b[0]),a1=Math.atan2(prev[1]-b[1],prev[0]-b[0]);
     var span=orient>0?shapeMetricPositiveAngle(a1-a0):shapeMetricPositiveAngle(a0-a1),delta=orient*span;
@@ -327,14 +327,14 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
      dimension.  Put the overall bounding width (for example 1752.60 mm)
      on a clearly separate next row, so the two readings have an unambiguous
      order.  The compact print sheet keeps the shorter offset to stay in frame. */
-  var wideRow=opts.sheet?82:104;
+  var wideRow=104;
   var overallWidthGap=cleanMetric?wideRow:(fullBottom?44:wideRow);
   var overallWidthY=box.bottom+overallWidthGap;
   o+=shapeMetricDimH(box.left,box.right,box.bottom,overallWidthY,shapeMetricFormat(metric.bbox.widthMm),opts,F);
   /* Up/Down puts the OOS dimension on a vertical end of the piece.  Keep the
      overall height beyond the edge-length dimension so labels never share the
      same side corridor. */
-  var wideSide=opts.sheet?62:104;
+  var wideSide=104;
   var overallHeightGap=cleanMetric?wideSide:((fullLeft||fullRight)?48:wideSide);
   var heightEdge=heightRight?box.right:box.left;
   var overallHeightX=heightRight?heightEdge+overallHeightGap:heightEdge-overallHeightGap;
@@ -461,10 +461,10 @@ function shapeProductionDrawingFrame(result,opts){
   var framePoints=(result.points||[]).slice();
   if(metric)metric.vertices.forEach(function(v){framePoints.push(v.point);});
   var pT=shapeAnnNeedsOverhead(result)?210:150,pB=170,pL=170,pR=190;
-  /* Печатный лист: поля канвы урезаны, иначе фигура сидит в пустоте. */
-  if(opts.sheet){var k=.55;pT=Math.round(pT*k);pB=Math.round(pB*k)+8;pL=Math.round(pL*k);pR=Math.round(pR*k);}
   var pb=fabEdgeBounds(framePoints),pw=Math.max(.001,pb.maxX-pb.minX),ph=Math.max(.001,pb.maxY-pb.minY),ar=pw/ph;
-  var LONG=opts.sheet?880:660,SHORT=opts.sheet?200:260;
+  /* Экран и печать используют один кадр. Печатный лист масштабирует готовый
+     SVG целиком, поэтому ручная расстановка не сжимается повторно. */
+  var LONG=660,SHORT=260;
   var aw=ar>=1?LONG:Math.max(SHORT,LONG*ar),ah=ar>=1?Math.max(SHORT,LONG/ar):LONG;
   var F=shapeDrawingFrame(framePoints,{vw:Math.round(aw+pL+pR),vh:Math.round(ah+pT+pB),pL:pL,pR:pR,pT:pT,pB:pB});
   F.metric=metric;return F;
@@ -477,10 +477,10 @@ function shapeProductionSvg(result,opts){
   var F=shapeProductionDrawingFrame(result,opts);
   /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
      внутри чертежа стали бы вторым набором тех же сведений. */
-  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono,tight:sheet});
+  var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
-  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+F.X(0)+'" y="'+F.Y(inch(result.definition.h))+'" width="'+(inch(result.definition.w)*F.sc)+'" height="'+(inch(result.definition.h)*F.sc)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
+  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+L.box.left+'" y="'+L.box.top+'" width="'+(L.box.right-L.box.left)+'" height="'+(L.box.bottom-L.box.top)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
@@ -501,7 +501,7 @@ function shapeProductionSvg(result,opts){
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
   if(!L.smart&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
-    var near=sheet?.55:1;
+    var near=1;
     var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);
     o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
     o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);

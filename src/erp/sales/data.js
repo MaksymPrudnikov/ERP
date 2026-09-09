@@ -19,6 +19,13 @@ const SALES_MAX_INTERLAYERS=4;
 const SALES_INTERLAYER_LAYER_MM=.38;
 const SALES_MAX_INTERLAYER_LAYERS=6;
 const SALES_PRIMARY_SEALANT_ID='SEAL-PIB';
+const SALES_CARD_FEE_RATES={visa:2.34,mastercard:2.39,amex:3.15};
+const SALES_ORDER_CHARGE_DEFAULTS={
+ energy:{enabled:true,rate:9.75},
+ hst:{enabled:true,rate:13},
+ card:{enabled:false,network:'visa',rate:2.34},
+ delivery:{enabled:false,amount:0}
+};
 /* PIB физически добавляет по 0.4 mm с каждой стороны дистанционной рамки. */
 const SALES_PIB_PER_CAVITY_MM=.8;
 
@@ -47,6 +54,17 @@ function salesDimTo16(v){
  const r=fabParseDimStrict(v);return r.ok&&r.v>0?Math.round(r.v*16):null;
 }
 function salesStoredDim16(v){const n=+v;return Number.isInteger(n)&&n>0?n:null;}
+function salesOrderChargeNumber(v,fallback){const n=Number(v);return Number.isFinite(n)&&n>=0?n:fallback;}
+function normalizeSalesOrderCharges(raw){
+ raw=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+ const network=Object.prototype.hasOwnProperty.call(SALES_CARD_FEE_RATES,raw.card&&raw.card.network)?raw.card.network:'visa';
+ return {
+  energy:{enabled:raw.energy&&typeof raw.energy.enabled==='boolean'?raw.energy.enabled:true,rate:salesOrderChargeNumber(raw.energy&&raw.energy.rate,9.75)},
+  hst:{enabled:raw.hst&&typeof raw.hst.enabled==='boolean'?raw.hst.enabled:true,rate:salesOrderChargeNumber(raw.hst&&raw.hst.rate,13)},
+  card:{enabled:!!(raw.card&&raw.card.enabled),network:network,rate:salesOrderChargeNumber(raw.card&&raw.card.rate,SALES_CARD_FEE_RATES[network])},
+  delivery:{enabled:!!(raw.delivery&&raw.delivery.enabled),amount:salesOrderChargeNumber(raw.delivery&&raw.delivery.amount,0)}
+ };
+}
 
 function salesDimFrom16(v){return Number.isInteger(v)&&v>0?frac64(v/16):'';}
 /* Отступ узора фрита — размер заказа, а не константа, и ноль в нём законен:
@@ -359,7 +377,7 @@ function normalizeSalesOrder(o){
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -384,7 +402,7 @@ function validateSalesReferences(){
  DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');});});
 }
 function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:

@@ -20,6 +20,28 @@ module.exports=async function({page,eq,ok}){
   const {l}=metricFixture('single',12,12,3),a=salesLineAreas(l,soDraft),w=salesLineWeight(l,soDraft);
   return {areas:[a.actual,a.rounded,a.billable],unit:Math.round(w.kg*1e6),line:Math.round(w.lineKg*1e6)};
  }),{areas:[1,1,4],unit:1393546,line:4180637});
+ eq('commercial area always rounds upward to the next tenth before Qty',await t.p.evaluate(()=>{
+  const a=metricFixture('single',33,80,1).l,b=metricFixture('single',40,40,10).l;
+  const aa=salesLineAreas(a,soDraft),bb=salesLineAreas(b,soDraft);
+  return [aa.actual.toFixed(4),aa.rounded,aa.billable,bb.actual.toFixed(4),bb.rounded,bb.billable*10];
+ }),['18.3333',18.4,18.4,'11.1111',11.2,112]);
+ eq('order charges follow Subtotal -> ES -> HST -> Card -> manual Delivery',await t.p.evaluate(()=>{
+  const c={energy:{enabled:true,rate:9.75},hst:{enabled:true,rate:13},card:{enabled:true,network:'visa',rate:2.34},delivery:{enabled:true,amount:500}};
+  const x=salesApplyOrderCharges(13000,c),deliveryOnly=salesApplyOrderCharges(13000,{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:true,amount:500}});
+  return {x:[x.subtotal,x.energy,x.hstBase,x.hst,x.cardBase,x.card,x.delivery,x.grand],deliveryOnly:deliveryOnly.grand};
+ }),{x:[13000,1267.5,14267.5,1854.78,16122.28,377.26,500,16999.54],deliveryOnly:13500});
+ eq('new order snapshots ES 9.75 and HST 13 while card and delivery are optional',await t.p.evaluate(()=>{
+  const o=newSalesOrderDraft(),c=o.orderCharges;return [c.energy.enabled,c.energy.rate,c.hst.enabled,c.hst.rate,c.card.enabled,c.card.network,c.card.rate,c.delivery.enabled,c.delivery.amount];
+ }),[true,9.75,true,13,false,'visa',2.34,false,0]);
+ eq('Service + opens editable ES, HST, card and manual delivery with a live breakdown',await t.p.evaluate(()=>{
+  metricFixture('single',47,73.5,2);render();
+  const before={button:document.querySelector('.metric-order-service-add').textContent.trim(),summary:document.querySelector('.metric-order-total').textContent.replace(/\s+/g,' ').trim()};
+  salesOpenMetrics('orderCharges');
+  const modal=document.querySelector('.metric-order-charge-editor'),initial={checked:modal.querySelectorAll('input[type="checkbox"]:checked').length,rates:[...modal.querySelectorAll('input[type="number"]')].map(x=>+x.value),cards:[...modal.querySelectorAll('select option')].map(x=>x.value)};
+  salesSetOrderChargeEnabled('card',true);salesSetOrderChargeEnabled('delivery',true);salesSetOrderChargeValue('delivery','amount','500');
+  const after=salesOrderCommercialTotals(soDraft),text=document.querySelector('.metric-order-total').textContent.replace(/\s+/g,' ').trim();
+  return {before,initial,after:[after.subtotal,after.energy,after.hst,after.card,after.delivery,after.grand],shown:['ES','HST','Visa card fee','Delivery','Total'].every(x=>text.includes(x)),printButton:/metric-order-service-add/.test(salesOrderPrintMarkup())};
+ }),{before:{button:'Service +',summary:'Service +Entire order · 2 unitsSubtotal 242.00 CADES 9.75% 23.60 CADHST 13% 34.53 CADTotal 300.13 CAD'},initial:{checked:2,rates:[9.75,13,2.34,0],cards:['visa','mastercard','amex']},after:[242,23.6,34.53,7.02,500,807.15],shown:true,printButton:false});
  eq('Triple base 100 -> 150; Qty is applied once',await t.p.evaluate(()=>{
   const {l}=metricFixture('triple',12,12,3),p=salesLineCommercialPrice(l,soDraft);
   return {base:p.base,adjustments:p.adjustments.map(a=>a.amount),unit:p.unit,line:p.line};
@@ -82,10 +104,12 @@ module.exports=async function({page,eq,ok}){
   const got=shapeMuntinGeoFor(s),row=salesLineWeight(l,soDraft).rows.find(r=>r.key==='muntin:mb058_black');
   return !!got&&Math.abs(row.basis-got.result.totalLengthIn*.0254)<1e-9;
  }),true);
- eq('shaped Actual Area follows the contour while billing uses its rectangle',await t.p.evaluate(()=>{
-  const {l}=metricFixture('single',48,36,1),s=newShapeDef('raked');s.id='metrics-raked';s.w='48';s.h='36';Object.assign(s.params,{shortHeight:'24',rakeSide:'top',shortSide:'right'});DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
-  const a=salesLineAreas(l,soDraft),r=salesLineChargeRows(l).find(r=>r.key==='SURCHARGE:shape-unit');return [a.actual,a.rounded,a.billable,r.basis];
- }),[10,12,12,12]);
+ eq('Shape Unit applies to shaped DGU/TGU, never to shaped Single Lite',await t.p.evaluate(()=>{
+  const single=metricFixture('single',48,36,1),s=newShapeDef('raked');s.id='metrics-raked';s.w='48';s.h='36';Object.assign(s.params,{shortHeight:'24',rakeSide:'top',shortSide:'right'});DB.shapeDef.push(s);single.l.shapeRef=salesShapeRefFrom(s);
+  const a=salesLineAreas(single.l,soDraft),singleShape=salesLineChargeRows(single.l).find(r=>r.key==='SURCHARGE:shape-unit');
+  const dgu=metricFixture('double',48,36,1);dgu.l.shapeRef=salesShapeRefFrom(s);const dguShape=salesLineChargeRows(dgu.l).find(r=>r.key==='SURCHARGE:shape-unit');
+  return [a.actual,a.rounded,a.billable,!!singleShape,dguShape&&dguShape.basis];
+ }),[10,12,12,false,12]);
  eq('removing a Shape clears its geometry, lite Shapes and Shape services',await t.p.evaluate(()=>{
   const {l}=metricFixture('single',12,12,1),old=salesShapeByRef(l.shapeRef);old.type='raked';old.w='41';old.h='50';old.params={shortHeight:'30',rakeSide:'top',shortSide:'right'};old.edgeOps={A:[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})]};
   const lite=newShapeDef('rectangle');lite.id='metrics-old-lite';lite.ownerLineId=l.id;DB.shapeDef.push(lite);l.liteShapes={'0':salesShapeRefFrom(lite)};const oldId=old.id;
