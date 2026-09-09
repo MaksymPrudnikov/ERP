@@ -121,4 +121,5 @@ function salesRefreshLineMetrics(line){
  const total=document.querySelector('.sales-lines-block>.metric-order-total');if(total)total.outerHTML=salesCommercialOrderSummary();
  const prices=document.querySelector('.sales-services-order-btn .sales-order-price-summary');
  if(prices){const p=salesOrderPricingSummary();prices.innerHTML=`<b>${p.total.toFixed(2)} ${esc(soDraft.currency)}</b>${p.unpriced?`<small>${p.unpriced} no rate</small>`:''}`;}
+ if(tr)applyLang(tr);
 }
