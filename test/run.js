@@ -2142,7 +2142,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        остаться непосчитанной, а не превратиться в ноль. */
     }), {hingeBasis:1,flatBasis:100,miterCatalog:.38,bevelCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
-      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
+      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
     }), {flatSaved:.1,miterSaved:.38,bevelSaved:null,flatEffective:.1,miterEffective:.38,bevelEffective:null,resetCatalog:.1});
 
     eq('добавленный вид фурнитуры попадает в счёт без ставки, а не нулём', await dxfSales.p.evaluate(() => {
@@ -4243,6 +4243,43 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       };
     }), { поумолчанию: 1, зажатСверху: 3, зажатСнизу: 1, мусорДаётЕдиницу: 1,
           текстРастёт: true, рамкаРастётВместе: true, подписьСвоя: 'MIRROR BACKER' });
+
+    /* Прайс уехал из кода в справочник 10 сентября 2026 — «сделай мне мастер-дату
+       максимально от тебя не зависящую». Сторожим здесь не цифры, а ДВА свойства,
+       на которых держится безопасность переезда.
+
+       Первое: правка ставки доходит до расчёта.
+
+       Второе, менее очевидное и более опасное: КЛЮЧ начисления не зависит ни от
+       цены, ни от того, включена ли строка. По ключу сохранённый заказ находит
+       свою ручную ставку — ту, где владелец однажды сделал цену ниже. Поехал бы
+       ключ — все ручные правки в старых заказах отвязались бы молча, и заметили
+       бы это по счёту клиенту, а не здесь. */
+    eq('прайс правится в справочнике, ключи начислений не едут', await t.p.evaluate(() => {
+      const ctx = { ok: true, band: '8-10' };
+      const arris = salesServiceRateRow('roughArris'), cut = salesServiceRateRow('cutout');
+      const keptArris = arris.bands['8-10'], keptCut = cut.active;
+      const before = salesCatalogRate('roughArris', ctx), beforeKey = salesRateBandKey('roughArris', ctx);
+      arris.bands['8-10'] = 0.99;
+      const after = salesCatalogRate('roughArris', ctx);
+      cut.active = false;
+      const out = {
+        before: before,
+        after: after,
+        keyStable: salesRateBandKey('roughArris', ctx) === beforeKey,
+        /* Выключенная строка — «услуга есть, цены нет», а не ноль. */
+        offGivesNull: salesCatalogRate('cutout', ctx),
+        offKeepsKey: salesRateBandKey('cutout', ctx),
+        flatRate: salesCatalogRate('mirrorSealant', { ok: false, band: '' }),
+        flatKey: salesRateBandKey('mirrorSealant', { ok: false, band: '' }),
+        /* Отверстия разложены по диаметру отдельными строками справочника. */
+        holeSubKey: salesCatalogRate('hole', { ok: true, band: '12-19' }, '4+'),
+        unknownIsNull: salesCatalogRate('нетТакого', ctx)
+      };
+      arris.bands['8-10'] = keptArris; cut.active = keptCut;
+      return out;
+    }), { before: .02, after: .99, keyStable: true, offGivesNull: null, offKeepsKey: '8-10',
+          flatRate: .07, flatKey: 'flat', holeSubKey: 25, unknownIsNull: null });
 
     /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
        нету никакой информации на чертеже». Лист собран по его наброску: сверху

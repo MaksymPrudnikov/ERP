@@ -195,7 +195,7 @@ function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Ставка за деление: заводская из прайса; занижают её обычным переопределением
    строки или заказа, как у любой услуги. */
-function salesMuntinCatalogRate(){return SALES_SERVICE_RATE_TABLE.muntinSection;}
+function salesMuntinCatalogRate(){return salesCatalogRate('muntinSection',{ok:false,band:''});}
 /* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
    между стёклами, поэтому у Single Lite раскладки не бывает. */
 function salesLineMuntin(line){
@@ -658,47 +658,10 @@ function salesExcelApply(){
    Geometry and quantities are always derived from Shape / line Qty. Only the
    monetary rate can be overridden in the Sales Order. Catalog rates are snapped
    into the order on save so later catalog changes do not rewrite old orders. */
-const SALES_SERVICE_RATE_TABLE={
- clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
- hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
- roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15},
- /* Полировка склеенной кромки. ЧИСЛО, а не банды: у владельца пока одна ставка
-    на любую толщину склейки. Когда банды появятся, число заменяется объектом
-    вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
- /* Владелец 10 сентября сверил прайс со счётом: «CNC Laminate» — это наш Lami
-    Polish, «POLISH LAMI GLASS» — наш CNC Lami Polish, и обе стоят 0.28.
-    Прежние 0.35 не соответствовали ни одной строке прайса. */
- lamiPolish:.28,cncLamiPolish:.28,
- /* Раскладка считается по ДЕЛЕНИЯМ, а не по длине бара: один горизонтальный бар
-    делит стекло на два прямоугольника, горизонтальный с вертикальным — на
-    четыре. Цена одна на любой бар, ставка правится в строке и в заказе, как у
-    всех начислений: «иногда мы делаем цену ниже». */
-  muntinSection:4.50,
-  /* Коммерческая надбавка за фигурную единицу: считается по billable area
-     строки, а не по периметру или числу лайтов. */
-  shapeUnit:1.25,
-  /* Ставки прайса владельца «Glass Treatment Rates», сверены 10 сентября 2026.
-     Ручной и станочный нотч стоят по-разному и растут с толщиной: прежние
-     15/15/15 были временной цифрой 2 сентября, названной до появления прайса. */
-  notchHand:{'6':10,'8-10':15,'12-19':20},notchCnc:{'6':15,'8-10':20,'12-19':25},
-  /* Патч — та же петля под другим именем, поэтому ставка совпадает с hinge.
-     Владелец 10 сентября: «патч является тоже петлей, только имеет другое
-     название». Цена принадлежит ВИДУ фурнитуры, а не модели: Vienna 180 и
-     Geneva 90 стоят одинаково. */
-  patch:{'6':10,'8-10':15,'12-19':20},
-  /* Внутренний вырез — строка прайса «CNC Processing-Outlet cutout». */
-  cutout:{'6':15,'8-10':20,'12-19':25},
-  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
-     Держим отдельным ключом, а не ссылкой на miter225: когда цены разойдутся,
-     менять придётся одно число, а ключи сохранённых заказов не поедут. */
-  miter45:{'6':.28,'8-10':.38,'12-19':.45},
- sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6},
- /* Зеркальные позиции. Ставки владельца от 10 сентября 2026 — по одной на любую
-    толщину, поэтому числом, а не бандами: в прайсе они стоят только в колонке
-    6 mm, и разводить три одинаковые цифры значило бы придумать различие,
-    которого у цеха нет. Подложка считается по площади, герметик — по дюйму. */
- mirrorBacker:4,mirrorSealant:.07
-};
+/* Прайс цеха переехал в справочник `DB.serviceRate` (см. erp/masterdata/glass).
+   Здесь он был константой, и чтобы поправить цену нотча, нужен был
+   разработчик. Заводские значения перенесены строка в строку, ключи начислений
+   не менялись: по ним сохранённый заказ находит свою строку. */
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
    ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
    разных стекла и две разные ставки. */
@@ -717,12 +680,19 @@ function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2�
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
    склейке 10+10: 20.76 мм ни в один банд не попадает. */
+/* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
+   подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
+function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
 function salesCatalogRate(tableKey,ctx,subKey){
- const t=SALES_SERVICE_RATE_TABLE[tableKey];if(t==null)return null;
- if(subKey){const s=t[subKey];if(s==null)return null;if(typeof s==='number')return s;return ctx.ok&&s[ctx.band]!=null?s[ctx.band]:null;}
- if(typeof t==='number')return t;
- if(!ctx.ok)return null;
- return t[ctx.band]!=null?t[ctx.band]:null;
+ const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
+ /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
+    встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
+    ноль означал бы, что работу сделали и не выставили. */
+ if(!row||row.active===false)return null;
+ if(row.kind==='flat')return row.flat==null?null:row.flat;
+ if(!ctx||!ctx.ok)return null;
+ const v=row.bands?row.bands[ctx.band]:null;
+ return v==null?null:v;
 }
 /* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
    сохранённых заказов обязаны остаться прежними до символа. У единой ставки
@@ -730,8 +700,10 @@ function salesCatalogRate(tableKey,ctx,subKey){
    без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
    и сложились в одну строку счёта. */
 function salesRateBandKey(tableKey,ctx){
- const t=SALES_SERVICE_RATE_TABLE[tableKey];
- if(typeof t==='number')return 'flat';
+ /* Вид строки читается ДАЖЕ у выключенной: ключ начисления обязан оставаться
+    прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
+ const row=salesServiceRateRow(tableKey);
+ if(row&&row.kind==='flat')return 'flat';
  if(ctx&&ctx.ok)return ctx.band;
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
