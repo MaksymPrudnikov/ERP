@@ -5,8 +5,12 @@
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
-function salesSpandrelColourOptions(selected){
- const rows=spandrelColoursFor(''),out=[];
+/* Палитра принадлежит типу: силикон ICD показывает свои шестнадцать цветов,
+   керамика — свои четыре. Без productId (так зовут из проверок) показываются
+   все активные: список цветов сам по себе от типа не зависит. */
+function salesSpandrelColourOptions(selected,productId){
+ const rows=productId==null?(DB.spandrelColour||[]).filter(c=>c.active!==false):spandrelColoursFor(productId);
+ const out=[];
  out.push(salesOption('','— not chosen —',selected,true));
  SPANDREL_COLOUR_FAMILIES.concat(salesUnique(rows.map(c=>c.family)).filter(f=>SPANDREL_COLOUR_FAMILIES.indexOf(f)<0))
   .forEach(function(family){
@@ -239,7 +243,7 @@ function salesVisionFieldsSafe(p,index){
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
  return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
-  <div class="mu-coating-grid mu-second-row"><div><label>Opaci Coat</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color,p.spandrel.productId)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
    толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена

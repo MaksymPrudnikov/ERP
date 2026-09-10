@@ -323,7 +323,7 @@ function shapeCaptureMarkAnchors(){
     if(ed)snap.edges[item.id]={edge:item.edge||'left',shown:shapeMiShownDistance(item,ed.len)};
   });
   ((sDraft&&sDraft.features)||[]).forEach(function(f){
-    if(f.type==='stamp'||f.type==='sandblast'){
+    if(shapeIsPointMark(f)){
       var sp=anchorOf(f.id,shapeStampPosition(f,g));
       if(sp)snap.points[f.id]=sp;
     }else if(f.type==='cutout'){
@@ -376,7 +376,7 @@ function shapeApplyMarkAnchors(snap){
   });
   ((sDraft&&sDraft.features)||[]).forEach(function(f){
     var a=snap.points[f.id];
-    if(a&&(f.type==='stamp'||f.type==='sandblast')){
+    if(a&&shapeIsPointMark(f)){
       place(f.id,a,inch(f.x),inch(f.y),function(p){f.x=shapeFrac16(p[0]);f.y=shapeFrac16(p[1]);return true;});
       return;
     }
@@ -534,7 +534,44 @@ function shapeCutoutCenterPosition(f,g){
    only choose which finished bound the operator measures from, exactly like a
    cutout center. This keeps reference changes out of production geometry. */
 function shapeStampFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type==='stamp';});}
-function shapeSandblastFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type==='sandblast';});}
+/* Метки на теле стекла, кроме штампа: пескоструй, подложка зеркала и герметик
+   кромки. Штамп идёт отдельным списком — он бесплатен и в услуги не попадает. */
+function shapeSurfaceMarkFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return shapeIsPointMark(x.f)&&x.f.type!=='stamp';});}
+/* Метка ставится в центр стекла. Вторая в тот же центр встала бы поверх первой,
+   и на листе вышла бы каша из наложенных подписей — владелец 10 сентября 2026:
+   «чтобы не накладывалась на другие». Поэтому занятая точка расходится по
+   вертикали с шагом, пока не найдётся свободная ВНУТРИ контура: у фигурной
+   детали центр бывает вне стекла, и слепой сдвиг вынес бы подпись наружу. */
+function shapeFreeMarkPoint(g,point){
+  var step=2.5;
+  var taken=((sDraft&&sDraft.features)||[]).filter(shapeIsPointMark)
+    .map(function(f){return [inch(f.x),inch(f.y)];})
+    .filter(function(p){return isFinite(p[0])&&isFinite(p[1]);});
+  var free=function(p){
+    if(g&&g.P&&!fabPointInPoly(p,g.P))return false;
+    return !taken.some(function(t){return Math.abs(t[0]-p[0])<step&&Math.abs(t[1]-p[1])<step;});
+  };
+  if(free(point))return point;
+  for(var n=1;n<=12;n++){
+    var down=[point[0],point[1]-step*n],up=[point[0],point[1]+step*n];
+    if(free(down))return [shapeSnapManufacturing16(down[0]),shapeSnapManufacturing16(down[1])];
+    if(free(up))return [shapeSnapManufacturing16(up[0]),shapeSnapManufacturing16(up[1])];
+  }
+  return point;
+}
+/* Размер подписи метки. Меняет ТОЛЬКО чертёж: ни контур реза, ни machine
+   payload, ни цена от него не зависят. */
+function shapeStepMarkTextScale(i,delta){
+  var f=sDraft&&sDraft.features&&sDraft.features[i];
+  if(!shapeIsPointMark(f))return;
+  var next=Math.round((shapeMarkTextScale(f)+(delta>0?.1:-.1))*100)/100;
+  f.textScale=Math.max(.6,Math.min(3,next));
+  refreshShapeEditor();
+}
+function shapeMarkTextSizeHTML(f,i){
+  var k=shapeMarkTextScale(f);
+  return `<label>Text size<span class='shape-mark-text-size'><button type='button' class='sm' onclick='shapeStepMarkTextScale(${i},-1)'>−</button><b data-raw>${Math.round(k*100)}%</b><button type='button' class='sm' onclick='shapeStepMarkTextScale(${i},1)'>+</button></span><small>Drawing mark only — the cut, the machine payload and the price are untouched.</small></label>`;
+}
 function shapeStampPosition(f,g){
   if(!f||!g||!g.b)return null;
   var x=inch(f.x),y=inch(f.y);if(!isFinite(x)||!isFinite(y))return null;
@@ -570,7 +607,7 @@ function shapeDefaultSandblastPoint(g){
   return best?best.p:shapeDefaultStampPoint(g);
 }
 function shapeSetPointAnnotationDistance(index,axis,value,noun){
-  var f=sDraft&&sDraft.features&&sDraft.features[index],g=shapeManufacturingGeometry(),parsed=fabParseDimStrict(value);if(!f||(f.type!=='stamp'&&f.type!=='sandblast'))return;
+  var f=sDraft&&sDraft.features&&sDraft.features[index],g=shapeManufacturingGeometry(),parsed=fabParseDimStrict(value);if(!f||!shapeIsPointMark(f))return;
   noun=noun||'Drawing mark';
   if(!g||!parsed.ok){alert('Enter a valid '+noun.toLowerCase()+' position in inches.');render();return;}
   var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0){alert(noun+' position must be zero or greater.');render();return;}
@@ -1016,7 +1053,7 @@ function shapeStampMarkerSvg(T){
   }).join('');
 }
 function shapeSandblastMarkerSvg(T){
-  return shapeSandblastFeatures().map(function(row){
+  return shapeSurfaceMarkFeatures().map(function(row){
     var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),spec=shapeSandblastDrawingSpec(f,T.W*T.sc),selected=sFeatureExpandedId===f.id?' selected':'';
     if(!isFinite(x)||!isFinite(y))return '';
     return `<g class='shape-sandblast-mark external${selected}' data-sandblast-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-spec.w/2}' y='${y-spec.h/2}' width='${spec.w}' height='${spec.h}' rx='2'/><text data-raw x='${x}' y='${y-2}' text-anchor='middle' style='font-size:${spec.font}px'><tspan x='${x}'>${esc(spec.lines[0])}</tspan><tspan x='${x}' dy='${spec.font+2}'>${esc(spec.lines[1])}</tspan></text></g>`;
@@ -1036,7 +1073,7 @@ function shapePointAnnotationDimsSvg(rows,T){
   }).join('');
 }
 function shapeStampDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures(),T);}
-function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSandblastFeatures()),T);}
+function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSurfaceMarkFeatures()),T);}
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
 function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
@@ -1054,7 +1091,7 @@ function shapeDerivedServices(){
     var cutout=feats.filter(function(f){return f.type==='cutout';}).length;
     if(cutout)groups['feature:cutout']={label:'Cutout',qty:cutout};
   }
-  shapeSandblastFeatures().forEach(function(row){var f=row.f,key='feature:sandblast:'+shapeSandblastCoverage(f)+':'+shapeSandblastSide(f);if(!groups[key])groups[key]={label:shapeSandblastServiceLabel(f),qty:0};groups[key].qty++;});
+  shapeSurfaceMarkFeatures().forEach(function(row){var f=row.f,key=shapeSurfaceMarkChargeKey(f);if(!groups[key])groups[key]={label:shapeSurfaceMarkLabel(f),qty:0};groups[key].qty++;});
   /* Нотч оплачивается как работа, а не как геометрия: контур раскроя от него не
      меняется, но вырезать и обработать угол цех обязан. */
   shapeNotchCorners().forEach(function(n){var key='notch:'+n.method;if(!groups[key])groups[key]={label:shapeNotchMethodLabel(n.method),qty:0};groups[key].qty+=n.pieces;});
@@ -1072,7 +1109,7 @@ function shapeMarksToolbarHTML(hint){
   var kinds=hardwareKinds();
   return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole",1)'>+ Hole</button>${kinds.map(function(k){
     return `<button class='sm' onclick='shapeStartManufacturingPlacement("${esc(k.code)}")'>+ ${raw(hardwareKindName(k.code))}</button>`;
-  }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("sandblast")'>+ Sandblast</button></div>`;
+  }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("sandblast")'>+ Sandblast</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("mirrorbacker")'>+ Mirror backer</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("mirrorsealant")'>+ Mirror sealant</button></div>`;
 }
 /* Выбор модели. Владелец: «у него есть заготовленные шаблоны петель, он видит
    например Vienna 180 и использует тот шаблон» — значит цеху нужно название, а
@@ -1118,10 +1155,10 @@ function shapeStampCardsHTML(g){
   }).join('')}</div>`;
 }
 function shapeSandblastCardsHTML(g){
-  var rows=shapeSandblastFeatures();if(!rows.length)return '';
+  var rows=shapeSurfaceMarkFeatures();if(!rows.length)return '';
   return `<div class='shape-mi-list shape-sandblast-list'>${rows.map(function(row){
     var f=row.f,i=row.i,expanded=sFeatureExpandedId===f.id,pos=shapeStampPosition(f,g),summary=pos?shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance):'position unavailable';
-    return `<div class='shape-mi-card shape-stamp-card shape-sandblast-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind sandblast'>SAND</span><span><b>${esc(shapeSandblastServiceLabel(f))}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('removeShapeFeature('+i+')')}</div>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}</div>`:''}</div>`;
+    return `<div class='shape-mi-card shape-stamp-card shape-sandblast-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind sandblast'>${esc(f.type==='mirrorbacker'?'BACKER':f.type==='mirrorsealant'?'SEALANT':'SAND')}</span><span><b>${esc(shapeSurfaceMarkLabel(f))}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('removeShapeFeature('+i+')')}</div>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}</div>`:''}</div>`;
   }).join('')}</div>`;
 }
 function shapeHolePairFieldsHTML(item){
@@ -1160,7 +1197,7 @@ function shapeMarksBodyHTML(){
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Dimension on the drawing'}]);
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('shapeRemoveManufacturingItem(&quot;'+esc(item.id)+'&quot;)')}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button></div></div>`:''}</div>`;
-  }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
+  }).join(''):(shapeStampFeatures().length||shapeSurfaceMarkFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
   body+=shapeNotchCardsHTML();
   body+=shapeStampCardsHTML(g);
   body+=shapeSandblastCardsHTML(g);
@@ -2156,10 +2193,14 @@ function shapeEdgeworkEditor(){
 
 function addShapeFeature(type){
   var geo=shapeDraftGeometry(),f=newShapeFeature(type,geo);sManufacturingOpen=true;sManufacturingSelected=null;
-  if(type==='stamp'||type==='sandblast'){
-    var g=shapeManufacturingGeometry(),point=type==='sandblast'?shapeDefaultSandblastPoint(g):shapeDefaultStampPoint(g);f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
-    shapeDimEntry(f.id,'h').ref=type==='sandblast'&&g?(point[0]<=(g.b.minX+g.b.maxX)/2?'left':'right'):'right';
-    shapeDimEntry(f.id,'v').ref=type==='sandblast'&&g?(point[1]<=(g.b.minY+g.b.maxY)/2?'bottom':'top'):'bottom';sFeatureExpandedId=f.id;
+  if(shapeIsPointMark(f)){
+    /* Все метки, кроме штампа, встают в центр стекла и расходятся, если центр
+       уже занят. Штамп сохраняет своё историческое место у нижней кромки. */
+    var g=shapeManufacturingGeometry(),centred=type!=='stamp';
+    var point=centred?shapeFreeMarkPoint(g,shapeDefaultSandblastPoint(g)):shapeDefaultStampPoint(g);
+    f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
+    shapeDimEntry(f.id,'h').ref=centred&&g?(point[0]<=(g.b.minX+g.b.maxX)/2?'left':'right'):'right';
+    shapeDimEntry(f.id,'v').ref=centred&&g?(point[1]<=(g.b.minY+g.b.maxY)/2?'bottom':'top'):'bottom';sFeatureExpandedId=f.id;
   }else sFeatureExpandedId=null;
   sDraft.features.push(f);render();
 }
@@ -2194,14 +2235,20 @@ function shapeFeatureFields(f,i,geo){
     var own=current==='OWN Stamp'?`<label>Custom stamp text<input maxlength='24' value='${esc(f.text)}' placeholder='Enter stamp text' oninput='setShapeFeature(${i},"text",this.value)'><small>Up to 24 characters · shown on the production drawing</small></label>`:'';
     return `<label>Stamp type<select onchange='setShapeStampType(${i},this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+own+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
-  if(f.type==='sandblast'){
+  if(shapeIsPointMark(f)&&f.type!=='stamp'){
     var bg=shapeManufacturingGeometry(),bp=bg?shapeStampPosition(f,bg):null;
     var bPlacement=bp?`<div class='shape-mi-hole-position-grid'>
       <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetDimRef("${esc(f.id)}","h",this.value)'><option value='left' ${bp.hRef==='left'?'selected':''}>Left</option><option value='right' ${bp.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(bp.hDistance))}' onchange='shapeSetSandblastDistance(${i},"h",this.value)'><small>from the ${bp.hRef==='right'?'right':'left'} edge · 1/16″</small></label></div>
       <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetDimRef("${esc(f.id)}","v",this.value)'><option value='bottom' ${bp.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${bp.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(bp.vDistance))}' onchange='shapeSetSandblastDistance(${i},"v",this.value)'><small>from the ${bp.vRef==='top'?'top':'bottom'} edge · 1/16″</small></label></div>
     </div>`:input('X from origin','x')+input('Y from origin','y');
-    return `<label>Coverage<select onchange='setShapeFeatureAndRender(${i},"coverage",this.value)'><option value='full' ${shapeSandblastCoverage(f)==='full'?'selected':''}>Full covered</option><option value='pattern' ${shapeSandblastCoverage(f)==='pattern'?'selected':''}>Pattern</option></select></label>`+
-      `<label>Glass side<select onchange='setShapeFeatureAndRender(${i},"side",this.value)'><option value='front' ${shapeSandblastSide(f)==='front'?'selected':''}>Front</option><option value='back' ${shapeSandblastSide(f)==='back'?'selected':''}>Back</option></select><small>Printed explicitly on the production drawing</small></label>`+
+    /* Пескоструй спрашивает покрытие и сторону, подложка зеркала — только
+       сторону, герметик кромки — ничего: он идёт по периметру, стороны у него
+       нет. Спрашивать её значило бы требовать от цеха ответ, которого не
+       существует, а пустое поле в наряде читается как «забыли заполнить». */
+    var side=f.type==='sandblast'?shapeSandblastSide(f):shapeMirrorSide(f);
+    var coverageField=f.type==='sandblast'?`<label>Coverage<select onchange='setShapeFeatureAndRender(${i},"coverage",this.value)'><option value='full' ${shapeSandblastCoverage(f)==='full'?'selected':''}>Full covered</option><option value='pattern' ${shapeSandblastCoverage(f)==='pattern'?'selected':''}>Pattern</option></select></label>`:'';
+    var sideField=f.type==='mirrorsealant'?'':`<label>Glass side<select onchange='setShapeFeatureAndRender(${i},"side",this.value)'><option value='front' ${side==='front'?'selected':''}>Front</option><option value='back' ${side==='back'?'selected':''}>Back</option></select><small>Printed explicitly on the production drawing</small></label>`;
+    return coverageField+sideField+shapeMarkTextSizeHTML(f,i)+
       bPlacement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
@@ -2215,13 +2262,13 @@ function shapeFeatureSummary(f,geo){
   if(f.type==='radius')return (f.vertexId||'—')+' · R '+f.radius;
   if(f.type==='hardware')return (f.name||'Hardware')+' · '+(f.edgeId||'—')+' @ '+f.distance;
   if(f.type==='stamp')return shapeStampText(f);
-  if(f.type==='sandblast')return shapeSandblastServiceLabel(f);return '';
+  if(shapeIsPointMark(f)&&f.type!=='stamp')return shapeSurfaceMarkLabel(f);return '';
 }
 /* Геометрия, которая ДЕЙСТВИТЕЛЬНО меняет контур реза: внутренний вырез и
    радиусный угол. Всё остальное в этой категории — метки на чертёж. */
 function shapeGeometryBodyHTML(geo){
   var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Radius corner',hardware:'Legacy hardware prep'};
-  var rows=sDraft.features.map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type!=='stamp'&&x.f.type!=='sandblast';}),legacy=rows.filter(function(x){return x.f.type==='hole'||x.f.type==='hardware';}).length;
+  var rows=sDraft.features.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !shapeIsPointMark(x.f);}),legacy=rows.filter(function(x){return x.f.type==='hole'||x.f.type==='hardware';}).length;
   return `<div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Internal cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius corner</button>`:''}<span>These items are fabricated from the finished drawing after edgework.</span></div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy geometry items: ${legacy}</b><span>These older Hole / Hardware features are geometry-bound. Delete them unless that finished geometry is intentional.</span></div>`:''}<div class='shape-feature-list'>${rows.length?rows.map(function(row){
     var f=row.f,i=row.i;
     var expanded=sFeatureExpandedId===f.id;
@@ -2244,7 +2291,7 @@ function shapeGeometryBodyHTML(geo){
    контур принадлежит файлу из Fusion 360, — поэтому вторая группа там просто
    не показывается; список меток для DXF подменяет shape-production-ui. */
 function shapeCutoutItemCount(){
-  var external=shapeIsDxfSource(sDraft),annotations=shapeStampFeatures().length+shapeSandblastFeatures().length,marks=shapeManufacturingItems().length+annotations,cuts=external?0:(sDraft.features||[]).filter(function(f){return f.type!=='stamp'&&f.type!=='sandblast';}).length;
+  var external=shapeIsDxfSource(sDraft),annotations=shapeStampFeatures().length+shapeSurfaceMarkFeatures().length,marks=shapeManufacturingItems().length+annotations,cuts=external?0:(sDraft.features||[]).filter(function(f){return !shapeIsPointMark(f);}).length;
   return marks+cuts+shapeNotchCorners().length;
 }
 function shapeCutoutEditor(geo,workspace){

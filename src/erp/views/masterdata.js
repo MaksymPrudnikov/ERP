@@ -783,26 +783,46 @@ const MD_CATALOGUES=[
  {k:'interlayerProduct', label:'Interlayers',      prefix:'ILR',  what:'плёнки ламинации, цена за слой'},
  {k:'fritProduct',       label:'Frit',             prefix:'FRIT', what:'силкскрин, надбавка за ft²'},
  {k:'spandrelProduct',   label:'Spandrel',         prefix:'SPAN', what:'непрозрачные панели, надбавка за ft²'},
- {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'}
+ {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'},
+ {k:'serviceRate',       label:'Service rates',    prefix:'SVC',  what:'прайс цеха: ставка по толщине или одна на все'}
 ];
 function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
 function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
 function mdCatIsColour(){return mdCatKind==='spandrelColour';}
+/* Прайс — не свободный список. Каждая строка отвечает работе, которую система
+   умеет посчитать: у неё есть база (штука, дюйм, площадь) и место в счёте.
+   Строка, заведённая руками, ни в один счёт не попадёт — начислять её некому.
+   Поэтому здесь можно править цену, единицу, вид и выключать строку, но нельзя
+   добавлять и удалять: это была бы кнопка, которая делает вид, что работает. */
+function mdCatIsRate(){return mdCatKind==='serviceRate';}
+function mdRateBandText(r,band){
+  if(r.kind==='flat')return band==='6'?(r.flat==null?'—':Number(r.flat).toFixed(2)):'';
+  var v=r.bands?r.bands[band]:null;
+  return v==null?'—':Number(v).toFixed(2);
+}
 function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
 function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
- const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour();
- const cols=colour?5:6;
+ const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
+ const cols=rate?7:colour?5:6;
  return `<div class="sub">Эти справочники ведёт владелец. Заведённые здесь позиции <b>переживают обновление системы</b>: заводское наполнение доливается по коду, введённое руками не трогается. Позицию, на которую уже ссылается заказ, правильнее выключить, чем удалить — в старом заказе она иначе станет неизвестной.</div>
   <div class="row"><label>Справочник</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th><th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}<th>Status</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Unit</th><th>up to 6 mm</th><th>8–10 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">пусто</td></tr>`}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`;
+  ${rate?'<div class="sub">Строки прайса не добавляются и не удаляются: каждая отвечает работе, которую система умеет посчитать, а заведённая руками ни в один счёт не попадёт. Ставку, единицу и вид правьте по месту; выключенная строка встанет в счёт как <b>Rate required</b> и в денежный итог не войдёт — это честный ответ «услуга есть, цены нет», а не ноль.</div>':`<div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`}`;
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
+ if(mdCatIsRate())return `<tr>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div>${x.note?`<div class="mut">${raw(x.note)}</div>`:''}</td>
+  <td class="mono">${esc(x.unit)}</td>
+  <td class="mono">${esc(mdRateBandText(x,'6'))}${x.kind==='flat'?'<div class="mut">одна на все</div>':''}</td>
+  <td class="mono">${esc(mdRateBandText(x,'8-10'))}</td>
+  <td class="mono">${esc(mdRateBandText(x,'12-19'))}</td>
+  <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'любой'):'';
  return `<tr>
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div></td>
@@ -827,6 +847,29 @@ function mdCatEditRow(id){
 function mdCatForm(){
  const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
  const families=[''].concat(SPANDREL_COLOUR_FAMILIES);
+ if(mdCatIsRate()){
+  const band=b=>r.bands&&r.bands[b]!=null?r.bands[b]:'';
+  return `<div class="form"><h3>Edit · ${esc(r.name)}</h3>
+   <div class="sub mono">${esc(r.id)}</div>
+   <div class="grid">
+    <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
+    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">За штуку, за расчётный дюйм кромки или за площадь. База начисления от этого не меняется — она задана расчётом; единица только подписывает цифру.</div></div>
+    <div><label>Rate shape</label><select id="md_catRateKind" onchange="mdCatDraft.kind=this.value;render()"><option value="band" ${r.kind!=='flat'?'selected':''}>По толщине стекла</option><option value="flat" ${r.kind==='flat'?'selected':''}>Одна на любую толщину</option></select></div>
+   </div>
+   ${r.kind==='flat'
+    ?`<div class="grid"><div><label>Rate, CAD</label><input id="md_catFlat" type="number" step="0.01" min="0" value="${r.flat==null?'':r.flat}"><div class="hint">Пусто — цены нет: строка встанет в счёт как Rate required.</div></div></div>`
+    :`<div class="grid">
+      <div><label>up to 6 mm</label><input id="md_catB6" type="number" step="0.01" min="0" value="${esc(band('6'))}"></div>
+      <div><label>8–10 mm</label><input id="md_catB810" type="number" step="0.01" min="0" value="${esc(band('8-10'))}"></div>
+      <div><label>12–19 mm</label><input id="md_catB1219" type="number" step="0.01" min="0" value="${esc(band('12-19'))}"></div>
+     </div><div class="hint">Пустая клетка — цены на эту толщину нет. Стекло 7 или 11 мм не попадает ни в одну полосу и остаётся без ставки: это известный пробел, записанный в хендоффе.</div>`}
+   <div class="grid">
+    <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
+    <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
+   </div>
+   <div class="err" id="e_mdCat"></div>
+   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+ }
  return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
   <div class="grid">
    <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
@@ -852,8 +895,28 @@ function mdCatIdFrom(prefix,code,name,taken){
 function mdCatSave(){
  const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
  const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
- const name=mdVal('md_catName'),code=mdVal('md_catCode');
+ const name=mdVal('md_catName');
  if(!name)return fail(e,'Название обязательно');
+ if(mdCatIsRate()){
+  const kindPicked=mdVal('md_catRateKind')==='flat'?'flat':'band';
+  const num=id=>{const v=mdVal(id);return v===''?null:+v;};
+  const bad=v=>v!=null&&(!isFinite(v)||v<0);
+  const flat=kindPicked==='flat'?num('md_catFlat'):mdCatDraft.flat;
+  const b6=kindPicked==='band'?num('md_catB6'):(mdCatDraft.bands||{})['6'];
+  const b810=kindPicked==='band'?num('md_catB810'):(mdCatDraft.bands||{})['8-10'];
+  const b1219=kindPicked==='band'?num('md_catB1219'):(mdCatDraft.bands||{})['12-19'];
+  if([flat,b6,b810,b1219].some(bad))return fail(e,'Ставка — неотрицательное число или пусто');
+  const at=rows.findIndex(x=>x.id===mdCatDraft.id);
+  if(at<0)return fail(e,'Строка прайса не найдена');
+  DB.serviceRate[at]=normalizeServiceRate(Object.assign({},mdCatDraft,{
+   name:name,unit:mdVal('md_catUnit'),kind:kindPicked,flat:flat,
+   bands:{'6':b6,'8-10':b810,'12-19':b1219},
+   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'
+  }));
+  mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
+  return;
+ }
+ const code=mdVal('md_catCode');
  const id=mdCatEdit==='new'?mdCatIdFrom(def.prefix,code,name,rows):mdCatDraft.id;
  const active=mdVal('md_catActive')!=='0';
  let next;

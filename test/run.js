@@ -1795,10 +1795,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
          добавил собственный спандрел. */
       DB.spandrelColour.find(c => c.id === 'SPC-3-818').name = 'Shop Black';
       DB.spandrelColour.push({ id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '', active: true });
-      DB.spandrelProduct.find(p => p.id === 'SPAN-OC-STD').salePrice = 9.99;
+      DB.spandrelProduct.find(p => p.id === 'SPAN-SILICONE').salePrice = 9.99;
       DB.spandrelProduct.push({ id: 'SPAN-MY', type: 'spandrel', name: 'Shop Panel', code: 'SPAN-MY', salePrice: 3, active: true });
       /* Заводскую позицию удаляем: долив обязан вернуть именно её, а не все. */
-      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-BP');
+      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-CERAMIC');
 
       DB.refVersion = 1;
       const did = reseedReferenceTables();
@@ -1810,10 +1810,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         reseeded: did,
         ownColourKept: !!colour('SPC-MY'),
         ownRenameKept: colour('SPC-3-818').name,
-        ownPriceKept: product('SPAN-OC-STD').salePrice,
+        ownPriceKept: product('SPAN-SILICONE').salePrice,
         ownProductKept: !!product('SPAN-MY'),
-        deletedFactoryRowRestored: !!product('SPAN-BP'),
-        factoryColoursIntact: DB.spandrelColour.length === 17
+        deletedFactoryRowRestored: !!product('SPAN-CERAMIC'),
+        /* Считать строки нельзя: владелец заводит свои, и число поедет.
+           Сторожим то, что важно — ни одна заводская не пропала. */
+        factoryColoursIntact: DEFAULT.spandrelColour.every(f => DB.spandrelColour.some(c => c.id === f.id))
       };
     }), { reseeded: true, ownColourKept: true, ownRenameKept: 'Shop Black', ownPriceKept: 9.99,
           ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
@@ -2140,7 +2142,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        остаться непосчитанной, а не превратиться в ноль. */
     }), {hingeBasis:1,flatBasis:100,miterCatalog:.38,bevelCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
-      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
+      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
     }), {flatSaved:.1,miterSaved:.38,bevelSaved:null,flatEffective:.1,miterEffective:.38,bevelEffective:null,resetCatalog:.1});
 
     eq('добавленный вид фурнитуры попадает в счёт без ставки, а не нулём', await dxfSales.p.evaluate(() => {
@@ -3825,7 +3827,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
     }), {accordions:[],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
-      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
+      /* Зеркальные позиции заведены 10 сентября 2026 по решению владельца:
+         «добавь в раздел Fabrication, пусть работают как сандбласт». */
+      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast','+ Mirror backer','+ Mirror sealant'],
       modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
     eq('Библиотека Hole выбирает Single / Double / Triple, C-C двигаются, подсказки скрыты', await t.p.evaluate(() => {
@@ -3969,7 +3973,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
       sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,expanded,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Cutout'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Cutout',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -4195,6 +4199,126 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       cutout:[['Cutout',1,'pc',20]],
       sand:[['Sandblast · Pattern · Front',13.6111,'ft²',6]],netArea:13.6111});
 
+    /* Зеркальные позиции заведены 10 сентября 2026: «добавь в раздел
+       Fabrication, пусть работают как сандбласт». Главное здесь — РАЗНАЯ БАЗА.
+       Подложка ложится на площадь, герметик идёт по кромке и считается по
+       периметру. Считать герметик по площади значило бы выставить за узкую
+       высокую деталь втрое меньше, чем за неё сделано, — и заметить это можно
+       было бы только по жалобе цеха. */
+    eq('зеркальные позиции: подложка по площади, герметик по периметру', await t.p.evaluate(() => {
+      const sh = newShapeDef('rectangle'); sh.id = 'qa-mirror'; sh.w = '20'; sh.h = '40';
+      sh.features = [
+        shapeNormalizeFeature({ type: 'mirrorbacker', side: 'back', x: '10', y: '20' }),
+        shapeNormalizeFeature({ type: 'mirrorsealant', x: '10', y: '15' })
+      ];
+      DB.shapeDef = [normalizeShapeDef(sh)];
+      soDraft = newSalesOrderDraft();
+      const m = soDraft.makeups[0];
+      m.unitType = 'single'; m.panes = [salesDefaultPane(0)];
+      m.panes[0].glassProductId = ''; m.panes[0].thicknessMm = 6;
+      const line = normalizeSalesOrderLine({ makeupId: m.id, qty: 1, width16: 320, height16: 640, shapeRef: salesShapeRefFrom(DB.shapeDef[0]) });
+      soDraft.lines = [line];
+      return salesLineChargeRows(line)
+        .filter(r => r.key.indexOf('FEATURE:mirror') === 0)
+        .map(r => [r.label, r.basis, r.unit, r.catalogRate]);
+    }), [['Mirror Safety Backer · Back', 5.5556, 'ft²', 4],
+         ['Mirror Edge Sealant', 120, 'in', 0.07]]);
+
+    /* Размер подписи правится руками — «я бы хотел увеличивать и уменьшать текст
+       мануально», — но остаётся ОФОРМЛЕНИЕМ: ни контур реза, ни machine payload,
+       ни цена от него не зависят. Проверяем и границы: множитель зажат, иначе
+       случайный ноль или минус сделал бы подпись невидимой. */
+    eq('размер подписи метки: множитель, границы и независимость от цены', await t.p.evaluate(() => {
+      const base = shapeNormalizeFeature({ type: 'mirrorbacker' });
+      const spec = f => shapeSandblastDrawingSpec(f, 400);
+      const big = shapeNormalizeFeature({ type: 'mirrorbacker', textScale: 2 });
+      return {
+        поумолчанию: base.textScale,
+        зажатСверху: shapeMarkTextScale({ textScale: 99 }),
+        зажатСнизу: shapeMarkTextScale({ textScale: 0 }),
+        мусорДаётЕдиницу: shapeMarkTextScale({ textScale: 'нет' }),
+        текстРастёт: spec(big).font > spec(base).font,
+        рамкаРастётВместе: spec(big).w > spec(base).w,
+        подписьСвоя: spec(base).lines[0]
+      };
+    }), { поумолчанию: 1, зажатСверху: 3, зажатСнизу: 1, мусорДаётЕдиницу: 1,
+          текстРастёт: true, рамкаРастётВместе: true, подписьСвоя: 'MIRROR BACKER' });
+
+    /* Прайс уехал из кода в справочник 10 сентября 2026 — «сделай мне мастер-дату
+       максимально от тебя не зависящую». Сторожим здесь не цифры, а ДВА свойства,
+       на которых держится безопасность переезда.
+
+       Первое: правка ставки доходит до расчёта.
+
+       Второе, менее очевидное и более опасное: КЛЮЧ начисления не зависит ни от
+       цены, ни от того, включена ли строка. По ключу сохранённый заказ находит
+       свою ручную ставку — ту, где владелец однажды сделал цену ниже. Поехал бы
+       ключ — все ручные правки в старых заказах отвязались бы молча, и заметили
+       бы это по счёту клиенту, а не здесь. */
+    eq('прайс правится в справочнике, ключи начислений не едут', await t.p.evaluate(() => {
+      const ctx = { ok: true, band: '8-10' };
+      const arris = salesServiceRateRow('roughArris'), cut = salesServiceRateRow('cutout');
+      const keptArris = arris.bands['8-10'], keptCut = cut.active;
+      const before = salesCatalogRate('roughArris', ctx), beforeKey = salesRateBandKey('roughArris', ctx);
+      arris.bands['8-10'] = 0.99;
+      const after = salesCatalogRate('roughArris', ctx);
+      cut.active = false;
+      const out = {
+        before: before,
+        after: after,
+        keyStable: salesRateBandKey('roughArris', ctx) === beforeKey,
+        /* Выключенная строка — «услуга есть, цены нет», а не ноль. */
+        offGivesNull: salesCatalogRate('cutout', ctx),
+        offKeepsKey: salesRateBandKey('cutout', ctx),
+        flatRate: salesCatalogRate('mirrorSealant', { ok: false, band: '' }),
+        flatKey: salesRateBandKey('mirrorSealant', { ok: false, band: '' }),
+        /* Отверстия разложены по диаметру отдельными строками справочника. */
+        holeSubKey: salesCatalogRate('hole', { ok: true, band: '12-19' }, '4+'),
+        unknownIsNull: salesCatalogRate('нетТакого', ctx)
+      };
+      arris.bands['8-10'] = keptArris; cut.active = keptCut;
+      return out;
+    }), { before: .02, after: .99, keyStable: true, offGivesNull: null, offKeepsKey: '8-10',
+          flatRate: .07, flatKey: 'flat', holeSubKey: 25, unknownIsNull: null });
+
+    /* Тело стекла считается ПО СТЁКЛАМ. Правило владельца 10 сентября 2026:
+       «каждый лайт изначально создаётся и живёт отдельно», и «отверстие
+       применяется к каждому стеклу по отдельности; 6 CL + 6 CL — на рисунке одно
+       отверстие, а по факту по отверстию на каждое стекло». Для пакета то же:
+       «IGU иногда делают со спайдерами, и там есть отверстия».
+
+       До этой правки тело брало ОДНУ толщину на всю строку. У юнита из разных
+       стёкол единой толщины не существует, и петли с отверстиями молча
+       оставались без ставки — в счёте Rate required вместо денег. Это не
+       возможность, которой не было, а НЕВЕРНЫЙ СЧЁТ, который уже выставлялся.
+
+       Проверяем три случая, потому что ошибиться можно в каждом: одиночное
+       стекло не должно удвоиться, пакет из одинаковых стёкол обязан остаться
+       ОДНОЙ строкой на две штуки, а пакет из разных — разойтись на две строки со
+       своими ставками. */
+    eq('тело стекла тарифицируется по каждому физическому стеклу', await t.p.evaluate(() => {
+      const build = mm => {
+        const sh = newShapeDef('rectangle'); sh.id = 'qa-per-lite'; sh.w = '20'; sh.h = '40';
+        sh.manufacturingItems = [
+          shapeNormalizeManufacturingItem({ id: 'h1', type: 'hinge', edge: 'right', distance: 5 }),
+          shapeNormalizeManufacturingItem({ id: 'h2', type: 'hinge', edge: 'right', distance: 15 })
+        ];
+        DB.shapeDef = [normalizeShapeDef(sh)];
+        soDraft = newSalesOrderDraft();
+        const m = soDraft.makeups[0];
+        m.unitType = mm.length === 1 ? 'single' : 'double';
+        m.panes = mm.map((t, i) => { const p = salesDefaultPane(i); p.glassProductId = ''; p.thicknessMm = t; return p; });
+        const line = normalizeSalesOrderLine({ makeupId: m.id, qty: 1, width16: 320, height16: 640, shapeRef: salesShapeRefFrom(DB.shapeDef[0]) });
+        soDraft.lines = [line];
+        return salesLineChargeRows(line).filter(r => r.key.indexOf('MI:hinge') === 0).map(r => [r.key, r.basis, r.catalogRate]);
+      };
+      return { single: build([6]), same: build([6, 6]), mixed: build([6, 10]) };
+    }), {
+      single: [['MI:hinge:6', 2, 10]],
+      same: [['MI:hinge:6', 4, 10]],
+      mixed: [['MI:hinge:6', 2, 10], ['MI:hinge:8-10', 2, 15]]
+    });
+
     /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
        нету никакой информации на чертеже». Лист собран по его наброску: сверху
        слева тип и размеры, справа заказчик, посередине чертёж, снизу путь по
@@ -4289,7 +4413,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         const ordered=ht==='AN'?!stages.some(s=>s.code==='HEAT'):
           kind==='frit'?stages.indexOf(step)<stages.findIndex(s=>s.code==='HEAT'):stages.indexOf(step)>stages.findIndex(s=>s.code==='HEAT');
         const spec=salesRouteSurfaceTreatments(pane,i)[0].text;
-        const exact=spec.includes(product.name)&&spec.includes('White')&&text.includes('#'+surface)&&
+        /* Спандрел с 10 сентября 2026 не печатает на листе ни себя, ни свой
+           тип — только цвет и сторону. Имя продукта обязательно по-прежнему
+           у фрита: там их несколько и делают они разное. */
+        const exact=(kind!=='frit'||spec.includes(product.name))&&spec.includes('White')&&text.includes('#'+surface)&&
           (kind!=='frit'||(text==='Frit · #'+surface&&['2 x 4 diamond','Dot Ø 5 mm','W 0','H 1','Top right','Marking: TEST'].every(s=>spec.includes(s))));
         const noLeak=route.lites.every((l,j)=>j===i||!l.stations.some(s=>s.code===code));
         if(!step||!ordered||!exact||!noLeak||!drawn||!drawn.classList.contains(surface===salesPaneSurfaces(i)[0]?'coat-out':'coat-in'))
