@@ -1781,6 +1781,74 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('на актуальной версии пересев не повторяется', await t.p.evaluate(() => reseedReferenceTables()), false);
     await t.c.close();
 
+    /* На этом поведении держится всё требование владельца от 10 сентября 2026:
+       «сделай мне мастер-дату максимально от тебя не зависящую, чтобы я мог ней
+       управлять, добавлять, изменять без тебя». Справочники, которые он ведёт
+       сам, пересев обязан НЕ трогать: ни заведённые им строки, ни его правки
+       заводских. Иначе следующее же обновление системы молча вернёт всё к моему
+       виду, и обещание окажется ложью. Заводские позиции при этом доливаются:
+       без этого Opaci Coat и Backpainting не доехали бы до уже работающего
+       браузера вовсе. */
+    t = await page();
+    eq('пересев не трогает справочники владельца, но доливает заводские', await t.p.evaluate(() => {
+      /* Владелец переименовал заводской цвет, завёл свой, поправил цену и
+         добавил собственный спандрел. */
+      DB.spandrelColour.find(c => c.id === 'SPC-3-818').name = 'Shop Black';
+      DB.spandrelColour.push({ id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '', active: true });
+      DB.spandrelProduct.find(p => p.id === 'SPAN-OC-STD').salePrice = 9.99;
+      DB.spandrelProduct.push({ id: 'SPAN-MY', type: 'spandrel', name: 'Shop Panel', code: 'SPAN-MY', salePrice: 3, active: true });
+      /* Заводскую позицию удаляем: долив обязан вернуть именно её, а не все. */
+      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-BP');
+
+      DB.refVersion = 1;
+      const did = reseedReferenceTables();
+      normalizeMasterData();
+
+      const colour = id => DB.spandrelColour.find(c => c.id === id);
+      const product = id => DB.spandrelProduct.find(p => p.id === id);
+      return {
+        reseeded: did,
+        ownColourKept: !!colour('SPC-MY'),
+        ownRenameKept: colour('SPC-3-818').name,
+        ownPriceKept: product('SPAN-OC-STD').salePrice,
+        ownProductKept: !!product('SPAN-MY'),
+        deletedFactoryRowRestored: !!product('SPAN-BP'),
+        factoryColoursIntact: DB.spandrelColour.length === 17
+      };
+    }), { reseeded: true, ownColourKept: true, ownRenameKept: 'Shop Black', ownPriceKept: 9.99,
+          ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
+    await t.c.close();
+
+    /* Экран справочников — единственное место, где владелец заводит позицию.
+       Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
+       Идентификатор выводится из кода производителя: по нему позицию узнают в
+       сохранённых заказах, и порядковый номер тут не годится. */
+    t = await page();
+    eq('владелец заводит цвет сам, и он доезжает до формы заказа', await t.p.evaluate(() => {
+      const before = DB.spandrelColour.length;
+      mdSetCatKind('spandrelColour');
+      mdCatNew();
+      const host = document.createElement('div');
+      host.innerHTML = mdCatForm();
+      document.body.appendChild(host);
+      host.querySelector('#md_catName').value = 'Deep Ocean';
+      host.querySelector('#md_catCode').value = '#7-1234';
+      host.querySelector('#md_catFamily').value = 'Blue';
+      mdCatSave();
+      host.remove();
+      normalizeMasterData();
+      const added = DB.spandrelColour.find(c => c.name === 'Deep Ocean');
+      const options = salesSpandrelColourOptions(added ? added.id : '');
+      return {
+        grew: DB.spandrelColour.length === before + 1,
+        idFromCode: added ? added.id : '',
+        inOrderForm: options.indexOf('Deep Ocean') >= 0,
+        groupedByFamily: /<optgroup label="Blue">[^]*Deep Ocean/.test(options),
+        legacyValueKept: salesSpandrelColourOptions('Bronze').indexOf('not in the palette') >= 0
+      };
+    }), { grew: true, idFromCode: 'SPC-7-1234', inOrderForm: true, groupedByFamily: true, legacyValueKept: true });
+    await t.c.close();
+
     /* Нормализация обязана пережить мусор: до пересева она видит именно старые
        данные, и если она упадёт — до пересева дело не дойдёт вообще. */
     t = await page();
