@@ -161,7 +161,10 @@ function salesDefaultPane(i){
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
-  spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
+  /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
+     получал бы значение, которого в справочнике нет. Чёрный сохранён как
+     прежнее поведение, но теперь это Black #3-818 из палитры ICD. */
+  spandrel:{productId:'SPAN-CERAMIC',color:'SPC-3-818',surface:null},
   laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID)],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }

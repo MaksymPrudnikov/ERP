@@ -96,7 +96,15 @@ function normalizeUsers(){
    сама СТАНЦИЯ, и держать рядом второй справочник тех же одиннадцати строк
    означало бы два источника правды. На его место встали три новые таблицы
    цеха — операции, рабочие места и терминалы (см. erp/shopfloor/data). */
-const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+/* `spandrelProduct` из списка пересева УБРАН, как в своё время `glassSheet`.
+   Требование владельца 10 сентября 2026 — «сделай мне мастер-дату максимально
+   от тебя не зависящую» — означает, что заведённые им позиции обязаны пережить
+   обновление. Пересев заменяет таблицу заводской целиком, то есть стёр бы и
+   его цены, и его собственные строки. Недостающие заводские позиции вместо
+   этого доливаются по id в normalizeMasterData.
+
+   Палитры `spandrelColour` здесь нет по той же причине и с рождения. */
+const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct'];
 /* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
    модели. Пересев меняет там смысл таблицы, а не только её содержимое,
    поэтому версия обязана подняться — иначе браузер пользователя навсегда
@@ -132,7 +140,11 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
    ветками в коде и правятся в Справочниках. У ламината припуск меряется по
    ПЛИТЕ, а не по суммарной толщине склейки, — до этой версии 6+6 резался на
    четверть дюйма крупнее, а 3+3, 10+10 и 12+12 не резались вовсе. */
-const REFERENCE_VERSION=7;
+/* 7 → 8: цена фрита была выдумана. Владелец 10 сентября 2026, увидев её в
+   справочнике: «3,1 для всего фрита делай 5, я указал с головы». Заодно
+   `fritProduct` и `spandrelProduct` выведены из пересева насовсем, а цифровая
+   печать выключена: «пока не работает». */
+const REFERENCE_VERSION=8;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -179,6 +191,17 @@ function reseedReferenceTables(hadSaved){
   if(kept.maxW!=null)x.maxW=kept.maxW;
   if(kept.maxL!=null)x.maxL=kept.maxL;
  });
+ /* Разовая правка выдуманной цены. Фрит из REFERENCE_TABLES выведен, поэтому
+    пересев его не заменяет — но один раз, при подъёме версии, подменить
+    ИМЕННО плейсхолдер 3.10 обязан: иначе неверная цена так и осталась бы в уже
+    работающем браузере, а владелец видел бы её как настоящую. Сравнение идёт с
+    конкретным старым значением: цену, введённую руками, трогать нельзя. */
+ if(have<8){
+  (Array.isArray(DB.fritProduct)?DB.fritProduct:[]).forEach(x=>{
+   if(x&&+x.salePrice===3.1)x.salePrice=5.00;
+  });
+  done.push('fritProduct price 3.10 → 5.00');
+ }
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));

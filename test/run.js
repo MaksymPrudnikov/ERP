@@ -1747,7 +1747,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [7, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    ]), [8, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
     /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
        за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
     eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
@@ -1759,7 +1759,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [7, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [8, 11, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
@@ -1774,11 +1774,79 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 19, 7, true, true]);
+    }), [true, 11, 22, 19, 8, true, true]);
     await t.c.close();
 
     t = await page();
     eq('на актуальной версии пересев не повторяется', await t.p.evaluate(() => reseedReferenceTables()), false);
+    await t.c.close();
+
+    /* На этом поведении держится всё требование владельца от 10 сентября 2026:
+       «сделай мне мастер-дату максимально от тебя не зависящую, чтобы я мог ней
+       управлять, добавлять, изменять без тебя». Справочники, которые он ведёт
+       сам, пересев обязан НЕ трогать: ни заведённые им строки, ни его правки
+       заводских. Иначе следующее же обновление системы молча вернёт всё к моему
+       виду, и обещание окажется ложью. Заводские позиции при этом доливаются:
+       без этого Opaci Coat и Backpainting не доехали бы до уже работающего
+       браузера вовсе. */
+    t = await page();
+    eq('пересев не трогает справочники владельца, но доливает заводские', await t.p.evaluate(() => {
+      /* Владелец переименовал заводской цвет, завёл свой, поправил цену и
+         добавил собственный спандрел. */
+      DB.spandrelColour.find(c => c.id === 'SPC-3-818').name = 'Shop Black';
+      DB.spandrelColour.push({ id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '', active: true });
+      DB.spandrelProduct.find(p => p.id === 'SPAN-OC-STD').salePrice = 9.99;
+      DB.spandrelProduct.push({ id: 'SPAN-MY', type: 'spandrel', name: 'Shop Panel', code: 'SPAN-MY', salePrice: 3, active: true });
+      /* Заводскую позицию удаляем: долив обязан вернуть именно её, а не все. */
+      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-BP');
+
+      DB.refVersion = 1;
+      const did = reseedReferenceTables();
+      normalizeMasterData();
+
+      const colour = id => DB.spandrelColour.find(c => c.id === id);
+      const product = id => DB.spandrelProduct.find(p => p.id === id);
+      return {
+        reseeded: did,
+        ownColourKept: !!colour('SPC-MY'),
+        ownRenameKept: colour('SPC-3-818').name,
+        ownPriceKept: product('SPAN-OC-STD').salePrice,
+        ownProductKept: !!product('SPAN-MY'),
+        deletedFactoryRowRestored: !!product('SPAN-BP'),
+        factoryColoursIntact: DB.spandrelColour.length === 17
+      };
+    }), { reseeded: true, ownColourKept: true, ownRenameKept: 'Shop Black', ownPriceKept: 9.99,
+          ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
+    await t.c.close();
+
+    /* Экран справочников — единственное место, где владелец заводит позицию.
+       Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
+       Идентификатор выводится из кода производителя: по нему позицию узнают в
+       сохранённых заказах, и порядковый номер тут не годится. */
+    t = await page();
+    eq('владелец заводит цвет сам, и он доезжает до формы заказа', await t.p.evaluate(() => {
+      const before = DB.spandrelColour.length;
+      mdSetCatKind('spandrelColour');
+      mdCatNew();
+      const host = document.createElement('div');
+      host.innerHTML = mdCatForm();
+      document.body.appendChild(host);
+      host.querySelector('#md_catName').value = 'Deep Ocean';
+      host.querySelector('#md_catCode').value = '#7-1234';
+      host.querySelector('#md_catFamily').value = 'Blue';
+      mdCatSave();
+      host.remove();
+      normalizeMasterData();
+      const added = DB.spandrelColour.find(c => c.name === 'Deep Ocean');
+      const options = salesSpandrelColourOptions(added ? added.id : '');
+      return {
+        grew: DB.spandrelColour.length === before + 1,
+        idFromCode: added ? added.id : '',
+        inOrderForm: options.indexOf('Deep Ocean') >= 0,
+        groupedByFamily: /<optgroup label="Blue">[^]*Deep Ocean/.test(options),
+        legacyValueKept: salesSpandrelColourOptions('Bronze').indexOf('not in the palette') >= 0
+      };
+    }), { grew: true, idFromCode: 'SPC-7-1234', inOrderForm: true, groupedByFamily: true, legacyValueKept: true });
     await t.c.close();
 
     /* Нормализация обязана пережить мусор: до пересева она видит именно старые
@@ -1848,7 +1916,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition.length,
               next.station[0].code, next.user[0].workPosition];
-    }), [7, 11, 22, 'CUT', 'CNC1']);
+    }), [8, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();
@@ -2060,20 +2128,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {fixed:false,percent:50});
 
     eq('Pricing меняет только деньги, geometry basis остаётся системным', await dxfSales.p.evaluate(() => {
-      const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
+      const sh=newShapeDef('rectangle');sh.id='qa-price-shape';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Flat Polish'})];sh.edgeOps.B=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'}),shapeNormalizeOp({type:'Beveling',width:'1'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-hng',type:'hinge',edge:'right',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];
       soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;const line=normalizeSalesOrderLine({makeupId:m.id,qty:2,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])});soDraft.lines=[line];
-      const beforeShape=JSON.stringify(DB.shapeDef[0]),beforeRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit,catalogRate:r.catalogRate}));const hinge=beforeRows.find(r=>r.key.indexOf('MI:hinge:')===0),flat=beforeRows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=beforeRows.find(r=>r.key.indexOf('EDGE:miter45:')===0);
+      const beforeShape=JSON.stringify(DB.shapeDef[0]),beforeRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit,catalogRate:r.catalogRate}));const hinge=beforeRows.find(r=>r.key.indexOf('MI:hinge:')===0),flat=beforeRows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=beforeRows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=beforeRows.find(r=>r.key.indexOf('EDGE:bevel:')===0);
       salesSetOrderGroupRate('MI:hinge','12');const hRow=salesLineChargeRows(line).find(r=>r.key===hinge.key);salesSetChargeOrderRate(line.id,hRow.key,'10');const afterRows=salesLineChargeRows(line).map(r=>({key:r.key,basis:r.basis,unit:r.unit})),state=salesChargePricingState(line,hRow),summary=salesLinePricingSummary(line);
-      return {hingeBasis:hinge.basis,flatBasis:flat.basis,miterCatalog:miter.catalogRate,effectiveHinge:state.effectiveRate,unpriced:summary.unpriced,sameShape:beforeShape===JSON.stringify(DB.shapeDef[0]),sameBasis:JSON.stringify(beforeRows.map(r=>[r.key,r.basis,r.unit]))===JSON.stringify(afterRows.map(r=>[r.key,r.basis,r.unit]))};
+      return {hingeBasis:hinge.basis,flatBasis:flat.basis,miterCatalog:miter.catalogRate,bevelCatalog:bevel.catalogRate,effectiveHinge:state.effectiveRate,unpriced:summary.unpriced,sameShape:beforeShape===JSON.stringify(DB.shapeDef[0]),sameBasis:JSON.stringify(beforeRows.map(r=>[r.key,r.basis,r.unit]))===JSON.stringify(afterRows.map(r=>[r.key,r.basis,r.unit]))};
     /* 100″ = кромка A от формы (40) плюс C и D, которые форма не трогала и
        которые закрывает базовая кромка стекла 10 mm. B несёт только Mitering. */
-    }), {hingeBasis:1,flatBasis:100,miterCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
+    /* Митра 45° получила ставку 10 сентября, поэтому роль «начисления без цены»
+       здесь играет фацет: цены на него владелец ещё не назвал, и строка обязана
+       остаться непосчитанной, а не превратиться в ноль. */
+    }), {hingeBasis:1,flatBasis:100,miterCatalog:.38,bevelCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
-      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,resetCatalog};
-    }), {flatSaved:.1,miterSaved:null,flatEffective:.1,miterEffective:null,resetCatalog:.1});
+      const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;SALES_SERVICE_RATE_TABLE.flatPolish['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
+    }), {flatSaved:.1,miterSaved:.38,bevelSaved:null,flatEffective:.1,miterEffective:.38,bevelEffective:null,resetCatalog:.1});
 
     eq('добавленный вид фурнитуры попадает в счёт без ставки, а не нулём', await dxfSales.p.evaluate(() => {
-      const sh=newShapeDef('rectangle');sh.id='qa-patch-price';sh.w='20';sh.h='40';sh.manufacturingItems=[
+      /* Патч с 10 сентября тарифицируется как петля, поэтому роль «вида без
+         ставки» играет уже другой вид. Список типов меток открытый: пивот
+         заводится справочником без правки кода — и обязан дойти до счёта без
+         цены, а не нулём. Патч оставлен рядом, чтобы его новая ставка тоже
+         была под проверкой. */
+      const sh=newShapeDef('rectangle');sh.id='qa-newkind-price';sh.w='20';sh.h='40';sh.manufacturingItems=[
+        shapeNormalizeManufacturingItem({id:'v',type:'pivot',edge:'left',distance:3,model:'Pivot 90'}),
         shapeNormalizeManufacturingItem({id:'p',type:'patch',edge:'left',distance:4,modelId:'hw-patch-ph20',model:'PH20'}),
         shapeNormalizeManufacturingItem({id:'h',type:'hinge',edge:'right',distance:5,modelId:'hw-hinge-vienna-180',model:'Vienna 180'})
       ];DB.shapeDef=[normalizeShapeDef(sh)];
@@ -2086,7 +2163,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {rows:mi.map(r=>[r.key,r.label,r.catalogRate,salesChargeShortLabel(r)]),
         unpriced:salesLinePricingSummary(line).unpriced,
         shared:JSON.stringify(shared.map(r=>[r.key,r.label,r.catalogRate]))===JSON.stringify(mi.map(r=>[r.key,r.label,r.catalogRate]))};
-    }), {rows:[['MI:patch:8-10','Patch',null,'PATCH'],['MI:hinge:8-10','Hinge',15,'HNG']],unpriced:1,shared:true});
+    }), {rows:[['MI:pivot:8-10','Pivot',null,'PIVOT'],['MI:patch:8-10','Patch',15,'PATCH'],['MI:hinge:8-10','Hinge',15,'HNG']],unpriced:1,shared:true});
     await dxfSales.c.close();
   }
 
@@ -2703,7 +2780,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return out;
     })()`), {plain:[['EDGE:flatPolish:6',256,0.07]],
              lami:[['EDGE:lamiPolish:flat',128,0.28]],
-             cncLami:[['EDGE:cncLamiPolish:flat',128,0.35]],
+             cncLami:[['EDGE:cncLamiPolish:flat',128,0.28]],
              mixed:[['EDGE:flatPolish:6',128,0.07],['EDGE:flatPolish:8-10',128,0.1]],
              thick:[['EDGE:lamiPolish:flat',128,0.28]],
              solo:[['EDGE:flatPolish:6',128,0.07]]});
@@ -4106,9 +4183,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       /* Double в углу — два нотча: клиент платит за каждый. */
       DB.shapeDef[0].smart.corners.br='double';DB.shapeDef[0].smart.extraEdges.G={len:'4',out:'0',dir:null};DB.shapeDef[0].smart.extraEdges.H={len:'4',out:'0',dir:null};
       const doubled=pick('FEATURE:notch-');
+      /* Cutout получил ставку 10 сентября: прежде строка вставала Rate required.
+         Вырез добавляется последним, чтобы не сдвинуть Net area, снятую выше. */
+      DB.shapeDef[0].features=(DB.shapeDef[0].features||[]).concat([shapeNormalizeFeature({type:'cutout',width:'4',height:'4',x:'10',y:'10'})]);
+      const cutout=pick('FEATURE:cutout');
       /* База пескоструя — именно Net area фигуры, а не её габарит. */
-      return {hand:hand,cnc:cnc,doubled:doubled,sand:sand,netArea:netArea};
-    }), {hand:[['Hand notch',1,'pc',15]],cnc:[['CNC notch',1,'pc',15]],doubled:[['CNC notch',2,'pc',15]],
+      return {hand:hand,cnc:cnc,doubled:doubled,cutout:cutout,sand:sand,netArea:netArea};
+    /* Ставки прайса владельца от 10 сентября: ручной нотч дешевле станочного, и
+       оба растут с толщиной. Прежние 15 на любую толщину были временной цифрой. */
+    }), {hand:[['Hand notch',1,'pc',15]],cnc:[['CNC notch',1,'pc',20]],doubled:[['CNC notch',2,'pc',20]],
+      cutout:[['Cutout',1,'pc',20]],
       sand:[['Sandblast · Pattern · Front',13.6111,'ft²',6]],netArea:13.6111});
 
     /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
@@ -4212,8 +4296,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           failures.push([count,i,kind,product.id,surface,ht]);
         cases++;
       }
-      soDraft=old;return {cases,failures};
-    }), {cases:144,failures:[]});
+      /* Число случаев выведено из справочников, а не вписано числом: владелец
+         заводит спандрелы и фриты сам, и прибитая цифра ломала бы тест на
+         каждой его правке — про которую тест ничего сказать не хочет. Он
+         сторожит другое: что перебор реально шёл и ни один случай не упал. */
+      const positions=1+2+3,surfacesPerLite=2,heats=3;
+      const products=(DB.fritProduct||[]).length+(DB.spandrelProduct||[]).length;
+      const expected=positions*surfacesPerLite*products*heats;
+      soDraft=old;return {ranAll:cases>0&&cases===expected,failures};
+    }), {ranAll:true,failures:[]});
 
     eq('laminated Frit belongs to its ply: outside / into film, independent heat, LAM then IGU', await t.p.evaluate(() => {
       const failures=[];let cases=0;const old=soDraft;

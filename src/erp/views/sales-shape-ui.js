@@ -209,10 +209,23 @@ function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';
    одиночном стекле» делает salesLineMuntinMisapplied: makeup знает строка,
    а не форма — одну форму берут и в пакет, и в одиночное стекло. */
 
-/* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
+/* Fabrication — ОДНА секция. Раньше их было две («Manufacturing items» и
    «Geometry modifiers»), и одно и то же посадочное место можно было завести
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
-   для старых вызовов и на разметку больше не влияет. */
+   для старых вызовов и на разметку больше не влияет.
+
+   До 10 сентября 2026 секция называлась Cutout и переросла своё имя: вырез —
+   одна позиция из восьми, рядом с ней отверстия, фурнитура, штамп, пескоструй
+   и радиусные углы. Имя Fabrication не выдумано: станция `FAB` в справочнике
+   цеха уже называется по-английски Fabrication, и в её подписи перечислен
+   ровно этот набор — «работа по телу стекла». Взято оно, а не Services:
+   «Services» в приложении означает ДЕНЬГИ (окно Services / Processing, колонка
+   Services, итог по заказу), и одно слово с двумя смыслами на одном экране
+   уже однажды стоило нам разбора.
+
+   Ключи и коды не тронуты: `toggleShapeSection('cutout')`, начисление
+   `FEATURE:cutout` и кнопка «+ Cutout» остаются прежними — вырез как позиция
+   никуда не делся, переименована только секция. */
 function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features'||section==='manufacturing'||section==='cutout')sManufacturingOpen=!sManufacturingOpen;render();}
 function toggleShapeFeatureCard(id){sManufacturingSelected=null;sFeatureExpandedId=sFeatureExpandedId===id?null:id;render();}
 
@@ -459,7 +472,7 @@ function shapeCardDeleteHTML(call){
 /* ---------- Нотч как оплачиваемая работа ----------
    Владелец 2 сентября 2026: «при нажатии на любой нотч пусть появляется сервис
    notch, от меня будет зависеть только решение hand or cnc — переменных очень
-   много». Поэтому у нотча в Cutout своя карточка: геометрия остаётся в Shape
+   много». Поэтому у нотча в Fabrication своя карточка: геометрия остаётся в Shape
    Designer, здесь выбирается только способ, и он попадает в список услуг. */
 const SHAPE_NOTCH_CORNERS=[{k:'tl',label:'Top left'},{k:'tr',label:'Top right'},
   {k:'br',label:'Bottom right'},{k:'bl',label:'Bottom left'}];
@@ -799,7 +812,7 @@ function shapeDimMenuSvg(id,axis,cx,cy){
   var hidden=shapeDimHidden(sDraft,id,axis);
   /* Знаки вместо слов: цифры размеров выросли до 14 px, и «closer / further /
      hide» перестали помещаться в свои кнопки — слова налезали друг на друга.
-     − двигает размер ближе, + дальше, как в карточке Cutout. */
+     − двигает размер ближе, + дальше, как в карточке Fabrication. */
   var btns=[{t:'−',a:'shapeNudgeDim',v:-1},{t:'+',a:'shapeNudgeDim',v:1},{t:hidden?'show':'hide',a:'shapeToggleDimHide',v:null}];
   var w=[24,24,hidden?46:38],total=w.reduce(function(n,x){return n+x;},0),h=20,x0=cx-total/2,run=0;
   /* Клик по самой панели дальше не идёт: она лежит ВНУТРИ группы метки, а у той
@@ -1049,7 +1062,7 @@ function shapeDerivedServices(){
 }
 function shapeManufacturingServicesHTML(){
   var svc=shapeDerivedServices(),stamps=shapeStampFeatures().length;
-  if(!svc.rows.length)return `<div class='shape-service-summary empty-service${stamps?' has-free-stamp':''}'><b>Services</b><span>${stamps?(stamps+(stamps===1?' stamp is':' stamps are')+' FREE drawing annotations. No charge is added.'):'Add an item in Cutout — quantity and services appear here automatically.'}</span>${stamps?`<strong>FREE</strong>`:''}</div>`;
+  if(!svc.rows.length)return `<div class='shape-service-summary empty-service${stamps?' has-free-stamp':''}'><b>Services</b><span>${stamps?(stamps+(stamps===1?' stamp is':' stamps are')+' FREE drawing annotations. No charge is added.'):'Add an item in Fabrication — quantity and services appear here automatically.'}</span>${stamps?`<strong>FREE</strong>`:''}</div>`;
   return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · derived from the drawing</b><small>Pricing happens in the Sales Order. Stamps are always free.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div>${stamps?`<div class='shape-service-free-row'><span>Stamp × ${stamps}</span><b>FREE</b></div>`:''}</div>`;
 }
 /* ---------- Метки: Hole и фурнитура ----------
@@ -2240,7 +2253,7 @@ function shapeCutoutEditor(geo,workspace){
     ${external?'':`<div class='shape-cut-group cuts'><div class='shape-cut-group-head'><b>Changes the cutting shape</b><small>goes into cutting and to the machine</small></div>${shapeGeometryBodyHTML(geo)}</div>`}
     ${shapeManufacturingServicesHTML()}`;
   if(workspace)return `<div class='shape-cutout-workspace'>${body}</div>`;
-  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Cutout</b><small>Hole · hardware · stamp · sandblast · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
+  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Fabrication</b><small>Hole · hardware · stamp · sandblast · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
     ${body}</div>`:''}</div>`;
 }
 function shapeArtifacts(r){

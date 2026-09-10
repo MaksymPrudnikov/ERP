@@ -22,6 +22,9 @@ const MD_TABS=[
  {k:'weight',   label:'Weight norms'},
  {k:'hardware', label:'Hardware'},
  {k:'allowance',label:'Припуск на рез'},
+ /* Не «Справочники»: словарь RU->EN переводит это слово как Master Data, и
+    вкладка называлась бы так же, как весь экран. */
+ {k:'catalogues',label:'Catalogues'},
  {k:'overview', label:'Обзор базы'}
 ];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
@@ -35,6 +38,7 @@ let mdSheetEdit=null,mdSheetDraft=null;
 let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdWeightFilter='';
+let mdCatKind='spandrelColour',mdCatEdit=null,mdCatDraft=null;
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -53,11 +57,11 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,catalogues:viewMdCatalogues,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'||mdTab==='catalogues'?'':mdImportCard()}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -756,4 +760,134 @@ function mdImportCsv(inp,which){
   }catch(e){alert('File not readable: '+e.message);}
  };
  r.readAsText(f);
+}
+
+/* --- Справочники, которые ведёт владелец -------------------------------
+   Требование владельца 10 сентября 2026: «сделай мне мастер-дату максимально
+   от тебя не зависящую, чтобы я мог ней управлять, добавлять, изменять без
+   тебя». До этого экрана завести позицию было нельзя вовсе: у надбавок
+   правилась одна цена, а имя, код и поставщик жили в коде.
+
+   Один экран на все таблицы: шесть простых справочников устроены внутри
+   одинаково (normalizeSimpleMaterial), седьмая — палитра спандрела со своими
+   полями. Отдельный экран на каждую означал бы семь мест, где чинить одну и ту
+   же ошибку.
+
+   `prefix` — начало идентификатора новой строки. Идентификатор выводится из
+   кода производителя, а не из порядкового номера: по нему позицию узнают в
+   сохранённых заказах, и он обязан быть читаемым. */
+const MD_CATALOGUES=[
+ {k:'heatTreatment',     label:'Heat treatment',   prefix:'HT',   what:'annealed · heat strengthened · tempered'},
+ {k:'gasProduct',        label:'Gas',              prefix:'GAS',  what:'заполнение камеры'},
+ {k:'sealantProduct',    label:'Sealants',         prefix:'SEAL', what:'первичный и вторичный контур'},
+ {k:'interlayerProduct', label:'Interlayers',      prefix:'ILR',  what:'плёнки ламинации, цена за слой'},
+ {k:'fritProduct',       label:'Frit',             prefix:'FRIT', what:'силкскрин, надбавка за ft²'},
+ {k:'spandrelProduct',   label:'Spandrel',         prefix:'SPAN', what:'непрозрачные панели, надбавка за ft²'},
+ {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'}
+];
+function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
+function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
+function mdCatIsColour(){return mdCatKind==='spandrelColour';}
+function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
+
+function viewMdCatalogues(){
+ if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
+ if(mdCatEdit!==null)return mdCatForm();
+ const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour();
+ const cols=colour?5:6;
+ return `<div class="sub">Эти справочники ведёт владелец. Заведённые здесь позиции <b>переживают обновление системы</b>: заводское наполнение доливается по коду, введённое руками не трогается. Позицию, на которую уже ссылается заказ, правильнее выключить, чем удалить — в старом заказе она иначе станет неизвестной.</div>
+  <div class="row"><label>Справочник</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th><th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}<th>Status</th><th></th></tr></thead>
+  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">пусто</td></tr>`}</tbody></table></div>
+  <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`;
+}
+function mdCatRowHTML(x){
+ const colour=mdCatIsColour();
+ const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'любой'):'';
+ return `<tr>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div></td>
+  <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
+  ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
+          :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
+            <td class="mono">${x.salePrice==null?'<span class="mut">—</span>':esc(Number(x.salePrice).toFixed(2))}</td>`}
+  <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'inactive':'active'}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button><button class="sm dl" onclick="mdCatDelete('${esc(x.id)}')">×</button></td></tr>`;
+}
+function mdCatNew(){
+ mdCatEdit='new';
+ mdCatDraft=mdCatIsColour()
+  ?{id:'',name:'',code:'',family:'Gray',productId:'',active:true}
+  :{id:'',name:'',code:'',supplier:'',salePrice:null,active:true};
+ render();
+}
+function mdCatEditRow(id){
+ const x=mdCatRows().find(r=>r.id===id);if(!x)return;
+ mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));render();
+}
+function mdCatForm(){
+ const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
+ const families=[''].concat(SPANDREL_COLOUR_FAMILIES);
+ return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
+  <div class="grid">
+   <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
+   <div><label>Code</label><input id="md_catCode" value="${esc(r.code)}"><div class="hint">Код производителя, как он написан у него в таблице. Он же уходит в цех.</div></div>
+   ${colour
+    ?`<div><label>Family</label><select id="md_catFamily">${families.map(f=>`<option value="${esc(f)}" ${f===(r.family||'')?'selected':''}>${f?esc(f):'— без семейства —'}</option>`).join('')}</select></div>
+      <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— любой спандрел —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Пусто — цвет доступен любому спандрелу. Выбор нужен, когда у продукта своя палитра.</div></div>`
+    :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
+      <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Надбавка за ft², если справочник её использует. Пусто — цены нет, и в счёте строка честно встанет Rate required, а не нулём.</div></div>`}
+   <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select></div>
+  </div>
+  <div class="err" id="e_mdCat"></div>
+  <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+}
+/* Идентификатор выводится из кода, а при его отсутствии из названия. Совпадения
+   разводятся суффиксом, а не молча перезаписывают чужую строку. */
+function mdCatIdFrom(prefix,code,name,taken){
+ const base=String(code||name||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+ let id=prefix+'-'+(base||'NEW'),n=2;
+ while(taken.some(x=>x.id===id)){id=prefix+'-'+(base||'NEW')+'-'+n;n++;}
+ return id;
+}
+function mdCatSave(){
+ const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
+ const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
+ const name=mdVal('md_catName'),code=mdVal('md_catCode');
+ if(!name)return fail(e,'Название обязательно');
+ const id=mdCatEdit==='new'?mdCatIdFrom(def.prefix,code,name,rows):mdCatDraft.id;
+ const active=mdVal('md_catActive')!=='0';
+ let next;
+ if(colour){
+  next={id:id,name:name,code:code,family:mdVal('md_catFamily'),productId:mdVal('md_catProduct'),active:active};
+ }else{
+  const typed=mdVal('md_catPrice'),price=typed===''?null:+typed;
+  if(price!=null&&(!isFinite(price)||price<0))return fail(e,'Цена — неотрицательное число или пусто');
+  /* Правка сохраняет поля, которых нет на форме: наличие, срок поставки,
+     толщина. Иначе редактирование имени стирало бы их молча. */
+  const prev=mdCatEdit==='new'?{}:mdCatDraft;
+  next=Object.assign({},prev,{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,active:active});
+ }
+ if(!Array.isArray(DB[mdCatKind]))DB[mdCatKind]=[];
+ if(mdCatEdit==='new')DB[mdCatKind].push(next);
+ else{
+  const at=DB[mdCatKind].findIndex(x=>x.id===mdCatDraft.id);
+  if(at<0)return fail(e,'Позиция не найдена');
+  DB[mdCatKind][at]=next;
+ }
+ mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
+}
+/* Ссылку ищем грубо — по идентификатору в тексте сохранённого заказа. Точный
+   разбор потребовал бы знать поле для каждой из семи таблиц, а цена ошибки
+   несимметрична: лишнее предупреждение человек прочитает и решит сам, а
+   пропущенное молча испортит старый заказ. */
+function mdCatUsed(id){
+ const needle='"'+id+'"';
+ return (DB.salesOrder||[]).some(o=>{try{return JSON.stringify(o).indexOf(needle)>=0;}catch(err){return false;}});
+}
+function mdCatDelete(id){
+ const used=mdCatUsed(id);
+ if(!confirm(used?'Эта позиция стоит в сохранённых заказах. Всё равно удалить? Там она станет неизвестной. Обычно правильнее выключить её, а не удалять.':'Удалить позицию?'))return;
+ if(!Array.isArray(DB[mdCatKind]))return;
+ DB[mdCatKind]=DB[mdCatKind].filter(x=>x.id!==id);
+ mdCatEdit=null;mdCatDraft=null;touch();render();
 }

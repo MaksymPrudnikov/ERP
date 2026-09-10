@@ -178,7 +178,9 @@ function salesRouteSurfaceTreatments(pane,index,side){
     var label=kind==='coating'?salesVisionTypeLabel(ply.visionType):
       kind==='frit'?'Frit':'Spandrel';
     if(product)label+=' · '+(product.name||product.code);
-    if(spec.color)label+=' · '+spec.color;
+    /* У фрита цвет — это слово из своего короткого списка, у спандрела —
+       строка палитры с кодом. Один и тот же ключ, два разных справочника. */
+    if(spec.color)label+=' · '+(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
     if(kind==='frit'&&spec.pattern)label+=' · '+spec.pattern;
     var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';
     var summary=label+' · '+where,text=summary;

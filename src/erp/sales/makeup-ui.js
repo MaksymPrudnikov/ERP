@@ -5,6 +5,20 @@
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
+function salesSpandrelColourOptions(selected){
+ const rows=spandrelColoursFor(''),out=[];
+ out.push(salesOption('','— not chosen —',selected,true));
+ SPANDREL_COLOUR_FAMILIES.concat(salesUnique(rows.map(c=>c.family)).filter(f=>SPANDREL_COLOUR_FAMILIES.indexOf(f)<0))
+  .forEach(function(family){
+   const inFamily=rows.filter(c=>c.family===family);
+   if(!inFamily.length)return;
+   out.push(`<optgroup label="${esc(family)}">${inFamily.map(c=>salesOption(c.id,spandrelColourLabel(c),selected,true)).join('')}</optgroup>`);
+  });
+ const loose=rows.filter(c=>!c.family);
+ if(loose.length)out.push(loose.map(c=>salesOption(c.id,spandrelColourLabel(c),selected,true)).join(''));
+ if(selected&&!spandrelColourById(selected))out.push(salesOption(selected,selected+' · not in the palette',selected,true));
+ return out.join('');
+}
 function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
 function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
 function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
@@ -109,7 +123,7 @@ function salesPaneProductSummary(p,index){
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
- if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
+ if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
  if(ht&&ht.code!=='AN')bits.push(ht.code+(p.heatSoak&&ht.code==='FT'?' + HST':''));return bits.join(' · ');
@@ -225,7 +239,7 @@ function salesVisionFieldsSafe(p,index){
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
  return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
-  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+  <div class="mu-coating-grid mu-second-row"><div><label>Opaci Coat</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
    толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
