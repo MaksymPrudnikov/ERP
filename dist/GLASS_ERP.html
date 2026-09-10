@@ -1102,7 +1102,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='52db0fd22e4a';
+var ERP_BUILD='330ef4cacfe4';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -1963,7 +1963,47 @@ function shapeIsLamiOnlyOp(type){return SHAPE_LAMI_ONLY_OPS.indexOf(type)>=0;}
    молча сдвигал подписи: под «Flat» оказывалась галочка другой операции. */
 var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel','Lami Polish':'LamiP','CNC Lami Polish':'CNC Lami'};
 function shapeEdgeOpShort(type){return SHAPE_EDGE_OP_SHORT[type]||String(type||'');}
-var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
+var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast','mirrorbacker','mirrorsealant'];
+/* Метки на теле стекла: штамп, пескоструй и две зеркальные позиции. Все они
+   ставятся точкой в центр стекла, двигаются заданием расстояния от кромки и
+   печатаются подписью в две строки. Признак один общий, потому что проверка
+   `type==='stamp'||type==='sandblast'` стояла в семи местах, и третья метка
+   означала бы семь одинаковых правок — а четвёртая ещё семь. */
+var SHAPE_POINT_MARK_TYPES=['stamp','sandblast','mirrorbacker','mirrorsealant'];
+function shapeIsPointMark(f){return SHAPE_POINT_MARK_TYPES.indexOf(shapePlainObject(f).type)>=0;}
+/* Размер подписи правится руками: владелец 10 сентября 2026 — «я бы хотел
+   увеличивать и уменьшать текст мануально». Хранится МНОЖИТЕЛЕМ, а не готовым
+   кеглем: базовый размер выводится из ширины стекла на листе, и множитель
+   переживает и смену масштаба чертежа, и смену размеров детали. */
+function shapeMarkTextScale(f){
+  var v=+shapePlainObject(f).textScale;
+  if(!isFinite(v)||v<=0)return 1;
+  return Math.max(.6,Math.min(3,Math.round(v*100)/100));
+}
+/* Зеркальные позиции. Подложка клеится на сторону, поэтому сторону знает;
+   герметик идёт по кромке — стороны у него нет вовсе, и спрашивать её значило
+   бы просить у цеха ответ, которого не существует. */
+function shapeMirrorSide(f){return shapePlainObject(f).side==='back'?'back':'front';}
+/* Подпись и ключ начисления для меток на теле стекла. Держим их рядом со
+   схемой, а не в экране: по ним считается счёт, и второй разбор в другом месте
+   уже однажды разошёлся с первым. */
+function shapeSurfaceMarkLabel(f){
+  var t=shapePlainObject(f).type;
+  if(t==='sandblast')return shapeSandblastServiceLabel(f);
+  if(t==='mirrorbacker'||t==='mirrorsealant')return shapeMirrorServiceLabel(f);
+  return '';
+}
+function shapeSurfaceMarkChargeKey(f){
+  var t=shapePlainObject(f).type;
+  if(t==='sandblast')return 'feature:sandblast:'+shapeSandblastCoverage(f)+':'+shapeSandblastSide(f);
+  if(t==='mirrorbacker')return 'feature:mirrorbacker:'+shapeMirrorSide(f);
+  return 'feature:'+t;
+}
+function shapeMirrorServiceLabel(f){
+  return shapePlainObject(f).type==='mirrorsealant'
+    ? 'Mirror Edge Sealant'
+    : 'Mirror Safety Backer · '+(shapeMirrorSide(f)==='back'?'Back':'Front');
+}
 /* A stamp is a free annotation on the production drawing. The selected text is
    intentionally short: it must remain readable inside the glass contour. Keep
    accepting older/custom text so saved revisions never lose their marking. */
@@ -2010,6 +2050,9 @@ function shapeNormalizeFeature(f){
     Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),stampType:stampType,text:stampText});
   }
   if(type==='sandblast')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f)});
+  if(type==='mirrorbacker')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),side:shapeMirrorSide(f)});
+  if(type==='mirrorsealant')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1')});
+  if(shapeIsPointMark(out))out.textScale=shapeMarkTextScale(f);
   return out;
 }
 function shapeNormalizePolygon(raw){
@@ -4272,10 +4315,23 @@ function shapeProductionFeaturesSvg(result,F){
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-w/2)+'" y="'+(y-10)+'" width="'+w+'" height="20" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+3.5)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
 }
+/* Подпись метки на теле стекла. Пескоструй, подложка зеркала и герметик кромки
+   рисуются одинаково — двумя строками в рамке, — поэтому спека одна на всех.
+   Множитель размера задаёт владелец руками; при увеличении растёт и рамка,
+   иначе текст вылезал бы за неё. Верхняя граница ширины поднята вместе с
+   множителем: без этого «увеличить текст» упиралось бы в прежние 190 px. */
+function shapePointMarkLines(f){
+  var t=shapePlainObject(f).type;
+  if(t==='mirrorbacker')return ['MIRROR BACKER',shapeMirrorSide(f)==='back'?'BACK':'FRONT'];
+  if(t==='mirrorsealant')return ['MIRROR EDGE SEALANT','PERIMETER'];
+  return ['SANDBLAST',(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT')];
+}
 function shapeSandblastDrawingSpec(f,glassPixelWidth){
-  var line2=(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT'),available=Math.max(44,(+glassPixelWidth||0)*.72);
+  var lines=shapePointMarkLines(f),line2=lines[1],k=shapeMarkTextScale(f);
+  var available=Math.max(44,(+glassPixelWidth||0)*.72);
   var desired=Math.max(72,line2.length*5.4+16),w=Math.max(44,Math.min(190,available,desired)),font=Math.max(6,Math.min(9,(w-12)/Math.max(8,line2.length*.62)));
-  return {lines:['SANDBLAST',line2],w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10};
+  font=font*k;w=Math.max(44,Math.min(190*k,w*k));
+  return {lines:lines,w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10,scale:k};
 }
 function shapeTitleBlock(result,kind,F){
   var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24;
@@ -5381,6 +5437,18 @@ function reseedReferenceTables(hadSaved){
    if(x&&+x.salePrice===3.1)x.salePrice=5.00;
   });
   done.push('fritProduct price 3.10 → 5.00');
+  /* Силиконовый спандрел — это Opaci Coat от ICD, и владелец просил, чтобы
+     бренд был виден там, где выбирают тип. Долив заводских строк этого не
+     сделает: он ДОБАВЛЯЕТ недостающие, но не переименовывает существующие,
+     а SPAN-SILICONE в браузере уже есть со старым именем. Поэтому разовая
+     правка — и только если имя ещё заводское: своё владелец мог уже вписать. */
+  (Array.isArray(DB.spandrelProduct)?DB.spandrelProduct:[]).forEach(x=>{
+   if(x&&x.id==='SPAN-SILICONE'&&x.name==='Silicone Spandrel'){
+    x.name='Opaci-Coat · Silicone Spandrel';
+    if(!x.supplier)x.supplier='ICD';
+   }
+  });
+  done.push('SPAN-SILICONE → Opaci-Coat');
  }
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
@@ -7294,12 +7362,16 @@ DEFAULT.fritProduct=[
 /* Покраска — это спандрел, а не отдельная услуга. Решение владельца
    10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
    силиконовый», а `Opaci Coat` — код производителя ICD, а не название работы.
-   Поэтому в прайсе они стояли строками услуг, а в системе стоят продуктами. */
+
+   ТИПОВ РОВНО ДВА. Первым заходом я развёл Opaci-Coat стандартный, Opaci-Coat
+   кастомный и Backpainting в три отдельных типа — и владелец это отбил:
+   «не нужно разбивать на 5 типов; кастомный цвет должен жить в цветах, это всё
+   ещё Opaci, просто кастомный; краска заказчика — тоже Opaci, только заказчика».
+   Различие между ними — не тип панели, а строка палитры. Тип отвечает, ЧЕМ
+   красят: силикон ICD или керамика. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00},
- {id:'SPAN-OC-STD', name:'Opaci-Coat · Standard Colour',code:'SPAN-OC-STD', supplier:'ICD',salePrice:5.00},
- {id:'SPAN-OC-CUST',name:'Opaci-Coat · Custom Colour',  code:'SPAN-OC-CUST',supplier:'ICD',salePrice:5.00},
- {id:'SPAN-BP',     name:"Backpainting · Customer's Own Paint",code:'SPAN-BP',salePrice:7.00}
+ {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00},
+ {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
@@ -7330,11 +7402,10 @@ const FRIT_DEFAULT_MARGIN16=16;
    Недостающие заводские строки доливаются по id в normalizeMasterData — тем же
    приёмом, что у плёнок ламинации.
 
-   Поле `productId` у цвета есть, но у заводских шестнадцати оно пустое: палитра
-   Opaci Coat — единственная, что есть у цеха, и годится любому спандрелу.
-   Пустой продукт означает «доступен всем». Когда у керамического спандрела
-   появится своя палитра, её строки получат свой productId и разойдутся с этой
-   без правки кода. */
+   Цвет принадлежит ТИПУ: у силикона ICD своя палитра из шестнадцати цветов,
+   у керамики своя короткая — «только белый, чёрный, серый и кастомный, всё,
+   больше ничего». Пустой `productId` означает «доступен любому типу»: так
+   заводятся цвета, добавленные владельцем, пока он не привязал их к типу. */
 function normalizeSpandrelColour(c){
  c=c&&typeof c==='object'?c:{};
  return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
@@ -7356,9 +7427,86 @@ DEFAULT.spandrelColour=[
  {id:'SPC-4-3630',family:'Brown',name:'Sturdy Brown',    code:'#4-3630'},
  {id:'SPC-4-822', family:'Brown',name:'Harmony Bronze',  code:'#4-822'},
  {id:'SPC-3-1060',family:'White',name:'White',           code:'#3-1060'},
- {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'}
-].map(normalizeSpandrelColour);
+ {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'},
+ /* Кастомный цвет и краска заказчика — строки ПАЛИТРЫ, а не типы панели.
+    Кода производителя у них нет: он появится, когда цвет назовут. */
+ {id:'SPC-OC-CUSTOM',family:'',name:'Custom Colour',      code:''},
+ {id:'SPC-OC-OWN',   family:'',name:"Customer's Own Paint",code:''}
+].map(x=>normalizeSpandrelColour(Object.assign({productId:'SPAN-SILICONE'},x)))
+/* Керамика: «только белый, чёрный, серый и кастомный, всё, больше ничего».
+   Скринов по ней у владельца нет, поэтому кодов производителя тоже нет. */
+.concat([
+ {id:'SPC-CER-WHITE', family:'White',name:'White'},
+ {id:'SPC-CER-BLACK', family:'Black',name:'Black'},
+ {id:'SPC-CER-GREY',  family:'Gray', name:'Grey'},
+ {id:'SPC-CER-CUSTOM',family:'',     name:'Custom'}
+].map(x=>normalizeSpandrelColour(Object.assign({code:'',productId:'SPAN-CERAMIC'},x))));
 const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
+
+/* --- Ставки услуг ------------------------------------------------------
+   Прайс цеха. До 10 сентября 2026 он был константой в коде: чтобы поправить
+   цену нотча, нужен был разработчик. Владелец: «сделай мне мастер-дату
+   максимально от тебя не зависящую».
+
+   `kind` хранится ЯВНО, а не выводится из того, заполнено ли поле. От него
+   зависит хвост ключа начисления (`flat` против банда толщины), а ключ — это
+   то, по чему сохранённый заказ находит свою строку. Выведи мы kind из
+   наличия значения — стёртая владельцем цена молча переписала бы ключи всех
+   старых заказов, и их ручные правки ставок отвязались бы.
+
+   Толщинные банды: `6` — до 6 мм включительно, `8-10`, `12-19`. Отверстия
+   разложены по диаметру отдельными строками (`hole:0.5-1` и так далее):
+   вложенная таблица не редактируется одним экраном, а цена у них своя. */
+function normalizeServiceRate(r){
+ r=r&&typeof r==='object'?r:{};
+ const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
+ const src=r.bands&&typeof r.bands==='object'?r.bands:{};
+ return {
+  id:mdString(r.id),name:mdString(r.name),unit:mdString(r.unit)||'pc',
+  kind:r.kind==='flat'?'flat':'band',
+  flat:num(r.flat),
+  bands:{'6':num(src['6']),'8-10':num(src['8-10']),'12-19':num(src['12-19'])},
+  note:mdString(r.note),active:r.active!==false
+ };
+}
+const SERVICE_RATE_SEED=[
+ ['clamp',            'Clamp',                 'pc',  [5,8,10]],
+ ['hinge',            'Hinge',                 'pc',  [10,15,20]],
+ /* Патч — та же петля под другим именем: «патч является тоже петлей, только
+    имеет другое название». Цена принадлежит ВИДУ фурнитуры, а не модели. */
+ ['patch',            'Patch',                 'pc',  [10,15,20]],
+ ['hole:0.5-1',       'Hole 1/2″–1″',          'pc',  [5,6,7]],
+ ['hole:1-2',         'Hole 1-1/16″–2″',       'pc',  [6,7,8]],
+ ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  [7,8,9]],
+ ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  [8,12,15]],
+ ['hole:4+',          'Hole over 4″',          'pc',  [10,15,25]],
+ ['roughArris',       'Rough Arris',           'in',  [.01,.02,.03]],
+ ['flatPolish',       'Flat Polish',           'in',  [.07,.10,.13]],
+ ['cncShapePolish',   'CNC Shape Polish',      'in',  [.28,.38,.48]],
+ ['miter225',         'Mitering 22.5°',        'in',  [.28,.38,.45]],
+ /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
+    Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
+    число, а ключи сохранённых заказов не поедут. */
+ ['miter45',          'Mitering 45°',          'in',  [.28,.38,.45]],
+ ['radiusCorner',     'Radius Corner',         'pc',  [10,12,15]],
+ ['notchHand',        'Notch by hand',         'pc',  [10,15,20]],
+ ['notchCnc',         'Notch by CNC',          'pc',  [15,20,25]],
+ ['cutout',           'Cutout',                'pc',  [15,20,25]],
+ ['sandblastFull',    'Simple Sandblasting',   'ft²', [4,4,4]],
+ ['sandblastPattern', 'Pattern Sandblasting',  'ft²', [6,6,6]]
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],kind:'band',bands:{'6':x[3][0],'8-10':x[3][1],'12-19':x[3][2]}}))
+/* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
+   цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
+   владелец переключит вид строки на экране, кода это не потребует. */
+.concat([
+ ['lamiPolish',    'Lami Polish',          'in',  .28,  'Одна ставка на любую толщину склейки'],
+ ['cncLamiPolish', 'CNC Lami Polish',      'in',  .28,  'Прайс: POLISH LAMI GLASS'],
+ ['muntinSection', 'Muntin section',       'pc',  4.50, 'Считается по ДЕЛЕНИЯМ, а не по длине бара'],
+ ['shapeUnit',     'Shape Unit',           'ft²', 1.25, 'Надбавка за фигурную единицу, по billable area'],
+ ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 4,    ''],
+ ['mirrorSealant', 'Mirror Edge Sealant',  'in',  .07,  'По периметру готового контура, не по площади']
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],kind:'flat',flat:x[3],note:x[4]})));
+DEFAULT.serviceRate=SERVICE_RATE_SEED;
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
  return (DB.spandrelColour||[]).filter(c=>c.active!==false&&(!c.productId||c.productId===productId));
@@ -7414,6 +7562,14 @@ function normalizeMasterData(){
   }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
+ /* Ставки услуг доливаются тем же приёмом и по той же причине: прайс ведёт
+    владелец, и пересев стёр бы его цены. */
+ if(!Array.isArray(DB.serviceRate))DB.serviceRate=JSON.parse(JSON.stringify(DEFAULT.serviceRate));
+ DEFAULT.serviceRate.forEach(seed=>{if(!DB.serviceRate.some(x=>x&&x.id===seed.id))DB.serviceRate.push(JSON.parse(JSON.stringify(seed)));});
+ const srSeen=Object.create(null);
+ DB.serviceRate=DB.serviceRate.filter(x=>x&&typeof x==='object').map(normalizeServiceRate)
+  .filter(r=>r.id&&r.name&&!srSeen[r.id]&&(srSeen[r.id]=true));
+
  /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
     трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */
  if(!Array.isArray(DB.spandrelColour))DB.spandrelColour=JSON.parse(JSON.stringify(DEFAULT.spandrelColour));
@@ -8092,8 +8248,10 @@ function salesDefaultPane(i){
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
      получал бы значение, которого в справочнике нет. Чёрный сохранён как
-     прежнее поведение, но теперь это Black #3-818 из палитры ICD. */
-  spandrel:{productId:'SPAN-CERAMIC',color:'SPC-3-818',surface:null},
+     прежнее поведение. Тип по умолчанию — силикон ICD, потому что Black
+     #3-818 принадлежит его палитре: пара «керамика + цвет силикона» давала бы
+     на новом лайте «нет в палитре». */
+  spandrel:{productId:'SPAN-SILICONE',color:'SPC-3-818',surface:null},
   laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID)],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
@@ -10060,7 +10218,7 @@ function salesPaneRemoveLamInterlayer(i,slot){const p=salesCurrentMakeup().panes
 function salesCavitySet(i,k,v){const c=salesCurrentMakeup().cavities[i];if(c)c[k]=v;render();}
 /* Ставка за деление: заводская из прайса; занижают её обычным переопределением
    строки или заказа, как у любой услуги. */
-function salesMuntinCatalogRate(){return SALES_SERVICE_RATE_TABLE.muntinSection;}
+function salesMuntinCatalogRate(){return salesCatalogRate('muntinSection',{ok:false,band:''});}
 /* Раскладка строки — в её форме. Одиночное стекло баров не несёт: бар стоит
    между стёклами, поэтому у Single Lite раскладки не бывает. */
 function salesLineMuntin(line){
@@ -10523,42 +10681,10 @@ function salesExcelApply(){
    Geometry and quantities are always derived from Shape / line Qty. Only the
    monetary rate can be overridden in the Sales Order. Catalog rates are snapped
    into the order on save so later catalog changes do not rewrite old orders. */
-const SALES_SERVICE_RATE_TABLE={
- clamp:{'6':5,'8-10':8,'12-19':10},hinge:{'6':10,'8-10':15,'12-19':20},
- hole:{'0.5-1':{'6':5,'8-10':6,'12-19':7},'1-2':{'6':6,'8-10':7,'12-19':8},'2-3':{'6':7,'8-10':8,'12-19':9},'3-4':{'6':8,'8-10':12,'12-19':15},'4+':{'6':10,'8-10':15,'12-19':25}},
- roughArris:{'6':.01,'8-10':.02,'12-19':.03},flatPolish:{'6':.07,'8-10':.10,'12-19':.13},cncShapePolish:{'6':.28,'8-10':.38,'12-19':.48},miter225:{'6':.28,'8-10':.38,'12-19':.45},radiusCorner:{'6':10,'8-10':12,'12-19':15},
- /* Полировка склеенной кромки. ЧИСЛО, а не банды: у владельца пока одна ставка
-    на любую толщину склейки. Когда банды появятся, число заменяется объектом
-    вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
- /* Владелец 10 сентября сверил прайс со счётом: «CNC Laminate» — это наш Lami
-    Polish, «POLISH LAMI GLASS» — наш CNC Lami Polish, и обе стоят 0.28.
-    Прежние 0.35 не соответствовали ни одной строке прайса. */
- lamiPolish:.28,cncLamiPolish:.28,
- /* Раскладка считается по ДЕЛЕНИЯМ, а не по длине бара: один горизонтальный бар
-    делит стекло на два прямоугольника, горизонтальный с вертикальным — на
-    четыре. Цена одна на любой бар, ставка правится в строке и в заказе, как у
-    всех начислений: «иногда мы делаем цену ниже». */
-  muntinSection:4.50,
-  /* Коммерческая надбавка за фигурную единицу: считается по billable area
-     строки, а не по периметру или числу лайтов. */
-  shapeUnit:1.25,
-  /* Ставки прайса владельца «Glass Treatment Rates», сверены 10 сентября 2026.
-     Ручной и станочный нотч стоят по-разному и растут с толщиной: прежние
-     15/15/15 были временной цифрой 2 сентября, названной до появления прайса. */
-  notchHand:{'6':10,'8-10':15,'12-19':20},notchCnc:{'6':15,'8-10':20,'12-19':25},
-  /* Патч — та же петля под другим именем, поэтому ставка совпадает с hinge.
-     Владелец 10 сентября: «патч является тоже петлей, только имеет другое
-     название». Цена принадлежит ВИДУ фурнитуры, а не модели: Vienna 180 и
-     Geneva 90 стоят одинаково. */
-  patch:{'6':10,'8-10':15,'12-19':20},
-  /* Внутренний вырез — строка прайса «CNC Processing-Outlet cutout». */
-  cutout:{'6':15,'8-10':20,'12-19':25},
-  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
-     Держим отдельным ключом, а не ссылкой на miter225: когда цены разойдутся,
-     менять придётся одно число, а ключи сохранённых заказов не поедут. */
-  miter45:{'6':.28,'8-10':.38,'12-19':.45},
- sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
-};
+/* Прайс цеха переехал в справочник `DB.serviceRate` (см. erp/masterdata/glass).
+   Здесь он был константой, и чтобы поправить цену нотча, нужен был
+   разработчик. Заводские значения перенесены строка в строку, ключи начислений
+   не менялись: по ним сохранённый заказ находит свою строку. */
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
    ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
    разных стекла и две разные ставки. */
@@ -10573,16 +10699,79 @@ function salesPricingBandFor(mm){
  return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
 }
 function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+/* Физические стёкла строки, сгруппированные по полосе прайса.
+
+   Правило владельца 10 сентября 2026: «каждый лайт изначально создаётся и живёт
+   отдельно до момента склеивания ламинированной плёнкой», и работа по телу
+   стекла делается на КАЖДОМ стекле: «когда мы делаем кастомное ламинированное,
+   отверстие применяется к каждому стеклу по отдельности; 6 CL + 6 CL — на
+   рисунке одно отверстие для ламинированного юнита, а по факту по отверстию на
+   каждое стекло, и в сервис падает по отверстию на стекло». Для стеклопакета то
+   же самое: «IGU иногда делают со спайдерами, и там есть отверстия, и отверстия
+   распространяются на каждое стекло».
+
+   До этого тело стекла брало ОДНУ толщину на всю строку через
+   `salesPricingThickness`. У юнита из разных стёкол единой толщины не
+   существует, функция возвращала `ok:false`, и отверстия, петли, зажимы, нотчи,
+   вырезы и радиусы молча оставались без ставки: в счёте `Rate required` вместо
+   денег. Кромка так считалась уже давно — тело отстало. */
+function salesLineThicknessGroups(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[],index=Object.create(null);
+ if(!m)return out;
+ (m.panes||[]).forEach(p=>{
+  salesPanePlies(p).forEach(ply=>{
+   const ctx=salesPricingBandFor(ply.mm);
+   const key=ctx.ok?ctx.band:'na:'+String(ctx.thickness);
+   if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
+   index[key].count++;
+  });
+ });
+ return out;
+}
+/* Начисление по телу стекла строится для каждой группы своей ставкой, а
+   количество умножается на число стёкол в группе. Ключ строки уже несёт полосу
+   толщины, поэтому две группы дают две разные строки счёта и не схлопываются в
+   одну. Стёкла одной толщины лежат в одной группе, поэтому пакет 6 + 6 остаётся
+   одной строкой на две штуки, а не двумя строками по одной. */
+function salesPerGlassRows(line,build){
+ const groups=salesLineThicknessGroups(line);
+ if(!groups.length)return build(salesPricingThickness(line));
+ const rows=[];
+ groups.forEach(g=>{
+  build(g.ctx).forEach(r=>{
+   rows.push(g.count===1?r:Object.assign({},r,{basis:+(r.basis*g.count).toFixed(4)}));
+  });
+ });
+ return rows;
+}
+/* Толщина для работ, которые делаются на ОДНОМ стекле: пескоструй, подложка
+   зеркала, герметик кромки. Какое именно это стекло, модель пока не знает —
+   метка живёт на форме, а не на лайте. Берём самое толстое: цена с толщиной
+   растёт, и занизить счёт хуже, чем завысить. Сегодня ни одна из этих ставок от
+   полосы не зависит, поэтому цифры это не меняет, — но перестаёт молча терять
+   ставку у юнита из разных стёкол. */
+function salesThickestGlassCtx(line){
+ const v=salesLineGlassThicknesses(line);
+ if(!v.length)return salesPricingThickness(line);
+ return salesPricingBandFor(v[v.length-1]);
+}
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
    склейке 10+10: 20.76 мм ни в один банд не попадает. */
+/* Строка прайса. Отверстия разложены по диаметру отдельными строками, поэтому
+   подключ приклеивается к идентификатору: `hole` + `0.5-1` = `hole:0.5-1`. */
+function salesServiceRateRow(id){return (DB.serviceRate||[]).find(r=>r&&r.id===id)||null;}
 function salesCatalogRate(tableKey,ctx,subKey){
- const t=SALES_SERVICE_RATE_TABLE[tableKey];if(t==null)return null;
- if(subKey){const s=t[subKey];if(s==null)return null;if(typeof s==='number')return s;return ctx.ok&&s[ctx.band]!=null?s[ctx.band]:null;}
- if(typeof t==='number')return t;
- if(!ctx.ok)return null;
- return t[ctx.band]!=null?t[ctx.band]:null;
+ const row=salesServiceRateRow(subKey?tableKey+':'+subKey:tableKey);
+ /* Выключенная строка прайса — это «услуга есть, цены нет», а не ноль. Строка
+    встанет в счёт как Rate required и в денежный итог не войдёт: молчаливый
+    ноль означал бы, что работу сделали и не выставили. */
+ if(!row||row.active===false)return null;
+ if(row.kind==='flat')return row.flat==null?null:row.flat;
+ if(!ctx||!ctx.ok)return null;
+ const v=row.bands?row.bands[ctx.band]:null;
+ return v==null?null:v;
 }
 /* Хвост ключа строки начисления. У банданой ставки это прежний банд — ключи
    сохранённых заказов обязаны остаться прежними до символа. У единой ставки
@@ -10590,8 +10779,10 @@ function salesCatalogRate(tableKey,ctx,subKey){
    без банда даёт СВОЙ хвост: иначе 4 мм и 10.76 мм схлопнулись бы в один ключ
    и сложились в одну строку счёта. */
 function salesRateBandKey(tableKey,ctx){
- const t=SALES_SERVICE_RATE_TABLE[tableKey];
- if(typeof t==='number')return 'flat';
+ /* Вид строки читается ДАЖЕ у выключенной: ключ начисления обязан оставаться
+    прежним, иначе сохранённый заказ потеряет свою ручную ставку. */
+ const row=salesServiceRateRow(tableKey);
+ if(row&&row.kind==='flat')return 'flat';
  if(ctx&&ctx.ok)return ctx.band;
  const n=+((ctx&&ctx.thickness)||NaN);
  return Number.isFinite(n)?'t'+String(n).replace('.','_'):'na';
@@ -10625,13 +10816,41 @@ function salesManufacturingChargeRows(items,ctx){
 /* Пескоструй считается ПО ПЛОЩАДИ: ставка владельца — 4 доллара за ft² сплошной
    обработки и 6 за узор, база — Net area стекла. Сторона (Front / Back) на цену
    не влияет, но остаётся в имени начисления: цеху нужно знать, какую. */
-function salesSandblastChargeRows(features,ctx,areaFt2){
+/* Начисления по меткам на теле стекла: пескоструй, подложка зеркала и герметик
+   кромки. Раньше функция знала один пескоструй; зеркальные позиции пришли по
+   решению владельца 10 сентября 2026 — «добавь в раздел Fabrication, пусть
+   работают как сандбласт».
+
+   БАЗА У НИХ РАЗНАЯ, и это не деталь оформления. Пескоструй и подложка ложатся
+   на ПЛОЩАДЬ, а герметик идёт по КРОМКЕ и считается по расчётному дюйму
+   периметра. Считать герметик по площади значило бы выставить за узкую высокую
+   деталь втрое меньше, чем за неё сделано. */
+/* Периметр готового контура: база герметика кромки. Считается по тем же рёбрам,
+   что и кромочные операции, поэтому у узкой высокой детали он честно больше,
+   чем у квадратной той же площади. */
+function salesShapePerimeterIn(r){
+ return +((r&&r.edges||[]).reduce(function(a,e){return a+(+e.length||0);},0).toFixed(4));
+}
+function salesSurfaceMarkChargeRows(features,ctx,areaFt2,perimeterIn){
  const groups=Object.create(null),order=[];
- (Array.isArray(features)?features:[]).filter(f=>f.type==='sandblast').forEach(f=>{const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),key=coverage+':'+side;if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}groups[key].qty++;});
- const area=+areaFt2>0?+areaFt2:0;
- return order.map(key=>{const g=groups[key],coverage=shapeSandblastCoverage(g.feature),side=shapeSandblastSide(g.feature);
-  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,shapeSandblastServiceLabel(g.feature),
-   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');});
+ (Array.isArray(features)?features:[]).filter(f=>shapeIsPointMark(f)&&f.type!=='stamp').forEach(f=>{
+  const key=shapeSurfaceMarkChargeKey(f);
+  if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}
+  groups[key].qty++;
+ });
+ const area=+areaFt2>0?+areaFt2:0,perimeter=+perimeterIn>0?+perimeterIn:0;
+ return order.map(key=>{
+  const g=groups[key],f=g.feature,label=shapeSurfaceMarkLabel(f);
+  if(f.type==='mirrorsealant')
+   return salesChargeRow('FEATURE:mirror-sealant:'+salesRateBandKey('mirrorSealant',ctx),label,
+    +(perimeter*g.qty).toFixed(4),'in',salesCatalogRate('mirrorSealant',ctx),'Shape feature');
+  if(f.type==='mirrorbacker')
+   return salesChargeRow('FEATURE:mirror-backer-'+shapeMirrorSide(f)+':'+salesRateBandKey('mirrorBacker',ctx),label,
+    +(area*g.qty).toFixed(4),'ft²',salesCatalogRate('mirrorBacker',ctx),'Shape feature');
+  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f);
+  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,label,
+   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');
+ });
 }
 function salesNotchChargeRows(def,ctx){
   var groups={},order=[];
@@ -10723,7 +10942,7 @@ function salesLineChargeRows(line){
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
- salesSandblastChargeRows(s.features,ctx,r&&r.valid?r.area/144:0).forEach(function(row){rows.push(row);});
+ salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));
@@ -11642,10 +11861,15 @@ salesLineChargeRows=function(line){
   salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
-  /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
-  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
-  var sandArea=(function(){var r=saved?ShapeModule.compute(saved):null;return r&&r.valid?r.area/144:0;})();
-  salesSandblastChargeRows(saved&&saved.features,ctx,sandArea).forEach(function(row){rows.push(row);});
+  /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
+     Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
+     стекле юнита, каждое по своей толщине. */
+  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);}).forEach(function(row){rows.push(row);});
+  var marked=saved?ShapeModule.compute(saved):null,markValid=marked&&marked.valid;
+  var sandArea=markValid?marked.area/144:0,markPerimeter=markValid?salesShapePerimeterIn(marked):0;
+  /* Метки на поверхности живут на ОДНОМ стекле, поэтому не множатся: см.
+     salesThickestGlassCtx. */
+  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
@@ -11684,9 +11908,13 @@ salesLineChargeRows=function(line){
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
-    var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;if(radius)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
-    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',ctx),'Shape feature'));
-    salesNotchChargeRows(saved,ctx).forEach(function(row){rows.push(row);});
+    /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
+       по стёклам — так же, как отверстия и фурнитура. */
+    var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+c.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+c.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
 };
@@ -12168,8 +12396,10 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     /* Штамп ставит печь — на отожжённом лайте его быть не может. */
     if(f.type==='stamp'&&heatTreatment&&heatTreatment!=='AN')
       salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase());
-    if(f.type==='sandblast')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
-      String(shapeSandblastServiceLabel(f)).toUpperCase());
+    /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа
+       по поверхности после закалки. Отдельной станции у цеха под них нет. */
+    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
+      String(shapeSurfaceMarkLabel(f)).toUpperCase());
   });
 
   /* Печатаем в порядке маршрута цеха, а не в порядке заполнения. */
@@ -12199,15 +12429,26 @@ function salesRouteSurfaceTreatments(pane,index,side){
   function add(kind,spec,surface,face,position){
     spec=spec||{};
     var product=kind==='coating'?null:mdById(kind==='frit'?'fritProduct':'spandrelProduct',spec.productId);
-    var label=kind==='coating'?salesVisionTypeLabel(ply.visionType):
-      kind==='frit'?'Frit':'Spandrel';
-    if(product)label+=' · '+(product.name||product.code);
+    /* Спандрел на маршрутном листе не называет ни себя, ни свой тип. Строка
+       выглядела как `PAINT Spandrel · Silicone Spandrel · Black #3-818 · #2`,
+       и владелец её сократил: «spandrel это и есть силикон спандрел, просто
+       paint, цвет и сторону, всё». Станция уже зовётся PAINT — слово «Spandrel»
+       рядом было чистым повтором, а тип у цеха один.
+
+       ЦЕНА РЕШЕНИЯ, зафиксировать честно: пока в справочнике активна ещё и
+       керамика, на листе она неотличима от силикона. Правильный ответ —
+       выключить неиспользуемый тип в Master Data → Catalogues, а не возвращать
+       слово в строку. */
+    var parts=[];
+    if(kind==='coating')parts.push(salesVisionTypeLabel(ply.visionType));
+    else if(kind==='frit'){parts.push('Frit');if(product)parts.push(product.name||product.code);}
     /* У фрита цвет — это слово из своего короткого списка, у спандрела —
        строка палитры с кодом. Один и тот же ключ, два разных справочника. */
-    if(spec.color)label+=' · '+(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
-    if(kind==='frit'&&spec.pattern)label+=' · '+spec.pattern;
+    if(spec.color)parts.push(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
+    if(kind==='frit'&&spec.pattern)parts.push(spec.pattern);
+    var label=parts.join(' · ');
     var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';
-    var summary=label+' · '+where,text=summary;
+    var summary=(label?label+' · ':'')+where,text=summary;
     if(kind==='frit'){
       if(spec.dotMm!=null)text+=' · Dot Ø '+spec.dotMm+' mm';
       var margins=[];
@@ -12757,8 +12998,12 @@ function salesFritDecorateSvg(svg,shape,result,T){
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
-function salesSpandrelColourOptions(selected){
- const rows=spandrelColoursFor(''),out=[];
+/* Палитра принадлежит типу: силикон ICD показывает свои шестнадцать цветов,
+   керамика — свои четыре. Без productId (так зовут из проверок) показываются
+   все активные: список цветов сам по себе от типа не зависит. */
+function salesSpandrelColourOptions(selected,productId){
+ const rows=productId==null?(DB.spandrelColour||[]).filter(c=>c.active!==false):spandrelColoursFor(productId);
+ const out=[];
  out.push(salesOption('','— not chosen —',selected,true));
  SPANDREL_COLOUR_FAMILIES.concat(salesUnique(rows.map(c=>c.family)).filter(f=>SPANDREL_COLOUR_FAMILIES.indexOf(f)<0))
   .forEach(function(family){
@@ -12991,7 +13236,7 @@ function salesVisionFieldsSafe(p,index){
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
  return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
-  <div class="mu-coating-grid mu-second-row"><div><label>Opaci Coat</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color,p.spandrel.productId)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
    толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
@@ -13664,7 +13909,7 @@ function shapeCaptureMarkAnchors(){
     if(ed)snap.edges[item.id]={edge:item.edge||'left',shown:shapeMiShownDistance(item,ed.len)};
   });
   ((sDraft&&sDraft.features)||[]).forEach(function(f){
-    if(f.type==='stamp'||f.type==='sandblast'){
+    if(shapeIsPointMark(f)){
       var sp=anchorOf(f.id,shapeStampPosition(f,g));
       if(sp)snap.points[f.id]=sp;
     }else if(f.type==='cutout'){
@@ -13717,7 +13962,7 @@ function shapeApplyMarkAnchors(snap){
   });
   ((sDraft&&sDraft.features)||[]).forEach(function(f){
     var a=snap.points[f.id];
-    if(a&&(f.type==='stamp'||f.type==='sandblast')){
+    if(a&&shapeIsPointMark(f)){
       place(f.id,a,inch(f.x),inch(f.y),function(p){f.x=shapeFrac16(p[0]);f.y=shapeFrac16(p[1]);return true;});
       return;
     }
@@ -13875,7 +14120,44 @@ function shapeCutoutCenterPosition(f,g){
    only choose which finished bound the operator measures from, exactly like a
    cutout center. This keeps reference changes out of production geometry. */
 function shapeStampFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type==='stamp';});}
-function shapeSandblastFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type==='sandblast';});}
+/* Метки на теле стекла, кроме штампа: пескоструй, подложка зеркала и герметик
+   кромки. Штамп идёт отдельным списком — он бесплатен и в услуги не попадает. */
+function shapeSurfaceMarkFeatures(){return ((sDraft&&sDraft.features)||[]).map(function(f,i){return {f:f,i:i};}).filter(function(x){return shapeIsPointMark(x.f)&&x.f.type!=='stamp';});}
+/* Метка ставится в центр стекла. Вторая в тот же центр встала бы поверх первой,
+   и на листе вышла бы каша из наложенных подписей — владелец 10 сентября 2026:
+   «чтобы не накладывалась на другие». Поэтому занятая точка расходится по
+   вертикали с шагом, пока не найдётся свободная ВНУТРИ контура: у фигурной
+   детали центр бывает вне стекла, и слепой сдвиг вынес бы подпись наружу. */
+function shapeFreeMarkPoint(g,point){
+  var step=2.5;
+  var taken=((sDraft&&sDraft.features)||[]).filter(shapeIsPointMark)
+    .map(function(f){return [inch(f.x),inch(f.y)];})
+    .filter(function(p){return isFinite(p[0])&&isFinite(p[1]);});
+  var free=function(p){
+    if(g&&g.P&&!fabPointInPoly(p,g.P))return false;
+    return !taken.some(function(t){return Math.abs(t[0]-p[0])<step&&Math.abs(t[1]-p[1])<step;});
+  };
+  if(free(point))return point;
+  for(var n=1;n<=12;n++){
+    var down=[point[0],point[1]-step*n],up=[point[0],point[1]+step*n];
+    if(free(down))return [shapeSnapManufacturing16(down[0]),shapeSnapManufacturing16(down[1])];
+    if(free(up))return [shapeSnapManufacturing16(up[0]),shapeSnapManufacturing16(up[1])];
+  }
+  return point;
+}
+/* Размер подписи метки. Меняет ТОЛЬКО чертёж: ни контур реза, ни machine
+   payload, ни цена от него не зависят. */
+function shapeStepMarkTextScale(i,delta){
+  var f=sDraft&&sDraft.features&&sDraft.features[i];
+  if(!shapeIsPointMark(f))return;
+  var next=Math.round((shapeMarkTextScale(f)+(delta>0?.1:-.1))*100)/100;
+  f.textScale=Math.max(.6,Math.min(3,next));
+  refreshShapeEditor();
+}
+function shapeMarkTextSizeHTML(f,i){
+  var k=shapeMarkTextScale(f);
+  return `<label>Text size<span class='shape-mark-text-size'><button type='button' class='sm' onclick='shapeStepMarkTextScale(${i},-1)'>−</button><b data-raw>${Math.round(k*100)}%</b><button type='button' class='sm' onclick='shapeStepMarkTextScale(${i},1)'>+</button></span><small>Drawing mark only — the cut, the machine payload and the price are untouched.</small></label>`;
+}
 function shapeStampPosition(f,g){
   if(!f||!g||!g.b)return null;
   var x=inch(f.x),y=inch(f.y);if(!isFinite(x)||!isFinite(y))return null;
@@ -13911,7 +14193,7 @@ function shapeDefaultSandblastPoint(g){
   return best?best.p:shapeDefaultStampPoint(g);
 }
 function shapeSetPointAnnotationDistance(index,axis,value,noun){
-  var f=sDraft&&sDraft.features&&sDraft.features[index],g=shapeManufacturingGeometry(),parsed=fabParseDimStrict(value);if(!f||(f.type!=='stamp'&&f.type!=='sandblast'))return;
+  var f=sDraft&&sDraft.features&&sDraft.features[index],g=shapeManufacturingGeometry(),parsed=fabParseDimStrict(value);if(!f||!shapeIsPointMark(f))return;
   noun=noun||'Drawing mark';
   if(!g||!parsed.ok){alert('Enter a valid '+noun.toLowerCase()+' position in inches.');render();return;}
   var d=shapeSnapManufacturing16(parsed.v);if(!isFinite(d)||d<0){alert(noun+' position must be zero or greater.');render();return;}
@@ -14357,7 +14639,7 @@ function shapeStampMarkerSvg(T){
   }).join('');
 }
 function shapeSandblastMarkerSvg(T){
-  return shapeSandblastFeatures().map(function(row){
+  return shapeSurfaceMarkFeatures().map(function(row){
     var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),spec=shapeSandblastDrawingSpec(f,T.W*T.sc),selected=sFeatureExpandedId===f.id?' selected':'';
     if(!isFinite(x)||!isFinite(y))return '';
     return `<g class='shape-sandblast-mark external${selected}' data-sandblast-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-spec.w/2}' y='${y-spec.h/2}' width='${spec.w}' height='${spec.h}' rx='2'/><text data-raw x='${x}' y='${y-2}' text-anchor='middle' style='font-size:${spec.font}px'><tspan x='${x}'>${esc(spec.lines[0])}</tspan><tspan x='${x}' dy='${spec.font+2}'>${esc(spec.lines[1])}</tspan></text></g>`;
@@ -14377,7 +14659,7 @@ function shapePointAnnotationDimsSvg(rows,T){
   }).join('');
 }
 function shapeStampDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures(),T);}
-function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSandblastFeatures()),T);}
+function shapeAnnotationDimsSvg(T){return shapePointAnnotationDimsSvg(shapeStampFeatures().concat(shapeSurfaceMarkFeatures()),T);}
 function shapeAnnotationOverlaySvg(T){var marker=shapeStampMarkerSvg(T)+shapeSandblastMarkerSvg(T),dims=shapeAnnotationDimsSvg(T);return marker+(dims?shapeDimArrowDefs()+dims:'');}
 function shapeStampOverlaySvg(T){return shapeAnnotationOverlaySvg(T);}
 function shapeHoleServiceBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
@@ -14395,7 +14677,7 @@ function shapeDerivedServices(){
     var cutout=feats.filter(function(f){return f.type==='cutout';}).length;
     if(cutout)groups['feature:cutout']={label:'Cutout',qty:cutout};
   }
-  shapeSandblastFeatures().forEach(function(row){var f=row.f,key='feature:sandblast:'+shapeSandblastCoverage(f)+':'+shapeSandblastSide(f);if(!groups[key])groups[key]={label:shapeSandblastServiceLabel(f),qty:0};groups[key].qty++;});
+  shapeSurfaceMarkFeatures().forEach(function(row){var f=row.f,key=shapeSurfaceMarkChargeKey(f);if(!groups[key])groups[key]={label:shapeSurfaceMarkLabel(f),qty:0};groups[key].qty++;});
   /* Нотч оплачивается как работа, а не как геометрия: контур раскроя от него не
      меняется, но вырезать и обработать угол цех обязан. */
   shapeNotchCorners().forEach(function(n){var key='notch:'+n.method;if(!groups[key])groups[key]={label:shapeNotchMethodLabel(n.method),qty:0};groups[key].qty+=n.pieces;});
@@ -14413,7 +14695,7 @@ function shapeMarksToolbarHTML(hint){
   var kinds=hardwareKinds();
   return `<div class='shape-mi-toolbar'><button class='sm' onclick='shapeStartManufacturingPlacement("hole",1)'>+ Hole</button>${kinds.map(function(k){
     return `<button class='sm' onclick='shapeStartManufacturingPlacement("${esc(k.code)}")'>+ ${raw(hardwareKindName(k.code))}</button>`;
-  }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("sandblast")'>+ Sandblast</button></div>`;
+  }).join('')}<button class='sm shape-add-stamp' onclick='addShapeFeature("stamp")'>+ Stamp</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("sandblast")'>+ Sandblast</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("mirrorbacker")'>+ Mirror backer</button><button class='sm shape-add-sandblast' onclick='addShapeFeature("mirrorsealant")'>+ Mirror sealant</button></div>`;
 }
 /* Выбор модели. Владелец: «у него есть заготовленные шаблоны петель, он видит
    например Vienna 180 и использует тот шаблон» — значит цеху нужно название, а
@@ -14459,10 +14741,10 @@ function shapeStampCardsHTML(g){
   }).join('')}</div>`;
 }
 function shapeSandblastCardsHTML(g){
-  var rows=shapeSandblastFeatures();if(!rows.length)return '';
+  var rows=shapeSurfaceMarkFeatures();if(!rows.length)return '';
   return `<div class='shape-mi-list shape-sandblast-list'>${rows.map(function(row){
     var f=row.f,i=row.i,expanded=sFeatureExpandedId===f.id,pos=shapeStampPosition(f,g),summary=pos?shapeManufacturingEdgeLabel(pos.hRef)+' '+shapeDim16(pos.hDistance)+' · '+shapeManufacturingEdgeLabel(pos.vRef)+' '+shapeDim16(pos.vDistance):'position unavailable';
-    return `<div class='shape-mi-card shape-stamp-card shape-sandblast-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind sandblast'>SAND</span><span><b>${esc(shapeSandblastServiceLabel(f))}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('removeShapeFeature('+i+')')}</div>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}</div>`:''}</div>`;
+    return `<div class='shape-mi-card shape-stamp-card shape-sandblast-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='toggleShapeFeatureCard("${esc(f.id)}")'><span class='shape-mi-kind sandblast'>${esc(f.type==='mirrorbacker'?'BACKER':f.type==='mirrorsealant'?'SEALANT':'SAND')}</span><span><b>${esc(shapeSurfaceMarkLabel(f))}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('removeShapeFeature('+i+')')}</div>${expanded?`<div class='shape-mi-card-body shape-stamp-card-body'>${shapeFeatureFields(f,i,{vertices:[]})}</div>`:''}</div>`;
   }).join('')}</div>`;
 }
 function shapeHolePairFieldsHTML(item){
@@ -14501,7 +14783,7 @@ function shapeMarksBodyHTML(){
       </div>`+shapeDimControlsHTML(item.id,[{key:'e',label:'Dimension on the drawing'}]);
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}${summary}</small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('shapeRemoveManufacturingItem(&quot;'+esc(item.id)+'&quot;)')}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button></div></div>`:''}</div>`;
-  }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
+  }).join(''):(shapeStampFeatures().length||shapeSurfaceMarkFeatures().length?'':'<div class="empty compact">No items yet</div>')}</div>`;
   body+=shapeNotchCardsHTML();
   body+=shapeStampCardsHTML(g);
   body+=shapeSandblastCardsHTML(g);
@@ -15497,10 +15779,14 @@ function shapeEdgeworkEditor(){
 
 function addShapeFeature(type){
   var geo=shapeDraftGeometry(),f=newShapeFeature(type,geo);sManufacturingOpen=true;sManufacturingSelected=null;
-  if(type==='stamp'||type==='sandblast'){
-    var g=shapeManufacturingGeometry(),point=type==='sandblast'?shapeDefaultSandblastPoint(g):shapeDefaultStampPoint(g);f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
-    shapeDimEntry(f.id,'h').ref=type==='sandblast'&&g?(point[0]<=(g.b.minX+g.b.maxX)/2?'left':'right'):'right';
-    shapeDimEntry(f.id,'v').ref=type==='sandblast'&&g?(point[1]<=(g.b.minY+g.b.maxY)/2?'bottom':'top'):'bottom';sFeatureExpandedId=f.id;
+  if(shapeIsPointMark(f)){
+    /* Все метки, кроме штампа, встают в центр стекла и расходятся, если центр
+       уже занят. Штамп сохраняет своё историческое место у нижней кромки. */
+    var g=shapeManufacturingGeometry(),centred=type!=='stamp';
+    var point=centred?shapeFreeMarkPoint(g,shapeDefaultSandblastPoint(g)):shapeDefaultStampPoint(g);
+    f.x=shapeFrac16(point[0]);f.y=shapeFrac16(point[1]);
+    shapeDimEntry(f.id,'h').ref=centred&&g?(point[0]<=(g.b.minX+g.b.maxX)/2?'left':'right'):'right';
+    shapeDimEntry(f.id,'v').ref=centred&&g?(point[1]<=(g.b.minY+g.b.maxY)/2?'bottom':'top'):'bottom';sFeatureExpandedId=f.id;
   }else sFeatureExpandedId=null;
   sDraft.features.push(f);render();
 }
@@ -15535,14 +15821,20 @@ function shapeFeatureFields(f,i,geo){
     var own=current==='OWN Stamp'?`<label>Custom stamp text<input maxlength='24' value='${esc(f.text)}' placeholder='Enter stamp text' oninput='setShapeFeature(${i},"text",this.value)'><small>Up to 24 characters · shown on the production drawing</small></label>`:'';
     return `<label>Stamp type<select onchange='setShapeStampType(${i},this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+own+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
-  if(f.type==='sandblast'){
+  if(shapeIsPointMark(f)&&f.type!=='stamp'){
     var bg=shapeManufacturingGeometry(),bp=bg?shapeStampPosition(f,bg):null;
     var bPlacement=bp?`<div class='shape-mi-hole-position-grid'>
       <div class='shape-mi-axis-card'><label>Horizontal reference<select onchange='shapeSetDimRef("${esc(f.id)}","h",this.value)'><option value='left' ${bp.hRef==='left'?'selected':''}>Left</option><option value='right' ${bp.hRef==='right'?'selected':''}>Right</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(bp.hDistance))}' onchange='shapeSetSandblastDistance(${i},"h",this.value)'><small>from the ${bp.hRef==='right'?'right':'left'} edge · 1/16″</small></label></div>
       <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetDimRef("${esc(f.id)}","v",this.value)'><option value='bottom' ${bp.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${bp.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(bp.vDistance))}' onchange='shapeSetSandblastDistance(${i},"v",this.value)'><small>from the ${bp.vRef==='top'?'top':'bottom'} edge · 1/16″</small></label></div>
     </div>`:input('X from origin','x')+input('Y from origin','y');
-    return `<label>Coverage<select onchange='setShapeFeatureAndRender(${i},"coverage",this.value)'><option value='full' ${shapeSandblastCoverage(f)==='full'?'selected':''}>Full covered</option><option value='pattern' ${shapeSandblastCoverage(f)==='pattern'?'selected':''}>Pattern</option></select></label>`+
-      `<label>Glass side<select onchange='setShapeFeatureAndRender(${i},"side",this.value)'><option value='front' ${shapeSandblastSide(f)==='front'?'selected':''}>Front</option><option value='back' ${shapeSandblastSide(f)==='back'?'selected':''}>Back</option></select><small>Printed explicitly on the production drawing</small></label>`+
+    /* Пескоструй спрашивает покрытие и сторону, подложка зеркала — только
+       сторону, герметик кромки — ничего: он идёт по периметру, стороны у него
+       нет. Спрашивать её значило бы требовать от цеха ответ, которого не
+       существует, а пустое поле в наряде читается как «забыли заполнить». */
+    var side=f.type==='sandblast'?shapeSandblastSide(f):shapeMirrorSide(f);
+    var coverageField=f.type==='sandblast'?`<label>Coverage<select onchange='setShapeFeatureAndRender(${i},"coverage",this.value)'><option value='full' ${shapeSandblastCoverage(f)==='full'?'selected':''}>Full covered</option><option value='pattern' ${shapeSandblastCoverage(f)==='pattern'?'selected':''}>Pattern</option></select></label>`:'';
+    var sideField=f.type==='mirrorsealant'?'':`<label>Glass side<select onchange='setShapeFeatureAndRender(${i},"side",this.value)'><option value='front' ${side==='front'?'selected':''}>Front</option><option value='back' ${side==='back'?'selected':''}>Back</option></select><small>Printed explicitly on the production drawing</small></label>`;
+    return coverageField+sideField+shapeMarkTextSizeHTML(f,i)+
       bPlacement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(f.type==='radius')return `<label>Physical vertex<select onchange='setShapeFeatureAndRender(${i},"vertexId",this.value)'>${(geo.vertices||[]).map(function(v){return `<option value='${esc(v.id)}' ${v.id===f.vertexId?'selected':''}>${esc(v.id+' · '+v.label)}</option>`;}).join('')}</select></label>`+input('Radius','radius');
@@ -15556,13 +15848,13 @@ function shapeFeatureSummary(f,geo){
   if(f.type==='radius')return (f.vertexId||'—')+' · R '+f.radius;
   if(f.type==='hardware')return (f.name||'Hardware')+' · '+(f.edgeId||'—')+' @ '+f.distance;
   if(f.type==='stamp')return shapeStampText(f);
-  if(f.type==='sandblast')return shapeSandblastServiceLabel(f);return '';
+  if(shapeIsPointMark(f)&&f.type!=='stamp')return shapeSurfaceMarkLabel(f);return '';
 }
 /* Геометрия, которая ДЕЙСТВИТЕЛЬНО меняет контур реза: внутренний вырез и
    радиусный угол. Всё остальное в этой категории — метки на чертёж. */
 function shapeGeometryBodyHTML(geo){
   var titles={hole:'Legacy cutting hole',cutout:'Internal cutout',radius:'Radius corner',hardware:'Legacy hardware prep'};
-  var rows=sDraft.features.map(function(f,i){return {f:f,i:i};}).filter(function(x){return x.f.type!=='stamp'&&x.f.type!=='sandblast';}),legacy=rows.filter(function(x){return x.f.type==='hole'||x.f.type==='hardware';}).length;
+  var rows=sDraft.features.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !shapeIsPointMark(x.f);}),legacy=rows.filter(function(x){return x.f.type==='hole'||x.f.type==='hardware';}).length;
   return `<div class='shape-feature-add'><button class='sm' onclick='addShapeFeature("cutout")'>+ Internal cutout</button>${(geo.vertices||[]).length?`<button class='sm' onclick='addShapeFeature("radius")'>+ Radius corner</button>`:''}<span>These items are fabricated from the finished drawing after edgework.</span></div>${legacy?`<div class='validation-box warnbox compact-warning'><b>Legacy geometry items: ${legacy}</b><span>These older Hole / Hardware features are geometry-bound. Delete them unless that finished geometry is intentional.</span></div>`:''}<div class='shape-feature-list'>${rows.length?rows.map(function(row){
     var f=row.f,i=row.i;
     var expanded=sFeatureExpandedId===f.id;
@@ -15585,7 +15877,7 @@ function shapeGeometryBodyHTML(geo){
    контур принадлежит файлу из Fusion 360, — поэтому вторая группа там просто
    не показывается; список меток для DXF подменяет shape-production-ui. */
 function shapeCutoutItemCount(){
-  var external=shapeIsDxfSource(sDraft),annotations=shapeStampFeatures().length+shapeSandblastFeatures().length,marks=shapeManufacturingItems().length+annotations,cuts=external?0:(sDraft.features||[]).filter(function(f){return f.type!=='stamp'&&f.type!=='sandblast';}).length;
+  var external=shapeIsDxfSource(sDraft),annotations=shapeStampFeatures().length+shapeSurfaceMarkFeatures().length,marks=shapeManufacturingItems().length+annotations,cuts=external?0:(sDraft.features||[]).filter(function(f){return !shapeIsPointMark(f);}).length;
   return marks+cuts+shapeNotchCorners().length;
 }
 function shapeCutoutEditor(geo,workspace){
@@ -16079,7 +16371,7 @@ shapeMarksBodyHTML=function(){
       </div>`;
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('shapeRemoveManufacturingItem(&quot;'+esc(item.id)+'&quot;)')}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button></div></div>`:''}</div>`;
-  }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No manufacturing items yet</div>')}</div>`;
+  }).join(''):(shapeStampFeatures().length||shapeSurfaceMarkFeatures().length?'':'<div class="empty compact">No manufacturing items yet</div>')}</div>`;
   body+=shapeStampCardsHTML(shapeManufacturingGeometry());
   body+=shapeSandblastCardsHTML(shapeManufacturingGeometry());
   return body;
@@ -16153,7 +16445,7 @@ shapeForm=function(){
     : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
   var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer+(typeof shapeMuntinEditor==='function'?shapeMuntinEditor():'');
   var cutoutCount=shapeCutoutItemCount();
-  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Cutout</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
+  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Fabrication</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
@@ -17676,26 +17968,46 @@ const MD_CATALOGUES=[
  {k:'interlayerProduct', label:'Interlayers',      prefix:'ILR',  what:'плёнки ламинации, цена за слой'},
  {k:'fritProduct',       label:'Frit',             prefix:'FRIT', what:'силкскрин, надбавка за ft²'},
  {k:'spandrelProduct',   label:'Spandrel',         prefix:'SPAN', what:'непрозрачные панели, надбавка за ft²'},
- {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'}
+ {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'},
+ {k:'serviceRate',       label:'Service rates',    prefix:'SVC',  what:'прайс цеха: ставка по толщине или одна на все'}
 ];
 function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
 function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
 function mdCatIsColour(){return mdCatKind==='spandrelColour';}
+/* Прайс — не свободный список. Каждая строка отвечает работе, которую система
+   умеет посчитать: у неё есть база (штука, дюйм, площадь) и место в счёте.
+   Строка, заведённая руками, ни в один счёт не попадёт — начислять её некому.
+   Поэтому здесь можно править цену, единицу, вид и выключать строку, но нельзя
+   добавлять и удалять: это была бы кнопка, которая делает вид, что работает. */
+function mdCatIsRate(){return mdCatKind==='serviceRate';}
+function mdRateBandText(r,band){
+  if(r.kind==='flat')return band==='6'?(r.flat==null?'—':Number(r.flat).toFixed(2)):'';
+  var v=r.bands?r.bands[band]:null;
+  return v==null?'—':Number(v).toFixed(2);
+}
 function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
 
 function viewMdCatalogues(){
  if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
  if(mdCatEdit!==null)return mdCatForm();
- const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour();
- const cols=colour?5:6;
+ const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
+ const cols=rate?7:colour?5:6;
  return `<div class="sub">Эти справочники ведёт владелец. Заведённые здесь позиции <b>переживают обновление системы</b>: заводское наполнение доливается по коду, введённое руками не трогается. Позицию, на которую уже ссылается заказ, правильнее выключить, чем удалить — в старом заказе она иначе станет неизвестной.</div>
   <div class="row"><label>Справочник</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
-  <div class="customer-table-wrap"><table><thead><tr><th>Name</th><th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}<th>Status</th><th></th></tr></thead>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Unit</th><th>up to 6 mm</th><th>8–10 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">пусто</td></tr>`}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`;
+  ${rate?'<div class="sub">Строки прайса не добавляются и не удаляются: каждая отвечает работе, которую система умеет посчитать, а заведённая руками ни в один счёт не попадёт. Ставку, единицу и вид правьте по месту; выключенная строка встанет в счёт как <b>Rate required</b> и в денежный итог не войдёт — это честный ответ «услуга есть, цены нет», а не ноль.</div>':`<div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`}`;
 }
 function mdCatRowHTML(x){
  const colour=mdCatIsColour();
+ if(mdCatIsRate())return `<tr>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div>${x.note?`<div class="mut">${raw(x.note)}</div>`:''}</td>
+  <td class="mono">${esc(x.unit)}</td>
+  <td class="mono">${esc(mdRateBandText(x,'6'))}${x.kind==='flat'?'<div class="mut">одна на все</div>':''}</td>
+  <td class="mono">${esc(mdRateBandText(x,'8-10'))}</td>
+  <td class="mono">${esc(mdRateBandText(x,'12-19'))}</td>
+  <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'no rate':'active'}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button></td></tr>`;
  const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'любой'):'';
  return `<tr>
   <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div></td>
@@ -17720,6 +18032,29 @@ function mdCatEditRow(id){
 function mdCatForm(){
  const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
  const families=[''].concat(SPANDREL_COLOUR_FAMILIES);
+ if(mdCatIsRate()){
+  const band=b=>r.bands&&r.bands[b]!=null?r.bands[b]:'';
+  return `<div class="form"><h3>Edit · ${esc(r.name)}</h3>
+   <div class="sub mono">${esc(r.id)}</div>
+   <div class="grid">
+    <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
+    <div><label>Unit</label><select id="md_catUnit">${['pc','in','ft²'].map(u=>`<option value="${esc(u)}" ${u===r.unit?'selected':''}>${esc(u)}</option>`).join('')}</select><div class="hint">За штуку, за расчётный дюйм кромки или за площадь. База начисления от этого не меняется — она задана расчётом; единица только подписывает цифру.</div></div>
+    <div><label>Rate shape</label><select id="md_catRateKind" onchange="mdCatDraft.kind=this.value;render()"><option value="band" ${r.kind!=='flat'?'selected':''}>По толщине стекла</option><option value="flat" ${r.kind==='flat'?'selected':''}>Одна на любую толщину</option></select></div>
+   </div>
+   ${r.kind==='flat'
+    ?`<div class="grid"><div><label>Rate, CAD</label><input id="md_catFlat" type="number" step="0.01" min="0" value="${r.flat==null?'':r.flat}"><div class="hint">Пусто — цены нет: строка встанет в счёт как Rate required.</div></div></div>`
+    :`<div class="grid">
+      <div><label>up to 6 mm</label><input id="md_catB6" type="number" step="0.01" min="0" value="${esc(band('6'))}"></div>
+      <div><label>8–10 mm</label><input id="md_catB810" type="number" step="0.01" min="0" value="${esc(band('8-10'))}"></div>
+      <div><label>12–19 mm</label><input id="md_catB1219" type="number" step="0.01" min="0" value="${esc(band('12-19'))}"></div>
+     </div><div class="hint">Пустая клетка — цены на эту толщину нет. Стекло 7 или 11 мм не попадает ни в одну полосу и остаётся без ставки: это известный пробел, записанный в хендоффе.</div>`}
+   <div class="grid">
+    <div><label>Note</label><input id="md_catNote" value="${esc(r.note||'')}"></div>
+    <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>no rate</option></select></div>
+   </div>
+   <div class="err" id="e_mdCat"></div>
+   <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+ }
  return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
   <div class="grid">
    <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
@@ -17745,8 +18080,28 @@ function mdCatIdFrom(prefix,code,name,taken){
 function mdCatSave(){
  const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
  const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
- const name=mdVal('md_catName'),code=mdVal('md_catCode');
+ const name=mdVal('md_catName');
  if(!name)return fail(e,'Название обязательно');
+ if(mdCatIsRate()){
+  const kindPicked=mdVal('md_catRateKind')==='flat'?'flat':'band';
+  const num=id=>{const v=mdVal(id);return v===''?null:+v;};
+  const bad=v=>v!=null&&(!isFinite(v)||v<0);
+  const flat=kindPicked==='flat'?num('md_catFlat'):mdCatDraft.flat;
+  const b6=kindPicked==='band'?num('md_catB6'):(mdCatDraft.bands||{})['6'];
+  const b810=kindPicked==='band'?num('md_catB810'):(mdCatDraft.bands||{})['8-10'];
+  const b1219=kindPicked==='band'?num('md_catB1219'):(mdCatDraft.bands||{})['12-19'];
+  if([flat,b6,b810,b1219].some(bad))return fail(e,'Ставка — неотрицательное число или пусто');
+  const at=rows.findIndex(x=>x.id===mdCatDraft.id);
+  if(at<0)return fail(e,'Строка прайса не найдена');
+  DB.serviceRate[at]=normalizeServiceRate(Object.assign({},mdCatDraft,{
+   name:name,unit:mdVal('md_catUnit'),kind:kindPicked,flat:flat,
+   bands:{'6':b6,'8-10':b810,'12-19':b1219},
+   note:mdVal('md_catNote'),active:mdVal('md_catActive')!=='0'
+  }));
+  mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
+  return;
+ }
+ const code=mdVal('md_catCode');
  const id=mdCatEdit==='new'?mdCatIdFrom(def.prefix,code,name,rows):mdCatDraft.id;
  const active=mdVal('md_catActive')!=='0';
  let next;
