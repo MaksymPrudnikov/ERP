@@ -1,15 +1,16 @@
 /* =====================================================================
    erp/i18n  ·  erp-1.0
-   RU / EN. Перевод накладывается на готовый DOM.
+   English UI. Translation is applied to the finished DOM.
    IN : LANG + текстовые узлы
    OUT: переведённый DOM
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
-/* Рабочий язык системы — английский: на нём говорят все в цеху и у поставщиков,
-   на нём же названия станций, услуг и позиций в исходных данных. Русский
-   остаётся переключателем в шапке для владельца. */
-let LANG=localStorage.getItem('glazing_system_lang') || 'en';
+/* Рабочий интерфейс системы — английский. Словарь остаётся необходимым:
+   часть исходных подписей модулей всё ещё написана по-русски и переводится
+   после render. Старое сохранённое предпочтение языка больше не применяется. */
+let LANG='en';
+try{localStorage.removeItem('glazing_system_lang');}catch(e){}
 const I18N_EN={
   "Мунтин бар": "Muntin bar",
   "Добавить раскладку": "Add muntin bar",
@@ -1025,13 +1026,11 @@ function applyLang(root=document.body){
    el.setAttribute('placeholder',LANG==='en'?tx(rec.placeholder):rec.placeholder);
  });
  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title=LANG==='en'?tx(el.dataset.i18nTitle):el.dataset.i18nTitle; });
- const ru=document.getElementById('langRu'), en=document.getElementById('langEn');
- if(ru) ru.classList.toggle('on',LANG==='ru');
- if(en) en.classList.toggle('on',LANG==='en');
 }
+/* Оставлено как внутренний helper для регрессионной проверки исходных RU-строк.
+   Пользовательского переключателя и сохранения языка больше нет. */
 function setLang(lang){
  LANG=lang==='en'?'en':'ru';
- localStorage.setItem('glazing_system_lang',LANG);
  render();
 }
 

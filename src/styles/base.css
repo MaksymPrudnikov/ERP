@@ -187,12 +187,6 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .sales-skill-grid{margin:14px 0 16px}
 
 
-/* language switch */
-.lang-switch{display:inline-flex;align-items:center;padding:3px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;gap:2px}
-.lang-switch button{border:0;background:transparent;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:650;color:var(--mut);min-width:34px}
-.lang-switch button:hover{background:#fff;color:var(--text)}
-.lang-switch button.on{background:#fff;color:#205d7d;box-shadow:0 1px 4px rgba(24,52,68,.12)}
-
 @media(max-width:1050px){
  .kpi-grid{grid-template-columns:repeat(2,1fr)}
  .dashboard-grid{grid-template-columns:1fr}
@@ -206,7 +200,6 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  main{padding:17px}header{padding:0 17px}.header-kicker,.top-chip{display:none}
  .kpi-grid{grid-template-columns:1fr 1fr}.module-cards{grid-template-columns:1fr}
  .page-head{align-items:flex-start;flex-direction:column}
- .lang-switch button{padding:4px 6px;min-width:30px}
  table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
  .card,.form,.main,main,.section-title,.page-head{min-width:0;max-width:100%}
  .tabs{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -221,7 +214,6 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
  .header-title,#dirty{display:none!important}
  header .sp{display:none}
  header .gh{padding:5px 7px;font-size:10px;flex:1;white-space:nowrap}
- .lang-switch{margin-left:auto}
  main{padding:10px}
  .card{padding:12px;border-radius:11px}
  .kpi-grid{grid-template-columns:1fr}
