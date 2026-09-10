@@ -1102,7 +1102,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f3a92d4dc34d';
+var ERP_BUILD='52db0fd22e4a';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5276,7 +5276,15 @@ function normalizeUsers(){
    сама СТАНЦИЯ, и держать рядом второй справочник тех же одиннадцати строк
    означало бы два источника правды. На его место встали три новые таблицы
    цеха — операции, рабочие места и терминалы (см. erp/shopfloor/data). */
-const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+/* `spandrelProduct` из списка пересева УБРАН, как в своё время `glassSheet`.
+   Требование владельца 10 сентября 2026 — «сделай мне мастер-дату максимально
+   от тебя не зависящую» — означает, что заведённые им позиции обязаны пережить
+   обновление. Пересев заменяет таблицу заводской целиком, то есть стёр бы и
+   его цены, и его собственные строки. Недостающие заводские позиции вместо
+   этого доливаются по id в normalizeMasterData.
+
+   Палитры `spandrelColour` здесь нет по той же причине и с рождения. */
+const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct'];
 /* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
    модели. Пересев меняет там смысл таблицы, а не только её содержимое,
    поэтому версия обязана подняться — иначе браузер пользователя навсегда
@@ -5312,7 +5320,11 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
    ветками в коде и правятся в Справочниках. У ламината припуск меряется по
    ПЛИТЕ, а не по суммарной толщине склейки, — до этой версии 6+6 резался на
    четверть дюйма крупнее, а 3+3, 10+10 и 12+12 не резались вовсе. */
-const REFERENCE_VERSION=7;
+/* 7 → 8: цена фрита была выдумана. Владелец 10 сентября 2026, увидев её в
+   справочнике: «3,1 для всего фрита делай 5, я указал с головы». Заодно
+   `fritProduct` и `spandrelProduct` выведены из пересева насовсем, а цифровая
+   печать выключена: «пока не работает». */
+const REFERENCE_VERSION=8;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -5359,6 +5371,17 @@ function reseedReferenceTables(hadSaved){
   if(kept.maxW!=null)x.maxW=kept.maxW;
   if(kept.maxL!=null)x.maxL=kept.maxL;
  });
+ /* Разовая правка выдуманной цены. Фрит из REFERENCE_TABLES выведен, поэтому
+    пересев его не заменяет — но один раз, при подъёме версии, подменить
+    ИМЕННО плейсхолдер 3.10 обязан: иначе неверная цена так и осталась бы в уже
+    работающем браузере, а владелец видел бы её как настоящую. Сравнение идёт с
+    конкретным старым значением: цену, введённую руками, трогать нельзя. */
+ if(have<8){
+  (Array.isArray(DB.fritProduct)?DB.fritProduct:[]).forEach(x=>{
+   if(x&&+x.salePrice===3.1)x.salePrice=5.00;
+  });
+  done.push('fritProduct price 3.10 → 5.00');
+ }
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;
  console.info('reference tables reseeded '+have+' \u2192 '+REFERENCE_VERSION+': '+done.join(', '));
@@ -7262,10 +7285,21 @@ function interlayerFamilyOf(id){
  return String(id||'').indexOf('SGP')>=0?'sgp':'eva';
 }
 DEFAULT.fritProduct=[
- {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:3.10},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:3.10}
+ /* 5.00 — цена владельца от 10 сентября 2026 на весь фрит. Прежние 3.10 были
+    выдуманы: «я указал с головы». Цифровая печать заведена ВЫКЛЮЧЕННОЙ —
+    «пока не работает», — чтобы её нельзя было выбрать в заказ по ошибке. */
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00},
+ {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
+/* Покраска — это спандрел, а не отдельная услуга. Решение владельца
+   10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
+   силиконовый», а `Opaci Coat` — код производителя ICD, а не название работы.
+   Поэтому в прайсе они стояли строками услуг, а в системе стоят продуктами. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00}
+ {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00},
+ {id:'SPAN-OC-STD', name:'Opaci-Coat · Standard Colour',code:'SPAN-OC-STD', supplier:'ICD',salePrice:5.00},
+ {id:'SPAN-OC-CUST',name:'Opaci-Coat · Custom Colour',  code:'SPAN-OC-CUST',supplier:'ICD',salePrice:5.00},
+ {id:'SPAN-BP',     name:"Backpainting · Customer's Own Paint",code:'SPAN-BP',salePrice:7.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
@@ -7285,7 +7319,61 @@ const FRIT_DEFAULT_DOT_MM=5;
 /* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
    подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
 const FRIT_DEFAULT_MARGIN16=16;
-const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
+/* Цвета спандрела — СПРАВОЧНИК, а не список в коде. Прежние пять слов
+   ('Black', 'White', 'Gray', 'Bronze', 'Custom') были выдумкой: настоящая
+   палитра принадлежит производителю и имеет коды, по которым цех и заказывает.
+   Владелец 10 сентября 2026 прислал палитру Opaci Coat и потребовал управлять
+   ею сам: «сделай мне мастер-дату максимально от тебя не зависящую».
+
+   Поэтому таблицы НЕТ в REFERENCE_TABLES: пересев заменяет перечисленные там
+   таблицы заводскими целиком и стёр бы и правки, и заведённые вручную цвета.
+   Недостающие заводские строки доливаются по id в normalizeMasterData — тем же
+   приёмом, что у плёнок ламинации.
+
+   Поле `productId` у цвета есть, но у заводских шестнадцати оно пустое: палитра
+   Opaci Coat — единственная, что есть у цеха, и годится любому спандрелу.
+   Пустой продукт означает «доступен всем». Когда у керамического спандрела
+   появится своя палитра, её строки получат свой productId и разойдутся с этой
+   без правки кода. */
+function normalizeSpandrelColour(c){
+ c=c&&typeof c==='object'?c:{};
+ return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
+  family:mdString(c.family),productId:mdString(c.productId),active:c.active!==false};
+}
+DEFAULT.spandrelColour=[
+ {id:'SPC-3-818', family:'Black',name:'Black',           code:'#3-818'},
+ {id:'SPC-3-3234',family:'Gray', name:'Whale Grey',      code:'#3-3234'},
+ {id:'SPC-3-0770',family:'Gray', name:'Warm Grey',       code:'#3-0770'},
+ {id:'SPC-4-2388',family:'Gray', name:'Solar Day',       code:'#4-2388'},
+ {id:'SPC-3-2646',family:'Gray', name:'Telegray',        code:'#3-2646'},
+ {id:'SPC-3-820', family:'Gray', name:'Harmony Grey',    code:'#3-820'},
+ {id:'SPC-3-2625',family:'Gray', name:'Iron Grey',       code:'#3-2625'},
+ {id:'SPC-3-1371',family:'Gray', name:'West Lake',       code:'#3-1371'},
+ {id:'SPC-3-8471',family:'Gray', name:'North Cape Grey', code:'#3-8471'},
+ {id:'SPC-3-3371',family:'Gray', name:'Basalt Grey',     code:'#3-3371'},
+ {id:'SPC-3-3867',family:'Gray', name:'Racoon Fur',      code:'#3-3867'},
+ {id:'SPC-6-0025',family:'Blue', name:'Harmony Blue',    code:'#6-0025'},
+ {id:'SPC-4-3630',family:'Brown',name:'Sturdy Brown',    code:'#4-3630'},
+ {id:'SPC-4-822', family:'Brown',name:'Harmony Bronze',  code:'#4-822'},
+ {id:'SPC-3-1060',family:'White',name:'White',           code:'#3-1060'},
+ {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'}
+].map(normalizeSpandrelColour);
+const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
+/* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
+function spandrelColoursFor(productId){
+ return (DB.spandrelColour||[]).filter(c=>c.active!==false&&(!c.productId||c.productId===productId));
+}
+function spandrelColourById(id){return (DB.spandrelColour||[]).find(c=>c.id===id)||null;}
+function spandrelColourLabel(c){return c?(c.name+(c.code?' '+c.code:'')):'';}
+/* Цвет спандрела хранится идентификатором строки справочника. У заказов,
+   сохранённых до появления палитры, там лежит слово — 'Black', 'Bronze',
+   'Custom'. Такое значение отдаётся как есть: заказ покажет его нетронутым, и
+   человек выберет настоящий цвет сам. Молчаливая подмена «Bronze -> Harmony
+   Bronze» была бы выдуманным за цех выбором, а цвет уходит в покраску. */
+function spandrelColourText(value){
+ const row=spandrelColourById(value);
+ return row?spandrelColourLabel(row):mdString(value);
+}
 
 /* --- 5. Нормализация -------------------------------------------------- */
 
@@ -7317,8 +7405,22 @@ function normalizeMasterData(){
    DB[k]=DB[k].filter(x=>!x||!interlayerProductMigration(x.id));
    DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
   }
+  /* Спандрел доливается тем же приёмом: у сохранённого заказа таблица уже
+     есть, и без долива Opaci Coat и Backpainting до владельца не доехали бы
+     вовсе — а пересевом их не принести, спандрел из REFERENCE_TABLES убран
+     ради сохранности его собственных позиций. */
+  if(k==='spandrelProduct'||k==='fritProduct'){
+   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
+ /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
+    трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */
+ if(!Array.isArray(DB.spandrelColour))DB.spandrelColour=JSON.parse(JSON.stringify(DEFAULT.spandrelColour));
+ DEFAULT.spandrelColour.forEach(seed=>{if(!DB.spandrelColour.some(x=>x&&x.id===seed.id))DB.spandrelColour.push(JSON.parse(JSON.stringify(seed)));});
+ const scSeen=Object.create(null);
+ DB.spandrelColour=DB.spandrelColour.filter(x=>x&&typeof x==='object').map(normalizeSpandrelColour)
+  .filter(c=>c.id&&c.name&&!scSeen[c.id]&&(scSeen[c.id]=true));
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
  DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
@@ -7988,7 +8090,10 @@ function salesDefaultPane(i){
   id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
-  spandrel:{productId:'SPAN-CERAMIC',color:'Black',surface:null},
+  /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
+     получал бы значение, которого в справочнике нет. Чёрный сохранён как
+     прежнее поведение, но теперь это Black #3-818 из палитры ICD. */
+  spandrel:{productId:'SPAN-CERAMIC',color:'SPC-3-818',surface:null},
   laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID)],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
@@ -10425,7 +10530,10 @@ const SALES_SERVICE_RATE_TABLE={
  /* Полировка склеенной кромки. ЧИСЛО, а не банды: у владельца пока одна ставка
     на любую толщину склейки. Когда банды появятся, число заменяется объектом
     вида {'6':…,'8-10':…} — и ни строки кода менять не придётся. */
- lamiPolish:.28,cncLamiPolish:.35,
+ /* Владелец 10 сентября сверил прайс со счётом: «CNC Laminate» — это наш Lami
+    Polish, «POLISH LAMI GLASS» — наш CNC Lami Polish, и обе стоят 0.28.
+    Прежние 0.35 не соответствовали ни одной строке прайса. */
+ lamiPolish:.28,cncLamiPolish:.28,
  /* Раскладка считается по ДЕЛЕНИЯМ, а не по длине бара: один горизонтальный бар
     делит стекло на два прямоугольника, горизонтальный с вертикальным — на
     четыре. Цена одна на любой бар, ставка правится в строке и в заказе, как у
@@ -10434,7 +10542,21 @@ const SALES_SERVICE_RATE_TABLE={
   /* Коммерческая надбавка за фигурную единицу: считается по billable area
      строки, а не по периметру или числу лайтов. */
   shapeUnit:1.25,
-  notchHand:{'6':15,'8-10':15,'12-19':15},notchCnc:{'6':15,'8-10':15,'12-19':15},
+  /* Ставки прайса владельца «Glass Treatment Rates», сверены 10 сентября 2026.
+     Ручной и станочный нотч стоят по-разному и растут с толщиной: прежние
+     15/15/15 были временной цифрой 2 сентября, названной до появления прайса. */
+  notchHand:{'6':10,'8-10':15,'12-19':20},notchCnc:{'6':15,'8-10':20,'12-19':25},
+  /* Патч — та же петля под другим именем, поэтому ставка совпадает с hinge.
+     Владелец 10 сентября: «патч является тоже петлей, только имеет другое
+     название». Цена принадлежит ВИДУ фурнитуры, а не модели: Vienna 180 и
+     Geneva 90 стоят одинаково. */
+  patch:{'6':10,'8-10':15,'12-19':20},
+  /* Внутренний вырез — строка прайса «CNC Processing-Outlet cutout». */
+  cutout:{'6':15,'8-10':20,'12-19':25},
+  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
+     Держим отдельным ключом, а не ссылкой на miter225: когда цены разойдутся,
+     менять придётся одно число, а ключи сохранённых заказов не поедут. */
+  miter45:{'6':.28,'8-10':.38,'12-19':.45},
  sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
 };
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
@@ -11498,7 +11620,10 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
   else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='Lami Polish'){id='lamiPolish';rate=salesCatalogRate(id,ctx);}
   else if(op.type==='CNC Lami Polish'){id='cncLamiPolish';rate=salesCatalogRate(id,ctx);}
-  else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}
+  /* Обе митры теперь тарифицируются: 45° получила свою ставку 10 сентября.
+     Ключ строки по-прежнему выводится из угла, поэтому сохранённые заказы с
+     miter22_5 читаются без миграции. */
+  else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=salesCatalogRate(+op.angle===22.5?'miter225':'miter45',ctx);}
   else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
   else return null;
   return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
@@ -11560,7 +11685,7 @@ salesLineChargeRows=function(line){
   }
   if(saved&&!shapeIsDxfSource(saved)){
     var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;if(radius)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
-    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',null,'Shape feature'));
+    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',ctx),'Shape feature'));
     salesNotchChargeRows(saved,ctx).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
@@ -12077,7 +12202,9 @@ function salesRouteSurfaceTreatments(pane,index,side){
     var label=kind==='coating'?salesVisionTypeLabel(ply.visionType):
       kind==='frit'?'Frit':'Spandrel';
     if(product)label+=' · '+(product.name||product.code);
-    if(spec.color)label+=' · '+spec.color;
+    /* У фрита цвет — это слово из своего короткого списка, у спандрела —
+       строка палитры с кодом. Один и тот же ключ, два разных справочника. */
+    if(spec.color)label+=' · '+(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
     if(kind==='frit'&&spec.pattern)label+=' · '+spec.pattern;
     var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';
     var summary=label+' · '+where,text=summary;
@@ -12630,6 +12757,20 @@ function salesFritDecorateSvg(svg,shape,result,T){
    ===================================================================== */
 
 function salesOption(value,label,selected,rawText){return `<option ${rawText?'data-raw':''} value="${esc(value)}" ${selected===value?'selected':''}>${esc(label)}</option>`;}
+function salesSpandrelColourOptions(selected){
+ const rows=spandrelColoursFor(''),out=[];
+ out.push(salesOption('','— not chosen —',selected,true));
+ SPANDREL_COLOUR_FAMILIES.concat(salesUnique(rows.map(c=>c.family)).filter(f=>SPANDREL_COLOUR_FAMILIES.indexOf(f)<0))
+  .forEach(function(family){
+   const inFamily=rows.filter(c=>c.family===family);
+   if(!inFamily.length)return;
+   out.push(`<optgroup label="${esc(family)}">${inFamily.map(c=>salesOption(c.id,spandrelColourLabel(c),selected,true)).join('')}</optgroup>`);
+  });
+ const loose=rows.filter(c=>!c.family);
+ if(loose.length)out.push(loose.map(c=>salesOption(c.id,spandrelColourLabel(c),selected,true)).join(''));
+ if(selected&&!spandrelColourById(selected))out.push(salesOption(selected,selected+' · not in the palette',selected,true));
+ return out.join('');
+}
 function salesUnique(arr){return [...new Set(arr.filter(x=>x!==''&&x!=null))];}
 function salesManufacturers(){return salesUnique(activeGlassProducts().map(x=>x.manufacturer)).sort();}
 function salesThicknessesFor(p){return salesUnique(activeGlassProducts().filter(x=>!p.manufacturer||x.manufacturer===p.manufacturer).map(x=>x.thicknessMm)).sort((a,b)=>a-b);}
@@ -12734,7 +12875,7 @@ function salesPaneProductSummary(p,index){
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
- if(p.category==='spandrel'){bits.push('Spandrel'+(p.spandrel.color?' '+p.spandrel.color:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
+ if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
  if(ht&&ht.code!=='AN')bits.push(ht.code+(p.heatSoak&&ht.code==='FT'?' + HST':''));return bits.join(' · ');
@@ -12850,7 +12991,7 @@ function salesVisionFieldsSafe(p,index){
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
  return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
-  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${SPANDREL_COLORS.map(x=>salesOption(x,x,p.spandrel.color,true)).join('')}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+  <div class="mu-coating-grid mu-second-row"><div><label>Opaci Coat</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
    толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена
@@ -13409,10 +13550,23 @@ function setShapeWorkspaceTab(v){sWorkspaceTab=v==='cutout'?'cutout':'designer';
    одиночном стекле» делает salesLineMuntinMisapplied: makeup знает строка,
    а не форма — одну форму берут и в пакет, и в одиночное стекло. */
 
-/* Cutout — ОДНА секция. Раньше их было две («Manufacturing items» и
+/* Fabrication — ОДНА секция. Раньше их было две («Manufacturing items» и
    «Geometry modifiers»), и одно и то же посадочное место можно было завести
    двумя разными способами. Флаг остался один: sFeaturesOpen сохранён только
-   для старых вызовов и на разметку больше не влияет. */
+   для старых вызовов и на разметку больше не влияет.
+
+   До 10 сентября 2026 секция называлась Cutout и переросла своё имя: вырез —
+   одна позиция из восьми, рядом с ней отверстия, фурнитура, штамп, пескоструй
+   и радиусные углы. Имя Fabrication не выдумано: станция `FAB` в справочнике
+   цеха уже называется по-английски Fabrication, и в её подписи перечислен
+   ровно этот набор — «работа по телу стекла». Взято оно, а не Services:
+   «Services» в приложении означает ДЕНЬГИ (окно Services / Processing, колонка
+   Services, итог по заказу), и одно слово с двумя смыслами на одном экране
+   уже однажды стоило нам разбора.
+
+   Ключи и коды не тронуты: `toggleShapeSection('cutout')`, начисление
+   `FEATURE:cutout` и кнопка «+ Cutout» остаются прежними — вырез как позиция
+   никуда не делся, переименована только секция. */
 function toggleShapeSection(section){if(section==='edgework')sEdgeworkOpen=!sEdgeworkOpen;if(section==='features'||section==='manufacturing'||section==='cutout')sManufacturingOpen=!sManufacturingOpen;render();}
 function toggleShapeFeatureCard(id){sManufacturingSelected=null;sFeatureExpandedId=sFeatureExpandedId===id?null:id;render();}
 
@@ -13659,7 +13813,7 @@ function shapeCardDeleteHTML(call){
 /* ---------- Нотч как оплачиваемая работа ----------
    Владелец 2 сентября 2026: «при нажатии на любой нотч пусть появляется сервис
    notch, от меня будет зависеть только решение hand or cnc — переменных очень
-   много». Поэтому у нотча в Cutout своя карточка: геометрия остаётся в Shape
+   много». Поэтому у нотча в Fabrication своя карточка: геометрия остаётся в Shape
    Designer, здесь выбирается только способ, и он попадает в список услуг. */
 const SHAPE_NOTCH_CORNERS=[{k:'tl',label:'Top left'},{k:'tr',label:'Top right'},
   {k:'br',label:'Bottom right'},{k:'bl',label:'Bottom left'}];
@@ -13999,7 +14153,7 @@ function shapeDimMenuSvg(id,axis,cx,cy){
   var hidden=shapeDimHidden(sDraft,id,axis);
   /* Знаки вместо слов: цифры размеров выросли до 14 px, и «closer / further /
      hide» перестали помещаться в свои кнопки — слова налезали друг на друга.
-     − двигает размер ближе, + дальше, как в карточке Cutout. */
+     − двигает размер ближе, + дальше, как в карточке Fabrication. */
   var btns=[{t:'−',a:'shapeNudgeDim',v:-1},{t:'+',a:'shapeNudgeDim',v:1},{t:hidden?'show':'hide',a:'shapeToggleDimHide',v:null}];
   var w=[24,24,hidden?46:38],total=w.reduce(function(n,x){return n+x;},0),h=20,x0=cx-total/2,run=0;
   /* Клик по самой панели дальше не идёт: она лежит ВНУТРИ группы метки, а у той
@@ -14249,7 +14403,7 @@ function shapeDerivedServices(){
 }
 function shapeManufacturingServicesHTML(){
   var svc=shapeDerivedServices(),stamps=shapeStampFeatures().length;
-  if(!svc.rows.length)return `<div class='shape-service-summary empty-service${stamps?' has-free-stamp':''}'><b>Services</b><span>${stamps?(stamps+(stamps===1?' stamp is':' stamps are')+' FREE drawing annotations. No charge is added.'):'Add an item in Cutout — quantity and services appear here automatically.'}</span>${stamps?`<strong>FREE</strong>`:''}</div>`;
+  if(!svc.rows.length)return `<div class='shape-service-summary empty-service${stamps?' has-free-stamp':''}'><b>Services</b><span>${stamps?(stamps+(stamps===1?' stamp is':' stamps are')+' FREE drawing annotations. No charge is added.'):'Add an item in Fabrication — quantity and services appear here automatically.'}</span>${stamps?`<strong>FREE</strong>`:''}</div>`;
   return `<div class='shape-service-summary'><div class='shape-service-head'><div><b>Services · derived from the drawing</b><small>Pricing happens in the Sales Order. Stamps are always free.</small></div></div><div class='shape-service-table shape-service-table-qty'><div class='shape-service-row head'><span>Service</span><span>Qty</span></div>${svc.rows.map(function(r){return `<div class='shape-service-row'><span>${esc(r.label)}</span><b>${r.qty}</b></div>`;}).join('')}</div>${stamps?`<div class='shape-service-free-row'><span>Stamp × ${stamps}</span><b>FREE</b></div>`:''}</div>`;
 }
 /* ---------- Метки: Hole и фурнитура ----------
@@ -15440,7 +15594,7 @@ function shapeCutoutEditor(geo,workspace){
     ${external?'':`<div class='shape-cut-group cuts'><div class='shape-cut-group-head'><b>Changes the cutting shape</b><small>goes into cutting and to the machine</small></div>${shapeGeometryBodyHTML(geo)}</div>`}
     ${shapeManufacturingServicesHTML()}`;
   if(workspace)return `<div class='shape-cutout-workspace'>${body}</div>`;
-  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Cutout</b><small>Hole · hardware · stamp · sandblast · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
+  return `<div class='shape-subsection shape-accordion shape-cutout'><button type='button' class='shape-accordion-head' onclick='toggleShapeSection("cutout")'><span><b>Fabrication</b><small>Hole · hardware · stamp · sandblast · cutout · radius corner</small></span><span class='shape-accordion-state'>${total?esc(total+(total===1?' item':' items')):'no items'}<i>${sManufacturingOpen?'−':'+'}</i></span></button>${sManufacturingOpen?`<div class='shape-accordion-body'>
     ${body}</div>`:''}</div>`;
 }
 function shapeArtifacts(r){
@@ -16761,6 +16915,9 @@ const MD_TABS=[
  {k:'weight',   label:'Weight norms'},
  {k:'hardware', label:'Hardware'},
  {k:'allowance',label:'Припуск на рез'},
+ /* Не «Справочники»: словарь RU->EN переводит это слово как Master Data, и
+    вкладка называлась бы так же, как весь экран. */
+ {k:'catalogues',label:'Catalogues'},
  {k:'overview', label:'Обзор базы'}
 ];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
@@ -16774,6 +16931,7 @@ let mdSheetEdit=null,mdSheetDraft=null;
 let mdSpacerEdit=null,mdSpacerDraft=null;
 let mdHwKindEdit=null,mdHwKindDraft=null,mdHwModelEdit=null,mdHwModelDraft=null,mdHwFilter='';
 let mdWeightFilter='';
+let mdCatKind='spandrelColour',mdCatEdit=null,mdCatDraft=null;
 let mdImportReport=null;
 
 /* --- Общее ------------------------------------------------------------ */
@@ -16792,11 +16950,11 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,overview:viewMdOverview})[mdTab]()}
+   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,catalogues:viewMdCatalogues,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'?'':mdImportCard()}`;
+  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'||mdTab==='catalogues'?'':mdImportCard()}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;render();}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -17495,6 +17653,136 @@ function mdImportCsv(inp,which){
   }catch(e){alert('File not readable: '+e.message);}
  };
  r.readAsText(f);
+}
+
+/* --- Справочники, которые ведёт владелец -------------------------------
+   Требование владельца 10 сентября 2026: «сделай мне мастер-дату максимально
+   от тебя не зависящую, чтобы я мог ней управлять, добавлять, изменять без
+   тебя». До этого экрана завести позицию было нельзя вовсе: у надбавок
+   правилась одна цена, а имя, код и поставщик жили в коде.
+
+   Один экран на все таблицы: шесть простых справочников устроены внутри
+   одинаково (normalizeSimpleMaterial), седьмая — палитра спандрела со своими
+   полями. Отдельный экран на каждую означал бы семь мест, где чинить одну и ту
+   же ошибку.
+
+   `prefix` — начало идентификатора новой строки. Идентификатор выводится из
+   кода производителя, а не из порядкового номера: по нему позицию узнают в
+   сохранённых заказах, и он обязан быть читаемым. */
+const MD_CATALOGUES=[
+ {k:'heatTreatment',     label:'Heat treatment',   prefix:'HT',   what:'annealed · heat strengthened · tempered'},
+ {k:'gasProduct',        label:'Gas',              prefix:'GAS',  what:'заполнение камеры'},
+ {k:'sealantProduct',    label:'Sealants',         prefix:'SEAL', what:'первичный и вторичный контур'},
+ {k:'interlayerProduct', label:'Interlayers',      prefix:'ILR',  what:'плёнки ламинации, цена за слой'},
+ {k:'fritProduct',       label:'Frit',             prefix:'FRIT', what:'силкскрин, надбавка за ft²'},
+ {k:'spandrelProduct',   label:'Spandrel',         prefix:'SPAN', what:'непрозрачные панели, надбавка за ft²'},
+ {k:'spandrelColour',    label:'Spandrel colours', prefix:'SPC',  what:'палитра с кодами производителя'}
+];
+function mdCatDef(){return MD_CATALOGUES.find(c=>c.k===mdCatKind)||MD_CATALOGUES[0];}
+function mdCatRows(){return Array.isArray(DB[mdCatKind])?DB[mdCatKind]:[];}
+function mdCatIsColour(){return mdCatKind==='spandrelColour';}
+function mdSetCatKind(k){if(!MD_CATALOGUES.some(c=>c.k===k))return;mdCatKind=k;mdCatEdit=null;mdCatDraft=null;render();}
+
+function viewMdCatalogues(){
+ if(!MD_CATALOGUES.some(c=>c.k===mdCatKind))mdCatKind=MD_CATALOGUES[0].k;
+ if(mdCatEdit!==null)return mdCatForm();
+ const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour();
+ const cols=colour?5:6;
+ return `<div class="sub">Эти справочники ведёт владелец. Заведённые здесь позиции <b>переживают обновление системы</b>: заводское наполнение доливается по коду, введённое руками не трогается. Позицию, на которую уже ссылается заказ, правильнее выключить, чем удалить — в старом заказе она иначе станет неизвестной.</div>
+  <div class="row"><label>Справочник</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Name</th><th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}<th>Status</th><th></th></tr></thead>
+  <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">пусто</td></tr>`}</tbody></table></div>
+  <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>`;
+}
+function mdCatRowHTML(x){
+ const colour=mdCatIsColour();
+ const scope=colour?(x.productId?((DB.spandrelProduct||[]).find(p=>p.id===x.productId)||{}).name||x.productId:'любой'):'';
+ return `<tr>
+  <td><b>${raw(x.name)}</b><div class="mut mono">${raw(x.id)}</div></td>
+  <td class="mono">${x.code?raw(x.code):'<span class="mut">—</span>'}</td>
+  ${colour?`<td>${x.family?raw(x.family):'<span class="mut">—</span>'}</td><td class="mut">${raw(scope)}</td>`
+          :`<td>${x.supplier?raw(x.supplier):'<span class="mut">—</span>'}</td>
+            <td class="mono">${x.salePrice==null?'<span class="mut">—</span>':esc(Number(x.salePrice).toFixed(2))}</td>`}
+  <td><span class="pill ${x.active===false?'warn':'ok'}">${x.active===false?'inactive':'active'}</span></td>
+  <td style="white-space:nowrap"><button class="sm" onclick="mdCatEditRow('${esc(x.id)}')">Edit</button><button class="sm dl" onclick="mdCatDelete('${esc(x.id)}')">×</button></td></tr>`;
+}
+function mdCatNew(){
+ mdCatEdit='new';
+ mdCatDraft=mdCatIsColour()
+  ?{id:'',name:'',code:'',family:'Gray',productId:'',active:true}
+  :{id:'',name:'',code:'',supplier:'',salePrice:null,active:true};
+ render();
+}
+function mdCatEditRow(id){
+ const x=mdCatRows().find(r=>r.id===id);if(!x)return;
+ mdCatEdit=id;mdCatDraft=JSON.parse(JSON.stringify(x));render();
+}
+function mdCatForm(){
+ const r=mdCatDraft,isNew=mdCatEdit==='new',colour=mdCatIsColour(),def=mdCatDef();
+ const families=[''].concat(SPANDREL_COLOUR_FAMILIES);
+ return `<div class="form"><h3>${isNew?'New':'Edit'} · ${esc(def.label)}</h3>
+  <div class="grid">
+   <div><label>Name *</label><input id="md_catName" value="${esc(r.name)}"></div>
+   <div><label>Code</label><input id="md_catCode" value="${esc(r.code)}"><div class="hint">Код производителя, как он написан у него в таблице. Он же уходит в цех.</div></div>
+   ${colour
+    ?`<div><label>Family</label><select id="md_catFamily">${families.map(f=>`<option value="${esc(f)}" ${f===(r.family||'')?'selected':''}>${f?esc(f):'— без семейства —'}</option>`).join('')}</select></div>
+      <div><label>Spandrel</label><select id="md_catProduct"><option value="" ${r.productId?'':'selected'}>— любой спандрел —</option>${(DB.spandrelProduct||[]).map(p=>`<option value="${esc(p.id)}" ${p.id===r.productId?'selected':''}>${esc(p.name)}</option>`).join('')}</select><div class="hint">Пусто — цвет доступен любому спандрелу. Выбор нужен, когда у продукта своя палитра.</div></div>`
+    :`<div><label>Supplier</label><input id="md_catSupplier" value="${esc(r.supplier||'')}"></div>
+      <div><label>Price, CAD</label><input id="md_catPrice" type="number" step="0.01" min="0" value="${r.salePrice==null?'':r.salePrice}"><div class="hint">Надбавка за ft², если справочник её использует. Пусто — цены нет, и в счёте строка честно встанет Rate required, а не нулём.</div></div>`}
+   <div><label>Status</label><select id="md_catActive"><option value="1" ${r.active!==false?'selected':''}>active</option><option value="0" ${r.active===false?'selected':''}>inactive</option></select></div>
+  </div>
+  <div class="err" id="e_mdCat"></div>
+  <div class="row"><button class="pri" onclick="mdCatSave()">Save</button><button onclick="mdCatEdit=null;mdCatDraft=null;render()">Cancel</button></div></div>`;
+}
+/* Идентификатор выводится из кода, а при его отсутствии из названия. Совпадения
+   разводятся суффиксом, а не молча перезаписывают чужую строку. */
+function mdCatIdFrom(prefix,code,name,taken){
+ const base=String(code||name||'').toUpperCase().replace(/[^A-Z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+ let id=prefix+'-'+(base||'NEW'),n=2;
+ while(taken.some(x=>x.id===id)){id=prefix+'-'+(base||'NEW')+'-'+n;n++;}
+ return id;
+}
+function mdCatSave(){
+ const e=document.getElementById('e_mdCat');if(e)e.style.display='none';
+ const colour=mdCatIsColour(),def=mdCatDef(),rows=mdCatRows();
+ const name=mdVal('md_catName'),code=mdVal('md_catCode');
+ if(!name)return fail(e,'Название обязательно');
+ const id=mdCatEdit==='new'?mdCatIdFrom(def.prefix,code,name,rows):mdCatDraft.id;
+ const active=mdVal('md_catActive')!=='0';
+ let next;
+ if(colour){
+  next={id:id,name:name,code:code,family:mdVal('md_catFamily'),productId:mdVal('md_catProduct'),active:active};
+ }else{
+  const typed=mdVal('md_catPrice'),price=typed===''?null:+typed;
+  if(price!=null&&(!isFinite(price)||price<0))return fail(e,'Цена — неотрицательное число или пусто');
+  /* Правка сохраняет поля, которых нет на форме: наличие, срок поставки,
+     толщина. Иначе редактирование имени стирало бы их молча. */
+  const prev=mdCatEdit==='new'?{}:mdCatDraft;
+  next=Object.assign({},prev,{id:id,name:name,code:code,supplier:mdVal('md_catSupplier'),salePrice:price,active:active});
+ }
+ if(!Array.isArray(DB[mdCatKind]))DB[mdCatKind]=[];
+ if(mdCatEdit==='new')DB[mdCatKind].push(next);
+ else{
+  const at=DB[mdCatKind].findIndex(x=>x.id===mdCatDraft.id);
+  if(at<0)return fail(e,'Позиция не найдена');
+  DB[mdCatKind][at]=next;
+ }
+ mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
+}
+/* Ссылку ищем грубо — по идентификатору в тексте сохранённого заказа. Точный
+   разбор потребовал бы знать поле для каждой из семи таблиц, а цена ошибки
+   несимметрична: лишнее предупреждение человек прочитает и решит сам, а
+   пропущенное молча испортит старый заказ. */
+function mdCatUsed(id){
+ const needle='"'+id+'"';
+ return (DB.salesOrder||[]).some(o=>{try{return JSON.stringify(o).indexOf(needle)>=0;}catch(err){return false;}});
+}
+function mdCatDelete(id){
+ const used=mdCatUsed(id);
+ if(!confirm(used?'Эта позиция стоит в сохранённых заказах. Всё равно удалить? Там она станет неизвестной. Обычно правильнее выключить её, а не удалять.':'Удалить позицию?'))return;
+ if(!Array.isArray(DB[mdCatKind]))return;
+ DB[mdCatKind]=DB[mdCatKind].filter(x=>x.id!==id);
+ mdCatEdit=null;mdCatDraft=null;touch();render();
 }
 
 /* ==== src/erp/storage.js ==== */
