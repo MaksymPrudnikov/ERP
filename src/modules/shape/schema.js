@@ -19,7 +19,47 @@ function shapeIsLamiOnlyOp(type){return SHAPE_LAMI_ONLY_OPS.indexOf(type)>=0;}
    молча сдвигал подписи: под «Flat» оказывалась галочка другой операции. */
 var SHAPE_EDGE_OP_SHORT={'Rough Arris':'Rough','Flat Polish':'Flat','CNC Shape Polish':'CNC','Mitering':'Miter','Beveling':'Bevel','Lami Polish':'LamiP','CNC Lami Polish':'CNC Lami'};
 function shapeEdgeOpShort(type){return SHAPE_EDGE_OP_SHORT[type]||String(type||'');}
-var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast'];
+var SHAPE_FEATURE_TYPES=['hole','cutout','radius','hardware','stamp','sandblast','mirrorbacker','mirrorsealant'];
+/* Метки на теле стекла: штамп, пескоструй и две зеркальные позиции. Все они
+   ставятся точкой в центр стекла, двигаются заданием расстояния от кромки и
+   печатаются подписью в две строки. Признак один общий, потому что проверка
+   `type==='stamp'||type==='sandblast'` стояла в семи местах, и третья метка
+   означала бы семь одинаковых правок — а четвёртая ещё семь. */
+var SHAPE_POINT_MARK_TYPES=['stamp','sandblast','mirrorbacker','mirrorsealant'];
+function shapeIsPointMark(f){return SHAPE_POINT_MARK_TYPES.indexOf(shapePlainObject(f).type)>=0;}
+/* Размер подписи правится руками: владелец 10 сентября 2026 — «я бы хотел
+   увеличивать и уменьшать текст мануально». Хранится МНОЖИТЕЛЕМ, а не готовым
+   кеглем: базовый размер выводится из ширины стекла на листе, и множитель
+   переживает и смену масштаба чертежа, и смену размеров детали. */
+function shapeMarkTextScale(f){
+  var v=+shapePlainObject(f).textScale;
+  if(!isFinite(v)||v<=0)return 1;
+  return Math.max(.6,Math.min(3,Math.round(v*100)/100));
+}
+/* Зеркальные позиции. Подложка клеится на сторону, поэтому сторону знает;
+   герметик идёт по кромке — стороны у него нет вовсе, и спрашивать её значило
+   бы просить у цеха ответ, которого не существует. */
+function shapeMirrorSide(f){return shapePlainObject(f).side==='back'?'back':'front';}
+/* Подпись и ключ начисления для меток на теле стекла. Держим их рядом со
+   схемой, а не в экране: по ним считается счёт, и второй разбор в другом месте
+   уже однажды разошёлся с первым. */
+function shapeSurfaceMarkLabel(f){
+  var t=shapePlainObject(f).type;
+  if(t==='sandblast')return shapeSandblastServiceLabel(f);
+  if(t==='mirrorbacker'||t==='mirrorsealant')return shapeMirrorServiceLabel(f);
+  return '';
+}
+function shapeSurfaceMarkChargeKey(f){
+  var t=shapePlainObject(f).type;
+  if(t==='sandblast')return 'feature:sandblast:'+shapeSandblastCoverage(f)+':'+shapeSandblastSide(f);
+  if(t==='mirrorbacker')return 'feature:mirrorbacker:'+shapeMirrorSide(f);
+  return 'feature:'+t;
+}
+function shapeMirrorServiceLabel(f){
+  return shapePlainObject(f).type==='mirrorsealant'
+    ? 'Mirror Edge Sealant'
+    : 'Mirror Safety Backer · '+(shapeMirrorSide(f)==='back'?'Back':'Front');
+}
 /* A stamp is a free annotation on the production drawing. The selected text is
    intentionally short: it must remain readable inside the glass contour. Keep
    accepting older/custom text so saved revisions never lose their marking. */
@@ -66,6 +106,9 @@ function shapeNormalizeFeature(f){
     Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),stampType:stampType,text:stampText});
   }
   if(type==='sandblast')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f)});
+  if(type==='mirrorbacker')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1'),side:shapeMirrorSide(f)});
+  if(type==='mirrorsealant')Object.assign(out,{x:shapeTextValue(f.x,'3'),y:shapeTextValue(f.y,'1')});
+  if(shapeIsPointMark(out))out.textScale=shapeMarkTextScale(f);
   return out;
 }
 function shapeNormalizePolygon(raw){

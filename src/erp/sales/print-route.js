@@ -144,8 +144,10 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     /* Штамп ставит печь — на отожжённом лайте его быть не может. */
     if(f.type==='stamp'&&heatTreatment&&heatTreatment!=='AN')
       salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase());
-    if(f.type==='sandblast')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
-      String(shapeSandblastServiceLabel(f)).toUpperCase());
+    /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа
+       по поверхности после закалки. Отдельной станции у цеха под них нет. */
+    if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
+      String(shapeSurfaceMarkLabel(f)).toUpperCase());
   });
 
   /* Печатаем в порядке маршрута цеха, а не в порядке заполнения. */

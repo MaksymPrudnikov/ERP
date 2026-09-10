@@ -692,7 +692,12 @@ const SALES_SERVICE_RATE_TABLE={
      Держим отдельным ключом, а не ссылкой на miter225: когда цены разойдутся,
      менять придётся одно число, а ключи сохранённых заказов не поедут. */
   miter45:{'6':.28,'8-10':.38,'12-19':.45},
- sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6}
+ sandblastFull:{'6':4,'8-10':4,'12-19':4},sandblastPattern:{'6':6,'8-10':6,'12-19':6},
+ /* Зеркальные позиции. Ставки владельца от 10 сентября 2026 — по одной на любую
+    толщину, поэтому числом, а не бандами: в прайсе они стоят только в колонке
+    6 mm, и разводить три одинаковые цифры значило бы придумать различие,
+    которого у цеха нет. Подложка считается по площади, герметик — по дюйму. */
+ mirrorBacker:4,mirrorSealant:.07
 };
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
    ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
@@ -760,13 +765,41 @@ function salesManufacturingChargeRows(items,ctx){
 /* Пескоструй считается ПО ПЛОЩАДИ: ставка владельца — 4 доллара за ft² сплошной
    обработки и 6 за узор, база — Net area стекла. Сторона (Front / Back) на цену
    не влияет, но остаётся в имени начисления: цеху нужно знать, какую. */
-function salesSandblastChargeRows(features,ctx,areaFt2){
+/* Начисления по меткам на теле стекла: пескоструй, подложка зеркала и герметик
+   кромки. Раньше функция знала один пескоструй; зеркальные позиции пришли по
+   решению владельца 10 сентября 2026 — «добавь в раздел Fabrication, пусть
+   работают как сандбласт».
+
+   БАЗА У НИХ РАЗНАЯ, и это не деталь оформления. Пескоструй и подложка ложатся
+   на ПЛОЩАДЬ, а герметик идёт по КРОМКЕ и считается по расчётному дюйму
+   периметра. Считать герметик по площади значило бы выставить за узкую высокую
+   деталь втрое меньше, чем за неё сделано. */
+/* Периметр готового контура: база герметика кромки. Считается по тем же рёбрам,
+   что и кромочные операции, поэтому у узкой высокой детали он честно больше,
+   чем у квадратной той же площади. */
+function salesShapePerimeterIn(r){
+ return +((r&&r.edges||[]).reduce(function(a,e){return a+(+e.length||0);},0).toFixed(4));
+}
+function salesSurfaceMarkChargeRows(features,ctx,areaFt2,perimeterIn){
  const groups=Object.create(null),order=[];
- (Array.isArray(features)?features:[]).filter(f=>f.type==='sandblast').forEach(f=>{const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f),key=coverage+':'+side;if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}groups[key].qty++;});
- const area=+areaFt2>0?+areaFt2:0;
- return order.map(key=>{const g=groups[key],coverage=shapeSandblastCoverage(g.feature),side=shapeSandblastSide(g.feature);
-  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,shapeSandblastServiceLabel(g.feature),
-   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');});
+ (Array.isArray(features)?features:[]).filter(f=>shapeIsPointMark(f)&&f.type!=='stamp').forEach(f=>{
+  const key=shapeSurfaceMarkChargeKey(f);
+  if(!groups[key]){groups[key]={feature:f,qty:0};order.push(key);}
+  groups[key].qty++;
+ });
+ const area=+areaFt2>0?+areaFt2:0,perimeter=+perimeterIn>0?+perimeterIn:0;
+ return order.map(key=>{
+  const g=groups[key],f=g.feature,label=shapeSurfaceMarkLabel(f);
+  if(f.type==='mirrorsealant')
+   return salesChargeRow('FEATURE:mirror-sealant:'+salesRateBandKey('mirrorSealant',ctx),label,
+    +(perimeter*g.qty).toFixed(4),'in',salesCatalogRate('mirrorSealant',ctx),'Shape feature');
+  if(f.type==='mirrorbacker')
+   return salesChargeRow('FEATURE:mirror-backer-'+shapeMirrorSide(f)+':'+salesRateBandKey('mirrorBacker',ctx),label,
+    +(area*g.qty).toFixed(4),'ft²',salesCatalogRate('mirrorBacker',ctx),'Shape feature');
+  const coverage=shapeSandblastCoverage(f),side=shapeSandblastSide(f);
+  return salesChargeRow('FEATURE:sandblast-'+coverage+'-'+side+':'+ctx.band,label,
+   +(area*g.qty).toFixed(4),'ft²',salesCatalogRate(coverage==='pattern'?'sandblastPattern':'sandblastFull',ctx),'Shape feature');
+ });
 }
 function salesNotchChargeRows(def,ctx){
   var groups={},order=[];
@@ -858,7 +891,7 @@ function salesLineChargeRows(line){
  salesGlazingChargeRows(line,salesLineAreaFt2(line)).forEach(function(row){rows.push(row);});
  const s=salesShapeByRef(line&&line.shapeRef);if(!s)return rows.filter(x=>x.basis>0);const r=ShapeModule.compute(s),ctx=salesPricingThickness(line),items=Array.isArray(s.manufacturingItems)?s.manufacturingItems:[];
  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
- salesSandblastChargeRows(s.features,ctx,r&&r.valid?r.area/144:0).forEach(function(row){rows.push(row);});
+ salesSurfaceMarkChargeRows(s.features,ctx,r&&r.valid?r.area/144:0,r&&r.valid?salesShapePerimeterIn(r):0).forEach(function(row){rows.push(row);});
  if(r&&r.valid){(r.edges||[]).forEach(function(g){(shapeEdgeOps(s,g.id)||[]).forEach(function(op){let id='',label=op.type,rate=null;if(op.type==='Rough Arris'){id='roughArris';rate=salesCatalogRate(id,ctx);}else if(op.type==='Flat Polish'){id='flatPolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='CNC Shape Polish'){id='cncShapePolish';rate=salesCatalogRate(id,ctx);}else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=+op.angle===22.5?salesCatalogRate('miter225',ctx):null;}else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}else return;const key='EDGE:'+id+':'+ctx.band,found=rows.find(x=>x.key===key);if(found)found.basis+=g.length;else rows.push(salesChargeRow(key,label,g.length,'in',rate,'Edge Processing'));});});
   const radiusCount=(s.features||[]).filter(f=>f.type==='radius'&&inch(f.radius)>0).length;if(radiusCount)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radiusCount,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
   const cutoutCount=(s.features||[]).filter(f=>f.type==='cutout').length;if(cutoutCount)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutoutCount,'pc',null,'Shape feature'));

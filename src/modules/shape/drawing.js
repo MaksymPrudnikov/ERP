@@ -443,10 +443,23 @@ function shapeProductionFeaturesSvg(result,F){
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-w/2)+'" y="'+(y-10)+'" width="'+w+'" height="20" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+3.5)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
 }
+/* Подпись метки на теле стекла. Пескоструй, подложка зеркала и герметик кромки
+   рисуются одинаково — двумя строками в рамке, — поэтому спека одна на всех.
+   Множитель размера задаёт владелец руками; при увеличении растёт и рамка,
+   иначе текст вылезал бы за неё. Верхняя граница ширины поднята вместе с
+   множителем: без этого «увеличить текст» упиралось бы в прежние 190 px. */
+function shapePointMarkLines(f){
+  var t=shapePlainObject(f).type;
+  if(t==='mirrorbacker')return ['MIRROR BACKER',shapeMirrorSide(f)==='back'?'BACK':'FRONT'];
+  if(t==='mirrorsealant')return ['MIRROR EDGE SEALANT','PERIMETER'];
+  return ['SANDBLAST',(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT')];
+}
 function shapeSandblastDrawingSpec(f,glassPixelWidth){
-  var line2=(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT'),available=Math.max(44,(+glassPixelWidth||0)*.72);
+  var lines=shapePointMarkLines(f),line2=lines[1],k=shapeMarkTextScale(f);
+  var available=Math.max(44,(+glassPixelWidth||0)*.72);
   var desired=Math.max(72,line2.length*5.4+16),w=Math.max(44,Math.min(190,available,desired)),font=Math.max(6,Math.min(9,(w-12)/Math.max(8,line2.length*.62)));
-  return {lines:['SANDBLAST',line2],w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10};
+  font=font*k;w=Math.max(44,Math.min(190*k,w*k));
+  return {lines:lines,w:Math.round(w*10)/10,h:Math.round((font*2+10)*10)/10,font:Math.round(font*10)/10,scale:k};
 }
 function shapeTitleBlock(result,kind,F){
   var d=result.definition,p=shapePresetInfo(d.type),rx=(F&&F.vw?F.vw:960)-24;

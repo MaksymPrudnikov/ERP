@@ -3827,7 +3827,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
     }), {accordions:[],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
-      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast'],
+      /* Зеркальные позиции заведены 10 сентября 2026 по решению владельца:
+         «добавь в раздел Fabrication, пусть работают как сандбласт». */
+      kinds:['+ Hole','+ Hinge','+ Clamp','+ Patch','+ Stamp','+ Sandblast','+ Mirror backer','+ Mirror sealant'],
       modelOptions:['— not selected —','Geneva 135 / 45','Geneva 180','Geneva 37','Geneva 90','Vienna 135 / 45','Vienna 180','Vienna 37','Vienna 90','Own model'],
       markerHasModel:true});
     eq('Библиотека Hole выбирает Single / Double / Triple, C-C двигаются, подсказки скрыты', await t.p.evaluate(() => {
@@ -3971,7 +3973,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
       sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,expanded,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Cutout'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Cutout',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -4196,6 +4198,51 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), {hand:[['Hand notch',1,'pc',15]],cnc:[['CNC notch',1,'pc',20]],doubled:[['CNC notch',2,'pc',20]],
       cutout:[['Cutout',1,'pc',20]],
       sand:[['Sandblast · Pattern · Front',13.6111,'ft²',6]],netArea:13.6111});
+
+    /* Зеркальные позиции заведены 10 сентября 2026: «добавь в раздел
+       Fabrication, пусть работают как сандбласт». Главное здесь — РАЗНАЯ БАЗА.
+       Подложка ложится на площадь, герметик идёт по кромке и считается по
+       периметру. Считать герметик по площади значило бы выставить за узкую
+       высокую деталь втрое меньше, чем за неё сделано, — и заметить это можно
+       было бы только по жалобе цеха. */
+    eq('зеркальные позиции: подложка по площади, герметик по периметру', await t.p.evaluate(() => {
+      const sh = newShapeDef('rectangle'); sh.id = 'qa-mirror'; sh.w = '20'; sh.h = '40';
+      sh.features = [
+        shapeNormalizeFeature({ type: 'mirrorbacker', side: 'back', x: '10', y: '20' }),
+        shapeNormalizeFeature({ type: 'mirrorsealant', x: '10', y: '15' })
+      ];
+      DB.shapeDef = [normalizeShapeDef(sh)];
+      soDraft = newSalesOrderDraft();
+      const m = soDraft.makeups[0];
+      m.unitType = 'single'; m.panes = [salesDefaultPane(0)];
+      m.panes[0].glassProductId = ''; m.panes[0].thicknessMm = 6;
+      const line = normalizeSalesOrderLine({ makeupId: m.id, qty: 1, width16: 320, height16: 640, shapeRef: salesShapeRefFrom(DB.shapeDef[0]) });
+      soDraft.lines = [line];
+      return salesLineChargeRows(line)
+        .filter(r => r.key.indexOf('FEATURE:mirror') === 0)
+        .map(r => [r.label, r.basis, r.unit, r.catalogRate]);
+    }), [['Mirror Safety Backer · Back', 5.5556, 'ft²', 4],
+         ['Mirror Edge Sealant', 120, 'in', 0.07]]);
+
+    /* Размер подписи правится руками — «я бы хотел увеличивать и уменьшать текст
+       мануально», — но остаётся ОФОРМЛЕНИЕМ: ни контур реза, ни machine payload,
+       ни цена от него не зависят. Проверяем и границы: множитель зажат, иначе
+       случайный ноль или минус сделал бы подпись невидимой. */
+    eq('размер подписи метки: множитель, границы и независимость от цены', await t.p.evaluate(() => {
+      const base = shapeNormalizeFeature({ type: 'mirrorbacker' });
+      const spec = f => shapeSandblastDrawingSpec(f, 400);
+      const big = shapeNormalizeFeature({ type: 'mirrorbacker', textScale: 2 });
+      return {
+        поумолчанию: base.textScale,
+        зажатСверху: shapeMarkTextScale({ textScale: 99 }),
+        зажатСнизу: shapeMarkTextScale({ textScale: 0 }),
+        мусорДаётЕдиницу: shapeMarkTextScale({ textScale: 'нет' }),
+        текстРастёт: spec(big).font > spec(base).font,
+        рамкаРастётВместе: spec(big).w > spec(base).w,
+        подписьСвоя: spec(base).lines[0]
+      };
+    }), { поумолчанию: 1, зажатСверху: 3, зажатСнизу: 1, мусорДаётЕдиницу: 1,
+          текстРастёт: true, рамкаРастётВместе: true, подписьСвоя: 'MIRROR BACKER' });
 
     /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
        нету никакой информации на чертеже». Лист собран по его наброску: сверху

@@ -432,7 +432,7 @@ shapeMarksBodyHTML=function(){
       </div>`;
     }
     return `<div class='shape-mi-card${expanded?' selected expanded':''}'><div class='shape-mi-card-head'><button type='button' class='shape-mi-card-toggle' onclick='sManufacturingSelected=${expanded?'null':'"'+esc(item.id)+'"'};render()'><span class='shape-mi-kind ${esc(item.type)}'>${esc(shapeManufacturingShort(item.type,item))}</span><span><b>${shapeMarkTitleHTML(item)}</b><small>${shapeCutFlagHTML(false)}<span data-raw>${esc(summary)}</span></small></span><i>${expanded?'−':'+'}</i></button>${shapeCardDeleteHTML('shapeRemoveManufacturingItem(&quot;'+esc(item.id)+'&quot;)')}</div>${expanded?`<div class='shape-mi-card-body'>${fields}<label>Note<input data-raw value='${esc(item.note||'')}' oninput='shapeSetManufacturingField("${esc(item.id)}","note",this.value)'></label><div class='shape-mi-actions'><button class='sm' onclick='shapeMoveManufacturingItem("${esc(item.id)}")'>Pick on drawing</button></div></div>`:''}</div>`;
-  }).join(''):(shapeStampFeatures().length||shapeSandblastFeatures().length?'':'<div class="empty compact">No manufacturing items yet</div>')}</div>`;
+  }).join(''):(shapeStampFeatures().length||shapeSurfaceMarkFeatures().length?'':'<div class="empty compact">No manufacturing items yet</div>')}</div>`;
   body+=shapeStampCardsHTML(shapeManufacturingGeometry());
   body+=shapeSandblastCardsHTML(shapeManufacturingGeometry());
   return body;
