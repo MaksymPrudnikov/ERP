@@ -61,7 +61,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }
     eq('в текстах ошибок нет русского', throwLeaks, []);
     const i18n = fs.readFileSync(path.join(ROOT, 'src/erp/i18n.js'), 'utf8');
-    ok('язык по умолчанию — английский', /\|\|\s*'en'/.test(i18n), i18n.match(/let LANG[^;]*/)[0]);
+    ok('пользовательский интерфейс зафиксирован на английском', /let LANG\s*=\s*'en'/.test(i18n), i18n.match(/let LANG[^;]*/)[0]);
+    const shell = fs.readFileSync(path.join(ROOT, 'src/shell.html'), 'utf8');
+    ok('в шапке нет переключателя RU / EN', !/lang-switch|langRu|langEn/.test(shell));
+    const nav = fs.readFileSync(path.join(ROOT, 'src/erp/nav.js'), 'utf8');
+    ok('бренд больше не называет интерфейс двуязычным', !/bilingual concept/.test(nav));
     /* Словарь работает в одну сторону RU→EN и применяется ТОЛЬКО в английском
        режиме. Значит русское значение = английский текст подменяется русским
        ровно там, где его быть не должно. Ключи-повторы вида "Edge mode":
