@@ -1747,7 +1747,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [7, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
+    ]), [8, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
     /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
        за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
     eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
@@ -1759,7 +1759,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [7, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [8, 11, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
@@ -1774,7 +1774,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 19, 7, true, true]);
+    }), [true, 11, 22, 19, 8, true, true]);
     await t.c.close();
 
     t = await page();
@@ -1916,7 +1916,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition.length,
               next.station[0].code, next.user[0].workPosition];
-    }), [7, 11, 22, 'CUT', 'CNC1']);
+    }), [8, 11, 22, 'CUT', 'CNC1']);
     await t.c.close();
 
     t = await page();

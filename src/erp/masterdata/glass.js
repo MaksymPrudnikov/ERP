@@ -532,7 +532,11 @@ function interlayerFamilyOf(id){
  return String(id||'').indexOf('SGP')>=0?'sgp':'eva';
 }
 DEFAULT.fritProduct=[
- {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:3.10},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:3.10}
+ /* 5.00 — цена владельца от 10 сентября 2026 на весь фрит. Прежние 3.10 были
+    выдуманы: «я указал с головы». Цифровая печать заведена ВЫКЛЮЧЕННОЙ —
+    «пока не работает», — чтобы её нельзя было выбрать в заказ по ошибке. */
+ {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:5.00},
+ {id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:5.00,active:false}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
 /* Покраска — это спандрел, а не отдельная услуга. Решение владельца
    10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
@@ -652,7 +656,7 @@ function normalizeMasterData(){
      есть, и без долива Opaci Coat и Backpainting до владельца не доехали бы
      вовсе — а пересевом их не принести, спандрел из REFERENCE_TABLES убран
      ради сохранности его собственных позиций. */
-  if(k==='spandrelProduct'){
+  if(k==='spandrelProduct'||k==='fritProduct'){
    DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
   }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
