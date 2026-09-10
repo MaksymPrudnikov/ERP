@@ -201,6 +201,18 @@ function reseedReferenceTables(hadSaved){
    if(x&&+x.salePrice===3.1)x.salePrice=5.00;
   });
   done.push('fritProduct price 3.10 → 5.00');
+  /* Силиконовый спандрел — это Opaci Coat от ICD, и владелец просил, чтобы
+     бренд был виден там, где выбирают тип. Долив заводских строк этого не
+     сделает: он ДОБАВЛЯЕТ недостающие, но не переименовывает существующие,
+     а SPAN-SILICONE в браузере уже есть со старым именем. Поэтому разовая
+     правка — и только если имя ещё заводское: своё владелец мог уже вписать. */
+  (Array.isArray(DB.spandrelProduct)?DB.spandrelProduct:[]).forEach(x=>{
+   if(x&&x.id==='SPAN-SILICONE'&&x.name==='Silicone Spandrel'){
+    x.name='Opaci-Coat · Silicone Spandrel';
+    if(!x.supplier)x.supplier='ICD';
+   }
+  });
+  done.push('SPAN-SILICONE → Opaci-Coat');
  }
  DB.refVersion=REFERENCE_VERSION;
  referenceReseeded=!!hadSaved;

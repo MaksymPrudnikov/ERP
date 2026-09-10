@@ -541,12 +541,16 @@ DEFAULT.fritProduct=[
 /* Покраска — это спандрел, а не отдельная услуга. Решение владельца
    10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
    силиконовый», а `Opaci Coat` — код производителя ICD, а не название работы.
-   Поэтому в прайсе они стояли строками услуг, а в системе стоят продуктами. */
+
+   ТИПОВ РОВНО ДВА. Первым заходом я развёл Opaci-Coat стандартный, Opaci-Coat
+   кастомный и Backpainting в три отдельных типа — и владелец это отбил:
+   «не нужно разбивать на 5 типов; кастомный цвет должен жить в цветах, это всё
+   ещё Opaci, просто кастомный; краска заказчика — тоже Opaci, только заказчика».
+   Различие между ними — не тип панели, а строка палитры. Тип отвечает, ЧЕМ
+   красят: силикон ICD или керамика. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00},
- {id:'SPAN-OC-STD', name:'Opaci-Coat · Standard Colour',code:'SPAN-OC-STD', supplier:'ICD',salePrice:5.00},
- {id:'SPAN-OC-CUST',name:'Opaci-Coat · Custom Colour',  code:'SPAN-OC-CUST',supplier:'ICD',salePrice:5.00},
- {id:'SPAN-BP',     name:"Backpainting · Customer's Own Paint",code:'SPAN-BP',salePrice:7.00}
+ {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00},
+ {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
@@ -577,11 +581,10 @@ const FRIT_DEFAULT_MARGIN16=16;
    Недостающие заводские строки доливаются по id в normalizeMasterData — тем же
    приёмом, что у плёнок ламинации.
 
-   Поле `productId` у цвета есть, но у заводских шестнадцати оно пустое: палитра
-   Opaci Coat — единственная, что есть у цеха, и годится любому спандрелу.
-   Пустой продукт означает «доступен всем». Когда у керамического спандрела
-   появится своя палитра, её строки получат свой productId и разойдутся с этой
-   без правки кода. */
+   Цвет принадлежит ТИПУ: у силикона ICD своя палитра из шестнадцати цветов,
+   у керамики своя короткая — «только белый, чёрный, серый и кастомный, всё,
+   больше ничего». Пустой `productId` означает «доступен любому типу»: так
+   заводятся цвета, добавленные владельцем, пока он не привязал их к типу. */
 function normalizeSpandrelColour(c){
  c=c&&typeof c==='object'?c:{};
  return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
@@ -603,8 +606,20 @@ DEFAULT.spandrelColour=[
  {id:'SPC-4-3630',family:'Brown',name:'Sturdy Brown',    code:'#4-3630'},
  {id:'SPC-4-822', family:'Brown',name:'Harmony Bronze',  code:'#4-822'},
  {id:'SPC-3-1060',family:'White',name:'White',           code:'#3-1060'},
- {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'}
-].map(normalizeSpandrelColour);
+ {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'},
+ /* Кастомный цвет и краска заказчика — строки ПАЛИТРЫ, а не типы панели.
+    Кода производителя у них нет: он появится, когда цвет назовут. */
+ {id:'SPC-OC-CUSTOM',family:'',name:'Custom Colour',      code:''},
+ {id:'SPC-OC-OWN',   family:'',name:"Customer's Own Paint",code:''}
+].map(x=>normalizeSpandrelColour(Object.assign({productId:'SPAN-SILICONE'},x)))
+/* Керамика: «только белый, чёрный, серый и кастомный, всё, больше ничего».
+   Скринов по ней у владельца нет, поэтому кодов производителя тоже нет. */
+.concat([
+ {id:'SPC-CER-WHITE', family:'White',name:'White'},
+ {id:'SPC-CER-BLACK', family:'Black',name:'Black'},
+ {id:'SPC-CER-GREY',  family:'Gray', name:'Grey'},
+ {id:'SPC-CER-CUSTOM',family:'',     name:'Custom'}
+].map(x=>normalizeSpandrelColour(Object.assign({code:'',productId:'SPAN-CERAMIC'},x))));
 const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){

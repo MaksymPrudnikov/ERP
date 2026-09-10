@@ -175,15 +175,26 @@ function salesRouteSurfaceTreatments(pane,index,side){
   function add(kind,spec,surface,face,position){
     spec=spec||{};
     var product=kind==='coating'?null:mdById(kind==='frit'?'fritProduct':'spandrelProduct',spec.productId);
-    var label=kind==='coating'?salesVisionTypeLabel(ply.visionType):
-      kind==='frit'?'Frit':'Spandrel';
-    if(product)label+=' · '+(product.name||product.code);
+    /* Спандрел на маршрутном листе не называет ни себя, ни свой тип. Строка
+       выглядела как `PAINT Spandrel · Silicone Spandrel · Black #3-818 · #2`,
+       и владелец её сократил: «spandrel это и есть силикон спандрел, просто
+       paint, цвет и сторону, всё». Станция уже зовётся PAINT — слово «Spandrel»
+       рядом было чистым повтором, а тип у цеха один.
+
+       ЦЕНА РЕШЕНИЯ, зафиксировать честно: пока в справочнике активна ещё и
+       керамика, на листе она неотличима от силикона. Правильный ответ —
+       выключить неиспользуемый тип в Master Data → Catalogues, а не возвращать
+       слово в строку. */
+    var parts=[];
+    if(kind==='coating')parts.push(salesVisionTypeLabel(ply.visionType));
+    else if(kind==='frit'){parts.push('Frit');if(product)parts.push(product.name||product.code);}
     /* У фрита цвет — это слово из своего короткого списка, у спандрела —
        строка палитры с кодом. Один и тот же ключ, два разных справочника. */
-    if(spec.color)label+=' · '+(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
-    if(kind==='frit'&&spec.pattern)label+=' · '+spec.pattern;
+    if(spec.color)parts.push(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
+    if(kind==='frit'&&spec.pattern)parts.push(spec.pattern);
+    var label=parts.join(' · ');
     var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';
-    var summary=label+' · '+where,text=summary;
+    var summary=(label?label+' · ':'')+where,text=summary;
     if(kind==='frit'){
       if(spec.dotMm!=null)text+=' · Dot Ø '+spec.dotMm+' mm';
       var margins=[];

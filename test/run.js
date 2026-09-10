@@ -1795,10 +1795,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
          добавил собственный спандрел. */
       DB.spandrelColour.find(c => c.id === 'SPC-3-818').name = 'Shop Black';
       DB.spandrelColour.push({ id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '', active: true });
-      DB.spandrelProduct.find(p => p.id === 'SPAN-OC-STD').salePrice = 9.99;
+      DB.spandrelProduct.find(p => p.id === 'SPAN-SILICONE').salePrice = 9.99;
       DB.spandrelProduct.push({ id: 'SPAN-MY', type: 'spandrel', name: 'Shop Panel', code: 'SPAN-MY', salePrice: 3, active: true });
       /* Заводскую позицию удаляем: долив обязан вернуть именно её, а не все. */
-      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-BP');
+      DB.spandrelProduct = DB.spandrelProduct.filter(p => p.id !== 'SPAN-CERAMIC');
 
       DB.refVersion = 1;
       const did = reseedReferenceTables();
@@ -1810,10 +1810,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         reseeded: did,
         ownColourKept: !!colour('SPC-MY'),
         ownRenameKept: colour('SPC-3-818').name,
-        ownPriceKept: product('SPAN-OC-STD').salePrice,
+        ownPriceKept: product('SPAN-SILICONE').salePrice,
         ownProductKept: !!product('SPAN-MY'),
-        deletedFactoryRowRestored: !!product('SPAN-BP'),
-        factoryColoursIntact: DB.spandrelColour.length === 17
+        deletedFactoryRowRestored: !!product('SPAN-CERAMIC'),
+        /* Считать строки нельзя: владелец заводит свои, и число поедет.
+           Сторожим то, что важно — ни одна заводская не пропала. */
+        factoryColoursIntact: DEFAULT.spandrelColour.every(f => DB.spandrelColour.some(c => c.id === f.id))
       };
     }), { reseeded: true, ownColourKept: true, ownRenameKept: 'Shop Black', ownPriceKept: 9.99,
           ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
@@ -4289,7 +4291,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         const ordered=ht==='AN'?!stages.some(s=>s.code==='HEAT'):
           kind==='frit'?stages.indexOf(step)<stages.findIndex(s=>s.code==='HEAT'):stages.indexOf(step)>stages.findIndex(s=>s.code==='HEAT');
         const spec=salesRouteSurfaceTreatments(pane,i)[0].text;
-        const exact=spec.includes(product.name)&&spec.includes('White')&&text.includes('#'+surface)&&
+        /* Спандрел с 10 сентября 2026 не печатает на листе ни себя, ни свой
+           тип — только цвет и сторону. Имя продукта обязательно по-прежнему
+           у фрита: там их несколько и делают они разное. */
+        const exact=(kind!=='frit'||spec.includes(product.name))&&spec.includes('White')&&text.includes('#'+surface)&&
           (kind!=='frit'||(text==='Frit · #'+surface&&['2 x 4 diamond','Dot Ø 5 mm','W 0','H 1','Top right','Marking: TEST'].every(s=>spec.includes(s))));
         const noLeak=route.lites.every((l,j)=>j===i||!l.stations.some(s=>s.code===code));
         if(!step||!ordered||!exact||!noLeak||!drawn||!drawn.classList.contains(surface===salesPaneSurfaces(i)[0]?'coat-out':'coat-in'))
