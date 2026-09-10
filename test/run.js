@@ -4228,8 +4228,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           failures.push([count,i,kind,product.id,surface,ht]);
         cases++;
       }
-      soDraft=old;return {cases,failures};
-    }), {cases:144,failures:[]});
+      /* Число случаев выведено из справочников, а не вписано числом: владелец
+         заводит спандрелы и фриты сам, и прибитая цифра ломала бы тест на
+         каждой его правке — про которую тест ничего сказать не хочет. Он
+         сторожит другое: что перебор реально шёл и ни один случай не упал. */
+      const positions=1+2+3,surfacesPerLite=2,heats=3;
+      const products=(DB.fritProduct||[]).length+(DB.spandrelProduct||[]).length;
+      const expected=positions*surfacesPerLite*products*heats;
+      soDraft=old;return {ranAll:cases>0&&cases===expected,failures};
+    }), {ranAll:true,failures:[]});
 
     eq('laminated Frit belongs to its ply: outside / into film, independent heat, LAM then IGU', await t.p.evaluate(() => {
       const failures=[];let cases=0;const old=soDraft;

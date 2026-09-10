@@ -96,7 +96,15 @@ function normalizeUsers(){
    сама СТАНЦИЯ, и держать рядом второй справочник тех же одиннадцати строк
    означало бы два источника правды. На его место встали три новые таблицы
    цеха — операции, рабочие места и терминалы (см. erp/shopfloor/data). */
-const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct','spandrelProduct'];
+/* `spandrelProduct` из списка пересева УБРАН, как в своё время `glassSheet`.
+   Требование владельца 10 сентября 2026 — «сделай мне мастер-дату максимально
+   от тебя не зависящую» — означает, что заведённые им позиции обязаны пережить
+   обновление. Пересев заменяет таблицу заводской целиком, то есть стёр бы и
+   его цены, и его собственные строки. Недостающие заводские позиции вместо
+   этого доливаются по id в normalizeMasterData.
+
+   Палитры `spandrelColour` здесь нет по той же причине и с рождения. */
+const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct','fritProduct'];
 /* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
    модели. Пересев меняет там смысл таблицы, а не только её содержимое,
    поэтому версия обязана подняться — иначе браузер пользователя навсегда

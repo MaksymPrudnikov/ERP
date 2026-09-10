@@ -534,8 +534,15 @@ function interlayerFamilyOf(id){
 DEFAULT.fritProduct=[
  {id:'FRIT-CERAMIC',name:'Ceramic Frit',code:'FRIT-CER',salePrice:3.10},{id:'FRIT-DIGITAL',name:'Digital Ceramic Print',code:'FRIT-DIG',salePrice:3.10}
 ].map(x=>normalizeSimpleMaterial(x,'frit'));
+/* Покраска — это спандрел, а не отдельная услуга. Решение владельца
+   10 сентября 2026: «Backpainting и Opaci Coat — это всё спандрел,
+   силиконовый», а `Opaci Coat` — код производителя ICD, а не название работы.
+   Поэтому в прайсе они стояли строками услуг, а в системе стоят продуктами. */
 DEFAULT.spandrelProduct=[
- {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00}
+ {id:'SPAN-CERAMIC',name:'Ceramic Spandrel',code:'SPAN-CER',salePrice:5.00},{id:'SPAN-SILICONE',name:'Silicone Spandrel',code:'SPAN-SIL',salePrice:5.00},
+ {id:'SPAN-OC-STD', name:'Opaci-Coat · Standard Colour',code:'SPAN-OC-STD', supplier:'ICD',salePrice:5.00},
+ {id:'SPAN-OC-CUST',name:'Opaci-Coat · Custom Colour',  code:'SPAN-OC-CUST',supplier:'ICD',salePrice:5.00},
+ {id:'SPAN-BP',     name:"Backpainting · Customer's Own Paint",code:'SPAN-BP',salePrice:7.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
@@ -555,7 +562,61 @@ const FRIT_DEFAULT_DOT_MM=5;
 /* 1″ в канонических 1/16″. Это ПРЕДЗАПОЛНЕНИЕ, а не правило: пользователь
    подтвердил, что отступ 0 законен, поэтому минимум не проверяем. */
 const FRIT_DEFAULT_MARGIN16=16;
-const SPANDREL_COLORS=['Black','White','Gray','Bronze','Custom'];
+/* Цвета спандрела — СПРАВОЧНИК, а не список в коде. Прежние пять слов
+   ('Black', 'White', 'Gray', 'Bronze', 'Custom') были выдумкой: настоящая
+   палитра принадлежит производителю и имеет коды, по которым цех и заказывает.
+   Владелец 10 сентября 2026 прислал палитру Opaci Coat и потребовал управлять
+   ею сам: «сделай мне мастер-дату максимально от тебя не зависящую».
+
+   Поэтому таблицы НЕТ в REFERENCE_TABLES: пересев заменяет перечисленные там
+   таблицы заводскими целиком и стёр бы и правки, и заведённые вручную цвета.
+   Недостающие заводские строки доливаются по id в normalizeMasterData — тем же
+   приёмом, что у плёнок ламинации.
+
+   Поле `productId` у цвета есть, но у заводских шестнадцати оно пустое: палитра
+   Opaci Coat — единственная, что есть у цеха, и годится любому спандрелу.
+   Пустой продукт означает «доступен всем». Когда у керамического спандрела
+   появится своя палитра, её строки получат свой productId и разойдутся с этой
+   без правки кода. */
+function normalizeSpandrelColour(c){
+ c=c&&typeof c==='object'?c:{};
+ return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
+  family:mdString(c.family),productId:mdString(c.productId),active:c.active!==false};
+}
+DEFAULT.spandrelColour=[
+ {id:'SPC-3-818', family:'Black',name:'Black',           code:'#3-818'},
+ {id:'SPC-3-3234',family:'Gray', name:'Whale Grey',      code:'#3-3234'},
+ {id:'SPC-3-0770',family:'Gray', name:'Warm Grey',       code:'#3-0770'},
+ {id:'SPC-4-2388',family:'Gray', name:'Solar Day',       code:'#4-2388'},
+ {id:'SPC-3-2646',family:'Gray', name:'Telegray',        code:'#3-2646'},
+ {id:'SPC-3-820', family:'Gray', name:'Harmony Grey',    code:'#3-820'},
+ {id:'SPC-3-2625',family:'Gray', name:'Iron Grey',       code:'#3-2625'},
+ {id:'SPC-3-1371',family:'Gray', name:'West Lake',       code:'#3-1371'},
+ {id:'SPC-3-8471',family:'Gray', name:'North Cape Grey', code:'#3-8471'},
+ {id:'SPC-3-3371',family:'Gray', name:'Basalt Grey',     code:'#3-3371'},
+ {id:'SPC-3-3867',family:'Gray', name:'Racoon Fur',      code:'#3-3867'},
+ {id:'SPC-6-0025',family:'Blue', name:'Harmony Blue',    code:'#6-0025'},
+ {id:'SPC-4-3630',family:'Brown',name:'Sturdy Brown',    code:'#4-3630'},
+ {id:'SPC-4-822', family:'Brown',name:'Harmony Bronze',  code:'#4-822'},
+ {id:'SPC-3-1060',family:'White',name:'White',           code:'#3-1060'},
+ {id:'SPC-0-1409',family:'White',name:'Snow Bound',      code:'#0-1409'}
+].map(normalizeSpandrelColour);
+const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
+/* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
+function spandrelColoursFor(productId){
+ return (DB.spandrelColour||[]).filter(c=>c.active!==false&&(!c.productId||c.productId===productId));
+}
+function spandrelColourById(id){return (DB.spandrelColour||[]).find(c=>c.id===id)||null;}
+function spandrelColourLabel(c){return c?(c.name+(c.code?' '+c.code:'')):'';}
+/* Цвет спандрела хранится идентификатором строки справочника. У заказов,
+   сохранённых до появления палитры, там лежит слово — 'Black', 'Bronze',
+   'Custom'. Такое значение отдаётся как есть: заказ покажет его нетронутым, и
+   человек выберет настоящий цвет сам. Молчаливая подмена «Bronze -> Harmony
+   Bronze» была бы выдуманным за цех выбором, а цвет уходит в покраску. */
+function spandrelColourText(value){
+ const row=spandrelColourById(value);
+ return row?spandrelColourLabel(row):mdString(value);
+}
 
 /* --- 5. Нормализация -------------------------------------------------- */
 
@@ -587,8 +648,22 @@ function normalizeMasterData(){
    DB[k]=DB[k].filter(x=>!x||!interlayerProductMigration(x.id));
    DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
   }
+  /* Спандрел доливается тем же приёмом: у сохранённого заказа таблица уже
+     есть, и без долива Opaci Coat и Backpainting до владельца не доехали бы
+     вовсе — а пересевом их не принести, спандрел из REFERENCE_TABLES убран
+     ради сохранности его собственных позиций. */
+  if(k==='spandrelProduct'){
+   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });
+ /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
+    трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */
+ if(!Array.isArray(DB.spandrelColour))DB.spandrelColour=JSON.parse(JSON.stringify(DEFAULT.spandrelColour));
+ DEFAULT.spandrelColour.forEach(seed=>{if(!DB.spandrelColour.some(x=>x&&x.id===seed.id))DB.spandrelColour.push(JSON.parse(JSON.stringify(seed)));});
+ const scSeen=Object.create(null);
+ DB.spandrelColour=DB.spandrelColour.filter(x=>x&&typeof x==='object').map(normalizeSpandrelColour)
+  .filter(c=>c.id&&c.name&&!scSeen[c.id]&&(scSeen[c.id]=true));
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
  DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
