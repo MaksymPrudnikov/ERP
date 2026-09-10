@@ -483,11 +483,15 @@ salesLineChargeRows=function(line){
   salesUnitSurchargeRows(line,saved).forEach(function(row){rows.push(row);});
   var shape=salesLineGeometryShape(line),ctx=salesPricingThickness(line);if(!shape)return rows.filter(function(x){return x.basis>0;});
   var items=saved&&Array.isArray(saved.manufacturingItems)?saved.manufacturingItems:[];
-  /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows. */
-  salesManufacturingChargeRows(items,ctx).forEach(function(row){rows.push(row);});
+  /* Разбор меток общий с обычной веткой расчёта — см. salesManufacturingChargeRows.
+     Считается ПО СТЁКЛАМ: отверстие и петля делаются на каждом физическом
+     стекле юнита, каждое по своей толщине. */
+  salesPerGlassRows(line,function(c){return salesManufacturingChargeRows(items,c);}).forEach(function(row){rows.push(row);});
   var marked=saved?ShapeModule.compute(saved):null,markValid=marked&&marked.valid;
   var sandArea=markValid?marked.area/144:0,markPerimeter=markValid?salesShapePerimeterIn(marked):0;
-  salesSurfaceMarkChargeRows(saved&&saved.features,ctx,sandArea,markPerimeter).forEach(function(row){rows.push(row);});
+  /* Метки на поверхности живут на ОДНОМ стекле, поэтому не множатся: см.
+     salesThickestGlassCtx. */
+  salesSurfaceMarkChargeRows(saved&&saved.features,salesThickestGlassCtx(line),sandArea,markPerimeter).forEach(function(row){rows.push(row);});
   /* Кромка тарифицируется ПО ЛАЙТАМ: у пакета 10 + 6 обрабатываются два разных
      стекла, каждое по своей ставке. Раньше строка считалась одним куском, и на
      любой комбинации толщин ставка не находилась вовсе. */
@@ -526,9 +530,13 @@ salesLineChargeRows=function(line){
     });
   }
   if(saved&&!shapeIsDxfSource(saved)){
-    var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;if(radius)rows.push(salesChargeRow('FEATURE:radius:'+ctx.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',ctx),'Shape feature'));
-    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;if(cutout)rows.push(salesChargeRow('FEATURE:cutout:'+ctx.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',ctx),'Shape feature'));
-    salesNotchChargeRows(saved,ctx).forEach(function(row){rows.push(row);});
+    /* Радиус, вырез и нотч меняют форму КАЖДОГО стекла юнита, поэтому считаются
+       по стёклам — так же, как отверстия и фурнитура. */
+    var radius=(saved.features||[]).filter(function(f){return f.type==='radius'&&inch(f.radius)>0;}).length;
+    if(radius)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:radius:'+c.band,'Radius Corner',radius,'pc',salesCatalogRate('radiusCorner',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    var cutout=(saved.features||[]).filter(function(f){return f.type==='cutout';}).length;
+    if(cutout)salesPerGlassRows(line,function(c){return [salesChargeRow('FEATURE:cutout:'+c.band,'Cutout',cutout,'pc',salesCatalogRate('cutout',c),'Shape feature')];}).forEach(function(row){rows.push(row);});
+    salesPerGlassRows(line,function(c){return salesNotchChargeRows(saved,c);}).forEach(function(row){rows.push(row);});
   }
   return rows.filter(function(row){return row.basis>0;});
 };

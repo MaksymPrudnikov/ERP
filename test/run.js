@@ -4281,6 +4281,44 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), { before: .02, after: .99, keyStable: true, offGivesNull: null, offKeepsKey: '8-10',
           flatRate: .07, flatKey: 'flat', holeSubKey: 25, unknownIsNull: null });
 
+    /* Тело стекла считается ПО СТЁКЛАМ. Правило владельца 10 сентября 2026:
+       «каждый лайт изначально создаётся и живёт отдельно», и «отверстие
+       применяется к каждому стеклу по отдельности; 6 CL + 6 CL — на рисунке одно
+       отверстие, а по факту по отверстию на каждое стекло». Для пакета то же:
+       «IGU иногда делают со спайдерами, и там есть отверстия».
+
+       До этой правки тело брало ОДНУ толщину на всю строку. У юнита из разных
+       стёкол единой толщины не существует, и петли с отверстиями молча
+       оставались без ставки — в счёте Rate required вместо денег. Это не
+       возможность, которой не было, а НЕВЕРНЫЙ СЧЁТ, который уже выставлялся.
+
+       Проверяем три случая, потому что ошибиться можно в каждом: одиночное
+       стекло не должно удвоиться, пакет из одинаковых стёкол обязан остаться
+       ОДНОЙ строкой на две штуки, а пакет из разных — разойтись на две строки со
+       своими ставками. */
+    eq('тело стекла тарифицируется по каждому физическому стеклу', await t.p.evaluate(() => {
+      const build = mm => {
+        const sh = newShapeDef('rectangle'); sh.id = 'qa-per-lite'; sh.w = '20'; sh.h = '40';
+        sh.manufacturingItems = [
+          shapeNormalizeManufacturingItem({ id: 'h1', type: 'hinge', edge: 'right', distance: 5 }),
+          shapeNormalizeManufacturingItem({ id: 'h2', type: 'hinge', edge: 'right', distance: 15 })
+        ];
+        DB.shapeDef = [normalizeShapeDef(sh)];
+        soDraft = newSalesOrderDraft();
+        const m = soDraft.makeups[0];
+        m.unitType = mm.length === 1 ? 'single' : 'double';
+        m.panes = mm.map((t, i) => { const p = salesDefaultPane(i); p.glassProductId = ''; p.thicknessMm = t; return p; });
+        const line = normalizeSalesOrderLine({ makeupId: m.id, qty: 1, width16: 320, height16: 640, shapeRef: salesShapeRefFrom(DB.shapeDef[0]) });
+        soDraft.lines = [line];
+        return salesLineChargeRows(line).filter(r => r.key.indexOf('MI:hinge') === 0).map(r => [r.key, r.basis, r.catalogRate]);
+      };
+      return { single: build([6]), same: build([6, 6]), mixed: build([6, 10]) };
+    }), {
+      single: [['MI:hinge:6', 2, 10]],
+      same: [['MI:hinge:6', 4, 10]],
+      mixed: [['MI:hinge:6', 2, 10], ['MI:hinge:8-10', 2, 15]]
+    });
+
     /* Владелец про прежний лист: «что-то слева, что-то справа, что-то по центру,
        нету никакой информации на чертеже». Лист собран по его наброску: сверху
        слева тип и размеры, справа заказчик, посередине чертёж, снизу путь по

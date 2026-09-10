@@ -676,6 +676,62 @@ function salesPricingBandFor(mm){
  return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
 }
 function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+/* Физические стёкла строки, сгруппированные по полосе прайса.
+
+   Правило владельца 10 сентября 2026: «каждый лайт изначально создаётся и живёт
+   отдельно до момента склеивания ламинированной плёнкой», и работа по телу
+   стекла делается на КАЖДОМ стекле: «когда мы делаем кастомное ламинированное,
+   отверстие применяется к каждому стеклу по отдельности; 6 CL + 6 CL — на
+   рисунке одно отверстие для ламинированного юнита, а по факту по отверстию на
+   каждое стекло, и в сервис падает по отверстию на стекло». Для стеклопакета то
+   же самое: «IGU иногда делают со спайдерами, и там есть отверстия, и отверстия
+   распространяются на каждое стекло».
+
+   До этого тело стекла брало ОДНУ толщину на всю строку через
+   `salesPricingThickness`. У юнита из разных стёкол единой толщины не
+   существует, функция возвращала `ok:false`, и отверстия, петли, зажимы, нотчи,
+   вырезы и радиусы молча оставались без ставки: в счёте `Rate required` вместо
+   денег. Кромка так считалась уже давно — тело отстало. */
+function salesLineThicknessGroups(line){
+ const m=line&&soDraft?salesMakeupById(soDraft,line.makeupId):null,out=[],index=Object.create(null);
+ if(!m)return out;
+ (m.panes||[]).forEach(p=>{
+  salesPanePlies(p).forEach(ply=>{
+   const ctx=salesPricingBandFor(ply.mm);
+   const key=ctx.ok?ctx.band:'na:'+String(ctx.thickness);
+   if(!index[key]){index[key]={ctx:ctx,count:0};out.push(index[key]);}
+   index[key].count++;
+  });
+ });
+ return out;
+}
+/* Начисление по телу стекла строится для каждой группы своей ставкой, а
+   количество умножается на число стёкол в группе. Ключ строки уже несёт полосу
+   толщины, поэтому две группы дают две разные строки счёта и не схлопываются в
+   одну. Стёкла одной толщины лежат в одной группе, поэтому пакет 6 + 6 остаётся
+   одной строкой на две штуки, а не двумя строками по одной. */
+function salesPerGlassRows(line,build){
+ const groups=salesLineThicknessGroups(line);
+ if(!groups.length)return build(salesPricingThickness(line));
+ const rows=[];
+ groups.forEach(g=>{
+  build(g.ctx).forEach(r=>{
+   rows.push(g.count===1?r:Object.assign({},r,{basis:+(r.basis*g.count).toFixed(4)}));
+  });
+ });
+ return rows;
+}
+/* Толщина для работ, которые делаются на ОДНОМ стекле: пескоструй, подложка
+   зеркала, герметик кромки. Какое именно это стекло, модель пока не знает —
+   метка живёт на форме, а не на лайте. Берём самое толстое: цена с толщиной
+   растёт, и занизить счёт хуже, чем завысить. Сегодня ни одна из этих ставок от
+   полосы не зависит, поэтому цифры это не меняет, — но перестаёт молча терять
+   ставку у юнита из разных стёкол. */
+function salesThickestGlassCtx(line){
+ const v=salesLineGlassThicknesses(line);
+ if(!v.length)return salesPricingThickness(line);
+ return salesPricingBandFor(v[v.length-1]);
+}
 function salesPricingHoleBand(d){if(d>=.5&&d<=1)return {key:'0.5-1',label:'1/2″–1″'};if(d>1&&d<=2)return {key:'1-2',label:'1-1/16″–2″'};if(d>2&&d<=3)return {key:'2-3',label:'2-1/16″–3″'};if(d>3&&d<=4)return {key:'3-4',label:'3-1/16″–4″'};if(d>4)return {key:'4+',label:'> 4″'};return null;}
 /* Ставка бывает единой на все толщины — тогда банд не нужен и не спрашивается.
    Проверка ctx.ok стояла первой строкой, и такая ставка всё равно терялась на
