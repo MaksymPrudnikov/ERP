@@ -30,19 +30,30 @@ function normalizeSalesModules(){
    именованных учёток не получают: учётка принадлежит терминалу станции, а
    человек опознаётся сканом бейджа при действии.
    Прибыль видит только Владелец; Админ — техническая роль без денег. */
-const ROLES=['Продажи','Бухгалтер','Админ','Владелец'];
+const ROLES=['Sales','Accounting','Admin','Owner'];
 /* Неизвестная роль из импорта или из старых данных падает в самую слабую —
-   Продажи: она не видит ни себестоимости, ни настроек системы. */
-const SAFE_DEFAULT_ROLE='Продажи';
-const SKILLS=['Резка','Кромка (arris/polish)','ЧПУ полировка','Сверловка/выемки','Закалка','Контроль качества','Отгрузка/погрузка'];
-const SKILL_LEVELS=['Новичок','Мидл','Синьор'];
+   Sales: она не видит ни себестоимости, ни настроек системы. */
+const SAFE_DEFAULT_ROLE='Sales';
+const SKILLS=['Cutting','Edgework (arris/polish)','CNC polishing','Drilling / notches','Tempering','Quality control','Shipping / loading'];
+const SKILL_LEVELS=['Beginner','Intermediate','Senior'];
+/* Роли и навыки — ХРАНИМЫЕ значения, а не подписи: они лежат в базе у каждого
+   пользователя и проверяются по списку при импорте. Английский интерфейс
+   переименовал их, поэтому старое значение надо перенести, иначе сохранённый
+   пользователь получит «unknown role», а его навыки молча исчезнут. Перенос
+   разовый и по значению — id у ролей нет. */
+const LEGACY_ROLES={'Продажи':'Sales','Бухгалтер':'Accounting','Админ':'Admin','Владелец':'Owner'};
+const LEGACY_SKILLS={'Резка':'Cutting','Кромка (arris/polish)':'Edgework (arris/polish)','ЧПУ полировка':'CNC polishing','Сверловка/выемки':'Drilling / notches','Закалка':'Tempering','Контроль качества':'Quality control','Отгрузка/погрузка':'Shipping / loading'};
+const LEGACY_SKILL_LEVELS={'Джун':'Beginner','Мидл':'Intermediate','Синьор':'Senior'};
+const migrateRole = r => LEGACY_ROLES[r]||r;
+const migrateSkillName = s => LEGACY_SKILLS[s]||s;
+const migrateSkillLevel = l => LEGACY_SKILL_LEVELS[l]||l;
 /* Старые записи могли хранить навык строкой — для них сохраняем исторический
    уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
 const normSkill = x => {
- const src=typeof x==='string'?{skill:x,level:'Мидл'}:(x&&typeof x==='object'?x:null);
+ const src=typeof x==='string'?{skill:x,level:'Intermediate'}:(x&&typeof x==='object'?x:null);
  if(!src)return null;
- const skill=String(src.skill==null?'':src.skill).trim();if(!SKILLS.includes(skill))return null;
- const level=typeof x==='string'?'Мидл':src.level;if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
+ const skill=migrateSkillName(String(src.skill==null?'':src.skill).trim());if(!SKILLS.includes(skill))return null;
+ const level=migrateSkillLevel(typeof x==='string'?'Intermediate':src.level);if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
 };
 /* Пользователь привязан к РАБОЧЕМУ МЕСТУ, а не к станции: станция теперь шаг
    маршрута, и «привязать человека к шагу маршрута» не значит ничего.
@@ -63,7 +74,7 @@ function normalizeUsers(){
  DB.user.forEach(u=>{
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
-  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
+  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(migrateRole(u.role))?migrateRole(u.role):SAFE_DEFAULT_ROLE;
   /* Человек привязан к СТАНЦИИ, а не к станку: рабочие места удалены
      11 сентября 2026, а по разделу 7 хендоффа учётка вообще принадлежит
      терминалу станции — конкретный оператор опознаётся бейджем при действии.
@@ -237,13 +248,13 @@ function reseedReferenceTables(hadSaved){
 }
 function skillIconName(skill){
  return ({
-  'Резка':'cut',
-  'Кромка (arris/polish)':'edge',
-  'ЧПУ полировка':'cnc',
-  'Сверловка/выемки':'cnc',
-  'Закалка':'furnace',
-  'Контроль качества':'check',
-  'Отгрузка/погрузка':'shipping'
+  'Cutting':'cut',
+  'Edgework (arris/polish)':'edge',
+  'CNC polishing':'cnc',
+  'Drilling / notches':'cnc',
+  'Tempering':'furnace',
+  'Quality control':'check',
+  'Shipping / loading':'shipping'
  })[skill] || 'report';
 }
 function skillBadgeHTML(skillObj){
@@ -266,9 +277,9 @@ function salesSkillCards(){
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
- {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
- {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
+ {name:'Demo Sales',role:'Sales',station:'',skills:[]},
+ {name:'Demo Accounting',role:'Accounting',station:'',skills:[]},
+ {name:'Demo Owner',role:'Owner',station:'',skills:[]}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому

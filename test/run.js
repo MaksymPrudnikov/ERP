@@ -1961,7 +1961,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',workPosition:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
-    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Продажи',skills:[]});
+    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Sales',skills:[]});
     eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
     await t.c.close();
 
@@ -1972,9 +1972,22 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* --- B8: реальные роли и демо-пользователи ---------------------- */
     t = await page();
     eq('роли приведены к реальным должностям', await t.p.evaluate(() => ({roles:ROLES,safe:SAFE_DEFAULT_ROLE})),
-      {roles:['Продажи','Бухгалтер','Админ','Владелец'],safe:'Продажи'});
+      {roles:['Sales','Accounting','Admin','Owner'],safe:'Sales'});
     eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.role)),
-      ['Demo Sales · Продажи','Demo Accounting · Бухгалтер','Demo Owner · Владелец']);
+      ['Demo Sales · Sales','Demo Accounting · Accounting','Demo Owner · Owner']);
+    /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
+       У владельца в браузере лежат пользователи со старыми русскими значениями:
+       без переноса роль стала бы «unknown role» на импорте, а навыки исчезли бы
+       молча — нормализация выбрасывает навык, которого нет в списке. */
+    eq('старые русские роли и навыки переносятся, а не теряются', await t.p.evaluate(() => {
+      DB.user.push({name:'Legacy Person',role:'Бухгалтер',station:'',
+        skills:[{skill:'Закалка',level:'Мидл'},{skill:'Контроль качества',level:'Синьор'}]});
+      normalizeUsers();
+      const u=DB.user.find(x=>x.name==='Legacy Person');
+      const imported=(()=>{try{prepareImportedState({user:[{name:'X',role:'Владелец',skills:[]}]});return 'ok';}catch(e){return 'ошибка: '+e.message;}})();
+      DB.user=DB.user.filter(x=>x.name!=='Legacy Person');
+      return {role:u.role,skills:u.skills.map(s=>s.skill+'/'+s.level),imported};
+    }), {role:'Accounting',skills:['Tempering/Intermediate','Quality control/Senior'],imported:'ok'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });

@@ -82,19 +82,19 @@ function render(){
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
-  dashboard:['Обзор системы','Карта ERP и текущий статус'],
-  users:['Пользователи','Роли, рабочие места и покрытие навыков'],
-  customers:['Клиенты','Справочник клиентов, контакты и коммерческие условия'],
-  sales:['Продажи','Заказы и коммерческая конфигурация'],
-  configurators:['Конфигураторы','Инженерный конфигуратор Shape'],
-  optimization:['Оптимизация','Мост данных к Perfect Cut'],
-  production:['Производство','Станции · рабочие места · операции · терминалы'],
-  masterdata:['Справочники','Каталог стекла · точки поставки · фурнитура · обзор базы']
- }[tab]||['ERP Glazing System','Производственная система'];
+  dashboard:['System overview','ERP map and current status'],
+  users:['Users','Roles, work positions and skill coverage'],
+  customers:['Customers','Customer master, contacts and commercial terms'],
+  sales:['Sales','Orders and commercial configuration'],
+  configurators:['Configurators','Engineering Shape configurator'],
+  optimization:['Optimization','Data bridge to Perfect Cut'],
+  production:['Production','Stations · work positions · operations · terminals'],
+  masterdata:['Master Data','Glass catalog · supply points · hardware · database overview']
+ }[tab]||['ERP Glazing System','Production system'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
- document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Фаза 1 · фундамент';
+ document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction,masterdata:viewMasterData}[tab];
- document.getElementById('app').innerHTML = V ? V() : '<div class="empty">модуль в плане</div>';
+ document.getElementById('app').innerHTML = V ? V() : '<div class="empty">module planned</div>';
  afterRender();
 }

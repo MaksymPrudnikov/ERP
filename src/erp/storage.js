@@ -92,7 +92,7 @@ function validateImportedState(src){
  });
  (src.user||[]).forEach((u,i)=>{
   if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
-  if(u.role!=null&&!ROLES.includes(u.role))throw new Error('User '+(i+1)+' has an unknown role.');
+  if(u.role!=null&&!ROLES.includes(migrateRole(u.role)))throw new Error('User '+(i+1)+' has an unknown role.');
   (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('User '+(i+1)+', skill '+(j+1)+' is invalid.');});
  });
 }

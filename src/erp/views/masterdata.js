@@ -181,7 +181,7 @@ function viewMdGlass(){
   </div>
   <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>
-  ${rows.length>shown.length?`<div class="hint">Сузь поиск или фильтр, чтобы увидеть остальные позиции: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
+  ${rows.length>shown.length?`<div class="hint">Narrow the search or filter to see the remaining items: <b data-raw>${rows.length-shown.length}</b></div>`:''}`;
 }
 /* Цена продажи правится прямо в строке каталога: заполнять её придётся по многим
    позициям, и форма на каждую превратила бы это в работу на день. Пустое поле
@@ -306,7 +306,7 @@ function viewMdSupply(){
  const rows=DB.glassSheet.slice().sort((a,b)=>a.productCode.localeCompare(b.productCode)||a.supplier.localeCompare(b.supplier));
  const orphans=glassOrphanSheets().length;
  return `<div class="sub">One row is one product at one supply point in one sheet format. The same sheet at a new price updates the row; a different sheet format starts its own. The currency belongs to the supply point: Vitro Barrie ships in CAD, Vitro USA ships the same glass in USD.</div>
-  ${orphans?`<div class="note">Строк без продукта: <b>${orphans}</b>. Так бывает после переименования кода в каталоге — цена не потерялась, но продукт ей надо вернуть.</div>`:''}
+  ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b>. Так бывает после переименования кода в каталоге — цена не потерялась, но продукт ей надо вернуть.</div>`:''}
   <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Supply point</th><th>Sheet</th><th>Unit</th><th>Purchase price</th><th>Date</th><th>Freight</th><th>Lead time</th><th>Availability</th><th></th></tr></thead>
   <tbody>${rows.map(mdSheetRow).join('')||'<tr><td colspan="10" class="empty">no supply rows yet — load GLASS_SHEETS.csv or add a row by hand</td></tr>'}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>`;

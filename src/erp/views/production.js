@@ -36,8 +36,8 @@ function viewProduction(){
   <div class="card">
    <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' без работ':'все заняты'}</span></div>
    <div class="pipeline">${pipeline}</div>
-   ${empty.length?`<div class="note" style="margin-top:10px">Без работ: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. Это не ошибка — станция ждёт своей работы в Master Data → Works.</div>`:''}
-   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Габариты не замерены: ${unmeasured} из ${DB.station.length}.</b> Стоит засев 144 × 100″ — габарит листа, а не станка. Пока замера нет, проверка «влезет ли деталь» опирается на предположение.</div>`:''}
+   ${empty.length?`<div class="note" style="margin-top:10px">Без работ: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
+   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Габариты не замерены: ${unmeasured} из ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
   </div>
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
@@ -186,7 +186,7 @@ function sfReportHTML(rep){
    <b>Принято строк: ${rep.accepted}</b> — новых ${rep.added}, обновлено ${rep.updated}. Отклонено: ${rep.rejected.length}.
    ${rep.missing.length?`<div style="margin-top:6px">В файле не было, оставлены как есть: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}</div>`:''}
   </div>
-  ${rejected?`<table style="margin-top:10px"><thead><tr><th>Строка</th><th>Код</th><th>Почему отклонена</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
+  ${rejected?`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
 }
 function sfImportCsv(inp){
  const f=inp.files[0]; inp.value='';
