@@ -194,13 +194,56 @@ function glassApplySalePrices(){
   if(p.salePriceTempered==null)p.salePriceTempered=row[1];
  });
 }
+/* --- 1а. Общая шапка материала (раздел 3.1 схемы) ---------------------
+   Этап 2 схемы, часть первая: ОДНА ФОРМА. Девять справочников материалов
+   физически остаются своими таблицами — переезд хранилища это отдельное
+   решение со своей ценой (живая localStorage владельца и совместимость
+   Export/Import JSON), — но форма строки у всех становится одна. Поля шапки
+   перечислены в разделе 3.1: то, что есть у материала независимо от того,
+   стекло это, спейсер или стоковая дверь.
+
+   Приём намеренно аддитивный: `materialHeader` НЕ трогает поля категории и
+   не затирает уже сохранённые значения — она только гарантирует, что шапка
+   есть и приведена к типу. Поэтому её можно наложить на любую из девяти
+   нормализаций, не переписывая ни одну из них. */
+const MATERIAL_CATEGORIES=['glass','igu','lamination','surface','stock'];
+/* Физическая таблица → категория схемы. Единственное место, где это знание
+   записано: и аксессоры, и экран читают отсюда, а не повторяют список.
+   Подкатегорию здесь не держим — её несёт сама строка (см. materialHeader),
+   и второе место с тем же ответом рано или поздно разошлось бы с первым. */
+const MATERIAL_TABLE_MAP={
+ glassProduct:     {category:'glass'},
+ spacerVariant:    {category:'igu'},
+ gasProduct:       {category:'igu'},
+ sealantProduct:   {category:'igu'},
+ interlayerProduct:{category:'lamination'},
+ fritProduct:      {category:'surface'},
+ spandrelProduct:  {category:'surface'},
+ spandrelColour:   {category:'surface'},
+ stockItem:        {category:'stock'}
+};
+/* Закупка и хранение — заготовка под инвентаризацию: раздел 3.1 прямо
+   говорит «поле есть, движений нет». Заводить их сейчас дёшево, добавлять
+   потом в девять нормализаций и в сохранённые данные — дорого. */
+function materialHeader(p,category,subcategory){
+ p=p&&typeof p==='object'?p:{};
+ return {
+  category:MATERIAL_CATEGORIES.includes(category)?category:'',
+  subcategory:mdString(subcategory||p.subcategory),
+  purchasePrice:mdNonNeg(p.purchasePrice),
+  purchaseUnit:mdString(p.purchaseUnit),
+  currency:mdString(p.currency)||'CAD',
+  priceDate:mdString(p.priceDate),
+  stockQty:mdNum(p.stockQty)
+ };
+}
 function normalizeGlassProduct(p){
  p=p&&typeof p==='object'?p:{};
  /* `family` — имя поля прежней схемы; читаем, чтобы сохранённый браузер не
     потерял покрытие ещё до пересева. */
  const fam=GLASS_COATING_FAMILIES.includes(p.coatingFamily)?p.coatingFamily
   :(GLASS_COATING_FAMILIES.includes(p.family)?p.family:'uncoated');
- return {
+ return Object.assign(materialHeader(p,'glass',fam),{
   id:mdString(p.id),code:mdString(p.code),manufacturer:mdString(p.manufacturer),name:mdString(p.name),
   substrate:GLASS_SUBSTRATES.includes(p.substrate)?p.substrate:'clear',
   coatingFamily:fam,
@@ -219,9 +262,18 @@ function normalizeGlassProduct(p){
   salesUnit:mdUnitCode(p.salesUnit,GLASS_DEFAULT_UNIT),
   optics:normalizeGlassOptics(p.optics),
   origin:normalizeGlassOrigin(p.origin),
+  /* У стекла закупка не одно число — она живёт точками поставки
+     (`glassSheet`), поэтому срок берёт `glassLeadTimeDays`, а не поле
+     карточки. Наличие у стекла тоже своё — `stocked` («по предзаказу»), а не
+     общий `availability`: держать оба значило бы два ответа на один вопрос.
+     Плюс `availability` нельзя внести в шапку стекла технически — строкой
+     ниже она читается как разовая миграция прежней схемы, и сохранённое
+     поле перезапускало бы её на каждой нормализации, навсегда запирая
+     легаси-стекло выключенным. */
+  sellsAsOwnLine:p.sellsAsOwnLine===true,
   /* миграция прежней схемы: снятое с производства было availability='inactive' */
   active:p.active!==false&&p.availability!=='inactive'
- };
+ });
 }
 /* Идентификатор переживает переименование кода, и это не украшение: пользователь
    переписывает `6BIRDSMART…` в свои цеховые коды, а сохранённые Makeup ссылаются
@@ -421,7 +473,19 @@ DEFAULT.glassSheet=[];
    приём, что и у семейства цвета спандрела (владелец, 11 сентября: «максимально
    от тебя не зависящую»). Пустая или новая строка от пользователя сохраняется
    как есть, дефолт 'consumable' подставляется только когда поле реально пусто. */
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),subcategory:type==='stock'?(mdString(p.subcategory)||'consumable'):'',sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false};}
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
+ /* Категория берётся по типу, а не по таблице: `type` — то же самое знание,
+    только уже разложенное по строкам. Тепловая обработка материалом не
+    является (её нет в разделе 7) и категории не получает. */
+ const cat=SIMPLE_MATERIAL_CATEGORY[type]||'';
+ /* У стока подкатегорию вписывает владелец, у плёнки ею уже служит семейство
+    (EVA / SGP), у остальных она совпадает с типом. Второго поля с тем же
+    смыслом не заводим — разойдутся. */
+ const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
+  :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false});}
+const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
+const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
    геометрии и без маршрута. Раздел 3·2 схемы — «сейчас такого нет вообще».
    Сценарий владельца: заказ из левой фиксированной панели, правой панели и
@@ -625,8 +689,10 @@ const FRIT_DEFAULT_MARGIN16=16;
    заводятся цвета, добавленные владельцем, пока он не привязал их к типу. */
 function normalizeSpandrelColour(c){
  c=c&&typeof c==='object'?c:{};
- return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
-  family:mdString(c.family),productId:mdString(c.productId),active:c.active!==false};
+ return Object.assign(materialHeader(c,'surface','spandrelColour'),{
+  id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
+  family:mdString(c.family),productId:mdString(c.productId),
+  note:mdString(c.note),active:c.active!==false});
 }
 DEFAULT.spandrelColour=[
  {id:'SPC-3-818', family:'Black',name:'Black',           code:'#3-818'},
@@ -876,11 +942,40 @@ function normalizeMasterData(){
  DB.spandrelColour=DB.spandrelColour.filter(x=>x&&typeof x==='object').map(normalizeSpandrelColour)
   .filter(c=>c.id&&c.name&&!scSeen[c.id]&&(scSeen[c.id]=true));
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
- DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
 
 /* --- 6. Выборки ------------------------------------------------------- */
 
+/* Этап 2 схемы, часть вторая: ОДИН ДОСТУП. Девять таблиц физически на месте,
+   но спрашивать «какие есть материалы этой категории» теперь можно один раз,
+   не зная, в какой таблице они лежат. Пара `{table,row}`, а не голая строка:
+   таблица нужна для записи назад, и выводить её из категории обратным
+   отображением значило бы держать знание в двух местах. */
+function materialTables(){return Object.keys(MATERIAL_TABLE_MAP);}
+function materialEntries(category){
+ const out=[];
+ materialTables().forEach(table=>{
+  if(category&&MATERIAL_TABLE_MAP[table].category!==category)return;
+  (DB[table]||[]).forEach(row=>{if(row&&typeof row==='object')out.push({table,row});});
+ });
+ return out;
+}
+function materialById(id){
+ if(!id)return null;
+ const hit=materialEntries().find(e=>e.row.id===id);
+ return hit||null;
+}
+/* Живые — то же правило, что у `activeSimple`: снятое с производства уходит
+   из выбора, отсутствие на складе остаётся пометкой «по предзаказу». */
+function materialEntriesActive(category){
+ return materialEntries(category).filter(e=>e.row.active!==false&&e.row.availability!=='inactive');
+}
+function materialSubcategories(category){
+ const seen=[];
+ materialEntries(category).forEach(e=>{const s=mdString(e.row.subcategory);if(s&&seen.indexOf(s)<0)seen.push(s);});
+ return seen;
+}
 function mdById(key,id){return (DB[key]||[]).find(x=>x.id===id)||null;}
 function glassProductById(id){return mdById('glassProduct',id);}
 function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
