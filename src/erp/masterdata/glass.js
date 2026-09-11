@@ -414,9 +414,14 @@ DEFAULT.glassSheet=[];
    я должен продать свой рулон EVA». Признак принадлежит МАТЕРИАЛУ, а не
    категории: у стоковых позиций (`type==='stock'`) он включён по умолчанию, у
    остальных выключен, но переключить можно любую строку — интерлеер, герметик,
-   газ, фрит, спандрел. `subcategory` осмысленна только у стока (door/kit/
-   consumable) и у остальных типов остаётся пустой строкой. */
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),subcategory:type==='stock'?(SALES_STOCK_SUBCATEGORIES.includes(p.subcategory)?p.subcategory:'consumable'):'',sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false};}
+   газ, фрит, спандрел. `subcategory` осмысленна только у стока и у остальных
+   типов остаётся пустой строкой.
+
+   Список door/kit/consumable — заводская ПОДСКАЗКА, не закрытый список: тот же
+   приём, что и у семейства цвета спандрела (владелец, 11 сентября: «максимально
+   от тебя не зависящую»). Пустая или новая строка от пользователя сохраняется
+   как есть, дефолт 'consumable' подставляется только когда поле реально пусто. */
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),subcategory:type==='stock'?(mdString(p.subcategory)||'consumable'):'',sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false};}
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
    геометрии и без маршрута. Раздел 3·2 схемы — «сейчас такого нет вообще».
    Сценарий владельца: заказ из левой фиксированной панели, правой панели и

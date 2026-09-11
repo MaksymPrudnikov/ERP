@@ -410,7 +410,7 @@ const SALES_EXTRA_ITEM_TABLES=['stockItem','interlayerProduct','sealantProduct',
 function salesExtraItemCandidates(){
  const out=[];
  SALES_EXTRA_ITEM_TABLES.forEach(table=>{
-  (DB[table]||[]).forEach(x=>{if(x&&x.active!==false&&x.sellsAsOwnLine===true)out.push({table,id:x.id,name:x.name,code:x.code,salePrice:x.salePrice});});
+  (DB[table]||[]).forEach(x=>{if(x&&x.active!==false&&x.sellsAsOwnLine===true)out.push({table,id:x.id,name:x.name,code:x.code,salePrice:x.salePrice,subcategory:x.subcategory||''});});
  });
  return out;
 }

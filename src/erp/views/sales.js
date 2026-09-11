@@ -19,19 +19,49 @@ function salesOrderEditor(){
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button onclick="salesOrderClose()">Close</button><button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save Draft':'Update'}</button><button onclick="salesOpenMetrics('print')">Print</button></div></div>
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label><input value="${esc(o.paymentTerms)}" oninput="soDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
  ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
- <section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
- ${salesOrderLines()}
+ ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}</div>`;
+}
+/* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
+   пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
+   вернулся за стоковой дверью) — но следующим сообщением попросил инверсию:
+   раздел по умолчанию ОТКРЫТ, как было всегда, а скрывает/показывает его
+   явная кнопка "− Makeup" / "+ Add Makeup" (`soGlassOpen`, orders.js), а не
+   количество строк. Makeup A из soDraft.makeups[0] по-прежнему не удаляется —
+   удалить последний Makeup нельзя, слишком много мест читают его напрямую;
+   "− Makeup" только прячет раздел и (если в нём были строки) снимает их. */
+function salesGlassSectionHTML(){
+ if(soGlassOpen)return `<section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div><button class="line-x" title="Remove glass from this order" onclick="salesGlassSectionClose()">×</button></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
+ ${salesOrderLines()}`;
+ return `<div class="sales-extra-items-quiet"><span class="mut">No glass in this order.</span><button class="sm" onclick="salesGlassSectionOpen()">+ Add Makeup</button></div>`;
 }
 /* Позиция каталога, а не строка со стеклом: четвёртая кнопка рядом с Single /
    Double / Triple, которую владелец просил 11 сентября 2026. Отдельная секция,
    а не колонка в таблице выше — у стоковой двери нет ни Makeup, ни ширины, ни
    высоты, ни кромки, и пытаться втиснуть её в те же колонки означало бы делать
    вид, что у неё есть то, чего нет. Деньги при этом идут в тот же Subtotal:
-   salesOrderCommercialTotals уже читает soDraft.extraItems. */
+   salesOrderCommercialTotals уже читает soDraft.extraItems.
+
+   Владелец 11 сентября: инлайн <select> в тихой строке "кричит" о себе меньше
+   прежнего, но выбор всё равно неудобный — попросил окно, как у остальных
+   действий (Services, Excel). Кнопка открывает `salesStockPickerModal()`. */
+function salesExtraItemPicker(){
+ const candidates=salesExtraItemCandidates();
+ return candidates.length
+  ?`<button class="sm" onclick="salesStockPickerOpen()">+ Add Stock Item</button>`
+  :`<span class="mut">No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.</span>`;
+}
+/* Владелец 11 сентября: «мы не к каждому заказу продаём дополнительные айтемы,
+   интерфейс не должен быть навязчивый — а сейчас он прям кричит». Пустая секция
+   ужалась до одной тихой строки без карточки и без большого заголовка: тот же
+   вес, что у сноски под таблицей, а не третий полноправный блок рядом с
+   GLASS / IGU MAKEUPS и ORDER LINES. Полная карточка появляется, только когда в
+   заказе уже что-то лежит — тогда это содержимое, которое владелец сам сюда
+   положил, и прятать его уже неправильно. */
 function salesExtraItemsSection(){
- const items=soDraft.extraItems||[],candidates=salesExtraItemCandidates(),currency=soDraft.currency||'CAD';
+ const items=soDraft.extraItems||[],currency=soDraft.currency||'CAD';
+ if(!items.length)return `<div class="sales-extra-items-quiet">${salesExtraItemPicker()}</div>`;
  const rows=items.map(x=>{
   const unit=salesExtraItemUnitPrice(x),total=salesExtraItemLineTotal(x);
   return `<tr>
@@ -42,12 +72,35 @@ function salesExtraItemsSection(){
    <td><button class="sm dl" onclick="salesExtraItemRemove('${esc(x.id)}')">×</button></td>
   </tr>`;
  }).join('');
- const picker=candidates.length
-  ?`<select id="salesExtraPick">${candidates.map(c=>`<option value="${esc(c.table)}|${esc(c.id)}">${esc(c.name)}${c.code?' · '+esc(c.code):''}</option>`).join('')}</select><button class="sm" onclick="const v=document.getElementById('salesExtraPick').value;if(v){const p=v.split('|');salesExtraItemAdd(p[0],p[1]);}">+ Add item</button>`
-  :`<span class="mut">No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.</span>`;
  return `<section class="sales-block sales-extra-items"><div class="sales-block-head"><div><b>STOCK & EXTRA ITEMS</b><span>Sold as their own line — no glass, no geometry, no route</span></div></div>
-  ${items.length?`<div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
-  <div class="row">${picker}</div></section>`;
+  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="row">${salesExtraItemPicker()}</div></section>`;
+}
+/* Окно выбора стокового айтема — тот же `.sales-service-modal-back`, что у
+   Services и Edgework Sets. Пилюли фильтра строятся из подкатегорий, реально
+   встречающихся среди кандидатов (плюс "Other" — у кого подкатегория пустая,
+   это позиции из других справочников: interlayer, sealant…), а не из
+   заводского списка: владелец сам решает, какие подкатегории существуют
+   (`SALES_STOCK_SUBCATEGORIES` — только подсказка в форме Master Data). Каждая
+   строка получает своё поле Qty — количество задаётся до добавления, а не
+   правкой после в таблице заказа; кнопка "+ Add" единственная кликабельная
+   часть строки, чтобы клик в поле Qty не добавлял позицию преждевременно. */
+function salesStockPickerModal(){
+ if(!soStockPickerOpen)return '';
+ const all=salesExtraItemCandidates(),currency=soDraft.currency||'CAD';
+ const subcats=Array.from(new Set(all.map(c=>c.subcategory).filter(Boolean)));
+ const hasOther=all.some(c=>!c.subcategory);
+ const filter=soStockPickerFilter;
+ const candidates=filter?all.filter(c=>filter==='__other__'?!c.subcategory:c.subcategory===filter):all;
+ const pill=(value,label)=>`<button class="sm ${filter===value?'on':''}" onclick="salesStockPickerSetFilter('${esc(value)}')">${esc(label)}</button>`;
+ const pills=subcats.length||hasOther
+  ?`<div class="stock-picker-filters">${pill('','All')}${subcats.map(s=>pill(s,s)).join('')}${hasOther?pill('__other__','Other'):''}</div>`
+  :'';
+ const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
+  ${pills}
+  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.'}</td></tr>`}</tbody></table></div>
+  </div></div>`;
 }
 function salesLineShapeCell(l,i){
  const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;

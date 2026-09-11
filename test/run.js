@@ -2258,6 +2258,146 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         inSubtotal:totals.subtotal===450,name,afterRemove};
     }), {candidateListed:true,noExtraOnFreshOrder:true,total1:80,total3:240,overridden:450,
       inSubtotal:true,name:'QA Stock Door',afterRemove:0});
+    /* Подкатегория стока — заводская подсказка (door/kit/consumable), не
+       закрытый список: тот же приём, что у семейства цвета спандрела. Владелец
+       11 сентября 2026 спросил прямо: «а я могу создавать саб категории
+       самостоятельно?» — да, поле формы стало <input>+<datalist>. */
+    eq('подкатегория стока — свободный текст, не закрытый список', await dxfSales.p.evaluate(() => {
+      tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatNew();
+      const isTextInput=(document.getElementById('md_catSubcategory')||{}).tagName==='INPUT';
+      const hasHintList=!!document.getElementById('md_catSubcategoryList');
+      const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+      set('md_catName','QA Window Screen');set('md_catSubcategory','Screen');set('md_catActive','1');
+      mdCatSave();
+      const saved=DB.stockItem.find(x=>x.name==='QA Window Screen');
+      const customValueKept=saved&&saved.subcategory==='Screen';
+      DB.stockItem=DB.stockItem.filter(x=>x.name!=='QA Window Screen');
+      /* Пустая подкатегория по-прежнему честно откатывается к 'consumable'. */
+      mdCatKind='stockItem';mdCatNew();
+      set('md_catName','QA No Subcat');set('md_catSubcategory','');set('md_catActive','1');
+      mdCatSave();
+      const saved2=DB.stockItem.find(x=>x.name==='QA No Subcat');
+      const emptyDefaultsToConsumable=saved2&&saved2.subcategory==='consumable';
+      DB.stockItem=DB.stockItem.filter(x=>x.name!=='QA No Subcat');
+      mdCatEdit=null;mdCatDraft=null;
+      return {isTextInput,hasHintList,customValueKept,emptyDefaultsToConsumable};
+    }), {isTextInput:true,hasHintList:true,customValueKept:true,emptyDefaultsToConsumable:true});
+
+    /* Владелец 11 сентября 2026, посмотрев экран: «мы не к каждому заказу
+       продаём дополнительные айтемы, интерфейс не должен быть навязчивый — а
+       сейчас он прям кричит». Пустая секция — одна тихая строка без карточки
+       и без заголовка; полная карточка только когда в заказе что-то лежит. */
+    eq('пустая секция стока — тихая строка, не карточка; с позицией — полная карточка', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-QUIET',type:'stock',name:'QA Quiet Door',code:'',thicknessMm:0,
+        salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      tab='sales';subtab=null;render();salesOrderNew();render();
+      const quietBefore=!!document.querySelector('.sales-extra-items-quiet');
+      const cardBefore=!!document.querySelector('.sales-extra-items');
+      salesExtraItemAdd('stockItem','STK-QA-QUIET');render();
+      const cardAfter=!!document.querySelector('.sales-extra-items');
+      const quietAfter=!!document.querySelector('.sales-extra-items-quiet');
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-QUIET');soDraft=null;
+      return {quietBefore,cardBefore,cardAfter,quietAfter};
+    }), {quietBefore:true,cardBefore:false,cardAfter:true,quietAfter:false});
+
+    /* Владелец: «в печати я не вижу» стоковую позицию. Печатный ЗАКАЗ — не
+       цеховой маршрут: у двери нет производства, но клиент платит и за неё,
+       и документ обязан это показывать. */
+    eq('стоковая позиция доезжает до печатного заказа', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-PRINT',type:'stock',name:'QA Print Door',code:'',thicknessMm:0,
+        salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      soDraft=newSalesOrderDraft();
+      const withoutItem=salesOrderPrintMarkup().includes('QA Print Door');
+      salesExtraItemAdd('stockItem','STK-QA-PRINT');
+      const withItem=salesOrderPrintMarkup();
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-PRINT');soDraft=null;
+      return {withoutItem,named:withItem.includes('QA Print Door'),priced:withItem.includes('80.00')};
+    }), {withoutItem:false,named:true,priced:true});
+
+    /* Сценарий владельца 11 сентября 2026: клиент забрал два фиксированных
+       стекла, уже оплатил, уехал, вспомнил про стоковую дверь. Igor открывает
+       новый заказ ТОЛЬКО ради двери. Последний Makeup удалить нельзя — модель
+       заказа на этом стоит, — но должна быть возможность убрать GLASS / IGU
+       MAKEUPS с экрана, когда в заказе только сток.
+
+       Первая версия делала это АВТОМАТИЧЕСКИ по числу строк: удалил последнюю
+       строку стекла — раздел сам сворачивался. Владелец 11 сентября,
+       посмотрев результат, попросил инверсию: по умолчанию раздел ОТКРЫТ, как
+       было всегда, а сворачивает/разворачивает его только явная кнопка
+       "− Makeup" / "+ Add Makeup" (soGlassOpen, orders.js) — удаление строки
+       само по себе больше ничего не прячет. */
+    eq('раздел стекла не сворачивается сам — только явная "− Makeup"; печать без пустой таблицы', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-DOORONLY',type:'stock',name:'QA Door Only',code:'',thicknessMm:0,
+        salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      tab='sales';subtab=null;salesOrderNew();
+      const glassCardBefore=!!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
+      salesOrderRemoveLine(0);render();
+      /* Ключевая инверсия: строк 0, а карточка Makeup всё ещё на месте. */
+      const staysOpenAfterLastLineRemoved=!!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
+      /* Строки есть — "− Makeup" обязана спросить подтверждение и, при отказе,
+         ничего не тронуть. */
+      soDraft.lines.push(normalizeSalesOrderLine({makeupId:soDraft.makeups[0].id,qty:1}));render();
+      const oldConfirm=window.confirm;const asked=[];
+      window.confirm=m=>{asked.push(m);return false;};
+      salesGlassSectionClose();
+      const survivedCancel=soDraft.lines.length===1&&!!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
+      window.confirm=m=>{asked.push(m);return true;};
+      salesGlassSectionClose();
+      window.confirm=oldConfirm;
+      const quietAfterConfirmedClose=!!document.querySelector('.sales-extra-items-quiet');
+      const linesGoneAfterConfirmedClose=soDraft.lines.length===0;
+      const bothSectionsQuiet=document.querySelectorAll('.sales-extra-items-quiet').length===2;
+      const makeupSurvived=soDraft.makeups.length===1;
+      salesExtraItemAdd('stockItem','STK-QA-DOORONLY');render();
+      const glassStillQuietWithDoorAdded=!!document.querySelector('.sales-extra-items-quiet')&&!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
+      const printMarkup=salesOrderPrintMarkup();
+      const noEmptyGlassTable=!printMarkup.includes('<th>Width</th>');
+      const hasDoor=printMarkup.includes('QA Door Only');
+      const totals=salesOrderCommercialTotals(soDraft);
+      /* "+ Add Makeup" — обратная сторона: раздел разворачивается назад по
+         нажатию, а не только когда в заказе снова появляется строка. */
+      salesGlassSectionOpen();
+      const reopensViaPlus=!!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-DOORONLY');soDraft=null;
+      return {glassCardBefore,staysOpenAfterLastLineRemoved,askedOnClose:asked.length===2,survivedCancel,
+        quietAfterConfirmedClose,linesGoneAfterConfirmedClose,bothSectionsQuiet,makeupSurvived,
+        glassStillQuietWithDoorAdded,noEmptyGlassTable,hasDoor,subtotalIsJustDoor:totals.subtotal===80,reopensViaPlus};
+    }), {glassCardBefore:true,staysOpenAfterLastLineRemoved:true,askedOnClose:true,survivedCancel:true,
+      quietAfterConfirmedClose:true,linesGoneAfterConfirmedClose:true,bothSectionsQuiet:true,makeupSurvived:true,
+      glassStillQuietWithDoorAdded:true,noEmptyGlassTable:true,hasDoor:true,subtotalIsJustDoor:true,reopensViaPlus:true});
+
+    /* Владелец 11 сентября: инлайн <select> в тихой строке "не аппетитно" —
+       выбор стокового айтема должен открывать окно, как Services/Excel, а не
+       падающий список прямо в тихой строке. */
+    eq('добавление стока: окно выбора вместо инлайн <select>, фильтр по подкатегории, Qty при добавлении', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-MODAL',type:'stock',name:'QA Modal Door',code:'',thicknessMm:0,
+        salePrice:95,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      DB.stockItem.push({id:'STK-QA-KIT',type:'stock',name:'QA Modal Kit',code:'',thicknessMm:0,
+        salePrice:12,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'kit',sellsAsOwnLine:true,active:true});
+      soDraft=newSalesOrderDraft();render();
+      const closedBefore=!document.querySelector('.sales-service-modal-back');
+      const noInlineSelect=!document.querySelector('#salesExtraPick');
+      salesStockPickerOpen();
+      const openAfterClick=!!document.querySelector('.sales-service-modal-back');
+      const listedInModal=(document.querySelector('.sales-service-modal-back')||{}).textContent.includes('QA Modal Door');
+      const bothSubcatsListedUnfiltered=document.querySelectorAll('.stock-picker-row').length>=2;
+      /* Фильтр "door" сужает список — QA Modal Kit (kit) больше не в таблице. */
+      salesStockPickerSetFilter('door');
+      const kitHiddenByFilter=!Array.from(document.querySelectorAll('.stock-picker-row')).some(tr=>tr.textContent.includes('QA Modal Kit'));
+      const doorStillShownByFilter=Array.from(document.querySelectorAll('.stock-picker-row')).some(tr=>tr.textContent.includes('QA Modal Door'));
+      const row=Array.from(document.querySelectorAll('.stock-picker-row')).find(tr=>tr.textContent.includes('QA Modal Door'));
+      row.querySelector('input[type=number]').value='3';
+      row.querySelector('button').dispatchEvent(new Event('click',{bubbles:true}));
+      const closedAfterChoose=!document.querySelector('.sales-service-modal-back');
+      const added=soDraft.extraItems.find(x=>x.itemId==='STK-QA-MODAL');
+      const qtyFromModal=added&&added.qty===3;
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-MODAL'&&s.id!=='STK-QA-KIT');soDraft=null;
+      return {closedBefore,noInlineSelect,openAfterClick,listedInModal,bothSubcatsListedUnfiltered,
+        kitHiddenByFilter,doorStillShownByFilter,closedAfterChoose,added:!!added,qtyFromModal};
+    }), {closedBefore:true,noInlineSelect:true,openAfterClick:true,listedInModal:true,bothSubcatsListedUnfiltered:true,
+      kitHiddenByFilter:true,doorStillShownByFilter:true,closedAfterChoose:true,added:true,qtyFromModal:true});
+
+
 
     /* Продать своё расходное — не только сток. Владелец 11 сентября: «нужна
        опция не только для стоковых дверей... возможно, кому-то я должен продать

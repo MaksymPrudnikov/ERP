@@ -178,8 +178,23 @@ function salesSaveWeightNorm(index,value,factor){
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
+/* Стоковые позиции — не в цеховом маршруте (там у двери нет производства и
+   быть не может), но в печатном ЗАКАЗЕ — обязаны быть: это коммерческий
+   документ клиенту, и он должен видеть, за что платит целиком, а не только за
+   стекло. Владелец 11 сентября: «в печати я не вижу» — пробел, а не решение. */
+function salesOrderPrintExtraRows(){
+ const items=soDraft.extraItems||[];if(!items.length)return '';
+ const currency=soDraft.currency||'CAD';
+ return `<table class="metric-print-extra" style="margin-top:14px"><caption style="text-align:left;font-size:11px;font-weight:700;padding-bottom:6px">Additional items</caption><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th></tr></thead><tbody>${items.map(x=>{
+  const total=salesExtraItemLineTotal(x);
+  return `<tr><td>${raw(salesExtraItemName(x))}</td><td>${x.qty}</td><td>${total!=null?(total/salesPositiveInt(x.qty,1)).toFixed(2):'—'}</td><td>${total!=null?total.toFixed(2)+' '+esc(currency):'Rate required'}</td></tr>`;
+ }).join('')}</tbody></table>`;
+}
 function salesOrderPrintMarkup(){
- return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p><table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
+ /* Заказ без стекла — только сток — не печатает пустую таблицу стекла с одними
+    заголовками: документ клиенту, а не заготовка формы. */
+ const glassTable=soDraft.lines.length?`<table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>`:'';
+ return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p>${glassTable}${salesOrderPrintExtraRows()}${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
 }
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
