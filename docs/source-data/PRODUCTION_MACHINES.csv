@@ -1,0 +1,39 @@
+﻿code,name,station,service,count,max_w_in,max_l_in,min_w_in,min_l_in,min_th_mm,max_th_mm,max_load_kg,batch_mode,lead_time_days,spil_code,spil_category,review,note
+CUT,Annealed Cutting 1,CUT,Annealed Cutting,1,,,,,,,,single,1,CUT,1,,
+CUT2,Annealed Cutting 2,CUT,Annealed Cutting,1,,,,,,,,single,1,CUT2,22,,
+POLI2,Polishing 2,POL,Polishing 2,1,,,,,,,,single,1,POLI2,23,,
+MITR4,Polishing 4,POL,Polishing 2,1,,,,,,,,single,1,MITR,35,"код ""MITR"" в Spil делили: Polishing 4 / Polishing 3 — предложен новый",
+ARISM,Machine Arrising,POL,Machine Arrising,1,,,,,,,,single,1,ARIS,2,"код ""ARIS"" в Spil делили: Machine Arrising / Manual Arrising — предложен новый",
+ARISH,Manual Arrising,POL,Arrising,1,,,,,,,,single,1,ARIS,2,"код ""ARIS"" в Spil делили: Machine Arrising / Manual Arrising — предложен новый",
+POLI,Polishing 1,POL,Polishing 2,1,,,,,,,,single,1,POLI,3,,
+BEVL,Bevelling,POL,Bevelling,1,,,,,,,,single,1,BEVL,4,,
+MITR3,Polishing 3,POL,Polishing 2,1,,,,,,,,single,1,MITR,17,"код ""MITR"" в Spil делили: Polishing 4 / Polishing 3 — предложен новый",
+DRIL,Drilling 1,PROC,Drilling,1,,,,,,,,single,1,DRIL,5,,
+CNC,CNC 1,PROC,CNC 1,1,,,,,,,,single,1,CNC,6,,
+COCNC2,Cut-out CNC 2,PROC,Cut-out CNC,1,,,,,,,,single,1,COCNC,28,"код ""COCNC"" в Spil делили: Cut-out CNC 2 / Cut-out CNC 1 — предложен новый",
+DRIL2,Drilling 2,PROC,Drilling,1,,,,,,,,single,1,DRIL2,24,,
+DRIL3,Drilling 3,PROC,Drilling,1,,,,,,,,single,1,DRIL3,25,,
+CNC2,CNC 2,PROC,CNC 1,1,,,,,,,,single,1,CNC2,26,,
+CNC3,CNC 3,PROC,CNC 1,1,,,,,,,,single,1,CNC3,27,,
+COCNC1,Cut-out CNC 1,PROC,Cut-out CNC,1,,,,,,,,single,1,COCNC,28,"код ""COCNC"" в Spil делили: Cut-out CNC 2 / Cut-out CNC 1 — предложен новый",
+VCNC,Vertical CNC,PROC,Vertical CNC,1,,,,,,,,single,1,VCNC,29,,
+CPAN,Ceramic Paint,CERPAINT,Ceramic Paint,1,,,,,,,,single,1,CPAN,39,,
+HT,Heat Strengthening,TEMP,Heat Strengthening,1,,,,,,,,batch,1,HT,34,,
+FURN1,Tempering,TEMP,Tempering,1,,,,,,,,batch,1,TEMP,8,,
+HSTS,Heat Soak,TEMP,Heat Soak Test,1,,,,,,,,batch,1,HSTS,9,услуга не назначена — выставляется в счёт или нет?,"отдельная машина ПОСЛЕ закалки, по запросу клиента. Услуга есть в прайсе: 4/5/6/8/10/12 HTSK"
+SAND,Sandblasting,SAND,,1,,,,,,,,single,1,SAND,11,услуга не назначена — выставляется в счёт или нет?,после закалки; если не закаляется — после кромки
+PANTS,Painting -Spray,PAINT,Painting,1,,,,,,,,single,1,PANT,7,"код ""PANT"" в Spil делили: Painting -Spray / Painting -Roller / Painting - Booth — предложен новый",
+PANTR,Painting -Roller,PAINT,Painting,1,,,,,,,,single,1,PANT,7,"код ""PANT"" в Spil делили: Painting -Spray / Painting -Roller / Painting - Booth — предложен новый",
+PANTB,Painting - Booth,PAINT,Painting,1,,,,,,,,single,1,PANT,7,"код ""PANT"" в Spil делили: Painting -Spray / Painting -Roller / Painting - Booth — предложен новый",
+LAM,Lamination,LAM,Lamination,1,,,,,,,,batch,3,LAM,12,,
+PLAM,Polish Laminate,LAM,,1,,,,,,,,single,3,PLAM,18,услуга не назначена — выставляется в счёт или нет?,"ПОСЛЕ ламинации, одна из последних операций"
+IGU,IGU Assembly,IGU,IGU Service,1,,,,,,,,single,1,IGU,19,,"в Spil называлась PPLAM — ошибка настройки, переименована"
+SR,Shipping Ready,SHIPRDY,Shipping Ready,1,,,,,,,,single,1,SR,21,,
+DEL,Delivery,SHIP,Delivery,1,,,,,,,,single,1,DEL,14,,
+PICK,Pick up,SHIP,Pick up,1,,,,,,,,single,1,PICK,15,,
+INST,Install,SHIP,Install,1,,,,,,,,single,1,INST,16,,
+IGULINE,Линия сборки стеклопакета,IGU,,1,,,,,,,,single,1,,,"ДОБАВЛЕНО — в выгрузке Spil этого станка нет, заполни габариты","максимальный размер пакета, поточно или партией"
+AUTOCLAVE,Автоклав,LAM,,1,,,,,,,,single,1,,,"ДОБАВЛЕНО — в выгрузке Spil этого станка нет, заполни габариты","размер камеры, вес загрузки, длительность цикла"
+WASH-T,Мойка перед закалкой,TEMP,,1,,,,,,,,single,1,,,ДОБАВЛЕНО — габариты заполни,"не шаг маршрута, а часть операции закалки. Габарит всё равно важен: он ограничивает размер детали"
+WASH-IGU,Мойка на линии СП,IGU,,1,,,,,,,,single,1,,,ДОБАВЛЕНО — габариты заполни,"стёкла моются парами прямо на сборке, затем распорка и сборка. Не шаг маршрута, а часть операции IGU"
+DIGI,Цифровая керамическая печать,CERPAINT,,1,,,,,,,,single,1,,,НЕ РАБОТАЕТ около года — нет деталей,"услуга остаётся в прайсе: когда нужна, стекло отдаём на сторону и перевыставляем клиенту"
