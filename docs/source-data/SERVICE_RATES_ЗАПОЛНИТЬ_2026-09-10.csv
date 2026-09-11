@@ -1,0 +1,80 @@
+﻿code,name,unit,price_6mm,price_8_10mm,price_12_19mm,class,in_system,question
+10HTSK,"10MM GLASS, HEAT SOAK TEST",ft2,,3.95,,услуга,Heat Soak — ставка сегодня пустая,
+12HTSK,"12MM GLASS, HEAT SOAK TEST",ft2,,,4.50,услуга,Heat Soak — ставка сегодня пустая,
+4HTSK,"4MM GLASS, HEAT SOAK TEST",ft2,1.70,,,услуга,Heat Soak — ставка сегодня пустая,
+5HTSK,"5MM GLASS, HEAT SOAK TEST",ft2,1.90,,,услуга,Heat Soak — ставка сегодня пустая,
+6HTSK,"6MM GLASS, HEAT SOAK TEST",ft2,2.10,,,услуга,Heat Soak — ставка сегодня пустая,
+8HTSK,8MM GLASS HEAT SOAK TEST,ft2,,,,услуга,Heat Soak — ставка сегодня пустая,"В прайсе строки 8 mm HEAT SOAK нет, а позиция существует. Сколько стоит? И что с 15 и 19 mm?"
+BCKPNT,"BACKPAINTING, CUSTOMERS OWN PAINT",ft2,7.00,7.00,7.00,услуга,,
+BVL 10-12CL,"BEVELLING, 10-12 MM CLEAR GLASS",lm_in,,0.65,0.65,услуга,Beveling — ставка сегодня пустая,"10-12 и 15-19 попадают в одну нашу полосу 12-19 с разной ценой. Значит фацет считаем по фактической толщине, а не по полосе."
+BVL 15-19CL,"BEVELLING, 15-19 MM CLEAR GLASS",lm_in,,,1.20,услуга,Beveling — ставка сегодня пустая,
+BVL5MR,"BEVELLING, 5MM MIRROR",lm_in,0.38,0.48,0.75,услуга,Beveling — ставка сегодня пустая,"Зеркало система пока не отличает от прозрачного стекла. По какому признаку понимать, что стекло зеркальное?"
+BVL 6CL,"BEVELLING, 6 MM CLEAR GLASS",lm_in,0.45,,,услуга,Beveling — ставка сегодня пустая,
+CERM FRIT - DOTS,CERAMIC FRIT - PARTIAL COVARAGE - DOTS,ft2,,,,услуга,,
+"CF — Bird-friendly Pattern 215 2x2""",CF — Bird-friendly Pattern 215 2’’ x 2’’ – 5mm Dots,ft2,,,,услуга,,
+"CF — Bird-friendly Pattern 216 4x4""",CF — Bird-friendly Pattern 216 4’’ x 4’’ – 5mm Dots,ft2,,,,услуга,,
+"CF — Bird-friendly Pattern 217 2x4""",CF — Bird-friendly Pattern 217 2’’ x 4’’ – 5mm Dots,ft2,,,,услуга,,
+CIRCLE POLI,CIRCLE POLISHING CNC,lm_in,,,,услуга,,CIRCLE POLISHING CNC в прайсе нет. Услуга живая? Если да — цена.
+CNC LAMI POLISH,CNC LAMI POLISH,lm_in,0.28,0.28,0.28,услуга,cncLamiPolish,
+S29,CNC Processing,each,15.00,20.00,25.00,услуга,,CNC Processing общий — это запасная позиция для работ без своей строки или самостоятельная услуга?
+S30,CNC Processing -Hole,each,,,,услуга,,"CNC Processing-Hole — это то же, что строки HOLES, или отдельная работа со своей ценой?"
+S32,CNC Processing- Notch,each,15.00,20.00,25.00,услуга,notchCnc,
+S33,CNC Processing- Outlet cutout,each,15.00,20.00,25.00,услуга,Cutout — ставка сегодня пустая,
+DIGT CERM PRNT PART,DIGITAL CERAMIC PRINTING - PARTIAL FRIT,ft2,,,,услуга,,
+DIGT CERM PRNT FULL,DIGITAL CERAMIC PRINTING -FULL FRIT,ft2,,,,услуга,,
+DIGIT GLASS PRINT,DIGITAL GLASS PRINTING,ft2,,,,услуга,,
+HSK STAMP,HEAT SOAK STAMP,each,,,,услуга,,
+HST SUF,HEAT SOAK TEST SET UP FEE,each,,,,услуга,,Разовый сбор за наладку heat soak — берётся ли он сейчас и сколько?
+HS STAMP,HEAT STRENGTHENING STAMP,each,,,,услуга,,
+S22,HIGH FLAT POLISH,lm_in,0.07,0.10,0.13,услуга,flatPolish,
+"HOLES 1 1/16""- 2""",HOLES 1-1/16 Inches to 2 Inches,each,6.00,7.00,8.00,услуга,hole 1-2,
+"HOLES 1/2""-1""","Holes 1/2 -  1"" INCH",each,5.00,6.00,7.00,услуга,hole 0.5-1,
+"HOLES 2 1/16"" - 3""",HOLES 2 1/16 -3  INCHES,each,7.00,8.00,9.00,услуга,hole 2-3,
+"HOLES 3 1/16"" - 4""",HOLES 3 1/16 - 4 INCHES,each,8.00,12.00,15.00,услуга,hole 3-4,
+"HOLES 4""+ INCHES","HOLES 4""+ INCHES",each,10.00,15.00,25.00,услуга,hole 4+,
+LAM-TEST,Lamination-TEST,ft2,,,,услуга,,
+S31,MAILSLOT CUT OUT,each,,,,услуга,,MAILSLOT CUT OUT в прайсе нет. Услуга живая? Если да — цена.
+MTR,"MITERING, 22.5 DEGREES",lm_in,0.28,0.38,0.45,услуга,miter225,"Митра 45° в прайсе отсутствует, в системе она есть и висит без ставки. Сколько стоит?"
+NOTCHES BY CNC,NOTCHES BY CNC,each,,,,услуга,,Чем отличается от S32 CNC Processing-Notch? Если одно и то же — одну строку удаляем.
+NOTCHES BY HAND,NOTCHES BY HAND,each,10.00,15.00,20.00,услуга,notchHand,
+OPACI COAT CUST COL,OPACI COAT CUSTOM COLOUR PAINT,ft2,,,,услуга,,
+OPACI COAT ST COL,OPACI COAT STANDARD COLOUR PAINTING,ft2,,,,услуга,,
+S42,OUTLET CUT OUT,each,,,,услуга,,Чем OUTLET CUT OUT отличается от S33 CNC Processing-Outlet cutout? Если это одно и то же — одну строку удаляем.
+PTN SAND,PATTERN SANDBLASTING,ft2,6.00,6.00,6.00,услуга,sandblastPattern,
+LAMPOL,POLISH LAMI GLASS,lm_in,0.28,0.28,0.28,услуга,lamiPolish,
+RADIUSC,RADIUS CORNER,each,10.00,12.00,15.00,услуга,radiusCorner,
+RA,ROUGH ARRIS,lm_in,0.01,0.02,0.03,услуга,roughArris,
+SANDBLAST,SANDBLASTING,each,,,,услуга,,Общий SANDBLASTING при наличии SIMPLE и PATTERN — нужен ли вообще?
+SHAPE POLI,SHAPE POLISH CNC,lm_in,0.28,0.38,0.48,услуга,cncShapePolish,
+SMP SAND,SIMPLE SANDBLASTING,ft2,4.00,4.00,4.00,услуга,sandblastFull,
+STEP POLI,STEP POLISHING CNC,lm_in,,,,услуга,,STEP POLISHING CNC в прайсе нет. Услуга живая? Если да — цена.
+TEMP STAMP,TEMPERING STAMP,each,,,,услуга,,"В системе штамп закалки бесплатный, в прайсе позиция есть. Платный или нет?"
+"1""x1/4"" BLACK MUNTIN BAR","1""x1/4"" BLACK MUNTIN BAR",each,,,,материал,,
+"5/8""x1/4"" BLACK & WHITE MUNTIN BAR","5/8""x1/4"" BLACK & WHITE MUNTIN BAR",each,,,,материал,,
+"5/8""x1/4"" BLACK MUNTIN BAR","5/8""x1/4"" BLACK MUNTIN BAR",each,,,,материал,,
+"5/8""x1/4"" WHITE MUNTIN BAR","5/8""x1/4"" WHITE MUNTIN BAR",each,,,,материал,,
+CLMP,CLAMPS,each,5.00,8.00,10.00,материал,clamp,"В вашей же разметке отмечено «это материал, а не услуга». Сейчас система берёт за штуку как услугу. Оставляем как есть?"
+HNGS,HINGES,each,10.00,15.00,20.00,материал,hinge,"Подтверждено 10 сентября: patch — та же петля, ставка 10 / 15 / 20, и ставка живёт на виде, а не на модели."
+MIIROR EDGE SEALANT,MIIROR EDGE SEALANT,lm_in,0.07,,,материал,,Отмечено как материал. Берётся с клиента отдельной строкой?
+MIRROR SAFTEY BACK,MIRROR SAFTEY BACKER,ft2,4.00,,,материал,,
+SGP LAMI 006,SGP LAMI 006,ft2,,,,материал,,
+CCFEE,Credit card fee,each,,,,надбавка,,
+ES8,Energy Surcharge,each,,,,надбавка,,
+EXTRA SHAPE IGU,EXTRA CHARGE FOR IGU SHAPES,each,1.25,1.25,1.25,надбавка,shapeUnit,
+ECH FOR OS GLASSES,EXTRA CHARGES FOR OVER SIZED GLASSES,each,,,,надбавка,,
+ECH FOR TRIPLE IGU,EXTRA CHARGES FOR TRIPLE IG UNITS,each,,,,надбавка,,
+EXTR CHRG FOR WASTE,EXTRA CHARGES FOR WASTE OF GLASS FROM OPTIMIZATION,each,,,,надбавка,,
+OVERSIZED IGU,OVERSIZED IGU,each,,,,надбавка,,
+RS8,RUSH,each,,,,надбавка,,
+RUSH NO CHARGE,RUSH NO CHARGE,each,,,,надбавка,,
+TRIPLE IGU,TRIPLE IGU,each,,,,надбавка,,
+TRIPLE LAMI,TRIPLE LAMI,each,,,,надбавка,,
+CERM FRIT - FULL,CERAMIC FRIT - FULL COVARAGE  - 100%,ft2,,,,на удаление,,
+CERM FRIT-GRADIENT/DOTS,CERAMIC FRIT -PARTIAL COVERAGE - GRADIENT PATTERN + DOTS,ft2,,,,на удаление,,
+CERM FRIT - GRADIENT,CERAMIC FRIT -PARTIAL COVERAGE - GRADIENT PATTERN ONLY,ft2,,,,на удаление,,
+CERM FRIT - PATTERN,CERAMIC FRIT -PARTIAL COVERAGE - PATTERN,ft2,,,,на удаление,,
+CN 1001,CRN 1001mm+,each,,,,на удаление,,
+CR,CREDIT NOTE,each,,,,бухгалтерия,,
+OTHER,Invoice Transfer,,,,,бухгалтерия,,
+INV,OLD INVOICES,each,,,,бухгалтерия,,
+TEMP,TEMPLATE,,,,,бухгалтерия,,

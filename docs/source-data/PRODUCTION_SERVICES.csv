@@ -1,0 +1,80 @@
+﻿code,name,item_group,kind,price_unit,spil_calc_unit,spil_stock_unit,station,thickness_mm,performed_by,stage,affects_size,allowance_w_in,allowance_h_in,price,review,note
+MTR,"MITERING, 22.5 DEGREES",MITERING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+S22,HIGH FLAT POLISH,POLISHING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+HNGS,HINGES,HINGES,material,each,Flat,EACH,,,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов",
+S42,OUTLET CUT OUT,OUTLET CUT OUT,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+SMP SAND,SIMPLE SANDBLASTING,FULL SANDBLASTING,operation,ft2,Area,SF,SAND,,in_house,any,,,,,,после закалки; если деталь не закаляется — после кромки
+"HOLES 1/2""-1""","Holes 1/2 -  1"" INCH",1/2 - 1 INCH HOLES,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+CN 1001,CRN 1001mm+,OTHER,operation,each,Flat,EACH,,,in_house,,,,,,НА УДАЛЕНИЕ — никогда не использовалась,
+BVL5MR,"BEVELLING, 5MM MIRROR",BEVELLING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+RA,ROUGH ARRIS,ARRIS,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,аррисинг делают рано — для безопасного перемещения стекла по цеху
+"HOLES 1 1/16""- 2""",HOLES 1-1/16 Inches to 2 Inches,1-1/16 - 2 INCH HOLE,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+BVL 10-12CL,"BEVELLING, 10-12 MM CLEAR GLASS",BEVELLING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+BVL 6CL,"BEVELLING, 6 MM CLEAR GLASS",BEVELLING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+BVL 15-19CL,"BEVELLING, 15-19 MM CLEAR GLASS",BEVELLING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+CLMP,CLAMPS,CLAMPS,material,each,Flat,EACH,,,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов",
+BCKPNT,"BACKPAINTING, CUSTOMERS OWN PAINT",BACK PAINTING,operation,ft2,Area,SF,PAINT,,in_house,,,,,,,
+4HTSK,"4MM GLASS, HEAT SOAK TEST",HEAT SOAK,operation,ft2,Area,SF,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+5HTSK,"5MM GLASS, HEAT SOAK TEST",HEAT SOAK,operation,ft2,Area,SF,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+6HTSK,"6MM GLASS, HEAT SOAK TEST",HEAT SOAK,operation,ft2,Area,SF,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+10HTSK,"10MM GLASS, HEAT SOAK TEST",HEAT SOAK,operation,ft2,Area,SF,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+12HTSK,"12MM GLASS, HEAT SOAK TEST",HEAT SOAK,operation,ft2,Area,SF,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+"HOLES 2 1/16"" - 3""",HOLES 2 1/16 -3  INCHES,2 1/16 - 3  INCHES H,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+"HOLES 3 1/16"" - 4""",HOLES 3 1/16 - 4 INCHES,3 1/16 - 4 INCHES HO,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+"HOLES 4""+ INCHES","HOLES 4""+ INCHES","4""+ INCHES HOLES",operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+CIRCLE POLI,CIRCLE POLISHING CNC,CNC CIRCLE POLISHING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+SHAPE POLI,SHAPE POLISH CNC,CNC POLISH,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+S31,MAILSLOT CUT OUT,MAILSLOT CUT OUT,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+S29,CNC Processing,CNC,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+PTN SAND,PATTERN SANDBLASTING,PATTERN SANDBLASTING,operation,ft2,Area,SF,SAND,,in_house,any,,,,,,после закалки; если деталь не закаляется — после кромки
+ES8,Energy Surcharge,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+NOTCHES BY HAND,NOTCHES BY HAND,NOTCHES BY HAND,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+RADIUSC,RADIUS CORNER,RADIUS CORNERS,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+INV,OLD INVOICES,OTHER,accounting,each,Flat,EACH,,,,,,,,,это БУХГАЛТЕРИЯ — не позиция производства,
+TEMP,TEMPLATE,TEMPLATE,accounting,,None,EACH,,,,,,,,,это БУХГАЛТЕРИЯ — не позиция производства,
+OTHER,Invoice Transfer,OTHER,accounting,,None,EACH,,,,,,,,,это БУХГАЛТЕРИЯ — не позиция производства,
+CR,CREDIT NOTE,OTHER,accounting,each,Flat,EACH,,,,,,,,,это БУХГАЛТЕРИЯ — не позиция производства,
+LAMPOL,POLISH LAMI GLASS,LAMI POLISH,operation,lm_in,Lineal,IN,POL,,in_house,post_temper,,,,,,кромку ламината обрабатывают после склейки — операция идёт после закалки
+S30,CNC Processing -Hole,CNC,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+S32,CNC Processing- Notch,CNC,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+S33,CNC Processing- Outlet cutout,CNC,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+CNC LAMI POLISH,CNC LAMI POLISH,LAMI POLISH,operation,lm_in,Lineal,IN,POL,,in_house,post_temper,,,,,,кромку ламината обрабатывают после склейки — операция идёт после закалки
+RS8,RUSH,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+RUSH NO CHARGE,RUSH NO CHARGE,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+SANDBLAST,SANDBLASTING,OTHER SERVICES,operation,each,Flat,EACH,SAND,,in_house,any,,,,,,после закалки; если деталь не закаляется — после кромки
+MIRROR SAFTEY BACK,MIRROR SAFTEY BACKER,OTHER SERVICES,material,ft2,Area,SF,,,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов",
+SGP LAMI 006,SGP LAMI 006,OTHER,material,ft2,Area,SF,,,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов",
+EXTRA SHAPE IGU,EXTRA CHARGE FOR IGU SHAPES,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+TRIPLE LAMI,TRIPLE LAMI,OTHER SERVICES,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+TRIPLE IGU,TRIPLE IGU,OTHER SERVICES,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+OVERSIZED IGU,OVERSIZED IGU,OTHER SERVICES,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+8HTSK,8MM GLASS HEAT SOAK TEST,GLASS SERVICES,operation,ft2,Area,SF,TEMP,8,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+HST SUF,HEAT SOAK TEST SET UP FEE,OTHER,operation,each,Flat,EACH,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+NOTCHES BY CNC,NOTCHES BY CNC,NOTCHES BY CNC,operation,each,Flat,EACH,PROC,,in_house,pre_temper,,,,,,
+STEP POLI,STEP POLISHING CNC,CNC STEP POLISHING,operation,lm_in,Lineal,IN,POL,,in_house,pre_temper,,,,,,
+ECH FOR TRIPLE IGU,EXTRA CHARGES FOR TRIPLE IG UNITS,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+ECH FOR OS GLASSES,EXTRA CHARGES FOR OVER SIZED GLASSES,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+"5/8""x1/4"" BLACK MUNTIN BAR","5/8""x1/4"" BLACK MUNTIN BAR",GLASS SERVICES,material,each,Flat,EACH,,15,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов; поле «толщина» = 15 — это профиль бара, а не толщина стекла",
+DIGIT GLASS PRINT,DIGITAL GLASS PRINTING,OTHER SERVICES,operation,ft2,Area,SF,CERPAINT,6,outsourced,,,,,,,своя машина не работает около года; стекло отдаём на сторону и перевыставляем клиенту
+EXTR CHRG FOR WASTE,EXTRA CHARGES FOR WASTE OF GLASS FROM OPTIMIZATION,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+OPACI COAT ST COL,OPACI COAT STANDARD COLOUR PAINTING,GLASS SERVICES,operation,ft2,Area,SF,PAINT,6,in_house,,,,,,,
+OPACI COAT CUST COL,OPACI COAT CUSTOM COLOUR PAINT,GLASS SERVICES,operation,ft2,Area,SF,PAINT,6,in_house,,,,,,,
+DIGT CERM PRNT PART,DIGITAL CERAMIC PRINTING - PARTIAL FRIT,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,outsourced,,,,,,,своя машина не работает около года; стекло отдаём на сторону и перевыставляем клиенту
+DIGT CERM PRNT FULL,DIGITAL CERAMIC PRINTING -FULL FRIT,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,outsourced,,,,,,,своя машина не работает около года; стекло отдаём на сторону и перевыставляем клиенту
+CERM FRIT - FULL,CERAMIC FRIT - FULL COVARAGE  - 100%,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,in_house,,,,,,"МЁРТВАЯ ПОЗИЦИЯ — такого силкскрина нет: только точки 2x2, 4x4, 2x4 и два цвета",
+CERM FRIT - DOTS,CERAMIC FRIT - PARTIAL COVARAGE - DOTS,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,in_house,,,,,,,"живая позиция: точки 5мм, узоры 2x2 / 4x4 / 2x4, цвета white и acid etch"
+CERM FRIT - PATTERN,CERAMIC FRIT -PARTIAL COVERAGE - PATTERN,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,in_house,,,,,,"МЁРТВАЯ ПОЗИЦИЯ — такого силкскрина нет: только точки 2x2, 4x4, 2x4 и два цвета",
+TEMP STAMP,TEMPERING STAMP,OTHER,operation,each,Flat,EACH,TEMP,,in_house,,,,,,,
+CCFEE,Credit card fee,OTHER,surcharge,each,Flat,EACH,,,,,,,,,"это НАДБАВКА — в настройки ценообразования, не в услуги цеха",
+HS STAMP,HEAT STRENGTHENING STAMP,OTHER,operation,each,Flat,EACH,TEMP,,in_house,,,,,,,
+MIIROR EDGE SEALANT,MIIROR EDGE SEALANT,GLASS SERVICES,material,lm_in,Lineal,IN,,,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов",
+CERM FRIT - GRADIENT,CERAMIC FRIT -PARTIAL COVERAGE - GRADIENT PATTERN ONLY,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,in_house,,,,,,"МЁРТВАЯ ПОЗИЦИЯ — такого силкскрина нет: только точки 2x2, 4x4, 2x4 и два цвета",
+CERM FRIT-GRADIENT/DOTS,CERAMIC FRIT -PARTIAL COVERAGE - GRADIENT PATTERN + DOTS,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,6,in_house,,,,,,"МЁРТВАЯ ПОЗИЦИЯ — такого силкскрина нет: только точки 2x2, 4x4, 2x4 и два цвета",
+"5/8""x1/4"" WHITE MUNTIN BAR","5/8""x1/4"" WHITE MUNTIN BAR",GLASS SERVICES,material,each,Flat,EACH,,15,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов; поле «толщина» = 15 — это профиль бара, а не толщина стекла",
+"5/8""x1/4"" BLACK & WHITE MUNTIN BAR","5/8""x1/4"" BLACK & WHITE MUNTIN BAR",GLASS SERVICES,material,each,Flat,EACH,,15,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов; поле «толщина» = 15 — это профиль бара, а не толщина стекла",
+"1""x1/4"" BLACK MUNTIN BAR","1""x1/4"" BLACK MUNTIN BAR",GLASS SERVICES,material,each,Flat,EACH,,15,,,,,,,"это МАТЕРИАЛ, а не услуга — в каталог материалов; поле «толщина» = 15 — это профиль бара, а не толщина стекла",
+"CF — Bird-friendly Pattern 215 2x2""",CF — Bird-friendly Pattern 215 2’’ x 2’’ – 5mm Dots,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,0.01,in_house,,,,,,,"живая позиция: точки 5мм, узоры 2x2 / 4x4 / 2x4, цвета white и acid etch"
+"CF — Bird-friendly Pattern 216 4x4""",CF — Bird-friendly Pattern 216 4’’ x 4’’ – 5mm Dots,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,0.01,in_house,,,,,,,"живая позиция: точки 5мм, узоры 2x2 / 4x4 / 2x4, цвета white и acid etch"
+"CF — Bird-friendly Pattern 217 2x4""",CF — Bird-friendly Pattern 217 2’’ x 4’’ – 5mm Dots,GLASS SERVICES,operation,ft2,Area,SF,CERPAINT,0.01,in_house,,,,,,,"живая позиция: точки 5мм, узоры 2x2 / 4x4 / 2x4, цвета white и acid etch"
+HSK STAMP,HEAT SOAK STAMP,OTHER,operation,each,Flat,EACH,TEMP,,in_house,post_temper,,,,,,"отдельная машина после закалки, по запросу клиента"
+LAM-TEST,Lamination-TEST,GLASS SERVICES,operation,ft2,Area,SF,LAM,,in_house,,,,,,,

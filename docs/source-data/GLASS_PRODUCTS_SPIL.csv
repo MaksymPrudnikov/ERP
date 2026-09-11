@@ -1,0 +1,140 @@
+﻿manufacturer,code,name,substrate,coating_family,thickness_mm,actual_thickness_mm,temper_mode,exposure_rule,allowed_surfaces,edge_deletion,deposition,legacy_code,notes,review,coating_name,spil_qty,spil_unit,spil_supplier,spil_avgcost
+,4CL,4mm CLEAR GLASS,clear,uncoated,4,4,,,,,,4CL,,,,0,SF,,0
+,5MIR,5mm CLEAR MIRROR,clear,reflective,5,5,,,,,,5MIR,,,,0,SF,,0
+,6CL,6mm CLEAR GLASS,clear,uncoated,6,5.85,,,,,,6CL,,,,0,SF,,0
+,10CL,10mm CLEAR GLASS,clear,uncoated,10,9.65,,,,,,10CL,,,,32,SF,,2.09
+,12CL,12mm CLEAR GLASS,clear,uncoated,12,11.85,,,,,,12CL,,,,0,SF,,0
+,15CL,15mm CLEAR GLASS,clear,uncoated,15,16,,,,,,15CL,,"толщина противоречит названию: заявлено 15, записано 16",,0,SF,,0
+TRULITE INDUSTRIES LTD,19CL,19mm CLEAR GLASS,clear,uncoated,19,19,,,,,,19CL,,,,0,SF,TRULITE INDUSTRIES LTD,0
+TRULITE INDUSTRIES LTD,6TNT,6mm GRAY,tinted,uncoated,6,5.85,,,,,,6TNT,,,,0,SF,TRULITE INDUSTRIES LTD,0
+,10TNT,10mm GRAY,tinted,uncoated,10,9.65,,,,,,10TNT,,,,0,SF,,0
+,12TNT,12mm GRAY,tinted,uncoated,12,11.85,,,,,,12TNT,,,,0,SF,,0
+,6AE,6mm ACID ETCH VELOUR,patterned,uncoated,6,5.85,,,,,,6AE,,,,0,SF,,0
+,10AE,10mm ACID ETCH VELOUR,patterned,uncoated,10,9.55,,,,,,10AE,,,,12,SF,,1.05
+,12AE,12mm ACID ETCH VELOUR,patterned,uncoated,12,11.85,,,,,,12AE,,,,0,SF,,0
+,6STPH,6mm STARPHIRE,low_iron,uncoated,6,6,,,,,,6STPH,,,,0,SF,,0
+,10STPH,10mm STARPHIRE,low_iron,uncoated,10,9.65,,,,,,10STPH,,,,0,SF,,0
+,12STPH,12mm STARPHIRE,low_iron,uncoated,12,11.85,,,,,,12STPH,,,,0,SF,,0
+,6DUALMIR,6mm DUAL VIEW MIRROR,,reflective,6,5.85,,,,,,6DUALMIR,,подложку определить не удалось,,0,SF,,0
+,5TNTMR,5mm BRONZE  MIRROR,tinted,reflective,5,5,,,,,,5TNTMR,,,,0,SF,,0
+,8CL,8mm CLEAR GLASS,clear,uncoated,8,7.85,,,,,,8CL,,,,0,SF,,0
+,5CL,5mm CLEAR GLASS,clear,uncoated,5,4.85,,,,,,5CL,,,,3,SF,,0
+,3CL,3mm Clear,clear,uncoated,3,3,,,,,,3CL,,,,0,SF,,0
+,6MIR,6mm CLEAR MIRROR,clear,reflective,6,6,,,,,,6MIR,,,,0,SF,,0
+,6ANTMR,6mm ANTIQUE MIRROR,,reflective,6,6,,,,,,6ANTMR,,подложку определить не удалось,,0,SF,,0
+,5PINH,5mm PINHEAD GLASS,patterned,uncoated,5,4.85,,,,,,5PINH,,,,0,SF,,0
+,10BRZ,10mm BRONZE,tinted,uncoated,10,9.65,,,,,,10BRZ,,,,0,SF,,0
+,10GREEN,10mm GREEN,tinted,uncoated,10,9.65,,,,,,10GREEN,,,,0,SF,,0
+,12BRZ,12mm BRONZE,tinted,uncoated,12,11.85,,,,,,12BRZ,,,,0,SF,,0
+,12GREEN,12mm GREEN,tinted,uncoated,12,11.85,,,,,,12GREEN,,,,0,SF,,0
+,6BRZ,6mm BRONZE,tinted,uncoated,6,5.85,,,,,,6BRZ,,,,0,SF,,0
+,6GREEN,6mm GREEN,tinted,uncoated,6,5.85,,,,,,6GREEN,,,,0,SF,,0
+,15STPH,15mm STARPHIRE GLASS,low_iron,uncoated,15,16,,,,,,15STPH,,"толщина противоречит названию: заявлено 15, записано 16",,0,SF,,0
+,19STPH,19mm STARPHIRE GLASS,low_iron,uncoated,19,19,,,,,,19STPH,,,,0,SF,,0
+,5GRYMIR,5mm GREY  MIRROR,tinted,reflective,5,4.85,,,,,,5GRYMIR,,,,0,SF,,0
+,10RAIN,10mm NIAGARA RAIN GLASS,patterned,uncoated,10,9.85,,,,,,10RAIN,,,,0,SF,,0
+,10TEMP,10mm CUSTOMERS OWN CLEAR GLASS,clear,uncoated,10,10,,,,,,10TEMP,,ДАВАЛЬЧЕСКОЕ СЫРЬЁ КЛИЕНТА — не наш склад,,0,SF,,0
+,12TEMP,12mm CUSTOMERS OWN CLEAR GLASS,clear,uncoated,12,12,,,,,,12TEMP,,ДАВАЛЬЧЕСКОЕ СЫРЬЁ КЛИЕНТА — не наш склад,,0,SF,,0
+,6TEMP,6mm CUSTOMERS OWN CLEAR GLASS,clear,uncoated,6,5.85,,,,,,6TEMP,,ДАВАЛЬЧЕСКОЕ СЫРЬЁ КЛИЕНТА — не наш склад,,0,SF,,0
+,6SPGRY,6mm SUPER GRAY,tinted,uncoated,6,5.85,,,,,,6SPGRY,,,,0,SF,,0
+,5MMGRGL,5 MM GREY GLASS,tinted,uncoated,5,4.85,,,,,,5MMGRGL,,,,0,SF,,0
+,4LOWE-EA,4MM LOWE ENERGY ADVANTAGE- HARD COAT,,lowe,4,4,,,,,,4LOWE - EA,в коде Spil были пробелы,подложку определить не удалось,ENERGY ADVANTAGE,0,SF,,0
+,3STPH,3mm Starphire,low_iron,uncoated,3,3,,,,,,3STPH,,,,0,SF,,0
+,6LOWEEA,6MM LOWE ENERGY ADVANTAGE- HARD COAT,,lowe,6,5.85,,,,,,6LOWE EA,в коде Spil были пробелы,подложку определить не удалось,ENERGY ADVANTAGE,0,SF,,0
+,4REED,4MM REEDED,patterned,uncoated,4,4,,,,,,4REED,,,,0,IN,,0
+,5REED,5MM REEDED,patterned,uncoated,5,4.85,,,,,,5REED,,,,0,IN,,0
+,6GPW,6GPW,wired,uncoated,,6.4,,,,,,6GPW,,нет описания — повторяет код,,0,SF,,0
+,6BLLOWE,6MM ECLIPSE ADVANTAGE LOW E,,lowe,6,6,,,,,,6BL LOW E,в коде Spil были пробелы,подложку определить не удалось,,0,SF,,0
+,6DOT,6MM DOTTED GLASS,patterned,uncoated,6,5.85,,,,,,6DOT,,,,0,SF,,0
+,6MMSPNDRSTCOL,6MM CLEAR SPANDREL STANDARD COLOR,clear,uncoated,6,5.85,,,,,,6MM SPNDR ST COL,в коде Spil были пробелы,,,0,SF,,0
+,6MMSCG,6MM SOLAR COOL GREY,tinted,reflective,6,5.85,,,,,,6MM SCG,в коде Spil были пробелы,,SOLAR COOL GREY,0,SF,,0
+,4MMES40,4MM ES 40,,lowe,4,4,,,,,,4MM ES 40,в коде Spil были пробелы,ДУБЛЬ кода: 4MM ES 40 / 4MM ES40; нет описания — повторяет код; подложку определить не удалось,ES 40,0,SF,,0
+,6MMES40,6MM ES 40,,lowe,6,5.85,,,,,,6MM ES40,в коде Spil были пробелы,нет описания — повторяет код; подложку определить не удалось,ES40,0,SF,,0
+TRULITE INDUSTRIES LTD,3MM3MMEVALAMI,6MM CLEAR  0.15 LAMINATED,clear,uncoated,3,6.1,,,,,,3MM3MMEVALAMI,,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 3, записано 6.1",,0,SF,TRULITE INDUSTRIES LTD,0
+,6MMEVERGREEN,6MM EVER GREEN,tinted,uncoated,6,5.85,,,,,,6MM EVER GREEN,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,,0
+,4MMES40,4MM ES40,,lowe,4,4,,,,,,4MM ES40,в коде Spil были пробелы,ДУБЛЬ кода: 4MM ES 40 / 4MM ES40; нет описания — повторяет код; подложку определить не удалось,ES40,0,SF,,0
+,6GW,GEORGIAN WIRE,wired,uncoated,,6.4,,,,,,6GW,,,,0,SF,,0
+,6MMGCW,6MM GEORGIAN CAST WIRE,wired,uncoated,6,6.4,,,,,,6MM GCW,в коде Spil были пробелы,"толщина противоречит названию: заявлено 6, записано 6.4",,0,SF,,0
+,3MM3MMEVA030LAMI,6MM CLEAR 030 LAMI,clear,uncoated,3,6.45,,,,,,3MM3MMEVA030LAMI,,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 3, записано 6.45",,0,SF,,0
+,5FRG,FIRE RATED GLASS,,uncoated,,4.85,,,,,,5FRG,,подложку определить не удалось,,0,SF,,0
+,3MM/3MMGREYLAMI,6MM GREY .15 LAMINATED,tinted,uncoated,3,6,,,,,,3MM/3MM GREY LAMI,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 3, записано 6",,0,SF,,0
+,3MRCL,3MM MIRROR CLEAR,clear,reflective,3,3,,,,,,3MR CL,в коде Spil были пробелы,,,0,SF,,0
+,5LEADV.,5mm Low-E Advantage,,lowe,5,4.85,,,,,,5LE ADV.,в коде Spil были пробелы,подложку определить не удалось,,0,SF,,0
+,4MM/4MM.15EVA,8MM CLEAR 0.15 LAMINATED,clear,uncoated,4,8,,,,,,4MM/4MM .15 EVA,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 4, записано 8",,0,SF,,0
+,4MM/4MM.30EVA,8MM CLEAR 0.30 LAMINATED,clear,uncoated,4,8,,,,,,4MM/4MM .30 EVA,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 4, записано 8",,0,SF,,0
+,6SOLARCOOLBRONZE,6MM SOLAR COOL BRONZE,tinted,reflective,6,5.85,,,,,,6 SOLAR COOL BRONZE,в коде Spil были пробелы,,SOLAR COOL BRONZE,0,SF,,0
+,5MMGREEN,5MM GREEN,tinted,uncoated,5,4.85,,,,,,5MM GREEN,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,,0
+,6MMBLUEGLASS,6MM BLUE GLASS,tinted,uncoated,6,5.85,,,,,,6MM BLUE GLASS,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,,0
+,6MMES-31,6MM ES-31,,lowe,6,5.85,,,,,,6MM ES-31,в коде Spil были пробелы,нет описания — повторяет код; подложку определить не удалось,ES-31,0,SF,,0
+,10MMSTARPHIREACID,10MM STARPHIRE ACID ETCH,low_iron,uncoated,10,9.55,,,,,,10MM STARPHIRE ACID,в коде Spil были пробелы,,,0,SF,,0
+TRULITE INDUSTRIES LTD,5MMBRONZE,5MM BRONZE,tinted,uncoated,5,4.85,,,,,,5MM BRONZE,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,TRULITE INDUSTRIES LTD,0
+,4MMNIAGARAGLASS,4mm Niagara Glass,patterned,uncoated,4,4,,,,,,4mm Niagara Glass,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,,0
+TRULITE INDUSTRIES LTD,6MMES73,6MM ES 73 - 4,,lowe,6,5.85,,,,,,6MM ES 73,в коде Spil были пробелы,подложку определить не удалось,ES 73,0,SF,TRULITE INDUSTRIES LTD,0
+,4MMHS/0.03EVA/4MMHS,4mm HS /0.03 EVA LAMI /4mmHS,,uncoated,4,8,,,,,,4mmHS/0.03EVA/4mmHS,,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 4, записано 8; подложку определить не удалось",,0,SF,,0
+,10MMTINTAE,10MM TINT ACID ETCHED,patterned,uncoated,10,10,,,,,,10MM  TINT AE,в коде Spil были пробелы,,,0,SF,,0
+,10MMLAMI.030,10mm Lami .030 Annealed cut to size,,uncoated,10,11.2,annealed_only,,,,,10mm Lami .030,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы","ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 10, записано 11.2; подложку определить не удалось",,0,SF,,0
+,8STPH,8MM STARPHIRE,low_iron,uncoated,8,7.85,,,,,,8STPH,,,,0,SF,,0
+,6ES-40/6CL.030EVA,12MM LOWE ES40/CLEAR .030 EVA LAMINATED TEMPERED,clear,lowe,12,12,,,,,,6ES-40/6CL .030 EVA,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить",ES-40,0,SF,,0
+,6CL-LOWEQ-272,6mm Clear LowE Q -272 - Temperable,clear,lowe,6,5.85,temperable,,,,,6Cl -LowE Q -272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE Q -272,0,SF,,0
+,6CL-LOWEE-272,6mm Clear LowE E  -272-Non Temperable,clear,lowe,6,5.85,annealed_only,,,,,6Cl -LowE E -272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE E -272,0,SF,,0
+,6MMSPNDRCUSTMCOL,6MM CLEAR SPANDREL CUSTOM COLOUR HS,clear,uncoated,6,5.85,,,,,,6MM SPNDR CUSTM COL,в коде Spil были пробелы,,,0,SF,,0
+,6CLLOWEQ-366,6mm Clear LowE  Q-366 -Temperable,clear,lowe,6,5.85,temperable,,,,,6CL LowE Q-366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE Q-366,0,SF,,0
+,6CLLOWEE-366,6mm Clear LowE  E-366 -Non Temperable,clear,lowe,6,5.85,annealed_only,,,,,6CL LowE E-366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE E-366,0,SF,,0
+,4CL-LOWEE-272,4mm Clear LowE E-272 - Non Temperable,clear,lowe,4,4,annealed_only,,,,,4Cl -LowE E-272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE E-272,0,SF,,0
+,3E-272,3mm Clear LowE E-272 — Non Temperable,clear,lowe,3,3,annealed_only,,,,,3E-272,"закалка была зашита в название Spil, вынесена в temper_mode",,E-272,0,SF,,0
+,4CL-LOWEQ-272,4mm Clear LowE Q-272-Temperable,clear,lowe,4,4,temperable,,,,,4Cl -LowE Q-272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE Q-272,0,SF,,0
+,3LOW-E,3mm Clear LowE Energy Advantage — Hard Coat,clear,lowe,3,3,,,,,,3LOW-E,,,ENERGY ADVANTAGE,0,SF,,0
+,4CL-LOWE-366,4mm Clear LowE E-366 - Non Temperable,clear,lowe,4,4,annealed_only,,,,,4CL - LoW E-366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,E-366,0,SF,,0
+,4CLLOWEQ-366,4mm Clear LowE - Q-366 - Temperable,clear,lowe,4,4,temperable,,,,,4Cl LowE Q-366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE Q-366,0,SF,,0
+,3E-366,3mm Clear LowE E-366 — Non Temperable,clear,lowe,3,3,annealed_only,,,,,3E-366,"закалка была зашита в название Spil, вынесена в temper_mode",,E-366,0,SF,,0
+,5CL-LOWE-E272,5mm Clear LowE -E272 - Non Temperable Glass,clear,lowe,5,4.9,annealed_only,,,,,5Cl - LowE -E272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE -E272,0,SF,,0
+,5CL-LOWE-Q272,5mm Clear LowE - Q272 - Temperable Glass,clear,lowe,5,4.9,temperable,,,,,5Cl - LowE - Q272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - Q272,0,SF,,0
+,5CLLOWE-E366,5mm Clear LowE - E366 - Non Temperable Glass,clear,lowe,5,4.9,annealed_only,,,,,5Cl LowE - E366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - E366,0,SF,,0
+,5CLLOWE-Q366,5mm Clear LowE - Q366 - Temperable Glass,clear,lowe,5,4.9,temperable,,,,,5Cl LowE - Q366,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - Q366,0,SF,,0
+,4MMTNTGLASS,4MM GREY GLASS,tinted,uncoated,4,4,,,,,,4MM TNT GLASS,в коде Spil были пробелы,,,0,SF,,0
+,6CL-LOWEQ-270,6mm Clear LowE Q-270 - Temperable,clear,lowe,6,5.85,temperable,,,,,6CL - LowE Q-270,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE Q-270,0,SF,,0
+,8MMLOWE-Q272,8mm Clear LowE - Q272 - Temperable,clear,lowe,8,7.85,temperable,,,,,8mm LowE - Q272,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - Q272,0,SF,,0
+,4CLLOWE-E180,4mm Clear LowE - E 180 - Nontemperable,clear,lowe,4,4,annealed_only,,,,,4Cl LowE - E 180,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - E 180,0,SF,,0
+,4CLLOWE-Q-180,4mm Clear LowE - Q180- Temperable,clear,lowe,4,4,temperable,,,,,4Cl LowE - Q-180,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - Q-180,0,SF,,0
+,8CLLOWE-E-180,8mm Clear LowE - E-180 - Non Temperable,clear,lowe,8,7.85,annealed_only,,,,,8Cl LowE - E-180,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - E-180,0,SF,,0
+,6CLLOWE-E180,6mm Clear LowE -E 180 - Nontemperable,clear,lowe,6,5.85,annealed_only,,,,,6Cl LowE - E180,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - E180,0,SF,,0
+,6CLLOWE-Q180,6mm Clear LowE - Q 180 - Temperable,clear,lowe,6,5.85,temperable,,,,,6Cl LowE - Q 180,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,LOWE - Q 180,0,SF,,0
+,6MMCLSB60VT,6MM CLEAR  SOLARBAN 60 VT TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,6MMCLSNE50/25,6MM CLEAR SNE 50/25 TEMPERABLE GUARDIAN,clear,lowe,6,5.85,temperable,,,,,6MM CL SNE 50/25,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SNE 50/25,0,SF,,0
+,6MMCLSB60ANN,6MM CLEAR SOLARBAN 60 ANNEALED,clear,lowe,6,5.85,annealed_only,,,,,6MM CL SB60 ANN,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,6MMCLSB67ANN,6MM CLEAR SOLARBAN 67 ANNEALED,clear,lowe,6,5.85,annealed_only,,,,,6MM CL SB67 ANN,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB67,0,SF,,0
+,6MMCLSB67VT,6MM CLEAR SOLARBAN 67 VT  TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SB67 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB67,0,SF,,0
+,6MMCLSB70VT,6MM CLEAR  SOLARBAN 70 VT TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SB70 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB70,0,SF,,0
+,6MMCLSB70ANN,6MM CLEAR  SOLARBAN 70 NON TEMPERABLE,clear,lowe,6,5.85,annealed_only,,,,,6MM CL SB70 ANN,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB70,0,SF,,0
+VITRO ARCHITECTURAL GLASS,4MMAE,4mm ACID ETCH VELOUR,patterned,uncoated,4,4,,,,,,4mm AE,в коде Spil были пробелы,,,0,SF,VITRO ARCHITECTURAL GLASS,0
+,8MMAE,8MM ACID ETCHED GLASS,patterned,uncoated,8,7.85,,,,,,8MM AE,в коде Spil были пробелы,,,0,SF,,0
+,6MMCLSN68,6MM CLEAR SN68 TEMPERABLE GUARDIAN LoE,clear,lowe,6,5.85,temperable,,,,,6mm CL SN68,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SN68,0,SF,,0
+,6MMCLQI89,6mm CLEAR LoE Qi89,clear,lowe,6,5.85,temperable,,,,,6mm CL Qi89,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,QI89,0,SF,,0
+,6MMCLSB72VT,6MM SOLARBAN 72 ON CLEAR TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SB72 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB72,0,SF,,0
+,6MMCLSB72ANNEAL,6MM SOLARBAN 72 ON CLEAR NON TEMPERABLE,clear,lowe,6,5.85,annealed_only,,,,,6MM CL SB 72 ANNEAL,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB 72,0,SF,,0
+,6MMGRSB60VT,6MM GRAY SOLARBAN 60 VT TEMPERABLE,tinted,lowe,6,5.85,temperable,,,,,6MM GR SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,4MMCLSB60VT,4MM CLEAR SOLARBAN 60 VT TEMPERABLE,clear,lowe,4,4,temperable,,,,,4MM CL SB60 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,4MMCLSB60ANNEALED,4MM CLEAR SOLARBAN 60 ANNEALED - NON TEMPERABLE,clear,lowe,4,4,annealed_only,,,,,4MM CL SB 60 ANNEALED,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB 60,0,SF,,0
+,5MMCLSB60VT,5MM CLEAR  SOLARBAN 60 VT TEMPERABLE,clear,lowe,5,4.9,temperable,,,,,5MM CL SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,5MMCLSB60ANN,5MM CLEAR SOLARBAN 60 ANNEALED,clear,lowe,5,4.9,annealed_only,,,,,5MM CL SB60 ANN,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,3MMCLSB60ANN,3MM CLEAR SOLARBAN 60 ANNEALED,clear,lowe,3,3,annealed_only,,,,,3MM CL SB60 ANN,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,6MMCLSUNGATETHERMLVT,6MM CL SUNGATE THERML VT TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SUNGATE THERML VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SUNGATE THERML VT,0,SF,,0
+,6PB,6mm PACIFICA BLUE,tinted,uncoated,6,5.85,,,,,,6PB,,,,0,SF,,0
+TRULITE INDUSTRIES LTD,6OPTGR,6mm OPTIGRAY,tinted,uncoated,6,5.85,,,,,,6OPTGR,,,,0,SF,TRULITE INDUSTRIES LTD,0
+TRULITE INDUSTRIES LTD,6OPTBL,6mm OPTIBLUE,tinted,uncoated,6,5.85,,,,,,6OPTBL,,,,0,SF,TRULITE INDUSTRIES LTD,0
+,6MMBRZSB60VT,6MM BRONZE SOLARBAN 60 VT TEMPERABLE,tinted,lowe,6,5.85,temperable,,,,,6MM BRZ SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,3MM3MMEVALAMI060,6MM CLEAR  0.60 LAMINATED,clear,uncoated,3,7.15,,,,,,3MM3MMEVALAMI 060,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 3, записано 7.15",,0,SF,,0
+,6MMAZURIAGLASS,6MM AZURIA GLASS,tinted,uncoated,6,5.85,,,,,,6MM AZURIA GLASS,в коде Spil были пробелы,нет описания — повторяет код,,0,SF,,0
+,6MMCLSB90VT,6MM CLEAR  SOLARBAN 90 VT TEMPERABLE,clear,lowe,6,5.85,temperable,,,,,6MM CL SB90 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB90,0,SF,,0
+VITRO ARCHITECTURAL GLASS,3MMAE,3mm ACID ETCH VELOUR,patterned,uncoated,3,4,,,,,,3mm AE,в коде Spil были пробелы,"толщина противоречит названию: заявлено 3, записано 4",,0,SF,VITRO ARCHITECTURAL GLASS,0
+,5MM/1.52EVA/5MM,10mm CLEAR 0.60 LAMI,clear,uncoated,5,11.2,,,,,,5mm/1.52EVA/5mm,,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; толщина противоречит названию: заявлено 5, записано 11.2",,0,SF,,0
+,6MMCLSB65VT,6MM CLEAR  SOLARBAN 65 VT TEMPERABLE,clear,lowe,6,6,temperable,,,,,6MM CL SB65VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB65,0,SF,,0
+,12MMLAMI.060,12mm Lami .060,,uncoated,12,13.52,,,,,,12mm Lami .060,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; нет описания — повторяет код; толщина противоречит названию: заявлено 12, записано 13.52; подложку определить не удалось",,0,SF,,0
+VITRO ARCHITECTURAL GLASS,6MMSBR100VT,6MM SOLARBAN R100 VT ON CLEAR,clear,uncoated,6,6,temperable,,,,,6MM SB R100 VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB R100,0,SF,VITRO ARCHITECTURAL GLASS,0
+VITRO ARCHITECTURAL GLASS,6OPTGRSB60,6mm SB60 VT OPTIGRAY,tinted,lowe,6,5.85,temperable,,,,,6OPTGR SB60,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,VITRO ARCHITECTURAL GLASS,0
+,6MMSTPHSB60VT,6MM SB60 VT STARPHIRE,low_iron,lowe,6,5.85,temperable,,,,,6MM STPH SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+TRULITE INDUSTRIES LTD,6SOLAR-E,6MM SOLAR-E GLASS,,lowe,6,6,,,,,,6SOLAR-E,,подложку определить не удалось,SOLAR-E,0,SF,TRULITE INDUSTRIES LTD,0
+,16MMLAMI.060,16mm Lami . 060,,uncoated,16,17.22,,,,,,16mm Lami . 060,в коде Spil были пробелы,"ЛАМИНАТ — состав задаётся в Makeup, в каталог не заводить; нет описания — повторяет код; толщина противоречит названию: заявлено 16, записано 17.22; подложку определить не удалось",,0,SF,,0
+,3BRZ,3mm BRONZE,tinted,uncoated,3,3,,,,,,3BRZ,,,,0,SF,,0
+,6MMACSB60VT,6MM ACUITY SOLARBAN 60 VT TEMPERABLE,low_iron,lowe,6,5.85,temperable,,,,,6MM AC SB60VT,"закалка была зашита в название Spil, вынесена в temper_mode; в коде Spil были пробелы",,SB60,0,SF,,0
+,6ACY,6mm ACUITY,low_iron,uncoated,6,6,,,,,,6ACY,,,,0,SF,,0
