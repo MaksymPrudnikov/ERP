@@ -98,23 +98,23 @@ function shapeAllowanceDefaults(){
   var rows=[],flatLike=['Flat Polish','Mitering','Beveling'];
   /* Арис не увеличивает лист НИКОГДА: ручная зачистка фаски делает кромку
      безопасной, но контур не съедает. */
-  rows.push(shapeAllowanceRow('Rough Arris','mono',0,1000,'0','притупление контур не съедает'));
-  rows.push(shapeAllowanceRow('Rough Arris','lami',0,1000,'0','притупление контур не съедает'));
+  rows.push(shapeAllowanceRow('Rough Arris','mono',0,1000,'0','arrising does not eat into the contour'));
+  rows.push(shapeAllowanceRow('Rough Arris','lami',0,1000,'0','arrising does not eat into the contour'));
   flatLike.forEach(function(op){
     rows.push(shapeAllowanceRow(op,'mono',3,6,'1/16'));
     rows.push(shapeAllowanceRow(op,'mono',8,10,'1/8'));
     rows.push(shapeAllowanceRow(op,'mono',12,15,'3/16'));
     rows.push(shapeAllowanceRow(op,'mono',16,19,'1/2'));
-    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','по толщине ПЛИТЫ'));
-    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','by the PLY thickness'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','by the PLY thickness'));
   });
   rows.push(shapeAllowanceRow('CNC Shape Polish','mono',0,1000,'1/4'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','толстое стекло с большим съёмом'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','по толщине ПЛИТЫ'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','по толщине ПЛИТЫ'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','thick glass, larger stock removal'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','by the PLY thickness'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','by the PLY thickness'));
   SHAPE_LAMI_ONLY_OPS.forEach(function(op){
-    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','склеенная кромка, по толщине ПЛИТЫ'));
-    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','склеенная кромка, по толщине ПЛИТЫ'));
+    rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','laminated edge, by the PLY thickness'));
+    rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','laminated edge, by the PLY thickness'));
   });
   return rows;
 }

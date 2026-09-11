@@ -88,9 +88,9 @@ function shapeProdAllowanceField(){
       `</div>`;
   }).join('');
   return `<div class='shape-prod-cutallow'>
-    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Ламинат: съём считается по ПЛИТЕ склейки':'Припуск на рез'))}' data-hint='${esc(tx(lam
-      ? 'Ламинат: съём считается по ПЛИТЕ склейки — при резке каждое стекло отдельная панель. Пустое поле берёт значение из справочника, Base пишет одно значение во все стороны.'
-      : 'Пустое поле берёт значение из справочника припусков. Base пишет одно значение во все стороны, отдельные поля правят по одной.'))}'>?</span></div></div>
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc((lam?'Laminate: removal is measured on the laminated PLY':'Cutting allowance'))}' data-hint='${esc((lam
+      ? 'Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.'
+      : 'An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.'))}'>?</span></div></div>
     <div class='shape-allow-rows'>${rows}</div>
   </div>`;
 }
@@ -173,7 +173,7 @@ viewShapeSkill=function(){
   var rows=library.map(function(x){
     var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
-    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
+    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(String(r&&r.reason||''))+'</span>';
     var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
@@ -493,8 +493,8 @@ shapeArtifacts=function(r){
   if(!sDraft||!shapeIsDxfSource(sDraft))return __shapeProdArtifacts(r);
   var pr=ShapeModule.dxfProductionResult(sDraft);
   if(!pr.valid)return `<div class='shape-artifacts dxf-source'><b>Machine export blocked</b><span>${esc(pr.reason||'Fix the production input first.')}</span></div>`;
-  if(sView!=='cutting')return `<div class='shape-artifacts'><b>Finished drawing</b><button onclick='shapeProdDownloadDxf("finished")'>Finished DXF</button><small>Finished DXF — готовая деталь: контур, отверстия и вырезы, без припуска. Ноль в нижнем левом углу готового контура.</small></div>`;
-  return `<div class='shape-artifacts'><b>Machine cutting files</b><button onclick='shapeProdDownloadDxf("dxf")'>Cutting DXF</button><button onclick='shapeProdDownloadDxf("check")'>Check DXF</button><button onclick='shapeProdDownloadDxf("json")'>Machine JSON</button><button onclick='shapeProdDownloadDxf("svg")'>Cutting SVG</button><small>Cutting DXF — только линия реза, слой CUT_OUTER: это файл для станка. Check DXF — проверочный, слоями FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER, REFERENCE в одном нуле; на станок его не отдавать.</small></div>`;
+  if(sView!=='cutting')return `<div class='shape-artifacts'><b>Finished drawing</b><button onclick='shapeProdDownloadDxf("finished")'>Finished DXF</button><small>Finished DXF — the finished part: contour, holes and cutouts, no allowance. Origin at the lower-left corner of the finished contour.</small></div>`;
+  return `<div class='shape-artifacts'><b>Machine cutting files</b><button onclick='shapeProdDownloadDxf("dxf")'>Cutting DXF</button><button onclick='shapeProdDownloadDxf("check")'>Check DXF</button><button onclick='shapeProdDownloadDxf("json")'>Machine JSON</button><button onclick='shapeProdDownloadDxf("svg")'>Cutting SVG</button><small>Cutting DXF — the cut line only, layer CUT_OUTER: this is the machine file. Check DXF — for verification, layers FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER and REFERENCE in one origin; do not send it to the machine.</small></div>`;
 };
 
 /* ---------- Final approved editor order ---------- */

@@ -39,7 +39,6 @@
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
   "src/erp/icons.js",
-  "src/erp/i18n.js",
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
   "src/erp/views/users.js",

@@ -20,7 +20,7 @@ function salesRouteStations(){
 function salesRouteStationName(code){
   var s=(DB.station||[]).find(function(x){return x.code===code;});
   if(!s)return code;
-  return (typeof LANG!=='undefined'&&LANG==='en')?(s.nameEn||s.name):(s.name||s.nameEn);
+  return s.nameEn||s.name||'';
 }
 /* Станция берётся у РАБОТЫ — другого источника нет. Справочник операций цеха
    удалён 11 сентября 2026: работы несут и станцию, и момент маршрута, и цену

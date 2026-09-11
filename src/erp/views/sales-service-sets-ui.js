@@ -270,7 +270,7 @@ function salesEdgeAllowanceCell(line,g){
   /* Состояние показывает ЦВЕТ поля — зелёный на авто, жёлтый на ручной правке,
      как в редакторе формы. Подпись под полем занимала отдельную строку в каждой
      карточке кромки и повторяла то, что и так видно. */
-  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc(tx('Припуск на сторону. Пустое поле берёт значение из справочника.'))}${auto==null?'':' · '+esc(auto)}'>`
+  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc('Cutting allowance per side. An empty field falls back to the reference table.')}${auto==null?'':' · '+esc(auto)}'>`
     +`<input value='${esc(cur==null?'':String(cur))}' placeholder='${esc(auto==null?'auto':auto)}' onchange='salesSetEdgeAllowance("${esc(line.id)}","${esc(g.id)}",this.value)'></span>`;
 }
 /* Плиты разной толщины дают разные припуски, а рез у склейки один. Предлагаем
@@ -281,12 +281,12 @@ function salesLiteAllowanceNote(plan){
   if(!vary.length)return '';
   var text=vary.map(function(l){
     var mm=(l.plies||[]).map(function(p){return p.mm;}).join(' / ');
-    return l.label+': плиты '+mm+' мм';
+    return l.label+': plies '+mm+' mm';
   }).join(' · ');
   /* Каждая фраза — свой текстовый узел: перевод накладывается на готовый DOM
      по узлам, и склеенная строка с подставленными толщинами в словарь не
      попадёт никогда. */
-  return `<div class='ss-line-warning info'><b>Плиты склейки разной толщины</b><span>${esc(text)}</span><small>Припуск предложен по толстой плите — проверьте по сторонам и поправьте, если тонкую снимает лишнее.</small></div>`;
+  return `<div class='ss-line-warning info'><b>The plies of this laminate differ in thickness</b><span>${esc(text)}</span><small>The allowance is proposed from the thicker ply — check it side by side and correct it if the thinner one loses too much.</small></div>`;
 }
 function salesLineEdgeworkModal(){
   var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);

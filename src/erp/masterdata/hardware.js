@@ -184,7 +184,7 @@ function hardwareKinds(includeInactive){
 function hardwareKindName(code){
   var k=hardwareKindRow(code);
   if(!k)return String(code==null?'':code);
-  return (typeof LANG!=='undefined'&&LANG==='en')?(k.nameEn||k.name):(k.name||k.nameEn);
+  return k.nameEn||k.name||'';
 }
 function hardwareKindShort(code){
   var k=hardwareKindRow(code);
