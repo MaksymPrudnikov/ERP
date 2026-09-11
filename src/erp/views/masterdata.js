@@ -15,23 +15,46 @@
    не узнал бы, из чего его считали.
    ===================================================================== */
 
+/* Этап 2 схемы, часть третья: ОДИН ЭКРАН. Было восемь вкладок, каждая из
+   которых заводилась под очередной справочник; стало пять — по видам данных
+   раздела 7. Главное правило схемы: «новый справочник больше не создаёт
+   вкладку — он становится подкатегорией». Стекло, спейсер, газ, герметик,
+   плёнка, фрит, спандрел, палитра и сток перестали быть девятью пунктами
+   меню и стали категориями одного экрана Materials. */
 const MD_TABS=[
- {k:'glass',    label:'Каталог стекла'},
- {k:'supply',   label:'Точки поставки'},
- {k:'spacer',   label:'Spacers & rates'},
- {k:'weight',   label:'Weight norms'},
- {k:'hardware', label:'Hardware'},
- {k:'allowance',label:'Припуск на рез'},
- /* Не «Справочники»: словарь RU->EN переводит это слово как Master Data, и
-    вкладка называлась бы так же, как весь экран. */
- {k:'catalogues',label:'Catalogues'},
- {k:'overview', label:'Обзор базы'}
+ {k:'materials', label:'Materials'},
+ {k:'works',     label:'Works'},
+ {k:'hardware',  label:'Hardware'},
+ {k:'weight',    label:'Weight norms'},
+ {k:'overview',  label:'Обзор базы'}
 ];
+/* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
+   свои фильтры, импорт CSV и точки поставки), остальные категории рисуются
+   общей машинкой Catalogues — разница только в том, какая таблица открыта.
+   Порядок здесь — порядок кнопок на экране. */
+const MD_MATERIAL_VIEWS={
+ glass:     [{k:'glassProduct',     label:'Glass catalogue', view:'glass'},
+             {k:'glassSheet',       label:'Supply points',   view:'supply'}],
+ igu:       [{k:'spacerVariant',    label:'Spacers',         view:'spacer'},
+             {k:'gasProduct',       label:'Gas'},
+             {k:'sealantProduct',   label:'Sealants'}],
+ lamination:[{k:'interlayerProduct',label:'Interlayers'}],
+ surface:   [{k:'fritProduct',      label:'Frit'},
+             {k:'spandrelProduct',  label:'Spandrel'},
+             {k:'spandrelColour',   label:'Spandrel colours'}],
+ stock:     [{k:'stockItem',        label:'Stock items'}]
+};
+const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',surface:'Surface',stock:'Stock & consumables'};
+/* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
+   ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
+   не среди материалов. */
+const MD_WORK_CATALOGUES=['serviceRate','heatTreatment'];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
    осталось за краем. Молчаливая обрезка списка читается как «это всё». */
 const MD_PAGE=60;
 
-let mdTab='glass';
+let mdTab='materials';
+let mdMatCategory='glass',mdMatView='glassProduct';
 let mdSearch='',mdMfr='',mdThick='',mdCoating='',mdStatus='all';
 let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
@@ -44,11 +67,11 @@ let mdImportReport=null;
 /* --- Общее ------------------------------------------------------------ */
 
 function viewMasterData(){
- if(!MD_TABS.some(t=>t.k===mdTab))mdTab='glass';
+ if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
  const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
  const inactive=DB.glassProduct.filter(p=>p.active===false).length;
  const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
- return `<div class="page-head"><div><h2>Справочники</h2><p>Каталог стекла и точки поставки. Продукт отвечает, ЧТО это за стекло, строка поставки — где и почём его берут: валюта принадлежит точке поставки, а не поставщику.</p></div><span class="pill info">Master Data · v1</span></div>
+ return `<div class="page-head"><div><h2>Справочники</h2><p>One shape for every material: each row carries the same header — code, category, purchase, sale, stocking — and the category adds its own fields on top. A new catalogue no longer creates a tab; it becomes a subcategory.</p></div><span class="pill info">Master Data · v2</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">позиций каталога</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">держим на складе</div></div>
@@ -57,11 +80,56 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,catalogues:viewMdCatalogues,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'||mdTab==='catalogues'?'':mdImportCard()}`;
+  ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+ /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
+    между вкладками открытая таблица обязана соответствовать вкладке —
+    иначе Works показал бы палитру спандрела. */
+ if(k==='works'&&MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
+ if(k==='materials')mdMatSwitch(mdMatCategory,mdMatView);
+ render();}
+/* Экран материалов: категория сверху, подкатегория внутри неё. Обе — кнопки,
+   а не выпадающий список: их немного, и владелец должен видеть, что у него
+   вообще есть, не открывая меню. */
+/* Привести выбор к допустимому — БЕЗ побочных эффектов: её зовёт и отрисовка,
+   тоже. Раньше сброс черновика жил здесь же, и открытая форма закрывалась на
+   каждой перерисовке — то есть при первом же вводе символа в поле. */
+function mdMatResolve(category,viewKey){
+ const cat=MD_MATERIAL_VIEWS[category]?category:'glass';
+ const list=MD_MATERIAL_VIEWS[cat];
+ return {category:cat,hit:list.find(v=>v.k===viewKey)||list[0],list};
+}
+function mdMatSelect(category,viewKey){
+ const r=mdMatResolve(category,viewKey);
+ mdMatCategory=r.category;mdMatView=r.hit.k;
+ /* Таблицы без своего экрана рисует Catalogues — ему нужно знать, какая
+    открыта. Для стекла и спейсера это поле не трогаем: у них свои экраны. */
+ if(!r.hit.view&&MD_CATALOGUES.some(c=>c.k===r.hit.k))mdCatKind=r.hit.k;
+}
+function mdMatSwitch(category,viewKey){
+ mdMatSelect(category,viewKey);
+ mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
+}
+function mdSetMatCategory(k){mdMatSwitch(k,null);render();}
+function mdSetMatView(k){mdMatSwitch(mdMatCategory,k);render();}
+function viewMdMaterials(){
+ mdMatSelect(mdMatCategory,mdMatView);
+ const list=MD_MATERIAL_VIEWS[mdMatCategory],hit=list.find(v=>v.k===mdMatView)||list[0];
+ const cats=Object.keys(MD_MATERIAL_VIEWS).map(c=>`<button class="sm ${c===mdMatCategory?'on':''}" onclick="mdSetMatCategory('${c}')">${esc(MD_MATERIAL_CATEGORY_LABELS[c])} <span class="mut">${materialEntries(c).length}</span></button>`).join('');
+ const subs=list.length>1?`<div class="md-mat-subs">${list.map(v=>`<button class="sm ${v.k===mdMatView?'on':''}" onclick="mdSetMatView('${v.k}')">${esc(v.label)}</button>`).join('')}</div>`:'';
+ const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer})[hit.view]():viewMdCatalogues();
+ return `<div class="md-mat-cats">${cats}</div>${subs}${body}`;
+}
+/* Работы и припуск на рез — один вид данных: и то и другое про то, что цех
+   делает со стеклом, и раздел 7 сводит их на один экран. */
+function viewMdWorks(){
+ if(MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
+ const subs=MD_WORK_CATALOGUES.map(k=>{const def=MD_CATALOGUES.find(c=>c.k===k);return `<button class="sm ${k===mdCatKind?'on':''}" onclick="mdSetCatKind('${k}')">${esc(def?def.label:k)}</button>`;}).join('');
+ return `<div class="md-mat-subs">${subs}</div>${viewMdCatalogues()}${mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():''}`;
+}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -818,7 +886,7 @@ function viewMdCatalogues(){
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
  const cols=rate?8:colour?5:6;
  return `<div class="sub">The owner keeps these catalogues. Rows added here <b>survive system updates</b>: factory content is filled in by id, anything typed by hand is left untouched. A position an order already references is safer to switch off than to delete — otherwise the old order would no longer know what it was.</div>
-  <div class="row"><label>Catalogue</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
+  <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>up to 7 mm</th><th>8–11 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>

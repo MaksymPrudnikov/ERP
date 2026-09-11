@@ -2200,7 +2200,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        Раньше кнопки «+ New» у прайса не было вовсе — заведённая руками строка
        ни к чему не привязывалась, потому что полосы были зашиты в код. */
     eq('владелец заводит работу с экрана, и она начисляется', await dxfSales.p.evaluate(() => {
-      tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();render();
+      tab='masterdata';mdTab='works';mdCatKind='serviceRate';mdCatNew();render();
       const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
       set('md_catName','QA Engraving');set('md_catUnit','in');set('md_catStation','CNC');
       set('md_catRateKind','flat');mdCatDraft.kind='flat';render();
@@ -2216,7 +2216,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     /* Пересечение ловится на сохранении, а не через месяц на живом заказе. */
     eq('пересекающийся диапазон не сохраняется', await dxfSales.p.evaluate(() => {
-      tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();render();
+      tab='masterdata';mdTab='works';mdCatKind='serviceRate';mdCatNew();render();
       mdCatDraft.kind='flat';mdCatDraft.appliesBy='thickness';render();
       const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
       set('md_catName','QA Bevel clash');set('md_catUnit','in');set('md_catStation','EDGE');
@@ -2235,6 +2235,46 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        без геометрии, без Makeup и без маршрута (раздел 6 схемы). Сценарий
        владельца 11 сентября 2026: дверь $80 в заказе рядом с двумя фиксированными
        панелями, вместо того чтобы подгонять панели под кастомную дверь. */
+    /* Этап 2 схемы, часть первая: ОДНА ФОРМА. Девять справочников материалов
+       физически остаются своими таблицами, но шапка раздела 3.1 обязана быть
+       на каждой строке — иначе «материал» остаётся словом в документе, а не
+       свойством данных. */
+    eq('общая шапка материала есть у каждой из девяти таблиц', await dxfSales.p.evaluate(() => {
+      const missing=[],wrongCat=[];
+      materialTables().forEach(table=>{
+       const rows=DB[table]||[];
+       if(!rows.length)return;
+       const r=rows[0];
+       ['category','subcategory','purchasePrice','purchaseUnit','currency','priceDate','stockQty']
+        .forEach(f=>{if(!(f in r))missing.push(table+'.'+f);});
+       if(r.category!==MATERIAL_TABLE_MAP[table].category)wrongCat.push(table+'='+r.category);
+      });
+      return {missing,wrongCat,currencyDefault:(DB.gasProduct[0]||{}).currency};
+    }), {missing:[],wrongCat:[],currencyDefault:'CAD'});
+
+    /* Часть вторая: ОДИН ДОСТУП. Спросить «какие материалы этой категории»
+       можно, не зная, в какой из девяти таблиц они лежат. */
+    eq('выборка по категории собирает нужные таблицы, id находится где угодно', await dxfSales.p.evaluate(() => {
+      const iguTables=Array.from(new Set(materialEntries('igu').map(e=>e.table))).sort();
+      const glassCount=materialEntries('glass').length===DB.glassProduct.length;
+      const allCount=materialEntries().length===materialTables().reduce((n,t)=>n+(DB[t]||[]).length,0);
+      const g=DB.glassProduct[0],foundGlass=materialById(g.id);
+      DB.stockItem.push({id:'STK-QA-ACC',type:'stock',name:'QA Accessor Door',code:'',thicknessMm:0,
+        salePrice:10,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      normalizeMasterData();
+      const foundStock=materialById('STK-QA-ACC');
+      const stockSubcats=materialSubcategories('stock');
+      const surfaceTables=Array.from(new Set(materialEntries('surface').map(e=>e.table))).sort();
+      DB.stockItem=DB.stockItem.filter(x=>x.id!=='STK-QA-ACC');
+      return {iguTables,glassCount,allCount,
+        glassFoundInRightTable:!!foundGlass&&foundGlass.table==='glassProduct',
+        stockFoundInRightTable:!!foundStock&&foundStock.table==='stockItem',
+        stockHasDoor:stockSubcats.indexOf('door')>=0,surfaceTables,
+        unknownId:materialById('NOPE-404')};
+    }), {iguTables:['gasProduct','sealantProduct','spacerVariant'],glassCount:true,allCount:true,
+      glassFoundInRightTable:true,stockFoundInRightTable:true,stockHasDoor:true,
+      surfaceTables:['fritProduct','spandrelColour','spandrelProduct'],unknownId:null});
+
     eq('владелец заводит сток и продаёт его отдельной строкой заказа', await dxfSales.p.evaluate(() => {
       DB.stockItem.push({id:'STK-QA-DOOR',type:'stock',name:'QA Stock Door',code:'',thicknessMm:0,
         salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
@@ -2263,7 +2303,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        11 сентября 2026 спросил прямо: «а я могу создавать саб категории
        самостоятельно?» — да, поле формы стало <input>+<datalist>. */
     eq('подкатегория стока — свободный текст, не закрытый список', await dxfSales.p.evaluate(() => {
-      tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatNew();
+      tab='masterdata';mdTab='materials';mdMatSwitch('stock','stockItem');mdCatNew();
       const isTextInput=(document.getElementById('md_catSubcategory')||{}).tagName==='INPUT';
       const hasHintList=!!document.getElementById('md_catSubcategoryList');
       const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
@@ -3751,7 +3791,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     console.log('Master Data / выбор стекла');
     let t = await page();
     eq('каталог показывается страницей, а не целиком', await t.p.evaluate(() => {
-      tab = 'masterdata'; subtab = null; mdTab = 'glass'; mdEdit = null;
+      tab = 'masterdata'; subtab = null; mdTab = 'materials'; mdMatSwitch('glass','glassProduct'); mdEdit = null;
       mdSearch = ''; mdMfr = ''; mdThick = ''; mdCoating = ''; mdStatus = 'all';
       render();
       return [document.querySelectorAll('#app tbody tr').length, DB.glassProduct.length];
@@ -3772,7 +3812,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     t = await page();
     eq('новая позиция заводится через форму', await t.p.evaluate(() => {
-      tab = 'masterdata'; mdTab = 'glass'; mdGlassNew();
+      tab = 'masterdata'; mdTab = 'materials'; mdMatSwitch('glass','glassProduct'); mdGlassNew();
       const set = (id, v) => { document.getElementById(id).value = v; };
       set('md_code', '6TRU-CLR'); set('md_name', 'Trulite Clear 6mm'); set('md_mfr', 'Trulite');
       set('md_thick', '6'); set('md_actual', '5.7'); set('md_substrate', 'clear');
@@ -3804,7 +3844,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        Makeup держатся на идентификаторе и обязаны пережить переименование. */
     t = await page();
     eq('переименование кода сохраняет идентификатор', await t.p.evaluate(() => {
-      tab = 'masterdata'; mdTab = 'glass';
+      tab = 'masterdata'; mdTab = 'materials'; mdMatSwitch('glass','glassProduct');
       const src = DB.glassProduct.find(p => p.code.indexOf('6BIRDSMART') === 0), id = src.id;
       mdGlassEdit(id);
       const set = (i, v) => { document.getElementById(i).value = v; };
@@ -3836,7 +3876,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     t = await page();
     eq('строка поставки заводится через форму', await t.p.evaluate(() => {
-      tab = 'masterdata'; mdTab = 'supply'; mdSheetNew();
+      tab = 'masterdata'; mdTab = 'materials'; mdMatSwitch('glass','glassSheet'); mdSheetNew();
       const set = (id, v) => { document.getElementById(id).value = v; };
       set('md_sheetCode', '6CLEAR'); set('md_sheetSupplier', 'Vitro Barrie'); set('md_sheetCurrency', 'CAD');
       set('md_sheetW', '130'); set('md_sheetH', '96'); set('md_sheetUnit', 'sqft');
@@ -5394,7 +5434,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='masterdata';mdTab='hardware';render();const catalog=cyrillicUi();
       mdHwKindNew();render();const kindForm=cyrillicUi();mdHwKindEdit=null;
       mdHwModelNew();render();const modelForm=cyrillicUi();mdHwModelEdit=null;
-      mdTab='glass';setLang('ru');render();
+      mdTab='materials';setLang('ru');render();
       return editor.concat(custom,catalog,kindForm,modelForm);
     }), []);
     await t.c.close();
@@ -5447,11 +5487,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return [...out];
     }, setup);
     for (const [label, setup] of [
-      ['Catalogues → Works list', "tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatEdit=null;"],
+      ['Catalogues → Works list', "tab='masterdata';mdTab='works';mdCatKind='serviceRate';mdCatEdit=null;"],
       ['Catalogues → Works form', "tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();"],
-      ['Catalogues → Spandrel colours form', "tab='masterdata';mdTab='catalogues';mdCatKind='spandrelColour';mdCatNew();"],
-      ['Catalogues → Stock items list', "tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatEdit=null;"],
-      ['Catalogues → Stock items form', "tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatNew();"],
+      ['Catalogues → Spandrel colours form', "tab='masterdata';mdTab='materials';mdMatSwitch('surface','spandrelColour');mdCatNew();"],
+      ['Catalogues → Stock items list', "tab='masterdata';mdTab='materials';mdMatSwitch('stock','stockItem');mdCatEdit=null;"],
+      ['Catalogues → Stock items form', "tab='masterdata';mdTab='materials';mdMatSwitch('stock','stockItem');mdCatNew();"],
+      /* Экран Master Data перестроен 11 сентября 2026: восемь вкладок стали
+         пятью, а девять справочников — категориями. Общий обход заходит на
+         вкладку по умолчанию, поэтому каждая категория держится здесь своей
+         строкой — иначе повторилась бы утечка, найденная руками. */
+      ['Materials → Glass', "tab='masterdata';mdTab='materials';mdMatSwitch('glass','glassProduct');"],
+      ['Materials → Supply points', "tab='masterdata';mdTab='materials';mdMatSwitch('glass','glassSheet');"],
+      ['Materials → IGU spacers', "tab='masterdata';mdTab='materials';mdMatSwitch('igu','spacerVariant');"],
+      ['Materials → IGU gas', "tab='masterdata';mdTab='materials';mdMatSwitch('igu','gasProduct');"],
+      ['Materials → Lamination', "tab='masterdata';mdTab='materials';mdMatSwitch('lamination','interlayerProduct');"],
+      ['Materials → Surface frit', "tab='masterdata';mdTab='materials';mdMatSwitch('surface','fritProduct');"],
+      ['Works → heat treatment', "tab='masterdata';mdTab='works';mdCatKind='heatTreatment';mdCatEdit=null;"],
+      ['Weight norms', "tab='masterdata';mdTab='weight';"],
+      ['Hardware', "tab='masterdata';mdTab='hardware';"],
       ['Production → Stations form', "tab='production';subtab='stations';stEdit='new';"],
       ['Production → Terminals form', "tab='production';subtab='terminals';tmEdit='new';"],
       ['Sales order → stock & extra items', "tab='sales';subtab=null;render();salesOrderNew();"]
