@@ -68,8 +68,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
    остались только примечания — их пользователь написал в одном языке. */
 const SEED_TEXT=new Set([].concat(
  (DEFAULT.station||[]).map(s=>s.note),
- (DEFAULT.workPosition||[]).map(w=>w.note),
- (DEFAULT.operation||[]).map(o=>o.note)
+ (DEFAULT.serviceRate||[]).map(w=>w.note)
 ).filter(Boolean));
 const raw=s=>{s=String(s??'');
  /* засеянное значение оборачиваем в свой <span>: так оно становится отдельным

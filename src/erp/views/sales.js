@@ -21,7 +21,33 @@ function salesOrderEditor(){
  ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
  <section class="sales-block"><div class="sales-block-head"><div><b>GLASS / IGU MAKEUPS</b><span>Makeups exist only inside this Sales Order</span></div></div>${salesMakeupTabs()}${salesMakeupBuilder()}</section>
  ${salesOrderLines()}
+ ${salesExtraItemsSection()}
  <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}</div>`;
+}
+/* Позиция каталога, а не строка со стеклом: четвёртая кнопка рядом с Single /
+   Double / Triple, которую владелец просил 11 сентября 2026. Отдельная секция,
+   а не колонка в таблице выше — у стоковой двери нет ни Makeup, ни ширины, ни
+   высоты, ни кромки, и пытаться втиснуть её в те же колонки означало бы делать
+   вид, что у неё есть то, чего нет. Деньги при этом идут в тот же Subtotal:
+   salesOrderCommercialTotals уже читает soDraft.extraItems. */
+function salesExtraItemsSection(){
+ const items=soDraft.extraItems||[],candidates=salesExtraItemCandidates(),currency=soDraft.currency||'CAD';
+ const rows=items.map(x=>{
+  const unit=salesExtraItemUnitPrice(x),total=salesExtraItemLineTotal(x);
+  return `<tr>
+   <td><b>${esc(salesExtraItemName(x))}</b></td>
+   <td><input type="number" min="1" step="1" value="${esc(x.qty)}" style="width:64px" onchange="salesExtraItemSetQty('${esc(x.id)}',this.value)"></td>
+   <td><input type="number" min="0" step="0.01" value="${x.priceOverride!=null?x.priceOverride:''}" placeholder="${unit!=null?unit.toFixed(2):'—'}" style="width:88px" onchange="salesExtraItemSetPrice('${esc(x.id)}',this.value)"></td>
+   <td class="mono">${total!=null?total.toFixed(2)+' '+esc(currency):'<span class="mut">Rate required</span>'}</td>
+   <td><button class="sm dl" onclick="salesExtraItemRemove('${esc(x.id)}')">×</button></td>
+  </tr>`;
+ }).join('');
+ const picker=candidates.length
+  ?`<select id="salesExtraPick">${candidates.map(c=>`<option value="${esc(c.table)}|${esc(c.id)}">${esc(c.name)}${c.code?' · '+esc(c.code):''}</option>`).join('')}</select><button class="sm" onclick="const v=document.getElementById('salesExtraPick').value;if(v){const p=v.split('|');salesExtraItemAdd(p[0],p[1]);}">+ Add item</button>`
+  :`<span class="mut">No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.</span>`;
+ return `<section class="sales-block sales-extra-items"><div class="sales-block-head"><div><b>STOCK & EXTRA ITEMS</b><span>Sold as their own line — no glass, no geometry, no route</span></div></div>
+  ${items.length?`<div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:''}
+  <div class="row">${picker}</div></section>`;
 }
 function salesLineShapeCell(l,i){
  const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;

@@ -409,7 +409,22 @@ DEFAULT.glassProduct=glassSeedProducts();
    заменяет справочник заводским, то есть стёр бы все введённые цены. */
 DEFAULT.glassSheet=[];
 
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),active:p.active!==false};}
+/* `sellsAsOwnLine` — 11 сентября 2026, владелец: «нужна опция не только для
+   стоковых дверей, у меня могут быть доп. опции для продажи — возможно, кому-то
+   я должен продать свой рулон EVA». Признак принадлежит МАТЕРИАЛУ, а не
+   категории: у стоковых позиций (`type==='stock'`) он включён по умолчанию, у
+   остальных выключен, но переключить можно любую строку — интерлеер, герметик,
+   газ, фрит, спандрел. `subcategory` осмысленна только у стока (door/kit/
+   consumable) и у остальных типов остаётся пустой строкой. */
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),subcategory:type==='stock'?(SALES_STOCK_SUBCATEGORIES.includes(p.subcategory)?p.subcategory:'consumable'):'',sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false};}
+/* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
+   геометрии и без маршрута. Раздел 3·2 схемы — «сейчас такого нет вообще».
+   Сценарий владельца: заказ из левой фиксированной панели, правой панели и
+   стоковой двери посередине, потому что дверь $80, а такая же кастомная с
+   разницей 1/8″ — $150. Таблица стартует пустой: выдумывать ассортимент
+   владельца нельзя, он заведёт его сам. */
+const SALES_STOCK_SUBCATEGORIES=['door','kit','consumable'];
+DEFAULT.stockItem=[];
 
 DEFAULT.heatTreatment=[
  {id:'HT-AN',name:'Annealed',code:'AN'},{id:'HT-HS',name:'Heat Strengthened',code:'HS'},{id:'HT-FT',name:'Tempered',code:'FT'}
@@ -552,6 +567,24 @@ DEFAULT.spandrelProduct=[
  {id:'SPAN-CERAMIC', name:'Ceramic Spandrel',            code:'SPAN-CER',salePrice:5.00},
  {id:'SPAN-SILICONE',name:'Opaci-Coat · Silicone Spandrel',code:'SPAN-SIL',supplier:'ICD',salePrice:5.00}
 ].map(x=>normalizeSimpleMaterial(x,'spandrel'));
+/* Пять типов свели к двум решением владельца (раздел 5·7): «не нужно разбивать
+   на 5 типов; кастомный цвет должен жить в цветах, это всё ещё Opaci, просто
+   кастомный; краска заказчика — тоже Opaci, только заказчика». В браузере
+   владельца три отменённых id пережили этот переход, потому что `spandrelProduct`
+   намеренно выведен из пересева (см. normalizeMasterData) — и долив по id умеет
+   только добавлять, не снимать отменённое.
+
+   Alias-карта переносит старую ссылку на новый тип и, где смысл старого типа
+   был именно в цвете, подставляет цвет из палитры: SPC-OC-CUSTOM для «свой
+   цвет», SPC-OC-OWN для «краска заказчика». SPAN-OC-STD цвет не трогает — его
+   палитра всегда жила под SPAN-SILICONE, и сохранённый цвет там уже валиден. */
+const SPANDREL_PRODUCT_ALIASES={
+ 'SPAN-OC-STD': {id:'SPAN-SILICONE',colour:null},
+ 'SPAN-OC-CUST':{id:'SPAN-SILICONE',colour:'SPC-OC-CUSTOM'},
+ 'SPAN-BP':     {id:'SPAN-SILICONE',colour:'SPC-OC-OWN'}
+};
+function spandrelProductMigration(id){return SPANDREL_PRODUCT_ALIASES[mdString(id)]||null;}
+function spandrelCanonicalProductId(id){const m=spandrelProductMigration(id);return m?m.id:mdString(id);}
 
 /* Frit = силкскрин, и ассортимент цеха узкий (хендофф, раздел 9л; спецификация
    снята со скриншотов рабочего интерфейса). Здесь стояли выдуманные 'Black',
@@ -636,55 +669,128 @@ const SPANDREL_COLOUR_FAMILIES=['Black','Gray','Blue','Brown','White'];
    Толщинные банды: `6` — до 6 мм включительно, `8-10`, `12-19`. Отверстия
    разложены по диаметру отдельными строками (`hole:0.5-1` и так далее):
    вложенная таблица не редактируется одним экраном, а цена у них своя. */
+/* Строка прайса — это РАБОТА, а не только цена. Станция, момент маршрута и
+   габаритное ограничение живут здесь же: пока станция лежала в отдельной
+   таблице цеха, маршрут и счёт читали разные источники и расходились. Правило
+   владельца 10 сентября 2026 — сводим в одну строку.
+
+   `family` + `appliesBy` / `appliesFrom` / `appliesTo` — диапазон применения.
+   Он нужен работам, чьи полосы не совпадают со стандартными: у фацета это
+   3-8 / 9-15 / 16-19, ни одна не ложится на банды 6 / 8-10 / 12-19. Пустой
+   диапазон означает «применяется всегда» — так живут полировка и нотч. */
 function normalizeServiceRate(r){
  r=r&&typeof r==='object'?r:{};
  const num=v=>{if(v==null||v==='')return null;const n=+v;return isFinite(n)&&n>=0?n:null;};
  const src=r.bands&&typeof r.bands==='object'?r.bands:{};
+ const appliesBy=['thickness','diameter'].includes(r.appliesBy)?r.appliesBy:'';
  return {
   id:mdString(r.id),name:mdString(r.name),unit:mdString(r.unit)||'pc',
   kind:r.kind==='flat'?'flat':'band',
   flat:num(r.flat),
   bands:{'6':num(src['6']),'8-10':num(src['8-10']),'12-19':num(src['12-19'])},
+  /* Станция пустая — законное состояние: у надбавки за фигурную единицу
+     операции в цеху нет вовсе, она чистая цена. */
+  station:mdString(r.station),
+  stage:['pre_temper','heat','post_temper','any'].includes(r.stage)?r.stage:'pre_temper',
+  afterMerge:r.afterMerge===true,
+  family:mdString(r.family),appliesBy:appliesBy,
+  appliesFrom:appliesBy?num(r.appliesFrom):null,
+  appliesTo:appliesBy?num(r.appliesTo):null,
+  /* Габарит: своё ограничение работы, если оно жёстче станции. Пусто — берётся
+     станция. Норма времени пустая означает «не замерено», как у фактической
+     толщины рамки: выдуманная минута тише и опаснее пустой. */
+  maxW:num(r.maxW),maxL:num(r.maxL),
+  minutesPerUnit:num(r.minutesPerUnit),setupMinutes:num(r.setupMinutes),
   note:mdString(r.note),active:r.active!==false
  };
 }
+/* Работа, чей диапазон покрывает значение. Пересечение диапазонов — ошибка
+   данных, и разрешать её здесь нельзя: молча выбранная «первая подходящая»
+   строка означала бы, что цена зависит от порядка в справочнике. Поэтому при
+   пересечении возвращаем null и строка встаёт в счёт как Rate required. */
+function salesWorkForValue(family,value){
+ const v=+value;if(!isFinite(v))return null;
+ const hit=(DB.serviceRate||[]).filter(r=>r&&r.active!==false&&r.family===family&&
+  (r.appliesFrom==null||v>=r.appliesFrom)&&(r.appliesTo==null||v<=r.appliesTo));
+ return hit.length===1?hit[0]:null;
+}
 const SERVICE_RATE_SEED=[
- ['clamp',            'Clamp',                 'pc',  [5,8,10]],
- ['hinge',            'Hinge',                 'pc',  [10,15,20]],
+ /* Четвёртое поле — СТАНЦИЯ. С 11 сентября 2026 работа несёт и станцию, и цену
+    одной строкой: пока станция лежала отдельной таблицей цеха, маршрут и счёт
+    читали разные источники и однажды разошлись бы. Сверловка и ЧПУ — две
+    разные станции, зонтичная FAB упразднена. */
+ ['clamp',            'Clamp',                 'pc',  'DRILL', [5,8,10]],
+ ['hinge',            'Hinge',                 'pc',  'DRILL', [10,15,20]],
  /* Патч — та же петля под другим именем: «патч является тоже петлей, только
     имеет другое название». Цена принадлежит ВИДУ фурнитуры, а не модели. */
- ['patch',            'Patch',                 'pc',  [10,15,20]],
- ['hole:0.5-1',       'Hole 1/2″–1″',          'pc',  [5,6,7]],
- ['hole:1-2',         'Hole 1-1/16″–2″',       'pc',  [6,7,8]],
- ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  [7,8,9]],
- ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  [8,12,15]],
- ['hole:4+',          'Hole over 4″',          'pc',  [10,15,25]],
- ['roughArris',       'Rough Arris',           'in',  [.01,.02,.03]],
- ['flatPolish',       'Flat Polish',           'in',  [.07,.10,.13]],
- ['cncShapePolish',   'CNC Shape Polish',      'in',  [.28,.38,.48]],
- ['miter225',         'Mitering 22.5°',        'in',  [.28,.38,.45]],
+ ['patch',            'Patch',                 'pc',  'DRILL', [10,15,20]],
+ /* Отверстия до 1 3/4" делают ручным сверлом, крупнее — на ЧПУ: свёрл такого
+    размера у цеха нет. Полоса 1-1/16"-2" пересекала этот порог и выключена
+    владельцем 11 сентября — он заведёт её заново сам, разделив по станку. */
+ ['hole:0.5-1',       'Hole 1/2″–1″',          'pc',  'DRILL', [5,6,7]],
+ ['hole:1-2',         'Hole 1-1/16″–2″',       'pc',  'DRILL', [6,7,8],  false],
+ ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  'CNC',   [7,8,9]],
+ ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  'CNC',   [8,12,15]],
+ ['hole:4+',          'Hole over 4″',          'pc',  'CNC',   [10,15,25]],
+ ['roughArris',       'Rough Arris',           'in',  'EDGE',  [.01,.02,.03]],
+ ['flatPolish',       'Flat Polish',           'in',  'EDGE',  [.07,.10,.13]],
+ ['cncShapePolish',   'CNC Shape Polish',      'in',  'EDGE',  [.28,.38,.48]],
+ ['miter225',         'Mitering 22.5°',        'in',  'EDGE',  [.28,.38,.45]],
  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
     Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
     число, а ключи сохранённых заказов не поедут. */
- ['miter45',          'Mitering 45°',          'in',  [.28,.38,.45]],
- ['radiusCorner',     'Radius Corner',         'pc',  [10,12,15]],
- ['notchHand',        'Notch by hand',         'pc',  [10,15,20]],
- ['notchCnc',         'Notch by CNC',          'pc',  [15,20,25]],
- ['cutout',           'Cutout',                'pc',  [15,20,25]],
- ['sandblastFull',    'Simple Sandblasting',   'ft²', [4,4,4]],
- ['sandblastPattern', 'Pattern Sandblasting',  'ft²', [6,6,6]]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],kind:'band',bands:{'6':x[3][0],'8-10':x[3][1],'12-19':x[3][2]}}))
+ ['miter45',          'Mitering 45°',          'in',  'EDGE',  [.28,.38,.45]],
+ ['radiusCorner',     'Radius Corner',         'pc',  'CNC',   [10,12,15]],
+ ['notchHand',        'Notch by hand',         'pc',  'DRILL', [10,15,20]],
+ ['notchCnc',         'Notch by CNC',          'pc',  'CNC',   [15,20,25]],
+ ['cutout',           'Cutout',                'pc',  'CNC',   [15,20,25]],
+ ['sandblastFull',    'Simple Sandblasting',   'ft²', 'SAND',  [4,4,4]],
+ ['sandblastPattern', 'Pattern Sandblasting',  'ft²', 'SAND',  [6,6,6]]
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'band',
+  bands:{'6':x[4][0],'8-10':x[4][1],'12-19':x[4][2]},active:x[5]!==false}))
 /* Ставки, у которых цена одна на любую толщину. Разводить три одинаковые
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
 .concat([
- ['lamiPolish',    'Lami Polish',          'in',  .28,  'Одна ставка на любую толщину склейки'],
- ['cncLamiPolish', 'CNC Lami Polish',      'in',  .28,  'Прайс: POLISH LAMI GLASS'],
- ['muntinSection', 'Muntin section',       'pc',  4.50, 'Считается по ДЕЛЕНИЯМ, а не по длине бара'],
- ['shapeUnit',     'Shape Unit',           'ft²', 1.25, 'Надбавка за фигурную единицу, по billable area'],
- ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 4,    ''],
- ['mirrorSealant', 'Mirror Edge Sealant',  'in',  .07,  'По периметру готового контура, не по площади']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],kind:'flat',flat:x[3],note:x[4]})));
+ ['lamiPolish',    'Lami Polish',          'in',  'EDGE', .28,  'One rate for any laminate thickness',  true],
+ ['cncLamiPolish', 'CNC Lami Polish',      'in',  'EDGE', .28,  'Price list: POLISH LAMI GLASS',        true],
+ ['muntinSection', 'Muntin section',       'pc',  'IGU',  4.50, 'Bars are installed at IGU assembly'],
+ /* Станция пустая намеренно: это надбавка за фигурность юнита, отдельной
+    операции в цеху под неё нет. Владелец 11 сентября: «просто за то, что юнит
+    фигурный и требует дополнительных работ». */
+ ['shapeUnit',     'Shape Unit',           'ft²', '',     1.25, 'Surcharge for a shaped unit, by billable area'],
+ ['mirrorBacker',  'Mirror Safety Backer', 'ft²', 'SAND', 4,    ''],
+ ['mirrorSealant', 'Mirror Edge Sealant',  'in',  'SAND', .07,  'By the finished contour perimeter, not by area']
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:x[2],station:x[3],kind:'flat',flat:x[4],note:x[5],
+  afterMerge:x[6]===true,stage:x[6]===true?'post_temper':'pre_temper'})))
+/* Фацет. Полосы у него СВОИ и не совпадают ни с чьими: прайс владельца даёт
+   3-8 / 10-15 / 13-19, то есть 9 мм не попадало никуда, а 13, 14 и 15 стоили
+   одновременно 0.65 и 1.20. Владелец 11 сентября развёл: «до 15 — 0.65, с 16 —
+   1.20», девятка уходит в верхнюю полосу. Три отдельные строки со своим
+   диапазоном, потому что банды 6 / 8-10 / 12-19 сюда не ложатся. */
+.concat([
+ ['bevel:3-8',  'Beveling 3–8 mm',   0,  8,  .45],
+ ['bevel:9-15', 'Beveling 9–15 mm',  9,  15, .65],
+ ['bevel:16-19','Beveling 16–19 mm', 16, 19, 1.20]
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'EDGE',kind:'flat',flat:x[4],
+  family:'bevel',appliesBy:'thickness',appliesFrom:x[2],appliesTo:x[3]})))
+/* Шаги маршрута, которые не выставляются отдельной строкой в счёт: резка
+   заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в
+   цену изделия. Работами они всё равно являются: у них есть станция и момент
+   маршрута, и без них путь стекла по цеху обрывается. Ставки нет — и это не
+   «цена ноль», а «отдельно не продаётся». */
+.concat([
+ ['cutting',            'Cutting',            'CUT',  'pre_temper'],
+ ['ceramic_frit',       'Ceramic Frit',       'CERP', 'pre_temper'],
+ ['digital_print',      'Digital Print',      'CERP', 'pre_temper'],
+ ['tempering',          'Tempering',          'HEAT', 'heat'],
+ ['heat_strengthening', 'Heat Strengthening', 'HEAT', 'heat'],
+ ['heat_soak',          'Heat Soak',          'HEAT', 'heat'],
+ ['sandblasting',       'Sandblasting',       'SAND', 'any'],
+ ['painting',           'Painting',           'PAINT','any'],
+ ['lamination',         'Lamination',         'LAM',  'post_temper'],
+ ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],kind:'flat',flat:null,unit:'pc'})));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){
@@ -697,9 +803,14 @@ function spandrelColourLabel(c){return c?(c.name+(c.code?' '+c.code:'')):'';}
    'Custom'. Такое значение отдаётся как есть: заказ покажет его нетронутым, и
    человек выберет настоящий цвет сам. Молчаливая подмена «Bronze -> Harmony
    Bronze» была бы выдуманным за цех выбором, а цвет уходит в покраску. */
-function spandrelColourText(value){
+function spandrelColourText(value,note){
  const row=spandrelColourById(value);
- return row?spandrelColourLabel(row):mdString(value);
+ const label=row?spandrelColourLabel(row):mdString(value);
+ const n=mdString(note);
+ /* Заметка показывается только у строк БЕЗ кода производителя: у обычного
+    цвета код уже говорит цеху, что заказывать, и повторное название только
+    путало бы. */
+ return (row&&!row.code&&n)?label+' · '+n:label;
 }
 
 /* --- 5. Нормализация -------------------------------------------------- */
@@ -724,7 +835,7 @@ function normalizeMasterData(){
  /* каталог пересобран — индекс базовых стёкол больше не действителен */
  glassInvalidateNameIndex();
 
- [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel']].forEach(pair=>{
+ [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel'],['stockItem','stock']].forEach(pair=>{
   const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));
   /* Migrate only the old built-in thickness-as-product rows. Custom film
      products remain untouched, while canonical built-ins are added if absent. */
@@ -738,6 +849,9 @@ function normalizeMasterData(){
      ради сохранности его собственных позиций. */
   if(k==='spandrelProduct'||k==='fritProduct'){
    DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
+  }
+  if(k==='spandrelProduct'){
+   DB[k].forEach(x=>{if(x&&spandrelProductMigration(x.id))x.active=false;});
   }
   DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
  });

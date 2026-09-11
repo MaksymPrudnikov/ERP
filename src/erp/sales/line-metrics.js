@@ -67,6 +67,9 @@ function salesApplyOrderCharges(subtotal,raw){
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
  (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
+ /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
+    Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
+ (order&&order.extraItems||[]).forEach(function(x){const t=salesExtraItemLineTotal(x);qty+=salesPositiveInt(x.qty,1);if(t!=null)subtotal+=t;else missing++;});
  const out=salesApplyOrderCharges(subtotal,order&&order.orderCharges);out.complete=!missing;out.missing=missing;out.qty=qty;return out;
 }
 function salesLineCommercialPrice(line,order){

@@ -57,19 +57,41 @@ const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
    name / nameEn лежат ОБА: пользователь заполнил в CSV обе колонки, и
    выбрасывать половину его данных ради словаря i18n незачем. Переключатель
    языка берёт нужную колонку, а не переводит содержимое базы. */
+/* `maxW` / `maxL` — габарит детали, который станция физически принимает. Нужен
+   затем, чтобы расчёт заказа сказал «не влезет» ДО резки, а не цех после неё.
+
+   Засев 144 × 100″ — габарит стандартного листа, то есть «не уже листа».
+   Владелец 11 сентября 2026: «поставь пока ограничения 144х100 на всех
+   станциях, я потом буду править». Это ЗАСЕВ, а не замер: числа из старой
+   таблицы рабочих мест (70×100 у фацета, 60×122 у ЧПУ, 90×150 у печи) сюда не
+   перенесены — они помечены в цеховых данных как «снять габарит» и «проверить»,
+   то есть владельцем не подтверждены. Экран обязан показывать это отличие.
+
+   `sizeMeasured` и есть это отличие: пока он false, габарит — предположение, и
+   подпись «не проверено в цеху» обязана стоять рядом с числом. Иначе засев
+   через месяц станет выглядеть замером, и когда фацет откажется брать деталь
+   80 × 110, никто не поймёт почему — система-то говорила, что влезает. */
+const STATION_SEED_MAX_W=144,STATION_SEED_MAX_L=100;
 DEFAULT.station=[
  {seq:1, code:'CUT',  name:'Резка',                  nameEn:'Cutting',        always:true,  note:'режется только отожжённое стекло'},
- {seq:2, code:'EDGE', name:'Кромка',                 nameEn:'Edge work',      always:false, note:'услуги: arris (machine/hand) · polish · cnc shape polish · miter · lami polish'},
- {seq:3, code:'FAB',  name:'Обработка тела стекла',  nameEn:'Fabrication',    always:false, note:'услуги: hole · notch · cutout · radius · hinge · clamp. Работа по телу стекла, в отличие от EDGE — по периметру'},
- {seq:4, code:'CERP', name:'Силкскрин',              nameEn:'Ceramic paint',  always:false, note:'услуги: ceramic frit (3 узора) · digital ceramic print'},
- {seq:5, code:'HEAT', name:'Термообработка',         nameEn:'Heat treatment', always:false, note:'услуги: tempering · heat strengthening · heat soak. Вся механика до неё'},
- {seq:6, code:'SAND', name:'Пескоструй',             nameEn:'Sandblasting',   always:false, note:'позиция в маршруте зависит от того, есть ли термообработка'},
- {seq:7, code:'PAINT',name:'Покраска',               nameEn:'Painting',       always:false, note:'услуги: opaci-coat standard/custom · backpainting'},
- {seq:8, code:'LAM',  name:'Ламинация',              nameEn:'Lamination',     always:false, note:'lead time 3 дня, у остальных 1. Точка слияния компонентов'},
- {seq:9, code:'IGU',  name:'Сборка стеклопакета',    nameEn:'IGU assembly',   always:false, note:'мойка входит в операцию. Точка слияния компонентов'},
- {seq:10,code:'SHIPR',name:'Готово к отгрузке',      nameEn:'Shipping ready', always:true,  note:''},
- {seq:11,code:'SHIP', name:'Отгрузка',               nameEn:'Shipping',       always:true,  note:'включает монтаж — развести при проектировании отгрузки'}
-];
+ {seq:2, code:'EDGE', name:'Кромка',                 nameEn:'Edge work',      always:false, note:'услуги: arris · polish · cnc shape polish · miter · bevel · lami polish'},
+ {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'петли · клемы · патчи · отверстия до 1 3/4" · ручной нотч. Свёрл крупнее в цеху нет'},
+ {seq:4, code:'CNC',  name:'ЧПУ',                    nameEn:'CNC',            always:false, note:'нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4"'},
+ {seq:5, code:'CERP', name:'Силкскрин',              nameEn:'Ceramic paint',  always:false, note:'услуги: ceramic frit (3 узора) · digital ceramic print'},
+ {seq:6, code:'HEAT', name:'Термообработка',         nameEn:'Heat treatment', always:false, note:'услуги: tempering · heat strengthening · heat soak. Вся механика до неё'},
+ {seq:7, code:'SAND', name:'Пескоструй',             nameEn:'Sandblasting',   always:false, note:'позиция в маршруте зависит от того, есть ли термообработка'},
+ {seq:8, code:'PAINT',name:'Покраска',               nameEn:'Painting',       always:false, note:'услуги: opaci-coat standard/custom · backpainting'},
+ {seq:9, code:'LAM',  name:'Ламинация',              nameEn:'Lamination',     always:false, note:'lead time 3 дня, у остальных 1. Точка слияния компонентов'},
+ {seq:10,code:'IGU',  name:'Сборка стеклопакета',    nameEn:'IGU assembly',   always:false, note:'мойка входит в операцию. Точка слияния компонентов'},
+ {seq:11,code:'SHIPR',name:'Готово к отгрузке',      nameEn:'Shipping ready', always:true,  note:''},
+ {seq:12,code:'SHIP', name:'Отгрузка',               nameEn:'Shipping',       always:true,  note:'включает монтаж — развести при проектировании отгрузки'}
+].map(s=>Object.assign({maxW:STATION_SEED_MAX_W,maxL:STATION_SEED_MAX_L,sizeMeasured:false},s));
+/* Станция FAB упразднена 11 сентября 2026. Она была зонтиком над сверловкой и
+   ЧПУ — «работа по телу стекла», — и в маршруте печаталась одной строкой, из
+   которой цех не понимал, на чём деталь делают. Владелец: «все петли, отверстия,
+   клемы делаются на станции drill», «кроме больших отверстий на CNC». После
+   того как работы разъехались по двум настоящим станциям, у зонтика не осталось
+   ни одной операции. Перенос старых данных — в normalizeShopFloor. */
 
 /* =====================================================================
    2. ОПЕРАЦИИ — что именно делают. Коды взяты из колонки `operations`
@@ -86,87 +108,24 @@ DEFAULT.station=[
        а прайс раздела 9и даёт диапазоны цены по диаметру отверстия).
    Остальные оставлены пустыми намеренно. На единице стоит цена; выдуманная
    единица тише и опаснее пустой, потому что в неё верят. */
-DEFAULT.operation=[
- {code:'cutting',            station:'CUT',  name:'Резка',                        nameEn:'Cutting',                  stage:'pre_temper',  unit:null,  note:''},
- {code:'arris_hand',         station:'EDGE', name:'Притупление ручное',           nameEn:'Manual arrising',          stage:'pre_temper',  unit:'in',  note:'себестоимость иная, чем у машинного, а в счёте позиция одна — RA'},
- {code:'arris_machine',      station:'EDGE', name:'Притупление машинное',         nameEn:'Machine arrising',         stage:'pre_temper',  unit:'in',  note:'себестоимость иная, чем у ручного, а в счёте позиция одна — RA'},
- {code:'polish',             station:'EDGE', name:'Полировка прямой кромки',      nameEn:'Flat polishing',           stage:'pre_temper',  unit:'in',  note:''},
- {code:'miter',              station:'EDGE', name:'Митра',                        nameEn:'Mitering',                 stage:'pre_temper',  unit:'in',  note:''},
- {code:'bevel',              station:'EDGE', name:'Фацет',                        nameEn:'Beveling',                 stage:'pre_temper',  unit:'in',  note:''},
- {code:'cnc_shape_polish',   station:'EDGE', name:'Полировка фигурной кромки',    nameEn:'CNC shape polishing',      stage:'pre_temper',  unit:'in',  note:'кромка, но выполняется на ЧПУ — поэтому рабочее место служит двум станциям'},
- {code:'lami_polish',        station:'EDGE', name:'Полировка кромки ламината',    nameEn:'Lami polishing',           stage:'post_temper', unit:'in',  afterMerge:true, note:'прямая кромка склеенного пакета на ОБЫЧНОМ полировочном станке: его настраивают под толщину пакета и направление. Только ПОСЛЕ склейки'},
- {code:'cnc_lami_polish',    station:'EDGE', name:'Полировка ламината',           nameEn:'CNC lami polishing',       stage:'post_temper', unit:'in',  afterMerge:true, note:'только ПОСЛЕ склейки — то же ЧПУ, другой момент маршрута'},
- {code:'fabrication',        station:'FAB',  name:'Обработка тела стекла',        nameEn:'Fabrication',              stage:'pre_temper',  unit:'pcs', note:'отверстия · ноч · вырезы · радиусы · посадочные места под петли и клемы'},
- {code:'ceramic_frit',       station:'CERP', name:'Керамический фрит',            nameEn:'Ceramic frit',             stage:'pre_temper',  unit:null,  note:'из STATIONS.csv: 3 узора. Рабочего места нет — силкскрин переносится на этапе 5б'},
- {code:'digital_print',      station:'CERP', name:'Цифровая керамическая печать', nameEn:'Digital ceramic print',    stage:'pre_temper',  unit:null,  note:'из STATIONS.csv. Рабочего места нет — силкскрин переносится на этапе 5б'},
- {code:'tempering',          station:'HEAT', name:'Закалка',                      nameEn:'Tempering',                stage:'heat',        unit:null,  note:''},
- {code:'heat_strengthening', station:'HEAT', name:'Термоупрочнение',              nameEn:'Heat strengthening',       stage:'heat',        unit:null,  note:''},
- {code:'heat_soak',          station:'HEAT', name:'Heat soak',                    nameEn:'Heat soak',                stage:'heat',        unit:null,  note:''},
- {code:'sandblasting',       station:'SAND', name:'Пескоструй',                   nameEn:'Sandblasting',             stage:'any',         unit:null,  note:'позиция в маршруте зависит от того, есть ли термообработка'},
- {code:'painting',           station:'PAINT',name:'Покраска',                     nameEn:'Painting',                 stage:'any',         unit:null,  note:'opaci-coat standard/custom · backpainting — разнести на услуги при ценообразовании'},
- {code:'lamination',         station:'LAM',  name:'Ламинация',                    nameEn:'Lamination',               stage:'post_temper', unit:null,  note:'точка слияния компонентов: два L-номера сходятся здесь'},
- {code:'igu_assembly',       station:'IGU',  name:'Сборка стеклопакета',          nameEn:'IGU assembly',             stage:'post_temper', unit:null,  note:'мойка входит в операцию. Точка слияния компонентов'}
-];
+/* Справочники ОПЕРАЦИЙ и РАБОЧИХ МЕСТ удалены 11 сентября 2026.
 
-/* =====================================================================
-   3. РАБОЧИЕ МЕСТА — 22 строки, дословно из templates/WORK_POSITIONS.csv.
-   Подстанций Spil здесь нет ни одной.
+   Операции ушли в работы (erp/masterdata/glass, DB.serviceRate): там у строки
+   есть и станция, и момент маршрута, и цена. Пока таблиц было две, маршрут и
+   счёт читали разные источники — расхождение было вопросом времени.
 
-   `defaultOperator` / `defaultHelper` — это ПРЕФИЛЛ ЭКРАНА, а не назначение
-   человека на станок (9м §3). Сегодняшняя расстановка не должна быть
-   структурой цеха: завтра встанет другой человек, и справочник оборудования
-   править не придётся. Правда о том, кто сделал, приходит со скана и живёт
-   в событии. `helper` заведён потому, что на части мест работают вдвоём.
+   Рабочие места несли ровно две вещи, и обе нашли правильные места. «Кто на
+   нём стоит» — журнал сканов: по разделу 7 хендоффа учётка принадлежит
+   терминалу станции, а человек опознаётся бейджем при действии. «Какой
+   габарит» — ограничение станции (maxW / maxL выше).
 
-   Габариты — рабочее ПОЛЕ, а не корпус станка: печь 90 × 150″ это стол.
-   Модель отвечает на вопрос «влезет ли деталь». 19 позиций из 22 ждут
-   замеров в цеху, и пустой габарит здесь — честное «не измерено», а не ноль.
+   Владелец 11 сентября: «полишинг станция одна, CNC станция одна, и остальные
+   тоже, все станции по одной». Три полировальных станка и трое человек за ними
+   — это один участок, а не три строки справочника.
 
-   `station` — ДОМАШНЯЯ станция места. Полный список станций, которым место
-   служит, НЕ хранится: он выводится из станций его операций (см.
-   workPositionStations). У CNC1 из этого само собой получается FAB + EDGE —
-   ровно то, что пользователь написал в примечании к строке. */
-DEFAULT.workPosition=[
- {code:'CUT1',    station:'CUT',  name:'Резка 1',                  nameEn:'Cutting 1',          kind:'machine',operations:['cutting'],                                             defaultOperator:'squidly',defaultHelper:'ricardo',maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
- {code:'CUT2',    station:'CUT',  name:'Резка 2',                  nameEn:'Cutting 2',          kind:'machine',operations:['cutting'],                                             defaultOperator:'bairon', defaultHelper:'loie',   maxW:null,maxL:null,batchMode:'single',note:'снять рабочее поле стола'},
- {code:'ARRIS-H', station:'EDGE', name:'Притупление ручное',       nameEn:'Manual arrising',    kind:'manual', operations:['arris_hand'],                                          defaultOperator:'jorje',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'станка нет — руки; габарит не нужен'},
- {code:'ARRIS-M', station:'EDGE', name:'Притупление машинное',     nameEn:'Machine arrising',   kind:'machine',operations:['arris_machine'],                                       defaultOperator:'artur',  defaultHelper:'jose',   maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL1',    station:'EDGE', name:'Полировка прямой кромки 1',nameEn:'Flat polishing 1',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL2',    station:'EDGE', name:'Полировка прямой кромки 2',nameEn:'Flat polishing 2',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'djima',  defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'POL3',    station:'EDGE', name:'Полировка прямой кромки 3',nameEn:'Flat polishing 3',   kind:'machine',operations:['polish','lami_polish'],                                              defaultOperator:'huan',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'MITER1',  station:'EDGE', name:'Митра',                    nameEn:'Miter',              kind:'machine',operations:['miter'],                                               defaultOperator:'erik',   defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'снять габарит'},
- {code:'BEVEL1',  station:'EDGE', name:'Фацетный станок',          nameEn:'Beveling',           kind:'machine',operations:['bevel'],                                               defaultOperator:'',       defaultHelper:'',       maxW:70,  maxL:100, batchMode:'single',note:'габарит был известен — проверить'},
- {code:'CNC1',    station:'FAB',  name:'ЧПУ 1',                    nameEn:'CNC 1',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'joseph', defaultHelper:'',       maxW:60,  maxL:122, batchMode:'single',note:'служит ДВУМ станциям: FAB и EDGE. Габарит проверить'},
- {code:'CNC2',    station:'FAB',  name:'ЧПУ 2',                    nameEn:'CNC 2',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'roberto',defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'ОДИНАКОВ ЛИ С CNC1? если нет — маршрут обязан знать'},
- {code:'CNC3',    station:'FAB',  name:'ЧПУ 3',                    nameEn:'CNC 3',              kind:'machine',operations:['fabrication','cnc_shape_polish','cnc_lami_polish'],    defaultOperator:'ron',    defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'ОДИНАКОВ ЛИ С CNC1?'},
- {code:'FURN1',   station:'HEAT', name:'Печь',                     nameEn:'Furnace',            kind:'machine',operations:['tempering','heat_strengthening','heat_soak'],          defaultOperator:'',       defaultHelper:'',       maxW:90,  maxL:150, batchMode:'batch', note:'снять с шильдика ПАСПОРТНЫЙ вес садки — сейчас в модели прикидка ~305 кг'},
- {code:'WASH-T',  station:'HEAT', name:'Мойка у печи',             nameEn:'Washer at furnace',  kind:'machine',operations:[],                                                      defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'не шаг маршрута, но габарит ограничивает деталь — снять'},
- {code:'SAND1',   station:'SAND', name:'Пескоструйная камера',     nameEn:'Sandblasting',       kind:'machine',operations:['sandblasting'],                                        defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ НИ В ОДНОЙ ВЫГРУЗКЕ — завести и снять габарит'},
- {code:'PAINT-S', station:'PAINT',name:'Покраска распылением',     nameEn:'Spray',              kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
- {code:'PAINT-R', station:'PAINT',name:'Покраска валом',           nameEn:'Roller',             kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
- {code:'PAINT-B', station:'PAINT',name:'Покрасочная камера',       nameEn:'Booth',              kind:'machine',operations:['painting'],                                            defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'НЕТ В ВЫГРУЗКАХ — завести'},
- {code:'LAM1',    station:'LAM',  name:'Линия ламинации',          nameEn:'Lamination line',    kind:'machine',operations:['lamination'],                                          defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — завести и снять габарит'},
- {code:'AUTOCL1', station:'LAM',  name:'Автоклав',                 nameEn:'Autoclave',          kind:'machine',operations:['lamination'],                                          defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — работает партиями, снять габарит и вместимость'},
- {code:'IGU1',    station:'IGU',  name:'Линия сборки стеклопакета',nameEn:'IGU line',           kind:'machine',operations:['igu_assembly'],                                        defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'batch', note:'НЕТ В ВЫГРУЗКАХ — завести и снять габарит'},
- {code:'WASH-IGU',station:'IGU',  name:'Мойка на сборке',          nameEn:'Washer at IGU line', kind:'machine',operations:[],                                                      defaultOperator:'',       defaultHelper:'',       maxW:null,maxL:null,batchMode:'single',note:'не шаг маршрута, но габарит ограничивает деталь — снять'}
-];
-
-/* =====================================================================
-   4. ТЕРМИНАЛЫ — экраны сканирования. Таблица заведена ПУСТОЙ, и это не
-   недоделка.
-
-   Про поведение терминала известно всё: оператор сканирует стикер, экран
-   показывает открытые операции ЭТОЙ детали для ЭТОГО места, все отмечены
-   заранее, он снимает галочку с того, чего не делал. Экраны никто не
-   переключает — это условие задачи, а не то, что надо чинить. Главный
-   выигрыш: закрыть операцию, которой нет в маршруте детали, физически
-   невозможно, её просто нет на экране.
-
-   А вот СКОЛЬКО экранов стоит в цеху и какие места висят на каждом —
-   пользователь ещё не называл. Засеять «по одному на станцию» значило бы
-   повторить болезнь подстанций Spil: справочник, распухший выдуманными
-   строками. Пустая таблица с CRUD — честное состояние: модель готова,
-   данные заводятся из цеха. */
+   Вернутся в фазе планирования загрузки: там понадобятся объекты с садкой и
+   вместимостью — печь и автоклав. Заводить их сейчас, за полгода до нужды,
+   значило бы повторить болезнь, от которой мы лечимся. */
 DEFAULT.terminal=[];
 
 /* Припуск на рез — цеховой факт про съём материала станком, поэтому таблица
@@ -191,65 +150,11 @@ function normalizeEdgeAllowance(){
 /* ---------------------------------------------------------------------
    Выведенные связи. Ничего не хранят — считают из уже введённого.
    --------------------------------------------------------------------- */
-/* Станции, которым служит рабочее место. НЕ отдельное поле: у CNC1 оно само
-   даёт FAB + EDGE из его операций, и второй источник правды не заводится. */
-function workPositionStations(wp){
- if(!wp||!Array.isArray(wp.operations))return [];
- const seen=Object.create(null),out=[];
- (wp.station?[wp.station]:[]).concat(wp.operations.map(c=>{
-   const op=DB.operation.find(o=>o.code===c);return op?op.station:'';
- })).forEach(code=>{if(code&&!seen[code]){seen[code]=true;out.push(code);}});
- return out.sort((a,b)=>stationSeq(a)-stationSeq(b));
-}
 function stationSeq(code){const s=DB.station.find(x=>x.code===code);return s?s.seq:999;}
-/* Рабочие места станции — по операциям, а не по домашнему полю: иначе CNC1
-   не попал бы в EDGE, хотя фигурную кромку полируют именно на нём. */
-function stationWorkPositions(code){return DB.workPosition.filter(w=>workPositionStations(w).includes(code));}
-function stationOperations(code){return DB.operation.filter(o=>o.station===code);}
-/* Операция без рабочего места — не ошибка, а видимый пробел: силкскрин ещё
-   не перенесён, отгрузка ещё не спроектирована. */
-function operationWorkPositions(code){return DB.workPosition.filter(w=>(w.operations||[]).includes(code));}
-/* Рабочие места, которые ЖДУТ ЗАМЕРОВ. Не то же самое, что «без габарита»:
-   у ручного места габарита нет и не будет — там руки, а не станок, и считать
-   его недостающим замером значит вечно показывать долг, который никто не
-   закроет. Определение одно на всю систему, чтобы экраны не спорили друг с
-   другом о числе. */
-function workPositionsAwaitingSize(){
- return DB.workPosition.filter(function(w){return w.maxW==null&&w.kind!=='manual';});
-}
-/* Станции, которые терминал в принципе может закрывать. Это СПРАВКА для
-   экрана, а не право: ключом шага маршрута терминал не бывает никогда. */
-function terminalStations(t){
- const seen=Object.create(null),out=[];
- ((t&&t.workPositions)||[]).forEach(code=>{
-  const wp=DB.workPosition.find(w=>w.code===code);
-  if(wp)workPositionStations(wp).forEach(s=>{if(!seen[s]){seen[s]=true;out.push(s);}});
- });
- return out.sort((a,b)=>stationSeq(a)-stationSeq(b));
-}
+/* Работы станции. Единственная выведенная связь, которая осталась: всё
+   остальное держалось на рабочих местах. */
+function stationOperations(code){return (DB.serviceRate||[]).filter(w=>w&&w.station===code);}
 
-/* ---------------------------------------------------------------------
-   Нормализация. Идёт ДО normalizeUsers: пользователь ссылается на рабочее
-   место, и проверять ссылку не на чем, пока места не приведены в порядок.
-
-   Устойчивость здесь обязательна, а не желательна. В браузере пользователя
-   под ключом `station` лежат СТАНКИ старой модели (CUT1, EDGE1, CNC1…), и
-   этот код увидит их раньше, чем пересев успеет заменить таблицу
-   заводской. Ронять загрузку он при этом не имеет права — иначе до пересева
-   дело не дойдёт вообще.
-   --------------------------------------------------------------------- */
-function reseedEdgeAllowance(){
- const factory=ShapeModule.allowanceDefaults(),have=Array.isArray(DB.edgeAllowance)?DB.edgeAllowance:[];
- const mine=Object.create(null);have.forEach(r=>{if(r&&r.id)mine[r.id]=r;});
- const out=[],seen=Object.create(null);
- factory.forEach(f=>{
-  seen[f.id]=true;
-  const was=mine[f.id];
-  out.push(was&&was.allowance!=null?Object.assign({},f,{allowance:String(was.allowance)}):Object.assign({},f));
- });
- have.forEach(r=>{if(r&&r.id&&!seen[r.id])out.push(r);});
- DB.edgeAllowance=out;
-}
 function normalizeShopFloor(){
  normalizeEdgeAllowance();
  const seen=Object.create(null);
@@ -258,67 +163,24 @@ function normalizeShopFloor(){
   const code=sfCode(s.code);if(!code||seen[code])return false;seen[code]=true;return true;
  }).map((s,i)=>{
   const seq=Number.isInteger(+s.seq)&&+s.seq>0?+s.seq:i+1;
-  return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,note:sfStr(s.note)};
+  /* Габарит: положительное число либо null. Ноль и мусор становятся null, то
+     есть «не задано», а не «станция ничего не принимает» — нулевое ограничение
+     запретило бы вообще всё и выглядело бы как поломка расчёта. */
+  const dim=v=>{const n=+v;return isFinite(n)&&n>0?n:null;};
+  return {seq,code:sfCode(s.code),name:sfStr(s.name),nameEn:sfStr(s.nameEn),always:s.always===true,
+   maxW:dim(s.maxW),maxL:dim(s.maxL),sizeMeasured:s.sizeMeasured===true,note:sfStr(s.note)};
  }).sort((a,b)=>a.seq-b.seq);
-
- const opSeen=Object.create(null);
- DB.operation=(Array.isArray(DB.operation)?DB.operation:[]).filter(o=>{
-  if(!o||typeof o!=='object')return false;
-  const code=sfStr(o.code).toLowerCase();if(!code||opSeen[code])return false;opSeen[code]=true;return true;
- }).map(o=>{
-  const station=sfCode(o.station);
-  return {
-   code:sfStr(o.code).toLowerCase(),
-   /* операция без своей станции — сирота, а не ошибка данных: станцию могли
-      удалить. Пустая ссылка видна на экране, выдуманная — нет. */
-   station:DB.station.some(s=>s.code===station)?station:'',
-   name:sfStr(o.name),nameEn:sfStr(o.nameEn),
-   stage:SF_STAGES.includes(o.stage)?o.stage:'any',
-   unit:SF_UNITS.includes(o.unit)?o.unit:null,
-   /* «После склейки» — не то же самое, что «после печи»: ламинация и сборка
-      пакета тоже post_temper, но по другой причине. Отдельный признак говорит
-      маршруту, что операция идёт ПОСЛЕ точки слияния компонентов. Без него в
-      этом белом списке поле стиралось бы при каждой загрузке, и маршрут
-      ломался бы только у пользователя, а не в тестах на заводских данных. */
-   afterMerge:o.afterMerge===true,
-   note:sfStr(o.note)
-  };
- });
-
- const wpSeen=Object.create(null);
- DB.workPosition=(Array.isArray(DB.workPosition)?DB.workPosition:[]).filter(w=>{
-  if(!w||typeof w!=='object')return false;
-  const code=sfCode(w.code);if(!code||wpSeen[code])return false;wpSeen[code]=true;return true;
- }).map(w=>{
-  const station=sfCode(w.station),opSet=Object.create(null);
-  const maxW=sfNum(w.maxW),maxL=sfNum(w.maxL);
-  return {
-   code:sfCode(w.code),
-   station:DB.station.some(s=>s.code===station)?station:'',
-   name:sfStr(w.name),nameEn:sfStr(w.nameEn),
-   kind:SF_KINDS.includes(w.kind)?w.kind:'machine',
-   operations:(Array.isArray(w.operations)?w.operations:[]).map(c=>sfStr(c).toLowerCase())
-     .filter(c=>c&&DB.operation.some(o=>o.code===c)&&!opSet[c]&&(opSet[c]=true)),
-   defaultOperator:sfStr(w.defaultOperator),defaultHelper:sfStr(w.defaultHelper),
-   /* габарит принимается только парой: одна сторона без второй не отвечает
-      на вопрос «влезет ли деталь», а выглядит как заполненная строка */
-   maxW:(maxW!=null&&maxL!=null)?maxW:null,
-   maxL:(maxW!=null&&maxL!=null)?maxL:null,
-   batchMode:SF_BATCH_MODES.includes(w.batchMode)?w.batchMode:'single',
-   note:sfStr(w.note)
-  };
- });
 
  const tSeen=Object.create(null);
  DB.terminal=(Array.isArray(DB.terminal)?DB.terminal:[]).filter(t=>{
   if(!t||typeof t!=='object')return false;
   const code=sfCode(t.code);if(!code||tSeen[code])return false;tSeen[code]=true;return true;
  }).map(t=>{
-  const wpSet=Object.create(null);
+  const stSet=Object.create(null);
   return {
    code:sfCode(t.code),name:sfStr(t.name),nameEn:sfStr(t.nameEn),
-   workPositions:(Array.isArray(t.workPositions)?t.workPositions:[]).map(sfCode)
-     .filter(c=>c&&DB.workPosition.some(w=>w.code===c)&&!wpSet[c]&&(wpSet[c]=true)),
+   stations:(Array.isArray(t.stations)?t.stations:[]).map(sfCode)
+     .filter(c=>c&&DB.station.some(x=>x.code===c)&&!stSet[c]&&(stSet[c]=true)),
    note:sfStr(t.note)
   };
  });
@@ -386,46 +248,6 @@ function importStationsCsv(text){
   rep.accepted++;
  });
  DB.station.forEach(s=>{if(!inFile[s.code])rep.missing.push(s.code);});
- normalizeShopFloor();
- return rep;
-}
-
-/* Импорт WORK_POSITIONS.csv. Здесь же приезжают габариты, которых ждёт
-   `check_route_fits()` этапа 7·2. Пустой габарит в файле означает «ещё не
-   замерили» и стирает прежнее значение только вместе с парной стороной —
-   половина габарита хуже, чем его отсутствие. */
-function importWorkPositionsCsv(text){
- const {header,rows}=parseCsv(text),rep=sfReport();
- if(!header.includes('code')||!header.includes('station'))
-  {sfReject(rep,0,'','файл не похож на WORK_POSITIONS.csv: нет колонок code и station');return rep;}
- const inFile=Object.create(null);
- rows.forEach((r,n)=>{
-  const line=n+2,code=sfCode(r.code);
-  if(!code)return sfReject(rep,line,'','пустой код');
-  if(!SF_CODE_RE.test(code))return sfReject(rep,line,code,'код: только A–Z, 0–9, дефис и подчёркивание');
-  if(inFile[code])return sfReject(rep,line,code,'код повторяется в файле');
-  const station=sfCode(r.station);
-  if(!DB.station.some(s=>s.code===station))return sfReject(rep,line,code,'станции '+(station||'—')+' нет в справочнике');
-  const ops=sfStr(r.operations).split(/[,;]/).map(x=>sfStr(x).toLowerCase()).filter(Boolean);
-  const unknown=ops.filter(c=>!DB.operation.some(o=>o.code===c));
-  if(unknown.length)return sfReject(rep,line,code,'неизвестные операции: '+unknown.join(', '));
-  const kind=sfStr(r.kind).toLowerCase()||'machine';
-  if(!SF_KINDS.includes(kind))return sfReject(rep,line,code,'kind: ожидается machine или manual');
-  const batchMode=sfStr(r.batch_mode).toLowerCase()||'single';
-  if(!SF_BATCH_MODES.includes(batchMode))return sfReject(rep,line,code,'batch_mode: ожидается single или batch');
-  const maxW=sfNum(r.max_w_in),maxL=sfNum(r.max_l_in);
-  if((maxW==null)!==(maxL==null))return sfReject(rep,line,code,'габарит заполняется парой: max_w_in и max_l_in');
-  inFile[code]=true;
-  const seenOp=Object.create(null);
-  const next={code,station,name:sfStr(r.name_ru),nameEn:sfStr(r.name_en),kind,
-   operations:ops.filter(c=>!seenOp[c]&&(seenOp[c]=true)),
-   defaultOperator:sfStr(r.default_operator),defaultHelper:sfStr(r.default_helper),
-   maxW,maxL,batchMode,note:sfStr(r.note)};
-  const at=DB.workPosition.findIndex(w=>w.code===code);
-  if(at<0){DB.workPosition.push(next);rep.added++;}else{Object.assign(DB.workPosition[at],next);rep.updated++;}
-  rep.accepted++;
- });
- DB.workPosition.forEach(w=>{if(!inFile[w.code])rep.missing.push(w.code);});
  normalizeShopFloor();
  return rep;
 }

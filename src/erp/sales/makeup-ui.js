@@ -127,7 +127,7 @@ function salesPaneProductSummary(p,index){
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
  const g=glassProductById(p.glassProductId),ht=mdById('heatTreatment',p.heatTreatmentId),bits=[g?(g.code||g.name):'Glass'];
- if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
+ if(p.category==='spandrel'){const col=spandrelColourText(p.spandrel.color,p.spandrel.colorNote);bits.push('Spandrel'+(col?' '+col:''));if(p.spandrel.surface)bits.push('#'+p.spandrel.surface);}
  else if(p.visionType==='frit'){bits.push('Frit'+(p.frit.color?' '+p.frit.color:''));if(p.frit.surface)bits.push('#'+p.frit.surface);}
  else if(p.visionType==='lowe'||p.visionType==='reflective'){bits.push(salesVisionTypeLabel(p.visionType));if(p.coatingSurface)bits.push('#'+p.coatingSurface);}
  if(ht&&ht.code!=='AN')bits.push(ht.code+(p.heatSoak&&ht.code==='FT'?' + HST':''));return bits.join(' · ');
@@ -243,7 +243,16 @@ function salesVisionFieldsSafe(p,index){
 function salesSpandrelFields(p,index){
  const rows=salesBaseGlassCandidates(p);
  return `<div class="mu-field-grid mu-field-grid-6">${salesManufacturerField(p,index)}${salesThicknessField(p,index)}<div><label>Base Glass</label><select onchange="salesPaneSetProduct(${index},this.value)">${salesGlassProductOptions(rows,p.glassProductId)}</select>${salesGlassMetaFor(p.glassProductId)}</div><div><label>Type</label><select onchange="salesPaneSetSpandrel(${index},'productId',this.value)">${salesSimpleOptions('spandrelProduct',p.spandrel.productId)}</select></div>${salesHeatFieldChecked(p,index)}${salesLitePriceField(p,index)}</div>
-  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color,p.spandrel.productId)}</select></div>${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+  <div class="mu-coating-grid mu-second-row"><div><label>Colour</label><select onchange="salesPaneSetSpandrel(${index},'color',this.value)">${salesSpandrelColourOptions(p.spandrel.color,p.spandrel.productId)}</select></div>${salesSpandrelCustomColourField(p,index)}${(()=>{const nums=salesPaneSurfaces(index);return `<div class="mu-surface"><label>Spandrel Surface</label><div class="mu-surface-buttons">${nums.map(n=>`<button type="button" class="${+p.spandrel.surface===n?'on':''}" onclick="salesPaneSetSpandrel(${index},'surface',${n})">#${n}</button>`).join('')}</div></div>`;})()}</div>`;
+}
+/* Custom Colour, Customer's Own Paint и керамический Custom — строки палитры
+   БЕЗ кода производителя: выбрать их можно, а вписать фактическое название
+   или код было негде, и в цех уезжало буквально слово «Custom Colour». Поле
+   появляется только для таких строк — у обычного цвета код уже всё говорит. */
+function salesSpandrelCustomColourField(p,index){
+ const row=spandrelColourById(p.spandrel.color);
+ if(!row||row.code)return '';
+ return `<div><label>Custom colour name</label><input maxlength="60" value="${esc(p.spandrel.colorNote||'')}" placeholder="Name the colour or paint" oninput="salesPaneSetSpandrel(${index},'colorNote',this.value)"><small>Goes on the route sheet — the shop needs this to know what to mix.</small></div>`;
 }
 /* Плита ламината описывается тем же рядом, что обычный лайт: производитель,
    толщина, стекло, тип, термообработка, цена. У ламината таких плит две, и цена

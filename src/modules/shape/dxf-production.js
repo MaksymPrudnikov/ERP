@@ -247,13 +247,13 @@ function shapeDxfRequirements(def){
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeHoleOperation(item),stationClass:'DRILLING',manufacturingItemId:item.id,params:shapeHoleRequirementParams(item,dia)});
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeHoleOperation(item,dia),stationClass:shapeHoleStationClass(dia),manufacturingItemId:item.id,params:shapeHoleRequirementParams(item,dia)});
     }else{
       req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeMiOperationName(item.type),stationClass:'SERVICE',manufacturingItemId:item.id,params:{edgeId:item.edgeId||'',distance:item.distance,model:item.model||''}});
     }
   });
-  (def.features||[]).filter(function(f){return f.type==='sandblast';}).forEach(function(s){
-    req.push({id:'SANDBLAST:'+s.id,source:'MANUFACTURING',operation:shapeSandblastServiceLabel(s),stationClass:'SAND',featureId:s.id,params:{coverage:shapeSandblastCoverage(s),side:shapeSandblastSide(s)}});
+  (def.features||[]).filter(function(f){return shapeIsPointMark(f)&&f.type!=='stamp';}).forEach(function(s){
+    req.push({id:'SURFACE:'+s.id,source:'MANUFACTURING',operation:shapeSurfaceMarkLabel(s),stationClass:'SAND',featureId:s.id,params:{coverage:s.type==='sandblast'?shapeSandblastCoverage(s):'',side:s.type==='mirrorsealant'?'':(s.type==='sandblast'?shapeSandblastSide(s):shapeMirrorSide(s))}});
   });
   return req;
 }
@@ -346,7 +346,15 @@ function shapeDxfProductionResult(source){
   var cutting=shapeDxfCuttingPlan(def),points=preview.points||[],width=preview.width16/16,height=preview.height16/16,area=Math.abs(fabSignedArea(points)),edges=shapeDxfPhysicalEdges(def),requirements=shapeDxfRequirements(def);
   if(!cutting.valid)return {valid:false,sourceValid:true,reason:cutting.error,errors:cutting.errors||[cutting.error],warns:(sv.warns||[]).concat(cutting.warns||[]),definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,requirements:requirements,cutting:cutting};
   var stamps=(def.features||[]).filter(function(f){return f.type==='stamp';}).map(function(f){return {id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};});
-  var sandblasts=(def.features||[]).filter(function(f){return f.type==='sandblast';}).map(function(f){return {id:f.id,type:'sandblast',point:[inch(f.x),inch(f.y)],coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f),text:shapeSandblastText(f),source:f};});
+  /* Тот же общий список меток по телу стекла, что и у геометрии конфигуратора
+     (shapeFeatureGeometry): подпись зеркальной позиции рисуется из него. */
+  var sandblasts=(def.features||[]).filter(function(f){return shapeIsPointMark(f)&&f.type!=='stamp';}).map(function(f){
+    var mirror=f.type!=='sandblast';
+    return {id:f.id,type:f.type,point:[inch(f.x),inch(f.y)],
+      coverage:mirror?'':shapeSandblastCoverage(f),
+      side:f.type==='mirrorsealant'?'':(mirror?shapeMirrorSide(f):shapeSandblastSide(f)),
+      text:shapeSurfaceMarkLabel(f).toUpperCase(),source:f};
+  });
   return {valid:true,sourceValid:true,reason:'',errors:[],warns:sv.warns||[],definition:def,fingerprint:fingerprint,width:width,height:height,points:points,area:area,grossArea:area,billableArea:width*height,perimeter:fabPolylineLength(points,true),edges:edges,segs:edges,vertices:[],geometry:{ok:true,points:points,edges:edges,vertices:[],bboxW:width,bboxH:height},featureGeometry:{holes:cutting.holes,cutouts:[],hardware:[],stamps:stamps,sandblasts:sandblasts,radii:[],all:stamps.concat(sandblasts)},requirements:requirements,cutting:cutting};
 }
 

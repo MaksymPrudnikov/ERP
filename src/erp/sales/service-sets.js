@@ -465,7 +465,16 @@ function salesEdgeChargeMetaForServiceSet(op,ctx){
      Ключ строки по-прежнему выводится из угла, поэтому сохранённые заказы с
      miter22_5 читаются без миграции. */
   else if(op.type==='Mitering'){id='miter'+String(op.angle||45).replace('.','_');label='Mitering '+(op.angle||45)+'°';rate=salesCatalogRate(+op.angle===22.5?'miter225':'miter45',ctx);}
-  else if(op.type==='Beveling'){id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');rate=null;}
+  /* Фацет тарифицируется с 11 сентября 2026. Полосы у него свои — 3-8 / 9-15 /
+     16-19, — и ни одна не ложится на банды 6 / 8-10 / 12-19, поэтому строка
+     ищется ДИАПАЗОНОМ по толщине, а не ключом полосы. Ширина фацета остаётся в
+     подписи и в ключе начисления: по нему сохранённый заказ находит свою
+     ручную правку ставки. */
+  else if(op.type==='Beveling'){
+    id='bevel:'+String(op.width||'');label='Beveling '+String(op.width||'');
+    var bevelWork=ctx&&ctx.ok?salesWorkForValue('bevel',ctx.thickness):null;
+    rate=bevelWork?bevelWork.flat:null;
+  }
   else return null;
   return {id:id,label:label,rate:rate,bandKey:salesRateBandKey(id,ctx)};
 }

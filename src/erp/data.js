@@ -64,10 +64,15 @@ function normalizeUsers(){
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
   u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(u.role)?u.role:SAFE_DEFAULT_ROLE;
-  const legacy=u.workPosition==null?u.station:u.workPosition;
+  /* Человек привязан к СТАНЦИИ, а не к станку: рабочие места удалены
+     11 сентября 2026, а по разделу 7 хендоффа учётка вообще принадлежит
+     терминалу станции — конкретный оператор опознаётся бейджем при действии.
+     Старый код места читаем как есть: коды станков и станций не пересекаются,
+     и несуществующий просто обнулится. */
+  const legacy=u.station==null?u.workPosition:u.station;
   const code=String(legacy==null?'':legacy).trim().toUpperCase();
-  u.workPosition=DB.workPosition.some(w=>w.code===code)?code:'';
-  delete u.station;
+  u.station=DB.station.some(s=>s.code===code)?code:'';
+  delete u.workPosition;
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
  });
 }
@@ -104,7 +109,7 @@ function normalizeUsers(){
    этого доливаются по id в normalizeMasterData.
 
    Палитры `spandrelColour` здесь нет по той же причине и с рождения. */
-const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct'];
+const REFERENCE_TABLES=['station','terminal','glassProduct','heatTreatment','spacerVariant','gasProduct','sealantProduct','interlayerProduct'];
 /* 2 → 3: у сохранённых данных под ключом `station` лежат СТАНКИ прежней
    модели. Пересев меняет там смысл таблицы, а не только её содержимое,
    поэтому версия обязана подняться — иначе браузер пользователя навсегда
@@ -144,7 +149,16 @@ const REFERENCE_TABLES=['station','operation','workPosition','terminal','glassPr
    справочнике: «3,1 для всего фрита делай 5, я указал с головы». Заодно
    `fritProduct` и `spandrelProduct` выведены из пересева насовсем, а цифровая
    печать выключена: «пока не работает». */
-const REFERENCE_VERSION=8;
+/* 8 → 9: станция `FAB` упразднена, вместо неё DRILL и CNC; операция
+   `fabrication` распущена на семь настоящих работ; `arris_hand` и
+   `arris_machine` сведены в одну `arris`. Станции получили габаритное
+   ограничение — засев 144 × 100″ по решению владельца, замер за ним.
+
+   Версия обязана подняться: у сохранённого браузера в `station` лежит FAB, а в
+   `operation` — коды, которых в коде больше нет. Пересев заменяет эти таблицы
+   заводскими целиком, и это здесь правильно: станции и операции владелец руками
+   не заводил, в отличие от цен и габаритов, которые пересев бережёт отдельно. */
+const REFERENCE_VERSION=9;
 let referenceReseeded=false;
 /* Версия справочников обязана быть целым числом: из руками правленного JSON
    она приезжала строкой или мусором, и сравнение `have>=REFERENCE_VERSION`
@@ -164,14 +178,15 @@ function reseedReferenceTables(hadSaved){
     они пустые. Пересев меняет СОСТАВ таблицы, но введённое стирать нельзя: это
     ровно та причина, по которой glassSheet вообще не пересевается. Ключ — id
     рамки, поэтому правка переживает и добавление новых позиций. */
- /* Габариты рабочих мест снимают в цеху рулеткой, заводскими данными они
-    пустые. Пересев меняет СОСТАВ таблицы, но снятое стирать нельзя — та же
-    причина, что у толщин рамок ниже. Ключ — код места. */
- const keptPositionSize={};
- (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
-  if(!x||!x.code)return;
+ /* Габариты станций снимают в цеху рулеткой. Пересев меняет СОСТАВ таблицы,
+    но снятое стирать нельзя — та же причина, что у толщин рамок ниже. Ключ —
+    код станции. Засев переживает пересев только вместе с пометкой о замере:
+    непроверенное число возвращать незачем, его вернёт сам засев. */
+ const keptStationSize={};
+ (Array.isArray(DB.station)?DB.station:[]).forEach(x=>{
+  if(!x||!x.code||x.sizeMeasured!==true)return;
   const w=+x.maxW,l=+x.maxL;
-  if(isFinite(w)&&w>0||isFinite(l)&&l>0)keptPositionSize[x.code]={maxW:isFinite(w)&&w>0?w:null,maxL:isFinite(l)&&l>0?l:null};
+  if(isFinite(w)&&w>0||isFinite(l)&&l>0)keptStationSize[x.code]={maxW:isFinite(w)&&w>0?w:null,maxL:isFinite(l)&&l>0?l:null};
  });
  const keptSpacerMm={};
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{
@@ -186,10 +201,11 @@ function reseedReferenceTables(hadSaved){
     принадлежит цеху и переживает пересев. */
  if(typeof reseedEdgeAllowance==='function'){reseedEdgeAllowance();done.push('edgeAllowance');}
  (Array.isArray(DB.spacerVariant)?DB.spacerVariant:[]).forEach(x=>{if(x&&keptSpacerMm[x.id]!=null)x.thicknessMm=keptSpacerMm[x.id];});
- (Array.isArray(DB.workPosition)?DB.workPosition:[]).forEach(x=>{
-  const kept=x&&keptPositionSize[x.code];if(!kept)return;
+ (Array.isArray(DB.station)?DB.station:[]).forEach(x=>{
+  const kept=x&&keptStationSize[x.code];if(!kept)return;
   if(kept.maxW!=null)x.maxW=kept.maxW;
   if(kept.maxL!=null)x.maxL=kept.maxL;
+  x.sizeMeasured=true;
  });
  /* Разовая правка выдуманной цены. Фрит из REFERENCE_TABLES выведен, поэтому
     пересев его не заменяет — но один раз, при подъёме версии, подменить
@@ -250,9 +266,9 @@ function salesSkillCards(){
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Продажи',workPosition:'',skills:[]},
- {name:'Demo Accounting',role:'Бухгалтер',workPosition:'',skills:[]},
- {name:'Demo Owner',role:'Владелец',workPosition:'',skills:[]}
+ {name:'Demo Sales',role:'Продажи',station:'',skills:[]},
+ {name:'Demo Accounting',role:'Бухгалтер',station:'',skills:[]},
+ {name:'Demo Owner',role:'Владелец',station:'',skills:[]}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому

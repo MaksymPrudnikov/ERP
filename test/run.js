@@ -1678,59 +1678,58 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        где делают, operation — что делают, terminal — чем сканируют. */
     t = await page();
     eq('четыре справочника цеха заведены и разведены', await t.p.evaluate(() => [
-      DB.station.length, DB.operation.length, DB.workPosition.length, DB.terminal.length, DB.level === undefined
-    ]), [11, 19, 22, 0, true]);
+      DB.station.length, DB.terminal.length, DB.operation === undefined, DB.workPosition === undefined, DB.level === undefined
+    ]), [12, 0, true, true, true]);
     eq('станции идут по порядку, всегда проходятся только три', await t.p.evaluate(() => [
       DB.station.map(s => s.seq), DB.station.filter(s => s.always).map(s => s.code)
-    ]), [[1,2,3,4,5,6,7,8,9,10,11], ['CUT','SHIPR','SHIP']]);
+    ]), [[1,2,3,4,5,6,7,8,9,10,11,12], ['CUT','SHIPR','SHIP']]);
+    /* Станция FAB упразднена 11 сентября 2026: зонтик над сверловкой и ЧПУ не
+       говорил цеху, на чём делают деталь. Проверяем именно отсутствие — иначе
+       она тихо вернётся с чьим-нибудь сохранённым localStorage. */
+    eq('FAB упразднена, вместо неё DRILL и CNC', await t.p.evaluate(() => [
+      DB.station.some(s => s.code === 'FAB'),
+      DB.station.some(s => s.code === 'DRILL'),
+      DB.station.some(s => s.code === 'CNC')
+    ]), [false, true, true]);
+    /* Арисинг один: руками или на станке решает цех, цена одна, продажа этой
+       разницы не видит. Две операции делили работу по невидимому признаку. */
+    eq('аррисинг одной операцией', await t.p.evaluate(() =>
+      (DB.serviceRate || []).filter(w => w.name.toLowerCase().indexOf('arris') >= 0).map(w => w.id)
+    ), ['roughArris']);
+    /* Габарит станции: засев 144 × 100, и он ПОМЕЧЕН как непроверенный. Без
+       пометки непроверенное число через месяц выглядит замером. */
+    eq('габарит станций засеян и помечен как незамеренный', await t.p.evaluate(() => [
+      DB.station.every(s => s.maxW === 144 && s.maxL === 100),
+      DB.station.some(s => s.sizeMeasured === true)
+    ]), [true, false]);
     await t.c.close();
 
-    /* Ключевая проверка модели: место служит двум станциям, и это ВЫВЕДЕНО из
-       его операций, а не записано второй колонкой. Второго источника правды нет. */
+    /* Работа несёт станцию сама. Второй таблицы, которая знала бы то же самое,
+       больше нет — расходиться нечему. */
     t = await page();
-    eq('ЧПУ служит двум станциям — выведено из операций', await t.p.evaluate(() => {
-      const c = DB.workPosition.find(w => w.code === 'CNC1');
-      return [workPositionStations(c), stationWorkPositions('EDGE').some(w => w.code === 'CNC1')];
-    }), [['EDGE','FAB'], true]);
-    /* stage принадлежит ОПЕРАЦИИ, а не станку: на одном ЧПУ отверстия обязаны
-       быть до печи, а полировка ламината — после. Держи это на станке — и третий
+    eq('станция знает свои работы, а работа свою станцию', await t.p.evaluate(() => {
+      const cnc = (DB.serviceRate || []).filter(w => w.station === 'CNC').map(w => w.id);
+      const drill = (DB.serviceRate || []).filter(w => w.station === 'DRILL').map(w => w.id);
+      return [cnc.includes('notchCnc'), cnc.includes('cutout'), drill.includes('hinge'), drill.includes('notchHand')];
+    }), [true, true, true, true]);
+    /* Момент маршрута принадлежит РАБОТЕ: на одном ЧПУ отверстия обязаны быть
+       до печи, а полировка ламината — после. Держи это на станке — и третий
        визит детали затрёт первый, ровно как у Spil. */
-    eq('до/после печи — свойство операции, а не станка', await t.p.evaluate(() =>
-      ['fabrication','cnc_shape_polish','cnc_lami_polish','lami_polish'].map(c => DB.operation.find(o => o.code === c).stage)
-    ), ['pre_temper','pre_temper','post_temper','post_temper']);
+    eq('до/после печи — свойство работы', await t.p.evaluate(() =>
+      ['cncShapePolish','cncLamiPolish','lamination','tempering'].map(c => (DB.serviceRate || []).find(w => w.id === c).stage)
+    ), ['pre_temper','post_temper','post_temper','heat']);
     /* «После склейки» — не то же, что «после печи»: ламинация и сборка пакета
-       тоже post_temper, но по другой причине. Признак отдельный, и он обязан
-       пережить нормализацию — она пересобирает операцию по белому списку. */
+       тоже post_temper, но по другой причине. Признак отдельный. */
     eq('полировка склеенной кромки помечена как «после слияния»', await t.p.evaluate(() =>
-      ['polish','cnc_shape_polish','lami_polish','cnc_lami_polish','lamination'].map(c => DB.operation.find(o => o.code === c).afterMerge)
-    ), [false, false, true, true, false]);
-    /* Прямую полировку склейки делают на ОБЫЧНОМ полировочном станке — его
-       настраивают под толщину пакета и направление, отдельной машины нет. */
-    eq('прямая полировка склейки живёт на полировочных местах', await t.p.evaluate(() => [
-      operationWorkPositions('lami_polish').map(w => w.code),
-      workPositionStations(DB.workPosition.find(w => w.code === 'POL1'))
-    ]), [['POL1','POL2','POL3'], ['EDGE']]);
-    eq('садками работают печь, ламинация, автоклав и линия СП', await t.p.evaluate(() =>
-      DB.workPosition.filter(w => w.batchMode === 'batch').map(w => w.code)
-    ), ['FURN1','LAM1','AUTOCL1','IGU1']);
-    eq('габарит есть у трёх мест, остальные ждут замеров', await t.p.evaluate(() =>
-      DB.workPosition.filter(w => w.maxW != null).map(w => w.code)
-    ), ['BEVEL1','CNC1','FURN1']);
-    /* «Без габарита» и «ждёт замера» — РАЗНЫЕ множества, и три экрана обязаны
-       считать одинаково. У ручного притупления габарита нет и не будет: там
-       руки, а не станок, и держать его в долгу значит показывать задачу,
-       которую никто никогда не закроет. */
-    eq('ручное место не числится ждущим замера', await t.p.evaluate(() => [
-      DB.workPosition.filter(w => w.maxW == null).length,
-      workPositionsAwaitingSize().length,
-      workPositionsAwaitingSize().some(w => w.code === 'ARRIS-H')
-    ]), [19, 18, false]);
-    /* Терминал пустой намеренно: сколько экранов в цеху — ещё не называли, а
-       засеять «по одному на станцию» значит повторить подстанции Spil. */
-    eq('рабочее место попадает в маршрут своей станции', await t.p.evaluate(() => {
-      tab = 'production'; subtab = 'stations'; render();
-      return document.querySelector('.stage-machines').textContent.trim();
-    }), 'CUT1 CUT2');
+      ['flatPolish','lamiPolish','cncLamiPolish','lamination'].map(c => (DB.serviceRate || []).find(w => w.id === c).afterMerge)
+    ), [false, true, true, false]);
+    /* Шаги без цены — тоже работы: без них путь стекла по цеху обрывается. */
+    eq('шаги без цены остались работами со станцией', await t.p.evaluate(() =>
+      ['cutting','tempering','lamination','igu_assembly'].map(c => {
+        const w = (DB.serviceRate || []).find(x => x.id === c);
+        return w ? w.station + ':' + (w.flat === null) : 'нет';
+      })
+    ), ['CUT:true','HEAT:true','LAM:true','IGU:true']);
     await t.c.close();
 
     /* ГЛАВНЫЙ ПУТЬ ПЕРЕЕЗДА. В браузере пользователя под ключом station лежат
@@ -1746,35 +1745,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
              { name: 'Petr', role: 'Продажи', station: 'EDGE1', skills: [] }]
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
-      DB.refVersion, DB.station.map(s => s.code), DB.workPosition.length
-    ]), [8, ['CUT','EDGE','FAB','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], 22]);
-    /* Код станка, которому в реальном цеху ничего не соответствует, обнуляется:
-       за EDGE1 стоят шесть разных мест, и угадывать, какое из них — нельзя. */
-    eq('привязка человека переехала на рабочее место по коду', await t.p.evaluate(() =>
-      DB.user.map(u => [u.name, u.workPosition, u.station === undefined])
-    ), [['Ivan','CNC1',true], ['Petr','',true]]);
+      DB.refVersion, DB.station.map(s => s.code), DB.workPosition === undefined
+    ]), [9, ['CUT','EDGE','DRILL','CNC','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], true]);
+    /* Код, которому в справочнике станций ничего не соответствует, обнуляется:
+       угадывать за человека, где он теперь работает, нельзя. */
+    eq('привязка человека переехала на станцию по коду', await t.p.evaluate(() =>
+      DB.user.map(u => [u.name, u.station, u.workPosition === undefined])
+    ), [['Ivan','',true], ['Petr','',true]]);
     await t.c.close();
 
     /* Данных без refVersion — так выглядит браузер, который не открывали с
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [8, 11, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [9, 12, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
     eq('пересев не трогает пользователей', await t.p.evaluate(() =>
-      [DB.user.map(u => u.name), DB.station.length]), [['Ivan'], 11]);
+      [DB.user.map(u => u.name), DB.station.length]), [['Ivan'], 12]);
     await t.c.close();
 
     t = await page();
     eq('пересев обновляет справочники и не трогает рабочие данные', await t.p.evaluate(() => {
-      DB.station = []; DB.workPosition = []; DB.operation = []; DB.refVersion = 1;
+      DB.station = []; DB.refVersion = 1;
       const shapes = DB.shapeDef.length, users = DB.user.length;
       const did = reseedReferenceTables();
-      return [did, DB.station.length, DB.workPosition.length, DB.operation.length, DB.refVersion,
+      return [did, DB.station.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 11, 22, 19, 8, true, true]);
+    }), [true, 12, 9, true, true]);
     await t.c.close();
 
     t = await page();
@@ -1851,17 +1850,63 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), { grew: true, idFromCode: 'SPC-7-1234', inOrderForm: true, groupedByFamily: true, legacyValueKept: true });
     await t.c.close();
 
+    /* Три отменённых типа спандрела остаются в сохранённом браузере: долив по
+       id только добавляет, никогда не снимает. Проверяем весь путь — строка
+       выключается, а не исчезает, и сохранённый заказ находит свой цвет
+       автоматически, без похода в справочник. */
+    t = await page();
+    eq('старые типы спандрела выключаются, ссылки заказа переезжают', await t.p.evaluate(() => {
+      DB.spandrelProduct.push({id:'SPAN-OC-STD',name:'Opaci-Coat · Standard Colour',code:'',active:true});
+      DB.spandrelProduct.push({id:'SPAN-OC-CUST',name:'Opaci-Coat · Custom Colour',code:'',active:true});
+      DB.spandrelProduct.push({id:'SPAN-BP',name:'Backpainting · Customer\'s Own Paint',code:'',active:true});
+      normalizeMasterData();
+      const std = DB.spandrelProduct.find(p => p.id === 'SPAN-OC-STD');
+      const cust = DB.spandrelProduct.find(p => p.id === 'SPAN-OC-CUST');
+      const bp = DB.spandrelProduct.find(p => p.id === 'SPAN-BP');
+      const paneStd = normalizeSalesPane({category:'spandrel',spandrel:{productId:'SPAN-OC-STD',color:'SPC-3-818'}},0);
+      const paneCust = normalizeSalesPane({category:'spandrel',spandrel:{productId:'SPAN-OC-CUST',color:''}},0);
+      const paneBp = normalizeSalesPane({category:'spandrel',spandrel:{productId:'SPAN-BP',color:''}},0);
+      return {
+        stillListed: !!std && !!cust && !!bp,
+        deactivated: [std.active, cust.active, bp.active],
+        stdRemapped: paneStd.spandrel.productId,
+        stdColourKept: paneStd.spandrel.color,
+        custRemapped: [paneCust.spandrel.productId, paneCust.spandrel.color],
+        bpRemapped: [paneBp.spandrel.productId, paneBp.spandrel.color]
+      };
+    }), { stillListed: true, deactivated: [false,false,false], stdRemapped: 'SPAN-SILICONE', stdColourKept: 'SPC-3-818',
+          custRemapped: ['SPAN-SILICONE','SPC-OC-CUSTOM'], bpRemapped: ['SPAN-SILICONE','SPC-OC-OWN'] });
+    await t.c.close();
+
+    /* Кастомный цвет: поле появляется только у строки БЕЗ кода производителя,
+       вписанное название доезжает до сводки строки и до маршрутной строки. */
+    t = await page();
+    eq('название кастомного цвета доезжает до сводки и до маршрута', await t.p.evaluate(() => {
+      const codedField = salesSpandrelCustomColourField({spandrel:{color:'SPC-3-818',colorNote:''}},0);
+      const customField = salesSpandrelCustomColourField({spandrel:{color:'SPC-OC-CUSTOM',colorNote:''}},0);
+      const pane = salesDefaultPane(0);
+      pane.category = 'spandrel';
+      pane.spandrel = {productId:'SPAN-SILICONE',color:'SPC-OC-CUSTOM',colorNote:'Slate blue #4',surface:1};
+      const summary = salesPaneProductSummary(pane,0);
+      const routeText = salesRouteSurfaceTreatments(pane,0)[0].text;
+      return {
+        noFieldForCodedColour: codedField === '',
+        fieldForCustomColour: customField.indexOf('Custom colour name') >= 0,
+        inSummary: summary.indexOf('Slate blue #4') >= 0,
+        inRoute: routeText.indexOf('Slate blue #4') >= 0
+      };
+    }), { noFieldForCodedColour: true, fieldForCustomColour: true, inSummary: true, inRoute: true });
+    await t.c.close();
+
     /* Нормализация обязана пережить мусор: до пересева она видит именно старые
        данные, и если она упадёт — до пересева дело не дойдёт вообще. */
     t = await page();
     eq('мусор в справочниках цеха нормализуется, а не роняет старт', await t.p.evaluate(() => {
       DB.station = [{ code: 'A B' }, null, { code: 'CUT' }, { code: 'cut' }, 'мусор'];
-      DB.workPosition = [{ code: 'X1', station: 'НЕТ', operations: ['нет_такой'], maxW: 5 }];
-      DB.terminal = [{ code: 'T1', workPositions: ['НЕТУ', 'X1', 'X1'] }];
+      DB.terminal = [{ code: 'T1', stations: ['НЕТУ', 'CUT', 'CUT'] }];
       normalizeShopFloor();
-      return [DB.station.map(s => s.code), DB.workPosition[0].station, DB.workPosition[0].operations,
-              [DB.workPosition[0].maxW, DB.workPosition[0].maxL], DB.terminal[0].workPositions];
-    }), [['A B','CUT'], '', [], [null, null], ['X1']]);
+      return [DB.station.map(s => s.code), DB.terminal[0].stations];
+    }), [['A B','CUT'], ['CUT']]);
     await t.c.close();
 
     /* --- импорт двух файлов под заполнение ------------------------------
@@ -1869,44 +1914,30 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        а не правкой кода и новой сборкой. Файлы читает node и передаёт строкой —
        fetch на file:// в Chrome закрыт. */
     const stationsCsv = fs.readFileSync(path.join(ROOT, 'templates/STATIONS.csv'), 'utf8');
-    const positionsCsv = fs.readFileSync(path.join(ROOT, 'templates/WORK_POSITIONS.csv'), 'utf8');
     t = await page();
     eq('templates/STATIONS.csv принимается целиком', await t.p.evaluate(csv => {
       const r = importStationsCsv(csv);
       return [r.accepted, r.added, r.updated, r.rejected.length, DB.station.map(s => s.code).join(',')];
-    }, stationsCsv), [11, 0, 11, 0, 'CUT,EDGE,FAB,CERP,HEAT,SAND,PAINT,LAM,IGU,SHIPR,SHIP']);
-    eq('templates/WORK_POSITIONS.csv принимается целиком', await t.p.evaluate(csv => {
-      const r = importWorkPositionsCsv(csv);
-      const cnc = DB.workPosition.find(w => w.code === 'CNC1');
-      const pol = DB.workPosition.find(w => w.code === 'POL1');
-      return [r.accepted, r.updated, r.rejected.length, r.missing.length, cnc.operations, pol.operations];
-    }, positionsCsv), [22, 22, 0, 0, ['fabrication','cnc_shape_polish','cnc_lami_polish'], ['polish','lami_polish']]);
-    /* Снятый в цеху габарит доезжает импортом. */
-    eq('замер из цеха приезжает файлом', await t.p.evaluate(csv => {
-      const measured = csv.replace('roberto,,,,single,', 'roberto,,60,122,single,');
-      const r = importWorkPositionsCsv(measured);
-      const cnc2 = DB.workPosition.find(w => w.code === 'CNC2');
-      return [r.rejected.length, cnc2.maxW, cnc2.maxL];
-    }, positionsCsv), [0, 60, 122]);
+    }, stationsCsv), [12, 0, 12, 0, 'CUT,EDGE,DRILL,CNC,CERP,HEAT,SAND,PAINT,LAM,IGU,SHIPR,SHIP']);
     await t.c.close();
 
     /* Отчёт обязан объяснить КАЖДУЮ отклонённую строку: строка, отклонённая
        без причины, возвращается пользователю загадкой. */
     t = await page();
     eq('импорт объясняет каждую отклонённую строку', await t.p.evaluate(() => {
-      const bad = 'code,station,name_en,name_ru,kind,operations,default_operator,default_helper,max_w_in,max_l_in,batch_mode,note\n'
-        + 'GOOD1,CUT,Good,Годная,machine,cutting,,,10,20,single,\n'
-        + 'BAD1,NOSUCH,X,Икс,machine,cutting,,,,,single,\n'
-        + 'BAD2,CUT,X,Икс,machine,nosuchop,,,,,single,\n'
-        + 'BAD3,CUT,X,Икс,machine,cutting,,,10,,single,\n'
-        + 'GOOD1,CUT,Dup,Дубль,machine,cutting,,,,,single,\n';
-      const r = importWorkPositionsCsv(bad);
-      return [r.accepted, r.added, r.rejected.map(x => x.line), DB.workPosition.length];
-    }), [1, 1, [3, 4, 5, 6], 23]);
+      const bad = 'seq,code,name_en,name_ru,always_or_optional,note\n'
+        + '1,GOOD1,Good,Годная,always,\n'
+        + '2,BAD 1,X,Икс,always,\n'
+        + '3,GOOD1,Dup,Дубль,always,\n';
+      const r = importStationsCsv(bad);
+      return [r.accepted, r.added, r.rejected.map(x => x.line)];
+    }), [1, 1, [3, 4]]);
     eq('файл не того формата отклоняется целиком, а не молча', await t.p.evaluate(() => {
       const r = importStationsCsv('foo,bar\n1,2\n');
+      /* 13, а не 12: предыдущий тест на этой же странице принял строку GOOD1.
+         Важно здесь другое — файл не того формата не добавил НИ ОДНОЙ. */
       return [r.accepted, r.rejected.length, DB.station.length];
-    }), [0, 1, 11]);
+    }), [0, 1, 13]);
     await t.c.close();
 
     /* Пересев обязан отработать НА ИМПОРТЕ, а не через F5: иначе после загрузки
@@ -1916,9 +1947,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const next = prepareImportedState({ refVersion: 2,
         station: [{ code: 'CNC1', name: 'Обрабатывающий центр ЧПУ', levels: [2, 3] }],
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
-      return [next.refVersion, next.station.length, next.workPosition.length,
-              next.station[0].code, next.user[0].workPosition];
-    }), [8, 11, 22, 'CUT', 'CNC1']);
+      return [next.refVersion, next.station.length, next.workPosition === undefined,
+              next.station[0].code, next.user[0].station];
+    }), [9, 12, true, 'CUT', '']);
     await t.c.close();
 
     t = await page();
@@ -2140,10 +2171,121 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* Митра 45° получила ставку 10 сентября, поэтому роль «начисления без цены»
        здесь играет фацет: цены на него владелец ещё не назвал, и строка обязана
        остаться непосчитанной, а не превратиться в ноль. */
-    }), {hingeBasis:1,flatBasis:100,miterCatalog:.38,bevelCatalog:null,effectiveHinge:10,unpriced:1,sameShape:true,sameBasis:true});
+    }), {hingeBasis:1,flatBasis:100,miterCatalog:.38,bevelCatalog:.65,effectiveHinge:10,unpriced:0,sameShape:true,sameBasis:true});
     eq('Сохранённый заказ держит snapshot Catalog rate, включая отсутствие цены', await dxfSales.p.evaluate(() => {
       const line=soDraft.lines[0],rows=salesLineChargeRows(line),flat=rows.find(r=>r.key.indexOf('EDGE:flatPolish:')===0),miter=rows.find(r=>r.key.indexOf('EDGE:miter45:')===0),bevel=rows.find(r=>r.key.indexOf('EDGE:bevel:')===0);salesSnapshotAllChargePricing();const flatSaved=line.chargePricing[flat.key].catalogRate,miterSaved=line.chargePricing[miter.key].catalogRate,bevelSaved=line.chargePricing[bevel.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.99;const flatNow=salesLineChargeRows(line).find(r=>r.key===flat.key),flatState=salesChargePricingState(line,flatNow),miterState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===miter.key)),bevelState=salesChargePricingState(line,salesLineChargeRows(line).find(r=>r.key===bevel.key));salesResetChargeRate(line.id,flat.key);const resetCatalog=line.chargePricing[flat.key].catalogRate;salesServiceRateRow('flatPolish').bands['8-10']=.10;return {flatSaved,miterSaved,bevelSaved,flatEffective:flatState.effectiveRate,miterEffective:miterState.effectiveRate,bevelEffective:bevelState.effectiveRate,resetCatalog};
-    }), {flatSaved:.1,miterSaved:.38,bevelSaved:null,flatEffective:.1,miterEffective:.38,bevelEffective:null,resetCatalog:.1});
+    }), {flatSaved:.1,miterSaved:.38,bevelSaved:.65,flatEffective:.1,miterEffective:.38,bevelEffective:.65,resetCatalog:.1});
+
+    /* Диапазон применения: полосы фацета не совпадают со стандартными бандами,
+       поэтому строка ищется по толщине, а не по ключу полосы. Проверяем стык
+       границ (8→9 и 15→16) и то, что дыр не осталось: исходный прайс владельца
+       ронял 9 мм и давал два ответа на 13-15. */
+    eq('фацет: полосы идут встык, без дыр и нахлёста', await dxfSales.p.evaluate(() =>
+      [3,8,9,15,16,19].map(mm => {
+        const w = salesWorkForValue('bevel', mm);
+        return w ? w.flat : null;
+      })
+    ), [0.45, 0.45, 0.65, 0.65, 1.2, 1.2]);
+    /* Пересечение диапазонов — ошибка данных, а не повод выбрать первую
+       подходящую: цена не должна зависеть от порядка строк в справочнике. */
+    eq('пересечение диапазонов не даёт цену молча', await dxfSales.p.evaluate(() => {
+      DB.serviceRate.push(normalizeServiceRate({id:'bevel:overlap',name:'overlap',unit:'in',
+        station:'EDGE',kind:'flat',flat:9,family:'bevel',appliesBy:'thickness',appliesFrom:10,appliesTo:20}));
+      const clash = salesWorkForValue('bevel', 12);
+      DB.serviceRate = DB.serviceRate.filter(r => r.id !== 'bevel:overlap');
+      return [clash, salesWorkForValue('bevel', 12).id];
+    }), [null, 'bevel:9-15']);
+
+    /* Ради этого весь этап и делался: владелец заводит работу сам, с экрана.
+       Раньше кнопки «+ New» у прайса не было вовсе — заведённая руками строка
+       ни к чему не привязывалась, потому что полосы были зашиты в код. */
+    eq('владелец заводит работу с экрана, и она начисляется', await dxfSales.p.evaluate(() => {
+      tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();render();
+      const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+      set('md_catName','QA Engraving');set('md_catUnit','in');set('md_catStation','CNC');
+      set('md_catRateKind','flat');mdCatDraft.kind='flat';render();
+      set('md_catName','QA Engraving');set('md_catUnit','in');set('md_catStation','CNC');
+      set('md_catFlat','2.5');set('md_catActive','1');
+      mdCatSave();
+      const made=(DB.serviceRate||[]).find(r=>r.name==='QA Engraving');
+      const out=made?[made.station,made.unit,made.flat,made.active]:null;
+      DB.serviceRate=(DB.serviceRate||[]).filter(r=>r.name!=='QA Engraving');
+      mdCatEdit=null;mdCatDraft=null;
+      return out;
+    }), ['CNC','in',2.5,true]);
+
+    /* Пересечение ловится на сохранении, а не через месяц на живом заказе. */
+    eq('пересекающийся диапазон не сохраняется', await dxfSales.p.evaluate(() => {
+      tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();render();
+      mdCatDraft.kind='flat';mdCatDraft.appliesBy='thickness';render();
+      const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+      set('md_catName','QA Bevel clash');set('md_catUnit','in');set('md_catStation','EDGE');
+      set('md_catFlat','1');set('md_catAppliesBy','thickness');set('md_catFamily','bevel');
+      set('md_catFrom','10');set('md_catTo','20');set('md_catActive','1');
+      mdCatSave();
+      const saved=(DB.serviceRate||[]).some(r=>r.name==='QA Bevel clash');
+      const errShown=(document.getElementById('e_mdCat')||{}).textContent||'';
+      DB.serviceRate=(DB.serviceRate||[]).filter(r=>r.name!=='QA Bevel clash');
+      mdCatEdit=null;mdCatDraft=null;
+      return [saved,errShown.includes('overlaps')];
+    }), [false,true]);
+
+    /* Стоковая позиция: владелец заводит её в Master Data и включает "sells as
+       its own order line" — карточка появляется в списке выбора строки заказа
+       без геометрии, без Makeup и без маршрута (раздел 6 схемы). Сценарий
+       владельца 11 сентября 2026: дверь $80 в заказе рядом с двумя фиксированными
+       панелями, вместо того чтобы подгонять панели под кастомную дверь. */
+    eq('владелец заводит сток и продаёт его отдельной строкой заказа', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-DOOR',type:'stock',name:'QA Stock Door',code:'',thicknessMm:0,
+        salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      const before=salesExtraItemCandidates().some(c=>c.table==='stockItem'&&c.id==='STK-QA-DOOR');
+      soDraft=newSalesOrderDraft();
+      const noExtra=Array.isArray(soDraft.extraItems)&&soDraft.extraItems.length===0;
+      salesExtraItemAdd('stockItem','STK-QA-DOOR');
+      const x=soDraft.extraItems[0];
+      const total1=salesExtraItemLineTotal(x);
+      salesExtraItemSetQty(x.id,3);
+      const total3=salesExtraItemLineTotal(x);
+      salesExtraItemSetPrice(x.id,150);
+      const overridden=salesExtraItemLineTotal(x);
+      const totals=salesOrderCommercialTotals(soDraft);
+      const name=salesExtraItemName(x);
+      salesExtraItemRemove(x.id);
+      const afterRemove=soDraft.extraItems.length;
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-DOOR');
+      soDraft=null;
+      return {candidateListed:before,noExtraOnFreshOrder:noExtra,total1,total3,overridden,
+        inSubtotal:totals.subtotal===450,name,afterRemove};
+    }), {candidateListed:true,noExtraOnFreshOrder:true,total1:80,total3:240,overridden:450,
+      inSubtotal:true,name:'QA Stock Door',afterRemove:0});
+
+    /* Продать своё расходное — не только сток. Владелец 11 сентября: «нужна
+       опция не только для стоковых дверей... возможно, кому-то я должен продать
+       свой рулон EVA». Признак принадлежит МАТЕРИАЛУ, а не категории. */
+    eq('признак "своя строка" переключается у любого материала, не только у стока', await dxfSales.p.evaluate(() => {
+      const roll=DB.interlayerProduct[0];
+      const wasOwnLine=roll.sellsAsOwnLine;
+      roll.sellsAsOwnLine=true;
+      const listed=salesExtraItemCandidates().some(c=>c.table==='interlayerProduct'&&c.id===roll.id);
+      roll.sellsAsOwnLine=wasOwnLine;
+      return [wasOwnLine,listed];
+    }), [false,true]);
+
+    /* Позиция без цены — Rate required, не ноль: тот же честный ответ, что и у
+       работ цеха. Заказ без extraItems вовсе (старые сохранённые заказы) не
+       падает — нормализация даёт пустой массив. */
+    eq('сток без цены не притворяется бесплатным; старый заказ без extraItems не падает', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-NOPRICE',type:'stock',name:'QA No Price',code:'',thicknessMm:0,
+        salePrice:null,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'kit',sellsAsOwnLine:true,active:true});
+      soDraft=newSalesOrderDraft();
+      salesExtraItemAdd('stockItem','STK-QA-NOPRICE');
+      const unpriced=salesExtraItemLineTotal(soDraft.extraItems[0]);
+      const totals=salesOrderCommercialTotals(soDraft);
+      soDraft=null;
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-NOPRICE');
+      const legacy=normalizeSalesOrder({id:'SO-LEGACY',lines:[]});
+      return [unpriced,totals.missing>0,Array.isArray(legacy.extraItems),legacy.extraItems.length];
+    }), [null,true,true,0]);
 
     eq('добавленный вид фурнитуры попадает в счёт без ставки, а не нулём', await dxfSales.p.evaluate(() => {
       /* Патч с 10 сентября тарифицируется как петля, поэтому роль «вида без
@@ -4244,6 +4386,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), { поумолчанию: 1, зажатСверху: 3, зажатСнизу: 1, мусорДаётЕдиницу: 1,
           текстРастёт: true, рамкаРастётВместе: true, подписьСвоя: 'MIRROR BACKER' });
 
+    /* Штамп получил те же кнопки Text size 11 сентября 2026: хранилище уже было
+       общим для всех точечных меток, форма и чертёж — нет. Проверяем оба места
+       отрисовки, экранный оверлей и производственный чертёж, растут вместе. */
+    eq('размер штампа растёт вместе с множителем в форме и на чертеже', await t.p.evaluate(() => {
+      const base = shapeNormalizeFeature({ type: 'stamp', stampType: 'Temp Stamp' });
+      const big = shapeNormalizeFeature({ type: 'stamp', stampType: 'Temp Stamp', textScale: 2 });
+      return {
+        формаПредлагаетКнопки: shapeMarkTextSizeHTML(base, 0).indexOf('shape-mark-text-size') >= 0,
+        чертёжРастёт: shapeStampDrawingSpec(big).font > shapeStampDrawingSpec(base).font,
+        рамкаРастётВместе: shapeStampDrawingSpec(big).w >= shapeStampDrawingSpec(base).w
+      };
+    }), { формаПредлагаетКнопки: true, чертёжРастёт: true, рамкаРастётВместе: true });
+
     /* Прайс уехал из кода в справочник 10 сентября 2026 — «сделай мне мастер-дату
        максимально от тебя не зависящую». Сторожим здесь не цифры, а ДВА свойства,
        на которых держится безопасность переезда.
@@ -4384,10 +4539,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       idAlign:['sheet-id-c','sheet-id-p','sheet-id-o'],
       line:'1',note:'D-2',qty:'4 pcs',
       size:'Finished 50″ × 80″',mass:'27.78 sq ft · 63 kg',
-      stations:['CUT','EDGE','FAB','HEAT'],
+      stations:['CUT','EDGE','DRILL','HEAT'],
       /* Сторона названа буквой — слово Left рядом с буквой A было повтором,
          а точка отсчёта названа буквой соседней стороны: её видно на чертеже. */
-      hinge:'HINGE Vienna 180 — A 33 from B',
+      hinge:'HINGE Vienna 180',
       letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,drawingCropped:true,blankCanvasRemoved:true,
       fingerprintKept:true,machineKept:true});
 
@@ -4493,13 +4648,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const groups=[{id:'A',length:50,ops:all.map(type=>({type}))}];
       const pane=salesDefaultPane(0);pane.visionType='frit';pane.frit.surface=2;
       const sp=salesDefaultPane(0);sp.category='spandrel';sp.spandrel.surface=1;
-      const ops=JSON.parse(JSON.stringify(DB.operation));
-      DB.operation.find(x=>x.code==='heat_strengthening').station='CUSTOM-HEAT';
-      DB.operation.find(x=>x.code==='ceramic_frit').station='CUSTOM-FRIT';
-      DB.operation.find(x=>x.code==='painting').station='CUSTOM-PAINT';
+      const ops=JSON.parse(JSON.stringify(DB.serviceRate));
+      DB.serviceRate.find(x=>x.id==='heat_strengthening').station='CUSTOM-HEAT';
+      DB.serviceRate.find(x=>x.id==='ceramic_frit').station='CUSTOM-FRIT';
+      DB.serviceRate.find(x=>x.id==='painting').station='CUSTOM-PAINT';
       const row=salesRouteLiteStations(s,{valid:true,cutting:{valid:true,width:50,height:50}},groups,'HS',
         salesRouteSurfaceTreatments(pane,0).concat(salesRouteSurfaceTreatments(sp,0)));
-      DB.operation=ops;
+      DB.serviceRate=ops;
       const codes=row.list.map(s=>s.code),text=row.list.flatMap(s=>s.items).join(' ');
       return {edges:all.every(t=>text.includes(t)),body:['HOLE','HINGE','CLAMP','PATCH','INTERNAL CUTOUT','RADIUS CORNER','SANDBLAST','HARDWARE Legacy prep','HOLE Ø 1/2','BACK'].every(t=>text.includes(t)),
         order:codes.indexOf('CUSTOM-FRIT')<codes.indexOf('CUSTOM-HEAT')&&codes.indexOf('CUSTOM-HEAT')<codes.indexOf('CUSTOM-PAINT'),
@@ -4551,7 +4706,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const plan=salesEffectiveCuttingPlan(line,shape,soDraft),route=salesPrintRoute(line,soDraft,shape,ShapeModule.compute(shape));
       const out={cuts:route.lites.map((l,i)=>l.stations.find(s=>s.code==='CUT').items[0]===dimIn16(plan.lites[i].cutW)+' × '+dimIn16(plan.lites[i].cutH)),
         different:plan.lites[0].cutW!==plan.lites[1].cutW,
-        holes:route.lites.map(l=>l.stations.some(s=>s.code==='FAB'&&s.items.some(t=>t.includes('HOLE'))))};
+        holes:route.lites.map(l=>l.stations.some(s=>s.code==='DRILL'&&s.items.some(t=>t.includes('HOLE'))))};
       DB.shapeDef=DB.shapeDef.filter(s=>s.id!==own.id);soDraft=old;return out;
     }), {cuts:[true,true],different:true,holes:[false,true]});
 
@@ -5139,6 +5294,28 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }, tab);
       eq('EN без русского остатка: ' + tab, left, []);
     }
+    /* Общий обход выше заходит на КАЖДУЮ вкладку с subtab=null — а mdCatKind
+       (Catalogues) и station-форма живут переменными модуля, которые null не
+       трогает. 11 сентября 2026 ровно тут утекла живая русская строка: форма
+       Works и форма станции были написаны заново и не прошли через ни один
+       автоматический прогон, пока их не проверили руками. Держим каждую такую
+       подвкладку отдельной строкой обхода. */
+    const cyrillicOn = setup => t.p.evaluate(fn => {
+      eval(fn); render();
+      const out = new Set(), w = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+      let n; while (n = w.nextNode()) { const v = n.nodeValue.trim(); if (/[А-Яа-яЁё]/.test(v)) out.add(v); }
+      return [...out];
+    }, setup);
+    for (const [label, setup] of [
+      ['Catalogues → Works list', "tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatEdit=null;"],
+      ['Catalogues → Works form', "tab='masterdata';mdTab='catalogues';mdCatKind='serviceRate';mdCatNew();"],
+      ['Catalogues → Spandrel colours form', "tab='masterdata';mdTab='catalogues';mdCatKind='spandrelColour';mdCatNew();"],
+      ['Catalogues → Stock items list', "tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatEdit=null;"],
+      ['Catalogues → Stock items form', "tab='masterdata';mdTab='catalogues';mdCatKind='stockItem';mdCatNew();"],
+      ['Production → Stations form', "tab='production';subtab='stations';stEdit='new';"],
+      ['Production → Terminals form', "tab='production';subtab='terminals';tmEdit='new';"],
+      ['Sales order → stock & extra items', "tab='sales';subtab=null;render();salesOrderNew();"]
+    ]) eq('EN без русского остатка: ' + label, await cyrillicOn(setup), []);
     eq('Sales Services pricing modals EN без русского остатка', await t.p.evaluate(() => {
       function cyrillicUi(){const out=new Set(),root=document.getElementById('app'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){const p=n.parentElement;if(!p||p.closest('[data-raw]'))continue;const v=n.nodeValue.trim();if(/[А-Яа-яЁё]/.test(v))out.add(v);}return [...out];}
       const sh=newShapeDef('rectangle');sh.id='qa-price-en';sh.w='20';sh.h='40';sh.edgeOps.A=[shapeNormalizeOp({type:'Mitering',angle:45,side:'front'})];sh.manufacturingItems=[shapeNormalizeManufacturingItem({id:'qa-en-h',type:'hinge',edge:'left',distance:5})];DB.shapeDef=[normalizeShapeDef(sh)];soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];m.unitType='single';m.panes=[salesDefaultPane(0)];m.panes[0].glassProductId='';m.panes[0].thicknessMm=10;soDraft.lines=[normalizeSalesOrderLine({makeupId:m.id,qty:1,width16:320,height16:640,shapeRef:salesShapeRefFrom(DB.shapeDef[0])})];soEdit='new';tab='sales';subtab='orders';salesOpenOrderServices();const orderLeft=cyrillicUi();salesCloseServices();salesOpenLineServices(soDraft.lines[0].id);const lineLeft=cyrillicUi();salesCloseServices();soEdit=null;soDraft=null;render();return orderLeft.concat(lineLeft);
@@ -5194,17 +5371,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), 'Закалка');
     await t.c.close();
 
-    /* Имя рабочего места больше не переводится словарём: пользователь заполнил
-       в CSV обе колонки, и язык выбирает нужную. Словарь трогает только
-       примечания — их пользователь написал в одном языке. */
-    const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',workPosition:'CUT1',skills:[]}]});
+    /* Имя станции не переводится словарём: пользователь заполнил в CSV обе
+       колонки, и язык выбирает нужную. Словарь трогает только примечания —
+       их пользователь написал в одном языке. */
+    const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT',skills:[]}]});
     const u = await page(seeded);
-    eq('имя рабочего места берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
+    eq('имя станции берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
       setLang('en');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
-    }), 'CUT1 — Cutting 1');
-    eq('в русском интерфейсе то же место названо по-русски', await u.p.evaluate(() => {
+    }), 'CUT — Cutting');
+    eq('в русском интерфейсе та же станция названа по-русски', await u.p.evaluate(() => {
       setLang('ru');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
-    }), 'CUT1 — Резка 1');
+    }), 'CUT — Резка');
     await u.c.close();
   }
 
