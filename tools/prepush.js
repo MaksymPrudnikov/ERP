@@ -108,5 +108,9 @@ console.log('    dist возвращён к версии main, дерево чи
 if (dry) { console.log('\nВсё зелёное. Пуш не делаю: запущено с --dry.'); process.exit(0); }
 
 step(9, 'Пуш');
-if (!run('git push')) stop('git push не прошёл.');
+/* У новой ветки upstream ещё нет, и голый `git push` на ней падает. Ставим
+   его сами — это первый пуш ветки, а не выбор чужой цели. */
+let hasUpstream = true;
+try { sh('git rev-parse --abbrev-ref --symbolic-full-name @{u}'); } catch (e) { hasUpstream = false; }
+if (!run(hasUpstream ? 'git push' : 'git push -u origin ' + branch)) stop('git push не прошёл.');
 console.log('\nГотово: ветка догнала main, проверки зелёные, запушено.');
