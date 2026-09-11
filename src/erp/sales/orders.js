@@ -7,6 +7,15 @@
 let soEdit=null,soDraft=null,soSearch='',soMakeupId=null;
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
+/* Владелец 11 сентября 2026: показ GLASS/IGU MAKEUPS не должен зависеть от
+   того, есть ли уже строки — по умолчанию раздел открыт, как было всегда, а
+   закрывает/открывает его явная кнопка "− Makeup" / "+ Add Makeup". Данные
+   (soDraft.makeups) при этом не трогаем — см. salesGlassSectionHTML. */
+let soGlassOpen=true;
+/* Тот же приём для выбора стокового айтема: раньше это был <select> прямо в
+   тихой строке, владелец попросил окно как у остальных модалок. Фильтр по
+   подкатегории живёт тут же — сбрасывается при каждом открытии окна. */
+let soStockPickerOpen=false,soStockPickerFilter='';
 /* Аккордеон держит открытой одну секцию: так экран не разъезжается. Но чтобы
    сравнить цены по всем лайтам сразу, нужен режим «раскрыть все» — он живёт
    здесь, а не в DOM, иначе перерисовка его теряла бы. */
@@ -22,8 +31,8 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(){salesMetricsPanel=null;salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesMetricsPanel=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;subtab='orders';render();}
+function salesOrderNew(){salesMetricsPanel=null;salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesMetricsPanel=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -36,7 +45,7 @@ function salesDraftHasWork(){
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;salesBridge=null;render();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;render();
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
@@ -226,14 +235,41 @@ function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSal
 /* Форма принадлежала строке — уходит вместе с ней. */
 function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);salesDropLineOwnedShape(soDraft.lines[i]);const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 
+/* Явный +/- для раздела стекла: "+ Add Makeup" открывает GLASS/IGU MAKEUPS,
+   "− Makeup" закрывает. Makeup A из soDraft.makeups[0] никогда не удаляется —
+   закрытие только прячет раздел визуально. Если в заказе уже есть строки
+   стекла, закрытие явно спросит подтверждение и снимет их — так пользователь
+   не потеряет работу нажатием мимо. */
+function salesGlassSectionOpen(){soGlassOpen=true;render();}
+function salesGlassSectionClose(){
+ if(soDraft.lines.length){
+  if(!confirm('Remove '+soDraft.lines.length+' glass line(s) from this order?'))return;
+  soDraft.lines.forEach(l=>{salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);});
+  soDraft.lines=[];soSelectedLines=new Set();
+ }
+ soGlassOpen=false;render();
+}
+
 /* Позиция каталога как отдельная строка заказа — не Makeup-строка с
    геометрией, а сама позиция: количество и цена, без формы. */
-function salesExtraItemAdd(table,id){
+function salesExtraItemAdd(table,id,qty){
  if(!table||!id)return;
  if(!Array.isArray(soDraft.extraItems))soDraft.extraItems=[];
- soDraft.extraItems.push(normalizeSalesExtraItem({table,itemId:id,qty:1}));
+ soDraft.extraItems.push(normalizeSalesExtraItem({table,itemId:id,qty:salesPositiveInt(qty,1)}));
  render();
 }
+/* Окно выбора стокового айтема — та же модалка, что у Services/Excel, вместо
+   инлайн <select> в тихой строке. Выбор сразу добавляет позицию и закрывает
+   окно: одно действие, без отдельного "+ Add item".
+
+   Владелец 11 сентября 2026, следующим сообщением: список неудобно листать
+   одним куском — попросил фильтр по подкатегории (`soStockPickerFilter`) и
+   возможность задать количество прямо в окне, а не редактировать его потом в
+   таблице заказа. */
+function salesStockPickerOpen(){soStockPickerOpen=true;soStockPickerFilter='';render();}
+function salesStockPickerClose(){soStockPickerOpen=false;render();}
+function salesStockPickerSetFilter(v){soStockPickerFilter=v;render();}
+function salesStockPickerChoose(table,id,qty){soStockPickerOpen=false;salesExtraItemAdd(table,id,qty);}
 function salesExtraItemRemove(id){soDraft.extraItems=(soDraft.extraItems||[]).filter(x=>x.id!==id);render();}
 function salesExtraItemSetQty(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.qty=salesPositiveInt(v,1);render();}
 function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.priceOverride=salesNonNegOrNull(v);render();}
