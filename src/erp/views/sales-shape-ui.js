@@ -1047,9 +1047,9 @@ function shapeCutoutDimsSvg(T){
 }
 function shapeStampMarkerSvg(T){
   return shapeStampFeatures().map(function(row){
-    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=shapeStampText(f),w=Math.max(62,Math.min(164,label.length*6+18)),selected=sFeatureExpandedId===f.id?' selected':'';
+    var f=row.f,x=T.X(inch(f.x)),y=T.Y(inch(f.y)),label=shapeStampText(f),spec=shapeStampDrawingSpec(f),selected=sFeatureExpandedId===f.id?' selected':'';
     if(!isFinite(x)||!isFinite(y))return '';
-    return `<g class='shape-temper-stamp external${selected}' data-stamp-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-w/2}' y='${y-10}' width='${w}' height='20' rx='2'/><text data-raw x='${x}' y='${y+3.5}' text-anchor='middle'>${esc(label)}</text></g>`;
+    return `<g class='shape-temper-stamp external${selected}' data-stamp-id='${esc(f.id)}' onclick='event.stopPropagation();toggleShapeFeatureCard("${esc(f.id)}")'><rect x='${x-spec.w/2}' y='${y-spec.h/2}' width='${spec.w}' height='${spec.h}' rx='2'/><text data-raw x='${x}' y='${y+spec.font*.4}' text-anchor='middle' style='font-size:${spec.font}px'>${esc(label)}</text></g>`;
   }).join('');
 }
 function shapeSandblastMarkerSvg(T){
@@ -2233,7 +2233,7 @@ function shapeFeatureFields(f,i,geo){
       <div class='shape-mi-axis-card'><label>Vertical reference<select onchange='shapeSetDimRef("${esc(f.id)}","v",this.value)'><option value='bottom' ${sp.vRef==='bottom'?'selected':''}>Bottom</option><option value='top' ${sp.vRef==='top'?'selected':''}>Top</option></select></label><label>Distance to center<input value='${esc(shapeFrac16(sp.vDistance))}' onchange='shapeSetStampDistance(${i},"v",this.value)'><small>from the ${sp.vRef==='top'?'top':'bottom'} edge · 1/16″</small></label></div>
     </div>`:input('X from origin','x')+input('Y from origin','y');
     var own=current==='OWN Stamp'?`<label>Custom stamp text<input maxlength='24' value='${esc(f.text)}' placeholder='Enter stamp text' oninput='setShapeFeature(${i},"text",this.value)'><small>Up to 24 characters · shown on the production drawing</small></label>`:'';
-    return `<label>Stamp type<select onchange='setShapeStampType(${i},this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+own+placement+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
+    return `<label>Stamp type<select onchange='setShapeStampType(${i},this.value)'>${options}</select><small class='shape-stamp-free-note'>FREE · production drawing only</small></label>`+own+placement+shapeMarkTextSizeHTML(f,i)+shapeDimControlsHTML(f.id,[{key:'h',label:'Horizontal'},{key:'v',label:'Vertical'}]);
   }
   if(shapeIsPointMark(f)&&f.type!=='stamp'){
     var bg=shapeManufacturingGeometry(),bp=bg?shapeStampPosition(f,bg):null;

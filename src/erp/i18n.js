@@ -196,8 +196,16 @@ const I18N_EN={
   "элемент остаётся на finished edge": "item stays on the finished edge",
   "Clamp / Hinge = позиция на краю · Hole = Left/Right + Top/Bottom → Production Drawing → Service": "Clamp / Hinge = edge position · Hole = Left/Right + Top/Bottom → Production Drawing → Service",
   "режется только отожжённое стекло": "annealed glass only",
-  "услуги: arris (machine/hand) · polish · cnc shape polish · miter · lami polish": "services: arris (machine/hand) \u00b7 polish \u00b7 cnc shape polish \u00b7 miter \u00b7 lami polish",
-  "услуги: hole · notch · cutout · radius · hinge · clamp. Работа по телу стекла, в отличие от EDGE — по периметру": "services: hole \u00b7 notch \u00b7 cutout \u00b7 radius \u00b7 hinge \u00b7 clamp. Work on the body of the glass, unlike EDGE which works the perimeter",
+  "услуги: arris · polish · cnc shape polish · miter · bevel · lami polish": "services: arris · polish · cnc shape polish · miter · bevel · lami polish",
+  "петли · клемы · патчи · отверстия до 1 3/4\" · ручной нотч. Свёрл крупнее в цеху нет": "hinges · clamps · patches · holes up to 1 3/4″ · hand notch. The shop has no larger drill bits",
+  "нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4\"": "CNC notch · internal cutouts · radii · holes over 1 3/4″",
+  "руками или на станке решает цех; цена одна, в счёте позиция одна — RA": "the shop decides by hand or by machine; one rate, one invoice line — RA",
+  "до 1 3/4\" включительно — ручным сверлом": "up to 1 3/4″ inclusive — by hand drill",
+  "петля · клема · патч. Делает человек по своему шаблону": "hinge · clamp · patch. Done by hand from the fitter's own template",
+  "способ выбирает владелец на каждом нотче; цена отличается от ЧПУ": "the method is chosen per notch; the rate differs from CNC",
+  "свыше 1 3/4\" — ручных свёрл такого размера у цеха нет": "over 1 3/4″ — the shop has no hand drill that size",
+  "меняет контур реза": "changes the cutting contour",
+  "служит ДВУМ станциям: CNC и EDGE — фигурную кромку полируют здесь же. Габарит проверить": "serves TWO stations: CNC and EDGE — shaped edges are polished here too. Verify the size",
   "услуги: ceramic frit (3 узора) · digital ceramic print": "services: ceramic frit (3 patterns) \u00b7 digital ceramic print",
   "услуги: tempering · heat strengthening · heat soak. Вся механика до неё": "services: tempering \u00b7 heat strengthening \u00b7 heat soak. All machining comes before it",
   "позиция в маршруте зависит от того, есть ли термообработка": "its place in the route depends on whether heat treatment is present",
@@ -336,6 +344,39 @@ const I18N_EN={
   "Станции · рабочие места · операции · терминалы": "Stations \u00b7 work positions \u00b7 operations \u00b7 terminals",
   "станции · рабочие места · операции · терминалы": "stations \u00b7 work positions \u00b7 operations \u00b7 terminals",
   "Кто работает в системе и на каком рабочем месте стоит по умолчанию. Это префилл экрана, а не закрепление человека за станком: правда о том, кто сделал работу, приходит со скана. Права по модулям и полям будут отдельным слоем.": "Who works in the system and which work position they stand at by default. This prefills the screen; it does not tie a person to a machine \u2014 the truth about who did the work arrives with the scan. Module and field permissions come as a separate layer.",
+  "Габариты станций": "Station sizes",
+  "Работы": "Works",
+  "Габарит, W × L": "Size, W × L",
+  "не проверено в цеху": "not verified in the shop",
+  "нет работ": "no works",
+  "Без работ:": "Without works:",
+  "станций нет": "no stations",
+  "Станции на этом экране": "Stations on this screen",
+  "Станция по умолчанию": "Default station",
+  "Габарит W, дюймы": "Size W, inches",
+  "Габарит L, дюймы": "Size L, inches",
+  "Габарит замерен в цеху": "Size measured in the shop",
+  "Загрузить STATIONS.csv": "Load STATIONS.csv",
+  "Шаги маршрута по порядку. Габарит отвечает на один вопрос: влезет ли деталь. Пока он не замерен, рядом стоит пометка — предположение не должно выглядеть фактом.": "Route steps in order. The size answers one question: will the part fit. Until it is measured a note stands beside it — an assumption must not look like a fact.",
+  ". Это не ошибка — станция ждёт своей работы в Master Data → Works.": ". This is not an error — the station is waiting for its work in Master Data → Works.",
+  "Стоит засев 144 × 100″ — габарит листа, а не станка. Пока замера нет, проверка «влезет ли деталь» опирается на предположение.": "The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.",
+  "Пока галочки нет, значение считается засевом, и рядом с ним стоит «не проверено в цеху».": "Without the checkbox the value counts as a seed and carries the note “not verified in the shop”.",
+  "Один экран обслуживает несколько станций — переключать его оператор не будет.": "One screen serves several stations — the operator will not switch it.",
+  "Экран сканирования. Учётка принадлежит терминалу станции, а конкретный оператор опознаётся сканом бейджа при действии: заставь людей логиниться каждую смену — и все будут работать под одной общей учёткой, а журнал событий станет бесполезным.": "The scanning screen. The account belongs to the station terminal and the individual operator is identified by a badge scan at the moment of the action: make people log in every shift and everyone will work under one shared account, leaving the event log useless.",
+  "Здесь закрывается самый дорогой дефект Spil: закрыть операцию, которой нет в маршруте детали, физически невозможно — её просто нет на экране.": "This closes the most expensive defect in Spil: closing an operation that is not in the part’s route is physically impossible — it is simply not on the screen.",
+  "Список пуст, и это честное состояние. Сколько экранов стоит в цеху и какие станции на каждом — заводится из цеха, а не выдумывается здесь.": "The list is empty, and that is an honest state. How many screens stand in the shop and which stations sit on each is entered from the shop, not invented here.",
+  "Файл обновляет строки с теми же кодами и добавляет новые. Строки, которых в файле нет, остаются как есть — импорт ничего не стирает молча.": "The file updates rows with the same codes and adds new ones. Rows missing from the file are left as they are — the import never erases anything silently.",
+  "Справочники обновлены: станции пересеяны заводскими.": "Reference tables updated: stations were reseeded from the factory data.",
+  "Работу можно завести самому: назови, выбери станцию, единицу и ставку. Если её полосы не совпадают со стандартными — задай диапазон применения, и работа найдётся по нему сама. Строки не удаляются, а <b>выключаются</b>: на выключенную ссылается старый заказ, и там она должна остаться названной. Выключенная встанет в счёт как <b>Rate required</b> и в денежный итог не войдёт — это честный ответ «работа есть, цены нет», а не ноль.": "You can add a work yourself: name it, pick a station, a unit and a rate. If its bands do not match the standard ones, set an application range and the work will be found by it. Rows are never deleted, only switched off: an old order still points at a switched-off row and must keep its name there. A switched-off row enters the invoice as Rate required and stays out of the monetary total — an honest “the work exists, the price does not”, not a zero.",
+  "Где работу делают. Отсюда маршрут узнаёт, на какой участок уходит деталь. Пусто — работы в цеху нет вовсе, это чистая надбавка к цене.": "Where the work is done. The route learns from this which area the part goes to. Empty means there is no shop work at all — it is a pure price uplift.",
+  "Диапазон нужен, когда полосы работы не совпадают со стандартными — как у фацета.": "A range is needed when the work’s bands do not match the standard ones — as with beveling.",
+  "Общее имя для строк одной работы с разными диапазонами. У фацета это <b>bevel</b> на все три полосы.": "A shared name for rows of one work with different ranges. For beveling it is bevel across all three bands.",
+  "Пусто — без нижней границы": "Empty — no lower bound",
+  "Пусто — без верхней границы": "Empty — no upper bound",
+  "Диапазоны одной family не должны пересекаться: на пересечении система не выберет строку молча, а честно оставит работу без ставки.": "Ranges within one family must not overlap: on an overlap the system will not pick a row silently — it honestly leaves the work without a rate.",
+  "идентификатор появится после сохранения": "the identifier appears after saving",
+  "New work": "New work",
+  "Пустая клетка — цены на эту толщину нет. Полосы идут встык и покрывают всё от 0 до 19 мм: покупной ламинат 6.38 попадает в первую, 11.52 во вторую.": "An empty cell means there is no price for that thickness. The bands meet end to end and cover everything from 0 to 19 mm: purchased laminate 6.38 falls into the first, 11.52 into the second.",
   "Габариты рабочих мест": "Work position sizes",
   "Три ЧПУ": "Three CNCs",
   "В прототипе пока роли + рабочее место. Field-level security и approval ещё не реализованы.": "The prototype has roles + work position so far. Field-level security and approval are not implemented yet.",
@@ -908,6 +949,11 @@ function tx(value){
  else if((mm=x.match(/^Контакт (\d+)$/))) x=`Contact ${mm[1]}`;
  else if((mm=x.match(/^Адрес (\d+)$/))) x=`Address ${mm[1]}`;
  else if((mm=x.match(/^рабочих мест · (\d+) с габаритом$/))) x=`work positions · ${mm[1]} sized`;
+ else if((mm=x.match(/^станций · (\d+) с замеренным габаритом$/))) x=`stations · ${mm[1]} measured`;
+ else if((mm=x.match(/^(\d+) из (\d+) станций ждут замеров\. Пока стоит засев 144 × 100″ — габарит листа, а не станка, и проверка «влезет ли деталь» опирается на предположение\.$/))) x=`${mm[1]} of ${mm[2]} stations await measurement. The seeded 144 × 100″ is a sheet size, not a machine size, so the fit check rests on an assumption.`;
+ else if((mm=x.match(/^(\d+) работ$/))) x=`${mm[1]} works`;
+ else if((mm=x.match(/^(\d+) без работ$/))) x=`${mm[1]} without works`;
+ else if((mm=x.match(/^Габариты не замерены: (\d+) из (\d+)\.$/))) x=`Sizes not measured: ${mm[1]} of ${mm[2]}.`;
  else if((mm=x.match(/^контуров Shape · (\d+) схем Muntin$/))) x=`Shape contours · ${mm[1]} Muntin layouts`;
  else if((mm=x.match(/^(\d+(?:\.\d+)?)[–-](\d+(?:\.\d+)?) мм$/))) x=`${mm[1]}–${mm[2]} mm`;
  else if((mm=x.match(/^(\d+) станц\.$/))) x=`${mm[1]} stations`;

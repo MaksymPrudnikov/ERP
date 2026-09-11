@@ -13,8 +13,8 @@ function viewDashboard(){
  /* Два РАЗНЫХ числа, и путать их нельзя: `sized` — у скольких габарит есть,
     `unsized` — сколько ждёт замера. Разница не сходится на ручных местах:
     у притупления руками габарита нет и не будет, оно не в долгу. */
- const sized=DB.workPosition.filter(w=>w.maxW!=null).length;
- const unsized=workPositionsAwaitingSize().length;
+ const sized=DB.station.filter(s=>s.sizeMeasured).length;
+ const unsized=DB.station.length-sized;
  const moduleCount=3; // Sales / Optimization / Production в текущем прототипе
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
@@ -24,7 +24,7 @@ function viewDashboard(){
   </div>
 
   <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'нужны замеры':'готово'}</span></div><div class="kpi-num">${DB.workPosition.length}</div><div class="kpi-label">рабочих мест · ${sized} с габаритом</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'нужны замеры':'готово'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">станций · ${sized} с замеренным габаритом</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">ядро</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей в прототипе</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">контуров Shape</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">ожидает данных</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">операционных модулей в новой оболочке</div></div>
@@ -69,7 +69,7 @@ function viewDashboard(){
    <div class="section-title"><h3>Что сейчас требует решения, а не дизайна</h3><span class="pill warn">${ico('alert','icon-inline')}открытые вопросы</span></div>
    <div class="machine-grid">
     <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Не проектируем протокол до реальных настроек коннектора Spil / ответа R.O. SRL.</div></div>
-    <div class="card-soft"><b>Габариты рабочих мест</b><div class="hint">${unsized} из ${DB.workPosition.length} рабочих мест ждут замеров. Без них не работает check_route_fits() — маршрут не знает, влезет ли деталь.</div></div>
+    <div class="card-soft"><b>Габариты станций</b><div class="hint">${unsized} из ${DB.station.length} станций ждут замеров. Пока стоит засев 144 × 100″ — габарит листа, а не станка, и проверка «влезет ли деталь» опирается на предположение.</div></div>
     <div class="card-soft"><b>Три ЧПУ</b><div class="hint">Одинаковы ли CNC1 / CNC2 / CNC3 по рабочему полю. Если нет — маршрут обязан знать, на какой можно.</div></div>
     <div class="card-soft"><b>Терминалы</b><div class="hint">Поведение экрана известно, а сколько их в цеху и какие места висят на каждом — ещё нет. Выдуманные строки сюда не заводим.</div></div>
     <div class="card-soft"><b>Права доступа</b><div class="hint">В прототипе пока роли + рабочее место. Field-level security и approval ещё не реализованы.</div></div>

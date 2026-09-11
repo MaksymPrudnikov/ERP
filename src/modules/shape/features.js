@@ -69,7 +69,21 @@ function shapeFeatureGeometry(def,geo){
       var pg=shapeHardwarePolygon(a,f,orientation),hw={id:f.id,type:'hardware',name:f.name,edgeId:f.edgeId,anchor:a,center:pg.center,points:pg.points,holeDia:inch(f.holeDia),source:f};out.hardware.push(hw);out.all.push(hw);return;
     }
     if(f.type==='stamp'){var s={id:f.id,type:'stamp',point:[inch(f.x),inch(f.y)],text:shapeStampText(f),source:f};out.stamps.push(s);out.all.push(s);}
-    if(f.type==='sandblast'){var sb={id:f.id,type:'sandblast',point:[inch(f.x),inch(f.y)],coverage:shapeSandblastCoverage(f),side:shapeSandblastSide(f),text:shapeSandblastText(f),source:f};out.sandblasts.push(sb);out.all.push(sb);}
+    /* Пескоструй и обе зеркальные позиции — метки по ТЕЛУ стекла: одна точка,
+       одна рамка в две строки, один участок в цеху. Список общий, потому что из
+       него рисует подпись shapeProductionFeaturesSvg и из него же берутся
+       требования цеха. Пока сюда попадал только пескоструй, зеркальные позиции
+       заводились в карточке и считались в деньгах, но на чертеже не появлялись:
+       рисовать было нечего. */
+    if(shapeIsPointMark(f)&&f.type!=='stamp'){
+      var mirror=f.type!=='sandblast';
+      var sb={id:f.id,type:f.type,point:[inch(f.x),inch(f.y)],
+        coverage:mirror?'':shapeSandblastCoverage(f),
+        /* У герметика стороны нет вовсе — он идёт по кромке. */
+        side:f.type==='mirrorsealant'?'':(mirror?shapeMirrorSide(f):shapeSandblastSide(f)),
+        text:shapeSurfaceMarkLabel(f).toUpperCase(),source:f};
+      out.sandblasts.push(sb);out.all.push(sb);
+    }
   });
   return out;
 }
@@ -278,10 +292,13 @@ function shapeDerivedRequirements(def,geo,fg){
   var req=[],groups={};
   (geo.edges||[]).forEach(function(e){shapeEdgeOps(def,e.id).forEach(function(op){var key=op.type+'|'+(op.angle||'')+'|'+(op.width||'');if(!groups[key])groups[key]={operation:op.type,edgeIds:[],params:{}};if(groups[key].edgeIds.indexOf(e.id)<0)groups[key].edgeIds.push(e.id);if(op.angle)groups[key].params.angle=op.angle;if(op.width)groups[key].params.width=op.width;});});
   Object.keys(groups).forEach(function(k){var g=groups[k],station=g.operation==='Rough Arris'?'ARRISING':g.operation==='Flat Polish'?'POLISHING':g.operation==='Mitering'?'MITERING':g.operation==='Beveling'?'BEVELING':'CNC';req.push({id:'EDGE:'+k,source:'EDGE',operation:g.operation,stationClass:station,edgeIds:g.edgeIds,params:g.params});});
-  (fg.holes||[]).forEach(function(h){var drill=h.diameter>=.375&&h.diameter<=1.5;req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:drill?'Drill Hole':'Machine Hole',stationClass:drill?'DRILLING':'CNC',featureId:h.id,params:{diameter:h.diameter}});});
+  (fg.holes||[]).forEach(function(h){var drill=shapeHoleIsHandDrilled(h.diameter);req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:drill?'Drill Hole':'Machine Hole',stationClass:shapeHoleStationClass(h.diameter),featureId:h.id,params:{diameter:h.diameter}});});
   (fg.cutouts||[]).forEach(function(c){req.push({id:'FEATURE:'+c.id,source:'FEATURE',operation:'Machine Cutout',stationClass:'CNC',featureId:c.id,params:{width:c.width,height:c.height}});});
   (fg.hardware||[]).forEach(function(h){req.push({id:'FEATURE:'+h.id,source:'FEATURE',operation:'Hardware Preparation',stationClass:'CNC',featureId:h.id,params:{template:h.name}});});
-  (fg.sandblasts||[]).forEach(function(s){req.push({id:'SANDBLAST:'+s.id,source:'MANUFACTURING',operation:shapeSandblastServiceLabel(s.source),stationClass:'SAND',featureId:s.id,params:{coverage:s.coverage,side:s.side}});});
+  /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа по
+     поверхности, отдельной станции у цеха под них нет. Подпись берём общую,
+     иначе подложка зеркала называлась бы в требованиях пескоструем. */
+  (fg.sandblasts||[]).forEach(function(s){req.push({id:'SURFACE:'+s.id,source:'MANUFACTURING',operation:shapeSurfaceMarkLabel(s.source),stationClass:'SAND',featureId:s.id,params:{coverage:s.coverage,side:s.side}});});
   if((fg.radii||[]).some(function(r){return r.radius>0;}))req.push({id:'CONTOUR:RADIUS',source:'CONTOUR',operation:'Radius / Fillet Machining',stationClass:'CNC',featureIds:fg.radii.map(function(r){return r.id;})});
   /* Нотч в контур реза не входит — его выпиливают после кромки, от обработанного
      края. Но работа существует и станцию требует: рукой или на станке. Без этой
@@ -299,7 +316,7 @@ function shapeDerivedRequirements(def,geo,fg){
   (def.manufacturingItems||[]).forEach(function(item){
     if(item.type==='hole'){
       var d=fabParseDimStrict(item.diameter),dia=d.ok?d.v:0;
-      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeHoleOperation(item),stationClass:'DRILLING',manufacturingItemId:item.id,params:shapeHoleRequirementParams(item,dia)});
+      req.push({id:'MANUFACTURING:'+item.id,source:'MANUFACTURING',operation:shapeHoleOperation(item,dia),stationClass:shapeHoleStationClass(dia),manufacturingItemId:item.id,params:shapeHoleRequirementParams(item,dia)});
     }else{
       /* Любая фурнитура на кромке, включая виды, добавленные владельцем.
          Станция SERVICE, а не CNC: посадочное место делает человек по

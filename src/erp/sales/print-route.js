@@ -22,18 +22,28 @@ function salesRouteStationName(code){
   if(!s)return code;
   return (typeof LANG!=='undefined'&&LANG==='en')?(s.nameEn||s.name):(s.name||s.nameEn);
 }
-function salesRouteStationOf(opCode,fallback){
-  var o=(DB.operation||[]).find(function(x){return x.code===opCode;});
-  return (o&&o.station)||fallback;
+/* Станция берётся у РАБОТЫ — другого источника нет. Справочник операций цеха
+   удалён 11 сентября 2026: работы несут и станцию, и момент маршрута, и цену
+   одной строкой, включая шаги без цены (резка, печь, склейка, сборка пакета).
+   Пока таблиц было две, маршрут и счёт читали разные источники. */
+function salesRouteWork(code){
+  return (DB.serviceRate||[]).find(function(x){return x&&x.id===code;})||null;
 }
-const SALES_ROUTE_EDGE_OP={'Rough Arris':'arris_machine','Flat Polish':'polish',
-  'CNC Shape Polish':'cnc_shape_polish','Mitering':'miter','Beveling':'bevel',
-  'Lami Polish':'lami_polish','CNC Lami Polish':'cnc_lami_polish'};
-/* Признак берётся из справочника операций, а не из списка кодов здесь: заведёт
-   владелец ещё одну операцию по склеенной кромке — маршрут узнает сам. */
-function salesRouteAfterMerge(opCode){
-  var o=(DB.operation||[]).find(function(x){return x.code===opCode;});
-  return !!(o&&o.afterMerge);
+function salesRouteStationOf(code,fallback){
+  var w=salesRouteWork(code);
+  return (w&&w.station)||fallback;
+}
+/* Кромочные операции названы ключами ПРАЙСА, а не кодами цеха: по этому же
+   ключу считается цена, и станция обязана приезжать из той же строки. */
+const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
+  'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel:9-15',
+  'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
+/* Признак «только после склейки» — свойство работы; справочник операций снова
+   запасной. Заведёт владелец ещё одну работу по склеенной кромке — маршрут
+   узнает сам, списка кодов здесь нет. */
+function salesRouteAfterMerge(code){
+  var w=salesRouteWork(code);
+  return !!(w&&w.afterMerge);
 }
 const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
 
@@ -43,48 +53,44 @@ function salesRoutePush(map,order,code,text){
   if(map[code].items.indexOf(text)<0)map[code].items.push(text);
 }
 
-/* Позиция метки записывается ровно так, как её ввёл оператор: буква кромки, имя
-   стороны, величина и УГОЛ ОТСЧЁТА. Правило не выдумываем — от какого угла
-   мерили, уже выбрано в карточке и лежит в оформлении фигуры. */
-/* Сторона называется буквой — той же, что стоит на чертеже. Слово Left рядом
-   с буквой A ничего не добавляло, только удлиняло строку. */
+/* Сторона называется буквой — той же, что стоит на чертеже. */
 function salesRouteEdgeLetter(edge){return SALES_ROUTE_EDGE_LETTER[edge]||String(edge||'');}
-function salesRouteMarkText(shape,geo,item,edgeLen){
-  var name,pos='';
+/* Метка в маршруте называет ЧТО делают, но не ГДЕ. Координаты («— A 12 · B 8»,
+   «— A 12 from B») отсюда убраны 11 сентября 2026 по решению владельца: «убрать
+   совсем, на чертеже всё видно». Позиция каждой метки стоит на производственном
+   чертеже размерной цепочкой, и второй её экземпляр в строке маршрута только
+   удлинял строку — а расходился бы с чертежом при первой же ручной правке
+   привязки размера. */
+function salesRouteMarkText(item){
   if(item.type==='hole'){
     var d=fabParseDimStrict(item.diameter),count=shapeHoleCount(item);
-    name=(count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
-    var hp=geo?shapeManufacturingHolePosition(item,geo):null;
-    if(hp)pos=salesRouteEdgeLetter(hp.hRef)+' '+shapeFrac16(hp.hDistance)+
-      ' · '+salesRouteEdgeLetter(hp.vRef)+' '+shapeFrac16(hp.vDistance);
-    return name+(pos?' — '+pos:'');
+    return (count>1?count+' × ':'')+'HOLE Ø '+(d.ok?shapeFrac16(d.v):String(item.diameter||''));
   }
-  name=String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
+  return String(shapeManufacturingItemTitle(item.type)||item.type).toUpperCase()+
     (item.model?' '+item.model:'');
-  var edge=item.edge||'left',letter=SALES_ROUTE_EDGE_LETTER[edge]||'',shown=+item.distance||0;
-  var rec=shape&&shape.dims&&shape.dims[item.id]&&shape.dims[item.id].e;
-  var fromEnd=!!(rec&&rec.ref==='end');
-  if(fromEnd&&isFinite(+edgeLen)&&+edgeLen>0)shown=Math.max(0,+edgeLen-shown);
-  var vert=(edge==='left'||edge==='right');
-  var corner=vert?(fromEnd?'top':'bottom'):(fromEnd?'right':'left');
-  pos=(letter?letter+' ':'')+shapeFrac16(shown)+' from '+salesRouteEdgeLetter(corner);
-  return name+' — '+pos;
+}
+/* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
+   нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
+   перевод класса станка в код станции цеха. */
+function salesRouteHoleStation(diameter){
+  return shapeHoleStationClass(diameter)==='CNC'
+    ? salesRouteStationOf('hole:4+','CNC')
+    : salesRouteStationOf('hole:0.5-1','DRILL');
 }
 
 /* Один лайт: что с ним делают и на какой станции. */
 function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,heatSoak){
-  var map={},order=[],heatMap={},heatOrder=[],postMap={},postOrder=[],afterMap={},afterOrder=[],geo=null;
-  try{geo=(typeof shapeManufacturingGeometry==='function'&&shape===sDraft)?shapeManufacturingGeometry():null;}catch(e){geo=null;}
-  if(!geo&&result&&result.valid&&(result.points||[]).length)geo={P:result.points,b:fabEdgeBounds(result.points)};
+  /* Геометрия фигуры здесь больше не нужна: её брали только ради координат
+     метки, а координаты из строки убраны — они есть на чертеже. */
+  var map={},order=[],heatMap={},heatOrder=[],postMap={},postOrder=[],afterMap={},afterOrder=[];
 
   var cut=result&&result.cutting&&result.cutting.valid?result.cutting:null;
   if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height));
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
-  var byOp={},opOrder=[],edgeLen={},contourEdges=[];
+  var byOp={},opOrder=[],contourEdges=[];
   (groups||[]).forEach(function(g){
     if(contourEdges.indexOf(g.id)<0)contourEdges.push(g.id);
-    edgeLen[g.id]=+g.length||0;
     (g.ops||[]).forEach(function(op){
       var t=op&&op.type;if(!t)return;
       var key=salesServiceOpSignature(op);
@@ -110,22 +116,31 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     else salesRoutePush(map,order,station,text);
   });
 
-  /* Тело стекла: отверстия, фурнитура, нотчи, вырезы. */
-  var fab=salesRouteStationOf('fabrication','FAB');
+  /* Тело стекла. Станция больше не одна на всё: сверловка и ЧПУ — два разных
+     участка, и цеху нужно видеть, на чём деталь делают. Зонтичная станция FAB
+     упразднена 11 сентября 2026, станция каждой работы записана в справочнике
+     операций прямо, а не выводится из списка станков. */
+  var hardware=salesRouteStationOf('hinge','DRILL');
+  var cncCutout=salesRouteStationOf('cutout','CNC');
+  var cncRadius=salesRouteStationOf('radiusCorner','CNC');
   (shape&&shape.manufacturingItems||[]).forEach(function(item){
-    var letter=SALES_ROUTE_EDGE_LETTER[item.edge||'left'];
-    salesRoutePush(map,order,fab,salesRouteMarkText(shape,geo,item,edgeLen[letter]));
+    var st=hardware;
+    if(item.type==='hole'){var d=fabParseDimStrict(item.diameter);st=salesRouteHoleStation(d.ok?d.v:0);}
+    salesRoutePush(map,order,st,salesRouteMarkText(item));
   });
+  /* Нотч: способ выбирает владелец на каждом нотче, и от него зависит и цена,
+     и станция. Здесь единственное место, где «руками или на станке» — решение
+     продажи, а не цеха, поэтому строки две. */
   if(typeof ssNotchList==='function')ssNotchList(shape).forEach(function(n){
-    salesRoutePush(map,order,fab,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase());
+    var st=n.method==='cnc'?salesRouteStationOf('notchCnc','CNC'):salesRouteStationOf('notchHand','DRILL');
+    salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase());
   });
   (shape&&shape.features||[]).forEach(function(f){
-    if(f.type==='hole')salesRoutePush(map,order,fab,'HOLE Ø '+dimIn16(inch(f.diameter))+
-      ' · X '+dimIn16(inch(f.x))+' / Y '+dimIn16(inch(f.y)));
-    if(f.type==='hardware')salesRoutePush(map,order,fab,'HARDWARE '+String(f.name||'')+
-      (f.edgeId?' · '+f.edgeId:'')+(f.distance?' · '+dimIn16(inch(f.distance)):''));
-    if(f.type==='cutout')salesRoutePush(map,order,fab,'INTERNAL CUTOUT');
-    if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,fab,'RADIUS CORNER');
+    if(f.type==='hole')salesRoutePush(map,order,salesRouteHoleStation(inch(f.diameter)),
+      'HOLE Ø '+dimIn16(inch(f.diameter)));
+    if(f.type==='hardware')salesRoutePush(map,order,hardware,'HARDWARE '+String(f.name||''));
+    if(f.type==='cutout')salesRoutePush(map,order,cncCutout,'INTERNAL CUTOUT');
+    if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,cncRadius,'RADIUS CORNER');
   });
 
   /* Makeup несёт работы по поверхности независимо от геометрии и цены.
@@ -192,7 +207,7 @@ function salesRouteSurfaceTreatments(pane,index,side){
     else if(kind==='frit'){parts.push('Frit');if(product)parts.push(product.name||product.code);}
     /* У фрита цвет — это слово из своего короткого списка, у спандрела —
        строка палитры с кодом. Один и тот же ключ, два разных справочника. */
-    if(spec.color)parts.push(kind==='spandrel'?spandrelColourText(spec.color):spec.color);
+    if(spec.color)parts.push(kind==='spandrel'?spandrelColourText(spec.color,spec.colorNote):spec.color);
     if(kind==='frit'&&spec.pattern)parts.push(spec.pattern);
     var label=parts.join(' · ');
     var where=position==='in_film'?'Into film':surface?'#'+surface:'Surface not selected';

@@ -440,7 +440,7 @@ function shapeProductionFeaturesSvg(result,F){
   fg.holes.forEach(function(h,i){var x=F.X(h.center[0]),y=F.Y(h.center[1]),r=Math.max(3,h.diameter/2*F.sc),right=h.center[0]<(F.b.minX+F.b.maxX)/2,lx=x+(right?55:-55),anchor=right?'start':'end';out+='<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><line x1="'+(x+(right?r:-r))+'" y1="'+(y-r)+'" x2="'+lx+'" y2="'+(y-28-i*4)+'" stroke="#667085"/><text x="'+(lx+(right?4:-4))+'" y="'+(y-30-i*4)+'" text-anchor="'+anchor+'" font-size="10" fill="#101828">Ø '+shapeXml(shapeDrawingDim(h.diameter))+' · X '+shapeXml(shapeDrawingDim(h.center[0]))+' · Y '+shapeXml(shapeDrawingDim(h.center[1]))+'</text>';});
   fg.cutouts.forEach(function(c,i){out+='<path d="'+shapeSvgPath(c.points,F.X,F.Y)+'" fill="#fff" stroke="#101828" stroke-width="1.5"/><text x="'+F.X(c.x+c.width/2)+'" y="'+(F.Y(c.y+c.height)-8-i*3)+'" text-anchor="middle" font-size="10" fill="#101828">CUTOUT '+shapeXml(shapeDrawingDim(c.width))+' × '+shapeXml(shapeDrawingDim(c.height))+'</text>';});
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="10" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
-  fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),w=Math.max(62,Math.min(164,String(s.text||'').length*6+18));out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-w/2)+'" y="'+(y-10)+'" width="'+w+'" height="20" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+3.5)+'" text-anchor="middle" font-size="9" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
+  fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeStampDrawingSpec(s.source);out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+spec.font*.4)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
 }
 /* Подпись метки на теле стекла. Пескоструй, подложка зеркала и герметик кромки
@@ -453,6 +453,10 @@ function shapePointMarkLines(f){
   if(t==='mirrorbacker')return ['MIRROR BACKER',shapeMirrorSide(f)==='back'?'BACK':'FRONT'];
   if(t==='mirrorsealant')return ['MIRROR EDGE SEALANT','PERIMETER'];
   return ['SANDBLAST',(shapeSandblastCoverage(f)==='pattern'?'PATTERN':'FULL COVERED')+' · '+(shapeSandblastSide(f)==='back'?'BACK':'FRONT')];
+}
+function shapeStampDrawingSpec(f){
+  var k=shapeMarkTextScale(f),font=9*k,w=Math.max(62,Math.min(164*k,(String(shapeStampText(f)||'').length*6+18)*k));
+  return {w:Math.round(w*10)/10,h:Math.round((font+11)*10)/10,font:Math.round(font*10)/10};
 }
 function shapeSandblastDrawingSpec(f,glassPixelWidth){
   var lines=shapePointMarkLines(f),line2=lines[1],k=shapeMarkTextScale(f);

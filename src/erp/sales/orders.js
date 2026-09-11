@@ -225,6 +225,18 @@ function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeu
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
 function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);salesDropLineOwnedShape(soDraft.lines[i]);const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+
+/* Позиция каталога как отдельная строка заказа — не Makeup-строка с
+   геометрией, а сама позиция: количество и цена, без формы. */
+function salesExtraItemAdd(table,id){
+ if(!table||!id)return;
+ if(!Array.isArray(soDraft.extraItems))soDraft.extraItems=[];
+ soDraft.extraItems.push(normalizeSalesExtraItem({table,itemId:id,qty:1}));
+ render();
+}
+function salesExtraItemRemove(id){soDraft.extraItems=(soDraft.extraItems||[]).filter(x=>x.id!==id);render();}
+function salesExtraItemSetQty(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.qty=salesPositiveInt(v,1);render();}
+function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x.id===id);if(!x)return;x.priceOverride=salesNonNegOrNull(v);render();}
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
@@ -665,17 +677,35 @@ function salesExcelApply(){
 /* Полоса прайса по конкретной толщине стекла. Начисления за кромку считаются
    ПО ЛАЙТАМ, поэтому банд нужен на каждое стекло отдельно: у пакета 10 + 6 два
    разных стекла и две разные ставки. */
+/* Границы полос: до 7 · 8-11 · 12-19. Прежние `до 6` и `8-10` оставляли два
+   провала — между 6 и 8 и между 10 и 12, — и попадал в них ПОКУПНОЙ ламинат:
+   6.38 (3+3) и 11.52 (5+5) не получали ставки вовсе. Собранный у себя ламинат
+   не страдал: там плиты 3 и 5 мм идут каждая в свою полосу.
+
+   Владелец 11 сентября 2026: «стёкол 7 и 11 мм нет, бывают только лакированные
+   покупные; давай раздвинем банды до 7 / 8-11 / 12-19».
+
+   КЛЮЧИ полос ('6', '8-10', '12-19') НЕ меняются, хотя границы разъехались:
+   ключ входит в идентификатор начисления, по которому сохранённый заказ
+   находит свою ручную правку ставки. Переименуй ключ — и правки во всех старых
+   заказах молча отвяжутся. Названия полос человеку показываются отдельно.
+
+   Низ первой полосы остаётся ОТКРЫТЫМ: у ламината плиты бывают 3-5 мм, и
+   жёсткое «от 3» выбросило бы стекло 2.5 мм без ставки. */
 function salesPricingBandFor(mm){
  const t=+mm;
- /* Банд «6» открыт вниз: у ламината плиты бывают 3-5 мм, и на точном
-    равенстве шестёрке они оставались без ставки вовсе. Цена та же — решение
-    владельца. */
- if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};
- if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};
+ if(t>0&&t<=7)return {ok:true,thickness:t,band:'6'};
+ if(t>=8&&t<=11)return {ok:true,thickness:t,band:'8-10'};
  if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};
  return {ok:false,thickness:Number.isFinite(t)?t:'',band:''};
 }
-function salesPricingThickness(line){const v=salesLineGlassThicknesses(line);if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};const t=v[0];if(t>0&&t<=6)return {ok:true,thickness:t,band:'6'};if(t>=8&&t<=10)return {ok:true,thickness:t,band:'8-10'};if(t>=12&&t<=19)return {ok:true,thickness:t,band:'12-19'};return {ok:false,thickness:t,band:''};}
+/* Полоса строки заказа — тот же расчёт, что и у отдельного стекла. Раньше он
+   стоял здесь вторым списком условий и при смене границ разошёлся бы с первым. */
+function salesPricingThickness(line){
+ const v=salesLineGlassThicknesses(line);
+ if(v.length!==1)return {ok:false,thickness:v.length?v.join(' / '):'',band:''};
+ return salesPricingBandFor(v[0]);
+}
 /* Физические стёкла строки, сгруппированные по полосе прайса.
 
    Правило владельца 10 сентября 2026: «каждый лайт изначально создаётся и живёт

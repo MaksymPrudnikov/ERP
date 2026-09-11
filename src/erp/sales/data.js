@@ -166,7 +166,7 @@ function salesDefaultPane(i){
      прежнее поведение. Тип по умолчанию — силикон ICD, потому что Black
      #3-818 принадлежит его палитре: пара «керамика + цвет силикона» давала бы
      на новом лайте «нет в палитре». */
-  spandrel:{productId:'SPAN-SILICONE',color:'SPC-3-818',surface:null},
+  spandrel:{productId:'SPAN-SILICONE',color:'SPC-3-818',colorNote:'',surface:null},
   laminated:{outer:Object.assign({},ply,{frit:Object.assign({},ply.frit)}),interlayers:[normalizeSalesInterlayer({},INTERLAYER_DEFAULT_ID)],inner:Object.assign({},ply,{frit:Object.assign({},ply.frit)})}
  };
 }
@@ -322,6 +322,22 @@ function normalizeFritSpec(f,d,allowed){
  };
 }
 function salesPaneSurfaces(index){return [index*2+1,index*2+2];}
+/* Спандрел: пять типов свели к двум 10 сентября 2026 (masterdata/glass, раздел
+   5·7), и три отменённых id остаются только в СОХРАНЁННЫХ заказах — на каждый
+   найдётся spandrelProductMigration. Ссылка переезжает при каждой нормализации
+   панели, не разово при подъёме версии: заказ открывается одинаково честно
+   независимо от того, когда его в последний раз сохраняли. Цвет не подменяется,
+   если он уже валиден — переносится только цвет-заглушка старого типа. */
+function normalizeSalesSpandrelSpec(sp,fallback,allowed){
+ const rawId=salesString(sp.productId)||fallback.productId;
+ const alias=(typeof spandrelProductMigration==='function')?spandrelProductMigration(rawId):null;
+ const productId=alias?alias.id:rawId;
+ const color=(alias&&alias.colour&&!salesString(sp.color))?alias.colour:(salesString(sp.color)||fallback.color);
+ /* Название кастомного цвета. Ограничение длины — то же, что у произвольного
+    stamp-текста в Shape: достаточно, чтобы назвать цвет, а не писать инструкцию. */
+ const colorNote=salesString(sp.colorNote).slice(0,60);
+ return {productId,color,colorNote,surface:normalizeSurface(sp.surface,allowed)};
+}
 function normalizeSalesPane(p,index){
  const d=salesDefaultPane(index);p=p&&typeof p==='object'?p:{};
  const category=SALES_LITE_CATEGORIES.includes(p.category)?p.category:d.category;
@@ -337,7 +353,7 @@ function normalizeSalesPane(p,index){
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,heatSoak:p.heatSoak===true&&p.heatTreatmentId==='HT-FT',
   coatingSurface:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
-  spandrel:{productId:salesString(sp.productId)||d.spandrel.productId,color:salesString(sp.color)||d.spandrel.color,surface:normalizeSurface(sp.surface,allowed)},
+  spandrel:normalizeSalesSpandrelSpec(sp,d.spandrel,allowed),
   laminated:{outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated),inner:normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner)}
  };
 }
@@ -378,13 +394,50 @@ function normalizeSalesOrderLine(l){
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
  return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
+/* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
+   же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
+   Double / Triple, я бы добавил ещё один пункт, где могу выбрать любой предмет
+   для продажи». Четвёртая кнопка стоит рядом с типом юнита, но данные у нового
+   изделия — свои: ни Makeup, ни Shape, ни геометрии, ни маршрута, только
+   позиция каталога, количество и цена.
+
+   Кандидатов собираем по признаку `sellsAsOwnLine`, а не «всё кроме стекла»:
+   правило «кроме стекла» пустило бы в список аргон, осушитель и герметик,
+   которые поштучно не продаются. `table` хранит, ИЗ КАКОГО справочника взята
+   позиция — их несколько (stockItem, interlayerProduct, …), и без имени
+   таблицы найти строку обратно нечем. */
+const SALES_EXTRA_ITEM_TABLES=['stockItem','interlayerProduct','sealantProduct','gasProduct','fritProduct','spandrelProduct'];
+function salesExtraItemCandidates(){
+ const out=[];
+ SALES_EXTRA_ITEM_TABLES.forEach(table=>{
+  (DB[table]||[]).forEach(x=>{if(x&&x.active!==false&&x.sellsAsOwnLine===true)out.push({table,id:x.id,name:x.name,code:x.code,salePrice:x.salePrice});});
+ });
+ return out;
+}
+function salesExtraItemRow(table,id){const rows=DB[table];return Array.isArray(rows)?rows.find(x=>x&&x.id===id)||null:null;}
+function normalizeSalesExtraItem(x){
+ x=x&&typeof x==='object'?x:{};
+ return {id:salesEntityId(x.id,'EXT'),table:salesString(x.table),itemId:salesString(x.itemId),
+  qty:salesPositiveInt(x.qty,1),priceOverride:salesNonNegOrNull(x.priceOverride),notes:salesString(x.notes)};
+}
+/* Цена — снимок каталога на момент, если строка её не переопределила: ставку
+   меняют в справочнике, а сохранённый заказ остаётся при своей цифре. Пусто —
+   позиция без цены честно встаёт Rate required, а не нулём. */
+function salesExtraItemUnitPrice(x){
+ if(x.priceOverride!=null)return x.priceOverride;
+ const row=salesExtraItemRow(x.table,x.itemId);
+ return row&&row.salePrice!=null?row.salePrice:null;
+}
+function salesExtraItemLineTotal(x){const p=salesExtraItemUnitPrice(x);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
+function salesExtraItemName(x){const row=salesExtraItemRow(x.table,x.itemId);return row?row.name:'(removed from catalogue)';}
 function normalizeSalesOrder(o){
  o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
  let makeups=(Array.isArray(o.makeups)?o.makeups:[]).map(normalizeOrderMakeup);if(!makeups.length)makeups=[normalizeOrderMakeup({code:'A',unitType:'double'},0)];
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -397,6 +450,7 @@ function validateSalesPayload(src){
  const ids=new Set(),numbers=new Set(),lineIds=new Set(),entityId=/^[A-Za-z0-9_-]{1,96}$/;(src.salesOrder||[]).forEach((o,i)=>{
   if(!o||typeof o!=='object'||Array.isArray(o))throw new Error('Sales Order row '+(i+1)+' must be an object.');
   if(o.lines!=null&&!Array.isArray(o.lines))throw new Error('Sales Order '+(i+1)+': lines must be an array.');
+  if(o.extraItems!=null&&!Array.isArray(o.extraItems))throw new Error('Sales Order '+(i+1)+': extraItems must be an array.');
   if(o.makeups!=null&&!Array.isArray(o.makeups))throw new Error('Sales Order '+(i+1)+': makeups must be an array.');
   if(o.id){const id=salesString(o.id);if(!entityId.test(id))throw new Error('Sales Order '+(i+1)+' has an invalid id.');if(ids.has(id))throw new Error('Sales Orders contains duplicate id "'+id+'".');ids.add(id);}
   if(o.businessNumber){const n=salesString(o.businessNumber);if(numbers.has(n))throw new Error('Sales Orders contains duplicate number "'+n+'".');numbers.add(n);}

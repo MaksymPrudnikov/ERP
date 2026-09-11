@@ -65,8 +65,6 @@ function validateImportedState(src){
  /* `level` больше не таблица — старый экспорт с этим ключом читается, ключ
     просто игнорируется: шагом маршрута стала сама станция. */
  unique(src.station,'code','Stations',v=>String(v).trim().toUpperCase());
- unique(src.operation,'code','Operations',v=>String(v).trim().toLowerCase());
- unique(src.workPosition,'code','Work positions',v=>String(v).trim().toUpperCase());
  unique(src.terminal,'code','Terminals',v=>String(v).trim().toUpperCase());
  /* Каталог стекла опознаётся и по id, и по коду: id держит ссылки из
     сохранённых Makeup, код — слияние при импорте CSV. Дубль любого из них
@@ -87,16 +85,10 @@ function validateImportedState(src){
   Object.keys(s.edgeOps||{}).forEach(edgeId=>{if(!subId.test(edgeId)||!Array.isArray(s.edgeOps[edgeId]))throw new Error('Shape '+(i+1)+' has invalid edgework.');s.edgeOps[edgeId].forEach(op=>{if(!op||!SHAPE_EDGE_OPS.includes(op.type))throw new Error('Shape '+(i+1)+' has an unknown edge operation.');});});
  });
  (src.station||[]).forEach((s,i)=>{if(s&&s.code&&!SF_CODE_RE.test(String(s.code).trim().toUpperCase()))throw new Error('Station row '+(i+1)+' has an invalid code.');});
- (src.workPosition||[]).forEach((w,i)=>{
-  if(!w)return;
-  if(w.code&&!SF_CODE_RE.test(String(w.code).trim().toUpperCase()))throw new Error('Work position row '+(i+1)+' has an invalid code.');
-  if(w.operations!=null&&!Array.isArray(w.operations))throw new Error('Work position row '+(i+1)+': operations must be an array.');
- });
- (src.operation||[]).forEach((o,i)=>{if(o&&o.code&&!SF_OP_CODE_RE.test(String(o.code).trim().toLowerCase()))throw new Error('Operation row '+(i+1)+' has an invalid code.');});
  (src.terminal||[]).forEach((t,i)=>{
   if(!t)return;
   if(t.code&&!SF_CODE_RE.test(String(t.code).trim().toUpperCase()))throw new Error('Terminal row '+(i+1)+' has an invalid code.');
-  if(t.workPositions!=null&&!Array.isArray(t.workPositions))throw new Error('Terminal row '+(i+1)+': workPositions must be an array.');
+  if(t.stations!=null&&!Array.isArray(t.stations))throw new Error('Terminal row '+(i+1)+': stations must be an array.');
  });
  (src.user||[]).forEach((u,i)=>{
   if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');

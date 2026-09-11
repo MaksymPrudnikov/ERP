@@ -154,7 +154,26 @@ function shapeHoleCenters(item){
   var vs=shapeHoleTripleVSpacing(item),hs=shapeHoleTripleHSpacing(item);if(!isFinite(vs))vs=0;if(!isFinite(hs))hs=0;
   out.push([x,y+vs]);out.push([x+(shapeHoleTripleDirection(item)==='left'?-hs:hs),y+vs]);return out;
 }
-function shapeHoleOperation(item){var count=shapeHoleCount(item);return count>1?'Drill Hole × '+count:'Drill Hole';}
+/* Порог ручного сверла. Владелец 11 сентября 2026: «сделай 1 3/4 на дрил, всё
+   после 1 3/4 на CNC» — свёрл крупнее в цеху просто нет.
+
+   Правило живёт ОДНОЙ функцией, потому что до этого оно стояло двумя разными
+   проверками и они расходились: у отверстий-фич порог был 1.5, а у отверстий,
+   размещённых оператором, порога не было вовсе — крупное отверстие молча
+   уезжало на сверловку, которой оно не по силам. */
+var SHAPE_HAND_DRILL_MAX=1.75;
+function shapeHoleIsHandDrilled(diameter){
+  var d=+diameter;
+  return isFinite(d)&&d>=.375&&d<=SHAPE_HAND_DRILL_MAX;
+}
+function shapeHoleStationClass(diameter){return shapeHoleIsHandDrilled(diameter)?'DRILLING':'CNC';}
+/* Диаметр приходит ЯВНО: без него функция не может отличить сверловку от ЧПУ,
+   а «по умолчанию сверловка» — это ровно тот молчаливый ответ, который уже
+   один раз отправил крупное отверстие не на ту станцию. */
+function shapeHoleOperation(item,diameter){
+  var count=shapeHoleCount(item),name=shapeHoleIsHandDrilled(diameter)?'Drill Hole':'Machine Hole';
+  return count>1?name+' × '+count:name;
+}
 function shapeHoleRequirementParams(item,diameter){
   var count=shapeHoleCount(item),out={diameter:diameter,count:count,centers:shapeHoleCenters(item)};
   if(count===2){out.spacing=shapeHoleSpacing(item);out.axis=shapeHoleAxis(item);}
