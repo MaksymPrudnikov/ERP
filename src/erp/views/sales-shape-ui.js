@@ -100,13 +100,13 @@ function viewShapeSkill(){
   var rows=DB.shapeDef.map(function(s,i){return {s:s,i:i};}).filter(function(x){return !salesShapeIsLineOwned(x.s);}).map(function(x){
     var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
-    var state=external?(r.sourceValid?'<span class="pill info">DXF · внешний файл</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">готова к экспорту</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
-    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>'):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">невалидна</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Изменить</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
+    var state=external?(r.sourceValid?'<span class="pill info">DXF · external file</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>'):(r.valid?'<span class="pill ok">ready to export</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>');
+    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${external?(r.sourceValid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">invalid</span>'):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">invalid</span>')}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');
   var presetOptions=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   return `${sEdit!==null?'':`<div class='real-module-note'><b>Shape schema v2</b><span>Finished Geometry, Production Drawing и Cutting Geometry формируются из одной ревизии. Для DXF из Fusion 360 ERP хранит метаданные, лёгкий 2D-контур превью и габариты; исходное содержимое DXF в localStorage не сохраняется.</span></div>`}
     ${sEdit!==null?shapeForm():''}
-    <table><thead><tr><th>Название / тип</th><th>Габарит</th><th>Кромок</th><th>Features</th><th>Статус</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">пусто</td></tr>'}</tbody></table>
+    <table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
     ${sEdit===null?`<div class='shape-new-row'><select id='s_new_type'>${presetOptions}</select><button class='pri' onclick='openShapeNew(document.getElementById("s_new_type").value)'>Новая фигура</button></div>`:''}`;
 }
 
@@ -135,10 +135,10 @@ function setShapeSourceNote(v){if(!sDraft.source)sDraft.source=shapeNormalizeSou
 function toggleShapeSource(){sSourceOpen=!sSourceOpen;render();}
 function shapeSourceEditor(){
   sDraft.source=shapeNormalizeSource(sDraft.source);var source=sDraft.source,external=source.kind==='dxf',valid=external&&shapeValidateSource(sDraft).errors.length===0;
-  var state=external?(valid?'DXF · '+shapeFileSizeText(source.fileSize):'DXF · ошибка'):'геометрия конфигуратора';
-  var body=external?`<div class='shape-source-box dxf'><div class='shape-source-head'><div><b>DXF из Fusion 360</b><small>Исходный DXF не сохраняется в ERP. Для повторного открытия хранятся имя файла, точный производный 2D-контур и габариты, округлённые до 1/16 дюйма.</small></div><span class='pill ${valid?'info':'bad'}'>${valid?'внешний раскрой':'ошибка файла'}</span></div><div class='shape-file-meta'><b class='shape-dxf-name'>${raw(source.fileName)}</b><span data-raw>${esc(shapeFileSizeText(source.fileSize))}</span><span data-raw>${esc(source.uploadedAt||'—')}</span></div><label>Примечание к DXF<input data-raw value='${esc(source.note)}' oninput='setShapeSourceNote(this.value)'></label><div class='row'><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Заменить DXF</span></label><button type='button' onclick='removeShapeDxf()'>Убрать файл</button></div></div>`:
-    `<div class='shape-source-box'><div><b>Источник раскроя</b><small>По умолчанию Production Shape использует геометрию конфигуратора. DXF из Fusion 360 можно прикрепить как внешний файл раскроя.</small></div><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Загрузить DXF из Fusion 360</span></label></div>`;
-  return `<div class='shape-subsection shape-accordion shape-source-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSource()'><span><b>Cutting source</b><small>Configurator geometry или внешний DXF из Fusion 360</small></span><span class='shape-accordion-state'>${external?`<span class='shape-dxf-name'>${raw(source.fileName)}</span>`:esc(state)}<i>${sSourceOpen?'−':'+'}</i></span></button>${sSourceOpen?`<div class='shape-accordion-body'>${body}</div>`:''}</div>`;
+  var state=external?(valid?'DXF · '+shapeFileSizeText(source.fileSize):'DXF · error'):'configurator geometry';
+  var body=external?`<div class='shape-source-box dxf'><div class='shape-source-head'><div><b>DXF from Fusion 360</b><small>The original DXF is not stored in ERP. For reopening, ERP stores the file name, an exact derived 2D contour and bounding dimensions rounded to 1/16 inch.</small></div><span class='pill ${valid?'info':'bad'}'>${valid?'external cutting file':'file error'}</span></div><div class='shape-file-meta'><b class='shape-dxf-name'>${raw(source.fileName)}</b><span data-raw>${esc(shapeFileSizeText(source.fileSize))}</span><span data-raw>${esc(source.uploadedAt||'—')}</span></div><label>DXF note<input data-raw value='${esc(source.note)}' oninput='setShapeSourceNote(this.value)'></label><div class='row'><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Replace DXF</span></label><button type='button' onclick='removeShapeDxf()'>Remove file</button></div></div>`:
+    `<div class='shape-source-box'><div><b>Cutting source</b><small>By default, Production Shape uses configurator geometry. A DXF from Fusion 360 can be attached as an external cutting file.</small></div><label class='shape-file-pick'><input id='shape_dxf_file' type='file' accept='.dxf,application/dxf' onchange='shapeAttachDxf(this)'><span>Load DXF from Fusion 360</span></label></div>`;
+  return `<div class='shape-subsection shape-accordion shape-source-accordion'><button type='button' class='shape-accordion-head' onclick='toggleShapeSource()'><span><b>Cutting source</b><small>Configurator geometry or an external DXF from Fusion 360</small></span><span class='shape-accordion-state'>${external?`<span class='shape-dxf-name'>${raw(source.fileName)}</span>`:esc(state)}<i>${sSourceOpen?'−':'+'}</i></span></button>${sSourceOpen?`<div class='shape-accordion-body'>${body}</div>`:''}</div>`;
 }
 function shapeDraftLine(){return shapeDefToLine(sDraft);}
 function shapeDraftGeometry(){try{return shapeGeometry(shapeDraftLine());}catch(e){return {ok:false,error:e.message,points:[],edges:[],vertices:[]};}}
@@ -2057,13 +2057,13 @@ function shapeMuntinEditor(){
   var m=shapeMuntinDef();
   var state,body='';
   if(!m){
-    state=esc(tx('нет'));
+    state=esc(tx('none'));
   }else{
     var bar=muntinProduct(m.productId),got=shapeMuntinGeoForDraft(),g=got&&got.geo;
     var two=bar.exteriorColor!==bar.interiorColor;
     var chooseCavity=shapeEditorLites().length>2;
-    var cavityLabel=m.cavityIndex===0?tx('Камера 1 — наружная'):m.cavityIndex===1?tx('Камера 2 — внутренняя'):tx('Выберите камеру');
-    var cavity=chooseCavity?`<label class='shape-muntin-field pick'><span>${esc(tx('Камера раскладки'))}</span><select class='shape-muntin-cavity' onchange='setShapeMuntinSetup("cavityIndex",this.value)'><option value='' ${m.cavityIndex==null?'selected':''}>${esc(tx('Выберите камеру'))}</option><option value='0' ${m.cavityIndex===0?'selected':''}>${esc(tx('Камера 1 — наружная'))}</option><option value='1' ${m.cavityIndex===1?'selected':''}>${esc(tx('Камера 2 — внутренняя'))}</option></select></label>`:'';
+    var cavityLabel=m.cavityIndex===0?tx('Cavity 1 — exterior'):m.cavityIndex===1?tx('Cavity 2 — interior'):tx('Select cavity');
+    var cavity=chooseCavity?`<label class='shape-muntin-field pick'><span>${esc(tx('Muntin cavity'))}</span><select class='shape-muntin-cavity' onchange='setShapeMuntinSetup("cavityIndex",this.value)'><option value='' ${m.cavityIndex==null?'selected':''}>${esc(tx('Select cavity'))}</option><option value='0' ${m.cavityIndex===0?'selected':''}>${esc(tx('Cavity 1 — exterior'))}</option><option value='1' ${m.cavityIndex===1?'selected':''}>${esc(tx('Cavity 2 — interior'))}</option></select></label>`:'';
     var bars=function(n){return Array.from({length:13},function(_,i){return i;}).map(function(i){return `<option value='${i}' ${i===n?'selected':''}>${i}</option>`;}).join('');};
     var P=got?normalizeMuntinModel(got.def.muntin).production:null;
     var field=function(key,label,auto){
@@ -2072,14 +2072,14 @@ function shapeMuntinEditor(){
     };
     /* Стороны выбирают списком, как профиль: галочка «развернуть» не говорит,
        что окажется снаружи, а список называет обе стороны прямо. */
-    var sides=two?`<label class='shape-muntin-field pick'><span>${esc(tx('Стороны'))}</span><select onchange='setShapeMuntinSetup("flipped",this.value)'><option value='0' ${m.flipped?'':'selected'}>${esc(bar.exteriorColor)} ext · ${esc(bar.interiorColor)} int</option><option value='1' ${m.flipped?'selected':''}>${esc(bar.interiorColor)} ext · ${esc(bar.exteriorColor)} int</option></select></label>`:'';
+    var sides=two?`<label class='shape-muntin-field pick'><span>${esc(tx('Sides'))}</span><select onchange='setShapeMuntinSetup("flipped",this.value)'><option value='0' ${m.flipped?'':'selected'}>${esc(bar.exteriorColor)} ext · ${esc(bar.interiorColor)} int</option><option value='1' ${m.flipped?'selected':''}>${esc(bar.interiorColor)} ext · ${esc(bar.exteriorColor)} int</option></select></label>`:'';
     var cut='';
     if(got&&got.result&&got.result.valid){
       var segs=(g.verticalSegments||[]).map(function(s){return {id:muntinSegId('V',s),len:s.cut};})
         .concat((g.horizontalSegments||[]).map(function(s){return {id:muntinSegId('H',s),len:s.cut};}));
-      cut=`<div class='shape-muntin-cut'><b>${esc(tx('Раскрой баров'))}</b>${segs.map(function(s){
-        return `<span><i>${esc(s.id)}</i>${esc(dimIn(s.len))}</span>`;}).join('')||`<span>${esc(tx('нет отрезков'))}</span>`}
-        <small>${esc(tx('Всего'))} ${esc(dimIn(got.result.totalLengthIn))} · ${got.result.count} ${esc(tx('шт'))}</small></div>`;
+      cut=`<div class='shape-muntin-cut'><b>${esc(tx('Bar cut list'))}</b>${segs.map(function(s){
+        return `<span><i>${esc(s.id)}</i>${esc(dimIn(s.len))}</span>`;}).join('')||`<span>${esc(tx('no segments'))}</span>`}
+        <small>${esc(tx('Total'))} ${esc(dimIn(got.result.totalLengthIn))} · ${got.result.count} ${esc(tx('pcs'))}</small></div>`;
     }
     var axes=function(kind,count,current,auto){
       if(!count)return '';
@@ -2089,39 +2089,39 @@ function shapeMuntinEditor(){
         var ph=auto&&auto[i]!=null?dimIn(auto[i]):'—';
         rows+=`<label><span>${kind==='vertical'?'V':'H'}${i+1}</span><input value='${esc(v)}' placeholder='${esc(ph)}' onchange='setShapeMuntinPosition("${kind}",${i},this.value)'></label>`;
       }
-      return `<div class='shape-muntin-axis'><b>${esc(kind==='vertical'?tx('Вертикальные оси'):tx('Горизонтальные оси'))}</b>${rows}</div>`;
+      return `<div class='shape-muntin-axis'><b>${esc(kind==='vertical'?tx('Vertical axes'):tx('Horizontal axes'))}</b>${rows}</div>`;
     };
     var manual=(m.vertical||[]).concat(m.horizontal||[]).some(function(x){return String(x||'').trim();})||m.edgeInsetX||m.edgeInsetY||m.endClearance||m.edgeMode;
     /* Цена считается из делений. Здесь она прайсовая: скидку дают в строке
        заказа, а форма общая на много заказов и своей цены не имеет. */
     var money=shapeMuntinPriceText(m);
-    state=`<span data-raw>${esc(m.verticalBars+'×'+m.horizontalBars)}</span> · <span data-raw>${esc(money.sections)}</span> ${esc(tx('делений'))} · <span data-raw>${esc(money.price)}</span>`;
+    state=`<span data-raw>${esc(m.verticalBars+'×'+m.horizontalBars)}</span> · <span data-raw>${esc(money.sections)}</span> ${esc(tx('sections'))} · <span data-raw>${esc(money.price)}</span>`;
     if(chooseCavity)state+=' · '+esc(cavityLabel);
     body=`<div class='shape-muntin-row'>
-      <label class='shape-muntin-field pick'><span>${esc(tx('Профиль / цвет'))}</span><select onchange='setShapeMuntinSetup("productId",this.value)'>${MUNTIN_BARS.filter(function(x){return x.enabled!==false;}).map(function(x){return `<option value='${esc(x.id)}' ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></label>
+      <label class='shape-muntin-field pick'><span>${esc(tx('Profile / colour'))}</span><select onchange='setShapeMuntinSetup("productId",this.value)'>${MUNTIN_BARS.filter(function(x){return x.enabled!==false;}).map(function(x){return `<option value='${esc(x.id)}' ${x.id===m.productId?'selected':''}>${esc(x.label)}</option>`;}).join('')}</select></label>
       ${sides}${cavity}
-      <label class='shape-muntin-field num'><span>${esc(tx('Вертикальные'))}</span><select onchange='setShapeMuntinSetup("verticalBars",this.value)'>${bars(m.verticalBars)}</select></label>
-      <label class='shape-muntin-field num'><span>${esc(tx('Горизонтальные'))}</span><select onchange='setShapeMuntinSetup("horizontalBars",this.value)'>${bars(m.horizontalBars)}</select></label>
-      <div class='shape-muntin-field out'><span>${esc(tx('Делений'))}</span><b>${money.sections}</b></div>
-      <div class='shape-muntin-field out price'><span>${esc(tx('Цена'))}</span><b>${esc(money.price)}</b></div>
+      <label class='shape-muntin-field num'><span>${esc(tx('Vertical'))}</span><select onchange='setShapeMuntinSetup("verticalBars",this.value)'>${bars(m.verticalBars)}</select></label>
+      <label class='shape-muntin-field num'><span>${esc(tx('Horizontal'))}</span><select onchange='setShapeMuntinSetup("horizontalBars",this.value)'>${bars(m.horizontalBars)}</select></label>
+      <div class='shape-muntin-field out'><span>${esc(tx('Sections'))}</span><b>${money.sections}</b></div>
+      <div class='shape-muntin-field out price'><span>${esc(tx('Price'))}</span><b>${esc(money.price)}</b></div>
     </div>
-    <small class='shape-muntin-note'>${esc(tx('размеры на чертеже — в свету, от зазора'))}${money.hint?' · '+esc(money.hint):''}</small>
+    <small class='shape-muntin-note'>${esc(tx('drawing dimensions are clear sizes, measured from the gap'))}${money.hint?' · '+esc(money.hint):''}</small>
     <div class='shape-muntin-tune'>
-      <div class='shape-muntin-axis gaps'><b>${esc(tx('Зазоры'))}</b>
-        ${field('edgeInsetX',tx('Зазор X'),P?P.edgeInsetX:null)}
-        ${field('edgeInsetY',tx('Зазор Y'),P?P.edgeInsetY:null)}
-        ${field('endClearance',tx('Торцевой'),P?P.endClearance:null)}</div>
+      <div class='shape-muntin-axis gaps'><b>${esc(tx('Gaps'))}</b>
+        ${field('edgeInsetX',tx('Gap X'),P?P.edgeInsetX:null)}
+        ${field('edgeInsetY',tx('Gap Y'),P?P.edgeInsetY:null)}
+        ${field('endClearance',tx('End clr'),P?P.endClearance:null)}</div>
       ${axes('vertical',m.verticalBars,m.vertical,g?(g.v||[]):[])}
       ${axes('horizontal',m.horizontalBars,m.horizontal,g?(g.h||[]):[])}
-      ${manual?`<button type='button' class='sm shape-muntin-reset' onclick='resetShapeMuntinPositions()'>${esc(tx('Вернуть по умолчанию'))}</button>`:''}
+      ${manual?`<button type='button' class='sm shape-muntin-reset' onclick='resetShapeMuntinPositions()'>${esc(tx('Back to defaults'))}</button>`:''}
     </div>
     ${cut}`;
   }
   /* Секция сворачивается, как «Lites of the unit» и «Edge processing»: в левой
      колонке 406 px, и развёрнутая настройка занимала бы её целиком. */
-  var title=`<span><b>${esc(tx('Мунтин бар'))}</b><small>${esc(tx('бар внутри стеклопакета'))}</small></span>`;
+  var title=`<span><b>${esc(tx('Muntin bar'))}</b><small>${esc(tx('bar inside the sealed unit'))}</small></span>`;
   var head=m?`<button type='button' class='shape-accordion-head' aria-expanded='${sMuntinOpen}' aria-controls='shapeMuntinBody' onclick='toggleShapeMuntinSection()'>${title}<span class='shape-accordion-state'>${state}</span><span class='shape-muntin-chevron' aria-hidden='true'>${sMuntinOpen?'⌃':'⌄'}</span></button>`:`<div class='shape-accordion-head'>${title}</div>`;
-  var action=tx(m?'Удалить раскладку':'Добавить раскладку');
+  var action=tx(m?'Remove muntin bar':'Add muntin bar');
   var toggle=`<button type='button' class='shape-muntin-action${m?' remove':''}' title='${esc(action)}' aria-label='${esc(action)}' onclick='setShapeMuntinEnabled(${!m})'>${m?'−':'+'}</button>`;
   return `<div class='shape-subsection shape-accordion shape-muntin-editor${m?' on':''}'><div class='shape-muntin-heading'>${head}${toggle}</div>${m&&sMuntinOpen?`<div id='shapeMuntinBody' class='shape-accordion-body'>${body}</div>`:''}</div>`;
 }
@@ -2304,22 +2304,22 @@ function shapeCutoutEditor(geo,workspace){
     ${body}</div>`:''}</div>`;
 }
 function shapeArtifacts(r){
-  if(r.externalFile)return `<div class='shape-artifacts dxf-source'><b>Файл раскроя текущей ревизии</b><span>DXF из Fusion 360 используется как внешний файл раскроя. ERP хранит метаданные, превью-контура и габариты, но не хранит исходное содержимое DXF и не может скачать файл повторно.</span><small>ERP-экспорт Production SVG, Cutting SVG, Machine JSON и Generic DXF для этой ревизии отключён: он не должен подменять внешний раскрой.</small></div>`;
+  if(r.externalFile)return `<div class='shape-artifacts dxf-source'><b>Current revision cutting file</b><span>The Fusion 360 DXF is used as an external cutting file. ERP stores metadata, the preview contour and dimensions, but does not store the original DXF contents and cannot download the file again.</span><small>ERP exports of Production SVG, Cutting SVG, Machine JSON and Generic DXF are disabled for this revision: they must not replace the external cutting file.</small></div>`;
   var disabled=r.valid?'':'disabled';
   /* На листе чертежа скачивается чертёж, на листе резки — файл резки.
      Файл для станка держим отдельно от проверочного: неизвестно, как станок
      отреагирует на посторонние слои, поэтому в нём только линия реза. */
-  if(sView==='cutting')return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Cutting DXF</button><button ${disabled} onclick='downloadShapeArtifact("check")'>Check DXF</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><small>Cutting DXF — только линия реза, слой CUT_OUTER, ноль в нижнем левом углу реза: это файл для станка. Check DXF — проверочный, слоями FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER, REFERENCE в нуле готового контура; на станок его не отдавать.</small></div>`;
-  return `<div class='shape-artifacts'><b>Файлы текущей ревизии</b><button ${disabled} onclick='downloadShapeArtifact("finished")'>Finished DXF</button><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><small>Finished DXF — готовая деталь: контур, отверстия и вырезы, без припуска. Ноль в нижнем левом углу готового контура.</small></div>`;
+  if(sView==='cutting')return `<div class='shape-artifacts'><b>Current revision files</b><button ${disabled} onclick='downloadShapeArtifact("dxf")'>Cutting DXF</button><button ${disabled} onclick='downloadShapeArtifact("check")'>Check DXF</button><button ${disabled} onclick='downloadShapeArtifact("json")'>Machine JSON</button><button ${disabled} onclick='downloadShapeArtifact("cutting")'>Cutting SVG</button><small>Cutting DXF — the cut line only, layer CUT_OUTER, origin at the lower-left corner of the cut: this is the machine file. Check DXF — for verification, layers FINISHED_OUTER, CUT_OUTER, SAFETY_BORDER and REFERENCE in the finished-contour origin; do not send it to the machine.</small></div>`;
+  return `<div class='shape-artifacts'><b>Current revision files</b><button ${disabled} onclick='downloadShapeArtifact("finished")'>Finished DXF</button><button ${disabled} onclick='downloadShapeArtifact("production")'>Production SVG</button><small>Finished DXF — the finished part: contour, holes and cutouts, no allowance. Origin at the lower-left corner of the finished contour.</small></div>`;
 }
 function shapeForm(){
   /* Полный render() пересоздаёт DOM, поэтому подсветку полей ставим сразу
      после вставки разметки — иначе первый показ был бы без неё. */
   setTimeout(function(){shapeMarkFields();shapeFitPreview();},0);
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
-  var master=external?`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Название *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Тип фигуры</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
-  var controls=external?`<div class='validation-box infobox'>Геометрия конфигуратора для этой ревизии отключена: контур и габариты считаны из внешнего DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Печать / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
+  var master=external?`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
+  var controls=external?`<div class='validation-box infobox'>Configurator geometry is disabled for this revision: the contour and bounding dimensions were read from the external DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Печать чертежа или сохранение в PDF'>Печать / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'Новая производственная фигура':'Изменение фигуры'}</h3><p>${external?'Раскрой приходит DXF-файлом из Fusion 360; ERP сохраняет только производный 2D-контур и габариты, но не исходное содержимое файла.':'Все размеры — finished size в дюймах. Невалидная геометрия не сохраняется и не экспортируется.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}

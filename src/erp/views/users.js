@@ -10,17 +10,17 @@ let uEdit=null, uDraft=null;
 function viewUsers(){
  if(!subtab || !['list','report'].includes(subtab)) subtab='list';
  const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill))).length;
- return `<div class="page-head"><div><h2>Команда и доступ к производству</h2><p>Кто работает в системе и на каком рабочем месте стоит по умолчанию. Это префилл экрана, а не закрепление человека за станком: правда о том, кто сделал работу, приходит со скана. Права по модулям и полям будут отдельным слоем.</p></div><span class="pill info">${ico('lock','icon-inline')}права — следующий шаг</span></div>
+ return `<div class="page-head"><div><h2>Team and production access</h2><p>Who works in the system and which work position they stand at by default. This prefills the screen; it does not tie a person to a machine — the truth about who did the work arrives with the scan. Module and field permissions come as a separate layer.</p></div><span class="pill info">${ico('lock','icon-inline')}permissions — next step</span></div>
   <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.station).length}</div><div class="kpi-label">привязано к рабочему месту</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('check')}</div></div><div class="kpi-num">${covered}/${SKILLS.length}</div><div class="kpi-label">типов навыков покрыто</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${SKILLS.length-covered}</div><div class="kpi-label">навыков без носителя</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">users</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.station).length}</div><div class="kpi-label">assigned to a work position</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('check')}</div></div><div class="kpi-num">${covered}/${SKILLS.length}</div><div class="kpi-label">skill types covered</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${SKILLS.length-covered}</div><div class="kpi-label">skills with no holder</div></div>
   </div>
   <div class="card">
    <div class="tabs">
-    <button class="${subtab==='list'?'on':''}" onclick="subtab='list';render()">Пользователи</button>
-    <button class="${subtab==='report'?'on':''}" onclick="subtab='report';render()">Покрытие навыков</button>
+    <button class="${subtab==='list'?'on':''}" onclick="subtab='list';render()">Users</button>
+    <button class="${subtab==='report'?'on':''}" onclick="subtab='report';render()">Skill coverage</button>
    </div>
    ${subtab==='report'?skillReport():viewUsersList()}
   </div>`;
@@ -30,42 +30,42 @@ function viewUsersList(){
   const st=DB.station.find(s=>s.code===u.station);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
   return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
-   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">не назначено</span>'}</td>
+   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Изменить</button>
+   <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Edit</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Имя</th><th>Роль</th><th>Рабочее место</th><th>Навыки</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="5" class="empty">пусто</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Добавить пользователя</button></div>'}`;
+  <table><thead><tr><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="5" class="empty">empty</td></tr>'}</tbody></table>
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Add user</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
- return `<div class="form"><h3>${uEdit==='new'?'Новый пользователь':'Изменение'}</h3>
+ return `<div class="form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
   <div class="grid">
-   <div><label>Имя *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
-   <div><label>Роль *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
-   <div><label>Станция по умолчанию</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— нет —</option>
+   <div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
+   <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
+   <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
   </div>
-  <div style="margin-top:12px"><label>Навыки и уровень владения</label>
+  <div style="margin-top:12px"><label>Skills and proficiency level</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
    ${SKILLS.map(s=>{
      const entry=(r.skills||[]).find(x=>x.skill===s);
      return `<div style="display:flex;align-items:center;gap:8px">
       <label class="chk" style="min-width:230px"><input type="checkbox" ${entry?'checked':''} onchange="toggleUserSkill('${esc(s)}',this.checked)"> ${esc(s)}</label>
-      ${entry?`<select onchange="setUserSkillLevel('${esc(s)}',this.value)">${SKILL_LEVELS.map(l=>`<option ${l===entry.level?'selected':''}>${l}</option>`).join('')}</select>`:'<span class="mut" style="font-size:12px">не отмечено</span>'}
+      ${entry?`<select onchange="setUserSkillLevel('${esc(s)}',this.value)">${SKILL_LEVELS.map(l=>`<option ${l===entry.level?'selected':''}>${l}</option>`).join('')}</select>`:'<span class="mut" style="font-size:12px">not selected</span>'}
      </div>`;
    }).join('')}
    </div>
   </div>
   <div class="err" id="e_user"></div>
-  <div class="row"><button class="pri" onclick="saveUser()">Сохранить</button><button onclick="uEdit=null;uDraft=null;render()">Отмена</button></div></div>`;
+  <div class="row"><button class="pri" onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
 }
 function toggleUserSkill(skill, checked){
  if(!uDraft.skills) uDraft.skills=[];
- if(checked){ if(!uDraft.skills.some(x=>x.skill===skill)) uDraft.skills.push({skill, level:'Новичок'}); }
+ if(checked){ if(!uDraft.skills.some(x=>x.skill===skill)) uDraft.skills.push({skill, level:'Beginner'}); }
  else { uDraft.skills=uDraft.skills.filter(x=>x.skill!==skill); }
  render();
 }
@@ -75,7 +75,7 @@ function setUserSkillLevel(skill, level){
 function saveUser(){
  const e=document.getElementById('e_user'); e.style.display='none';
  uDraft.name=(uDraft.name||'').trim();
- if(!uDraft.name) return fail(e,'Укажи имя');
+ if(!uDraft.name) return fail(e,'Enter a name');
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
@@ -90,15 +90,15 @@ function skillReport(){
   const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
   DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
   const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div><div class="skill-card-meta">${SKILL_LEVELS.map(l=>`<span class="pill ${byLevel[l].length?'info':''}">${esc(l)} · ${byLevel[l].length}</span>`).join(' ')}</div></div></div>`;
+  return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${total===0?'no holder':total===1?'risk: 1 person':total+' человека'}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div><div class="skill-card-meta">${SKILL_LEVELS.map(l=>`<span class="pill ${byLevel[l].length?'info':''}">${esc(l)} · ${byLevel[l].length}</span>`).join(' ')}</div></div></div>`;
  }).join('');
  const rows=SKILLS.map(skill=>{
   const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
   DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
   const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<tr><td><b>${esc(skill)}</b></td>${SKILL_LEVELS.map(l=>`<td>${byLevel[l].length?byLevel[l].map(raw).join(', '):'<span class="mut">—</span>'}</td>`).join('')}<td><span class="pill ${cls}">${total===0?'нет носителя':total===1?'риск: 1 человек':total+' человека'}</span></td></tr>`;
+  return `<tr><td><b>${esc(skill)}</b></td>${SKILL_LEVELS.map(l=>`<td>${byLevel[l].length?byLevel[l].map(raw).join(', '):'<span class="mut">—</span>'}</td>`).join('')}<td><span class="pill ${cls}">${total===0?'no holder':total===1?'risk: 1 person':total+' человека'}</span></td></tr>`;
  }).join('');
- return `<div class="sub">Сначала визуальный слой — видно пробелы в компетенциях. Ниже остаётся точная матрица по уровням.</div>
+ return `<div class="sub">The visual layer first shows competency gaps. The exact level matrix remains below.</div>
   <div class="skill-card-grid" style="margin-bottom:14px">${cards}</div>
-  <table><thead><tr><th>Навык</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Покрытие</th></tr></thead><tbody>${rows}</tbody></table>`;
+  <table><thead><tr><th>Skill</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Coverage</th></tr></thead><tbody>${rows}</tbody></table>`;
 }

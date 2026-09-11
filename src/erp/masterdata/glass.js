@@ -328,7 +328,7 @@ const GLASS_TEMPER_CSV={
  'UNKNOWN':'unknown'
 };
 const GLASS_YES=['yes','y','true','1','да','+','x'];
-const GLASS_NO=['','no','n','false','0','нет','-'];
+const GLASS_NO=['','no','n','false','0','none','-'];
 /* undefined — «не разобрали», это отказ строки; пустая клетка означает «нет». */
 function glassBoolCell(v){
  const s=mdString(v).toLowerCase();
@@ -358,67 +358,67 @@ function glassSurfacesCell(v){
 function glassParseProductsCsv(text){
  const parsed=parseCsv(text),header=parsed.header,rep=sfReport(),out=[];
  if(!header.includes('code')||!header.includes('name')){
-  sfReject(rep,0,'','файл не похож на GLASS_PRODUCTS.csv: нет колонок code и name');
+  sfReject(rep,0,'','this file does not look like GLASS_PRODUCTS.csv: no code and name columns');
   return {rep,out};
  }
  const has=c=>header.includes(c);
  const seen=Object.create(null);
  parsed.rows.forEach((r,n)=>{
   const line=n+2,code=mdString(r.code);
-  if(!code)return sfReject(rep,line,'','пустой код');
-  if(!GLASS_CODE_RE.test(code))return sfReject(rep,line,code,'код: только буквы, цифры и + . _ - /');
-  if(seen[code.toUpperCase()])return sfReject(rep,line,code,'код повторяется в файле');
+  if(!code)return sfReject(rep,line,'','empty code');
+  if(!GLASS_CODE_RE.test(code))return sfReject(rep,line,code,'code: letters, digits and + . _ - / only');
+  if(seen[code.toUpperCase()])return sfReject(rep,line,code,'the code is repeated in the file');
   const name=mdString(r.name);
-  if(!name)return sfReject(rep,line,code,'пустое название');
+  if(!name)return sfReject(rep,line,code,'empty name');
   const f={code,name};
 
   if(has('manufacturer'))f.manufacturer=mdString(r.manufacturer);
   if(has('substrate')){
    const v=mdString(r.substrate).toLowerCase();
-   if(!GLASS_SUBSTRATES.includes(v))return sfReject(rep,line,code,'substrate: ожидается '+GLASS_SUBSTRATES.join(' · '));
+   if(!GLASS_SUBSTRATES.includes(v))return sfReject(rep,line,code,'substrate: expected '+GLASS_SUBSTRATES.join(' · '));
    f.substrate=v;
   }
   if(has('coating_family')){
    const v=mdString(r.coating_family).toLowerCase();
-   if(!GLASS_COATING_FAMILIES.includes(v))return sfReject(rep,line,code,'coating_family: ожидается '+GLASS_COATING_FAMILIES.join(' · '));
+   if(!GLASS_COATING_FAMILIES.includes(v))return sfReject(rep,line,code,'coating_family: expected '+GLASS_COATING_FAMILIES.join(' · '));
    f.coatingFamily=v;
   }
   if(has('thickness_mm')){
    const t=mdNum(r.thickness_mm);
-   if(t==null)return sfReject(rep,line,code,'thickness_mm: не число');
-   if(t<GLASS_MIN_MM||t>GLASS_MAX_MM)return sfReject(rep,line,code,'толщина вне диапазона '+GLASS_MIN_MM+'–'+GLASS_MAX_MM+' мм');
+   if(t==null)return sfReject(rep,line,code,'thickness_mm: not a number');
+   if(t<GLASS_MIN_MM||t>GLASS_MAX_MM)return sfReject(rep,line,code,'thickness out of range '+GLASS_MIN_MM+'–'+GLASS_MAX_MM+' mm');
    f.thicknessMm=t;
   }
   if(has('actual_thickness_mm'))f.actualThicknessMm=mdNum(r.actual_thickness_mm);
   if(has('temper_mode')){
    const key=mdString(r.temper_mode).toUpperCase();
    const v=GLASS_TEMPER_CSV[key];
-   if(!v)return sfReject(rep,line,code,'temper_mode: ожидается пусто · TEMPERED · NO TEMPERABLE');
+   if(!v)return sfReject(rep,line,code,'temper_mode: expected empty · TEMPERED · NO TEMPERABLE');
    f.temperMode=v;
   }
   if(has('exposure_rule')){
    const v=mdString(r.exposure_rule).toLowerCase()||'any';
-   if(!GLASS_EXPOSURE_RULES.includes(v))return sfReject(rep,line,code,'exposure_rule: ожидается '+GLASS_EXPOSURE_RULES.join(' · '));
+   if(!GLASS_EXPOSURE_RULES.includes(v))return sfReject(rep,line,code,'exposure_rule: expected '+GLASS_EXPOSURE_RULES.join(' · '));
    f.exposureRule=v;
   }
   if(has('allowed_surfaces')){
    const v=glassSurfacesCell(r.allowed_surfaces);
-   if(v===null)return sfReject(rep,line,code,'allowed_surfaces: номера поверхностей 1–8 через запятую');
+   if(v===null)return sfReject(rep,line,code,'allowed_surfaces: surface numbers 1–8, comma separated');
    f.allowedSurfaces=v;
   }
   if(has('edge_deletion')){
    const v=glassBoolCell(r.edge_deletion);
-   if(v===undefined)return sfReject(rep,line,code,'edge_deletion: ожидается YES или пусто');
+   if(v===undefined)return sfReject(rep,line,code,'edge_deletion: expected YES or empty');
    f.edgeDeletion=v;
   }
   if(has('deposition')){
    const v=mdString(r.deposition).toLowerCase();
-   if(v&&!GLASS_DEPOSITIONS.includes(v))return sfReject(rep,line,code,'deposition: ожидается пусто · '+GLASS_DEPOSITIONS.join(' · '));
+   if(v&&!GLASS_DEPOSITIONS.includes(v))return sfReject(rep,line,code,'deposition: expected empty · '+GLASS_DEPOSITIONS.join(' · '));
    f.deposition=v;
   }
   if(has('stocked')){
    const v=glassBoolCell(r.stocked);
-   if(v===undefined)return sfReject(rep,line,code,'stocked: ожидается YES или пусто');
+   if(v===undefined)return sfReject(rep,line,code,'stocked: expected YES or empty');
    f.stocked=v;
   }
   if(has('legacy_code'))f.legacyCode=mdString(r.legacy_code);
@@ -1142,42 +1142,42 @@ function importGlassProductsCsv(text){
 function importGlassSheetsCsv(text){
  const parsed=parseCsv(text),header=parsed.header,rep=sfReport(),inFile=Object.create(null);
  if(!header.includes('code')||!header.includes('supplier')){
-  sfReject(rep,0,'','файл не похож на GLASS_SHEETS.csv: нет колонок code и supplier');
+  sfReject(rep,0,'','this file does not look like GLASS_SHEETS.csv: no code and supplier columns');
   return rep;
  }
  const has=c=>header.includes(c);
  parsed.rows.forEach((r,n)=>{
   const line=n+2,code=mdString(r.code),supplier=mdString(r.supplier);
   const label=code+(supplier?' · '+supplier:'');
-  if(!code)return sfReject(rep,line,'','пустой код продукта');
-  if(!supplier)return sfReject(rep,line,code,'пустая точка поставки');
+  if(!code)return sfReject(rep,line,'','empty product code');
+  if(!supplier)return sfReject(rep,line,code,'empty supply point');
   const product=glassProductByCode(code);
-  if(!product)return sfReject(rep,line,label,'продукта '+code+' нет в каталоге');
+  if(!product)return sfReject(rep,line,label,'product '+code+' is not in the catalogue');
   if(has('thickness_mm')){
    const t=mdNum(r.thickness_mm);
    if(t!=null&&product.thicknessMm!=null&&t!==product.thicknessMm)
-    return sfReject(rep,line,label,'толщина '+t+' мм не совпадает с каталогом ('+product.thicknessMm+' мм)');
+    return sfReject(rep,line,label,'thickness '+t+' mm does not match the catalogue ('+product.thicknessMm+' mm)');
   }
   const cur=mdString(r.currency).toUpperCase();
-  if(cur&&!CURRENCY_RE.test(cur))return sfReject(rep,line,label,'currency: три буквы кода валюты, например CAD');
+  if(cur&&!CURRENCY_RE.test(cur))return sfReject(rep,line,label,'currency: three-letter currency code, for example CAD');
   const wIn=mdNonNeg(r.sheet_w_in),hIn=mdNonNeg(r.sheet_h_in);
   if(has('sheet_w_in')&&has('sheet_h_in')&&(wIn==null)!==(hIn==null))
-   return sfReject(rep,line,label,'размер листа заполняется парой: sheet_w_in и sheet_h_in');
+   return sfReject(rep,line,label,'sheet size is filled in as a pair: sheet_w_in and sheet_h_in');
   const unit=mdUnitCode(r.purchase_unit,'');
   if(mdString(r.purchase_unit)&&!unit)
-   return sfReject(rep,line,label,'purchase_unit: неизвестная единица, ожидается '+MD_UNITS.map(u=>u.code).join(' · '));
+   return sfReject(rep,line,label,'purchase_unit: unknown unit, expected '+MD_UNITS.map(u=>u.code).join(' · '));
   const price=mdNonNeg(r.purchase_price);
-  if(mdString(r.purchase_price)&&price==null)return sfReject(rep,line,label,'purchase_price: неотрицательное число');
+  if(mdString(r.purchase_price)&&price==null)return sfReject(rep,line,label,'purchase_price: a non-negative number');
   const lead=mdInt(r.lead_time_days);
-  if(mdString(r.lead_time_days)&&lead==null)return sfReject(rep,line,label,'lead_time_days: целое неотрицательное число');
+  if(mdString(r.lead_time_days)&&lead==null)return sfReject(rep,line,label,'lead_time_days: a non-negative whole number');
   const avail=mdString(r.availability).toLowerCase();
   if(avail&&!MATERIAL_AVAILABILITY.includes(avail))
-   return sfReject(rep,line,label,'availability: ожидается '+MATERIAL_AVAILABILITY.join(' · '));
+   return sfReject(rep,line,label,'availability: expected '+MATERIAL_AVAILABILITY.join(' · '));
   const priceDate=mdString(r.price_date);
-  if(priceDate&&!ISO_DATE_RE.test(priceDate))return sfReject(rep,line,label,'price_date: дата вида ГГГГ-ММ-ДД');
+  if(priceDate&&!ISO_DATE_RE.test(priceDate))return sfReject(rep,line,label,'price_date: a date in YYYY-MM-DD form');
 
   const key=glassSheetKey(product.code,supplier,wIn,hIn);
-  if(inFile[key])return sfReject(rep,line,label,'та же точка поставки и тот же размер листа повторяются в файле');
+  if(inFile[key])return sfReject(rep,line,label,'the same supply point and sheet size repeat in this file');
   inFile[key]=true;
 
   const next={productCode:product.code,supplier,sheetWIn:wIn,sheetHIn:hIn};

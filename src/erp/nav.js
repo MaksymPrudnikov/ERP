@@ -7,25 +7,25 @@
    ===================================================================== */
 
 const NAV=[
- {group:'Обзор'},
- {k:'dashboard', label:'Главная', icon:'home'},
- {group:'Ядро'},
- {k:'users', label:'Пользователи', icon:'users'},
- {group:'Операции'},
- {k:'customers', label:'Клиенты', icon:'users'},
- {k:'sales', label:'Продажи', icon:'sales'},
- {k:'configurators', label:'Конфигураторы', icon:'layers'},
- {k:'optimization', label:'Оптимизация', icon:'optimize'},
- {k:'production', label:'Производство', icon:'factory'},
+ {group:'Overview'},
+ {k:'dashboard', label:'Dashboard', icon:'home'},
+ {group:'Core'},
+ {k:'users', label:'Users', icon:'users'},
+ {group:'Operations'},
+ {k:'customers', label:'Customers', icon:'users'},
+ {k:'sales', label:'Sales', icon:'sales'},
+ {k:'configurators', label:'Configurators', icon:'layers'},
+ {k:'optimization', label:'Optimization', icon:'optimize'},
+ {k:'production', label:'Production', icon:'factory'},
  /* Справочники стоят в операциях, а не в «ядре»: заводит их не администратор
     раз в жизни, а продавец и снабженец по ходу работы — переименовать код,
     дописать поставщика, поправить цену листа. */
- {k:'masterdata', label:'Справочники', icon:'database'},
- {group:'Домены — далее'},
- {k:'inventory', label:'Склад', icon:'inventory', soon:1},
- {k:'purchasing', label:'Закупки', icon:'purchase', soon:1},
- {k:'shipping', label:'Отгрузка', icon:'shipping', soon:1},
- {k:'finance', label:'Финансы', icon:'finance', soon:1}
+ {k:'masterdata', label:'Master Data', icon:'database'},
+ {group:'Domains — next'},
+ {k:'inventory', label:'Inventory', icon:'inventory', soon:1},
+ {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1},
+ {k:'shipping', label:'Shipping', icon:'shipping', soon:1},
+ {k:'finance', label:'Finance', icon:'finance', soon:1}
 ];
 let tab='dashboard';
 let sideCollapsed=false;
@@ -44,10 +44,10 @@ function renderNav(){
   `<button type="button" class="side-toggle" aria-label="${sideCollapsed?'Expand menu':'Collapse menu'}" title="${sideCollapsed?'Expand menu':'Collapse menu'}" onclick="toggleSidebar()"><i>${sideCollapsed?'›':'‹'}</i><span>${sideCollapsed?'Expand menu':'Collapse menu'}</span></button>` +
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
-   if(n.soon) return `<div class="nav-item soon" title="${n.label} · план">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">план</span></div>`;
+   if(n.soon) return `<div class="nav-item soon" title="${n.label} · план">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
    return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="tab='${n.k}';subtab=null;render()">${ico(n.icon)} <span>${n.label}</span></div>`;
   }).join('') +
-  `<div class="side-footer">Фаза 1 · Фундамент<br>Spil остаётся источником работы до прохождения контрольных фаз.</div>`;
+  `<div class="side-footer">Phase 1 · Foundation<br>Spil remains the operational system until the control phases are passed.</div>`;
 }
 
 let subtab=null;

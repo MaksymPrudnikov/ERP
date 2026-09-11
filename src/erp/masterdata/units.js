@@ -39,7 +39,7 @@ const MD_UNIT_CALCS=['area','linear','flat'];
 const MD_UNITS=[
  {code:'sqft',  calc:'area',  name:'кв. фут',   nameEn:'sq ft'},
  {code:'sqm',   calc:'area',  name:'кв. метр',  nameEn:'sq m'},
- {code:'inch',  calc:'linear',name:'дюйм',      nameEn:'inch'},
+ {code:'inch',  calc:'linear',name:'inch',      nameEn:'inch'},
  {code:'ft',    calc:'linear',name:'фут',       nameEn:'ft'},
  {code:'m',     calc:'linear',name:'метр',      nameEn:'m'},
  {code:'each',  calc:'flat',  name:'штука',     nameEn:'each'},
@@ -51,7 +51,7 @@ const MD_UNITS=[
  {code:'drum',  calc:'flat',  name:'бочка',     nameEn:'drum'},
  {code:'roll',  calc:'flat',  name:'рулон',     nameEn:'roll'},
  {code:'kg',    calc:'flat',  name:'кг',        nameEn:'kg'},
- {code:'lb',    calc:'flat',  name:'фунт',      nameEn:'lb'},
+ {code:'lb',    calc:'flat',  name:'lb',      nameEn:'lb'},
  {code:'liter', calc:'flat',  name:'литр',      nameEn:'liter'}
 ];
 /* Написания, в которых единица приезжает из чужого файла. Прайс поставщика

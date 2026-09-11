@@ -7,35 +7,35 @@
    ===================================================================== */
 
 function viewOptimization(){
- return `<div class="page-head"><div><h2>Мост к Perfect Cut</h2><p>Мы не пишем собственный nesting engine. ERP формирует производственный батч, Perfect Cut оптимизирует раскрой, результат возвращается в склад и трекинг деталей.</p></div><span class="pill warn">${ico('link','icon-inline')}коннектор не подтверждён</span></div>
+ return `<div class="page-head"><div><h2>Perfect Cut bridge</h2><p>We are not building our own nesting engine. The ERP creates a production batch, Perfect Cut optimizes cutting, and the result returns to inventory and part tracking.</p></div><span class="pill warn">${ico('link','icon-inline')}connector not confirmed</span></div>
   <div class="card">
-   <div class="section-title"><h3>Как должен идти поток данных</h3><span class="pill">концепция · без выдуманного протокола</span></div>
+   <div class="section-title"><h3>Intended data flow</h3><span class="pill">concept · no invented protocol</span></div>
    <div class="bridge">
-    <div class="bridge-node"><div class="bridge-ico">${ico('database')}</div><b>GLASS ERP</b><p>батч: material · size · qty · treatment · services</p></div>
+    <div class="bridge-node"><div class="bridge-ico">${ico('database')}</div><b>GLASS ERP</b><p>batch: material · size · qty · treatment · services</p></div>
     <div class="bridge-arrow">${ico('arrow')}</div>
-    <div class="bridge-node"><div class="bridge-ico">${ico('link')}</div><b>Локальный bridge</b><p>роль: передать данные между облачной ERP и локальным Perfect Cut</p></div>
+    <div class="bridge-node"><div class="bridge-ico">${ico('link')}</div><b>Local bridge</b><p>role: move data between the cloud ERP and local Perfect Cut</p></div>
     <div class="bridge-arrow">${ico('arrow')}</div>
-    <div class="bridge-node external"><div class="bridge-ico">${ico('optimize')}</div><b>Perfect Cut</b><p>раскладка по листам · расход · обрезь</p></div>
+    <div class="bridge-node external"><div class="bridge-ico">${ico('optimize')}</div><b>Perfect Cut</b><p>sheet layouts · consumption · offcuts</p></div>
    </div>
-   <div class="return-flow">↩ результат оптимизации возвращается в ERP → Inventory + Production tracking</div>
+   <div class="return-flow">↩ optimization result returns to ERP → Inventory + Production tracking</div>
   </div>
   <div class="dashboard-grid">
    <div class="card">
-    <div class="section-title"><h3>Статус интеграции</h3><span class="pill warn">заблокировано входными данными</span></div>
+    <div class="section-title"><h3>Integration status</h3><span class="pill warn">blocked by missing input</span></div>
     <table><tbody>
-     <tr><td style="width:210px">Что уже решено</td><td>Perfect Cut остаётся оптимизатором; свой nesting engine не строим.</td></tr>
-     <tr><td>Что неизвестно</td><td class="mut">реальный механизм Spil ↔ Perfect Cut: прямая БД, ODBC, коннектор или файл.</td></tr>
-     <tr><td>Что не надо делать сейчас</td><td class="mut">придумывать формат обмена или имитировать API без подтверждения.</td></tr>
-     <tr><td>Что вернётся в ERP</td><td class="mut">листовая раскладка, фактический расход и обрезь — для Inventory и Production.</td></tr>
+     <tr><td style="width:210px">What is decided</td><td>Perfect Cut remains the optimizer; we are not building our own nesting engine.</td></tr>
+     <tr><td>What is unknown</td><td class="mut">actual Spil ↔ Perfect Cut mechanism: direct DB, ODBC, connector, or file.</td></tr>
+     <tr><td>What not to do now</td><td class="mut">invent an exchange format or simulate an API without confirmation.</td></tr>
+     <tr><td>What returns to ERP</td><td class="mut">sheet layouts, actual consumption and offcuts — for Inventory and Production.</td></tr>
     </tbody></table>
-    <div class="row"><button disabled>${ico('link','icon-inline')}Отправить батч</button></div>
+    <div class="row"><button disabled>${ico('link','icon-inline')}Send batch</button></div>
    </div>
    <div class="card">
-    <div class="section-title"><h3>Граница ответственности</h3></div>
+    <div class="section-title"><h3>Responsibility boundary</h3></div>
     <div class="phase-list">
-     <div class="phase-item"><div class="phase-num">${ico('check')}</div><div><b>Perfect Cut</b><span>оптимизация + собственная печать этикеток</span></div></div>
-     <div class="phase-item current"><div class="phase-num">${ico('factory')}</div><div><b>Наша ERP</b><span>WIP, станции, бой, повторный запуск, остатки</span></div></div>
-     <div class="phase-item"><div class="phase-num">${ico('link')}</div><div><b>Bridge</b><span>только транспорт данных между двумя системами</span></div></div>
+     <div class="phase-item"><div class="phase-num">${ico('check')}</div><div><b>Perfect Cut</b><span>optimization + its own label printing</span></div></div>
+     <div class="phase-item current"><div class="phase-num">${ico('factory')}</div><div><b>Our ERP</b><span>WIP, stations, breakage, remake, stock</span></div></div>
+     <div class="phase-item"><div class="phase-num">${ico('link')}</div><div><b>Bridge</b><span>data transport between the two systems only</span></div></div>
     </div>
    </div>
   </div>`;

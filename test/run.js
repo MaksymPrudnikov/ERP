@@ -3773,7 +3773,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return [rep.accepted, rep.rejected.length,
               rep.rejected.filter(r => !r.line || !r.why).length,
               rep.rejected.map(r => r.why.split(':')[0])];
-    }), [1, 6, 0, ['пустой код', 'код', 'толщина вне диапазона 3–19 мм', 'substrate', 'temper_mode', 'allowed_surfaces']]);
+    }), [1, 6, 0, ['empty code', 'code', 'thickness out of range 3–19 mm', 'substrate', 'temper_mode', 'allowed_surfaces']]);
     await t.c.close();
 
     /* Продукт и поставка — разные таблицы: валюта принадлежит ТОЧКЕ ПОСТАВКИ.
@@ -3810,7 +3810,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const before = DB.glassSheet.length;
       DB.glassProduct.find(p => p.code === '6CLEAR').code = '6CL-ЦЕХ';
       normalizeMasterData();
-      return [bad.accepted, bad.rejected.length, bad.rejected[0].why.indexOf('нет в каталоге') > 0,
+      return [bad.accepted, bad.rejected.length, bad.rejected[0].why.indexOf('is not in the catalogue') > 0,
               DB.glassSheet.length === before, glassOrphanSheets().length];
     }), [0, 5, true, true, 3]);
     await t.c.close();

@@ -18,61 +18,61 @@ function viewDashboard(){
  const moduleCount=3; // Sales / Optimization / Production в текущем прототипе
  const shapeCount=DB.shapeDef.length;
  return `<div class="page-head">
-   <div><h2>Стекольное производство — одна система</h2>
-   <p>Текущий контур ERP: Customer Master, Draft Sales Orders с order-scoped Makeups, техническая конфигурация Shape и Muntin, оптимизация раскроя и прохождение детали по цеху.</p></div>
-   <span class="pill info">${ico('layers','icon-inline')}Прототип архитектуры</span>
+   <div><h2>Glass production — one system</h2>
+   <p>The current ERP scope includes Customer Master, Draft Sales Orders with order-scoped Makeups, technical Shape and Muntin configuration, cutting optimization and shop-floor processing.</p></div>
+   <span class="pill info">${ico('layers','icon-inline')}Architecture prototype</span>
   </div>
 
   <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'нужны замеры':'готово'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">станций · ${sized} с замеренным габаритом</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">ядро</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">пользователей в прототипе</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">контуров Shape</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">ожидает данных</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">операционных модулей в новой оболочке</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'measurements needed':'ready'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">станций · ${sized} с замеренным габаритом</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">core</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">users in the prototype</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">Shape contours</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">waiting for data</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">operational modules in the new shell</div></div>
   </div>
 
   <div class="dashboard-grid">
    <div class="card">
-    <div class="section-title"><h3>Карта ERP</h3><span class="pill">зелёная точка = уже есть экран</span></div>
-    <div class="sub">Это визуальная карта владения данными по бизнес-доменам. Perfect Cut остаётся внешним оптимизатором, а не частью ERP.</div>
+    <div class="section-title"><h3>ERP map</h3><span class="pill">green dot = screen already exists</span></div>
+    <div class="sub">This is a visual map of data ownership by business domain. Perfect Cut remains an external optimizer, not part of the ERP.</div>
     <div class="domain-map">
       <div class="flow-row">
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Конфигурация</b><small>Shape · Muntin · чертежи · cutting geometry</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Configuration</b><small>Shape · Muntin · drawings · cutting geometry</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>внешняя оптимизация раскроя через мост</small></div>
+       <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>external cutting optimization through the bridge</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Производство</b><small>станции · рабочие места · операции · терминалы</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Production</b><small>stations · work positions · operations · terminals</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('shipping')}</div><b>Отгрузка</b><small>стойки · комплектация · доставка</small></div>
+       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('shipping')}</div><b>Shipping</b><small>racks · staging · delivery</small></div>
       </div>
       <div class="flow-split">
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('inventory')}</div><b>Склад / Inventory</b><small>материалы · партии · остатки · обрезь · движения</small></div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('purchase')}</div><b>Закупки</b><small>поставщики · source · purchase cost · приёмка</small></div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('finance')}</div><b>Финансы</b><small>факт. себестоимость · invoice · интеграция бухгалтерии</small></div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('users')}</div><b>Ядро</b><small>пользователи · права · единицы · валюты · журнал событий</small></div>
+       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('inventory')}</div><b>Inventory</b><small>materials · lots · stock · offcuts · movements</small></div>
+       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('purchase')}</div><b>Purchasing</b><small>suppliers · source · purchase cost · receiving</small></div>
+       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('finance')}</div><b>Finance</b><small>actual cost · invoice · accounting integration</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('users')}</div><b>Core</b><small>users · permissions · units · currencies · event log</small></div>
       </div>
     </div>
    </div>
 
    <div class="card">
-    <div class="section-title"><h3>Дорожная карта</h3><span class="pill info">сейчас Ф1</span></div>
+    <div class="section-title"><h3>Roadmap</h3><span class="pill info">currently P1</span></div>
     <div class="phase-list">
-     <div class="phase-item current"><div class="phase-num">1</div><div><b>Фундамент</b><span>master-data и доменная оболочка</span><div class="progress"><span style="width:42%"></span></div></div></div>
-     <div class="phase-item"><div class="phase-num">2</div><div><b>Технология изделия</b><span>Shape revisions · Muntin · чертежи · cutting geometry</span></div></div>
-     <div class="phase-item"><div class="phase-num">3</div><div><b>Цех</b><span>Perfect Cut bridge · WIP · бой · остатки</span></div></div>
-     <div class="phase-item"><div class="phase-num">4</div><div><b>Планирование</b><span>мощности · партии · стойки · доставка</span></div></div>
-     <div class="phase-item"><div class="phase-num">5</div><div><b>Замыкание</b><span>MRP · фактическая себестоимость · BI</span></div></div>
+     <div class="phase-item current"><div class="phase-num">1</div><div><b>Foundation</b><span>master data and domain shell</span><div class="progress"><span style="width:42%"></span></div></div></div>
+     <div class="phase-item"><div class="phase-num">2</div><div><b>Product engineering</b><span>Shape revisions · Muntin · drawings · cutting geometry</span></div></div>
+     <div class="phase-item"><div class="phase-num">3</div><div><b>Shop floor</b><span>Perfect Cut bridge · WIP · breakage · stock</span></div></div>
+     <div class="phase-item"><div class="phase-num">4</div><div><b>Planning</b><span>capacity · batches · racks · delivery</span></div></div>
+     <div class="phase-item"><div class="phase-num">5</div><div><b>Closeout</b><span>MRP · actual costing · BI</span></div></div>
     </div>
    </div>
   </div>
 
   <div class="card">
-   <div class="section-title"><h3>Что сейчас требует решения, а не дизайна</h3><span class="pill warn">${ico('alert','icon-inline')}открытые вопросы</span></div>
+   <div class="section-title"><h3>What currently needs a decision, not design</h3><span class="pill warn">${ico('alert','icon-inline')}open questions</span></div>
    <div class="machine-grid">
-    <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Не проектируем протокол до реальных настроек коннектора Spil / ответа R.O. SRL.</div></div>
-    <div class="card-soft"><b>Габариты станций</b><div class="hint">${unsized} из ${DB.station.length} станций ждут замеров. Пока стоит засев 144 × 100″ — габарит листа, а не станка, и проверка «влезет ли деталь» опирается на предположение.</div></div>
-    <div class="card-soft"><b>Три ЧПУ</b><div class="hint">Одинаковы ли CNC1 / CNC2 / CNC3 по рабочему полю. Если нет — маршрут обязан знать, на какой можно.</div></div>
-    <div class="card-soft"><b>Терминалы</b><div class="hint">Поведение экрана известно, а сколько их в цеху и какие места висят на каждом — ещё нет. Выдуманные строки сюда не заводим.</div></div>
-    <div class="card-soft"><b>Права доступа</b><div class="hint">В прототипе пока роли + рабочее место. Field-level security и approval ещё не реализованы.</div></div>
+    <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Do not design the protocol until we have the actual Spil connector settings / R.O. SRL response.</div></div>
+    <div class="card-soft"><b>Station sizes</b><div class="hint">${unsized} из ${DB.station.length} станций ждут замеров. Пока стоит засев 144 × 100″ — габарит листа, а не станка, и проверка «влезет ли деталь» опирается на предположение.</div></div>
+    <div class="card-soft"><b>Three CNCs</b><div class="hint">Whether CNC1 / CNC2 / CNC3 share the same working field. If not, the route has to know which one is allowed.</div></div>
+    <div class="card-soft"><b>Terminals</b><div class="hint">The screen behaviour is known; how many stand in the shop and which positions hang on each is not. We do not create invented rows here.</div></div>
+    <div class="card-soft"><b>Permissions</b><div class="hint">The prototype has roles + work position so far. Field-level security and approval are not implemented yet.</div></div>
    </div>
   </div>`;
 }

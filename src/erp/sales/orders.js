@@ -313,7 +313,7 @@ const SALES_EXCEL_MIN_ROWS=6;
 /* Шапку в файле клиента пишут как придётся — принимаем оба языка цеха и
    сокращения. Строка шапки в заказ не попадает, она только размечает колонки. */
 const SALES_EXCEL_HEADER_WORDS={
- qty:['qty','quantity','q-ty','qnt','pcs','pc','pieces','count','кол-во','колво','количество','шт'],
+ qty:['qty','quantity','q-ty','qnt','pcs','pc','pieces','count','кол-во','колво','количество','pcs'],
  width:['width','w','wd','ширина'],
  height:['height','h','ht','hgt','высота'],
  mark:['mark','marks','tag','label','метка','марка','тег'],
@@ -1044,7 +1044,7 @@ function salesChargeShortLabel(row){
   const l=String(row.label||'');if(l==='Clamp')return 'CLMP';if(l==='Hinge')return 'HNG';if(l.indexOf('Hole ')===0)return 'HOLE';if(l==='Flat Polish')return 'POLI';if(l==='Rough Arris')return 'ARRIS';if(l==='CNC Shape Polish')return 'CNC POL';if(l==='Muntin sections')return 'MUNTIN';if(l==='Lami Polish')return 'LAMPOL';if(l==='CNC Lami Polish')return 'CNC LAMI';if(l.indexOf('Mitering')===0)return 'MITER';if(l==='Radius Corner')return 'RAD';if(l==='Cutout')return 'CUT';if(l==='Hand notch'||l==='CNC notch')return 'NOTCH';if(l==='Triple IGU')return 'TRIPLE';if(l==='Shape Unit')return 'SHAPE';return l.slice(0,8).toUpperCase();}
 function salesLineServicesSummary(line){
  const rows=salesLineChargeRows(line),adjustments=salesLineCommercialAdjustments(line,soDraft),q=salesPositiveInt(line.qty,1),currency=soDraft.currency||'CAD';
- if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Сервисы</small></button>`;
+ if(!rows.length&&!adjustments.length)return `<button type='button' class='line-services-btn empty' onclick='salesOpenLineServices("${esc(line.id)}")'><span>—</span><small>Services</small></button>`;
  const summary=salesLinePricingSummary(line),items=rows.map(function(r){const n=r.basis*q;return `<span>${esc(salesChargeShortLabel(r))}×${esc(salesChargeUnitValue(n,r.unit))}</span>`;}).concat(adjustments.map(function(a){return `<span class="commercial">${a.key==='triple'?'TRI':'>60'} +${esc(a.percent)}%</span>`;})),chips=items.slice(0,3).join(''),more=items.length>3?`<i>+${items.length-3}</i>`:'',adjustmentTotal=adjustments.every(a=>a.complete)?salesMoney(adjustments.reduce((n,a)=>n+a.lineAmount,0)):null;
  return `<button type='button' class='line-services-btn${summary.unpriced||adjustments.some(a=>!a.complete)?' incomplete':''}' onclick='salesOpenLineServices("${esc(line.id)}")'><span class='line-services-chips'>${chips}${more}</span><span class='line-services-money'><b>${summary.total.toFixed(2)} ${esc(currency)}</b>${adjustments.length?`<small class="commercial-total">${adjustmentTotal==null?'surcharge —':'+'+adjustmentTotal.toFixed(2)+' surcharge'}</small>`:(summary.unpriced?`<small><span data-raw>${summary.unpriced}</span> <span>без цены</span></small>`:'')}</span></button>`;
 }
