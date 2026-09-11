@@ -2302,6 +2302,44 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        физически остаются своими таблицами, но шапка раздела 3.1 обязана быть
        на каждой строке — иначе «материал» остаётся словом в документе, а не
        свойством данных. */
+    /* Пересборка справочников — один механизм (`mdRebuildTable`), различия
+       между таблицами стали параметрами. Раньше это были четыре похожих куска
+       кода, и расхождение между ними уже стоило багов: долив был заведён у
+       плёнки и забыт у спандрела, из-за чего Opaci Coat и Backpainting не
+       доезжали до владельца. Здесь закрепляется, ЧТО именно задумано по-разному,
+       чтобы «так задумано» нельзя было спутать с «недосмотрели». */
+    eq('долив заводских строк стоит там, где задуман, и не стоит там, где не задуман', await dxfSales.p.evaluate(() => {
+      const killFirst=k=>{const id=(DB[k][0]||{}).id;DB[k]=DB[k].filter(x=>x.id!==id);return id;};
+      const gone={spandrel:killFirst('spandrelProduct'),frit:killFirst('fritProduct'),
+                  film:killFirst('interlayerProduct'),spacer:killFirst('spacerVariant'),
+                  colour:killFirst('spandrelColour'),work:killFirst('serviceRate')};
+      normalizeMasterData();
+      const back=k=>id=>(DB[k]||[]).some(x=>x.id===id);
+      return {
+        /* доливаются: таблицы вне REFERENCE_TABLES, иначе заводские строки
+           до владельца не доедут вовсе */
+        spandrelВернулся:back('spandrelProduct')(gone.spandrel),
+        fritВернулся:back('fritProduct')(gone.frit),
+        плёнкаВернулась:back('interlayerProduct')(gone.film),
+        цветВернулся:back('spandrelColour')(gone.colour),
+        работаВернулась:back('serviceRate')(gone.work),
+        /* НЕ доливается: номиналы спейсера ведёт владелец, и подчищенный им
+           заводской список не должен возвращаться */
+        спейсерНеВернулся:!back('spacerVariant')(gone.spacer)
+      };
+    }), {spandrelВернулся:true,fritВернулся:true,плёнкаВернулась:true,цветВернулся:true,
+      работаВернулась:true,спейсерНеВернулся:true});
+
+    eq('пересборка идемпотентна: второй прогон не двигает данные', await dxfSales.p.evaluate(() => {
+      const tables=['glassProduct','glassSheet','heatTreatment','gasProduct','sealantProduct','interlayerProduct',
+        'fritProduct','spandrelProduct','stockItem','serviceRate','spandrelColour','spacerVariant'];
+      const snap=()=>JSON.stringify(tables.map(t=>(DB[t]||[]).map(r=>JSON.stringify(r))));
+      normalizeMasterData();const a=snap();
+      normalizeMasterData();const b=snap();
+      normalizeMasterData();const c=snap();
+      return {второйСовпал:a===b,третийСовпал:b===c};
+    }), {второйСовпал:true,третийСовпал:true});
+
     eq('общая шапка материала есть у каждой из девяти таблиц', await dxfSales.p.evaluate(() => {
       const missing=[],wrongCat=[];
       materialTables().forEach(table=>{
