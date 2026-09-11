@@ -130,9 +130,9 @@ function normalizeDB(){
 function boot(){
  let hadSavedState=false;
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; mergeState(JSON.parse(s)); } }
- catch(e){ console.warn('localStorage не прочитан, стартуем с дефолтов:',e.message); }
+ catch(e){ console.warn('localStorage could not be read, starting from defaults:',e.message); }
  try{ normalizeDB(); }
- catch(e){ console.warn('данные не нормализуются, откат на дефолты:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ catch(e){ console.warn('the data cannot be normalised, falling back to defaults:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */

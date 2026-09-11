@@ -28,16 +28,16 @@ function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='stations';
  const pipeline=DB.station.map((s,i)=>{
   const w=stationOperations(s.code);
-  return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' работ':'<span class="mut">no works</span>'}</div></div>`;
+  return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' works':'<span class="mut">no works</span>'}</div></div>`;
  }).join('');
  const empty=DB.station.filter(s=>!stationOperations(s.code).length);
  const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   <div class="card">
-   <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' без работ':'все заняты'}</span></div>
+   <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
    <div class="pipeline">${pipeline}</div>
-   ${empty.length?`<div class="note" style="margin-top:10px">Без работ: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
-   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Габариты не замерены: ${unmeasured} из ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
+   ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
+   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
   </div>
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
@@ -103,7 +103,7 @@ function saveSfStation(){
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'This code already exists');
  const dim=id=>{const v=document.getElementById(id).value.trim();if(v==='')return null;const n=+v;return isFinite(n)&&n>0?n:NaN;};
  const maxW=dim('sf_maxW'),maxL=dim('sf_maxL');
- if(Number.isNaN(maxW)||Number.isNaN(maxL)) return fail(e,'Габарит: положительное число или пусто');
+ if(Number.isNaN(maxW)||Number.isNaN(maxL)) return fail(e,'Size: a positive number or empty');
  const o={seq,code,name,nameEn:document.getElementById('sf_nameEn').value.trim(),
   always:document.getElementById('sf_always').checked,
   maxW,maxL,sizeMeasured:document.getElementById('sf_measured').checked,
@@ -183,8 +183,8 @@ function sfImportCard(){
 function sfReportHTML(rep){
  const rejected=rep.rejected.map(r=>`<tr><td class="mono">${r.line?r.line:'—'}</td><td class="mono" data-raw>${esc(r.code)}</td><td>${esc(r.why)}</td></tr>`).join('');
  return `<div class="note" style="margin-top:12px">
-   <b>Принято строк: ${rep.accepted}</b> — новых ${rep.added}, обновлено ${rep.updated}. Отклонено: ${rep.rejected.length}.
-   ${rep.missing.length?`<div style="margin-top:6px">В файле не было, оставлены как есть: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}</div>`:''}
+   <b>Rows accepted: ${rep.accepted}</b> — ${rep.added} new, ${rep.updated} updated. Rejected: ${rep.rejected.length}.
+   ${rep.missing.length?`<div style="margin-top:6px">Not in the file, left as they were: ${rep.missing.map(c=>`<b>${esc(c)}</b>`).join(', ')}</div>`:''}
   </div>
   ${rejected?`<table style="margin-top:10px"><thead><tr><th>Line</th><th>Code</th><th>Why rejected</th></tr></thead><tbody>${rejected}</tbody></table>`:''}`;
 }

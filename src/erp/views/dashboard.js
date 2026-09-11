@@ -24,7 +24,7 @@ function viewDashboard(){
   </div>
 
   <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'measurements needed':'ready'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">станций · ${sized} с замеренным габаритом</div></div>
+   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'measurements needed':'ready'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">stations · ${sized} with a measured size</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">core</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">users in the prototype</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">Shape contours</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">waiting for data</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">operational modules in the new shell</div></div>
@@ -69,7 +69,7 @@ function viewDashboard(){
    <div class="section-title"><h3>What currently needs a decision, not design</h3><span class="pill warn">${ico('alert','icon-inline')}open questions</span></div>
    <div class="machine-grid">
     <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Do not design the protocol until we have the actual Spil connector settings / R.O. SRL response.</div></div>
-    <div class="card-soft"><b>Station sizes</b><div class="hint">${unsized} из ${DB.station.length} станций ждут замеров. Пока стоит засев 144 × 100″ — габарит листа, а не станка, и проверка «влезет ли деталь» опирается на предположение.</div></div>
+    <div class="card-soft"><b>Station sizes</b><div class="hint">${unsized} of ${DB.station.length} stations await measurement. The seeded 144 × 100″ is a sheet size, not a machine size, so the fit check rests on an assumption.</div></div>
     <div class="card-soft"><b>Three CNCs</b><div class="hint">Whether CNC1 / CNC2 / CNC3 share the same working field. If not, the route has to know which one is allowed.</div></div>
     <div class="card-soft"><b>Terminals</b><div class="hint">The screen behaviour is known; how many stand in the shop and which positions hang on each is not. We do not create invented rows here.</div></div>
     <div class="card-soft"><b>Permissions</b><div class="hint">The prototype has roles + work position so far. Field-level security and approval are not implemented yet.</div></div>

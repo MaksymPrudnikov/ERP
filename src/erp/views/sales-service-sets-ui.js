@@ -281,7 +281,7 @@ function salesLiteAllowanceNote(plan){
   if(!vary.length)return '';
   var text=vary.map(function(l){
     var mm=(l.plies||[]).map(function(p){return p.mm;}).join(' / ');
-    return l.label+': плиты '+mm+' мм';
+    return l.label+': plies '+mm+' mm';
   }).join(' · ');
   /* Каждая фраза — свой текстовый узел: перевод накладывается на готовый DOM
      по узлам, и склеенная строка с подставленными толщинами в словарь не

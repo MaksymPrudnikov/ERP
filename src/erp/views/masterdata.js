@@ -177,7 +177,7 @@ function viewMdGlass(){
    <select onchange="mdThick=this.value;render()"><option value="">Any thickness</option>${thicks.map(t=>`<option data-raw value="${t}" ${mdThick===String(t)?'selected':''}>${t} mm</option>`).join('')}</select>
    <select onchange="mdCoating=this.value;render()"><option value="">Any coating</option>${mdVocabOptions('coatingFamily',mdCoating,'')}</select>
    ${[['all','All'],['stocked','In stock'],['preorder','Pre-order'],['inactive','Discontinued']].map(x=>`<button class="sm ${mdStatus===x[0]?'customer-filter-on':''}" onclick="mdStatus='${x[0]}';render()">${x[1]}</button>`).join('')}
-   <span class="mut">Показано: ${shown.length} / ${rows.length}</span>
+   <span class="mut">Shown: ${shown.length} / ${rows.length}</span>
   </div>
   <div class="customer-table-wrap"><table><thead><tr><th>Code</th><th>Name</th><th>Thickness</th><th>Substrate</th><th>Coverage</th><th>Tempering</th><th>Price AN</th><th>Price FT</th><th>Surfaces</th><th>Inventory</th><th>Supply</th><th></th></tr></thead>
   <tbody>${shown.map(mdGlassRow).join('')||'<tr><td colspan="10" class="empty">no items found</td></tr>'}</tbody></table></div>
@@ -241,7 +241,7 @@ function mdGlassForm(){
    <div><label>Allowed surfaces</label><input id="md_surfaces" value="${esc(r.allowedSurfaces.join(','))}" placeholder="2,3"><div class="hint">Numbers separated by commas. Empty means any surface.</div></div>
    <div><label>Stocking unit</label><select id="md_stockunit">${mdUnitOptions(r.stockingUnit)}</select></div>
    <div><label>Sales unit</label><select id="md_salesunit">${mdUnitOptions(r.salesUnit)}</select></div>
-   <div><label>Базовая кромка</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Авто по толщине · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Арис до 8 мм, полировка от 10 мм. Ручной выбор для исключений — например, зеркалам 5/6 мм ставят полировку.</div></div>
+   <div><label>Base edgework</label><select id="md_baseedge"><option value="" ${!r.baseEdgework?'selected':''}>Auto by thickness · ${esc(glassBaseEdgeworkLabel(glassAutoBaseEdgework(r.thicknessMm)))}</option><option value="arris" ${r.baseEdgework==='arris'?'selected':''}>Rough Arris</option><option value="polish" ${r.baseEdgework==='polish'?'selected':''}>Flat Polish</option></select><div class="hint">Arris up to 8 mm, polish from 10 mm. Pick by hand for exceptions — 5/6 mm mirrors, for example, get polish.</div></div>
    <div><label>Legacy code</label><input id="md_legacy" value="${esc(r.legacyCode)}"><div class="hint">The code of the same item in Spil — old orders are matched by it.</div></div>
   </div>
   <div class="row" style="margin-top:12px">
@@ -260,7 +260,7 @@ function mdGlassSave(){
  if(!GLASS_CODE_RE.test(code))return fail(e,'Code: letters, digits and + . _ - / only');
  if(DB.glassProduct.some(p=>p.code.toUpperCase()===code.toUpperCase()&&p.id!==mdDraft.id))return fail(e,'This code already exists');
  const t=+thick;
- if(!Number.isFinite(t)||t<GLASS_MIN_MM||t>GLASS_MAX_MM)return fail(e,'Толщина: число от '+GLASS_MIN_MM+' до '+GLASS_MAX_MM+' мм');
+ if(!Number.isFinite(t)||t<GLASS_MIN_MM||t>GLASS_MAX_MM)return fail(e,'Thickness: a number from '+GLASS_MIN_MM+' to '+GLASS_MAX_MM+' mm');
  const surfaces=glassSurfacesCell(mdVal('md_surfaces'));
  if(surfaces===null)return fail(e,'Surfaces: numbers 1 to 8 separated by commas');
  const next=Object.assign({},mdDraft,{
@@ -306,7 +306,7 @@ function viewMdSupply(){
  const rows=DB.glassSheet.slice().sort((a,b)=>a.productCode.localeCompare(b.productCode)||a.supplier.localeCompare(b.supplier));
  const orphans=glassOrphanSheets().length;
  return `<div class="sub">One row is one product at one supply point in one sheet format. The same sheet at a new price updates the row; a different sheet format starts its own. The currency belongs to the supply point: Vitro Barrie ships in CAD, Vitro USA ships the same glass in USD.</div>
-  ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b>. Так бывает после переименования кода в каталоге — цена не потерялась, но продукт ей надо вернуть.</div>`:''}
+  ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b>. This happens after a code is renamed in the catalogue — the price is not lost, but its product has to be given back.</div>`:''}
   <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Supply point</th><th>Sheet</th><th>Unit</th><th>Purchase price</th><th>Date</th><th>Freight</th><th>Lead time</th><th>Availability</th><th></th></tr></thead>
   <tbody>${rows.map(mdSheetRow).join('')||'<tr><td colspan="10" class="empty">no supply rows yet — load GLASS_SHEETS.csv or add a row by hand</td></tr>'}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>`;
@@ -320,7 +320,7 @@ function mdSheetRow(s){
   <td class="mono">${s.purchasePrice==null?'<span class="mut">none</span>':esc(s.currency+' '+s.purchasePrice.toFixed(2))}</td>
   <td class="mono">${s.priceDate?esc(s.priceDate):'<span class="mut">—</span>'}</td>
   <td class="mono">${s.freightPct==null?'—':esc(s.freightPct+'%')}</td>
-  <td class="mono">${s.leadTimeDays==null?'<span class="mut">—</span>':esc(s.leadTimeDays+' дн.')}</td>
+  <td class="mono">${s.leadTimeDays==null?'<span class="mut">—</span>':esc(s.leadTimeDays+' days')}</td>
   <td><span class="pill ${s.availability==='stock'?'ok':s.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',s.availability))}</span></td>
   <td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(s.id)}')">Edit</button>
    <button class="sm dl" onclick="mdSheetDelete('${esc(s.id)}')">×</button></td></tr>`;
@@ -345,7 +345,7 @@ function mdSheetForm(){
    <div><label>Sheet width (in)</label><input id="md_sheetW" type="number" step="0.1" min="0" value="${r.sheetWIn==null?'':r.sheetWIn}"></div>
    <div><label>Sheet height (in)</label><input id="md_sheetH" type="number" step="0.1" min="0" value="${r.sheetHIn==null?'':r.sheetHIn}"><div class="hint">The size is filled in as a pair: half a size is worse than none.</div></div>
    <div><label>Purchase unit</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select><div class="hint">Not every item is bought by area — a box or a drum is not measured in square feet.</div></div>
-   <div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">Это ЗАКУПКА, у точки поставки. Цена ПРОДАЖИ живёт у продукта в каталоге стекла — колонки Price AN и Price FT.</div></div>
+   <div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">This is the PURCHASE side, at the supply point. The SALE price lives on the product in the glass catalogue — the Price AN and Price FT columns.</div></div>
    <div><label>Price date</label><input id="md_sheetDate" value="${esc(r.priceDate)}" placeholder="2026-08-22"><div class="hint">A price with no date says nothing about how stale it is.</div></div>
    <div><label>Freight, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Lead time, days</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
@@ -602,7 +602,7 @@ function mdHwKindNew(){mdHwKindEdit='new';mdHwKindDraft={code:'',name:'',nameEn:
 function mdHwKindEditRow(code){const k=hardwareKindRow(code);if(!k)return;mdHwKindEdit=code;mdHwKindDraft=JSON.parse(JSON.stringify(k));render();}
 function mdHwKindForm(){
  const r=mdHwKindDraft,isNew=mdHwKindEdit==='new';
- return `<div class="form"><h3>${isNew?'New hardware kind':'Edit вида'}</h3>
+ return `<div class="form"><h3>${isNew?'New hardware kind':'Edit kind'}</h3>
   <div class="grid">
    <div><label>Code *</label><input id="md_hwKindCode" value="${esc(r.code)}" placeholder="pivot" ${isNew?'':'readonly class="ro"'}><div class="hint">Latin letters, no spaces. The code goes into the drawing mark and into the pricing key, so it never changes once the kind exists.</div></div>
    <div><label>Name *</label><input id="md_hwKindName" value="${esc(r.name)}" placeholder="Pivot"></div>
@@ -639,7 +639,7 @@ function mdHwModelNew(){mdHwModelEdit='new';mdHwModelDraft={id:'',kind:mdHwFilte
 function mdHwModelEditRow(id){const m=hardwareModelById(id);if(!m)return;mdHwModelEdit=id;mdHwModelDraft=JSON.parse(JSON.stringify(m));render();}
 function mdHwModelForm(){
  const r=mdHwModelDraft,isNew=mdHwModelEdit==='new',kinds=DB.hardwareKind||[];
- return `<div class="form"><h3>${isNew?'New hardware model':'Edit модели'}</h3>
+ return `<div class="form"><h3>${isNew?'New hardware model':'Edit model'}</h3>
   <div class="grid">
    <div><label>Kind *</label><select id="md_hwModelKind">${kinds.map(k=>`<option value="${esc(k.code)}" ${k.code===r.kind?'selected':''} data-raw>${esc(hardwareKindName(k.code))}</option>`).join('')}</select></div>
    <div><label>Name *</label><input id="md_hwModelName" value="${esc(r.name)}" placeholder="Vienna 180"><div class="hint">Exactly the name the shop uses to find its template. Do not tidy it up.</div></div>
@@ -678,7 +678,7 @@ function mdHwModelDelete(id){
    коллекции системы одним списком со счётчиками. Пустая таблица здесь — не
    ошибка, а честный ответ «сюда ещё ничего не завели». */
 const MD_COLLECTIONS=[
- {key:'glassProduct',   label:'Glass catalog',      what:'что за стекло и почём продаём: подложка, покрытие, толщина, закалка, две цены'},
+ {key:'glassProduct',   label:'Glass catalog',      what:'what the glass is and what we sell it for: substrate, coating, thickness, tempering, two prices'},
  {key:'glassSheet',     label:'Supply points',      what:'where and at what price: currency, sheet size, price, lead time'},
  {key:'hardwareKind',   label:'Hardware kinds',      what:'hinge, clamp, patch and whatever is added next'},
  {key:'hardwareModel',  label:'Hardware models',    what:'the shop picks its template by the model name'},
@@ -686,11 +686,11 @@ const MD_COLLECTIONS=[
  {key:'spacerVariant',  label:'Spacers', what:'family sets the price, nominal picks the spacer, actual drives the calculation'},
  {key:'gasProduct',     label:'Gas',                 what:'cavity fill'},
  {key:'sealantProduct', label:'Sealants',           what:'primary and secondary seal'},
- {key:'interlayerProduct',label:'Interlayers',  what:'EVA и SGP по исполнениям, цена за слой'},
- {key:'fritProduct',    label:'Ceramic paint',           what:'керамика и цифровая печать, надбавка за sq ft'},
+ {key:'interlayerProduct',label:'Interlayers',  what:'EVA and SGP by grade, price per ply'},
+ {key:'fritProduct',    label:'Ceramic paint',           what:'ceramic and digital print, surcharge per sq ft'},
  {key:'spandrelProduct',label:'Spandrel',            what:'opaque panels'},
  {key:'station',        label:'Route stations',    what:'the eleven steps of the route'},
- {key:'edgeAllowance',  label:'Cutting allowance',       what:'съём на сторону: монолит по стеклу, ламинат по плите'},
+ {key:'edgeAllowance',  label:'Cutting allowance',       what:'removal per side: monolithic by the glass, laminate by the ply'},
 
  {key:'terminal',       label:'Terminals',           what:'scanning screens on the shop floor'},
  {key:'customer',       label:'Customers',             what:'contacts, addresses, terms'},
@@ -751,7 +751,7 @@ function viewMdAllowance(){
   <div class="customer-table-wrap"><table><thead><tr><th>Case</th><th>Allowance per side</th></tr></thead>
   <tbody>${MD_ALLOWANCE_SAMPLES.map(s=>{
     const r=ShapeModule.productionAllowanceRule(s.op,s.mm,s.scope);
-    return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">правила нет — рез заблокирован</span>'}</td></tr>`;
+    return `<tr><td>${esc(s.label)}</td><td>${r.ok?`<b class="mono">${r.value?'+'+esc(dimIn(r.value)):'0″'}</b>`:'<span class="pill warn">no rule — cutting is blocked</span>'}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 function mdAllowanceSet(id,field,v){
@@ -807,7 +807,7 @@ function mdImportCard(){
  const isGlass=mdTab==='glass';
  const which=isGlass?'GLASS_PRODUCTS.csv':'GLASS_SHEETS.csv';
  return `<div class="card">
-  <div class="section-title"><h3>Загрузить ${which}</h3><span class="pill info">merged by code</span></div>
+  <div class="section-title"><h3>Load ${which}</h3><span class="pill info">merged by code</span></div>
   <div class="sub">${isGlass
    ?'The file updates items with the same codes and adds new ones. Columns missing from the file header are left untouched — a file that came back from Excel without five columns will not wipe the optics of the rest of the catalog.'
    :'A row is identified by product · supply point · sheet size. A row whose code is not in the catalog is rejected: a price with no product would quietly land in the cost.'}</div>

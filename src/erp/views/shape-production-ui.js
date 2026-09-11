@@ -88,7 +88,7 @@ function shapeProdAllowanceField(){
       `</div>`;
   }).join('');
   return `<div class='shape-prod-cutallow'>
-    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Ламинат: съём считается по ПЛИТЕ склейки':'Cutting allowance'))}' data-hint='${esc(tx(lam
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Laminate: removal is measured on the laminated PLY':'Cutting allowance'))}' data-hint='${esc(tx(lam
       ? 'Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.'
       : 'An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.'))}'>?</span></div></div>
     <div class='shape-allow-rows'>${rows}</div>
