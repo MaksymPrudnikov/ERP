@@ -2235,6 +2235,57 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        без геометрии, без Makeup и без маршрута (раздел 6 схемы). Сценарий
        владельца 11 сентября 2026: дверь $80 в заказе рядом с двумя фиксированными
        панелями, вместо того чтобы подгонять панели под кастомную дверь. */
+    /* Пункт 10·5 схемы: «открыть каждый сохранённый заказ, сверить итог до и
+       после». Этап 2 тронул нормализацию всех девяти справочников материалов,
+       а нормализация прогоняется по сохранённым данным при КАЖДОЙ загрузке —
+       то есть по живой базе владельца. Требование раздела 8 буквальное: ни
+       один старый заказ не должен открыться сломанным, и ни одна цифра в нём
+       не должна поехать.
+
+       Заказ здесь собран так, чтобы задеть все затронутые категории сразу:
+       стекло, спейсер и газ в пакете, ламинация, спандрел с цветом и стоковая
+       позиция отдельной строкой. Снимаем итог, прогоняем нормализацию ещё
+       дважды — как две перезагрузки страницы — и сверяем. */
+    eq('сохранённый заказ переживает нормализацию: ни итог, ни ссылки не поехали', await dxfSales.p.evaluate(() => {
+      DB.stockItem.push({id:'STK-QA-MIG',type:'stock',name:'QA Migration Door',code:'',thicknessMm:0,
+        salePrice:120,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
+      normalizeMasterData();
+      const o=newSalesOrderDraft();
+      o.customerId=(DB.customer[0]||{}).id||'';
+      const m=o.makeups[0];m.unitType='double';
+      m.panes[1].category='spandrel';
+      m.panes[1].spandrel.productId='SPAN-SILICONE';
+      m.panes[1].spandrel.color='SPC-3-818';
+      m.panes[1].spandrel.surface=1;
+      o.lines[0].width16=40*16;o.lines[0].height16=30*16;o.lines[0].qty=2;
+      o.extraItems=[normalizeSalesExtraItem({table:'stockItem',itemId:'STK-QA-MIG',qty:2})];
+      o.businessNumber='SO-QA-MIG';o.id='SO-QA-MIG';
+      DB.salesOrder.push(normalizeSalesOrder(o));
+      const snap=id=>{
+       const x=DB.salesOrder.find(s=>s.id===id);
+       const t=salesOrderCommercialTotals(x);
+       return JSON.stringify({subtotal:t.subtotal,qty:t.qty,missing:t.missing,
+        glassId:x.makeups[0].panes[0].glassProductId,
+        spandrel:[x.makeups[0].panes[1].spandrel.productId,x.makeups[0].panes[1].spandrel.color],
+        spacer:x.makeups[0].cavities[0].spacerVariantId,
+        gas:x.makeups[0].cavities[0].gasProductId,
+        extra:x.extraItems.map(e=>[e.table,e.itemId,e.qty])});
+      };
+      const before=snap('SO-QA-MIG');
+      /* Две перезагрузки подряд: миграция обязана быть идемпотентной, иначе
+         второй запуск уводит данные дальше первого. */
+      normalizeMasterData();normalizeSalesData();
+      const after1=snap('SO-QA-MIG');
+      normalizeMasterData();normalizeSalesData();
+      const after2=snap('SO-QA-MIG');
+      const opens=(()=>{try{salesOrderEdit('SO-QA-MIG');const ok=!!soDraft&&soDraft.lines.length===1;salesOrderClose();return ok;}catch(e){return 'ошибка: '+e.message;}})();
+      DB.salesOrder=DB.salesOrder.filter(s=>s.id!=='SO-QA-MIG');
+      DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-MIG');
+      soDraft=null;soEdit=null;
+      return {stable1:after1===before,stable2:after2===before,opens,
+        hasMoney:JSON.parse(before).subtotal>0};
+    }), {stable1:true,stable2:true,opens:true,hasMoney:true});
+
     /* Этап 2 схемы, часть первая: ОДНА ФОРМА. Девять справочников материалов
        физически остаются своими таблицами, но шапка раздела 3.1 обязана быть
        на каждой строке — иначе «материал» остаётся словом в документе, а не
