@@ -1107,7 +1107,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='87b0494ccbf8';
+var ERP_BUILD='3cd9a7b6aca1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7609,63 +7609,101 @@ function spandrelColourText(value,note){
 
 /* --- 5. Нормализация -------------------------------------------------- */
 
+/* ОДИН механизм пересборки справочника вместо четырёх почти одинаковых.
+
+   Шаги у всех таблиц одни и те же: таблицы нет — берём заводскую; убираем
+   отменённые заводские строки; доливаем недостающие заводские по id; гоняем
+   миграции; нормализуем; выбрасываем негодные; при необходимости снимаем
+   дубли. Различались они деталями — и именно расхождение этих деталей уже
+   дважды стоило багов: Opaci Coat и Backpainting не доезжали до владельца,
+   потому что долив был заведён у плёнки и забыт у спандрела; у палитры цветов
+   долив есть, у спейсера нет, и никто не мог сказать, так задумано или
+   недосмотрели.
+
+   Теперь различия — ПАРАМЕТРЫ в одном месте, и «так задумано» видно глазом:
+
+     seedWhenMissing  пустая таблица берётся из DEFAULT (по умолчанию) либо
+                      остаётся пустой — как у точек поставки, где заводского
+                      списка нет и быть не может;
+     dropLegacy       отменённая заводская строка убирается ДО долива;
+     topUp            недостающие заводские строки доливаются по id. Это не
+                      пересев: правки владельца не трогаются, поэтому долив
+                      стоит там, где таблица ушла из REFERENCE_TABLES ради
+                      сохранности его позиций;
+     migrate          разовый перенос по уже долитым строкам;
+     repair           починка строки после нормализации (id из кода у стекла);
+     valid            что считается годной строкой;
+     dedupe           снять повторы по id.
+
+   Порядок шагов важен и повторяет прежний: снять отменённые → долить →
+   мигрировать → нормализовать. */
+function mdRebuildTable(key,opts){
+ const o=opts||{};
+ if(!Array.isArray(DB[key]))DB[key]=o.seedWhenMissing===false?[]:JSON.parse(JSON.stringify(DEFAULT[key]||[]));
+ if(o.dropLegacy)DB[key]=DB[key].filter(x=>!x||!o.dropLegacy(x));
+ if(o.topUp)(DEFAULT[key]||[]).forEach(seed=>{if(!DB[key].some(x=>x&&x.id===seed.id))DB[key].push(JSON.parse(JSON.stringify(seed)));});
+ if(o.migrate)DB[key].forEach(x=>{if(x)o.migrate(x);});
+ let rows=DB[key].filter(x=>x&&typeof x==='object').map(o.normalize);
+ if(o.repair)rows=rows.map(o.repair);
+ rows=rows.filter(o.valid);
+ if(o.dedupe){const seen=Object.create(null);rows=rows.filter(x=>x.id&&!seen[x.id]&&(seen[x.id]=true));}
+ DB[key]=rows;
+}
+/* Материалы, которые нормализуются общей `normalizeSimpleMaterial`: таблица и
+   её тип. Новый простой справочник добавляется строкой сюда и больше нигде. */
+const MD_SIMPLE_MATERIALS=[['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],
+ ['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel'],['stockItem','stock']];
+
 function normalizeMasterData(){
- if(!Array.isArray(DB.glassProduct))DB.glassProduct=JSON.parse(JSON.stringify(DEFAULT.glassProduct));
- const gSeen=Object.create(null);
- DB.glassProduct=DB.glassProduct.filter(x=>x&&typeof x==='object').map(normalizeGlassProduct)
-  .map(p=>{if(!p.id&&p.code)p.id=glassProductId(p.code);return p;})
-  .filter(p=>p.id&&p.name&&!gSeen[p.id]&&(gSeen[p.id]=true));
+ mdRebuildTable('glassProduct',{
+  normalize:normalizeGlassProduct,
+  repair:p=>{if(!p.id&&p.code)p.id=glassProductId(p.code);return p;},
+  valid:p=>p.id&&p.name,
+  dedupe:true
+ });
  glassApplySalePrices();
 
  /* Строка поставки на продукт, которого в каталоге нет, НЕ выбрасывается.
     Пользователь переименовывает коды каталога под цех, и выброшенная строка
     унесла бы с собой цену и срок — молча. Осиротевшая строка остаётся видимой
     на экране Master Data и чинится там же. */
- if(!Array.isArray(DB.glassSheet))DB.glassSheet=[];
- const sSeen=Object.create(null);
- DB.glassSheet=DB.glassSheet.filter(x=>x&&typeof x==='object').map(normalizeGlassSheet)
-  .filter(s=>s.productCode&&s.supplier&&!sSeen[s.id]&&(sSeen[s.id]=true));
+ mdRebuildTable('glassSheet',{
+  seedWhenMissing:false,
+  normalize:normalizeGlassSheet,
+  valid:s=>s.productCode&&s.supplier,
+  dedupe:true
+ });
 
  /* каталог пересобран — индекс базовых стёкол больше не действителен */
  glassInvalidateNameIndex();
 
- [['heatTreatment','heatTreatment'],['gasProduct','gas'],['sealantProduct','sealant'],['interlayerProduct','interlayer'],['fritProduct','frit'],['spandrelProduct','spandrel'],['stockItem','stock']].forEach(pair=>{
-  const k=pair[0],type=pair[1];if(!Array.isArray(DB[k]))DB[k]=JSON.parse(JSON.stringify(DEFAULT[k]));
-  /* Migrate only the old built-in thickness-as-product rows. Custom film
-     products remain untouched, while canonical built-ins are added if absent. */
-  if(k==='interlayerProduct'){
-   DB[k]=DB[k].filter(x=>!x||!interlayerProductMigration(x.id));
-   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
-  }
-  /* Спандрел доливается тем же приёмом: у сохранённого заказа таблица уже
-     есть, и без долива Opaci Coat и Backpainting до владельца не доехали бы
-     вовсе — а пересевом их не принести, спандрел из REFERENCE_TABLES убран
-     ради сохранности его собственных позиций. */
-  if(k==='spandrelProduct'||k==='fritProduct'){
-   DEFAULT[k].forEach(seed=>{if(!DB[k].some(x=>x&&x.id===seed.id))DB[k].push(JSON.parse(JSON.stringify(seed)));});
-  }
-  if(k==='spandrelProduct'){
-   DB[k].forEach(x=>{if(x&&spandrelProductMigration(x.id))x.active=false;});
-  }
-  DB[k]=DB[k].filter(x=>x&&typeof x==='object').map(x=>normalizeSimpleMaterial(x,type)).filter(x=>x.id&&x.name);
+ /* Долив стоит у плёнки, фрита и спандрела: эти таблицы убраны из
+    REFERENCE_TABLES ради сохранности позиций владельца, и без долива
+    заводские строки (Opaci Coat, Backpainting) не доехали бы до него вовсе.
+    У плёнки вдобавок снимаются старые строки «толщина как товар», у спандрела
+    отменённые типы выключаются, а не удаляются: на них ссылается старый заказ. */
+ MD_SIMPLE_MATERIALS.forEach(pair=>{
+  const k=pair[0],type=pair[1];
+  mdRebuildTable(k,{
+   dropLegacy:k==='interlayerProduct'?(x=>interlayerProductMigration(x.id)):null,
+   topUp:k==='interlayerProduct'||k==='spandrelProduct'||k==='fritProduct',
+   migrate:k==='spandrelProduct'?(x=>{if(spandrelProductMigration(x.id))x.active=false;}):null,
+   normalize:x=>normalizeSimpleMaterial(x,type),
+   valid:x=>x.id&&x.name
+  });
  });
- /* Ставки услуг доливаются тем же приёмом и по той же причине: прайс ведёт
-    владелец, и пересев стёр бы его цены. */
- if(!Array.isArray(DB.serviceRate))DB.serviceRate=JSON.parse(JSON.stringify(DEFAULT.serviceRate));
- DEFAULT.serviceRate.forEach(seed=>{if(!DB.serviceRate.some(x=>x&&x.id===seed.id))DB.serviceRate.push(JSON.parse(JSON.stringify(seed)));});
- const srSeen=Object.create(null);
- DB.serviceRate=DB.serviceRate.filter(x=>x&&typeof x==='object').map(normalizeServiceRate)
-  .filter(r=>r.id&&r.name&&!srSeen[r.id]&&(srSeen[r.id]=true));
-
+ /* Ставки услуг доливаются по той же причине: прайс ведёт владелец, и пересев
+    стёр бы его цены. */
+ mdRebuildTable('serviceRate',{topUp:true,normalize:normalizeServiceRate,valid:r=>r.id&&r.name,dedupe:true});
  /* Палитра спандрела: заводские цвета доливаются по id, пользовательские не
     трогаются. Пустая таблица — не «нет цветов», а «ещё не заводили». */
- if(!Array.isArray(DB.spandrelColour))DB.spandrelColour=JSON.parse(JSON.stringify(DEFAULT.spandrelColour));
- DEFAULT.spandrelColour.forEach(seed=>{if(!DB.spandrelColour.some(x=>x&&x.id===seed.id))DB.spandrelColour.push(JSON.parse(JSON.stringify(seed)));});
- const scSeen=Object.create(null);
- DB.spandrelColour=DB.spandrelColour.filter(x=>x&&typeof x==='object').map(normalizeSpandrelColour)
-  .filter(c=>c.id&&c.name&&!scSeen[c.id]&&(scSeen[c.id]=true));
- if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
- DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
+ mdRebuildTable('spandrelColour',{topUp:true,normalize:normalizeSpandrelColour,valid:c=>c.id&&c.name,dedupe:true});
+ /* У спейсера долива нет намеренно: номиналы ведёт владелец, и заводской
+    список не должен возвращаться к нему после того, как он его подчистил. */
+ mdRebuildTable('spacerVariant',{
+  normalize:x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false}),
+  valid:x=>x.id&&x.system&&x.size
+ });
 }
 
 /* --- 6. Выборки ------------------------------------------------------- */
