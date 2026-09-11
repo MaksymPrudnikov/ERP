@@ -73,18 +73,18 @@ const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
    80 × 110, никто не поймёт почему — система-то говорила, что влезает. */
 const STATION_SEED_MAX_W=144,STATION_SEED_MAX_L=100;
 DEFAULT.station=[
- {seq:1, code:'CUT',  name:'Резка',                  nameEn:'Cutting',        always:true,  note:'режется только отожжённое стекло'},
- {seq:2, code:'EDGE', name:'Кромка',                 nameEn:'Edge work',      always:false, note:'услуги: arris · polish · cnc shape polish · miter · bevel · lami polish'},
- {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'петли · клемы · патчи · отверстия до 1 3/4" · ручной нотч. Свёрл крупнее в цеху нет'},
- {seq:4, code:'CNC',  name:'ЧПУ',                    nameEn:'CNC',            always:false, note:'нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4"'},
- {seq:5, code:'CERP', name:'Силкскрин',              nameEn:'Ceramic paint',  always:false, note:'услуги: ceramic frit (3 узора) · digital ceramic print'},
- {seq:6, code:'HEAT', name:'Термообработка',         nameEn:'Heat treatment', always:false, note:'услуги: tempering · heat strengthening · heat soak. Вся механика до неё'},
- {seq:7, code:'SAND', name:'Пескоструй',             nameEn:'Sandblasting',   always:false, note:'позиция в маршруте зависит от того, есть ли термообработка'},
- {seq:8, code:'PAINT',name:'Покраска',               nameEn:'Painting',       always:false, note:'услуги: opaci-coat standard/custom · backpainting'},
- {seq:9, code:'LAM',  name:'Ламинация',              nameEn:'Lamination',     always:false, note:'lead time 3 дня, у остальных 1. Точка слияния компонентов'},
- {seq:10,code:'IGU',  name:'Сборка стеклопакета',    nameEn:'IGU assembly',   always:false, note:'мойка входит в операцию. Точка слияния компонентов'},
- {seq:11,code:'SHIPR',name:'Готово к отгрузке',      nameEn:'Shipping ready', always:true,  note:''},
- {seq:12,code:'SHIP', name:'Отгрузка',               nameEn:'Shipping',       always:true,  note:'включает монтаж — развести при проектировании отгрузки'}
+ {seq:1, code:'CUT',  name:'Cutting',                  nameEn:'Cutting',        always:true,  note:'only annealed glass is cut here'},
+ {seq:2, code:'EDGE', name:'Edge work',                 nameEn:'Edge work',      always:false, note:'works: arris · polish · cnc shape polish · miter · bevel · lami polish'},
+ {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'hinges · clamps · patches · holes up to 1 3/4\" · hand notch. The shop has no larger drills'},
+ {seq:4, code:'CNC',  name:'ЧПУ',                    nameEn:'CNC',            always:false, note:'CNC notch · internal cutouts · radii · holes over 1 3/4"'},
+ {seq:5, code:'CERP', name:'Ceramic paint',              nameEn:'Ceramic paint',  always:false, note:'works: ceramic frit (3 patterns) · digital ceramic print'},
+ {seq:6, code:'HEAT', name:'Heat treatment',         nameEn:'Heat treatment', always:false, note:'works: tempering · heat strengthening · heat soak. All machining comes before it'},
+ {seq:7, code:'SAND', name:'Sandblasting',             nameEn:'Sandblasting',   always:false, note:'its place in the route depends on whether there is heat treatment'},
+ {seq:8, code:'PAINT',name:'Painting',               nameEn:'Painting',       always:false, note:'works: opaci-coat standard/custom · backpainting'},
+ {seq:9, code:'LAM',  name:'Lamination',              nameEn:'Lamination',     always:false, note:'lead time 3 days, 1 day elsewhere. Component merge point'},
+ {seq:10,code:'IGU',  name:'IGU assembly',    nameEn:'IGU assembly',   always:false, note:'washing is part of the operation. Component merge point'},
+ {seq:11,code:'SHIPR',name:'Shipping ready',      nameEn:'Shipping ready', always:true,  note:''},
+ {seq:12,code:'SHIP', name:'Shipping',               nameEn:'Shipping',       always:true,  note:'includes installation — to be separated when shipping is designed'}
 ].map(s=>Object.assign({maxW:STATION_SEED_MAX_W,maxL:STATION_SEED_MAX_L,sizeMeasured:false},s));
 /* Станция FAB упразднена 11 сентября 2026. Она была зонтиком над сверловкой и
    ЧПУ — «работа по телу стекла», — и в маршруте печаталась одной строкой, из
@@ -230,17 +230,17 @@ function sfReject(rep,line,code,why){rep.rejected.push({line,code:code||'—',wh
 function importStationsCsv(text){
  const {header,rows}=parseCsv(text),rep=sfReport();
  if(!header.includes('code')||!header.includes('seq'))
-  {sfReject(rep,0,'','файл не похож на STATIONS.csv: нет колонок seq и code');return rep;}
+  {sfReject(rep,0,'','this does not look like STATIONS.csv: the seq and code columns are missing');return rep;}
  const inFile=Object.create(null);
  rows.forEach((r,n)=>{
   const line=n+2,code=sfCode(r.code);
-  if(!code)return sfReject(rep,line,'','пустой код');
-  if(!SF_CODE_RE.test(code))return sfReject(rep,line,code,'код: только A–Z, 0–9, дефис и подчёркивание');
-  if(inFile[code])return sfReject(rep,line,code,'код повторяется в файле');
+  if(!code)return sfReject(rep,line,'','empty code');
+  if(!SF_CODE_RE.test(code))return sfReject(rep,line,code,'code: only A–Z, 0–9, hyphen and underscore');
+  if(inFile[code])return sfReject(rep,line,code,'the code is repeated in the file');
   const seq=+r.seq;
-  if(!Number.isInteger(seq)||seq<=0)return sfReject(rep,line,code,'seq должен быть целым положительным');
+  if(!Number.isInteger(seq)||seq<=0)return sfReject(rep,line,code,'seq must be a positive integer');
   const flag=sfStr(r.always_or_optional).toLowerCase();
-  if(flag!=='always'&&flag!=='optional')return sfReject(rep,line,code,'always_or_optional: ожидается always или optional');
+  if(flag!=='always'&&flag!=='optional')return sfReject(rep,line,code,'always_or_optional: expected always or optional');
   inFile[code]=true;
   const next={seq,code,name:sfStr(r.name_ru),nameEn:sfStr(r.name_en),always:flag==='always',note:sfStr(r.note)};
   const at=DB.station.findIndex(s=>s.code===code);
@@ -259,7 +259,7 @@ function importStationsCsv(text){
    --------------------------------------------------------------------- */
 function sfName(row){
  if(!row)return '';
- return (LANG==='en'&&row.nameEn)?row.nameEn:(row.name||row.nameEn||'');
+ return row.nameEn||row.name||'';
 }
 /* Локализованное имя — уже данные, а не интерфейс: переводчику его не отдаём. */
 function sfLabel(row){return `<span data-raw>${esc(sfName(row))}</span>`;}

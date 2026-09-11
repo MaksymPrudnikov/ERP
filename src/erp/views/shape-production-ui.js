@@ -88,7 +88,7 @@ function shapeProdAllowanceField(){
       `</div>`;
   }).join('');
   return `<div class='shape-prod-cutallow'>
-    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc(tx(lam?'Laminate: removal is measured on the laminated PLY':'Cutting allowance'))}' data-hint='${esc(tx(lam
+    <div class='shape-allow-summary'><div class='shape-allow-head'><b>Cutting allowance</b><label>Base<input value='' placeholder='${esc(lam?'per ply':'per glass')}' onchange='setShapeEdgeAllowanceAll(this.value)'></label>${any?`<button type='button' class='sm' onclick='resetShapeEdgeAllowances()'>Reset</button>`:`<span class='pill ok'>AUTO</span>`}<span class='shape-hint' tabindex='0' aria-label='${esc((lam?'Laminate: removal is measured on the laminated PLY':'Cutting allowance'))}' data-hint='${esc((lam
       ? 'Laminated: stock removal is measured by the PLY of the make-up — at cutting every sheet is a separate panel. An empty field takes the value from the reference table, Base writes one value into every side.'
       : 'An empty field takes the value from the allowance reference table. Base writes one value into every side, the fields below correct them one by one.'))}'>?</span></div></div>
     <div class='shape-allow-rows'>${rows}</div>
@@ -173,7 +173,7 @@ viewShapeSkill=function(){
   var rows=library.map(function(x){
     var s=x.s,i=x.i;
     var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
-    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(moduleErrorText(r))+'</span>';
+    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(String(r&&r.reason||''))+'</span>';
     var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
     return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
   }).join('');

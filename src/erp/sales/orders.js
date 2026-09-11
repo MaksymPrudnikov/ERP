@@ -613,7 +613,7 @@ function salesExcelSetRole(col,role){
 /* ---- точечные обновления: полная перерисовка увела бы каретку из ячейки ---- */
 function salesExcelRenderGrid(){
  const box=document.getElementById('salesExcelGrid');
- if(box){box.innerHTML=salesExcelGridInnerHtml();if(typeof applyLang==='function')applyLang(box);}
+ if(box)box.innerHTML=salesExcelGridInnerHtml();
  salesExcelRefreshFooter();
 }
 function salesExcelRefreshFooter(){

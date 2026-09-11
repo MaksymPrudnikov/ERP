@@ -74,7 +74,7 @@ const raw=s=>{s=String(s??'');
  /* засеянное значение оборачиваем в свой <span>: так оно становится отдельным
     текстовым узлом и попадает в словарь целиком, а не куском чужой фразы */
  return SEED_TEXT.has(s)?`<span>${esc(s)}</span>`:`<span data-raw>${esc(s)}</span>`;};
-const fail=(el,m)=>{el.textContent=tx(m);el.style.display='block';};
+const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
 
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);

@@ -7,7 +7,7 @@
    normalize/validate hooks и отвечает только за безопасный вход→выход.
    ===================================================================== */
 
-function afterRender(){applyLang(document.body)}
+function afterRender(){}
 let storageWarningShown=false;
 function touch(){
  dirty=true;

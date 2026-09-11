@@ -85,4 +85,4 @@ function mdUnitCode(v,fallback){
 function mdUnitCalc(code){const u=mdUnit(code);return u?u.calc:'';}
 /* Имя единицы на языке интерфейса. Не перевод словарём — обе колонки
    заполнены здесь, язык только выбирает нужную (тот же приём, что sfName). */
-function mdUnitName(code){const u=mdUnit(code);if(!u)return String(code==null?'':code);return (typeof LANG!=='undefined'&&LANG==='en')?u.nameEn:u.name;}
+function mdUnitName(code){const u=mdUnit(code);if(!u)return String(code==null?'':code);return u.nameEn||u.name;}

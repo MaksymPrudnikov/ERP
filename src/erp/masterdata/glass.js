@@ -1109,7 +1109,7 @@ const GLASS_VOCAB={
 function glassLabel(kind,value){
  const row=(GLASS_VOCAB[kind]||{})[value];
  if(!row)return mdString(value);
- return (typeof LANG!=='undefined'&&LANG==='en')?row[1]:row[0];
+ return row[1]||row[0];
 }
 
 /* --- 9. Импорт -------------------------------------------------------- */

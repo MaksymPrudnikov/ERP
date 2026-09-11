@@ -139,7 +139,7 @@ function mdUnitOptions(value){
 }
 function mdUnitCalcName(calc){
  const row={area:['площадь','area'],linear:['длина','linear'],flat:['штуки','flat']}[calc];
- return row?(LANG==='en'?row[1]:row[0]):calc;
+ return row?row[1]:calc;
 }
 function mdVal(id){const el=document.getElementById(id);return el?el.value.trim():'';}
 function mdChecked(id){const el=document.getElementById(id);return !!(el&&el.checked);}
@@ -944,7 +944,7 @@ function mdCatForm(){
     <div><label>Rate shape</label><select id="md_catRateKind" onchange="mdCatDraft.kind=this.value;render()"><option value="band" ${r.kind!=='flat'?'selected':''}>By glass thickness</option><option value="flat" ${r.kind==='flat'?'selected':''}>One rate for any thickness</option></select></div>
    </div>
    <div class="grid">
-    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(LANG==='en'?(st.nameEn||st.name):(st.name||st.nameEn))}</option>`).join('')}</select><div class="hint">Where the work is done. The route learns from this which area the part goes to. Empty means there is no shop work at all — it's a pure price uplift.</div></div>
+    <div><label>Station</label><select id="md_catStation"><option value="">— no station —</option>${stations.map(st=>`<option value="${esc(st.code)}" ${st.code===(r.station||'')?'selected':''}>${esc(st.code)} · ${esc(st.nameEn||st.name)}</option>`).join('')}</select><div class="hint">Where the work is done. The route learns from this which area the part goes to. Empty means there is no shop work at all — it's a pure price uplift.</div></div>
     <div><label>Applies by</label><select id="md_catAppliesBy" onchange="mdCatDraft.appliesBy=this.value;render()"><option value="" ${r.appliesBy?'':'selected'}>always</option><option value="thickness" ${r.appliesBy==='thickness'?'selected':''}>by thickness, mm</option><option value="diameter" ${r.appliesBy==='diameter'?'selected':''}>by diameter, inches</option></select><div class="hint">A range is needed when the work's bands don't match the standard ones — as with beveling.</div></div>
    </div>
    ${r.appliesBy?`<div class="grid">

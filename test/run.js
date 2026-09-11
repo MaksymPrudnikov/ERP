@@ -60,21 +60,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       });
     }
     eq('в текстах ошибок нет русского', throwLeaks, []);
-    const i18n = fs.readFileSync(path.join(ROOT, 'src/erp/i18n.js'), 'utf8');
-    ok('пользовательский интерфейс зафиксирован на английском', /let LANG\s*=\s*'en'/.test(i18n), i18n.match(/let LANG[^;]*/)[0]);
-    const shell = fs.readFileSync(path.join(ROOT, 'src/shell.html'), 'utf8');
-    ok('в шапке нет переключателя RU / EN', !/lang-switch|langRu|langEn/.test(shell));
-    const nav = fs.readFileSync(path.join(ROOT, 'src/erp/nav.js'), 'utf8');
-    ok('бренд больше не называет интерфейс двуязычным', !/bilingual concept/.test(nav));
-    /* Словарь работает в одну сторону RU→EN и применяется ТОЛЬКО в английском
-       режиме. Значит русское значение = английский текст подменяется русским
-       ровно там, где его быть не должно. Ключи-повторы вида "Edge mode":
-       "Edge mode" безвредны, их не трогаем. */
-    const ruValues = [];
-    const pair = /"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-    let kv;
-    while ((kv = pair.exec(i18n))) if (cyr.test(kv[2])) ruValues.push(kv[1].slice(0, 40) + ' → ' + kv[2].slice(0, 40));
-    eq('словарь RU→EN нигде не выдаёт русский текст', ruValues, []);
+    /* Раздел 11 схемы: словарь не вычищают — его УДАЛЯЮТ. Пока прослойка
+       есть, новый экран можно написать по-русски, и он «почти работает»:
+       переведётся то, что попало в словарь. Ровно так русский и остался
+       в Catalogues. Проверяем не качество перевода, а отсутствие самой
+       возможности: нет файла, нет LANG, нет вызовов tx/applyLang. */
+    ok('словарь интерфейса удалён', !fs.existsSync(path.join(ROOT, 'src/erp/i18n.js')));
+    const langLeaks = [];
+    walk(path.join(ROOT, 'src')).forEach(f => {
+      const src = fs.readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      if (/\bLANG\b|\bapplyLang\s*\(|\bsetLang\s*\(|(?<![A-Za-z0-9_.])tx\s*\(/.test(src)) langLeaks.push(path.relative(ROOT, f));
+    });
+    eq('в коде не осталось языкового слоя', langLeaks, []);
+    const shell2 = fs.readFileSync(path.join(ROOT, 'src/shell.html'), 'utf8');
+    ok('в шапке нет переключателя RU / EN', !/lang-switch|langRu|langEn/.test(shell2));
   }
   const b = await chromium.launch(EXE ? { executablePath: EXE } : {});
 
@@ -4015,15 +4014,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return [salesGlassMeta(pre).indexOf('12 d') > 0, salesGlassMeta(glassProductByCode('6CLEAR')).indexOf('9 d') > 0];
     }), [true, false]);
 
-    /* Доменные термины не ходят через словарь интерфейса: обе колонки лежат
-       рядом с данными, и язык выбирает нужную. */
-    eq('термины каталога приезжают на языке интерфейса, а не через словарь', await t.p.evaluate(() => {
+    /* Доменные термины лежат рядом с данными двумя колонками. Русского
+       интерфейса больше нет, поэтому читается английская — но вторая колонка
+       остаётся на месте: её заполнял пользователь, и стирать её нельзя. */
+    eq('термины каталога приходят из данных, а не из словаря', await t.p.evaluate(() => {
       const read = () => [glassLabel('substrate', 'low_iron'), glassLabel('temperMode', 'annealed_only'),
                           glassLabel('stock', 'preorder'), mdUnitName('sqft')];
-      LANG = 'ru'; const ru = read();
-      LANG = 'en'; const en = read();
-      return [ru.some(v => /[А-Яа-яЁё]/.test(v)), en.some(v => /[А-Яа-яЁё]/.test(v)), en[3]];
-    }), [true, false, 'sq ft']);
+      const v = read();
+      return [v.some(x => /[А-Яа-яЁё]/.test(x)), v[3]];
+    }), [false, 'sq ft']);
     await t.c.close();
   }
 
@@ -5485,7 +5484,6 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         root.querySelectorAll('[placeholder],[title]').forEach(el=>{if(el.closest('[data-raw]'))return;['placeholder','title'].forEach(a=>{const v=el.getAttribute(a)||'';if(/[А-Яа-яЁё]/.test(v))out.add(a+': '+v);});});
         return [...out];
       }
-      setLang('en');
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
       sDraft.manufacturingItems=[
         shapeNormalizeManufacturingItem({id:'m1',type:'patch',edge:'left',distance:6}),
@@ -5498,7 +5496,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='masterdata';mdTab='hardware';render();const catalog=cyrillicUi();
       mdHwKindNew();render();const kindForm=cyrillicUi();mdHwKindEdit=null;
       mdHwModelNew();render();const modelForm=cyrillicUi();mdHwModelEdit=null;
-      mdTab='materials';setLang('ru');render();
+      mdTab='materials';render();
       return editor.concat(custom,catalog,kindForm,modelForm);
     }), []);
     await t.c.close();
@@ -5507,28 +5505,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   /* --- 6. RU / EN -------------------------------------------------- */
   {
     console.log('RU / EN');
-    const src = fs.readFileSync(path.join(ROOT, 'src/erp/i18n.js'), 'utf8');
-    const block = src.slice(src.indexOf('const I18N_EN='), src.indexOf('const _textOriginal'));
-    const keys = [...block.matchAll(/^\s*"((?:[^"\\]|\\.)*)":/gm)].map(m => m[1]);
-    const seen = {}, dups = [];
-    keys.forEach(k => { if (seen[k]) dups.push(k); seen[k] = 1; });
-    eq('нет дублей ключей в словаре', dups, []);
-
+    /* Раздел 11 схемы: вместо пяти узких проверок языка — одна сильная.
+       Словаря больше нет, переключателя нет, LANG нет: русский в интерфейсе
+       стал физически невозможен, и проверять надо ровно это — что человек
+       нигде не видит кириллицы. Обход ниже ходит по КАЖДОМУ экрану и по
+       подэкранам, которые обход по вкладкам не открывает. */
     const t = await page();
-    eq('ошибки и production note переводятся в RU оболочкой', await t.p.evaluate(() => {
-      LANG='ru';const m=defaultMuntinModel(),s={id:'g',name:'g',w:'48',h:'36',smart:ssNormalize({})},r=MuntinModule.compute(s,{muntin:m});
-      return {
-        edge:moduleErrorText({reason:'Edge A: out of plumb / level cannot be negative.'}),
-        corner:moduleErrorText({reason:'Corner edge E (TL): no value yet.'}),
-        note:moduleNoteText(muntinEdgeModeNote(r.geo))
-      };
-    }), {
-      edge:'Сторона A: отклонение не может быть отрицательным.',
-      corner:'Угловая сторона E (TL): размер ещё не указан.',
-      note:'Концы баров сохраняют постоянный перпендикулярный отступ 7/16″ от реальной кромки стекла; затем вдоль оси бара применяется торцевой зазор.'
-    });
-    await t.p.evaluate(() => setLang('en'));
-    eq('EN сохраняет нейтральное сообщение инженерного модуля', await t.p.evaluate(() => moduleErrorText({reason:'Shape not found'})), 'Shape not found');
     for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production', 'masterdata']) {
       const left = await t.p.evaluate(tb => {
         tab = tb; subtab = null; render();
@@ -5628,17 +5610,13 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), 'Закалка');
     await t.c.close();
 
-    /* Имя станции не переводится словарём: пользователь заполнил в CSV обе
-       колонки, и язык выбирает нужную. Словарь трогает только примечания —
-       их пользователь написал в одном языке. */
+    /* Имя станции живёт в данных двумя колонками. Русского интерфейса нет —
+       читается английская; вторая остаётся, её заполнял пользователь. */
     const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT',skills:[]}]});
     const u = await page(seeded);
     eq('имя станции берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
-      setLang('en');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
+      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
     }), 'CUT — Cutting');
-    eq('в русском интерфейсе та же станция названа по-русски', await u.p.evaluate(() => {
-      setLang('ru');tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
-    }), 'CUT — Резка');
     await u.c.close();
   }
 

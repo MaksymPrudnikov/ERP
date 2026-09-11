@@ -270,7 +270,7 @@ function salesEdgeAllowanceCell(line,g){
   /* Состояние показывает ЦВЕТ поля — зелёный на авто, жёлтый на ручной правке,
      как в редакторе формы. Подпись под полем занимала отдельную строку в каждой
      карточке кромки и повторяла то, что и так видно. */
-  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc(tx('Cutting allowance per side. An empty field falls back to the reference table.'))}${auto==null?'':' · '+esc(auto)}'>`
+  return `<span class='ss-allow ${g.allowanceManual?'manual':'auto'}' title='${esc('Cutting allowance per side. An empty field falls back to the reference table.')}${auto==null?'':' · '+esc(auto)}'>`
     +`<input value='${esc(cur==null?'':String(cur))}' placeholder='${esc(auto==null?'auto':auto)}' onchange='salesSetEdgeAllowance("${esc(line.id)}","${esc(g.id)}",this.value)'></span>`;
 }
 /* Плиты разной толщины дают разные припуски, а рез у склейки один. Предлагаем
