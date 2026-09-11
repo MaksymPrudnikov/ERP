@@ -326,6 +326,8 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 .sales-lines-block{padding-bottom:8px}.sales-line-tools{display:flex;gap:5px}.sales-line-tools button{padding:5px 8px;font-size:11px}.sales-bulk{display:flex;align-items:center;gap:7px;padding:5px 7px;margin-bottom:6px;border-radius:7px;background:#fff5ed;border:1px solid #ffd9c0;font-size:10.5px}.sales-bulk select{width:auto;min-width:260px;height:30px;padding:3px 7px;font-size:10.5px}.sales-lines-table{min-width:1120px;font-size:11px}.sales-lines-table th{padding:5px 5px;font-size:10px;background:#f8f7f5}.sales-lines-table td{padding:3px 4px;vertical-align:middle}.sales-lines-table input,.sales-lines-table select{height:29px;padding:3px 5px;font-size:11px;border-radius:5px}.sales-lines-table input:disabled{background:#f2f1ee;color:#67645e;opacity:1}.sales-lines-table .line-check{width:30px;text-align:center}.sales-lines-table .line-check input{height:auto;width:auto}.line-num{color:#79766f}.line-mu{width:54px!important;min-width:54px}.line-qty{width:54px!important}.line-dim{width:92px!important}.line-mark{width:74px!important}.line-notes{min-width:100px}.line-config-cell{display:flex;align-items:center;gap:2px;max-width:180px}.line-link-btn{height:28px!important;max-width:155px;padding:3px 6px!important;border-radius:5px!important;font-size:10px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4d4a45}.line-link-btn.linked{background:#f1f7f4;border-color:#bcd8ca;color:#35634d}.line-link-btn.stale{background:#fff7e9;border-color:#e8c886;color:#8b641d}.line-x{height:26px!important;padding:1px 5px!important;border:0!important;background:transparent!important;color:#a09b93!important}.line-delete{padding:2px 6px!important}.sales-lines-table input.bad{border-color:#d85845;background:#fff3f0}
 .sales-extra-items-quiet{display:flex;align-items:center;gap:7px;padding:2px 2px;font-size:10.5px;color:var(--mut)}.sales-extra-items-quiet select{height:26px;font-size:10.5px;padding:2px 6px}.sales-extra-items-quiet button{padding:3px 8px;font-size:10.5px}
 .stock-picker-row:hover{background:#f5f8fa}.stock-picker-row td{padding:8px}
+.md-mat-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.md-mat-cats button{padding:6px 11px;font-size:11px}.md-mat-cats button.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d;font-weight:700}.md-mat-cats button .mut{margin-left:5px;font:9.5px ui-monospace,monospace}
+.md-mat-subs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid var(--line2)}.md-mat-subs button{padding:4px 9px;font-size:10px}.md-mat-subs button.on{background:var(--blue);border-color:var(--blue);color:#fff}
 .stock-picker-filters{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 10px}.stock-picker-filters button{padding:4px 9px;font-size:9.5px}.stock-picker-filters button.on{background:var(--blue2);border-color:#a9cee0;color:#2a617d;font-weight:700}
 .sales-notes{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}.sales-notes textarea{font-size:11px;padding:6px 8px;border-radius:6px}.sales-modal-back{display:none;position:fixed;inset:0;background:#12100e66;z-index:80;align-items:center;justify-content:center;padding:18px}.sales-modal-back.show{display:flex}.sales-modal{width:min(720px,96vw);background:#fff;border:1px solid #d9d4cc;border-radius:12px;padding:12px;box-shadow:0 18px 60px #10182830}.sales-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-modal-head h3{margin:0;font-size:14px}.sales-modal-head span{font-size:10px;color:var(--mut)}.sales-modal textarea{font:12px ui-monospace,SFMono-Regular,Menlo,monospace}.sales-modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}
 .mu-cavity-grid{grid-template-columns:minmax(105px,.42fr) minmax(260px,1.25fr) minmax(145px,.58fr) minmax(165px,.65fr);max-width:980px}
@@ -1105,7 +1107,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7919713f5b54';
+var ERP_BUILD='457bcf678fb8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -6904,13 +6906,56 @@ function glassApplySalePrices(){
   if(p.salePriceTempered==null)p.salePriceTempered=row[1];
  });
 }
+/* --- 1а. Общая шапка материала (раздел 3.1 схемы) ---------------------
+   Этап 2 схемы, часть первая: ОДНА ФОРМА. Девять справочников материалов
+   физически остаются своими таблицами — переезд хранилища это отдельное
+   решение со своей ценой (живая localStorage владельца и совместимость
+   Export/Import JSON), — но форма строки у всех становится одна. Поля шапки
+   перечислены в разделе 3.1: то, что есть у материала независимо от того,
+   стекло это, спейсер или стоковая дверь.
+
+   Приём намеренно аддитивный: `materialHeader` НЕ трогает поля категории и
+   не затирает уже сохранённые значения — она только гарантирует, что шапка
+   есть и приведена к типу. Поэтому её можно наложить на любую из девяти
+   нормализаций, не переписывая ни одну из них. */
+const MATERIAL_CATEGORIES=['glass','igu','lamination','surface','stock'];
+/* Физическая таблица → категория схемы. Единственное место, где это знание
+   записано: и аксессоры, и экран читают отсюда, а не повторяют список.
+   Подкатегорию здесь не держим — её несёт сама строка (см. materialHeader),
+   и второе место с тем же ответом рано или поздно разошлось бы с первым. */
+const MATERIAL_TABLE_MAP={
+ glassProduct:     {category:'glass'},
+ spacerVariant:    {category:'igu'},
+ gasProduct:       {category:'igu'},
+ sealantProduct:   {category:'igu'},
+ interlayerProduct:{category:'lamination'},
+ fritProduct:      {category:'surface'},
+ spandrelProduct:  {category:'surface'},
+ spandrelColour:   {category:'surface'},
+ stockItem:        {category:'stock'}
+};
+/* Закупка и хранение — заготовка под инвентаризацию: раздел 3.1 прямо
+   говорит «поле есть, движений нет». Заводить их сейчас дёшево, добавлять
+   потом в девять нормализаций и в сохранённые данные — дорого. */
+function materialHeader(p,category,subcategory){
+ p=p&&typeof p==='object'?p:{};
+ return {
+  category:MATERIAL_CATEGORIES.includes(category)?category:'',
+  subcategory:mdString(subcategory||p.subcategory),
+  purchasePrice:mdNonNeg(p.purchasePrice),
+  purchaseUnit:mdString(p.purchaseUnit),
+  currency:mdString(p.currency)||'CAD',
+  priceDate:mdString(p.priceDate),
+  stockQty:mdNum(p.stockQty)
+ };
+}
 function normalizeGlassProduct(p){
  p=p&&typeof p==='object'?p:{};
  /* `family` — имя поля прежней схемы; читаем, чтобы сохранённый браузер не
     потерял покрытие ещё до пересева. */
  const fam=GLASS_COATING_FAMILIES.includes(p.coatingFamily)?p.coatingFamily
   :(GLASS_COATING_FAMILIES.includes(p.family)?p.family:'uncoated');
- return {
+ return Object.assign(materialHeader(p,'glass',fam),{
   id:mdString(p.id),code:mdString(p.code),manufacturer:mdString(p.manufacturer),name:mdString(p.name),
   substrate:GLASS_SUBSTRATES.includes(p.substrate)?p.substrate:'clear',
   coatingFamily:fam,
@@ -6929,9 +6974,18 @@ function normalizeGlassProduct(p){
   salesUnit:mdUnitCode(p.salesUnit,GLASS_DEFAULT_UNIT),
   optics:normalizeGlassOptics(p.optics),
   origin:normalizeGlassOrigin(p.origin),
+  /* У стекла закупка не одно число — она живёт точками поставки
+     (`glassSheet`), поэтому срок берёт `glassLeadTimeDays`, а не поле
+     карточки. Наличие у стекла тоже своё — `stocked` («по предзаказу»), а не
+     общий `availability`: держать оба значило бы два ответа на один вопрос.
+     Плюс `availability` нельзя внести в шапку стекла технически — строкой
+     ниже она читается как разовая миграция прежней схемы, и сохранённое
+     поле перезапускало бы её на каждой нормализации, навсегда запирая
+     легаси-стекло выключенным. */
+  sellsAsOwnLine:p.sellsAsOwnLine===true,
   /* миграция прежней схемы: снятое с производства было availability='inactive' */
   active:p.active!==false&&p.availability!=='inactive'
- };
+ });
 }
 /* Идентификатор переживает переименование кода, и это не украшение: пользователь
    переписывает `6BIRDSMART…` в свои цеховые коды, а сохранённые Makeup ссылаются
@@ -7131,7 +7185,19 @@ DEFAULT.glassSheet=[];
    приём, что и у семейства цвета спандрела (владелец, 11 сентября: «максимально
    от тебя не зависящую»). Пустая или новая строка от пользователя сохраняется
    как есть, дефолт 'consumable' подставляется только когда поле реально пусто. */
-function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};return {id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),subcategory:type==='stock'?(mdString(p.subcategory)||'consumable'):'',sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false};}
+function normalizeSimpleMaterial(p,type){p=p&&typeof p==='object'?p:{};
+ /* Категория берётся по типу, а не по таблице: `type` — то же самое знание,
+    только уже разложенное по строкам. Тепловая обработка материалом не
+    является (её нет в разделе 7) и категории не получает. */
+ const cat=SIMPLE_MATERIAL_CATEGORY[type]||'';
+ /* У стока подкатегорию вписывает владелец, у плёнки ею уже служит семейство
+    (EVA / SGP), у остальных она совпадает с типом. Второго поля с тем же
+    смыслом не заводим — разойдутся. */
+ const sub=type==='stock'?(mdString(p.subcategory)||'consumable')
+  :(type==='interlayer'?mdString(p.family):(SIMPLE_MATERIAL_SUBCATEGORY[type]||''));
+ return Object.assign(materialHeader(p,cat,sub),{id:mdString(p.id),type,name:mdString(p.name),code:mdString(p.code),thicknessMm:mdNum(p.thicknessMm),salePrice:mdNonNeg(p.salePrice),salesUnit:mdString(p.salesUnit),availability:mdAvailability(p.availability),supplier:mdString(p.supplier),leadTimeDays:mdNum(p.leadTimeDays),stockingUnit:mdString(p.stockingUnit),note:mdString(p.note),sellsAsOwnLine:p.sellsAsOwnLine!=null?p.sellsAsOwnLine===true:type==='stock',active:p.active!==false});}
+const SIMPLE_MATERIAL_CATEGORY={gas:'igu',sealant:'igu',interlayer:'lamination',frit:'surface',spandrel:'surface',stock:'stock'};
+const SIMPLE_MATERIAL_SUBCATEGORY={gas:'gas',sealant:'sealant',frit:'frit',spandrel:'spandrel'};
 /* Готовые изделия и расходка: покупаем целиком, перепродаём целиком, без
    геометрии и без маршрута. Раздел 3·2 схемы — «сейчас такого нет вообще».
    Сценарий владельца: заказ из левой фиксированной панели, правой панели и
@@ -7335,8 +7401,10 @@ const FRIT_DEFAULT_MARGIN16=16;
    заводятся цвета, добавленные владельцем, пока он не привязал их к типу. */
 function normalizeSpandrelColour(c){
  c=c&&typeof c==='object'?c:{};
- return {id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
-  family:mdString(c.family),productId:mdString(c.productId),active:c.active!==false};
+ return Object.assign(materialHeader(c,'surface','spandrelColour'),{
+  id:mdString(c.id),name:mdString(c.name),code:mdString(c.code),
+  family:mdString(c.family),productId:mdString(c.productId),
+  note:mdString(c.note),active:c.active!==false});
 }
 DEFAULT.spandrelColour=[
  {id:'SPC-3-818', family:'Black',name:'Black',           code:'#3-818'},
@@ -7586,11 +7654,40 @@ function normalizeMasterData(){
  DB.spandrelColour=DB.spandrelColour.filter(x=>x&&typeof x==='object').map(normalizeSpandrelColour)
   .filter(c=>c.id&&c.name&&!scSeen[c.id]&&(scSeen[c.id]=true));
  if(!Array.isArray(DB.spacerVariant))DB.spacerVariant=JSON.parse(JSON.stringify(DEFAULT.spacerVariant));
- DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>({id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
+ DB.spacerVariant=DB.spacerVariant.filter(x=>x&&typeof x==='object').map(x=>Object.assign(materialHeader(x,'igu','spacer'),{id:mdString(x.id),family:spacerFamilyOf(x),system:mdString(x.system),size:mdString(x.size),thicknessMm:mdNum(x.thicknessMm),name:mdString(x.name)||[mdString(x.system),mdString(x.size)].filter(Boolean).join(' '),code:mdString(x.code),availability:mdAvailability(x.availability),supplier:mdString(x.supplier),leadTimeDays:mdNum(x.leadTimeDays),salePrice:mdNonNeg(x.salePrice),salesUnit:mdString(x.salesUnit),stockingUnit:mdString(x.stockingUnit),note:mdString(x.note),sellsAsOwnLine:x.sellsAsOwnLine===true,active:x.active!==false})).filter(x=>x.id&&x.system&&x.size);
 }
 
 /* --- 6. Выборки ------------------------------------------------------- */
 
+/* Этап 2 схемы, часть вторая: ОДИН ДОСТУП. Девять таблиц физически на месте,
+   но спрашивать «какие есть материалы этой категории» теперь можно один раз,
+   не зная, в какой таблице они лежат. Пара `{table,row}`, а не голая строка:
+   таблица нужна для записи назад, и выводить её из категории обратным
+   отображением значило бы держать знание в двух местах. */
+function materialTables(){return Object.keys(MATERIAL_TABLE_MAP);}
+function materialEntries(category){
+ const out=[];
+ materialTables().forEach(table=>{
+  if(category&&MATERIAL_TABLE_MAP[table].category!==category)return;
+  (DB[table]||[]).forEach(row=>{if(row&&typeof row==='object')out.push({table,row});});
+ });
+ return out;
+}
+function materialById(id){
+ if(!id)return null;
+ const hit=materialEntries().find(e=>e.row.id===id);
+ return hit||null;
+}
+/* Живые — то же правило, что у `activeSimple`: снятое с производства уходит
+   из выбора, отсутствие на складе остаётся пометкой «по предзаказу». */
+function materialEntriesActive(category){
+ return materialEntries(category).filter(e=>e.row.active!==false&&e.row.availability!=='inactive');
+}
+function materialSubcategories(category){
+ const seen=[];
+ materialEntries(category).forEach(e=>{const s=mdString(e.row.subcategory);if(s&&seen.indexOf(s)<0)seen.push(s);});
+ return seen;
+}
 function mdById(key,id){return (DB[key]||[]).find(x=>x.id===id)||null;}
 function glassProductById(id){return mdById('glassProduct',id);}
 function glassProductByCode(code){const c=mdString(code).toUpperCase();return (DB.glassProduct||[]).find(x=>x.code.toUpperCase()===c)||null;}
@@ -17361,23 +17458,46 @@ function sfImportCsv(inp){
    не узнал бы, из чего его считали.
    ===================================================================== */
 
+/* Этап 2 схемы, часть третья: ОДИН ЭКРАН. Было восемь вкладок, каждая из
+   которых заводилась под очередной справочник; стало пять — по видам данных
+   раздела 7. Главное правило схемы: «новый справочник больше не создаёт
+   вкладку — он становится подкатегорией». Стекло, спейсер, газ, герметик,
+   плёнка, фрит, спандрел, палитра и сток перестали быть девятью пунктами
+   меню и стали категориями одного экрана Materials. */
 const MD_TABS=[
- {k:'glass',    label:'Каталог стекла'},
- {k:'supply',   label:'Точки поставки'},
- {k:'spacer',   label:'Spacers & rates'},
- {k:'weight',   label:'Weight norms'},
- {k:'hardware', label:'Hardware'},
- {k:'allowance',label:'Припуск на рез'},
- /* Не «Справочники»: словарь RU->EN переводит это слово как Master Data, и
-    вкладка называлась бы так же, как весь экран. */
- {k:'catalogues',label:'Catalogues'},
- {k:'overview', label:'Обзор базы'}
+ {k:'materials', label:'Materials'},
+ {k:'works',     label:'Works'},
+ {k:'hardware',  label:'Hardware'},
+ {k:'weight',    label:'Weight norms'},
+ {k:'overview',  label:'Обзор базы'}
 ];
+/* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
+   свои фильтры, импорт CSV и точки поставки), остальные категории рисуются
+   общей машинкой Catalogues — разница только в том, какая таблица открыта.
+   Порядок здесь — порядок кнопок на экране. */
+const MD_MATERIAL_VIEWS={
+ glass:     [{k:'glassProduct',     label:'Glass catalogue', view:'glass'},
+             {k:'glassSheet',       label:'Supply points',   view:'supply'}],
+ igu:       [{k:'spacerVariant',    label:'Spacers',         view:'spacer'},
+             {k:'gasProduct',       label:'Gas'},
+             {k:'sealantProduct',   label:'Sealants'}],
+ lamination:[{k:'interlayerProduct',label:'Interlayers'}],
+ surface:   [{k:'fritProduct',      label:'Frit'},
+             {k:'spandrelProduct',  label:'Spandrel'},
+             {k:'spandrelColour',   label:'Spandrel colours'}],
+ stock:     [{k:'stockItem',        label:'Stock items'}]
+};
+const MD_MATERIAL_CATEGORY_LABELS={glass:'Glass',igu:'IGU assembly',lamination:'Lamination',surface:'Surface',stock:'Stock & consumables'};
+/* Тепловая обработка материалом не является — её нет в разделе 7 и у неё нет
+   ни закупки, ни хранения. Это режим цеха, поэтому живёт рядом с работами, а
+   не среди материалов. */
+const MD_WORK_CATALOGUES=['serviceRate','heatTreatment'];
 /* Каталог длиннее любого экрана: показываем страницу и честно говорим, сколько
    осталось за краем. Молчаливая обрезка списка читается как «это всё». */
 const MD_PAGE=60;
 
-let mdTab='glass';
+let mdTab='materials';
+let mdMatCategory='glass',mdMatView='glassProduct';
 let mdSearch='',mdMfr='',mdThick='',mdCoating='',mdStatus='all';
 let mdEdit=null,mdDraft=null;
 let mdSheetEdit=null,mdSheetDraft=null;
@@ -17390,11 +17510,11 @@ let mdImportReport=null;
 /* --- Общее ------------------------------------------------------------ */
 
 function viewMasterData(){
- if(!MD_TABS.some(t=>t.k===mdTab))mdTab='glass';
+ if(!MD_TABS.some(t=>t.k===mdTab))mdTab='materials';
  const total=DB.glassProduct.length,stocked=DB.glassProduct.filter(p=>p.stocked).length;
  const inactive=DB.glassProduct.filter(p=>p.active===false).length;
  const sheets=DB.glassSheet.length,orphans=glassOrphanSheets().length;
- return `<div class="page-head"><div><h2>Справочники</h2><p>Каталог стекла и точки поставки. Продукт отвечает, ЧТО это за стекло, строка поставки — где и почём его берут: валюта принадлежит точке поставки, а не поставщику.</p></div><span class="pill info">Master Data · v1</span></div>
+ return `<div class="page-head"><div><h2>Справочники</h2><p>One shape for every material: each row carries the same header — code, category, purchase, sale, stocking — and the category adds its own fields on top. A new catalogue no longer creates a tab; it becomes a subcategory.</p></div><span class="pill info">Master Data · v2</span></div>
   <div class="kpi-grid">
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('layers')}</div></div><div class="kpi-num">${total}</div><div class="kpi-label">позиций каталога</div></div>
    <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('inventory')}</div></div><div class="kpi-num">${stocked}</div><div class="kpi-label">держим на складе</div></div>
@@ -17403,11 +17523,56 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer,weight:viewMdWeight,hardware:viewMdHardware,allowance:viewMdAllowance,catalogues:viewMdCatalogues,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
   </div>
-  ${mdTab==='overview'||mdTab==='hardware'||mdTab==='spacer'||mdTab==='weight'||mdTab==='allowance'||mdTab==='catalogues'?'':mdImportCard()}`;
+  ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;render();}
+function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+ /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
+    между вкладками открытая таблица обязана соответствовать вкладке —
+    иначе Works показал бы палитру спандрела. */
+ if(k==='works'&&MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
+ if(k==='materials')mdMatSwitch(mdMatCategory,mdMatView);
+ render();}
+/* Экран материалов: категория сверху, подкатегория внутри неё. Обе — кнопки,
+   а не выпадающий список: их немного, и владелец должен видеть, что у него
+   вообще есть, не открывая меню. */
+/* Привести выбор к допустимому — БЕЗ побочных эффектов: её зовёт и отрисовка,
+   тоже. Раньше сброс черновика жил здесь же, и открытая форма закрывалась на
+   каждой перерисовке — то есть при первом же вводе символа в поле. */
+function mdMatResolve(category,viewKey){
+ const cat=MD_MATERIAL_VIEWS[category]?category:'glass';
+ const list=MD_MATERIAL_VIEWS[cat];
+ return {category:cat,hit:list.find(v=>v.k===viewKey)||list[0],list};
+}
+function mdMatSelect(category,viewKey){
+ const r=mdMatResolve(category,viewKey);
+ mdMatCategory=r.category;mdMatView=r.hit.k;
+ /* Таблицы без своего экрана рисует Catalogues — ему нужно знать, какая
+    открыта. Для стекла и спейсера это поле не трогаем: у них свои экраны. */
+ if(!r.hit.view&&MD_CATALOGUES.some(c=>c.k===r.hit.k))mdCatKind=r.hit.k;
+}
+function mdMatSwitch(category,viewKey){
+ mdMatSelect(category,viewKey);
+ mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdCatEdit=null;mdCatDraft=null;
+}
+function mdSetMatCategory(k){mdMatSwitch(k,null);render();}
+function mdSetMatView(k){mdMatSwitch(mdMatCategory,k);render();}
+function viewMdMaterials(){
+ mdMatSelect(mdMatCategory,mdMatView);
+ const list=MD_MATERIAL_VIEWS[mdMatCategory],hit=list.find(v=>v.k===mdMatView)||list[0];
+ const cats=Object.keys(MD_MATERIAL_VIEWS).map(c=>`<button class="sm ${c===mdMatCategory?'on':''}" onclick="mdSetMatCategory('${c}')">${esc(MD_MATERIAL_CATEGORY_LABELS[c])} <span class="mut">${materialEntries(c).length}</span></button>`).join('');
+ const subs=list.length>1?`<div class="md-mat-subs">${list.map(v=>`<button class="sm ${v.k===mdMatView?'on':''}" onclick="mdSetMatView('${v.k}')">${esc(v.label)}</button>`).join('')}</div>`:'';
+ const body=hit.view?({glass:viewMdGlass,supply:viewMdSupply,spacer:viewMdSpacer})[hit.view]():viewMdCatalogues();
+ return `<div class="md-mat-cats">${cats}</div>${subs}${body}`;
+}
+/* Работы и припуск на рез — один вид данных: и то и другое про то, что цех
+   делает со стеклом, и раздел 7 сводит их на один экран. */
+function viewMdWorks(){
+ if(MD_WORK_CATALOGUES.indexOf(mdCatKind)<0)mdCatKind='serviceRate';
+ const subs=MD_WORK_CATALOGUES.map(k=>{const def=MD_CATALOGUES.find(c=>c.k===k);return `<button class="sm ${k===mdCatKind?'on':''}" onclick="mdSetCatKind('${k}')">${esc(def?def.label:k)}</button>`;}).join('');
+ return `<div class="md-mat-subs">${subs}</div>${viewMdCatalogues()}${mdCatEdit===null&&mdCatKind==='serviceRate'?viewMdAllowance():''}`;
+}
 function mdVocabOptions(kind,value,blank){
  const rows=Object.keys(GLASS_VOCAB[kind]||{});
  return (blank?`<option value="">${esc(blank)}</option>`:'')+rows.map(v=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(glassLabel(kind,v))}</option>`).join('');
@@ -18164,7 +18329,7 @@ function viewMdCatalogues(){
  const def=mdCatDef(),rows=mdCatRows(),colour=mdCatIsColour(),rate=mdCatIsRate();
  const cols=rate?8:colour?5:6;
  return `<div class="sub">The owner keeps these catalogues. Rows added here <b>survive system updates</b>: factory content is filled in by id, anything typed by hand is left untouched. A position an order already references is safer to switch off than to delete — otherwise the old order would no longer know what it was.</div>
-  <div class="row"><label>Catalogue</label><select onchange="mdSetCatKind(this.value)">${MD_CATALOGUES.map(c=>`<option value="${esc(c.k)}" ${c.k===mdCatKind?'selected':''}>${esc(c.label)}</option>`).join('')}</select><span class="mut">${esc(def.what)}</span></div>
+  <div class="row"><b>${esc(def.label)}</b><span class="mut">${esc(def.what)}</span></div>
   <div class="customer-table-wrap"><table><thead><tr><th>Name</th>${rate?'<th>Station</th><th>Unit</th><th>up to 7 mm</th><th>8–11 mm</th><th>12–19 mm</th>':`<th>Code</th>${colour?'<th>Family</th><th>Spandrel</th>':'<th>Supplier</th><th>Price, CAD</th>'}`}<th>Status</th><th></th></tr></thead>
   <tbody>${rows.map(mdCatRowHTML).join('')||`<tr><td colspan="${cols}" class="empty">empty</td></tr>`}</tbody></table></div>
   <div class="row"><button class="pri" onclick="mdCatNew()">+ New</button></div>
