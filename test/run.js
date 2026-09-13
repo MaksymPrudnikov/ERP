@@ -3691,6 +3691,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       lam(6,6);ops('Flat Polish');out.plain=codes();
       return out;
     })()`), {lami:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM'],['CUT','EDGE','LAM']]});
+    /* Тот же лист в браузере, где работы заведены до 11 сентября: у полировки
+       склейки там нет признака «после ламинации», и маршрут ставил её до LAM.
+       Разовая правка ставит признак, но не трогает строку, которой владелец
+       поставил свой этап. */
+    const stale = await page(JSON.stringify({ refVersion: 9, serviceRate: [
+      { id: 'lamiPolish', name: 'Lami Polish', unit: 'in', kind: 'flat', flat: 0.28, station: '', stage: 'pre_temper', afterMerge: false },
+      { id: 'cncLamiPolish', name: 'CNC Lami Polish', unit: 'in', kind: 'flat', flat: 0.28, station: 'EDGE', stage: 'any', afterMerge: false }] }));
+    eq('полировка склейки у сохранённого браузера печатается после ламинации', await stale.p.evaluate(`(()=>{${LAM_SETUP}
+      const codes=()=>{const s=salesLineGeometryShape(line),res=ShapeModule.compute(s);
+        return salesPrintRoute(line,soDraft,s,res).lites.map(l=>l.stations.map(x=>x.code));};
+      lam(6,6);ops('Lami Polish');
+      const w=id=>DB.serviceRate.find(r=>r.id===id);
+      return {route:codes(),lami:[w('lamiPolish').stage,w('lamiPolish').afterMerge],ownStage:[w('cncLamiPolish').stage,w('cncLamiPolish').afterMerge]};
+    })()`), {route:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],lami:['post_temper',true],ownStage:['any',false]});
+    await stale.c.close();
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];

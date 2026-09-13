@@ -263,7 +263,13 @@ const DATA_FIXES=[
  [1,'serviceRate','hole:1-2',{active:true,bands:{'6':6,'8-10':7,'12-19':8}},['active']],
  /* \u0411\u0440\u0435\u043d\u0434 ICD \u043d\u0430 \u0441\u0438\u043b\u0438\u043a\u043e\u043d\u043e\u0432\u043e\u043c \u0441\u043f\u0430\u043d\u0434\u0440\u0435\u043b\u0435 \u2014 \u0441\u043c. \u0431\u043b\u043e\u043a `have<8` \u0432\u044b\u0448\u0435. */
  [1,'spandrelProduct','SPAN-SILICONE',{name:'Silicone Spandrel'},['name']],
- [1,'spandrelProduct','SPAN-SILICONE',{supplier:''},['supplier']]
+ [1,'spandrelProduct','SPAN-SILICONE',{supplier:''},['supplier']],
+ /* Полировка склеенной кромки идёт ПОСЛЕ ламинации. Без признака печатный
+    лист ставил её в маршруте до склейки. Только две строки и только если
+    момент маршрута ещё заводской: `*` здесь переписал бы этап у любой работы,
+    которой владелец поставил свой. */
+ [1,'serviceRate','lamiPolish',{afterMerge:false,stage:'pre_temper'},['afterMerge','stage']],
+ [1,'serviceRate','cncLamiPolish',{afterMerge:false,stage:'pre_temper'},['afterMerge','stage']]
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){
