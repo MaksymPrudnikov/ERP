@@ -106,6 +106,7 @@ function prepareImportedState(src){
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
      экране лежала прежняя модель цеха. Теперь — сразу. */
   if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(true))normalizeDB();
+  if(typeof applyDataFixes==='function'&&applyDataFixes())normalizeDB();
   if(typeof validateSalesReferences==='function')validateSalesReferences();
   const next=DB;DB=previous;return next;
   /* Откатываем и ОТМЕТКУ о пересеве: импорт мог упасть уже после него, и
@@ -137,6 +138,10 @@ function boot(){
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
  if(typeof reseedReferenceTables==='function'&&reseedReferenceTables(hadSavedState)){ normalizeDB(); touch(); }
+ /* Разовые правки данных — после пересева и отдельно от него: подъём версии
+    справочников заменяет восемь таблиц целиком, правка меняет только то, что
+    ещё стоит заводским. См. applyDataFixes в erp/data. */
+ if(typeof applyDataFixes==='function'&&applyDataFixes()){ normalizeDB(); touch(); }
  /* B8: пустой список пользователей — не рабочее состояние прототипа. Засев
     идёт после нормализации, чтобы демо-записи прошли те же правила, и ровно
     один раз на браузер (см. seedDemoUsers в erp/data). */

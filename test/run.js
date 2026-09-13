@@ -1819,6 +1819,59 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
     await t.c.close();
 
+    /* 13 сентября 2026, на выгрузке владельца. Переделка работ от 11 сентября
+       до его браузера не доехала: долив по id только ДОБАВЛЯЕТ строки. Правка
+       разовая и точечная — меняет только то, что ещё стоит заводским, и идёт
+       без подъёма версии справочников: пересев заменил бы spacerVariant
+       целиком и унёс бы собственную рамку владельца. Путь — сохранённый
+       браузер, а не вызов функции руками. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      serviceRate: [
+        { id: 'clamp', name: 'Clamp', unit: 'pc', kind: 'band', bands: { '6': 5, '8-10': 8, '12-19': 10 }, station: '' },
+        { id: 'hinge', name: 'Hinge', unit: 'pc', kind: 'band', bands: { '6': 10, '8-10': 15, '12-19': 20 }, station: 'CNC' },
+        { id: 'hole:1-2', name: 'Hole 1-1/16″–2″', unit: 'pc', kind: 'band', bands: { '6': 6, '8-10': 7, '12-19': 8 }, station: '', active: true },
+        { id: 'SVC-OWN', name: 'Own work', unit: 'pc', kind: 'flat', flat: 3, station: '' }
+      ],
+      spacerVariant: [{ id: 'SP-OWN-1616', system: 'Black Warm Edge', size: '16/16', name: 'Black Warm Edge 16/16″' }],
+      spandrelProduct: [{ id: 'SPAN-SILICONE', name: 'Silicone Spandrel', supplier: '' }]
+    }));
+    eq('разовая правка доводит заводские работы до сохранённого браузера', await t.p.evaluate(() => {
+      const w = id => DB.serviceRate.find(r => r.id === id);
+      const silicone = DB.spandrelProduct.find(p => p.id === 'SPAN-SILICONE');
+      return {
+        version: [DB.refVersion, DB.dataFix],
+        clamp: w('clamp').station,
+        hole12Off: w('hole:1-2').active === false,
+        ownStationKept: w('hinge').station,
+        ownWorkUntouched: w('SVC-OWN').station,
+        spacersNotReseeded: DB.spacerVariant.map(s => s.id),
+        silicone: [silicone.name, silicone.supplier]
+      };
+    }), { version: [9, 1], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+          spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
+    /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
+    await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
+    await t.p.reload();
+    await t.p.waitForTimeout(250);
+    eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 1]);
+    await t.c.close();
+
+    /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
+       полосы владелец уже правил — значит, выключать её нельзя. Файл с номером
+       правку не получает второй раз. */
+    t = await page();
+    eq('правка срабатывает на импорте старого файла и не трогает правленую цену', await t.p.evaluate(() => {
+      const clamp = { id: 'clamp', name: 'Clamp', unit: 'pc', kind: 'band', bands: { '6': 5, '8-10': 8, '12-19': 10 }, station: '' };
+      const old = prepareImportedState({ refVersion: 9, serviceRate: [clamp,
+        { id: 'hole:1-2', name: 'Hole 1-1/16″–2″', unit: 'pc', kind: 'band', bands: { '6': 6, '8-10': 7, '12-19': 9 }, station: '', active: true }] });
+      const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
+      const w = (s, id) => s.serviceRate.find(r => r.id === id);
+      return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
+    }), ['DRILL', true, 1, '']);
+    await t.c.close();
+
     /* Экран справочников — единственное место, где владелец заводит позицию.
        Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
        Идентификатор выводится из кода производителя: по нему позицию узнают в
