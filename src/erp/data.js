@@ -294,7 +294,10 @@ const DATA_FIXES=[
  [1,'interlayerProduct','*',{subcategory:''},['subcategory']],
  /* Цвета ICD Opaci-Coat принадлежат силиконовому спандрелу. Пустая ссылка
     означает «доступен любому типу», и керамическому предлагались краски ICD. */
- [1,'spandrelColour','*',{productId:''},['productId']]
+ [1,'spandrelColour','*',{productId:''},['productId']],
+ /* Цифровая керамическая печать заведена выключенной: «пока не работает».
+    В браузере, где строка уже была, она оставалась в выборе заказа. */
+ [1,'fritProduct','FRIT-DIGITAL',{active:true},['active']]
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){

@@ -1920,6 +1920,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), { films: ['eva', ''], icd: 'SPAN-SILICONE', ownColourAnyType: '', ceramicOffersIcd: false, ceramicOffersOwn: true });
     await t.c.close();
 
+    /* Цифровая печать заведена выключенной — «пока не работает». В браузере,
+       где строка уже была, она оставалась в выборе заказа. */
+    t = await page(JSON.stringify({ refVersion: 9, fritProduct: [
+      { id: 'FRIT-DIGITAL', type: 'frit', name: 'Digital Ceramic Print', code: 'FRIT-DIG', salePrice: 5, active: true }] }));
+    eq('цифровая печать у сохранённого браузера выключается', await t.p.evaluate(() =>
+      [DB.fritProduct.find(p => p.id === 'FRIT-DIGITAL').active, activeSimple('fritProduct').some(p => p.id === 'FRIT-DIGITAL')]), [false, false]);
+    await t.c.close();
+
     /* Экран справочников — единственное место, где владелец заводит позицию.
        Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
        Идентификатор выводится из кода производителя: по нему позицию узнают в
