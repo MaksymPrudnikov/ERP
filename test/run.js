@@ -1819,6 +1819,115 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
           ownProductKept: true, deletedFactoryRowRestored: true, factoryColoursIntact: true });
     await t.c.close();
 
+    /* 13 сентября 2026, на выгрузке владельца. Переделка работ от 11 сентября
+       до его браузера не доехала: долив по id только ДОБАВЛЯЕТ строки. Правка
+       разовая и точечная — меняет только то, что ещё стоит заводским, и идёт
+       без подъёма версии справочников: пересев заменил бы spacerVariant
+       целиком и унёс бы собственную рамку владельца. Путь — сохранённый
+       браузер, а не вызов функции руками. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      serviceRate: [
+        { id: 'clamp', name: 'Clamp', unit: 'pc', kind: 'band', bands: { '6': 5, '8-10': 8, '12-19': 10 }, station: '' },
+        { id: 'hinge', name: 'Hinge', unit: 'pc', kind: 'band', bands: { '6': 10, '8-10': 15, '12-19': 20 }, station: 'CNC' },
+        { id: 'hole:1-2', name: 'Hole 1-1/16″–2″', unit: 'pc', kind: 'band', bands: { '6': 6, '8-10': 7, '12-19': 8 }, station: '', active: true },
+        { id: 'SVC-OWN', name: 'Own work', unit: 'pc', kind: 'flat', flat: 3, station: '' }
+      ],
+      spacerVariant: [{ id: 'SP-OWN-1616', system: 'Black Warm Edge', size: '16/16', name: 'Black Warm Edge 16/16″' }],
+      spandrelProduct: [{ id: 'SPAN-SILICONE', name: 'Silicone Spandrel', supplier: '' }]
+    }));
+    eq('разовая правка доводит заводские работы до сохранённого браузера', await t.p.evaluate(() => {
+      const w = id => DB.serviceRate.find(r => r.id === id);
+      const silicone = DB.spandrelProduct.find(p => p.id === 'SPAN-SILICONE');
+      return {
+        version: [DB.refVersion, DB.dataFix],
+        clamp: w('clamp').station,
+        hole12Off: w('hole:1-2').active === false,
+        ownStationKept: w('hinge').station,
+        ownWorkUntouched: w('SVC-OWN').station,
+        spacersNotReseeded: DB.spacerVariant.map(s => s.id),
+        silicone: [silicone.name, silicone.supplier]
+      };
+    }), { version: [9, 1], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+          spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
+    /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
+    await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
+    await t.p.reload();
+    await t.p.waitForTimeout(250);
+    eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 1]);
+    await t.c.close();
+
+    /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
+       полосы владелец уже правил — значит, выключать её нельзя. Файл с номером
+       правку не получает второй раз. */
+    t = await page();
+    eq('правка срабатывает на импорте старого файла и не трогает правленую цену', await t.p.evaluate(() => {
+      const clamp = { id: 'clamp', name: 'Clamp', unit: 'pc', kind: 'band', bands: { '6': 5, '8-10': 8, '12-19': 10 }, station: '' };
+      const old = prepareImportedState({ refVersion: 9, serviceRate: [clamp,
+        { id: 'hole:1-2', name: 'Hole 1-1/16″–2″', unit: 'pc', kind: 'band', bands: { '6': 6, '8-10': 7, '12-19': 9 }, station: '', active: true }] });
+      const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
+      const w = (s, id) => s.serviceRate.find(r => r.id === id);
+      return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
+    }), ['DRILL', true, 1, '']);
+    await t.c.close();
+
+    /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
+       остались как были, и экран Production показывал их в английском
+       интерфейсе. Меняется только дословно заводской текст. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      station: [
+        { seq: 1, code: 'CUT', name: 'Резка', nameEn: 'Cutting', always: true, note: 'режется только отожжённое стекло' },
+        { seq: 6, code: 'HEAT', name: 'Термообработка', nameEn: 'Heat treatment', always: false, note: 'печь на ремонте до пятницы' }
+      ],
+      edgeAllowance: [{ id: 'ALW-ROUGHARRIS-MONO-0-1000', op: 'Rough Arris', scope: 'mono', minMm: 0, maxMm: 1000, allowance: '0', note: 'притупление контур не съедает' }],
+      serviceRate: [{ id: 'muntinSection', name: 'Muntin section', unit: 'pc', kind: 'flat', flat: 4.5, station: 'IGU', note: 'Считается по ДЕЛЕНИЯМ, а не по длине бара' }]
+    }));
+    eq('заводские русские примечания становятся английскими, свои остаются', await t.p.evaluate(() => {
+      const st = code => DB.station.find(s => s.code === code);
+      return [st('CUT').note, st('HEAT').note,
+        DB.edgeAllowance.find(r => r.id === 'ALW-ROUGHARRIS-MONO-0-1000').note,
+        DB.serviceRate.find(r => r.id === 'muntinSection').note];
+    }), ['only annealed glass is cut here', 'печь на ремонте до пятницы', 'arrising does not eat into the contour', 'Bars are installed at IGU assembly']);
+    await t.c.close();
+
+    /* Строки материалов, заведённые до общей шапки, получили пустую
+       подкатегорию, а цвета ICD — пустую ссылку на тип спандрела, то есть
+       «доступен любому». Правка берёт заводские значения и не трогает строки,
+       которые владелец завёл сам. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      interlayerProduct: [
+        { id: 'INT-EVA-CL', type: 'interlayer', name: 'EVA Clear', code: 'EVA-CL', subcategory: '', salePrice: 3 },
+        { id: 'INT-OWN', type: 'interlayer', name: 'Shop Film', code: 'OWN-F', subcategory: '', salePrice: 4 }
+      ],
+      spandrelColour: [
+        { id: 'SPC-3-818', name: 'Black', code: '#3-818', family: 'Black', productId: '' },
+        { id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '' }
+      ]
+    }));
+    eq('плёнки получают подкатегорию, цвета ICD — свой тип спандрела', await t.p.evaluate(() => {
+      const film = id => DB.interlayerProduct.find(p => p.id === id);
+      const ceramic = spandrelColoursFor('SPAN-CERAMIC').map(c => c.id);
+      return {
+        films: [film('INT-EVA-CL').subcategory, film('INT-OWN').subcategory],
+        icd: DB.spandrelColour.find(c => c.id === 'SPC-3-818').productId,
+        ownColourAnyType: DB.spandrelColour.find(c => c.id === 'SPC-MY').productId,
+        ceramicOffersIcd: ceramic.indexOf('SPC-3-818') >= 0,
+        ceramicOffersOwn: ceramic.indexOf('SPC-MY') >= 0
+      };
+    }), { films: ['eva', ''], icd: 'SPAN-SILICONE', ownColourAnyType: '', ceramicOffersIcd: false, ceramicOffersOwn: true });
+    await t.c.close();
+
+    /* Цифровая печать заведена выключенной — «пока не работает». В браузере,
+       где строка уже была, она оставалась в выборе заказа. */
+    t = await page(JSON.stringify({ refVersion: 9, fritProduct: [
+      { id: 'FRIT-DIGITAL', type: 'frit', name: 'Digital Ceramic Print', code: 'FRIT-DIG', salePrice: 5, active: true }] }));
+    eq('цифровая печать у сохранённого браузера выключается', await t.p.evaluate(() =>
+      [DB.fritProduct.find(p => p.id === 'FRIT-DIGITAL').active, activeSimple('fritProduct').some(p => p.id === 'FRIT-DIGITAL')]), [false, false]);
+    await t.c.close();
+
     /* Экран справочников — единственное место, где владелец заводит позицию.
        Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
        Идентификатор выводится из кода производителя: по нему позицию узнают в
@@ -3638,6 +3747,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       lam(6,6);ops('Flat Polish');out.plain=codes();
       return out;
     })()`), {lami:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM'],['CUT','EDGE','LAM']]});
+    /* Тот же лист в браузере, где работы заведены до 11 сентября: у полировки
+       склейки там нет признака «после ламинации», и маршрут ставил её до LAM.
+       Разовая правка ставит признак, но не трогает строку, которой владелец
+       поставил свой этап. */
+    const stale = await page(JSON.stringify({ refVersion: 9, serviceRate: [
+      { id: 'lamiPolish', name: 'Lami Polish', unit: 'in', kind: 'flat', flat: 0.28, station: '', stage: 'pre_temper', afterMerge: false },
+      { id: 'cncLamiPolish', name: 'CNC Lami Polish', unit: 'in', kind: 'flat', flat: 0.28, station: 'EDGE', stage: 'any', afterMerge: false }] }));
+    eq('полировка склейки у сохранённого браузера печатается после ламинации', await stale.p.evaluate(`(()=>{${LAM_SETUP}
+      const codes=()=>{const s=salesLineGeometryShape(line),res=ShapeModule.compute(s);
+        return salesPrintRoute(line,soDraft,s,res).lites.map(l=>l.stations.map(x=>x.code));};
+      lam(6,6);ops('Lami Polish');
+      const w=id=>DB.serviceRate.find(r=>r.id===id);
+      return {route:codes(),lami:[w('lamiPolish').stage,w('lamiPolish').afterMerge],ownStage:[w('cncLamiPolish').stage,w('cncLamiPolish').afterMerge]};
+    })()`), {route:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],lami:['post_temper',true],ownStage:['any',false]});
+    await stale.c.close();
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
       tab='sales';render();salesOrderNew();soDraft.lines=[];
