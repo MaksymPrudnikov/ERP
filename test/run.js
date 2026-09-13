@@ -2903,6 +2903,49 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesOrderSave();const afterCancel=DB.salesOrder.length;salesOrderSave();const afterConfirm=DB.salesOrder.length;window.confirm=oldConfirm;
       return {warningCount:warnings.length,afterCancel,afterConfirm,prompts:prompts.length,hasBanned:prompts[0].includes(banned.code),hasRequired:prompts[0].includes(required.code),offersOverride:prompts[0].includes('Save this order anyway?')};
     }), {warningCount:2,afterCancel:0,afterConfirm:1,prompts:2,hasBanned:true,hasRequired:true,offersOverride:true});
+    /* Габарит станции — решения владельца 13 сентября 2026: сравнивается рез с
+       припусками, стекло на станке можно повернуть, реакция — предупреждение
+       при сохранении, а не запрет (габариты пока засеяны 144 × 100″). */
+    eq('деталь крупнее станции маршрута подсвечена и предупреждает при сохранении', await t.p.evaluate(() => {
+      DB.salesOrder=[];DB.customer=[{id:'CUS-SIZE',code:'CS',legalName:'Size test',displayName:'Size test',status:'active',contacts:[],addresses:[]}];
+      tab='sales';render();salesOrderNew();soDraft.customerId='CUS-SIZE';soDraft.lines=[];
+      salesExcelPasteText('1\t150\t80\tBIG',0);salesExcelApply();render();
+      const line=soDraft.lines[0],status=salesLineServiceStatus(line);
+      soEdgeworkLineId=line.id;const modal=salesLineEdgeworkModal();soEdgeworkLineId=null;
+      const badge=document.querySelector('.sales-lines-table .ss-badge');
+      const prompts=[],oldConfirm=window.confirm,answers=[false,true];
+      window.confirm=message=>{prompts.push(message);return answers.shift();};
+      salesOrderSave();const afterCancel=DB.salesOrder.length;salesOrderSave();const afterConfirm=DB.salesOrder.length;window.confirm=oldConfirm;
+      const text=prompts[0]||'';
+      return {status:[status.key,status.label],attention:salesLineNeedsServiceAttention(line),badgeIssue:!!badge&&badge.classList.contains('issue'),
+        modal:modal.indexOf('Does not fit a station of its route')>=0,afterCancel,afterConfirm,prompts:prompts.length,
+        text:text.indexOf('Line 1 (BIG) · Lite 1, Lite 2: cut 150″ × 80″ does not fit CUT, EDGE, IGU — 144″ × 100″ (size not verified in the shop)')>=0,
+        override:text.indexOf('Save this order anyway?')>=0};
+    }), {status:['size','Too large · CUT, EDGE, IGU'],attention:true,badgeIssue:true,modal:true,afterCancel:0,afterConfirm:1,prompts:2,text:true,override:true});
+    eq('габарит: стекло поворачивается, считается рез с припуском, замер снимает оговорку', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t90\t140\tTALL\n1\t140\t90\tWIDE\n1\t144\t100\tEXACT',0);salesExcelApply();
+      const by=mark=>soDraft.lines.find(l=>l.mark===mark),count=mark=>salesStationSizeProblems(by(mark),soDraft).length;
+      const fits={tall:count('TALL'),wide:count('WIDE'),exactArris:count('EXACT')};
+      const shape=salesLineGeometryShape(by('EXACT'));['A','B','C','D'].forEach(id=>{shape.edgeOps[id]=[shapeNormalizeOp({type:'Flat Polish'})];});
+      const cut=DB.station.find(s=>s.code==='CUT');cut.sizeMeasured=true;
+      const text=salesStationSizeWarnings(soDraft);cut.sizeMeasured=false;
+      return {fits,text};
+    }), {fits:{tall:0,wide:0,exactArris:0},text:[
+      'Line 3 (EXACT) · Lite 1, Lite 2: cut 144 1/8″ × 100 1/8″ does not fit CUT — 144″ × 100″',
+      'Line 3 (EXACT) · Lite 1, Lite 2: cut 144 1/8″ × 100 1/8″ does not fit EDGE, IGU — 144″ × 100″ (size not verified in the shop)']});
+    /* Работа ужесточает станцию: EDGE берёт 144 × 100, а фацет на ней — только
+       свой станок. Лимит не переносит работу на другую станцию, он предупреждает. */
+    eq('ограничение работы жёстче станции: фацет 70 × 100 не пропускает 80 × 90', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t80\t90\tBEV',0);salesExcelApply();
+      const line=soDraft.lines[0],m=salesMakeupById(soDraft,line.makeupId);m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];
+      const before=salesStationSizeProblems(line,soDraft).length;
+      const shape=salesLineGeometryShape(line);['A','B','C','D'].forEach(id=>{shape.edgeOps[id]=[shapeNormalizeOp({type:'Beveling',width:'1/2'})];});
+      const bevel=DB.serviceRate.find(r=>r.id==='bevel:9-15');bevel.maxW=70;bevel.maxL=100;
+      const problems=salesStationSizeProblems(line,soDraft);bevel.maxW=null;bevel.maxL=null;
+      return {before,stations:problems.map(p=>p.station),text:salesStationSizeTexts(problems)};
+    }), {before:0,stations:['EDGE'],text:['Lite 1: cut 80 1/8″ × 90 1/8″ does not fit EDGE — Beveling 9–15 mm 70″ × 100″']});
     /* Excel paste. Ввод — таблица с колонками Qty | Width | Height | Mark:
        проверяем и разбор буфера, и то, что на экране именно колонки, а не одна
        строка текста (на ней владелец и споткнулся: набранное через пробелы

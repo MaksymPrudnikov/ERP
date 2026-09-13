@@ -47,6 +47,7 @@
   "src/erp/sales/service-sets.js",
   "src/erp/sales/line-metrics.js",
   "src/erp/sales/print-route.js",
+  "src/erp/sales/station-size.js",
   "src/erp/sales/print-sheet.js",
   "src/erp/sales/frit-drawing.js",
   "src/erp/sales/makeup-ui.js",

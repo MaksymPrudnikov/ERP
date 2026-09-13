@@ -61,6 +61,11 @@ function salesOrderSave(){
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
  if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
+    Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
+    на пути законных заказов. */
+ const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
+ if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
