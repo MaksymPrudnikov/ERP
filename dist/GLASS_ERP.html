@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 53 модулей, 4 стиля.
+  Состав сборки: 54 модулей, 4 стиля.
 -->
 <html lang="ru">
 <head>
@@ -1107,7 +1107,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='bf7a54e019d4';
+var ERP_BUILD='1a87f4528413';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9325,6 +9325,11 @@ function salesOrderSave(){
    :'Lines without width or height: '+noDim.join(', ')+'. Enter the sizes or remove these lines.');
  const temperWarnings=salesTemperCompatibilityWarnings(soDraft);
  if(temperWarnings.length&&!confirm('Glass / heat-treatment warning:\n\n- '+temperWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Габарит станции — тот же приём, что у закалки: предупредить и дать сохранить.
+    Решение владельца 13 сентября 2026: запрет на засеянных 144 × 100″ стоял бы
+    на пути законных заказов. */
+ const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
+ if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
@@ -11353,6 +11358,9 @@ function salesLineServiceStatus(line){
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
+  /* Габарит станции — предупреждение, не блок реза: пока габариты засеяны, а не
+     замерены, строка остаётся рабочей, но подсвечена (sales/station-size). */
+  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Ready · custom edge',cls:'ok'};
@@ -11360,7 +11368,7 @@ function salesLineServiceStatus(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
@@ -11618,10 +11626,15 @@ function salesRouteAfterMerge(code){
 }
 const SALES_ROUTE_EDGE_LETTER={left:'A',bottom:'B',right:'C',top:'D'};
 
-function salesRoutePush(map,order,code,text){
+/* `work` — строка прайса, по которой станция встала в маршрут. Листу она не
+   нужна, а проверке габарита нужна: у работы бывает своё ограничение, жёстче
+   станции (фацет 70 × 100 на EDGE). Второго списка «какие работы на какой
+   станции» не заводим — он разошёлся бы с маршрутом. */
+function salesRoutePush(map,order,code,text,work){
   if(!code||!text)return;
-  if(!map[code]){map[code]={code:code,name:salesRouteStationName(code),items:[]};order.push(code);}
+  if(!map[code]){map[code]={code:code,name:salesRouteStationName(code),items:[],works:[]};order.push(code);}
   if(map[code].items.indexOf(text)<0)map[code].items.push(text);
+  if(work&&map[code].works.indexOf(work)<0)map[code].works.push(work);
 }
 
 /* Сторона называется буквой — той же, что стоит на чертеже. */
@@ -11643,6 +11656,10 @@ function salesRouteMarkText(item){
 /* Станция отверстия зависит от диаметра: ручных свёрл крупнее 1 3/4" у цеха
    нет. Правило живёт в модуле формы (shapeHoleStationClass) — здесь только
    перевод класса станка в код станции цеха. */
+function salesRouteHoleWork(diameter){
+  var band=typeof salesPricingHoleBand==='function'?salesPricingHoleBand(diameter):null;
+  return band?'hole:'+band.key:'';
+}
 function salesRouteHoleStation(diameter){
   return shapeHoleStationClass(diameter)==='CNC'
     ? salesRouteStationOf('hole:4+','CNC')
@@ -11656,7 +11673,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   var map={},order=[],heatMap={},heatOrder=[],postMap={},postOrder=[],afterMap={},afterOrder=[];
 
   var cut=result&&result.cutting&&result.cutting.valid?result.cutting:null;
-  if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height));
+  if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height),'cutting');
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
   var byOp={},opOrder=[],contourEdges=[];
@@ -11683,8 +11700,8 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
        ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
        станции, то есть до склейки, и лист печатал бы неправду. */
-    if(salesRouteAfterMerge(code))salesRoutePush(afterMap,afterOrder,station,text);
-    else salesRoutePush(map,order,station,text);
+    if(salesRouteAfterMerge(code))salesRoutePush(afterMap,afterOrder,station,text,code);
+    else salesRoutePush(map,order,station,text,code);
   });
 
   /* Тело стекла. Станция больше не одна на всё: сверловка и ЧПУ — два разных
@@ -11695,45 +11712,45 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   var cncCutout=salesRouteStationOf('cutout','CNC');
   var cncRadius=salesRouteStationOf('radiusCorner','CNC');
   (shape&&shape.manufacturingItems||[]).forEach(function(item){
-    var st=hardware;
-    if(item.type==='hole'){var d=fabParseDimStrict(item.diameter);st=salesRouteHoleStation(d.ok?d.v:0);}
-    salesRoutePush(map,order,st,salesRouteMarkText(item));
+    var st=hardware,work=item.type;
+    if(item.type==='hole'){var d=fabParseDimStrict(item.diameter);st=salesRouteHoleStation(d.ok?d.v:0);work=salesRouteHoleWork(d.ok?d.v:0);}
+    salesRoutePush(map,order,st,salesRouteMarkText(item),work);
   });
   /* Нотч: способ выбирает владелец на каждом нотче, и от него зависит и цена,
      и станция. Здесь единственное место, где «руками или на станке» — решение
      продажи, а не цеха, поэтому строки две. */
   if(typeof ssNotchList==='function')ssNotchList(shape).forEach(function(n){
     var st=n.method==='cnc'?salesRouteStationOf('notchCnc','CNC'):salesRouteStationOf('notchHand','DRILL');
-    salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase());
+    salesRoutePush(map,order,st,ssNotchLabel(n.method).toUpperCase()+' · '+n.corner.toUpperCase(),n.method==='cnc'?'notchCnc':'notchHand');
   });
   (shape&&shape.features||[]).forEach(function(f){
     if(f.type==='hole')salesRoutePush(map,order,salesRouteHoleStation(inch(f.diameter)),
-      'HOLE Ø '+dimIn16(inch(f.diameter)));
+      'HOLE Ø '+dimIn16(inch(f.diameter)),salesRouteHoleWork(inch(f.diameter)));
     if(f.type==='hardware')salesRoutePush(map,order,hardware,'HARDWARE '+String(f.name||''));
-    if(f.type==='cutout')salesRoutePush(map,order,cncCutout,'INTERNAL CUTOUT');
-    if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,cncRadius,'RADIUS CORNER');
+    if(f.type==='cutout')salesRoutePush(map,order,cncCutout,'INTERNAL CUTOUT','cutout');
+    if(f.type==='radius'&&inch(f.radius)>0)salesRoutePush(map,order,cncRadius,'RADIUS CORNER','radiusCorner');
   });
 
   /* Makeup несёт работы по поверхности независимо от геометрии и цены.
      Фрит наносится до печи, спандрел — после (контракт владельца). */
   (treatments||[]).forEach(function(t){
-    if(t.kind==='frit')salesRoutePush(map,order,
-      salesRouteStationOf(t.spec.productId==='FRIT-DIGITAL'?'digital_print':'ceramic_frit','CERP'),'Frit · '+t.where);
-    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf('painting','PAINT'),t.text);
+    var fritWork=t.spec.productId==='FRIT-DIGITAL'?'digital_print':'ceramic_frit';
+    if(t.kind==='frit')salesRoutePush(map,order,salesRouteStationOf(fritWork,'CERP'),'Frit · '+t.where,fritWork);
+    if(t.kind==='spandrel')salesRoutePush(postMap,postOrder,salesRouteStationOf('painting','PAINT'),t.text,'painting');
   });
   /* Печь и то, что она ставит. */
-  var heatStation=salesRouteStationOf(heatTreatment==='HS'?'heat_strengthening':'tempering','HEAT');
+  var heatWork=heatTreatment==='HS'?'heat_strengthening':'tempering',heatStation=salesRouteStationOf(heatWork,'HEAT');
   if(heatTreatment&&heatTreatment!=='AN')
     salesRoutePush(heatMap,heatOrder,heatStation,
-      heatTreatment==='HS'?'HEAT STRENGTHENING':'TEMPERING');
+      heatTreatment==='HS'?'HEAT STRENGTHENING':'TEMPERING',heatWork);
   (shape&&shape.features||[]).forEach(function(f){
     /* Штамп ставит печь — на отожжённом лайте его быть не может. */
     if(f.type==='stamp'&&heatTreatment&&heatTreatment!=='AN')
-      salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase());
+      salesRoutePush(heatMap,heatOrder,heatStation,String(shapeStampText(f)).toUpperCase(),heatWork);
     /* Зеркальные позиции идут на тот же участок, что и пескоструй: это работа
        по поверхности после закалки. Отдельной станции у цеха под них нет. */
     if(shapeIsPointMark(f)&&f.type!=='stamp')salesRoutePush(postMap,postOrder,salesRouteStationOf('sandblasting','SAND'),
-      String(shapeSurfaceMarkLabel(f)).toUpperCase());
+      String(shapeSurfaceMarkLabel(f)).toUpperCase(),'sandblasting');
   });
 
   /* Печатаем в порядке маршрута цеха, а не в порядке заполнения. */
@@ -11742,7 +11759,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     return seq.filter(function(c){return m[c];}).concat(keys.filter(function(c){return seq.indexOf(c)<0;}))
       .map(function(c){return m[c];});
   }
-  var out=sorted(map,order).concat(sorted(heatMap,heatOrder),heatSoak&&heatTreatment==='FT'?[{code:salesRouteStationOf('heat_soak','HEAT'),name:salesRouteStationName(salesRouteStationOf('heat_soak','HEAT')),operation:'heat_soak',items:['HEAT SOAK']}]:[],sorted(postMap,postOrder));
+  var out=sorted(map,order).concat(sorted(heatMap,heatOrder),heatSoak&&heatTreatment==='FT'?[{code:salesRouteStationOf('heat_soak','HEAT'),name:salesRouteStationName(salesRouteStationOf('heat_soak','HEAT')),operation:'heat_soak',items:['HEAT SOAK'],works:['heat_soak']}]:[],sorted(postMap,postOrder));
   return {list:out,after:afterOrder.map(function(c){return afterMap[c];})};
 }
 
@@ -11825,11 +11842,11 @@ function salesRouteMerge(unitType,panes){
 /* Точка слияния и всё, что идёт ПОСЛЕ неё, дописываются в конец полосы —
    вне сортировки по seq, ровно как сама станция слияния. Место работы при этом
    не меняется: полировка склейки остаётся на EDGE, меняется только момент. */
-function salesRouteAppendMerge(lites,merge){
+function salesRouteAppendMerge(lites,merge,work){
   var name=merge?salesRouteStationName(merge):'';
   lites.forEach(function(l){
     if(merge&&!l.stations.some(function(s){return s.code===merge;}))
-      l.stations.push({code:merge,name:name,items:[name]});
+      l.stations.push({code:merge,name:name,items:[name],works:work?[work]:[]});
     (l.afterMerge||[]).forEach(function(s){l.stations.push(s);});
     delete l.afterMerge;
   });
@@ -11853,13 +11870,15 @@ function salesPrintRoute(line,order,shape,result){
         var st=salesRouteLiteStations(liteShape,liteResult,v.groups,ht,treatments,glass&&glass.heatSoak);
         var g=glass&&glassProductById(glass.glassProductId);
         var row={label:(v.label||('Lite '+(i+1)))+(side?(side==='outer'?'a':'b'):''),
-          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after};
-        if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'));
+          glass:(g?(g.code||g.name):'')+' · '+ht+(glass&&glass.heatSoak&&ht==='FT'?' + HST':''),stations:st.list,afterMerge:st.after,
+          /* Размер реза этого стекла — для проверки габарита станций; лист его не печатает. */
+          cut:cut?{width:cut.cutW,height:cut.cutH}:null};
+        if(lam)salesRouteAppendMerge([row],salesRouteStationOf('lamination','LAM'),'lamination');
         lites.push(row);
       });
     });
     merge=salesRouteMerge(mk.unitType,mk.panes);
-    salesRouteAppendMerge(lites,merge);
+    salesRouteAppendMerge(lites,merge,merge?(mk.unitType&&mk.unitType!=='single'?'igu_assembly':'lamination'):'');
   }
   /* Фигура из библиотеки заказа не имеет: маршрут строится по ней самой. */
   if(!lites.length){
@@ -11873,6 +11892,110 @@ function salesPrintRoute(line,order,shape,result){
     salesRouteAppendMerge(lites,'');
   }
   return {lites:lites,merge:merge,mergeName:merge?salesRouteStationName(merge):''};
+}
+
+/* ==== src/erp/sales/station-size.js ==== */
+/* =====================================================================
+   sales/station-size  ·  влезает ли стекло в станции своего маршрута
+   IN : строка заказа + заказ
+   OUT: нарушения по стёклам — станция, размер реза, ограничение и чьё оно
+   Правило: лимит не маршрутизирует. Станцию работе назначает справочник, а
+   лимит только говорит «не влезет» — и говорит ДО резки (схема 4.3).
+
+   Решения владельца 13 сентября 2026:
+   - сравнивается размер РЕЗА с припусками: по станциям едет он, а не готовый;
+   - стекло на станке можно повернуть на любой станции: меньшая сторона детали
+     против меньшей стороны станции, большая против большей;
+   - реакция — предупреждение с явным «сохранить всё равно?», а не запрет: пока
+     габариты засеяны 144 × 100″, а не замерены, запрет останавливал бы
+     законные заказы.
+
+   Станции берутся из маршрута печатного листа (salesPrintRoute), а не
+   выводятся здесь заново: второй расчёт «где едет стекло» разошёлся бы с
+   листом при первой же правке маршрута.
+   ===================================================================== */
+
+/* Габарит парой «короткая, длинная». Пустая сторона — без ограничения. */
+function salesSizePair(a,b){
+  var x=+a>0?+a:Infinity,y=+b>0?+b:Infinity;
+  return x<=y?[x,y]:[y,x];
+}
+/* Допуск в тысячную дюйма: рез лежит на сетке 1/16″, и совпавший до знака
+   размер не должен читаться как «не влезает» из-за плавающей точки. */
+function salesSizeFits(w,h,limit){
+  var c=salesSizePair(w,h);
+  return c[0]<=limit[0]+0.001&&c[1]<=limit[1]+0.001;
+}
+function salesSizeText(a,b){
+  return (+a>0?dimIn16(+a):'—')+' × '+(+b>0?dimIn16(+b):'—');
+}
+/* Работа может ужесточить ограничение станции, но не ослабить. У работ одной
+   семьи станок один (фацет по полосам толщины), а маршрут знает семью, но не
+   всегда полосу, — поэтому берётся самое жёсткое ограничение семьи. */
+function salesSizeWorkRows(id){
+  var rows=DB.serviceRate||[],w=rows.find(function(r){return r&&r.id===id;});
+  if(!w)return [];
+  return w.family?rows.filter(function(r){return r&&r.active!==false&&r.family===w.family;}):[w];
+}
+function salesStationSizeProblems(line,order){
+  order=order||(typeof soDraft!=='undefined'?soDraft:null);
+  var shape=line&&order?salesLineGeometryShape(line):null;
+  if(!shape)return [];
+  var route=salesPrintRoute(line,order,shape,ShapeModule.compute(shape)),out=[];
+  route.lites.forEach(function(row){
+    if(!row.cut)return;
+    row.stations.forEach(function(st){
+      var s=(DB.station||[]).find(function(x){return x.code===st.code;});
+      var limit=s?salesSizePair(s.maxW,s.maxL):[Infinity,Infinity],by=null;
+      (st.works||[]).forEach(function(id){
+        salesSizeWorkRows(id).forEach(function(w){
+          var p=salesSizePair(w.maxW,w.maxL);
+          if(p[0]<limit[0]||p[1]<limit[1]){limit=[Math.min(limit[0],p[0]),Math.min(limit[1],p[1])];by=w;}
+        });
+      });
+      if(salesSizeFits(row.cut.width,row.cut.height,limit))return;
+      out.push({lite:row.label,station:st.code,cutW:row.cut.width,cutH:row.cut.height,
+        limitText:by?salesSizeText(by.maxW,by.maxL):salesSizeText(s&&s.maxW,s&&s.maxL),
+        work:by?(by.name||by.id):'',
+        /* Ограничение работы владелец вписал сам; у станции есть пометка замера. */
+        measured:by?true:!!(s&&s.sizeMeasured)});
+    });
+  });
+  return out;
+}
+/* Засев 144 × 100″ одинаков у всех станций, и одна деталь не влезает сразу в
+   каждую станцию своего маршрута. Строка на станцию утопила бы вопрос —
+   поэтому стёкла и станции с одним и тем же ограничением собираются в одну. */
+function salesStationSizeTexts(problems){
+  var groups=[],index={};
+  problems.forEach(function(p){
+    var key=[p.cutW,p.cutH,p.limitText,p.work,p.measured].join('|');
+    if(!index[key]){index[key]={p:p,lites:[],codes:[]};groups.push(index[key]);}
+    var g=index[key];
+    if(p.lite&&g.lites.indexOf(p.lite)<0)g.lites.push(p.lite);
+    if(g.codes.indexOf(p.station)<0)g.codes.push(p.station);
+  });
+  return groups.map(function(g){
+    var p=g.p;
+    return (g.lites.length?g.lites.join(', ')+': ':'')+'cut '+salesSizeText(p.cutW,p.cutH)+
+      ' does not fit '+g.codes.join(', ')+' — '+(p.work?p.work+' ':'')+p.limitText+
+      (p.measured?'':' (size not verified in the shop)');
+  });
+}
+function salesStationSizeWarnings(order){
+  var out=[];
+  (order&&order.lines||[]).forEach(function(line,i){
+    var problems=salesStationSizeProblems(line,order);if(!problems.length)return;
+    var where='Line '+(i+1)+(line.mark?' ('+line.mark+')':'');
+    salesStationSizeTexts(problems).forEach(function(t){out.push(where+' · '+t);});
+  });
+  return out;
+}
+/* Короткая подпись статуса строки: какие станции не пропускают. */
+function salesStationSizeLabel(problems){
+  var codes=[];
+  problems.forEach(function(p){if(codes.indexOf(p.station)<0)codes.push(p.station);});
+  return 'Too large · '+(codes.length>3?codes.slice(0,3).join(', ')+' +'+(codes.length-3):codes.join(', '));
 }
 
 /* ==== src/erp/sales/print-sheet.js ==== */
@@ -16201,6 +16324,10 @@ function salesLiteAllowanceNote(plan){
 function salesLineEdgeworkModal(){
   var line=soDraft.lines.find(function(l){return l.id===soEdgeworkLineId;});if(!line)return '';var shape=salesLineGeometryShape(line),set=salesServiceSetById(soDraft,line.serviceSetId),snap=salesEffectiveProductionSnapshot(line,shape,soDraft),plan=salesEffectiveCuttingPlan(line,shape,soDraft),lost=salesLostOverrideEdges(line),dxf=shape&&shapeIsDxfSource(shape);
   var warning=!snap.valid?`<div class='ss-line-warning bad'>${esc(snap.reason)}</div>`:snap.mappingPending?`<div class='ss-line-warning warn'><b>${esc(set&&set.code||'Bulk Set')} is pending mapping.</b> Shape-owned processing remains active in Services; machine release is blocked until mapping is confirmed.</div>`:!plan.valid?`<div class='ss-line-warning bad'>${esc(plan.reason)}</div>`:lost.length?`<div class='ss-line-warning bad'>Lost override edge(s): ${esc(lost.join(', '))}</div>`:`<div class='ss-line-warning info'><b>Order Effective</b> = edgework of this line's Shape, base <b>Rough Arris / Flat Polish</b> from the glass of its Makeup where the Shape says nothing, and Makeup thickness for the cutting allowance. Nothing is stored on the line, so nothing can go stale.<button class='sm' onclick='salesOpenShapeFromEdgework("\${esc(line.id)}")'>Open Shape</button></div>`;
+  /* Габарит станции — поверх обычного пояснения, а не вместо него: рез при этом
+     не заблокирован, работа идёт, но деталь не влезет в станцию маршрута. */
+  var sizeProblems=plan.valid&&typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];
+  if(sizeProblems.length)warning=`<div class='ss-line-warning warn'><b>Does not fit a station of its route</b>${salesStationSizeTexts(sizeProblems).map(function(t){return `<div>${esc(t)}</div>`;}).join('')}<small>A station limit never reroutes the work: it only warns before cutting. Station sizes are edited in Production → Stations, a work's own limit in Master Data → Works.</small></div>`+warning;
   /* Припуск проставляется при расчёте реза, поэтому карточки берут группы из
      ПЛАНА: у снимка это поле ещё пустое, и колонка припуска не показывалась
      вовсе. Снимок остаётся запасным вариантом, когда рез заблокирован. */
