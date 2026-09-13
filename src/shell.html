@@ -3,12 +3,12 @@
 <nav class="side" id="side"></nav>
 <div class="main">
 <header>
-  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Производственная система · прототип</span><span class="header-build" id="hdrBuild"></span></div>
+  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Production system · prototype</span><span class="header-build" id="hdrBuild"></span></div>
   <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
   <span class="top-chip" id="phaseChip"></span>
-  <button class="gh" onclick="doExport()">Экспорт JSON</button>
-  <button class="gh" onclick="document.getElementById('imp').click()">Импорт JSON</button>
+  <button class="gh" onclick="doExport()">Export JSON</button>
+  <button class="gh" onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
 </header>
 <main id="app"></main>

@@ -296,7 +296,7 @@ def main(src, out):
         e1, e2 = fnum(r.get('emis1'), .84), fnum(r.get('emis2'), .84)
         coated_side = '' if family == 'uncoated' else ('1' if e1 < e2 else '2' if e2 < e1 else '')
         rule, surf, depo = exposure_of(product, family)
-        note = 'производитель рекомендует #4, допускается #3' if SURF_34.search(product) else (
+        note = 'Manufacturer recommends #4 — #3 is allowed' if SURF_34.search(product) else (
                'два покрытия на одном листе: #1 и #2 — лист ставится наружным' if DUAL_COAT.search(product) else '')
         kept.append({
             '_product': product, '_nominal': nominal,
@@ -347,7 +347,7 @@ def main(src, out):
             'thickness_mm': '6', 'actual_thickness_mm': fmt_num(round(6.0 + mm, 2)),
             'temper_mode': '', 'exposure_rule': 'any', 'allowed_surfaces': '',
             'edge_deletion': '', 'deposition': '', 'legacy_code': '',
-            'notes': 'ПОКУПНОЙ ламинат — не наше производство. Поставщика и размер листа заполнить.',
+            'notes': 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.',
             'stocked': '',
             'igdb_id': '', 'igdb_name': '', 'igdb_source': '', 'tvis': '', 'tsol': '',
             'rvis1': '', 'rvis2': '', 'rsol1': '', 'rsol2': '',

@@ -57,7 +57,7 @@ def main(clean_path, user_path, out_path):
         # пара Q/E делит одну запись IGDB — помечаем, чтобы происхождение было видно
         if uid and seen_ids[uid]:
             row['notes'] = (row['notes'] + ' · ' if row['notes'] else '') + \
-                           'парная версия по закалке, оптика общая с близнецом'
+                           'Tempering-pair version — optics shared with its twin'
             stats['вторая строка пары Q/E'] += 1
         if uid: seen_ids[uid] += 1
         out.append(row)

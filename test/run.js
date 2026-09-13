@@ -1848,14 +1848,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 1], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 2], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
     await t.p.reload();
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 1]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 2]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
@@ -1869,7 +1869,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
       const w = (s, id) => s.serviceRate.find(r => r.id === id);
       return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
-    }), ['DRILL', true, 1, '']);
+    }), ['DRILL', true, 2, '']);
+    await t.c.close();
+
+    /* Правка номер 2: заводские примечания каталога стекла были по-русски и
+       видны в форме правки стекла. Своё примечание владельца — на любом
+       языке — остаётся; правка номер 1 при этом второй раз не идёт. */
+    t = await page(JSON.stringify({ refVersion: 9, dataFix: 1, glassProduct: [
+      { id: 'GL-6LAM015', code: '6LAM015', name: 'Laminated 3mm + .015" PVB + 3mm', manufacturer: 'Woodbridge', thicknessMm: 6,
+        note: 'ПОКУПНОЙ ламинат — не наше производство. Поставщика и размер листа заполнить.' },
+      { id: 'GL-6E272', code: '6E272', name: 'LoE 272 on 6 mm Clear', manufacturer: 'Cardinal', thicknessMm: 6, note: 'заказываем у Cardinal напрямую' }] }));
+    eq('заводские русские примечания стекла становятся английскими, свои остаются', await t.p.evaluate(() => {
+      const g = id => DB.glassProduct.find(p => p.id === id);
+      return [DB.dataFix, g('GL-6LAM015').note, g('GL-6E272').note];
+    }), [2, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
     await t.c.close();
 
     /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
@@ -5725,6 +5738,35 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }, tab);
       eq('EN без русского остатка: ' + tab, left, []);
     }
+    /* Шапка и меню живут ВНЕ #app, и обход выше их не видел: кнопки «Экспорт
+       JSON» / «Импорт JSON» простояли по-русски до 13 сентября 2026. Проверяем
+       всю страницу: текст, подсказки (title, placeholder, aria-label) и
+       заголовок вкладки. */
+    for (const tab of ['dashboard', 'users', 'customers', 'sales', 'configurators', 'optimization', 'production', 'masterdata']) {
+      const left = await t.p.evaluate(tb => {
+        tab = tb; subtab = null; render();
+        const cyr = /[А-Яа-яЁё]/, out = new Set(), w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let n; while (n = w.nextNode()) { const el = n.parentElement; if (!el || el.closest('script,style')) continue; const v = n.nodeValue.trim(); if (cyr.test(v)) out.add(v); }
+        document.querySelectorAll('[title],[placeholder],[aria-label]').forEach(el => ['title', 'placeholder', 'aria-label'].forEach(a => {
+          const v = el.getAttribute(a); if (v && cyr.test(v)) out.add(a + ': ' + v); }));
+        if (cyr.test(document.title)) out.add('title: ' + document.title);
+        return [...out];
+      }, tab);
+      eq('EN без русского остатка на всей странице: ' + tab, left, []);
+    }
+    /* Заводские данные — тоже интерфейс: примечание стекла видно в форме его
+       правки, и обход экранов значения полей не читает. Законное исключение одно —
+       русская колонка `name` двуязычной таблицы станций (читается nameEn || name). */
+    eq('в заводских данных нет русского текста, кроме русской колонки станций', await t.p.evaluate(() => {
+      const cyr = /[А-Яа-яЁё]/, out = new Set();
+      const walk = (v, path) => {
+        if (typeof v === 'string') { if (cyr.test(v) && path !== 'station[].name') out.add(path + ': ' + v.slice(0, 40)); }
+        else if (Array.isArray(v)) v.forEach(x => walk(x, path + '[]'));
+        else if (v && typeof v === 'object') Object.keys(v).forEach(k => walk(v[k], path + '.' + k));
+      };
+      Object.keys(DEFAULT).forEach(k => walk(DEFAULT[k], k));
+      return [...out];
+    }), []);
     /* Общий обход выше заходит на КАЖДУЮ вкладку с subtab=null — а mdCatKind
        (Catalogues) и station-форма живут переменными модуля, которые null не
        трогает. 11 сентября 2026 ровно тут утекла живая русская строка: форма

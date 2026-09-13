@@ -68,7 +68,7 @@ function renderHtml(loader) {
   Правки вносить в отдельные модули src/**, затем: node build/build.js
   Состав сборки: ${M.scripts.length} модулей, ${M.styles.length} стиля.
 -->
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -102,11 +102,11 @@ function renderWeb(loader) {
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
   Состав: ${M.scripts.length} модулей, ${M.styles.length} стиля.
 -->
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${M.title} — по модулям</title>
+<title>${M.title} — modules</title>
 ${M.styles.map(f => `<link rel="stylesheet" href="${fromSrc(f)}">`).join('\n')}
 </head>
 <body>
