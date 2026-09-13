@@ -269,7 +269,26 @@ const DATA_FIXES=[
     момент маршрута ещё заводской: `*` здесь переписал бы этап у любой работы,
     которой владелец поставил свой. */
  [1,'serviceRate','lamiPolish',{afterMerge:false,stage:'pre_temper'},['afterMerge','stage']],
- [1,'serviceRate','cncLamiPolish',{afterMerge:false,stage:'pre_temper'},['afterMerge','stage']]
+ [1,'serviceRate','cncLamiPolish',{afterMerge:false,stage:'pre_temper'},['afterMerge','stage']],
+ /* Заводские примечания, написанные до удаления русского интерфейса. Экраны
+    Production и Works показывали их по-русски. Только дословно заводской
+    текст: своё примечание владелец вправе писать на каком угодно языке. */
+ ...['режется только отожжённое стекло',
+  'услуги: arris · polish · cnc shape polish · miter · bevel · lami polish',
+  'петли · клемы · патчи · отверстия до 1 3/4" · ручной нотч. Свёрл крупнее в цеху нет',
+  'нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4"',
+  'услуги: ceramic frit (3 узора) · digital ceramic print',
+  'услуги: tempering · heat strengthening · heat soak. Вся механика до неё',
+  'позиция в маршруте зависит от того, есть ли термообработка',
+  'услуги: opaci-coat standard/custom · backpainting',
+  'lead time 3 дня, у остальных 1. Точка слияния компонентов',
+  'мойка входит в операцию. Точка слияния компонентов',
+  'включает монтаж — развести при проектировании отгрузки'].map(note=>[1,'station','*',{note},['note']]),
+ ...['притупление контур не съедает','по толщине ПЛИТЫ','толстое стекло с большим съёмом',
+  'склеенная кромка, по толщине ПЛИТЫ'].map(note=>[1,'edgeAllowance','*',{note},['note']]),
+ ...['Одна ставка на любую толщину склейки','Прайс: POLISH LAMI GLASS',
+  'Считается по ДЕЛЕНИЯМ, а не по длине бара','Надбавка за фигурную единицу, по billable area',
+  'По периметру готового контура, не по площади'].map(note=>[1,'serviceRate','*',{note},['note']])
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){

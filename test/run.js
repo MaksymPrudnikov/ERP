@@ -1872,6 +1872,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), ['DRILL', true, 1, '']);
     await t.c.close();
 
+    /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
+       остались как были, и экран Production показывал их в английском
+       интерфейсе. Меняется только дословно заводской текст. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      station: [
+        { seq: 1, code: 'CUT', name: 'Резка', nameEn: 'Cutting', always: true, note: 'режется только отожжённое стекло' },
+        { seq: 6, code: 'HEAT', name: 'Термообработка', nameEn: 'Heat treatment', always: false, note: 'печь на ремонте до пятницы' }
+      ],
+      edgeAllowance: [{ id: 'ALW-ROUGHARRIS-MONO-0-1000', op: 'Rough Arris', scope: 'mono', minMm: 0, maxMm: 1000, allowance: '0', note: 'притупление контур не съедает' }],
+      serviceRate: [{ id: 'muntinSection', name: 'Muntin section', unit: 'pc', kind: 'flat', flat: 4.5, station: 'IGU', note: 'Считается по ДЕЛЕНИЯМ, а не по длине бара' }]
+    }));
+    eq('заводские русские примечания становятся английскими, свои остаются', await t.p.evaluate(() => {
+      const st = code => DB.station.find(s => s.code === code);
+      return [st('CUT').note, st('HEAT').note,
+        DB.edgeAllowance.find(r => r.id === 'ALW-ROUGHARRIS-MONO-0-1000').note,
+        DB.serviceRate.find(r => r.id === 'muntinSection').note];
+    }), ['only annealed glass is cut here', 'печь на ремонте до пятницы', 'arrising does not eat into the contour', 'Bars are installed at IGU assembly']);
+    await t.c.close();
+
     /* Экран справочников — единственное место, где владелец заводит позицию.
        Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
        Идентификатор выводится из кода производителя: по нему позицию узнают в
