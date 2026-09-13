@@ -668,6 +668,9 @@ function salesLineServiceStatus(line){
   if(!snap.valid)return {key:'effective',label:'Needs review',cls:'bad'};
   if(snap.mappingPending){var own=snap.groups.some(function(g){return g.shapeOps.length>0;});return {key:'mapping',label:own?'Set pending mapping':'Needs side mapping',cls:'warn'};}
   var cut=salesEffectiveCuttingPlan(line,shape,soDraft);if(!cut.valid)return {key:'cutting',label:'Cutting blocked',cls:'bad'};
+  /* Габарит станции — предупреждение, не блок реза: пока габариты засеяны, а не
+     замерены, строка остаётся рабочей, но подсвечена (sales/station-size). */
+  var big=typeof salesStationSizeProblems==='function'?salesStationSizeProblems(line,soDraft):[];if(big.length)return {key:'size',label:salesStationSizeLabel(big),cls:'warn'};
   if(salesHasLineEdgeOverrides(line))return {key:'override',label:'Line override',cls:'info'};
   if(line.serviceSetId)return {key:'ready',label:'Set applied',cls:'ok'};
   if(snap.groups.some(function(g){return g.shapeOps.length>0;}))return {key:'shape',label:'Ready · custom edge',cls:'ok'};
@@ -675,7 +678,7 @@ function salesLineServiceStatus(line){
   if(!line.shapeRef&&salesLineHasRectGeometry(line))return {key:'ready',label:'Rectangle',cls:'ok'};
   return {key:'ready',label:'No processing',cls:'ok'};
 }
-function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting'].indexOf(salesLineServiceStatus(line).key)>=0;}
+function salesLineNeedsServiceAttention(line){return ['geometry','missing','lost','effective','lami','muntin','mapping','cutting','size'].indexOf(salesLineServiceStatus(line).key)>=0;}
 
 function salesLostOverrideEdges(line){
   var shape=salesLineGeometryShape(line),current=salesShapePhysicalEdges(shape).map(function(e){return e.id;}),edges=Object.keys((line&&line.serviceOverrides&&line.serviceOverrides.edges)||{});
