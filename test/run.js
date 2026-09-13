@@ -1892,6 +1892,34 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), ['only annealed glass is cut here', 'печь на ремонте до пятницы', 'arrising does not eat into the contour', 'Bars are installed at IGU assembly']);
     await t.c.close();
 
+    /* Строки материалов, заведённые до общей шапки, получили пустую
+       подкатегорию, а цвета ICD — пустую ссылку на тип спандрела, то есть
+       «доступен любому». Правка берёт заводские значения и не трогает строки,
+       которые владелец завёл сам. */
+    t = await page(JSON.stringify({
+      refVersion: 9,
+      interlayerProduct: [
+        { id: 'INT-EVA-CL', type: 'interlayer', name: 'EVA Clear', code: 'EVA-CL', subcategory: '', salePrice: 3 },
+        { id: 'INT-OWN', type: 'interlayer', name: 'Shop Film', code: 'OWN-F', subcategory: '', salePrice: 4 }
+      ],
+      spandrelColour: [
+        { id: 'SPC-3-818', name: 'Black', code: '#3-818', family: 'Black', productId: '' },
+        { id: 'SPC-MY', name: 'Deep Ocean', code: '#7-1234', family: 'Blue', productId: '' }
+      ]
+    }));
+    eq('плёнки получают подкатегорию, цвета ICD — свой тип спандрела', await t.p.evaluate(() => {
+      const film = id => DB.interlayerProduct.find(p => p.id === id);
+      const ceramic = spandrelColoursFor('SPAN-CERAMIC').map(c => c.id);
+      return {
+        films: [film('INT-EVA-CL').subcategory, film('INT-OWN').subcategory],
+        icd: DB.spandrelColour.find(c => c.id === 'SPC-3-818').productId,
+        ownColourAnyType: DB.spandrelColour.find(c => c.id === 'SPC-MY').productId,
+        ceramicOffersIcd: ceramic.indexOf('SPC-3-818') >= 0,
+        ceramicOffersOwn: ceramic.indexOf('SPC-MY') >= 0
+      };
+    }), { films: ['eva', ''], icd: 'SPAN-SILICONE', ownColourAnyType: '', ceramicOffersIcd: false, ceramicOffersOwn: true });
+    await t.c.close();
+
     /* Экран справочников — единственное место, где владелец заводит позицию.
        Проверяется весь путь: форма → сохранение → нормализация → выбор в заказе.
        Идентификатор выводится из кода производителя: по нему позицию узнают в

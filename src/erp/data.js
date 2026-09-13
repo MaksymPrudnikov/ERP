@@ -288,7 +288,13 @@ const DATA_FIXES=[
   'склеенная кромка, по толщине ПЛИТЫ'].map(note=>[1,'edgeAllowance','*',{note},['note']]),
  ...['Одна ставка на любую толщину склейки','Прайс: POLISH LAMI GLASS',
   'Считается по ДЕЛЕНИЯМ, а не по длине бара','Надбавка за фигурную единицу, по billable area',
-  'По периметру готового контура, не по площади'].map(note=>[1,'serviceRate','*',{note},['note']])
+  'По периметру готового контура, не по площади'].map(note=>[1,'serviceRate','*',{note},['note']]),
+ /* Подкатегория плёнки — её семейство. Строки, заведённые до общей шапки
+    материала, получили пустую, и на экране Materials плёнки стояли без EVA/SGP. */
+ [1,'interlayerProduct','*',{subcategory:''},['subcategory']],
+ /* Цвета ICD Opaci-Coat принадлежат силиконовому спандрелу. Пустая ссылка
+    означает «доступен любому типу», и керамическому предлагались краски ICD. */
+ [1,'spandrelColour','*',{productId:''},['productId']]
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){
