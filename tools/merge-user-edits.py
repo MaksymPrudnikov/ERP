@@ -69,7 +69,7 @@ def main(clean_path, user_path, out_path):
         if c['igdb_id'] and c['igdb_id'] not in have:
             row = dict(c)
             row['notes'] = (row['notes'] + ' · ' if row['notes'] else '') + \
-                           'добавлено после твоей выгрузки — код переименуй по своей конвенции'
+                           'added after your export — rename the code to your convention'
             out.append(row); stats['добавлено из эталона'] += 1
 
     with io.open(out_path, 'w', encoding='utf-8', newline='') as fh:

@@ -297,7 +297,7 @@ def main(src, out):
         coated_side = '' if family == 'uncoated' else ('1' if e1 < e2 else '2' if e2 < e1 else '')
         rule, surf, depo = exposure_of(product, family)
         note = 'Manufacturer recommends #4 — #3 is allowed' if SURF_34.search(product) else (
-               'два покрытия на одном листе: #1 и #2 — лист ставится наружным' if DUAL_COAT.search(product) else '')
+               'Two coatings on one sheet: #1 and #2 — the sheet goes outboard' if DUAL_COAT.search(product) else '')
         kept.append({
             '_product': product, '_nominal': nominal,
             'manufacturer': SHORT[man],
