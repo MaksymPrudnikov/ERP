@@ -1,0 +1,68 @@
+/* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
+   вкладка Master Data → Company и условия оплаты в шапке заказа. */
+.doc-back{position:fixed;inset:0;z-index:1300;display:flex;align-items:stretch;justify-content:center;padding:18px;background:rgba(13,31,41,.45)}
+.doc-window{display:flex;flex-direction:column;width:min(1280px,100%);min-height:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(16,24,40,.3)}
+.doc-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,#d9dfe8);background:#f8fafc}
+.doc-title{margin-right:6px;font-size:13px;white-space:nowrap}
+.doc-kinds{display:inline-flex;border:1px solid #c9d1dd;border-radius:7px;overflow:hidden}
+.doc-kinds button{border:0;border-right:1px solid #c9d1dd;border-radius:0;background:#fff;padding:6px 12px;font-size:12px}
+.doc-kinds button:last-child{border-right:0}
+.doc-kinds button.on{background:#16325c;color:#fff;font-weight:700}
+.doc-spacer{flex:1}
+.doc-pen{font-weight:700}
+.doc-pen.on{background:#fff4d6;border-color:#fdb022}
+.doc-status{display:flex;flex-wrap:wrap;gap:4px 16px;padding:7px 14px;border-bottom:1px solid #fedf89;background:#fffaeb;color:#7a4a00;font-size:12px}
+.doc-status .warn{color:#b54708;font-weight:600}
+.doc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);background:#e9edf3}
+.doc-body.with-panel{grid-template-columns:minmax(0,1fr) 330px}
+.doc-pages{min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.doc-sheet{width:min(760px,100%);flex:none;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-sheet svg{display:block;width:100%;height:auto}
+.doc-panel{min-height:0;overflow:auto;padding:12px 14px 0;border-left:1px solid var(--line,#d9dfe8);background:#fff;font-size:12.5px}
+.doc-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.doc-panel-head button{border:0;background:transparent;padding:2px 6px;font-size:18px;line-height:1}
+.doc-panel-sub{margin:2px 0 6px;color:#667085;font-size:11.5px;line-height:1.4}
+.doc-panel h4{margin:12px 0 4px;padding-top:9px;border-top:1px solid #eaecf0;color:#667085;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+/* Общее правило подписей формы пишет label капсом и вразрядку — у галочек
+   панели это обычный текст. */
+.doc-panel .doc-opt{display:flex;align-items:flex-start;gap:8px;margin:0;padding:3px 0;cursor:pointer;color:#1c2330;font-size:12.5px;font-weight:400;letter-spacing:normal;text-transform:none}
+.doc-opt input{flex:none;width:auto;margin:2px 0 0}
+.doc-panel .doc-opt small{display:block;color:#667085;font-size:10.5px;letter-spacing:normal;text-transform:none}
+.doc-opt-sub{margin:4px 0 0 22px;padding-left:8px;border-left:2px solid #eaecf0}
+.doc-panel-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding:10px 0 12px;border-top:1px solid #eaecf0;background:#fff}
+@media(max-width:900px){
+ .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+ .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
+}
+@media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
+
+/* Общие поля шапки заказа задают свои отступы; здесь два поля делят одну
+   ячейку, поэтому правило точнее общего — иначе «50» обрезалось до «5». */
+.sales-header-compact .sales-terms{display:flex;align-items:center;gap:4px;min-width:0}
+.sales-header-compact .sales-terms select{flex:0 0 76px;width:76px;min-width:0;padding-left:8px;padding-right:16px}
+.sales-header-compact .sales-terms input{flex:1 1 52px;width:52px;min-width:46px;padding-left:4px;padding-right:4px;text-align:right}
+.sales-header-compact .sales-terms span{flex:none;color:var(--muted,#687780);font-size:11px;white-space:nowrap}
+
+.doc-company{display:grid;grid-template-columns:240px minmax(0,1fr);gap:22px;margin-top:14px}
+.doc-company-logo label{display:block}
+.doc-logo-box{display:flex;align-items:center;justify-content:center;height:110px;margin:6px 0 8px;overflow:hidden;border:1.5px dashed #b9c2d0;border-radius:8px;background:#fafbfc}
+.doc-logo-box img{max-width:92%;max-height:92%}
+.doc-logo-box span{color:#98a2b3;font-size:12px}
+.doc-logo-actions{display:flex;gap:6px;margin-bottom:6px}
+.doc-company-logo small{color:#667085}
+.doc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.doc-company-grid textarea{width:100%;box-sizing:border-box}
+.doc-company-wide{grid-column:1/-1}
+@media(max-width:900px){.doc-company,.doc-company-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Печать: на время печати в документе остаются только листы бланка. Именованная
+   страница без полей — поля задаёт сам лист, ровно как в PDF. */
+#docPrintHost{display:none}
+@page docsheet{size:8.5in 11in;margin:0}
+@media print{
+ body.doc-printing>*{display:none!important}
+ body.doc-printing>#docPrintHost{display:block!important}
+ .doc-print-page{page:docsheet;width:8.5in;height:11in;overflow:hidden;break-after:page}
+ .doc-print-page:last-child{break-after:auto}
+ .doc-print-page svg{display:block;width:8.5in;height:11in}
+}

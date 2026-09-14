@@ -26,7 +26,7 @@ let salesBridge=null;
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
 function salesApplyCustomerDefaults(id){
  const c=salesFindCustomer(id);soDraft.customerId=id||'';if(!c)return;
- if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;if(c.currency)soDraft.currency=c.currency;
+ if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;Object.assign(soDraft,paymentTermsFrom(c));if(c.currency)soDraft.currency=c.currency;
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}

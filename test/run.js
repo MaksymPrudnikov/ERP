@@ -2626,9 +2626,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       DB.stockItem.push({id:'STK-QA-PRINT',type:'stock',name:'QA Print Door',code:'',thicknessMm:0,
         salePrice:80,availability:'stock',supplier:'',leadTimeDays:0,subcategory:'door',sellsAsOwnLine:true,active:true});
       soDraft=newSalesOrderDraft();
-      const withoutItem=salesOrderPrintMarkup().includes('QA Print Door');
+      const withoutItem=JSON.stringify(docBuildModel('proforma',soDraft)).includes('QA Print Door');
       salesExtraItemAdd('stockItem','STK-QA-PRINT');
-      const withItem=salesOrderPrintMarkup();
+      const withItem=JSON.stringify(docBuildModel('proforma',soDraft));
       DB.stockItem=DB.stockItem.filter(s=>s.id!=='STK-QA-PRINT');soDraft=null;
       return {withoutItem,named:withItem.includes('QA Print Door'),priced:withItem.includes('80.00')};
     }), {withoutItem:false,named:true,priced:true});
@@ -2669,9 +2669,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const makeupSurvived=soDraft.makeups.length===1;
       salesExtraItemAdd('stockItem','STK-QA-DOORONLY');render();
       const glassStillQuietWithDoorAdded=!!document.querySelector('.sales-extra-items-quiet')&&!document.querySelector('.sales-block:not(.sales-extra-items) .sales-block-head');
-      const printMarkup=salesOrderPrintMarkup();
-      const noEmptyGlassTable=!printMarkup.includes('<th>Width</th>');
-      const hasDoor=printMarkup.includes('QA Door Only');
+      const printModel=docBuildModel('proforma',soDraft);
+      const noEmptyGlassTable=printModel.items.length===0;
+      const hasDoor=!!printModel.extra&&printModel.extra.rows.some(r=>r.name==='QA Door Only');
       const totals=salesOrderCommercialTotals(soDraft);
       /* "+ Add Makeup" — обратная сторона: раздел разворачивается назад по
          нажатию, а не только когда в заказе снова появляется строка. */
@@ -5933,7 +5933,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok});
   await b.close();
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
