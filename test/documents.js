@@ -29,8 +29,9 @@ module.exports=async function({page,eq,ok}){
   const keep=JSON.parse(JSON.stringify(DB.company));
   DB.company={legalName:'  ',depositPercent:'abc',logo:'data:image/png;base64,AAAA',termsText:' Terms ',province:['x']};normalizeCompany();
   const r={name:DB.company.legalName,deposit:DB.company.depositPercent,logo:DB.company.logo,terms:DB.company.termsText,province:DB.company.province,footer:DB.company.footerText};
+  DB.company={legalName:'QA Only Name'};normalizeCompany();r.onlyProvince=docCompanyBlock().lines;
   DB.company=keep;return r;
- }),{name:'Infinity Glass Group Inc',deposit:50,logo:'',terms:'Terms',province:'x',footer:'Thank you for your business'});
+ }),{name:'Infinity Glass Group Inc',deposit:50,logo:'',terms:'Terms',province:'x',footer:'Thank you for your business',onlyProvince:[]});
 
  eq('условия оплаты: «45 Days Net» — кредит 45 дней, пусто — cash с депозитом компании, процент клиента важнее',await t.p.evaluate(()=>{
   const net=paymentTermsFrom({paymentTerms:'45 Days Net'}),empty=paymentTermsFrom({}),own=paymentTermsFrom({paymentMode:'cash',depositPercent:'30'});

@@ -137,7 +137,9 @@ function docLineDrawing(line,order){
 
 function docCompanyBlock(){
  const c=DB.company||{};
- const city=[c.city,[c.province,c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+ /* Провинция без города и индекса — ещё не адрес: пока реквизиты не
+    заполнены, под названием компании печаталось одинокое «ON». */
+ const city=c.city||c.postalCode?[c.city,[c.province,c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', '):'';
  return {name:c.legalName||'',logo:c.logo||'',lines:[[c.address1,c.address2].filter(Boolean).join(', '),city,[c.phone,c.email,c.website].filter(Boolean).join(' · '),c.hstNumber?'HST # '+c.hstNumber:''].filter(Boolean)};
 }
 
