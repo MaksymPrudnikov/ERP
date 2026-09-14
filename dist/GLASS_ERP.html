@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 54 модулей, 4 стиля.
+  Состав сборки: 59 модулей, 5 стиля.
 -->
 <html lang="en">
 <head>
@@ -1076,15 +1076,83 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .line-metric th small{font-weight:400}.metric-cell-btn{background:transparent;border:0;padding:7px 3px;width:100%;text-align:center;font-variant-numeric:tabular-nums;color:inherit;border-radius:5px}.metric-cell-btn:hover{background:var(--blue2,#e9f3f8)}
 .metric-incomplete,.metric-incomplete small{color:#93601c}.metric-order-total{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;border-top:1px solid var(--line,#ddd);font-size:12px;overflow-x:auto}.metric-order-service-add{flex:none;align-self:center;border-color:#167052;color:#116047;font-weight:700}.metric-order-total-main{width:610px;margin-left:auto;text-align:right;flex:none}.metric-order-total-main>small{display:block;margin-bottom:4px;color:#697984;white-space:nowrap;text-align:right}.metric-order-currency{font-weight:700;color:#40515c}.metric-order-charge-lines{display:flex;justify-content:flex-end;align-items:end;min-width:610px}.metric-order-charge-item{flex:none;box-sizing:border-box;min-width:0;padding:0 7px;border-left:1px solid var(--line,#ddd);white-space:nowrap;text-align:right}.metric-order-charge-item:first-child{border-left:0}.metric-order-charge-item.is-empty{display:none}.metric-order-charge-lines .charge-subtotal{width:82px}.metric-order-charge-lines .charge-energy,.metric-order-charge-lines .charge-hst{width:62px}.metric-order-charge-lines .charge-card{width:105px}.metric-order-charge-lines .charge-delivery{width:80px}.metric-order-charge-lines .charge-skid{width:96px}.metric-order-charge-lines .charge-total{width:123px}.metric-order-charge-label{display:block;min-height:15px;color:#52616b;font-size:10px;line-height:1.2}.metric-order-charge-lines b{display:block;margin-top:3px;font-size:12px;line-height:1.2;font-variant-numeric:tabular-nums}.metric-order-charge-lines small{display:inline;color:#697984;font-size:9px}.metric-order-charge-lines .metric-grand-total{padding-right:0}.metric-order-charge-lines .metric-grand-total>small{display:block;color:#93601c;white-space:normal}.metric-order-charge-editor{display:grid;gap:10px}.metric-order-charge-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(180px,1.2fr) minmax(180px,1.2fr);align-items:center;gap:12px;padding:12px;border:1px solid var(--line,#ddd);border-radius:8px;opacity:.58}.metric-order-charge-row.on{opacity:1;background:#fbfdfc}.metric-order-charge-row>label{display:flex;align-items:center;gap:8px}.metric-order-charge-row>label:first-child input{width:17px;height:17px}.metric-order-charge-row input[type=number]{width:105px}.metric-order-charge-row select{min-width:165px}.metric-order-charge-row small{color:#697984;line-height:1.35}.metric-order-charge-preview{margin-top:18px;border:1px solid var(--line,#ddd);border-radius:8px;overflow-x:auto}.metric-order-charge-preview .metric-order-service-add{display:none}
 .metric-modal-back{z-index:1200}.metric-modal{max-width:820px;width:calc(100vw - 40px);max-height:90vh;overflow:auto}.metric-modal-wide{max-width:1250px}.metric-modal-body{padding:20px}.metric-modal-body p{font-size:13px;line-height:1.5}.metric-modal-body h4{margin-top:24px}
-.metric-profile{display:flex;align-items:center;gap:15px;font-size:13px}.metric-profile select{min-width:180px}.metric-column-grid{margin:20px 0;border-top:1px solid var(--line,#ddd)}.metric-column-head,.metric-column-row{display:grid;grid-template-columns:28px minmax(130px,1fr) 82px 70px 70px;align-items:center;gap:0;border-bottom:1px solid var(--line,#ddd)}.metric-column-head>*{padding:10px 5px;text-align:center}.metric-column-row>*{padding:8px 5px}.metric-column-row>label{text-align:center}.metric-column-row input{width:17px;height:17px}.metric-column-row.dragging{opacity:.45}.metric-drag{cursor:grab;color:var(--muted,#687780);font-weight:700;letter-spacing:-3px}.metric-move{display:flex;justify-content:center;gap:4px}.metric-move button{min-width:32px;padding:4px 6px}.metric-column-reset{display:grid;grid-template-columns:1fr 90px 90px;align-items:center;gap:8px;padding:11px 5px}.metric-column-reset button{text-align:center}
+.metric-profile{display:flex;align-items:center;gap:15px;font-size:13px}.metric-profile select{min-width:180px}.metric-column-grid{margin:20px 0;border-top:1px solid var(--line,#ddd)}.metric-column-head,.metric-column-row{display:grid;grid-template-columns:28px minmax(130px,1fr) 82px 70px;align-items:center;gap:0;border-bottom:1px solid var(--line,#ddd)}.metric-column-head>*{padding:10px 5px;text-align:center}.metric-column-row>*{padding:8px 5px}.metric-column-row>label{text-align:center}.metric-column-row input{width:17px;height:17px}.metric-column-row.dragging{opacity:.45}.metric-drag{cursor:grab;color:var(--muted,#687780);font-weight:700;letter-spacing:-3px}.metric-move{display:flex;justify-content:center;gap:4px}.metric-move button{min-width:32px;padding:4px 6px}.metric-column-reset{display:grid;grid-template-columns:1fr 90px;align-items:center;gap:8px;padding:11px 5px}.metric-column-reset button{text-align:center}
 .metric-explanation dl{display:grid;grid-template-columns:140px 1fr;gap:14px;font-size:14px;margin:24px 0}.metric-explanation dt{font-weight:600}.metric-explanation dd{margin:0;font-variant-numeric:tabular-nums}.metric-price-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid var(--line,#ddd);font-size:13px}.metric-price-row b{white-space:nowrap;font-variant-numeric:tabular-nums}
 .metric-rule-form{display:grid;gap:16px}.metric-rule-form label{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:16px;font-size:13px}.metric-rule-form p{margin:0}.metric-detail-scroll{overflow:auto;margin-top:15px}.metric-weight-table{width:100%;font-size:12px}.metric-weight-table small{display:block;max-width:300px;color:#72808b;margin-top:4px;font-size:10px}.metric-weight-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}.metric-weight-table input{width:100px}.metric-extra{display:flex;gap:8px;margin-bottom:8px}.metric-extra input:first-child{flex:1;min-width:0}.metric-extra input[type=number]{width:125px}
-.metric-print-actions{display:flex;gap:10px;margin-bottom:18px}.metric-print-preview{overflow:auto;border:1px solid #dae0e4;padding:20px;background:white;color:#1b2934}.metric-print-order table{width:100%;border-collapse:collapse;font-size:11px}.metric-print-order th,.metric-print-order td{padding:9px 5px;border-bottom:1px solid #d2dae0;text-align:center;vertical-align:middle}.metric-print-order th small{display:block;font-size:9px}.metric-print-order td small{display:block;font-size:9px}
-@media(max-width:600px){.metric-modal{width:calc(100vw - 16px);max-height:94vh}.metric-modal-body{padding:12px}.metric-profile{flex-wrap:wrap}.metric-column-head,.metric-column-row{grid-template-columns:24px minmax(105px,1fr) 72px 54px 54px;font-size:11px}.metric-column-row>*{padding:8px 2px}.metric-move button{min-width:28px;padding:3px}.metric-column-reset{grid-template-columns:1fr 65px 65px}.metric-rule-form label{grid-template-columns:1fr 90px}.metric-order-total{justify-content:flex-start}.metric-order-charge-row{grid-template-columns:1fr}.metric-explanation dl{grid-template-columns:1fr}.metric-print-preview{padding:10px}}
-@media print{.print-sheet:has(.metric-print-order){height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.metric-print-order{width:100%;color:#000;background:white}.metric-print-order thead{display:table-header-group}.metric-print-order tr{break-inside:avoid}.metric-print-order table{font-size:8pt;table-layout:auto}.metric-print-order th,.metric-print-order td{padding:4pt 2pt;white-space:normal}.metric-print-order .metric-order-total{break-inside:avoid}.metric-order-service-add{display:none!important}}
+@media(max-width:600px){.metric-modal{width:calc(100vw - 16px);max-height:94vh}.metric-modal-body{padding:12px}.metric-profile{flex-wrap:wrap}.metric-column-head,.metric-column-row{grid-template-columns:24px minmax(105px,1fr) 72px 54px;font-size:11px}.metric-column-row>*{padding:8px 2px}.metric-move button{min-width:28px;padding:3px}.metric-column-reset{grid-template-columns:1fr 65px}.metric-rule-form label{grid-template-columns:1fr 90px}.metric-order-total{justify-content:flex-start}.metric-order-charge-row{grid-template-columns:1fr}.metric-explanation dl{grid-template-columns:1fr}}
 .sales-line-tools{flex-wrap:wrap;min-width:0;max-width:100%}
 @media(max-width:900px){.sales-order-editor .mu-totals{grid-column:1/-1;justify-self:start;margin-left:0;max-width:100%;flex-wrap:wrap}.sales-lines-head{flex-wrap:wrap}.sales-lines-head>div:first-child{min-width:0}}
 @media(max-width:620px){.sales-line-tools button{flex:0 1 auto}.sales-order-editor .mu-totals{white-space:normal}.sales-order-editor .mu-total{flex-wrap:wrap}}
+
+/* ---- src/styles/documents.css ---- */
+/* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
+   вкладка Master Data → Company и условия оплаты в шапке заказа. */
+.doc-back{position:fixed;inset:0;z-index:1300;display:flex;align-items:stretch;justify-content:center;padding:18px;background:rgba(13,31,41,.45)}
+.doc-window{display:flex;flex-direction:column;width:min(1280px,100%);min-height:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(16,24,40,.3)}
+.doc-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,#d9dfe8);background:#f8fafc}
+.doc-title{margin-right:6px;font-size:13px;white-space:nowrap}
+.doc-kinds{display:inline-flex;border:1px solid #c9d1dd;border-radius:7px;overflow:hidden}
+.doc-kinds button{border:0;border-right:1px solid #c9d1dd;border-radius:0;background:#fff;padding:6px 12px;font-size:12px}
+.doc-kinds button:last-child{border-right:0}
+.doc-kinds button.on{background:#16325c;color:#fff;font-weight:700}
+.doc-spacer{flex:1}
+.doc-pen{font-weight:700}
+.doc-pen.on{background:#fff4d6;border-color:#fdb022}
+.doc-status{display:flex;flex-wrap:wrap;gap:4px 16px;padding:7px 14px;border-bottom:1px solid #fedf89;background:#fffaeb;color:#7a4a00;font-size:12px}
+.doc-status .warn{color:#b54708;font-weight:600}
+.doc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);background:#e9edf3}
+.doc-body.with-panel{grid-template-columns:minmax(0,1fr) 330px}
+.doc-pages{min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;align-items:center;gap:16px}
+.doc-sheet{width:min(760px,100%);flex:none;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-sheet svg{display:block;width:100%;height:auto}
+.doc-panel{min-height:0;overflow:auto;padding:12px 14px 0;border-left:1px solid var(--line,#d9dfe8);background:#fff;font-size:12.5px}
+.doc-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.doc-panel-head button{border:0;background:transparent;padding:2px 6px;font-size:18px;line-height:1}
+.doc-panel-sub{margin:2px 0 6px;color:#667085;font-size:11.5px;line-height:1.4}
+.doc-panel h4{margin:12px 0 4px;padding-top:9px;border-top:1px solid #eaecf0;color:#667085;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+/* Общее правило подписей формы пишет label капсом и вразрядку — у галочек
+   панели это обычный текст. */
+.doc-panel .doc-opt{display:flex;align-items:flex-start;gap:8px;margin:0;padding:3px 0;cursor:pointer;color:#1c2330;font-size:12.5px;font-weight:400;letter-spacing:normal;text-transform:none}
+.doc-opt input{flex:none;width:auto;margin:2px 0 0}
+.doc-panel .doc-opt small{display:block;color:#667085;font-size:10.5px;letter-spacing:normal;text-transform:none}
+.doc-opt-sub{margin:4px 0 0 22px;padding-left:8px;border-left:2px solid #eaecf0}
+.doc-panel-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding:10px 0 12px;border-top:1px solid #eaecf0;background:#fff}
+@media(max-width:900px){
+ .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+ .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
+}
+@media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
+
+/* Общие поля шапки заказа задают свои отступы; здесь два поля делят одну
+   ячейку, поэтому правило точнее общего — иначе «50» обрезалось до «5». */
+.sales-header-compact .sales-terms{display:flex;align-items:center;gap:4px;min-width:0}
+.sales-header-compact .sales-terms select{flex:0 0 76px;width:76px;min-width:0;padding-left:8px;padding-right:16px}
+.sales-header-compact .sales-terms input{flex:1 1 52px;width:52px;min-width:46px;padding-left:4px;padding-right:4px;text-align:right}
+.sales-header-compact .sales-terms span{flex:none;color:var(--muted,#687780);font-size:11px;white-space:nowrap}
+
+.doc-company{display:grid;grid-template-columns:240px minmax(0,1fr);gap:22px;margin-top:14px}
+.doc-company-logo label{display:block}
+.doc-logo-box{display:flex;align-items:center;justify-content:center;height:110px;margin:6px 0 8px;overflow:hidden;border:1.5px dashed #b9c2d0;border-radius:8px;background:#fafbfc}
+.doc-logo-box img{max-width:92%;max-height:92%}
+.doc-logo-box span{color:#98a2b3;font-size:12px}
+.doc-logo-actions{display:flex;gap:6px;margin-bottom:6px}
+.doc-company-logo small{color:#667085}
+.doc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.doc-company-grid textarea{width:100%;box-sizing:border-box}
+.doc-company-wide{grid-column:1/-1}
+@media(max-width:900px){.doc-company,.doc-company-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Печать: на время печати в документе остаются только листы бланка. Именованная
+   страница без полей — поля задаёт сам лист, ровно как в PDF. */
+#docPrintHost{display:none}
+@page docsheet{size:8.5in 11in;margin:0}
+@media print{
+ body.doc-printing>*{display:none!important}
+ body.doc-printing>#docPrintHost{display:block!important}
+ .doc-print-page{page:docsheet;width:8.5in;height:11in;overflow:hidden;break-after:page}
+ .doc-print-page:last-child{break-after:auto}
+ .doc-print-page svg{display:block;width:8.5in;height:11in}
+}
 
 </style>
 </head>
@@ -1107,7 +1175,7 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2711b4c7d859';
+var ERP_BUILD='164508145722';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8177,7 +8245,7 @@ function normalizeCustomer(c,i){
   status,isProspect:customerBool(c.isProspect),customerType:customerString(c.customerType),group:customerString(c.group),area:customerString(c.area),salesRep:customerString(c.salesRep),
   accountOpenedAt:customerString(c.accountOpenedAt),notes:customerString(c.notes),internalNotes:customerString(c.internalNotes),
   taxNumber:customerString(c.taxNumber),registrationNumber:customerString(c.registrationNumber),taxExempt:customerBool(c.taxExempt),taxExemptionNumber:customerString(c.taxExemptionNumber),
-  paymentTerms:customerString(c.paymentTerms),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
+  paymentTerms:customerString(c.paymentTerms),...paymentTermsFrom(c),currency:CUSTOMER_CURRENCIES.includes(c.currency)?c.currency:'CAD',creditLimit:customerNumber(c.creditLimit),
   onHold:customerBool(c.onHold),holdReason:customerString(c.holdReason),creditApplicationDate:customerString(c.creditApplicationDate),poRequired:customerBool(c.poRequired),checkTerms:customerBool(c.checkTerms),
   defaultDeliveryMethod:customerString(c.defaultDeliveryMethod),deliverTo:customerString(c.deliverTo),fuelLevyMode:fuelMode,fuelLevyRate:customerNumber(c.fuelLevyRate),
   statementDelivery:statement,statementEmail:customerString(c.statementEmail),invoiceEmail:customerString(c.invoiceEmail),
@@ -8233,11 +8301,11 @@ function csvCell(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s
 function customerPrimaryContact(c){return c.contacts.find(x=>x.isPrimary)||c.contacts[0]||{};}
 function customerAddressByType(c,type){return c.addresses.find(x=>x.type===type&&x.isDefault)||c.addresses.find(x=>x.type===type)||{};}
 function customerCsvRows(){
- const H=['Customer ID','Account','Name','Display Name','Status','IsProspect','CustomerType','Group','Area','SalesRep','Telephone','Telephone2','Mobile','Fax1','EMail','Addressee','Post Add1','Post Add2','Post Add3','Post Add4','Post Add5','Post PC','Del Add1','Del Add2','Del Add3','Del Add4','Del Add5','Del PC','Deliver To','On Hold','Hold Reason','I.W.G','Print Statements','Email Statements','Check Terms','TAX Number','Registration','Credit Limit','Delivery Method','Fuel Levy Rate','Fuel Levy Mode','Currency','AccountOpenDate','CreditApplicationDate','PaymentTerms','PO Required','Statement Email','Invoice Email','Notes','Internal Notes','Contacts JSON','Addresses JSON','DCLink','FLID','iClassID','RepID','iAreasID','uiARDeliveryMethod','uiARCATID','AccountStatusID'];
+ const H=['Customer ID','Account','Name','Display Name','Status','IsProspect','CustomerType','Group','Area','SalesRep','Telephone','Telephone2','Mobile','Fax1','EMail','Addressee','Post Add1','Post Add2','Post Add3','Post Add4','Post Add5','Post PC','Del Add1','Del Add2','Del Add3','Del Add4','Del Add5','Del PC','Deliver To','On Hold','Hold Reason','I.W.G','Print Statements','Email Statements','Check Terms','TAX Number','Registration','Credit Limit','Delivery Method','Fuel Levy Rate','Fuel Levy Mode','Currency','AccountOpenDate','CreditApplicationDate','PaymentTerms','PO Required','Statement Email','Invoice Email','Notes','Internal Notes','Contacts JSON','Addresses JSON','DCLink','FLID','iClassID','RepID','iAreasID','uiARDeliveryMethod','uiARCATID','AccountStatusID','Payment Mode','Deposit %','Credit Days'];
  const rows=DB.customer.map(c=>{
   const p=customerPrimaryContact(c),b=customerAddressByType(c,'billing'),d=customerAddressByType(c,'delivery'),lr=c.legacyRefs||{};
   const print=['print','both'].includes(c.statementDelivery),email=['email','both'].includes(c.statementDelivery);
-  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID];
+  const vals=[c.id,c.code,c.legalName,c.displayName,c.status,c.isProspect,c.customerType,c.group,c.area,c.salesRep,p.phone,p.phone2,p.mobile,p.fax,p.email,p.name,b.address1,b.address2,b.address3,'','',b.postalCode,d.address1,d.address2,d.address3,'','',d.postalCode,c.deliverTo,c.onHold,c.holdReason,lr.iwg,print,email,c.checkTerms,c.taxNumber,c.registrationNumber,c.creditLimit==null?'':c.creditLimit,c.defaultDeliveryMethod,c.fuelLevyRate==null?'':c.fuelLevyRate,c.fuelLevyMode,c.currency,c.accountOpenedAt,c.creditApplicationDate,c.paymentTerms,c.poRequired,c.statementEmail,c.invoiceEmail,c.notes,c.internalNotes,JSON.stringify(c.contacts),JSON.stringify(c.addresses),lr.dcLink,lr.flid,lr.iClassID,lr.repID,lr.iAreasID,lr.uiARDeliveryMethod,lr.uiARCATID,lr.accountStatusID,c.paymentMode,c.depositPercent==null?'':c.depositPercent,c.creditDays==null?'':c.creditDays];
   return vals;
  });
  return [H].concat(rows);
@@ -8285,7 +8353,7 @@ function customerFromImportRow(row){
   id:rowPick(R,'Customer ID','ID'),code:rowPick(R,'Account','Customer Code','Code'),legalName:name,displayName:rowPick(R,'Display Name')||name,status:statusRaw,
   isProspect:rowPick(R,'IsProspect','Is Prospect'),customerType:rowPick(R,'CustomerType','Customer Type'),group:rowPick(R,'Group'),area:rowPick(R,'Area'),salesRep:rowPick(R,'SalesRep','Sales Rep'),
   accountOpenedAt:rowPick(R,'AccountOpenDate','Account Open Date'),notes:rowPick(R,'Notes'),internalNotes:rowPick(R,'Internal Notes'),taxNumber:rowPick(R,'TAX Number','Tax Number'),registrationNumber:rowPick(R,'Registration'),
-  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
+  paymentTerms:rowPick(R,'PaymentTerms','Payment Terms'),paymentMode:String(rowPick(R,'Payment Mode')).trim().toLowerCase(),depositPercent:rowPick(R,'Deposit %'),creditDays:rowPick(R,'Credit Days'),currency:rowPick(R,'Currency')||'CAD',creditLimit:rowPick(R,'Credit Limit'),onHold:rowPick(R,'On Hold'),holdReason:rowPick(R,'Hold Reason'),
   creditApplicationDate:rowPick(R,'CreditApplicationDate','Credit Application Date'),poRequired:rowPick(R,'PO Required'),checkTerms:rowPick(R,'Check Terms'),defaultDeliveryMethod:rowPick(R,'Delivery Method'),deliverTo:rowPick(R,'Deliver To'),
   fuelLevyMode:rowPick(R,'Fuel Levy Mode')||'default',fuelLevyRate:rowPick(R,'Fuel Levy Rate'),statementDelivery,statementEmail:rowPick(R,'Statement Email'),invoiceEmail:rowPick(R,'Invoice Email'),contacts,addresses,
   legacyRefs:{sourceSystem:'legacy-import',dcLink:rowPick(R,'DCLink'),flid:rowPick(R,'FLID'),iClassID:rowPick(R,'iClassID'),repID:rowPick(R,'RepID'),iAreasID:rowPick(R,'iAreasID'),uiARDeliveryMethod:rowPick(R,'uiARDeliveryMethod'),uiARCATID:rowPick(R,'uiARCATID'),accountStatusID:rowPick(R,'AccountStatusID'),iwg:rowPick(R,'I.W.G','IWG')}
@@ -8769,7 +8837,7 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),...paymentTermsFrom({paymentMode:o.paymentMode,depositPercent:o.depositPercent,creditDays:o.creditDays,paymentTerms:o.paymentTerms||o.terms}),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -8850,6 +8918,168 @@ function salesTemperCompatibilityWarnings(order){
  }));
  return out;
 }
+
+/* ==== src/erp/documents/company.js ==== */
+/* =====================================================================
+   erp/documents/company  ·  documents-1.0
+   Реквизиты компании для бланков заказа и наборы полей трёх бланков.
+   IN : DB.company, DB.documentSettings
+   OUT: нормализованные реквизиты; каталог полей; набор полей бланка
+   Правило: здесь нет ни расчёта цены, ни разметки листа — только данные.
+   ===================================================================== */
+
+/* Реквизиты заполняет владелец один раз (Master Data → Company). Пустые поля
+   на бланке просто не печатаются: подставлять «Street address» клиенту нельзя.
+   Депозит по умолчанию 50% — базовый процесс владельца для новых и cash-
+   клиентов (14 сентября 2026); клиенту с кредитом он не начисляется. */
+const COMPANY_DEFAULT={
+ legalName:'Infinity Glass Group Inc',address1:'',address2:'',city:'',province:'ON',postalCode:'',country:'Canada',
+ phone:'',email:'',website:'',hstNumber:'',logo:'',
+ depositPercent:50,paymentInstructions:'',termsText:'',footerText:'Thank you for your business'
+};
+/* Логотип хранится в данных картинкой JPEG: он уходит в localStorage и в
+   Export JSON, а PDF умеет вставлять JPEG как есть, без перекодирования.
+   Потолок — чтобы случайная фотография не съела место всей базы. */
+const COMPANY_LOGO_MAX_CHARS=400000;
+DEFAULT.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
+if(!DB.company||typeof DB.company!=='object'||Array.isArray(DB.company))DB.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
+
+function companyString(v,max){return String(v==null?'':v).replace(/\r\n?/g,'\n').trim().slice(0,max||200);}
+function companyPercent(v,fallback){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&n>=0&&n<=100?Math.round(n*100)/100:fallback;}
+function normalizeCompany(){
+ const c=DB.company&&typeof DB.company==='object'&&!Array.isArray(DB.company)?DB.company:{};
+ const logo=typeof c.logo==='string'&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(c.logo)&&c.logo.length<=COMPANY_LOGO_MAX_CHARS?c.logo:'';
+ /* Поля нет вовсе (старый файл) — заводское значение; поле очищено руками —
+    остаётся пустым: владелец вправе убрать подвал «Thank you for your business». */
+ const s=(k,max)=>c[k]==null?COMPANY_DEFAULT[k]:companyString(c[k],max);
+ DB.company={
+  legalName:companyString(c.legalName)||COMPANY_DEFAULT.legalName,
+  address1:s('address1'),address2:s('address2'),city:s('city',80),
+  province:s('province',40),postalCode:s('postalCode',20),country:s('country',60),
+  phone:s('phone',60),email:s('email',120),website:s('website',120),hstNumber:s('hstNumber',60),
+  logo,depositPercent:companyPercent(c.depositPercent,COMPANY_DEFAULT.depositPercent),
+  paymentInstructions:s('paymentInstructions',1200),termsText:s('termsText',4000),
+  footerText:s('footerText',160)
+ };
+}
+
+/* ---------------------------------------------------------------------
+   Условия оплаты. Владелец, 14 сентября 2026: новые и cash-клиенты платят
+   депозит (базово 50%) до начала работ, остальным даётся кредит на срок,
+   который зависит от клиента. Раньше это было свободным текстом «45 Days
+   Net» — по тексту программа не может посчитать депозит, поэтому режим и
+   число хранятся отдельно, а старый текст разбирается один раз.
+   --------------------------------------------------------------------- */
+const PAYMENT_MODES=['cash','credit'];
+function paymentTermsFrom(src){
+ src=src&&typeof src==='object'?src:{};
+ const days=v=>{const n=Math.floor(Number(v));return v!==''&&v!=null&&Number.isFinite(n)&&n>=0&&n<=365?n:null;};
+ let mode=PAYMENT_MODES.includes(src.paymentMode)?src.paymentMode:'';
+ let creditDays=days(src.creditDays);
+ if(!mode){
+  const text=String(src.paymentTerms||'');
+  const net=text.match(/net\s*(\d{1,3})|(\d{1,3})\s*days?/i);
+  if(net){mode='credit';if(creditDays==null)creditDays=days(net[1]||net[2]);}
+  else mode='cash';
+ }
+ return {paymentMode:mode,depositPercent:companyPercent(src.depositPercent,null),creditDays};
+}
+/* Пустой процент депозита значит «как у компании»: поменял базовые 50 в
+   Company — поменялось у всех клиентов, кому отдельно не назначено. */
+function paymentDepositPercent(terms){
+ if(!terms||terms.paymentMode!=='cash')return 0;
+ return terms.depositPercent!=null?terms.depositPercent:(DB.company&&DB.company.depositPercent!=null?DB.company.depositPercent:COMPANY_DEFAULT.depositPercent);
+}
+function paymentTermsLabel(terms){
+ if(!terms)return '';
+ if(terms.paymentMode==='credit')return terms.creditDays!=null?'Net '+terms.creditDays+' days':'Credit';
+ const p=paymentDepositPercent(terms);return p>0?'Cash · '+p+'% deposit':'Cash';
+}
+
+/* ---------------------------------------------------------------------
+   Бланки и их поля. Каталог один на все три бланка; у поля указано, в каких
+   бланках оно имеет смысл и включено ли в базовом наборе. Панель ✎ Customize
+   рисуется из этого списка, поэтому новое поле добавляется одной строкой.
+   --------------------------------------------------------------------- */
+const DOC_KINDS=[
+ {k:'workOrder',label:'Work order'},
+ {k:'proforma',label:'Proforma invoice'},
+ {k:'confirmation',label:'Order confirmation'}
+];
+const DOC_PRICE_MODES=[
+ {k:'full',label:'Full breakdown',hint:'every lite, cavity and service with its rate'},
+ {k:'split',label:'Glass and services separately'},
+ {k:'glass',label:'Glass price only',hint:'services named, priced in totals'},
+ {k:'unit',label:'Unit price and line total'},
+ {k:'none',label:'No prices'}
+];
+const DOC_ALL=['workOrder','proforma','confirmation'],DOC_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
+const DOC_FIELDS=[
+ {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'salesRep',g:'Header',label:'Sales rep',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'currency',g:'Header',label:'Currency',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'priority',g:'Header',label:'Priority',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'delivery',g:'Header',label:'Pickup / Delivery',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'accountCode',g:'Header',label:'Customer account code',kinds:DOC_ALL,on:[]},
+ {k:'taxNumber',g:'Header',label:'Customer tax / HST-exempt number',kinds:DOC_SALE,on:[]},
+ {k:'billTo',g:'Customer',label:'Customer address',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'contact',g:'Customer',label:'Contact name · phone · email',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'shipTo',g:'Customer',label:'Ship to / Pickup',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'mark',g:'Lines',label:'Mark',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'makeupShort',g:'Lines',label:'Makeup code and short description',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'makeupFull',g:'Lines',label:'Makeup in full',hint:'every lite, coating surface, spacer, gas, sealant',kinds:DOC_ALL,on:[]},
+ {k:'size',g:'Lines',label:'Size W × H',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'thickness',g:'Lines',label:'Overall unit thickness',kinds:DOC_ALL,on:[]},
+ {k:'shapeDrawing',g:'Lines',label:'Shape drawing',hint:'small drawing next to shaped lines',kinds:DOC_ALL,on:[]},
+ {k:'billableArea',g:'Lines',label:'Billable area',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'actualArea',g:'Lines',label:'Actual area',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'weight',g:'Lines',label:'Weight per unit / per line',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'route',g:'Production',label:'Route by station',kinds:DOC_SHOP,on:DOC_SHOP},
+ {k:'cutSize',g:'Production',label:'Cut size at CUT',kinds:DOC_SHOP,on:DOC_SHOP},
+ {k:'cavities',g:'Production',label:'Cavity details',hint:'spacer, gas, sealants',kinds:DOC_SHOP,on:DOC_SHOP},
+ {k:'basisRate',g:'Prices on lines',label:'Basis and rate columns',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'perFt2',g:'Prices on lines',label:'Glass price per ft²',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'serviceNames',g:'Prices on lines',label:'Service names under each line',hint:'when services are not itemised',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
+ {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
+ {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_SALE,on:['proforma']},
+ {k:'notes',g:'Bottom',label:'Order notes',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'termsText',g:'Bottom',label:'Terms and conditions',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation']}
+];
+function docKindLabel(kind){const d=DOC_KINDS.find(x=>x.k===kind);return d?d.label:'Document';}
+function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind));}
+function docBaseOptions(kind){
+ const o={};docFieldsFor(kind).forEach(f=>{o[f.k]=f.on.includes(kind);});
+ if(DOC_SALE.includes(kind))o.priceMode='full';
+ return o;
+}
+/* Сохранённый набор хранит только известные поля своего бланка: поле, которое
+   убрали из каталога, не тянется за данными, а новое получает базовое значение. */
+function docCleanOptions(kind,raw){
+ const base=docBaseOptions(kind),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{},o={};
+ Object.keys(base).forEach(k=>{
+  if(k==='priceMode')o[k]=DOC_PRICE_MODES.some(m=>m.k===src[k])?src[k]:base[k];
+  else o[k]=typeof src[k]==='boolean'?src[k]:base[k];
+ });
+ return o;
+}
+DEFAULT.documentSettings={};
+if(!DB.documentSettings||typeof DB.documentSettings!=='object'||Array.isArray(DB.documentSettings))DB.documentSettings={};
+function normalizeDocumentSettings(){
+ const src=DB.documentSettings&&typeof DB.documentSettings==='object'&&!Array.isArray(DB.documentSettings)?DB.documentSettings:{},out={};
+ DOC_KINDS.forEach(d=>{if(src[d.k])out[d.k]=docCleanOptions(d.k,src[d.k]);});
+ DB.documentSettings=out;
+}
+function docDefaultOptions(kind){return docCleanOptions(kind,DB.documentSettings&&DB.documentSettings[kind]);}
+function normalizeDocuments(){normalizeCompany();normalizeDocumentSettings();}
 
 /* ==== src/erp/icons.js ==== */
 /* =====================================================================
@@ -9230,7 +9460,7 @@ function customerRow(c){
  const statusClass=c.status==='archived'?'warn':c.status==='inactive'?'info':'ok';
  return `<tr><td class="mono"><b>${raw(c.code||'—')}</b></td><td><b>${raw(c.displayName||c.legalName)}</b><div class="mut">${raw(c.legalName!==c.displayName?c.legalName:'')}</div></td>
   <td>${p.name?`<b>${raw(p.name)}</b><div class="mut">${raw(p.phone||p.mobile||'')} ${p.email?'· '+raw(p.email):''}</div>`:'<span class="mut">—</span>'}</td>
-  <td>${raw(c.paymentTerms||'—')}<div class="mut">${esc(c.currency)} · ${raw(c.defaultDeliveryMethod||'—')}</div></td>
+  <td>${raw(paymentTermsLabel(c))}<div class="mut">${esc(c.currency)} · ${raw(c.defaultDeliveryMethod||'—')}</div></td>
   <td>${c.creditLimit==null?'<span class="mut">—</span>':`<span class="mono">${esc(c.currency)} ${esc(c.creditLimit.toLocaleString('en-CA',{maximumFractionDigits:2}))}</span>`}<div>${hold}</div></td>
   <td><span class="pill ${statusClass}">${customerStatusLabel(c.status)}</span> ${prospect}</td>
   <td class="customer-row-actions"><button class="sm" onclick="customerEdit('${esc(c.id)}')">Open</button><button class="sm" onclick="customerDuplicate('${esc(c.id)}')">Duplicate</button><button class="sm" onclick="customerToggleArchive('${esc(c.id)}')">${c.status==='archived'?'Restore':'Archive'}</button><button class="sm dl" onclick="customerDelete('${esc(c.id)}')">×</button></td></tr>`;
@@ -9262,7 +9492,7 @@ function customerContactsForm(){const c=cDraft;return `<div class="section-title
 function customerAddContact(){cDraft.contacts.push(normalizeCustomerContact({}));render();}function customerRemoveContact(i){cDraft.contacts.splice(i,1);render();}function customerContactFlag(i,k,v){if(v)cDraft.contacts.forEach((x,n)=>{if(n!==i)x[k]=false;});cDraft.contacts[i][k]=v;render();}
 function customerAddressesForm(){const c=cDraft;return `<div class="section-title"><div><h3>Addresses</h3><div class="sub">Billing and multiple delivery/job-site addresses can exist at the same time.</div></div><button class="pri" onclick="customerAddAddress()">+ Address</button></div>${c.addresses.map((x,i)=>`<div class="form customer-subrecord"><div class="customer-subrecord-head"><b>Address ${i+1}</b><button class="sm dl" onclick="customerRemoveAddress(${i})">Delete</button></div><div class="grid customer-grid-4"><div><label>Type</label><select onchange="cDraft.addresses[${i}].type=this.value"><option value="billing" ${x.type==='billing'?'selected':''}>Billing</option><option value="delivery" ${x.type==='delivery'?'selected':''}>Delivery</option><option value="other" ${x.type==='other'?'selected':''}>Other</option></select></div><div><label>Name</label><input value="${esc(x.label)}" placeholder="Main warehouse / Job Site" oninput="cDraft.addresses[${i}].label=this.value"></div><div><label>Addressee</label><input value="${esc(x.addressee)}" oninput="cDraft.addresses[${i}].addressee=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${x.isDefault?'checked':''} onchange="customerAddressDefault(${i},this.checked)"> Default</label></div><div><label>Address 1</label><input value="${esc(x.address1)}" oninput="cDraft.addresses[${i}].address1=this.value"></div><div><label>Address 2</label><input value="${esc(x.address2)}" oninput="cDraft.addresses[${i}].address2=this.value"></div><div><label>Address 3</label><input value="${esc(x.address3)}" oninput="cDraft.addresses[${i}].address3=this.value"></div><div><label>City</label><input value="${esc(x.city)}" oninput="cDraft.addresses[${i}].city=this.value"></div><div><label>Province / State</label><input value="${esc(x.province)}" oninput="cDraft.addresses[${i}].province=this.value"></div><div><label>Postal Code</label><input value="${esc(x.postalCode)}" oninput="cDraft.addresses[${i}].postalCode=this.value"></div><div><label>Country</label><input value="${esc(x.country)}" oninput="cDraft.addresses[${i}].country=this.value"></div></div></div>`).join('')||'<div class="empty">No addresses yet</div>'}`;}
 function customerAddAddress(){cDraft.addresses.push(normalizeCustomerAddress({type:'delivery',country:'Canada'}));render();}function customerRemoveAddress(i){cDraft.addresses.splice(i,1);render();}function customerAddressDefault(i,v){if(v)cDraft.addresses.forEach((x,n)=>{if(n!==i&&x.type===cDraft.addresses[i].type)x.isDefault=false;});cDraft.addresses[i].isDefault=v;render();}
-function customerCreditForm(){const c=cDraft;return `<div class="form"><h3>Credit and commercial terms</h3><div class="grid customer-grid-4"><div><label>Payment Terms</label><input value="${esc(c.paymentTerms)}" placeholder="45 Days Net" oninput="cDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="cDraft.currency=this.value">${CUSTOMER_CURRENCIES.map(x=>`<option ${c.currency===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Credit Limit</label><input type="number" step="0.01" min="0" value="${c.creditLimit==null?'':esc(c.creditLimit)}" oninput="cDraft.creditLimit=this.value"></div><div><label>Credit Application Date</label><input type="date" value="${esc(c.creditApplicationDate)}" onchange="cDraft.creditApplicationDate=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${c.onHold?'checked':''} onchange="cDraft.onHold=this.checked;render()"> On Hold</label><label class="chk"><input type="checkbox" ${c.checkTerms?'checked':''} onchange="cDraft.checkTerms=this.checked"> Check Terms</label></div><div><label>Hold Reason</label><input value="${esc(c.holdReason)}" ${c.onHold?'':'disabled'} oninput="cDraft.holdReason=this.value"></div><div><label>Delivery Method</label><input value="${esc(c.defaultDeliveryMethod)}" placeholder="Pickup / Company Truck" oninput="cDraft.defaultDeliveryMethod=this.value"></div><div><label>Deliver To</label><input value="${esc(c.deliverTo)}" oninput="cDraft.deliverTo=this.value"></div><div><label>Fuel Levy</label><select onchange="cDraft.fuelLevyMode=this.value;render()"><option value="default" ${c.fuelLevyMode==='default'?'selected':''}>Default</option><option value="custom" ${c.fuelLevyMode==='custom'?'selected':''}>Custom rate</option><option value="exempt" ${c.fuelLevyMode==='exempt'?'selected':''}>Fuel levy exempt</option></select></div><div><label>Fuel Levy Rate</label><input type="number" step="0.0001" min="0" value="${c.fuelLevyRate==null?'':esc(c.fuelLevyRate)}" ${c.fuelLevyMode==='custom'?'':'disabled'} oninput="cDraft.fuelLevyRate=this.value"></div></div></div>`;}
+function customerCreditForm(){const c=cDraft;return `<div class="form"><h3>Credit and commercial terms</h3><div class="grid customer-grid-4"><div><label>Payment</label><select onchange="cDraft.paymentMode=this.value;render()"><option value="cash" ${c.paymentMode!=='credit'?'selected':''}>Cash · deposit before production</option><option value="credit" ${c.paymentMode==='credit'?'selected':''}>Credit · pay within days</option></select></div>${c.paymentMode==='credit'?`<div><label>Credit Days</label><input type="number" min="0" max="365" step="1" value="${c.creditDays==null?'':esc(c.creditDays)}" placeholder="30" oninput="cDraft.creditDays=this.value"></div>`:`<div><label>Deposit %</label><input type="number" min="0" max="100" step="1" value="${c.depositPercent==null?'':esc(c.depositPercent)}" placeholder="${esc(DB.company.depositPercent)} · company default" oninput="cDraft.depositPercent=this.value"></div>`}<div><label>Currency</label><select onchange="cDraft.currency=this.value">${CUSTOMER_CURRENCIES.map(x=>`<option ${c.currency===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Credit Limit</label><input type="number" step="0.01" min="0" value="${c.creditLimit==null?'':esc(c.creditLimit)}" oninput="cDraft.creditLimit=this.value"></div><div><label>Credit Application Date</label><input type="date" value="${esc(c.creditApplicationDate)}" onchange="cDraft.creditApplicationDate=this.value"></div><div class="customer-checks"><label class="chk"><input type="checkbox" ${c.onHold?'checked':''} onchange="cDraft.onHold=this.checked;render()"> On Hold</label><label class="chk"><input type="checkbox" ${c.checkTerms?'checked':''} onchange="cDraft.checkTerms=this.checked"> Check Terms</label></div><div><label>Hold Reason</label><input value="${esc(c.holdReason)}" ${c.onHold?'':'disabled'} oninput="cDraft.holdReason=this.value"></div><div><label>Delivery Method</label><input value="${esc(c.defaultDeliveryMethod)}" placeholder="Pickup / Company Truck" oninput="cDraft.defaultDeliveryMethod=this.value"></div><div><label>Deliver To</label><input value="${esc(c.deliverTo)}" oninput="cDraft.deliverTo=this.value"></div><div><label>Fuel Levy</label><select onchange="cDraft.fuelLevyMode=this.value;render()"><option value="default" ${c.fuelLevyMode==='default'?'selected':''}>Default</option><option value="custom" ${c.fuelLevyMode==='custom'?'selected':''}>Custom rate</option><option value="exempt" ${c.fuelLevyMode==='exempt'?'selected':''}>Fuel levy exempt</option></select></div><div><label>Fuel Levy Rate</label><input type="number" step="0.0001" min="0" value="${c.fuelLevyRate==null?'':esc(c.fuelLevyRate)}" ${c.fuelLevyMode==='custom'?'':'disabled'} oninput="cDraft.fuelLevyRate=this.value"></div></div></div>`;}
 function customerAccountingForm(){const c=cDraft;return `<div class="form"><h3>Accounting and statements</h3><div class="grid customer-grid-4"><div><label>Statement Delivery</label><select onchange="cDraft.statementDelivery=this.value"><option value="email" ${c.statementDelivery==='email'?'selected':''}>Email</option><option value="print" ${c.statementDelivery==='print'?'selected':''}>Print</option><option value="both" ${c.statementDelivery==='both'?'selected':''}>Email + print</option><option value="none" ${c.statementDelivery==='none'?'selected':''}>Do not send</option></select></div><div><label>Statement Email</label><input type="email" value="${esc(c.statementEmail)}" oninput="cDraft.statementEmail=this.value"></div><div><label>Invoice Email</label><input type="email" value="${esc(c.invoiceEmail)}" oninput="cDraft.invoiceEmail=this.value"></div><div><label>TAX Exempt</label><label class="chk"><input type="checkbox" ${c.taxExempt?'checked':''} onchange="cDraft.taxExempt=this.checked;render()"> Tax Exempt</label></div><div><label>Tax Exemption Number</label><input value="${esc(c.taxExemptionNumber)}" ${c.taxExempt?'':'disabled'} oninput="cDraft.taxExemptionNumber=this.value"></div></div></div>`;}
 function customerLegacyForm(){const l=cDraft.legacyRefs||normalizeLegacyRefs({});cDraft.legacyRefs=l;return `<div class="note">Legacy IDs are preserved for migration and reconciliation with the old system. They are not business keys in the new ERP.</div><div class="form"><h3>Legacy / migration references</h3><div class="grid customer-grid-4"><div><label>Source System</label><input value="${esc(l.sourceSystem)}" oninput="cDraft.legacyRefs.sourceSystem=this.value"></div>${[['dcLink','DCLink'],['flid','FLID'],['iClassID','iClassID'],['repID','RepID'],['iAreasID','iAreasID'],['uiARDeliveryMethod','uiARDeliveryMethod'],['uiARCATID','uiARCATID'],['accountStatusID','AccountStatusID'],['iwg','I.W.G']].map(x=>`<div><label>${x[1]}</label><input value="${esc(l[x[0]])}" oninput="cDraft.legacyRefs.${x[0]}=this.value"></div>`).join('')}</div></div>`;}
 function saveCustomer(){
@@ -9306,7 +9536,7 @@ let salesBridge=null;
 function salesFindCustomer(id){return (DB.customer||[]).find(c=>c.id===id)||null;}
 function salesApplyCustomerDefaults(id){
  const c=salesFindCustomer(id);soDraft.customerId=id||'';if(!c)return;
- if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;if(c.currency)soDraft.currency=c.currency;
+ if(c.paymentTerms)soDraft.paymentTerms=c.paymentTerms;Object.assign(soDraft,paymentTermsFrom(c));if(c.currency)soDraft.currency=c.currency;
  const dm=String(c.defaultDeliveryMethod||'').toLowerCase();if(dm.includes('pickup'))soDraft.delivery='pickup';else if(dm)soDraft.delivery='delivery';
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
@@ -12820,6 +13050,794 @@ function salesCavitySection(c,index){
 }
 function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc('Keep every section expanded')}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div>`;}
 
+/* ==== src/erp/documents/model.js ==== */
+/* =====================================================================
+   erp/documents/model  ·  documents-1.0
+   Бланк как данные: что печатать из открытого заказа при данном наборе полей.
+   IN : вид бланка, заказ (открытый в редакторе soDraft), набор полей
+   OUT: модель листа для erp/documents/layout
+   Правило: ВСЕ деньги берутся из расчёта заказа (salesLineCommercialPrice,
+   salesOrderCommercialTotals). Бланк ничего не пересчитывает по-своему —
+   иначе цифра на бумаге однажды разошлась бы с цифрой на экране заказа.
+   ===================================================================== */
+
+const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION'};
+const DOC_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function docNum(v,digits){return Number(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
+function docMoney(v){return v==null||!Number.isFinite(+v)?'—':'$'+docNum(v,2);}
+/* Дата без часового пояса: «2026-09-28» из поля Due Date через new Date()
+   читается как полночь UTC и в Торонто превращается в 27-е. */
+function docDate(v){
+ const s=String(v||''),m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);let y,mo,d;
+ if(m){y=+m[1];mo=+m[2];d=+m[3];}
+ else{const t=new Date(s);if(!s||isNaN(t))return '';y=t.getFullYear();mo=t.getMonth()+1;d=t.getDate();}
+ return DOC_MONTHS[mo-1]?DOC_MONTHS[mo-1]+' '+d+', '+y:'';
+}
+function docTitleCase(t){return /^[A-Z0-9 +.\-]+$/.test(t)?t.toLowerCase().replace(/(^|[\s+])\S/g,x=>x.toUpperCase()):t;}
+function docAddressText(a){
+ if(!a)return '';
+ const city=[a.city,[a.province,a.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+ return [a.address1,a.address2,a.address3,city].filter(Boolean).join(', ');
+}
+function docUnitLabel(t){return ({single:'Single lite',double:'IGU',triple:'Triple IGU'})[t]||'IGU';}
+function docSize(line){const w=salesDimFrom16(line.width16),h=salesDimFrom16(line.height16);return w&&h?w+'" × '+h+'"':'';}
+function docBasis(v,unit){
+ if(unit==='in')return docNum(Math.round(v),0)+' in';
+ if(unit==='pc')return docNum(v,0)+' pc';
+ return docNum(v,1)+' '+unit;
+}
+
+/* --------------------------- Makeup словами --------------------------- */
+function docHeatCode(spec){
+ const h=mdById('heatTreatment',spec&&spec.heatTreatmentId),c=h?h.code:'';
+ return c==='FT'?(spec.heatSoak?' T+HST':' T'):c==='HS'?' HS':'';
+}
+function docHeatName(spec){
+ const h=mdById('heatTreatment',spec&&spec.heatTreatmentId);
+ return (h?h.name:'')+(spec&&spec.heatSoak?' + Heat Soak':'');
+}
+function docPaneCode(p){
+ if(p.category==='laminated'){
+  const lam=p.laminated||{},o=glassProductById(lam.outer&&lam.outer.glassProductId),i=glassProductById(lam.inner&&lam.inner.glassProductId);
+  return 'LAM '+(o?o.code:'?')+docHeatCode(lam.outer)+'+'+(i?i.code:'?')+docHeatCode(lam.inner);
+ }
+ const g=glassProductById(p.glassProductId);let s=(g?g.code:'?')+docHeatCode(p);
+ if(p.category==='spandrel')s+=' SP';else if(p.visionType==='frit')s+=' FRIT';
+ return s;
+}
+function docPaneName(p){
+ if(p.category==='laminated'){
+  const lam=p.laminated||{},o=glassProductById(lam.outer&&lam.outer.glassProductId),i=glassProductById(lam.inner&&lam.inner.glassProductId);
+  return 'Laminated '+(o?o.name:'?')+' + '+(i?i.name:'?');
+ }
+ const g=glassProductById(p.glassProductId);return g?g.name:'Glass not selected';
+}
+function docCavityCode(c){
+ const sp=mdById('spacerVariant',c.spacerVariantId),gas=mdById('gasProduct',c.gasProductId);
+ const sys=sp&&typeof SPACER_SYSTEMS!=='undefined'?SPACER_SYSTEMS.find(x=>x.system===sp.system):null;
+ return (sp?[sp.size,sys?sys.code:sp.system].filter(Boolean).join(' '):'Cavity')+(gas&&gas.code&&gas.code!=='AIR'?' '+gas.code:'');
+}
+function docCavityText(c){
+ const sp=mdById('spacerVariant',c.spacerVariantId),gas=mdById('gasProduct',c.gasProductId);
+ const seals=[c.primarySealantId,c.secondarySealantId].map(id=>{const x=mdById('sealantProduct',id);return x?x.name:'';}).filter(Boolean);
+ return [sp?sp.name:'Spacer not selected',gas?gas.name:'',seals.join(' + ')].filter(Boolean).join(' · ');
+}
+function docMakeupShort(m){
+ const bits=[];(m.panes||[]).forEach((p,i)=>{if(i&&m.cavities[i-1])bits.push(docCavityCode(m.cavities[i-1]));bits.push(docPaneCode(p));});
+ return bits.join(' / ');
+}
+function docMakeupFullLines(m){
+ const out=[];
+ (m.panes||[]).forEach((p,i)=>{
+  const lam=p.category==='laminated',g=lam?null:glassProductById(p.glassProductId);
+  let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code?' ('+g.code+')':'');
+  const heat=docHeatName(lam?(p.laminated||{}).outer:p);if(heat)s+=' · '+heat;
+  if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
+  if(lam){
+   const films=((p.laminated||{}).interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (x?x.name:'Interlayer')+(f.thicknessMm?' '+f.thicknessMm+' mm':'');});
+   if(films.length)s+=' · '+films.join(' + ');
+  }
+  if(p.category==='spandrel'){const x=mdById('spandrelProduct',p.spandrel&&p.spandrel.productId);s+=' · spandrel'+(x?' '+x.name:'');}
+  if(p.visionType==='frit'){const x=mdById('fritProduct',p.frit&&p.frit.productId);s+=' · frit'+(x?' '+x.name:'');}
+  out.push(s);
+  const c=(m.cavities||[])[i];if(c)out.push('Cavity '+(i+1)+': '+docCavityText(c));
+ });
+ return out;
+}
+
+/* Разбивка строки в цифрах: каждая сумма округляется до цента отдельно, и
+   сумма округлённых могла бы разойтись с ценой штуки на цент. Разница
+   уходит в самую крупную позицию группы — так на бланке строки всегда
+   складываются ровно в Unit price, как на счёте из бухгалтерии. */
+function docReconcile(rows,target){
+ const known=rows.filter(r=>r.value!=null);if(!known.length||target==null)return;
+ const diff=salesMoney(target-known.reduce((s,r)=>s+r.value,0));
+ if(diff!==0&&Math.abs(diff)<=0.05){const big=known.reduce((a,b)=>b.value>a.value?b:a);big.value=salesMoney(big.value+diff);}
+}
+function docIncompleteReason(p){
+ if(p.unsupportedCurrency)return 'catalog prices are in CAD';
+ if(!p.areas.valid)return 'size or shape is not valid';
+ if(p.missingMaterials)return 'glass or cavity price is missing';
+ if(p.missingServices)return p.missingServices+' service rate'+(p.missingServices>1?'s':'')+' required';
+ return 'check the line';
+}
+function docServiceRows(line){
+ return salesLineChargeRows(line).map(row=>{const st=salesChargePricingState(line,row);return {label:row.label,basis:row.basis,unit:row.unit,rate:st.effectiveRate,value:st.effectiveRate==null?null:salesMoney(row.basis*st.effectiveRate)};});
+}
+function docLineRoute(line,order){
+ try{const shape=salesShapeByRef(line.shapeRef),result=shape?ShapeModule.compute(shape):null;return salesPrintRoute(line,order,shape,result);}
+ catch(e){return null;}
+}
+function docChipText(station,opts){
+ const items=(station.items||[]).filter(Boolean);
+ if(items.length===1&&items[0]===station.name)return '';
+ if(station.code==='CUT')return opts.cutSize?items.join(', '):'';
+ return items.map(docTitleCase).join(', ');
+}
+/* Маленький чертёж — только у фигурной строки: прямоугольник 36 × 72 размером
+   в заголовке строки сказан полностью. Контур берётся из того же плана реза,
+   что и цех, а не из черновика фигуры. */
+function docLineDrawing(line,order){
+ const shape=salesShapeByRef(line.shapeRef);
+ if(!shape||(shape.type==='rectangle'&&!shapeIsDxfSource(shape)))return null;
+ try{
+  const plan=salesEffectiveCuttingPlan(line,shape,order),lite=plan&&plan.valid&&(plan.lites||[])[0];
+  const pts=lite&&lite.finishedPoints;
+  return Array.isArray(pts)&&pts.length>2?{pts:pts.map(p=>[+p[0],+p[1]])}:null;
+ }catch(e){return null;}
+}
+
+function docCompanyBlock(){
+ const c=DB.company||{};
+ const city=[c.city,[c.province,c.postalCode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+ return {name:c.legalName||'',logo:c.logo||'',lines:[[c.address1,c.address2].filter(Boolean).join(', '),city,[c.phone,c.email,c.website].filter(Boolean).join(' · '),c.hstNumber?'HST # '+c.hstNumber:''].filter(Boolean)};
+}
+
+/* ------------------------------ Строка ------------------------------ */
+function docSaleItem(model,line,index,order){
+ const opts=model.opts,mode=model.mode,m=salesMakeupById(order,line.makeupId),p=salesLineCommercialPrice(line,order),a=p.areas,q=p.qty;
+ const it=docItemBase(opts,line,index,m,q);
+ const glassLine=p.complete?salesMoney(p.materials*q):null;
+ it.amount=mode==='none'?null:mode==='glass'?docMoney(glassLine):docMoney(p.line);
+ const bits=[];
+ if(opts.billableArea&&a.valid)bits.push('Billable '+docNum(a.billable,1)+' ft² per unit');
+ if(opts.perFt2&&['split','glass','unit'].includes(mode)&&!p.missingMaterials&&a.valid)bits.push('glass '+docMoney(p.materialRate)+'/ft²');
+ if(bits.length)it.sub.push({text:bits.join(' · ')});
+ docItemDetails(it,opts,line,m,order);
+ if(!p.complete&&mode!=='none')it.sub.push({text:'Pricing incomplete — '+docIncompleteReason(p),tone:'warn'});
+ const services=docServiceRows(line),names=services.map(s=>s.label).join(', ');
+ const fmt=r=>({desc:r.desc,basis:opts.basisRate?r.basis||'':'',rate:opts.basisRate?r.rate||'':'',amount:r.value==null?(r.required?'Rate required':''):docMoney(r.value),tone:r.tone||''});
+ if(mode==='full'){
+  const mat=[],svc=[];
+  (m?m.panes:[]).forEach((pn,i)=>{
+   const rate=pn.priceOverride!=null?pn.priceOverride:salesPaneCatalogPrice(pn),heat=docHeatName(pn.category==='laminated'?(pn.laminated||{}).outer:pn);
+   mat.push({desc:'Lite '+(i+1)+' · '+docPaneName(pn)+(heat?' · '+heat:''),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesMoney(rate*a.billable),required:rate==null});
+  });
+  (m?m.cavities:[]).forEach((c,i)=>{
+   const rate=c.priceOverride!=null?c.priceOverride:salesCavityCatalogPrice(c);
+   mat.push({desc:'Cavity '+(i+1)+' · '+docCavityText(c),basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:rate==null?'':docMoney(rate),value:rate==null||!a.valid?null:salesMoney(rate*a.billable),required:rate==null});
+  });
+  services.forEach(s=>svc.push({desc:s.label,basis:docBasis(s.basis,s.unit),rate:s.rate==null?'':docMoney(s.rate),value:s.value,required:s.rate==null}));
+  if(p.complete){docReconcile(mat,p.materials);docReconcile(svc,salesMoney(p.base-p.materials));}
+  if(mat.length)it.groups.push({label:'Materials · per unit',rows:mat.map(fmt)});
+  if(svc.length)it.groups.push({label:'Processing · per unit',rows:svc.map(fmt)});
+  if(p.adjustments.length)it.groups.push({label:'Surcharges · per unit',rows:p.adjustments.map(x=>fmt({desc:x.label,basis:docMoney(x.base),rate:'+'+x.percent+'%',value:p.complete?x.amount:null,tone:'adj'}))});
+ }else if(mode==='split'){
+  const rows=[{desc:'Glass & IGU',basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:p.materials}];
+  if(services.length)rows.push({desc:'Services · '+names,value:p.complete?salesMoney(p.base-p.materials):null});
+  p.adjustments.forEach(x=>rows.push({desc:x.label,basis:docMoney(x.base),rate:'+'+x.percent+'%',value:p.complete?x.amount:null,tone:'adj'}));
+  it.groups.push({label:'',rows:rows.map(fmt)});
+ }else if(mode==='glass'){
+  it.groups.push({label:'',rows:[fmt({desc:'Glass & IGU · per unit',basis:a.valid?docNum(a.billable,1)+' ft²':'',rate:p.missingMaterials?'':docMoney(p.materialRate),value:p.missingMaterials?null:p.materials})]});
+  if(services.length||p.adjustments.length)it.note=(services.length?'Services on this line: '+names:'Surcharges on this line')+' — priced separately in totals';
+ }else if(opts.serviceNames&&services.length){
+  it.note=(mode==='unit'?'Includes: ':'Services: ')+names;
+ }
+ if(mode==='glass')it.unitRow=[{label:'Glass price per unit',value:docMoney(p.complete?p.materials:null)},{label:'×',value:String(q)},{label:'Glass total',value:docMoney(glassLine)}];
+ else if(mode!=='none')it.unitRow=[{label:'Unit price',value:docMoney(p.unit)},{label:'×',value:String(q)},{label:'Line total',value:docMoney(p.line)}];
+ return it;
+}
+function docItemBase(opts,line,index,m,q){
+ return {n:index+1,mark:opts.mark?salesString(line.mark):'',prefix:opts.makeupShort&&m?docUnitLabel(m.unitType)+' '+m.code:'',short:opts.makeupShort&&m?docMakeupShort(m):'',
+  size:opts.size?docSize(line):'',qty:'Qty '+q,amount:null,info:'',sub:[],full:[],drawing:null,groups:[],note:'',unitRow:null,lites:[],cavities:[]};
+}
+function docItemDetails(it,opts,line,m,order){
+ if(opts.thickness&&m){const mm=salesMakeupThicknessMm(m);if(mm)it.sub.push({text:'Unit thickness '+docNum(mm,1)+' mm'});}
+ if(opts.makeupFull&&m)it.full=docMakeupFullLines(m);
+ if(opts.shapeDrawing)it.drawing=docLineDrawing(line,order);
+}
+function docShopItem(model,line,index,order){
+ const opts=model.opts,m=salesMakeupById(order,line.makeupId),a=salesLineAreas(line,order),q=salesPositiveInt(line.qty,1);
+ const it=docItemBase(opts,line,index,m,q),info=[];
+ if(opts.actualArea&&a.valid)info.push(docNum(a.actual,1)+' ft²');
+ if(opts.weight){const w=salesLineWeight(line,order);info.push(w.complete?docNum(w.kg,1)+' kg/unit':'— kg');}
+ it.info=info.join(' · ');
+ docItemDetails(it,opts,line,m,order);
+ if(opts.route){
+  const r=docLineRoute(line,order);
+  ((r&&r.lites)||[]).forEach(x=>it.lites.push({label:x.label||'Glass',glass:x.glass||'',chips:(x.stations||[]).map(s=>({code:s.code,text:docChipText(s,opts)}))}));
+ }
+ if(opts.cavities&&m)(m.cavities||[]).forEach((c,k)=>it.cavities.push({label:'Cavity '+(k+1),text:docCavityText(c)}));
+ return it;
+}
+
+/* ------------------------------ Бланк ------------------------------- */
+function docBuildModel(kind,order,opts){
+ order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{});
+ const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
+ const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=paymentTermsFrom(order);
+ const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
+  company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
+  table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},
+  items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
+
+ const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
+ cell(opts.date,sale?'Date':'Order date',docDate(order.createdAt)||docDate(new Date().toISOString()));
+ cell(opts.customerPo,'Customer PO',order.customerPo);
+ cell(opts.dueDate,'Due date',docDate(order.dueDate));
+ if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
+ cell(opts.priority,'Priority',salesPriorityLabel(order.priority));
+ cell(opts.delivery,'Delivery',salesDeliveryLabel(order.delivery));
+ cell(opts.salesRep,'Sales rep',C&&C.salesRep);
+ if(sale)cell(opts.currency,'Currency',order.currency);
+ if(opts.accountCode&&C&&C.code)model.meta.push({label:'Account',value:C.code});
+ if(sale&&opts.taxNumber&&C){const t=C.taxExempt?('Exempt '+(C.taxExemptionNumber||'')).trim():C.taxNumber;if(t)model.meta.push({label:C.taxExempt?'Tax status':'Customer tax #',value:t});}
+
+ if(opts.billTo||opts.contact){
+  const lines=[];
+  if(opts.billTo&&C){const t=docAddressText(customerAddressByType(C,'billing'));if(t)lines.push(t);}
+  if(opts.contact&&C){const pc=customerPrimaryContact(C),t=[pc.name,pc.phone,pc.email].filter(Boolean).join(' · ');if(t)lines.push(t);}
+  model.boxes.push({label:sale?'Bill to':'Customer',title:C?(C.legalName||C.displayName):'No customer selected',lines});
+ }
+ if(opts.shipTo){
+  if(order.delivery==='delivery'){const ad=C?customerAddressByType(C,'delivery'):null,t=docAddressText(ad);model.boxes.push({label:'Ship to',title:(ad&&ad.addressee)||model.customerName||'Delivery',lines:[t||'Delivery address not set']});}
+  else model.boxes.push({label:'Pickup',title:'Customer pickup',lines:[]});
+ }
+
+ (order.lines||[]).forEach((l,i)=>model.items.push(sale?docSaleItem(model,l,i,order):docShopItem(model,l,i,order)));
+ if(opts.extraItems&&(order.extraItems||[]).length){
+  const priced=sale&&mode!=='none';
+  model.extra={title:sale?'Additional items':'From stock',rows:order.extraItems.map(x=>{const total=salesExtraItemLineTotal(x),unit=salesExtraItemUnitPrice(x);
+   return {name:salesExtraItemName(x),qty:'Qty '+salesPositiveInt(x.qty,1),rate:priced&&unit!=null?docMoney(unit):'',amount:priced?(total==null?'Rate required':docMoney(total)):''};})};
+ }
+
+ if(sale){
+  const t=salesOrderCommercialTotals(order),c=t.charges,money=v=>t.complete?docMoney(v):'—',left=[];
+  if(opts.paymentInstructions)left.push({label:'Payment',text:[company.paymentInstructions,'Please reference order '+number+' with your payment.'].filter(Boolean).join('\n')});
+  if(opts.notes&&order.notes)left.push({label:'Order notes',text:order.notes});
+  let rows=null,grand=null,deposit=null;
+  if(opts.totals){
+   rows=[];
+   if(opts.groupTotals||mode==='glass'){
+    const g={glass:0,services:0,surcharges:0,extra:0};
+    (order.lines||[]).forEach(l=>{const p=salesLineCommercialPrice(l,order);if(!p.complete)return;const gl=salesMoney(p.materials*p.qty),su=salesMoney((p.unit-p.base)*p.qty);g.glass+=gl;g.surcharges+=su;g.services+=salesMoney(p.line-gl-su);});
+    (order.extraItems||[]).forEach(x=>{const v=salesExtraItemLineTotal(x);if(v!=null)g.extra+=v;});
+    rows.push({label:'Glass & IGU',value:money(salesMoney(g.glass))},{label:'Services and processing',value:money(salesMoney(g.services))});
+    if(g.surcharges)rows.push({label:'Surcharges',value:money(salesMoney(g.surcharges))});
+    if(g.extra)rows.push({label:'Additional items',value:money(salesMoney(g.extra))});
+    rows.push({label:'Subtotal',value:money(t.subtotal),strong:true,sep:true});
+   }else rows.push({label:'Subtotal',value:money(t.subtotal)});
+   if(c.energy.enabled)rows.push({label:'Energy surcharge '+c.energy.rate+'%',value:money(t.energy)});
+   if(c.hst.enabled)rows.push({label:'HST '+c.hst.rate+'%',value:money(t.hst)});
+   if(c.card.enabled)rows.push({label:'Card fee '+c.card.rate+'%',value:money(t.card)});
+   if(c.delivery.enabled)rows.push({label:'Delivery',value:money(t.delivery)});
+   if(c.skidDeposit.enabled)rows.push({label:'Skid deposit',value:money(t.skidDeposit)});
+   grand={label:'Total '+order.currency,value:money(t.grand)};
+  }
+  if(opts.payment){
+   const pct=paymentDepositPercent(terms);
+   if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
+   else if(pct>0){const dep=salesMoney(t.grand*pct/100);deposit=[{label:(kind==='proforma'?'Deposit due now · ':'Deposit before production · ')+pct+'%',value:money(dep),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];}
+   else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
+  }
+  if(left.length||rows||deposit)model.end={left,rows,grand,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
+  if(opts.termsText&&company.termsText)model.terms=company.termsText;
+  if(opts.signature)model.signature='Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0?' and the deposit is received.':'.');
+  model.footerLeft=company.footerText||'';
+ }else{
+  if(opts.orderSummary){
+   let units=0,area=0,kg=0,kgKnown=true;
+   (order.lines||[]).forEach(l=>{const q=salesPositiveInt(l.qty,1),a=salesLineAreas(l,order),w=salesLineWeight(l,order);units+=q;if(a.valid)area+=a.actual*q;if(w.complete)kg+=w.lineKg;else kgKnown=false;});
+   model.summary=[{label:'Glass units',value:String(units)},{label:'Total area',value:docNum(area,1)+' ft²'},{label:'Total weight',value:kgKnown?docNum(kg,0)+' kg':'—'},{label:'Due date',value:docDate(order.dueDate)||'—'}];
+  }
+  if(opts.notes&&order.notes)model.notes=order.notes;
+  model.footerLeft='Internal · no prices';
+ }
+ model.footerRight=[company.legalName,docName+' '+number].filter(Boolean).join(' · ');
+ return model;
+}
+
+/* ==== src/erp/documents/layout.js ==== */
+/* =====================================================================
+   erp/documents/layout  ·  documents-1.0
+   Раскладка бланка на листы Letter (612 × 792 pt) и SVG для экрана и печати.
+   IN : модель из erp/documents/model
+   OUT: листы — списки простых фигур (текст, прямоугольник, линия, контур,
+        картинка) в пунктах; из них рисуются и SVG, и PDF.
+   Правило: одна раскладка на всё. Preview, Print и PDF для письма рисуются из
+   одних и тех же листов, поэтому переносы строк и страниц совпадают везде.
+   ===================================================================== */
+
+const DOC_PAGE={w:612,h:792,left:36,right:576,top:34,bottom:748,footer:764};
+const DOC_COL={item:44,desc:62,chips:175,basis:452,rate:504,amount:568};
+const DOC_COLOR={ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
+
+/* Ширины знаков Helvetica и Helvetica-Bold в тысячных кегля, коды 32…255 в
+   кодировке WinAnsi, по два знака base36 на символ. Это метрика самих шрифтов
+   PDF: по ней любой просмотрщик ставит буквы, и по ней же здесь считаются
+   переносы и выравнивание вправо. Измерено 14 сентября 2026 и сверено с
+   эталоном (пробел 278, a 556, m 833, W 944, жирная A 722). */
+const DOC_WIDTHS36={
+ regular:'7q7q9vfgfgopij5b9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg7q7qg8g8g8fgs7ijijk2k2ijgzlmk27qdwijfgn5k2lmijlmk2ijgzk2ijq8ijijgz7q7q7qd1fg99fgfgdwfgfg7qfgfg6666dw66n5fgfgfgfg99dw7qfgdwk2dwdwdw9a789ag800ko0066fg99rsfgfg99rsij99rs00gz0000666699999qfgrs99rsdw99q800dwij7q99fgfgfgfg78fg99khaafgg800kh99b4f9999999g0ex7q9999a5fgn6n6n6gzijijijijijijrsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopdwfgfgfgfg7q7q7q7qfgfgfgfgfgfgfgf9gzfgfgfgfgdwfgdw',
+ bold:'7q99d6fgfgopk26m9999atg87q997q7qfgfgfgfgfgfgfgfgfgfg9999g8g8g8gzr3k2k2k2k2ijgzlmk27qfgk2gzn5k2lmijlmk2ijgzk2ijq8ijijgz997q99g8fg99fggzfggzfg99gzgz7q7qfg7qopgzgzgzgzatfg99gzfglmfgfgdwat7satg800ko007qfgdwrsfgfg99rsij99rs00gz00007q7qdwdw9qfgrs99rsfg99q800dwij7q99fgfgfgfg7sfg99khaafgg800kh99b4f9999999g0fg7q9999a5fgn6n6n6gzk2k2k2k2k2k2rsk2ijijijij7q7q7q7qk2k2lmlmlmlmlmg8lmk2k2k2k2ijijgzfgfgfgfgfgfgopfgfgfgfgfg7q7q7q7qgzgzgzgzgzgzgzf9gzgzgzgzgzfggzfg'
+};
+/* Коды 128…159 WinAnsi — типографские знаки; остальное совпадает с Latin-1. */
+const DOC_WIN_HIGH={128:0x20AC,130:0x201A,131:0x192,132:0x201E,133:0x2026,134:0x2020,135:0x2021,136:0x2C6,137:0x2030,138:0x160,139:0x2039,140:0x152,142:0x17D,145:0x2018,146:0x2019,147:0x201C,148:0x201D,149:0x2022,150:0x2013,151:0x2014,152:0x2DC,153:0x2122,154:0x161,155:0x203A,156:0x153,158:0x17E,159:0x178};
+const DOC_UNICODE_TO_WIN=(()=>{const m={};Object.keys(DOC_WIN_HIGH).forEach(k=>{m[DOC_WIN_HIGH[k]]=+k;});return m;})();
+/* Знаки, которых в шрифте PDF нет, заменяются близкими — дюйм программа пишет
+   двойным штрихом ″, а на бланке он становится обычной кавычкой. */
+const DOC_TEXT_SUBST={'″':'"','′':"'",'→':'->','←':'<-','≤':'<=','≥':'>=','−':'-',' ':' ',' ':' ',' ':' ','✓':'v','\t':' '};
+let docWidthTable=null;
+function docWidths(){
+ if(!docWidthTable){const dec=s=>{const a=[];for(let i=0;i<s.length;i+=2)a.push(parseInt(s.slice(i,i+2),36));return a;};docWidthTable={r:dec(DOC_WIDTHS36.regular),b:dec(DOC_WIDTHS36.bold)};}
+ return docWidthTable;
+}
+function docWinCode(ch){const u=ch.charCodeAt(0);if((u>=32&&u<127)||(u>=160&&u<=255))return u;return DOC_UNICODE_TO_WIN[u]||0;}
+function docText(s){
+ let out='';
+ for(const ch of String(s==null?'':s).replace(/\r\n?/g,'\n')){
+  if(ch==='\n'||docWinCode(ch)){out+=ch;continue;}
+  out+=Object.prototype.hasOwnProperty.call(DOC_TEXT_SUBST,ch)?DOC_TEXT_SUBST[ch]:'?';
+ }
+ return out;
+}
+function docTextWidth(s,size,bold,ls){
+ const t=docWidths()[bold?'b':'r'];let w=0,n=0;
+ for(const ch of docText(s)){if(ch==='\n')continue;const c=docWinCode(ch);w+=(c>=32?t[c-32]:0)||556;n++;}
+ return w*(size||8)/1000+(ls||0)*n;
+}
+function docWrap(s,size,bold,maxW){
+ const out=[];
+ docText(s).split('\n').forEach(par=>{
+  let line='';
+  par.split(/ +/).forEach(word=>{
+   const cand=line?line+' '+word:word;
+   if(docTextWidth(cand,size,bold)<=maxW){line=cand;return;}
+   if(line)out.push(line);
+   /* Слово длиннее строки режется по буквам, иначе вылезло бы за поле. */
+   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
+   line=chunk;
+  });
+  out.push(line);
+ });
+ return out;
+}
+function docFit(s,size,bold,maxW){
+ s=docText(s).replace(/\n/g,' ');if(docTextWidth(s,size,bold)<=maxW)return s;
+ while(s&&docTextWidth(s+'…',size,bold)>maxW)s=s.slice(0,-1);
+ return s+'…';
+}
+
+/* JPEG логотипа: размеры нужны раскладке (пропорции) и PDF (картинка
+   вставляется байтами как есть). */
+const docJpegCache=new Map();
+function docJpegParse(bin){
+ const b=i=>bin.charCodeAt(i)&255;
+ if(b(0)!==0xFF||b(1)!==0xD8)return null;
+ let i=2;
+ while(i+9<bin.length){
+  if(b(i)!==0xFF){i++;continue;}
+  const mk=b(i+1);
+  if(mk===0xFF){i++;continue;}
+  if(mk===0xD8||mk===0x01||(mk>=0xD0&&mk<=0xD7)){i+=2;continue;}
+  if(mk>=0xC0&&mk<=0xCF&&mk!==0xC4&&mk!==0xC8&&mk!==0xCC)return {h:b(i+5)<<8|b(i+6),w:b(i+7)<<8|b(i+8),comps:b(i+9)};
+  i+=2+(b(i+2)<<8|b(i+3));
+ }
+ return null;
+}
+function docJpegInfo(dataUrl){
+ if(docJpegCache.has(dataUrl))return docJpegCache.get(dataUrl);
+ let info=null;
+ try{const bin=atob(String(dataUrl).split(',')[1]||'');info=docJpegParse(bin);if(info&&info.w>0&&info.h>0)info.bin=bin;else info=null;}catch(e){info=null;}
+ docJpegCache.set(dataUrl,info);return info;
+}
+
+/* ------------------------------ Лист -------------------------------- */
+function docPage(){
+ const items=[];
+ return {items,
+  text(x,y,s,o){o=o||{};items.push({t:'text',x,y,s:docText(s),size:o.size||8,bold:!!o.bold,color:o.color||DOC_COLOR.ink,align:o.align||'left',ls:o.ls||0,pageLabel:!!o.pageLabel});},
+  rect(x,y,w,h,o){o=o||{};items.push({t:'rect',x,y,w,h,fill:o.fill||'',stroke:o.stroke||'',lw:o.lw||.6,r:o.r||0});},
+  line(x1,y1,x2,y2,o){o=o||{};items.push({t:'line',x1,y1,x2,y2,stroke:o.stroke||DOC_COLOR.line,lw:o.lw||.6});},
+  poly(pts,o){o=o||{};items.push({t:'poly',pts,stroke:o.stroke||DOC_COLOR.navy,lw:o.lw||.8,fill:o.fill||'',closed:o.closed!==false});},
+  img(x,y,w,h,src){items.push({t:'img',x,y,w,h,src});}
+ };
+}
+function docLabel(P,x,y,s,o){P.text(x,y,String(s).toUpperCase(),Object.assign({size:5.8,bold:true,color:DOC_COLOR.mut,ls:.6},o||{}));}
+
+function docHeader(P,m){
+ const W=DOC_PAGE,C=DOC_COLOR;let y=W.top,leftBottom=y+30;
+ if(m.company){
+  let x=W.left;
+  const logo=m.company.logo?docJpegInfo(m.company.logo):null;
+  if(logo){const h=42,w=Math.min(130,h*logo.w/logo.h);P.img(x,y,w,h,m.company.logo);x+=w+10;leftBottom=y+h;}
+  const maxW=W.right-210-x;
+  P.text(x,y+11,docFit(m.company.name,11.5,true,maxW),{size:11.5,bold:true,color:C.navy});
+  let ly=y+22;
+  m.company.lines.forEach(t=>{P.text(x,ly,docFit(t,7.4,false,maxW),{size:7.4,color:C.mut});ly+=9.4;});
+  leftBottom=Math.max(leftBottom,ly-4);
+ }
+ P.text(W.right,y+15,m.title,{size:18,bold:true,color:C.navy,align:'right'});
+ P.text(W.right,y+30,m.number,{size:10.5,bold:true,align:'right'});
+ P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,'No.',{size:8,align:'right'});
+ P.text(W.right,y+41,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
+ y=Math.max(leftBottom,y+44)+12;
+ if(m.meta.length)y=docCells(P,m.meta,y,28,7.8)+10;
+ if(m.boxes.length)y=docBoxes(P,m.boxes,y)+12;
+ return y;
+}
+function docContHeader(P,m){
+ const W=DOC_PAGE,C=DOC_COLOR,y=W.top,name=m.company?m.company.name:'';
+ if(name)P.text(W.left,y+10,docFit(name,10.5,true,300),{size:10.5,bold:true,color:C.navy});
+ P.text(W.left,y+(name?21:10),docFit([m.docName+' '+m.number,m.customerName,m.po?'PO '+m.po:''].filter(Boolean).join(' · '),7.4,false,330),{size:7.4,color:C.mut});
+ P.text(W.right,y+11,m.title,{size:12,bold:true,color:C.navy,align:'right'});
+ P.text(W.right,y+22,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
+ return y+36;
+}
+/* Ряд ячеек «подпись над значением». Ширина ячейки — по её содержимому,
+   остаток делится поровну: «Cash · 50% deposit» не режется ради «CAD». */
+function docCells(P,cells,y,h,valueSize){
+ const W=DOC_PAGE,C=DOC_COLOR,total=W.right-W.left;
+ const nat=cells.map(c=>Math.max(docTextWidth(String(c.label).toUpperCase(),5.8,true,.6),docTextWidth(c.value,valueSize,true))+16);
+ const sum=nat.reduce((a,b)=>a+b,0),widths=sum<=total?nat.map(w=>w+(total-sum)/cells.length):nat.map(w=>w*total/sum);
+ P.rect(W.left,y,total,h,{stroke:C.line,lw:.7,r:4});
+ let x=W.left;
+ cells.forEach((c,i)=>{
+  if(i)P.line(x,y,x,y+h,{stroke:C.line,lw:.5});
+  docLabel(P,x+8,y+10.5,c.label);
+  P.text(x+8,y+h-7.5,docFit(c.value,valueSize,true,widths[i]-14),{size:valueSize,bold:true});
+  x+=widths[i];
+ });
+ return y+h;
+}
+function docBoxes(P,boxes,y){
+ const W=DOC_PAGE,C=DOC_COLOR,gap=10,w=(W.right-W.left-gap*(boxes.length-1))/boxes.length;
+ const laid=boxes.map(b=>{const lines=[];b.lines.forEach(t=>docWrap(t,7.6,false,w-18).forEach(l=>lines.push(l)));return {b,lines:lines.slice(0,4),title:docFit(b.title,9,true,w-18)};});
+ const h=Math.max(...laid.map(x=>28+x.lines.length*9.6));
+ laid.forEach((x,i)=>{
+  const bx=W.left+i*(w+gap);
+  P.rect(bx,y,w,h,{fill:C.box,r:4});
+  docLabel(P,bx+9,y+10.5,x.b.label);
+  P.text(bx+9,y+22,x.title,{size:9,bold:true});
+  x.lines.forEach((l,k)=>P.text(bx+9,y+32+k*9.6,l,{size:7.6}));
+ });
+ return y+h;
+}
+function docTableHead(P,m,y){
+ const W=DOC_PAGE,C=DOC_COLOR;
+ if(m.table.amount){
+  docLabel(P,DOC_COL.item,y+6,m.table.perUnit?'Description · per unit':'Description');
+  if(m.table.basisRate){docLabel(P,DOC_COL.basis,y+6,'Basis',{align:'right'});docLabel(P,DOC_COL.rate,y+6,'Rate',{align:'right'});}
+  docLabel(P,DOC_COL.amount,y+6,'Amount',{align:'right'});
+ }else docLabel(P,DOC_COL.item,y+6,m.sale?'Lines':'Lines · route by station');
+ P.line(W.left,y+11,W.right,y+11,{stroke:C.navy,lw:1.3});
+ return y+16;
+}
+
+/* Строка заказа — набор частей, каждая со своей высотой. Страница может
+   кончиться только МЕЖДУ частями; заголовок строки держится хотя бы с первыми
+   двумя частями, а на новом листе строка получает пометку «continued». */
+function docItemParts(m,it){
+ const C=DOC_COLOR,parts=[];
+ const segs=[];
+ if(it.amount!=null)segs.push({t:it.amount,size:9,bold:true,min:56});
+ segs.push({t:it.qty,size:8});
+ if(it.size)segs.push({t:it.size,size:8.4,bold:true});
+ if(it.info)segs.push({t:it.info,size:7.6});
+ let rx=DOC_COL.amount;segs.forEach(s=>{s.x=rx;rx-=Math.max(docTextWidth(s.t,s.size,s.bold),s.min||0)+12;});
+ const markW=it.mark?docTextWidth(it.mark,9,true)+10:0,xd=60+markW;
+ const desc=[it.prefix,it.short].filter(Boolean).join(' ');
+ const lines=desc?docWrap(desc,7.8,false,Math.max(60,rx-xd)).slice(0,3):[];
+ const hb=18+Math.max(0,lines.length-1)*9.5;
+ parts.push({h:hb+7,draw(P,y){
+  const by=y+5,base=by+12.3;
+  P.rect(DOC_PAGE.left,by,DOC_PAGE.right-DOC_PAGE.left,hb,{fill:C.bar,r:3});
+  P.text(DOC_COL.item,base,String(it.n),{size:9,bold:true,color:C.navy});
+  if(it.mark)P.text(60,base,it.mark,{size:9,bold:true});
+  lines.forEach((l,k)=>{
+   if(!k&&it.prefix&&l.indexOf(it.prefix)===0){P.text(xd,base,it.prefix,{size:7.8});const rest=l.slice(it.prefix.length).trim();if(rest)P.text(xd+docTextWidth(it.prefix+' ',7.8),base,rest,{size:7.8,color:C.mut});}
+   else P.text(xd,base+k*9.5,l,{size:7.8,color:C.mut});
+  });
+  segs.forEach(s=>P.text(s.x,base,s.t,{size:s.size,bold:s.bold,align:'right'}));
+ }});
+ const textPart=(text,size,color,x,width)=>{const ls=docWrap(text,size,false,width);return {h:ls.length*(size+2)+2,draw(P,y){ls.forEach((l,k)=>P.text(x,y+size+1+k*(size+2),l,{size,color}));}};};
+ it.sub.forEach(s=>parts.push(textPart(s.text,7.2,s.tone==='warn'?C.warn:C.mut,DOC_COL.desc,DOC_COL.amount-DOC_COL.desc)));
+ it.full.forEach(t=>parts.push(textPart(t,7.2,C.ink,DOC_COL.desc,DOC_COL.amount-DOC_COL.desc)));
+ if(it.drawing)parts.push(docDrawingPart(it.drawing));
+ const descW=m.table.basisRate?DOC_COL.basis-70-DOC_COL.desc:DOC_COL.amount-80-DOC_COL.desc;
+ it.groups.forEach(g=>{
+  if(g.label)parts.push({h:11,draw(P,y){docLabel(P,DOC_COL.desc,y+9,g.label,{color:C.faint});}});
+  g.rows.forEach(r=>{
+   const ls=docWrap(r.desc,7.8,false,descW);
+   parts.push({h:3+ls.length*10,draw(P,y){
+    const base=y+8.5;
+    ls.forEach((l,k)=>P.text(DOC_COL.desc,base+k*10,l,{size:7.8,color:r.tone==='adj'?C.adj:C.ink}));
+    if(r.basis)P.text(DOC_COL.basis,base,r.basis,{size:7.8,color:C.mut,align:'right'});
+    if(r.rate)P.text(DOC_COL.rate,base,r.rate,{size:7.8,align:'right'});
+    if(r.amount)P.text(DOC_COL.amount,base,r.amount,{size:7.8,align:'right',color:r.amount==='Rate required'?C.warn:C.ink});
+   }});
+  });
+ });
+ if(it.note)parts.push(textPart(it.note,7.2,C.mut,DOC_COL.desc,DOC_COL.amount-DOC_COL.desc));
+ it.lites.forEach(l=>parts.push(docRoutePart(l)));
+ it.cavities.forEach(c=>parts.push({h:11,draw(P,y){P.text(DOC_COL.desc,y+8.5,c.label,{size:7.8,bold:true});P.text(DOC_COL.chips,y+8.5,docFit(c.text,7.6,false,DOC_COL.amount-DOC_COL.chips),{size:7.6});}}));
+ if(it.unitRow)parts.push({h:14,draw(P,y){
+  let x=DOC_COL.amount;const base=y+10;
+  it.unitRow.slice().reverse().forEach(u=>{
+   const bold=u.label!=='×';
+   P.text(x,base,u.value,{size:8,bold,align:'right'});x-=docTextWidth(u.value,8,bold)+3;
+   P.text(x,base,u.label,{size:7.8,align:'right'});x-=docTextWidth(u.label,7.8)+14;
+  });
+ }});
+ parts.push({h:8,draw(P,y){P.line(DOC_PAGE.left,y+4,DOC_PAGE.right,y+4,{stroke:C.line,lw:.5});}});
+ return parts;
+}
+function docDrawingPart(d){
+ const bw=90,bh=58;
+ return {h:bh+6,draw(P,y){
+  const xs=d.pts.map(p=>p[0]),ys=d.pts.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const s=Math.min((bw-12)/Math.max(maxX-minX,1e-6),(bh-12)/Math.max(maxY-minY,1e-6)),ox=DOC_COL.desc+(bw-(maxX-minX)*s)/2,oy=y+3+(bh-(maxY-minY)*s)/2;
+  P.rect(DOC_COL.desc,y+3,bw,bh,{fill:DOC_COLOR.box,r:3});
+  /* У фигуры ось Y смотрит вверх, у листа — вниз. */
+  P.poly(d.pts.map(p=>[ox+(p[0]-minX)*s,oy+(maxY-p[1])*s]),{stroke:DOC_COLOR.navy,lw:.9,fill:'#ffffff'});
+ }};
+}
+function docRoutePart(l){
+ const C=DOC_COLOR,chips=[];let cx=DOC_COL.chips,row=0;
+ l.chips.forEach(ch=>{
+  const w=5+docTextWidth(ch.code,6.8,true)+(ch.text?3+docTextWidth(ch.text,7.2):0)+5;
+  if(cx+w>DOC_COL.amount&&cx>DOC_COL.chips){row++;cx=DOC_COL.chips;}
+  chips.push({ch,x:cx,row,w});cx+=w+10;
+ });
+ const h=4+(row+1)*14;
+ return {h,draw(P,y){
+  P.text(DOC_COL.desc,y+11,l.label,{size:7.8,bold:true});
+  const gx=DOC_COL.desc+docTextWidth(l.label,7.8,true)+5;
+  if(l.glass)P.text(gx,y+11,docFit(l.glass,7,false,DOC_COL.chips-gx-4),{size:7,color:C.mut});
+  chips.forEach((c,i)=>{
+   const cy=y+3+c.row*14;
+   P.rect(c.x,cy,c.w,11.5,{stroke:C.chip,lw:.6,r:2.5});
+   P.text(c.x+5,cy+8.3,c.ch.code,{size:6.8,bold:true});
+   if(c.ch.text)P.text(c.x+5+docTextWidth(c.ch.code,6.8,true)+3,cy+8.3,c.ch.text,{size:7.2});
+   const next=chips[i+1];if(next&&next.row===c.row)P.text(c.x+c.w+5,cy+8.3,'›',{size:8,color:C.faint,align:'center'});
+  });
+ }};
+}
+function docExtraParts(m){
+ const C=DOC_COLOR,x=m.extra,parts=[];
+ parts.push({h:24,draw(P,y){P.rect(DOC_PAGE.left,y+5,DOC_PAGE.right-DOC_PAGE.left,17,{fill:C.bar,r:3});P.text(DOC_COL.item,y+16.5,x.title,{size:8.4,bold:true});}});
+ x.rows.forEach(r=>{
+  const priced=m.table.amount,ls=docWrap(r.name,7.8,false,(priced?DOC_COL.basis-70:DOC_COL.amount-70)-DOC_COL.item);
+  parts.push({h:3+ls.length*10,draw(P,y){
+   const base=y+8.5;
+   ls.forEach((l,k)=>P.text(DOC_COL.item,base+k*10,l,{size:7.8}));
+   P.text(priced?DOC_COL.basis:DOC_COL.amount,base,r.qty,{size:7.8,color:C.mut,align:'right'});
+   if(priced&&r.rate)P.text(DOC_COL.rate,base,r.rate,{size:7.8,align:'right'});
+   if(priced&&r.amount)P.text(DOC_COL.amount,base,r.amount,{size:7.8,align:'right',color:r.amount==='Rate required'?C.warn:C.ink});
+  }});
+ });
+ parts.push({h:8,draw(P,y){P.line(DOC_PAGE.left,y+4,DOC_PAGE.right,y+4,{stroke:C.line,lw:.5});}});
+ return parts;
+}
+function docEndBlock(m){
+ const C=DOC_COLOR,e=m.end,leftW=300,bx=376,bw=200;
+ const left=e.left.map(s=>({label:s.label,lines:docWrap(s.text,7.6,false,leftW)}));
+ const leftH=left.reduce((h,s)=>h+13+s.lines.length*10+6,0);
+ const rowsH=e.rows?e.rows.length*12+(e.rows.some(r=>r.sep)?4:0):0;
+ const boxH=e.rows?10+rowsH+(e.grand?26:0)+(e.missing?10:0)+2:0;
+ const depH=e.deposit?8+e.deposit.length*12+4:0;
+ const rightH=(boxH?boxH+(depH?8:0):0)+depH;
+ const h=12+Math.max(leftH,rightH)+6;
+ return {h,draw(P,y){
+  const y0=y+12;let ly=y0;
+  left.forEach(s=>{docLabel(P,DOC_PAGE.left,ly+6,s.label);s.lines.forEach((l,k)=>P.text(DOC_PAGE.left,ly+17+k*10,l,{size:7.6}));ly+=13+s.lines.length*10+6;});
+  let ry=y0;
+  if(boxH){
+   P.rect(bx,ry,bw,boxH,{fill:C.box,r:4});
+   let ty=ry+10;
+   e.rows.forEach(r=>{
+    if(r.sep){P.line(bx+10,ty,bx+bw-10,ty,{stroke:C.chip,lw:.5});ty+=4;}
+    P.text(bx+10,ty+8,r.label,{size:7.8,bold:!!r.strong});P.text(bx+bw-10,ty+8,r.value,{size:7.8,bold:!!r.strong,align:'right'});ty+=12;
+   });
+   if(e.grand){
+    P.line(bx+10,ty+3,bx+bw-10,ty+3,{stroke:C.navy,lw:1.2});
+    P.text(bx+10,ty+19,e.grand.label,{size:11,bold:true,color:C.navy});P.text(bx+bw-10,ty+19,e.grand.value,{size:11,bold:true,color:C.navy,align:'right'});ty+=26;
+   }
+   if(e.missing)P.text(bx+10,ty+7,e.missing,{size:6.8,color:C.warn});
+   ry+=boxH+8;
+  }
+  if(depH){
+   P.rect(bx,ry,bw,depH,{stroke:C.navy,lw:1,r:4});
+   /* Подпись занимает всё место слева от суммы; длинная («Deposit before
+      production · 50%») сперва мельчает до 7 pt и только потом режется. */
+   e.deposit.forEach((d,k)=>{
+    const base=ry+14+k*12,size=d.strong?8.8:7.4,bold=!!d.strong,room=bw-20-(d.value?docTextWidth(d.value,size,bold)+8:0);
+    let fs=size;while(fs>7&&docTextWidth(d.label,fs,bold)>room)fs=Math.round((fs-.2)*10)/10;
+    P.text(bx+10,base,docFit(d.label,fs,bold,room),{size:fs,bold});
+    if(d.value)P.text(bx+bw-10,base,d.value,{size,bold,align:'right'});
+   });
+  }
+ }};
+}
+function docParagraphParts(label,text,size){
+ const C=DOC_COLOR,parts=[{h:16,draw(P,y){docLabel(P,DOC_PAGE.left,y+13,label);}}];
+ docWrap(text,size,false,DOC_PAGE.right-DOC_PAGE.left).forEach(l=>parts.push({h:size+2.6,draw(P,y){P.text(DOC_PAGE.left,y+size,l,{size,color:size<7.5?C.mut:C.ink});}}));
+ return parts;
+}
+function docSignatureBlock(m){
+ const C=DOC_COLOR,ls=docWrap(m.signature,7.6,false,515).slice(0,2);
+ return {h:84,draw(P,y){
+  const W=DOC_PAGE,top=y+12;
+  P.rect(W.left,top,W.right-W.left,70,{stroke:C.line,lw:.7,r:4});
+  docLabel(P,W.left+10,top+12,'Customer approval');
+  ls.forEach((l,k)=>P.text(W.left+10,top+24+k*10,l,{size:7.6}));
+  [[W.left+10,W.left+200,'Name'],[W.left+220,W.left+410,'Signature'],[W.left+430,W.right-10,'Date']].forEach(s=>{P.line(s[0],top+54,s[1],top+54,{stroke:C.ink,lw:.6});P.text(s[0],top+63,s[2],{size:6.5,color:C.mut});});
+ }};
+}
+
+function docLayout(model){
+ const W=DOC_PAGE,C=DOC_COLOR,pages=[];let P=null,y=0,top=0,inTable=false;
+ const start=()=>{P=docPage();pages.push(P);y=pages.length===1?docHeader(P,model):docContHeader(P,model);if(inTable)y=docTableHead(P,model,y);top=y;};
+ const fits=h=>y+h<=W.bottom;
+ /* На свежем листе блок рисуется, даже если выше листа: иначе цикл плодил
+    бы пустые страницы. */
+ const room=h=>{if(!fits(h)&&y>top+1)start();};
+ const flow=(parts,onBreak)=>parts.forEach((part,i)=>{if(!fits(part.h)&&y>top+1){start();if(i&&onBreak)y=onBreak(P,y);}part.draw(P,y);y+=part.h;});
+ start();
+ if(model.items.length||model.extra){inTable=true;y=docTableHead(P,model,y);top=y;}
+ model.items.forEach(it=>{
+  const parts=docItemParts(model,it);
+  room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));
+  flow(parts,(pg,yy)=>{pg.text(DOC_COL.item,yy+9,'Line '+it.n+(it.mark?' · '+it.mark:'')+' (continued)',{size:7.4,color:C.mut});return yy+13;});
+ });
+ if(model.extra){const parts=docExtraParts(model);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
+ inTable=false;
+ if(model.end){const b=docEndBlock(model);room(b.h);b.draw(P,y);y+=b.h;}
+ if(model.summary){const h=44;room(h);docCells(P,model.summary,y+12,32,10.5);y+=h;}
+ if(model.notes){const parts=docParagraphParts('Order notes',model.notes,7.8);room(parts.slice(0,2).reduce((s,p)=>s+p.h,0));flow(parts);}
+ if(model.terms){const parts=docParagraphParts('Terms and conditions',model.terms,6.8);room(parts.slice(0,3).reduce((s,p)=>s+p.h,0));flow(parts);}
+ if(model.signature){const b=docSignatureBlock(model);room(b.h);b.draw(P,y);y+=b.h;}
+ const N=pages.length;
+ pages.forEach((pg,i)=>{
+  const label='Page '+(i+1)+' of '+N;
+  pg.items.forEach(x=>{if(x.pageLabel)x.s=label;});
+  pg.line(W.left,W.footer-9,W.right,W.footer-9,{stroke:C.line,lw:.5});
+  if(model.footerLeft)pg.text(W.left,W.footer,docFit(model.footerLeft,6.8,false,240),{size:6.8,color:C.faint});
+  pg.text(W.right,W.footer,[model.footerRight,label].filter(Boolean).join(' · '),{size:6.8,color:C.faint,align:'right'});
+ });
+ return pages;
+}
+
+/* ------------------------------ SVG --------------------------------- */
+function docXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function docR(v){return Math.round(v*100)/100;}
+function docPageSVG(page){
+ const out=['<svg xmlns="http://www.w3.org/2000/svg" class="doc-page-svg" viewBox="0 0 612 792" width="612" height="792" font-family="Helvetica, Arial, sans-serif">','<rect width="612" height="792" fill="#ffffff"/>'];
+ page.items.forEach(x=>{
+  if(x.t==='text'){
+   const anchor=x.align==='right'?' text-anchor="end"':x.align==='center'?' text-anchor="middle"':'';
+   out.push('<text x="'+docR(x.x)+'" y="'+docR(x.y)+'" font-size="'+x.size+'"'+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.ls?' letter-spacing="'+x.ls+'"':'')+anchor+' xml:space="preserve">'+docXml(x.s)+'</text>');
+  }else if(x.t==='rect'){
+   out.push('<rect x="'+docR(x.x)+'" y="'+docR(x.y)+'" width="'+docR(x.w)+'" height="'+docR(x.h)+'"'+(x.r?' rx="'+x.r+'"':'')+' fill="'+(x.fill||'none')+'"'+(x.stroke?' stroke="'+x.stroke+'" stroke-width="'+x.lw+'"':'')+'/>');
+  }else if(x.t==='line'){
+   out.push('<line x1="'+docR(x.x1)+'" y1="'+docR(x.y1)+'" x2="'+docR(x.x2)+'" y2="'+docR(x.y2)+'" stroke="'+x.stroke+'" stroke-width="'+x.lw+'"/>');
+  }else if(x.t==='poly'){
+   out.push('<'+(x.closed?'polygon':'polyline')+' points="'+x.pts.map(p=>docR(p[0])+','+docR(p[1])).join(' ')+'" fill="'+(x.fill||'none')+'" stroke="'+x.stroke+'" stroke-width="'+x.lw+'" stroke-linejoin="round"/>');
+  }else if(x.t==='img'){
+   out.push('<image href="'+docXml(x.src)+'" x="'+docR(x.x)+'" y="'+docR(x.y)+'" width="'+docR(x.w)+'" height="'+docR(x.h)+'" preserveAspectRatio="xMinYMid meet"/>');
+  }
+ });
+ out.push('</svg>');
+ return out.join('');
+}
+
+/* ==== src/erp/documents/pdf.js ==== */
+/* =====================================================================
+   erp/documents/pdf  ·  documents-1.0
+   PDF из листов erp/documents/layout — для письма клиенту.
+   IN : листы (текст, прямоугольники, линии, контуры, JPEG-логотип)
+   OUT: байты PDF 1.4
+   Правило: без внешних библиотек — файл программы открывается с диска. Шрифты
+   берутся стандартные Helvetica / Helvetica-Bold в кодировке WinAnsi: их не
+   нужно вкладывать в файл, а ширины букв совпадают с раскладкой.
+   ===================================================================== */
+
+function docPdfN(v){return String(Math.round(v*100)/100);}
+function docPdfColor(hex){
+ let h=String(hex||'#000000').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');
+ return [0,2,4].map(i=>docPdfN(parseInt(h.slice(i,i+2),16)/255)).join(' ');
+}
+function docPdfString(s){
+ let out='';
+ for(const ch of docText(s)){
+  if(ch==='\n')continue;
+  const c=String.fromCharCode(docWinCode(ch)||63);
+  out+=c==='\\'||c==='('||c===')'?'\\'+c:c;
+ }
+ return '('+out+')';
+}
+function docPdfDate(d){
+ d=d||new Date();const p=v=>String(v).padStart(2,'0');
+ return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+/* Прямоугольник со скруглением — четыре дуги Безье; y у PDF растёт вверх. */
+function docPdfRect(x,y,w,h,r){
+ const n=docPdfN;
+ if(!r)return n(x)+' '+n(y)+' '+n(w)+' '+n(h)+' re';
+ r=Math.min(r,w/2,h/2);const k=r*.5523;
+ return [n(x+r)+' '+n(y)+' m',n(x+w-r)+' '+n(y)+' l',n(x+w-r+k)+' '+n(y)+' '+n(x+w)+' '+n(y+r-k)+' '+n(x+w)+' '+n(y+r)+' c',
+  n(x+w)+' '+n(y+h-r)+' l',n(x+w)+' '+n(y+h-r+k)+' '+n(x+w-r+k)+' '+n(y+h)+' '+n(x+w-r)+' '+n(y+h)+' c',
+  n(x+r)+' '+n(y+h)+' l',n(x+r-k)+' '+n(y+h)+' '+n(x)+' '+n(y+h-r+k)+' '+n(x)+' '+n(y+h-r)+' c',
+  n(x)+' '+n(y+r)+' l',n(x)+' '+n(y+r-k)+' '+n(x+r-k)+' '+n(y)+' '+n(x+r)+' '+n(y)+' c','h'].join(' ');
+}
+function docPdfContent(page,imageName){
+ const H=DOC_PAGE.h,n=docPdfN,out=[];
+ page.items.forEach(x=>{
+  if(x.t==='text'){
+   const w=docTextWidth(x.s,x.size,x.bold,x.ls);let tx=x.x;
+   if(x.align==='right')tx-=w;else if(x.align==='center')tx-=w/2;
+   out.push('q BT /'+(x.bold?'F2':'F1')+' '+n(x.size)+' Tf '+docPdfColor(x.color)+' rg '+(x.ls?n(x.ls)+' Tc ':'')+'1 0 0 1 '+n(tx)+' '+n(H-x.y)+' Tm '+docPdfString(x.s)+' Tj ET Q');
+  }else if(x.t==='rect'){
+   const op=x.fill&&x.stroke?'B':x.fill?'f':'S';
+   out.push('q '+(x.fill?docPdfColor(x.fill)+' rg ':'')+(x.stroke?docPdfColor(x.stroke)+' RG '+n(x.lw)+' w ':'')+docPdfRect(x.x,H-x.y-x.h,x.w,x.h,x.r)+' '+op+' Q');
+  }else if(x.t==='line'){
+   out.push('q '+docPdfColor(x.stroke)+' RG '+n(x.lw)+' w '+n(x.x1)+' '+n(H-x.y1)+' m '+n(x.x2)+' '+n(H-x.y2)+' l S Q');
+  }else if(x.t==='poly'&&x.pts.length>1){
+   const path=x.pts.map((p,i)=>n(p[0])+' '+n(H-p[1])+(i?' l':' m')).join(' ');
+   const op=x.fill&&x.stroke?(x.closed?'b':'B'):x.fill?'f':(x.closed?'s':'S');
+   out.push('q 1 j '+(x.fill?docPdfColor(x.fill)+' rg ':'')+(x.stroke?docPdfColor(x.stroke)+' RG '+n(x.lw)+' w ':'')+path+' '+op+' Q');
+  }else if(x.t==='img'){
+   const name=imageName(x.src),info=docJpegInfo(x.src);if(!name||!info)return;
+   const s=Math.min(x.w/info.w,x.h/info.h),w=info.w*s,h=info.h*s,iy=x.y+(x.h-h)/2;
+   out.push('q '+n(w)+' 0 0 '+n(h)+' '+n(x.x)+' '+n(H-iy-h)+' cm /'+name+' Do Q');
+  }
+ });
+ return out.join('\n');
+}
+function docPdfBytes(pages,info){
+ info=info||{};
+ const objs=[],add=body=>{objs.push(body);return objs.length;};
+ const catalog=add(''),pagesId=add('');
+ const f1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+ const f2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+ const images=new Map();
+ pages.forEach(pg=>pg.items.forEach(x=>{
+  if(x.t!=='img'||images.has(x.src))return;
+  const j=docJpegInfo(x.src);if(!j)return;
+  const cs=j.comps===1?'/DeviceGray':j.comps===4?'/DeviceCMYK':'/DeviceRGB',name='Im'+(images.size+1);
+  const id=add('<< /Type /XObject /Subtype /Image /Width '+j.w+' /Height '+j.h+' /ColorSpace '+cs+' /BitsPerComponent 8 /Filter /DCTDecode /Length '+j.bin.length+' >>\nstream\n'+j.bin+'\nendstream');
+  images.set(x.src,{id,name});
+ }));
+ const xobjects=images.size?' /XObject << '+Array.from(images.values()).map(v=>'/'+v.name+' '+v.id+' 0 R').join(' ')+' >>':'';
+ const kids=pages.map(pg=>{
+  const content=docPdfContent(pg,src=>{const v=images.get(src);return v?v.name:'';});
+  const cid=add('<< /Length '+content.length+' >>\nstream\n'+content+'\nendstream');
+  return add('<< /Type /Page /Parent '+pagesId+' 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 '+f1+' 0 R /F2 '+f2+' 0 R >>'+xobjects+' >> /Contents '+cid+' 0 R >>');
+ });
+ objs[catalog-1]='<< /Type /Catalog /Pages '+pagesId+' 0 R >>';
+ objs[pagesId-1]='<< /Type /Pages /Kids ['+kids.map(k=>k+' 0 R').join(' ')+'] /Count '+kids.length+' >>';
+ const infoId=add('<< /Title '+docPdfString(info.title||'')+' /Producer (Glass ERP) /CreationDate (D:'+(info.date||docPdfDate())+') >>');
+ let out='%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';const offsets=[];
+ objs.forEach((body,i)=>{offsets.push(out.length);out+=(i+1)+' 0 obj\n'+body+'\nendobj\n';});
+ const xref=out.length;
+ out+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n'+offsets.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('');
+ out+='trailer\n<< /Size '+(objs.length+1)+' /Root '+catalog+' 0 R /Info '+infoId+' 0 R >>\nstartxref\n'+xref+'\n%%EOF\n';
+ const bytes=new Uint8Array(out.length);
+ for(let i=0;i<out.length;i++)bytes[i]=out.charCodeAt(i)&255;
+ return bytes;
+}
+
 /* ==== src/erp/views/sales.js ==== */
 /* =====================================================================
    view/sales · sales-0.3b-makeup
@@ -12839,12 +13857,12 @@ function salesOrderList(){
 function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— select Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
 function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=o.businessNumber?'Sales Order '+o.businessNumber:'New Sales Order · Auto Number',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
- return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button onclick="salesOrderClose()">Close</button><button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save Draft':'Update'}</button><button onclick="salesOpenMetrics('print')">Print</button></div></div>
- <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label><input value="${esc(o.paymentTerms)}" oninput="soDraft.paymentTerms=this.value"></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3><span class="pill warn">Draft</span>${customerFlags}</div><div class="mut mono">${esc(o.id)}</div></div><div class="sales-editor-actions"><button onclick="salesOrderClose()">Close</button><button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save Draft':'Update'}</button><button onclick="docOpen()">Documents</button></div></div>
+ <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Terms</label>${salesTermsControl(o)}</div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
  ${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. Draft can be saved; Release must remain blocked.</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div><div class="err" id="e_sales_order"></div>${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
@@ -13033,7 +14051,7 @@ function salesMetricDragStart(e,key){salesMetricDragKey=key;e.dataTransfer.effec
 function salesMetricDragEnd(e){salesMetricDragKey=null;e.currentTarget.classList.remove('dragging');}
 function salesMetricDrop(e,key){e.preventDefault();const from=salesMetricDragKey||e.dataTransfer.getData('text/plain'),order=salesOrderColumnOrder(),a=order.indexOf(from),b=order.indexOf(key);if(a<0||b<0||a===b)return;order.splice(a,1);order.splice(b,0,from);salesSetOrderColumnOrder(order);}
 function salesSetMetricColumn(context,key,on){
- if(!['screen','print'].includes(context)||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
+ if(context!=='screen'||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
  const p=salesLoadViewPrefs(),keys=salesMetricColumnsFor(context).map(c=>c.key),set=new Set(keys);
  on?set.add(key):set.delete(key);
  if(!p.profiles[p.active])p.profiles[p.active]={};
@@ -13102,8 +14120,8 @@ function salesOrderChargesPanel(){
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
- const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen','print'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span><span class="metric-required">—</span>`}</div>`;}).join('');
- return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order for screen and print save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b><b>${'Print'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen','print'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
+ const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span>`}</div>`;}).join('');
+ return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
@@ -13153,30 +14171,12 @@ function salesSaveWeightNorm(index,value,factor){
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
-/* Стоковые позиции — не в цеховом маршруте (там у двери нет производства и
-   быть не может), но в печатном ЗАКАЗЕ — обязаны быть: это коммерческий
-   документ клиенту, и он должен видеть, за что платит целиком, а не только за
-   стекло. Владелец 11 сентября: «в печати я не вижу» — пробел, а не решение. */
-function salesOrderPrintExtraRows(){
- const items=soDraft.extraItems||[];if(!items.length)return '';
- const currency=soDraft.currency||'CAD';
- return `<table class="metric-print-extra" style="margin-top:14px"><caption style="text-align:left;font-size:11px;font-weight:700;padding-bottom:6px">Additional items</caption><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th></tr></thead><tbody>${items.map(x=>{
-  const total=salesExtraItemLineTotal(x);
-  return `<tr><td>${raw(salesExtraItemName(x))}</td><td>${x.qty}</td><td>${total!=null?(total/salesPositiveInt(x.qty,1)).toFixed(2):'—'}</td><td>${total!=null?total.toFixed(2)+' '+esc(currency):'Rate required'}</td></tr>`;
- }).join('')}</tbody></table>`;
-}
-function salesOrderPrintMarkup(){
- /* Заказ без стекла — только сток — не печатает пустую таблицу стекла с одними
-    заголовками: документ клиенту, а не заготовка формы. */
- const glassTable=soDraft.lines.length?`<table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>`:'';
- return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p>${glassTable}${salesOrderPrintExtraRows()}${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
-}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',print:'Print preview',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${'Print columns'}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${'Print'}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
- return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal ${panel==='print'?'metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
+ return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
 function salesRefreshLineMetrics(line){
@@ -16664,6 +17664,7 @@ const MD_TABS=[
  {k:'works',     label:'Works'},
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
+ {k:'company',   label:'Company'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -16718,7 +17719,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -17718,6 +18719,204 @@ function mdCatDelete(id){
  mdCatEdit=null;mdCatDraft=null;touch();render();
 }
 
+/* ==== src/erp/views/documents-ui.js ==== */
+/* =====================================================================
+   views/documents-ui  ·  documents-1.0
+   Окно бланков заказа, вкладка Master Data → Company и условия оплаты в
+   шапке заказа.
+   IN : открытый заказ soDraft, DB.company, DB.documentSettings
+   OUT: Preview / Print / Email; сохранённый набор полей бланка
+   Владелец, 14 сентября 2026: панель полей открывается только карандашом
+   ✎ Customize — «а не каждый раз при открытии». Базовый набор уже отмечен,
+   большинство бланков печатаются без панели.
+   ===================================================================== */
+
+let docState=null,docLastKind='proforma';
+
+function docOpen(kind){
+ if(!soDraft)return;
+ kind=DOC_KINDS.some(d=>d.k===kind)?kind:docLastKind;
+ docState={kind,opts:docDefaultOptions(kind),panel:false,status:''};
+ render();
+}
+function docClose(){docState=null;render();}
+function docSetKind(kind){
+ if(!docState||!DOC_KINDS.some(d=>d.k===kind))return;
+ docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
+}
+function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
+/* Галочка меняет только этот показ. В заказ ничего не пишется, а набор по
+   умолчанию меняет лишь явная кнопка Save as default. */
+function docSetOption(key,value){
+ if(!docState)return;
+ const o=Object.assign({},docState.opts);
+ if(key==='priceMode')o.priceMode=value;else o[key]=!!value;
+ docState.opts=docCleanOptions(docState.kind,o);docState.status='';render();
+}
+function docResetOptions(){if(!docState)return;docState.opts=docBaseOptions(docState.kind);docState.status='Base set restored.';render();}
+function docSaveDefault(){
+ if(!docState)return;
+ DB.documentSettings=Object.assign({},DB.documentSettings,{[docState.kind]:docCleanOptions(docState.kind,docState.opts)});
+ touch();docState.status='Saved as default for every '+docKindLabel(docState.kind)+'.';render();
+}
+function docCurrentPages(){return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));}
+function docWarnings(){
+ const out=[];
+ if(!soDraft.businessNumber)out.push('Save the order to give the document its number.');
+ if(!soDraft.customerId)out.push('No customer selected.');
+ if(docState.kind!=='workOrder'){const t=salesOrderCommercialTotals(soDraft);if(!t.complete)out.push(t.missing+(t.missing>1?' items need':' item needs')+' pricing — totals are not complete.');}
+ return out.map(x=>'<span class="warn">'+esc(x)+'</span>').join('');
+}
+
+function docModal(){
+ if(!docState||!soDraft)return '';
+ let pages=[],error='';
+ try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
+ const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
+ const kinds=DOC_KINDS.map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
+ return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
+  <div class="doc-bar"><b class="doc-title">Preview · Order ${esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}</div><span class="doc-spacer"></span>
+   <button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>
+   <button type="button" onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button><button type="button" onclick="docClose()">Close</button></div>
+  ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
+  <div class="doc-body${docState.panel?' with-panel':''}"><div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>${docState.panel?docPanel():''}</div>
+ </div></div>`;
+}
+function docPanel(){
+ const kind=docState.kind,o=docState.opts,groups=[];
+ docFieldsFor(kind).forEach(f=>{let g=groups.find(x=>x.name===f.g);if(!g){g={name:f.g,fields:[]};groups.push(g);}g.fields.push(f);});
+ const hint=h=>h?'<small>'+h+'</small>':'';
+ const box=f=>`<label class="doc-opt"><input type="checkbox" data-doc-field="${f.k}" ${o[f.k]?'checked':''} onchange="docSetOption('${f.k}',this.checked)"><span>${f.label}${hint(f.hint)}</span></label>`;
+ const body=groups.map(g=>{
+  if(g.name!=='Prices on lines')return `<h4>${g.name}</h4>${g.fields.map(box).join('')}`;
+  const modes=DOC_PRICE_MODES.map(m=>`<label class="doc-opt"><input type="radio" name="docPriceMode" data-doc-price="${m.k}" ${o.priceMode===m.k?'checked':''} onchange="docSetOption('priceMode','${m.k}')"><span>${m.label}${hint(m.hint)}</span></label>`).join('');
+  return `<h4>${g.name}</h4>${modes}<div class="doc-opt-sub">${g.fields.map(box).join('')}</div>`;
+ }).join('');
+ return `<aside class="doc-panel"><div class="doc-panel-head"><b>✎ Customize · ${docKindLabel(kind)}</b><button type="button" aria-label="Close panel" onclick="docTogglePanel()">×</button></div>
+  <p class="doc-panel-sub">Base set is ticked. Changes show on the left at once and apply to this print only.</p>${body}
+  <div class="doc-panel-actions"><button type="button" onclick="docResetOptions()">Reset to base</button><button type="button" class="pri" onclick="docSaveDefault()">Save as default</button></div></aside>`;
+}
+
+/* ------------------------------ Печать ------------------------------ */
+/* Листы печатаются теми же SVG, что в Preview: один лист Letter — одна
+   страница, поля листа задаёт сам бланк (@page docsheet без полей). */
+function docPrintHost(){let h=document.getElementById('docPrintHost');if(!h){h=document.createElement('div');h.id='docPrintHost';document.body.appendChild(h);}return h;}
+function docPrintPrepare(){
+ const pages=docCurrentPages(),host=docPrintHost();
+ host.innerHTML=pages.map(pg=>`<div class="doc-print-page">${docPageSVG(pg)}</div>`).join('');
+ document.body.classList.add('doc-printing');
+ return pages.length;
+}
+function docPrintCleanup(){document.body.classList.remove('doc-printing');const h=document.getElementById('docPrintHost');if(h)h.innerHTML='';}
+function docPrint(){
+ if(!docState)return;
+ try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
+ window.addEventListener('afterprint',docPrintCleanup,{once:true});
+ setTimeout(docPrintCleanup,60000);
+ try{window.print();}catch(e){docPrintCleanup();}
+}
+
+/* ------------------------------ Email ------------------------------- */
+/* Владелец пишет клиентам из Gmail в Chrome. Программа с диска не может
+   вложить файл в чужую вкладку, поэтому PDF сохраняется в Загрузки, а Gmail
+   открывается с готовым адресом, темой и текстом — файл перетаскивается. */
+function docFileName(kind,order){return (docKindLabel(kind)+' '+(order.businessNumber||'draft')).replace(/[^A-Za-z0-9]+/g,'_')+'.pdf';}
+function docDownload(name,bytes){
+ const b=new Blob([bytes],{type:'application/pdf'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+function docEmailRecipient(){const C=salesFindCustomer(soDraft.customerId);return C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';}
+function docEmailSubject(){
+ const c=DB.company||{};
+ return [docKindLabel(docState.kind)+' '+(soDraft.businessNumber||''),soDraft.customerPo?'PO '+soDraft.customerPo:'',c.legalName].map(x=>String(x).trim()).filter(Boolean).join(' · ');
+}
+function docEmailBody(){
+ const c=DB.company||{},C=salesFindCustomer(soDraft.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
+ const lines=['Hello'+(first?' '+first:'')+',','','Please find attached '+docKindLabel(docState.kind).toLowerCase()+' '+(soDraft.businessNumber||'')+(soDraft.customerPo?' for PO '+soDraft.customerPo:'')+'.'];
+ if(docState.kind!=='workOrder'){
+  const t=salesOrderCommercialTotals(soDraft),terms=paymentTermsFrom(soDraft),pct=paymentDepositPercent(terms);
+  if(t.complete){
+   lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
+   if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
+   else if(pct>0)lines.push((docState.kind==='proforma'?'Deposit due now':'Deposit before production')+' ('+pct+'%): '+docMoney(salesMoney(t.grand*pct/100))+'.');
+  }
+  if(docState.kind==='confirmation')lines.push('Please check sizes, makeups and quantities, then sign and send the confirmation back.');
+ }
+ lines.push('','Thank you,',c.legalName||'');
+ if(c.phone)lines.push(c.phone);
+ return lines.join('\n');
+}
+function docEmailUrl(){
+ const to=docEmailRecipient();
+ return 'https://mail.google.com/mail/?view=cm&fs=1'+(to?'&to='+encodeURIComponent(to):'')+'&su='+encodeURIComponent(docEmailSubject())+'&body='+encodeURIComponent(docEmailBody());
+}
+function docEmail(){
+ if(!docState||!soDraft)return;
+ let bytes;
+ try{bytes=docPdfBytes(docCurrentPages(),{title:docKindLabel(docState.kind)+' '+(soDraft.businessNumber||'draft')});}
+ catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
+ const file=docFileName(docState.kind,soDraft),to=docEmailRecipient();
+ docDownload(file,bytes);
+ const win=window.open(docEmailUrl(),'_blank');
+ docState.status='PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.');
+ render();
+}
+
+/* ----------------------- Условия в шапке заказа ---------------------- */
+function salesTermsControl(o){
+ const t=paymentTermsFrom(o),credit=t.paymentMode==='credit';
+ const value=credit?(t.creditDays==null?'':t.creditDays):(t.depositPercent==null?'':t.depositPercent);
+ return `<div class="sales-terms"><select aria-label="Payment terms" onchange="salesSetPaymentMode(this.value)"><option value="cash" ${credit?'':'selected'}>Cash</option><option value="credit" ${credit?'selected':''}>Credit</option></select><input type="number" min="0" max="${credit?365:100}" step="1" aria-label="${credit?'Credit days':'Deposit percent'}" value="${esc(value)}" placeholder="${credit?'30':esc(DB.company.depositPercent)}" oninput="salesSetPaymentNumber(this.value)"><span>${credit?'days':'% dep.'}</span></div>`;
+}
+function salesSetPaymentMode(v){if(!soDraft)return;soDraft.paymentMode=v==='credit'?'credit':'cash';render();}
+function salesSetPaymentNumber(v){if(!soDraft)return;soDraft[soDraft.paymentMode==='credit'?'creditDays':'depositPercent']=v===''?null:v;}
+
+/* -------------------------- Master Data → Company -------------------- */
+function viewMdCompany(){
+ const c=DB.company;
+ const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
+  return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
+ return `<div class="sub">Company details for Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
+ <div class="doc-company">
+  <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
+   <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
+   <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG. Resized for printing and saved with the data.</small></div>
+  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
+ </div>`;
+}
+function companySet(k,v){
+ if(!DB.company||!Object.prototype.hasOwnProperty.call(COMPANY_DEFAULT,k)||k==='logo')return;
+ DB.company[k]=v;normalizeCompany();touch();render();
+}
+function companyRemoveLogo(){DB.company.logo='';touch();render();}
+/* Логотип приводится к JPEG не больше 900 × 300 точек на белом фоне: у PNG
+   прозрачность в JPEG стала бы чёрной, а крупная фотография съела бы место
+   всей базы в браузере. */
+function companyLogoJpeg(img){
+ const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h)return '';
+ const s=Math.min(1,900/w,300/h),cw=Math.max(1,Math.round(w*s)),ch=Math.max(1,Math.round(h*s));
+ const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
+ const g=cv.getContext('2d');g.fillStyle='#ffffff';g.fillRect(0,0,cw,ch);g.drawImage(img,0,0,cw,ch);
+ try{return cv.toDataURL('image/jpeg',.9);}catch(e){return '';}
+}
+function companyLogoUpload(input){
+ const file=input.files&&input.files[0];input.value='';if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  const img=new Image();
+  img.onload=()=>{
+   const url=companyLogoJpeg(img);if(!url){alert('This image could not be used as a logo.');return;}
+   DB.company.logo=url;normalizeCompany();
+   if(!DB.company.logo)alert('The logo is too large even after resizing. Use a simpler image.');
+   touch();render();
+  };
+  img.onerror=()=>alert('This file is not an image the browser can read.');
+  img.src=reader.result;
+ };
+ reader.readAsDataURL(file);
+}
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -17847,7 +19046,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
- if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates();
+ if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
