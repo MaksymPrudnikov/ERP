@@ -103,10 +103,11 @@ module.exports=async function({page,eq,ok}){
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:c.id,amount:200,allocations:[{orderId:soDraft.id,amount:200}]}));
   const oldConfirm=window.confirm;let msg='';window.confirm=m=>{msg=m;return true;};
   salesCancelOrder();
-  const r={msg:/\$200\.00 go back/.test(msg),cancelled:soDraft.status,deposit:finCustomerDeposit(c.id),debt:finCustomerAccount(c).balanceDue,readOnly:!!document.querySelector('.sales-readonly[inert]')};
+  const r={msg:/\$200\.00 go back/.test(msg),cancelled:soDraft.status,deposit:finCustomerDeposit(c.id),debt:finCustomerAccount(c).balanceDue,readOnly:!!document.querySelector('.sales-readonly[inert]'),
+   strip:(()=>{const s=(document.querySelector('.fin-strip')||{}).textContent||'';return /not counted/.test(s)&&!/Balance due/.test(s);})(),noDepositHint:!document.querySelector('.fin-hint')};
   salesRestoreOrder();window.confirm=oldConfirm;
   r.restored=soDraft.status;return r;
- }),{msg:true,cancelled:'cancelled',deposit:200,debt:0,readOnly:true,restored:'new'});
+ }),{msg:true,cancelled:'cancelled',deposit:200,debt:0,readOnly:true,strip:true,noDepositHint:true,restored:'new'});
 
  eq('квота не долг; Convert to order — заказ со своим номером, фигуры скопированы, квота Won и только для чтения',await t.p.evaluate(()=>{
   lcCleanup();const c=lcCustomer();lcNew('quote',c);salesOrderSave();

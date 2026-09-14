@@ -217,11 +217,13 @@ function finBalancePill(b){
 }
 function salesPaymentStrip(o){
  if(!salesOrderIsSaved(o))return '<div class="fin-strip fin-strip-new">Save the order to take payments</div>';
+ /* Отменённый заказ не долг: его оплаты ушли на депозит клиента. */
+ if(!finOrderCounts(o))return '<div class="fin-strip fin-strip-new">Cancelled — not counted in the customer balance</div>';
  const b=finOrderBalance(o);
  return `<div class="fin-strip">${finBalancePill(b)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Receipt total</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${b.status==='due'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Receipts</button></div>`;
 }
 function salesDepositHint(o){
- if(!salesOrderIsSaved(o)||!o.customerId)return '';
+ if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o))return '';
  const saved=DB.salesOrder.find(x=>x.id===o.id),b=finOrderBalance(saved),dep=finCustomerDeposit(o.customerId),c=salesFindCustomer(o.customerId),out=[];
  if(dep>0&&b.status==='due')out.push(`<div class="fin-hint">${raw(finCustomerName(c))} has <b>${finFmt(dep)}</b> on account. <button type="button" class="sm" onclick="finOpenApply('${esc(o.customerId)}','${esc(o.id)}')">Apply deposit to this order</button></div>`);
  if(b.status==='overpaid')out.push(`<div class="fin-hint">Receipts exceed the saved order total by <b>${finFmt(-b.balance)}</b>. <button type="button" class="sm" onclick="finMoveOverpayment('${esc(o.id)}')">Move to deposit on account</button></div>`);
