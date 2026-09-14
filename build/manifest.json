@@ -5,7 +5,8 @@
   "src/styles/modules.css",
   "src/styles/service-sets.css",
   "src/styles/line-metrics.css",
-  "src/styles/documents.css"
+  "src/styles/documents.css",
+  "src/styles/finance.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -40,6 +41,7 @@
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
   "src/erp/documents/company.js",
+  "src/erp/finance/data.js",
   "src/erp/icons.js",
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
@@ -66,6 +68,7 @@
   "src/erp/views/production.js",
   "src/erp/views/masterdata.js",
   "src/erp/views/documents-ui.js",
+  "src/erp/views/finance.js",
   "src/erp/storage.js"
  ]
 }
