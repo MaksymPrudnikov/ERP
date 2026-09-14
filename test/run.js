@@ -1848,14 +1848,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 2], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 3], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
     await t.p.reload();
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 2]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 3]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
@@ -1869,7 +1869,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
       const w = (s, id) => s.serviceRate.find(r => r.id === id);
       return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
-    }), ['DRILL', true, 2, '']);
+    }), ['DRILL', true, 3, '']);
     await t.c.close();
 
     /* Правка номер 2: заводские примечания каталога стекла были по-русски и
@@ -1882,7 +1882,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('заводские русские примечания стекла становятся английскими, свои остаются', await t.p.evaluate(() => {
       const g = id => DB.glassProduct.find(p => p.id === id);
       return [DB.dataFix, g('GL-6LAM015').note, g('GL-6E272').note];
-    }), [2, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    }), [3, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    await t.c.close();
+
+    /* Правка номер 3: ставка Heat Soak. Пустая цена в браузере становится $5 за
+       ft²; цена, которую владелец уже вписал сам, остаётся. */
+    t = await page(JSON.stringify({ refVersion: 9, dataFix: 2, serviceRate: [
+      { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: null, unit: 'pc' }] }));
+    eq('ставка Heat Soak доходит до сохранённого браузера, своя цена остаётся', await t.p.evaluate(() => {
+      const w = DB.serviceRate.find(r => r.id === 'heat_soak');
+      const own = prepareImportedState({ refVersion: 9, dataFix: 2, serviceRate: [
+        { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: 4, unit: 'ft²' }] }).serviceRate.find(r => r.id === 'heat_soak');
+      return [DB.dataFix, w.flat, w.unit, own.flat];
+    }), [3, 5, 'ft²', 4]);
     await t.c.close();
 
     /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
@@ -5200,7 +5212,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         chargeCount:charges.length,basis:charges[0].basis,rate:charges[0].catalogRate,unit:charges[0].unit,
         glass:rows[2].glass.includes('FT + HST'),drawing:salesSheetPlyText(p.laminated.inner).includes('FT + HST')};
       soDraft=null;return out;
-    }), {labels:['Lite 1','Lite 2a','Lite 2b'],soaks:[0,0,1],order:true,chargeCount:1,basis:2500/144,rate:null,unit:'ft²',glass:true,drawing:true});
+    }), {labels:['Lite 1','Lite 2a','Lite 2b'],soaks:[0,0,1],order:true,chargeCount:1,basis:2500/144,rate:5,unit:'ft²',glass:true,drawing:true});
 
     eq('Frit first-dot setout uses the four corners and accepts zero margins', await t.p.evaluate(() => {
       const s=Object.assign(newShapeDef('rectangle'),{w:'40',h:'30'}),r=ShapeModule.compute(s);

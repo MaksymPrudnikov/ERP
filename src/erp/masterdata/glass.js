@@ -849,19 +849,23 @@ const SERVICE_RATE_SEED=[
    заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в
    цену изделия. Работами они всё равно являются: у них есть станция и момент
    маршрута, и без них путь стекла по цеху обрывается. Ставки нет — и это не
-   «цена ноль», а «отдельно не продаётся». */
+   «цена ноль», а «отдельно не продаётся».
+
+   Исключение — Heat Soak: он продаётся отдельной строкой счёта по площади
+   каждого стекла с HST. Владелец 14 сентября 2026: $5 за ft² на любую толщину.
+   Пятое и шестое поле — цена и единица; у остальных шагов их нет. */
 .concat([
  ['cutting',            'Cutting',            'CUT',  'pre_temper'],
  ['ceramic_frit',       'Ceramic Frit',       'CERP', 'pre_temper'],
  ['digital_print',      'Digital Print',      'CERP', 'pre_temper'],
  ['tempering',          'Tempering',          'HEAT', 'heat'],
  ['heat_strengthening', 'Heat Strengthening', 'HEAT', 'heat'],
- ['heat_soak',          'Heat Soak',          'HEAT', 'heat'],
+ ['heat_soak',          'Heat Soak',          'HEAT', 'heat', 5, 'ft²'],
  ['sandblasting',       'Sandblasting',       'SAND', 'any'],
  ['painting',           'Painting',           'PAINT','any'],
  ['lamination',         'Lamination',         'LAM',  'post_temper'],
  ['igu_assembly',       'IGU Assembly',       'IGU',  'post_temper']
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],kind:'flat',flat:null,unit:'pc'})));
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],station:x[2],stage:x[3],kind:'flat',flat:x[4]!=null?x[4]:null,unit:x[5]||'pc'})));
 DEFAULT.serviceRate=SERVICE_RATE_SEED;
 /* Цвета, доступные выбранному продукту: свои плюс общие (без продукта). */
 function spandrelColoursFor(productId){

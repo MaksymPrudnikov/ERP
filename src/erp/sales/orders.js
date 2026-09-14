@@ -924,7 +924,7 @@ function salesGlazingChargeRows(line,areaFt2){
   targets.forEach(function(ply,j){
    if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
    const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
-   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',null,'Makeup'));
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak'),'Makeup'));
   });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
