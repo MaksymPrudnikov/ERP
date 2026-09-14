@@ -56,7 +56,7 @@ function normalizeReceipts(){
   while(ids.has(r.id))r.id=finUid();ids.add(r.id);
   /* Разнесение живёт только на заказах того же клиента. Удалённый или чужой
      заказ возвращает деньги на депозит клиента — сумма квитанции не теряется. */
-  r.allocations=r.allocations.filter(a=>{const o=orders.get(a.orderId);return !!o&&o.customerId===r.customerId;});
+  r.allocations=r.allocations.filter(a=>{const o=orders.get(a.orderId);return !!o&&o.customerId===r.customerId&&o.kind!=='quote';});
   if(r.number&&numbers.has(r.number))r.number='';
   if(r.number)numbers.add(r.number);
   return r;
@@ -67,6 +67,8 @@ function normalizeReceipts(){
 function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
 function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r));}
+/* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
+function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled';}
 
 /* Цена строки частично читает Makeup из открытого заказа (soDraft). Сумма
    сохранённого, не открытого заказа поэтому считается с ним «на месте»
@@ -97,7 +99,7 @@ function finCustomerDeposit(customerId){
 }
 function finCustomerAccount(c){
  let due=0,dueOrders=0,incomplete=0;
- (DB.salesOrder||[]).filter(o=>o.customerId===c.id).forEach(o=>{
+ (DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).forEach(o=>{
   const b=finOrderBalance(o);
   if(b.status==='due'){due+=b.balance;dueOrders++;}else if(b.status==='incomplete')incomplete++;
  });
@@ -111,7 +113,7 @@ function finCustomerAccount(c){
    которых есть незачтённый остаток; в заказ ложится не больше его долга. */
 function finApplyDeposit(customerId,orderId,amount){
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
- if(!order||order.customerId!==customerId)return 0;
+ if(!order||order.customerId!==customerId||!finOrderCounts(order))return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;

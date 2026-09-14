@@ -80,7 +80,7 @@ function finCloseReceipt(){finEdit=null;finDraft=null;render();}
 function finFormOrders(){
  const d=finDraft;if(!d||!d.customerId)return [];
  const own=finEdit!=='new'&&(DB.receipt||[]).find(x=>x.id===finEdit)||null;
- return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId).map(o=>{
+ return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)).map(o=>{
   const b=finOrderBalance(o),mine=own&&!own.voided?((own.allocations.find(a=>a.orderId===o.id)||{}).amount||0):0;
   return {order:o,total:b.total,paid:finMoney(b.paid-mine),balance:b.balance==null?null:finMoney(b.balance+mine),status:b.status};
  }).filter(x=>x.balance!=null&&(x.balance>0||finMoney(d.apply[x.order.id]||0)>0))
@@ -88,7 +88,7 @@ function finFormOrders(){
 }
 function finFormNoPrice(){
  const d=finDraft;if(!d||!d.customerId)return 0;
- return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderBalance(o).status==='incomplete').length;
+ return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)&&finOrderBalance(o).status==='incomplete').length;
 }
 function finSummaryHTML(amount,applied){
  const left=finMoney(amount-applied);
@@ -179,7 +179,7 @@ function finShowOrder(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderI
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){
- return (DB.salesOrder||[]).filter(o=>o.customerId===customerId).map(o=>({order:o,b:finOrderBalance(o)})).filter(x=>x.b.status==='due').map(x=>({order:x.order,balance:x.b.balance}));
+ return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).map(o=>({order:o,b:finOrderBalance(o)})).filter(x=>x.b.status==='due').map(x=>({order:x.order,balance:x.b.balance}));
 }
 function finOpenApply(customerId,orderId){
  const orders=finDueOrders(customerId),dep=finCustomerDeposit(customerId),row=orders.find(x=>x.order.id===orderId)||orders[0];
@@ -217,11 +217,13 @@ function finBalancePill(b){
 }
 function salesPaymentStrip(o){
  if(!salesOrderIsSaved(o))return '<div class="fin-strip fin-strip-new">Save the order to take payments</div>';
+ /* Отменённый заказ не долг: его оплаты ушли на депозит клиента. */
+ if(!finOrderCounts(o))return '<div class="fin-strip fin-strip-new">Cancelled — not counted in the customer balance</div>';
  const b=finOrderBalance(o);
  return `<div class="fin-strip">${finBalancePill(b)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Receipt total</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${b.status==='due'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Receipts</button></div>`;
 }
 function salesDepositHint(o){
- if(!salesOrderIsSaved(o)||!o.customerId)return '';
+ if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o))return '';
  const saved=DB.salesOrder.find(x=>x.id===o.id),b=finOrderBalance(saved),dep=finCustomerDeposit(o.customerId),c=salesFindCustomer(o.customerId),out=[];
  if(dep>0&&b.status==='due')out.push(`<div class="fin-hint">${raw(finCustomerName(c))} has <b>${finFmt(dep)}</b> on account. <button type="button" class="sm" onclick="finOpenApply('${esc(o.customerId)}','${esc(o.id)}')">Apply deposit to this order</button></div>`);
  if(b.status==='overpaid')out.push(`<div class="fin-hint">Receipts exceed the saved order total by <b>${finFmt(-b.balance)}</b>. <button type="button" class="sm" onclick="finMoveOverpayment('${esc(o.id)}')">Move to deposit on account</button></div>`);
@@ -229,6 +231,7 @@ function salesDepositHint(o){
 }
 function finMoveOverpayment(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return;if(finReleaseOverpayment(o)>0)touch();render();}
 function salesListBalanceCells(o){
+ if(!finOrderCounts(o)){const t=finOrderTotals(o);return `<td class="n mut">${finFmt(t.complete?finMoney(t.grand):null)}</td><td class="n mut">—</td><td class="n mut">—</td>`;}
  const b=finOrderBalance(o);
  return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
 }

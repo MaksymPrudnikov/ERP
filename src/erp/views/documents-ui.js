@@ -42,6 +42,7 @@ function docWarnings(){
  const out=[];
  if(!soDraft.businessNumber)out.push('Save the order to give the document its number.');
  if(!soDraft.customerId)out.push('No customer selected.');
+ if(salesIsQuote(soDraft)&&docState.kind==='workOrder')out.push('This is a quote. Convert it to an order before sending a work order to the shop.');
  if(docState.kind!=='workOrder'){const t=salesOrderCommercialTotals(soDraft);if(!t.complete)out.push(t.missing+(t.missing>1?' items need':' item needs')+' pricing — totals are not complete.');}
  return out.map(x=>'<span class="warn">'+esc(x)+'</span>').join('');
 }

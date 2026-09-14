@@ -6,7 +6,8 @@
   "src/styles/service-sets.css",
   "src/styles/line-metrics.css",
   "src/styles/documents.css",
-  "src/styles/finance.css"
+  "src/styles/finance.css",
+  "src/styles/lifecycle.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -40,6 +41,7 @@
   "src/erp/masterdata/glass.js",
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
+  "src/erp/sales/lifecycle.js",
   "src/erp/documents/company.js",
   "src/erp/finance/data.js",
   "src/erp/icons.js",

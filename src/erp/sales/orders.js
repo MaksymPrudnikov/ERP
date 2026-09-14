@@ -31,8 +31,8 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(){salesMetricsPanel=null;salesExcelReset();soEdit='new';soDraft=newSalesOrderDraft();soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesMetricsPanel=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){salesMetricsPanel=null;salesExcelReset();salesDialog=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -47,12 +47,16 @@ function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;if(salesPruneOrphanShapes())touch();render();
 }
-function salesOrderSave(){
+function salesOrderSave(opts){
+ opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
  soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
  const customer=salesFindCustomer(soDraft.customerId);if(!customer)return fail(e,'Customer not found');
+ /* Строки из батча: стекло уже на резке (владелец, 15 сентября 2026). Новый
+    размер — новая строка или новый заказ, а не правка строки. */
+ if(!opts.unlock){const broken=salesLockViolations(soDraft,soEdit!=='new'?DB.salesOrder.find(x=>x.id===soEdit):null);if(broken.length)return fail(e,'Batched lines cannot change: '+broken.join('; ')+'. Add a new line or open a new order.');}
  /* Строка без размера уезжала в Draft молча и всплывала уже в цеху.
     Размер обязателен всегда — и когда введён руками, и когда пришёл из Shape. */
  const noDim=soDraft.lines.map((l,i)=>(!l.width16||!l.height16)?i+1:0).filter(Boolean);
@@ -66,12 +70,12 @@ function salesOrderSave(){
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
  if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
- if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
- soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
+ if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
+ soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
- normalizeSalesData();salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();
+ normalizeSalesData();salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
-function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this Draft Sales Order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this Draft Sales Order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
+function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
 function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
 function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey='lite-0';render();}}
@@ -242,7 +246,7 @@ function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSal
    сохранения — она вернётся, и её фигура обязана быть на месте. Такие фигуры
    убирает уборка после сохранения. Строку, которой в сохранённом заказе нет,
    можно чистить сразу. */
-function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(salesLockedLineGuard(l))return;if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 
 /* Явный +/- для раздела стекла: "+ Add Makeup" открывает GLASS/IGU MAKEUPS,
    "− Makeup" закрывает. Makeup A из soDraft.makeups[0] никогда не удаляется —
@@ -250,7 +254,7 @@ function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(l&&!salesLineInSave
    стекла, закрытие явно спросит подтверждение и снимет их — так пользователь
    не потеряет работу нажатием мимо. */
 function salesGlassSectionOpen(){soGlassOpen=true;render();}
-function salesGlassSectionClose(){
+function salesGlassSectionClose(){if((soDraft.lines||[]).some(salesLineLocked)){alert('This order has batched lines. The glass section cannot be removed.');return;}
  if(soDraft.lines.length){
   if(!confirm('Remove '+soDraft.lines.length+' glass line(s) from this order?'))return;
   soDraft.lines.forEach(l=>{salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);});
@@ -285,6 +289,7 @@ function salesExtraItemSetPrice(id,v){const x=(soDraft.extraItems||[]).find(x=>x
 function salesFocusLastWidth(){const a=document.querySelectorAll('[data-so-width]'),el=a[a.length-1];if(el&&!el.disabled){el.focus();try{el.select();}catch(e){}}}
 function salesLineDimChange(i,key,el){
  const line=soDraft.lines[i],n=salesDimTo16(el.value);
+ if(salesLineLocked(line)){render();return;}
  if(!n){line[key+'16']=null;el.classList.add('bad');salesRefreshLineMetrics(line);return;}
  line[key+'16']=n;el.value=salesDimFrom16(n);el.classList.remove('bad');
  /* Размеры появились или изменились — заводим/двигаем форму строки. */
@@ -299,7 +304,7 @@ function salesLineMarkKey(i,e){if(e.key!=='Tab'||e.shiftKey)return;const l=soDra
 function salesToggleLine(id,on){if(on)soSelectedLines.add(id);else soSelectedLines.delete(id);salesRefreshBulkBar();}
 function salesToggleAllLines(on){soSelectedLines=new Set(on?soDraft.lines.map(l=>l.id):[]);render();}
 function salesRefreshBulkBar(){const el=document.getElementById('salesBulkCount');if(el)el.textContent=soSelectedLines.size+' selected';}
-function salesAssignSelected(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;soDraft.lines.forEach(l=>{if(soSelectedLines.has(l.id))l.makeupId=makeupId;});render();}
+function salesAssignSelected(makeupId){if(!makeupId||!salesMakeupById(soDraft,makeupId))return;soDraft.lines.forEach(l=>{if(soSelectedLines.has(l.id)&&!salesLineLocked(l))l.makeupId=makeupId;});render();}
 
 /* ---------- Excel paste ----------
    Ввод — это ТАБЛИЦА с колонками Qty | Width | Height | Mark, а не текстовое
@@ -1230,7 +1235,7 @@ function salesDetachLiteShape(lineId,liteIndex){
  touch();
  return copy;
 }
-function salesReattachLiteShape(lineId,liteIndex){
+function salesReattachLiteShape(lineId,liteIndex){if(salesLockedLineGuard((soDraft.lines||[]).find(l=>l.id===lineId)))return;
  const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
  const shape=line&&salesLineLiteShape(line,liteIndex);
  if(!line||!shape)return false;
@@ -1242,7 +1247,7 @@ function salesReattachLiteShape(lineId,liteIndex){
  return true;
 }
 /* Открыть форму лайта в конфигураторе: если своей ещё нет — отделить и открыть. */
-function salesOpenLiteShape(lineId,liteIndex){
+function salesOpenLiteShape(lineId,liteIndex){if(salesLockedLineGuard((soDraft.lines||[]).find(l=>l.id===lineId)))return;
  const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
  if(!line)return;
  const shape=salesLineLiteShape(line,liteIndex)||salesDetachLiteShape(lineId,liteIndex);
@@ -1382,7 +1387,7 @@ function salesPaneAutoEdgework(pane,unitType){
 /* Тот же выбор, но для лайта КОНКРЕТНОЙ строки: окно Effective Production
    открывается из строки заказа, и makeup там может быть не тот, что выбран
    сейчас в билдере. */
-function salesLineSetLiteEdgework(lineId,paneIndex,v){
+function salesLineSetLiteEdgework(lineId,paneIndex,v){if(salesLockedLineGuard((soDraft.lines||[]).find(l=>l.id===lineId))){render();return;}
  const line=(soDraft&&soDraft.lines||[]).find(function(l){return l.id===lineId;});
  const m=line?salesMakeupById(soDraft,line.makeupId):null,p=m&&m.panes[paneIndex];
  if(!p)return;
@@ -1427,7 +1432,7 @@ function salesLineBaseEdgeworkOps(line){
  return op?[shapeNormalizeOp(op)].filter(Boolean):[];
 }
 function salesOrderConfigureShape(i){
- const line=soDraft.lines[i];if(!line)return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
+ const line=soDraft.lines[i];if(!line||salesLockedLineGuard(line))return;salesBridge={kind:'shape',lineId:line.id};tab='configurators';subtab='shape';sView='setup';sEdgeLite=null;sEdgeworkOpen=false;sFeaturesOpen=false;
  const current=salesShapeByRef(line.shapeRef);if(current){const idx=DB.shapeDef.findIndex(s=>s.id===current.id);sEdit=idx;sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(current)));}
  else{sEdit='new';sDraft=newShapeDef('rectangle');sDraft.name=(soDraft.businessNumber||'SO')+' · '+(line.mark||('Line '+(i+1)));if(line.width16)sDraft.w=salesDimFrom16(line.width16);if(line.height16)sDraft.h=salesDimFrom16(line.height16);}
  salesApplyLineGlassThicknessToShape(line,sDraft);
@@ -1445,7 +1450,7 @@ function salesBridgeOnShapeSaved(id){
  else if(line&&s)salesSyncLineFromShape(line,s);salesBridge=null;sEdit=null;sDraft=null;tab='sales';subtab='orders';touch();render();return true;}
 /* Строка без геометрии больше не существует: сброс формы возвращает простой
    прямоугольник по её же Width × Height, а не пустоту. */
-function salesUnlinkShape(i){
+function salesUnlinkShape(i){if(salesLockedLineGuard(soDraft.lines[i]))return;
  const l=soDraft.lines[i];if(!l)return;
  salesDropLineLiteShapes(l);l.liteShapes={};
  salesDropLineOwnedShape(l);

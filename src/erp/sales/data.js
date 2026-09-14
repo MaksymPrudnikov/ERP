@@ -9,7 +9,7 @@ if(!Array.isArray(DB.salesOrder))DB.salesOrder=[];
 
 const SALES_PRIORITIES=['normal','rush','critical'];
 const SALES_DELIVERY_TYPES=['pickup','delivery'];
-const SALES_ORDER_STATUSES=['draft'];
+/* Статусы квоты и заказа живут в erp/sales/lifecycle. */
 const SALES_UNIT_TYPES=['single','double','triple'];
 const SALES_LITE_CATEGORIES=['vision','spandrel','laminated'];
 const SALES_VISION_TYPES=['lowe','reflective','frit','uncoated'];
@@ -392,7 +392,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -431,13 +431,13 @@ function salesExtraItemUnitPrice(x){
 function salesExtraItemLineTotal(x){const p=salesExtraItemUnitPrice(x);return p==null?null:salesMoney(p*salesPositiveInt(x.qty,1));}
 function salesExtraItemName(x){const row=salesExtraItemRow(x.table,x.itemId);return row?row.name:'(removed from catalogue)';}
 function normalizeSalesOrder(o){
- o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',status=SALES_ORDER_STATUSES.includes(o.status)?o.status:'draft',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
+ o=o&&typeof o==='object'?o:{};const priority=SALES_PRIORITIES.includes(o.priority)?o.priority:'normal',delivery=SALES_DELIVERY_TYPES.includes(o.delivery)?o.delivery:'pickup',currency=['CAD','USD'].includes(o.currency)?o.currency:'CAD';
  let makeups=(Array.isArray(o.makeups)?o.makeups:[]).map(normalizeOrderMakeup);if(!makeups.length)makeups=[normalizeOrderMakeup({code:'A',unitType:'double'},0)];
  const muIds=new Set(),muCodes=new Set();makeups=makeups.map((m,i)=>{while(muIds.has(m.id))m.id=salesUid('MU');muIds.add(m.id);if(!m.code||muCodes.has(m.code)){m.code=salesNextMakeupCodeFromSet(muCodes);}muCodes.add(m.code);return m;});
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),status,customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -462,8 +462,8 @@ function validateSalesReferences(){
  const customers=new Set((DB.customer||[]).map(c=>c.id)),shapeIds=new Set((DB.shapeDef||[]).map(s=>s.id));
  DB.salesOrder.forEach((o,i)=>{if(o.customerId&&!customers.has(o.customerId))throw new Error('Sales Order '+(o.businessNumber||i+1)+' references a missing Customer.');const mus=new Set(o.makeups.map(m=>m.id));o.lines.forEach((l,j)=>{if(!mus.has(l.makeupId))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Makeup.');if(l.shapeRef.id&&!shapeIds.has(l.shapeRef.id))throw new Error('Sales Order '+(o.businessNumber||i+1)+', line '+(j+1)+' references a missing Shape.');});});
 }
-function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
-function newSalesOrderDraft(){const now=new Date().toISOString(),o=normalizeSalesOrder({status:'draft',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
+function nextSalesOrderNumber(){let max=76001;DB.salesOrder.forEach(o=>{if(o.kind==='quote'||/^Q-/i.test(String(o.businessNumber||'')))return;const n=+String(o.businessNumber||'').replace(/\D/g,'');if(Number.isFinite(n))max=Math.max(max,n);});return String(max+1);}
+function newSalesOrderDraft(kind){const now=new Date().toISOString(),o=normalizeSalesOrder({kind:kind==='quote'?'quote':'order',priority:'normal',branch:'Infinity Glass Group Inc',delivery:'pickup',currency:'CAD',orderCharges:SALES_ORDER_CHARGE_DEFAULTS,createdAt:now,updatedAt:now,makeups:[{code:'A',unitType:'double'}],lines:[]});o.lines.push(normalizeSalesOrderLine({makeupId:o.makeups[0].id,qty:1}));return o;}
 function salesCustomerDisplay(id){const c=(DB.customer||[]).find(x=>x.id===id);return c?(c.displayName||c.legalName||c.code):'';}
 function salesMakeupById(order,id){return (order&&order.makeups||[]).find(m=>m.id===id)||null;}
 /* Позицию каталога, на которую ссылается хоть один Makeup, удалять нельзя:
