@@ -2179,19 +2179,63 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin')
       };
     }), {hasOrders:true,hasShape:false,hasMuntin:false});
-    eq('Configurators сохраняет Shape без отдельного Muntin', await t.p.evaluate(() => {
+    /* Библиотеки фигур нет: решение владельца 31 августа и 14 сентября 2026 —
+       фигура живёт только внутри заказа. Без открытого редактора экран не
+       предлагает ни списка, ни «новой фигуры», а пункта меню у него нет. */
+    eq('Configurators не держит библиотеку фигур и не стоит в меню', await t.p.evaluate(() => {
       tab='configurators';subtab=null;render();
+      const text=document.getElementById('app').textContent;
       return {
-        hasShape:document.getElementById('app').textContent.includes('Production Shape'),
-        hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin'),
-        shapeRows:document.querySelectorAll('tbody tr').length
+        library:!!document.querySelector('.shape-saved-details'),newShape:!!document.getElementById('s_new_type'),
+        explains:text.includes('Shapes live inside order lines'),hasMuntin:text.includes('Adaptive Muntin'),
+        inMenu:NAV.some(n=>n.k==='configurators')
       };
-    }), {hasShape:true,hasMuntin:false,shapeRows:1});
+    }), {library:false,newShape:false,explains:true,hasMuntin:false,inMenu:false});
     eq('устаревшая вкладка Muntin возвращает к Shape', await t.p.evaluate(() => {
       tab='configurators';subtab='muntin';render();
       return subtab==='shape'&&!document.getElementById('app').textContent.includes('Adaptive Muntin');
     }), true);
     await t.c.close();
+
+    /* Правило «фигура живёт, пока на неё ссылается строка заказа» — на запуске.
+       Так у владельца уходят 51 проба: 18 из прежней библиотеки и 33 формы строк
+       черновиков, закрытых без сохранения. Фигура строки сохранённого заказа
+       остаётся — и общая, и форма лайта. */
+    const shapesBoot = await page(JSON.stringify({
+      shapeDef: [
+        { id: 'LIB-1', name: 'Library', type: 'rectangle', w: '20', h: '30' },
+        { id: 'DRAFT-X', name: 'Unsaved draft', type: 'rectangle', w: '20', h: '30', ownerLineId: 'LINE-GONE' },
+        { id: 'KEEP-1', name: 'Saved line', type: 'rectangle', w: '20', h: '30', ownerLineId: 'LINE-1' },
+        { id: 'KEEP-LITE', name: 'Saved lite', type: 'rectangle', w: '19', h: '29', ownerLineId: 'LINE-1' }
+      ],
+      salesOrder: [{ id: 'SO-KEEP', businessNumber: '76100', lines: [{ id: 'LINE-1', qty: 1, width16: 320, height16: 480,
+        shapeRef: { id: 'KEEP-1', revision: 0 }, liteShapes: { '1': { id: 'KEEP-LITE', revision: 0 } } }] }]
+    }));
+    eq('на запуске остаются только фигуры строк сохранённых заказов', await shapesBoot.p.evaluate(() =>
+      DB.shapeDef.map(s => s.id).sort()), ['KEEP-1', 'KEEP-LITE']);
+    await shapesBoot.c.close();
+
+    const shapesFlow = await page();
+    eq('черновик без сохранения не оставляет фигур, строка сохранённого заказа — до сохранения', await shapesFlow.p.evaluate(() => {
+      DB.customer=[{id:'CUS-SH',code:'SH',legalName:'Shapes',displayName:'Shapes',status:'active',contacts:[],addresses:[]}];
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();
+      const draftShapes=DB.shapeDef.length;
+      salesOrderClose();
+      const afterClose=DB.shapeDef.length;
+      salesOrderNew();soDraft.customerId='CUS-SH';soDraft.lines=[];
+      salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();salesOrderSave();
+      const saved=DB.shapeDef.length,id=soEdit;
+      salesOrderRemoveLine(0);
+      const removedInDraft=DB.shapeDef.length;
+      salesOrderClose();
+      const closedWithoutSave=DB.shapeDef.length;
+      salesOrderEdit(id);salesOrderRemoveLine(0);salesOrderSave();
+      const afterSave=DB.shapeDef.length;
+      salesOrderClose();
+      return {draftShapes,afterClose,saved,removedInDraft,closedWithoutSave,afterSave};
+    }), {draftShapes:2,afterClose:0,saved:2,removedInDraft:2,closedWithoutSave:2,afterSave:1});
+    await shapesFlow.c.close();
 
     const serviceSetUi = await page();
     const serviceSetIds = await serviceSetUi.p.evaluate(() => {

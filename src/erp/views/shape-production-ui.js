@@ -162,33 +162,15 @@ function shapeProdBorderField(){
   </div>`;
 }
 
-/* Configurators — рабочее место; сохранённый master-list остаётся доступен,
-   но не создаёт постоянную визуальную «свалку». */
+/* Configurators — только редактор фигуры строки заказа. Библиотеки фигур нет:
+   фигура живёт внутри заказа (решение владельца 31 августа и 14 сентября 2026),
+   а фигура, на которую не ссылается ни одна строка, убирается уборкой
+   (salesPruneOrphanShapes). Без открытого редактора экран только говорит,
+   откуда фигура берётся; пункта меню у него больше нет — сюда ведёт «+ Shape». */
 viewShapeSkill=function(){
   if(sEdit!==null)return shapeForm();
-  /* Формы, принадлежащие строкам заказа, в этот список не попадают: каждая
-     строка с размерами заводит свой прямоугольник, и двести строк сделали бы
-     список нечитаемым. Такая форма открывается из своей строки. */
-  var library=DB.shapeDef.map(function(s,i){return {s:s,i:i};}).filter(function(x){return !salesShapeIsLineOwned(x.s);});
-  var rows=library.map(function(x){
-    var s=x.s,i=x.i;
-    var r=ShapeModule.compute(s),p=shapePresetInfo(s.type),external=shapeIsDxfSource(s),featureCount=(s.features||[]).filter(function(f){return f.type!=='radius';}).length;
-    var ready=external?(r.sourceValid!==false):(r.valid!==false),state=ready?'<span class="pill ok">Ready</span>':'<span class="pill bad">'+esc(String(r&&r.reason||''))+'</span>';
-    var size=external?(r.sourceValid===false?'<span class="bad pill">Invalid</span>':dimIn16(r.width)+' × '+dimIn16(r.height)):(r.valid?dimIn16(r.width)+' × '+dimIn16(r.height):'<span class="bad pill">Invalid</span>');
-    return `<tr><td><div class='shape-name-line'><b>${raw(s.name)}</b>${external?'<span class="pill info shape-source-pill">DXF</span>':''}</div><small class='shape-row-meta'>${esc(p.code+' · '+p.label)} · Rev ${s.revision||0}</small></td><td class='mono'>${size}</td><td class='mono'>${external?'—':(r.valid?r.edges.length:'—')}</td><td class='mono'>${external?'—':featureCount}</td><td>${state}</td><td class='shape-actions'><button class='sm' onclick='openShapeEdit(${i})'>Edit</button><button class='sm dl' onclick='delShape(${i})'>×</button></td></tr>`;
-  }).join('');
-  var opts=shapePresetChoices().map(function(p){return `<option value='${esc(p.id)}'>${esc(p.code+' · '+p.label)}</option>`;}).join('')+`<option value='__DXF__'>DXF · Fusion 360</option>`;
-  return `<div class='shape-workspace-empty'><div><b>Production Shape workspace</b><span>Create or open a reusable Production Shape. Order Shapes are normally opened from their Sales Order line.</span></div><div class='shape-new-row'><select id='s_new_type'>${opts}</select><button class='pri' onclick='shapeProdOpenNew(document.getElementById("s_new_type").value)'>New Shape</button></div></div>
-    <details class='shape-saved-details'><summary>Saved Shapes <span class='pill info'>${library.length}</span></summary><div class='shape-saved-table'><table><thead><tr><th>Name / type</th><th>Size</th><th>Edges</th><th>Features</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">No saved Shapes.</td></tr>'}</tbody></table></div></details>`;
+  return `<div class='shape-workspace-empty'><div><b>Shapes live inside order lines</b><span>Open a Sales Order and use + Shape on its line. A Shape that no order line refers to is not kept.</span></div><div class='shape-new-row'><button class='pri' onclick='tab="sales";subtab=null;render()'>Go to Sales</button></div></div>`;
 };
-function shapeProdOpenNew(type){
-  if(type==='__DXF__'){
-    openShapeNew('rectangle');
-    setTimeout(function(){var el=document.getElementById('shape_prod_dxf_pick');if(el)el.click();},0);
-    return;
-  }
-  openShapeNew(type);
-}
 
 const __shapeProdOpenNew=openShapeNew;
 openShapeNew=function(type){shapeProdResetUi();return __shapeProdOpenNew(type);};
