@@ -38,17 +38,17 @@ module.exports=async function({page,eq,ok}){
   return {net,empty,labels:[paymentTermsLabel(net),before,after,paymentTermsLabel(own)],deposit:[paymentDepositPercent(net),paymentDepositPercent(own)]};
  }),{net:{paymentMode:'credit',depositPercent:null,creditDays:45},empty:{paymentMode:'cash',depositPercent:null,creditDays:null},labels:['Net 45 days','Cash · 50% deposit','Cash · 40% deposit','Cash · 30% deposit'],deposit:[0,30]});
 
- eq('Cash/Credit хранится у клиента и заказа и проходит CSV клиентов; Export/Import JSON несёт реквизиты и наборы полей',await t.p.evaluate(()=>{
+ eq('Cash/Credit хранится только у клиента и проходит CSV клиентов; Export/Import JSON несёт реквизиты и наборы полей',await t.p.evaluate(()=>{
   const c=normalizeCustomer({legalName:'QA Credit',paymentMode:'credit',creditDays:'30'});
-  const o=normalizeSalesOrder({paymentMode:'credit',creditDays:'15'}),legacy=normalizeSalesOrder({paymentTerms:'Net 60'});
+  const orderHasTerms='paymentMode' in normalizeSalesOrder({paymentMode:'credit',creditDays:'15'});
   DB.customer.push(c);
   const rows=customerCsvRows(),h=rows[0],row=rows.find(r=>r[2]==='QA Credit');
   const csv=['Payment Mode','Deposit %','Credit Days'].map(k=>row[h.indexOf(k)]);
   const src=JSON.parse(JSON.stringify(DB));src.company.hstNumber='123 RT0001';src.documentSettings={proforma:{priceMode:'glass',signature:true,bogus:1},nonsense:{a:1}};
   const next=prepareImportedState(src);
   DB.customer=DB.customer.filter(x=>x.id!==c.id);
-  return {customer:[c.paymentMode,c.creditDays],order:[o.paymentMode,o.creditDays],legacy:[legacy.paymentMode,legacy.creditDays],csv,hst:next.company.hstNumber,kinds:Object.keys(next.documentSettings),proforma:[next.documentSettings.proforma.priceMode,next.documentSettings.proforma.signature,'bogus' in next.documentSettings.proforma]};
- }),{customer:['credit',30],order:['credit',15],legacy:['credit',60],csv:['credit','',30],hst:'123 RT0001',kinds:['proforma'],proforma:['glass',true,false]});
+  return {customer:[c.paymentMode,c.creditDays],orderHasTerms,csv,hst:next.company.hstNumber,kinds:Object.keys(next.documentSettings),proforma:[next.documentSettings.proforma.priceMode,next.documentSettings.proforma.signature,'bogus' in next.documentSettings.proforma]};
+ }),{customer:['credit',30],orderHasTerms:false,csv:['credit','',30],hst:'123 RT0001',kinds:['proforma'],proforma:['glass',true,false]});
 
  eq('Full breakdown: строки под позицией складываются ровно в Unit price, итог строки — цена × Qty, как в заказе',await t.p.evaluate(()=>{
   const {l}=docFixture(),p=salesLineCommercialPrice(l,soDraft),it=docBuildModel('proforma',soDraft).items[0];
@@ -69,10 +69,10 @@ module.exports=async function({page,eq,ok}){
 
  eq('низ Proforma: cash — депозит от Total и остаток, credit — срок без депозита; Order confirmation — «before production» и подпись',await t.p.evaluate(()=>{
   docFixture();const tot=salesOrderCommercialTotals(soDraft),dep=salesMoney(tot.grand*.5);
-  soDraft.paymentMode='cash';soDraft.depositPercent=null;
+  const cust=normalizeCustomer({id:'CUS-QA-DEP',legalName:'QA Deposit Ltd'});DB.customer.push(cust);soDraft.customerId=cust.id;
   const cash=docBuildModel('proforma',soDraft).end.deposit.map(d=>d.label+'='+d.value),oc=docBuildModel('confirmation',soDraft);
-  soDraft.paymentMode='credit';soDraft.creditDays=30;
-  const credit=docBuildModel('proforma',soDraft).end.deposit.map(d=>d.label);
+  cust.paymentMode='credit';cust.creditDays=30;
+  const credit=docBuildModel('proforma',soDraft).end.deposit.map(d=>d.label);DB.customer=DB.customer.filter(c=>c.id!==cust.id);
   /* Подпись в рамке депозита печатается целиком, без «…» — длинная мельчает. */
   const ocPrinted=docLayout(oc).some(p=>p.items.some(x=>x.t==='text'&&x.s==='Deposit before production · 50%'));
   return {cash:cash[0]==='Deposit due now · 50%='+docMoney(dep)&&cash[1]==='Balance on completion='+docMoney(salesMoney(tot.grand-dep)),oc:oc.end.deposit[0].label,ocPrinted,signature:/signed and the deposit is received/.test(oc.signature),credit};
@@ -154,15 +154,13 @@ module.exports=async function({page,eq,ok}){
   DB.company.logo='';DB.company.phone='';return r;
  }),{phone:'(905) 555-0100',jpeg:true,size:[300,100],ratio:3,pdfImage:true});
 
- eq('шапка заказа: Terms — Cash/Credit, клиент с кредитом подставляет свои дни',await t.p.evaluate(()=>{
+ eq('шапка заказа без Terms: условия оплаты живут в карточке клиента, бланк берёт их оттуда',await t.p.evaluate(()=>{
   DB.customer.push(normalizeCustomer({id:'CUS-QA-NET',legalName:'QA Net Ltd',paymentMode:'credit',creditDays:30}));
-  tab='sales';salesOrderNew();salesApplyCustomerDefaults('CUS-QA-NET');render();
-  const sel=document.querySelector('.sales-terms select'),credit=[sel.value,document.querySelector('.sales-terms input').value,document.querySelector('.sales-terms span').textContent];
-  sel.value='cash';sel.dispatchEvent(new Event('change',{bubbles:true}));
-  const inp=document.querySelector('.sales-terms input');inp.value='25';inp.dispatchEvent(new Event('input',{bubbles:true}));
-  const label=paymentTermsLabel(paymentTermsFrom(soDraft));
-  DB.customer=DB.customer.filter(c=>c.id!=='CUS-QA-NET');return {credit,label};
- }),{credit:['credit','30','days'],label:'Cash · 25% deposit'});
+  docFixture();salesApplyCustomerDefaults('CUS-QA-NET');render();
+  const labels=[...document.querySelectorAll('.sales-header-compact label')].map(l=>l.textContent.trim()),terms=docBuildModel('proforma',soDraft).meta.find(x=>x.label==='Terms');
+  DB.customer=DB.customer.filter(c=>c.id!=='CUS-QA-NET');
+  return {termsField:labels.includes('Terms'),control:!!document.querySelector('.sales-terms'),orderKeys:['paymentMode','creditDays','depositPercent'].some(k=>k in soDraft),docTerms:terms&&terms.value};
+ }),{termsField:false,control:false,orderKeys:false,docTerms:'Net 30 days'});
 
  eq('карточка клиента: Payment — выбор Cash/Credit, у Credit поле дней, в списке понятная подпись',await t.p.evaluate(()=>{
   DB.customer.push(normalizeCustomer({id:'CUS-QA-CARD',code:'QACARD',legalName:'QA Card Ltd',paymentTerms:'45 Days Net'}));

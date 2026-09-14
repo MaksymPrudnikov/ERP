@@ -47,7 +47,7 @@ function viewDashboard(){
       <div class="flow-split">
        <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('inventory')}</div><b>Inventory</b><small>materials · lots · stock · offcuts · movements</small></div>
        <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('purchase')}</div><b>Purchasing</b><small>suppliers · source · purchase cost · receiving</small></div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('finance')}</div><b>Finance</b><small>actual cost · invoice · accounting integration</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('finance')}</div><b>Finance</b><small>receipts · deposits on account · order balances</small></div>
        <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('users')}</div><b>Core</b><small>users · permissions · units · currencies · event log</small></div>
       </div>
     </div>

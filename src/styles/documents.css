@@ -36,12 +36,6 @@
 }
 @media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
 
-/* Общие поля шапки заказа задают свои отступы; здесь два поля делят одну
-   ячейку, поэтому правило точнее общего — иначе «50» обрезалось до «5». */
-.sales-header-compact .sales-terms{display:flex;align-items:center;gap:4px;min-width:0}
-.sales-header-compact .sales-terms select{flex:0 0 76px;width:76px;min-width:0;padding-left:8px;padding-right:16px}
-.sales-header-compact .sales-terms input{flex:1 1 52px;width:52px;min-width:46px;padding-left:4px;padding-right:4px;text-align:right}
-.sales-header-compact .sales-terms span{flex:none;color:var(--muted,#687780);font-size:11px;white-space:nowrap}
 
 .doc-company{display:grid;grid-template-columns:240px minmax(0,1fr);gap:22px;margin-top:14px}
 .doc-company-logo label{display:block}

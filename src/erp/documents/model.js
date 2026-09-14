@@ -213,7 +213,7 @@ function docShopItem(model,line,index,order){
 function docBuildModel(kind,order,opts){
  order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{});
  const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
- const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=paymentTermsFrom(order);
+ const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=paymentTermsFrom(C||{});
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
   company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
   table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},
@@ -272,13 +272,25 @@ function docBuildModel(kind,order,opts){
    if(c.skidDeposit.enabled)rows.push({label:'Skid deposit',value:money(t.skidDeposit)});
    grand={label:'Total '+order.currency,value:money(t.grand)};
   }
+  /* Оплаты заказа (экран Finance): уже внесённое уменьшает депозит к оплате,
+     а итог показывает, сколько внесено и сколько осталось. */
+  const got=typeof finOrderPaid==='function'?finOrderPaid(order.id):{paid:0,receipts:0},paidSoFar=t.complete?got.paid:0;
+  let paid=null;
+  if(opts.receipts&&rows&&got.paid>0){
+   const rest=salesMoney(t.grand-got.paid);
+   paid=[{label:'Paid to date · '+got.receipts+' receipt'+(got.receipts>1?'s':''),value:docMoney(got.paid)},{label:rest>0?'Balance due':rest<0?'Overpaid':'Paid in full',value:t.complete?docMoney(Math.abs(rest)):'—',tone:rest>0?'due':''}];
+  }
   if(opts.payment){
    const pct=paymentDepositPercent(terms);
    if(terms.paymentMode==='credit')deposit=[{label:'Payment terms · '+paymentTermsLabel(terms),value:money(t.grand),strong:true},{label:terms.creditDays!=null?'Due within '+terms.creditDays+' days of invoice · no deposit':'On credit · no deposit',value:''}];
-   else if(pct>0){const dep=salesMoney(t.grand*pct/100);deposit=[{label:(kind==='proforma'?'Deposit due now · ':'Deposit before production · ')+pct+'%',value:money(dep),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];}
+   else if(pct>0){
+    const dep=salesMoney(t.grand*pct/100);
+    if(paidSoFar>0&&paidSoFar>=dep)deposit=[{label:'Deposit received · '+pct+'%',value:money(dep),strong:true}];
+    else deposit=[{label:(kind==='proforma'?'Deposit due now · ':'Deposit before production · ')+pct+'%',value:money(salesMoney(dep-paidSoFar)),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];
+   }
    else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
   }
-  if(left.length||rows||deposit)model.end={left,rows,grand,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
+  if(left.length||rows||deposit)model.end={left,rows,grand,paid,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
   if(opts.termsText&&company.termsText)model.terms=company.termsText;
   if(opts.signature)model.signature='Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0?' and the deposit is received.':'.');
   model.footerLeft=company.footerText||'';

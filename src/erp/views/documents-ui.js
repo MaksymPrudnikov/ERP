@@ -1,7 +1,7 @@
 /* =====================================================================
    views/documents-ui  ·  documents-1.0
-   Окно бланков заказа, вкладка Master Data → Company и условия оплаты в
-   шапке заказа.
+   Окно бланков заказа и вкладка Master Data → Company. Условия оплаты
+   живут в карточке клиента (владелец, 14 сентября 2026), не в заказе.
    IN : открытый заказ soDraft, DB.company, DB.documentSettings
    OUT: Preview / Print / Email; сохранённый набор полей бланка
    Владелец, 14 сентября 2026: панель полей открывается только карандашом
@@ -113,11 +113,12 @@ function docEmailBody(){
  const c=DB.company||{},C=salesFindCustomer(soDraft.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
  const lines=['Hello'+(first?' '+first:'')+',','','Please find attached '+docKindLabel(docState.kind).toLowerCase()+' '+(soDraft.businessNumber||'')+(soDraft.customerPo?' for PO '+soDraft.customerPo:'')+'.'];
  if(docState.kind!=='workOrder'){
-  const t=salesOrderCommercialTotals(soDraft),terms=paymentTermsFrom(soDraft),pct=paymentDepositPercent(terms);
+  const t=salesOrderCommercialTotals(soDraft),terms=paymentTermsFrom(C||{}),pct=paymentDepositPercent(terms),got=typeof finOrderPaid==='function'?finOrderPaid(soDraft.id).paid:0;
   if(t.complete){
    lines.push('Total: '+docMoney(t.grand)+' '+soDraft.currency+'.');
+   if(got>0)lines.push('Received: '+docMoney(got)+'. Balance due: '+docMoney(Math.max(0,salesMoney(t.grand-got)))+'.');
    if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
-   else if(pct>0)lines.push((docState.kind==='proforma'?'Deposit due now':'Deposit before production')+' ('+pct+'%): '+docMoney(salesMoney(t.grand*pct/100))+'.');
+   else if(pct>0&&got<salesMoney(t.grand*pct/100))lines.push((docState.kind==='proforma'?'Deposit due now':'Deposit before production')+' ('+pct+'%): '+docMoney(salesMoney(t.grand*pct/100-got))+'.');
   }
   if(docState.kind==='confirmation')lines.push('Please check sizes, makeups and quantities, then sign and send the confirmation back.');
  }
@@ -140,15 +141,6 @@ function docEmail(){
  docState.status='PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.');
  render();
 }
-
-/* ----------------------- Условия в шапке заказа ---------------------- */
-function salesTermsControl(o){
- const t=paymentTermsFrom(o),credit=t.paymentMode==='credit';
- const value=credit?(t.creditDays==null?'':t.creditDays):(t.depositPercent==null?'':t.depositPercent);
- return `<div class="sales-terms"><select aria-label="Payment terms" onchange="salesSetPaymentMode(this.value)"><option value="cash" ${credit?'':'selected'}>Cash</option><option value="credit" ${credit?'selected':''}>Credit</option></select><input type="number" min="0" max="${credit?365:100}" step="1" aria-label="${credit?'Credit days':'Deposit percent'}" value="${esc(value)}" placeholder="${credit?'30':esc(DB.company.depositPercent)}" oninput="salesSetPaymentNumber(this.value)"><span>${credit?'days':'% dep.'}</span></div>`;
-}
-function salesSetPaymentMode(v){if(!soDraft)return;soDraft.paymentMode=v==='credit'?'credit':'cash';render();}
-function salesSetPaymentNumber(v){if(!soDraft)return;soDraft[soDraft.paymentMode==='credit'?'creditDays':'depositPercent']=v===''?null:v;}
 
 /* -------------------------- Master Data → Company -------------------- */
 function viewMdCompany(){

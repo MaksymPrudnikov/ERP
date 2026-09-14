@@ -126,7 +126,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
- if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments();
+ if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();

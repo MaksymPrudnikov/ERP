@@ -10,7 +10,7 @@
 
 const DOC_PAGE={w:612,h:792,left:36,right:576,top:34,bottom:748,footer:764};
 const DOC_COL={item:44,desc:62,chips:175,basis:452,rate:504,amount:568};
-const DOC_COLOR={ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
+const DOC_COLOR={due:'#b42318',ink:'#1c2330',navy:'#16325c',mut:'#6b7588',faint:'#8a93a3',line:'#d9dfe8',chip:'#c9d1dd',bar:'#eef2f8',box:'#f4f6fa',adj:'#9a4b00',warn:'#b54708'};
 
 /* Ширины знаков Helvetica и Helvetica-Bold в тысячных кегля, коды 32…255 в
    кодировке WinAnsi, по два знака base36 на символ. Это метрика самих шрифтов
@@ -284,7 +284,7 @@ function docEndBlock(m){
  const left=e.left.map(s=>({label:s.label,lines:docWrap(s.text,7.6,false,leftW)}));
  const leftH=left.reduce((h,s)=>h+13+s.lines.length*10+6,0);
  const rowsH=e.rows?e.rows.length*12+(e.rows.some(r=>r.sep)?4:0):0;
- const boxH=e.rows?10+rowsH+(e.grand?26:0)+(e.missing?10:0)+2:0;
+ const paidH=e.rows&&e.paid?4+e.paid.length*12:0,boxH=e.rows?10+rowsH+(e.grand?26:0)+paidH+(e.missing?10:0)+2:0;
  const depH=e.deposit?8+e.deposit.length*12+4:0;
  const rightH=(boxH?boxH+(depH?8:0):0)+depH;
  const h=12+Math.max(leftH,rightH)+6;
@@ -303,6 +303,7 @@ function docEndBlock(m){
     P.line(bx+10,ty+3,bx+bw-10,ty+3,{stroke:C.navy,lw:1.2});
     P.text(bx+10,ty+19,e.grand.label,{size:11,bold:true,color:C.navy});P.text(bx+bw-10,ty+19,e.grand.value,{size:11,bold:true,color:C.navy,align:'right'});ty+=26;
    }
+   if(paidH){ty+=4;e.paid.forEach(p=>{const due=p.tone==='due',o={size:7.8,bold:due,color:due?C.due:C.ink};P.text(bx+10,ty+8,p.label,o);P.text(bx+bw-10,ty+8,p.value,Object.assign({},o,{align:'right'}));ty+=12;});}
    if(e.missing)P.text(bx+10,ty+7,e.missing,{size:6.8,color:C.warn});
    ry+=boxH+8;
   }

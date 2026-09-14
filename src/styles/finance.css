@@ -1,0 +1,51 @@
+/* Finance: оплаты клиентов, счета клиентов, полоса оплат в шапке заказа. */
+.fin-card .tabs{margin-bottom:14px}
+.fin-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.fin-search{flex:0 1 280px;min-width:180px}
+.fin-seg{display:inline-flex;border:1px solid var(--line,#d0d5dd);border-radius:8px;overflow:hidden}
+.fin-seg button{border:0;border-right:1px solid var(--line,#d0d5dd);border-radius:0;background:#fff;padding:6px 11px;font-size:12px}
+.fin-seg button:last-child{border-right:0}
+.fin-seg button.on{background:#16325c;color:#fff;font-weight:700}
+.fin-date{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;color:var(--muted,#667085);text-transform:none;letter-spacing:normal;font-weight:600}
+.fin-date input{width:auto}
+.fin-spacer{flex:1}
+.fin-table-wrap{overflow-x:auto}
+.fin-table{width:100%;border-collapse:collapse}
+.fin-table th,.fin-table td{vertical-align:top}
+.fin-table .n,.sales-list-card .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fin-table .small,.fin-form .small{font-size:11px}
+.fin-void td{color:#98a2b3}
+.fin-void td b{color:#98a2b3;text-decoration:line-through}
+.fin-actions{white-space:nowrap;text-align:right}
+.fin-actions .sm+.sm{margin-left:4px}
+.fin-deposit{color:#026aa2}
+.fin-due{color:#b42318}
+.fin-paid{color:#067647}
+.fin-total{margin-top:8px;text-align:right;color:var(--muted,#667085)}
+.fin-form-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.fin-form-head h3{margin:0}
+.fin-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.fin-span2{grid-column:span 2}.fin-span3{grid-column:span 3}.fin-span4{grid-column:span 4}
+.fin-h4{margin:16px 0 6px}
+.fin-apply-cell{display:flex;justify-content:flex-end;gap:6px}
+.fin-apply-cell input{width:110px;text-align:right}
+.fin-apply-empty{margin:14px 0 4px}
+.fin-summary{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px 22px;margin-top:12px;font-size:13.5px}
+.fin-summary b{font-variant-numeric:tabular-nums}
+.fin-over{color:#b42318}
+.fin-form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.fin-modal{width:min(560px,96vw)}
+.fin-modal-body{padding:16px}
+.sales-editor-top .fin-strip{margin-left:auto;margin-right:12px}
+.fin-strip{display:flex;align-items:center;gap:14px;padding:6px 12px;border:1px solid var(--line,#e3e7ee);border-radius:9px;background:#fbfcfd}
+.fin-strip>div{text-align:right}
+.fin-strip small{display:block;color:var(--muted,#667085);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.fin-strip b{font-size:14px;font-variant-numeric:tabular-nums}
+.fin-strip-new{color:var(--muted,#667085);font-size:12px}
+.fin-hint{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0;padding:7px 12px;border:1px solid #b2ddff;border-radius:8px;background:#eff8ff;color:#175cd3}
+@media(max-width:900px){
+ .fin-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .fin-span3,.fin-span4{grid-column:1/-1}
+ .sales-editor-top{flex-wrap:wrap}
+ .sales-editor-top .fin-strip{margin-left:0;flex-wrap:wrap}
+}

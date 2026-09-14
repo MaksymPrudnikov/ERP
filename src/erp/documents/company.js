@@ -125,6 +125,7 @@ const DOC_FIELDS=[
  {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
  {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_SALE,on:DOC_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
  {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_SALE,on:['proforma']},
