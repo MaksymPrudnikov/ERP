@@ -80,7 +80,7 @@ function finCloseReceipt(){finEdit=null;finDraft=null;render();}
 function finFormOrders(){
  const d=finDraft;if(!d||!d.customerId)return [];
  const own=finEdit!=='new'&&(DB.receipt||[]).find(x=>x.id===finEdit)||null;
- return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId).map(o=>{
+ return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)).map(o=>{
   const b=finOrderBalance(o),mine=own&&!own.voided?((own.allocations.find(a=>a.orderId===o.id)||{}).amount||0):0;
   return {order:o,total:b.total,paid:finMoney(b.paid-mine),balance:b.balance==null?null:finMoney(b.balance+mine),status:b.status};
  }).filter(x=>x.balance!=null&&(x.balance>0||finMoney(d.apply[x.order.id]||0)>0))
@@ -88,7 +88,7 @@ function finFormOrders(){
 }
 function finFormNoPrice(){
  const d=finDraft;if(!d||!d.customerId)return 0;
- return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderBalance(o).status==='incomplete').length;
+ return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)&&finOrderBalance(o).status==='incomplete').length;
 }
 function finSummaryHTML(amount,applied){
  const left=finMoney(amount-applied);
@@ -179,7 +179,7 @@ function finShowOrder(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderI
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){
- return (DB.salesOrder||[]).filter(o=>o.customerId===customerId).map(o=>({order:o,b:finOrderBalance(o)})).filter(x=>x.b.status==='due').map(x=>({order:x.order,balance:x.b.balance}));
+ return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).map(o=>({order:o,b:finOrderBalance(o)})).filter(x=>x.b.status==='due').map(x=>({order:x.order,balance:x.b.balance}));
 }
 function finOpenApply(customerId,orderId){
  const orders=finDueOrders(customerId),dep=finCustomerDeposit(customerId),row=orders.find(x=>x.order.id===orderId)||orders[0];
@@ -229,6 +229,7 @@ function salesDepositHint(o){
 }
 function finMoveOverpayment(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return;if(finReleaseOverpayment(o)>0)touch();render();}
 function salesListBalanceCells(o){
+ if(!finOrderCounts(o)){const t=finOrderTotals(o);return `<td class="n mut">${finFmt(t.complete?finMoney(t.grand):null)}</td><td class="n mut">—</td><td class="n mut">—</td>`;}
  const b=finOrderBalance(o);
  return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
 }
