@@ -73,8 +73,10 @@ module.exports=async function({page,eq,ok}){
   const cash=docBuildModel('proforma',soDraft).end.deposit.map(d=>d.label+'='+d.value),oc=docBuildModel('confirmation',soDraft);
   soDraft.paymentMode='credit';soDraft.creditDays=30;
   const credit=docBuildModel('proforma',soDraft).end.deposit.map(d=>d.label);
-  return {cash:cash[0]==='Deposit due now · 50%='+docMoney(dep)&&cash[1]==='Balance on completion='+docMoney(salesMoney(tot.grand-dep)),oc:oc.end.deposit[0].label,signature:/signed and the deposit is received/.test(oc.signature),credit};
- }),{cash:true,oc:'Deposit before production · 50%',signature:true,credit:['Payment terms · Net 30 days','Due within 30 days of invoice · no deposit']});
+  /* Подпись в рамке депозита печатается целиком, без «…» — длинная мельчает. */
+  const ocPrinted=docLayout(oc).some(p=>p.items.some(x=>x.t==='text'&&x.s==='Deposit before production · 50%'));
+  return {cash:cash[0]==='Deposit due now · 50%='+docMoney(dep)&&cash[1]==='Balance on completion='+docMoney(salesMoney(tot.grand-dep)),oc:oc.end.deposit[0].label,ocPrinted,signature:/signed and the deposit is received/.test(oc.signature),credit};
+ }),{cash:true,oc:'Deposit before production · 50%',ocPrinted:true,signature:true,credit:['Payment terms · Net 30 days','Due within 30 days of invoice · no deposit']});
 
  eq('цены нет — бланк пишет Rate required и прочерк в итоге, а не выдуманную сумму',await t.p.evaluate(()=>{
   const {m}=docFixture();m.panes[0].priceOverride=null;m.panes[0].glassProductId=(DB.glassProduct.find(g=>g.salePriceAnnealed==null&&g.salePriceTempered==null)||{}).id;

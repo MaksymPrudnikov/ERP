@@ -308,7 +308,14 @@ function docEndBlock(m){
   }
   if(depH){
    P.rect(bx,ry,bw,depH,{stroke:C.navy,lw:1,r:4});
-   e.deposit.forEach((d,k)=>{const base=ry+14+k*12,size=d.strong?8.8:7.4;P.text(bx+10,base,docFit(d.label,size,!!d.strong,bw-(d.value?90:20)),{size,bold:!!d.strong});if(d.value)P.text(bx+bw-10,base,d.value,{size,bold:!!d.strong,align:'right'});});
+   /* Подпись занимает всё место слева от суммы; длинная («Deposit before
+      production · 50%») сперва мельчает до 7 pt и только потом режется. */
+   e.deposit.forEach((d,k)=>{
+    const base=ry+14+k*12,size=d.strong?8.8:7.4,bold=!!d.strong,room=bw-20-(d.value?docTextWidth(d.value,size,bold)+8:0);
+    let fs=size;while(fs>7&&docTextWidth(d.label,fs,bold)>room)fs=Math.round((fs-.2)*10)/10;
+    P.text(bx+10,base,docFit(d.label,fs,bold,room),{size:fs,bold});
+    if(d.value)P.text(bx+bw-10,base,d.value,{size,bold,align:'right'});
+   });
   }
  }};
 }
