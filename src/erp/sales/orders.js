@@ -45,7 +45,7 @@ function salesDraftHasWork(){
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;render();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;if(salesPruneOrphanShapes())touch();render();
 }
 function salesOrderSave(){
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
@@ -69,9 +69,9 @@ function salesOrderSave(){
  if(!soDraft.businessNumber)soDraft.businessNumber=nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
- normalizeSalesData();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();
+ normalizeSalesData();salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();
 }
-function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Delete this Draft Sales Order?'))return;DB.salesOrder.splice(i,1);touch();render();}
+function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(!confirm('Delete this Draft Sales Order?'))return;DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
 function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
 function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey='lite-0';render();}}
@@ -238,7 +238,11 @@ function salesOrderLineIsBlank(l){return !!l&&!l.width16&&!l.height16&&!salesStr
 function salesOrderAddLine(makeupId,focus){const m=salesMakeupById(soDraft,makeupId)||salesCurrentMakeup();if(!m)return;const prev=soDraft.lines[soDraft.lines.length-1];soDraft.lines.push(normalizeSalesOrderLine({makeupId:m.id,qty:prev?prev.qty:1}));render();if(focus)setTimeout(salesFocusLastWidth,0);}
 function salesOrderAddTen(){for(let i=0;i<10;i++)soDraft.lines.push(normalizeSalesOrderLine({makeupId:(salesCurrentMakeup()||soDraft.makeups[0]).id,qty:1}));render();}
 /* Форма принадлежала строке — уходит вместе с ней. */
-function salesOrderRemoveLine(i){salesDropLineLiteShapes(soDraft.lines[i]);salesDropLineOwnedShape(soDraft.lines[i]);const l=soDraft.lines[i];if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
+/* Строка сохранённого заказа уходит пока только из черновика: закроют без
+   сохранения — она вернётся, и её фигура обязана быть на месте. Такие фигуры
+   убирает уборка после сохранения. Строку, которой в сохранённом заказе нет,
+   можно чистить сразу. */
+function salesOrderRemoveLine(i){const l=soDraft.lines[i];if(l&&!salesLineInSavedOrder(l.id)){salesDropLineLiteShapes(l);salesDropLineOwnedShape(l);}if(l)soSelectedLines.delete(l.id);soDraft.lines.splice(i,1);render();}
 
 /* Явный +/- для раздела стекла: "+ Add Makeup" открывает GLASS/IGU MAKEUPS,
    "− Makeup" закрывает. Makeup A из soDraft.makeups[0] никогда не удаляется —
@@ -924,7 +928,7 @@ function salesGlazingChargeRows(line,areaFt2){
   targets.forEach(function(ply,j){
    if(!ply||!ply.heatSoak||ply.heatTreatmentId!=='HT-FT')return;
    const mm=salesPlyThicknessMm(ply),label='Lite '+(i+1)+(p.category==='laminated'?(j?'b':'a'):'');
-   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',null,'Makeup'));
+   rows.push(salesChargeRow('HEATSOAK:'+p.id+':'+j+':'+mm,'Heat Soak · '+label+' · '+mm+' mm',area,'ft²',salesCatalogRate('heat_soak'),'Makeup'));
   });
   if(p.category==='spandrel'){
    const id=(p.spandrel&&p.spandrel.productId)||'';
@@ -1267,6 +1271,36 @@ function salesDropLineOwnedShape(line){
  if(i<0)return false;
  DB.shapeDef.splice(i,1);
  return true;
+}
+/* Фигура живёт только внутри заказа. Решение владельца 31 августа 2026 и ещё
+   раз 14 сентября: «фигура должна жить только внутри заказа, я не понимаю,
+   почему есть просто сохранённые фигуры». Держит это ПРАВИЛО, а не экран:
+   фигура остаётся в базе, пока на неё ссылается строка сохранённого заказа или
+   открытого черновика — общей формой, формой лайта или как хозяин. Всё
+   остальное убирается: и библиотека прошлых версий, и формы строк черновика,
+   закрытого без сохранения (у владельца их накопилось 33 — удаление строки
+   убирало форму, закрытие черновика нет).
+
+   Пока фигура открыта в редакторе, уборка не идёт: редактор держит её НОМЕР в
+   списке, и сдвиг списка записал бы правку в чужую фигуру. */
+function salesPruneOrphanShapes(){
+ if(typeof sEdit!=='undefined'&&sEdit!==null)return 0;
+ if(!Array.isArray(DB.shapeDef))return 0;
+ const ids=new Set(),lineIds=new Set();
+ const keep=function(l){
+  if(!l)return;
+  if(l.id)lineIds.add(l.id);
+  if(l.shapeRef&&l.shapeRef.id)ids.add(l.shapeRef.id);
+  Object.keys(l.liteShapes||{}).forEach(function(k){const r=l.liteShapes[k];if(r&&r.id)ids.add(r.id);});
+ };
+ (DB.salesOrder||[]).forEach(function(o){(o&&o.lines||[]).forEach(keep);});
+ if(typeof soDraft!=='undefined'&&soDraft)(soDraft.lines||[]).forEach(keep);
+ const before=DB.shapeDef.length;
+ DB.shapeDef=DB.shapeDef.filter(function(s){return s&&(ids.has(s.id)||(s.ownerLineId&&lineIds.has(s.ownerLineId)));});
+ return before-DB.shapeDef.length;
+}
+function salesLineInSavedOrder(lineId){
+ return (DB.salesOrder||[]).some(function(o){return (o&&o.lines||[]).some(function(l){return l&&l.id===lineId;});});
 }
 /* ---------- Кромка считается ПО ЛАЙТАМ ----------
    Правила цеха, владелец 31 августа 2026:

@@ -127,6 +127,9 @@ function normalizeDB(){
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates();
+ /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
+    старый браузер и старый файл приносят библиотеку прежних версий. */
+ if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
 }
 function boot(){
  let hadSavedState=false;

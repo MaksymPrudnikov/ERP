@@ -1848,14 +1848,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 2], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 3], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
     await t.p.reload();
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 2]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 3]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
@@ -1869,7 +1869,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
       const w = (s, id) => s.serviceRate.find(r => r.id === id);
       return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
-    }), ['DRILL', true, 2, '']);
+    }), ['DRILL', true, 3, '']);
     await t.c.close();
 
     /* Правка номер 2: заводские примечания каталога стекла были по-русски и
@@ -1882,7 +1882,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('заводские русские примечания стекла становятся английскими, свои остаются', await t.p.evaluate(() => {
       const g = id => DB.glassProduct.find(p => p.id === id);
       return [DB.dataFix, g('GL-6LAM015').note, g('GL-6E272').note];
-    }), [2, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    }), [3, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    await t.c.close();
+
+    /* Правка номер 3: ставка Heat Soak. Пустая цена в браузере становится $5 за
+       ft²; цена, которую владелец уже вписал сам, остаётся. */
+    t = await page(JSON.stringify({ refVersion: 9, dataFix: 2, serviceRate: [
+      { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: null, unit: 'pc' }] }));
+    eq('ставка Heat Soak доходит до сохранённого браузера, своя цена остаётся', await t.p.evaluate(() => {
+      const w = DB.serviceRate.find(r => r.id === 'heat_soak');
+      const own = prepareImportedState({ refVersion: 9, dataFix: 2, serviceRate: [
+        { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: 4, unit: 'ft²' }] }).serviceRate.find(r => r.id === 'heat_soak');
+      return [DB.dataFix, w.flat, w.unit, own.flat];
+    }), [3, 5, 'ft²', 4]);
     await t.c.close();
 
     /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
@@ -2167,19 +2179,63 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin')
       };
     }), {hasOrders:true,hasShape:false,hasMuntin:false});
-    eq('Configurators сохраняет Shape без отдельного Muntin', await t.p.evaluate(() => {
+    /* Библиотеки фигур нет: решение владельца 31 августа и 14 сентября 2026 —
+       фигура живёт только внутри заказа. Без открытого редактора экран не
+       предлагает ни списка, ни «новой фигуры», а пункта меню у него нет. */
+    eq('Configurators не держит библиотеку фигур и не стоит в меню', await t.p.evaluate(() => {
       tab='configurators';subtab=null;render();
+      const text=document.getElementById('app').textContent;
       return {
-        hasShape:document.getElementById('app').textContent.includes('Production Shape'),
-        hasMuntin:document.getElementById('app').textContent.includes('Adaptive Muntin'),
-        shapeRows:document.querySelectorAll('tbody tr').length
+        library:!!document.querySelector('.shape-saved-details'),newShape:!!document.getElementById('s_new_type'),
+        explains:text.includes('Shapes live inside order lines'),hasMuntin:text.includes('Adaptive Muntin'),
+        inMenu:NAV.some(n=>n.k==='configurators')
       };
-    }), {hasShape:true,hasMuntin:false,shapeRows:1});
+    }), {library:false,newShape:false,explains:true,hasMuntin:false,inMenu:false});
     eq('устаревшая вкладка Muntin возвращает к Shape', await t.p.evaluate(() => {
       tab='configurators';subtab='muntin';render();
       return subtab==='shape'&&!document.getElementById('app').textContent.includes('Adaptive Muntin');
     }), true);
     await t.c.close();
+
+    /* Правило «фигура живёт, пока на неё ссылается строка заказа» — на запуске.
+       Так у владельца уходят 51 проба: 18 из прежней библиотеки и 33 формы строк
+       черновиков, закрытых без сохранения. Фигура строки сохранённого заказа
+       остаётся — и общая, и форма лайта. */
+    const shapesBoot = await page(JSON.stringify({
+      shapeDef: [
+        { id: 'LIB-1', name: 'Library', type: 'rectangle', w: '20', h: '30' },
+        { id: 'DRAFT-X', name: 'Unsaved draft', type: 'rectangle', w: '20', h: '30', ownerLineId: 'LINE-GONE' },
+        { id: 'KEEP-1', name: 'Saved line', type: 'rectangle', w: '20', h: '30', ownerLineId: 'LINE-1' },
+        { id: 'KEEP-LITE', name: 'Saved lite', type: 'rectangle', w: '19', h: '29', ownerLineId: 'LINE-1' }
+      ],
+      salesOrder: [{ id: 'SO-KEEP', businessNumber: '76100', lines: [{ id: 'LINE-1', qty: 1, width16: 320, height16: 480,
+        shapeRef: { id: 'KEEP-1', revision: 0 }, liteShapes: { '1': { id: 'KEEP-LITE', revision: 0 } } }] }]
+    }));
+    eq('на запуске остаются только фигуры строк сохранённых заказов', await shapesBoot.p.evaluate(() =>
+      DB.shapeDef.map(s => s.id).sort()), ['KEEP-1', 'KEEP-LITE']);
+    await shapesBoot.c.close();
+
+    const shapesFlow = await page();
+    eq('черновик без сохранения не оставляет фигур, строка сохранённого заказа — до сохранения', await shapesFlow.p.evaluate(() => {
+      DB.customer=[{id:'CUS-SH',code:'SH',legalName:'Shapes',displayName:'Shapes',status:'active',contacts:[],addresses:[]}];
+      tab='sales';render();salesOrderNew();soDraft.lines=[];
+      salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();
+      const draftShapes=DB.shapeDef.length;
+      salesOrderClose();
+      const afterClose=DB.shapeDef.length;
+      salesOrderNew();soDraft.customerId='CUS-SH';soDraft.lines=[];
+      salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();salesOrderSave();
+      const saved=DB.shapeDef.length,id=soEdit;
+      salesOrderRemoveLine(0);
+      const removedInDraft=DB.shapeDef.length;
+      salesOrderClose();
+      const closedWithoutSave=DB.shapeDef.length;
+      salesOrderEdit(id);salesOrderRemoveLine(0);salesOrderSave();
+      const afterSave=DB.shapeDef.length;
+      salesOrderClose();
+      return {draftShapes,afterClose,saved,removedInDraft,closedWithoutSave,afterSave};
+    }), {draftShapes:2,afterClose:0,saved:2,removedInDraft:2,closedWithoutSave:2,afterSave:1});
+    await shapesFlow.c.close();
 
     const serviceSetUi = await page();
     const serviceSetIds = await serviceSetUi.p.evaluate(() => {
@@ -4576,7 +4632,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
       sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,expanded,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:12,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:11,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -5200,7 +5256,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         chargeCount:charges.length,basis:charges[0].basis,rate:charges[0].catalogRate,unit:charges[0].unit,
         glass:rows[2].glass.includes('FT + HST'),drawing:salesSheetPlyText(p.laminated.inner).includes('FT + HST')};
       soDraft=null;return out;
-    }), {labels:['Lite 1','Lite 2a','Lite 2b'],soaks:[0,0,1],order:true,chargeCount:1,basis:2500/144,rate:null,unit:'ft²',glass:true,drawing:true});
+    }), {labels:['Lite 1','Lite 2a','Lite 2b'],soaks:[0,0,1],order:true,chargeCount:1,basis:2500/144,rate:5,unit:'ft²',glass:true,drawing:true});
 
     eq('Frit first-dot setout uses the four corners and accepts zero margins', await t.p.evaluate(() => {
       const s=Object.assign(newShapeDef('rectangle'),{w:'40',h:'30'}),r=ShapeModule.compute(s);

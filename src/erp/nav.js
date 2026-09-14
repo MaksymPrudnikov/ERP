@@ -14,7 +14,6 @@ const NAV=[
  {group:'Operations'},
  {k:'customers', label:'Customers', icon:'users'},
  {k:'sales', label:'Sales', icon:'sales'},
- {k:'configurators', label:'Configurators', icon:'layers'},
  {k:'optimization', label:'Optimization', icon:'optimize'},
  {k:'production', label:'Production', icon:'factory'},
  /* Справочники стоят в операциях, а не в «ядре»: заводит их не администратор
