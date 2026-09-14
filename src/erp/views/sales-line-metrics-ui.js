@@ -57,7 +57,7 @@ function salesMetricDragStart(e,key){salesMetricDragKey=key;e.dataTransfer.effec
 function salesMetricDragEnd(e){salesMetricDragKey=null;e.currentTarget.classList.remove('dragging');}
 function salesMetricDrop(e,key){e.preventDefault();const from=salesMetricDragKey||e.dataTransfer.getData('text/plain'),order=salesOrderColumnOrder(),a=order.indexOf(from),b=order.indexOf(key);if(a<0||b<0||a===b)return;order.splice(a,1);order.splice(b,0,from);salesSetOrderColumnOrder(order);}
 function salesSetMetricColumn(context,key,on){
- if(!['screen','print'].includes(context)||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
+ if(context!=='screen'||!SALES_METRIC_COLUMNS.some(c=>c.key===key))return;
  const p=salesLoadViewPrefs(),keys=salesMetricColumnsFor(context).map(c=>c.key),set=new Set(keys);
  on?set.add(key):set.delete(key);
  if(!p.profiles[p.active])p.profiles[p.active]={};
@@ -126,8 +126,8 @@ function salesOrderChargesPanel(){
 }
 function salesColumnsPanel(){
  const p=salesLoadViewPrefs();
- const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen','print'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span><span class="metric-required">—</span>`}</div>`;}).join('');
- return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order for screen and print save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b><b>${'Print'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen','print'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
+ const order=salesOrderColumnOrder(),rows=order.map((key,i)=>{const c=SALES_METRIC_COLUMNS.find(x=>x.key===key)||SALES_ORDER_BASE_COLUMNS.find(x=>x.key===key),metric=SALES_METRIC_COLUMNS.some(x=>x.key===key);return `<div class="metric-column-row" draggable="true" ondragstart="salesMetricDragStart(event,'${c.key}')" ondragend="salesMetricDragEnd(event)" ondragover="event.preventDefault()" ondrop="salesMetricDrop(event,'${c.key}')"><span class="metric-drag" title="${'Drag column'}">⋮⋮</span><span data-raw>${c.label}</span><span class="metric-move"><button type="button" aria-label="Move ${c.label} left" ${i===0?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',-1)">←</button><button type="button" aria-label="Move ${c.label} right" ${i===order.length-1?'disabled':''} onclick="salesMoveMetricColumn('${c.key}',1)">→</button></span>${metric?['screen'].map(ctx=>`<label><input type="checkbox" aria-label="${ctx} ${c.label}" ${salesMetricColumnsFor(ctx).some(x=>x.key===c.key)?'checked':''} onchange="salesSetMetricColumn('${ctx}','${c.key}',this.checked)"></label>`).join(''):`<span class="metric-required" title="${'Required order column'}">●</span>`}</div>`;}).join('');
+ return `<label class="metric-profile">${'View preferences for'}<select onchange="salesSetViewProfile(this.value)"><option value="browser">${'This browser'}</option>${(DB.user||[]).map(u=>`<option data-raw value="${esc(u.viewProfileId)}" ${p.active===u.viewProfileId?'selected':''}>${esc(u.name)}</option>`).join('')}</select></label><p class="mut">${'Visibility and order save automatically in this browser. Drag a row or use the arrows.'}</p><div class="metric-column-grid"><div class="metric-column-head"><span></span><span>${'Column'}</span><span>${'Order'}</span><b>${'Screen'}</b></div>${rows}<div class="metric-column-reset"><span>${'Standard view'}</span>${['screen'].map(ctx=>`<button type="button" class="sm" onclick="salesResetMetricColumns('${ctx}')">${'Reset'}</button>`).join('')}</div></div>${salesViewSaveFailed?`<p class="metric-incomplete">${'Browser preferences could not be saved. Selections apply until this page closes.'}</p>`:''}`;
 }
 function salesAreaPanel(line){
  const a=salesLineAreas(line,soDraft);
@@ -177,30 +177,12 @@ function salesSaveWeightNorm(index,value,factor){
 function salesAddWeightExtra(){const l=salesMetricsLine();if(!l)return;if(!l.weightExtras)l.weightExtras=[];l.weightExtras.push({label:'',kg:null});render();}
 function salesRemoveWeightExtra(i){const l=salesMetricsLine();if(l){l.weightExtras.splice(i,1);render();}}
 function salesSetWeightExtra(i,key,value){const l=salesMetricsLine(),x=l&&l.weightExtras[i];if(!x)return;if(key==='label')x.label=value;else{x.kg=mdNonNeg(value);render();}}
-/* Стоковые позиции — не в цеховом маршруте (там у двери нет производства и
-   быть не может), но в печатном ЗАКАЗЕ — обязаны быть: это коммерческий
-   документ клиенту, и он должен видеть, за что платит целиком, а не только за
-   стекло. Владелец 11 сентября: «в печати я не вижу» — пробел, а не решение. */
-function salesOrderPrintExtraRows(){
- const items=soDraft.extraItems||[];if(!items.length)return '';
- const currency=soDraft.currency||'CAD';
- return `<table class="metric-print-extra" style="margin-top:14px"><caption style="text-align:left;font-size:11px;font-weight:700;padding-bottom:6px">Additional items</caption><thead><tr><th>Item</th><th>Qty</th><th>Price, ${esc(currency)}</th><th>Total</th></tr></thead><tbody>${items.map(x=>{
-  const total=salesExtraItemLineTotal(x);
-  return `<tr><td>${raw(salesExtraItemName(x))}</td><td>${x.qty}</td><td>${total!=null?(total/salesPositiveInt(x.qty,1)).toFixed(2):'—'}</td><td>${total!=null?total.toFixed(2)+' '+esc(currency):'Rate required'}</td></tr>`;
- }).join('')}</tbody></table>`;
-}
-function salesOrderPrintMarkup(){
- /* Заказ без стекла — только сток — не печатает пустую таблицу стекла с одними
-    заголовками: документ клиенту, а не заготовка формы. */
- const glassTable=soDraft.lines.length?`<table><thead><tr><th>#</th><th>MU</th><th>Qty</th><th>Width</th><th>Height</th><th>Mark</th>${salesMetricHeaders('print')}</tr></thead><tbody>${soDraft.lines.map((l,i)=>`<tr><td>${i+1}</td><td>${raw((salesMakeupById(soDraft,l.makeupId)||{}).code)}</td><td>${l.qty}</td><td data-raw>${esc(salesDimFrom16(l.width16))}″</td><td data-raw>${esc(salesDimFrom16(l.height16))}″</td><td>${raw(l.mark)}</td>${salesMetricCells(l,'print')}</tr>`).join('')}</tbody></table>`:'';
- return `<div class="metric-print-order"><h2>${raw(soDraft.businessNumber||'Draft Sales Order')}</h2><p>${raw(salesCustomerDisplay(soDraft.customerId))}${soDraft.customerPo?' · PO '+raw(soDraft.customerPo):''}</p>${glassTable}${salesOrderPrintExtraRows()}${salesMetricColumnsFor('print').some(c=>c.key==='lineTotal')?salesCommercialOrderSummary(false):''}</div>`;
-}
 function salesMetricsModal(){
  if(!salesMetricsPanel||!soDraft)return '';
- const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',print:'Print preview',area:'Unit area',weight:'Unit weight',price:'Unit price'};
+ const panel=salesMetricsPanel,line=salesMetricsLine(),titles={columns:'Order columns',rules:'Pricing rules',orderCharges:'Order charges',area:'Unit area',weight:'Unit weight',price:'Unit price'};
  if(!titles[panel]||!line&&['area','weight','price'].includes(panel))return '';
- const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):panel==='price'?salesPricePanel(line):`<div class="metric-print-actions"><button onclick="salesOpenMetrics('columns')">${'Print columns'}</button><button class="pri" onclick="printSheet(salesOrderPrintMarkup())">${'Print'}</button></div><div class="metric-print-preview">${salesOrderPrintMarkup()}</div>`;
- return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal ${panel==='print'?'metric-modal-wide':''}"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
+ const content=panel==='columns'?salesColumnsPanel():panel==='rules'?salesRulePanel():panel==='orderCharges'?salesOrderChargesPanel():panel==='area'?salesAreaPanel(line):panel==='weight'?salesWeightPanel(line):salesPricePanel(line);
+ return `<div class="sales-service-modal-back metric-modal-back" onclick="if(event.target===this)salesCloseMetrics()"><div role="dialog" aria-modal="true" aria-label="${esc(titles[panel])}" class="sales-service-modal metric-modal"><div class="sales-service-modal-head"><h3>${esc(titles[panel])}${line?' · '+(soDraft.lines.indexOf(line)+1):''}</h3><button type="button" aria-label="Close" onclick="salesCloseMetrics()">×</button></div><div class="metric-modal-body">${content}</div></div></div>`;
 }
 /* Refresh computed cells without replacing the input currently receiving Tab. */
 function salesRefreshLineMetrics(line){

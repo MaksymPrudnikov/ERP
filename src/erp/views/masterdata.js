@@ -26,6 +26,7 @@ const MD_TABS=[
  {k:'works',     label:'Works'},
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
+ {k:'company',   label:'Company'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -80,7 +81,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }

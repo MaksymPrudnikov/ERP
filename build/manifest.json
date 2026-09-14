@@ -4,7 +4,8 @@
   "src/styles/base.css",
   "src/styles/modules.css",
   "src/styles/service-sets.css",
-  "src/styles/line-metrics.css"
+  "src/styles/line-metrics.css",
+  "src/styles/documents.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -38,6 +39,7 @@
   "src/erp/masterdata/glass.js",
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
+  "src/erp/documents/company.js",
   "src/erp/icons.js",
   "src/erp/nav.js",
   "src/erp/views/dashboard.js",
@@ -51,6 +53,9 @@
   "src/erp/sales/print-sheet.js",
   "src/erp/sales/frit-drawing.js",
   "src/erp/sales/makeup-ui.js",
+  "src/erp/documents/model.js",
+  "src/erp/documents/layout.js",
+  "src/erp/documents/pdf.js",
   "src/erp/views/sales.js",
   "src/erp/views/sales-line-metrics-ui.js",
   "src/erp/views/sales-shape-ui.js",
@@ -60,6 +65,7 @@
   "src/erp/views/optimization.js",
   "src/erp/views/production.js",
   "src/erp/views/masterdata.js",
+  "src/erp/views/documents-ui.js",
   "src/erp/storage.js"
  ]
 }

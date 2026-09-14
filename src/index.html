@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 54 модулей, 4 стиля.
+  Состав: 59 модулей, 5 стиля.
 -->
 <html lang="en">
 <head>
@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="styles/modules.css">
 <link rel="stylesheet" href="styles/service-sets.css">
 <link rel="stylesheet" href="styles/line-metrics.css">
+<link rel="stylesheet" href="styles/documents.css">
 </head>
 <body>
 <div class="shell">
@@ -38,7 +39,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2711b4c7d859';
+var ERP_BUILD='76f235777167';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -71,6 +72,7 @@ var ERP_BUILD='2711b4c7d859';
 <script src="erp/masterdata/glass.js"></script>
 <script src="erp/customers/data.js"></script>
 <script src="erp/sales/data.js"></script>
+<script src="erp/documents/company.js"></script>
 <script src="erp/icons.js"></script>
 <script src="erp/nav.js"></script>
 <script src="erp/views/dashboard.js"></script>
@@ -84,6 +86,9 @@ var ERP_BUILD='2711b4c7d859';
 <script src="erp/sales/print-sheet.js"></script>
 <script src="erp/sales/frit-drawing.js"></script>
 <script src="erp/sales/makeup-ui.js"></script>
+<script src="erp/documents/model.js"></script>
+<script src="erp/documents/layout.js"></script>
+<script src="erp/documents/pdf.js"></script>
 <script src="erp/views/sales.js"></script>
 <script src="erp/views/sales-line-metrics-ui.js"></script>
 <script src="erp/views/sales-shape-ui.js"></script>
@@ -93,6 +98,7 @@ var ERP_BUILD='2711b4c7d859';
 <script src="erp/views/optimization.js"></script>
 <script src="erp/views/production.js"></script>
 <script src="erp/views/masterdata.js"></script>
+<script src="erp/views/documents-ui.js"></script>
 <script src="erp/storage.js"></script>
 </body>
 </html>
