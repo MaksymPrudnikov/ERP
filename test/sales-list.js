@@ -129,11 +129,11 @@ module.exports=async function({page,eq,ok}){
   const red=document.querySelectorAll('.sl-row-hold').length,btnAfter=document.querySelector('[data-hold-button]').textContent.trim();
   salesOrderEdit(a.id);
   const bar=((document.querySelector('[data-hold-bar]')||{}).textContent||'').includes('Credit check');
-  salesAdvanceStatus();
+  tab='optimization';optimizationRunOrders([a.id],'verified');
   const title=salesDialog?salesDialog.title:'',buttons=salesDialog?salesDialog.buttons.map(x=>x.label):[];
   salesDialogChoose(1);
   const released=[slByNum('76002').onHold,soDraft.onHold],status=soDraft.status,work=salesDraftHasWork();
-  soEdit=null;soDraft=null;salesListSel=new Set();render();
+  soEdit=null;soDraft=null;salesListSel=new Set();tab='sales';render();
   return {range,btnBefore,choices,held,reason,red,btnAfter,bar,title,buttons,released,status,work};
  }),{range:4,btnBefore:'⛔ On Hold (2)',choices:5,held:[true,true],reason:['Credit check','Credit check'],red:2,btnAfter:'⛔ Release (2)',bar:true,
   title:'Order 76002 is On Hold',buttons:['Back','Release hold'],released:[false,false],status:'new',work:false});

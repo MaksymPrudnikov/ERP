@@ -58,19 +58,29 @@ const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
 
 /* ------------------------------ Настройки ------------------------------ */
-function salesListColumn(k){return SALES_LIST_COLUMNS.find(c=>c.k===k)||null;}
-function salesListLoadPrefs(){
- if(salesListPrefs)return salesListPrefs;
- let p={};try{p=JSON.parse(localStorage.getItem(SALES_LIST_PREFS_KEY)||'{}')||{};}catch(e){p={};}
- salesListPrefs=salesListCleanPrefs(p);
- return salesListPrefs;
+/* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
+const salesQueuePrefs={optimization:null,shipping:null};
+function salesListScope(){return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListCatalog(){
+ if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
+ const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]);
 }
-function salesListSavePrefs(){try{localStorage.setItem(SALES_LIST_PREFS_KEY,JSON.stringify(salesListPrefs));}catch(e){}}
+function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
+function salesListPrefsKey(){const scope=salesListScope();return scope==='sales'?SALES_LIST_PREFS_KEY:'glass_erp_'+scope+'_list_v1';}
+function salesListLoadPrefs(){
+ const scope=salesListScope(),cached=scope==='sales'?salesListPrefs:salesQueuePrefs[scope];if(cached)return cached;
+ let p={};try{p=JSON.parse(localStorage.getItem(salesListPrefsKey())||'{}')||{};}catch(e){p={};}
+ const clean=salesListCleanPrefs(p);if(scope==='sales')salesListPrefs=clean;else salesQueuePrefs[scope]=clean;
+ return clean;
+}
+function salesListSavePrefs(){try{localStorage.setItem(salesListPrefsKey(),JSON.stringify(salesListLoadPrefs()));}catch(e){}}
 function salesListCleanPrefs(p){
  p=p&&typeof p==='object'&&!Array.isArray(p)?p:{};
  const seen=new Set(),cols=[];
  (Array.isArray(p.cols)?p.cols:[]).forEach(c=>{if(c&&salesListColumn(c.k)&&!seen.has(c.k)){seen.add(c.k);cols.push({k:c.k,on:!!c.on});}});
- SALES_LIST_COLUMNS.forEach(c=>{if(!seen.has(c.k))cols.push({k:c.k,on:!!c.def});});
+ salesListCatalog().forEach(c=>{if(!seen.has(c.k))cols.push({k:c.k,on:!!c.def});});
  const filters={},src=p.filters&&typeof p.filters==='object'&&!Array.isArray(p.filters)?p.filters:{};
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
@@ -139,6 +149,8 @@ function salesListValue(info,k){
   case 'status':v=salesStatusLabel(o,salesListStatus(o));break;
   case 'priority':v=SALES_LIST_PRIORITY[o.priority]||'Normal';break;
   case 'glass':v=salesListGlass(o);break;
+  case 'batch':v=salesOrderBatchNumbers(o).join(', ');break;
+  case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
   case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
@@ -201,7 +213,7 @@ function salesListCondTest(type,c,val){
 }
 function salesListFilterTest(col,f,info){
  const val=salesListValue(info,col.k);let ok=true;
- if(Array.isArray(f.values))ok=f.values.includes(salesListText(info,col.k));
+ if(Array.isArray(f.values))ok=col.tokens?salesListTokens(info,col.k).some(v=>f.values.includes(v)):f.values.includes(salesListText(info,col.k));
  if(ok&&f.preset&&col.type==='date'){const r=salesListPresetRange(f.preset);ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
  const conds=(f.conds||[]).filter(salesListCondReady);
  if(ok&&conds.length){
@@ -221,6 +233,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible();
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo);
  return {all,infos};
@@ -231,10 +244,24 @@ function salesListRows(infos){
  const s=p.sort||{k:'created',dir:'desc'},col=salesListColumn(s.k)||salesListColumn('created'),cmp=salesListCompare(col,s.dir);
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
+/* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
+   встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
+function salesListTokens(info,k){
+ if(k==='batch'){const v=salesOrderBatchNumbers(info.o);return v.length?v:['(empty)'];}
+ if(k!=='glass')return [salesListText(info,k)];
+ const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
+ (info.o.makeups||[]).filter(m=>used.has(m.id)).forEach(m=>(m.panes||[]).forEach(p=>{
+  const panes=p.category==='laminated'?[p.laminated&&p.laminated.outer,p.laminated&&p.laminated.inner]:[p];
+  panes.forEach(x=>{const g=glassProductById(x&&x.glassProductId);if(g)codes.push(g.code);});
+ }));
+ return codes.length?[...new Set(codes)]:['(empty)'];
+}
 function salesListValueOptions(k,infos){
- const p=salesListLoadPrefs(),others=Object.keys(p.filters).filter(x=>x!==k&&salesListColumn(x)&&salesListFilterActive(p.filters[x])),counts={};
- infos.filter(info=>others.every(x=>salesListFilterTest(salesListColumn(x),p.filters[x],info))).forEach(info=>{const t=salesListText(info,k);counts[t]=(counts[t]||0)+1;});
- return Object.keys(counts).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(text=>({text,n:counts[text]}));
+ const p=salesListLoadPrefs(),col=salesListColumn(k),others=Object.keys(p.filters).filter(x=>x!==k&&salesListColumn(x)&&salesListFilterActive(p.filters[x])),counts=new Map();
+ infos.filter(info=>others.every(x=>salesListFilterTest(salesListColumn(x),p.filters[x],info))).forEach(info=>{
+  (col.tokens?salesListTokens(info,k):[salesListText(info,k)]).forEach(t=>counts.set(t,(counts.get(t)||0)+1));
+ });
+ return [...counts.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(text=>({text,n:counts.get(text)}));
 }
 function salesListSetFilter(k,f){
  const p=salesListLoadPrefs(),clean=salesListCleanFilter(k,f);
@@ -312,7 +339,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -323,10 +350,10 @@ function salesListOpenFilter(e,k){
  const col=salesListColumn(k);if(!col)return;
  const p=salesListLoadPrefs(),draft=JSON.parse(JSON.stringify(p.filters[k]||salesListEmptyFilter(col)));
  if(col.type!=='list'&&!draft.conds.length)draft.conds.push({op:salesListDefaultOp(col),v:'',v2:'',join:'and'});
- salesListMenu=Object.assign({kind:'filter',col:k,draft,search:''},salesListAt(e,340));
+ salesListMenu=Object.assign({kind:'filter',scope:salesListScope(),col:k,draft,search:''},salesListAt(e,340));
  render();
 }
-function salesListOpenColumns(e){if(e)e.stopPropagation();salesListMenu=Object.assign({kind:'columns'},salesListAt(e,300));render();}
+function salesListOpenColumns(e){if(e)e.stopPropagation();salesListMenu=Object.assign({kind:'columns',scope:salesListScope()},salesListAt(e,300));render();}
 function salesListContext(e,id){
  if(e){e.preventDefault();e.stopPropagation();}
  if(!salesListSel.has(id))salesListSel=new Set([id]);
@@ -334,7 +361,7 @@ function salesListContext(e,id){
  render();
 }
 function salesListMenuHTML(infos){
- const m=salesListMenu;if(!m)return '';
+ const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='context')return back+salesListContextHTML(m,style);
@@ -410,7 +437,7 @@ function salesListDropColumn(k){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
-function salesListStandardView(){salesListLoadPrefs().cols=SALES_LIST_COLUMNS.map(c=>({k:c.k,on:!!c.def}));salesListSavePrefs();render();}
+function salesListStandardView(){salesListLoadPrefs().cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));salesListSavePrefs();render();}
 
 /* ------------------------------ Выбор строк ---------------------------- */
 function salesListToggleRow(e,id){
@@ -431,7 +458,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -441,7 +468,8 @@ function salesListMenuRun(act){
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
- else if(act==='cancel'){salesOrderEdit(o.id);salesCancelOrder();}
+ else if(act==='cancel')salesCancelOrder(o.id);
+ else if(act==='restore')salesRestoreOrder(o.id);
  else if(act==='delete')salesOrderDelete(o.id);
  else render();
 }
@@ -511,8 +539,8 @@ function salesHoldBar(o){
  if(!o||salesIsQuote(o)||!o.onHold)return '';
  return `<div class="sales-holdbar" data-hold-bar>⛔ <b>On Hold since ${esc(salesShortDate(o.holdAt))}</b>${o.holdReason?' · '+raw(o.holdReason):''}<span class="sp"></span><button type="button" class="sm" onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button></div>`;
 }
-function salesHoldBlocked(){
- const o=soDraft;if(!o)return;
+function salesHoldBlocked(orderId){
+ const o=orderId?salesRecord(orderId):soDraft;if(!o)return;
  salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }

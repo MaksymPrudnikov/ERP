@@ -9,7 +9,8 @@
   "src/styles/finance.css",
   "src/styles/lifecycle.css",
   "src/styles/quotes.css",
-  "src/styles/sales-list.css"
+  "src/styles/sales-list.css",
+  "src/styles/optimization.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -70,6 +71,7 @@
   "src/erp/views/configurators.js",
   "src/erp/views/sales-service-sets-ui.js",
   "src/erp/views/optimization.js",
+  "src/erp/views/shipping.js",
   "src/erp/views/production.js",
   "src/erp/views/masterdata.js",
   "src/erp/views/documents-ui.js",
