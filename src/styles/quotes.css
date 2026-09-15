@@ -1,0 +1,19 @@
+/* Ревизии квоты, отправка, выбор ревизии при Convert to order. */
+.pill.st-sent{background:#e0f2fe;color:#026aa2}
+.quote-revs{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;background:#fff;border:1px solid #e3e7ee;border-radius:10px;padding:10px 12px;margin:10px 0}
+.quote-revs>span{align-self:center;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#475467;margin-right:4px}
+.quote-rev{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid #c9d1dd;border-radius:9px;background:#fff;padding:7px 14px;min-width:180px;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.quote-rev b{font-size:15px}
+.quote-rev small{color:#475467;font-size:12.5px}
+.quote-rev.on{border:2px solid #16325c;background:#eef4ff}
+.quote-rev.add{border-style:dashed;color:#16325c;justify-content:center}
+.quote-sent-banner{background:#f2f4f7;border:1px solid #d0d5dd;border-radius:8px;padding:8px 12px;margin:0 0 10px;color:#344054}
+.doc-revs{display:inline-flex;align-items:center;gap:10px;margin-left:12px;font-weight:600;font-size:13px}
+.doc-revs label{display:inline-flex !important;gap:5px;align-items:center;margin:0;text-transform:none !important;letter-spacing:0 !important;font-weight:600 !important;font-size:13px !important;color:inherit !important}
+.doc-revs input{width:auto !important;margin:0;min-height:0}
+.sales-dialog-choices{margin:8px 0 4px}
+.sales-dialog-choice{display:flex !important;gap:12px;align-items:center;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;margin:6px 0;cursor:pointer;font-size:14.5px !important;text-transform:none !important;letter-spacing:0 !important;font-weight:400 !important;color:#1c2330 !important}
+.sales-dialog-choice input{width:auto !important;flex:0 0 auto;margin:0;height:16px;min-height:0}
+.sales-dialog-choice span{flex:1;min-width:0}
+.sales-dialog-choice b{font-weight:800}
+.sales-dialog-choice.on{border:2px solid #16325c;background:#eef4ff}

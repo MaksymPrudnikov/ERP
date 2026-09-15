@@ -7,7 +7,8 @@
   "src/styles/line-metrics.css",
   "src/styles/documents.css",
   "src/styles/finance.css",
-  "src/styles/lifecycle.css"
+  "src/styles/lifecycle.css",
+  "src/styles/quotes.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -42,6 +43,7 @@
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
   "src/erp/sales/lifecycle.js",
+  "src/erp/sales/quotes.js",
   "src/erp/documents/company.js",
   "src/erp/finance/data.js",
   "src/erp/icons.js",

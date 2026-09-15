@@ -11,16 +11,21 @@
 
 let docState=null,docLastKind='proforma';
 
+/* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
+   квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
+function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
 function docOpen(kind){
  if(!soDraft)return;
- kind=DOC_KINDS.some(d=>d.k===kind)?kind:docLastKind;
- docState={kind,opts:docDefaultOptions(kind),panel:false,status:''};
+ const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
+ kind=kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
+ const cur=q?salesQuoteCurrentId():null;
+ docState={kind,opts:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
- if(!docState||!DOC_KINDS.some(d=>d.k===kind))return;
- docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
+ if(!docState||!soDraft||!docKindsFor(soDraft).some(d=>d.k===kind))return;
+ if(kind!=='quote')docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
 /* Галочка меняет только этот показ. В заказ ничего не пишется, а набор по
@@ -37,10 +42,30 @@ function docSaveDefault(){
  DB.documentSettings=Object.assign({},DB.documentSettings,{[docState.kind]:docCleanOptions(docState.kind,docState.opts)});
  touch();docState.status='Saved as default for every '+docKindLabel(docState.kind)+'.';render();
 }
-function docCurrentPages(){return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));}
+function docQuoteRecords(){
+ const ids=docState&&docState.revs||[];if(!ids.length)return [soDraft];
+ const cur=salesQuoteCurrentId(),dirty=salesDraftHasWork();
+ return ids.map(id=>id===cur&&dirty?soDraft:(DB.salesOrder||[]).find(o=>o.id===id)).filter(Boolean).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+}
+function docToggleRev(id,on){
+ if(!docState)return;
+ const s=new Set(docState.revs||[]);if(on)s.add(id);else s.delete(id);
+ docState.revs=[...s];docState.status='';render();
+}
+function docCurrentPages(){
+ if(docState.kind!=='quote')return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts))));
+}
+function docRevisionPicker(){
+ if(!docState||docState.kind!=='quote')return '';
+ const cur=salesQuoteCurrentId(),ref=cur&&(DB.salesOrder||[]).find(o=>o.id===cur);if(!ref)return '';
+ const ms=salesQuoteMembers(ref);if(ms.length<2)return '';
+ return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} onchange="docToggleRev('${esc(m.id)}',this.checked)"> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
+}
 function docWarnings(){
  const out=[];
- if(!soDraft.businessNumber)out.push('Save the order to give the document its number.');
+ if(!soDraft.businessNumber&&!salesQuoteCurrentId())out.push(salesIsQuote(soDraft)?'Save the quote to give the document its number.':'Save the order to give the document its number.');
+ if(docState.kind==='quote'&&salesQuoteCurrentId()&&!(docState.revs||[]).length)out.push('Tick at least one revision to print or email.');
  if(!soDraft.customerId)out.push('No customer selected.');
  if(salesIsQuote(soDraft)&&docState.kind==='workOrder')out.push('This is a quote. Convert it to an order before sending a work order to the shop.');
  if(docState.kind!=='workOrder'){const t=salesOrderCommercialTotals(soDraft);if(!t.complete)out.push(t.missing+(t.missing>1?' items need':' item needs')+' pricing — totals are not complete.');}
@@ -52,9 +77,9 @@ function docModal(){
  let pages=[],error='';
  try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=DOC_KINDS.map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
-  <div class="doc-bar"><b class="doc-title">Preview · Order ${esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}</div><span class="doc-spacer"></span>
+  <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
    <button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>
    <button type="button" onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button><button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
@@ -132,6 +157,7 @@ function docEmailUrl(){
  return 'https://mail.google.com/mail/?view=cm&fs=1'+(to?'&to='+encodeURIComponent(to):'')+'&su='+encodeURIComponent(docEmailSubject())+'&body='+encodeURIComponent(docEmailBody());
 }
 function docEmail(){
+ if(docState&&soDraft&&docState.kind==='quote'){docEmailQuote();return;}
  if(!docState||!soDraft)return;
  let bytes;
  try{bytes=docPdfBytes(docCurrentPages(),{title:docKindLabel(docState.kind)+' '+(soDraft.businessNumber||'draft')});}
@@ -143,17 +169,56 @@ function docEmail(){
  render();
 }
 
+/* Квота: отмеченные ревизии уходят одним письмом, каждая своим PDF, и
+   становятся Sent. Несохранённые правки сначала сохраняются — у отправленной
+   ревизии они становятся следующей ревизией, отправленная не меняется. */
+function docGmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1'+(to?'&to='+encodeURIComponent(to):'')+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);}
+function docQuoteEmailSubject(recs){
+ const c=DB.company||{},po=recs[0].customerPo;
+ return ['Quote '+recs.map(r=>r.businessNumber).join(', '),po?'PO '+po:'',c.legalName].map(x=>String(x||'').trim()).filter(Boolean).join(' · ');
+}
+function docQuoteEmailBody(recs){
+ const c=DB.company||{},q=recs[0],C=salesFindCustomer(q.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
+ const terms=paymentTermsFrom(C||{}),pct=paymentDepositPercent(terms),many=recs.length>1,po=q.customerPo?' for PO '+q.customerPo:'';
+ const lines=['Hello'+(first?' '+first:'')+',','',many?'Please find attached quote '+salesQuoteBaseNumber(q)+' in '+recs.length+' options: '+recs.map(r=>r.businessNumber).join(', ')+po+'.':'Please find attached quote '+q.businessNumber+po+'.'];
+ recs.forEach(r=>{const t=finWithOrder(r,()=>salesOrderCommercialTotals(r));if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
+ lines.push('Prices are valid until '+docDate(salesQuoteValidUntil(q))+'.');
+ if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
+ else if(pct>0)lines.push('A '+pct+'% deposit is required to start production.');
+ lines.push(many?'Reply to this email with the option you choose, or ask us for changes.':'Reply to this email to accept the quote or to ask for changes.','','Thank you,',c.legalName||'');
+ if(c.phone)lines.push(c.phone);
+ return lines.join('\n');
+}
+function docEmailQuote(){
+ const before=salesQuoteCurrentId(),cur=salesQuoteSettle();if(!cur||!docState)return;
+ let ids=(docState.revs||[]).filter(id=>(DB.salesOrder||[]).some(o=>o.id===id));
+ if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
+ if(!ids.length)ids=[cur];
+ const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
+ const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
+ const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
+ files.forEach(f=>docDownload(f.name,f.bytes));
+ salesQuoteMarkSent(recs.map(r=>r.id));
+ const win=window.open(url,'_blank'),keep=docState;
+ salesOrderEdit(cur);
+ docState=Object.assign(keep,{revs:recs.map(r=>r.id),cur:salesQuoteCurrentId(),
+  status:(files.length>1?files.length+' PDFs saved to Downloads: ':'PDF saved to Downloads as ')+files.map(f=>f.name).join(', ')+' — drag '+(files.length>1?'them':'it')+' into the Gmail message. '+recs.map(r=>r.businessNumber).join(', ')+(recs.length>1?' are':' is')+' marked Sent.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.')});
+ render();
+}
+
 /* -------------------------- Master Data → Company -------------------- */
 function viewMdCompany(){
  const c=DB.company;
  const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
   return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
- return `<div class="sub">Company details for Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
+ return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
  <div class="doc-company">
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
    <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG. Resized for printing and saved with the data.</small></div>
-  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
+  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
  </div>`;
 }
 function companySet(k,v){
