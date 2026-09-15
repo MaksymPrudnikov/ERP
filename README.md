@@ -1,6 +1,6 @@
 # GLASS ERP — Glazing System
 
-> Изменения Muntin от 8 сентября 2026 влиты в `main` (PR #55) и живая версия их уже показывает: профиль бара виден в разрезе камеры на печатном листе. Прежняя пометка «ждёт слияния» снята при сверке 10 сентября.
+> Текущая точка 15 сентября 2026: `main` после PR #80, 608 проверок. Следующая работа — [`docs/ЗАДАЧА_PR-B.md`](docs/ЗАДАЧА_PR-B.md), потом [`docs/ЗАДАЧА_PR-C.md`](docs/ЗАДАЧА_PR-C.md).
 
 Собственная ERP для стекольного производства. Цель — полная замена Spil Glass.
 
@@ -55,18 +55,22 @@ src/
 │       ├── bom.js            имена деталей, список раскроя
 │       └── index.js          ПУБЛИЧНЫЙ КОНТРАКТ: MuntinModule.compute(shape, mdef)
 │
-├── erp/                      ОБОЛОЧКА — домены, экраны, RU/EN, хранилище
-│   ├── data.js  icons.js  i18n.js  nav.js  storage.js
+├── erp/                      ОБОЛОЧКА — домены, экраны, хранилище (интерфейс только по-английски)
+│   ├── data.js  icons.js  nav.js  storage.js
 │   ├── customers/ data.js    Customer Master
 │   ├── masterdata/ glass.js  каталог стекла с ценами продажи, рамки, газ, герметики, плёнки
 │   ├── sales/                 Draft Sales domain
 │   │   ├── data.js            SalesOrder · OrderMakeup · OrderLine schema
 │   │   ├── orders.js          draft behavior · Excel · Shape bridge с раскладкой изделия
 │   │   ├── makeup-ui.js       compact Lite / Cavity / Laminated Makeup Builder
-│   │   └── service-sets.js    Effective Production · Edgework Sets
-│   └── views/    dashboard · users · customers · sales · sales-shape-ui · optimization · production
+│   │   ├── service-sets.js    Effective Production · Edgework Sets
+│   │   ├── lifecycle.js       статусы заказа и квоты, замок строк после батча
+│   │   └── quotes.js          ревизии квоты, отправка по Email, срок цен
+│   ├── documents/             бланки: company · model · layout · pdf
+│   ├── finance/ data.js       оплаты клиентов, депозит, баланс заказа
+│   └── views/    dashboard · users · customers · sales · sales-list-ui · sales-shape-ui · documents-ui · finance · masterdata · optimization · production
 │
-├── styles/                   base.css · modules.css · service-sets.css
+├── styles/                   base · modules · service-sets · line-metrics · documents · finance · lifecycle · quotes · sales-list
 └── shell.html                каркас страницы (шапка, меню, контейнер)
 
 build/build.js + build/manifest.json   →  src/index.html + dist/GLASS_ERP.html
@@ -238,13 +242,12 @@ node test/run.js     # прогон по src/
 TARGET=dist node test/run.js
 ```
 
-Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, RU/EN, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
+Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, отсутствие русского в интерфейсе, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
 `cut lengths обрезаны реальным контуром` — сломан перенос v4.5, а не тест.
 
-Проверенная точка 9 сентября 2026: `main` после PR #58 и автосборки
-`9dbea3e`, **467 passed, 0 failed** на `src` и те же **467 passed, 0 failed**
-на собранном `dist`, 54 браузерных модуля, build `bc4585ddc506`, Chromium
-Playwright 1.55.0. Для проверки `TARGET=dist` сначала выполнить
+Проверенная точка 15 сентября 2026: `main` после PR #80 и автосборки
+`95d5dd9`, **608 passed, 0 failed** на `src` и столько же на собранном `dist`,
+64 браузерных модуля. Для проверки `TARGET=dist` сначала выполнить
 `node build/build.js`; собранный `dist` в feature-ветку не включать.
 
 Текущие решения и проверки: [`docs/GLASS_ERP_HANDOFF.md`](docs/GLASS_ERP_HANDOFF.md). Аудит 18 августа — [исторический отчёт](docs/REVIEW_2026-08-18.md).
