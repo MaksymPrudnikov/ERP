@@ -9,7 +9,8 @@
   "src/styles/finance.css",
   "src/styles/lifecycle.css",
   "src/styles/quotes.css",
-  "src/styles/sales-list.css"
+  "src/styles/sales-list.css",
+  "src/styles/optimization.css"
  ],
  "scripts": [
   "src/core/dim.js",

@@ -86,7 +86,7 @@ function render(){
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
   configurators:['Configurators','Engineering Shape configurator'],
-  optimization:['Optimization','Data bridge to Perfect Cut'],
+  optimization:['Optimization','Order queue · production and fulfilment'],
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances']
  }[tab]||['ERP Glazing System','Production system'];

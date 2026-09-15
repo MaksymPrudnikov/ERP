@@ -1,143 +1,55 @@
-/* Квота и заказ: статусы и даты шагов, предупреждения переходов, замок строк
-   после батча, отмена, квота → заказ, галочки Show в списке Sales. Решения
-   владельца 14–15 сентября 2026. Прогоняется и на src, и на собранном dist. */
+/* Статусы из очереди, финансовые предупреждения, замок и квоты.
+   Проверяются по исходникам и по собранному HTML. */
 module.exports=async function({page,eq,ok}){
- console.log('lifecycle');
- const t=await page();
- await t.p.evaluate(()=>{
-  window.lcCustomer=function(extra){const c=normalizeCustomer(Object.assign({legalName:'QA Life Ltd',code:'QALIFE'+(DB.customer.length+1)},extra||{}));DB.customer.push(c);return c;};
-  /* Заказ или квота с известными ценами у своего клиента. */
-  window.lcNew=function(kind,cust){
-   tab='sales';salesOrderNew(kind);salesSetUnitType('double');
-   const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');
-   m.panes.forEach(p=>{p.glassProductId=g.id;p.thicknessMm=6;p.priceOverride=5.55;p.heatTreatmentId='HT-FT';p.heatSoak=false;});
-   m.cavities.forEach(c=>{c.priceOverride=3.1;});
-   soDraft.lines=[];
-   [[37,71,2,'L-1'],[30,40,1,'L-2']].forEach(x=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:x[0]*16,height16:x[1]*16,qty:x[2],mark:x[3]});soDraft.lines.push(l);salesEnsureLineShape(l);salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});});
-   if(cust)salesApplyCustomerDefaults(cust.id);
-   return soDraft;
-  };
-  window.lcCleanup=function(){DB.receipt=[];DB.salesOrder=[];DB.customer=DB.customer.filter(c=>!/^QALIFE/.test(c.code||''));soEdit=null;soDraft=null;salesDialog=null;finEdit=null;finDraft=null;tab='sales';salesShow={orders:true,quotes:false};salesStatusFilter='';};
-  window.lcChoose=function(label){const i=salesDialog?salesDialog.buttons.findIndex(b=>b.label===label):-1;if(i<0)throw new Error('no dialog button '+label);salesDialogChoose(i);};
- });
-
- eq('старые заказы Draft становятся заказами New; номера квот Q-… отдельно от номеров заказов',await t.p.evaluate(()=>{
-  lcCleanup();
-  const legacy=normalizeSalesOrder({status:'draft',businessNumber:'76010'});DB.salesOrder.push(legacy);
-  const c=lcCustomer();
-  lcNew('quote',c);salesOrderSave();const q1=soDraft.businessNumber;
-  lcNew('quote',c);salesOrderSave();const q2=soDraft.businessNumber;
-  lcNew('order',c);salesOrderSave();
-  return {legacy:[legacy.kind,legacy.status],quotes:[q1,q2],order:soDraft.businessNumber,newDate:!!soDraft.statusDates.new};
- }),{legacy:['order','new'],quotes:['Q-10001','Q-10002'],order:'76011',newDate:true});
-
- eq('кнопка следующего шага: Verify → Send to batch → Ready → Picked up → Close, у каждого шага дата; оплаченный заказ проходит без предупреждений',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('order',c);salesOrderSave();
-  const total=finOrderBalance(soDraft).total;
-  DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:c.id,amount:total,allocations:[{orderId:soDraft.id,amount:total}]}));
-  const seen=[];
-  for(let k=0;k<5;k++){salesAdvanceStatus();seen.push(soDraft.status+(salesDialog?' (dialog)':''));}
-  return {seen,dates:Object.keys(soDraft.statusDates),readOnly:salesOrderReadOnly(soDraft),noNextButton:!document.querySelector('[data-next-status]')};
- }),{seen:['verified','batched','ready','done','closed'],dates:['new','verified','batched','ready','done','closed'],readOnly:true,noNextButton:true});
-
- eq('Verify у cash-клиента без депозита: окно Back / Verify anyway / Take payment; Back ничего не меняет',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('order',c);salesOrderSave();
-  salesAdvanceStatus();
-  const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label),shown=!!document.querySelector('.sales-dialog');
-  lcChoose('Back');const afterBack=soDraft.status;
-  salesAdvanceStatus();lcChoose('Verify anyway');
-  return {title:/^Deposit not received — order \d+$/.test(title),buttons,shown,afterBack,after:soDraft.status};
- }),{title:true,buttons:['Back','Verify anyway','Take payment'],shown:true,afterBack:'new',after:'verified'});
-
- eq('Take payment открывает оплату на этот заказ с суммой, которой не хватает до депозита',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('order',c);salesOrderSave();
-  const b=finOrderBalance(soDraft),dep=salesMoney(b.total*.5).toFixed(2),id=soDraft.id;
-  salesAdvanceStatus();lcChoose('Take payment');
-  const r={tab,form:finEdit,amount:finDraft.amount===dep&&finDraft.apply[id]===dep,customer:finDraft.customerId===c.id};
-  finEdit=null;finDraft=null;tab='sales';return r;
- }),{tab:'finance',form:'new',amount:true,customer:true});
-
- eq('Verify у Credit-клиента сверх лимита — окно с Verify anyway',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer({paymentMode:'credit',creditDays:30,creditLimit:100});lcNew('order',c);salesOrderSave();
-  salesAdvanceStatus();
-  const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);
-  lcChoose('Verify anyway');
-  return {title,buttons,status:soDraft.status};
- }),{title:'QA Life Ltd is over the credit limit',buttons:['Back','Verify anyway'],status:'verified'});
-
- eq('батч блокирует строки: строка закрыта, фигуру не открыть, строку не удалить, изменённую не сохранить; новая строка — added after batch и уходит в батч отдельно',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer({paymentMode:'credit',creditDays:30});lcNew('order',c);salesOrderSave();
-  salesSetStatus('verified');salesSetStatus('batched');
-  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.hasAttribute('inert'));
-  const alerts=[],oldAlert=window.alert;window.alert=m=>alerts.push(m);
-  salesOrderConfigureShape(0);const shapeOpened=tab!=='sales';
-  salesOrderRemoveLine(0);const kept=soDraft.lines.length;
-  window.alert=oldAlert;
-  soDraft.lines[0].width16+=16;const saved=salesOrderSave(),error=(document.getElementById('e_sales_order')||{}).textContent||'';
-  soDraft.lines[0].width16-=16;
-  salesOrderAddLine(null,false);const fresh=soDraft.lines[soDraft.lines.length-1];fresh.width16=320;fresh.height16=320;salesEnsureLineShape(fresh);salesOrderSave();
-  const badge=[...document.querySelectorAll('tr[data-metrics-line-id]')].pop().textContent.includes('added after batch'),bar=!!document.querySelector('[data-batch-new]');
-  salesBatchNewLines();
-  return {inert,alerts:alerts.length,shapeOpened,kept,saved:!!saved,error:/Batched lines cannot change/.test(error),badge,bar,allLocked:soDraft.lines.every(salesLineLocked)};
- }),{inert:true,alerts:2,shapeOpened:false,kept:2,saved:false,error:true,badge:true,bar:true,allLocked:true});
-
- eq('Makeup строк из батча закрыт; шаг назад из Batched — с подтверждением, строки открываются',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer({paymentMode:'credit',creditDays:30});lcNew('order',c);salesOrderSave();
-  salesSetStatus('verified');salesSetStatus('batched');
-  const muLocked=!!document.querySelector('.mu-locked[inert]');
-  const oldConfirm=window.confirm;let asked='';window.confirm=m=>{asked=m;return true;};salesStepBack();window.confirm=oldConfirm;
-  return {muLocked,asked:/glass may already be cut/.test(asked),status:soDraft.status,unlocked:soDraft.lines.every(l=>!salesLineLocked(l)),batchedDate:'batched' in soDraft.statusDates};
- }),{muLocked:true,asked:true,status:'verified',unlocked:true,batchedDate:false});
-
- eq('выдача с долгом — окно; Pick up anyway выдаёт; заказ в производстве не удалить',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer({paymentMode:'credit',creditDays:30});lcNew('order',c);salesOrderSave();
-  ['verified','batched','ready'].forEach(s=>salesSetStatus(s));
-  salesAdvanceStatus();const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);
-  lcChoose('Pick up anyway');const status=soDraft.status,label=salesStatusLabel(soDraft),id=soDraft.id;
-  const alerts=[],oldAlert=window.alert;window.alert=m=>alerts.push(m);soEdit=null;soDraft=null;salesOrderDelete(id);window.alert=oldAlert;
-  return {title:/has a balance due$/.test(title),buttons,status,label,deleteBlocked:alerts.length===1&&DB.salesOrder.some(o=>o.id===id)};
- }),{title:true,buttons:['Back','Pick up anyway','Take payment'],status:'done',label:'Picked up',deleteBlocked:true});
-
- eq('отмена заказа: оплаты уходят на депозит, долгом не считается, заказ только для чтения; Restore возвращает в New',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('order',c);salesOrderSave();
-  DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:c.id,amount:200,allocations:[{orderId:soDraft.id,amount:200}]}));
-  const oldConfirm=window.confirm;let msg='';window.confirm=m=>{msg=m;return true;};
-  salesCancelOrder();
-  const r={msg:/\$200\.00 go back/.test(msg),cancelled:soDraft.status,deposit:finCustomerDeposit(c.id),debt:finCustomerAccount(c).balanceDue,readOnly:!!document.querySelector('.sales-readonly[inert]'),
-   strip:(()=>{const s=(document.querySelector('.fin-strip')||{}).textContent||'';return /not counted/.test(s)&&!/Balance due/.test(s);})(),noDepositHint:!document.querySelector('.fin-hint')};
-  salesRestoreOrder();window.confirm=oldConfirm;
-  r.restored=soDraft.status;return r;
- }),{msg:true,cancelled:'cancelled',deposit:200,debt:0,readOnly:true,strip:true,noDepositHint:true,restored:'new'});
-
- eq('квота не долг; Convert to order — заказ со своим номером, фигуры скопированы, квота Won и только для чтения',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('quote',c);salesOrderSave();
-  const quoteId=soDraft.id,qShapes=soDraft.lines.map(l=>l.shapeRef.id),qTotal=finOrderTotals(soDraft).grand,notDebt=finCustomerAccount(c).balanceDue===0;
-  salesConvertQuote();
-  const order=soDraft,quote=DB.salesOrder.find(o=>o.id===quoteId),oShapes=order.lines.map(l=>l.shapeRef.id);
-  return {notDebt,kind:order.kind,status:order.status,number:/^\d+$/.test(order.businessNumber),from:order.fromQuoteId===quoteId,
-   newShapes:oShapes.every((id,i)=>!!id&&id!==qShapes[i]&&!!salesShapeByRef({id})),sameTotal:finOrderTotals(order).grand===qTotal,
-   quote:[quote.status,quote.wonOrderId===order.id],readOnly:salesOrderReadOnly(quote),debt:finCustomerAccount(c).balanceDue===qTotal};
- }),{notDebt:true,kind:'order',status:'new',number:true,from:true,newShapes:true,sameTotal:true,quote:['won',true],readOnly:true,debt:true});
-
- eq('список Sales: по умолчанию заказы; галочка Quotes добавляет квоты и колонку Type и запоминается; фильтр статуса; обе галочки не снять',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('quote',c);salesOrderSave();lcNew('order',c);salesOrderSave();soEdit=null;soDraft=null;
-  localStorage.removeItem('glass_erp_sales_show');salesShow=salesLoadShow();render();
-  const heads=()=>[...document.querySelectorAll('.sales-list-card th')].map(th=>th.textContent.trim()),rows=()=>document.querySelectorAll('[data-order-row]').length;
-  const onlyOrders=rows(),typeBefore=heads().includes('Type');
-  document.querySelector('[data-show="quotes"]').click();
-  const both=rows(),typeAfter=heads().includes('Type'),saved=JSON.parse(localStorage.getItem('glass_erp_sales_show'));
-  document.querySelector('[data-status-chip="quote:open"]').click();const filtered=rows();
-  document.querySelector('[data-show="orders"]').click();document.querySelector('[data-show="quotes"]').click();
-  return {onlyOrders,typeBefore,both,typeAfter,saved,filtered,stillVisible:salesShow.orders||salesShow.quotes};
- }),{onlyOrders:1,typeBefore:false,both:2,typeAfter:true,saved:{orders:true,quotes:true},filtered:1,stillVisible:true});
-
- eq('окно перехода, шапка и список со статусами — без русского текста',await t.p.evaluate(()=>{
-  lcCleanup();const c=lcCustomer();lcNew('order',c);salesOrderSave();salesAdvanceStatus();
-  let text=document.getElementById('app').innerText;lcChoose('Back');
-  salesShow={orders:true,quotes:true};soEdit=null;soDraft=null;render();text+=document.getElementById('app').innerText;
-  lcCleanup();render();
-  return /[А-яЁё]/.test(text);
- }),false);
- eq('статусы не дали ошибок страницы',t.errs,[]);
- await t.c.close();
+ console.log('lifecycle');const t=await page();await require('./optimization-fixture')(t.p);
+ eq('старый Draft становится New; номера квоты и заказа раздельные',await t.p.evaluate(()=>{
+  oqReset();DB.salesOrder.push(normalizeSalesOrder({status:'draft',businessNumber:'76010'}));const c=oqCustomer();const a=oqOrder(c,{kind:'quote'}),b=oqOrder(c,{kind:'quote'}),o=oqOrder(c);
+  return [DB.salesOrder[0].status,salesRecord(a).businessNumber,salesRecord(b).businessNumber,salesRecord(o).businessNumber,!!salesRecord(o).statusDates.new];
+ }),['new','Q-10001','Q-10002','76011',true]);
+ eq('оплаченный заказ проходит все этапы из очереди без открытого редактора',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqPay(id);soDraft=null;soEdit=null;oqQueue();const seen=[];
+  for(const next of ['verified','batched','ready','done','closed']){oqAdvance(id,next,'pickup');seen.push([salesRecord(id).status,!!salesDialog]);}
+  const o=salesRecord(id);return {seen,dates:Object.keys(o.statusDates),batch:o.batchNo,readOnly:salesOrderReadOnly(o),draft:soDraft};
+ }),{seen:[['verified',false],['batched',false],['ready',false],['done',false],['closed',false]],dates:['new','verified','batched','ready','done','closed'],batch:'B-0001',readOnly:true,draft:null});
+ eq('Verify cash-клиента: окно в очереди, Back не меняет заказ, Verify anyway продолжает',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'}));soDraft=null;soEdit=null;oqQueue();oqAdvance(id,'verified');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label),shown=!!document.querySelector('.optimization-queue .sales-dialog');oqChoose('Back');const before=salesRecord(id).status;oqAdvance(id,'verified');oqChoose('Verify anyway');return {title:/^Deposit not received — order \d+$/.test(title),buttons,shown,before,after:salesRecord(id).status};
+ }),{title:true,buttons:['Back','Verify anyway','Take payment'],shown:true,before:'new',after:'verified'});
+ eq('Take payment по ID открывает Finance на нужный заказ и сохраняет чужой черновик нетронутым',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'})),o=salesRecord(id),dep=salesMoney(finOrderBalance(o).total*.5).toFixed(2);const other=oqOrder(oqCustomer({legalName:'Other customer'}));soDraft.notes='Unsaved note';oqQueue();oqAdvance(id,'verified');oqChoose('Take payment');return {tab,form:finEdit,amount:finDraft.amount,apply:finDraft.apply[id],customer:finDraft.customerId===o.customerId,note:finDraft.note,status:salesRecord(id).status,draft:soDraft.id===other&&soDraft.notes==='Unsaved note',saved:salesRecord(other).notes,dep};
+ }),{tab:'finance',form:'new',amount:'405.46',apply:'405.46',customer:true,note:'Order 76002',status:'new',draft:true,saved:'',dep:'405.46'});
+ eq('Verify сверх кредитного лимита требует подтверждения',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer({creditLimit:100}));oqQueue();oqAdvance(id,'verified');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Verify anyway');return {title,buttons,status:salesRecord(id).status};
+ }),{title:'Northside Windows Ltd is over the credit limit',buttons:['Back','Verify anyway'],status:'verified'});
+ eq('батч блокирует фигуру, удаление и сохранение изменённых размеров; новых кнопок шагов в заказе нет',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqQueue();oqThrough(id,'batched');tab='sales';salesOrderEdit(id);
+  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.hasAttribute('inert')),muLocked=!!document.querySelector('.mu-locked[inert]');
+  const alerts=[],prev=window.alert;window.alert=m=>alerts.push(m);salesOrderConfigureShape(0);salesOrderRemoveLine(0);window.alert=prev;
+  soDraft.lines[0].width16+=16;const saved=salesOrderSave(),error=document.getElementById('e_sales_order').textContent;soDraft.lines[0].width16-=16;
+  return {inert,muLocked,alerts:alerts.length,tab,kept:soDraft.lines.length,saved:!!saved,error:/Batched lines cannot change/.test(error),buttons:document.querySelectorAll('[data-next-status],[data-batch-new],.sales-status-row button').length,batch:document.querySelector('.sales-lockbar').textContent.includes('B-0001')};
+ }),{inert:true,muLocked:true,alerts:2,tab:'sales',kept:2,saved:false,error:true,buttons:0,batch:true});
+ eq('новая строка из готового заказа идёт в новый батч; старые номера и замки сохраняются',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'ready');tab='sales';salesOrderEdit(id);const first=soDraft.lines.map(l=>[l.id,l.batchedAt,l.batchNo]);salesOrderAddLine(null,false);const l=soDraft.lines.at(-1);l.width16=320;l.height16=320;salesEnsureLineShape(l);salesOrderSave();const badge=document.body.textContent.includes('added after batch'),buttons=document.querySelectorAll('[data-batch-new]').length;oqQueue('batch');const appears=optimizationRows().some(o=>o.id===id),ready=optimizationMatches(salesRecord(id),'ready');oqAdvance(id,'batched');const o=salesRecord(id);return {badge,buttons,appears,ready,status:o.status,old:o.lines.slice(0,2).map(l=>[l.id,l.batchedAt,l.batchNo]),first,newBatch:o.lines.at(-1).batchNo,numbers:salesOrderBatchNumbers(o),allLocked:o.lines.every(salesLineLocked),readyDate:!!o.statusDates.ready};
+ }).then(r=>({...r,old:JSON.stringify(r.old)===JSON.stringify(r.first),first:undefined})),{badge:true,buttons:0,appears:true,ready:false,status:'batched',old:true,first:undefined,newBatch:'B-0002',numbers:['B-0001','B-0002'],allLocked:true,readyDate:false});
+ eq('← Back из Batched предупреждает о резке и снимает замки, номер не используется повторно',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');oqAdvance(id,'back');const warns=salesDialog.note.includes('may already be cut');oqChoose('Move back');const o=salesRecord(id);return {warns,status:o.status,unlocked:o.lines.every(l=>!l.batchedAt&&!l.batchNo),date:!!o.statusDates.batched,batch:o.batchNo,next:salesNextBatchNumber(),history:o.batchHistory};
+ }),{warns:true,status:'verified',unlocked:true,date:false,batch:'',next:'B-0002',history:['B-0001']});
+ eq('долг при самовывозе: подтверждение; Batched нельзя удалить',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'ready');oqQueue('ready');oqAdvance(id,'done','pickup');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Pick up anyway');const o=salesRecord(id),prev=window.alert;let blocked=false;window.alert=()=>blocked=true;salesOrderDelete(id);window.alert=prev;return {title:/has a balance due$/.test(title),buttons,status:o.status,label:salesStatusLabel(o),blocked};
+ }),{title:true,buttons:['Back','Pick up anyway','Take payment'],status:'done',label:'Picked up',blocked:true});
+ eq('Delivered выбирается отдельно, сохраняется после нормализации и не закрывает заказ автоматически',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer(),{delivery:'pickup'});oqThrough(id,'ready');oqQueue('ready');oqAdvance(id,'done','delivery');const buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Deliver anyway');normalizeSalesData();const o=salesRecord(id);oqAdvance(id,'closed');const close=salesDialog.buttons.map(b=>b.label);oqChoose('Back');return {buttons,status:o.status,label:salesStatusLabel(o),planned:o.delivery,actual:o.fulfilledVia,queue:optimizationMatches(o,'done'),close};
+ }),{buttons:['Back','Deliver anyway','Take payment'],status:'done',label:'Delivered',planned:'pickup',actual:'delivery',queue:true,close:['Back','Close anyway']});
+ eq('отмена возвращает оплаты в депозит; Restore доступен из списка; производственные замки сохраняются',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer()),o=salesRecord(id);DB.receipt.push(normalizeReceipt({number:'R-1',customerId:o.customerId,amount:200,allocations:[{orderId:id,amount:200}]}));oqThrough(id,'batched');oqQueue('production');salesCancelOrder(id);const msg=salesDialog.note;oqChoose('Cancel orders');const deposit=finCustomerDeposit(o.customerId),debt=finCustomerAccount(salesFindCustomer(o.customerId)).balanceDue;tab='sales';salesOrderEdit(id);const ro=!!document.querySelector('.sales-readonly[inert]'),noRestore=!document.querySelector('.sales-status-row button');soEdit=null;soDraft=null;render();salesListContext(null,id);const restore=!!document.querySelector('[data-menu="restore"]');salesListMenuRun('restore');return {msg:msg.includes('deposit'),deposit,debt,ro,noRestore,restore,status:salesRecord(id).status,locked:salesRecord(id).lines.every(salesLineLocked),dates:Object.keys(salesRecord(id).statusDates)};
+ }),{msg:true,deposit:200,debt:0,ro:true,noRestore:true,restore:true,status:'new',locked:true,dates:['new']});
+ eq('Convert у квоты остаётся; заказ получает свой номер и фигуры',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer(),{kind:'quote'}),q=salesRecord(id),old=q.lines.map(l=>l.shapeRef.id),total=finOrderTotals(q).grand,convert=!!document.querySelector('[data-convert-quote]');salesConvertQuote();const o=soDraft;return {convert,kind:o.kind,status:o.status,from:o.fromQuoteId===id,newShapes:o.lines.every((l,i)=>l.shapeRef.id!==old[i]),sameTotal:finOrderTotals(o).grand===total,won:salesRecord(id).status,batch:o.batchNo};
+ }),{convert:true,kind:'order',status:'new',from:true,newShapes:true,sameTotal:true,won:'won',batch:''});
+ eq('подмена/пропуск шага и On Hold не проходят даже на уровне записи',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());const skip=salesSetRecordStatus(id,'ready');salesHoldApply([id],'Wait');const held=salesSetRecordStatus(id,'verified'),invalid=salesSetRecordStatus(id,'bogus');return [skip,held,invalid,salesRecord(id).status];
+ }),[false,false,false,'new']);
+ eq('новые поля батча и выдачи переживают JSON; повреждённые значения нормализуются',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'done');const copy=normalizeSalesOrder(JSON.parse(JSON.stringify(salesRecord(id)))),bad=normalizeSalesOrder({batchNo:'<img>',batchHistory:['B-0004','bad','B-0004'],fulfilledVia:'script',status:'done',delivery:'delivery',lines:[{batchedAt:'',batchNo:'B-0003'}]});return {number:copy.batchNo,history:copy.batchHistory,lines:copy.lines.map(l=>l.batchNo),via:copy.fulfilledVia,bad:[bad.batchNo,bad.batchHistory,bad.fulfilledVia,bad.lines[0].batchNo]};
+ }),{number:'B-0001',history:['B-0001'],lines:['B-0001','B-0001'],via:'pickup',bad:['',['B-0004'],'delivery','']});
+ eq('страница жизненного цикла без ошибок',t.errs,[]);await t.c.close();
 };

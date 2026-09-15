@@ -1,0 +1,36 @@
+/* Очередь Optimization: вкладки, выбор заказов, общий батч и On Hold.
+   На узком экране горизонтально прокручивается только таблица. */
+.oq-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.oq-tabs button{border:0;background:transparent;font-weight:700;color:#627287;padding:10px 14px;border-radius:7px}
+.oq-tabs button b{margin-left:6px;border-radius:12px;padding:1px 6px;background:#e9eef3;font-size:11px}
+.oq-tabs button.on{background:#e8f3f9;color:#206886;box-shadow:inset 0 -3px #2582a6}
+.oq-card{min-width:0;padding:16px}
+.oq-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.oq-toolbar>b{font-size:12px;margin-right:8px;min-width:120px}
+.oq-toolbar .sp{flex:1}
+.oq-toolbar input[type=search]{width:260px;max-width:100%;margin:0}
+.oq-table-wrap{overflow-x:auto;max-width:100%}
+.oq-table-wrap table{min-width:930px;width:100%}
+.oq-table-wrap th{white-space:nowrap}
+.oq-table-wrap th:first-child,.oq-table-wrap td:first-child{width:35px;text-align:center}
+.oq-table-wrap input[type=checkbox]{width:16px;height:16px;accent-color:#206886;margin:0;vertical-align:middle}
+.oq-table-wrap td{vertical-align:middle;padding-top:14px;padding-bottom:14px}
+.oq-table-wrap td small{display:block;font-size:11px;color:#738195;margin-top:4px}
+.oq-table-wrap .n{text-align:right;font-variant-numeric:tabular-nums}
+.oq-selected td{background:#eff8fd}
+.oq-hold td{background:#eef0f3;color:#8b96a5}
+.oq-hold td .pill:not(.hold){opacity:.65}
+.oq-hold button{color:#344054}
+.oq-table-wrap .oq-due{color:#b42318}
+.oq-batches{max-width:190px}
+.oq-batches .pill{margin:2px 0}
+.oq-actions{white-space:nowrap}
+.oq-actions button+button{margin-left:4px}
+.oq-hint{margin-top:12px;padding:10px 12px;background:#fffaeb;border:1px solid #fedf89;border-radius:8px;color:#84500c;font-size:12px}
+.oq-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;padding:12px;background:#ecfdf3;border:1px solid #abefc6;border-radius:8px;color:#05603a}
+.oq-notice span{flex:1;min-width:180px;font-size:12px;overflow-wrap:anywhere}
+.oq-bridge{margin-top:16px}
+.oq-bridge p{margin:4px 0 12px}
+.sales-status-readonly{color:#8a96a8;font-size:11px;white-space:nowrap;margin-top:5px}
+@media(max-width:900px){.sales-steps{width:100%}.sales-status-readonly{align-self:flex-end}}
+@media(max-width:600px){.oq-card{padding:10px}.oq-tabs{gap:2px}.oq-tabs button{padding:8px;font-size:12px}.oq-toolbar input[type=search]{width:100%}.oq-toolbar .sp{display:none}.oq-notice span{min-width:100%}.sales-step b{font-size:10px}.sales-step small{font-size:9px}.sales-dialog-actions{flex-wrap:wrap}}

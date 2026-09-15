@@ -312,7 +312,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -431,7 +431,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -441,7 +441,8 @@ function salesListMenuRun(act){
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
- else if(act==='cancel'){salesOrderEdit(o.id);salesCancelOrder();}
+ else if(act==='cancel')salesCancelOrder(o.id);
+ else if(act==='restore')salesRestoreOrder(o.id);
  else if(act==='delete')salesOrderDelete(o.id);
  else render();
 }
@@ -511,8 +512,8 @@ function salesHoldBar(o){
  if(!o||salesIsQuote(o)||!o.onHold)return '';
  return `<div class="sales-holdbar" data-hold-bar>⛔ <b>On Hold since ${esc(salesShortDate(o.holdAt))}</b>${o.holdReason?' · '+raw(o.holdReason):''}<span class="sp"></span><button type="button" class="sm" onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button></div>`;
 }
-function salesHoldBlocked(){
- const o=soDraft;if(!o)return;
+function salesHoldBlocked(orderId){
+ const o=orderId?salesRecord(orderId):soDraft;if(!o)return;
  salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }
