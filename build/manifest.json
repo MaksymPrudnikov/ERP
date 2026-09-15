@@ -71,6 +71,7 @@
   "src/erp/views/configurators.js",
   "src/erp/views/sales-service-sets-ui.js",
   "src/erp/views/optimization.js",
+  "src/erp/views/shipping.js",
   "src/erp/views/production.js",
   "src/erp/views/masterdata.js",
   "src/erp/views/documents-ui.js",

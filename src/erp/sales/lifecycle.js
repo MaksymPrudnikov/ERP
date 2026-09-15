@@ -34,7 +34,8 @@ function salesLifecycleFields(o){
  /* Ревизии квоты (sales/quotes): группа, номер ревизии, отправка, срок цен. */
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
  const batchNo=!q?salesBatchNumber(o.batchNo):'',batchHistory=q?[]:[...new Set((Array.isArray(o.batchHistory)?o.batchHistory:[]).map(salesBatchNumber).filter(Boolean).concat(batchNo?[batchNo]:[]))];
- return {kind,status,statusDates,batchNo,batchHistory,fulfilledVia:!q&&['done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+ const unbatchHistory=!q&&Array.isArray(o.unbatchHistory)?o.unbatchHistory.filter(x=>x&&typeof x==='object'&&typeof x.at==='string').map(x=>({at:x.at,batchNumbers:[...new Set((Array.isArray(x.batchNumbers)?x.batchNumbers:[]).map(salesBatchNumber).filter(Boolean))],lineIds:[...new Set((Array.isArray(x.lineIds)?x.lineIds:[]).map(salesRefId).filter(Boolean))]})):[];
+ return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
   sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
   /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
@@ -72,12 +73,12 @@ function salesOrderTitle(o){
    менять размер, количество, Makeup, фигуру и кромку, и строку нельзя
    удалить. Цены остаются правкой продавца. Новые строки заказа идут без
    даты — это «added after batch», их отправляют в батч из очереди Optimization. */
-function salesLineLocked(line){return !!(line&&line.batchedAt);}
+function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line))return false;
- alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. The glass is at cutting: size, makeup, shape and edgework cannot change. Add a new line or open a new order.');
+ alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. Production lines are locked. Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new line or open a new order.');
  return true;
 }
 function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":'';}
@@ -106,7 +107,7 @@ function salesLockViolations(draft,saved){
   if(!salesLineLocked(old))return;
   const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
   if(!now){out.push(name(i+1)+' was removed');return;}
-  now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';
+  now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
   if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
  });
  return out;
@@ -121,14 +122,16 @@ function salesDeleteBlocked(o){
 /* ------------------------------ Окно --------------------------------- */
 let salesDialog=null;
 function salesDialogOpen(d){salesDialog=d;render();}
-function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogChoose(i){const d=salesDialog,b=d&&d.buttons[i];if(b&&b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length))return;salesDialog=null;if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogToggleLine(id,on){const d=salesDialog;if(!d||!d.lineChoices||!d.lineChoices.some(l=>l.id===id&&!l.disabled))return;d.checkedLines=on?[...new Set(d.checkedLines.concat(id))]:d.checkedLines.filter(x=>x!==id);d.confirmed=false;render();}
+function salesDialogConfirm(on){if(!salesDialog)return;salesDialog.confirmed=!!on;render();}
 function salesDialogPick(id){if(!salesDialog)return;salesDialog.choice=id;render();}
 function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
-  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
+  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> I confirm cutting has not started for the selected lines.</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
 /* ---------------------------- Переходы -------------------------------- */
@@ -179,7 +182,7 @@ function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
  if(opts.restore)return o.status==='cancelled'&&next==='new';
- if(opts.back)return o.status!=='cancelled'&&SALES_PREV_STATUS[o.status]===next;
+ if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
  if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
  if(next==='batched')return o.status==='verified'||(['batched','ready','done'].includes(o.status)&&salesUnbatchedLines(o).length>0);
@@ -189,19 +192,18 @@ function salesRecordTransitionAllowed(o,next,opts){
 function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
- soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';}});
+ soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
 function salesSetRecordStatus(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
- const before=o.status,now=opts.now||new Date().toISOString();
+ const now=opts.now||new Date().toISOString();
  o.statusDates=Object.assign({},o.statusDates||{});
  if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
  else if(opts.back){
   SALES_ORDER_FLOW.slice(SALES_ORDER_FLOW.indexOf(next)+1).forEach(k=>{delete o.statusDates[k];});
   if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
-  if(before==='batched'){o.lines.forEach(l=>{l.batchedAt='';l.batchNo='';});o.batchNo='';}
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
   const fresh=salesUnbatchedLines(o);
@@ -218,6 +220,24 @@ function salesSetRecordStatus(orderId,next,opts){
  salesSyncRecordLifecycle(o);
  if(!opts.deferTouch)touch();
  return true;
+}
+/* До реального события со стола отсутствие cutStartedAt НЕ доказывает,
+   что резки не было: Unbatch требует явного подтверждения сотрудника.
+   Известное начало резки защищает строку и на уровне записи. */
+function salesUnbatchEligible(o){return !!o&&!salesIsQuote(o)&&['new','verified','batched'].includes(o.status);}
+function salesCanUnbatch(o){return salesUnbatchEligible(o)&&(o.lines||[]).some(l=>salesLineLocked(l)&&!l.cutStartedAt);}
+function salesUnbatchRecord(orderId,lineIds,opts){
+ opts=opts||{};const o=salesRecord(orderId),ids=new Set(lineIds||[]);
+ if(!opts.confirmed||!salesUnbatchEligible(o)||!ids.size)return false;
+ const lines=(o.lines||[]).filter(l=>ids.has(l.id));
+ if(lines.length!==ids.size||lines.some(l=>!salesLineLocked(l)||!!l.cutStartedAt))return false;
+ const now=opts.now||new Date().toISOString(),numbers=[...new Set(lines.map(l=>l.batchNo).filter(Boolean))];
+ o.batchHistory=[...new Set((o.batchHistory||[]).concat(numbers,o.batchNo?[o.batchNo]:[]))];
+ o.unbatchHistory=(o.unbatchHistory||[]).concat({at:now,batchNumbers:numbers,lineIds:lines.map(l=>l.id)});
+ lines.forEach(l=>{l.batchedAt='';l.batchNo='';});
+ const active=[...new Set(o.lines.filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean))];o.batchNo=active[active.length-1]||'';
+ o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;
+ salesSyncRecordLifecycle(o);if(!opts.deferTouch)touch();return true;
 }
 /* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
 function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
@@ -295,10 +315,11 @@ function salesStatusStepper(o){
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
 function salesLockBar(o){
  if(salesIsQuote(o))return '';
+ const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s).${o.status==='new'?' Verification required before the next batch.':''}</div>`:'';
  const locked=o.lines.filter(salesLineLocked),active=['batched','ready','done'].includes(o.status);
- if(!locked.length&&!active)return '';
+ if(!locked.length&&!active)return history;
  const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
- return `<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · Batch '+esc(numbers.join(', ')):''} — the glass is at cutting.</b> Size, makeup, shape and edgework of batched lines cannot change. A change is a new charged line or a new order.</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
+ return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · Batch '+esc(numbers.join(', ')):''} — production lines are locked.</b> Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new charged line or a new order.</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
 }
 
 /* --------------------------- Список Sales ------------------------------ */
