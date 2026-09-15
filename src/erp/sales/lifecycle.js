@@ -17,7 +17,7 @@
 
 const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
-const SALES_QUOTE_STATE_LIST=['open','won'];
+const SALES_QUOTE_STATE_LIST=['open','sent','won'];
 const SALES_NEXT_STATUS={new:'verified',verified:'batched',batched:'ready',ready:'done',done:'closed'};
 const SALES_PREV_STATUS={verified:'new',batched:'verified',ready:'batched',done:'ready',closed:'done'};
 
@@ -31,22 +31,27 @@ function salesLifecycleFields(o){
  const status=list.includes(o.status)?o.status:(kind==='quote'?'open':'new');
  const src=o.statusDates&&typeof o.statusDates==='object'&&!Array.isArray(o.statusDates)?o.statusDates:{},statusDates={};
  list.forEach(k=>{if(typeof src[k]==='string'&&src[k])statusDates[k]=src[k];});
- return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId)};
+ /* Ревизии квоты (sales/quotes): группа, номер ревизии, отправка, срок цен. */
+ const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
+ return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+  quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
+  sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):''};
 }
 function nextSalesQuoteNumber(){
  let max=10000;
- (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
+ (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)(?:-R\d+)?$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
  return 'Q-'+(max+1);
 }
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
- if(salesIsQuote(o))return status==='won'?'Won':'Open';
+ if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
  if(status==='done')return o&&o.delivery==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }
 function salesStatusPill(o){
  if(salesIsQuote(o)){
-  if(o.status!=='won')return '<span class="pill st-open">Open</span>';
+  if(o.status==='sent')return `<span class="pill st-sent">Sent ${esc(salesShortDate(o.sentAt))}</span>`;
+  if(o.status!=='won')return '<span class="pill st-open">Not sent</span>';
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
@@ -54,7 +59,8 @@ function salesStatusPill(o){
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
- const q=salesIsQuote(o);
+ const q=salesIsQuote(o),src=q&&o===soDraft?salesQuoteCopySource():null;
+ if(src)return 'Quote '+src.businessNumber;
  return o.businessNumber?(q?'Quote ':'Sales Order ')+o.businessNumber:(q?'New Quote · Auto Number':'New Sales Order · Auto Number');
 }
 
@@ -65,7 +71,7 @@ function salesOrderTitle(o){
    даты — это «added after batch», их отправляют в батч отдельной кнопкой. */
 function salesLineLocked(line){return !!(line&&line.batchedAt);}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
-function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?o.status==='won':o.status==='closed'||o.status==='cancelled');}
+function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line))return false;
  alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. The glass is at cutting: size, makeup, shape and edgework cannot change. Add a new line or open a new order.');
@@ -104,7 +110,7 @@ function salesLockViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(salesIsQuote(o)&&o.status==='won'){alert('This quote became an order and is kept for the win history.');return true;}
+ if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  if(!salesIsQuote(o)&&['batched','ready','done','closed'].includes(o.status)){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
@@ -112,12 +118,13 @@ function salesDeleteBlocked(o){
 /* ------------------------------ Окно --------------------------------- */
 let salesDialog=null;
 function salesDialogOpen(d){salesDialog=d;render();}
-function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run();else render();}
+function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogPick(id){if(!salesDialog)return;salesDialog.choice=id;render();}
 function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -219,17 +226,22 @@ function salesNewOrderForCustomer(customerId){
    копируются: у заказа и у квоты они свои, правка фигуры заказа не должна
    переписать историю квоты. */
 function salesConvertQuote(){
- if(!soDraft||!salesIsQuote(soDraft)||soDraft.status==='won')return;
- if(!salesOrderIsSaved(soDraft)||salesDraftHasWork()){if(!salesOrderSave())return;}
- const quote=DB.salesOrder.find(o=>o.id===soDraft.id);if(!quote)return;
- const now=new Date().toISOString(),copy=JSON.parse(JSON.stringify(quote));
- Object.assign(copy,{id:salesUid('SO'),kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',createdAt:now,updatedAt:now});
- copy.lines.forEach(line=>{
-  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';
-  const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
-  line.shapeRef=clone(line.shapeRef);
-  Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});
- });
+ if(!soDraft||!salesIsQuote(soDraft)||salesQuoteWonMember(soDraft))return;
+ const cur=salesQuoteSettle();if(!cur)return;
+ const rec=DB.salesOrder.find(o=>o.id===cur);if(!rec)return;
+ const members=salesQuoteMembers(rec);
+ if(members.length<2){salesConvertQuoteRecord(rec.id);return;}
+ /* Ревизий несколько — клиент выбрал одну из них (владелец, 15 сентября 2026). */
+ const c=salesFindCustomer(rec.customerId);
+ salesDialogOpen({title:'Convert quote '+salesQuoteBaseNumber(rec)+' to an order',sub:(c?(c.displayName||c.legalName)+' · ':'')+'which revision did the customer choose?',rows:[],
+  choices:members.map(m=>({id:m.id,label:m.businessNumber,detail:salesQuoteRevState(m),value:salesQuoteTotalText(m)})),choice:rec.id,
+  note:'The order is made from the chosen revision. The quote keeps every revision.',
+  buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(d&&d.choice||rec.id)}]});
+}
+function salesConvertQuoteRecord(id){
+ const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
+ const now=new Date().toISOString();
+ const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now});
  DB.salesOrder.push(normalizeSalesOrder(copy));
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
  normalizeSalesData();touch();
@@ -239,17 +251,18 @@ function salesConvertQuote(){
 /* ------------------------ Шапка редактора ----------------------------- */
 function salesHeaderActions(o){
  const parts=['<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
- if(salesIsQuote(o)){if(o.status!=='won')parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
+ if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
  else{const label=salesNextActionLabel(o);if(label)parts.push(`<button class="go" data-next-status onclick="salesAdvanceStatus()">${label}</button>`);}
  return parts.join('');
 }
 function salesStatusStepper(o){
  if(salesIsQuote(o)){
-  if(o.status!=='won')return '';
-  const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
-  return `<div class="sales-quote-note">This quote became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(o.statusDates.won))}. It is kept read-only for the win history.</div>`;
+  const shown=salesQuoteShown(o),w=salesQuoteWonMember(shown),bar=salesQuoteRevisionBar(shown);
+  if(!w)return bar+salesQuoteSentBanner();
+  const won=(DB.salesOrder||[]).find(x=>x.id===w.wonOrderId);
+  return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
  const saved=salesOrderIsSaved(o);
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="sp"></span>${saved?'<button class="sm" onclick="salesRestoreOrder()">Restore as New</button>':''}</div>`;
@@ -283,12 +296,12 @@ function salesToggleShow(key){
 function salesSetStatusFilter(key){salesStatusFilter=salesStatusFilter===key?'':key;render();}
 function salesListVisible(){
  const q=salesString(soSearch).toLowerCase();
- return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders'])
-  .filter(o=>!q||[o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.dueDate,salesStatusLabel(o)].join(' ').toLowerCase().includes(q));
+ return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)
+  .filter(o=>!q||[salesIsQuote(o)?salesQuoteMembers(o).map(m=>m.businessNumber).join(' '):o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.dueDate,salesStatusLabel(o,salesListStatus(o))].join(' ').toLowerCase().includes(q));
 }
 function salesStatusChips(rows){
- const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&o.status===s).length,chips=[];
+ const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
- if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:s==='won'?'Won quotes':'Open quotes',n:count('quote',s)}));
+ if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
  return `<div class="sales-status-chips"><button type="button" class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`;
 }

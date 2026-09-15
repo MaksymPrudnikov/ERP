@@ -13,7 +13,7 @@
 const COMPANY_DEFAULT={
  legalName:'Infinity Glass Group Inc',address1:'',address2:'',city:'',province:'ON',postalCode:'',country:'Canada',
  phone:'',email:'',website:'',hstNumber:'',logo:'',
- depositPercent:50,paymentInstructions:'',termsText:'',footerText:'Thank you for your business'
+ depositPercent:50,quoteValidDays:180,paymentInstructions:'',termsText:'',footerText:'Thank you for your business'
 };
 /* Логотип хранится в данных картинкой JPEG: он уходит в localStorage и в
    Export JSON, а PDF умеет вставлять JPEG как есть, без перекодирования.
@@ -23,6 +23,9 @@ DEFAULT.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
 if(!DB.company||typeof DB.company!=='object'||Array.isArray(DB.company))DB.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
 
 function companyString(v,max){return String(v==null?'':v).replace(/\r\n?/g,'\n').trim().slice(0,max||200);}
+/* Срок цен квоты в днях. Владелец, 15 сентября 2026: «у нас более длинный
+   период, около 180 дней, но дай возможность модификации». */
+function companyDays(v,fallback){const n=Math.floor(Number(v));return v!==''&&v!=null&&Number.isFinite(n)&&n>=1&&n<=3650?n:fallback;}
 function companyPercent(v,fallback){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&n>=0&&n<=100?Math.round(n*100)/100:fallback;}
 function normalizeCompany(){
  const c=DB.company&&typeof DB.company==='object'&&!Array.isArray(DB.company)?DB.company:{};
@@ -37,7 +40,7 @@ function normalizeCompany(){
   phone:s('phone',60),email:s('email',120),website:s('website',120),hstNumber:s('hstNumber',60),
   logo,depositPercent:companyPercent(c.depositPercent,COMPANY_DEFAULT.depositPercent),
   paymentInstructions:s('paymentInstructions',1200),termsText:s('termsText',4000),
-  footerText:s('footerText',160)
+  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays)
  };
 }
 
@@ -82,7 +85,8 @@ function paymentTermsLabel(terms){
 const DOC_KINDS=[
  {k:'workOrder',label:'Work order'},
  {k:'proforma',label:'Proforma invoice'},
- {k:'confirmation',label:'Order confirmation'}
+ {k:'confirmation',label:'Order confirmation'},
+ {k:'quote',label:'Quote'}
 ];
 const DOC_PRICE_MODES=[
  {k:'full',label:'Full breakdown',hint:'every lite, cavity and service with its rate'},
@@ -91,10 +95,11 @@ const DOC_PRICE_MODES=[
  {k:'unit',label:'Unit price and line total'},
  {k:'none',label:'No prices'}
 ];
-const DOC_ALL=['workOrder','proforma','confirmation'],DOC_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
+const DOC_ALL=['workOrder','proforma','confirmation','quote'],DOC_SALE=['proforma','confirmation','quote'],DOC_ORDER_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
  {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
  {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL},
  {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
@@ -125,13 +130,13 @@ const DOC_FIELDS=[
  {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
  {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
- {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
- {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_SALE,on:['proforma']},
+ {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma']},
  {k:'notes',g:'Bottom',label:'Order notes',kinds:DOC_ALL,on:DOC_ALL},
  {k:'termsText',g:'Bottom',label:'Terms and conditions',kinds:DOC_SALE,on:DOC_SALE},
- {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation']}
+ {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation','quote']}
 ];
 function docKindLabel(kind){const d=DOC_KINDS.find(x=>x.k===kind);return d?d.label:'Document';}
 function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind));}

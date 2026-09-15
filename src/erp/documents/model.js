@@ -8,7 +8,7 @@
    иначе цифра на бумаге однажды разошлась бы с цифрой на экране заказа.
    ===================================================================== */
 
-const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION'};
+const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',quote:'QUOTE'};
 const DOC_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function docNum(v,digits){return Number(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
@@ -222,7 +222,8 @@ function docBuildModel(kind,order,opts){
   items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
- cell(opts.date,sale?'Date':'Order date',docDate(order.createdAt)||docDate(new Date().toISOString()));
+ cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
+ if(kind==='quote')cell(opts.validUntil,'Valid until',docDate(salesQuoteValidUntil(order)));
  cell(opts.customerPo,'Customer PO',order.customerPo);
  cell(opts.dueDate,'Due date',docDate(order.dueDate));
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
@@ -288,13 +289,16 @@ function docBuildModel(kind,order,opts){
    else if(pct>0){
     const dep=salesMoney(t.grand*pct/100);
     if(paidSoFar>0&&paidSoFar>=dep)deposit=[{label:'Deposit received · '+pct+'%',value:money(dep),strong:true}];
-    else deposit=[{label:(kind==='proforma'?'Deposit due now · ':'Deposit before production · ')+pct+'%',value:money(salesMoney(dep-paidSoFar)),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];
+    else deposit=[{label:(kind==='proforma'?'Deposit due now · ':kind==='quote'?'Deposit to start production · ':'Deposit before production · ')+pct+'%',value:money(salesMoney(dep-paidSoFar)),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];
    }
    else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
   }
   if(left.length||rows||deposit)model.end={left,rows,grand,paid,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
   if(opts.termsText&&company.termsText)model.terms=company.termsText;
-  if(opts.signature)model.signature='Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0?' and the deposit is received.':'.');
+  const depositFirst=terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0;
+ if(opts.signature)model.signature=kind==='quote'
+  ?'Prices are valid until '+docDate(salesQuoteValidUntil(order))+'. To accept, reply to the email or sign and return this quote. Production starts after the order is confirmed'+(depositFirst?' and the deposit is received.':'.')
+  :'Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(depositFirst?' and the deposit is received.':'.');
   model.footerLeft=company.footerText||'';
  }else{
   if(opts.orderSummary){
