@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 64 модулей, 9 стиля.
+  Состав сборки: 65 модулей, 10 стиля.
 -->
 <html lang="en">
 <head>
@@ -1354,6 +1354,55 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-hold-choice input[type=radio]{width:auto !important;margin:0;flex:0 0 auto}
 .sl-hold-choice input[type=text]{flex:1;min-width:0}
 
+/* ---- src/styles/optimization.css ---- */
+/* Очередь Optimization: вкладки, выбор заказов, общий батч и On Hold.
+   На узком экране горизонтально прокручивается только таблица. */
+.oq-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.oq-tabs button{border:0;background:transparent;font-weight:700;color:#627287;padding:10px 14px;border-radius:7px}
+.oq-tabs button b{margin-left:6px;border-radius:12px;padding:1px 6px;background:#e9eef3;font-size:11px}
+.oq-tabs button.on{background:#e8f3f9;color:#206886;box-shadow:inset 0 -3px #2582a6}
+.oq-card{min-width:0;padding:16px}
+.oq-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.oq-toolbar>b{font-size:12px;margin-right:8px;min-width:120px}
+.oq-toolbar .sp{flex:1}
+.oq-toolbar input[type=search]{width:260px;max-width:100%;margin:0}
+.oq-table-wrap{overflow-x:auto;max-width:100%}
+.oq-table-wrap table{min-width:930px;width:100%}
+.oq-table-wrap th{white-space:nowrap}
+.oq-table-wrap th:first-child,.oq-table-wrap td:first-child{width:35px;text-align:center}
+.oq-table-wrap input[type=checkbox]{width:16px;height:16px;accent-color:#206886;margin:0;vertical-align:middle}
+.oq-table-wrap td{vertical-align:middle;padding-top:14px;padding-bottom:14px}
+.oq-table-wrap td small{display:block;font-size:11px;color:#738195;margin-top:4px}
+.oq-table-wrap .n{text-align:right;font-variant-numeric:tabular-nums}
+.oq-selected td{background:#eff8fd}
+.oq-hold td{background:#eef0f3;color:#8b96a5}
+.oq-hold td .pill:not(.hold){opacity:.65}
+.oq-hold button{color:#344054}
+.oq-table-wrap .oq-due{color:#b42318}
+.oq-batches{max-width:190px}
+.oq-batches .pill{margin:2px 0}
+.oq-actions{white-space:nowrap}
+.oq-actions button+button{margin-left:4px}
+.oq-hint{margin-top:12px;padding:10px 12px;background:#fffaeb;border:1px solid #fedf89;border-radius:8px;color:#84500c;font-size:12px}
+.oq-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;padding:12px;background:#ecfdf3;border:1px solid #abefc6;border-radius:8px;color:#05603a}
+.oq-notice span{flex:1;min-width:180px;font-size:12px;overflow-wrap:anywhere}
+.oq-bridge{margin-top:16px}
+.oq-bridge p{margin:4px 0 12px}
+.sales-status-readonly{color:#8a96a8;font-size:11px;white-space:nowrap;margin-top:5px}
+@media(max-width:900px){.sales-steps{width:100%}.sales-status-readonly{align-self:flex-end}}
+@media(max-width:600px){.oq-card{padding:10px}.oq-tabs{gap:2px}.oq-tabs button{padding:8px;font-size:12px}.oq-toolbar input[type=search]{width:100%}.oq-toolbar .sp{display:none}.oq-notice span{min-width:100%}.sales-step b{font-size:10px}.sales-step small{font-size:9px}.sales-dialog-actions{flex-wrap:wrap}}
+
+/* Выбор строк при Unbatch: известная начатая резка никогда не разблокируется. */
+.sales-dialog-lines{max-height:38vh;overflow:auto;border:1px solid var(--line);border-radius:8px;margin:10px 0}
+.sales-dialog-lines label{display:flex;gap:10px;align-items:flex-start;padding:10px;border-bottom:1px solid var(--line);font-weight:400}
+.sales-dialog-lines label:last-child{border-bottom:0}
+.sales-dialog-lines input,.sales-unbatch-confirm input{width:16px;height:16px;flex-shrink:0;margin-top:2px}
+.sales-dialog-lines small{display:block;color:#667085;margin-top:3px}
+.sales-unbatch-confirm{display:flex;align-items:flex-start;gap:10px;font-weight:600;line-height:1.5}
+.oq-table-wrap .sl-glass{max-width:230px;white-space:normal;min-width:120px}
+.oq-table-wrap .sl-th{gap:4px}
+.oq-card .sl-foot-head small{white-space:normal}
+
 </style>
 </head>
 <body>
@@ -1375,7 +1424,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='2fee9519c277';
+var ERP_BUILD='fada986398d1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8992,7 +9041,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt),weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -9121,9 +9170,9 @@ function salesTemperCompatibilityWarnings(order){
 
 /* ==== src/erp/sales/lifecycle.js ==== */
 /* =====================================================================
-   erp/sales/lifecycle  ·  sales-lifecycle-1.0
+   erp/sales/lifecycle  ·  sales-lifecycle-1.1
    Квота и заказ: вид, статусы и даты шагов, замок строк после батча,
-   переходы с предупреждениями, превращение квоты в заказ.
+   переходы из очереди по ID с предупреждениями, общий батч, выдача, квоты.
    IN : soDraft / DB.salesOrder, оплаты (erp/finance), DB.customer
    OUT: статус, даты, заблокированные строки, новый заказ из квоты
    Владелец, 14–15 сентября 2026. Процесс: (иногда квота) → заказ →
@@ -9155,7 +9204,9 @@ function salesLifecycleFields(o){
  list.forEach(k=>{if(typeof src[k]==='string'&&src[k])statusDates[k]=src[k];});
  /* Ревизии квоты (sales/quotes): группа, номер ревизии, отправка, срок цен. */
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
- return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+ const batchNo=!q?salesBatchNumber(o.batchNo):'',batchHistory=q?[]:[...new Set((Array.isArray(o.batchHistory)?o.batchHistory:[]).map(salesBatchNumber).filter(Boolean).concat(batchNo?[batchNo]:[]))];
+ const unbatchHistory=!q&&Array.isArray(o.unbatchHistory)?o.unbatchHistory.filter(x=>x&&typeof x==='object'&&typeof x.at==='string').map(x=>({at:x.at,batchNumbers:[...new Set((Array.isArray(x.batchNumbers)?x.batchNumbers:[]).map(salesBatchNumber).filter(Boolean))],lineIds:[...new Set((Array.isArray(x.lineIds)?x.lineIds:[]).map(salesRefId).filter(Boolean))]})):[];
+ return {kind,status,statusDates,batchNo,batchHistory,unbatchHistory,fulfilledVia:!q&&['done','closed'].includes(status)?(['pickup','delivery'].includes(o.fulfilledVia)?o.fulfilledVia:o.delivery==='delivery'?'delivery':'pickup'):'',fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
   sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
   /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
@@ -9169,7 +9220,7 @@ function nextSalesQuoteNumber(){
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
  if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
- if(status==='done')return o&&o.delivery==='delivery'?'Delivered':'Picked up';
+ if(status==='done')return o&&(o.fulfilledVia||o.delivery)==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }
 function salesStatusPill(o){
@@ -9192,19 +9243,19 @@ function salesOrderTitle(o){
 /* Строка, ушедшая в батч, несёт дату батча. Пока она стоит, у строки нельзя
    менять размер, количество, Makeup, фигуру и кромку, и строку нельзя
    удалить. Цены остаются правкой продавца. Новые строки заказа идут без
-   даты — это «added after batch», их отправляют в батч отдельной кнопкой. */
-function salesLineLocked(line){return !!(line&&line.batchedAt);}
+   даты — это «added after batch», их отправляют в батч из очереди Optimization. */
+function salesLineLocked(line){return !!(line&&(line.batchedAt||line.cutStartedAt));}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line))return false;
- alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. The glass is at cutting: size, makeup, shape and edgework cannot change. Add a new line or open a new order.');
+ alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. Production lines are locked. Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new line or open a new order.');
  return true;
 }
 function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":'';}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
- if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}">🔒</span>`;
+ if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
  return ['batched','ready','done'].includes(soDraft.status)?' <span class="pill st-added">added after batch</span>':'';
 }
 /* Фигура строки хранится в DB.shapeDef и сохраняется редактором сразу, поэтому
@@ -9227,7 +9278,7 @@ function salesLockViolations(draft,saved){
   if(!salesLineLocked(old))return;
   const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
   if(!now){out.push(name(i+1)+' was removed');return;}
-  now.batchedAt=old.batchedAt;
+  now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
   if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
  });
  return out;
@@ -9242,14 +9293,16 @@ function salesDeleteBlocked(o){
 /* ------------------------------ Окно --------------------------------- */
 let salesDialog=null;
 function salesDialogOpen(d){salesDialog=d;render();}
-function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogChoose(i){const d=salesDialog,b=d&&d.buttons[i];if(b&&b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length))return;salesDialog=null;if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogToggleLine(id,on){const d=salesDialog;if(!d||!d.lineChoices||!d.lineChoices.some(l=>l.id===id&&!l.disabled))return;d.checkedLines=on?[...new Set(d.checkedLines.concat(id))]:d.checkedLines.filter(x=>x!==id);d.confirmed=false;render();}
+function salesDialogConfirm(on){if(!salesDialog)return;salesDialog.confirmed=!!on;render();}
 function salesDialogPick(id){if(!salesDialog)return;salesDialog.choice=id;render();}
 function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
-  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
+  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> I confirm cutting has not started for the selected lines.</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
 /* ---------------------------- Переходы -------------------------------- */
@@ -9279,68 +9332,104 @@ function salesTransitionChecks(o,next){
  }
  return out;
 }
-function salesRunChecks(checks,done){
+function salesRunChecks(checks,done,takePayment){
  if(!checks.length){done();return;}
- const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done),buttons=[{label:'Back'}];
- if(c.pay!=null&&c.pay>0)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>salesTakePayment(c.pay)});
+ const c=checks[0],rest=()=>salesRunChecks(checks.slice(1),done,takePayment),buttons=[{label:'Back'}];
+ if(c.pay!=null&&c.pay>0)buttons.push({label:c.anyway,run:rest},{label:'Take payment',kind:'pri',run:()=>takePayment?takePayment(c.pay):salesTakePayment(c.pay)});
  else buttons.push({label:c.anyway,kind:'pri',run:rest});
  salesDialogOpen(Object.assign({},c,{buttons}));
 }
-/* Статус меняется вместе с сохранением заказа: верификация и батч — это и есть
-   «заказ проверен и записан». Не прошло сохранение — статус возвращается. */
-function salesSetStatus(next,opts){
+/* Переходы пишут только сохранённую запись. Редактор получает те же поля
+   процесса; его прочие несохранённые правки не записываются и не теряются. */
+function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
+function salesNextBatchNumber(){
+ let n=0;
+ (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
+ return 'B-'+String(n+1).padStart(4,'0');
+}
+function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
+function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>!salesLineLocked(l));}
+function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
- const keep={status:soDraft.status,dates:JSON.parse(JSON.stringify(soDraft.statusDates||{})),batched:soDraft.lines.map(l=>l.batchedAt)},now=new Date().toISOString();
- soDraft.statusDates=Object.assign({},soDraft.statusDates||{});
- if(opts.back)delete soDraft.statusDates[keep.status];else soDraft.statusDates[next]=now;
- soDraft.status=next;
- if(next==='batched'&&!opts.back)soDraft.lines.forEach(l=>{if(!l.batchedAt)l.batchedAt=now;});
- if(opts.unlock)soDraft.lines.forEach(l=>{l.batchedAt='';});
- if(salesOrderSave({unlock:!!opts.unlock}))return true;
- soDraft.status=keep.status;soDraft.statusDates=keep.dates;soDraft.lines.forEach((l,i)=>{l.batchedAt=keep.batched[i]||'';});
- return false;
+ if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
+ if(opts.restore)return o.status==='cancelled'&&next==='new';
+ if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
+ if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
+ if(o.onHold&&(next==='verified'||next==='batched'))return false;
+ if(next==='batched')return o.status==='verified'||(['batched','ready','done'].includes(o.status)&&salesUnbatchedLines(o).length>0);
+ if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
+ return SALES_NEXT_STATUS[o.status]===next;
 }
-function salesAdvanceStatus(){
- if(!soDraft||salesIsQuote(soDraft))return;
- const next=SALES_NEXT_STATUS[soDraft.status];if(!next)return;
- if(soDraft.onHold&&(next==='verified'||next==='batched')){salesHoldBlocked();return;}
- salesRunChecks(salesTransitionChecks(soDraft,next),()=>salesSetStatus(next));
+function salesSyncRecordLifecycle(o){
+ if(!soDraft||soDraft.id!==o.id)return;
+ ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
+ soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
-function salesStepBack(){
- if(!soDraft||salesIsQuote(soDraft))return;
- const prev=SALES_PREV_STATUS[soDraft.status];if(!prev)return;
- const unlock=soDraft.status==='batched';
- if(!confirm(unlock?'Move the order back to Verified? The glass may already be cut. All lines will be unlocked.':'Move the order back to '+salesStatusLabel(soDraft,prev)+'?'))return;
- salesSetStatus(prev,{back:true,unlock});
+function salesSetRecordStatus(orderId,next,opts){
+ opts=opts||{};const o=salesRecord(orderId);
+ if(!salesRecordTransitionAllowed(o,next,opts))return false;
+ const now=opts.now||new Date().toISOString();
+ o.statusDates=Object.assign({},o.statusDates||{});
+ if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
+ else if(opts.back){
+  SALES_ORDER_FLOW.slice(SALES_ORDER_FLOW.indexOf(next)+1).forEach(k=>{delete o.statusDates[k];});
+  if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
+ }else o.statusDates[next]=now;
+ if(next==='batched'&&!opts.back){
+  const fresh=salesUnbatchedLines(o);
+  if(fresh.length){
+   o.batchNo=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
+   o.batchHistory=[...new Set((o.batchHistory||[]).concat(o.batchNo))];
+   fresh.forEach(l=>{l.batchedAt=now;l.batchNo=o.batchNo;});
+  }
+  ['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';
+ }
+ if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
+ o.status=next;o.updatedAt=now;
+ if(next==='cancelled'){o.fulfilledVia='';finReleaseOrder(o.id);}
+ salesSyncRecordLifecycle(o);
+ if(!opts.deferTouch)touch();
+ return true;
 }
-function salesBatchNewLines(){
- if(!soDraft)return;
- const fresh=(soDraft.lines||[]).filter(l=>!l.batchedAt);if(!fresh.length)return;
- if(soDraft.onHold){salesHoldBlocked();return;}
- salesRunChecks(salesTransitionChecks(soDraft,'batched'),()=>{const now=new Date().toISOString();fresh.forEach(l=>{l.batchedAt=now;});if(!salesOrderSave())fresh.forEach(l=>{l.batchedAt='';});});
+/* До реального события со стола отсутствие cutStartedAt НЕ доказывает,
+   что резки не было: Unbatch требует явного подтверждения сотрудника.
+   Известное начало резки защищает строку и на уровне записи. */
+function salesUnbatchEligible(o){return !!o&&!salesIsQuote(o)&&['new','verified','batched'].includes(o.status);}
+function salesCanUnbatch(o){return salesUnbatchEligible(o)&&(o.lines||[]).some(l=>salesLineLocked(l)&&!l.cutStartedAt);}
+function salesUnbatchRecord(orderId,lineIds,opts){
+ opts=opts||{};const o=salesRecord(orderId),ids=new Set(lineIds||[]);
+ if(!opts.confirmed||!salesUnbatchEligible(o)||!ids.size)return false;
+ const lines=(o.lines||[]).filter(l=>ids.has(l.id));
+ if(lines.length!==ids.size||lines.some(l=>!salesLineLocked(l)||!!l.cutStartedAt))return false;
+ const now=opts.now||new Date().toISOString(),numbers=[...new Set(lines.map(l=>l.batchNo).filter(Boolean))];
+ o.batchHistory=[...new Set((o.batchHistory||[]).concat(numbers,o.batchNo?[o.batchNo]:[]))];
+ o.unbatchHistory=(o.unbatchHistory||[]).concat({at:now,batchNumbers:numbers,lineIds:lines.map(l=>l.id)});
+ lines.forEach(l=>{l.batchedAt='';l.batchNo='';});
+ const active=[...new Set(o.lines.filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean))];o.batchNo=active[active.length-1]||'';
+ o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;
+ salesSyncRecordLifecycle(o);if(!opts.deferTouch)touch();return true;
 }
-function salesCancelOrder(){
- if(!soDraft||salesIsQuote(soDraft)||soDraft.status==='cancelled')return;
- const paid=salesOrderIsSaved(soDraft)?finOrderPaid(soDraft.id).paid:0;
- if(!confirm(paid>0?'Cancel order '+(soDraft.businessNumber||'')+'? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Cancel order '+(soDraft.businessNumber||'')+'?'))return;
- if(salesSetStatus('cancelled')){if(finReleaseOrder(soDraft.id)>0)touch();render();}
+/* Существующие имена оставлены как адаптеры; кнопок этих действий в заказе нет. */
+function salesSetStatus(next,opts){const changed=soDraft&&salesSetRecordStatus(soDraft.id,next,opts);render();return !!changed;}
+function salesAdvanceStatus(){if(soDraft)optimizationRunOrders([soDraft.id],SALES_NEXT_STATUS[soDraft.status],{delivery:soDraft.delivery});}
+function salesStepBack(){if(soDraft)optimizationRunOrders([soDraft.id],'back');}
+function salesBatchNewLines(){if(soDraft)optimizationRunOrders([soDraft.id],'batched');}
+function salesCancelOrder(orderId){const id=orderId||(soDraft&&soDraft.id);if(id)optimizationRunOrders([id],'cancelled');}
+function salesRestoreOrder(orderId){
+ const id=orderId||(soDraft&&soDraft.id),o=salesRecord(id);
+ if(!o||o.status!=='cancelled'||!confirm('Restore order '+o.businessNumber+' as New? Batched lines stay locked.'))return;
+ salesSetRecordStatus(id,'new',{restore:true});render();
 }
-function salesRestoreOrder(){
- if(!soDraft||soDraft.status!=='cancelled')return;
- if(!confirm('Restore this order as New?'))return;
- salesSetStatus('new',{back:true});
+/* Оплата из очереди не сохраняет посторонний открытый черновик. */
+function salesTakeRecordPayment(orderId,amount){
+ const o=salesRecord(orderId);if(!o)return;
+ const b=finOrderBalance(o);
+ tab='finance';subtab=null;finNewReceipt(o.customerId);
+ if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
+ finDraft.note='Order '+o.businessNumber;render();
 }
-/* «Take payment» из предупреждения: заказ сохраняется, и на экране Finance
-   открывается новая оплата на этот заказ с суммой, которой не хватает. */
-function salesTakePayment(amount){
- if(!soDraft)return;
- if(!salesOrderIsSaved(soDraft)||salesDraftHasWork()){if(!salesOrderSave())return;}
- const id=soDraft.id,number=soDraft.businessNumber||'',saved=DB.salesOrder.find(o=>o.id===id),b=saved?finOrderBalance(saved):null;
- tab='finance';subtab=null;finNewReceipt(soDraft.customerId);
- if(b&&b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[id]=v;}
- finDraft.note='Order '+number;
- render();
-}
+function salesTakePayment(amount){if(soDraft)salesTakeRecordPayment(soDraft.id,amount);}
 function salesNewOrderForCustomer(customerId){
  if(salesDraftHasWork()&&!confirm('Leave this order without saving the changes?'))return;
  salesOrderNew('order');
@@ -9380,7 +9469,6 @@ function salesHeaderActions(o){
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
- else{const label=salesNextActionLabel(o);if(label)parts.push(`<button class="go" data-next-status onclick="salesAdvanceStatus()">${label}</button>`);}
  return parts.join('');
 }
 function salesStatusStepper(o){
@@ -9390,18 +9478,19 @@ function salesStatusStepper(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===w.wonOrderId);
   return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
- const saved=salesOrderIsSaved(o);
- if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="sp"></span>${saved?'<button class="sm" onclick="salesRestoreOrder()">Restore as New</button>':''}</div>`;
+ if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><i></i><b>${esc(salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b><small>${o.statusDates&&o.statusDates[s]?esc(salesShortDate(o.statusDates[s])):'&nbsp;'}</small></div>`).join('');
- const prev=SALES_PREV_STATUS[o.status];
- return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><div class="sales-status-tools">${prev&&saved?`<button class="sm" onclick="salesStepBack()">← Back to ${esc(salesStatusLabel(o,prev))}</button>`:''}${saved&&o.status!=='closed'?'<button class="sm dl" onclick="salesCancelOrder()">Cancel order</button>':''}</div></div>`;
+ const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b><small>${o.statusDates&&o.statusDates[s]?esc(salesShortDate(o.statusDates[s])):'&nbsp;'}</small></div>`).join('');
+ return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
+function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
 function salesLockBar(o){
- if(salesIsQuote(o)||!['batched','ready','done'].includes(o.status))return '';
- const locked=o.lines.filter(salesLineLocked),fresh=o.lines.filter(l=>!salesLineLocked(l));
- const first=locked.map(l=>l.batchedAt).sort()[0];
- return `<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))} — the glass is at cutting.</b> Size, makeup, shape and edgework of batched lines cannot change. A change is a new charged line or a new order.</span>`:''}<span class="sp"></span>${fresh.length&&o.status!=='done'?`<button class="sm" data-batch-new onclick="salesBatchNewLines()">Send ${fresh.length} new line${fresh.length===1?'':'s'} to batch</button>`:''}<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button></div>`;
+ if(salesIsQuote(o))return '';
+ const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s).${o.status==='new'?' Verification required before the next batch.':''}</div>`:'';
+ const locked=o.lines.filter(salesLineLocked),active=['batched','ready','done'].includes(o.status);
+ if(!locked.length&&!active)return history;
+ const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
+ return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · Batch '+esc(numbers.join(', ')):''} — production lines are locked.</b> Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new charged line or a new order.</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
 }
 
 /* --------------------------- Список Sales ------------------------------ */
@@ -9982,10 +10071,10 @@ const NAV=[
     раз в жизни, а продавец и снабженец по ходу работы — переименовать код,
     дописать поставщика, поправить цену листа. */
  {k:'masterdata', label:'Master Data', icon:'database'},
+ {k:'shipping', label:'Shipping', icon:'shipping'},
  {group:'Domains — next'},
  {k:'inventory', label:'Inventory', icon:'inventory', soon:1},
  {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1},
- {k:'shipping', label:'Shipping', icon:'shipping', soon:1},
  {k:'finance', label:'Finance', icon:'finance'}
 ];
 let tab='dashboard';
@@ -10048,14 +10137,15 @@ function render(){
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
   configurators:['Configurators','Engineering Shape configurator'],
-  optimization:['Optimization','Data bridge to Perfect Cut'],
+  optimization:['Optimization','Verification · batches · uncut lines'],
+  shipping:['Shipping','Readiness · pickup · delivery · closeout'],
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances']
  }[tab]||['ERP Glazing System','Production system'];
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
  document.getElementById('app').innerHTML = V ? V() : '<div class="empty">module planned</div>';
  afterRender();
 }
@@ -18256,47 +18346,138 @@ salesOrderClose=function(){salesResetServiceSetUi();return __salesServiceOrderCl
 
 /* ==== src/erp/views/optimization.js ==== */
 /* =====================================================================
-   view/optimization  ·  erp-1.0
-   Мост к Perfect Cut. Протокол не выдумывается.
-   IN : —
-   OUT: html
-   Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
+   view/optimization · optimization-queue-1.1
+   Общий экран очередей: Optimization — проверка/батч; Shipping — выдача.
+   IN : DB.salesOrder / customer / receipt, фильтр и выбранные ID
+   OUT: HTML очереди и переходы через salesSetRecordStatus; черновик не сохраняет.
+   Perfect Cut остаётся неактивным прототипом. Обмен не имитируется.
    ===================================================================== */
-
-function viewOptimization(){
- return `<div class="page-head"><div><h2>Perfect Cut bridge</h2><p>We are not building our own nesting engine. The ERP creates a production batch, Perfect Cut optimizes cutting, and the result returns to inventory and part tracking.</p></div><span class="pill warn">${ico('link','icon-inline')}connector not confirmed</span></div>
-  <div class="card">
-   <div class="section-title"><h3>Intended data flow</h3><span class="pill">concept · no invented protocol</span></div>
-   <div class="bridge">
-    <div class="bridge-node"><div class="bridge-ico">${ico('database')}</div><b>GLASS ERP</b><p>batch: material · size · qty · treatment · services</p></div>
-    <div class="bridge-arrow">${ico('arrow')}</div>
-    <div class="bridge-node"><div class="bridge-ico">${ico('link')}</div><b>Local bridge</b><p>role: move data between the cloud ERP and local Perfect Cut</p></div>
-    <div class="bridge-arrow">${ico('arrow')}</div>
-    <div class="bridge-node external"><div class="bridge-ico">${ico('optimize')}</div><b>Perfect Cut</b><p>sheet layouts · consumption · offcuts</p></div>
-   </div>
-   <div class="return-flow">↩ optimization result returns to ERP → Inventory + Production tracking</div>
-  </div>
-  <div class="dashboard-grid">
-   <div class="card">
-    <div class="section-title"><h3>Integration status</h3><span class="pill warn">blocked by missing input</span></div>
-    <table><tbody>
-     <tr><td style="width:210px">What is decided</td><td>Perfect Cut remains the optimizer; we are not building our own nesting engine.</td></tr>
-     <tr><td>What is unknown</td><td class="mut">actual Spil ↔ Perfect Cut mechanism: direct DB, ODBC, connector, or file.</td></tr>
-     <tr><td>What not to do now</td><td class="mut">invent an exchange format or simulate an API without confirmation.</td></tr>
-     <tr><td>What returns to ERP</td><td class="mut">sheet layouts, actual consumption and offcuts — for Inventory and Production.</td></tr>
-    </tbody></table>
-    <div class="row"><button disabled>${ico('link','icon-inline')}Send batch</button></div>
-   </div>
-   <div class="card">
-    <div class="section-title"><h3>Responsibility boundary</h3></div>
-    <div class="phase-list">
-     <div class="phase-item"><div class="phase-num">${ico('check')}</div><div><b>Perfect Cut</b><span>optimization + its own label printing</span></div></div>
-     <div class="phase-item current"><div class="phase-num">${ico('factory')}</div><div><b>Our ERP</b><span>WIP, stations, breakage, remake, stock</span></div></div>
-     <div class="phase-item"><div class="phase-num">${ico('link')}</div><div><b>Bridge</b><span>data transport between the two systems only</span></div></div>
-    </div>
-   </div>
-  </div>`;
+const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batched']];
+let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
+function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
+function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
+function optimizationMatches(o,key){
+ if(!o||salesIsQuote(o))return false;
+ const fresh=salesUnbatchedLines(o).length;
+ return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
+  key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
+function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
+function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
+function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
+function optimizationSetTab(key){
+ if(!orderQueueTabs().some(t=>t[0]===key))return;
+ if(tab==='shipping')shippingTab=key;else optimizationTab=key;
+ optimizationSel.clear();optimizationNotice=null;salesListMenu=null;render();
+}
+function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
+function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
+function optimizationOpenOrder(id){
+ if(soDraft&&salesDraftHasWork()&&!confirm('Open this order without saving the changes in the current editor?'))return;
+ tab='sales';salesOrderEdit(id);
+}
+function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
+/* Все предупреждения группы проходят ДО записи. Back или Take payment
+   прекращает весь переход; частично отправленного батча не возникает.
+   Если данные изменились во время окна, пользователь проверяет их заново. */
+function optimizationRunOrders(ids,action,opts){
+ opts=opts||{};ids=[...new Set(ids||[])];if(!ids.length||!action)return;
+ const orders=ids.map(salesRecord),next=o=>action==='back'?SALES_PREV_STATUS[o.status]:action;
+ const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
+ const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
+ if(held){salesHoldBlocked(held.id);return;}
+ if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. New lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
+ if(['verified','batched'].includes(action)){
+  const invalid=orders.find(o=>!salesFindCustomer(o.customerId)||(o.lines||[]).some(l=>!l.width16||!l.height16));
+  if(invalid){salesDialogOpen({title:'Check order '+invalid.businessNumber,note:'Open the order and check its customer and line dimensions before continuing.',buttons:[{label:'Back'}]});return;}
+ }
+ const stamp=()=>JSON.stringify([ids.map(salesRecord),DB.customer,DB.receipt]),before=stamp();
+ const finish=()=>{
+  if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'No orders were changed by this action. Review the selection and try again.',buttons:[{label:'Back'}]});return;}
+  const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesUnbatchedLines(o).length)?salesNextBatchNumber():'';
+  orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
+  touch();optimizationSel.clear();
+  optimizationNotice={title:batchNo?'Batch created · '+batchNo:action==='cancelled'?'Orders cancelled':action==='back'?'Orders moved back':'Orders updated',
+   detail:orders.map(o=>o.businessNumber+' · '+salesStatusLabel(o)).join(', ')};
+  render();
+ };
+ if(action==='back'||action==='cancelled'){
+  const cancel=action==='cancelled';
+  salesDialogOpen({title:cancel?'Cancel '+orders.length+' order'+(orders.length===1?'':'s')+'?':'Move '+orders.length+' order'+(orders.length===1?'':'s')+' back?',
+   rows:orders.map(o=>[o.businessNumber+' · '+salesCustomerDisplay(o.customerId),cancel?finFmt(finOrderPaid(o.id).paid)+' to deposit':salesStatusLabel(o)+' → '+salesStatusLabel(o,next(o))]),
+   note:cancel?'Allocated receipts return to each customer’s deposit on account. Batched lines stay locked.':'The current step date is removed. Production locks remain. Use Unbatch to release uncut lines.',
+   buttons:[{label:'Back'},{label:cancel?'Cancel orders':'Move back',kind:cancel?'dl':'pri',run:finish}]});return;
+ }
+ const checkOrder=i=>{
+  if(i===orders.length){finish();return;}
+  const o=orders[i],forChecks=action==='done'&&opts.delivery?Object.assign({},o,{delivery:opts.delivery}):o;
+  salesRunChecks(salesTransitionChecks(forChecks,action),()=>checkOrder(i+1),amount=>salesTakeRecordPayment(o.id,amount));
+ };
+ checkOrder(0);
+}
+/* Снятие батча — отдельное действие, обычный Back замок не снимает. */
+function optimizationUnbatch(ids){
+ const orders=[...new Set(ids||[])].map(salesRecord);
+ if(!orders.length||orders.some(o=>!salesCanUnbatch(o)))return;
+ const stamp=()=>JSON.stringify(orders.map(o=>salesRecord(o.id))),before=stamp();
+ const lineChoices=orders.flatMap(o=>o.lines.filter(salesLineLocked).map((l,i)=>({id:l.id,orderId:o.id,disabled:!!l.cutStartedAt,
+  label:'Order '+o.businessNumber+' · '+(l.mark||'Line '+(i+1)),detail:(l.width16/16)+' × '+(l.height16/16)+' in · Qty '+l.qty+' · '+(l.batchNo||'Batched')})));
+ salesDialogOpen({title:'Unbatch — release uncut lines',sub:'Keep any lines that have already been cut unchecked.',lineChoices,checkedLines:lineChoices.filter(l=>!l.disabled).map(l=>l.id),confirmed:false,
+  note:'The selected lines will be unlocked. Their orders return to New and must be verified again before batching. Cutting is not tracked automatically yet; confirm with the cutting table before continuing.',
+  buttons:[{label:'Back'},{label:'Unbatch selected lines',kind:'pri',requiresConfirmation:true,run:d=>{
+   if(before!==stamp()){salesDialogOpen({title:'Orders changed during confirmation',note:'Review the lines and try Unbatch again.',buttons:[{label:'Back'}]});return;}
+   const chosen=new Set(d.checkedLines),affected=orders.map(o=>({o,ids:o.lines.filter(l=>chosen.has(l.id)).map(l=>l.id)})).filter(x=>x.ids.length);
+   if(!d.confirmed||!affected.length||affected.some(x=>!salesUnbatchEligible(x.o)||x.ids.some(id=>{const l=x.o.lines.find(l=>l.id===id);return !l||!salesLineLocked(l)||!!l.cutStartedAt;})))return;
+   const now=new Date().toISOString();affected.forEach(x=>salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}));touch();optimizationSel.clear();
+   optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
+  }}]});
+}
+function viewOptimization(){return viewOrderQueue(false);}
+function viewOrderQueue(shipping){
+ if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
+ const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
+ optimizationSel=new Set([...optimizationSel].filter(id=>selectable.some(o=>o.id===id)));
+ const selected=rows.filter(o=>optimizationSel.has(o.id)),n=selected.length,all=selectable.length>0&&n===selectable.length;
+ const can=act=>n>0&&selected.every(o=>salesRecordTransitionAllowed(o,act==='back'?SALES_PREV_STATUS[o.status]:act,{back:act==='back'}));
+ const button=(act,label,cls,enabled,delivery)=>`<button type="button" class="${cls||''}" data-queue-action="${delivery||act}" ${enabled?'':'disabled'} onclick="optimizationAction('${act}'${delivery?",'"+delivery+"'":''})">${label}</button>`;
+ let actions='';
+ if(shipping){
+  if(key==='awaiting')actions=button('ready','Mark ready','pri',can('ready'));
+  if(key==='ready')actions=button('done','Mark picked up','pri',can('done'),'pickup')+button('done','Mark delivered','go',can('done'),'delivery');
+  if(key==='done')actions=button('closed','Close order','pri',can('closed'));
+ }else{
+  if(key==='all'||key==='new')actions+=button('verified','Verify','pri',can('verified'));
+  if(key==='all'||key==='batch')actions+=button('batched','Send to batch','pri',can('batched'));
+  actions+=button('unbatch','Unbatch','',n>0&&selected.every(salesCanUnbatch));
+ }
+ const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="${key===t[0]?'on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${(DB.salesOrder||[]).filter(o=>optimizationMatches(o,t[0])).length}</b></button>`).join('');
+ const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const body=filtered.map(info=>{
+  const o=info.o,blocked=optimizationBlocked(o),chosen=optimizationSel.has(o.id);
+  const cell=c=>c.k==='batch'?`<td class="oq-batches">${salesOrderBatchNumbers(o).map(v=>`<span class="pill">${esc(v)}</span>`).join(' ')||'—'}</td>`:c.k==='newLines'?`<td class="n">${salesUnbatchedLines(o).length}</td>`:salesListCell(info,c);
+  return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}"><td><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${blocked?'disabled':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
+   <td class="oq-actions"><button type="button" class="sm" data-queue-open onclick="optimizationOpenOrder('${esc(o.id)}')">Open</button>${o.onHold?`<button type="button" class="sm" data-queue-release onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button>`:''}</td></tr>`;
+ }).join('');
+ return `<section class="optimization-queue ${shipping?'shipping-queue':''}"><div class="page-head"><div><h2>${shipping?'Shipping':'Order queue'}</h2><p>${shipping?'Readiness, pickup, delivery and order closeout.':'Verify orders, create batches and release uncut lines.'}</p></div></div>
+  <div class="oq-tabs" role="tablist" aria-label="Order queues">${tabs}</div>
+  <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
+   ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
+   ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
+   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesUnbatchedLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines go to batch. Batched lines stay locked.</div>`:''}
+   ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
+   ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
+  </div>
+  ${shipping?'':`<div class="card oq-bridge"><div class="section-title"><h3>Perfect Cut bridge</h3><span class="pill warn">connection not configured</span></div><p class="mut">Prototype · cutting layouts and machine exchange are not available yet.</p><button disabled>${ico('link','icon-inline')}Send batch</button></div>`}
+  ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+}
+
+/* ==== src/erp/views/shipping.js ==== */
+/* Shipping: готовность, самовывоз/доставка и отдельное закрытие заказа.
+   IN: сохранённые заказы; OUT: общий экран очереди с действиями выдачи.
+   Пока цех не сообщает завершение, Mark ready подтверждают вручную. */
+const SHIPPING_TABS=[['awaiting','Awaiting readiness'],['ready','Ready'],['done','Picked up / Delivered']];
+let shippingTab='awaiting';
+function viewShipping(){return viewOrderQueue(true);}
 
 /* ==== src/erp/views/production.js ==== */
 /* =====================================================================
@@ -20141,19 +20322,29 @@ const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
 
 /* ------------------------------ Настройки ------------------------------ */
-function salesListColumn(k){return SALES_LIST_COLUMNS.find(c=>c.k===k)||null;}
-function salesListLoadPrefs(){
- if(salesListPrefs)return salesListPrefs;
- let p={};try{p=JSON.parse(localStorage.getItem(SALES_LIST_PREFS_KEY)||'{}')||{};}catch(e){p={};}
- salesListPrefs=salesListCleanPrefs(p);
- return salesListPrefs;
+/* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
+const salesQueuePrefs={optimization:null,shipping:null};
+function salesListScope(){return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListCatalog(){
+ if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
+ const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
+ return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
+  .concat([{k:'batch',label:'Batch',type:'text',def:true,tokens:true},{k:'newLines',label:'New lines',type:'number',def:false,sum:true}]);
 }
-function salesListSavePrefs(){try{localStorage.setItem(SALES_LIST_PREFS_KEY,JSON.stringify(salesListPrefs));}catch(e){}}
+function salesListColumn(k){return salesListCatalog().find(c=>c.k===k)||null;}
+function salesListPrefsKey(){const scope=salesListScope();return scope==='sales'?SALES_LIST_PREFS_KEY:'glass_erp_'+scope+'_list_v1';}
+function salesListLoadPrefs(){
+ const scope=salesListScope(),cached=scope==='sales'?salesListPrefs:salesQueuePrefs[scope];if(cached)return cached;
+ let p={};try{p=JSON.parse(localStorage.getItem(salesListPrefsKey())||'{}')||{};}catch(e){p={};}
+ const clean=salesListCleanPrefs(p);if(scope==='sales')salesListPrefs=clean;else salesQueuePrefs[scope]=clean;
+ return clean;
+}
+function salesListSavePrefs(){try{localStorage.setItem(salesListPrefsKey(),JSON.stringify(salesListLoadPrefs()));}catch(e){}}
 function salesListCleanPrefs(p){
  p=p&&typeof p==='object'&&!Array.isArray(p)?p:{};
  const seen=new Set(),cols=[];
  (Array.isArray(p.cols)?p.cols:[]).forEach(c=>{if(c&&salesListColumn(c.k)&&!seen.has(c.k)){seen.add(c.k);cols.push({k:c.k,on:!!c.on});}});
- SALES_LIST_COLUMNS.forEach(c=>{if(!seen.has(c.k))cols.push({k:c.k,on:!!c.def});});
+ salesListCatalog().forEach(c=>{if(!seen.has(c.k))cols.push({k:c.k,on:!!c.def});});
  const filters={},src=p.filters&&typeof p.filters==='object'&&!Array.isArray(p.filters)?p.filters:{};
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
@@ -20222,6 +20413,8 @@ function salesListValue(info,k){
   case 'status':v=salesStatusLabel(o,salesListStatus(o));break;
   case 'priority':v=SALES_LIST_PRIORITY[o.priority]||'Normal';break;
   case 'glass':v=salesListGlass(o);break;
+  case 'batch':v=salesOrderBatchNumbers(o).join(', ');break;
+  case 'newLines':v=salesUnbatchedLines(o).length;break;
   case 'units':v=lines.reduce((s,l)=>s+salesPositiveInt(l.qty,1),0);break;
   case 'area':v=Math.round(finWithOrder(o,()=>lines.reduce((s,l)=>{const a=salesLineAreas(l,o);return s+(a.valid?a.actual*salesPositiveInt(l.qty,1):0);},0))*10)/10;break;
   case 'total':{const t=finOrderTotals(o);v=t.complete?finMoney(t.grand):null;break;}
@@ -20284,7 +20477,7 @@ function salesListCondTest(type,c,val){
 }
 function salesListFilterTest(col,f,info){
  const val=salesListValue(info,col.k);let ok=true;
- if(Array.isArray(f.values))ok=f.values.includes(salesListText(info,col.k));
+ if(Array.isArray(f.values))ok=col.tokens?salesListTokens(info,col.k).some(v=>f.values.includes(v)):f.values.includes(salesListText(info,col.k));
  if(ok&&f.preset&&col.type==='date'){const r=salesListPresetRange(f.preset);ok=!!val&&!!r&&val>=r[0]&&val<=r[1];}
  const conds=(f.conds||[]).filter(salesListCondReady);
  if(ok&&conds.length){
@@ -20304,6 +20497,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible();
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo);
  return {all,infos};
@@ -20314,10 +20508,24 @@ function salesListRows(infos){
  const s=p.sort||{k:'created',dir:'desc'},col=salesListColumn(s.k)||salesListColumn('created'),cmp=salesListCompare(col,s.dir);
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
+/* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
+   встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
+function salesListTokens(info,k){
+ if(k==='batch'){const v=salesOrderBatchNumbers(info.o);return v.length?v:['(empty)'];}
+ if(k!=='glass')return [salesListText(info,k)];
+ const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
+ (info.o.makeups||[]).filter(m=>used.has(m.id)).forEach(m=>(m.panes||[]).forEach(p=>{
+  const panes=p.category==='laminated'?[p.laminated&&p.laminated.outer,p.laminated&&p.laminated.inner]:[p];
+  panes.forEach(x=>{const g=glassProductById(x&&x.glassProductId);if(g)codes.push(g.code);});
+ }));
+ return codes.length?[...new Set(codes)]:['(empty)'];
+}
 function salesListValueOptions(k,infos){
- const p=salesListLoadPrefs(),others=Object.keys(p.filters).filter(x=>x!==k&&salesListColumn(x)&&salesListFilterActive(p.filters[x])),counts={};
- infos.filter(info=>others.every(x=>salesListFilterTest(salesListColumn(x),p.filters[x],info))).forEach(info=>{const t=salesListText(info,k);counts[t]=(counts[t]||0)+1;});
- return Object.keys(counts).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(text=>({text,n:counts[text]}));
+ const p=salesListLoadPrefs(),col=salesListColumn(k),others=Object.keys(p.filters).filter(x=>x!==k&&salesListColumn(x)&&salesListFilterActive(p.filters[x])),counts=new Map();
+ infos.filter(info=>others.every(x=>salesListFilterTest(salesListColumn(x),p.filters[x],info))).forEach(info=>{
+  (col.tokens?salesListTokens(info,k):[salesListText(info,k)]).forEach(t=>counts.set(t,(counts.get(t)||0)+1));
+ });
+ return [...counts.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(text=>({text,n:counts.get(text)}));
 }
 function salesListSetFilter(k,f){
  const p=salesListLoadPrefs(),clean=salesListCleanFilter(k,f);
@@ -20395,7 +20603,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -20406,10 +20614,10 @@ function salesListOpenFilter(e,k){
  const col=salesListColumn(k);if(!col)return;
  const p=salesListLoadPrefs(),draft=JSON.parse(JSON.stringify(p.filters[k]||salesListEmptyFilter(col)));
  if(col.type!=='list'&&!draft.conds.length)draft.conds.push({op:salesListDefaultOp(col),v:'',v2:'',join:'and'});
- salesListMenu=Object.assign({kind:'filter',col:k,draft,search:''},salesListAt(e,340));
+ salesListMenu=Object.assign({kind:'filter',scope:salesListScope(),col:k,draft,search:''},salesListAt(e,340));
  render();
 }
-function salesListOpenColumns(e){if(e)e.stopPropagation();salesListMenu=Object.assign({kind:'columns'},salesListAt(e,300));render();}
+function salesListOpenColumns(e){if(e)e.stopPropagation();salesListMenu=Object.assign({kind:'columns',scope:salesListScope()},salesListAt(e,300));render();}
 function salesListContext(e,id){
  if(e){e.preventDefault();e.stopPropagation();}
  if(!salesListSel.has(id))salesListSel=new Set([id]);
@@ -20417,7 +20625,7 @@ function salesListContext(e,id){
  render();
 }
 function salesListMenuHTML(infos){
- const m=salesListMenu;if(!m)return '';
+ const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
  if(m.kind==='context')return back+salesListContextHTML(m,style);
@@ -20493,7 +20701,7 @@ function salesListDropColumn(k){
  const cols=salesListLoadPrefs().cols,at=cols.findIndex(c=>c.k===from);if(at<0)return;
  const [c]=cols.splice(at,1);cols.splice(cols.findIndex(x=>x.k===k),0,c);salesListSavePrefs();render();
 }
-function salesListStandardView(){salesListLoadPrefs().cols=SALES_LIST_COLUMNS.map(c=>({k:c.k,on:!!c.def}));salesListSavePrefs();render();}
+function salesListStandardView(){salesListLoadPrefs().cols=salesListCatalog().map(c=>({k:c.k,on:!!c.def}));salesListSavePrefs();render();}
 
 /* ------------------------------ Выбор строк ---------------------------- */
 function salesListToggleRow(e,id){
@@ -20514,7 +20722,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -20524,7 +20732,8 @@ function salesListMenuRun(act){
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
- else if(act==='cancel'){salesOrderEdit(o.id);salesCancelOrder();}
+ else if(act==='cancel')salesCancelOrder(o.id);
+ else if(act==='restore')salesRestoreOrder(o.id);
  else if(act==='delete')salesOrderDelete(o.id);
  else render();
 }
@@ -20594,8 +20803,8 @@ function salesHoldBar(o){
  if(!o||salesIsQuote(o)||!o.onHold)return '';
  return `<div class="sales-holdbar" data-hold-bar>⛔ <b>On Hold since ${esc(salesShortDate(o.holdAt))}</b>${o.holdReason?' · '+raw(o.holdReason):''}<span class="sp"></span><button type="button" class="sm" onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button></div>`;
 }
-function salesHoldBlocked(){
- const o=soDraft;if(!o)return;
+function salesHoldBlocked(orderId){
+ const o=orderId?salesRecord(orderId):soDraft;if(!o)return;
  salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }
