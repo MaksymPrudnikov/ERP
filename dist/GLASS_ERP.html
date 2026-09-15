@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 62 модулей, 7 стиля.
+  Состав сборки: 63 модулей, 8 стиля.
 -->
 <html lang="en">
 <head>
@@ -1270,6 +1270,27 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #eaecf0;background:#f9fafb}
 @media(max-width:900px){.sales-status-row{flex-direction:column}.sales-status-tools{flex-direction:row;flex-wrap:wrap}}
 
+/* ---- src/styles/quotes.css ---- */
+/* Ревизии квоты, отправка, выбор ревизии при Convert to order. */
+.pill.st-sent{background:#e0f2fe;color:#026aa2}
+.quote-revs{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;background:#fff;border:1px solid #e3e7ee;border-radius:10px;padding:10px 12px;margin:10px 0}
+.quote-revs>span{align-self:center;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#475467;margin-right:4px}
+.quote-rev{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid #c9d1dd;border-radius:9px;background:#fff;padding:7px 14px;min-width:180px;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.quote-rev b{font-size:15px}
+.quote-rev small{color:#475467;font-size:12.5px}
+.quote-rev.on{border:2px solid #16325c;background:#eef4ff}
+.quote-rev.add{border-style:dashed;color:#16325c;justify-content:center}
+.quote-sent-banner{background:#f2f4f7;border:1px solid #d0d5dd;border-radius:8px;padding:8px 12px;margin:0 0 10px;color:#344054}
+.doc-revs{display:inline-flex;align-items:center;gap:10px;margin-left:12px;font-weight:600;font-size:13px}
+.doc-revs label{display:inline-flex !important;gap:5px;align-items:center;margin:0;text-transform:none !important;letter-spacing:0 !important;font-weight:600 !important;font-size:13px !important;color:inherit !important}
+.doc-revs input{width:auto !important;margin:0;min-height:0}
+.sales-dialog-choices{margin:8px 0 4px}
+.sales-dialog-choice{display:flex !important;gap:12px;align-items:center;border:1px solid #d0d5dd;border-radius:8px;padding:10px 14px;margin:6px 0;cursor:pointer;font-size:14.5px !important;text-transform:none !important;letter-spacing:0 !important;font-weight:400 !important;color:#1c2330 !important}
+.sales-dialog-choice input{width:auto !important;flex:0 0 auto;margin:0;height:16px;min-height:0}
+.sales-dialog-choice span{flex:1;min-width:0}
+.sales-dialog-choice b{font-weight:800}
+.sales-dialog-choice.on{border:2px solid #16325c;background:#eef4ff}
+
 </style>
 </head>
 <body>
@@ -1291,7 +1312,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3f97d20a1395';
+var ERP_BUILD='3507872c8c29';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9055,7 +9076,7 @@ function salesTemperCompatibilityWarnings(order){
 
 const SALES_ORDER_FLOW=['new','verified','batched','ready','done','closed'];
 const SALES_ORDER_STATE_LIST=SALES_ORDER_FLOW.concat(['cancelled']);
-const SALES_QUOTE_STATE_LIST=['open','won'];
+const SALES_QUOTE_STATE_LIST=['open','sent','won'];
 const SALES_NEXT_STATUS={new:'verified',verified:'batched',batched:'ready',ready:'done',done:'closed'};
 const SALES_PREV_STATUS={verified:'new',batched:'verified',ready:'batched',done:'ready',closed:'done'};
 
@@ -9069,22 +9090,27 @@ function salesLifecycleFields(o){
  const status=list.includes(o.status)?o.status:(kind==='quote'?'open':'new');
  const src=o.statusDates&&typeof o.statusDates==='object'&&!Array.isArray(o.statusDates)?o.statusDates:{},statusDates={};
  list.forEach(k=>{if(typeof src[k]==='string'&&src[k])statusDates[k]=src[k];});
- return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId)};
+ /* Ревизии квоты (sales/quotes): группа, номер ревизии, отправка, срок цен. */
+ const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
+ return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
+  quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
+  sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):''};
 }
 function nextSalesQuoteNumber(){
  let max=10000;
- (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
+ (DB.salesOrder||[]).forEach(o=>{const m=/^Q-(\d+)(?:-R\d+)?$/.exec(String(o&&o.businessNumber||''));if(m)max=Math.max(max,+m[1]);});
  return 'Q-'+(max+1);
 }
 function salesStatusLabel(o,status){
  status=status||(o&&o.status);
- if(salesIsQuote(o))return status==='won'?'Won':'Open';
+ if(salesIsQuote(o))return status==='won'?'Won':status==='sent'?'Sent':'Not sent';
  if(status==='done')return o&&o.delivery==='delivery'?'Delivered':'Picked up';
  return ({new:'New',verified:'Verified',batched:'Batched',ready:'Ready',closed:'Closed',cancelled:'Cancelled'})[status]||'New';
 }
 function salesStatusPill(o){
  if(salesIsQuote(o)){
-  if(o.status!=='won')return '<span class="pill st-open">Open</span>';
+  if(o.status==='sent')return `<span class="pill st-sent">Sent ${esc(salesShortDate(o.sentAt))}</span>`;
+  if(o.status!=='won')return '<span class="pill st-open">Not sent</span>';
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
@@ -9092,7 +9118,8 @@ function salesStatusPill(o){
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
- const q=salesIsQuote(o);
+ const q=salesIsQuote(o),src=q&&o===soDraft?salesQuoteCopySource():null;
+ if(src)return 'Quote '+src.businessNumber;
  return o.businessNumber?(q?'Quote ':'Sales Order ')+o.businessNumber:(q?'New Quote · Auto Number':'New Sales Order · Auto Number');
 }
 
@@ -9103,7 +9130,7 @@ function salesOrderTitle(o){
    даты — это «added after batch», их отправляют в батч отдельной кнопкой. */
 function salesLineLocked(line){return !!(line&&line.batchedAt);}
 function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).some(l=>l.makeupId===makeupId&&salesLineLocked(l)));}
-function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?o.status==='won':o.status==='closed'||o.status==='cancelled');}
+function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line))return false;
  alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. The glass is at cutting: size, makeup, shape and edgework cannot change. Add a new line or open a new order.');
@@ -9142,7 +9169,7 @@ function salesLockViolations(draft,saved){
 }
 function salesDeleteBlocked(o){
  if(!o)return false;
- if(salesIsQuote(o)&&o.status==='won'){alert('This quote became an order and is kept for the win history.');return true;}
+ if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
  if(!salesIsQuote(o)&&['batched','ready','done','closed'].includes(o.status)){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
@@ -9150,12 +9177,13 @@ function salesDeleteBlocked(o){
 /* ------------------------------ Окно --------------------------------- */
 let salesDialog=null;
 function salesDialogOpen(d){salesDialog=d;render();}
-function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run();else render();}
+function salesDialogChoose(i){const d=salesDialog;salesDialog=null;const b=d&&d.buttons[i];if(b&&typeof b.run==='function')b.run(d);else render();}
+function salesDialogPick(id){if(!salesDialog)return;salesDialog.choice=id;render();}
 function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -9257,17 +9285,22 @@ function salesNewOrderForCustomer(customerId){
    копируются: у заказа и у квоты они свои, правка фигуры заказа не должна
    переписать историю квоты. */
 function salesConvertQuote(){
- if(!soDraft||!salesIsQuote(soDraft)||soDraft.status==='won')return;
- if(!salesOrderIsSaved(soDraft)||salesDraftHasWork()){if(!salesOrderSave())return;}
- const quote=DB.salesOrder.find(o=>o.id===soDraft.id);if(!quote)return;
- const now=new Date().toISOString(),copy=JSON.parse(JSON.stringify(quote));
- Object.assign(copy,{id:salesUid('SO'),kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',createdAt:now,updatedAt:now});
- copy.lines.forEach(line=>{
-  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';
-  const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
-  line.shapeRef=clone(line.shapeRef);
-  Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});
- });
+ if(!soDraft||!salesIsQuote(soDraft)||salesQuoteWonMember(soDraft))return;
+ const cur=salesQuoteSettle();if(!cur)return;
+ const rec=DB.salesOrder.find(o=>o.id===cur);if(!rec)return;
+ const members=salesQuoteMembers(rec);
+ if(members.length<2){salesConvertQuoteRecord(rec.id);return;}
+ /* Ревизий несколько — клиент выбрал одну из них (владелец, 15 сентября 2026). */
+ const c=salesFindCustomer(rec.customerId);
+ salesDialogOpen({title:'Convert quote '+salesQuoteBaseNumber(rec)+' to an order',sub:(c?(c.displayName||c.legalName)+' · ':'')+'which revision did the customer choose?',rows:[],
+  choices:members.map(m=>({id:m.id,label:m.businessNumber,detail:salesQuoteRevState(m),value:salesQuoteTotalText(m)})),choice:rec.id,
+  note:'The order is made from the chosen revision. The quote keeps every revision.',
+  buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(d&&d.choice||rec.id)}]});
+}
+function salesConvertQuoteRecord(id){
+ const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
+ const now=new Date().toISOString();
+ const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now});
  DB.salesOrder.push(normalizeSalesOrder(copy));
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
  normalizeSalesData();touch();
@@ -9277,17 +9310,18 @@ function salesConvertQuote(){
 /* ------------------------ Шапка редактора ----------------------------- */
 function salesHeaderActions(o){
  const parts=['<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${soEdit==='new'?'Save':'Update'}</button>`);
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
- if(salesIsQuote(o)){if(o.status!=='won')parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
+ if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
  else{const label=salesNextActionLabel(o);if(label)parts.push(`<button class="go" data-next-status onclick="salesAdvanceStatus()">${label}</button>`);}
  return parts.join('');
 }
 function salesStatusStepper(o){
  if(salesIsQuote(o)){
-  if(o.status!=='won')return '';
-  const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
-  return `<div class="sales-quote-note">This quote became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(o.statusDates.won))}. It is kept read-only for the win history.</div>`;
+  const shown=salesQuoteShown(o),w=salesQuoteWonMember(shown),bar=salesQuoteRevisionBar(shown);
+  if(!w)return bar+salesQuoteSentBanner();
+  const won=(DB.salesOrder||[]).find(x=>x.id===w.wonOrderId);
+  return bar+`<div class="sales-quote-note">${raw(w.businessNumber)} became order ${won?`<button class="sm" onclick="salesOrderEdit('${esc(won.id)}')">${raw(won.businessNumber)}</button>`:''} on ${esc(salesShortDate(w.statusDates.won))}. The quote is kept read-only for the win history.</div>`;
  }
  const saved=salesOrderIsSaved(o);
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="sp"></span>${saved?'<button class="sm" onclick="salesRestoreOrder()">Restore as New</button>':''}</div>`;
@@ -9321,14 +9355,161 @@ function salesToggleShow(key){
 function salesSetStatusFilter(key){salesStatusFilter=salesStatusFilter===key?'':key;render();}
 function salesListVisible(){
  const q=salesString(soSearch).toLowerCase();
- return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders'])
-  .filter(o=>!q||[o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.dueDate,salesStatusLabel(o)].join(' ').toLowerCase().includes(q));
+ return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)
+  .filter(o=>!q||[salesIsQuote(o)?salesQuoteMembers(o).map(m=>m.businessNumber).join(' '):o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.dueDate,salesStatusLabel(o,salesListStatus(o))].join(' ').toLowerCase().includes(q));
 }
 function salesStatusChips(rows){
- const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&o.status===s).length,chips=[];
+ const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
- if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:s==='won'?'Won quotes':'Open quotes',n:count('quote',s)}));
+ if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
  return `<div class="sales-status-chips"><button type="button" class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`;
+}
+
+/* ==== src/erp/sales/quotes.js ==== */
+/* =====================================================================
+   erp/sales/quotes  ·  sales-quotes-1.0
+   Ревизии квоты, отправка по Email, срок цен квоты.
+   IN : квоты в DB.salesOrder, DB.company.quoteValidDays
+   OUT: ревизии Q-10003-R1…, статус Sent, группа квоты в списке Sales
+   Владелец, 15 сентября 2026: «иногда клиент просит квоту с разными
+   ревизиями и потом выбирает, какая ему подходит — так что затирать версии
+   не нужно»; номера — «квота Q1000 и к ней Q1000-R1 и Q1000-R2». Sent
+   ставит только Email. Срок цен — около 180 дней, с возможностью поменять.
+   Итоги выигрыша на главный экран не выносить: программа только записывает
+   даты отправки и выигрыша и выбранную ревизию для будущего отчёта.
+   Каждая ревизия — отдельная запись со своими строками и фигурами, поэтому
+   цены, бланки и уборка фигур работают с ней как с обычным заказом.
+   ===================================================================== */
+
+/* Открытая на экране копия отправленной ревизии: номер той ревизии, с
+   которой снята копия. Отправленная ревизия правкой не меняется — изменения
+   сохраняются следующей ревизией. */
+let soQuoteCopyOf=null;
+
+function salesQuoteGroupId(o){return o?(o.quoteGroupId||o.id):'';}
+function salesQuoteMembers(o){
+ const g=salesQuoteGroupId(o);if(!g)return [];
+ return (DB.salesOrder||[]).filter(x=>salesIsQuote(x)&&salesQuoteGroupId(x)===g).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+}
+function salesQuoteWonMember(o){return salesQuoteMembers(o).find(m=>m.status==='won')||null;}
+function salesQuoteRepresentative(o){const ms=salesQuoteMembers(o);return ms.find(m=>m.status==='won')||ms[ms.length-1]||o;}
+function salesQuoteGroupStatus(o){const ms=salesQuoteMembers(o);return ms.some(m=>m.status==='won')?'won':ms.some(m=>m.status==='sent')?'sent':'open';}
+function salesListStatus(o){return salesIsQuote(o)?salesQuoteGroupStatus(o):o.status;}
+function salesQuoteBaseNumber(o){
+ const base=salesQuoteMembers(o).find(m=>!m.quoteRev);
+ return base&&base.businessNumber?base.businessNumber:String(o&&o.businessNumber||'').replace(/-R\d+$/,'');
+}
+function salesQuoteRevName(m){return m&&m.quoteRev?'R'+m.quoteRev:(m&&m.businessNumber||'Quote');}
+function salesQuoteNextRev(o){return salesQuoteMembers(o).reduce((n,m)=>Math.max(n,m.quoteRev||0),0)+1;}
+function salesQuoteCurrentId(){return soQuoteCopyOf||(soEdit&&soEdit!=='new'?soEdit:null);}
+function salesQuoteCopySource(){return soQuoteCopyOf?(DB.salesOrder||[]).find(x=>x.id===soQuoteCopyOf)||null:null;}
+function salesQuoteShown(o){if(o&&o===soDraft){const s=salesQuoteCopySource();if(s)return s;}return o;}
+function salesQuoteNextRevName(){const s=salesQuoteCopySource();return s?'R'+salesQuoteNextRev(s):'';}
+function salesQuoteOpensAsCopy(o){return salesIsQuote(o)&&o.status==='sent'&&!salesQuoteWonMember(o);}
+
+/* ---------------------------- Срок цен ---------------------------------- */
+function salesQuoteValidDays(){const d=DB.company&&DB.company.quoteValidDays;return Number.isFinite(+d)&&+d>0?+d:180;}
+function salesAddDays(iso,days){
+ const t=new Date(iso||Date.now()),p=v=>String(v).padStart(2,'0');if(isNaN(t))return '';
+ t.setDate(t.getDate()+days);return t.getFullYear()+'-'+p(t.getMonth()+1)+'-'+p(t.getDate());
+}
+/* Дата не задана руками — срок считается от отправки; не отправлена — от
+   сегодняшнего дня, как будет, если отправить сейчас. */
+function salesQuoteValidUntil(o){return o&&o.validUntil||salesAddDays(o&&o.sentAt||new Date().toISOString(),salesQuoteValidDays());}
+
+/* ----------------------------- Копия ------------------------------------ */
+/* Копия записи: новые номера строк и свои копии фигур, чтобы правка фигуры
+   копии не переписала оригинал. Нужна ревизии, копии отправленной ревизии и
+   заказу из квоты. */
+function salesCopySalesRecord(src,fields){
+ const copy=JSON.parse(JSON.stringify(src));Object.assign(copy,{id:salesUid('SO')},fields||{});
+ copy.lines.forEach(line=>{
+  const oldId=line.id;line.id=salesUid('SOL');line.batchedAt='';
+  const clone=ref=>{const s=salesShapeByRef(ref);if(!s)return ref;const c=JSON.parse(JSON.stringify(s));c.id=salesUid('SHP');if(c.ownerLineId===oldId)c.ownerLineId=line.id;DB.shapeDef.push(c);return Object.assign({},ref,{id:c.id});};
+  line.shapeRef=clone(line.shapeRef);
+  Object.keys(line.liteShapes||{}).forEach(k=>{line.liteShapes[k]=clone(line.liteShapes[k]);});
+ });
+ return copy;
+}
+function salesQuoteWorkingCopy(src){
+ const now=new Date().toISOString();
+ return salesCopySalesRecord(src,{businessNumber:'',status:'open',sentAt:'',statusDates:{},quoteGroupId:salesQuoteGroupId(src),quoteRev:0,wonOrderId:'',createdAt:now,updatedAt:now});
+}
+/* Содержание квоты без номеров записей и строк: фигура сравнивается своим
+   видом, а не номером — у копии номера фигур другие. */
+function salesQuoteContentKey(o){
+ const shape=ref=>{const s=salesShapeByRef(ref);if(!s)return null;const c=JSON.parse(JSON.stringify(s));['id','ownerLineId','revision','createdAt','updatedAt'].forEach(k=>{delete c[k];});return c;};
+ const n=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));
+ const lines=n.lines.map(l=>{const c=JSON.parse(JSON.stringify(l));delete c.id;delete c.batchedAt;c.shapeRef=shape(l.shapeRef);c.liteShapes={};Object.keys(l.liteShapes||{}).forEach(k=>{c.liteShapes[k]=shape(l.liteShapes[k]);});return c;});
+ return JSON.stringify({customerId:n.customerId,customerPo:n.customerPo,dueDate:n.dueDate,priority:n.priority,branch:n.branch,delivery:n.delivery,currency:n.currency,notes:n.notes,validUntil:n.validUntil,
+  servicePricing:n.servicePricing,orderCharges:n.orderCharges,makeups:n.makeups,extraItems:n.extraItems,serviceSets:n.serviceSets,lines});
+}
+/* Квота на экране записана: несохранённые правки сохраняются (у отправленной
+   ревизии — новой ревизией). Возвращает номер записи того, что на экране. */
+function salesQuoteSettle(){
+ if(!soDraft||!salesIsQuote(soDraft))return null;
+ if(soQuoteCopyOf&&!salesDraftHasWork())return soQuoteCopyOf;
+ if(soEdit==='new'||salesDraftHasWork()){if(!salesOrderSave())return null;}
+ return soEdit&&soEdit!=='new'?soEdit:null;
+}
+
+/* ---------------------------- Действия ---------------------------------- */
+function salesQuoteOpenRevision(id){
+ if(id===salesQuoteCurrentId())return;
+ if(salesDraftHasWork()&&!confirm('Leave this revision without saving the changes?'))return;
+ salesOrderEdit(id);
+}
+function salesQuoteNewRevision(){
+ if(!soDraft||!salesIsQuote(soDraft)||salesQuoteWonMember(soDraft))return;
+ const cur=salesQuoteSettle();if(!cur)return;
+ const src=DB.salesOrder.find(o=>o.id===cur);if(!src)return;
+ const now=new Date().toISOString(),rev=salesQuoteNextRev(src);
+ const copy=salesCopySalesRecord(src,{businessNumber:salesQuoteBaseNumber(src)+'-R'+rev,status:'open',sentAt:'',validUntil:'',statusDates:{open:now},
+  quoteGroupId:salesQuoteGroupId(src),quoteRev:rev,wonOrderId:'',fromQuoteId:'',createdAt:now,updatedAt:now});
+ DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();touch();
+ salesOrderEdit(copy.id);
+}
+function salesQuoteMarkSent(ids){
+ const now=new Date().toISOString(),days=salesQuoteValidDays();
+ (ids||[]).forEach(id=>{
+  const r=(DB.salesOrder||[]).find(o=>o.id===id);if(!r||!salesIsQuote(r)||r.status==='won')return;
+  r.status='sent';r.sentAt=now;r.statusDates=Object.assign({},r.statusDates,{sent:now});
+  if(!r.validUntil)r.validUntil=salesAddDays(now,days);
+  r.updatedAt=now;
+ });
+ touch();
+}
+function salesQuoteDeleteGroup(o){
+ const ms=salesQuoteMembers(o);if(!ms.length)return;
+ if(!confirm(ms.length>1?'Delete quote '+salesQuoteBaseNumber(o)+' and all '+ms.length+' revisions?':'Delete this quote?'))return;
+ const ids=new Set(ms.map(m=>m.id));
+ DB.salesOrder=DB.salesOrder.filter(x=>!ids.has(x.id));
+ if((soEdit&&ids.has(soEdit))||(soQuoteCopyOf&&ids.has(soQuoteCopyOf))){soEdit=null;soDraft=null;soQuoteCopyOf=null;}
+ salesPruneOrphanShapes();touch();render();
+}
+
+/* ------------------------------ Экран ----------------------------------- */
+function salesQuoteRevState(m){
+ if(m.status==='won'){const w=(DB.salesOrder||[]).find(x=>x.id===m.wonOrderId);return 'Won'+(w&&w.businessNumber?' → '+w.businessNumber:'');}
+ return m.status==='sent'?'Emailed '+salesShortDate(m.sentAt):'Not sent';
+}
+function salesQuoteTotalText(m){const t=finOrderTotals(m);return t.complete?docMoney(t.grand):'price incomplete';}
+function salesQuoteRevisionBar(shown){
+ if(!shown||!(DB.salesOrder||[]).some(x=>x.id===shown.id))return '';
+ const ms=salesQuoteMembers(shown),won=ms.some(m=>m.status==='won');
+ return `<div class="quote-revs"><span>Revisions</span>${ms.map(m=>`<button type="button" class="quote-rev${m.id===shown.id?' on':''}" data-quote-rev="${esc(m.id)}" onclick="salesQuoteOpenRevision('${esc(m.id)}')"><b>${esc(salesQuoteRevName(m))}</b><small>${esc(salesQuoteRevState(m))} · ${esc(salesQuoteTotalText(m))}</small></button>`).join('')}${won?'':`<button type="button" class="quote-rev add" data-quote-new-rev onclick="salesQuoteNewRevision()"><b>+ New revision</b><small>copy of ${esc(salesQuoteRevName(shown))}</small></button>`}</div>`;
+}
+function salesQuoteSentBanner(){
+ const s=salesQuoteCopySource();if(!s)return '';
+ return `<div class="quote-sent-banner">🔒 <b>${esc(salesQuoteRevName(s))} was emailed ${esc(salesShortDate(s.sentAt))} and stays exactly as sent.</b> Change anything here and it is saved as <b>R${salesQuoteNextRev(s)}</b>.</div>`;
+}
+function salesQuoteGroupPill(o){
+ const ms=salesQuoteMembers(o),more=ms.length>1?' · '+ms.length+' revisions':'',w=ms.find(m=>m.status==='won');
+ if(w){const ord=(DB.salesOrder||[]).find(x=>x.id===w.wonOrderId);return `<span class="pill st-won">Won${w.quoteRev?' · R'+w.quoteRev:''}${ord&&ord.businessNumber?' → '+esc(ord.businessNumber):''}</span>`;}
+ const sent=ms.filter(m=>m.status==='sent').map(m=>m.sentAt).sort().pop();
+ /* В строке списка дата без года: длинная надпись сжимала колонки. */
+ if(sent)return `<span class="pill st-sent">Sent ${esc(salesShortDate(sent).replace(/, \d{4}$/,''))}${more}</span>`;
+ return `<span class="pill st-open">Not sent${more}</span>`;
 }
 
 /* ==== src/erp/documents/company.js ==== */
@@ -9347,7 +9528,7 @@ function salesStatusChips(rows){
 const COMPANY_DEFAULT={
  legalName:'Infinity Glass Group Inc',address1:'',address2:'',city:'',province:'ON',postalCode:'',country:'Canada',
  phone:'',email:'',website:'',hstNumber:'',logo:'',
- depositPercent:50,paymentInstructions:'',termsText:'',footerText:'Thank you for your business'
+ depositPercent:50,quoteValidDays:180,paymentInstructions:'',termsText:'',footerText:'Thank you for your business'
 };
 /* Логотип хранится в данных картинкой JPEG: он уходит в localStorage и в
    Export JSON, а PDF умеет вставлять JPEG как есть, без перекодирования.
@@ -9357,6 +9538,9 @@ DEFAULT.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
 if(!DB.company||typeof DB.company!=='object'||Array.isArray(DB.company))DB.company=JSON.parse(JSON.stringify(COMPANY_DEFAULT));
 
 function companyString(v,max){return String(v==null?'':v).replace(/\r\n?/g,'\n').trim().slice(0,max||200);}
+/* Срок цен квоты в днях. Владелец, 15 сентября 2026: «у нас более длинный
+   период, около 180 дней, но дай возможность модификации». */
+function companyDays(v,fallback){const n=Math.floor(Number(v));return v!==''&&v!=null&&Number.isFinite(n)&&n>=1&&n<=3650?n:fallback;}
 function companyPercent(v,fallback){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&n>=0&&n<=100?Math.round(n*100)/100:fallback;}
 function normalizeCompany(){
  const c=DB.company&&typeof DB.company==='object'&&!Array.isArray(DB.company)?DB.company:{};
@@ -9371,7 +9555,7 @@ function normalizeCompany(){
   phone:s('phone',60),email:s('email',120),website:s('website',120),hstNumber:s('hstNumber',60),
   logo,depositPercent:companyPercent(c.depositPercent,COMPANY_DEFAULT.depositPercent),
   paymentInstructions:s('paymentInstructions',1200),termsText:s('termsText',4000),
-  footerText:s('footerText',160)
+  footerText:s('footerText',160),quoteValidDays:companyDays(c.quoteValidDays,COMPANY_DEFAULT.quoteValidDays)
  };
 }
 
@@ -9416,7 +9600,8 @@ function paymentTermsLabel(terms){
 const DOC_KINDS=[
  {k:'workOrder',label:'Work order'},
  {k:'proforma',label:'Proforma invoice'},
- {k:'confirmation',label:'Order confirmation'}
+ {k:'confirmation',label:'Order confirmation'},
+ {k:'quote',label:'Quote'}
 ];
 const DOC_PRICE_MODES=[
  {k:'full',label:'Full breakdown',hint:'every lite, cavity and service with its rate'},
@@ -9425,10 +9610,11 @@ const DOC_PRICE_MODES=[
  {k:'unit',label:'Unit price and line total'},
  {k:'none',label:'No prices'}
 ];
-const DOC_ALL=['workOrder','proforma','confirmation'],DOC_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
+const DOC_ALL=['workOrder','proforma','confirmation','quote'],DOC_SALE=['proforma','confirmation','quote'],DOC_ORDER_SALE=['proforma','confirmation'],DOC_SHOP=['workOrder'];
 const DOC_FIELDS=[
  {k:'company',g:'Header',label:'Company logo and details',kinds:DOC_ALL,on:DOC_ALL},
  {k:'date',g:'Header',label:'Date',kinds:DOC_ALL,on:DOC_ALL},
+ {k:'validUntil',g:'Header',label:'Valid until',kinds:['quote'],on:['quote']},
  {k:'customerPo',g:'Header',label:'Customer PO',kinds:DOC_ALL,on:DOC_ALL},
  {k:'dueDate',g:'Header',label:'Due date',kinds:DOC_ALL,on:DOC_ALL},
  {k:'terms',g:'Header',label:'Payment terms',kinds:DOC_SALE,on:DOC_SALE},
@@ -9459,13 +9645,13 @@ const DOC_FIELDS=[
  {k:'extraItems',g:'Bottom',label:'Additional items',kinds:DOC_ALL,on:DOC_ALL},
  {k:'groupTotals',g:'Bottom',label:'Totals by group',hint:'glass / services / surcharges',kinds:DOC_SALE,on:[]},
  {k:'totals',g:'Bottom',label:'Subtotal · ES · HST · Total',kinds:DOC_SALE,on:DOC_SALE},
- {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_SALE,on:DOC_SALE},
+ {k:'receipts',g:'Bottom',label:'Receipts and balance',hint:'paid to date and balance due, when paid',kinds:DOC_ORDER_SALE,on:DOC_ORDER_SALE},
  {k:'orderSummary',g:'Bottom',label:'Order summary',hint:'units, ft², kg',kinds:DOC_ALL,on:DOC_SHOP},
  {k:'payment',g:'Bottom',label:'Deposit or credit terms',kinds:DOC_SALE,on:DOC_SALE},
- {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_SALE,on:['proforma']},
+ {k:'paymentInstructions',g:'Bottom',label:'Payment instructions',kinds:DOC_ORDER_SALE,on:['proforma']},
  {k:'notes',g:'Bottom',label:'Order notes',kinds:DOC_ALL,on:DOC_ALL},
  {k:'termsText',g:'Bottom',label:'Terms and conditions',kinds:DOC_SALE,on:DOC_SALE},
- {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation']}
+ {k:'signature',g:'Bottom',label:'Customer signature',kinds:DOC_SALE,on:['confirmation','quote']}
 ];
 function docKindLabel(kind){const d=DOC_KINDS.find(x=>x.k===kind);return d?d.label:'Document';}
 function docFieldsFor(kind){return DOC_FIELDS.filter(f=>f.kinds.includes(kind));}
@@ -10127,25 +10313,27 @@ function salesApplyCustomerDefaults(id){
 }
 function salesOrderSearchChange(el){soSearch=el.value;const pos=el.selectionStart;render();requestAnimationFrame(()=>{const e=document.getElementById('salesOrderSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});}
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesMetricsPanel=null;salesExcelReset();salesDialog=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soEdit=id;soDraft=JSON.parse(JSON.stringify(o));soDraft=normalizeSalesOrder(soDraft);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
    пока в нём нет строк. */
 function salesDraftHasWork(){
  if(!soDraft)return false;
+ if(soQuoteCopyOf){const src=DB.salesOrder.find(x=>x.id===soQuoteCopyOf);return !src||salesQuoteContentKey(soDraft)!==salesQuoteContentKey(src);}
  if(soEdit==='new')return soDraft.lines.length>1||soDraft.lines.some(l=>!salesOrderLineIsBlank(l));
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
 function salesOrderClose(){
  if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;if(salesPruneOrphanShapes())touch();render();
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;if(salesPruneOrphanShapes())touch();render();
 }
 function salesOrderSave(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
+ if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
  soDraft.metricRules=salesMetricRules(soDraft);
  salesSnapshotAllChargePricing();
  soDraft=normalizeSalesOrder(soDraft);if(!soDraft.customerId)return fail(e,'Select a Customer');
@@ -10166,12 +10354,15 @@ function salesOrderSave(opts){
     на пути законных заказов. */
  const sizeWarnings=typeof salesStationSizeWarnings==='function'?salesStationSizeWarnings(soDraft):[];
  if(sizeWarnings.length&&!confirm('Station size warning:\n\n- '+sizeWarnings.join('\n- ')+'\n\nSave this order anyway?'))return;
+ /* Правка отправленной ревизии квоты — следующая ревизия со своим номером. */
+ const copyOf=salesQuoteCopySource();
+ if(copyOf){const rev=salesQuoteNextRev(copyOf);soDraft.quoteGroupId=salesQuoteGroupId(copyOf);soDraft.quoteRev=rev;soDraft.businessNumber=salesQuoteBaseNumber(copyOf)+'-R'+rev;soDraft.status='open';soDraft.sentAt='';soDraft.statusDates={};if(soDraft.validUntil===copyOf.validUntil)soDraft.validUntil='';}
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
- normalizeSalesData();salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
-function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
+function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
 function salesCurrentMakeup(){if(!soDraft)return null;let m=salesMakeupById(soDraft,soMakeupId);if(!m)m=soDraft.makeups[0]||null;if(m)soMakeupId=m.id;return m;}
 function salesSelectMakeup(id){if(salesMakeupById(soDraft,id)){soMakeupId=id;soOpenSectionKey='lite-0';render();}}
@@ -13652,7 +13843,7 @@ function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div cl
    иначе цифра на бумаге однажды разошлась бы с цифрой на экране заказа.
    ===================================================================== */
 
-const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION'};
+const DOC_TITLES={workOrder:'WORK ORDER',proforma:'PROFORMA INVOICE',confirmation:'ORDER CONFIRMATION',quote:'QUOTE'};
 const DOC_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function docNum(v,digits){return Number(v).toLocaleString('en-US',{minimumFractionDigits:digits,maximumFractionDigits:digits});}
@@ -13866,7 +14057,8 @@ function docBuildModel(kind,order,opts){
   items:[],extra:null,end:null,terms:'',signature:'',summary:null,notes:'',footerLeft:'',footerRight:''};
 
  const cell=(on,label,value)=>{if(on)model.meta.push({label,value:value||'—'});};
- cell(opts.date,sale?'Date':'Order date',docDate(order.createdAt)||docDate(new Date().toISOString()));
+ cell(opts.date,sale?'Date':'Order date',docDate(kind==='quote'&&order.sentAt||order.createdAt)||docDate(new Date().toISOString()));
+ if(kind==='quote')cell(opts.validUntil,'Valid until',docDate(salesQuoteValidUntil(order)));
  cell(opts.customerPo,'Customer PO',order.customerPo);
  cell(opts.dueDate,'Due date',docDate(order.dueDate));
  if(sale)cell(opts.terms,'Terms',paymentTermsLabel(terms));
@@ -13932,13 +14124,16 @@ function docBuildModel(kind,order,opts){
    else if(pct>0){
     const dep=salesMoney(t.grand*pct/100);
     if(paidSoFar>0&&paidSoFar>=dep)deposit=[{label:'Deposit received · '+pct+'%',value:money(dep),strong:true}];
-    else deposit=[{label:(kind==='proforma'?'Deposit due now · ':'Deposit before production · ')+pct+'%',value:money(salesMoney(dep-paidSoFar)),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];
+    else deposit=[{label:(kind==='proforma'?'Deposit due now · ':kind==='quote'?'Deposit to start production · ':'Deposit before production · ')+pct+'%',value:money(salesMoney(dep-paidSoFar)),strong:true},{label:'Balance on completion',value:money(salesMoney(t.grand-dep))}];
    }
    else deposit=[{label:'Payment due on completion',value:money(t.grand),strong:true}];
   }
   if(left.length||rows||deposit)model.end={left,rows,grand,paid,deposit,missing:t.complete?'':t.missing+(t.missing>1?' items need pricing':' item needs pricing')};
   if(opts.termsText&&company.termsText)model.terms=company.termsText;
-  if(opts.signature)model.signature='Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0?' and the deposit is received.':'.');
+  const depositFirst=terms.paymentMode==='cash'&&paymentDepositPercent(terms)>0;
+ if(opts.signature)model.signature=kind==='quote'
+  ?'Prices are valid until '+docDate(salesQuoteValidUntil(order))+'. To accept, reply to the email or sign and return this quote. Production starts after the order is confirmed'+(depositFirst?' and the deposit is received.':'.')
+  :'Please check sizes, makeups and quantities. Production starts after this confirmation is signed'+(depositFirst?' and the deposit is received.':'.');
   model.footerLeft=company.footerText||'';
  }else{
   if(opts.orderSummary){
@@ -14457,17 +14652,17 @@ function viewSales(){
 }
 function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderList();}
 function salesOrderList(){
- const all=salesListVisible(),rows=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+o.status).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),both=salesShow.orders&&salesShow.quotes;
- const toggle=(key,label)=>`<button type="button" data-show="${key}" class="sales-show-toggle ${salesShow[key]?'on':''}" onclick="salesToggleShow('${key}')"><i>${salesShow[key]?'✓':''}</i>${label} <b>${(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)).length}</b></button>`;
+ const all=salesListVisible(),rows=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),both=salesShow.orders&&salesShow.quotes;
+ const toggle=(key,label)=>`<button type="button" data-show="${key}" class="sales-show-toggle ${salesShow[key]?'on':''}" onclick="salesToggleShow('${key}')"><i>${salesShow[key]?'✓':''}</i>${label} <b>${(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length}</b></button>`;
  const numberOf=id=>((DB.salesOrder||[]).find(x=>x.id===id)||{}).businessNumber||'';
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sales-search"><input id="salesOrderSearch" value="${esc(soSearch)}" placeholder="Search number, customer, PO, status…" oninput="salesOrderSearchChange(this)"></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesStatusChips(all)}<div class="sales-table-wrap"><table><thead><tr>${both?'<th>Type</th>':''}<th>Number</th><th>Customer</th><th>PO</th><th>Due</th><th>Lines</th><th>Status</th><th class="n">Total</th><th class="n">Receipts</th><th class="n">Balance</th><th></th></tr></thead><tbody>${rows.map(o=>{const q=salesIsQuote(o),from=o.fromQuoteId?numberOf(o.fromQuoteId):'';return `<tr data-order-row="${esc(o.id)}">${both?`<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`:''}<td><b class="mono">${raw(o.businessNumber||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td><td><b>${raw(salesCustomerDisplay(o.customerId)||'—')}</b></td><td>${raw(o.customerPo||'—')}</td><td>${esc(o.dueDate||'—')}</td><td>${o.lines.length}</td><td>${salesStatusPill(o)}</td>${salesListBalanceCells(o)}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;}).join('')||`<tr><td colspan="${both?11:10}" class="empty">${all.length?'Nothing in this status.':'No Sales Orders yet'}</td></tr>`}</tbody></table></div></div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sales-search"><input id="salesOrderSearch" value="${esc(soSearch)}" placeholder="Search number, customer, PO, status…" oninput="salesOrderSearchChange(this)"></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesStatusChips(all)}<div class="sales-table-wrap"><table><thead><tr>${both?'<th>Type</th>':''}<th>Number</th><th>Customer</th><th>PO</th><th>Due</th><th>Lines</th><th>Status</th><th class="n">Total</th><th class="n">Receipts</th><th class="n">Balance</th><th></th></tr></thead><tbody>${rows.map(o=>{const q=salesIsQuote(o),from=o.fromQuoteId?numberOf(o.fromQuoteId):'';return `<tr data-order-row="${esc(o.id)}">${both?`<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`:''}<td><b class="mono">${raw((q?salesQuoteBaseNumber(o):o.businessNumber)||'Auto Number')}</b>${from?` <span class="mut small">from ${raw(from)}</span>`:''}</td><td><b>${raw(salesCustomerDisplay(o.customerId)||'—')}</b></td><td>${raw(o.customerPo||'—')}</td><td>${esc(o.dueDate||'—')}</td><td>${o.lines.length}</td><td>${q?salesQuoteGroupPill(o):salesStatusPill(o)}</td>${salesListBalanceCells(o)}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;}).join('')||`<tr><td colspan="${both?11:10}" class="empty">${all.length?'Nothing in this status.':'No Sales Orders yet'}</td></tr>`}</tbody></table></div></div>`;
 }
 function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!=='archived');return `<option value="">— select Customer —</option>`+rows.map(c=>`<option data-raw value="${esc(c.id)}" ${soDraft.customerId===c.id?'selected':''}>${esc(c.code||'')} · ${esc(c.displayName||c.legalName)}</option>`).join('');}
 function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
- return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(o)}${customerFlags}</div><div class="mut mono">${esc(o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
+ return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
  ${salesStatusStepper(o)}${salesLockBar(o)}${ro?'<div class="sales-readonly" inert>':''}
- <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div></div>
+ <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. The order can be saved; verification and batching ask for confirmation.</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
@@ -19342,16 +19537,21 @@ function mdCatDelete(id){
 
 let docState=null,docLastKind='proforma';
 
+/* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
+   квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
+function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
 function docOpen(kind){
  if(!soDraft)return;
- kind=DOC_KINDS.some(d=>d.k===kind)?kind:docLastKind;
- docState={kind,opts:docDefaultOptions(kind),panel:false,status:''};
+ const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
+ kind=kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
+ const cur=q?salesQuoteCurrentId():null;
+ docState={kind,opts:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
- if(!docState||!DOC_KINDS.some(d=>d.k===kind))return;
- docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
+ if(!docState||!soDraft||!docKindsFor(soDraft).some(d=>d.k===kind))return;
+ if(kind!=='quote')docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
 /* Галочка меняет только этот показ. В заказ ничего не пишется, а набор по
@@ -19368,10 +19568,30 @@ function docSaveDefault(){
  DB.documentSettings=Object.assign({},DB.documentSettings,{[docState.kind]:docCleanOptions(docState.kind,docState.opts)});
  touch();docState.status='Saved as default for every '+docKindLabel(docState.kind)+'.';render();
 }
-function docCurrentPages(){return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));}
+function docQuoteRecords(){
+ const ids=docState&&docState.revs||[];if(!ids.length)return [soDraft];
+ const cur=salesQuoteCurrentId(),dirty=salesDraftHasWork();
+ return ids.map(id=>id===cur&&dirty?soDraft:(DB.salesOrder||[]).find(o=>o.id===id)).filter(Boolean).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0));
+}
+function docToggleRev(id,on){
+ if(!docState)return;
+ const s=new Set(docState.revs||[]);if(on)s.add(id);else s.delete(id);
+ docState.revs=[...s];docState.status='';render();
+}
+function docCurrentPages(){
+ if(docState.kind!=='quote')return docLayout(docBuildModel(docState.kind,soDraft,docState.opts));
+ return docQuoteRecords().flatMap(r=>finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts))));
+}
+function docRevisionPicker(){
+ if(!docState||docState.kind!=='quote')return '';
+ const cur=salesQuoteCurrentId(),ref=cur&&(DB.salesOrder||[]).find(o=>o.id===cur);if(!ref)return '';
+ const ms=salesQuoteMembers(ref);if(ms.length<2)return '';
+ return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} onchange="docToggleRev('${esc(m.id)}',this.checked)"> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
+}
 function docWarnings(){
  const out=[];
- if(!soDraft.businessNumber)out.push('Save the order to give the document its number.');
+ if(!soDraft.businessNumber&&!salesQuoteCurrentId())out.push(salesIsQuote(soDraft)?'Save the quote to give the document its number.':'Save the order to give the document its number.');
+ if(docState.kind==='quote'&&salesQuoteCurrentId()&&!(docState.revs||[]).length)out.push('Tick at least one revision to print or email.');
  if(!soDraft.customerId)out.push('No customer selected.');
  if(salesIsQuote(soDraft)&&docState.kind==='workOrder')out.push('This is a quote. Convert it to an order before sending a work order to the shop.');
  if(docState.kind!=='workOrder'){const t=salesOrderCommercialTotals(soDraft);if(!t.complete)out.push(t.missing+(t.missing>1?' items need':' item needs')+' pricing — totals are not complete.');}
@@ -19383,9 +19603,9 @@ function docModal(){
  let pages=[],error='';
  try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=DOC_KINDS.map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
-  <div class="doc-bar"><b class="doc-title">Preview · Order ${esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}</div><span class="doc-spacer"></span>
+  <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
    <button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>
    <button type="button" onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button><button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
@@ -19463,6 +19683,7 @@ function docEmailUrl(){
  return 'https://mail.google.com/mail/?view=cm&fs=1'+(to?'&to='+encodeURIComponent(to):'')+'&su='+encodeURIComponent(docEmailSubject())+'&body='+encodeURIComponent(docEmailBody());
 }
 function docEmail(){
+ if(docState&&soDraft&&docState.kind==='quote'){docEmailQuote();return;}
  if(!docState||!soDraft)return;
  let bytes;
  try{bytes=docPdfBytes(docCurrentPages(),{title:docKindLabel(docState.kind)+' '+(soDraft.businessNumber||'draft')});}
@@ -19474,17 +19695,56 @@ function docEmail(){
  render();
 }
 
+/* Квота: отмеченные ревизии уходят одним письмом, каждая своим PDF, и
+   становятся Sent. Несохранённые правки сначала сохраняются — у отправленной
+   ревизии они становятся следующей ревизией, отправленная не меняется. */
+function docGmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1'+(to?'&to='+encodeURIComponent(to):'')+'&su='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);}
+function docQuoteEmailSubject(recs){
+ const c=DB.company||{},po=recs[0].customerPo;
+ return ['Quote '+recs.map(r=>r.businessNumber).join(', '),po?'PO '+po:'',c.legalName].map(x=>String(x||'').trim()).filter(Boolean).join(' · ');
+}
+function docQuoteEmailBody(recs){
+ const c=DB.company||{},q=recs[0],C=salesFindCustomer(q.customerId),first=String((C&&customerPrimaryContact(C).name)||'').trim().split(/\s+/)[0];
+ const terms=paymentTermsFrom(C||{}),pct=paymentDepositPercent(terms),many=recs.length>1,po=q.customerPo?' for PO '+q.customerPo:'';
+ const lines=['Hello'+(first?' '+first:'')+',','',many?'Please find attached quote '+salesQuoteBaseNumber(q)+' in '+recs.length+' options: '+recs.map(r=>r.businessNumber).join(', ')+po+'.':'Please find attached quote '+q.businessNumber+po+'.'];
+ recs.forEach(r=>{const t=finWithOrder(r,()=>salesOrderCommercialTotals(r));if(t.complete)lines.push((many?r.businessNumber+': ':'Total: ')+docMoney(t.grand)+' '+r.currency+'.');});
+ lines.push('Prices are valid until '+docDate(salesQuoteValidUntil(q))+'.');
+ if(terms.paymentMode==='credit')lines.push('Payment terms: '+paymentTermsLabel(terms)+'.');
+ else if(pct>0)lines.push('A '+pct+'% deposit is required to start production.');
+ lines.push(many?'Reply to this email with the option you choose, or ask us for changes.':'Reply to this email to accept the quote or to ask for changes.','','Thank you,',c.legalName||'');
+ if(c.phone)lines.push(c.phone);
+ return lines.join('\n');
+}
+function docEmailQuote(){
+ const before=salesQuoteCurrentId(),cur=salesQuoteSettle();if(!cur||!docState)return;
+ let ids=(docState.revs||[]).filter(id=>(DB.salesOrder||[]).some(o=>o.id===id));
+ if(before!==cur)ids=ids.filter(id=>id!==before).concat(cur);
+ if(!ids.length)ids=[cur];
+ const recs=ids.map(id=>DB.salesOrder.find(o=>o.id===id)).sort((a,b)=>(a.quoteRev||0)-(b.quoteRev||0)),files=[];
+ try{recs.forEach(r=>{const pages=finWithOrder(r,()=>docLayout(docBuildModel('quote',r,docState.opts)));files.push({name:docFileName('quote',r),bytes:docPdfBytes(pages,{title:'Quote '+r.businessNumber})});});}
+ catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
+ const C=salesFindCustomer(recs[0].customerId),to=C?(C.invoiceEmail||customerPrimaryContact(C).email||''):'';
+ const url=docGmailUrl(to,docQuoteEmailSubject(recs),docQuoteEmailBody(recs));
+ files.forEach(f=>docDownload(f.name,f.bytes));
+ salesQuoteMarkSent(recs.map(r=>r.id));
+ const win=window.open(url,'_blank'),keep=docState;
+ salesOrderEdit(cur);
+ docState=Object.assign(keep,{revs:recs.map(r=>r.id),cur:salesQuoteCurrentId(),
+  status:(files.length>1?files.length+' PDFs saved to Downloads: ':'PDF saved to Downloads as ')+files.map(f=>f.name).join(', ')+' — drag '+(files.length>1?'them':'it')+' into the Gmail message. '+recs.map(r=>r.businessNumber).join(', ')+(recs.length>1?' are':' is')+' marked Sent.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.')});
+ render();
+}
+
 /* -------------------------- Master Data → Company -------------------- */
 function viewMdCompany(){
  const c=DB.company;
  const f=(k,label,o)=>{o=o||{};const ph=o.ph?` placeholder="${esc(o.ph)}"`:'';
   return `<div${o.wide?' class="doc-company-wide"':''}><label>${label}</label>${o.area?`<textarea rows="${o.rows||3}" data-company="${k}"${ph} onchange="companySet('${k}',this.value)">${esc(c[k])}</textarea>`:`<input${o.type?` type="${o.type}"`:''} data-company="${k}" value="${esc(c[k])}"${ph} onchange="companySet('${k}',this.value)">`}</div>`;};
- return `<div class="sub">Company details for Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
+ return `<div class="sub">Company details for Quotes, Work orders, Proforma invoices and Order confirmations. Empty fields are not printed.</div>
  <div class="doc-company">
   <div class="doc-company-logo"><label>Logo</label><div class="doc-logo-box">${c.logo?`<img src="${c.logo}" alt="Company logo">`:'<span>No logo</span>'}</div>
    <div class="doc-logo-actions"><button type="button" onclick="document.getElementById('docLogoFile').click()">${c.logo?'Replace logo':'Upload logo'}</button>${c.logo?'<button type="button" onclick="companyRemoveLogo()">Remove</button>':''}</div>
    <input type="file" id="docLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="companyLogoUpload(this)"><small>PNG or JPEG. Resized for printing and saved with the data.</small></div>
-  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
+  <div class="doc-company-grid">${f('legalName','Legal name *')}${f('hstNumber','HST number',{ph:'123456789 RT0001'})}${f('address1','Address line 1')}${f('address2','Address line 2')}${f('city','City')}${f('province','Province')}${f('postalCode','Postal code')}${f('country','Country')}${f('phone','Phone')}${f('email','Email',{type:'email'})}${f('website','Website')}${f('depositPercent','Deposit for cash customers, %',{type:'number'})}${f('quoteValidDays','Quote valid for, days',{type:'number'})}${f('paymentInstructions','Payment instructions',{area:true,wide:true,ph:'e-Transfer to … · Cheque payable to …'})}${f('termsText','Terms and conditions',{area:true,rows:6,wide:true})}${f('footerText','Footer line on customer documents',{wide:true,ph:'Thank you for your business'})}</div>
  </div>`;
 }
 function companySet(k,v){
