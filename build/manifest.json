@@ -8,7 +8,8 @@
   "src/styles/documents.css",
   "src/styles/finance.css",
   "src/styles/lifecycle.css",
-  "src/styles/quotes.css"
+  "src/styles/quotes.css",
+  "src/styles/sales-list.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -73,6 +74,7 @@
   "src/erp/views/masterdata.js",
   "src/erp/views/documents-ui.js",
   "src/erp/views/finance.js",
+  "src/erp/views/sales-list-ui.js",
   "src/erp/storage.js"
  ]
 }

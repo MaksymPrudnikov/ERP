@@ -35,7 +35,9 @@ function salesLifecycleFields(o){
  const q=kind==='quote',rev=Math.floor(Number(o.quoteRev));
  return {kind,status,statusDates,fromQuoteId:salesRefId(o.fromQuoteId),wonOrderId:salesRefId(o.wonOrderId),
   quoteGroupId:q?salesRefId(o.quoteGroupId):'',quoteRev:q&&Number.isFinite(rev)&&rev>0&&rev<1000?rev:0,
-  sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):''};
+  sentAt:q?salesString(o.sentAt):'',validUntil:q&&/^\d{4}-\d{2}-\d{2}$/.test(String(o.validUntil||''))?String(o.validUntil):'',
+  /* On Hold заказа (views/sales-list-ui): пока стоит, заказ не верифицируется и не уходит в батч. */
+  onHold:!q&&o.onHold===true,holdReason:!q&&o.onHold===true?salesString(o.holdReason).slice(0,200):'',holdAt:!q&&o.onHold===true?salesString(o.holdAt):''};
 }
 function nextSalesQuoteNumber(){
  let max=10000;
@@ -179,6 +181,7 @@ function salesSetStatus(next,opts){
 function salesAdvanceStatus(){
  if(!soDraft||salesIsQuote(soDraft))return;
  const next=SALES_NEXT_STATUS[soDraft.status];if(!next)return;
+ if(soDraft.onHold&&(next==='verified'||next==='batched')){salesHoldBlocked();return;}
  salesRunChecks(salesTransitionChecks(soDraft,next),()=>salesSetStatus(next));
 }
 function salesStepBack(){
@@ -191,6 +194,7 @@ function salesStepBack(){
 function salesBatchNewLines(){
  if(!soDraft)return;
  const fresh=(soDraft.lines||[]).filter(l=>!l.batchedAt);if(!fresh.length)return;
+ if(soDraft.onHold){salesHoldBlocked();return;}
  salesRunChecks(salesTransitionChecks(soDraft,'batched'),()=>{const now=new Date().toISOString();fresh.forEach(l=>{l.batchedAt=now;});if(!salesOrderSave())fresh.forEach(l=>{l.batchedAt='';});});
 }
 function salesCancelOrder(){
@@ -295,9 +299,8 @@ function salesToggleShow(key){
 }
 function salesSetStatusFilter(key){salesStatusFilter=salesStatusFilter===key?'':key;render();}
 function salesListVisible(){
- const q=salesString(soSearch).toLowerCase();
- return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)
-  .filter(o=>!q||[salesIsQuote(o)?salesQuoteMembers(o).map(m=>m.businessNumber).join(' '):o.businessNumber,salesCustomerDisplay(o.customerId),o.customerPo,o.dueDate,salesStatusLabel(o,salesListStatus(o))].join(' ').toLowerCase().includes(q));
+ /* Строки поиска нет (владелец, 15 сентября 2026): ищут фильтрами колонок. */
+ return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id);
 }
 function salesStatusChips(rows){
  const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
