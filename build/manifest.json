@@ -11,7 +11,8 @@
   "src/styles/quotes.css",
   "src/styles/sales-list.css",
   "src/styles/optimization.css",
-  "src/styles/glass-batches.css"
+  "src/styles/glass-batches.css",
+  "src/styles/ncr.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -82,6 +83,8 @@
   "src/erp/sales/line-hold.js",
   "src/erp/production/glass-batches.js",
   "src/erp/views/glass-batches.js",
+  "src/erp/quality/reasons.js",
+  "src/erp/views/ncr-reasons-ui.js",
   "src/erp/storage.js"
  ]
 }
