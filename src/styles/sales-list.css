@@ -71,7 +71,7 @@
 .sl-status-options{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:100%;order:3;flex-basis:100%}
 .sales-status-chips .sl-status-toggle{display:inline-flex;gap:5px;align-items:center;height:28px;padding:3px 8px;border-radius:7px;color:#344054;font-weight:600;background:#fff;border:1px solid #e4e7ec;box-shadow:none}
 .sales-status-chips .sl-status-toggle b{font-size:11px;font-weight:500;color:#667085;margin:0}
-.sales-status-chips .sl-status-toggle>span{margin-left:2px;font-size:15px;color:#667085}
+.sales-list-card .sl-disclosure{display:inline-block;width:9px;margin-left:2px;font-size:9px;line-height:1;text-align:center;color:#667085}
 .sl-header-tools{display:flex;align-items:center;gap:3px}
 .sl-table th.sl-check:has(.sl-header-tools){min-width:48px;padding-right:4px}
 .sl-settings{border:0;background:transparent;padding:3px;border-radius:5px;width:26px;height:26px;color:#667085;cursor:pointer}

@@ -310,7 +310,7 @@ function salesStatusStepper(o){
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b><small>${o.statusDates&&o.statusDates[s]?esc(salesShortDate(o.statusDates[s])):'&nbsp;'}</small></div>`).join('');
+ const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
@@ -348,6 +348,6 @@ function salesStatusChips(rows){
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
  const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
- const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span aria-hidden="true">${p.statusExpanded?'‹':'›'}</span></button>`;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
  return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
 }

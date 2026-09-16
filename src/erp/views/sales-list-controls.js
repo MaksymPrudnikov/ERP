@@ -2,7 +2,7 @@
    что и меню колонки: второго, невидимого ограничения здесь нет. */
 function salesListShowButton(){
  const label=salesShow.orders&&salesShow.quotes?'Orders + Quotes':salesShow.quotes?'Quotes':'Orders';
- return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span aria-hidden="true">⌄</span></button>`;
+ return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenShow(e){salesListMenu=Object.assign({kind:'show',scope:'sales'},salesListAt(e,220));render();}
 function salesListShowMenuHTML(style){
@@ -23,7 +23,7 @@ function salesListDateParts(f){
 function salesListDateButton(){
  const f=salesListLoadPrefs().filters.created,d=salesListDateParts(f);
  const label=d.preset?(SALES_LIST_PRESETS.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
- return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range title="${esc(f?salesListFilterSummary(salesListColumn('created'),f):'Created: all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event)">Created: ${esc(label)}<span aria-hidden="true">⌄</span></button>`;
+ return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range title="${esc(f?salesListFilterSummary(salesListColumn('created'),f):'Created: all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event)">Created: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenDate(e){salesListMenu=Object.assign({kind:'date',scope:'sales',error:''},salesListDateParts(salesListLoadPrefs().filters.created),salesListAt(e,360));render();}
 function salesListDatePreset(key){
