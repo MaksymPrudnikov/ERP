@@ -193,6 +193,32 @@ module.exports=async function({page,eq,ok}){
   return {saved:salesRecord(id).notes,draft:soDraft.notes,status:soDraft.status,managed:soDraft.lines.every(l=>l.batchManaged),locks:soDraft.lines.every(salesLineLocked)};
  }),{saved:'',draft:'Unsaved changes',status:'batched',managed:true,locks:true});
 
+ const unbatchIds=await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer();window.gbU=[gbMixed(c,'6Q240'),gbMixed(c,'6Q240'),oqOrder(c)];soDraft=null;soEdit=null;gbQueue();
+  document.querySelector('[data-glass-all]').click();document.querySelector('[data-glass-action="create"]').click();oqChoose('Create batches');
+  tab='sales';salesShow={orders:true,quotes:false};salesStatusFilter='';salesListSel=new Set(gbU.slice(0,2));render();return gbU;
+ });
+ await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});
+ eq('Sales: правая кнопка — Unbatch order только у заказа с батчем и только для него',await t.p.evaluate(()=>{
+  const menu=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(b=>b.dataset.menu+':'+b.textContent);salesListMenu=null;render();
+  const other=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');oqThrough(gbU[2],'batched');salesSetRecordStatus(gbU[2],'ready');const ready=salesListContextHTML({id:gbU[2]},'').includes('data-menu="unbatch"');
+  return {item:menu.filter(x=>x.startsWith('unbatch')),other,ready};
+ }),{item:['unbatch:Unbatch order…'],other:false,ready:false});
+ await t.p.locator(`[data-order-row="${unbatchIds[0]}"]`).click({button:'right'});
+ await t.p.locator('.sl-ctx [data-menu="unbatch"]').click();
+ eq('окно Unbatch order: батчи заказа без номеров стёкол; снимаются стёкла только этого заказа в отмеченных батчах',await t.p.evaluate(()=>{
+  const d=salesDialog,a=gbU[0],b=gbU[1],text=document.querySelector('.sales-dialog').innerText;
+  const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-\d{7}/.test(text),confirm:text.includes('I confirm cutting has not started for this order.')};
+  salesDialogToggleLine('B-0002',false);salesDialogConfirm(true);oqChoose('Unbatch order');
+  const active=(n,id)=>glassBatchFind(n).items.filter(i=>!i.releasedAt&&glassBatchFind(n).parts[i.part].orderId===id).length;
+  return Object.assign(shown,{status:[salesRecord(a).status,salesRecord(b).status],a:[active('B-0001',a),active('B-0002',a)],b:[active('B-0001',b),active('B-0002',b)],selection:[...salesListSel].length,menuAfter:salesListContextHTML({id:a},'').includes('data-menu="unbatch"')});
+ }),{title:true,choices:['B-0001 · 6CLEAR 3 pcs','B-0002 · 6Q240 3 pcs'],noGlassIds:true,confirm:true,status:['new','batched'],a:[0,3],b:[3,3],selection:2,menuAfter:true});
+
+ eq('Glass ID не попадают в Sales: список, заказ и окна',await t.p.evaluate(()=>{
+  salesDialog=null;soDraft=null;soEdit=null;tab='sales';render();const list=document.getElementById('app').innerText;salesOrderEdit(gbU[1]);const order=document.getElementById('app').innerText;
+  return {pieces:gbIds().length>0,list:/G-\d{7}/.test(list),order:/G-\d{7}/.test(order)};
+ }),{pieces:true,list:false,order:false});
+
  eq('экраны очереди, реестра, состава и истории без русского; имя клиента и причина Hold не исполняют HTML',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer({legalName:'<img src=x onerror="window.gbXss=1">'});const a=gbMixed(c,'6Q240');salesLineHoldSet(a,[salesRecord(a).lines[1].id],true,'<img src=x onerror="window.gbXss=2">');
   const texts=[];gbQueue();texts.push(gbText());const imgs=[document.querySelectorAll('.glass-batches img').length];document.querySelector('[data-glass-all]').click();document.querySelector('[data-glass-action="create"]').click();texts.push(gbText());imgs.push(document.querySelectorAll('.glass-batches img').length);

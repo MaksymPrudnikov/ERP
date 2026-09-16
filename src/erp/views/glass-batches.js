@@ -71,6 +71,26 @@ function glassBatchUnbatchSelected(){
   if(glassBatchRelease(selected.filter(i=>d.checkedLines.includes(glassBatchRowKey(i))).map(i=>({batch:i.b,item:i.item})),{confirmed:d.confirmed})){glassBatchSelection.clear();glassBatchAnchor='';render();}
  }}]});
 }
+/* Unbatch целого заказа из Sales — редкое действие, только для заказа под
+   правой кнопкой (владелец, 17 сентября 2026). Окно показывает батчи заказа
+   без номеров стёкол: Glass ID — производственный номер, в Sales его нет. */
+function glassBatchOrderReleasable(o){
+ return glassBatchEntries(o.id).filter(x=>{if(x.item.releasedAt||x.item.cutStartedAt)return false;const l=(o.lines||[]).find(l=>l.id===x.part.lineId);return !!l&&!l.cutStartedAt;});
+}
+function glassBatchCanUnbatchOrder(o){return !!o&&!salesIsQuote(o)&&salesUnbatchEligible(o)&&glassBatchOrderReleasable(o).length>0;}
+function glassBatchUnbatchOrder(orderId){
+ const o=salesRecord(orderId);if(!glassBatchCanUnbatchOrder(o))return;
+ const free=glassBatchOrderReleasable(o),cut=glassBatchEntries(o.id).filter(x=>!x.item.releasedAt).length-free.length,groups=new Map(),p=glassBatchProgress(o);
+ free.forEach(x=>{const k=x.batch.number;if(!groups.has(k))groups.set(k,{glass:new Set(),n:0});groups.get(k).glass.add(x.part.snapshot.glass);groups.get(k).n++;});
+ const stamp=()=>JSON.stringify([DB.glassBatch,salesRecord(orderId)]),before=stamp(),lineChoices=[...groups].map(([k,g])=>({id:k,label:k+' · '+[...g.glass].join(' / '),detail:g.n+' pcs'}));
+ salesDialogOpen({title:'Unbatch order '+o.businessNumber+'?',sub:salesCustomerDisplay(o.customerId)+' · '+p.assigned+' of '+p.total+' pcs in batches',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,
+  confirmLabel:'I confirm cutting has not started for this order.',
+  note:'Glass of this order in the selected batches returns to the glass queue. Other orders in these batches stay batched. The order returns to To verify.'+(cut?' '+cut+' pcs with cutting started stay in their batch.':''),
+  buttons:[{label:'Back'},{label:'Unbatch order',kind:'pri',requiresConfirmation:true,run:d=>{
+   if(before!==stamp()){salesDialogOpen({title:'Order changed',note:'Review the order and try Unbatch again.',buttons:[{label:'Back'}]});return;}
+   const chosen=new Set(d.checkedLines);glassBatchRelease(glassBatchOrderReleasable(salesRecord(orderId)).filter(x=>chosen.has(x.batch.number)).map(x=>({batch:x.batch,item:x.item})),{confirmed:d.confirmed});render();
+  }}]});
+}
 function glassBatchTabs(){return OPTIMIZATION_TABS.map(([k,label])=>`<button type="button" role="tab" data-queue-tab="${k}" aria-selected="${optimizationTab===k}" class="${optimizationTab===k?'on':''}" onclick="optimizationSetTab('${k}')">${label} <b>${optimizationTabCount(k)}</b></button>`).join('');}
 /* Что ещё ждёт резки в заказах открытого батча — по типам стекла. */
 function glassBatchStillWaiting(b){
