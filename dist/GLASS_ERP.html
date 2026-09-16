@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 65 модулей, 10 стиля.
+  Состав сборки: 67 модулей, 10 стиля.
 -->
 <html lang="en">
 <head>
@@ -1232,23 +1232,25 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .pill.st-cancelled{background:#fee4e2;color:#b42318}
 .pill.st-added{background:#e0f2fe;color:#026aa2;font-size:10px}
 button.go{background:#067647;border-color:#067647;color:#fff;font-weight:700}
-.sales-status-row{display:flex;align-items:flex-start;gap:14px;margin:0 0 10px;padding:8px 12px 6px;border:1px solid var(--line,#e3e7ee);border-radius:10px;background:#fff}
+/* Компактная история: название и точка на одной линии; даты только для состоявшихся этапов. */
+.sales-status-row{display:flex;align-items:center;gap:14px;margin:0 0 10px;padding:7px 12px;border:1px solid var(--line,#e3e7ee);border-radius:10px;background:#fff}
 .sales-status-row .sp{flex:1}
-.sales-steps{display:flex;flex:1;min-width:0}
-.sales-step{position:relative;flex:1;min-width:0;padding-top:18px;text-align:center}
-.sales-step:before{content:'';position:absolute;top:6px;left:0;right:0;height:3px;background:#e4e7ec}
+.sales-steps{display:flex;flex:1;min-width:0;align-items:flex-start}
+.sales-step{position:relative;flex:1;min-width:0;text-align:center;line-height:18px}
+.sales-step:before{content:'';position:absolute;top:9px;left:0;right:0;height:1px;background:#e4e7ec}
 .sales-step:first-child:before{left:50%}
 .sales-step:last-child:before{right:50%}
-.sales-step i{position:absolute;top:0;left:50%;width:16px;height:16px;margin-left:-8px;border:3px solid #d0d5dd;border-radius:50%;background:#fff}
-.sales-step b{display:block;color:#667085;font-size:12px}
-.sales-step small{display:block;color:#98a2b3;font-size:11px}
-.sales-step.done:before{background:#1f6f9f}
+.sales-step-label{position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 8px;background:#fff;white-space:nowrap}
+.sales-step i{display:block;flex:none;width:8px;height:8px;border:1.5px solid #d0d5dd;border-radius:50%;background:#fff}
+.sales-step b{display:block;color:#7b8492;font-size:11px;font-weight:500}
+.sales-step small{display:block;color:#98a2b3;font-size:10px;line-height:14px}
+.sales-step.done:before{background:#7babc7}
 .sales-step.done i{border-color:#1f6f9f;background:#1f6f9f}
-.sales-step.done b{color:#1c2330}
-.sales-step.cur:before{background:linear-gradient(90deg,#1f6f9f 50%,#e4e7ec 50%)}
+.sales-step.done b{color:#475467}
+.sales-step.cur:before{background:linear-gradient(90deg,#7babc7 50%,#e4e7ec 50%)}
 .sales-step:first-child.cur:before{background:#e4e7ec}
-.sales-step.cur i{border-color:#1f6f9f;box-shadow:0 0 0 4px #d1e9ff}
-.sales-step.cur b{color:#16325c;font-weight:800}
+.sales-step.cur i{border-color:#1f6f9f;background:#1f6f9f;box-shadow:0 0 0 3px #e5f1f9}
+.sales-step.cur b{color:#16325c;font-weight:600}
 .sales-status-tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .sales-lockbar,.sales-quote-note{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px;padding:8px 12px;border-radius:9px}
 .sales-lockbar{border:1px solid #fedf89;background:#fffaeb;color:#7a2e0e}
@@ -1268,7 +1270,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-dialog-red{color:#b42318}
 .sales-dialog-note{margin-top:8px;padding:8px 10px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;color:#7a2e0e}
 .sales-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #eaecf0;background:#f9fafb}
-@media(max-width:900px){.sales-status-row{flex-direction:column}.sales-status-tools{flex-direction:row;flex-wrap:wrap}}
+@media(max-width:900px){.sales-status-row{overflow-x:auto}.sales-status-row .sales-steps{min-width:660px}.sales-status-tools{flex-direction:row;flex-wrap:wrap}}
 
 /* ---- src/styles/quotes.css ---- */
 /* Ревизии квоты, отправка, выбор ревизии при Convert to order. */
@@ -1354,6 +1356,61 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-hold-choice input[type=radio]{width:auto !important;margin:0;flex:0 0 auto}
 .sl-hold-choice input[type=text]{flex:1;min-width:0}
 
+/* Sales: спокойная панель, скрытые настройки и диапазон создания. */
+.sales-list-card .sales-toolbar{justify-content:flex-start;gap:6px;margin-bottom:8px}
+.sales-list-card .sl-quiet{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 8px;border:1px solid #e4e7ec;border-radius:7px;background:#fff;color:#475467;font-size:12px;font-weight:600;box-shadow:none}
+.sales-list-card .sl-quiet:hover{background:#f8fafc;border-color:#98a2b3}
+.sales-list-card .sl-hold-quiet{color:#667085;border-color:transparent}
+.sales-list-card .sl-hold-quiet:disabled{opacity:.45}
+.sl-view-controls{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:0 0 9px}
+.sales-status-chips.sl-status-compact{display:contents}
+.sl-status-options{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:100%;order:3;flex-basis:100%}
+.sales-status-chips .sl-status-toggle{display:inline-flex;gap:5px;align-items:center;height:28px;padding:3px 8px;border-radius:7px;color:#344054;font-weight:600;background:#fff;border:1px solid #e4e7ec;box-shadow:none}
+.sales-status-chips .sl-status-toggle b{font-size:11px;font-weight:500;color:#667085;margin:0}
+.sales-list-card .sl-disclosure{display:inline-block;width:9px;margin-left:2px;font-size:9px;line-height:1;text-align:center;color:#667085}
+.sl-header-tools{display:flex;align-items:center;gap:3px}
+.sl-table th.sl-check:has(.sl-header-tools){min-width:48px;padding-right:4px}
+.sl-settings{border:0;background:transparent;padding:3px;border-radius:5px;width:26px;height:26px;color:#667085;cursor:pointer}
+.sl-settings:hover,.sl-settings:focus-visible{background:#e4e7ec;color:#16325c}
+.sl-settings svg{width:17px;height:17px;display:block}
+.sl-show-menu{width:220px}
+.sl-show-menu label{display:flex;align-items:center;gap:8px;padding:5px 2px;margin:0;text-transform:none;font-size:13px;font-weight:500;letter-spacing:0}
+.sl-show-menu input{width:15px;height:15px;margin:0}
+.sl-show-menu small{margin-left:auto;color:#667085}
+.sl-date-menu{width:360px}
+.sl-date-presets{display:flex;gap:5px}
+.sl-date-presets button{flex:1;padding:5px 4px;white-space:nowrap;font-size:12px}
+.sl-date-inputs{display:flex;gap:10px;border-top:1px solid #eef0f3;margin-top:12px;padding-top:12px}
+.sl-date-inputs label{flex:1;min-width:0;font-size:11px;letter-spacing:0;text-transform:none}
+.sl-date-inputs input{margin-top:4px;font-size:12px}
+.sl-date-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
+.sl-date-actions .sp{flex:1}
+.sl-date-actions button{font-size:12px}
+.sl-text-button{border:0;background:none;padding:3px;color:#25658a}
+.sl-reset{width:28px;height:28px;padding:0;border:1px solid #e4e7ec;border-radius:6px;background:white;color:#667085;font-size:18px!important}
+.sl-range-error{color:#b42318;font-size:12px;margin:8px 0 0}
+.sl-table tr.sl-row-done td{background:#ecfdf3}
+.sl-table tr.sl-row-done .st-done{background:#d1fadf;color:#05603a;border-color:#a6f4c5}
+.sl-table tr.sl-row-closed td{background:#f2f6f3;color:#667085}
+.sl-table tr.sl-row-sel td{box-shadow:inset 0 1px #84adff,inset 0 -1px #84adff}
+.sl-table tr.sl-row-hold td{background:#fee4e2}
+.sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 #d92d20}
+/* Hold позиции — строка доступна для правок; меню появляется по ПКМ,
+   Shift+F10 или долгому нажатию на номер строки. */
+.sales-lines-table tr.sales-line-on-hold td{background:#fffaeb}
+.sales-lines-table tr.sales-line-on-hold td:first-child{box-shadow:inset 3px 0 #fdb022}
+.sales-lines-table tr[tabindex]:focus-visible{outline:2px solid #84adff;outline-offset:-2px}
+.sl-line-hold-menu{width:280px;max-width:calc(100vw - 16px)}
+.sl-line-hold-menu label{text-transform:none;letter-spacing:0;font-size:12px}
+.sl-line-hold-menu input{margin-top:5px}
+.sl-line-hold-menu p{font-size:12px;overflow-wrap:anywhere}
+.sl-line-context{padding:9px}
+.sl-line-context>b{display:block;padding:2px 5px;font-size:12px}
+.sl-line-context p{padding:0 5px;margin:5px 0}
+.sl-line-context hr{border:0;border-top:1px solid #eef0f3;margin:8px 0 4px}
+.sl-line-context button{display:block;width:100%;padding:7px 5px;text-align:left;border:0;background:none;border-radius:5px;font-size:12px}
+.sl-line-context button:hover,.sl-line-context button:focus-visible{background:#f2f4f7}
+
 /* ---- src/styles/optimization.css ---- */
 /* Очередь Optimization: вкладки, выбор заказов, общий батч и On Hold.
    На узком экране горизонтально прокручивается только таблица. */
@@ -1388,7 +1445,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .oq-notice span{flex:1;min-width:180px;font-size:12px;overflow-wrap:anywhere}
 .oq-bridge{margin-top:16px}
 .oq-bridge p{margin:4px 0 12px}
-.sales-status-readonly{color:#8a96a8;font-size:11px;white-space:nowrap;margin-top:5px}
+.sales-status-readonly{color:#8a96a8;font-size:10px;white-space:nowrap;margin-top:0}
 @media(max-width:900px){.sales-steps{width:100%}.sales-status-readonly{align-self:flex-end}}
 @media(max-width:600px){.oq-card{padding:10px}.oq-tabs{gap:2px}.oq-tabs button{padding:8px;font-size:12px}.oq-toolbar input[type=search]{width:100%}.oq-toolbar .sp{display:none}.oq-notice span{min-width:100%}.sales-step b{font-size:10px}.sales-step small{font-size:9px}.sales-dialog-actions{flex-wrap:wrap}}
 
@@ -1424,7 +1481,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='fada986398d1';
+var ERP_BUILD='10a4666f06d7';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9041,7 +9098,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -9230,7 +9287,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
- return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒':''}</span>`;
+ return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?' · '+o.lines.filter(salesLineLocked).length+'/'+o.lines.length+' lines':''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
@@ -9252,7 +9309,7 @@ function salesLockedLineGuard(line){
  alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. Production lines are locked. Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new line or open a new order.');
  return true;
 }
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":'';}
+function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -9349,6 +9406,7 @@ function salesNextBatchNumber(){
 }
 function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
 function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>!salesLineLocked(l));}
+function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
@@ -9356,7 +9414,7 @@ function salesRecordTransitionAllowed(o,next,opts){
  if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
  if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return o.status==='verified'||(['batched','ready','done'].includes(o.status)&&salesUnbatchedLines(o).length>0);
+ if(next==='batched')return (o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return SALES_NEXT_STATUS[o.status]===next;
 }
@@ -9377,7 +9435,7 @@ function salesSetRecordStatus(orderId,next,opts){
   if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
-  const fresh=salesUnbatchedLines(o);
+  const fresh=salesBatchableLines(o);
   if(fresh.length){
    o.batchNo=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
    o.batchHistory=[...new Set((o.batchHistory||[]).concat(o.batchNo))];
@@ -9480,7 +9538,7 @@ function salesStatusStepper(o){
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b><small>${o.statusDates&&o.statusDates[s]?esc(salesShortDate(o.statusDates[s])):'&nbsp;'}</small></div>`).join('');
+ const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
@@ -9517,7 +9575,9 @@ function salesStatusChips(rows){
  const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
- return `<div class="sales-status-chips"><button type="button" class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`;
+ const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
+ return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
 }
 
 /* ==== src/erp/sales/quotes.js ==== */
@@ -10018,6 +10078,7 @@ function finReceiptsCsv(rows){
    ===================================================================== */
 
 const ICONS={
+ settings:'<path d="m9 3-.6 3-2 .9-2.7-1-2 3.4 2.1 2v2.4l-2.1 2 2 3.4 2.7-1 2 .9L9 22h4l.6-3 2-.9 2.7 1 2-3.4-2.1-2v-2.4l2.1-2-2-3.4-2.7 1-2-.9L13 3Z"/><circle cx="11" cy="12.5" r="3"/>',
  home:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/>',
  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
  sales:'<path d="M3 3h18v6H3z"/><path d="M7 9v12h10V9"/><path d="M9 13h6"/><path d="M9 17h4"/>',
@@ -10469,8 +10530,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -14818,7 +14879,7 @@ function salesOrderEditor(){
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. The order can be saved; verification and batching ask for confirmation.</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
@@ -18037,6 +18098,7 @@ function salesServiceFilteredEntries(){
   if(!soDraft)return [];
   return soDraft.lines.map(function(line,index){return {line:line,index:index};}).filter(function(entry){
     var line=entry.line;
+    if(soServiceFilter==='hold')return !!line.onHold;
     if(soServiceFilter==='unset')return !line.serviceSetId;
     if(soServiceFilter==='attention')return salesLineNeedsServiceAttention(line);
     if(soServiceFilter==='override')return salesHasLineEdgeOverrides(line);
@@ -18047,7 +18109,7 @@ function salesServiceFilteredEntries(){
 function salesServiceFilterCount(key){var old=soServiceFilter;soServiceFilter=key;var n=salesServiceFilteredEntries().length;soServiceFilter=old;return n;}
 function salesServiceVisibleSelected(){var ids=new Set(salesServiceFilteredEntries().map(function(x){return x.line.id;}));return (soDraft&&soDraft.lines||[]).filter(function(line){return soSelectedLines.has(line.id)&&ids.has(line.id);});}
 function salesServiceAvailableFilters(){
-  return [['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
+  return [['hold','On Hold'],['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
 }
 function salesNormalizeVisibleServiceFilter(){var a=salesServiceAvailableFilters();if(soServiceFilter!=='all'&&!a.some(function(d){return d.key===soServiceFilter;}))soServiceFilter='all';}
 function salesSetServiceFilter(key){var a=salesServiceAvailableFilters();soServiceFilter=key==='all'||a.some(function(d){return d.key===key;})?key:'all';soServiceBulkPreview=null;render();}
@@ -18386,7 +18448,7 @@ function optimizationRunOrders(ids,action,opts){
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
- if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. New lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
+ if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. Lines on hold cannot go to batch. All lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
  if(['verified','batched'].includes(action)){
   const invalid=orders.find(o=>!salesFindCustomer(o.customerId)||(o.lines||[]).some(l=>!l.width16||!l.height16));
   if(invalid){salesDialogOpen({title:'Check order '+invalid.businessNumber,note:'Open the order and check its customer and line dimensions before continuing.',buttons:[{label:'Back'}]});return;}
@@ -18394,7 +18456,7 @@ function optimizationRunOrders(ids,action,opts){
  const stamp=()=>JSON.stringify([ids.map(salesRecord),DB.customer,DB.receipt]),before=stamp();
  const finish=()=>{
   if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'No orders were changed by this action. Review the selection and try again.',buttons:[{label:'Back'}]});return;}
-  const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesUnbatchedLines(o).length)?salesNextBatchNumber():'';
+  const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesBatchableLines(o).length)?salesNextBatchNumber():'';
   orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
   touch();optimizationSel.clear();
   optimizationNotice={title:batchNo?'Batch created · '+batchNo:action==='cancelled'?'Orders cancelled':action==='back'?'Orders moved back':'Orders updated',
@@ -18463,7 +18525,7 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesUnbatchedLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines go to batch. Batched lines stay locked.</div>`:''}
+   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesBatchableLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines without a hold go to batch. Held lines keep waiting; batched lines stay locked.</div>`:''}
    ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
@@ -20316,7 +20378,7 @@ const SALES_LIST_OPS={
  date:[['between','Between'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
  list:[]
 };
-const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
+const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
@@ -20348,7 +20410,8 @@ function salesListCleanPrefs(p){
  const filters={},src=p.filters&&typeof p.filters==='object'&&!Array.isArray(p.filters)?p.filters:{};
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
- return {cols,filters,sort};
+ if(salesListScope()==='sales'&&p.createdRangeInitialized!==true&&!filters.created)filters.created=salesListCleanFilter('created',{preset:'last14'});
+ return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true};
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
 function salesListEmptyFilter(col){return {mode:'include',conds:col.type==='list'?[]:[{op:salesListDefaultOp(col),v:'',v2:'',join:'and'}],values:null,preset:''};}
@@ -20383,7 +20446,7 @@ function salesListPresetRange(key){
   case 'today':return [salesListDay(d),salesListDay(d)];
   case 'yesterday':{const y=add(d,-1);return [salesListDay(y),salesListDay(y)];}
   case 'thisWeek':{const dow=(d.getDay()+6)%7;return [salesListDay(add(d,-dow)),salesListDay(add(d,6-dow))];}
-  case 'last7':return [salesListDay(add(d,-6)),salesListDay(d)];
+  case 'last7':case 'last14':case 'last30':return [salesListDay(add(d,1-Number(key.slice(4)))),salesListDay(d)];
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
@@ -20441,7 +20504,7 @@ function salesListShapedLine(l){const s=salesShapeByRef(l&&l.shapeRef);return !!
 function salesListText(info,k){const v=salesListValue(info,k);return v==null||v===''?'(empty)':String(v);}
 
 /* ------------------------------ Фильтры -------------------------------- */
-function salesListCondReady(c){return c.op==='empty'||c.op==='notEmpty'||String(c.v==null?'':c.v).trim()!=='';}
+function salesListCondReady(c){return c.op==='empty'||c.op==='notEmpty'||String(c.v==null?'':c.v).trim()!==''||(c.op==='between'&&String(c.v2==null?'':c.v2).trim()!=='');}
 function salesListFilterActive(f){return !!f&&(!!f.preset||Array.isArray(f.values)||(f.conds||[]).some(salesListCondReady));}
 function salesListCondTest(type,c,val){
  const empty=val==null||val==='';
@@ -20460,6 +20523,7 @@ function salesListCondTest(type,c,val){
  if(type==='date'){
   if(empty)return false;
   const a=String(c.v||''),b=String(c.v2||''),okA=/^\d{4}-\d{2}-\d{2}$/.test(a),okB=/^\d{4}-\d{2}-\d{2}$/.test(b);
+  if(c.op==='between'&&!okA&&okB)return val<=b;
   if(!okA)return true;
   switch(c.op){
    case 'on':return val===a;case 'before':return val<a;case 'after':return val>a;
@@ -20547,7 +20611,7 @@ function salesListFilterSummary(col,f){
  return (f.mode==='exclude'?'Not · ':'')+col.label+': '+parts.join(' · ');
 }
 function salesListFilterChips(){
- const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
+ const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(salesListScope()==='sales'&&k==='created'));
  if(!keys.length)return '';
  return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" onclick="salesListClearFilter('${k}')">×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters onclick="salesListClearAll()">Clear filters</button></div>`;
 }
@@ -20592,18 +20656,17 @@ function salesListFooter(rows,cols){
 function salesListSelectedOrders(){return [...salesListSel].filter(id=>{const o=(DB.salesOrder||[]).find(x=>x.id===id);return !!o&&!salesIsQuote(o);});}
 function salesListView(){
  const p=salesListLoadPrefs(),{all,infos}=salesListBase(),rows=salesListRows(infos),cols=salesListColumns();
- salesListSel=new Set([...salesListSel].filter(id=>(DB.salesOrder||[]).some(o=>o.id===id)));
- const toggle=(key,label)=>`<button type="button" data-show="${key}" class="sales-show-toggle ${salesShow[key]?'on':''}" onclick="salesToggleShow('${key}')"><i>${salesShow[key]?'✓':''}</i>${label} <b>${(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length}</b></button>`;
+ salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
- const holdBtn=`<button type="button" class="sl-hold" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">⛔ ${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
+ const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
  const rowIds=rows.map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
-  const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
+  const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -20628,6 +20691,8 @@ function salesListMenuHTML(infos){
  const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
+ if(m.kind==='show')return back+salesListShowMenuHTML(style);
+ if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
  if(m.kind==='filter')return back+salesListFilterHTML(m,infos,style);
@@ -20808,6 +20873,124 @@ function salesHoldBlocked(orderId){
  salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }
+
+/* ==== src/erp/views/sales-list-controls.js ==== */
+/* Компактные средства списка Sales. Период использует тот же фильтр created,
+   что и меню колонки: второго, невидимого ограничения здесь нет. */
+function salesListShowButton(){
+ const label=salesShow.orders&&salesShow.quotes?'Orders + Quotes':salesShow.quotes?'Quotes':'Orders';
+ return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+}
+function salesListOpenShow(e){salesListMenu=Object.assign({kind:'show',scope:'sales'},salesListAt(e,220));render();}
+function salesListShowMenuHTML(style){
+ return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes']].map(([key,label])=>{
+ const n=(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
+ return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${salesShow[key]&&!salesShow[key==='orders'?'quotes':'orders']?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
+ }).join('')}</div>`;
+}
+function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}
+function salesListDateParts(f){
+ if(!f||!salesListFilterActive(f))return {preset:'',from:'',to:'',simple:true};
+ if(f.mode==='exclude')return {preset:'',from:'',to:'',simple:false};
+ const cs=(f.conds||[]).filter(salesListCondReady);
+ if(f.preset&&!cs.length){const r=salesListPresetRange(f.preset);return {preset:f.preset,from:r?r[0]:'',to:r?r[1]:'',simple:!!r};}
+ if(cs.length===1&&cs[0].op==='between')return {preset:'',from:cs[0].v,to:cs[0].v2||'',simple:true};
+ return {preset:'',from:'',to:'',simple:false};
+}
+function salesListDateButton(){
+ const f=salesListLoadPrefs().filters.created,d=salesListDateParts(f);
+ const label=d.preset?(SALES_LIST_PRESETS.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
+ return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range title="${esc(f?salesListFilterSummary(salesListColumn('created'),f):'Created: all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event)">Created: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+}
+function salesListOpenDate(e){salesListMenu=Object.assign({kind:'date',scope:'sales',error:''},salesListDateParts(salesListLoadPrefs().filters.created),salesListAt(e,360));render();}
+function salesListDatePreset(key){
+ const m=salesListMenu;if(!m||m.kind!=='date')return;
+ const r=key?salesListPresetRange(key):null;Object.assign(m,{preset:key,from:r?r[0]:'',to:r?r[1]:'',simple:true,error:''});render();
+}
+function salesListDateInput(key,value){const m=salesListMenu;if(!m||m.kind!=='date'||!['from','to'].includes(key))return;m[key]=value;m.preset='';m.simple=true;m.error='';}
+function salesListDateToday(){const m=salesListMenu;if(!m||m.kind!=='date')return;m.to=salesListDay(new Date());m.preset='';m.simple=true;m.error='';render();}
+function salesListDateReset(){salesListMenu=null;salesListClearFilter('created');}
+function salesListValidDay(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const d=new Date(s+'T12:00:00');return !isNaN(d)&&salesListDay(d)===s;}
+function salesListDateApply(){
+ const m=salesListMenu;if(!m||m.kind!=='date')return;
+ if(!m.simple){salesListCloseMenu();return;}
+ if([m.from,m.to].some(s=>s&&!salesListValidDay(s))||(m.from&&m.to&&m.from>m.to)){m.error='Choose a valid range. From must not be after To.';render();return;}
+ salesListMenu=null;
+ salesListSetFilter('created',m.preset?{preset:m.preset}:m.from||m.to?{conds:[{op:'between',v:m.from,v2:m.to}]}:null);
+}
+function salesListDateMenuHTML(m,style){
+ return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="Created date range"><div class="sl-date-presets">${[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']].map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
+  ${!m.simple?'<p class="mut">A custom Created filter is active. Choose a range to replace it.</p>':''}
+  <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="salesListDateInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="salesListDateInput('to',this.value)"></label></div>
+  ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesListMenu){e.preventDefault();salesListCloseMenu();}});
+
+/* ==== src/erp/sales/line-hold.js ==== */
+/* Необязательное удержание позиции. Это не производственный замок:
+   строка редактируется, но не попадает в батч. Сохранённая позиция получает
+   только поля Hold; прочие несохранённые правки карточки не записываются. */
+let salesLineHoldMenu=null,salesLineHoldPress=null;
+function salesLineHoldAllowed(o,l){return !!o&&!!l&&!salesIsQuote(o)&&!salesOrderReadOnly(o)&&!salesLineLocked(l);}
+function salesLineHoldRowAttrs(l){
+ if(salesIsQuote(soDraft)||salesOrderReadOnly(soDraft))return '';
+ const id=esc(l.id),reason=l.onHold?'On Hold: '+(l.holdReason||'Waiting for clarification'):'Right-click for line actions';
+ return ` tabindex="0" title="${esc(reason)}" oncontextmenu="salesLineHoldContext(event,'${id}')" onkeydown="salesLineHoldKey(event,'${id}')" onpointerdown="salesLineHoldPointer(event,'${id}')" onpointermove="salesLineHoldMove(event)" onpointerup="salesLineHoldCancelPress()" onpointercancel="salesLineHoldCancelPress()"`;
+}
+function salesLineHoldKey(e,id){if(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10')salesLineHoldContext(e,id);}
+function salesLineHoldCancelPress(){if(salesLineHoldPress)clearTimeout(salesLineHoldPress.timer);salesLineHoldPress=null;}
+function salesLineHoldPointer(e,id){
+ salesLineHoldCancelPress();if(e.pointerType!=='touch'||e.target.closest('input,select,textarea,button'))return;
+ const x=e.clientX,y=e.clientY;salesLineHoldPress={x,y,timer:setTimeout(()=>{salesLineHoldContext({clientX:x,clientY:y},id);},600)};
+}
+function salesLineHoldMove(e){const p=salesLineHoldPress;if(p&&Math.hypot(e.clientX-p.x,e.clientY-p.y)>8)salesLineHoldCancelPress();}
+function salesLineHoldStamp(ids){
+ const saved=soDraft&&salesRecord(soDraft.id);
+ return JSON.stringify([saved,soDraft&&{id:soDraft.id,status:soDraft.status,lines:soDraft.lines.filter(l=>ids.includes(l.id))}]);
+}
+function salesLineHoldContext(e,id){
+ if(e){if(e.preventDefault)e.preventDefault();if(e.stopPropagation)e.stopPropagation();}
+ salesLineHoldCancelPress();const o=soDraft,l=o&&o.lines.find(l=>l.id===id);if(!salesLineHoldAllowed(o,l))return;
+ const visible=new Set(salesServiceFilteredEntries().map(x=>x.line.id));
+ const ids=soSelectedLines.has(id)?o.lines.filter(x=>visible.has(x.id)&&soSelectedLines.has(x.id)&&salesLineHoldAllowed(o,x)).map(x=>x.id):[id];
+ if(!ids.length)return;
+ const r=e&&e.currentTarget&&e.currentTarget.getBoundingClientRect?e.currentTarget.getBoundingClientRect():null;
+ salesLineHoldMenu={kind:'context',orderId:o.id,ids,index:o.lines.indexOf(l)+1,x:e&&e.clientX||r&&r.left||40,y:e&&e.clientY||r&&r.bottom||40,stamp:salesLineHoldStamp(ids)};render();
+}
+function salesLineHoldClose(){salesLineHoldMenu=null;render();}
+function salesLineHoldEdit(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ const l=soDraft.lines.find(l=>l.id===m.ids[0]);m.kind='reason';m.reason=l&&l.onHold?l.holdReason:'Waiting for sizes or shape';m.error='';render();
+ requestAnimationFrame(()=>{const e=document.querySelector('[data-line-hold-reason]');if(e)e.focus();});
+}
+function salesLineHoldReason(value){if(salesLineHoldMenu)salesLineHoldMenu.reason=value;}
+function salesLineHoldSet(orderId,ids,on,reason){
+ const draft=soDraft&&soDraft.id===orderId?soDraft:null,saved=salesRecord(orderId),o=draft||saved;
+ ids=[...new Set(ids||[])];if(!o||!ids.length||on&&!String(reason||'').trim())return false;
+ const lines=ids.map(id=>o.lines.find(l=>l.id===id));
+ if(lines.some(l=>!salesLineHoldAllowed(o,l))||saved&&(salesOrderReadOnly(saved)||ids.some(id=>{const l=saved.lines.find(l=>l.id===id);return l&&!salesLineHoldAllowed(saved,l);})))return false;
+ const now=new Date().toISOString(),fields={onHold:!!on,holdReason:on?String(reason).trim().slice(0,200):'',holdAt:on?now:''};
+ lines.forEach(l=>Object.assign(l,fields));
+ if(saved&&saved!==draft)ids.forEach(id=>{const l=saved.lines.find(l=>l.id===id);if(l)Object.assign(l,fields);});
+ o.updatedAt=now;if(saved){saved.updatedAt=now;touch();}return true;
+}
+function salesLineHoldApply(on){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return;
+ if(m.stamp!==salesLineHoldStamp(m.ids)){salesLineHoldMenu=null;salesDialogOpen({title:'Order changed',note:'Review the lines and open the menu again.',buttons:[{label:'Back'}]});return;}
+ if(on&&!String(m.reason||'').trim()){m.error='Enter a reason for the hold.';render();return;}
+ if(!salesLineHoldSet(m.orderId,m.ids,on,m.reason)){m.error='These lines can no longer be changed.';render();return;}
+ salesLineHoldMenu=null;render();
+}
+function salesLineHoldMenuHTML(){
+ const m=salesLineHoldMenu;if(!m||!soDraft||m.orderId!==soDraft.id)return '';
+ const lines=m.ids.map(id=>soDraft.lines.find(l=>l.id===id)).filter(Boolean);if(!lines.length)return '';
+ const held=lines.every(l=>l.onHold),label=lines.length===1?'Line '+m.index:lines.length+' lines',w=280;
+ const style=`left:${Math.max(8,Math.min(m.x,innerWidth-w-8))}px;top:${Math.max(8,Math.min(m.y,innerHeight-300))}px;max-height:${Math.max(100,innerHeight-24)}px`;
+ const back='<div class="sl-backdrop" onclick="salesLineHoldClose()" oncontextmenu="event.preventDefault();salesLineHoldClose()"></div>';
+ if(m.kind==='reason')return back+`<div class="sl-menu sl-line-hold-menu" style="${style}" role="dialog" aria-label="Line hold reason"><h5>${esc(label)} · On Hold</h5><label>Reason<input type="text" maxlength="200" data-line-hold-reason value="${esc(m.reason)}" oninput="salesLineHoldReason(this.value)"></label><p class="mut">These lines stay editable but cannot go to batch.</p>${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-actions"><button type="button" onclick="salesLineHoldClose()">Back</button><button type="button" class="pri" data-line-hold-confirm onclick="salesLineHoldApply(true)">${held?'Save reason':'Put on hold'}</button></div></div>`;
+ return back+`<div class="sl-menu sl-line-hold-menu sl-line-context" style="${style}" role="menu" aria-label="Line actions"><b>${esc(label)}${held?' · On Hold':''}</b>${held?`<p class="mut">${esc(lines.length===1?lines[0].holdReason:'Selected lines are on hold.')}</p>`:''}<hr><button type="button" role="menuitem" data-line-hold-action="hold" onclick="salesLineHoldEdit()">${held?'Edit reason…':'On Hold…'}</button>${lines.some(l=>l.onHold)?'<button type="button" role="menuitem" data-line-hold-action="release" onclick="salesLineHoldApply(false)">Release hold</button>':''}</div>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){e.preventDefault();salesLineHoldClose();}});
 
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
