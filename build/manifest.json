@@ -10,7 +10,8 @@
   "src/styles/lifecycle.css",
   "src/styles/quotes.css",
   "src/styles/sales-list.css",
-  "src/styles/optimization.css"
+  "src/styles/optimization.css",
+  "src/styles/glass-batches.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -79,6 +80,8 @@
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",
+  "src/erp/production/glass-batches.js",
+  "src/erp/views/glass-batches.js",
   "src/erp/storage.js"
  ]
 }

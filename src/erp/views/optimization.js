@@ -5,7 +5,7 @@
    OUT: HTML очереди и переходы через salesSetRecordStatus; черновик не сохраняет.
    Perfect Cut остаётся неактивным прототипом. Обмен не имитируется.
    ===================================================================== */
-const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batched']];
+const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches']];
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
@@ -15,13 +15,14 @@ function optimizationMatches(o,key){
  return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
   key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
+function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
 function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
 function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
 function optimizationSetTab(key){
  if(!orderQueueTabs().some(t=>t[0]===key))return;
  if(tab==='shipping')shippingTab=key;else optimizationTab=key;
- optimizationSel.clear();optimizationNotice=null;salesListMenu=null;render();
+ optimizationSel.clear();optimizationNotice=null;salesListMenu=null;glassBatchSelection.clear();glassBatchOpenNumber='';render();
 }
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
@@ -85,7 +86,7 @@ function optimizationUnbatch(ids){
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
-function viewOptimization(){return viewOrderQueue(false);}
+function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():viewOrderQueue(false);}
 function viewOrderQueue(shipping){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
@@ -100,10 +101,10 @@ function viewOrderQueue(shipping){
   if(key==='done')actions=button('closed','Close order','pri',can('closed'));
  }else{
   if(key==='all'||key==='new')actions+=button('verified','Verify','pri',can('verified'));
-  if(key==='all'||key==='batch')actions+=button('batched','Send to batch','pri',can('batched'));
+  if(key==='all')actions+='<button type="button" onclick="optimizationSetTab(\'batch\')">Select glass</button>';
   actions+=button('unbatch','Unbatch','',n>0&&selected.every(salesCanUnbatch));
  }
- const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="${key===t[0]?'on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${(DB.salesOrder||[]).filter(o=>optimizationMatches(o,t[0])).length}</b></button>`).join('');
+ const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="${key===t[0]?'on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=filtered.map(info=>{
   const o=info.o,blocked=optimizationBlocked(o),chosen=optimizationSel.has(o.id);
@@ -116,7 +117,6 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesBatchableLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines without a hold go to batch. Held lines keep waiting; batched lines stay locked.</div>`:''}
    ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
