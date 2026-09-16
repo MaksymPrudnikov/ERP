@@ -59,7 +59,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
- return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒':''}</span>`;
+ return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?' · '+o.lines.filter(salesLineLocked).length+'/'+o.lines.length+' lines':''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
@@ -81,7 +81,7 @@ function salesLockedLineGuard(line){
  alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. Production lines are locked. Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new line or open a new order.');
  return true;
 }
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":'';}
+function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -178,6 +178,7 @@ function salesNextBatchNumber(){
 }
 function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
 function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>!salesLineLocked(l));}
+function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
  if(!o||salesIsQuote(o)||!SALES_ORDER_STATE_LIST.includes(next))return false;
@@ -185,7 +186,7 @@ function salesRecordTransitionAllowed(o,next,opts){
  if(opts.back)return !['cancelled','batched'].includes(o.status)&&SALES_PREV_STATUS[o.status]===next;
  if(next==='cancelled')return !['closed','cancelled'].includes(o.status);
  if(o.onHold&&(next==='verified'||next==='batched'))return false;
- if(next==='batched')return o.status==='verified'||(['batched','ready','done'].includes(o.status)&&salesUnbatchedLines(o).length>0);
+ if(next==='batched')return (o.status==='verified'||['batched','ready','done'].includes(o.status))&&(salesBatchableLines(o).length>0||o.status==='verified'&&!salesUnbatchedLines(o).length);
  if((next==='ready'||next==='done'||next==='closed')&&salesUnbatchedLines(o).length)return false;
  return SALES_NEXT_STATUS[o.status]===next;
 }
@@ -206,7 +207,7 @@ function salesSetRecordStatus(orderId,next,opts){
   if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
-  const fresh=salesUnbatchedLines(o);
+  const fresh=salesBatchableLines(o);
   if(fresh.length){
    o.batchNo=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
    o.batchHistory=[...new Set((o.batchHistory||[]).concat(o.batchNo))];
@@ -309,7 +310,7 @@ function salesStatusStepper(o){
  }
  if(o.status==='cancelled')return `<div class="sales-status-row"><span class="pill st-cancelled">Cancelled ${esc(salesShortDate(o.statusDates.cancelled))}</span><span class="mut">Status history · read only</span></div>`;
  const at=SALES_ORDER_FLOW.indexOf(o.status);
- const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b><small>${o.statusDates&&o.statusDates[s]?esc(salesShortDate(o.statusDates[s])):'&nbsp;'}</small></div>`).join('');
+ const steps=SALES_ORDER_FLOW.map((s,i)=>`<div class="sales-step ${i<at?'done':i===at?'cur':''}" data-step="${s}"><span class="sales-step-label"><i></i><b>${esc(s==='done'&&at<4?'Picked up / Delivered':salesStatusLabel(o,s))}${s==='batched'?' 🔒':''}</b></span>${o.statusDates&&o.statusDates[s]?`<small>${esc(salesShortDate(o.statusDates[s]))}</small>`:''}</div>`).join('');
  return `<div class="sales-status-row"><div class="sales-steps">${steps}</div><span class="sales-status-readonly">Status history · read only</span></div>`;
 }
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
@@ -346,5 +347,7 @@ function salesStatusChips(rows){
  const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
- return `<div class="sales-status-chips"><button type="button" class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`;
+ const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
+ const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
+ return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
 }

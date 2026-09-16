@@ -31,7 +31,7 @@
 .oq-notice span{flex:1;min-width:180px;font-size:12px;overflow-wrap:anywhere}
 .oq-bridge{margin-top:16px}
 .oq-bridge p{margin:4px 0 12px}
-.sales-status-readonly{color:#8a96a8;font-size:11px;white-space:nowrap;margin-top:5px}
+.sales-status-readonly{color:#8a96a8;font-size:10px;white-space:nowrap;margin-top:0}
 @media(max-width:900px){.sales-steps{width:100%}.sales-status-readonly{align-self:flex-end}}
 @media(max-width:600px){.oq-card{padding:10px}.oq-tabs{gap:2px}.oq-tabs button{padding:8px;font-size:12px}.oq-toolbar input[type=search]{width:100%}.oq-toolbar .sp{display:none}.oq-notice span{min-width:100%}.sales-step b{font-size:10px}.sales-step small{font-size:9px}.sales-dialog-actions{flex-wrap:wrap}}
 

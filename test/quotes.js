@@ -89,6 +89,7 @@ module.exports=async function({page,eq,ok}){
  eq('список: одна строка на квоту, фильтры Not sent / Sent / Won; удаление квоты убирает все её ревизии',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>/^QAQUOTE/.test(x.code));qNew(c);salesOrderSave();const q2=soDraft.id;salesQuoteNewRevision();
   soEdit=null;soDraft=null;salesStatusFilter='';render();
+  salesListLoadPrefs().statusExpanded=true;render();
   const chip=k=>{const b=document.querySelector(`[data-status-chip="${k}"]`);return b?b.textContent.replace(/\s+/g,' ').trim():'';};
   const chips=[chip('quote:open'),chip('quote:sent'),chip('quote:won')];
   const n=DB.salesOrder.length,old=window.confirm;let msg='';window.confirm=m=>{msg=m;return true;};salesOrderDelete(q2);window.confirm=old;

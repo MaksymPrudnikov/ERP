@@ -20,7 +20,7 @@ function salesOrderEditor(){
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. The order can be saved; verification and batching ask for confirmation.</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,

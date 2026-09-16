@@ -52,7 +52,7 @@ const SALES_LIST_OPS={
  date:[['between','Between'],['on','On'],['before','Before'],['after','After'],['empty','Is empty']],
  list:[]
 };
-const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
+const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
@@ -84,7 +84,8 @@ function salesListCleanPrefs(p){
  const filters={},src=p.filters&&typeof p.filters==='object'&&!Array.isArray(p.filters)?p.filters:{};
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
- return {cols,filters,sort};
+ if(salesListScope()==='sales'&&p.createdRangeInitialized!==true&&!filters.created)filters.created=salesListCleanFilter('created',{preset:'last14'});
+ return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true};
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
 function salesListEmptyFilter(col){return {mode:'include',conds:col.type==='list'?[]:[{op:salesListDefaultOp(col),v:'',v2:'',join:'and'}],values:null,preset:''};}
@@ -119,7 +120,7 @@ function salesListPresetRange(key){
   case 'today':return [salesListDay(d),salesListDay(d)];
   case 'yesterday':{const y=add(d,-1);return [salesListDay(y),salesListDay(y)];}
   case 'thisWeek':{const dow=(d.getDay()+6)%7;return [salesListDay(add(d,-dow)),salesListDay(add(d,6-dow))];}
-  case 'last7':return [salesListDay(add(d,-6)),salesListDay(d)];
+  case 'last7':case 'last14':case 'last30':return [salesListDay(add(d,1-Number(key.slice(4)))),salesListDay(d)];
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
@@ -177,7 +178,7 @@ function salesListShapedLine(l){const s=salesShapeByRef(l&&l.shapeRef);return !!
 function salesListText(info,k){const v=salesListValue(info,k);return v==null||v===''?'(empty)':String(v);}
 
 /* ------------------------------ Фильтры -------------------------------- */
-function salesListCondReady(c){return c.op==='empty'||c.op==='notEmpty'||String(c.v==null?'':c.v).trim()!=='';}
+function salesListCondReady(c){return c.op==='empty'||c.op==='notEmpty'||String(c.v==null?'':c.v).trim()!==''||(c.op==='between'&&String(c.v2==null?'':c.v2).trim()!=='');}
 function salesListFilterActive(f){return !!f&&(!!f.preset||Array.isArray(f.values)||(f.conds||[]).some(salesListCondReady));}
 function salesListCondTest(type,c,val){
  const empty=val==null||val==='';
@@ -196,6 +197,7 @@ function salesListCondTest(type,c,val){
  if(type==='date'){
   if(empty)return false;
   const a=String(c.v||''),b=String(c.v2||''),okA=/^\d{4}-\d{2}-\d{2}$/.test(a),okB=/^\d{4}-\d{2}-\d{2}$/.test(b);
+  if(c.op==='between'&&!okA&&okB)return val<=b;
   if(!okA)return true;
   switch(c.op){
    case 'on':return val===a;case 'before':return val<a;case 'after':return val>a;
@@ -283,7 +285,7 @@ function salesListFilterSummary(col,f){
  return (f.mode==='exclude'?'Not · ':'')+col.label+': '+parts.join(' · ');
 }
 function salesListFilterChips(){
- const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
+ const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(salesListScope()==='sales'&&k==='created'));
  if(!keys.length)return '';
  return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" onclick="salesListClearFilter('${k}')">×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters onclick="salesListClearAll()">Clear filters</button></div>`;
 }
@@ -328,18 +330,17 @@ function salesListFooter(rows,cols){
 function salesListSelectedOrders(){return [...salesListSel].filter(id=>{const o=(DB.salesOrder||[]).find(x=>x.id===id);return !!o&&!salesIsQuote(o);});}
 function salesListView(){
  const p=salesListLoadPrefs(),{all,infos}=salesListBase(),rows=salesListRows(infos),cols=salesListColumns();
- salesListSel=new Set([...salesListSel].filter(id=>(DB.salesOrder||[]).some(o=>o.id===id)));
- const toggle=(key,label)=>`<button type="button" data-show="${key}" class="sales-show-toggle ${salesShow[key]?'on':''}" onclick="salesToggleShow('${key}')"><i>${salesShow[key]?'✓':''}</i>${label} <b>${(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length}</b></button>`;
+ salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
- const holdBtn=`<button type="button" class="sl-hold" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">⛔ ${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
+ const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
  const rowIds=rows.map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
-  const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
+  const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar"><div class="sales-show"><span>Show</span>${toggle('orders','Orders')}${toggle('quotes','Quotes')}</div><div class="sl-left">${holdBtn}<button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div><span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListFilterChips()}${salesStatusChips(all)}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -364,6 +365,8 @@ function salesListMenuHTML(infos){
  const m=salesListMenu;if(!m||(m.scope&&m.scope!==salesListScope()))return '';
  const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||300)-8))}px;top:${top}px;max-height:${Math.max(180,window.innerHeight-top-12)}px`;
  const back='<div class="sl-backdrop" onclick="salesListCloseMenu()" oncontextmenu="event.preventDefault();salesListCloseMenu()"></div>';
+ if(m.kind==='show')return back+salesListShowMenuHTML(style);
+ if(m.kind==='date')return back+salesListDateMenuHTML(m,style);
  if(m.kind==='context')return back+salesListContextHTML(m,style);
  if(m.kind==='columns')return back+salesListColumnsHTML(style);
  if(m.kind==='filter')return back+salesListFilterHTML(m,infos,style);
