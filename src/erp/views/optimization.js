@@ -39,7 +39,7 @@ function optimizationRunOrders(ids,action,opts){
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
- if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. New lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
+ if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. Lines on hold cannot go to batch. All lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
  if(['verified','batched'].includes(action)){
   const invalid=orders.find(o=>!salesFindCustomer(o.customerId)||(o.lines||[]).some(l=>!l.width16||!l.height16));
   if(invalid){salesDialogOpen({title:'Check order '+invalid.businessNumber,note:'Open the order and check its customer and line dimensions before continuing.',buttons:[{label:'Back'}]});return;}
@@ -47,7 +47,7 @@ function optimizationRunOrders(ids,action,opts){
  const stamp=()=>JSON.stringify([ids.map(salesRecord),DB.customer,DB.receipt]),before=stamp();
  const finish=()=>{
   if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'No orders were changed by this action. Review the selection and try again.',buttons:[{label:'Back'}]});return;}
-  const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesUnbatchedLines(o).length)?salesNextBatchNumber():'';
+  const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesBatchableLines(o).length)?salesNextBatchNumber():'';
   orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
   touch();optimizationSel.clear();
   optimizationNotice={title:batchNo?'Batch created · '+batchNo:action==='cancelled'?'Orders cancelled':action==='back'?'Orders moved back':'Orders updated',
@@ -116,7 +116,7 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesUnbatchedLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines go to batch. Batched lines stay locked.</div>`:''}
+   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesBatchableLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines without a hold go to batch. Held lines keep waiting; batched lines stay locked.</div>`:''}
    ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>

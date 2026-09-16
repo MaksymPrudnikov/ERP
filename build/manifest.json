@@ -77,6 +77,8 @@
   "src/erp/views/documents-ui.js",
   "src/erp/views/finance.js",
   "src/erp/views/sales-list-ui.js",
+  "src/erp/views/sales-list-controls.js",
+  "src/erp/sales/line-hold.js",
   "src/erp/storage.js"
  ]
 }

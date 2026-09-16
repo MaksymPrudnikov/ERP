@@ -59,3 +59,58 @@
 .sl-hold-choice.on{border:2px solid #16325c;background:#eef4ff}
 .sl-hold-choice input[type=radio]{width:auto !important;margin:0;flex:0 0 auto}
 .sl-hold-choice input[type=text]{flex:1;min-width:0}
+
+/* Sales: спокойная панель, скрытые настройки и диапазон создания. */
+.sales-list-card .sales-toolbar{justify-content:flex-start;gap:6px;margin-bottom:8px}
+.sales-list-card .sl-quiet{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 8px;border:1px solid #e4e7ec;border-radius:7px;background:#fff;color:#475467;font-size:12px;font-weight:600;box-shadow:none}
+.sales-list-card .sl-quiet:hover{background:#f8fafc;border-color:#98a2b3}
+.sales-list-card .sl-hold-quiet{color:#667085;border-color:transparent}
+.sales-list-card .sl-hold-quiet:disabled{opacity:.45}
+.sl-view-controls{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:0 0 9px}
+.sales-status-chips.sl-status-compact{display:contents}
+.sl-status-options{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:100%;order:3;flex-basis:100%}
+.sales-status-chips .sl-status-toggle{display:inline-flex;gap:5px;align-items:center;height:28px;padding:3px 8px;border-radius:7px;color:#344054;font-weight:600;background:#fff;border:1px solid #e4e7ec;box-shadow:none}
+.sales-status-chips .sl-status-toggle b{font-size:11px;font-weight:500;color:#667085;margin:0}
+.sales-status-chips .sl-status-toggle>span{margin-left:2px;font-size:15px;color:#667085}
+.sl-header-tools{display:flex;align-items:center;gap:3px}
+.sl-table th.sl-check:has(.sl-header-tools){min-width:48px;padding-right:4px}
+.sl-settings{border:0;background:transparent;padding:3px;border-radius:5px;width:26px;height:26px;color:#667085;cursor:pointer}
+.sl-settings:hover,.sl-settings:focus-visible{background:#e4e7ec;color:#16325c}
+.sl-settings svg{width:17px;height:17px;display:block}
+.sl-show-menu{width:220px}
+.sl-show-menu label{display:flex;align-items:center;gap:8px;padding:5px 2px;margin:0;text-transform:none;font-size:13px;font-weight:500;letter-spacing:0}
+.sl-show-menu input{width:15px;height:15px;margin:0}
+.sl-show-menu small{margin-left:auto;color:#667085}
+.sl-date-menu{width:360px}
+.sl-date-presets{display:flex;gap:5px}
+.sl-date-presets button{flex:1;padding:5px 4px;white-space:nowrap;font-size:12px}
+.sl-date-inputs{display:flex;gap:10px;border-top:1px solid #eef0f3;margin-top:12px;padding-top:12px}
+.sl-date-inputs label{flex:1;min-width:0;font-size:11px;letter-spacing:0;text-transform:none}
+.sl-date-inputs input{margin-top:4px;font-size:12px}
+.sl-date-actions{display:flex;align-items:center;gap:8px;margin-top:12px}
+.sl-date-actions .sp{flex:1}
+.sl-date-actions button{font-size:12px}
+.sl-text-button{border:0;background:none;padding:3px;color:#25658a}
+.sl-reset{width:28px;height:28px;padding:0;border:1px solid #e4e7ec;border-radius:6px;background:white;color:#667085;font-size:18px!important}
+.sl-range-error{color:#b42318;font-size:12px;margin:8px 0 0}
+.sl-table tr.sl-row-done td{background:#ecfdf3}
+.sl-table tr.sl-row-done .st-done{background:#d1fadf;color:#05603a;border-color:#a6f4c5}
+.sl-table tr.sl-row-closed td{background:#f2f6f3;color:#667085}
+.sl-table tr.sl-row-sel td{box-shadow:inset 0 1px #84adff,inset 0 -1px #84adff}
+.sl-table tr.sl-row-hold td{background:#fee4e2}
+.sl-table tr.sl-row-hold td:first-child{box-shadow:inset 4px 0 0 #d92d20}
+/* Hold позиции — строка доступна для правок; меню появляется по ПКМ,
+   Shift+F10 или долгому нажатию на номер строки. */
+.sales-lines-table tr.sales-line-on-hold td{background:#fffaeb}
+.sales-lines-table tr.sales-line-on-hold td:first-child{box-shadow:inset 3px 0 #fdb022}
+.sales-lines-table tr[tabindex]:focus-visible{outline:2px solid #84adff;outline-offset:-2px}
+.sl-line-hold-menu{width:280px;max-width:calc(100vw - 16px)}
+.sl-line-hold-menu label{text-transform:none;letter-spacing:0;font-size:12px}
+.sl-line-hold-menu input{margin-top:5px}
+.sl-line-hold-menu p{font-size:12px;overflow-wrap:anywhere}
+.sl-line-context{padding:9px}
+.sl-line-context>b{display:block;padding:2px 5px;font-size:12px}
+.sl-line-context p{padding:0 5px;margin:5px 0}
+.sl-line-context hr{border:0;border-top:1px solid #eef0f3;margin:8px 0 4px}
+.sl-line-context button{display:block;width:100%;padding:7px 5px;text-align:left;border:0;background:none;border-radius:5px;font-size:12px}
+.sl-line-context button:hover,.sl-line-context button:focus-visible{background:#f2f4f7}

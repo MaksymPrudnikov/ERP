@@ -16,6 +16,7 @@ function salesServiceFilteredEntries(){
   if(!soDraft)return [];
   return soDraft.lines.map(function(line,index){return {line:line,index:index};}).filter(function(entry){
     var line=entry.line;
+    if(soServiceFilter==='hold')return !!line.onHold;
     if(soServiceFilter==='unset')return !line.serviceSetId;
     if(soServiceFilter==='attention')return salesLineNeedsServiceAttention(line);
     if(soServiceFilter==='override')return salesHasLineEdgeOverrides(line);
@@ -26,7 +27,7 @@ function salesServiceFilteredEntries(){
 function salesServiceFilterCount(key){var old=soServiceFilter;soServiceFilter=key;var n=salesServiceFilteredEntries().length;soServiceFilter=old;return n;}
 function salesServiceVisibleSelected(){var ids=new Set(salesServiceFilteredEntries().map(function(x){return x.line.id;}));return (soDraft&&soDraft.lines||[]).filter(function(line){return soSelectedLines.has(line.id)&&ids.has(line.id);});}
 function salesServiceAvailableFilters(){
-  return [['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
+  return [['hold','On Hold'],['unset','No set'],['attention','Needs attention'],['override','Has overrides'],['dxf','DXF']].map(function(d){return {key:d[0],label:d[1],count:salesServiceFilterCount(d[0])};}).filter(function(d){return d.count>0;});
 }
 function salesNormalizeVisibleServiceFilter(){var a=salesServiceAvailableFilters();if(soServiceFilter!=='all'&&!a.some(function(d){return d.key===soServiceFilter;}))soServiceFilter='all';}
 function salesSetServiceFilter(key){var a=salesServiceAvailableFilters();soServiceFilter=key==='all'||a.some(function(d){return d.key===key;})?key:'all';soServiceBulkPreview=null;render();}
