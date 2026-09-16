@@ -22,7 +22,7 @@ function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new',
 function optimizationSetTab(key){
  if(!orderQueueTabs().some(t=>t[0]===key))return;
  if(tab==='shipping')shippingTab=key;else optimizationTab=key;
- optimizationSel.clear();optimizationNotice=null;salesListMenu=null;glassBatchSelection.clear();glassBatchOpenNumber='';render();
+ optimizationSel.clear();optimizationNotice=null;salesListMenu=null;glassBatchSelection.clear();glassBatchOpenNumber='';glassBatchAnchor='';render();
 }
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}

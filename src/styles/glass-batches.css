@@ -4,6 +4,7 @@
 .gb-material select{max-width:320px;font-size:12px;padding:5px 26px 5px 8px;border-radius:7px;background-color:#fff}
 .gb-table td,.gb-table th{padding:11px 9px;white-space:nowrap}
 .gb-table td{font-size:12px}
+.gb-table .gb-piece{font-weight:600;font-variant-numeric:tabular-nums;color:#1d2939}
 .gb-table .gb-held td{background:#fffaeb}
 .gb-table .gb-selected td{background:#eef4ff}
 .gb-table .gb-released td{color:#98a2b3;background:#fafafa}

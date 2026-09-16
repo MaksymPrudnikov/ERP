@@ -201,7 +201,9 @@ function salesSetRecordStatus(orderId,next,opts){
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
  const now=opts.now||new Date().toISOString();
  /* Батч заказа целиком: все свободные стёкла без Hold одним номером.
-    Проверка до записи — неудача не оставляет дат и статуса. */
+    Проверка до записи — неудача не оставляет дат и статуса. Номера стёкол
+    выдаются при Verify; перед батчем недостающие номера добавляются. */
+ if(next==='batched'&&!opts.back)glassPieceEnsure(o);
  const batchRows=next==='batched'&&!opts.back&&salesBatchableLines(o).length?glassBatchRows([o]).filter(r=>!r.l.onHold):null;
  if(batchRows&&!glassBatchAssign(batchRows,{batchNo:opts.batchNo,dryRun:true}))return false;
  o.statusDates=Object.assign({},o.statusDates||{});
@@ -216,6 +218,7 @@ function salesSetRecordStatus(orderId,next,opts){
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
  o.status=next;o.updatedAt=now;
+ if(next==='verified'&&!opts.back)glassPieceEnsure(o);
  if(next==='cancelled'){o.fulfilledVia='';finReleaseOrder(o.id);}
  salesSyncRecordLifecycle(o);
  if(!opts.deferTouch)touch();
@@ -232,7 +235,7 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  const lines=(o.lines||[]).filter(l=>ids.has(l.id));
  if(lines.length!==ids.size||lines.some(l=>!salesLineLocked(l)||!!l.cutStartedAt))return false;
  if(lines.some(l=>l.batchManaged)){
-  normalizeGlassBatches();const entries=glassBatchItems(orderId).filter(x=>ids.has(x.item.lineId)&&!x.item.releasedAt);
+  normalizeGlassBatches();const entries=glassBatchEntries(orderId).filter(x=>ids.has(x.part.lineId)&&!x.item.releasedAt);
   return glassBatchRelease(entries,opts);
  }
  const now=opts.now||new Date().toISOString(),numbers=[...new Set(lines.map(l=>l.batchNo).filter(Boolean))];
