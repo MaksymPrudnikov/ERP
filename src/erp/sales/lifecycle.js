@@ -59,7 +59,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
- return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?' · '+o.lines.filter(salesLineLocked).length+'/'+o.lines.length+' lines':''):''}</span>`;
+ return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?(p=>' · '+p.assigned+'/'+p.total+' pcs')(glassBatchProgress(o)):''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
@@ -107,7 +107,7 @@ function salesLockViolations(draft,saved){
   if(!salesLineLocked(old))return;
   const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
   if(!now){out.push(name(i+1)+' was removed');return;}
-  now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
+  now.batchManaged=old.batchManaged;now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
   if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
  });
  return out;
@@ -115,7 +115,7 @@ function salesLockViolations(draft,saved){
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
- if(!salesIsQuote(o)&&['batched','ready','done','closed'].includes(o.status)){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -172,12 +172,12 @@ function salesRunChecks(checks,done,takePayment){
    процесса; его прочие несохранённые правки не записываются и не теряются. */
 function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
 function salesNextBatchNumber(){
- let n=0;
+ let n=0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
  return 'B-'+String(n+1).padStart(4,'0');
 }
 function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
-function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>!salesLineLocked(l));}
+function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l));}
 function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
@@ -194,12 +194,16 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
 function salesSetRecordStatus(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
  const now=opts.now||new Date().toISOString();
+ /* Батч заказа целиком: все свободные стёкла без Hold одним номером.
+    Проверка до записи — неудача не оставляет дат и статуса. */
+ const batchRows=next==='batched'&&!opts.back&&salesBatchableLines(o).length?glassBatchRows([o]).filter(r=>!r.l.onHold):null;
+ if(batchRows&&!glassBatchAssign(batchRows,{batchNo:opts.batchNo,dryRun:true}))return false;
  o.statusDates=Object.assign({},o.statusDates||{});
  if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
  else if(opts.back){
@@ -207,12 +211,7 @@ function salesSetRecordStatus(orderId,next,opts){
   if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
-  const fresh=salesBatchableLines(o);
-  if(fresh.length){
-   o.batchNo=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
-   o.batchHistory=[...new Set((o.batchHistory||[]).concat(o.batchNo))];
-   fresh.forEach(l=>{l.batchedAt=now;l.batchNo=o.batchNo;});
-  }
+  if(batchRows)glassBatchAssign(batchRows,{batchNo:opts.batchNo,now,deferTouch:true});
   ['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
@@ -232,6 +231,10 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  if(!opts.confirmed||!salesUnbatchEligible(o)||!ids.size)return false;
  const lines=(o.lines||[]).filter(l=>ids.has(l.id));
  if(lines.length!==ids.size||lines.some(l=>!salesLineLocked(l)||!!l.cutStartedAt))return false;
+ if(lines.some(l=>l.batchManaged)){
+  normalizeGlassBatches();const entries=glassBatchItems(orderId).filter(x=>ids.has(x.item.lineId)&&!x.item.releasedAt);
+  return glassBatchRelease(entries,opts);
+ }
  const now=opts.now||new Date().toISOString(),numbers=[...new Set(lines.map(l=>l.batchNo).filter(Boolean))];
  o.batchHistory=[...new Set((o.batchHistory||[]).concat(numbers,o.batchNo?[o.batchNo]:[]))];
  o.unbatchHistory=(o.unbatchHistory||[]).concat({at:now,batchNumbers:numbers,lineIds:lines.map(l=>l.id)});
