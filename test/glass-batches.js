@@ -14,12 +14,19 @@ module.exports=async function({page,eq,ok}){
  });};
  await helpers();
 
- eq('Verify выдаёт каждому стеклу свой Glass ID; сохранение заказа номера не меняет',await t.p.evaluate(()=>{
-  oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;const before=gbIds().length;salesSetRecordStatus(id,'verified');const ids=gbIds();
+ eq('номера выдаются сразу при сохранении заказа (стикер до Verify); Verify и повторное сохранение их не меняют; квоте номеров нет',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer();tab='sales';salesOrderNew('order');const unsaved=gbIds().length;const id=oqOrder(c);soDraft=null;soEdit=null;const saved=gbIds(),status=salesRecord(id).status;
+  oqOrder(c,{kind:'quote'});soDraft=null;soEdit=null;const quote=gbIds().length;salesSetRecordStatus(id,'verified');const verified=gbIds();
   tab='sales';salesOrderEdit(id);soDraft.notes='Checked';salesOrderSave();soDraft=null;soEdit=null;normalizeDB();
-  return {before,ids,same:JSON.stringify(gbIds())===JSON.stringify(ids),seq:DB.glassPieceSeq,rows:glassBatchRows().map(r=>r.piece+' '+r.line+':'+r.unit+' of '+r.of+' L'+r.lite)};
- }),{before:0,ids:['G-0000001','G-0000002','G-0000003','G-0000004','G-0000005','G-0000006'],same:true,seq:6,
+  return {unsaved,saved,status,quote,same:JSON.stringify(verified)===JSON.stringify(saved)&&JSON.stringify(gbIds())===JSON.stringify(saved),seq:DB.glassPieceSeq,rows:glassBatchRows().map(r=>r.piece+' '+r.line+':'+r.unit+' of '+r.of+' L'+r.lite)};
+ }),{unsaved:0,saved:['G-0000001','G-0000002','G-0000003','G-0000004','G-0000005','G-0000006'],status:'new',quote:6,same:true,seq:6,
   rows:['G-0000001 1:1 of 2 L1','G-0000002 1:2 of 2 L1','G-0000003 1:1 of 2 L2','G-0000004 1:2 of 2 L2','G-0000005 2:1 of 1 L1','G-0000006 2:1 of 1 L2']});
+
+ eq('номера остаются после возврата в New и Cancel → Restore; отменённому заказу новые не выдаются',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;const first=gbIds();salesSetRecordStatus(id,'verified');salesSetRecordStatus(id,'new',{back:true});const back=gbIds();
+  salesSetRecordStatus(id,'cancelled');salesRecord(id).lines.push(normalizeSalesOrderLine({makeupId:salesRecord(id).makeups[0].id,width16:320,height16:320,qty:1}));const cancelled=glassPieceEnsure(salesRecord(id));salesRecord(id).lines.pop();
+  salesSetRecordStatus(id,'new',{restore:true});return {back:JSON.stringify(back)===JSON.stringify(first),cancelled,restored:JSON.stringify(gbIds())===JSON.stringify(first)};
+ }),{back:true,cancelled:false,restored:true});
 
  eq('изделий больше — новые номера; меньше — последние снимаются и больше не выдаются',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');
@@ -75,15 +82,15 @@ module.exports=async function({page,eq,ok}){
   return {pack:packRows.map(r=>r.line+'/'+r.lite+':'+r.unit+' of '+r.of),slots:new Set(packRows.map(r=>r.slot)).size,lam:lamRows.map(r=>[r.lite,r.ply,r.unit,r.width,r.height,r.reason].join(' ')),progress:glassBatchProgress(salesRecord(lam))};
  }),{pack:['1/1:1 of 2','1/1:2 of 2','1/2:1 of 2','1/2:2 of 2','2/1:1 of 1','2/2:1 of 1'],slots:6,lam:['1a outer 1 40 30 ','1a outer 2 40 30 ','1a outer 3 40 30 ','1b inner 1 40 30 ','1b inner 2 40 30 ','1b inner 3 40 30 '],progress:{total:6,left:6,assigned:0}});
 
- await t.p.evaluate(()=>{oqReset();window.gbFifty=oqOrder(oqCustomer());soDraft=null;soEdit=null;gbSetQty(gbFifty,0,50);salesSetRecordStatus(gbFifty,'verified');gbQueue();salesListSort('piece','asc');});
- await t.p.locator('[data-glass-id="G-0000001"] [data-glass-check]').click();
- await t.p.locator('[data-glass-id="G-0000012"] [data-glass-check]').click({modifiers:['Shift']});
+ const picks=await t.p.evaluate(()=>{oqReset();window.gbFifty=oqOrder(oqCustomer());soDraft=null;soEdit=null;gbSetQty(gbFifty,0,50);salesSetRecordStatus(gbFifty,'verified');gbQueue();const line=glassBatchRows().filter(r=>r.line===1&&r.lite==='1');return window.gbPicks=[line[0].piece,line[11].piece];});
+ await t.p.locator(`[data-glass-id="${picks[0]}"] [data-glass-check]`).click();
+ await t.p.locator(`[data-glass-id="${picks[1]}"] [data-glass-check]`).click({modifiers:['Shift']});
  eq('позиция из 50 изделий: клик и Shift выбирают 12 стёкол подряд, 38 остаются в очереди',await t.p.evaluate(()=>{
   const selected=glassBatchSelection.size,label=document.querySelector('[data-glass-selected]').textContent;document.querySelector('[data-glass-action="create"]').click();
   const b=glassBatchFind('B-0001'),left=glassBatchRows().filter(r=>r.line===1&&r.lite==='1');
-  return {selected,label,items:b.items.map(i=>i.unit).join(','),pieces:b.items[0].piece+'…'+b.items[11].piece,left:left.length,firstLeft:left[0].unit+' of '+left[0].of,
+  return {selected,label,items:b.items.map(i=>i.unit).join(','),pieces:b.items[0].piece===gbPicks[0]&&b.items[11].piece===gbPicks[1],left:left.length,firstLeft:left[0].unit+' of '+left[0].of,
    pill:salesStatusPill(salesRecord(gbFifty)).includes('12/102 pcs'),card:document.querySelector('[data-still-waiting]').textContent.includes('6CLEAR: 90 pcs'),unit:[...document.querySelectorAll('[data-glass-row]')][11].innerText.includes('12 of 50')};
- }),{selected:12,label:'12 pcs selected',items:'1,2,3,4,5,6,7,8,9,10,11,12',pieces:'G-0000001…G-0000012',left:38,firstLeft:'13 of 50',pill:true,card:true,unit:true});
+ }),{selected:12,label:'12 pcs selected',items:'1,2,3,4,5,6,7,8,9,10,11,12',pieces:true,left:38,firstLeft:'13 of 50',pill:true,card:true,unit:true});
 
  eq('Hold позиции и заказа: стёкла видны, но не выбираются и не уходят в батч',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer(),a=oqOrder(c),b=oqOrder(c);soDraft=null;soEdit=null;[a,b].forEach(id=>salesSetRecordStatus(id,'verified'));

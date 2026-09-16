@@ -1,6 +1,8 @@
 /* Номера стёкол и реестр резки.
-   Каждое стекло — отдельный объект. Glass ID G-0000001 выдаётся при Verify,
-   не меняется и не используется повторно (счётчик DB.glassPieceSeq). Место
+   Каждое стекло — отдельный объект. Glass ID G-0000001 выдаётся при сохранении
+   заказа, не меняется и не используется повторно (счётчик DB.glassPieceSeq).
+   Владелец, 17 сентября 2026: стикер печатают сразу — стекло из стока режут
+   без Verify и батча, а сканирование потом отмечает пройденные этапы. Место
    стекла в заказе — позиция, изделие «7 of 50», Lite — берётся из связей.
    DB.glassPiece: {key: заказ|позиция|панель|плита, ids[изделие-1] = Glass ID}.
    DB.glassBatch: номер; parts — снимок стекла позиции на момент батча;
@@ -50,13 +52,14 @@ function glassBatchProgress(o){
  (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length;left+=glassBatchRemaining(o,l,active);});
  return {total,left,assigned:total-left};
 }
-/* Номера выдаются проверенному заказу: при Verify, при сохранении и при
-   загрузке. Изделий стало больше — новые номера; меньше — последние номера
-   снимаются, если их стекло не в батче. Номер в оборот не возвращается. */
+/* Номера выдаются сохранённому заказу (не квоте): при сохранении, переходах
+   и загрузке. Закрытым и отменённым заказам новые номера не выдаются.
+   Изделий стало больше — новые номера; меньше — последние номера снимаются,
+   если их стекло не в батче. Номер в оборот не возвращается. */
 function glassPieceEnsure(o){
  if(!o||salesIsQuote(o))return false;
  const active=glassBatchActive(o.id);
- if(!GLASS_WAITING_STATUSES.includes(o.status)&&!active.size)return false;
+ if(['closed','cancelled'].includes(o.status)&&!active.size)return false;
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  const map=glassPieceMap(o.id),keep=new Set([...active.values()].map(x=>x.part.key));let changed=false;
  (o.lines||[]).forEach(l=>glassBatchComponents(o,l).forEach(c=>{

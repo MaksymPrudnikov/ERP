@@ -202,7 +202,7 @@ function salesSetRecordStatus(orderId,next,opts){
  const now=opts.now||new Date().toISOString();
  /* Батч заказа целиком: все свободные стёкла без Hold одним номером.
     Проверка до записи — неудача не оставляет дат и статуса. Номера стёкол
-    выдаются при Verify; перед батчем недостающие номера добавляются. */
+    выдаются при сохранении заказа; перед батчем недостающие добавляются. */
  if(next==='batched'&&!opts.back)glassPieceEnsure(o);
  const batchRows=next==='batched'&&!opts.back&&salesBatchableLines(o).length?glassBatchRows([o]).filter(r=>!r.l.onHold):null;
  if(batchRows&&!glassBatchAssign(batchRows,{batchNo:opts.batchNo,dryRun:true}))return false;
