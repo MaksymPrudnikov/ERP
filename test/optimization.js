@@ -7,11 +7,11 @@ module.exports=async function({page,eq,ok}){
   states.forEach((status,i)=>{const id=oqOrder(c,{businessNumber:String(76002+i)});if(status==='cancelled')salesSetRecordStatus(id,'cancelled');else if(status!=='new')oqThrough(id,status);});oqOrder(c,{kind:'quote'});oqQueue();
   return OPTIMIZATION_TABS.concat(SHIPPING_TABS).filter(t=>t[0]!=='all').map(([key])=>{oqQueue(key);return [key,optimizationRows().map(o=>o.status)];});
  }),[['new',['new']],['batch',['verified']],['production',['batched']],['awaiting',['batched']],['ready',['ready']],['done',['done']]]);
- eq('To batch: галочка всех стёкол и Create batch дают один номер обоим заказам и открывают его состав',await t.p.evaluate(()=>{
+ eq('To batch: галочка всех стёкол (каждое отдельной строкой) и Create batch дают один номер обоим заказам и открывают его состав',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer();window.oqA=oqOrder(c);window.oqB=oqOrder(c);oqThrough(oqA,'verified');oqThrough(oqB,'verified');soDraft=null;soEdit=null;oqQueue('batch');
   document.querySelector('[data-glass-all]').click();const n=glassBatchSelection.size;document.querySelector('[data-glass-action="create"]').click();
   const a=salesRecord(oqA),b=salesRecord(oqB);return {n,states:[a.status,b.status],batch:[a.batchNo,b.batchNo],lines:a.lines.concat(b.lines).map(l=>l.batchNo),title:document.querySelector('.glass-batches h2').textContent,empty:glassBatchRows().length,draft:soDraft};
- }),{n:8,states:['batched','batched'],batch:['B-0001','B-0001'],lines:['B-0001','B-0001','B-0001','B-0001'],title:'Batch B-0001',empty:0,draft:null});
+ }),{n:12,states:['batched','batched'],batch:['B-0001','B-0001'],lines:['B-0001','B-0001','B-0001','B-0001'],title:'Batch B-0001',empty:0,draft:null});
  eq('Back на предупреждении второго заказа оставляет всю группу без батча',await t.p.evaluate(()=>{
   oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer({paymentMode:'cash',legalName:'Cash buyer'}));salesSetRecordStatus(a,'verified');salesSetRecordStatus(b,'verified');oqQueue('batch');optimizationRunOrders([a,b],'batched');const title=salesDialog.title,before=[salesRecord(a).status,salesRecord(b).status];oqChoose('Back');return {title:title.includes(salesRecord(b).businessNumber),before,after:[salesRecord(a).status,salesRecord(b).status],batch:[salesRecord(a).batchNo,salesRecord(b).batchNo],next:salesNextBatchNumber()};
  }),{title:true,before:['verified','verified'],after:['verified','verified'],batch:['',''],next:'B-0001'});
