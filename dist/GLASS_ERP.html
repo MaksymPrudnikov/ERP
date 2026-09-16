@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 67 модулей, 10 стиля.
+  Состав сборки: 69 модулей, 11 стиля.
 -->
 <html lang="en">
 <head>
@@ -1460,6 +1460,34 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .oq-table-wrap .sl-th{gap:4px}
 .oq-card .sl-foot-head small{white-space:normal}
 
+/* ---- src/styles/glass-batches.css ---- */
+/* Компактная очередь стёкол и состав батча. */
+.glass-batches .oq-toolbar{min-height:32px;margin-bottom:10px}
+.gb-material{display:flex;align-items:center;gap:7px;font-size:12px;color:#667085;white-space:nowrap}
+.gb-material select{max-width:320px;font-size:12px;padding:5px 26px 5px 8px;border-radius:7px;background-color:#fff}
+.gb-table td,.gb-table th{padding:11px 9px;white-space:nowrap}
+.gb-table td{font-size:12px}
+.gb-table .gb-held td{background:#fffaeb}
+.gb-table .gb-selected td{background:#eef4ff}
+.gb-table .gb-released td{color:#98a2b3;background:#fafafa}
+.gb-link{border:0!important;background:none!important;box-shadow:none!important;color:#1f6f9f;padding:0;font-size:12px;font-weight:600}
+.gb-settings{display:inline-flex;align-items:center;justify-content:center;border:0;background:none;padding:2px;color:#667085;width:23px;height:23px}
+.gb-settings svg{width:15px;height:15px;display:block}
+.gb-state{font-size:11px;color:#667085}
+.gb-state.held{color:#9a6700}.gb-state.released{color:#98a2b3}
+.gb-footer{font-size:12px;font-weight:600;padding:10px 9px;background:#f8fafc;border-top:1px solid #e4e7ec}
+.gb-note{margin:12px 0 0;font-size:11px;color:#8a96a8}
+.gb-detail-tabs{display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid #e4e7ec}
+.gb-detail-tabs button{background:none;border:0;border-radius:6px 6px 0 0;color:#667085;padding:9px 14px;font-size:12px}
+.gb-detail-tabs button.on{color:#1f6f9f;box-shadow:inset 0 -2px #1f6f9f}.gb-detail-tabs button:disabled{opacity:.5}
+.gb-history>div{display:flex;gap:20px;align-items:center;padding:12px 0;border-bottom:1px solid #eaecf0;font-size:12px}.gb-history time{color:#8a96a8}
+@media(max-width:600px){.gb-material select{max-width:210px}.glass-batches .oq-toolbar{gap:8px}.gb-table{min-width:900px}.gb-history>div{flex-wrap:wrap;gap:8px}.glass-batches .oq-tabs{overflow-x:auto}}
+.glass-batches .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.gb-status{font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px;white-space:nowrap}
+.gb-status.wait{background:#fffaeb;color:#93370d;box-shadow:inset 0 0 0 1px #fedf89}.gb-status.cut{background:#e0f2fe;color:#026aa2}.gb-status.off{background:#f2f4f7;color:#667085}
+.gb-orders{color:#667085}
+.gb-waiting{margin-top:14px}.gb-waiting h3{margin:0 0 6px;font-size:13px}.gb-waiting p{margin:0 0 8px;font-size:12px;color:#475467}
+
 </style>
 </head>
 <body>
@@ -1481,7 +1509,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='10a4666f06d7';
+var ERP_BUILD='1178b110dbf6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9098,7 +9126,7 @@ function normalizeSalesLiteShapes(raw){
 function normalizeSalesOrderLine(l){
  l=l&&typeof l==='object'?l:{};
  const width16=l.width16!=null?salesStoredDim16(l.width16):salesDimTo16(l.width),height16=l.height16!=null?salesStoredDim16(l.height16):salesDimTo16(l.height);
- return {id:salesEntityId(l.id,'SOL'),lineType:'physical',onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
+ return {id:salesEntityId(l.id,'SOL'),lineType:'physical',batchManaged:l.batchManaged===true,onHold:l.onHold===true,holdReason:l.onHold===true?salesString(l.holdReason).slice(0,200):'',holdAt:l.onHold===true?salesString(l.holdAt):'',makeupId:salesString(l.makeupId),qty:salesPositiveInt(l.qty,1),width16,height16,mark:salesString(l.mark),notes:salesString(l.notes),shapeRef:normalizeShapeRef(l.shapeRef||{shapeId:l.shapeId}),liteShapes:normalizeSalesLiteShapes(l.liteShapes),chargePricing:normalizeSalesChargePricing(l.chargePricing),batchedAt:salesString(l.batchedAt||l.cutStartedAt),cutStartedAt:salesString(l.cutStartedAt),batchNo:l.batchedAt||l.cutStartedAt?salesBatchNumber(l.batchNo):'',weightExtras:(Array.isArray(l.weightExtras)?l.weightExtras:[]).filter(x=>x&&typeof x==='object').map(x=>({label:salesString(x.label),kg:mdNonNeg(x.kg)}))};
 }
 /* Строка-позиция каталога: изделие из стекла или готовая вещь — не одно и то
    же, и модель их не смешивает (раздел 6 схемы). Владелец: «там, где Single /
@@ -9287,7 +9315,7 @@ function salesStatusPill(o){
   const won=(DB.salesOrder||[]).find(x=>x.id===o.wonOrderId);
   return `<span class="pill st-won">Won${won&&won.businessNumber?' → '+esc(won.businessNumber):''}</span>`;
  }
- return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?' · '+o.lines.filter(salesLineLocked).length+'/'+o.lines.length+' lines':''):''}</span>`;
+ return `<span class="pill st-${esc(o.status||'new')}">${esc(salesStatusLabel(o))}${o.status==='batched'?' 🔒'+(salesUnbatchedLines(o).length?(p=>' · '+p.assigned+'/'+p.total+' pcs')(glassBatchProgress(o)):''):''}</span>`;
 }
 function salesShortDate(iso){return typeof docDate==='function'?docDate(iso):String(iso||'').slice(0,10);}
 function salesOrderTitle(o){
@@ -9335,7 +9363,7 @@ function salesLockViolations(draft,saved){
   if(!salesLineLocked(old))return;
   const at=(draft.lines||[]).findIndex(l=>l.id===old.id),now=draft.lines[at],name=n=>'line '+n+(old.mark?' ('+old.mark+')':'');
   if(!now){out.push(name(i+1)+' was removed');return;}
-  now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
+  now.batchManaged=old.batchManaged;now.batchedAt=old.batchedAt;now.batchNo=old.batchNo||'';now.cutStartedAt=old.cutStartedAt||'';
   if(salesLockedLineSnapshot(draft,now)!==salesLockedLineSnapshot(saved,old))out.push(name(at+1)+' changed');
  });
  return out;
@@ -9343,7 +9371,7 @@ function salesLockViolations(draft,saved){
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
- if(!salesIsQuote(o)&&['batched','ready','done','closed'].includes(o.status)){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
+ if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
 
@@ -9400,12 +9428,12 @@ function salesRunChecks(checks,done,takePayment){
    процесса; его прочие несохранённые правки не записываются и не теряются. */
 function salesBatchNumber(v){return typeof v==='string'&&/^B-\d{4,9}$/.test(v)?v:'';}
 function salesNextBatchNumber(){
- let n=0;
+ let n=0;(DB.glassBatch||[]).forEach(b=>{if(salesBatchNumber(b.number))n=Math.max(n,+b.number.slice(2));});
  (DB.salesOrder||[]).forEach(o=>[o.batchNo].concat(o.batchHistory||[],(o.lines||[]).map(l=>l.batchNo)).forEach(v=>{if(salesBatchNumber(v))n=Math.max(n,+v.slice(2));}));
  return 'B-'+String(n+1).padStart(4,'0');
 }
 function salesRecord(id){return (DB.salesOrder||[]).find(o=>o.id===id);}
-function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>!salesLineLocked(l));}
+function salesUnbatchedLines(o){return (o&&o.lines||[]).filter(l=>l.batchManaged?glassBatchRemaining(o,l)>0:!salesLineLocked(l));}
 function salesBatchableLines(o){return salesUnbatchedLines(o).filter(l=>!l.onHold);}
 function salesRecordTransitionAllowed(o,next,opts){
  opts=opts||{};
@@ -9422,12 +9450,16 @@ function salesSyncRecordLifecycle(o){
  if(!soDraft||soDraft.id!==o.id)return;
  ['status','batchNo','fulfilledVia','updatedAt'].forEach(k=>{soDraft[k]=o[k];});
  soDraft.statusDates=Object.assign({},o.statusDates);soDraft.batchHistory=(o.batchHistory||[]).slice();soDraft.unbatchHistory=JSON.parse(JSON.stringify(o.unbatchHistory||[]));
- soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
+ soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
 function salesSetRecordStatus(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
  const now=opts.now||new Date().toISOString();
+ /* Батч заказа целиком: все свободные стёкла без Hold одним номером.
+    Проверка до записи — неудача не оставляет дат и статуса. */
+ const batchRows=next==='batched'&&!opts.back&&salesBatchableLines(o).length?glassBatchRows([o]).filter(r=>!r.l.onHold):null;
+ if(batchRows&&!glassBatchAssign(batchRows,{batchNo:opts.batchNo,dryRun:true}))return false;
  o.statusDates=Object.assign({},o.statusDates||{});
  if(opts.restore){o.statusDates={new:now};o.fulfilledVia='';}
  else if(opts.back){
@@ -9435,12 +9467,7 @@ function salesSetRecordStatus(orderId,next,opts){
   if(SALES_ORDER_FLOW.indexOf(next)<4)o.fulfilledVia='';
  }else o.statusDates[next]=now;
  if(next==='batched'&&!opts.back){
-  const fresh=salesBatchableLines(o);
-  if(fresh.length){
-   o.batchNo=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
-   o.batchHistory=[...new Set((o.batchHistory||[]).concat(o.batchNo))];
-   fresh.forEach(l=>{l.batchedAt=now;l.batchNo=o.batchNo;});
-  }
+  if(batchRows)glassBatchAssign(batchRows,{batchNo:opts.batchNo,now,deferTouch:true});
   ['ready','done','closed'].forEach(k=>{delete o.statusDates[k];});o.fulfilledVia='';
  }
  if(next==='done'&&!opts.back)o.fulfilledVia=opts.delivery==='delivery'?'delivery':opts.delivery==='pickup'?'pickup':o.delivery;
@@ -9460,6 +9487,10 @@ function salesUnbatchRecord(orderId,lineIds,opts){
  if(!opts.confirmed||!salesUnbatchEligible(o)||!ids.size)return false;
  const lines=(o.lines||[]).filter(l=>ids.has(l.id));
  if(lines.length!==ids.size||lines.some(l=>!salesLineLocked(l)||!!l.cutStartedAt))return false;
+ if(lines.some(l=>l.batchManaged)){
+  normalizeGlassBatches();const entries=glassBatchItems(orderId).filter(x=>ids.has(x.item.lineId)&&!x.item.releasedAt);
+  return glassBatchRelease(entries,opts);
+ }
  const now=opts.now||new Date().toISOString(),numbers=[...new Set(lines.map(l=>l.batchNo).filter(Boolean))];
  o.batchHistory=[...new Set((o.batchHistory||[]).concat(numbers,o.batchNo?[o.batchNo]:[]))];
  o.unbatchHistory=(o.unbatchHistory||[]).concat({at:now,batchNumbers:numbers,lineIds:lines.map(l=>l.id)});
@@ -18414,7 +18445,7 @@ salesOrderClose=function(){salesResetServiceSetUi();return __salesServiceOrderCl
    OUT: HTML очереди и переходы через salesSetRecordStatus; черновик не сохраняет.
    Perfect Cut остаётся неактивным прототипом. Обмен не имитируется.
    ===================================================================== */
-const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batched']];
+const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches']];
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
@@ -18424,13 +18455,14 @@ function optimizationMatches(o,key){
  return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
   key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
+function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
 function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
 function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
 function optimizationSetTab(key){
  if(!orderQueueTabs().some(t=>t[0]===key))return;
  if(tab==='shipping')shippingTab=key;else optimizationTab=key;
- optimizationSel.clear();optimizationNotice=null;salesListMenu=null;render();
+ optimizationSel.clear();optimizationNotice=null;salesListMenu=null;glassBatchSelection.clear();glassBatchOpenNumber='';render();
 }
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
@@ -18494,7 +18526,7 @@ function optimizationUnbatch(ids){
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
-function viewOptimization(){return viewOrderQueue(false);}
+function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():viewOrderQueue(false);}
 function viewOrderQueue(shipping){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
@@ -18509,10 +18541,10 @@ function viewOrderQueue(shipping){
   if(key==='done')actions=button('closed','Close order','pri',can('closed'));
  }else{
   if(key==='all'||key==='new')actions+=button('verified','Verify','pri',can('verified'));
-  if(key==='all'||key==='batch')actions+=button('batched','Send to batch','pri',can('batched'));
+  if(key==='all')actions+='<button type="button" onclick="optimizationSetTab(\'batch\')">Select glass</button>';
   actions+=button('unbatch','Unbatch','',n>0&&selected.every(salesCanUnbatch));
  }
- const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="${key===t[0]?'on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${(DB.salesOrder||[]).filter(o=>optimizationMatches(o,t[0])).length}</b></button>`).join('');
+ const tabs=orderQueueTabs().map(t=>`<button type="button" role="tab" aria-selected="${key===t[0]}" data-queue-tab="${t[0]}" class="${key===t[0]?'on':''}" onclick="optimizationSetTab('${t[0]}')">${t[1]} <b>${optimizationTabCount(t[0])}</b></button>`).join('');
  const th=c=>{const f=salesListLoadPrefs().filters[c.k],active=salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=filtered.map(info=>{
   const o=info.o,blocked=optimizationBlocked(o),chosen=optimizationSel.has(o.id);
@@ -18525,7 +18557,6 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${!shipping&&key==='batch'?`<div class="oq-hint">${n&&selected.some(o=>salesBatchableLines(o).length)?'Selected new lines will share batch '+esc(salesNextBatchNumber())+'. ':''}Only new lines without a hold go to batch. Held lines keep waiting; batched lines stay locked.</div>`:''}
    ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
@@ -20386,8 +20417,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
  return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
@@ -20561,6 +20593,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible();
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo);
@@ -20992,6 +21025,249 @@ function salesLineHoldMenuHTML(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){e.preventDefault();salesLineHoldClose();}});
 
+/* ==== src/erp/production/glass-batches.js ==== */
+/* Реестр резки: выбранные стёкла, неизменяемый состав и история возврата.
+   IN: сохранённые заказы, Shape/Effective Cutting; OUT: DB.glassBatch.
+   Остаток вычисляется по активным назначениям, а не по статусу заказа.
+   Общая позиция остаётся защищённой, пока хотя бы одно её стекло в батче. */
+DEFAULT.glassBatch=[];
+function glassBatchClone(v){return v==null?null:JSON.parse(JSON.stringify(v));}
+function glassBatchItems(orderId,lineId){return (DB.glassBatch||[]).flatMap(b=>b.items.filter(i=>i.orderId===orderId&&(!lineId||i.lineId===lineId)).map(i=>({batch:b,item:i})));}
+/* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
+   одну запись Glass missing: её количество не теряется из остатка заказа. */
+function glassBatchComponents(o,l){
+ const m=salesMakeupById(o,l.makeupId);
+ if(!m||!(m.panes||[]).length)return [{key:[o.id,l.id,'legacy'].join('|'),orderId:o.id,lineId:l.id,paneId:'',index:0,ply:'',qty:l.qty,glassId:'',glass:'Unknown glass',lite:'—',pane:null,spec:{},missing:true}];
+ return m.panes.flatMap((p,index)=>(p.category==='laminated'?['outer','inner']:['']).map(ply=>{
+  const spec=(ply?p.laminated&&p.laminated[ply]:p)||{},g=glassProductById(spec.glassProductId);
+  return {key:[o.id,l.id,p.id,ply||'lite'].join('|'),orderId:o.id,lineId:l.id,paneId:p.id,index,ply,qty:l.qty,
+   glassId:spec.glassProductId||'',glass:g?g.code:'Unknown glass',lite:String(index+1)+(ply==='outer'?'a':ply==='inner'?'b':''),pane:p,spec};
+ }));
+}
+function glassBatchAssigned(key){return (DB.glassBatch||[]).reduce((n,b)=>n+b.items.filter(i=>i.key===key&&!i.releasedAt).reduce((s,i)=>s+i.qty,0),0);}
+function glassBatchRemaining(o,l){
+ const cs=glassBatchComponents(o,l);
+ if(!l.batchManaged)return salesLineLocked(l)?0:l.qty*cs.length;
+ return cs.reduce((n,c)=>n+Math.max(0,c.qty-glassBatchAssigned(c.key)),0);
+}
+function glassBatchProgress(o){
+ let total=0,left=0;(o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length;left+=glassBatchRemaining(o,l);});
+ return {total,left,assigned:total-left};
+}
+/* План резки читает Makeup через soDraft, поэтому считается внутри
+   finWithOrder: очередь всегда работает с сохранённой записью. */
+function glassBatchRows(orders){
+ const rows=[];
+ (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&['verified','batched','ready','done'].includes(o.status)).forEach(o=>finWithOrder(o,()=>{
+  (o.lines||[]).forEach((l,li)=>{
+   if(!glassBatchRemaining(o,l))return;
+   let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
+   glassBatchComponents(o,l).forEach(c=>{
+    const remaining=l.batchManaged?Math.max(0,c.qty-glassBatchAssigned(c.key)):c.qty;if(!remaining)return;
+    const cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index),own=c.missing?null:salesLineShapeForLite(l,c.index);
+    const reason=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
+     !salesFindCustomer(o.customerId)?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
+    rows.push(Object.assign(c,{o,l,line:li+1,remaining,reason,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',
+     width:cut?cut.cutW:null,height:cut?cut.cutH:null,heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.spec.coatingSurface||'',
+     customer:salesCustomerDisplay(o.customerId)}));
+   });
+  });
+ }));
+ return rows;
+}
+function glassBatchFind(number){return (DB.glassBatch||[]).find(b=>b.number===number);}
+function glassBatchSyncLine(o,l){
+ const active=glassBatchItems(o.id,l.id).filter(x=>!x.item.releasedAt);
+ l.batchedAt=active.length?active[0].item.at:'';l.batchNo=active.length?active[active.length-1].batch.number:'';
+ l.cutStartedAt=active.map(x=>x.item.cutStartedAt).find(Boolean)||'';
+}
+function glassBatchSelectionStamp(rows){
+ const ids=[...new Set(rows.map(r=>r.orderId))];
+ return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt]);
+}
+/* Внутренний commit вызывается только после всех проверок выбранной группы.
+   Независимый повторный разбор прямо перед записью исключает двойной запуск.
+   dryRun проверяет то же самое и ничего не пишет — так несколько батчей
+   создаются все вместе или ни один. */
+function glassBatchAssign(rows,opts){
+ opts=opts||{};if(!rows||!rows.length)return null;
+ const keys=new Set(rows.map(r=>r.key));if(keys.size!==rows.length)return null;
+ const current=glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean));
+ const chosen=rows.map(r=>current.find(c=>c.key===r.key));
+ if(chosen.some((c,i)=>!c||c.reason||!c.cut||rows[i].remaining!==c.remaining))return null;
+ const number=salesBatchNumber(opts.batchNo)||salesNextBatchNumber();
+ if(opts.dryRun)return {number};
+ const now=opts.now||new Date().toISOString();
+ let batch=glassBatchFind(number);const added=!!batch;if(!batch){batch={number,createdAt:now,items:[],history:[]};(DB.glassBatch||(DB.glassBatch=[])).push(batch);}
+ const items=chosen.map(r=>{
+  const item={id:salesUid('BI'),key:r.key,orderId:r.orderId,lineId:r.lineId,paneId:r.paneId,ply:r.ply,qty:r.remaining,at:now,releasedAt:'',cutStartedAt:'',
+   snapshot:{order:r.o.businessNumber,customer:r.customer,line:r.line,lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
+    production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.l)}}};
+  batch.items.push(item);r.l.batchManaged=true;glassBatchSyncLine(r.o,r.l);return item;
+ });
+ batch.history.push({at:now,action:added?'Added':'Created',itemIds:items.map(i=>i.id),qty:items.reduce((n,i)=>n+i.qty,0)});
+ [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
+  const o=salesRecord(id);o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+  o.statusDates=Object.assign({},o.statusDates,{batched:now});['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
+ });
+ if(!opts.deferTouch)touch();return batch;
+}
+/* Возврат стекла из батча. Заказ возвращается в New, как у прежнего Unbatch:
+   перед следующим батчем его проверяют заново. Другие батчи не меняются. */
+function glassBatchRelease(entries,opts){
+ opts=opts||{};if(!opts.confirmed||!entries||!entries.length)return false;
+ if(new Set(entries.map(x=>x.item.id)).size!==entries.length)return false;
+ if(entries.some(x=>{
+  const o=salesRecord(x.item.orderId),l=o&&o.lines.find(l=>l.id===x.item.lineId);
+  return !glassBatchFind(x.batch.number)||!x.batch.items.includes(x.item)||!o||!l||!salesUnbatchEligible(o)||x.item.releasedAt||x.item.cutStartedAt||l.cutStartedAt;
+ }))return false;
+ const now=opts.now||new Date().toISOString();entries.forEach(x=>x.item.releasedAt=now);
+ [...new Set(entries.map(x=>x.batch))].forEach(b=>{const a=entries.filter(x=>x.batch===b);b.history.push({at:now,action:'Unbatched',itemIds:a.map(x=>x.item.id),qty:a.reduce((n,x)=>n+x.item.qty,0)});});
+ [...new Set(entries.map(x=>x.item.orderId))].forEach(id=>{
+  const o=salesRecord(id),a=entries.filter(x=>x.item.orderId===id),lineIds=[...new Set(a.map(x=>x.item.lineId))];
+  lineIds.forEach(id=>glassBatchSyncLine(o,o.lines.find(l=>l.id===id)));
+  const numbers=[...new Set(a.map(x=>x.batch.number))];o.batchHistory=[...new Set((o.batchHistory||[]).concat(numbers))];o.unbatchHistory=(o.unbatchHistory||[]).concat({at:now,batchNumbers:numbers,lineIds});
+  const active=o.lines.filter(salesLineLocked);o.batchNo=active.length?active[active.length-1].batchNo:'';
+  o.status='new';o.statusDates={new:now};o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
+ });
+ if(!opts.deferTouch)touch();return true;
+}
+/* Старые батчи импортируются как уже назначенные стёкла. Повторный запуск
+   нормализации не создаёт новых записей; возвращённые записи не исчезают.
+   Позиция с замком, но без активных записей, тоже импортируется: замок
+   важнее — такое стекло нельзя снова выпустить в резку. */
+function normalizeGlassBatches(){
+ if(!Array.isArray(DB.glassBatch))DB.glassBatch=[];
+ DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
+ DB.glassBatch.forEach(b=>{
+  if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
+  b.items=b.items.filter(i=>i&&typeof i==='object'&&typeof i.key==='string'&&Number.isSafeInteger(i.qty)&&i.qty>0);
+  b.items.forEach(i=>{['releasedAt','cutStartedAt','at'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!i.snapshot||typeof i.snapshot!=='object')i.snapshot={};});
+ });
+ (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach((l,li)=>{
+  if(!salesLineLocked(l)||glassBatchItems(o.id,l.id).some(x=>!x.item.releasedAt))return;
+  const number=salesBatchNumber(l.batchNo)||salesBatchNumber(o.batchNo)||salesNextBatchNumber(),at=l.batchedAt||l.cutStartedAt||o.updatedAt||o.createdAt||'';
+  let b=glassBatchFind(number);if(!b){b={number,createdAt:at,items:[],history:[]};DB.glassBatch.push(b);}
+  const cs=glassBatchComponents(o,l),items=cs.map(c=>({id:salesUid('BI'),key:c.key,orderId:o.id,lineId:l.id,paneId:c.paneId,ply:c.ply,qty:l.qty,at,releasedAt:'',cutStartedAt:l.cutStartedAt||'',
+   snapshot:{order:o.businessNumber,customer:salesCustomerDisplay(o.customerId),line:li+1,lite:c.lite,glass:c.glass,glassId:c.glassId||'',width:l.width16/16,height:l.height16/16,shape:'Legacy',heat:'',coating:'',production:null}}));
+  b.items.push(...items);b.history.push({at,action:'Imported legacy batch',itemIds:items.map(i=>i.id),qty:l.qty*items.length});
+  l.batchManaged=true;l.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+ }));
+ (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{if(l.batchManaged){const active=glassBatchItems(o.id,l.id).filter(x=>!x.item.releasedAt);if(active.length){if(l.cutStartedAt)active.forEach(x=>{if(!x.item.cutStartedAt)x.item.cutStartedAt=l.cutStartedAt;});glassBatchSyncLine(o,l);}}}));
+}
+function validateGlassBatchesPayload(src){
+ if(src.glassBatch==null)return;
+ if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
+ const nums=new Set(),ids=new Set(),active=new Map();
+ src.glassBatch.forEach(b=>{
+  if(!b||!salesBatchNumber(b.number)||nums.has(b.number)||!Array.isArray(b.items)||!Array.isArray(b.history))throw new Error('Invalid or duplicate glass batch.');nums.add(b.number);
+  b.items.forEach(i=>{
+   if(!i||!salesRefId(i.id)||ids.has(i.id)||!salesRefId(i.orderId)||!salesRefId(i.lineId)||typeof i.key!=='string'||!i.key.startsWith(i.orderId+'|'+i.lineId+'|')||!Number.isSafeInteger(i.qty)||i.qty<=0||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string'||!i.snapshot||typeof i.snapshot!=='object')throw new Error('Invalid glass batch item.');ids.add(i.id);
+   if(!i.releasedAt){const key=i.key;active.set(key,(active.get(key)||0)+i.qty);const o=(src.salesOrder||[]).find(o=>o&&o.id===i.orderId),l=o&&(o.lines||[]).find(l=>l&&l.id===i.lineId);if(!l||active.get(key)>Number(l.qty))throw new Error('Glass batch quantity or order reference is invalid.');}
+  });
+  b.history.forEach(h=>{if(!h||typeof h.at!=='string'||typeof h.action!=='string'||!Array.isArray(h.itemIds)||!Number.isFinite(h.qty))throw new Error('Invalid batch history.');});
+ });
+}
+
+/* ==== src/erp/views/glass-batches.js ==== */
+/* Очередь отдельных стёкол и реестр. Общие фильтры колонок — из Sales;
+   настройки трёх таблиц независимы. По умолчанию нет ограничения по стеклу
+   или дате: малые остатки видны до решения оператора. */
+let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='contents';
+function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
+function glassBatchColumns(){
+ const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
+ if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('orders','Orders','number'),col('status','Status','list')];
+ return [col('number','Order'),col('customer','Customer'),col('line','Line','number'),col('lite','Lite'),col('glass','Glass'),col('width','Cut W · in','number'),col('height','Cut H · in','number'),col('shape','Shape','list'),col('units','Qty','number'),col('due','Due','date',glassBatchViewScope()==='glassQueue'),col('status','Status','list'),col('priority','Priority','list',false),col('po','PO','text',false),col('created','Created','date',false),col('heat','Heat','list',false),col('coating','Coating surface','text',false),col('reason','Hold / review reason','text',false)];
+}
+function glassBatchStatus(b){const a=b.items.filter(i=>!i.releasedAt);return !a.length?'Unbatched':a.some(i=>i.cutStartedAt||((salesRecord(i.orderId)||{}).lines||[]).some(l=>l.id===i.lineId&&l.cutStartedAt))?'Cutting started':'Awaiting cutting';}
+function glassBatchInfo(r){
+ const o=r.o;return {o,q:false,c:{},r,memo:{number:o.businessNumber,customer:r.customer,line:r.line,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:r.remaining,due:o.dueDate,created:salesListIsoDay(o.createdAt),status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
+}
+function glassBatchInfos(){
+ const scope=glassBatchViewScope();
+ if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
+ if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=b.items.filter(i=>!i.releasedAt);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.items.map(i=>i.snapshot.glass))].join(' / '),units:a.reduce((n,i)=>n+i.qty,0),orders:new Set(a.map(i=>i.orderId)).size,status:glassBatchStatus(b)}};});
+ const b=glassBatchFind(glassBatchOpenNumber);return b?b.items.map(i=>{const s=i.snapshot,o=salesRecord(i.orderId)||{},l=(o.lines||[]).find(l=>l.id===i.lineId);return {o:{createdAt:i.at},b,item:i,memo:{number:s.order,customer:s.customer,line:s.line,lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:i.qty,due:o.dueDate||'',created:salesListIsoDay(i.at),status:i.releasedAt?'Unbatched':i.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};}):[];
+}
+function glassBatchFiltered(){return salesListRows(glassBatchInfos());}
+function glassBatchOpen(number){if(!glassBatchFind(number))return;tab='optimization';optimizationTab='production';glassBatchOpenNumber=number;glassBatchDetailTab='contents';glassBatchSelection.clear();salesListMenu=null;render();}
+function glassBatchPickable(i){
+ if(i.r)return !i.r.reason;
+ if(!i.item)return false;
+ const o=salesRecord(i.item.orderId),l=o&&(o.lines||[]).find(l=>l.id===i.item.lineId);
+ return !!l&&salesUnbatchEligible(o)&&!i.item.releasedAt&&!i.item.cutStartedAt&&!l.cutStartedAt;
+}
+function glassBatchRowKey(i){return i.r?i.r.key:i.item?i.item.id:i.b.number;}
+function glassBatchToggle(key,on){if(!glassBatchFiltered().some(i=>glassBatchRowKey(i)===key&&glassBatchPickable(i)))return;if(on)glassBatchSelection.add(key);else glassBatchSelection.delete(key);render();}
+function glassBatchToggleAll(on){glassBatchFiltered().filter(glassBatchPickable).forEach(i=>{const k=glassBatchRowKey(i);if(on)glassBatchSelection.add(k);else glassBatchSelection.delete(k);});render();}
+function glassBatchMaterial(id){salesListSetFilter('glass',id?{values:[id]}:null);}
+function glassBatchCreateSelected(){
+ const rows=glassBatchFiltered().filter(i=>glassBatchSelection.has(glassBatchRowKey(i))&&glassBatchPickable(i)).map(i=>i.r);if(!rows.length)return;
+ const before=glassBatchSelectionStamp(rows),groups=new Map();rows.forEach(r=>{if(!groups.has(r.glassId))groups.set(r.glassId,[]);groups.get(r.glassId).push(r);});
+ const orders=[...new Set(rows.map(r=>r.orderId))].map(salesRecord);
+ const finish=()=>{
+  if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  const list=[...groups.values()];
+  if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  const now=new Date().toISOString(),made=list.map(g=>glassBatchAssign(g,{now,deferTouch:true})).filter(Boolean);
+  touch();glassBatchSelection.clear();
+  if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
+ };
+ const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
+ if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.reduce((n,r)=>n+r.remaining,0)+' pcs']),note:'Each glass type gets its own batch. Unselected glass stays in the queue.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
+}
+function glassBatchUnbatchSelected(){
+ const selected=glassBatchFiltered().filter(i=>i.item&&glassBatchSelection.has(i.item.id)&&glassBatchPickable(i));if(!selected.length)return;
+ const entries=selected.map(i=>({batch:i.b,item:i.item})),stamp=()=>JSON.stringify([DB.glassBatch,entries.map(x=>salesRecord(x.item.orderId))]),before=stamp();
+ const lineChoices=selected.map(i=>({id:i.item.id,label:'Order '+i.memo.number+' · Line '+i.memo.line+' · Lite '+i.memo.lite,detail:i.memo.glass+' · '+i.item.qty+' pcs'}));
+ salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Only selected glass returns. Other batches stay locked. Affected orders return to To verify before batching again. Confirm with the cutting table that cutting has not started.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
+  if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Review the batch and try again.',buttons:[{label:'Back'}]});return;}
+  if(glassBatchRelease(entries.filter(x=>d.checkedLines.includes(x.item.id)),{confirmed:d.confirmed})){glassBatchSelection.clear();render();}
+ }}]});
+}
+function glassBatchTabs(){return OPTIMIZATION_TABS.map(([k,label])=>`<button type="button" role="tab" data-queue-tab="${k}" aria-selected="${optimizationTab===k}" class="${optimizationTab===k?'on':''}" onclick="optimizationSetTab('${k}')">${label} <b>${optimizationTabCount(k)}</b></button>`).join('');}
+/* Что ещё ждёт резки в заказах открытого батча — по типам стекла. */
+function glassBatchStillWaiting(b){
+ const orders=[...new Set(b.items.filter(i=>!i.releasedAt).map(i=>i.orderId))].map(salesRecord).filter(Boolean),m=new Map();
+ glassBatchRows(orders).forEach(r=>m.set(r.glass,(m.get(r.glass)||0)+r.remaining));
+ return [...m].sort((a,b)=>a[0].localeCompare(b[0]));
+}
+function glassBatchHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function glassBatchCell(i,c){
+ const v=salesListValue(i,c.k);let text=v==null||v===''?'—':c.type==='date'?salesListShortDay(v):['width','height'].includes(c.k)?dimIn16(v):String(v);
+ if(c.k==='number')return `<td><button class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${i.r?i.r.orderId:i.item.orderId}')`}">${esc(text)}</button></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
+ return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
+}
+function viewGlassBatches(){
+ if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();glassBatchSelection.clear();salesListMenu=null;}
+ let scope=glassBatchViewScope(),b=glassBatchOpenNumber&&glassBatchFind(glassBatchOpenNumber);
+ if(scope==='glassContents'&&!b){glassBatchOpenNumber='';scope='glassBatches';}
+ const infos=glassBatchInfos(),rows=salesListRows(infos),cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
+ glassBatchSelection=new Set([...glassBatchSelection].filter(k=>keys.has(k)));const selected=rows.filter(i=>glassBatchSelection.has(glassBatchRowKey(i))),n=selected.length,qty=selected.reduce((n,i)=>n+i.memo.units,0),registry=scope==='glassBatches';
+ const title=scope==='glassQueue'?'Glass queue':b?'Batch '+b.number:'Batches';
+ const batchesTabs=b?`<div class="gb-detail-tabs"><button class="${glassBatchDetailTab==='contents'?'on':''}" onclick="glassBatchDetailTab='contents';render()">Contents</button><button class="${glassBatchDetailTab==='history'?'on':''}" onclick="glassBatchDetailTab='history';render()">History</button><button disabled title="Cutting layouts are not available yet">Optimization</button></div>`:'';
+ const materials=new Map();if(scope==='glassQueue')infos.forEach(i=>materials.set(i.memo.glass,(materials.get(i.memo.glass)||0)+i.memo.units));
+ const filter=salesListLoadPrefs().filters.glass,chosen=filter&&filter.values&&filter.values.length===1?filter.values[0]:'';
+ const materialSelect=scope==='glassQueue'?`<label class="gb-material">Glass <select data-glass-material aria-label="Filter glass type" onchange="glassBatchMaterial(this.value)"><option value="">${filter?'Custom filter':'All'} · ${infos.reduce((n,i)=>n+i.memo.units,0)} pcs</option>${[...materials].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>`<option value="${esc(g)}" ${chosen===g?'selected':''}>${esc(g)} · ${n} pcs</option>`).join('')}</select></label>`:'';
+ const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
+ const table=`<div class="sales-table-wrap"><table class="sl-table gb-table"><thead><tr><th><span class="sl-header-tools">${registry?'':`<input type="checkbox" data-glass-all aria-label="Select all eligible glass" ${n&&n===pickable.length?'checked':''} ${pickable.length?'':'disabled'} onchange="glassBatchToggleAll(this.checked)">`}${settings}</span></th>${cols.map(glassBatchHeader).join('')}</tr></thead><tbody>${rows.map(i=>{const k=glassBatchRowKey(i),on=glassBatchSelection.has(k),held=i.r&&i.r.reason;return `<tr data-glass-row="${esc(k)}" class="${held?'gb-held':on?'gb-selected':i.item&&i.item.releasedAt?'gb-released':''}"><td>${registry?'':`<input type="checkbox" data-glass-check aria-label="Select ${esc(i.memo.number+' line '+i.memo.line+' lite '+i.memo.lite)}" ${on?'checked':''} ${glassBatchPickable(i)?'':'disabled'} onchange="glassBatchToggle('${esc(k)}',this.checked)">`}</td>${cols.map(c=>glassBatchCell(i,c)).join('')}</tr>`;}).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${scope==='glassQueue'?'No glass waiting in this view.':'No batches or items match this view.'}</td></tr>`}</tbody></table></div>`;
+ const orderNumbers=ids=>[...new Set(b.items.filter(i=>!ids||ids.includes(i.id)).map(i=>i.snapshot.order).filter(Boolean))];
+ const active=b?b.items.filter(i=>!i.releasedAt):[],activeOrders=new Set(active.map(i=>i.orderId)).size,status=b?glassBatchStatus(b):'';
+ const history=b?`<div class="gb-history">${b.history.map(h=>`<div><time>${esc(salesShortDate(h.at))}</time><b>${esc(h.action)}</b><span>${h.qty} pcs</span><span class="gb-orders">${esc(orderNumbers(h.itemIds).map(n=>'Order '+n).join(', '))}</span></div>`).join('')||'<p class="mut">No events.</p>'}</div>`:'';
+ const waiting=b?glassBatchStillWaiting(b):[];
+ const head=b?`<p>${esc([...new Set(b.items.map(i=>i.snapshot.glass))].join(' / '))} · ${active.reduce((n,i)=>n+i.qty,0)} pcs · ${activeOrders} order${activeOrders===1?'':'s'} · Created ${esc(salesShortDate(b.createdAt))}</p>`:`<p>${scope==='glassQueue'?'Verified glass waiting for cutting. Filter only when you need to.':'Batch contents and history.'}</p>`;
+ const footer=scope==='glassContents'?`${rows.filter(i=>!i.item.releasedAt).reduce((n,i)=>n+i.memo.units,0)} pcs · ${new Set(rows.filter(i=>!i.item.releasedAt).map(i=>i.item.orderId)).size} orders`:
+  `${rows.length} ${registry?'batches':'rows'} · ${rows.filter(i=>!i.item||!i.item.releasedAt).reduce((n,i)=>n+(i.memo.units||0),0)} pcs${scope==='glassQueue'?' waiting · '+materials.size+' glass types':''}`;
+ return `<section class="optimization-queue glass-batches"><div class="page-head"><div>${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:''}</div>
+ ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
+ <div class="card oq-card">${b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${registry?'':`<b>${qty} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
+ ${b?'<p class="gb-note">Unbatch is available only before cutting starts. Cutting layouts are not available yet.</p>':''}</div>
+ ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,n])=>esc(g)+': '+n+' pcs').join(' · '):'Nothing else is waiting in these orders.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
+ ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+}
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -21049,6 +21325,7 @@ function validateImportedState(src){
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
+ if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -21121,6 +21398,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
