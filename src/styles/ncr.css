@@ -41,3 +41,34 @@
  .ncr-add{width:100%}.ncr-add input{flex:1;width:auto;min-width:0}
  .ncr-table th:nth-child(2),.ncr-table td:nth-child(2){display:none}
 }
+/* NCR в заказе и в списке Sales. */
+button.ncr-btn{border-color:#fda29b;color:#b42318}
+.ncr-modal{width:900px;max-width:calc(100vw - 32px)}
+.ncr-form{display:grid;gap:14px}
+.ncr-form p.mut{margin:0}
+.ncr-form .ncr-label{padding:0 0 6px}
+.ncr-form label{display:block;margin:0;font-size:13px;font-weight:400;text-transform:none;letter-spacing:normal;color:inherit}
+.ncr-form label>.ncr-label{display:block}
+.ncr-form select,.ncr-form textarea,.ncr-form input{font-size:14px;font-weight:400;text-transform:none;letter-spacing:normal}
+.ncr-seg{display:flex;gap:8px;flex-wrap:wrap}
+.ncr-lines-wrap{overflow-x:auto}
+.ncr-lines{width:100%;border-collapse:collapse;font-size:13px}
+.ncr-lines th{text-align:left;padding:7px 8px;font-size:11px;color:#667085;background:#f8fafc;white-space:nowrap}
+.ncr-lines td{padding:6px 8px;border-top:1px solid #eaecf0;white-space:nowrap}
+.ncr-lines th.n,.ncr-lines td.n{text-align:right}
+.ncr-lines tr.on td{background:#eef4ff}
+.ncr-lines input[type=number]{width:72px}
+.ncr-lines select{min-width:150px}
+.ncr-pick{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:12px}
+.ncr-effect{margin:0}
+.ncr-form .ncr-error{padding:0}
+.ncr-note{margin:0;white-space:pre-wrap}
+.ncr-strip{display:grid;gap:6px;margin:10px 0;padding:10px 14px;border:1px solid #fecdca;border-radius:10px;background:#fffbfa}
+.ncr-strip-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.ncr-strip-row>span:not(.pill){color:#475467}
+.ncr-strip-row .chk{display:inline-flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:normal;font-size:13px;font-weight:500;color:#344054}
+.pill.kind-ncr{background:#fee4e2;color:#b42318}
+.pill.ncr-st-open{background:#fef0c7;color:#93370d}
+.pill.ncr-st-done{background:#dcfae6;color:#05603a}
+.sl-table tr.sl-row-ncr td{background:#fffbfa}
+@media(max-width:760px){.ncr-pick{grid-template-columns:minmax(0,1fr)}}

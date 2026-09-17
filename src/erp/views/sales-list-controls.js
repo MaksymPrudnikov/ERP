@@ -1,14 +1,15 @@
 /* Компактные средства списка Sales. Период использует тот же фильтр created,
    что и меню колонки: второго, невидимого ограничения здесь нет. */
 function salesListShowButton(){
- const label=salesShow.orders&&salesShow.quotes?'Orders + Quotes':salesShow.quotes?'Quotes':'Orders';
+ const label=[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].filter(x=>salesShow[x[0]]).map(x=>x[1]).join(' + ')||'Orders';
  return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenShow(e){salesListMenu=Object.assign({kind:'show',scope:'sales'},salesListAt(e,220));render();}
 function salesListShowMenuHTML(style){
- return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes']].map(([key,label])=>{
- const n=(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
- return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${salesShow[key]&&!salesShow[key==='orders'?'quotes':'orders']?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
+ return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].map(([key,label])=>{
+ const n=key==='ncr'?(DB.ncr||[]).length:(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
+ const only=salesShow[key]&&['orders','quotes','ncr'].filter(k=>salesShow[k]).length===1;
+ return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${only?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
  }).join('')}</div>`;
 }
 function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}

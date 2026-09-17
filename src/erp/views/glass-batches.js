@@ -15,7 +15,7 @@ function glassBatchStatus(b){
  return !a.length?'Unbatched':a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
- const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
+ const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?'Recut '+r.recut+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
   status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
 }
 function glassBatchInfos(){
@@ -25,7 +25,7 @@ function glassBatchInfos(){
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
-  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
+  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?'Recut '+item.unit.split('.')[0]+' · '+item.unit.split('.')[1]+' of '+(s.of||'?'):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
    status:item.releasedAt?'Unbatched':item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
@@ -52,22 +52,22 @@ function glassBatchCreateSelected(){
  const before=glassBatchSelectionStamp(rows),groups=new Map();rows.forEach(r=>{if(!groups.has(r.glassId))groups.set(r.glassId,[]);groups.get(r.glassId).push(r);});
  const orders=[...new Set(rows.map(r=>r.orderId))].map(salesRecord);
  const finish=()=>{
-  if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const list=[...groups.values()];
-  if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const now=new Date().toISOString(),made=list.map(g=>glassBatchAssign(g,{now,deferTouch:true})).filter(Boolean);
   touch();glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
  const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
- if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'Each glass type gets its own batch. Unselected glass stays in the queue.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
+ if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
 }
 function glassBatchUnbatchSelected(){
  const selected=glassBatchFiltered().filter(i=>i.item&&glassBatchSelection.has(glassBatchRowKey(i))&&glassBatchPickable(i));if(!selected.length)return;
  const stamp=()=>JSON.stringify([DB.glassBatch,selected.map(i=>salesRecord(i.part.orderId))]),before=stamp();
  const lineChoices=selected.map(i=>({id:glassBatchRowKey(i),label:i.item.piece+' · Order '+i.memo.number+' · Line '+i.memo.line+' · Unit '+i.memo.unit+' · Lite '+i.memo.lite,detail:i.memo.glass}));
- salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Only selected glass returns. Glass IDs stay the same. Other batches stay locked. Affected orders return to To verify before batching again. Confirm with the cutting table that cutting has not started.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
-  if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Review the batch and try again.',buttons:[{label:'Back'}]});return;}
+ salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Selected glass → queue · order → To verify.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
+  if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Try again.',buttons:[{label:'Back'}]});return;}
   if(glassBatchRelease(selected.filter(i=>d.checkedLines.includes(glassBatchRowKey(i))).map(i=>({batch:i.b,item:i.item})),{confirmed:d.confirmed})){glassBatchSelection.clear();glassBatchAnchor='';render();}
  }}]});
 }
@@ -84,10 +84,9 @@ function glassBatchUnbatchOrder(orderId){
  free.forEach(x=>{const k=x.batch.number;if(!groups.has(k))groups.set(k,{glass:new Set(),n:0});groups.get(k).glass.add(x.part.snapshot.glass);groups.get(k).n++;});
  const stamp=()=>JSON.stringify([DB.glassBatch,salesRecord(orderId)]),before=stamp(),lineChoices=[...groups].map(([k,g])=>({id:k,label:k+' · '+[...g.glass].join(' / '),detail:g.n+' pcs'}));
  salesDialogOpen({title:'Unbatch order '+o.businessNumber+'?',sub:salesCustomerDisplay(o.customerId)+' · '+p.assigned+' of '+p.total+' pcs in batches',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,
-  confirmLabel:'I confirm cutting has not started for this order.',
-  note:'Glass of this order in the selected batches returns to the glass queue. Other orders in these batches stay batched. The order returns to To verify.'+(cut?' '+cut+' pcs with cutting started stay in their batch.':''),
+  note:'Order glass → queue · order → To verify'+(cut?' · '+cut+' pcs cutting stay':''),
   buttons:[{label:'Back'},{label:'Unbatch order',kind:'pri',requiresConfirmation:true,run:d=>{
-   if(before!==stamp()){salesDialogOpen({title:'Order changed',note:'Review the order and try Unbatch again.',buttons:[{label:'Back'}]});return;}
+   if(before!==stamp()){salesDialogOpen({title:'Order changed',note:'Try again.',buttons:[{label:'Back'}]});return;}
    const chosen=new Set(d.checkedLines);glassBatchRelease(glassBatchOrderReleasable(salesRecord(orderId)).filter(x=>chosen.has(x.batch.number)).map(x=>({batch:x.batch,item:x.item})),{confirmed:d.confirmed});render();
   }}]});
 }
@@ -126,13 +125,13 @@ function viewGlassBatches(){
  const active=b?glassBatchActiveItems(b):[],activeOrders=new Set(active.map(i=>b.parts[i.part].orderId)).size,status=b?glassBatchStatus(b):'';
  const history=b?`<div class="gb-history">${b.history.map(h=>`<div><time>${esc(salesShortDate(h.at))}</time><b>${esc(h.action)}</b><span>${h.qty} pcs</span><span class="gb-orders">${esc(orderNumbers(h.pieces).map(n=>'Order '+n).join(', '))}</span><span class="gb-orders" data-history-pieces>${esc((h.pieces||[]).length<=6?(h.pieces||[]).join(', '):h.pieces[0]+' … '+h.pieces[h.pieces.length-1])}</span></div>`).join('')||'<p class="mut">No events.</p>'}</div>`:'';
  const waiting=b?glassBatchStillWaiting(b):[],plural=(c,w)=>c+' '+w+(c===1?'':'s');
- const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:`<p>${scope==='glassQueue'?'Verified glass waiting for cutting. Each row is one glass. Filter only when you need to.':'Batch contents and history.'}</p>`;
+ const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${plural(rows.length,'batch').replace('batchs','batches')} · ${rows.reduce((c,i)=>c+i.memo.units,0)} pcs`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
  return `<section class="optimization-queue glass-batches"><div class="page-head"><div>${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:''}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
  <div class="card oq-card">${b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
- ${b?'<p class="gb-note">Unbatch is available only before cutting starts. Cutting layouts are not available yet.</p>':registry?'':'<p class="gb-note">Shift-click selects a range of glass.</p>'}</div>
- ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing else is waiting in these orders.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
+ ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
+ ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
 }

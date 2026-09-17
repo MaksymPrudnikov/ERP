@@ -32,13 +32,13 @@ module.exports=async function({page,eq,ok}){
  eq('+ Add reason добавляет причину только этой станции; повтор общей причины не проходит',await t.p.evaluate(()=>{
   const dup=document.querySelector('.ncr-error').textContent;const empty=ncrReasonAdd('HEAT','   ');
   return {heat:ncrReasonsFor('HEAT').some(r=>r.name==='Broke on loading table'&&r.where==='HEAT'),cut:ncrReasonsFor('CUT').some(r=>r.name==='Broke on loading table'),dup,empty,officeSame:ncrReasonAdd('OFFICE','Impact')};
- }),{heat:true,cut:false,dup:'This reason already exists here.',empty:'Enter a reason.',officeSame:''});
+ }),{heat:true,cut:false,dup:'Already exists',empty:'Enter a reason.',officeSame:''});
 
  await open('*');
  await t.p.locator('[data-ncr-new]').fill('Cracked in handling');await t.p.locator('[data-ncr-add]').click();
  eq('All stations: новая общая причина появляется на каждой станции, но не в Office; совпадение со станцией не проходит',await t.p.evaluate(()=>({
   cut:ncrReasonsFor('CUT').some(r=>r.name==='Cracked in handling'),ship:ncrReasonsFor('SHIP').some(r=>r.name==='Cracked in handling'),office:ncrReasonsFor('OFFICE').some(r=>r.name==='Cracked in handling'),
-  clash:ncrReasonAdd('*','Roller marks')})),{cut:true,ship:true,office:false,clash:'This reason already exists here.'});
+  clash:ncrReasonAdd('*','Roller marks')})),{cut:true,ship:true,office:false,clash:'Already exists'});
 
  const chipped=await rowOf('Chipped');
  await t.p.locator(`[data-ncr-reason="${chipped}"] .ncr-switch span`).click();
@@ -52,7 +52,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator(`[data-ncr-reason="${burn}"] [data-ncr-name]`).fill('Polish burn marks');await t.p.locator(`[data-ncr-reason="${burn}"] [data-ncr-name]`).press('Enter');
  await t.p.locator(`[data-ncr-reason="${burn}"] [data-ncr-name]`).fill('');await t.p.locator(`[data-ncr-reason="${burn}"] [data-ncr-name]`).press('Tab');
  eq('название правится в строке; пустое название не записывается и показывает ошибку',await t.p.evaluate(id=>({name:DB.ncrReason.find(r=>r.id===id).name,error:(document.querySelector('.ncr-error')||{}).textContent,
-  clash:ncrReasonRename(id,'Wrong edgework')}),burn),{name:'Polish burn marks',error:'Enter a reason.',clash:'This reason already exists here.'});
+  clash:ncrReasonRename(id,'Wrong edgework')}),burn),{name:'Polish burn marks',error:'Enter a reason.',clash:'Already exists'});
 
  const saved=await t.p.evaluate(()=>JSON.stringify(DB.ncrReason));
  await t.p.reload();

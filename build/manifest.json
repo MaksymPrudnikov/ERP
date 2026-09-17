@@ -85,6 +85,8 @@
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",
+  "src/erp/quality/ncr.js",
+  "src/erp/views/ncr-ui.js",
   "src/erp/storage.js"
  ]
 }

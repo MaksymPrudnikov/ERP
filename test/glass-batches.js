@@ -208,7 +208,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator('.sl-ctx [data-menu="unbatch"]').click();
  eq('окно Unbatch order: батчи заказа без номеров стёкол; снимаются стёкла только этого заказа в отмеченных батчах',await t.p.evaluate(()=>{
   const d=salesDialog,a=gbU[0],b=gbU[1],text=document.querySelector('.sales-dialog').innerText;
-  const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-\d{7}/.test(text),confirm:text.includes('I confirm cutting has not started for this order.')};
+  const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-\d{7}/.test(text),confirm:text.includes('Cutting not started')};
   salesDialogToggleLine('B-0002',false);salesDialogConfirm(true);oqChoose('Unbatch order');
   const active=(n,id)=>glassBatchFind(n).items.filter(i=>!i.releasedAt&&glassBatchFind(n).parts[i.part].orderId===id).length;
   return Object.assign(shown,{status:[salesRecord(a).status,salesRecord(b).status],a:[active('B-0001',a),active('B-0002',a)],b:[active('B-0001',b),active('B-0002',b)],selection:[...salesListSel].length,menuAfter:salesListContextHTML({id:a},'').includes('data-menu="unbatch"')});

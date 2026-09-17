@@ -55,6 +55,7 @@ function validateImportedState(src){
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
+ if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -127,6 +128,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
