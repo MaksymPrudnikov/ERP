@@ -1591,6 +1591,10 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .stk-lines tr.off td{color:#98a2b3}
 .stk-recut{color:#93370d}
 .stk-count{margin:0}
+.stk-custom{font-size:13px;color:#026aa2}
+.stk-modal .sales-dialog-actions .sp{flex:1}
+.stk-edit-modal{width:1180px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
+.stk-edit-modal .stk-builder{margin-top:0}
 .stk-count.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
 .stk-builder{margin-top:12px}
 .stk-head{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid #eaecf0}
@@ -1608,7 +1612,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .stk-row.drop-after{box-shadow:inset 0 -2px 0 #1f6f9f}
 .stk-grip{color:#98a2b3;cursor:grab;letter-spacing:-2px;user-select:none}
 .stk-name{flex:1;min-width:0;cursor:pointer}
-.stk-text{width:150px;padding:3px 6px;font-size:12px;margin-left:4px}
+.stk-text{width:100%;max-width:260px;padding:4px 6px;font-size:12px}
 .stk-row select{width:84px;padding:4px 6px;font-size:12px}
 .stk-step{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:6px;overflow:hidden}
 .stk-step button{border:0;border-radius:0;box-shadow:none;background:#fff;padding:3px 8px;min-width:0;font-size:14px;line-height:1}
@@ -1617,9 +1621,11 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .stk-icon[data-stk-gear]{font-size:16px;line-height:1}
 .stk-icon.on{background:#e0f2fe;color:#026aa2;border-color:#b9e6fe}
 .stk-icon-sp{display:inline-block;width:28px}
-.stk-details{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
+.stk-details{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
 .stk-details label{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#344054}
-.stk-add{display:flex;gap:8px}
+.stk-add{display:flex;gap:8px;flex-wrap:wrap}
+.stk-add select,.stk-details select{max-width:260px;font-size:12px}
+.stk-seg-sm button{padding:3px 9px;font-size:12px}
 .stk-preview{background:#e4e7ec;border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
 .stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:#fff}
 .stk-paper svg{display:block}
@@ -1667,7 +1673,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d4c90049ecd5';
+var ERP_BUILD='d523d1c66983';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21590,32 +21596,34 @@ function barcode128Items(text,x,y,h,module){
 DEFAULT.stickerTemplate={};
 const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'}];
 const STK_SIZES=[{k:'4x6',label:'4 × 6',short:288,long:432},{k:'3x4',label:'3 × 4',short:216,long:288}];
+const STK_ALIGNS=[{k:'left',label:'Left'},{k:'center',label:'Center'},{k:'right',label:'Right'}];
 const STK_PLACES=[{k:'full',label:'Full'},{k:'left',label:'Left'},{k:'right',label:'Right'},{k:'bottom',label:'Bottom'}];
+const STK_TEXT_MAX=160;
 const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'];
 /* Каталог блоков. size — кегль в pt у текста; у графики — высота (штрихкод,
    маршрут), сторона контура, толщина линии. details — мелочи внутри блока:
    [ключ, подпись, включено в базе]. Новый блок в каталоге появится и в старых
    сохранённых шаблонах — выключенным, в конце списка. */
 const STK_BLOCKS=[
- {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[8,9,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
- {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[10,6,48],bold:true,details:[]},
- {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[44,20,150],graphic:true,details:[['number','Number under bars',true]]},
- {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[34,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
- {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[12,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
+ {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
+ {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[12,6,48],bold:true,details:[]},
+ {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[38,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
+ {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[14,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
  {k:'orderInfo',label:'Order details',group:'Customer',types:STK_ALL,size:[10,6,48],details:[['priority','Priority',true],['delivery','Pickup / Delivery',true],['created','Order date',false]]},
- {k:'customer',label:'Customer',group:'Customer',types:STK_ALL,size:[16,6,60],bold:true,details:[['upper','UPPERCASE',true]]},
- {k:'po',label:'PO',group:'Customer',types:STK_ALL,size:[11,6,48],details:[['label','"PO" label',true]]},
- {k:'mark',label:'Mark',group:'Customer',types:STK_ALL,size:[11,6,60],details:[['label','"Mark" label',true]]},
- {k:'due',label:'Due date',group:'Customer',types:STK_ALL,size:[11,6,48],bold:true,details:[['weekday','Weekday',true],['rush','Black when Rush',true]]},
- {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[14,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
+ {k:'customer',label:'Customer',group:'Customer',types:STK_ALL,size:[20,6,60],bold:true,details:[['upper','UPPERCASE',true]]},
+ {k:'po',label:'PO',group:'Customer',types:STK_ALL,size:[13,6,48],details:[['label','"PO" label',true]]},
+ {k:'mark',label:'Mark',group:'Customer',types:STK_ALL,size:[13,6,60],bold:true,details:[['label','"Mark" label',true]]},
+ {k:'due',label:'Due date',group:'Customer',types:STK_ALL,size:[13,6,48],bold:true,details:[['weekday','Weekday',true],['rush','Black when Rush',true]]},
+ {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
  {k:'makeup',label:'Unit makeup',group:'Glass',types:['unit'],size:[10,6,36],details:[['heading','Unit type',true],['thickness','Overall thickness',true],['code','Makeup code',false],['glass','Glass of each lite',true],['heat','Treatment',true],['surface','Surfaces',true],['film','Interlayer and mm',true],['spacer','Spacer',true],['gas','Gas',true],['sealant','Sealants',false],['muntin','Muntins',true]]},
  {k:'summary',label:'Unit makeup code',group:'Glass',types:['final'],size:[9,6,36],details:[['label','"Unit" label',true]]},
- {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[24,8,72],bold:true,details:[['cut','"CUT" before cut size',true]]},
- {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[11,6,48],details:[]},
- {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[11,6,48],details:[]},
- {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[80,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
- {k:'route',label:'Route by station',group:'Production',types:['production'],size:[26,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
- {k:'services',label:'Services',group:'Production',types:['production'],size:[10,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
+ {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[36,8,90],bold:true,details:[]},
+ {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
+ {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
+ {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
+ {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
+ {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['border','Safety border',true],['station','Station before service',false]]},
  {k:'divider',label:'Divider line',group:'Other',types:STK_ALL,size:[1,0.5,6],graphic:true,multi:true,details:[]},
  {k:'text',label:'Custom text',group:'Other',types:STK_ALL,size:[14,6,72],bold:true,multi:true,details:[]}
 ];
@@ -21627,26 +21635,32 @@ function stkDetailsBase(def){const d={};(def.details||[]).forEach(x=>{d[x[0]]=x[
 let stkBlockSeq=0;
 function stkBlock(k,at,size,extra){
  const def=stkBlockDef(k);
- return Object.assign({id:'b'+(++stkBlockSeq).toString(36)+Date.now().toString(36).slice(-3),k,on:true,at,size:size==null?def.size[0]:size,bold:!!def.bold,details:stkDetailsBase(def),text:''},extra||{});
+ return Object.assign({id:'b'+(++stkBlockSeq).toString(36)+Date.now().toString(36).slice(-3),k,on:true,at,size:size==null?def.size[0]:size,bold:!!def.bold,align:'auto',details:stkDetailsBase(def),text:''},extra||{});
 }
 /* Базовые шаблоны под каждый стикер и формат. 4×6 стоя, 3×4 лёжа — как
-   этикетка Spil сейчас; ориентацию владелец меняет в конструкторе. */
+   этикетка Spil сейчас; ориентацию владелец меняет в конструкторе.
+   Владелец, 17 сентября 2026, после первой печати: «стикер как будто
+   пустует» — кегли крупнее, свободное место раскладка делит между строками,
+   форма включена во всех форматах. */
 function stkBase(type,size,orient){
- const small=size==='3x4',land=orient?orient==='landscape':small,B=stkBlock,S=(big,sm)=>small?sm:big;
- let head;
- if(land)head=[B('company','left',S(8,8),{on:!small}),B('order','left',S(34,24)),B('unit','left',S(12,9)),B('batch','left',S(9,8)),B('barcode','right',S(44,30))];
- else if(small)head=[B('barcode','full',30),B('order','left',24),B('batch','right',8),B('unit','full',9)];
- else head=[B('company','left',8),B('batch','right',10),B('barcode','full',44),B('divider','full',1),B('order','full',34),B('unit','full',12)];
- const T=land||small?(big,sm)=>small?sm:Math.round(big*.85):(big)=>big;
- const who=[B('customer','full',T(16,11)),B('po','left',T(11,9)),B('mark','left',T(11,9)),B('due','right',T(11,9)),B('orderInfo','left',T(10,8),{on:false})];
- const sizes=land||small
-  ?[B('size','left',T(24,18)),B('area','right',T(11,9)),B('weight','right',T(11,9)),B('shape','right',T(56,40),{on:false})]
-  :[B('size','left',24),B('area','left',10),B('weight','left',10),B('shape','right',80)];
+ const small=size==='3x4',land=orient?orient==='landscape':small,B=stkBlock,unit=type==='unit',fin=type==='final',prod=type==='production';
+ /* Кегль по формату: [4×6 стоя, 4×6 лёжа, 3×4 стоя, 3×4 лёжа]. */
+ const k=small?(land?3:2):(land?1:0),z=a=>a[k];
  const tpl=blocks=>({orient:land?'landscape':'portrait',blocks});
- if(type==='unit')return tpl(head.filter(b=>b.k!=='batch').concat(who,[B('makeup','full',T(10,8))],sizes,[B('text','full',12,{on:false,text:'HANDLE WITH CARE'})]));
- const mid=[B('glass','full',T(14,11))].concat(sizes);
- if(type==='final')return tpl(head.concat(who,mid,[B('summary','full',T(9,8)),B('text','full',12,{on:false,text:'HANDLE WITH CARE'})]));
- return tpl(head.concat(who,mid,[B('text','full',12,{on:false,text:'HANDLE WITH CARE'}),B('route','bottom',T(26,18)),B('services','bottom',T(10,8))]));
+ const extra=B('text','full',z([14,12,10,9]),{on:false,text:'HANDLE WITH CARE'}),info=B('orderInfo','left',z([11,10,8,8]),{on:false});
+ const tail=prod?[extra,B('route','bottom',z([28,22,18,16])),B('services','bottom',z([12,10,9,8]))]:fin?[B('summary','full',z([10,9,8,7])),extra]:[extra];
+ if(land){
+  /* Лёжа — две колонки: текст слева; штрихкод, дата, площадь, вес и форма справа. */
+  const left=[B('company','left',9,{on:!small}),B('order','left',z([0,28,0,20])),B('unit','left',z([0,12,0,8])),B('customer','left',z([0,14,0,10])),B('po','left',z([0,11,0,8])),B('mark','left',z([0,12,0,8])),info]
+   .concat(unit?[]:[B('glass','left',z([0,12,0,9]))],[B('size','left',z([0,24,0,17]))]);
+  const right=[B('barcode','right',z([0,42,0,28]))].concat(unit?[]:[B('batch','right',z([0,11,0,8]))],[B('due','right',z([0,11,0,8])),B('area','right',z([0,11,0,8])),B('weight','right',z([0,11,0,8])),B('shape','right',z([0,50,0,36]))]);
+  return tpl(left.concat(right,unit?[B('makeup','full',z([0,8.5,0,7]))]:[],tail));
+ }
+ /* Стоя — строки сверху вниз. */
+ const head=[B('company','left',z([9,0,8,0]),{on:!small})].concat(unit?[]:[B('batch','right',z([12,0,9,0]))],[B('barcode','full',z([44,0,30,0])),B('divider','full',1,{on:!small}),B('order','full',z([34,0,22,0])),B('unit','full',z([14,0,9,0]))]);
+ const who=[B('customer','full',z([18,0,11,0])),B('po','left',z([13,0,9,0])),B('due','right',z([13,0,9,0])),B('mark','full',z([14,0,9,0])),info];
+ const dims=[B('size','left',z([32,0,20,0])),B('area','left',z([13,0,8,0])),B('weight','left',z([13,0,8,0])),B('shape','right',z([64,0,36,0]))];
+ return tpl(head.concat(who,unit?[B('makeup','full',z([10,0,7,0]))]:[B('glass','full',z([15,0,10,0]))],dims,tail));
 }
 /* Шаблон из хранилища приводится к каталогу: неизвестный блок отбрасывается,
    размер держится в пределах блока, новые блоки каталога дописываются
@@ -21661,7 +21675,7 @@ function stkCleanTemplate(type,size,raw){
   let id=typeof b.id==='string'&&/^[\w-]{1,40}$/.test(b.id)&&!ids.has(b.id)?b.id:stkBlock(def.k,'full').id;ids.add(id);
   const n=Number(b.size),details=stkDetailsBase(def);
   (def.details||[]).forEach(x=>{if(b.details&&typeof b.details[x[0]]==='boolean')details[x[0]]=b.details[x[0]];});
-  blocks.push({id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,80):''});
+  blocks.push({id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',align:STK_ALIGNS.some(a=>a.k===b.align)?b.align:'auto',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,STK_TEXT_MAX):''});
  });
  base.blocks.forEach(b=>{if(!blocks.some(x=>x.k===b.k))blocks.push(Object.assign(b,{on:false}));});
  return {orient:src.orient==='landscape'?'landscape':'portrait',blocks};
@@ -21682,10 +21696,32 @@ function stkDue(v){
  const d=new Date(+m[1],+m[2]-1,+m[3]);
  return {day:DOC_MONTHS[d.getMonth()]+' '+d.getDate(),weekday:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]};
 }
+/* Поля для Custom text: «{Customer: Phone}». Владелец, 17 сентября 2026:
+   «нет возможности добавить свои переменные — придётся просить тебя
+   подтянуть данные». Список собирается сам из заказа, клиента и позиции:
+   новое поле в программе сразу появляется в списке, без правки стикеров. */
+function stkHuman(k){return String(k).replace(/([a-z0-9])([A-Z])/g,'$1 $2').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().toLowerCase().replace(/^./,c=>c.toUpperCase());}
+function stkVarValue(v){
+ if(v==null||v==='')return '';if(typeof v==='boolean')return v?'Yes':'No';if(typeof v==='number')return String(Math.round(v*100)/100);
+ const t=String(v);if(/^\d{4}-\d{2}-\d{2}(T|$)/.test(t)){const d=stkDue(t.slice(0,10));return d.day?d.weekday+' '+d.day:t;}
+ return t.replace(/\s*\n\s*/g,' ');
+}
+function stkVars(o,l,li){
+ const vars={},skip=/(^id$|Id$|Ids$|Ref$|16$|^price|Price|Override$|^rev$|Rev$|fingerprint)/i;
+ const add=(group,obj,depth)=>Object.keys(obj||{}).forEach(k=>{
+  const v=obj[k];if(skip.test(k)||Array.isArray(v))return;
+  if(v&&typeof v==='object'){if(depth<1)add(group+': '+stkHuman(k),v,depth+1);return;}
+  const label=group.includes(':')?group+' '+stkHuman(k).toLowerCase():group+': '+stkHuman(k);vars[label]=stkVarValue(v);
+ });
+ add('Order',o,0);add('Customer',typeof salesFindCustomer==='function'?salesFindCustomer(o.customerId):null,0);add('Line',l,0);
+ Object.assign(vars,{'Line: Number':String(li+1),'Line: Width':frac16(l.width16/16)+'″','Line: Height':frac16(l.height16/16)+'″','Order: Status':typeof salesStatusLabel==='function'?salesStatusLabel(o):o.status,'Customer: Name':salesCustomerDisplay(o.customerId)});
+ return vars;
+}
+function stkFill(text,d){return String(text||'').replace(/\{([^{}]{1,80})\}/g,(m,k)=>d&&d.vars&&Object.prototype.hasOwnProperty.call(d.vars,k.trim())?d.vars[k.trim()]:'');}
 function stkOrderData(o,l,li){
  const due=stkDue(o.dueDate);
  return {order:o.businessNumber||'',line:li+1,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',mark:l.mark||'',due:due.day,dueWeekday:due.weekday,
-  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day};
+  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day,vars:stkVars(o,l,li)};
 }
 /* Одно стекло: название и код, толщина, закалка, HST, сторона покрытия,
    фрит и спандрел со своей стороной. Сторона берётся тем же контрактом, что
@@ -21697,10 +21733,29 @@ function stkGlassInfo(pane,index,ply){
   heatSoak:!!(spec&&spec.heatSoak&&ht&&ht.code==='FT'),surface:coat?coat.where:'',paint:treatments.filter(t=>t.kind!=='coating').map(t=>t.summary),ply:ply||''};
 }
 function stkPieceArea(l,o){const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;}
-function stkShape(l){
- const s=salesLineGeometryShape(l);if(!s||salesShapeIsLineRect(s))return null;
- const r=ShapeModule.compute(s);return r&&r.valid&&(r.points||[]).length>2?{points:r.points.map(p=>[+p[0],+p[1]])}:null;
+function stkPlan(o,l){try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}}
+function stkIsRect(pts){
+ if(!pts||pts.length!==4)return false;
+ const xs=new Set(pts.map(p=>Math.round(p[0]*1000))),ys=new Set(pts.map(p=>Math.round(p[1]*1000)));
+ return xs.size===2&&ys.size===2;
 }
+/* Контур — из плана резки лайта (тот же, что режут: DXF, своя форма лайта,
+   зеркало). Прямоугольник без отверстий и вырезов контур не печатает.
+   Владелец, 17 сентября 2026: форма подтягивалась не всегда — брали фигуру
+   позиции, а не лайта, и в шаблонах лёжа и 3×4 блок был выключен. */
+function stkShapeOf(lite){
+ if(!lite)return null;
+ const pts=(lite.finishedPoints||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));if(pts.length<3)return null;
+ const fg=lite.result&&lite.result.featureGeometry||{},src=(lite.result&&lite.result.points||pts).map(p=>+p[0]),minX=Math.min(...src),maxX=Math.max(...src),mx=x=>lite.mirrored?minX+maxX-x:x;
+ const holes=(fg.holes||[]).map(h=>({x:mx(+h.center[0]),y:+h.center[1],d:+h.diameter})).filter(h=>h.d>0&&Number.isFinite(h.x)&&Number.isFinite(h.y));
+ const polys=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(p=>[mx(+p[0]),+p[1]])).filter(p=>p.length>2);
+ if(stkIsRect(pts)&&!holes.length&&!polys.length)return null;
+ return {points:pts,holes,polys};
+}
+function stkFinished(lite,l){return lite&&+lite.finishedW>0&&+lite.finishedH>0?{w:+lite.finishedW,h:+lite.finishedH}:{w:l.width16/16,h:l.height16/16};}
+/* Бордер резки — в сервисах, а не в размере: «размер должен быть конечного
+   результата, бордер можно показывать в разделе сервисов» (владелец). */
+function stkBorder(plan){const b=plan&&plan.valid&&plan.safetyBorder;return b&&b.applies&&+b.value>0?{value:+b.value,edges:(b.edgeIds||[]).slice()}:null;}
 /* Маршрут стекла — та же полоса, что на печатном листе чертежа. К ней
    дописываются станции «always», которых нет в полосе (SHIPR, SHIP). */
 function stkRoute(o,l,c){
@@ -21722,12 +21777,12 @@ function stkGlassData(kind,o,l,c,unit,opts){
  opts=opts||{};
  return finWithOrder(o,()=>{
   const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
-  const plan=(()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}})(),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
+  const plan=stkPlan(o,l),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
   return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:cut?{w:cut.cutW,h:cut.cutH}:null,finished:{w:l.width16/16,h:l.height16/16},area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
-   shape:stkShape(l),route:kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+   cut:cut?{w:cut.cutW,h:cut.cutH}:null,finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   shape:stkShapeOf(cut),route:kind==='production'?Object.assign(stkRoute(o,l,c),{border:stkBorder(plan)}):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
 function stkUnitData(o,l,unit){
@@ -21741,16 +21796,17 @@ function stkUnitData(o,l,unit){
     rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
    else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
   });
-  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  const plan=stkPlan(o,l),lite=plan.valid&&(plan.lites||[])[0],mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
   return Object.assign(stkOrderData(o,l,li),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
    heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
-   finished:{w:l.width16/16,h:l.height16/16},cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShape(l)});
+   finished:stkFinished(lite,l),cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShapeOf(lite)});
  });
 }
 /* Образец для конструктора, когда в программе ещё нет заказов. */
 function stkDemoData(type){
  const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
-  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37,h:71},area:18.24,shape:null};
+  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37,h:71},area:18.24,shape:null,
+  vars:{'Customer: Name':'Northside Windows','Customer: Phone':'416 555 0199','Line: Mark':'Kitchen W2','Order: Notes':'Call before delivery'}};
  const glass={name:'Solarban 60 on Clear 6mm',code:'6SBN60',mm:6,heat:'Tempered',heatSoak:false,surface:'#2',paint:[],ply:''};
  if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},
   rows:[{kind:'glass',label:'Lite 1',glass:Object.assign({},glass,{name:'Clear 6mm',code:'6CLEAR',surface:''})},{kind:'space',label:'Space',spacer:'Black Warm Edge 17/32″',gas:'Argon',sealant:'PIB / PS'},{kind:'glass',label:'Lite 2',glass}]});
@@ -21821,71 +21877,80 @@ function stkWrap(s,size,bold,maxW){
 function stkBarModule(id,w){const n=barcode128Width(id);return STK_BAR_MODULES.find(m=>n*m<=w)||0;}
 function stkNeedWidth(b,d){return b.k==='barcode'&&d.id?barcode128Width(d.id)*STK_BAR_MODULES[STK_BAR_MODULES.length-1]:0;}
 function stkWantWidth(b,d,max){if(b.k!=='barcode'||!d.id)return 0;const n=barcode128Width(d.id),m=STK_BAR_MODULES.find(v=>n*v<=max);return m?n*m:n*STK_BAR_MODULES[STK_BAR_MODULES.length-1];}
-/* Один блок. draw=false — только высота. Возвращает высоту в pt (0 — нечего печатать). */
-function stkRenderBlock(b,d,x,y,w,align,out){
- const det=b.details||{},sz=Math.max(6,+b.size||10),bold=!!b.bold,R=x+w,right=align==='right',K='#000000',Wt='#ffffff';
- const text=(s,xx,yy,size,bld,o)=>{o=o||{};let str=String(s==null?'':s);if(o.fit!==false)str=stkFit(str,size,bld,o.max||w);
-  const anchor=o.center?'center':right&&!o.left?'right':'';out.push({t:'text',s:str,x:o.center?xx:anchor==='right'?R:xx,y:yy,size,bold:bld,color:o.color||K,align:anchor});return docTextWidth(str,size,bld);};
- const lines=(s,size,bld,max,n)=>stkWrap(String(s||''),size,bld,max||w).filter(Boolean).slice(0,n||2);
- const para=(s,size,bld,n)=>{const ls=lines(s,size,bld,w,n);ls.forEach((t,i)=>text(t,x,y+size*.9+i*size*1.18,size,bld,{fit:false}));return ls.length?ls.length*size*1.18+size*.15:0;};
+/* Выравнивание блока: своё (Left / Center / Right) или по месту — правая
+   колонка вправо, штрихкод и маршрут по центру, остальное влево.
+   Владелец, 17 сентября 2026: «баркод хоть и Full, но тянет правее, и в
+   конструкторе нельзя отцентровать». */
+function stkAlignOf(b,col){if(b.align&&b.align!=='auto')return b.align;if(col==='right')return 'right';return b.k==='barcode'?'center':'left';}
+/* Один блок в прямоугольнике x, y, w. Возвращает высоту в pt (0 — печатать нечего). */
+function stkRenderBlock(b,d,x,y,w,col,out){
+ const det=b.details||{},sz=Math.max(6,+b.size||10),bold=!!b.bold,R=x+w,A=stkAlignOf(b,col),K='#000000',Wt='#ffffff';
+ const ax=tw=>A==='right'?R-tw:A==='center'?x+(w-tw)/2:x;
+ const put=(s,xx,yy,size,bld,color)=>out.push({t:'text',s,x:xx,y:yy,size,bold:bld,color:color||K,align:''});
+ const line=(s,yy,size,bld)=>{const t=stkFit(s,size,bld,w);put(t,ax(docTextWidth(t,size,bld)),yy,size,bld);};
+ const para=(s,size,bld,n)=>{const ls=stkWrap(String(s||''),size,bld,w).filter(Boolean).slice(0,n||2);ls.forEach((t,i)=>line(t,y+size*.9+i*size*1.18,size,bld));return ls.length?ls.length*size*1.18+size*.15:0;};
  const rect=(xx,yy,ww,hh,o)=>out.push(Object.assign({t:'rect',x:xx,y:yy,w:ww,h:hh,fill:K},o||{}));
  /* Номер заказа и размер не обрезаются многоточием — кегль уменьшается. */
  const shrink=(s,size,bld,max)=>{let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
  switch(b.k){
   case 'company':{
-   const c=DB.company||{},name=det.name?String(c.legalName||''):'',logo=det.logo&&c.logo?c.logo:'';if(!name&&!logo)return 0;
-   let lw=0;if(logo){const info=typeof docJpegInfo==='function'?docJpegInfo(logo):null,h=sz*1.9,ww=info&&info.h?h*info.w/info.h:h*2;lw=Math.min(ww,w*.5);out.push({t:'image',href:logo,x:right?R-lw:x,y,w:lw,h:Math.min(h,lw*(info&&info.w?info.h/info.w:.5))});}
-   if(name){const nx=logo&&!right?x+lw+6:x,max=w-(logo?lw+6:0);out.push({t:'text',s:stkFit(name.toUpperCase(),sz,bold,max),x:right?(logo?R-lw-6:R):nx,y:y+(logo?sz*1.4:sz*.9),size:sz,bold,color:K,align:right?'right':''});}
-   return logo?sz*1.9+2:sz*1.15;}
-  case 'batch':{if(!d.batch)return 0;text(d.batch,x,y+sz*.9,sz,bold);return sz*1.15;}
+   const c=DB.company||{},name=det.name?String(c.legalName||'').toUpperCase():'',logo=det.logo&&c.logo?c.logo:'';if(!name&&!logo)return 0;
+   const info=logo&&typeof docJpegInfo==='function'?docJpegInfo(logo):null,lh=sz*1.9,lw=logo?Math.min(w*.5,info&&info.h?lh*info.w/info.h:lh*2):0;
+   const nm=name?stkFit(name,sz,bold,w-(logo?lw+6:0)):'',tw=lw+(logo&&nm?6:0)+(nm?docTextWidth(nm,sz,bold):0),sx=ax(tw);
+   if(logo)out.push({t:'image',href:logo,x:sx,y,w:lw,h:lh});
+   if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
+   return logo?lh+2:sz*1.15;}
+  case 'batch':{if(!d.batch)return 0;line(d.batch,y+sz*.9,sz,bold);return sz*1.15;}
   case 'barcode':{
    if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
-   const bw=barcode128Width(d.id)*m,bx=right?R-bw:align==='left'?x:x+(w-bw)/2,ns=Math.max(7,Math.min(16,sz*.26));
+   const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=Math.max(7,Math.min(16,sz*.26));
    barcode128Items(d.id,bx,y,sz,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
    if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+sz+ns+1,size:ns,bold:true,color:K,align:'center'});return sz+ns+4;}
    return sz+2;}
   case 'order':{
-   const t=d.order+(det.line?' / '+d.line:''),rs=Math.max(7,Math.round(sz*.4)),rw=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs+8:0,f=shrink(t,sz,bold,w-rw),tw=text(t,x,y+sz*.82,f,bold,{fit:false});
-   if(rw){const rx=right?R-tw-rw:x+tw+8;rect(rx,y+sz*.82-rs-5,rw-8,rs+8);out.push({t:'text',s:d.recut,x:rx+(rw-8)/2,y:y+sz*.82-2,size:rs,bold:true,color:Wt,align:'center'});}
+   const t=d.order+(det.line?' / '+d.line:''),rs=Math.max(7,Math.round(sz*.4)),tag=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs:0,f=shrink(t,sz,bold,w-(tag?tag+8:0)),tw=docTextWidth(t,f,bold),sx=ax(tw+(tag?tag+8:0));
+   put(t,sx,y+sz*.82,f,bold);
+   if(tag){const rx=sx+tw+8;rect(rx,y+sz*.82-rs-5,tag,rs+8);out.push({t:'text',s:d.recut,x:rx+tag/2,y:y+sz*.82-2,size:rs,bold:true,color:Wt,align:'center'});}
    return sz*.95;}
   case 'unit':{
-   const bits=[];if(det.unit&&!d.recut&&d.unit)bits.push((d.kind==='unit'?'Unit ':'Unit ')+d.unit+' of '+d.of);
+   const bits=[];if(det.unit&&!d.recut&&d.unit)bits.push('Unit '+d.unit+' of '+d.of);
    if(det.lite&&d.lite&&d.lites>1)bits.push('Lite '+d.lite+' of '+d.lites);else if(det.lite&&d.lite&&d.recut)bits.push('Lite '+d.lite);
-   if(!bits.length)return 0;text(bits.join(' · '),x,y+sz*.9,sz,bold);return sz*1.2;}
-  case 'orderInfo':{const bits=[det.priority&&d.priority,det.delivery&&d.delivery,det.created&&d.created?'Ordered '+d.created:''].filter(Boolean);if(!bits.length)return 0;text(bits.join(' · '),x,y+sz*.9,sz,bold);return sz*1.2;}
+   if(!bits.length)return 0;line(bits.join(' · '),y+sz*.9,sz,bold);return sz*1.2;}
+  case 'orderInfo':{const bits=[det.priority&&d.priority,det.delivery&&d.delivery,det.created&&d.created?'Ordered '+d.created:''].filter(Boolean);if(!bits.length)return 0;line(bits.join(' · '),y+sz*.9,sz,bold);return sz*1.2;}
   case 'customer':{if(!d.customer)return 0;return para(det.upper?String(d.customer).toUpperCase():d.customer,sz,bold,2);}
-  case 'po':{if(!d.po)return 0;text((det.label?'PO  ':'')+d.po,x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'po':{if(!d.po)return 0;line((det.label?'PO  ':'')+d.po,y+sz*.9,sz,bold);return sz*1.2;}
   case 'mark':{if(!d.mark)return 0;return para((det.label?'Mark  ':'')+d.mark,sz,bold,2);}
   case 'due':{
-   if(!d.due)return 0;const t='Due '+(det.weekday&&d.dueWeekday?d.dueWeekday+' ':'')+d.due,tw=docTextWidth(t,sz,bold)+sz*1.2,h=sz*1.55,bx=right?R-tw:x,black=det.rush&&d.rush;
+   if(!d.due)return 0;const t='Due '+(det.weekday&&d.dueWeekday?d.dueWeekday+' ':'')+d.due,tw=Math.min(w,docTextWidth(t,sz,bold)+sz*1.2),h=sz*1.55,bx=ax(tw),black=det.rush&&d.rush;
    rect(bx,y,tw,h,black?{}:{fill:'none',stroke:K,sw:1.2});out.push({t:'text',s:t,x:bx+tw/2,y:y+h/2+sz*.35,size:sz,bold,color:black?Wt:K,align:'center'});return h+1;}
   case 'glass':{if(!d.glass)return 0;return para(stkGlassText(d.glass,det),sz,bold,2);}
   case 'summary':{if(!d.summary)return 0;return para((det.label?'Unit  ':'')+d.summary,sz,bold,2);}
   case 'makeup':{
+   /* Состав — таблица: подписи строк слева, текст с отступом. */
    if(!d.rows)return 0;let yy=y;const hs=sz*1.2;
    const head=[det.heading&&d.heading,det.thickness&&d.thicknessMm?d.thicknessMm.toFixed(1)+' mm':''].filter(Boolean).join(' · ');
-   if(head){out.push({t:'text',s:stkFit(head,hs,true,w),x,y:yy+hs*.9,size:hs,bold:true,color:K,align:''});yy+=hs*1.25;}
-   if(det.code&&d.code){lines(d.code,sz,false,w,2).forEach(t=>{out.push({t:'text',s:t,x,y:yy+sz*.9,size:sz,bold:false,color:K,align:''});yy+=sz*1.2;});}
+   if(head){const t=stkFit(head,hs,true,w);put(t,ax(docTextWidth(t,hs,true)),yy+hs*.9,hs,true);yy+=hs*1.25;}
+   if(det.code&&d.code){stkWrap(d.code,sz,false,w).filter(Boolean).slice(0,2).forEach(t=>{put(t,x,yy+sz*.9,sz,false);yy+=sz*1.2;});}
    const lab=docTextWidth('Space',sz,true)+sz*.8;
    d.rows.concat(det.muntin&&d.muntin?[{kind:'muntin',label:'Grid',text:d.muntin}]:[]).forEach(r=>{
     const t=r.kind==='muntin'?r.text:stkMakeupRowText(r,det);if(!t)return;
-    out.push({t:'text',s:r.label,x,y:yy+sz*.9,size:sz,bold:true,color:K,align:''});
-    lines(t,sz,false,w-lab,2).forEach(s=>{out.push({t:'text',s,x:x+lab,y:yy+sz*.9,size:sz,bold:bold,color:K,align:''});yy+=sz*1.2;});
+    put(r.label,x,yy+sz*.9,sz,true);
+    stkWrap(t,sz,bold,w-lab).filter(Boolean).slice(0,2).forEach(s=>{put(s,x+lab,yy+sz*.9,sz,bold);yy+=sz*1.2;});
    });
    return yy-y;}
   case 'size':{
-   const cut=d.kind==='production'&&d.cut,dim=cut||d.finished;if(!dim)return 0;
-   const t=frac16(dim.w)+' × '+frac16(dim.h)+'″';let px=x;
-   if(cut&&det.cut){const ls=Math.max(6,sz*.4);px+=docTextWidth('CUT',ls,true)+ls*.5;if(!right)out.push({t:'text',s:'CUT',x,y:y+sz*.82,size:ls,bold:true,color:K,align:''});}
-   const f=shrink(t,sz,bold,w-(px-x));text(t,right?x:px,y+sz*.82,f,bold,{fit:false});if(cut&&det.cut&&right){const tw=docTextWidth(t,f,bold),ls=Math.max(6,sz*.4);out.push({t:'text',s:'CUT',x:R-tw-ls*.5,y:y+sz*.82,size:ls,bold:true,color:K,align:'right'});}
-   return sz*.98;}
-  case 'area':{if(d.area==null)return 0;text(d.area.toFixed(2)+' ft²',x,y+sz*.9,sz,bold);return sz*1.2;}
-  case 'weight':{if(!d.weight)return 0;text(stkFmtKg(d.weight),x,y+sz*.9,sz,bold);return sz*1.2;}
+   /* Готовый размер: бордер резки печатается в сервисах. */
+   const dim=d.finished;if(!dim)return 0;const t=frac16(dim.w)+' × '+frac16(dim.h)+'″',f=shrink(t,sz,bold,w);
+   put(t,ax(docTextWidth(t,f,bold)),y+sz*.82,f,bold);return sz*.98;}
+  case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
+  case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
-   if(!d.shape)return 0;const side=Math.min(w,sz),bx=right?R-side:x,pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   if(!d.shape)return 0;const side=Math.min(w,sz),bx=ax(side),pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=det.letters?9:2,inner=side-2*pad,k=Math.min(inner/((maxX-minX)||1),inner/((maxY-minY)||1));
-   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2;
-   out.push({t:'path',d:'M'+pts.map(p=>(ox+(p[0]-minX)*k).toFixed(2)+' '+(oy+(maxY-p[1])*k).toFixed(2)).join('L')+'Z'});
+   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+   out.push({t:'path',d:path(pts)});
+   (d.shape.polys||[]).forEach(pg=>out.push({t:'path',d:path(pg)}));
+   (d.shape.holes||[]).forEach(h=>out.push({t:'circle',cx:px(h.x),cy:py(h.y),r:Math.max(1.2,h.d*k/2)}));
    if(det.letters){const ls=7,cx=bx+side/2,cy=y+side/2;[['A',bx+1,cy+2.5,''],['B',cx,y+side-1,'center'],['C',bx+side-1,cy+2.5,'right'],['D',cx,y+ls,'center']].forEach(a=>out.push({t:'text',s:a[0],x:a[1],y:a[2],size:ls,bold:true,color:K,align:a[3]}));}
    if(det.label){out.push({t:'text',s:'SHAPE',x:bx+side/2,y:y+side+8,size:7,bold:true,color:K,align:'center'});return side+10;}
    return side+2;}
@@ -21893,55 +21958,60 @@ function stkRenderBlock(b,d,x,y,w,align,out){
    if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
    while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
   case 'services':{
-   const list=d.route?d.route.services:[];if(!list.length)return 0;let cx=x,cy=y+sz*.9;const box=det.boxes?sz*.85:0,gap=box?sz*.45:0;
-   list.forEach(s=>{const t=(det.station?s.station+' · ':'')+s.text,tw=Math.min(w-box-gap,docTextWidth(t,sz,bold)),ww=box+gap+tw+sz;
-    if(cx>x&&cx+ww-sz>R){cx=x;cy+=sz*1.35;}
-    if(box)rect(cx,cy-box*.95,box,box,{fill:'none',stroke:K,sw:1});
-    out.push({t:'text',s:stkFit(t,sz,bold,w-box-gap),x:cx+box+gap,y:cy,size:sz,bold,color:K,align:''});cx+=ww;});
-   return cy-y+sz*.3;}
+   const border=det.border&&d.route&&d.route.border?[{station:'CUT',text:'BORDER '+frac16(d.route.border.value)+'″'+(d.route.border.edges.length?' · '+d.route.border.edges.join(', '):'')}]:[];
+   const list=border.concat(d.route?d.route.services:[]);if(!list.length)return 0;
+   const box=det.boxes?sz*.85:0,gap=box?sz*.45:0,rows=[[]];let used=0;
+   list.forEach(s=>{const t=stkFit((det.station?s.station+' · ':'')+s.text,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
+    if(rows[rows.length-1].length&&used+sz+ww>w){rows.push([]);used=0;}const row=rows[rows.length-1];used+=(row.length?sz:0)+ww;row.push({t,ww});});
+   rows.forEach((row,i)=>{const cy=y+sz*.9+i*sz*1.35;let cx=ax(row.reduce((a,r,j)=>a+r.ww+(j?sz:0),0));
+    row.forEach(r=>{if(box)rect(cx,cy-box*.95,box,box,{fill:'none',stroke:K,sw:1});put(r.t,cx+box+gap,cy,sz,bold);cx+=r.ww+sz;});});
+   return rows.length*sz*1.35-sz*.05;}
   case 'divider':{const t=Math.max(.5,+b.size||1);rect(x,y+2,w,t);return t+4;}
-  case 'text':{if(!b.text)return 0;return para(b.text,sz,bold,2);}
+  case 'text':{const t=stkFill(b.text,d).trim();if(!t)return 0;return para(t,sz,bold,2);}
  }
  return 0;
 }
 function stkBlockLabel(b){const def=stkBlockDef(b.k);return def?def.label+(b.k==='text'&&b.text?' "'+b.text+'"':''):b.k;}
+/* Два прохода: сначала строки и что не влезло, потом отрисовка. Свободное
+   место делится между строками (не больше 10 pt на промежуток), чтобы стикер
+   не пустовал посередине: «стикер как будто пустует» (владелец). */
 function stkLayout(tpl,size,d){
- const {w:W,h:H}=stkDims(size,tpl.orient),M=stkMargin(size),gap=size==='3x4'?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[];
+ const {w:W,h:H}=stkDims(size,tpl.orient),small=size==='3x4',M=stkMargin(size),gap=small?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[];
  const blocks=(tpl.blocks||[]).filter(b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind));
- const measure=(b,w,al)=>stkRenderBlock(b,d,0,0,w,al,[]);
- const draw=(b,x,y,w,al)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,al,out);if(h){items.push(...out);boxes.push({id:b.id,x,y,w,h});}return h;};
- /* Низ: блоки Bottom снизу вверх в своём порядке. */
- const bottom=blocks.filter(b=>b.at==='bottom');let floor=H-M;
- const bh=bottom.map(b=>measure(b,inner,'left')),total=bh.reduce((s,h)=>s+(h?h+gap:0),0);
- let by=H-M-Math.max(0,total-gap);
- bottom.forEach((b,i)=>{if(!bh[i])return;if(by<M){overflow.push(b);by+=bh[i]+gap;return;}draw(b,M,by,inner,'left');by+=bh[i]+gap;});
- if(bottom.some((b,i)=>bh[i]))floor=H-M-Math.max(0,total-gap)-gap;
- /* Верх: полноширинные блоки и группы Left / Right. */
- const top=blocks.filter(b=>b.at!=='bottom');let y=M,i=0;
+ const measure=(b,w,col)=>stkRenderBlock(b,d,0,0,w,col,[]);
+ const draw=(b,x,y,w,col)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,col,out);if(h){items.push(...out);boxes.push({id:b.id,x,y,w,h});}return h;};
+ /* Низ: блоки Bottom в своём порядке, последний — у самого края. */
+ const bottom=blocks.filter(b=>b.at==='bottom'),bh=bottom.map(b=>measure(b,inner,'full')),btotal=bh.reduce((s,h)=>s+(h?h+gap:0),0);
+ let by=H-M-Math.max(0,btotal-gap);const floor=btotal?by-gap:H-M;
+ bottom.forEach((b,i)=>{if(!bh[i])return;if(by<M)overflow.push(b);else draw(b,M,by,inner,'full');by+=bh[i]+gap;});
+ /* Верх: строки Full и группы Left / Right. */
+ const top=blocks.filter(b=>b.at!=='bottom'),rows=[];let y=M,i=0;
  while(i<top.length){
   const b=top[i];
   if(b.at==='full'){
-   if(stkNeedWidth(b,d)>inner){overflow.push(b);i++;continue;}
-   const h=measure(b,inner,'left');i++;if(!h)continue;
-   if(y+h>floor+.5){overflow.push(b);continue;}draw(b,M,y,inner,'left');y+=h+gap;continue;
+   i++;if(stkNeedWidth(b,d)>inner){overflow.push(b);continue;}
+   const h=measure(b,inner,'full');if(!h)continue;
+   if(y+h>floor+.5){overflow.push(b);continue;}rows.push({b,h});y+=h+gap;continue;
   }
   const left=[],right=[];while(i<top.length&&top[i].at!=='full'&&top[i].at!=='bottom'){(top[i].at==='right'?right:left).push(top[i]);i++;}
-  let lw=(inner-10)/2,rw=lw;
-  const wantR=Math.max(0,...right.map(x=>stkWantWidth(x,d,inner-10-inner*.4))),wantL=Math.max(0,...left.map(x=>stkWantWidth(x,d,inner-10-inner*.4)));
-  if(wantR>rw&&!left.length)rw=inner;else if(wantR>rw){rw=wantR;lw=inner-10-rw;}
-  if(wantL>lw&&!right.length)lw=inner;else if(wantL>lw){lw=wantL;rw=inner-10-lw;}
-  const fits=(list,cw)=>list.filter(x=>{if(stkNeedWidth(x,d)>cw){overflow.push(x);return false;}return true;});
-  const L=fits(left,left.length&&!right.length?inner:lw),Rr=fits(right,right.length&&!left.length?inner:rw);
+  let lw=(inner-10)/2,rw=lw;const room=inner-10-inner*.4;
+  const wantR=Math.max(0,...right.map(x=>stkWantWidth(x,d,room))),wantL=Math.max(0,...left.map(x=>stkWantWidth(x,d,room)));
+  if(wantR>rw){rw=wantR;lw=inner-10-rw;}else if(wantL>lw){lw=wantL;rw=inner-10-lw;}
+  const solo=!left.length||!right.length,L=left.filter(x=>stkNeedWidth(x,d)>(solo?inner:lw)?(overflow.push(x),false):true),Rr=right.filter(x=>stkNeedWidth(x,d)>(solo?inner:rw)?(overflow.push(x),false):true);
   const lwid=L.length&&!Rr.length?inner:lw,rwid=Rr.length&&!L.length?inner:rw;
   const lh=L.map(x=>measure(x,lwid,'left')),rh=Rr.map(x=>measure(x,rwid,'right')),sum=a=>a.reduce((s,v)=>s+(v?v+gap:0),0),gh=Math.max(sum(lh),sum(rh));
   if(!gh)continue;
   if(y+gh-gap>floor+.5){overflow.push(...L.filter((x,j)=>lh[j]),...Rr.filter((x,j)=>rh[j]));continue;}
-  let ly=y,ry=y;
-  L.forEach((x,j)=>{if(lh[j]){draw(x,M,ly,lwid,'left');ly+=lh[j]+gap;}});
-  Rr.forEach((x,j)=>{if(rh[j]){draw(x,W-M-rwid,ry,rwid,'right');ry+=rh[j]+gap;}});
-  y+=gh;
+  rows.push({L,Rr,lh,rh,lwid,rwid,h:gh-gap});y+=gh;
  }
- return {w:W,h:H,items,boxes,overflow:overflow.map(stkBlockLabel)};
+ const free=floor-(y-gap),spread=rows.length>1&&free>0?Math.min(free/(rows.length-(btotal?0:1)),small?6:10):0;
+ let yy=M;
+ rows.forEach(r=>{
+  if(r.b)draw(r.b,M,yy,inner,'full');
+  else{let ly=yy,ry=yy;r.L.forEach((x,j)=>{if(r.lh[j]){draw(x,M,ly,r.lwid,'left');ly+=r.lh[j]+gap;}});r.Rr.forEach((x,j)=>{if(r.rh[j]){draw(x,W-M-r.rwid,ry,r.rwid,'right');ry+=r.rh[j]+gap;}});}
+  yy+=r.h+gap+spread;
+ });
+ return {w:W,h:H,items,boxes,free:Math.round(free),overflow:overflow.map(stkBlockLabel)};
 }
 function stkXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function stkPageSVG(pg,widthCss,heightCss){
@@ -21951,6 +22021,7 @@ function stkPageSVG(pg,widthCss,heightCss){
   if(x.t==='text')out.push('<text x="'+n(x.x)+'" y="'+n(x.y)+'" font-size="'+n(x.size)+'"'+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.align==='right'?' text-anchor="end"':x.align==='center'?' text-anchor="middle"':'')+' xml:space="preserve">'+stkXml(x.s)+'</text>');
   else if(x.t==='rect')out.push('<rect x="'+n(x.x)+'" y="'+n(x.y)+'" width="'+n(x.w)+'" height="'+n(x.h)+'"'+(x.fill==='none'?' fill="none" stroke="'+x.stroke+'" stroke-width="'+(x.sw||1)+'"':' fill="'+x.fill+'" shape-rendering="crispEdges"')+'/>');
   else if(x.t==='path')out.push('<path d="'+x.d+'" fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round"/>');
+  else if(x.t==='circle')out.push('<circle cx="'+n(x.cx)+'" cy="'+n(x.cy)+'" r="'+n(x.r)+'" fill="none" stroke="#000000" stroke-width="1"/>');
   else if(x.t==='image')out.push('<image href="'+stkXml(x.href)+'" x="'+n(x.x)+'" y="'+n(x.y)+'" width="'+n(x.w)+'" height="'+n(x.h)+'" preserveAspectRatio="xMinYMid meet"/>');
  });
  return out.join('')+'</svg>';
@@ -22580,7 +22651,7 @@ function ncrListRow(r,cols){
      блока, блоки двигаются мышкой — в списке и прямо на стикере.
    Glass ID в окнах Sales не показывается — только на бумаге.
    ===================================================================== */
-let stkDialog=null,stkBuilder=null,stkDrag='';
+let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='';
 const STK_SIZE_PREF='glass_erp_sticker_size_v1',STK_PX=1.3;
 function stkPrefSize(){try{const v=localStorage.getItem(STK_SIZE_PREF);return STK_SIZES.some(s=>s.k===v)?v:'4x6';}catch(e){return '4x6';}}
 function stkSetPrefSize(v){try{localStorage.setItem(STK_SIZE_PREF,v);}catch(e){}}
@@ -22597,10 +22668,11 @@ function stkParseUnits(text,max){
 function stkBatchOf(o,c,unit){const x=glassBatchActive(o.id).get(c.key+'|'+unit);return x?x.batch.number:'';}
 
 /* ------------------------------ Печать ------------------------------ */
-function stkPages(jobs,size){
+/* override — шаблон «только для этой печати» из ✎ Customize. */
+function stkPages(jobs,size,override){
  const tpls={};
  return jobs.map(j=>{
-  const tpl=tpls[j.type]||(tpls[j.type]=stkTemplate(j.type,size));
+  const tpl=tpls[j.type]||(tpls[j.type]=override||stkTemplate(j.type,size));
   const d=j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});
   return stkLayout(tpl,size,d);
  });
@@ -22644,8 +22716,8 @@ function stkOpenForBatch(number){
 }
 function stkDialogType(v){stkDialogSet('type',v);}
 function stkDialogSize(v){stkDialogSet('size',v);}
-function stkDialogClose(){stkDialog=null;render();}
-function stkDialogSet(k,v){if(!stkDialog)return;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
+function stkDialogClose(){stkDialog=null;stkPrintEdit=null;render();}
+function stkDialogSet(k,v){if(!stkDialog)return;if(stkDialog[k]!==v&&(k==='type'||k==='size'))stkDialog.tpl=null;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
 function stkDialogRow(key,k,v,rerender){
  const d=stkDialog;if(!d||!d.rows[key])return;d.rows[key][k]=v;d.warning='';d.error='';
  if(rerender)render();else stkDialogRefresh();
@@ -22691,13 +22763,32 @@ function stkDialogPrint(){
  const d=stkDialog;if(!d)return;
  const r=stkDialogJobs();if(r.error){d.error=r.error;render();return;}
  if(!r.jobs.length)return;
- let pages;try{pages=stkPages(r.jobs,d.size);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
+ let pages;try{pages=stkPages(r.jobs,d.size,d.tpl);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
  const over=[...new Set(pages.flatMap(p=>p.overflow))];
  if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
  stkDialog=null;render();stkPrint(pages);
 }
+/* Трудный заказ правится на месте, а не шаблон для всех: «не проще дать
+   отредактировать точечно заказ на момент сложного стикера» (владелец,
+   17 сентября 2026). Тот же редактор, образцы — стикеры этой печати. */
+function stkPrintCustomize(){
+ const d=stkDialog;if(!d)return;const r=stkDialogJobs();if(r.error||!r.jobs.length){d.error=r.error||'Nothing to print.';render();return;}
+ const key=stkKey(d.type,d.size);
+ stkPrintEdit={type:d.type,size:d.size,drafts:{[key]:{tpl:JSON.parse(JSON.stringify(d.tpl||stkTemplate(d.type,d.size))),dirty:false}},sample:'0',sel:'',open:'',notice:'',print:true,jobs:r.jobs.slice(0,60),count:r.jobs.length};
+ render();
+}
+function stkPrintEditDone(){const d=stkDialog,e=stkPrintEdit;if(d&&e){d.tpl=JSON.parse(JSON.stringify(e.drafts[stkKey(e.type,e.size)].tpl));d.warning='';}stkPrintEdit=null;render();}
+function stkPrintEditCancel(){stkPrintEdit=null;render();}
+function stkPrintEditSave(){
+ const e=stkPrintEdit;if(!e)return;const k=stkKey(e.type,e.size),tpl=stkCleanTemplate(e.type,e.size,e.drafts[k].tpl);
+ DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:tpl});if(stkBuilder&&stkBuilder.drafts)delete stkBuilder.drafts[k];touch();stkPrintEditDone();
+}
+function stkDialogUndoLayout(){if(stkDialog){stkDialog.tpl=null;stkDialog.warning='';render();}}
 function stkDialogHTML(){
  const d=stkDialog;if(!d)return '';
+ if(stkPrintEdit)return `<div class="sales-service-modal-back sales-dialog-back"><div class="sales-service-modal sales-dialog stk-edit-modal" role="dialog" aria-modal="true" aria-label="Customize this print">
+  <div class="sales-service-modal-head"><h3>Customize this print · ${esc(stkTypeLabel(stkPrintEdit.type))} · ${esc(stkSizeDef(stkPrintEdit.size).label)}</h3><button type="button" aria-label="Close" onclick="stkPrintEditCancel()">×</button></div>
+  <div class="sales-dialog-body">${stkEditorHTML()}</div></div></div>`;
  const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} onclick="${fn}('${x.k}')">${esc(x.label)}</button>`).join('')}</div>`;
  const r=stkDialogJobs(),count=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');
  let title,sub,body='';
@@ -22725,21 +22816,23 @@ function stkDialogHTML(){
    <div class="stk-dialog-pick">${types}<div><div class="ncr-label">SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
    ${body}
    <div class="sales-quote-note stk-count${r.error?' bad':''}" data-stk-count>${esc(count)}</div>
+   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" onclick="stkDialogUndoLayout()">Undo</button></div>`:''}
    ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
    ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${r.error||!r.jobs.length?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
 }
 
 /* ---------------------------- Конструктор ---------------------------- */
 function stkBuilderState(){
+ if(stkPrintEdit)return stkPrintEdit;
  if(!stkBuilder)stkBuilder={type:'production',size:'4x6',drafts:{},sample:'',sel:'',open:'',notice:''};
  const k=stkKey(stkBuilder.type,stkBuilder.size);
  if(!stkBuilder.drafts[k])stkBuilder.drafts[k]={tpl:stkTemplate(stkBuilder.type,stkBuilder.size),dirty:false};
  return stkBuilder;
 }
 function stkDraft(){const s=stkBuilderState();return s.drafts[stkKey(s.type,s.size)];}
-function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilder.notice='';render();}
+function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilderState().notice='';render();}
 function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
@@ -22754,16 +22847,23 @@ function stkBSize(id,v,delta){
   b.size=Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2));});
 }
 function stkBBold(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.bold=!b.bold;});}
+function stkBAlign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&STK_ALIGNS.some(x=>x.k===a))b.align=a;});}
+function stkBField(id,label){if(!label)return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=((b.text||'').trim()+' {'+label+'}').trim().slice(0,STK_TEXT_MAX);});}
+function stkBAddField(label){if(!label)return;const s=stkBuilderState();stkEditTpl(t=>{const b=stkBlock('text','full',null,{text:'{'+label+'}',bold:false}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});}
 function stkBDetail(id,key,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&b.details)b.details[key]=!!on;});}
-function stkBText(id,v){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=String(v||'').slice(0,80);});}
+function stkBText(id,v){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=String(v||'').slice(0,STK_TEXT_MAX);});}
 function stkBAdd(k){
  const s=stkBuilderState();
- stkEditTpl(t=>{const b=stkBlock(k,'full',null,k==='text'?{text:'TEXT'}:{}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=b.id;});
+ stkEditTpl(t=>{const b=stkBlock(k,'full',null,k==='text'?{text:'TEXT'}:{}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});
 }
 function stkBRemove(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id),def=b&&stkBlockDef(b.k);if(def&&def.multi)t.blocks=t.blocks.filter(x=>x.id!==id);});}
-function stkBSelect(id){const s=stkBuilderState();s.sel=s.sel===id?'':id;render();}
-function stkBOpen(id){const s=stkBuilderState();s.open=s.open===id?'':id;s.sel=id;render();}
-function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
+/* Клик по блоку в списке или на стикере выделяет его и открывает настройки. */
+function stkBSelect(id){
+ const s=stkBuilderState();s.sel=s.open=s.open===id?'':id;render();
+ const r=s.sel&&document.querySelector('[data-stk-block="'+s.sel+'"]');if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
+}
+function stkBOpen(id){stkBSelect(id);}
+function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
 function stkBSave(){
  const s=stkBuilderState(),d=stkDraft(),k=stkKey(s.type,s.size);
  DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:stkCleanTemplate(s.type,s.size,d.tpl)});
@@ -22778,14 +22878,14 @@ function stkMoveBlock(from,to,where,adopt){
   if(target.at==='bottom')b.at='bottom';else if(adopt)b.at=target.at;else if(b.at==='bottom')b.at='full';
   const j=t.blocks.indexOf(target);t.blocks.splice(where==='after'?j+1:j,0,b);
   t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));
-  stkBuilder.sel=b.id;
+  const st=stkBuilderState();st.sel=st.open=b.id;
  });
 }
 function stkMoveToZone(from,zone){
  stkEditTpl(t=>{const i=t.blocks.findIndex(b=>b.id===from);if(i<0)return;const [b]=t.blocks.splice(i,1);
   if(zone==='bottom')b.at='bottom';else if(b.at==='bottom')b.at='full';
   const top=t.blocks.filter(x=>x.at!=='bottom'),bot=t.blocks.filter(x=>x.at==='bottom');
-  t.blocks=zone==='bottom'?top.concat(bot,[b]):top.concat([b],bot);stkBuilder.sel=b.id;});
+  t.blocks=zone==='bottom'?top.concat(bot,[b]):top.concat([b],bot);const st=stkBuilderState();st.sel=st.open=b.id;});
 }
 function stkDragStart(e,id){stkDrag=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(x){}}
 function stkDragOver(e){if(!stkDrag)return;e.preventDefault();e.stopPropagation();const r=e.currentTarget.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;e.currentTarget.classList.toggle('drop-before',!after);e.currentTarget.classList.toggle('drop-after',after);}
@@ -22805,49 +22905,62 @@ function stkSamples(type){
  }));
  return out.slice(0,80);
 }
+function stkJobData(j){return j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
- const list=stkSamples(type),s=list.find(x=>x.key===stkBuilder.sample)||list[0];let data=null;
+ const st=stkBuilderState();
+ if(st.print){
+  const list=st.jobs.map((j,i)=>({key:String(i),label:(i+1)+' of '+st.count+' · Line '+(j.o.lines.indexOf(j.l)+1)+(j.type==='unit'?' · Unit '+j.unit:typeof j.unit==='string'?' · '+recutUnitText(j.unit,'?').replace(/ · \d+ of \?$/,''):' · Unit '+j.unit+' · Lite '+j.c.lite)}));
+  const i=Math.max(0,list.findIndex(x=>x.key===st.sample));return {data:stkJobData(st.jobs[i]),list,key:String(i)};
+ }
+ const list=stkSamples(type),s=list.find(x=>x.key===st.sample)||list[0];let data=null;
  if(s)try{data=type==='unit'?stkUnitData(s.o,s.l,1):stkGlassData(type,s.o,s.l,s.c,1,{batch:stkBatchOf(s.o,s.c,1)});}catch(e){data=null;}
  if(!data)return {data:stkDemoData(type),list,key:''};
  if(!data.id)data.id=type==='unit'?'U-0000000':'G-0000000';
  return {data,list,key:s.key};
 }
-function viewMdStickers(){
+function viewMdStickers(){return stkEditorHTML();}
+function stkEditorHTML(){
  const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data);
  const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
  const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
  const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
+ const fields=Object.keys(data.vars||{}).filter(k=>data.vars[k]!=='');
+ const fieldSelect=(attr,call)=>`<select ${attr} aria-label="Insert field" onchange="${call}"><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
  const row=b=>{
-  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,textLike=!def.graphic;
-  const details=open&&def.details.length?`<div class="stk-details" data-stk-details-panel="${b.id}">${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}</div>`:'';
+  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=stkAlignOf(b,b.at==='right'?'right':'full');
+  const panel=open?`<div class="stk-details" data-stk-details-panel="${b.id}">
+    ${b.k==='divider'||b.k==='route'?'':`<span class="stk-seg stk-seg-sm">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} onchange="stkBBold('${b.id}')"> Bold</label>`}
+    ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}
+    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}</div>`:'';
   return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
    <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
-   <span class="stk-name">${esc(def.label)}${b.k==='text'?` <input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="80" aria-label="Text" onchange="stkBText('${b.id}',this.value)">`:''}</span>
+   <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" onchange="stkBText('${b.id}',this.value)">`:esc(def.label)}</span>
    <select data-stk-place aria-label="Place" onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
    <span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" onchange="stkBSize('${b.id}',this.value)"><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>
-   ${textLike?`<button type="button" class="stk-icon${b.bold?' on':''}" data-stk-bold title="Bold" aria-pressed="${b.bold}" onclick="stkBBold('${b.id}')"><b>B</b></button>`:'<span class="stk-icon-sp"></span>'}
-   ${def.details.length?`<button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Details" aria-expanded="${open}" onclick="stkBOpen('${b.id}')">⚙</button>`:'<span class="stk-icon-sp"></span>'}
+   <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" onclick="stkBSelect('${b.id}')">⚙</button>
    ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
-  </div>${details}`;
+  </div>${panel}`;
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
  const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${(x.x*STK_PX).toFixed(1)}px;top:${(x.y*STK_PX).toFixed(1)}px;width:${(x.w*STK_PX).toFixed(1)}px;height:${Math.max(6,x.h*STK_PX).toFixed(1)}px" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
  const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
- const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilder.sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
+ const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
   <div class="stk-head">
-   <div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
-   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>
+   ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
+   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>`}
    <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
    <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
   </div>
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
-    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button><button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
+    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
    <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;height:${H.toFixed(0)}px">${stkPageSVG(pg,W.toFixed(0),H.toFixed(0))}${hits}</div><div class="stk-fit">${fit}</div></div>
   </div>
-  <div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>
+  ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
+  :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
  </div>`;
 }
 
