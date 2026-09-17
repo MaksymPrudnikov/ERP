@@ -12,14 +12,23 @@ module.exports=async function({page,eq,ok}){
  });};
  await helpers();
 
- eq('NCR — только после выдачи: кнопка у Picked up / Delivered и Closed; до выдачи вместо неё Recut; нет у квоты, нового и отменённого',await t.p.evaluate(()=>{
+ eq('NCR — у любого сохранённого заказа (частичные отгрузки); Recut — до выдачи; нет у квоты, нового несохранённого и отменённого',await t.p.evaluate(()=>{
   oqReset();const btn=()=>[!!document.querySelector('[data-ncr-open]'),!!document.querySelector('[data-recut-open]')];
   const done=nrOrder('done'),atDone=btn();soDraft.notes='Unsaved';ncrOpenForm('ncr');const unsaved=salesDialog&&salesDialog.title;salesDialog=null;
-  soDraft=null;soEdit=null;const closed=nrOrder('closed'),atClosed=btn();soDraft=null;soEdit=null;const batched=nrOrder('batched'),atBatched=btn();
+  soDraft=null;soEdit=null;nrOrder('closed');const atClosed=btn();soDraft=null;soEdit=null;nrOrder('batched');const atBatched=btn();soDraft=null;soEdit=null;nrOrder();const atNew=btn();
   oqOrder(oqCustomer(),{kind:'quote'});const quote=btn();salesOrderNew('order');const fresh=btn();soDraft=null;soEdit=null;const c=nrOrder();salesSetRecordStatus(c,'cancelled');salesOrderEdit(c);const cancelled=btn();
-  const early=ncrCreate({orderId:batched,where:'SHIP',reasonId:nrReason('SHIP','Broke in transit'),action:'Repair',lines:{[salesRecord(batched).lines[0].id]:{on:true,qty:1,which:'unit'}}}).error;
-  return {atDone,unsaved,atClosed,atBatched,quote,fresh,cancelled,early,form:!!ncrForm};
- }),{atDone:[true,false],unsaved:'Save the order first',atClosed:[true,false],atBatched:[false,true],quote:[false,false],fresh:[false,false],cancelled:[false,false],early:'NCR is for handed-over orders',form:false});
+  return {atDone,unsaved,atClosed,atBatched,atNew,quote,fresh,cancelled,form:!!ncrForm};
+ }),{atDone:[true,false],unsaved:'Save the order first',atClosed:[true,false],atBatched:[true,true],atNew:[true,true],quote:[false,false],fresh:[false,false],cancelled:[false,false],form:false});
+
+ eq('NCR на место, до которого стекло не дошло: предупреждение, «Create anyway» создаёт; в остальных случаях без предупреждения',await t.p.evaluate(()=>{
+  oqReset();const w=(id,where,lines)=>ncrStageWarning(salesRecord(id),{where,action:'Repair',lines:Object.fromEntries(lines.map(([i,which])=>[salesRecord(id).lines[i].id,{on:true,qty:1,which}]))});
+  const fresh=nrOrder(),batched=(soDraft=null,soEdit=null,nrOrder('batched')),ready=(soDraft=null,soEdit=null,nrOrder('ready')),done=(soDraft=null,soEdit=null,nrOrder('done'));
+  const checks={newHeat:w(fresh,'HEAT',[[0,'unit'],[1,'unit']]),newOffice:w(fresh,'OFFICE',[[0,'unit']]),batchedHeat:w(batched,'HEAT',[[0,'0']]),batchedShip:w(batched,'SHIP',[[0,'unit']]),batchedShipr:w(batched,'SHIPR',[[0,'unit']]),readyShipr:w(ready,'SHIPR',[[0,'unit']]),doneShip:w(done,'SHIP',[[0,'unit']])};
+  salesOrderEdit(fresh);nrFill(fresh,{where:'HEAT',reason:'Exploded in furnace',action:'Repair',lines:[[0,1,'unit']]});ncrFormCreate();
+  const first={warning:(document.querySelector('[data-ncr-warning]')||{}).textContent,button:document.querySelector('[data-ncr-create]').textContent,records:DB.ncr.length};
+  ncrFormCreate();return Object.assign(checks,{first,created:DB.ncr.length,number:DB.ncr[0]&&DB.ncr[0].number,status:salesRecord(fresh).status});
+ }),{newHeat:'Not cut yet · Line 1, Line 2',newOffice:'',batchedHeat:'',batchedShip:'No shipment in the system yet',batchedShipr:'Order not ready for shipping yet',readyShipr:'',doneShip:'',
+  first:{warning:'⚠ Not cut yet · Line 1',button:'Create anyway',records:0},created:1,number:'NCR1001',status:'new'});
 
  eq('форма NCR: без Source и без Recut в действиях; причины только выбранного места и активные; проверки',await t.p.evaluate(()=>{
   oqReset();const id=nrOrder('done'),rec=salesRecord(id);ncrReasonSetActive(nrReason('HEAT','Roller marks'),false);ncrOpenForm('ncr');

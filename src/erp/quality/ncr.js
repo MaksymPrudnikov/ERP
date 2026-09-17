@@ -13,7 +13,7 @@
    Glass ID в Sales не показывается: стёкла выбираются позицией и лайтом.
    ===================================================================== */
 DEFAULT.ncr=[];
-const NCR_REMAKE='Remake order',NCR_AFTER_HANDOVER=['done','closed'];
+const NCR_REMAKE='Remake order';
 function ncrNextNumber(){let n=1000;(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
 function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
 function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
@@ -35,13 +35,37 @@ function ncrStatus(n){
  return 'Done';
 }
 function ncrPieces(n){return (n.glass||[]).reduce((s,g)=>s+g.qty*(n.action===NCR_REMAKE?1:(g.keys||[]).length),0);}
-function ncrCanCreate(o){return !!o&&!salesIsQuote(o)&&NCR_AFTER_HANDOVER.includes(o.status);}
+/* NCR можно завести у любого сохранённого заказа, не только после полной
+   выдачи. Почему (владелец, 17 сентября 2026): заказы отгружают частями —
+   «в заказе 200 лами-юнитов, отправили 20 на скиде, и один оказался NCR, а
+   заказ не выдан полностью»; «пусть NCR будет произвольный». Частичных
+   отгрузок в программе пока нет (этап Shipping), поэтому статус заказа не
+   может решать за человека. Вместо запрета — предупреждение ncrStageWarning. */
+function ncrCanCreate(o){return !!o&&!salesIsQuote(o)&&o.status!=='cancelled';}
+/* Предупреждение, если программа видит, что стекло ещё не дошло до места NCR:
+   «если стекло не дошло до какой-то станции, а стикер бьют, что он NCR, —
+   уведомить». Сейчас видно только батч (резка начата) и статус заказа;
+   когда появится сканирование станций, проверка станет по каждой станции.
+   Предупреждение не запрещает: человек знает про частичную отгрузку. */
+function ncrStageWarning(o,d){
+ if(!o||!d||!d.where||d.where===NCR_OFFICE)return '';
+ if(d.where==='SHIP')return ['done','closed'].includes(o.status)?'':'No shipment in the system yet';
+ if(d.where==='SHIPR')return ['ready','done','closed'].includes(o.status)?'':'Order not ready for shipping yet';
+ const active=glassBatchActive(o.id),lines=[];
+ o.lines.forEach((l,i)=>{
+  const x=d.lines&&d.lines[l.id];if(!x||!x.on)return;
+  const keys=ncrGlassKeys(o,l,d.action===NCR_REMAKE?'unit':String(x.which||'unit'));
+  const cut=salesLineLocked(l)&&!l.batchManaged||keys.some(k=>{for(let u=1;u<=l.qty;u++)if(active.has(k+'|'+u))return true;return false;});
+  if(!cut)lines.push('Line '+(i+1));
+ });
+ return lines.length?'Not cut yet · '+lines.join(', '):'';
+}
 function ncrWhereLabel(n){return n.where===NCR_OFFICE?'Office':n.where;}
 function ncrOrderStamp(o){return JSON.stringify([o&&o.lines,o&&o.makeups,o&&o.status]);}
 /* Создание: всё проверяется до записи; ошибка возвращается текстом для окна. */
 function ncrCreate(d){
  const o=salesRecord(d&&d.orderId);
- if(!ncrCanCreate(o))return {error:'NCR is for handed-over orders'};
+ if(!ncrCanCreate(o))return {error:'NCR not available'};
  if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen NCR.'};
  if(!NCR_ACTIONS.includes(d.action))return {error:'Choose the action.'};
  const reason=ncrReasonsFor(d.where,{activeOnly:true}).find(r=>r.id===d.reasonId);

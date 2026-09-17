@@ -82,3 +82,4 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .recut-row .mut{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
 .ncr-actions-card{margin-top:16px}
+.ncr-warning{padding:8px 12px;border-radius:8px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13px}

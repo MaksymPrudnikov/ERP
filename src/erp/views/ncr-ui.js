@@ -18,17 +18,20 @@ function ncrOpenForm(kind){
 }
 function ncrFormClose(){ncrForm=null;render();}
 function ncrFormSet(key,value){
- if(!ncrForm)return;ncrForm[key]=value;ncrForm.error='';
+ if(!ncrForm)return;ncrForm[key]=value;ncrForm.error='';ncrForm.warning='';
  if(key==='where')ncrForm.reasonId='';
  render();
 }
 function ncrFormLine(lineId,key,value,redraw){
  if(!ncrForm)return;const x=ncrForm.lines[lineId]||(ncrForm.lines[lineId]={on:false,qty:'',which:'unit'});
- x[key]=value;if(key==='on'&&value&&!x.qty)x.qty=1;ncrForm.error='';if(redraw)render();
+ x[key]=value;if(key==='on'&&value&&!x.qty)x.qty=1;ncrForm.error='';ncrForm.warning='';if(redraw)render();
 }
 function ncrFormCreate(){
  if(!ncrForm)return;const lines={};Object.keys(ncrForm.lines).forEach(id=>{const x=ncrForm.lines[id];lines[id]=Object.assign({},x,{qty:String(x.qty).trim()===''?NaN:Number(x.qty)});});
- const recut=ncrForm.kind==='recut',res=recut?recutCreate(Object.assign({},ncrForm,{lines})):ncrCreate(Object.assign({},ncrForm,{lines,source:'Customer claim'}));
+ const recut=ncrForm.kind==='recut';
+ /* NCR на место, до которого стекло ещё не дошло: сначала предупреждение, второе нажатие создаёт. */
+ if(!recut&&!ncrForm.warning){const w=ncrStageWarning(salesRecord(ncrForm.orderId),Object.assign({},ncrForm,{lines}));if(w&&ncrReasonsFor(ncrForm.where,{activeOnly:true}).some(r=>r.id===ncrForm.reasonId)){ncrForm.warning=w;render();return;}}
+ const res=recut?recutCreate(Object.assign({},ncrForm,{lines})):ncrCreate(Object.assign({},ncrForm,{lines,source:'Customer claim'}));
  if(res.error){ncrForm.error=res.error;render();return;}
  ncrForm=null;if(!recut)ncrViewId=res.ncr.id;render();
 }
@@ -70,9 +73,10 @@ function ncrFormHTML(){
    </div>
    <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" oninput="ncrForm.note=this.value">${esc(f.note)}</textarea></label>
    ${ncrEffectText(f,o)?`<div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>`:''}
+   ${f.warning?`<div class="ncr-warning" role="alert" data-ncr-warning>⚠ ${esc(f.warning)}</div>`:''}
    ${f.error?`<div class="ncr-error" role="alert" data-ncr-error>${esc(f.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">${recut?'Create recut':'Create NCR'}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">${recut?'Create recut':f.warning?'Create anyway':'Create NCR'}</button></div></div></div>`;
 }
 function ncrViewHTML(){
  const n=ncrFind(ncrViewId);if(!n){ncrViewId='';return '';}
