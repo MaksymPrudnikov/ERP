@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 74 модулей, 12 стиля.
+  Состав сборки: 78 модулей, 13 стиля.
 -->
 <html lang="en">
 <head>
@@ -1576,6 +1576,76 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .ncr-actions-card{margin-top:16px}
 .ncr-warning{padding:8px 12px;border-radius:8px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13px}
 
+/* ---- src/styles/stickers.css ---- */
+/* Стикеры: окно печати, конструктор Master Data → Stickers, печать. */
+.stk-seg{display:inline-flex;border:1px solid #d0d5dd;border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.stk-seg button{border:0;border-radius:0;box-shadow:none;background:#fff;color:#344054;padding:7px 12px;font-size:13px;border-right:1px solid #d0d5dd;min-width:0}
+.stk-seg button:last-child{border-right:0}
+.stk-seg button.on{background:#1f6f9f;color:#fff}
+.stk-modal{width:860px;max-width:calc(100vw - 32px)}
+.stk-dialog{display:grid;gap:14px}
+.stk-dialog p.mut{margin:0}
+.stk-dialog .ncr-label{padding:0 0 6px}
+.stk-dialog-pick{display:flex;gap:20px;flex-wrap:wrap}
+.stk-lines input[type=text]{width:84px}
+.stk-lines tr.off td{color:#98a2b3}
+.stk-recut{color:#93370d}
+.stk-count{margin:0}
+.stk-count.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
+.stk-builder{margin-top:12px}
+.stk-head{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid #eaecf0}
+.stk-ctl .ncr-label{display:block;padding:0 0 6px}
+.stk-sample{margin-left:auto}
+.stk-sample select{min-width:260px;max-width:420px}
+.stk-grid{display:grid;grid-template-columns:minmax(0,620px) minmax(0,1fr);gap:24px;margin-top:14px;align-items:start}
+.stk-zone{border:1px solid #eaecf0;border-radius:10px;overflow:hidden;margin-bottom:10px;background:#fff}
+.stk-zone-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;background:#f8fafc;padding:6px 10px}
+.stk-zone-empty{padding:10px;font-size:12px;color:#98a2b3;text-align:center}
+.stk-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-top:1px solid #eaecf0;font-size:13px;background:#fff}
+.stk-row.off .stk-name{color:#98a2b3}
+.stk-row.sel{background:#eef4ff}
+.stk-row.drop-before{box-shadow:inset 0 2px 0 #1f6f9f}
+.stk-row.drop-after{box-shadow:inset 0 -2px 0 #1f6f9f}
+.stk-grip{color:#98a2b3;cursor:grab;letter-spacing:-2px;user-select:none}
+.stk-name{flex:1;min-width:0;cursor:pointer}
+.stk-text{width:150px;padding:3px 6px;font-size:12px;margin-left:4px}
+.stk-row select{width:84px;padding:4px 6px;font-size:12px}
+.stk-step{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:6px;overflow:hidden}
+.stk-step button{border:0;border-radius:0;box-shadow:none;background:#fff;padding:3px 8px;min-width:0;font-size:14px;line-height:1}
+.stk-step input{width:46px;border:0;border-left:1px solid #eaecf0;border-right:1px solid #eaecf0;border-radius:0;padding:3px 2px;text-align:center;font-size:12px}
+.stk-icon{border:1px solid transparent;background:transparent;box-shadow:none;border-radius:6px;padding:2px 7px;min-width:28px;font-size:13px;color:#475467}
+.stk-icon[data-stk-gear]{font-size:16px;line-height:1}
+.stk-icon.on{background:#e0f2fe;color:#026aa2;border-color:#b9e6fe}
+.stk-icon-sp{display:inline-block;width:28px}
+.stk-details{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
+.stk-details label{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#344054}
+.stk-add{display:flex;gap:8px}
+.stk-preview{background:#e4e7ec;border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
+.stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:#fff}
+.stk-paper svg{display:block}
+.stk-hit{position:absolute;cursor:grab;border-radius:2px}
+.stk-hit:hover{outline:1px dashed #1f6f9f}
+.stk-hit.sel{outline:2px solid #1f6f9f;background:rgba(31,111,159,.06)}
+.stk-hit.drop-before{box-shadow:0 -3px 0 #1f6f9f}
+.stk-hit.drop-after{box-shadow:0 3px 0 #1f6f9f}
+.pill.ok{background:#dcfae6;color:#05603a}
+.stk-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #eaecf0}
+.stk-foot .sp{flex:1}
+.stk-dirty{font-size:12px;color:#b54708}
+.stk-saved{font-size:12px;color:#05603a}
+@media(max-width:1100px){.stk-grid{grid-template-columns:minmax(0,1fr)}.stk-preview{position:static}}
+@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}}
+/* Печать: одна этикетка — одна страница без полей. Размер страницы пишется
+   перед печатью в @page stk (4×6 или 3×4, стоя или лёжа). */
+#stkPrintHost{display:none}
+@media print{
+ body.stk-printing>*{display:none!important}
+ body.stk-printing>#stkPrintHost{display:block!important}
+ .stk-print-page{page:stk;overflow:hidden;break-after:page}
+ .stk-print-page:last-child{break-after:auto}
+ .stk-print-page svg{display:block}
+}
+
 </style>
 </head>
 <body>
@@ -1597,7 +1667,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d2e4e12954b8';
+var ERP_BUILD='d4c90049ecd5';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18903,6 +18973,7 @@ const MD_TABS=[
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
  {k:'company',   label:'Company'},
+ {k:'stickers',  label:'Stickers'},
  {k:'ncr',       label:'NCR'},
  {k:'overview',  label:'Data overview'}
 ];
@@ -18958,7 +19029,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -20793,6 +20864,8 @@ function salesListView(){
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
  const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
+ const stickerOrder=selOrders.length===1&&typeof stkCanPrintOrder==='function'&&stkCanPrintOrder(salesRecord(selOrders[0]))?selOrders[0]:'';
+ const stickersBtn=`<button type="button" class="sl-quiet" data-stickers-button ${stickerOrder?'':'disabled'} onclick="stkOpenForOrder('${esc(stickerOrder)}')">Stickers</button>`;
  const rowIds=rows.filter(r=>!r.n).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
@@ -20801,7 +20874,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -20922,7 +20995,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -20933,6 +21006,7 @@ function salesListMenuRun(act){
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
  else if(act==='unbatch')glassBatchUnbatchOrder(o.id);
+ else if(act==='stickers')stkOpenForOrder(o.id);
  else if(act==='cancel')salesCancelOrder(o.id);
  else if(act==='restore')salesRestoreOrder(o.id);
  else if(act==='delete')salesOrderDelete(o.id);
@@ -21140,11 +21214,19 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&salesLineHoldMenu){
    DB.glassBatch: номер; parts — снимок стекла позиции на момент батча;
    items — одно стекло {piece, part, unit}; history — по номерам стёкол.
    Остаток — места без активной записи. Позиция под замком, пока её стекло в батче. */
-DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;
+DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
 const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
 function glassBatchClone(v){return v==null?null:JSON.parse(JSON.stringify(v));}
 function glassPieceValid(id){return typeof id==='string'&&/^G-\d{7,}$/.test(id);}
 function glassPieceNumber(id){return glassPieceValid(id)?+id.slice(2):0;}
+/* Номер юнита U-0000001 — для финального стикера на весь DGU/TGU или ламинат:
+   G-номер одного стекла отметил бы при скане только это стекло. Выдаётся
+   позиции, где стёкол два и больше, по номеру на изделие, по тем же правилам,
+   что Glass ID. DB.glassUnitId: {key: заказ|позиция, ids[изделие-1]}. */
+function unitIdValid(id){return typeof id==='string'&&/^U-\d{7,}$/.test(id);}
+function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
+function unitIdNext(){DB.glassUnitIdSeq=(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0)+1;return 'U-'+String(DB.glassUnitIdSeq).padStart(7,'0');}
+function unitIdAt(orderId,lineId,unit){const r=(DB.glassUnitId||[]).find(x=>x.key===orderId+'|'+lineId);return r&&r.ids[unit-1]||'';}
 function glassPieceNextId(){DB.glassPieceSeq=(Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0)+1;return 'G-'+String(DB.glassPieceSeq).padStart(7,'0');}
 /* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
    одну запись Glass missing: её количество не теряется из остатка заказа. */
@@ -21179,6 +21261,18 @@ function glassPieceAt(rec,unit){
  if(!rec)return '';
  if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
  return rec.ids[unit-1]||'';
+}
+/* Скан: G или U → заказ, позиция, стекло и место. Нужен станциям. */
+function glassLookup(code){
+ const id=String(code==null?'':code).trim().toUpperCase();
+ if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
+ if(!glassPieceValid(id))return null;
+ for(const r of DB.glassPiece||[]){
+  const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
+  if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
+  for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
+ }
+ return null;
 }
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 function glassBatchRemaining(o,l,active){
@@ -21219,6 +21313,17 @@ function glassPieceEnsure(o){
  });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
  if(next.length!==DB.glassPiece.length){DB.glassPiece=next;changed=true;}
+ if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
+ const units=new Set();
+ (o.lines||[]).forEach(l=>{
+  if(glassBatchComponents(o,l).filter(c=>!c.missing).length<2)return;
+  const key=o.id+'|'+l.id;units.add(key);let rec=DB.glassUnitId.find(r=>r.key===key);
+  if(!rec){rec={key,ids:[]};DB.glassUnitId.push(rec);changed=true;}
+  for(let i=0;i<l.qty;i++)if(!unitIdValid(rec.ids[i])){rec.ids[i]=unitIdNext();changed=true;}
+  if(rec.ids.length>l.qty){rec.ids.length=l.qty;changed=true;}
+ });
+ const nextUnits=DB.glassUnitId.filter(r=>!r.key.startsWith(o.id+'|')||units.has(r.key));
+ if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId=nextUnits;changed=true;}
  return changed;
 }
 /* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
@@ -21377,6 +21482,11 @@ function normalizeGlassBatches(){
   b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});
   l.batchManaged=true;l.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
  }));
+ if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
+ const unitIds=new Set(),unitKeys=new Set();
+ DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
+  .map(r=>({key:r.key,ids:r.ids.map(id=>unitIdValid(id)&&!unitIds.has(id)?(unitIds.add(id),id):'')}));
+ DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));
  (DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
@@ -21398,6 +21508,12 @@ function validateGlassBatchesPayload(src){
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
   if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^(NCR|R)\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
+ if(src.glassUnitIdSeq!=null&&!(Number.isSafeInteger(src.glassUnitIdSeq)&&src.glassUnitIdSeq>=0))throw new Error('Unit ID counter is invalid.');
+ const unitSeen=new Set();
+ (Array.isArray(src.glassUnitId)?src.glassUnitId:[]).forEach(r=>{
+  if(!r||typeof r.key!=='string'||r.key.split('|').length!==2||!Array.isArray(r.ids))throw new Error('Invalid unit ID record.');
+  r.ids.forEach(id=>{if(!unitIdValid(id)||unitSeen.has(id))throw new Error('Invalid or duplicate Unit ID.');unitSeen.add(id);});
+ });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
  const nums=new Set(),slots=new Set(),active=new Set();
@@ -21414,6 +21530,430 @@ function validateGlassBatchesPayload(src){
   });
   b.history.forEach(h=>{if(!h||typeof h.at!=='string'||typeof h.action!=='string'||!Array.isArray(h.pieces)||!Number.isFinite(h.qty))throw new Error('Invalid batch history.');});
  });
+}
+
+/* ==== src/erp/production/barcode.js ==== */
+/* =====================================================================
+   erp/production/barcode  ·  barcode-1.0
+   Линейный штрихкод Code 128 (набор B) для стикеров стёкол.
+   IN : текст номера (G-0000001, U-0000001)
+   OUT: ширины модулей и прямоугольники страницы стикера
+   Правило: без внешних библиотек — файл программы открывается с диска.
+   Сканер цеха работает как клавиатура и вводит ровно этот текст.
+   ===================================================================== */
+const BARCODE128=['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+ '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+ '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+ '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+ '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+ '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+ '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+ '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+ '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+ '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+ '114131','311141','411131','211412','211214','211232','2331112'];
+const BARCODE128_START_B=104,BARCODE128_STOP=106,BARCODE128_QUIET=10;
+/* Значения символов: старт B, данные, контрольная сумма, стоп. */
+function barcode128Values(text){
+ const s=String(text==null?'':text),vals=[BARCODE128_START_B];
+ for(const ch of s){const c=ch.charCodeAt(0);if(c<32||c>126)throw new Error('Barcode: unsupported character');vals.push(c-32);}
+ let sum=BARCODE128_START_B;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;
+ vals.push(sum%103,BARCODE128_STOP);return vals;
+}
+/* Ширины полос и промежутков по очереди, начиная с полосы. */
+function barcode128Modules(text){return barcode128Values(text).map(v=>BARCODE128[v]).join('').split('').map(Number);}
+function barcode128Width(text){return barcode128Modules(text).reduce((a,b)=>a+b,0)+2*BARCODE128_QUIET;}
+/* Прямоугольники в точках страницы. module — ширина узкой полосы: 0.02″
+   (1.44 pt) читается любым сканером и ложится в целые точки принтера. */
+function barcode128Items(text,x,y,h,module){
+ const m=module||1.44,items=[];let cx=x+BARCODE128_QUIET*m;
+ barcode128Modules(text).forEach((w,i)=>{if(i%2===0)items.push({t:'rect',x:cx,y,w:w*m,h,fill:'#000000'});cx+=w*m;});
+ return items;
+}
+
+/* ==== src/erp/production/stickers.js ==== */
+/* =====================================================================
+   erp/production/stickers  ·  stickers-1.0
+   Данные стикера стекла и шаблоны конструктора.
+   IN : заказ, позиция, стекло (glassBatchComponents), место (изделие или Recut)
+   OUT: модель стикера для erp/production/sticker-layout; DB.stickerTemplate
+
+   Владелец, 17 сентября 2026: принтер TSC, этикетки 4×6 и 3×4, стоя и лёжа.
+   Стикеры: Production — на каждое стекло; Final · each glass — финальный на
+   каждое стекло юнита; Final · whole unit — один на весь DGU/TGU, «когда
+   клиенту нужен один стикер на все». Шаблоны — в конструкторе Master Data →
+   Stickers «как конструктор документов», чтобы добавлять и настраивать без
+   программиста. Вес в kg, предупреждения «поднимать вдвоём» не нужно.
+   Модель несёт все данные сразу; какие из них печатать, решают блоки шаблона
+   и их Details. Glass ID и номер юнита есть только на самом стикере.
+   ===================================================================== */
+DEFAULT.stickerTemplate={};
+const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'}];
+const STK_SIZES=[{k:'4x6',label:'4 × 6',short:288,long:432},{k:'3x4',label:'3 × 4',short:216,long:288}];
+const STK_PLACES=[{k:'full',label:'Full'},{k:'left',label:'Left'},{k:'right',label:'Right'},{k:'bottom',label:'Bottom'}];
+const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'];
+/* Каталог блоков. size — кегль в pt у текста; у графики — высота (штрихкод,
+   маршрут), сторона контура, толщина линии. details — мелочи внутри блока:
+   [ключ, подпись, включено в базе]. Новый блок в каталоге появится и в старых
+   сохранённых шаблонах — выключенным, в конце списка. */
+const STK_BLOCKS=[
+ {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[8,9,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
+ {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[10,6,48],bold:true,details:[]},
+ {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[44,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[34,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
+ {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[12,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
+ {k:'orderInfo',label:'Order details',group:'Customer',types:STK_ALL,size:[10,6,48],details:[['priority','Priority',true],['delivery','Pickup / Delivery',true],['created','Order date',false]]},
+ {k:'customer',label:'Customer',group:'Customer',types:STK_ALL,size:[16,6,60],bold:true,details:[['upper','UPPERCASE',true]]},
+ {k:'po',label:'PO',group:'Customer',types:STK_ALL,size:[11,6,48],details:[['label','"PO" label',true]]},
+ {k:'mark',label:'Mark',group:'Customer',types:STK_ALL,size:[11,6,60],details:[['label','"Mark" label',true]]},
+ {k:'due',label:'Due date',group:'Customer',types:STK_ALL,size:[11,6,48],bold:true,details:[['weekday','Weekday',true],['rush','Black when Rush',true]]},
+ {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[14,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
+ {k:'makeup',label:'Unit makeup',group:'Glass',types:['unit'],size:[10,6,36],details:[['heading','Unit type',true],['thickness','Overall thickness',true],['code','Makeup code',false],['glass','Glass of each lite',true],['heat','Treatment',true],['surface','Surfaces',true],['film','Interlayer and mm',true],['spacer','Spacer',true],['gas','Gas',true],['sealant','Sealants',false],['muntin','Muntins',true]]},
+ {k:'summary',label:'Unit makeup code',group:'Glass',types:['final'],size:[9,6,36],details:[['label','"Unit" label',true]]},
+ {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[24,8,72],bold:true,details:[['cut','"CUT" before cut size',true]]},
+ {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[11,6,48],details:[]},
+ {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[11,6,48],details:[]},
+ {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[80,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
+ {k:'route',label:'Route by station',group:'Production',types:['production'],size:[26,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
+ {k:'services',label:'Services',group:'Production',types:['production'],size:[10,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
+ {k:'divider',label:'Divider line',group:'Other',types:STK_ALL,size:[1,0.5,6],graphic:true,multi:true,details:[]},
+ {k:'text',label:'Custom text',group:'Other',types:STK_ALL,size:[14,6,72],bold:true,multi:true,details:[]}
+];
+function stkBlockDef(k){return STK_BLOCKS.find(b=>b.k===k)||null;}
+function stkTypeLabel(k){const t=STK_TYPES.find(x=>x.k===k);return t?t.label:'Sticker';}
+function stkSizeDef(k){return STK_SIZES.find(s=>s.k===k)||STK_SIZES[0];}
+function stkKey(type,size){return type+'|'+size;}
+function stkDetailsBase(def){const d={};(def.details||[]).forEach(x=>{d[x[0]]=x[2];});return d;}
+let stkBlockSeq=0;
+function stkBlock(k,at,size,extra){
+ const def=stkBlockDef(k);
+ return Object.assign({id:'b'+(++stkBlockSeq).toString(36)+Date.now().toString(36).slice(-3),k,on:true,at,size:size==null?def.size[0]:size,bold:!!def.bold,details:stkDetailsBase(def),text:''},extra||{});
+}
+/* Базовые шаблоны под каждый стикер и формат. 4×6 стоя, 3×4 лёжа — как
+   этикетка Spil сейчас; ориентацию владелец меняет в конструкторе. */
+function stkBase(type,size,orient){
+ const small=size==='3x4',land=orient?orient==='landscape':small,B=stkBlock,S=(big,sm)=>small?sm:big;
+ let head;
+ if(land)head=[B('company','left',S(8,8),{on:!small}),B('order','left',S(34,24)),B('unit','left',S(12,9)),B('batch','left',S(9,8)),B('barcode','right',S(44,30))];
+ else if(small)head=[B('barcode','full',30),B('order','left',24),B('batch','right',8),B('unit','full',9)];
+ else head=[B('company','left',8),B('batch','right',10),B('barcode','full',44),B('divider','full',1),B('order','full',34),B('unit','full',12)];
+ const T=land||small?(big,sm)=>small?sm:Math.round(big*.85):(big)=>big;
+ const who=[B('customer','full',T(16,11)),B('po','left',T(11,9)),B('mark','left',T(11,9)),B('due','right',T(11,9)),B('orderInfo','left',T(10,8),{on:false})];
+ const sizes=land||small
+  ?[B('size','left',T(24,18)),B('area','right',T(11,9)),B('weight','right',T(11,9)),B('shape','right',T(56,40),{on:false})]
+  :[B('size','left',24),B('area','left',10),B('weight','left',10),B('shape','right',80)];
+ const tpl=blocks=>({orient:land?'landscape':'portrait',blocks});
+ if(type==='unit')return tpl(head.filter(b=>b.k!=='batch').concat(who,[B('makeup','full',T(10,8))],sizes,[B('text','full',12,{on:false,text:'HANDLE WITH CARE'})]));
+ const mid=[B('glass','full',T(14,11))].concat(sizes);
+ if(type==='final')return tpl(head.concat(who,mid,[B('summary','full',T(9,8)),B('text','full',12,{on:false,text:'HANDLE WITH CARE'})]));
+ return tpl(head.concat(who,mid,[B('text','full',12,{on:false,text:'HANDLE WITH CARE'}),B('route','bottom',T(26,18)),B('services','bottom',T(10,8))]));
+}
+/* Шаблон из хранилища приводится к каталогу: неизвестный блок отбрасывается,
+   размер держится в пределах блока, новые блоки каталога дописываются
+   выключенными. */
+function stkCleanTemplate(type,size,raw){
+ const base=stkBase(type,size),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
+ if(!src||!Array.isArray(src.blocks))return base;
+ const ids=new Set(),seen=new Set(),blocks=[];
+ src.blocks.forEach(b=>{
+  const def=b&&typeof b==='object'&&stkBlockDef(b.k);
+  if(!def||!def.types.includes(type)||!def.multi&&seen.has(def.k))return;seen.add(def.k);
+  let id=typeof b.id==='string'&&/^[\w-]{1,40}$/.test(b.id)&&!ids.has(b.id)?b.id:stkBlock(def.k,'full').id;ids.add(id);
+  const n=Number(b.size),details=stkDetailsBase(def);
+  (def.details||[]).forEach(x=>{if(b.details&&typeof b.details[x[0]]==='boolean')details[x[0]]=b.details[x[0]];});
+  blocks.push({id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,80):''});
+ });
+ base.blocks.forEach(b=>{if(!blocks.some(x=>x.k===b.k))blocks.push(Object.assign(b,{on:false}));});
+ return {orient:src.orient==='landscape'?'landscape':'portrait',blocks};
+}
+function stkTemplate(type,size){return stkCleanTemplate(type,size,DB.stickerTemplate&&DB.stickerTemplate[stkKey(type,size)]);}
+function normalizeStickerTemplates(){
+ const src=DB.stickerTemplate&&typeof DB.stickerTemplate==='object'&&!Array.isArray(DB.stickerTemplate)?DB.stickerTemplate:{},out={};
+ STK_TYPES.forEach(t=>STK_SIZES.forEach(s=>{const k=stkKey(t.k,s.k);if(src[k])out[k]=stkCleanTemplate(t.k,s.k,src[k]);}));
+ DB.stickerTemplate=out;
+}
+function validateStickerPayload(src){
+ if(src.stickerTemplate!=null&&(typeof src.stickerTemplate!=='object'||Array.isArray(src.stickerTemplate)))throw new Error('Sticker templates must be an object.');
+}
+
+/* ------------------------------ Данные ------------------------------ */
+function stkDue(v){
+ const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return {day:'',weekday:''};
+ const d=new Date(+m[1],+m[2]-1,+m[3]);
+ return {day:DOC_MONTHS[d.getMonth()]+' '+d.getDate(),weekday:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]};
+}
+function stkOrderData(o,l,li){
+ const due=stkDue(o.dueDate);
+ return {order:o.businessNumber||'',line:li+1,customer:salesCustomerDisplay(o.customerId),po:o.customerPo||'',mark:l.mark||'',due:due.day,dueWeekday:due.weekday,
+  rush:['rush','critical'].includes(o.priority),priority:o.priority&&o.priority!=='normal'?(SALES_LIST_PRIORITY[o.priority]||''):'',delivery:salesDeliveryLabel(o.delivery),created:stkDue(String(o.createdAt||'').slice(0,10)).day};
+}
+/* Одно стекло: название и код, толщина, закалка, HST, сторона покрытия,
+   фрит и спандрел со своей стороной. Сторона берётся тем же контрактом, что
+   у маршрута и схемы Makeup — второго источника нет. */
+function stkGlassInfo(pane,index,ply){
+ const spec=ply?(pane&&pane.laminated||{})[ply]:pane,g=glassProductById(spec&&spec.glassProductId),ht=spec&&mdById('heatTreatment',spec.heatTreatmentId);
+ const treatments=pane?salesRouteSurfaceTreatments(pane,index,ply||''):[],coat=treatments.find(t=>t.kind==='coating'&&t.surface);
+ return {name:g?g.name:'Unknown glass',code:g?g.code:'',mm:g&&+g.thicknessMm||+(spec&&spec.thicknessMm)||null,heat:ht&&ht.code&&ht.code!=='AN'?ht.name:'',
+  heatSoak:!!(spec&&spec.heatSoak&&ht&&ht.code==='FT'),surface:coat?coat.where:'',paint:treatments.filter(t=>t.kind!=='coating').map(t=>t.summary),ply:ply||''};
+}
+function stkPieceArea(l,o){const a=salesLineAreas(l,o);return a&&a.valid?a.actual:null;}
+function stkShape(l){
+ const s=salesLineGeometryShape(l);if(!s||salesShapeIsLineRect(s))return null;
+ const r=ShapeModule.compute(s);return r&&r.valid&&(r.points||[]).length>2?{points:r.points.map(p=>[+p[0],+p[1]])}:null;
+}
+/* Маршрут стекла — та же полоса, что на печатном листе чертежа. К ней
+   дописываются станции «always», которых нет в полосе (SHIPR, SHIP). */
+function stkRoute(o,l,c){
+ const r=salesPrintRoute(l,o,salesLineGeometryShape(l),null),row=r.lites.find(x=>x.label==='Lite '+c.lite)||r.lites[c.index]||r.lites[0]||{stations:[]};
+ const codes=row.stations.map(s=>s.code),tail=[];
+ (DB.station||[]).filter(s=>s.always).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
+ const services=[];
+ row.stations.forEach(s=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text))services.push({station:s.code,text});});});
+ return {codes,shipping:tail,services};
+}
+function stkWeight(l,o,lite){
+ const w=salesLineWeight(l,o);
+ if(lite==null)return w.kg!=null?{kg:w.kg,exact:true}:w.knownKg?{kg:w.knownKg,exact:false}:null;
+ const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
+ return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
+}
+/* kind: production | final. unit — номер изделия или место Recut «R1.2». */
+function stkGlassData(kind,o,l,c,unit,opts){
+ opts=opts||{};
+ return finWithOrder(o,()=>{
+  const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],recut=typeof unit==='string',nr=recut?unit.split('.')[0]:'';
+  const plan=(()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}})(),cut=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);
+  const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
+  return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
+   glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
+   cut:cut?{w:cut.cutW,h:cut.cutH}:null,finished:{w:l.width16/16,h:l.height16/16},area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   shape:stkShape(l),route:kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+ });
+}
+function stkUnitData(o,l,unit){
+ return finWithOrder(o,()=>{
+  const li=o.lines.indexOf(l),m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[],lam=panes.some(p=>p.category==='laminated');
+  const rows=[];
+  panes.forEach((p,i)=>{
+   if(i){const cav=m.cavities[i-1]||{},sp=mdById('spacerVariant',cav.spacerVariantId),gas=mdById('gasProduct',cav.gasProductId),seal=[cav.primarySealantId,cav.secondarySealantId].map(id=>mdById('sealantProduct',id)).filter(Boolean);
+    rows.push({kind:'space',label:'Space',spacer:sp?sp.name:'',gas:gas&&gas.code!=='AIR'?gas.name:'',sealant:seal.map(x=>x.code||x.name).join(' / ')});}
+   if(p.category==='laminated'){const L=p.laminated||{};
+    rows.push({kind:'lam',label:'Lite '+(i+1),outer:stkGlassInfo(p,i,'outer'),inner:stkGlassInfo(p,i,'inner'),films:(L.interlayers||[]).map(f=>{const prod=mdById('interlayerProduct',f.productId);return {name:prod?prod.name:'Interlayer',mm:+f.thicknessMm||null,layers:+f.layers||1};})});}
+   else rows.push({kind:'glass',label:'Lite '+(i+1),glass:stkGlassInfo(p,i,'')});
+  });
+  const mm=m?salesMakeupThicknessMm(m):null,type=m&&m.unitType==='triple'?'Triple IGU':m&&m.unitType==='double'?'IGU':lam?'Laminated glass':'Single lite',muntin=salesLineMuntin(l);
+  return Object.assign(stkOrderData(o,l,li),{kind:'unit',id:unitIdAt(o.id,l.id,unit),unit,of:l.qty,lite:'',lites:panes.length,recut:'',batch:'',
+   heading:type+(lam&&m.unitType!=='single'?' · laminated':''),thicknessMm:mm,code:m?salesMakeupSummary(m):'',rows,muntin:muntin?'Muntins · '+salesMuntinSections(l)+' sections':'',
+   finished:{w:l.width16/16,h:l.height16/16},cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShape(l)});
+ });
+}
+/* Образец для конструктора, когда в программе ещё нет заказов. */
+function stkDemoData(type){
+ const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
+  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37,h:71},area:18.24,shape:null};
+ const glass={name:'Solarban 60 on Clear 6mm',code:'6SBN60',mm:6,heat:'Tempered',heatSoak:false,surface:'#2',paint:[],ply:''};
+ if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},
+  rows:[{kind:'glass',label:'Lite 1',glass:Object.assign({},glass,{name:'Clear 6mm',code:'6CLEAR',surface:''})},{kind:'space',label:'Space',spacer:'Black Warm Edge 17/32″',gas:'Argon',sealant:'PIB / PS'},{kind:'glass',label:'Lite 2',glass}]});
+ return Object.assign(base,{kind:type,id:'G-0000002',lite:'2',glass,weight:{kg:24.3,exact:true},summary:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',
+  route:type==='production'?{codes:['CUT','EDGE','HEAT','IGU','SHIPR','SHIP'],shipping:['SHIPR','SHIP'],services:[{station:'EDGE',text:'ROUGH ARRIS'},{station:'HEAT',text:'TEMPERING'}]}:null});
+}
+
+/* ==== src/erp/production/sticker-layout.js ==== */
+/* =====================================================================
+   erp/production/sticker-layout  ·  stickers-1.0
+   Раскладка стикера по шаблону и SVG для предпросмотра и печати.
+   IN : шаблон {orient, blocks}, размер 4x6 | 3x4, модель стикера
+   OUT: {w, h, items, boxes, overflow} в pt; stkPageSVG
+
+   Правила раскладки:
+   - Full — блок на всю ширину; подряд идущие Left / Right — две колонки
+     одной группы; Bottom — прижаты к низу в своём порядке, чтобы маршрут
+     стоял на одном месте на любом стикере.
+   - Термопринтер печатает точку или пустоту: только чёрное и белое, серого
+     нет, текст не мельче 6 pt (конструктор не даст меньше).
+   - Штрихкод не сжимается ниже узкой полосы 0.01″ — иначе сканер не прочтёт;
+     что не влезло, не печатается молча, а называется в overflow.
+   ===================================================================== */
+const STK_BAR_MODULES=[1.44,1.08,0.72];
+function stkDims(size,orient){const s=stkSizeDef(size);return orient==='landscape'?{w:s.long,h:s.short}:{w:s.short,h:s.long};}
+function stkMargin(size){return size==='3x4'?9:12;}
+function stkFmtKg(w){return w?(w.exact?'':'≈ ')+w.kg.toFixed(1)+' kg':'';}
+function stkGlassText(g,det){
+ const parts=[det.code&&g.code?g.code:g.name];
+ if(det.thickness&&g.mm)parts.push(g.mm+' mm');
+ if(det.ply&&g.ply)parts.push(g.ply==='outer'?'outer ply':'inner ply');
+ if(det.heat&&g.heat)parts.push(g.heat);
+ if(det.heatSoak&&g.heatSoak)parts.push('HST');
+ if(det.surface&&g.surface)parts.push(g.surface);
+ if(det.paint)(g.paint||[]).forEach(t=>parts.push(t));
+ return parts.join(' · ');
+}
+function stkMakeupRowText(r,det){
+ const glass=g=>stkGlassText(g,{code:false,heat:det.heat,heatSoak:det.heat,surface:det.surface,paint:det.surface});
+ if(r.kind==='space')return [det.spacer&&r.spacer,det.gas&&r.gas,det.sealant&&r.sealant].filter(Boolean).join(' · ');
+ if(!det.glass)return '';
+ if(r.kind==='glass')return glass(r.glass);
+ const films=r.films.map(f=>f.name+(det.film&&f.mm?' '+(+f.mm.toFixed(2))+' mm':'')+(det.film&&f.layers>1?' ('+f.layers+' layers)':''));
+ return [glass(r.outer)].concat(films,[glass(r.inner)]).join(' + ');
+}
+/* Подгонка текста меряет ширину шрифтом бланков, но сам текст не меняет:
+   SVG печатает любой символ (≈, ″, ×), а бланк PDF заменил бы его «?». */
+function stkFit(s,size,bold,maxW){
+ s=String(s==null?'':s).replace(/\s*\n\s*/g,' ');if(docTextWidth(s,size,bold)<=maxW)return s;
+ while(s&&docTextWidth(s+'…',size,bold)>maxW)s=s.slice(0,-1);
+ return s+'…';
+}
+function stkWrap(s,size,bold,maxW){
+ const out=[];
+ String(s==null?'':s).split(/\r?\n/).forEach(par=>{
+  let line='';
+  par.split(/ +/).forEach(word=>{
+   const cand=line?line+' '+word:word;
+   if(docTextWidth(cand,size,bold)<=maxW){line=cand;return;}
+   if(line)out.push(line);
+   let chunk='';for(const ch of word){if(chunk&&docTextWidth(chunk+ch,size,bold)>maxW){out.push(chunk);chunk='';}chunk+=ch;}
+   line=chunk;
+  });
+  out.push(line);
+ });
+ return out;
+}
+function stkBarModule(id,w){const n=barcode128Width(id);return STK_BAR_MODULES.find(m=>n*m<=w)||0;}
+function stkNeedWidth(b,d){return b.k==='barcode'&&d.id?barcode128Width(d.id)*STK_BAR_MODULES[STK_BAR_MODULES.length-1]:0;}
+function stkWantWidth(b,d,max){if(b.k!=='barcode'||!d.id)return 0;const n=barcode128Width(d.id),m=STK_BAR_MODULES.find(v=>n*v<=max);return m?n*m:n*STK_BAR_MODULES[STK_BAR_MODULES.length-1];}
+/* Один блок. draw=false — только высота. Возвращает высоту в pt (0 — нечего печатать). */
+function stkRenderBlock(b,d,x,y,w,align,out){
+ const det=b.details||{},sz=Math.max(6,+b.size||10),bold=!!b.bold,R=x+w,right=align==='right',K='#000000',Wt='#ffffff';
+ const text=(s,xx,yy,size,bld,o)=>{o=o||{};let str=String(s==null?'':s);if(o.fit!==false)str=stkFit(str,size,bld,o.max||w);
+  const anchor=o.center?'center':right&&!o.left?'right':'';out.push({t:'text',s:str,x:o.center?xx:anchor==='right'?R:xx,y:yy,size,bold:bld,color:o.color||K,align:anchor});return docTextWidth(str,size,bld);};
+ const lines=(s,size,bld,max,n)=>stkWrap(String(s||''),size,bld,max||w).filter(Boolean).slice(0,n||2);
+ const para=(s,size,bld,n)=>{const ls=lines(s,size,bld,w,n);ls.forEach((t,i)=>text(t,x,y+size*.9+i*size*1.18,size,bld,{fit:false}));return ls.length?ls.length*size*1.18+size*.15:0;};
+ const rect=(xx,yy,ww,hh,o)=>out.push(Object.assign({t:'rect',x:xx,y:yy,w:ww,h:hh,fill:K},o||{}));
+ /* Номер заказа и размер не обрезаются многоточием — кегль уменьшается. */
+ const shrink=(s,size,bld,max)=>{let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
+ switch(b.k){
+  case 'company':{
+   const c=DB.company||{},name=det.name?String(c.legalName||''):'',logo=det.logo&&c.logo?c.logo:'';if(!name&&!logo)return 0;
+   let lw=0;if(logo){const info=typeof docJpegInfo==='function'?docJpegInfo(logo):null,h=sz*1.9,ww=info&&info.h?h*info.w/info.h:h*2;lw=Math.min(ww,w*.5);out.push({t:'image',href:logo,x:right?R-lw:x,y,w:lw,h:Math.min(h,lw*(info&&info.w?info.h/info.w:.5))});}
+   if(name){const nx=logo&&!right?x+lw+6:x,max=w-(logo?lw+6:0);out.push({t:'text',s:stkFit(name.toUpperCase(),sz,bold,max),x:right?(logo?R-lw-6:R):nx,y:y+(logo?sz*1.4:sz*.9),size:sz,bold,color:K,align:right?'right':''});}
+   return logo?sz*1.9+2:sz*1.15;}
+  case 'batch':{if(!d.batch)return 0;text(d.batch,x,y+sz*.9,sz,bold);return sz*1.15;}
+  case 'barcode':{
+   if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
+   const bw=barcode128Width(d.id)*m,bx=right?R-bw:align==='left'?x:x+(w-bw)/2,ns=Math.max(7,Math.min(16,sz*.26));
+   barcode128Items(d.id,bx,y,sz,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
+   if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+sz+ns+1,size:ns,bold:true,color:K,align:'center'});return sz+ns+4;}
+   return sz+2;}
+  case 'order':{
+   const t=d.order+(det.line?' / '+d.line:''),rs=Math.max(7,Math.round(sz*.4)),rw=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs+8:0,f=shrink(t,sz,bold,w-rw),tw=text(t,x,y+sz*.82,f,bold,{fit:false});
+   if(rw){const rx=right?R-tw-rw:x+tw+8;rect(rx,y+sz*.82-rs-5,rw-8,rs+8);out.push({t:'text',s:d.recut,x:rx+(rw-8)/2,y:y+sz*.82-2,size:rs,bold:true,color:Wt,align:'center'});}
+   return sz*.95;}
+  case 'unit':{
+   const bits=[];if(det.unit&&!d.recut&&d.unit)bits.push((d.kind==='unit'?'Unit ':'Unit ')+d.unit+' of '+d.of);
+   if(det.lite&&d.lite&&d.lites>1)bits.push('Lite '+d.lite+' of '+d.lites);else if(det.lite&&d.lite&&d.recut)bits.push('Lite '+d.lite);
+   if(!bits.length)return 0;text(bits.join(' · '),x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'orderInfo':{const bits=[det.priority&&d.priority,det.delivery&&d.delivery,det.created&&d.created?'Ordered '+d.created:''].filter(Boolean);if(!bits.length)return 0;text(bits.join(' · '),x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'customer':{if(!d.customer)return 0;return para(det.upper?String(d.customer).toUpperCase():d.customer,sz,bold,2);}
+  case 'po':{if(!d.po)return 0;text((det.label?'PO  ':'')+d.po,x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'mark':{if(!d.mark)return 0;return para((det.label?'Mark  ':'')+d.mark,sz,bold,2);}
+  case 'due':{
+   if(!d.due)return 0;const t='Due '+(det.weekday&&d.dueWeekday?d.dueWeekday+' ':'')+d.due,tw=docTextWidth(t,sz,bold)+sz*1.2,h=sz*1.55,bx=right?R-tw:x,black=det.rush&&d.rush;
+   rect(bx,y,tw,h,black?{}:{fill:'none',stroke:K,sw:1.2});out.push({t:'text',s:t,x:bx+tw/2,y:y+h/2+sz*.35,size:sz,bold,color:black?Wt:K,align:'center'});return h+1;}
+  case 'glass':{if(!d.glass)return 0;return para(stkGlassText(d.glass,det),sz,bold,2);}
+  case 'summary':{if(!d.summary)return 0;return para((det.label?'Unit  ':'')+d.summary,sz,bold,2);}
+  case 'makeup':{
+   if(!d.rows)return 0;let yy=y;const hs=sz*1.2;
+   const head=[det.heading&&d.heading,det.thickness&&d.thicknessMm?d.thicknessMm.toFixed(1)+' mm':''].filter(Boolean).join(' · ');
+   if(head){out.push({t:'text',s:stkFit(head,hs,true,w),x,y:yy+hs*.9,size:hs,bold:true,color:K,align:''});yy+=hs*1.25;}
+   if(det.code&&d.code){lines(d.code,sz,false,w,2).forEach(t=>{out.push({t:'text',s:t,x,y:yy+sz*.9,size:sz,bold:false,color:K,align:''});yy+=sz*1.2;});}
+   const lab=docTextWidth('Space',sz,true)+sz*.8;
+   d.rows.concat(det.muntin&&d.muntin?[{kind:'muntin',label:'Grid',text:d.muntin}]:[]).forEach(r=>{
+    const t=r.kind==='muntin'?r.text:stkMakeupRowText(r,det);if(!t)return;
+    out.push({t:'text',s:r.label,x,y:yy+sz*.9,size:sz,bold:true,color:K,align:''});
+    lines(t,sz,false,w-lab,2).forEach(s=>{out.push({t:'text',s,x:x+lab,y:yy+sz*.9,size:sz,bold:bold,color:K,align:''});yy+=sz*1.2;});
+   });
+   return yy-y;}
+  case 'size':{
+   const cut=d.kind==='production'&&d.cut,dim=cut||d.finished;if(!dim)return 0;
+   const t=frac16(dim.w)+' × '+frac16(dim.h)+'″';let px=x;
+   if(cut&&det.cut){const ls=Math.max(6,sz*.4);px+=docTextWidth('CUT',ls,true)+ls*.5;if(!right)out.push({t:'text',s:'CUT',x,y:y+sz*.82,size:ls,bold:true,color:K,align:''});}
+   const f=shrink(t,sz,bold,w-(px-x));text(t,right?x:px,y+sz*.82,f,bold,{fit:false});if(cut&&det.cut&&right){const tw=docTextWidth(t,f,bold),ls=Math.max(6,sz*.4);out.push({t:'text',s:'CUT',x:R-tw-ls*.5,y:y+sz*.82,size:ls,bold:true,color:K,align:'right'});}
+   return sz*.98;}
+  case 'area':{if(d.area==null)return 0;text(d.area.toFixed(2)+' ft²',x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'weight':{if(!d.weight)return 0;text(stkFmtKg(d.weight),x,y+sz*.9,sz,bold);return sz*1.2;}
+  case 'shape':{
+   if(!d.shape)return 0;const side=Math.min(w,sz),bx=right?R-side:x,pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=det.letters?9:2,inner=side-2*pad,k=Math.min(inner/((maxX-minX)||1),inner/((maxY-minY)||1));
+   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2;
+   out.push({t:'path',d:'M'+pts.map(p=>(ox+(p[0]-minX)*k).toFixed(2)+' '+(oy+(maxY-p[1])*k).toFixed(2)).join('L')+'Z'});
+   if(det.letters){const ls=7,cx=bx+side/2,cy=y+side/2;[['A',bx+1,cy+2.5,''],['B',cx,y+side-1,'center'],['C',bx+side-1,cy+2.5,'right'],['D',cx,y+ls,'center']].forEach(a=>out.push({t:'text',s:a[0],x:a[1],y:a[2],size:ls,bold:true,color:K,align:a[3]}));}
+   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+side/2,y:y+side+8,size:7,bold:true,color:K,align:'center'});return side+10;}
+   return side+2;}
+  case 'route':{
+   if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
+   while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
+  case 'services':{
+   const list=d.route?d.route.services:[];if(!list.length)return 0;let cx=x,cy=y+sz*.9;const box=det.boxes?sz*.85:0,gap=box?sz*.45:0;
+   list.forEach(s=>{const t=(det.station?s.station+' · ':'')+s.text,tw=Math.min(w-box-gap,docTextWidth(t,sz,bold)),ww=box+gap+tw+sz;
+    if(cx>x&&cx+ww-sz>R){cx=x;cy+=sz*1.35;}
+    if(box)rect(cx,cy-box*.95,box,box,{fill:'none',stroke:K,sw:1});
+    out.push({t:'text',s:stkFit(t,sz,bold,w-box-gap),x:cx+box+gap,y:cy,size:sz,bold,color:K,align:''});cx+=ww;});
+   return cy-y+sz*.3;}
+  case 'divider':{const t=Math.max(.5,+b.size||1);rect(x,y+2,w,t);return t+4;}
+  case 'text':{if(!b.text)return 0;return para(b.text,sz,bold,2);}
+ }
+ return 0;
+}
+function stkBlockLabel(b){const def=stkBlockDef(b.k);return def?def.label+(b.k==='text'&&b.text?' "'+b.text+'"':''):b.k;}
+function stkLayout(tpl,size,d){
+ const {w:W,h:H}=stkDims(size,tpl.orient),M=stkMargin(size),gap=size==='3x4'?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[];
+ const blocks=(tpl.blocks||[]).filter(b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind));
+ const measure=(b,w,al)=>stkRenderBlock(b,d,0,0,w,al,[]);
+ const draw=(b,x,y,w,al)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,al,out);if(h){items.push(...out);boxes.push({id:b.id,x,y,w,h});}return h;};
+ /* Низ: блоки Bottom снизу вверх в своём порядке. */
+ const bottom=blocks.filter(b=>b.at==='bottom');let floor=H-M;
+ const bh=bottom.map(b=>measure(b,inner,'left')),total=bh.reduce((s,h)=>s+(h?h+gap:0),0);
+ let by=H-M-Math.max(0,total-gap);
+ bottom.forEach((b,i)=>{if(!bh[i])return;if(by<M){overflow.push(b);by+=bh[i]+gap;return;}draw(b,M,by,inner,'left');by+=bh[i]+gap;});
+ if(bottom.some((b,i)=>bh[i]))floor=H-M-Math.max(0,total-gap)-gap;
+ /* Верх: полноширинные блоки и группы Left / Right. */
+ const top=blocks.filter(b=>b.at!=='bottom');let y=M,i=0;
+ while(i<top.length){
+  const b=top[i];
+  if(b.at==='full'){
+   if(stkNeedWidth(b,d)>inner){overflow.push(b);i++;continue;}
+   const h=measure(b,inner,'left');i++;if(!h)continue;
+   if(y+h>floor+.5){overflow.push(b);continue;}draw(b,M,y,inner,'left');y+=h+gap;continue;
+  }
+  const left=[],right=[];while(i<top.length&&top[i].at!=='full'&&top[i].at!=='bottom'){(top[i].at==='right'?right:left).push(top[i]);i++;}
+  let lw=(inner-10)/2,rw=lw;
+  const wantR=Math.max(0,...right.map(x=>stkWantWidth(x,d,inner-10-inner*.4))),wantL=Math.max(0,...left.map(x=>stkWantWidth(x,d,inner-10-inner*.4)));
+  if(wantR>rw&&!left.length)rw=inner;else if(wantR>rw){rw=wantR;lw=inner-10-rw;}
+  if(wantL>lw&&!right.length)lw=inner;else if(wantL>lw){lw=wantL;rw=inner-10-lw;}
+  const fits=(list,cw)=>list.filter(x=>{if(stkNeedWidth(x,d)>cw){overflow.push(x);return false;}return true;});
+  const L=fits(left,left.length&&!right.length?inner:lw),Rr=fits(right,right.length&&!left.length?inner:rw);
+  const lwid=L.length&&!Rr.length?inner:lw,rwid=Rr.length&&!L.length?inner:rw;
+  const lh=L.map(x=>measure(x,lwid,'left')),rh=Rr.map(x=>measure(x,rwid,'right')),sum=a=>a.reduce((s,v)=>s+(v?v+gap:0),0),gh=Math.max(sum(lh),sum(rh));
+  if(!gh)continue;
+  if(y+gh-gap>floor+.5){overflow.push(...L.filter((x,j)=>lh[j]),...Rr.filter((x,j)=>rh[j]));continue;}
+  let ly=y,ry=y;
+  L.forEach((x,j)=>{if(lh[j]){draw(x,M,ly,lwid,'left');ly+=lh[j]+gap;}});
+  Rr.forEach((x,j)=>{if(rh[j]){draw(x,W-M-rwid,ry,rwid,'right');ry+=rh[j]+gap;}});
+  y+=gh;
+ }
+ return {w:W,h:H,items,boxes,overflow:overflow.map(stkBlockLabel)};
+}
+function stkXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function stkPageSVG(pg,widthCss,heightCss){
+ const n=v=>(Math.round(v*100)/100).toString();
+ const out=['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+pg.w+' '+pg.h+'" width="'+widthCss+'" height="'+heightCss+'" font-family="Helvetica, Arial, sans-serif"><rect width="'+pg.w+'" height="'+pg.h+'" fill="#ffffff"/>'];
+ pg.items.forEach(x=>{
+  if(x.t==='text')out.push('<text x="'+n(x.x)+'" y="'+n(x.y)+'" font-size="'+n(x.size)+'"'+(x.bold?' font-weight="700"':'')+' fill="'+x.color+'"'+(x.align==='right'?' text-anchor="end"':x.align==='center'?' text-anchor="middle"':'')+' xml:space="preserve">'+stkXml(x.s)+'</text>');
+  else if(x.t==='rect')out.push('<rect x="'+n(x.x)+'" y="'+n(x.y)+'" width="'+n(x.w)+'" height="'+n(x.h)+'"'+(x.fill==='none'?' fill="none" stroke="'+x.stroke+'" stroke-width="'+(x.sw||1)+'"':' fill="'+x.fill+'" shape-rendering="crispEdges"')+'/>');
+  else if(x.t==='path')out.push('<path d="'+x.d+'" fill="none" stroke="#000000" stroke-width="1.4" stroke-linejoin="round"/>');
+  else if(x.t==='image')out.push('<image href="'+stkXml(x.href)+'" x="'+n(x.x)+'" y="'+n(x.y)+'" width="'+n(x.w)+'" height="'+n(x.h)+'" preserveAspectRatio="xMinYMid meet"/>');
+ });
+ return out.join('')+'</svg>';
 }
 
 /* ==== src/erp/views/glass-batches.js ==== */
@@ -21549,10 +22089,10 @@ function viewGlassBatches(){
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${plural(rows.length,'batch').replace('batchs','batches')} · ${rows.reduce((c,i)=>c+i.memo.units,0)} pcs`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
  return `<section class="optimization-queue glass-batches"><div class="page-head"><div>${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:''}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
- <div class="card oq-card">${b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
+ <div class="card oq-card">${b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
  ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
- ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+ ${salesListMenuHTML(infos)}${salesDialogHTML()}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
 
 /* ==== src/erp/quality/reasons.js ==== */
@@ -22025,6 +22565,292 @@ function ncrListRow(r,cols){
  return `<tr data-ncr-row="${esc(r.n.id)}" class="sl-row-ncr"><td class="sl-check"></td>${cols.map(c=>ncrListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="ncrView('${esc(r.n.id)}')">Open</button></td></tr>`;
 }
 
+/* ==== src/erp/views/stickers-ui.js ==== */
+/* =====================================================================
+   views/stickers-ui  ·  stickers-1.0
+   Печать стикеров и конструктор шаблонов (Master Data → Stickers).
+   IN : DB.salesOrder, DB.glassBatch, DB.recut, DB.stickerTemplate
+   OUT: страницы печати; сохранённые шаблоны
+
+   Владелец, 17 сентября 2026:
+   - сток: выбрать заказ в Sales → Stickers → стекло или весь юнит;
+   - батч печатают по порядку (по листу — когда будет своя раскладка);
+   - размер рулона выбирается при печати и запоминается на компьютере;
+   - конструктор «как конструктор документов»: размер в pt, детали внутри
+     блока, блоки двигаются мышкой — в списке и прямо на стикере.
+   Glass ID в окнах Sales не показывается — только на бумаге.
+   ===================================================================== */
+let stkDialog=null,stkBuilder=null,stkDrag='';
+const STK_SIZE_PREF='glass_erp_sticker_size_v1',STK_PX=1.3;
+function stkPrefSize(){try{const v=localStorage.getItem(STK_SIZE_PREF);return STK_SIZES.some(s=>s.k===v)?v:'4x6';}catch(e){return '4x6';}}
+function stkSetPrefSize(v){try{localStorage.setItem(STK_SIZE_PREF,v);}catch(e){}}
+/* «1-5, 8» → [1,2,3,4,5,8]; пусто — все; ошибка — null. */
+function stkParseUnits(text,max){
+ const s=String(text==null?'':text).trim();if(!s)return Array.from({length:max},(_,i)=>i+1);
+ const out=new Set();
+ for(const part of s.split(/[,;\s]+/).filter(Boolean)){
+  const m=/^(\d+)(?:-(\d+))?$/.exec(part);if(!m)return null;let a=+m[1],b=m[2]?+m[2]:a;if(a>b)[a,b]=[b,a];
+  if(a<1||b>max)return null;for(let u=a;u<=b;u++)out.add(u);
+ }
+ return [...out].sort((a,b)=>a-b);
+}
+function stkBatchOf(o,c,unit){const x=glassBatchActive(o.id).get(c.key+'|'+unit);return x?x.batch.number:'';}
+
+/* ------------------------------ Печать ------------------------------ */
+function stkPages(jobs,size){
+ const tpls={};
+ return jobs.map(j=>{
+  const tpl=tpls[j.type]||(tpls[j.type]=stkTemplate(j.type,size));
+  const d=j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});
+  return stkLayout(tpl,size,d);
+ });
+}
+function stkPrintHost(){let h=document.getElementById('stkPrintHost');if(!h){h=document.createElement('div');h.id='stkPrintHost';document.body.appendChild(h);}return h;}
+function stkPrintPrepare(pages){
+ if(!pages.length)return 0;
+ const win=pages[0].w/72,hin=pages[0].h/72;
+ let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
+ st.textContent='@page stk{size:'+win+'in '+hin+'in;margin:0}';
+ stkPrintHost().innerHTML=pages.map(pg=>`<div class="stk-print-page" style="width:${win}in;height:${hin}in">${stkPageSVG(pg,win+'in',hin+'in')}</div>`).join('');
+ document.body.classList.add('stk-printing');
+ return pages.length;
+}
+function stkPrintCleanup(){document.body.classList.remove('stk-printing');const h=document.getElementById('stkPrintHost');if(h)h.innerHTML='';}
+function stkPrint(pages){
+ if(!stkPrintPrepare(pages))return false;
+ window.addEventListener('afterprint',stkPrintCleanup,{once:true});
+ setTimeout(stkPrintCleanup,60000);
+ try{window.print();}catch(e){stkPrintCleanup();return false;}
+ return true;
+}
+
+/* ---------------------------- Окно печати ---------------------------- */
+function stkOrderRows(o){
+ const rows=(o.lines||[]).map((l,li)=>({key:'L:'+l.id,kind:'line',l,li,comps:glassBatchComponents(o,l).filter(c=>!c.missing)}));
+ (DB.recut||[]).filter(r=>r.orderId===o.id).forEach(r=>{const l=o.lines.find(x=>x.id===r.lineId);if(l)rows.push({key:'R:'+r.id,kind:'recut',r,l,li:o.lines.indexOf(l),comps:glassBatchComponents(o,l).filter(c=>(r.keys||[]).includes(c.key))});});
+ return rows;
+}
+function stkCanPrintOrder(o){return !!o&&!salesIsQuote(o)&&o.status!=='cancelled';}
+function stkOpenForOrder(orderId){
+ const o=salesRecord(orderId);if(!stkCanPrintOrder(o))return;
+ salesListMenu=null;if(glassPieceEnsure(o))touch();
+ const rows={};stkOrderRows(o).forEach(r=>{rows[r.key]={on:r.kind==='line',which:'all',units:''};});
+ stkDialog={mode:'order',orderId,type:'production',size:stkPrefSize(),rows,warning:'',error:''};render();
+}
+function stkOpenForBatch(number){
+ const b=glassBatchFind(number);if(!b)return;
+ const picked=glassBatchInfos().filter(i=>i.item&&!i.item.releasedAt&&glassBatchSelection.has(glassBatchRowKey(i))).map(i=>i.item.piece);
+ stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),warning:'',error:''};render();
+}
+function stkDialogType(v){stkDialogSet('type',v);}
+function stkDialogSize(v){stkDialogSet('size',v);}
+function stkDialogClose(){stkDialog=null;render();}
+function stkDialogSet(k,v){if(!stkDialog)return;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
+function stkDialogRow(key,k,v,rerender){
+ const d=stkDialog;if(!d||!d.rows[key])return;d.rows[key][k]=v;d.warning='';d.error='';
+ if(rerender)render();else stkDialogRefresh();
+}
+function stkDialogRefresh(){
+ const r=stkDialogJobs(),c=document.querySelector('[data-stk-count]'),p=document.querySelector('[data-stk-print]');
+ if(c){c.textContent=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');c.classList.toggle('bad',!!r.error);}
+ if(p)p.disabled=!!r.error||!r.jobs.length;
+}
+function stkBatchJobs(b,pieces){
+ const pick=pieces&&pieces.length?new Set(pieces):null,jobs=[];
+ glassBatchActiveItems(b).forEach(item=>{
+  if(pick&&!pick.has(item.piece))return;
+  const part=b.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId),cs=o&&l?glassBatchComponents(o,l):[],c=cs.find(x=>x.key===part.key);
+  if(c)jobs.push({type:'production',o,l,c,unit:item.unit,sort:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
+ });
+ return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
+}
+function stkDialogJobs(){
+ const d=stkDialog;if(!d)return {jobs:[],error:''};
+ if(d.mode==='batch'){const b=glassBatchFind(d.batchNo);return {jobs:b?stkBatchJobs(b,d.pieces):[],error:''};}
+ const o=salesRecord(d.orderId);if(!o)return {jobs:[],error:''};
+ const jobs=[];
+ for(const row of stkOrderRows(o)){
+  const x=d.rows[row.key];if(!x||!x.on)continue;
+  const label=row.kind==='recut'?'Recut '+row.r.no:'Line '+(row.li+1);
+  if(d.type==='unit'){
+   if(row.kind!=='line'||row.comps.length<2)continue;
+   const units=stkParseUnits(x.units,row.l.qty);if(!units)return {jobs,error:label+': units 1 to '+row.l.qty};
+   units.forEach(unit=>jobs.push({type:'unit',o,l:row.l,unit}));continue;
+  }
+  const comps=x.which==='all'?row.comps:row.comps.filter(c=>c.key===x.which);
+  if(row.kind==='recut'){
+   const ks=stkParseUnits(x.units,row.r.qty);if(!ks)return {jobs,error:label+': pieces 1 to '+row.r.qty};
+   ks.forEach(k=>comps.forEach(c=>jobs.push({type:d.type,o,l:row.l,c,unit:'R'+row.r.no+'.'+k})));continue;
+  }
+  const units=stkParseUnits(x.units,row.l.qty);if(!units)return {jobs,error:label+': units 1 to '+row.l.qty};
+  units.forEach(unit=>comps.forEach(c=>jobs.push({type:d.type,o,l:row.l,c,unit})));
+ }
+ return {jobs,error:''};
+}
+function stkDialogPrint(){
+ const d=stkDialog;if(!d)return;
+ const r=stkDialogJobs();if(r.error){d.error=r.error;render();return;}
+ if(!r.jobs.length)return;
+ let pages;try{pages=stkPages(r.jobs,d.size);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
+ const over=[...new Set(pages.flatMap(p=>p.overflow))];
+ if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
+ stkDialog=null;render();stkPrint(pages);
+}
+function stkDialogHTML(){
+ const d=stkDialog;if(!d)return '';
+ const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} onclick="${fn}('${x.k}')">${esc(x.label)}</button>`).join('')}</div>`;
+ const r=stkDialogJobs(),count=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');
+ let title,sub,body='';
+ if(d.mode==='batch'){
+  const b=glassBatchFind(d.batchNo);title='Print stickers · Batch '+d.batchNo;
+  sub=(d.pieces&&d.pieces.length?'Selected glass':'All glass')+' · in order';if(!b)sub='Batch not found';
+ }else{
+  const o=salesRecord(d.orderId);if(!o){stkDialog=null;return '';}
+  title='Print stickers · Order '+(o.businessNumber||'');sub=[salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · ');
+  const rows=stkOrderRows(o).map(row=>{
+   const x=d.rows[row.key]||{on:false,which:'all',units:''},unitType=d.type==='unit',usable=unitType?row.kind==='line'&&row.comps.length>1:row.comps.length>0,on=x.on&&usable;
+   const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
+   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
+   return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
+    <td>${name}</td><td class="nowrap">${esc(dimIn16(row.l.width16/16))} × ${esc(dimIn16(row.l.height16/16))}</td><td class="n">${max}</td>
+    <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
+    <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
+  }).join('');
+  body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ }
+ const types=d.mode==='batch'?'':`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
+  <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
+  <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>
+   <div class="stk-dialog-pick">${types}<div><div class="ncr-label">SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
+   ${body}
+   <div class="sales-quote-note stk-count${r.error?' bad':''}" data-stk-count>${esc(count)}</div>
+   ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
+   ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
+  </div>
+  <div class="sales-dialog-actions"><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
+}
+
+/* ---------------------------- Конструктор ---------------------------- */
+function stkBuilderState(){
+ if(!stkBuilder)stkBuilder={type:'production',size:'4x6',drafts:{},sample:'',sel:'',open:'',notice:''};
+ const k=stkKey(stkBuilder.type,stkBuilder.size);
+ if(!stkBuilder.drafts[k])stkBuilder.drafts[k]={tpl:stkTemplate(stkBuilder.type,stkBuilder.size),dirty:false};
+ return stkBuilder;
+}
+function stkDraft(){const s=stkBuilderState();return s.drafts[stkKey(s.type,s.size)];}
+function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilder.notice='';render();}
+function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
+function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
+function stkBType(v){stkBSet('type',v);}
+function stkBSizeKey(v){stkBSet('size',v);}
+function stkBOrient(v){stkEditTpl(t=>{t.orient=v==='landscape'?'landscape':'portrait';});}
+function stkBToggle(id,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.on=!!on;});}
+function stkBPlace(id,at){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!STK_PLACES.some(p=>p.k===at))return;b.at=at;t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));});}
+function stkSizeStep(def){return def.k==='divider'?0.5:def.k==='shape'?5:def.k==='barcode'?2:1;}
+function stkBSize(id,v,delta){
+ stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id),def=b&&stkBlockDef(b.k);if(!def)return;
+  let n=delta?(+b.size||def.size[0])+delta*stkSizeStep(def):Number(v);if(!Number.isFinite(n))n=def.size[0];
+  b.size=Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2));});
+}
+function stkBBold(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.bold=!b.bold;});}
+function stkBDetail(id,key,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&b.details)b.details[key]=!!on;});}
+function stkBText(id,v){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=String(v||'').slice(0,80);});}
+function stkBAdd(k){
+ const s=stkBuilderState();
+ stkEditTpl(t=>{const b=stkBlock(k,'full',null,k==='text'?{text:'TEXT'}:{}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=b.id;});
+}
+function stkBRemove(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id),def=b&&stkBlockDef(b.k);if(def&&def.multi)t.blocks=t.blocks.filter(x=>x.id!==id);});}
+function stkBSelect(id){const s=stkBuilderState();s.sel=s.sel===id?'':id;render();}
+function stkBOpen(id){const s=stkBuilderState();s.open=s.open===id?'':id;s.sel=id;render();}
+function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
+function stkBSave(){
+ const s=stkBuilderState(),d=stkDraft(),k=stkKey(s.type,s.size);
+ DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:stkCleanTemplate(s.type,s.size,d.tpl)});
+ d.tpl=stkTemplate(s.type,s.size);d.dirty=false;s.notice='Saved';touch();render();
+}
+/* Перемещение: в списке блок сохраняет свою колонку; на стикере — берёт
+   колонку того блока, на который его бросили. Bottom всегда в конце. */
+function stkMoveBlock(from,to,where,adopt){
+ stkEditTpl(t=>{
+  const i=t.blocks.findIndex(b=>b.id===from),target=t.blocks.find(b=>b.id===to);if(i<0||!target||from===to)return;
+  const [b]=t.blocks.splice(i,1);
+  if(target.at==='bottom')b.at='bottom';else if(adopt)b.at=target.at;else if(b.at==='bottom')b.at='full';
+  const j=t.blocks.indexOf(target);t.blocks.splice(where==='after'?j+1:j,0,b);
+  t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));
+  stkBuilder.sel=b.id;
+ });
+}
+function stkMoveToZone(from,zone){
+ stkEditTpl(t=>{const i=t.blocks.findIndex(b=>b.id===from);if(i<0)return;const [b]=t.blocks.splice(i,1);
+  if(zone==='bottom')b.at='bottom';else if(b.at==='bottom')b.at='full';
+  const top=t.blocks.filter(x=>x.at!=='bottom'),bot=t.blocks.filter(x=>x.at==='bottom');
+  t.blocks=zone==='bottom'?top.concat(bot,[b]):top.concat([b],bot);stkBuilder.sel=b.id;});
+}
+function stkDragStart(e,id){stkDrag=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(x){}}
+function stkDragOver(e){if(!stkDrag)return;e.preventDefault();e.stopPropagation();const r=e.currentTarget.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;e.currentTarget.classList.toggle('drop-before',!after);e.currentTarget.classList.toggle('drop-after',after);}
+function stkDragLeave(e){e.currentTarget.classList.remove('drop-before','drop-after');}
+function stkDrop(e,id,adopt){
+ e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('drop-before','drop-after');
+ const r=e.currentTarget.getBoundingClientRect(),after=e.clientY>r.top+r.height/2,from=stkDrag;stkDrag='';
+ if(from&&from!==id)stkMoveBlock(from,id,after?'after':'before',adopt);
+}
+function stkDropZone(e,zone){e.preventDefault();const from=stkDrag;stkDrag='';if(from)stkMoveToZone(from,zone);}
+function stkSamples(type){
+ const out=[];
+ (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&o.status!=='cancelled').slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,15).forEach(o=>(o.lines||[]).forEach((l,li)=>{
+  const comps=glassBatchComponents(o,l).filter(c=>!c.missing),shape=salesShapeIsLineRect(salesLineGeometryShape(l))?'':' · shape';
+  if(type==='unit'){if(comps.length>1)out.push({key:o.id+'|'+l.id,label:o.businessNumber+' · Line '+(li+1)+' · Unit 1'+shape,o,l});return;}
+  comps.forEach(c=>out.push({key:c.key,label:o.businessNumber+' · Line '+(li+1)+' · Lite '+c.lite+' · '+c.glass+shape,o,l,c}));
+ }));
+ return out.slice(0,80);
+}
+function stkSampleData(type){
+ const list=stkSamples(type),s=list.find(x=>x.key===stkBuilder.sample)||list[0];let data=null;
+ if(s)try{data=type==='unit'?stkUnitData(s.o,s.l,1):stkGlassData(type,s.o,s.l,s.c,1,{batch:stkBatchOf(s.o,s.c,1)});}catch(e){data=null;}
+ if(!data)return {data:stkDemoData(type),list,key:''};
+ if(!data.id)data.id=type==='unit'?'U-0000000':'G-0000000';
+ return {data,list,key:s.key};
+}
+function viewMdStickers(){
+ const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data);
+ const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
+ const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
+ const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
+ const row=b=>{
+  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,textLike=!def.graphic;
+  const details=open&&def.details.length?`<div class="stk-details" data-stk-details-panel="${b.id}">${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}</div>`:'';
+  return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
+   <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
+   <span class="stk-name">${esc(def.label)}${b.k==='text'?` <input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="80" aria-label="Text" onchange="stkBText('${b.id}',this.value)">`:''}</span>
+   <select data-stk-place aria-label="Place" onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
+   <span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" onchange="stkBSize('${b.id}',this.value)"><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>
+   ${textLike?`<button type="button" class="stk-icon${b.bold?' on':''}" data-stk-bold title="Bold" aria-pressed="${b.bold}" onclick="stkBBold('${b.id}')"><b>B</b></button>`:'<span class="stk-icon-sp"></span>'}
+   ${def.details.length?`<button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Details" aria-expanded="${open}" onclick="stkBOpen('${b.id}')">⚙</button>`:'<span class="stk-icon-sp"></span>'}
+   ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
+  </div>${details}`;
+ };
+ const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
+ const W=pg.w*STK_PX,H=pg.h*STK_PX;
+ const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${(x.x*STK_PX).toFixed(1)}px;top:${(x.y*STK_PX).toFixed(1)}px;width:${(x.w*STK_PX).toFixed(1)}px;height:${Math.max(6,x.h*STK_PX).toFixed(1)}px" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
+ const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
+ const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilder.sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
+ return `<div class="stk-builder" data-stk-builder>
+  <div class="stk-head">
+   <div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
+   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>
+   <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
+   <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
+  </div>
+  <div class="stk-grid">
+   <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
+    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button><button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
+   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;height:${H.toFixed(0)}px">${stkPageSVG(pg,W.toFixed(0),H.toFixed(0))}${hits}</div><div class="stk-fit">${fit}</div></div>
+  </div>
+  <div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>
+ </div>`;
+}
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -22085,6 +22911,7 @@ function validateImportedState(src){
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  if(typeof validateRecutPayload==='function')validateRecutPayload(src);
+ if(typeof validateStickerPayload==='function')validateStickerPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -22161,6 +22988,7 @@ function normalizeDB(){
  if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
+ if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
