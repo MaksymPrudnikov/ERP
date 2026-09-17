@@ -122,9 +122,13 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    });
    return yy-y;}
   case 'size':{
-   /* Готовый размер: бордер резки печатается в сервисах. */
+   /* Крупно — готовый размер; мелко под ним — размер до обработки кромки,
+      если он другой. */
    const dim=d.finished;if(!dim)return 0;const t=frac16(dim.w)+' × '+frac16(dim.h)+'″',f=shrink(t,sz,bold,w);
-   put(t,ax(docTextWidth(t,f,bold)),y+sz*.82,f,bold);return sz*.98;}
+   put(t,ax(docTextWidth(t,f,bold)),y+sz*.82,f,bold);
+   if(!det.cut||!d.cut)return sz*.98;
+   const cs=Math.max(7,Math.round(sz*.34)),ct='CUT '+frac16(d.cut.w)+' × '+frac16(d.cut.h)+'″',cf=shrink(ct,cs,true,w);
+   put(ct,ax(docTextWidth(ct,cf,true)),y+sz*.82+cs*1.15,cf,true);return sz*.98+cs*1.25;}
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
@@ -141,8 +145,7 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
    while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
   case 'services':{
-   const border=det.border&&d.route&&d.route.border?[{station:'CUT',text:'BORDER '+frac16(d.route.border.value)+'″'+(d.route.border.edges.length?' · '+d.route.border.edges.join(', '):'')}]:[];
-   const list=border.concat(d.route?d.route.services:[]);if(!list.length)return 0;
+   const list=d.route?d.route.services:[];if(!list.length)return 0;
    const box=det.boxes?sz*.85:0,gap=box?sz*.45:0,rows=[[]];let used=0;
    list.forEach(s=>{const t=stkFit((det.station?s.station+' · ':'')+s.text,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
     if(rows[rows.length-1].length&&used+sz+ww>w){rows.push([]);used=0;}const row=rows[rows.length-1];used+=(row.length?sz:0)+ww;row.push({t,ww});});
