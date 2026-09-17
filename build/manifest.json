@@ -12,7 +12,8 @@
   "src/styles/sales-list.css",
   "src/styles/optimization.css",
   "src/styles/glass-batches.css",
-  "src/styles/ncr.css"
+  "src/styles/ncr.css",
+  "src/styles/stickers.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -82,12 +83,16 @@
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",
   "src/erp/production/glass-batches.js",
+  "src/erp/production/barcode.js",
+  "src/erp/production/stickers.js",
+  "src/erp/production/sticker-layout.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",
   "src/erp/quality/ncr.js",
   "src/erp/quality/recut.js",
   "src/erp/views/ncr-ui.js",
+  "src/erp/views/stickers-ui.js",
   "src/erp/storage.js"
  ]
 }

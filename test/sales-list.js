@@ -138,7 +138,7 @@ module.exports=async function({page,eq,ok}){
  }),{range:4,btnBefore:'On Hold (2)',choices:5,held:[true,true],reason:['Credit check','Credit check'],red:2,btnAfter:'Release (2)',bar:true,
   title:'Order 76002 is On Hold',buttons:['Back','Release hold'],released:[false,false],status:'new',work:false});
 
- eq('правая кнопка мыши на строке: Open, On Hold…, Documents, Cancel order, Delete; On Hold… открывает окно для этой строки',await t.p.evaluate(()=>{
+ eq('правая кнопка мыши на строке: Open, On Hold…, Documents, Print stickers…, Cancel order, Delete; On Hold… открывает окно для этой строки',await t.p.evaluate(()=>{
   const id=slByNum('76004').id,tr=document.querySelector(`[data-order-row="${id}"]`);
   tr.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:200,clientY:200}));
   const items=[...document.querySelectorAll('.sl-ctx [data-menu]')].map(x=>x.dataset.menu);
@@ -146,7 +146,7 @@ module.exports=async function({page,eq,ok}){
   const dlg=!!salesHoldDialog&&salesHoldDialog.ids.length===1&&salesHoldDialog.ids[0]===id;
   salesHoldClose();salesListSel=new Set();render();
   return {items,dlg,closed:!document.querySelector('.sl-hold-dialog')};
- }),{items:['open','hold','documents','cancel','delete'],dlg:true,closed:true});
+ }),{items:['open','hold','documents','stickers','cancel','delete'],dlg:true,closed:true});
 
  eq('цвет строки: Batched — серая, On Hold — красная',await t.p.evaluate(()=>{
   slByNum('76004').status='batched';render();

@@ -1,0 +1,68 @@
+/* Стикеры: окно печати, конструктор Master Data → Stickers, печать. */
+.stk-seg{display:inline-flex;border:1px solid #d0d5dd;border-radius:8px;overflow:hidden;flex-wrap:wrap}
+.stk-seg button{border:0;border-radius:0;box-shadow:none;background:#fff;color:#344054;padding:7px 12px;font-size:13px;border-right:1px solid #d0d5dd;min-width:0}
+.stk-seg button:last-child{border-right:0}
+.stk-seg button.on{background:#1f6f9f;color:#fff}
+.stk-modal{width:860px;max-width:calc(100vw - 32px)}
+.stk-dialog{display:grid;gap:14px}
+.stk-dialog p.mut{margin:0}
+.stk-dialog .ncr-label{padding:0 0 6px}
+.stk-dialog-pick{display:flex;gap:20px;flex-wrap:wrap}
+.stk-lines input[type=text]{width:84px}
+.stk-lines tr.off td{color:#98a2b3}
+.stk-recut{color:#93370d}
+.stk-count{margin:0}
+.stk-count.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
+.stk-builder{margin-top:12px}
+.stk-head{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid #eaecf0}
+.stk-ctl .ncr-label{display:block;padding:0 0 6px}
+.stk-sample{margin-left:auto}
+.stk-sample select{min-width:260px;max-width:420px}
+.stk-grid{display:grid;grid-template-columns:minmax(0,620px) minmax(0,1fr);gap:24px;margin-top:14px;align-items:start}
+.stk-zone{border:1px solid #eaecf0;border-radius:10px;overflow:hidden;margin-bottom:10px;background:#fff}
+.stk-zone-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;background:#f8fafc;padding:6px 10px}
+.stk-zone-empty{padding:10px;font-size:12px;color:#98a2b3;text-align:center}
+.stk-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-top:1px solid #eaecf0;font-size:13px;background:#fff}
+.stk-row.off .stk-name{color:#98a2b3}
+.stk-row.sel{background:#eef4ff}
+.stk-row.drop-before{box-shadow:inset 0 2px 0 #1f6f9f}
+.stk-row.drop-after{box-shadow:inset 0 -2px 0 #1f6f9f}
+.stk-grip{color:#98a2b3;cursor:grab;letter-spacing:-2px;user-select:none}
+.stk-name{flex:1;min-width:0;cursor:pointer}
+.stk-text{width:150px;padding:3px 6px;font-size:12px;margin-left:4px}
+.stk-row select{width:84px;padding:4px 6px;font-size:12px}
+.stk-step{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:6px;overflow:hidden}
+.stk-step button{border:0;border-radius:0;box-shadow:none;background:#fff;padding:3px 8px;min-width:0;font-size:14px;line-height:1}
+.stk-step input{width:46px;border:0;border-left:1px solid #eaecf0;border-right:1px solid #eaecf0;border-radius:0;padding:3px 2px;text-align:center;font-size:12px}
+.stk-icon{border:1px solid transparent;background:transparent;box-shadow:none;border-radius:6px;padding:2px 7px;min-width:28px;font-size:13px;color:#475467}
+.stk-icon[data-stk-gear]{font-size:16px;line-height:1}
+.stk-icon.on{background:#e0f2fe;color:#026aa2;border-color:#b9e6fe}
+.stk-icon-sp{display:inline-block;width:28px}
+.stk-details{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
+.stk-details label{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#344054}
+.stk-add{display:flex;gap:8px}
+.stk-preview{background:#e4e7ec;border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
+.stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:#fff}
+.stk-paper svg{display:block}
+.stk-hit{position:absolute;cursor:grab;border-radius:2px}
+.stk-hit:hover{outline:1px dashed #1f6f9f}
+.stk-hit.sel{outline:2px solid #1f6f9f;background:rgba(31,111,159,.06)}
+.stk-hit.drop-before{box-shadow:0 -3px 0 #1f6f9f}
+.stk-hit.drop-after{box-shadow:0 3px 0 #1f6f9f}
+.pill.ok{background:#dcfae6;color:#05603a}
+.stk-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid #eaecf0}
+.stk-foot .sp{flex:1}
+.stk-dirty{font-size:12px;color:#b54708}
+.stk-saved{font-size:12px;color:#05603a}
+@media(max-width:1100px){.stk-grid{grid-template-columns:minmax(0,1fr)}.stk-preview{position:static}}
+@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}}
+/* Печать: одна этикетка — одна страница без полей. Размер страницы пишется
+   перед печатью в @page stk (4×6 или 3×4, стоя или лёжа). */
+#stkPrintHost{display:none}
+@media print{
+ body.stk-printing>*{display:none!important}
+ body.stk-printing>#stkPrintHost{display:block!important}
+ .stk-print-page{page:stk;overflow:hidden;break-after:page}
+ .stk-print-page:last-child{break-after:auto}
+ .stk-print-page svg{display:block}
+}
