@@ -53,16 +53,16 @@ function ncrOrderStamp(o){return JSON.stringify([o&&o.lines,o&&o.makeups,o&&o.st
 function ncrCreate(d){
  const o=salesRecord(d&&d.orderId);
  if(!o||salesIsQuote(o)||o.status==='cancelled')return {error:'This order cannot get an NCR.'};
- if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'The order changed. Close this window and press NCR again.'};
+ if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen NCR.'};
  if(!NCR_SOURCES.includes(d.source))return {error:'Choose who found it.'};
  if(!NCR_ACTIONS.includes(d.action))return {error:'Choose the action.'};
  const reason=ncrReasonsFor(d.where,{activeOnly:true}).find(r=>r.id===d.reasonId);
  if(!reason)return {error:'Choose where and what happened.'};
- if(d.action===NCR_RECUT&&o.status==='closed')return {error:'The order is closed. Use Remake order instead of Recut.'};
+ if(d.action===NCR_RECUT&&o.status==='closed')return {error:'Order closed · use Remake'};
  const glass=[];
  for(let i=0;i<o.lines.length;i++){
   const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
-  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': affected must be from 1 to '+l.qty+'.'};
+  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
   const which=d.action===NCR_REMAKE?'unit':String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
   if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
   glass.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});

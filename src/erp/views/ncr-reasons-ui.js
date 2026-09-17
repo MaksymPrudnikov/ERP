@@ -22,7 +22,7 @@ function viewMdNcr(){
  const place=(code,label,name)=>`<button type="button" class="ncr-where${ncrWhere===code?' on':''}" data-ncr-where="${esc(code)}" aria-pressed="${ncrWhere===code}" onclick="ncrSelect('${esc(code)}')"><span><b>${esc(label)}</b>${esc(name)}</span><span class="ncr-count">${active(code)}</span></button>`;
  const side=place(NCR_ALL,'ALL','All stations')+'<hr>'+places.map(w=>place(w.code,w.code,w.name)).join('');
  const station=ncrWhere!==NCR_ALL&&ncrWhere!==NCR_OFFICE;
- const hint=ncrWhere===NCR_ALL?'Base reasons appear on every station. Office has its own list.':ncrWhere===NCR_OFFICE?'Mistakes in order entry, drawings and cut lists.':'Base reasons come from All stations. Add reasons that belong only to this station.';
+ const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
  const row=r=>{
   const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
   return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
@@ -31,12 +31,11 @@ function viewMdNcr(){
  };
  const rows=ncrReasonsFor(ncrWhere);
  const pills=list=>`<div class="ncr-pills">${list.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`;
- return `<div class="sub">Non-conformance reasons: <b>where</b> it happened and <b>what</b> happened. Turn a reason off instead of deleting it.</div>
- <div class="ncr-layout">
+ return ` <div class="ncr-layout">
   <div class="card ncr-side"><div class="ncr-label">WHERE</div>${side}</div>
   <div>
    <div class="card ncr-main">
-    <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3><p>${esc(hint)}</p></div>
+    <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
      <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
     <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>

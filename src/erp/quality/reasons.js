@@ -60,7 +60,7 @@ function ncrReasonProblem(where,name,exceptId){
  name=ncrName(name);if(!name)return 'Enter a reason.';
  const low=name.toLowerCase();
  const clash=(DB.ncrReason||[]).some(r=>r.id!==exceptId&&r.name.toLowerCase()===low&&(r.where===where||where!==NCR_OFFICE&&r.where!==NCR_OFFICE&&(r.where===NCR_ALL||where===NCR_ALL)));
- return clash?'This reason already exists here.':'';
+ return clash?'Already exists':'';
 }
 function ncrReasonAdd(where,name){
  if(where!==NCR_ALL&&!ncrWhereList().some(w=>w.code===where))return 'Choose where it happened.';

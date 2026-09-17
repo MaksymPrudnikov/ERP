@@ -9,7 +9,7 @@ let ncrForm=null,ncrViewId='';
 function ncrCanOpen(o){return !!o&&!salesIsQuote(o)&&soEdit!=='new'&&!!salesRecord(o.id)&&o.status!=='cancelled';}
 function ncrOpenForm(){
  if(!soDraft||!ncrCanOpen(soDraft))return;
- if(salesDraftHasWork()){salesDialogOpen({title:'Save the order first',note:'An NCR is made from the saved order. Save or discard your changes, then press NCR again.',buttons:[{label:'Back'}]});return;}
+ if(salesDraftHasWork()){salesDialogOpen({title:'Save the order first',buttons:[{label:'Back'}]});return;}
  const o=salesRecord(soDraft.id);
  ncrForm={orderId:o.id,source:NCR_SOURCES[0],where:'',reasonId:'',action:o.status==='closed'?NCR_REMAKE:NCR_RECUT,note:'',lines:{},stamp:ncrOrderStamp(o),error:''};
  render();
@@ -34,15 +34,15 @@ function ncrView(id){if(!ncrFind(id))return;ncrForm=null;ncrViewId=id;salesListM
 function ncrViewClose(){ncrViewId='';render();}
 function ncrOpenOrder(id){
  if(!salesRecord(id))return;
- if(soDraft&&soDraft.id!==id&&salesDraftHasWork()&&!confirm('Open this order without saving the changes in the current editor?'))return;
+ if(soDraft&&soDraft.id!==id&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
  ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);
 }
 function ncrEffectText(f,o){
  const picked=o.lines.filter(l=>f.lines[l.id]&&f.lines[l.id].on);
  const n=picked.reduce((s,l)=>{const x=f.lines[l.id],q=Number(x.qty)||0;return s+(f.action===NCR_REMAKE?q:q*ncrGlassKeys(o,l,x.which||'unit').length);},0);
- if(f.action===NCR_RECUT)return n?n+' new glass go to the glass queue of order '+o.businessNumber+'. The order stays open until they are ready.':'Recut glass goes to the glass queue of this order.';
- if(f.action===NCR_REMAKE)return 'A new order'+(n?' for '+n+' unit'+(n===1?'':'s'):'')+' is created for this customer with no charge. It goes through verification like any order.';
- return 'The NCR is recorded.';
+ if(f.action===NCR_RECUT)return (n?n+' pcs':'Recut')+' → glass queue';
+ if(f.action===NCR_REMAKE)return 'New order'+(n?' · '+n+' unit'+(n===1?'':'s'):'')+' · $0';
+ return '';
 }
 function ncrFormHTML(){
  const f=ncrForm,o=salesRecord(f.orderId);if(!o){ncrForm=null;return '';}
@@ -67,7 +67,7 @@ function ncrFormHTML(){
     <label><span class="ncr-label">ACTION</span><select data-ncr-action-select onchange="ncrFormSet('action',this.value)">${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''} ${a===NCR_RECUT&&o.status==='closed'?'disabled':''}>${esc(a)}</option>`).join('')}</select></label>
    </div>
    <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" oninput="ncrForm.note=this.value">${esc(f.note)}</textarea></label>
-   <div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>
+   ${ncrEffectText(f,o)?`<div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>`:''}
    ${f.error?`<div class="ncr-error" role="alert" data-ncr-error>${esc(f.error)}</div>`:''}
   </div>
   <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">Create NCR</button></div></div></div>`;
@@ -82,8 +82,8 @@ function ncrViewHTML(){
    <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
    <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table></div>
    ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
-   ${n.action===NCR_RECUT?`<div class="sales-quote-note">${esc(ncrPieces(n)+' recut glass in the glass queue of order '+(o?o.businessNumber:'')+'.')}</div>`:''}
-   ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'The remake order no longer exists.'}</div>`:''}
+   ${n.action===NCR_RECUT?`<div class="sales-quote-note">${esc(ncrPieces(n)+' pcs → glass queue')}</div>`:''}
+   ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
   </div>
   <div class="sales-dialog-actions"><button type="button" onclick="ncrViewClose()">Close</button>${r?`<button type="button" data-ncr-open-remake onclick="ncrOpenOrder('${esc(r.id)}')">Open order ${esc(r.businessNumber)}</button>`:''}${o&&(!soDraft||soDraft.id!==o.id)?`<button type="button" class="pri" data-ncr-open-order onclick="ncrOpenOrder('${esc(o.id)}')">Open order ${esc(o.businessNumber)}</button>`:''}</div></div></div>`;
 }

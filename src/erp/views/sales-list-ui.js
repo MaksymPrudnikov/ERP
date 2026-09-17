@@ -494,7 +494,7 @@ function salesListHoldSelected(){
 }
 function salesHoldOpen(ids){
  const orders=(ids||[]).map(id=>(DB.salesOrder||[]).find(o=>o.id===id)).filter(o=>o&&!salesIsQuote(o)&&!o.onHold&&o.status!=='closed'&&o.status!=='cancelled');
- if(!orders.length){alert('Select orders to put on hold. Quotes, closed and cancelled orders cannot be put on hold.');return;}
+ if(!orders.length){alert('Select orders first.');return;}
  salesHoldDialog={ids:orders.map(o=>o.id),choice:0,other:''};render();
 }
 function salesHoldClose(){salesHoldDialog=null;render();}
@@ -550,6 +550,6 @@ function salesHoldBar(o){
 }
 function salesHoldBlocked(orderId){
  const o=orderId?salesRecord(orderId):soDraft;if(!o)return;
- salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
+ salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold first.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }

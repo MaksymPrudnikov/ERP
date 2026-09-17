@@ -30,7 +30,7 @@ module.exports=async function({page,eq,ok}){
   const which=[...document.querySelectorAll(`[data-ncr-line="${rec.lines[0].id}"] [data-ncr-line-which] option`)].map(o=>o.textContent);
   return {before,heat,errors,which,records:DB.ncr.length};
  }),{before:1,heat:['Impact','Broke','Chipped','Scratched','Fell from dolly / skid','Exploded in furnace','Broke in quench','Broke in heat soak','Bow / warp','Wrong treatment (FT / HS)'],
-  errors:['Choose where and what happened.','Select the affected glass.','Line 1: affected must be from 1 to 2.','Line 1: affected must be from 1 to 2.'],which:['Whole unit','Lite 1 · 6CLEAR','Lite 2 · 6CLEAR'],records:0});
+  errors:['Choose where and what happened.','Select the affected glass.','Line 1: 1 to 2 pcs','Line 1: 1 to 2 pcs'],which:['Whole unit','Lite 1 · 6CLEAR','Lite 2 · 6CLEAR'],records:0});
 
  eq('Recut: NCR1001, 2 новых стекла Lite 1 в очереди этого заказа с новыми номерами; Ready закрыт до их батча',await t.p.evaluate(()=>{
   oqReset();const id=nrOrder('batched'),before=DB.glassPieceSeq;nrFill(id,{where:'HEAT',reason:'Exploded in furnace',lines:[[0,2,0]],note:'Second load'});
@@ -39,7 +39,7 @@ module.exports=async function({page,eq,ok}){
   return {number:n.number,action:n.action,source:n.source,glass:n.glass.map(g=>[g.line,g.lite,g.qty,g.keys.length]),effect,view:document.querySelector('.ncr-modal h3').textContent.startsWith('NCR1001 · Order '),
    rows:rows.map(r=>r.unit+' · '+r.lite+' · '+(r.piece>'G-'+String(before).padStart(7,'0'))),ready:salesRecordTransitionAllowed(o,'ready'),status:ncrStatus(n),pill:salesStatusPill(o).includes('6/8 pcs'),
    lines:o.lines.map(l=>l.qty),queueUnit:glassBatchInfo(rows[0]).memo.unit};
- }),{number:'NCR1001',action:'Recut',source:'Found in shop',glass:[[1,'Lite 1 · 6CLEAR',2,1]],effect:'2 new glass go to the glass queue of order 76002. The order stays open until they are ready.',view:true,
+ }),{number:'NCR1001',action:'Recut',source:'Found in shop',glass:[[1,'Lite 1 · 6CLEAR',2,1]],effect:'2 pcs → glass queue',view:true,
   rows:['NCR1001.1 · 1 · true','NCR1001.2 · 1 · true'],ready:false,status:'Open',pill:true,lines:[2,1],queueUnit:'Recut NCR1001 · 1 of 2'});
 
  eq('Recut в батче: заказ снова Batched; после Ready NCR — Done; номера перереза не меняются',await t.p.evaluate(()=>{
@@ -57,7 +57,7 @@ module.exports=async function({page,eq,ok}){
   const n=DB.ncr[0],o=salesRecord(id),r=salesRecord(n.remakeOrderId);window.nrRemake=[id,r.id];
   return {action,recutDisabled,forced,whichDisabled,number:n.number,remake:[r.businessNumber!==o.businessNumber,r.status,r.lines.length,r.lines[0].qty,r.lines[0].width16===o.lines[1].width16,r.makeups.length,r.noCharge,finOrderTotals(r).grand,r.remakeNcrId===n.id,r.notes],
    original:[o.status,o.lines.length],pieces:glassPieceMap(r.id).size>0,status:ncrStatus(n)};
- }),{action:'Remake order',recutDisabled:true,forced:'The order is closed. Use Remake order instead of Recut.',whichDisabled:true,number:'NCR1001',
+ }),{action:'Remake order',recutDisabled:true,forced:'Order closed · use Remake',whichDisabled:true,number:'NCR1001',
   remake:[true,'new',1,1,true,1,true,0,true,'Remake for NCR1001 · order 76002'],original:['closed',2],pieces:true,status:'Open'});
 
  eq('заказ-переделка: полоса Remake for NCR и No charge; снятая галочка возвращает цену; удалить связанные заказы нельзя',await t.p.evaluate(()=>{
