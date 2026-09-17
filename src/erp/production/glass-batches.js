@@ -8,11 +8,19 @@
    DB.glassBatch: номер; parts — снимок стекла позиции на момент батча;
    items — одно стекло {piece, part, unit}; history — по номерам стёкол.
    Остаток — места без активной записи. Позиция под замком, пока её стекло в батче. */
-DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;
+DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
 const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
 function glassBatchClone(v){return v==null?null:JSON.parse(JSON.stringify(v));}
 function glassPieceValid(id){return typeof id==='string'&&/^G-\d{7,}$/.test(id);}
 function glassPieceNumber(id){return glassPieceValid(id)?+id.slice(2):0;}
+/* Номер юнита U-0000001 — для финального стикера на весь DGU/TGU или ламинат:
+   G-номер одного стекла отметил бы при скане только это стекло. Выдаётся
+   позиции, где стёкол два и больше, по номеру на изделие, по тем же правилам,
+   что Glass ID. DB.glassUnitId: {key: заказ|позиция, ids[изделие-1]}. */
+function unitIdValid(id){return typeof id==='string'&&/^U-\d{7,}$/.test(id);}
+function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
+function unitIdNext(){DB.glassUnitIdSeq=(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0)+1;return 'U-'+String(DB.glassUnitIdSeq).padStart(7,'0');}
+function unitIdAt(orderId,lineId,unit){const r=(DB.glassUnitId||[]).find(x=>x.key===orderId+'|'+lineId);return r&&r.ids[unit-1]||'';}
 function glassPieceNextId(){DB.glassPieceSeq=(Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0)+1;return 'G-'+String(DB.glassPieceSeq).padStart(7,'0');}
 /* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
    одну запись Glass missing: её количество не теряется из остатка заказа. */
@@ -47,6 +55,18 @@ function glassPieceAt(rec,unit){
  if(!rec)return '';
  if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
  return rec.ids[unit-1]||'';
+}
+/* Скан: G или U → заказ, позиция, стекло и место. Нужен станциям. */
+function glassLookup(code){
+ const id=String(code==null?'':code).trim().toUpperCase();
+ if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
+ if(!glassPieceValid(id))return null;
+ for(const r of DB.glassPiece||[]){
+  const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
+  if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
+  for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
+ }
+ return null;
 }
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 function glassBatchRemaining(o,l,active){
@@ -87,6 +107,17 @@ function glassPieceEnsure(o){
  });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
  if(next.length!==DB.glassPiece.length){DB.glassPiece=next;changed=true;}
+ if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
+ const units=new Set();
+ (o.lines||[]).forEach(l=>{
+  if(glassBatchComponents(o,l).filter(c=>!c.missing).length<2)return;
+  const key=o.id+'|'+l.id;units.add(key);let rec=DB.glassUnitId.find(r=>r.key===key);
+  if(!rec){rec={key,ids:[]};DB.glassUnitId.push(rec);changed=true;}
+  for(let i=0;i<l.qty;i++)if(!unitIdValid(rec.ids[i])){rec.ids[i]=unitIdNext();changed=true;}
+  if(rec.ids.length>l.qty){rec.ids.length=l.qty;changed=true;}
+ });
+ const nextUnits=DB.glassUnitId.filter(r=>!r.key.startsWith(o.id+'|')||units.has(r.key));
+ if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId=nextUnits;changed=true;}
  return changed;
 }
 /* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
@@ -245,6 +276,11 @@ function normalizeGlassBatches(){
   b.history.push({at,action:'Imported legacy batch',pieces:[],qty:made.length,convert:made});
   l.batchManaged=true;l.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
  }));
+ if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
+ const unitIds=new Set(),unitKeys=new Set();
+ DB.glassUnitId=DB.glassUnitId.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===2&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0])&&!unitKeys.has(r.key)&&unitKeys.add(r.key))
+  .map(r=>({key:r.key,ids:r.ids.map(id=>unitIdValid(id)&&!unitIds.has(id)?(unitIds.add(id),id):'')}));
+ DB.glassUnitIdSeq=Math.max(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0,...DB.glassUnitId.flatMap(r=>r.ids.map(unitIdNumber)));
  (DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
@@ -265,6 +301,12 @@ function validateGlassBatchesPayload(src){
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==4||!Array.isArray(r.ids))throw new Error('Invalid glass ID record.');
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
   if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^(NCR|R)\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
+ });
+ if(src.glassUnitIdSeq!=null&&!(Number.isSafeInteger(src.glassUnitIdSeq)&&src.glassUnitIdSeq>=0))throw new Error('Unit ID counter is invalid.');
+ const unitSeen=new Set();
+ (Array.isArray(src.glassUnitId)?src.glassUnitId:[]).forEach(r=>{
+  if(!r||typeof r.key!=='string'||r.key.split('|').length!==2||!Array.isArray(r.ids))throw new Error('Invalid unit ID record.');
+  r.ids.forEach(id=>{if(!unitIdValid(id)||unitSeen.has(id))throw new Error('Invalid or duplicate Unit ID.');unitSeen.add(id);});
  });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
