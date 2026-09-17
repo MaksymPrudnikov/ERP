@@ -51,20 +51,26 @@ function cutPack(pieces,sheet,params){
   return bh-ah||(b.p.w*b.p.h)-(a.p.w*a.p.h)||a.p.piece.localeCompare(b.p.piece);
  });
  const newSheet=()=>{const s={no:sheets.length+1,pieces:[],strips:[],usedH:0};sheets.push(s);return s;};
+ /* Ориентации детали: своя и повёрнутая, если поворот разрешён. */
+ const ways=p=>{const a=[{w:p.w,h:p.h,rot:false}];if(params.rotate&&p.w!==p.h)a.push({w:p.h,h:p.w,rot:true});return a.filter(o=>fits(o.w,o.h));};
+ /* Новая полоса: кладём так, чтобы в полосу влезло больше деталей, а при
+    равном числе — чтобы полоса была ниже. Иначе деталь 46 × 60 ложится
+    плашмя, в полосу входит одна, и лист уходит впустую. */
+ const best=list=>list.slice().sort((a,b)=>Math.floor((W+gap)/(b.w+gap))-Math.floor((W+gap)/(a.w+gap))||a.h-b.h)[0];
+ const put=(s,st,o,p)=>{const x=st.pieces?st.x+gap:st.x;st.pieces++;st.x=x+o.w;
+  s.pieces.push({piece:p.piece,src:p,x:cutRound(trim+x),y:cutRound(trim+st.y),w:cutRound(o.w),h:cutRound(o.h),rot:o.rot});};
  order.forEach(({p})=>{
-  /* Деталь кладётся длинной стороной вдоль полосы; поворот — если разрешён
-     или если иначе не влезает. */
-  let w=p.w,h=p.h,rot=false;
-  if(params.rotate&&p.w<p.h){w=p.h;h=p.w;rot=true;}
-  if(!fits(w,h)){if(fits(p.w,p.h)){w=p.w;h=p.h;rot=false;}else{skipped.push(p);return;}}
+  const list=ways(p);
+  if(!list.length){skipped.push(p);return;}
   for(const s of sheets){
-   const strip=s.strips.find(st=>st.h>=h-1e-6&&st.x+ (st.pieces?gap:0)+w<=W+1e-6);
-   if(strip){const x=strip.x+(strip.pieces?gap:0);strip.pieces++;strip.x=x+w;s.pieces.push({piece:p.piece,src:p,x:cutRound(trim+x),y:cutRound(trim+strip.y),w:cutRound(w),h:cutRound(h),rot});return;}
-   const y=s.usedH?s.usedH+gap:0;
-   if(y+h<=H+1e-6){const st={y,h,x:w,pieces:1};s.strips.push(st);s.usedH=y+h;s.pieces.push({piece:p.piece,src:p,x:cutRound(trim+0),y:cutRound(trim+y),w:cutRound(w),h:cutRound(h),rot});return;}
+   for(const st of s.strips){
+    const o=list.find(x=>x.h<=st.h+1e-6&&st.x+(st.pieces?gap:0)+x.w<=W+1e-6);
+    if(o){put(s,st,o,p);return;}
+   }
+   const y=s.usedH?s.usedH+gap:0,o=best(list.filter(x=>y+x.h<=H+1e-6));
+   if(o){const st={y,h:o.h,x:0,pieces:0};s.strips.push(st);s.usedH=y+o.h;put(s,st,o,p);return;}
   }
-  const s=newSheet(),st={y:0,h,x:w,pieces:1};s.strips.push(st);s.usedH=h;
-  s.pieces.push({piece:p.piece,src:p,x:cutRound(trim+0),y:cutRound(trim+0),w:cutRound(w),h:cutRound(h),rot});
+  const s=newSheet(),o=best(list),st={y:0,h:o.h,x:0,pieces:0};s.strips.push(st);s.usedH=o.h;put(s,st,o,p);
  });
  /* Остаток — полоса под последней деталью во всю ширину: её и хранят. */
  const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;

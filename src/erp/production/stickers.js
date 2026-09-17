@@ -27,6 +27,7 @@ const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'];
 const STK_BLOCKS=[
  {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
  {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[12,6,48],bold:true,details:[]},
+ {k:'sheet',label:'Sheet · position',group:'Header',types:['production'],size:[12,6,48],bold:true,details:[['pos','Position on the sheet',true]]},
  {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
  {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[38,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
  {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[14,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
@@ -68,19 +69,20 @@ function stkBase(type,size,orient){
  const k=small?(land?3:2):(land?1:0),z=a=>a[k];
  const tpl=blocks=>({orient:land?'landscape':'portrait',blocks});
  const extra=B('text','full',z([14,12,10,9]),{on:false,text:'HANDLE WITH CARE'}),info=B('orderInfo','left',z([11,10,8,8]),{on:false});
+ const sheetB=prod?[B('sheet','full',z([12,10,9,8]),{on:false})]:[];
  const tail=prod?[extra,B('route','bottom',z([28,22,18,16])),B('services','bottom',z([12,10,9,8]))]:fin?[B('summary','full',z([10,9,8,7])),extra]:[extra];
  if(land){
   /* Лёжа — две колонки: текст слева; штрихкод, дата, площадь, вес и форма справа. */
   const left=[B('company','left',9,{on:!small}),B('order','left',z([0,28,0,20])),B('unit','left',z([0,12,0,8])),B('customer','left',z([0,14,0,10])),B('po','left',z([0,11,0,8])),B('mark','left',z([0,12,0,8])),info]
    .concat(unit?[]:[B('glass','left',z([0,12,0,9]))],[B('size','left',z([0,24,0,17]))]);
   const right=[B('barcode','right',z([0,42,0,28]))].concat(unit?[]:[B('batch','right',z([0,11,0,8]))],[B('due','right',z([0,11,0,8])),B('area','right',z([0,11,0,8])),B('weight','right',z([0,11,0,8])),B('shape','right',z([0,50,0,36]))]);
-  return tpl(left.concat(right,unit?[B('makeup','full',z([0,8.5,0,7]))]:[],tail));
+  return tpl(left.concat(sheetB,right,unit?[B('makeup','full',z([0,8.5,0,7]))]:[],tail));
  }
  /* Стоя — строки сверху вниз. */
  const head=[B('company','left',z([9,0,8,0]),{on:!small})].concat(unit?[]:[B('batch','right',z([12,0,9,0]))],[B('barcode','full',z([44,0,30,0])),B('divider','full',1,{on:!small}),B('order','full',z([34,0,22,0])),B('unit','full',z([14,0,9,0]))]);
  const who=[B('customer','full',z([18,0,11,0])),B('po','left',z([13,0,9,0])),B('due','right',z([13,0,9,0])),B('mark','full',z([14,0,9,0])),info];
  const dims=[B('size','left',z([32,0,20,0])),B('area','left',z([13,0,8,0])),B('weight','left',z([13,0,8,0])),B('shape','right',z([64,0,36,0]))];
- return tpl(head.concat(who,unit?[B('makeup','full',z([10,0,7,0]))]:[B('glass','full',z([15,0,10,0]))],dims,tail));
+ return tpl(head.concat(sheetB,who,unit?[B('makeup','full',z([10,0,7,0]))]:[B('glass','full',z([15,0,10,0]))],dims,tail));
 }
 /* Шаблон из хранилища приводится к каталогу: неизвестный блок отбрасывается,
    размер держится в пределах блока, новые блоки каталога дописываются
@@ -196,6 +198,14 @@ function stkWeight(l,o,lite){
  const rows=w.rows.filter(r=>r.label.startsWith('Lite '+lite+' ·')&&r.kg!=null);
  return rows.length?{kg:rows.reduce((s,r)=>s+r.kg,0),exact:true}:null;
 }
+/* Лист раскроя этого стекла — из плана батча (erp/production/cut-layout).
+   Карта считается один раз на батч: стикеров бывает двести. */
+let stkSheetCache={batch:'',map:null};
+function stkSheetOf(batch,piece){
+ if(!batch||!piece||typeof cutPlanIndex!=='function')return null;
+ if(stkSheetCache.batch!==batch)stkSheetCache={batch,map:cutPlanIndex(batch)};
+ return stkSheetCache.map.get(piece)||null;
+}
 /* kind: production | final. unit — номер изделия или место Recut «R1.2». */
 function stkGlassData(kind,o,l,c,unit,opts){
  opts=opts||{};
@@ -206,6 +216,7 @@ function stkGlassData(kind,o,l,c,unit,opts){
   return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
    cut:stkCut(cut,stkFinished(cut,l)),finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
    shape:stkShapeOf(cut),route:kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
@@ -229,7 +240,7 @@ function stkUnitData(o,l,unit){
 /* Образец для конструктора, когда в программе ещё нет заказов. */
 function stkDemoData(type){
  const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
-  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37.125,h:71.125},area:18.24,shape:null,
+  unit:2,of:5,lites:2,recut:'',batch:'B-0001',sheet:{sheet:2,pos:6},finished:{w:37,h:71},cut:{w:37.125,h:71.125},area:18.24,shape:null,
   vars:{'Customer: Name':'Northside Windows','Customer: Phone':'416 555 0199','Line: Mark':'Kitchen W2','Order: Notes':'Call before delivery'}};
  const glass={name:'Solarban 60 on Clear 6mm',code:'6SBN60',mm:6,heat:'Tempered',heatSoak:false,surface:'#2',paint:[],ply:''};
  if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},

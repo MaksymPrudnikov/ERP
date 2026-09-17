@@ -84,6 +84,7 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
    return logo?lh+2:sz*1.15;}
   case 'batch':{if(!d.batch)return 0;line(d.batch,y+sz*.9,sz,bold);return sz*1.15;}
+  case 'sheet':{if(!d.sheet)return 0;line('Sheet '+d.sheet.sheet+(det.pos?' · #'+d.sheet.pos:''),y+sz*.9,sz,bold);return sz*1.2;}
   case 'barcode':{
    if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
    const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=Math.max(7,Math.min(16,sz*.26));
