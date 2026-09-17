@@ -45,12 +45,12 @@ module.exports=async function({page,eq,ok}){
   return {same:JSON.stringify(DB.glassUnitId)===JSON.stringify(src.glassUnitId),dup:fail(x=>{x.glassUnitId[1].ids[0]=x.glassUnitId[0].ids[0];}),bad:fail(x=>{x.glassUnitId[0].ids[0]='U-12';}),tpl:fail(x=>{x.stickerTemplate=[];})};
  }),{same:true,dup:'Invalid or duplicate Unit ID.',bad:'Invalid or duplicate Unit ID.',tpl:'Sticker templates must be an object.'});
 
- eq('данные Production: маршрут станций с SHIPR/SHIP, сервисы, размер резки, вес kg, сторона покрытия, батч',await t.p.evaluate(()=>{
+ eq('данные Production: маршрут станций с SHIPR/SHIP, сервисы, готовый размер, вес kg, сторона покрытия, батч',await t.p.evaluate(()=>{
   oqReset();const id=stOrder();oqThrough(id,'verified');const o=salesRecord(id);glassBatchAssign(glassBatchRows([o]),{});
   const l=o.lines[0],cs=glassBatchComponents(o,l),d=stkGlassData('production',o,l,cs[1],2,{batch:stkBatchOf(o,cs[1],2)});
   return {id:d.id===glassPieceMap(id).get(cs[1].key).ids[1],order:d.order+' / '+d.line,unit:d.unit+' of '+d.of,lite:d.lite+' of '+d.lites,glass:stkGlassText(d.glass,stkDetailsBase(stkBlockDef('glass'))),code:stkGlassText(d.glass,{code:true,surface:true}),
    route:d.route.codes.join(' > '),services:d.route.services.map(s=>s.station+' '+s.text),cut:d.cut,kg:Math.round(d.weight.kg*10)/10,batch:d.batch,due:d.dueWeekday+' '+d.due};
- }),{id:true,order:'76002 / 1',unit:'2 of 2',lite:'2 of 2',glass:'Solarban 60 on Clear 6mm · Tempered · #3',code:'6SBN60 · #3',route:'CUT > EDGE > HEAT > IGU > SHIPR > SHIP',services:['EDGE ROUGH ARRIS','HEAT TEMPERING'],cut:{w:37,h:71},kg:24,batch:'B-0001',due:'Fri Sep 25'});
+ }),{id:true,order:'76002 / 1',unit:'2 of 2',lite:'2 of 2',glass:'Solarban 60 on Clear 6mm · Tempered · #3',code:'6SBN60 · #3',route:'CUT > EDGE > HEAT > IGU > SHIPR > SHIP',services:['EDGE ROUGH ARRIS','HEAT TEMPERING'],cut:null,kg:24,batch:'B-0001',due:'Fri Sep 25'});
 
  eq('данные Final · whole unit: TGU с ламинатом — плёнка и её мм, рамки, газ, толщина; детали выключаются',await t.p.evaluate(()=>{
   oqReset();const id=stTgu(),o=salesRecord(id),d=stkUnitData(o,o.lines[0],2),det=stkDetailsBase(stkBlockDef('makeup'));
@@ -128,14 +128,18 @@ module.exports=async function({page,eq,ok}){
   return {center,panel,left:left<-15,right:right>15};
  }),{center:0,panel:true,left:true,right:true});
 
- eq('размер — готовый, без бордера; бордер — в сервисах; контур формы из плана резки во всех форматах',await t.p.evaluate(()=>{
+ eq('размер — готовый, под ним размер до обработки кромки; бордер не печатается; контур формы из плана резки во всех форматах',await t.p.evaluate(()=>{
   oqReset();const id=stOrder();salesOrderEdit(id);const l=soDraft.lines[1],s=newShapeDef('raked');s.w='30';s.h='40';Object.assign(s.params,{shortHeight:'28',rakeSide:'top',shortSide:'right'});s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);salesOrderSave();soDraft=null;soEdit=null;
-  const o=salesRecord(id),line=o.lines[1],c=glassBatchComponents(o,line)[0],d=stkGlassData('production',o,line,c,1,{}),plan=stkPlan(o,line);
-  const svc=stkLayout(stkBase('production','4x6'),'4x6',d).items.filter(i=>i.t==='text').map(i=>i.s).filter(x=>/BORDER|ARRIS/.test(x));
+  const o=salesRecord(id),line=o.lines[1],c=glassBatchComponents(o,line)[0],d=stkGlassData('production',o,line,c,1,{});
+  const text=pg=>pg.items.filter(i=>i.t==='text').map(i=>i.s);
+  const svc=text(stkLayout(stkBase('production','4x6'),'4x6',d)).filter(x=>/BORDER|ARRIS|^CUT \d/.test(x));
+  const demo=stkDemoData('production'),withCut=text(stkLayout(stkBase('production','4x6'),'4x6',demo)).filter(x=>/^CUT \d/.test(x));
+  const tplOff=stkBase('production','4x6');tplOff.blocks.find(b=>b.k==='size').details.cut=false;
+  const off=text(stkLayout(tplOff,'4x6',demo)).filter(x=>/^CUT \d/.test(x));
   const shapes=STK_SIZES.flatMap(z=>['portrait','landscape'].map(or=>{const tpl=stkBase('production',z.k,or),pg=stkLayout(tpl,z.k,d);return !!pg.boxes.find(b=>b.id===tpl.blocks.find(x=>x.k==='shape').id)&&!pg.overflow.length;}));
-  const rect=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{}).shape;
-  return {size:d.finished,border:d.route.border,svc,shapes,rect,points:d.shape.points.length};
- }),{size:{w:30,h:40},border:{value:1,edges:['D']},svc:['BORDER 1″ · D','ROUGH ARRIS'],shapes:[true,true,true,true],rect:null,points:4});
+  const rect=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{});
+  return {size:d.finished,cut:d.cut,svc,withCut,off,shapes,rectShape:rect.shape,rectCut:rect.cut,points:d.shape.points.length};
+ }),{size:{w:30,h:40},cut:null,svc:['ROUGH ARRIS'],withCut:['CUT 37 1/8 × 71 1/8″'],off:[],shapes:[true,true,true,true],rectShape:null,rectCut:null,points:4});
 
  eq('свои поля: {Customer: Name}, {Order: Customer po}, {Line: Mark} в Custom text; + Field… добавляет блок; пустое поле не печатается',await t.p.evaluate(()=>{
   oqReset();stkBuilder=null;DB.stickerTemplate={};const id=stOrder(),o=salesRecord(id),d=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{});

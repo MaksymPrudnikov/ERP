@@ -38,12 +38,12 @@ const STK_BLOCKS=[
  {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
  {k:'makeup',label:'Unit makeup',group:'Glass',types:['unit'],size:[10,6,36],details:[['heading','Unit type',true],['thickness','Overall thickness',true],['code','Makeup code',false],['glass','Glass of each lite',true],['heat','Treatment',true],['surface','Surfaces',true],['film','Interlayer and mm',true],['spacer','Spacer',true],['gas','Gas',true],['sealant','Sealants',false],['muntin','Muntins',true]]},
  {k:'summary',label:'Unit makeup code',group:'Glass',types:['final'],size:[9,6,36],details:[['label','"Unit" label',true]]},
- {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[36,8,90],bold:true,details:[]},
+ {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
  {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
  {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
  {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
  {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
- {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['border','Safety border',true],['station','Station before service',false]]},
+ {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
  {k:'divider',label:'Divider line',group:'Other',types:STK_ALL,size:[1,0.5,6],graphic:true,multi:true,details:[]},
  {k:'text',label:'Custom text',group:'Other',types:STK_ALL,size:[14,6,72],bold:true,multi:true,details:[]}
 ];
@@ -173,9 +173,13 @@ function stkShapeOf(lite){
  return {points:pts,holes,polys};
 }
 function stkFinished(lite,l){return lite&&+lite.finishedW>0&&+lite.finishedH>0?{w:+lite.finishedW,h:+lite.finishedH}:{w:l.width16/16,h:l.height16/16};}
-/* Бордер резки — в сервисах, а не в размере: «размер должен быть конечного
-   результата, бордер можно показывать в разделе сервисов» (владелец). */
-function stkBorder(plan){const b=plan&&plan.valid&&plan.safetyBorder;return b&&b.applies&&+b.value>0?{value:+b.value,edges:(b.edgeIds||[]).slice()}:null;}
+/* Размер до обработки кромки — размер реза: готовый плюс припуск кромки и
+   запас по косой стороне. Владелец, 17 сентября 2026: «бордер не нужно,
+   можно размер до обработки кромки». Печатается, только если отличается. */
+function stkCut(lite,fin){
+ if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return null;
+ const w=+lite.cutW,h=+lite.cutH;return Math.abs(w-fin.w)<1/32&&Math.abs(h-fin.h)<1/32?null:{w,h};
+}
 /* Маршрут стекла — та же полоса, что на печатном листе чертежа. К ней
    дописываются станции «always», которых нет в полосе (SHIPR, SHIP). */
 function stkRoute(o,l,c){
@@ -201,8 +205,8 @@ function stkGlassData(kind,o,l,c,unit,opts){
   const rec=glassPieceMap(o.id).get(c.key),comps=glassBatchComponents(o,l);
   return Object.assign(stkOrderData(o,l,li),{kind,id:glassPieceAt(rec,unit)||'',unit:recut?0:unit,of:l.qty,lite:c.lite,lites:panes.length,recut:recut?'RECUT '+nr.replace(/^R/,''):'',batch:opts.batch||'',
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
-   cut:cut?{w:cut.cutW,h:cut.cutH}:null,finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
-   shape:stkShapeOf(cut),route:kind==='production'?Object.assign(stkRoute(o,l,c),{border:stkBorder(plan)}):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+   cut:stkCut(cut,stkFinished(cut,l)),finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
+   shape:stkShapeOf(cut),route:kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
 function stkUnitData(o,l,unit){
@@ -225,7 +229,7 @@ function stkUnitData(o,l,unit){
 /* Образец для конструктора, когда в программе ещё нет заказов. */
 function stkDemoData(type){
  const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
-  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37,h:71},area:18.24,shape:null,
+  unit:2,of:5,lites:2,recut:'',batch:'B-0001',finished:{w:37,h:71},cut:{w:37.125,h:71.125},area:18.24,shape:null,
   vars:{'Customer: Name':'Northside Windows','Customer: Phone':'416 555 0199','Line: Mark':'Kitchen W2','Order: Notes':'Call before delivery'}};
  const glass={name:'Solarban 60 on Clear 6mm',code:'6SBN60',mm:6,heat:'Tempered',heatSoak:false,surface:'#2',paint:[],ply:''};
  if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},
