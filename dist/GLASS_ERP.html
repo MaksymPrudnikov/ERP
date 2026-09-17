@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 73 модулей, 12 стиля.
+  Состав сборки: 74 модулей, 12 стиля.
 -->
 <html lang="en">
 <head>
@@ -1564,6 +1564,17 @@ button.ncr-btn{border-color:#fda29b;color:#b42318}
 .pill.ncr-st-done{background:#dcfae6;color:#05603a}
 .sl-table tr.sl-row-ncr td{background:#fffbfa}
 @media(max-width:760px){.ncr-pick{grid-template-columns:minmax(0,1fr)}}
+/* Recut внутри заказа: кнопка и блок над Notes. */
+button.recut-btn{border-color:#fdb022;color:#93370d}
+.recut-section{margin:12px 0;padding:10px 14px;border:1px solid #fedf89;border-left:4px solid #f79009;border-radius:10px;background:#fffcf5}
+.recut-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#93370d;margin-bottom:6px}
+.recut-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;padding:6px 0;border-top:1px solid #fef0c7}
+.recut-row:first-of-type{border-top:0}
+.recut-row>span:not(.pill){color:#475467}
+.recut-row .mut{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
+.ncr-actions-card{margin-top:16px}
+.ncr-warning{padding:8px 12px;border-radius:8px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13px}
 
 </style>
 </head>
@@ -1586,7 +1597,7 @@ button.ncr-btn{border-color:#fda29b;color:#b42318}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='990e8f32e1ab';
+var ERP_BUILD='d2e4e12954b8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9450,7 +9461,7 @@ function salesLockViolations(draft,saved){
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
- const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id);
+ const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id)||((DB.recut||[]).some(r=>r.orderId===o.id)?{number:'a recut'}:null);
  if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
  if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
@@ -9640,7 +9651,8 @@ function salesHeaderActions(o){
  const parts=['<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
- if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm()">NCR</button>');
+ if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
  return parts.join('');
 }
@@ -14997,7 +15009,7 @@ function salesOrderEditor(){
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
+ ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
@@ -15026,7 +15038,7 @@ function salesExtraItemPicker(){
  const candidates=salesExtraItemCandidates();
  return candidates.length
   ?`<button class="sm" onclick="salesStockPickerOpen()">+ Add Stock Item</button>`
-  :`<span class="mut">No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.</span>`;
+  :'';
 }
 /* Владелец 11 сентября: «мы не к каждому заказу продаём дополнительные айтемы,
    интерфейс не должен быть навязчивый — а сейчас он прям кричит». Пустая секция
@@ -15075,7 +15087,7 @@ function salesStockPickerModal(){
  const rows=candidates.map((c,i)=>`<tr class="stock-picker-row"><td><b>${esc(c.name)}</b>${c.subcategory?`<div class="mut">${esc(c.subcategory)}</div>`:''}</td><td class="mono">${esc(c.code||'—')}</td><td class="mono">${c.salePrice!=null?c.salePrice.toFixed(2)+' '+esc(currency):'—'}</td><td><input type="number" min="1" step="1" value="1" id="stockPickQty_${i}" style="width:56px"></td><td><button class="sm" onclick="salesStockPickerChoose('${esc(c.table)}','${esc(c.id)}',(document.getElementById('stockPickQty_${i}')||{}).value)">+ Add</button></td></tr>`).join('');
  return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesStockPickerClose()"><div class="sales-service-modal"><div class="sales-service-modal-head"><div><span>Stock &amp; Extra Items</span><h3>Add an item</h3><small>Sold as its own order line — no glass, no geometry, no route</small></div><button onclick="salesStockPickerClose()">×</button></div>
   ${pills}
-  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No items are marked "sells as its own order line" yet — turn that on for a row in Master Data → Catalogues.'}</td></tr>`}</tbody></table></div>
+  <div class="customer-table-wrap"><table><thead><tr><th>Item</th><th>Code</th><th>Price, ${esc(currency)}</th><th>Qty</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="5" class="empty">${all.length?'No items in this filter.':'No catalog items'}</td></tr>`}</tbody></table></div>
   </div></div>`;
 }
 function salesLineShapeCell(l,i){
@@ -21160,9 +21172,9 @@ function glassBatchActive(orderId){
  return m;
 }
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
-/* Места перереза NCR: «ключ стекла|NCR1001.1» (erp/quality/ncr). */
-function glassRecutSlots(orderId,lineId){return typeof ncrRecutSlotsFor==='function'?ncrRecutSlotsFor(orderId,lineId):[];}
-function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^NCR\d+\.\d+$/.test(u);}
+/* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
+function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
+function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^(NCR|R)\d+\.\d+$/.test(u);}
 function glassPieceAt(rec,unit){
  if(!rec)return '';
  if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
@@ -21198,11 +21210,11 @@ function glassPieceEnsure(o){
   for(let i=0;i<want;i++)if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId();changed=true;}
   if(rec.ids.length>want){rec.ids.length=want;changed=true;}
  }));
- /* Перерез NCR получает свои номера; сама запись NCR не меняется. */
+ /* Стёкла Recut получают свои номера сразу при создании Recut. */
  glassRecutSlots(o.id).forEach(x=>{
   keep.add(x.key);let rec=map.get(x.key);
   if(!rec){rec={key:x.key,ids:[]};DB.glassPiece.push(rec);map.set(x.key,rec);changed=true;}
-  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ncr]||(rec.extra[x.ncr]=[]);
+  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ref]||(rec.extra[x.ref]=[]);
   if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId();changed=true;}
  });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
@@ -21213,8 +21225,10 @@ function glassPieceEnsure(o){
    поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
 function glassBatchRows(orders){
  const rows=[];
- (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&GLASS_WAITING_STATUSES.includes(o.status)).forEach(o=>finWithOrder(o,()=>{
-  const active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
+ /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
+    Verify, и сломанное стекло должно уйти в батч сразу. */
+ (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
+  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active))return;
    let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
@@ -21224,14 +21238,14 @@ function glassBatchRows(orders){
      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.spec.coatingSurface||'',customer};
-    for(let unit=1;unit<=l.qty;unit++){
+    for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
-     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ncr,piece,reason:hold||(piece?'':'Glass ID missing')}));
+     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });
   });
@@ -21278,7 +21292,7 @@ function glassBatchAssign(rows,opts){
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
-  const o=salesRecord(id);o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
   o.statusDates=Object.assign({},o.statusDates,{batched:now});['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return batch;
@@ -21328,7 +21342,7 @@ function normalizeGlassBatches(){
  DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0]))
   .map(r=>{
    const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
-   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^NCR\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
+   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^(NCR|R)\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
    return out;
   });
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
@@ -21382,7 +21396,7 @@ function validateGlassBatchesPayload(src){
  (Array.isArray(src.glassPiece)?src.glassPiece:[]).forEach(r=>{
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==4||!Array.isArray(r.ids))throw new Error('Invalid glass ID record.');
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
-  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^NCR\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
+  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^(NCR|R)\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
@@ -21420,7 +21434,7 @@ function glassBatchStatus(b){
  return !a.length?'Unbatched':a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
- const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?'Recut '+r.recut+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
+ const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
   status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
 }
 function glassBatchInfos(){
@@ -21430,7 +21444,7 @@ function glassBatchInfos(){
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
-  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?'Recut '+item.unit.split('.')[0]+' · '+item.unit.split('.')[1]+' of '+(s.of||'?'):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
+  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?recutUnitText(item.unit,s.of):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
    status:item.releasedAt?'Unbatched':item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
@@ -21553,12 +21567,12 @@ function viewGlassBatches(){
    что сломало: базовые — удар, сломалось; например, на закалке взорвалось
    в машине»; «добавь офис»; «скретч, а ещё с доли или со скида стекло падает».
    Списки Spil не переносятся. Причину не удаляют — выключают (Active).
-   Записи NCR по номеру стекла и перерез — следующий этап.
+   Справочник общий: Recut до выдачи (erp/quality/recut) и NCR после выдачи.
    ===================================================================== */
 DEFAULT.ncrReason=[];
 const NCR_ALL='*',NCR_OFFICE='OFFICE';
 const NCR_SOURCES=['Found in shop','Customer claim'];
-const NCR_ACTIONS=['Recut','Remake order','Repair','Replace from stock','Credit','No action'];
+const NCR_ACTIONS=['Remake order','Repair','Replace from stock','Credit','No action'];
 /* Стартовый набор. Office — ошибки оформления, ударов и падений там нет. */
 const NCR_SEED={
  '*':   ['Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],
@@ -21661,10 +21675,7 @@ function viewMdNcr(){
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
     <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
    </div>
-   <div class="ncr-lists">
-    <div class="card"><div class="ncr-label">SOURCE · WHO FOUND IT</div>${pills(NCR_SOURCES)}</div>
-    <div class="card"><div class="ncr-label">ACTION</div>${pills(NCR_ACTIONS)}</div>
-   </div>
+   <div class="card ncr-actions-card"><div class="ncr-label">NCR ACTION</div>${pills(NCR_ACTIONS)}</div>
   </div>
  </div>`;
 }
@@ -21672,20 +21683,20 @@ function viewMdNcr(){
 /* ==== src/erp/quality/ncr.js ==== */
 /* =====================================================================
    erp/quality/ncr  ·  ncr-1.0
-   Запись NCR на основе сохранённого заказа: кто нашёл (Source), где и что
-   (справочник erp/quality/reasons), действие и затронутое стекло позиций.
+   NCR — повреждение после выдачи заказа клиенту (перевозка, скретч внутри
+   стекла, царапина): где и что (erp/quality/reasons), действие и стекло позиций.
+   Брак до выдачи — Recut внутри заказа (erp/quality/recut), не NCR.
    IN : DB.salesOrder, DB.ncrReason
    OUT: DB.ncr {id, number NCR1001, orderId, createdAt, source, where, reasonId,
         reason, action, note, glass[{lineId, line, mark, which, lite, keys, qty}],
         remakeOrderId}
-   Владелец, 17 сентября 2026: кнопка NCR внутри заказа; Recut — новые стёкла
-   этой позиции уходят в To batch этого же заказа, заказ не закроется, пока их
-   не сделают; Remake order — новый заказ, связанный с исходным, $0 по
-   умолчанию; номер «обычный NCR2021»; список — в Sales рядом с Orders и Quotes.
+   Владелец, 17 сентября 2026: кнопка NCR внутри заказа; Remake order — новый
+   заказ, связанный с исходным, $0 по умолчанию; номер «обычный NCR2021»;
+   список — в Sales рядом с Orders и Quotes.
    Glass ID в Sales не показывается: стёкла выбираются позицией и лайтом.
    ===================================================================== */
 DEFAULT.ncr=[];
-const NCR_RECUT='Recut',NCR_REMAKE='Remake order';
+const NCR_REMAKE='Remake order';
 function ncrNextNumber(){let n=1000;(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
 function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
 function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
@@ -21700,37 +21711,48 @@ function ncrLiteOptions(o,l){
  return [{value:'unit',label:'Whole unit'}].concat(panes.map((p,i)=>({value:String(i),label:'Lite '+(i+1)+' · '+ncrPaneCode(p)})));
 }
 function ncrGlassKeys(o,l,which){return glassBatchComponents(o,l).filter(c=>which==='unit'||String(c.index)===String(which)).map(c=>c.key);}
-/* Стёкла перереза: ключ стекла позиции и место «NCR1001.1». Номер стекла
-   выдаётся при создании NCR (erp/production/glass-batches). */
-function ncrRecutSlots(n){
- if(!n||n.action!==NCR_RECUT)return [];
- return (n.glass||[]).flatMap(g=>(g.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+g.qty)||0)},(_,i)=>({key,lineId:g.lineId,unit:n.number+'.'+(i+1),k:i+1,of:+g.qty,ncr:n.number}))));
-}
-function ncrRecutSlotsFor(orderId,lineId){return (DB.ncr||[]).filter(n=>n&&n.orderId===orderId).flatMap(ncrRecutSlots).filter(s=>!lineId||s.lineId===lineId);}
-/* Статус выводится из связей: Recut открыт, пока его стекло не в батче или
-   заказ не дошёл до Ready; Remake — пока новый заказ не выдан или не закрыт. */
+/* Статус выводится из связей: Remake открыт, пока новый заказ не выдан или
+   не закрыт; прочие действия сразу Done. */
 function ncrStatus(n){
- if(n.action===NCR_RECUT){
-  const o=salesRecord(n.orderId);if(!o||o.status==='cancelled')return 'Done';
-  const active=glassBatchActive(o.id);
-  return ncrRecutSlots(n).some(s=>!active.has(s.key+'|'+s.unit))||!['ready','done','closed'].includes(o.status)?'Open':'Done';
- }
  if(n.action===NCR_REMAKE){const r=salesRecord(n.remakeOrderId);return r&&['done','closed','cancelled'].includes(r.status)?'Done':'Open';}
  return 'Done';
 }
 function ncrPieces(n){return (n.glass||[]).reduce((s,g)=>s+g.qty*(n.action===NCR_REMAKE?1:(g.keys||[]).length),0);}
+/* NCR можно завести у любого сохранённого заказа, не только после полной
+   выдачи. Почему (владелец, 17 сентября 2026): заказы отгружают частями —
+   «в заказе 200 лами-юнитов, отправили 20 на скиде, и один оказался NCR, а
+   заказ не выдан полностью»; «пусть NCR будет произвольный». Частичных
+   отгрузок в программе пока нет (этап Shipping), поэтому статус заказа не
+   может решать за человека. Вместо запрета — предупреждение ncrStageWarning. */
+function ncrCanCreate(o){return !!o&&!salesIsQuote(o)&&o.status!=='cancelled';}
+/* Предупреждение, если программа видит, что стекло ещё не дошло до места NCR:
+   «если стекло не дошло до какой-то станции, а стикер бьют, что он NCR, —
+   уведомить». Сейчас видно только батч (резка начата) и статус заказа;
+   когда появится сканирование станций, проверка станет по каждой станции.
+   Предупреждение не запрещает: человек знает про частичную отгрузку. */
+function ncrStageWarning(o,d){
+ if(!o||!d||!d.where||d.where===NCR_OFFICE)return '';
+ if(d.where==='SHIP')return ['done','closed'].includes(o.status)?'':'No shipment in the system yet';
+ if(d.where==='SHIPR')return ['ready','done','closed'].includes(o.status)?'':'Order not ready for shipping yet';
+ const active=glassBatchActive(o.id),lines=[];
+ o.lines.forEach((l,i)=>{
+  const x=d.lines&&d.lines[l.id];if(!x||!x.on)return;
+  const keys=ncrGlassKeys(o,l,d.action===NCR_REMAKE?'unit':String(x.which||'unit'));
+  const cut=salesLineLocked(l)&&!l.batchManaged||keys.some(k=>{for(let u=1;u<=l.qty;u++)if(active.has(k+'|'+u))return true;return false;});
+  if(!cut)lines.push('Line '+(i+1));
+ });
+ return lines.length?'Not cut yet · '+lines.join(', '):'';
+}
 function ncrWhereLabel(n){return n.where===NCR_OFFICE?'Office':n.where;}
 function ncrOrderStamp(o){return JSON.stringify([o&&o.lines,o&&o.makeups,o&&o.status]);}
 /* Создание: всё проверяется до записи; ошибка возвращается текстом для окна. */
 function ncrCreate(d){
  const o=salesRecord(d&&d.orderId);
- if(!o||salesIsQuote(o)||o.status==='cancelled')return {error:'This order cannot get an NCR.'};
+ if(!ncrCanCreate(o))return {error:'NCR not available'};
  if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen NCR.'};
- if(!NCR_SOURCES.includes(d.source))return {error:'Choose who found it.'};
  if(!NCR_ACTIONS.includes(d.action))return {error:'Choose the action.'};
  const reason=ncrReasonsFor(d.where,{activeOnly:true}).find(r=>r.id===d.reasonId);
  if(!reason)return {error:'Choose where and what happened.'};
- if(d.action===NCR_RECUT&&o.status==='closed')return {error:'Order closed · use Remake'};
  const glass=[];
  for(let i=0;i<o.lines.length;i++){
   const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
@@ -21741,9 +21763,8 @@ function ncrCreate(d){
  }
  if(!glass.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();
- const n={id:salesUid('NCR'),number:ncrNextNumber(),orderId:o.id,createdAt:now,source:d.source,where:d.where,reasonId:reason.id,reason:reason.name,action:d.action,note:salesString(d.note).slice(0,500),glass,remakeOrderId:''};
+ const n={id:salesUid('NCR'),number:ncrNextNumber(),orderId:o.id,createdAt:now,source:NCR_SOURCES.includes(d.source)?d.source:'Customer claim',where:d.where,reasonId:reason.id,reason:reason.name,action:d.action,note:salesString(d.note).slice(0,500),glass,remakeOrderId:''};
  DB.ncr.push(n);
- if(n.action===NCR_RECUT){glassPieceEnsure(o);o.updatedAt=now;}
  if(n.action===NCR_REMAKE){
   const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
   src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
@@ -21776,38 +21797,136 @@ function validateNcrPayload(src){
  });
 }
 
+/* ==== src/erp/quality/recut.js ==== */
+/* =====================================================================
+   erp/quality/recut  ·  recut-1.0
+   Recut — брак до выдачи заказа клиенту. Это часть заказа, а не NCR: новые
+   стёкла позиции уходят в To batch этого же заказа, и заказ не выдаётся, пока
+   их не отправят в батч. NCR — повреждение после выдачи (erp/quality/ncr).
+   IN : DB.salesOrder, DB.ncrReason
+   OUT: DB.recut {id, orderId, no, createdAt, lineId, line, mark, which, lite,
+        keys, qty, where, reasonId, reason, note}; места стёкол «ключ|R1.k»
+   Владелец, 17 сентября 2026: «Recut — это то, что можно решить, пока заказ
+   ещё не выдан, и он должен упасть в заказ; NCR — повредили при
+   транспортировке, скретч внутри стекла по нашей вине, поцарапанное»; кнопка
+   доступна сразу — «вдруг я дал стикер резать из стока… и потом он сломался»;
+   нумерация внутри заказа, отдельный блок над Notes. Следующий этап — окно
+   RECUT на станции производства: сломалось — ввели — ушло в батч.
+   ===================================================================== */
+DEFAULT.recut=[];
+const RECUT_OPEN_STATUSES=['new','verified','batched','ready'];
+function recutForOrder(orderId){return (DB.recut||[]).filter(r=>r.orderId===orderId).sort((a,b)=>a.no-b.no);}
+function recutCanOpen(o){return !!o&&!salesIsQuote(o)&&!!salesRecord(o.id)&&RECUT_OPEN_STATUSES.includes(o.status);}
+function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId).reduce((n,r)=>Math.max(n,+r.no||0),0)+1;}
+function recutSlots(r){
+ return (r&&r.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+r.qty)||0)},(_,i)=>({key,lineId:r.lineId,unit:'R'+r.no+'.'+(i+1),k:i+1,of:+r.qty,ref:'R'+r.no,label:'Recut '+r.no})));
+}
+function recutSlotsFor(orderId,lineId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId&&(!lineId||r.lineId===lineId)).flatMap(recutSlots);}
+/* «Recut 1 · 2 of 3» по месту стекла; старые места NCR1001.2 — до переноса. */
+function recutUnitText(unit,of){const [ref,k]=String(unit).split('.');return 'Recut '+(ref.startsWith('R')?ref.slice(1):ref)+' · '+k+' of '+(of||'?');}
+function recutStatus(r){
+ const active=glassBatchActive(r.orderId),slots=recutSlots(r),pending=slots.some(s=>!active.has(s.key+'|'+s.unit));
+ return pending?'In queue':'Batched · '+[...new Set(slots.map(s=>active.get(s.key+'|'+s.unit).batch.number))].join(', ');
+}
+/* Одна позиция формы — один Recut. Всё проверяется до записи. */
+function recutCreate(d){
+ const o=salesRecord(d&&d.orderId);
+ if(!recutCanOpen(o))return {error:'Recut not available'};
+ if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen Recut.'};
+ const reason=ncrReasonsFor(d.where,{activeOnly:true}).find(r=>r.id===d.reasonId);
+ if(!reason)return {error:'Choose where and what happened.'};
+ const picks=[];
+ for(let i=0;i<o.lines.length;i++){
+  const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
+  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
+  const which=String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
+  if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
+  picks.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});
+ }
+ if(!picks.length)return {error:'Select the affected glass.'};
+ const now=new Date().toISOString();let no=recutNextNo(o.id);
+ const made=picks.map(p=>Object.assign({id:salesUid('RC'),orderId:o.id,no:no++,createdAt:now},p,{where:d.where,reasonId:reason.id,reason:reason.name,note:salesString(d.note).slice(0,500)}));
+ DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;touch();
+ return {recuts:made};
+}
+/* Recut, записанный раньше как действие NCR, переносится в заказ один раз:
+   номер внутри заказа, места стёкол NCR1001.k → R1.k, номера стёкол те же. */
+function recutMigrateFromNcr(){
+ const legacy=(Array.isArray(DB.ncr)?DB.ncr:[]).filter(n=>n&&typeof n==='object'&&n.action==='Recut');
+ if(!legacy.length)return;
+ legacy.forEach(n=>{
+  const old=String(n.number||'');
+  (Array.isArray(n.glass)?n.glass:[]).filter(g=>g&&typeof g==='object').forEach(g=>{
+   const no=recutNextNo(n.orderId),ref='R'+no,keys=(Array.isArray(g.keys)?g.keys:[]).filter(k=>typeof k==='string');
+   DB.recut.push({id:salesUid('RC'),orderId:salesString(n.orderId),no,createdAt:salesString(n.createdAt),lineId:salesString(g.lineId),line:g.line,mark:g.mark,which:g.which,lite:g.lite,keys,qty:g.qty,where:n.where,reasonId:n.reasonId,reason:n.reason,note:n.note});
+   keys.forEach(key=>{
+    const rec=(DB.glassPiece||[]).find(r=>r&&r.key===key);
+    if(rec&&rec.extra&&Array.isArray(rec.extra[old])){rec.extra[ref]=rec.extra[old];delete rec.extra[old];}
+    (DB.glassBatch||[]).forEach(b=>(Array.isArray(b&&b.items)?b.items:[]).forEach(it=>{
+     const p=(b.parts||[])[it&&it.part];
+     if(p&&p.key===key&&typeof it.unit==='string'&&it.unit.startsWith(old+'.')){it.unit=ref+it.unit.slice(old.length);if(p.snapshot&&p.snapshot.recut===old)p.snapshot.recut=ref;}
+    }));
+   });
+  });
+ });
+ DB.ncr=DB.ncr.filter(n=>!(n&&n.action==='Recut'));
+}
+function normalizeRecuts(){
+ if(!Array.isArray(DB.recut))DB.recut=[];
+ recutMigrateFromNcr();
+ const ids=new Set();
+ DB.recut=DB.recut.filter(r=>r&&typeof r==='object').map(r=>({id:typeof r.id==='string'&&r.id?r.id:salesUid('RC'),orderId:salesString(r.orderId),no:Math.max(1,Math.floor(+r.no)||1),createdAt:salesString(r.createdAt),
+  lineId:salesString(r.lineId),line:Math.max(1,Math.floor(+r.line)||1),mark:salesString(r.mark),which:r.which==null?'unit':String(r.which),lite:salesString(r.lite),
+  keys:(Array.isArray(r.keys)?r.keys:[]).filter(k=>typeof k==='string'&&k.split('|').length===4),qty:Math.max(1,Math.floor(+r.qty)||1),
+  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500)}))
+  .filter(r=>{if(!r.orderId||!r.lineId||!r.keys.length||ids.has(r.id))return false;ids.add(r.id);return true;});
+}
+function validateRecutPayload(src){
+ if(src.recut==null||!Array.isArray(src.recut))return;
+ const seen=new Set();
+ src.recut.forEach(r=>{
+  if(!r||typeof r!=='object'||Array.isArray(r)||!salesRefId(r.orderId)||!Number.isSafeInteger(r.no)||r.no<1)throw new Error('Invalid recut record.');
+  const k=r.orderId+'#'+r.no;if(seen.has(k))throw new Error('Duplicate recut number.');seen.add(k);
+ });
+}
+
 /* ==== src/erp/views/ncr-ui.js ==== */
 /* =====================================================================
    view/ncr · ncr-ui-1.0
-   NCR в Sales: кнопка NCR в заказе → форма на основе сохранённого заказа;
-   окно просмотра; полоса NCR в заказе и отметка Remake; строки NCR в
-   списке Sales (меню Show). Номера стёкол G-… здесь не показываются.
+   Одна форма на основе сохранённого заказа в двух видах: Recut — до выдачи
+   (кнопка Recut, блок Recuts над Notes), NCR — после выдачи (кнопка NCR,
+   окно просмотра, полоса NCR, строки в Sales). Номера G-… здесь не видны.
    IN : DB.ncr, DB.ncrReason, сохранённый заказ; OUT: ncrCreate, HTML
    ===================================================================== */
 let ncrForm=null,ncrViewId='';
-function ncrCanOpen(o){return !!o&&!salesIsQuote(o)&&soEdit!=='new'&&!!salesRecord(o.id)&&o.status!=='cancelled';}
-function ncrOpenForm(){
- if(!soDraft||!ncrCanOpen(soDraft))return;
+function ncrCanOpen(o){return soEdit!=='new'&&ncrCanCreate(o);}
+function recutCanOpenHere(o){return soEdit!=='new'&&recutCanOpen(o);}
+function ncrOpenForm(kind){
+ kind=kind==='recut'?'recut':'ncr';
+ if(!soDraft||!(kind==='recut'?recutCanOpenHere(soDraft):ncrCanOpen(soDraft)))return;
  if(salesDraftHasWork()){salesDialogOpen({title:'Save the order first',buttons:[{label:'Back'}]});return;}
  const o=salesRecord(soDraft.id);
- ncrForm={orderId:o.id,source:NCR_SOURCES[0],where:'',reasonId:'',action:o.status==='closed'?NCR_REMAKE:NCR_RECUT,note:'',lines:{},stamp:ncrOrderStamp(o),error:''};
+ ncrForm={kind,orderId:o.id,where:'',reasonId:'',action:NCR_REMAKE,note:'',lines:{},stamp:ncrOrderStamp(o),error:''};
  render();
 }
 function ncrFormClose(){ncrForm=null;render();}
 function ncrFormSet(key,value){
- if(!ncrForm)return;ncrForm[key]=value;ncrForm.error='';
+ if(!ncrForm)return;ncrForm[key]=value;ncrForm.error='';ncrForm.warning='';
  if(key==='where')ncrForm.reasonId='';
  render();
 }
 function ncrFormLine(lineId,key,value,redraw){
  if(!ncrForm)return;const x=ncrForm.lines[lineId]||(ncrForm.lines[lineId]={on:false,qty:'',which:'unit'});
- x[key]=value;if(key==='on'&&value&&!x.qty)x.qty=1;ncrForm.error='';if(redraw)render();
+ x[key]=value;if(key==='on'&&value&&!x.qty)x.qty=1;ncrForm.error='';ncrForm.warning='';if(redraw)render();
 }
 function ncrFormCreate(){
  if(!ncrForm)return;const lines={};Object.keys(ncrForm.lines).forEach(id=>{const x=ncrForm.lines[id];lines[id]=Object.assign({},x,{qty:String(x.qty).trim()===''?NaN:Number(x.qty)});});
- const res=ncrCreate(Object.assign({},ncrForm,{lines}));
+ const recut=ncrForm.kind==='recut';
+ /* NCR на место, до которого стекло ещё не дошло: сначала предупреждение, второе нажатие создаёт. */
+ if(!recut&&!ncrForm.warning){const w=ncrStageWarning(salesRecord(ncrForm.orderId),Object.assign({},ncrForm,{lines}));if(w&&ncrReasonsFor(ncrForm.where,{activeOnly:true}).some(r=>r.id===ncrForm.reasonId)){ncrForm.warning=w;render();return;}}
+ const res=recut?recutCreate(Object.assign({},ncrForm,{lines})):ncrCreate(Object.assign({},ncrForm,{lines,source:'Customer claim'}));
  if(res.error){ncrForm.error=res.error;render();return;}
- ncrForm=null;ncrViewId=res.ncr.id;render();
+ ncrForm=null;if(!recut)ncrViewId=res.ncr.id;render();
 }
 function ncrView(id){if(!ncrFind(id))return;ncrForm=null;ncrViewId=id;salesListMenu=null;render();}
 function ncrViewClose(){ncrViewId='';render();}
@@ -21818,14 +21937,15 @@ function ncrOpenOrder(id){
 }
 function ncrEffectText(f,o){
  const picked=o.lines.filter(l=>f.lines[l.id]&&f.lines[l.id].on);
- const n=picked.reduce((s,l)=>{const x=f.lines[l.id],q=Number(x.qty)||0;return s+(f.action===NCR_REMAKE?q:q*ncrGlassKeys(o,l,x.which||'unit').length);},0);
- if(f.action===NCR_RECUT)return (n?n+' pcs':'Recut')+' → glass queue';
+ const remake=f.kind!=='recut'&&f.action===NCR_REMAKE;
+ const n=picked.reduce((s,l)=>{const x=f.lines[l.id],q=Number(x.qty)||0;return s+(remake?q:q*ncrGlassKeys(o,l,x.which||'unit').length);},0);
+ if(f.kind==='recut')return (n?n+' pcs':'Recut')+' → glass queue';
  if(f.action===NCR_REMAKE)return 'New order'+(n?' · '+n+' unit'+(n===1?'':'s'):'')+' · $0';
  return '';
 }
 function ncrFormHTML(){
  const f=ncrForm,o=salesRecord(f.orderId);if(!o){ncrForm=null;return '';}
- const places=ncrWhereList(),reasons=f.where?ncrReasonsFor(f.where,{activeOnly:true}):[],remake=f.action===NCR_REMAKE;
+ const recut=f.kind==='recut',places=ncrWhereList(),reasons=f.where?ncrReasonsFor(f.where,{activeOnly:true}):[],remake=!recut&&f.action===NCR_REMAKE;
  const glassCodes=l=>{const m=salesMakeupById(o,l.makeupId);return m?(m.panes||[]).map(ncrPaneCode).join(' / '):'—';};
  const rows=o.lines.map((l,i)=>{
   const x=f.lines[l.id]||{on:false,qty:'',which:'unit'},opts=ncrLiteOptions(o,l);
@@ -21834,22 +21954,22 @@ function ncrFormHTML(){
    <td><input type="number" min="1" max="${l.qty}" step="1" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
    <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" onchange="ncrFormLine('${esc(l.id)}','which',this.value,true)">${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
  }).join('');
- return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="New NCR">
-  <div class="sales-service-modal-head"><h3>New NCR · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${recut?'Recut':'New NCR'}">
+  <div class="sales-service-modal-head"><h3>${recut?'Recut':'New NCR'} · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
   <div class="sales-dialog-body ncr-form">
    <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
-   <div><div class="ncr-label">SOURCE · WHO FOUND IT</div><div class="ncr-seg">${NCR_SOURCES.map(s=>`<button type="button" class="sm ${f.source===s?'pri':''}" data-ncr-source="${esc(s)}" aria-pressed="${f.source===s}" onclick="ncrFormSet('source','${esc(s)}')">${esc(s)}</button>`).join('')}</div></div>
    <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table></div></div>
-   <div class="ncr-pick">
+   <div class="ncr-pick${recut?' ncr-pick-two':''}">
     <label><span class="ncr-label">WHERE</span><select data-ncr-where-select onchange="ncrFormSet('where',this.value)"><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
     <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} onchange="ncrFormSet('reasonId',this.value)"><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
-    <label><span class="ncr-label">ACTION</span><select data-ncr-action-select onchange="ncrFormSet('action',this.value)">${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''} ${a===NCR_RECUT&&o.status==='closed'?'disabled':''}>${esc(a)}</option>`).join('')}</select></label>
+    ${recut?'':`<label><span class="ncr-label">ACTION</span><select data-ncr-action-select onchange="ncrFormSet('action',this.value)">${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''}>${esc(a)}</option>`).join('')}</select></label>`}
    </div>
    <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" oninput="ncrForm.note=this.value">${esc(f.note)}</textarea></label>
    ${ncrEffectText(f,o)?`<div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>`:''}
+   ${f.warning?`<div class="ncr-warning" role="alert" data-ncr-warning>⚠ ${esc(f.warning)}</div>`:''}
    ${f.error?`<div class="ncr-error" role="alert" data-ncr-error>${esc(f.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">Create NCR</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">${recut?'Create recut':f.warning?'Create anyway':'Create NCR'}</button></div></div></div>`;
 }
 function ncrViewHTML(){
  const n=ncrFind(ncrViewId);if(!n){ncrViewId='';return '';}
@@ -21861,7 +21981,6 @@ function ncrViewHTML(){
    <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
    <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table></div>
    ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
-   ${n.action===NCR_RECUT?`<div class="sales-quote-note">${esc(ncrPieces(n)+' pcs → glass queue')}</div>`:''}
    ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
   </div>
   <div class="sales-dialog-actions"><button type="button" onclick="ncrViewClose()">Close</button>${r?`<button type="button" data-ncr-open-remake onclick="ncrOpenOrder('${esc(r.id)}')">Open order ${esc(r.businessNumber)}</button>`:''}${o&&(!soDraft||soDraft.id!==o.id)?`<button type="button" class="pri" data-ncr-open-order onclick="ncrOpenOrder('${esc(o.id)}')">Open order ${esc(o.businessNumber)}</button>`:''}</div></div></div>`;
@@ -21874,6 +21993,12 @@ function ncrOrderStrip(o){
  const items=list.map(n=>{const s=ncrStatus(n);return `<div class="ncr-strip-row" data-ncr-strip="${esc(n.id)}"><b class="mono">${esc(n.number)}</b><span>${esc(ncrWhereLabel(n))} · ${esc(n.reason)} · ${esc(n.action)} · ${ncrPieces(n)} ${n.action===NCR_REMAKE?'unit':'pc'}${ncrPieces(n)===1?'':'s'}</span><span class="pill ${s==='Open'?'ncr-st-open':'ncr-st-done'}">${esc(s)}</span><button type="button" class="sm" onclick="ncrView('${esc(n.id)}')">View</button></div>`;}).join('');
  const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} onchange="soDraft.noCharge=this.checked;render()"> No charge</label><button type="button" class="sm" onclick="ncrView('${esc(src.id)}')">View NCR</button></div>`:'';
  return list.length||remake?`<div class="ncr-strip">${remake}${items}</div>`:'';
+}
+/* Блок Recuts над Notes: стёкла перереза этого заказа по позициям. */
+function recutOrderSection(o){
+ if(!o||salesIsQuote(o)||soEdit==='new')return '';
+ const list=recutForOrder(o.id);if(!list.length)return '';
+ return `<div class="recut-section" data-recut-section><div class="recut-head">RECUTS</div>${list.map(r=>{const st=recutStatus(r);return `<div class="recut-row" data-recut-row="${esc(r.id)}"><b>Recut ${r.no}</b><span>Line ${r.line}${r.mark?' · '+esc(r.mark):''}</span><span>${esc(r.lite)}</span><span>${r.qty} pc${r.qty===1?'':'s'}</span><span>${esc(ncrWhereLabel(r))} · ${esc(r.reason)}</span><span class="pill ${st==='In queue'?'ncr-st-open':'ncr-st-done'}">${esc(st)}</span>${r.note?`<span class="mut" title="${esc(r.note)}">${esc(r.note)}</span>`:''}</div>`;}).join('')}</div>`;
 }
 /* Строки NCR в списке Sales: значения колонок заранее, без расчётов заказа. */
 function ncrListInfos(){
@@ -21959,6 +22084,7 @@ function validateImportedState(src){
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
+ if(typeof validateRecutPayload==='function')validateRecutPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -22031,6 +22157,7 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof normalizeRecuts==='function')normalizeRecuts();
  if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
