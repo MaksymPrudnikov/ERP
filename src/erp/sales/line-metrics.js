@@ -66,6 +66,8 @@ function salesApplyOrderCharges(subtotal,raw){
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ /* Переделка NCR без оплаты: итог заказа $0, пока офис не снимет No charge. */
+ if(order&&order.noCharge){(order.lines||[]).forEach(l=>{qty+=salesPositiveInt(l.qty,1);});const out=salesApplyOrderCharges(0,{});Object.keys(out).forEach(k=>{if(typeof out[k]==='number')out[k]=0;});out.complete=true;out.missing=0;out.qty=qty;out.noCharge=true;return out;}
  (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */

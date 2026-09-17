@@ -115,6 +115,8 @@ function salesLockViolations(draft,saved){
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
+ const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id);
+ if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
  if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
@@ -304,6 +306,7 @@ function salesHeaderActions(o){
  const parts=['<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm()">NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
  return parts.join('');
 }
@@ -330,16 +333,16 @@ function salesLockBar(o){
 }
 
 /* --------------------------- Список Sales ------------------------------ */
-/* Галочки Show: каждый смотрит своё — только заказы, заказы и квоты. Выбор
-   запоминается в этом браузере. Рекламации добавятся третьей галочкой. */
+/* Галочки Show: каждый смотрит своё — заказы, квоты, NCR (erp/quality/ncr).
+   Выбор запоминается в этом браузере; хотя бы одна галочка остаётся. */
 function salesLoadShow(){
- try{const v=JSON.parse(localStorage.getItem('glass_erp_sales_show')||'null');if(v&&typeof v==='object'&&(v.orders||v.quotes))return {orders:!!v.orders,quotes:!!v.quotes};}catch(e){}
- return {orders:true,quotes:false};
+ try{const v=JSON.parse(localStorage.getItem('glass_erp_sales_show')||'null');if(v&&typeof v==='object'&&(v.orders||v.quotes||v.ncr))return {orders:!!v.orders,quotes:!!v.quotes,ncr:!!v.ncr};}catch(e){}
+ return {orders:true,quotes:false,ncr:false};
 }
 let salesShow=salesLoadShow(),salesStatusFilter='';
 function salesToggleShow(key){
  const next=Object.assign({},salesShow,{[key]:!salesShow[key]});
- if(!next.orders&&!next.quotes)return;
+ if(!next.orders&&!next.quotes&&!next.ncr)return;
  salesShow=next;salesStatusFilter='';
  try{localStorage.setItem('glass_erp_sales_show',JSON.stringify(salesShow));}catch(e){}
  render();
@@ -350,9 +353,10 @@ function salesListVisible(){
  return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id);
 }
 function salesStatusChips(rows){
- const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
+ const count=(kind,s)=>rows.filter(o=>o.kind!=='ncr'&&salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
+ if(salesShow.ncr)['Open','Done'].forEach(s=>chips.push({key:'ncr:'+s.toLowerCase(),label:'NCR '+s,n:rows.filter(o=>o.kind==='ncr'&&o.ncrStatus===s).length}));
  const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
  const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
  return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;

@@ -40,16 +40,25 @@ function glassBatchActive(orderId){
  return m;
 }
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
+/* Места перереза NCR: «ключ стекла|NCR1001.1» (erp/quality/ncr). */
+function glassRecutSlots(orderId,lineId){return typeof ncrRecutSlotsFor==='function'?ncrRecutSlotsFor(orderId,lineId):[];}
+function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^NCR\d+\.\d+$/.test(u);}
+function glassPieceAt(rec,unit){
+ if(!rec)return '';
+ if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
+ return rec.ids[unit-1]||'';
+}
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 function glassBatchRemaining(o,l,active){
- const cs=glassBatchComponents(o,l);
- if(!l.batchManaged)return salesLineLocked(l)?0:l.qty*cs.length;
+ const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
  active=active||glassBatchActive(o.id);
- return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0);
+ const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)).length;
+ if(!l.batchManaged)return (salesLineLocked(l)?0:l.qty*cs.length)+pending;
+ return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0)+pending;
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
- (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length;left+=glassBatchRemaining(o,l,active);});
+ (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length+glassRecutSlots(o.id,l.id).length;left+=glassBatchRemaining(o,l,active);});
  return {total,left,assigned:total-left};
 }
 /* Номера выдаются сохранённому заказу (не квоте): при сохранении, переходах
@@ -69,6 +78,13 @@ function glassPieceEnsure(o){
   for(let i=0;i<want;i++)if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId();changed=true;}
   if(rec.ids.length>want){rec.ids.length=want;changed=true;}
  }));
+ /* Перерез NCR получает свои номера; сама запись NCR не меняется. */
+ glassRecutSlots(o.id).forEach(x=>{
+  keep.add(x.key);let rec=map.get(x.key);
+  if(!rec){rec={key:x.key,ids:[]};DB.glassPiece.push(rec);map.set(x.key,rec);changed=true;}
+  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ncr]||(rec.extra[x.ncr]=[]);
+  if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId();changed=true;}
+ });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
  if(next.length!==DB.glassPiece.length){DB.glassPiece=next;changed=true;}
  return changed;
@@ -93,6 +109,10 @@ function glassBatchRows(orders){
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
+    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
+     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ncr,piece,reason:hold||(piece?'':'Glass ID missing')}));
+    });
    });
   });
  }));
@@ -108,7 +128,7 @@ function glassBatchSelectionStamp(rows){
  return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt]);
 }
 function glassBatchPartSnapshot(r){
- return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
+ return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
   production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.l)}};
 }
 /* Внутренний commit вызывается только после всех проверок выбранной группы.
@@ -186,24 +206,28 @@ function normalizeGlassBatches(){
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  const ids=new Set();
  DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0]))
-  .map(r=>({key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')}));
+  .map(r=>{
+   const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
+   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^NCR\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
+   return out;
+  });
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
  DB.glassBatch.forEach(b=>{
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
-  b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&Number.isSafeInteger(i.unit)&&i.unit>=0);
+  b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
   b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
  });
  let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
- DB.glassPiece.forEach(r=>r.ids.forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
+ DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
  DB.glassPieceSeq=top;
  /* Места для записей без номера изделия: активные — первые свободные. */
- const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit>0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
+ const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit!==0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
  DB.glassBatch.forEach(b=>{const released=new Map();b.items.forEach(i=>{
-  if(i.unit>0)return;const key=b.parts[i.part].key;
+  if(i.unit!==0)return;const key=b.parts[i.part].key;
   if(i.releasedAt){const n=(released.get(key)||0)+1;released.set(key,n);i.unit=n;return;}
   let u=1;while(taken.has(key+'|'+u))u++;i.unit=u;taken.add(key+'|'+u);
  });});
@@ -222,7 +246,7 @@ function normalizeGlassBatches(){
  (DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
-  b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const rec=pieces.get(b.parts[i.part].key),id=rec&&rec.ids[i.unit-1];i.piece=glassPieceValid(id)?id:glassPieceNextId();});
+  b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const id=glassPieceAt(pieces.get(b.parts[i.part].key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId();});
   b.history.forEach(h=>{if(h.convert){h.pieces=h.convert.map(i=>i.piece);delete h.convert;}});
  });
  (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
@@ -238,6 +262,7 @@ function validateGlassBatchesPayload(src){
  (Array.isArray(src.glassPiece)?src.glassPiece:[]).forEach(r=>{
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==4||!Array.isArray(r.ids))throw new Error('Invalid glass ID record.');
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
+  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^NCR\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
@@ -247,10 +272,10 @@ function validateGlassBatchesPayload(src){
   if(!Array.isArray(b.parts))return;
   b.parts.forEach(p=>{if(!p||typeof p.key!=='string'||p.key.split('|').length!==4||!salesRefId(p.orderId)||!salesRefId(p.lineId)||!p.key.startsWith(p.orderId+'|'+p.lineId+'|')||!p.snapshot||typeof p.snapshot!=='object')throw new Error('Invalid glass batch part.');});
   b.items.forEach(i=>{
-   if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!Number.isSafeInteger(i.unit)||i.unit<1||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
+   if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!glassUnitValid(i.unit)||i.unit===0||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
    if(i.releasedAt)return;
    const p=b.parts[i.part],slot=p.key+'|'+i.unit,l=lineOf(p.orderId,p.lineId);
-   if(!l||i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
+   if(!l||typeof i.unit==='number'&&i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
    slots.add(slot);active.add(i.piece);
   });
   b.history.forEach(h=>{if(!h||typeof h.at!=='string'||typeof h.action!=='string'||!Array.isArray(h.pieces)||!Number.isFinite(h.qty))throw new Error('Invalid batch history.');});

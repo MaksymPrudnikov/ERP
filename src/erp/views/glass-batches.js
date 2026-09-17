@@ -15,7 +15,7 @@ function glassBatchStatus(b){
  return !a.length?'Unbatched':a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
- const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
+ const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?'Recut '+r.recut+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
   status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
 }
 function glassBatchInfos(){
@@ -25,7 +25,7 @@ function glassBatchInfos(){
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
-  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
+  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?'Recut '+item.unit.split('.')[0]+' · '+item.unit.split('.')[1]+' of '+(s.of||'?'):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
    status:item.releasedAt?'Unbatched':item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
