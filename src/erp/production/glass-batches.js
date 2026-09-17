@@ -40,9 +40,9 @@ function glassBatchActive(orderId){
  return m;
 }
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
-/* Места перереза NCR: «ключ стекла|NCR1001.1» (erp/quality/ncr). */
-function glassRecutSlots(orderId,lineId){return typeof ncrRecutSlotsFor==='function'?ncrRecutSlotsFor(orderId,lineId):[];}
-function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^NCR\d+\.\d+$/.test(u);}
+/* Места Recut заказа: «ключ стекла|R1.1» (erp/quality/recut). */
+function glassRecutSlots(orderId,lineId){return typeof recutSlotsFor==='function'?recutSlotsFor(orderId,lineId):[];}
+function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^(NCR|R)\d+\.\d+$/.test(u);}
 function glassPieceAt(rec,unit){
  if(!rec)return '';
  if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
@@ -78,11 +78,11 @@ function glassPieceEnsure(o){
   for(let i=0;i<want;i++)if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId();changed=true;}
   if(rec.ids.length>want){rec.ids.length=want;changed=true;}
  }));
- /* Перерез NCR получает свои номера; сама запись NCR не меняется. */
+ /* Стёкла Recut получают свои номера сразу при создании Recut. */
  glassRecutSlots(o.id).forEach(x=>{
   keep.add(x.key);let rec=map.get(x.key);
   if(!rec){rec={key:x.key,ids:[]};DB.glassPiece.push(rec);map.set(x.key,rec);changed=true;}
-  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ncr]||(rec.extra[x.ncr]=[]);
+  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ref]||(rec.extra[x.ref]=[]);
   if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId();changed=true;}
  });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
@@ -93,8 +93,10 @@ function glassPieceEnsure(o){
    поэтому считается внутри finWithOrder: очередь работает с сохранённой записью. */
 function glassBatchRows(orders){
  const rows=[];
- (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&GLASS_WAITING_STATUSES.includes(o.status)).forEach(o=>finWithOrder(o,()=>{
-  const active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
+ /* Заказ New в очередь не попадает, кроме его Recut: стекло из стока режут без
+    Verify, и сломанное стекло должно уйти в батч сразу. */
+ (orders||DB.salesOrder||[]).filter(o=>o&&!salesIsQuote(o)&&(GLASS_WAITING_STATUSES.includes(o.status)||o.status==='new'&&glassRecutSlots(o.id).length)).forEach(o=>finWithOrder(o,()=>{
+  const regular=GLASS_WAITING_STATUSES.includes(o.status),active=glassBatchActive(o.id),pieces=glassPieceMap(o.id),customer=salesCustomerDisplay(o.customerId),hasCustomer=!!salesFindCustomer(o.customerId);
   (o.lines||[]).forEach((l,li)=>{
    if(!glassBatchRemaining(o,l,active))return;
    let plan;try{plan=salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){plan={valid:false,reason:'Check cutting geometry'};}
@@ -104,14 +106,14 @@ function glassBatchRows(orders){
      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
      heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.spec.coatingSurface||'',customer};
-    for(let unit=1;unit<=l.qty;unit++){
+    for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
     glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
      const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
-     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ncr,piece,reason:hold||(piece?'':'Glass ID missing')}));
+     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ref,recutLabel:x.label,piece,reason:hold||(piece?'':'Glass ID missing')}));
     });
    });
   });
@@ -158,7 +160,7 @@ function glassBatchAssign(rows,opts){
  new Map(chosen.map(r=>[r.l,r.o])).forEach((o,l)=>{l.batchManaged=true;glassBatchSyncLine(o,l);});
  batch.history.push({at:now,action:added?'Added':'Created',pieces:chosen.map(r=>r.piece),qty:chosen.length});
  [...new Set(chosen.map(r=>r.orderId))].forEach(id=>{
-  const o=salesRecord(id);o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
+  const o=salesRecord(id);if(o.status==='new'){o.updatedAt=now;salesSyncRecordLifecycle(o);return;}o.status='batched';o.batchNo=number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number))];
   o.statusDates=Object.assign({},o.statusDates,{batched:now});['ready','done','closed'].forEach(k=>delete o.statusDates[k]);o.fulfilledVia='';o.updatedAt=now;salesSyncRecordLifecycle(o);
  });
  if(!opts.deferTouch)touch();return batch;
@@ -208,7 +210,7 @@ function normalizeGlassBatches(){
  DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0]))
   .map(r=>{
    const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
-   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^NCR\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
+   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^(NCR|R)\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
    return out;
   });
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
@@ -262,7 +264,7 @@ function validateGlassBatchesPayload(src){
  (Array.isArray(src.glassPiece)?src.glassPiece:[]).forEach(r=>{
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==4||!Array.isArray(r.ids))throw new Error('Invalid glass ID record.');
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
-  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^NCR\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
+  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^(NCR|R)\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');

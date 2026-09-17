@@ -9,12 +9,12 @@
    что сломало: базовые — удар, сломалось; например, на закалке взорвалось
    в машине»; «добавь офис»; «скретч, а ещё с доли или со скида стекло падает».
    Списки Spil не переносятся. Причину не удаляют — выключают (Active).
-   Записи NCR по номеру стекла и перерез — следующий этап.
+   Справочник общий: Recut до выдачи (erp/quality/recut) и NCR после выдачи.
    ===================================================================== */
 DEFAULT.ncrReason=[];
 const NCR_ALL='*',NCR_OFFICE='OFFICE';
 const NCR_SOURCES=['Found in shop','Customer claim'];
-const NCR_ACTIONS=['Recut','Remake order','Repair','Replace from stock','Credit','No action'];
+const NCR_ACTIONS=['Remake order','Repair','Replace from stock','Credit','No action'];
 /* Стартовый набор. Office — ошибки оформления, ударов и падений там нет. */
 const NCR_SEED={
  '*':   ['Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],

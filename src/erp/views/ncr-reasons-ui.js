@@ -40,10 +40,7 @@ function viewMdNcr(){
     ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
     <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
    </div>
-   <div class="ncr-lists">
-    <div class="card"><div class="ncr-label">SOURCE · WHO FOUND IT</div>${pills(NCR_SOURCES)}</div>
-    <div class="card"><div class="ncr-label">ACTION</div>${pills(NCR_ACTIONS)}</div>
-   </div>
+   <div class="card ncr-actions-card"><div class="ncr-label">NCR ACTION</div>${pills(NCR_ACTIONS)}</div>
   </div>
  </div>`;
 }

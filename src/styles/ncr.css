@@ -72,3 +72,14 @@ button.ncr-btn{border-color:#fda29b;color:#b42318}
 .pill.ncr-st-done{background:#dcfae6;color:#05603a}
 .sl-table tr.sl-row-ncr td{background:#fffbfa}
 @media(max-width:760px){.ncr-pick{grid-template-columns:minmax(0,1fr)}}
+/* Recut внутри заказа: кнопка и блок над Notes. */
+button.recut-btn{border-color:#fdb022;color:#93370d}
+.recut-section{margin:12px 0;padding:10px 14px;border:1px solid #fedf89;border-left:4px solid #f79009;border-radius:10px;background:#fffcf5}
+.recut-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#93370d;margin-bottom:6px}
+.recut-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;padding:6px 0;border-top:1px solid #fef0c7}
+.recut-row:first-of-type{border-top:0}
+.recut-row>span:not(.pill){color:#475467}
+.recut-row .mut{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ncr-pick.ncr-pick-two{grid-template-columns:1fr 1.4fr}
+.ncr-actions-card{margin-top:16px}
+.ncr-warning{padding:8px 12px;border-radius:8px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;font-size:13px}

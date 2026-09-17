@@ -12,7 +12,7 @@ module.exports=async function({page,eq,ok}){
    ids:new Set(DB.ncrReason.map(r=>r.id)).size===DB.ncrReason.length,sources:NCR_SOURCES,actions:NCR_ACTIONS};
  }),{office:'OFFICE',stations:true,own:true,base:['Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],
   heat:['Impact','Broke','Chipped','Scratched','Fell from dolly / skid','Exploded in furnace','Broke in quench','Broke in heat soak','Bow / warp','Roller marks','Wrong treatment (FT / HS)'],
-  office:['Order entered wrong','Drawing wrong','Cut list wrong','Program error'],ids:true,sources:['Found in shop','Customer claim'],actions:['Recut','Remake order','Repair','Replace from stock','Credit','No action']});
+  office:['Order entered wrong','Drawing wrong','Cut list wrong','Program error'],ids:true,sources:['Found in shop','Customer claim'],actions:['Remake order','Repair','Replace from stock','Credit','No action']});
 
  eq('новая станция сразу появляется в «Где» и получает общие причины',await t.p.evaluate(()=>{
   DB.station.push(Object.assign({},DB.station[0],{seq:99,code:'WASH',name:'Washer',nameEn:'Washer'}));
