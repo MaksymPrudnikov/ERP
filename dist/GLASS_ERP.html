@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 69 модулей, 11 стиля.
+  Состав сборки: 73 модулей, 12 стиля.
 -->
 <html lang="en">
 <head>
@@ -1489,6 +1489,82 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .gb-orders{color:#667085}
 .gb-waiting{margin-top:14px}.gb-waiting h3{margin:0 0 6px;font-size:13px}.gb-waiting p{margin:0 0 8px;font-size:12px;color:#475467}
 
+/* ---- src/styles/ncr.css ---- */
+/* Master Data → NCR: место слева, причины справа. */
+.ncr-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;margin-top:12px}
+.ncr-side{padding:10px}
+.ncr-side hr{border:0;border-top:1px solid #eaecf0;margin:6px 0}
+.ncr-label{font-size:11px;font-weight:700;color:#667085;letter-spacing:.05em;padding:6px 12px 6px 0}
+.ncr-side .ncr-label{padding-left:12px}
+.ncr-where{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;border:0;border-radius:8px;padding:9px 12px;margin:1px 0;font-size:13px;background:transparent;color:#344054;box-shadow:none}
+.ncr-where b{display:inline-block;width:58px}
+.ncr-where:hover{background:#f2f4f7}
+.ncr-where.on{background:#e0f2fe;color:#026aa2;font-weight:600}
+.ncr-count{color:#98a2b3;font-variant-numeric:tabular-nums}
+.ncr-main{padding:0;overflow:hidden}
+.ncr-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #eaecf0;flex-wrap:wrap}
+.ncr-head h3{margin:2px 0 0}
+.ncr-head p{margin:2px 0 0;font-size:12px;color:#667085}
+.ncr-add{display:flex;gap:8px;align-items:center}
+.ncr-add input{width:240px}
+.ncr-add button{white-space:nowrap}
+.ncr-error{color:#b42318;font-size:12px;padding:10px 16px 0}
+.ncr-table{width:100%;border-collapse:collapse}
+.ncr-table th{text-align:left;padding:8px 12px;font-size:11px;color:#667085;background:#f8fafc}
+.ncr-table td{padding:6px 12px;border-top:1px solid #eaecf0;font-size:13px}
+.ncr-table th:last-child,.ncr-table td.ncr-active{text-align:right;width:70px}
+.ncr-name{display:inline-block;padding:5px 7px}
+.ncr-name-input{max-width:380px;border-color:transparent;background:transparent;padding:5px 6px}
+.ncr-name-input:hover{border-color:#d0d5dd;background:#fff}
+.ncr-off td,.ncr-off .ncr-name-input{color:#98a2b3}
+.pill.ncr-scope-all{background:#f2f4f7;color:#344054}
+.pill.ncr-scope-own{background:#fef0c7;color:#93370d}
+.ncr-switch{position:relative;display:inline-block;width:32px;height:18px;vertical-align:middle}
+.ncr-switch input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.ncr-switch span{position:absolute;inset:0;border-radius:9px;background:#d0d5dd;cursor:pointer;transition:background .15s}
+.ncr-switch span:before{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+.ncr-switch input:checked+span{background:#1f6f9f}
+.ncr-switch input:checked+span:before{transform:translateX(14px)}
+.ncr-switch input:focus-visible+span{outline:2px solid #84caff;outline-offset:2px}
+.ncr-lists{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.ncr-pills{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:760px){
+ .ncr-layout,.ncr-lists{grid-template-columns:minmax(0,1fr)}
+ .ncr-add{width:100%}.ncr-add input{flex:1;width:auto;min-width:0}
+ .ncr-table th:nth-child(2),.ncr-table td:nth-child(2){display:none}
+}
+/* NCR в заказе и в списке Sales. */
+button.ncr-btn{border-color:#fda29b;color:#b42318}
+.ncr-modal{width:900px;max-width:calc(100vw - 32px)}
+.ncr-form{display:grid;gap:14px}
+.ncr-form p.mut{margin:0}
+.ncr-form .ncr-label{padding:0 0 6px}
+.ncr-form label{display:block;margin:0;font-size:13px;font-weight:400;text-transform:none;letter-spacing:normal;color:inherit}
+.ncr-form label>.ncr-label{display:block}
+.ncr-form select,.ncr-form textarea,.ncr-form input{font-size:14px;font-weight:400;text-transform:none;letter-spacing:normal}
+.ncr-seg{display:flex;gap:8px;flex-wrap:wrap}
+.ncr-lines-wrap{overflow-x:auto}
+.ncr-lines{width:100%;border-collapse:collapse;font-size:13px}
+.ncr-lines th{text-align:left;padding:7px 8px;font-size:11px;color:#667085;background:#f8fafc;white-space:nowrap}
+.ncr-lines td{padding:6px 8px;border-top:1px solid #eaecf0;white-space:nowrap}
+.ncr-lines th.n,.ncr-lines td.n{text-align:right}
+.ncr-lines tr.on td{background:#eef4ff}
+.ncr-lines input[type=number]{width:72px}
+.ncr-lines select{min-width:150px}
+.ncr-pick{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:12px}
+.ncr-effect{margin:0}
+.ncr-form .ncr-error{padding:0}
+.ncr-note{margin:0;white-space:pre-wrap}
+.ncr-strip{display:grid;gap:6px;margin:10px 0;padding:10px 14px;border:1px solid #fecdca;border-radius:10px;background:#fffbfa}
+.ncr-strip-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.ncr-strip-row>span:not(.pill){color:#475467}
+.ncr-strip-row .chk{display:inline-flex;align-items:center;gap:6px;margin:0;text-transform:none;letter-spacing:normal;font-size:13px;font-weight:500;color:#344054}
+.pill.kind-ncr{background:#fee4e2;color:#b42318}
+.pill.ncr-st-open{background:#fef0c7;color:#93370d}
+.pill.ncr-st-done{background:#dcfae6;color:#05603a}
+.sl-table tr.sl-row-ncr td{background:#fffbfa}
+@media(max-width:760px){.ncr-pick{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -1510,7 +1586,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f2a0fcaad604';
+var ERP_BUILD='990e8f32e1ab';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9172,7 +9248,9 @@ function normalizeSalesOrder(o){
  const first=makeups[0].id;
  const lines=(Array.isArray(o.lines)?o.lines:[]).map(normalizeSalesOrderLine);lines.forEach(l=>{if(!muIds.has(l.makeupId))l.makeupId=first;});
  const extraItems=(Array.isArray(o.extraItems)?o.extraItems:[]).map(normalizeSalesExtraItem);
- return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
+ return {id:salesEntityId(o.id,'SO'),businessNumber:salesString(o.businessNumber),...salesLifecycleFields(o),customerId:salesString(o.customerId),customerPo:salesString(o.customerPo||o.po),dueDate:salesString(o.dueDate),priority,branch:salesString(o.branch)||'Infinity Glass Group Inc',delivery,paymentTerms:salesString(o.paymentTerms||o.terms),currency,notes:salesString(o.notes),servicePricing:normalizeSalesChargePricing(o.servicePricing),metricRules:o.metricRules?salesNormalizeMetricRules(o.metricRules):null,orderCharges:normalizeSalesOrderCharges(o.orderCharges),makeups,lines,extraItems,
+  /* Заказ-переделка NCR (erp/quality/ncr): связь и «без оплаты» по умолчанию. */
+  remakeNcrId:salesRefId(o.remakeNcrId),noCharge:o.noCharge===true,createdAt:salesString(o.createdAt),updatedAt:salesString(o.updatedAt)};
 }
 function salesNextMakeupCodeFromSet(used){const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';for(const c of letters)if(!used.has(c))return c;let n=27,code;do{code='MU-'+String(n++).padStart(3,'0');}while(used.has(code));return code;}
 function nextMakeupCode(order){return salesNextMakeupCodeFromSet(new Set((order.makeups||[]).map(m=>m.code)));}
@@ -9335,7 +9413,7 @@ function salesMakeupLocked(order,makeupId){return !!(order&&(order.lines||[]).so
 function salesOrderReadOnly(o){return !!o&&(salesIsQuote(o)?!!salesQuoteWonMember(o):o.status==='closed'||o.status==='cancelled');}
 function salesLockedLineGuard(line){
  if(!salesLineLocked(line))return false;
- alert('This line went to batch on '+salesShortDate(line.batchedAt)+'. Production lines are locked. Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new line or open a new order.');
+ alert('Line is batched and locked. Unbatch it in Optimization to edit.');
  return true;
 }
 function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
@@ -9372,6 +9450,8 @@ function salesLockViolations(draft,saved){
 function salesDeleteBlocked(o){
  if(!o)return false;
  if(salesIsQuote(o)&&salesQuoteWonMember(o)){alert('This quote became an order and is kept for the win history.');return true;}
+ const ncr=(DB.ncr||[]).find(n=>n.orderId===o.id||n.remakeOrderId===o.id);
+ if(!salesIsQuote(o)&&ncr){alert('Order '+(o.businessNumber||'')+' is linked to '+ncr.number+'. Cancel it instead of deleting.');return true;}
  if(!salesIsQuote(o)&&(['batched','ready','done','closed'].includes(o.status)||(o.lines||[]).some(salesLineLocked))){alert('Order '+(o.businessNumber||'')+' is already in production. Cancel it instead of deleting.');return true;}
  return false;
 }
@@ -9387,7 +9467,7 @@ function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'I confirm cutting has not started for the selected lines.')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -9399,21 +9479,21 @@ function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
  const terms=paymentTermsFrom(c||{}),sub=name+' · '+paymentTermsLabel(terms);
  if(next==='verified'||next==='batched'){
-  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'The customer is on hold. Check with accounting before continuing.',anyway:'Continue anyway'});
-  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price, so the deposit and the credit limit cannot be checked.',anyway:'Continue anyway'});
+  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
+  if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
   else if(terms.paymentMode==='cash'){
    const pct=paymentDepositPercent(terms),dep=salesMoney(b.total*pct/100);
    if(pct>0&&b.paid<dep)out.push({title:'Deposit not received — order '+num,sub,rows:[['Order total',finFmt(b.total)],['Deposit required · '+pct+'%',finFmt(dep)],['Received',finFmt(b.paid),true]],
-    note:next==='verified'?'The order can be verified and saved, but do not send the glass to cutting until the deposit is paid.':'The deposit is not paid. The glass should not go to cutting yet.',
+    note:next==='verified'?'Cut only after the deposit.':'Deposit not paid.',
     anyway:next==='verified'?'Verify anyway':'Send anyway',pay:salesMoney(dep-b.paid)});
   }else if(next==='verified'&&c){
    const acc=finCustomerAccount(c),due=salesMoney(acc.balanceDue+(salesOrderIsSaved(o)?0:Math.max(0,b.balance||0)));
-   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'Verifying keeps this order in the customer balance above the limit.',anyway:'Verify anyway'});
+   if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
   }
  }
  if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
   out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Receipt total',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
-   note:next==='done'?'Take the payment before handing over the glass.':'The order still has a balance due.',
+   note:next==='done'?'Take payment first.':'Balance due.',
    anyway:next==='closed'?'Close anyway':o.delivery==='delivery'?'Deliver anyway':'Pick up anyway',pay:next==='done'?b.balance:null});
  }
  return out;
@@ -9543,7 +9623,6 @@ function salesConvertQuote(){
  const c=salesFindCustomer(rec.customerId);
  salesDialogOpen({title:'Convert quote '+salesQuoteBaseNumber(rec)+' to an order',sub:(c?(c.displayName||c.legalName)+' · ':'')+'which revision did the customer choose?',rows:[],
   choices:members.map(m=>({id:m.id,label:m.businessNumber,detail:salesQuoteRevState(m),value:salesQuoteTotalText(m)})),choice:rec.id,
-  note:'The order is made from the chosen revision. The quote keeps every revision.',
   buttons:[{label:'Back'},{label:'Convert to order',kind:'pri',run:d=>salesConvertQuoteRecord(d&&d.choice||rec.id)}]});
 }
 function salesConvertQuoteRecord(id){
@@ -9561,6 +9640,7 @@ function salesHeaderActions(o){
  const parts=['<button onclick="salesOrderClose()">Close</button>'];
  if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
+ if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm()">NCR</button>');
  if(salesIsQuote(o)){if(!salesQuoteWonMember(o))parts.push('<button class="go" data-convert-quote onclick="salesConvertQuote()">Convert to order</button>');}
  return parts.join('');
 }
@@ -9579,24 +9659,24 @@ function salesStatusStepper(o){
 function salesOrderBatchNumbers(o){return [...new Set((o.lines||[]).filter(salesLineLocked).map(l=>l.batchNo).filter(Boolean).concat(o.batchNo?[o.batchNo]:[]))];}
 function salesLockBar(o){
  if(salesIsQuote(o))return '';
- const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s).${o.status==='new'?' Verification required before the next batch.':''}</div>`:'';
+ const last=(o.unbatchHistory||[]).slice(-1)[0],history=last?`<div class="sales-quote-note">Unbatched ${esc(salesShortDate(last.at))} · ${esc(last.batchNumbers.join(', ')||'previous batch')} · ${last.lineIds.length} line(s)${o.status==='new'?' · verify again':''}</div>`:'';
  const locked=o.lines.filter(salesLineLocked),active=['batched','ready','done'].includes(o.status);
  if(!locked.length&&!active)return history;
  const first=locked.map(l=>l.batchedAt).sort()[0],numbers=salesOrderBatchNumbers(o),readonly=salesOrderReadOnly(o);
- return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · Batch '+esc(numbers.join(', ')):''} — production lines are locked.</b> Before cutting starts, use Unbatch in Optimization to make changes. After cutting starts, add a new charged line or a new order.</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
+ return history+`<div class="sales-lockbar">${locked.length?`<span>🔒 <b>Batched ${esc(salesShortDate(first))}${numbers.length?' · '+esc(numbers.join(', ')):''}</b> · lines locked</span>`:''}<span class="sp"></span>${readonly?'':`<button class="sm" onclick="salesOrderAddLine(null,true)">+ Line (charged)</button><button class="sm" onclick="salesNewOrderForCustomer('${esc(o.customerId)}')">New order for this customer</button>`}</div>`;
 }
 
 /* --------------------------- Список Sales ------------------------------ */
-/* Галочки Show: каждый смотрит своё — только заказы, заказы и квоты. Выбор
-   запоминается в этом браузере. Рекламации добавятся третьей галочкой. */
+/* Галочки Show: каждый смотрит своё — заказы, квоты, NCR (erp/quality/ncr).
+   Выбор запоминается в этом браузере; хотя бы одна галочка остаётся. */
 function salesLoadShow(){
- try{const v=JSON.parse(localStorage.getItem('glass_erp_sales_show')||'null');if(v&&typeof v==='object'&&(v.orders||v.quotes))return {orders:!!v.orders,quotes:!!v.quotes};}catch(e){}
- return {orders:true,quotes:false};
+ try{const v=JSON.parse(localStorage.getItem('glass_erp_sales_show')||'null');if(v&&typeof v==='object'&&(v.orders||v.quotes||v.ncr))return {orders:!!v.orders,quotes:!!v.quotes,ncr:!!v.ncr};}catch(e){}
+ return {orders:true,quotes:false,ncr:false};
 }
 let salesShow=salesLoadShow(),salesStatusFilter='';
 function salesToggleShow(key){
  const next=Object.assign({},salesShow,{[key]:!salesShow[key]});
- if(!next.orders&&!next.quotes)return;
+ if(!next.orders&&!next.quotes&&!next.ncr)return;
  salesShow=next;salesStatusFilter='';
  try{localStorage.setItem('glass_erp_sales_show',JSON.stringify(salesShow));}catch(e){}
  render();
@@ -9607,9 +9687,10 @@ function salesListVisible(){
  return (DB.salesOrder||[]).filter(o=>salesShow[salesIsQuote(o)?'quotes':'orders']).filter(o=>!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id);
 }
 function salesStatusChips(rows){
- const count=(kind,s)=>rows.filter(o=>salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
+ const count=(kind,s)=>rows.filter(o=>o.kind!=='ncr'&&salesKindOf(o)===kind&&salesListStatus(o)===s).length,chips=[];
  if(salesShow.orders)SALES_ORDER_STATE_LIST.forEach(s=>chips.push({key:'order:'+s,label:s==='done'?'Picked up / Delivered':salesStatusLabel({kind:'order'},s),n:count('order',s)}));
  if(salesShow.quotes)SALES_QUOTE_STATE_LIST.forEach(s=>chips.push({key:'quote:'+s,label:salesStatusLabel({kind:'quote'},s),n:count('quote',s)}));
+ if(salesShow.ncr)['Open','Done'].forEach(s=>chips.push({key:'ncr:'+s.toLowerCase(),label:'NCR '+s,n:rows.filter(o=>o.kind==='ncr'&&o.ncrStatus===s).length}));
  const p=salesListLoadPrefs(),selected=chips.find(c=>c.key===salesStatusFilter),label=selected?selected.label:'All',n=selected?selected.n:rows.length;
  const toggle=`<button type="button" class="sl-status-toggle" data-status-toggle aria-expanded="${p.statusExpanded}" title="${p.statusExpanded?'Hide status filters':'Show status filters'}" onclick="salesListToggleStatuses()">${esc(label)} <b>${n}</b><span class="sl-disclosure" aria-hidden="true">${p.statusExpanded?'▾':'▸'}</span></button>`;
  return `<div class="sales-status-chips sl-status-compact">${toggle}${p.statusExpanded?`<div class="sl-status-options"><button type="button" data-status-all class="${salesStatusFilter?'':'on'}" onclick="salesSetStatusFilter('')">All <b>${rows.length}</b></button>${chips.map(c=>`<button type="button" data-status-chip="${c.key}" class="${salesStatusFilter===c.key?'on':''}" onclick="salesSetStatusFilter('${c.key}')">${esc(c.label)} <b>${c.n}</b></button>`).join('')}</div>`:''}</div>`;
@@ -12797,6 +12878,8 @@ function salesApplyOrderCharges(subtotal,raw){
 }
 function salesOrderCommercialTotals(order){
  order=order||soDraft;let subtotal=0,missing=0,qty=0;
+ /* Переделка NCR без оплаты: итог заказа $0, пока офис не снимет No charge. */
+ if(order&&order.noCharge){(order.lines||[]).forEach(l=>{qty+=salesPositiveInt(l.qty,1);});const out=salesApplyOrderCharges(0,{});Object.keys(out).forEach(k=>{if(typeof out[k]==='number')out[k]=0;});out.complete=true;out.missing=0;out.qty=qty;out.noCharge=true;return out;}
  (order&&order.lines||[]).forEach(function(line){const p=salesLineCommercialPrice(line,order);qty+=p.qty;if(p.complete)subtotal+=p.line;else missing++;});
  /* Позиции каталога — те же деньги, в тот же subtotal, без геометрии и без
     Makeup: у них попросту нет areas/services, которые считает p.complete выше. */
@@ -14082,7 +14165,7 @@ function salesCavitySection(c,index){
  const spacers=salesActiveSpacerVariants().filter(x=>!size||x.size===size);
  return `<details class="mu-section mu-cavity" data-mu-section="${key}" ${isOpen?'open':''} ontoggle="salesAccordionToggle(this,'${key}')"><summary><span class="mu-chevron">›</span><b>CAVITY ${index+1}</b><span class="mu-summary">${esc(salesCavitySummary(c))}</span>${salesCavityPriceBadge(c)}</summary><div class="mu-section-body"><div class="mu-cavity-grid"><div><label>Spacer</label><select onchange="salesCavitySet(${index},'spacerVariantId',this.value)">${spacers.map(x=>salesOption(x.id,salesSpacerSystemLabel(x),c.spacerVariantId,true)).join('')}</select></div><div><label>Width</label><select onchange="salesCavitySetWidth(${index},this.value)">${widths.map(x=>salesOption(x,x+'″',size,true)).join('')}</select></div><div><label>Gas</label><select onchange="salesCavitySet(${index},'gasProductId',this.value)">${salesSimpleOptions('gasProduct',c.gasProductId)}</select></div><div><label>Sealant</label><select onchange="salesCavitySet(${index},'secondarySealantId',this.value)">${salesSecondarySealantOptions(c.secondarySealantId)}</select></div>${salesCavityPriceField(c,index)}</div></div></details>`;
 }
-function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc('Keep every section expanded')}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesMakeupLocked(soDraft,m.id)?'<div class="mu-lock-note">🔒 This makeup is used by batched lines and cannot change. Duplicate it for new lines.</div><div class="mu-locked" inert>':'<div>'}${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div></div>`;}
+function salesMakeupBuilder(){const m=salesCurrentMakeup();if(!m)return '<div class="empty">No Makeup</div>';let sections='';m.panes.forEach((p,i)=>{sections+=salesLiteSection(p,i,m.panes.length);if(i<m.cavities.length)sections+=salesCavitySection(m.cavities[i],i);});const used=soDraft.lines.filter(l=>l.makeupId===m.id).length;return `<div class="mu-builder"><div class="mu-builder-head"><div><b>MAKEUP ${esc(m.code)}</b><span>${esc(salesMakeupSummary(m))}</span></div><div class="mu-builder-actions"><span class="pill">${used} lines</span><button class="sm" onclick="salesToggleExpandAll()" title="${esc('Keep every section expanded')}">${soExpandAll?`Collapse all`:`Expand all`}</button><button class="sm" onclick="salesDuplicateMakeup('${esc(m.id)}')">Duplicate</button><button class="sm dl" onclick="salesDeleteMakeup('${esc(m.id)}')">Delete</button></div></div>${salesMakeupLocked(soDraft,m.id)?'<div class="mu-lock-note">🔒 Used by batched lines · Duplicate to change</div><div class="mu-locked" inert>':'<div>'}${salesUnitTypeControl(m)}<div class="mu-stack">${sections}</div></div></div>`;}
 
 /* ==== src/erp/documents/model.js ==== */
 /* =====================================================================
@@ -14900,7 +14983,7 @@ function docPdfBytes(pages,info){
 
 function viewSales(){
  subtab='orders';
- return `<div class="page-head sales-page-head"><div><h2>Sales</h2><p>Sales Order → order-scoped Makeup → line-specific Shape / Muntin. No global configuration library.</p></div><span class="pill info">Stage 3B</span></div>${salesOrdersPane()}`;
+ return `<div class="page-head sales-page-head"><div><h2>Sales</h2></div><span class="pill info">Stage 3B</span></div>${salesOrdersPane()}`;
 }
 function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderList();}
 /* Список — views/sales-list-ui: колонки, фильтры, итоги, On Hold. */
@@ -14909,12 +14992,12 @@ function salesCustomerOptions(){const rows=(DB.customer||[]).filter(c=>c.status!
 function salesOrderEditor(){
  const o=soDraft,c=salesFindCustomer(o.customerId),title=salesOrderTitle(o),ro=salesOrderReadOnly(o),q=salesIsQuote(o),fromQuote=o.fromQuoteId?((DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId)||{}).businessNumber:'',customerFlags=c?`${c.onHold?'<span class="pill bad">On Hold</span>':''}${c.poRequired?'<span class="pill warn">PO Required</span>':''}${c.isProspect?'<span class="pill info">Prospect</span>':''}`:'';
  return `<div class="sales-order-editor"><div class="sales-editor-top"><div><div class="sales-order-title"><h3>${esc(title)}</h3>${salesStatusPill(q?salesQuoteShown(o):o)}${!q&&o.onHold?'<span class="pill hold" data-hold-pill>On Hold</span>':''}${customerFlags}</div><div class="mut mono">${esc(q?salesQuoteShown(o).id:o.id)}${fromQuote?' · from quote '+raw(fromQuote):''}</div></div>${q?'':salesPaymentStrip(o)}<div class="sales-editor-actions">${salesHeaderActions(o)}</div></div>
- ${salesHoldBar(o)}${salesStatusStepper(o)}${salesLockBar(o)}${ro?'<div class="sales-readonly" inert>':''}
+ ${salesHoldBar(o)}${salesStatusStepper(o)}${salesLockBar(o)}${typeof ncrOrderStrip==='function'?ncrOrderStrip(o):''}${ro?'<div class="sales-readonly" inert>':''}
  <div class="sales-header-compact"><div><label>Customer *</label><select onchange="salesApplyCustomerDefaults(this.value);render()">${salesCustomerOptions()}</select></div><div><label>Customer PO</label><input value="${esc(o.customerPo)}" oninput="soDraft.customerPo=this.value"></div><div><label>Due Date</label><input type="date" value="${esc(o.dueDate)}" onchange="soDraft.dueDate=this.value"></div><div><label>Priority</label><select onchange="soDraft.priority=this.value"><option value="normal" ${o.priority==='normal'?'selected':''}>Normal</option><option value="rush" ${o.priority==='rush'?'selected':''}>Rush</option><option value="critical" ${o.priority==='critical'?'selected':''}>Critical</option></select></div><div><label>Delivery</label><select onchange="soDraft.delivery=this.value"><option value="pickup" ${o.delivery==='pickup'?'selected':''}>Pickup</option><option value="delivery" ${o.delivery==='delivery'?'selected':''}>Delivery</option></select></div><div><label>Currency</label><select onchange="soDraft.currency=this.value;render()"><option ${o.currency==='CAD'?'selected':''}>CAD</option><option ${o.currency==='USD'?'selected':''}>USD</option></select></div><div><label>Branch</label><input value="${esc(o.branch)}" oninput="soDraft.branch=this.value"></div>${q?`<div><label>Valid until</label><input type="date" data-quote-valid value="${esc(o.validUntil)}" title="Empty: the send date plus ${salesQuoteValidDays()} days" onchange="soDraft.validUntil=this.value;render()"></div>`:''}</div>
- ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer is On Hold. The order can be saved; verification and batching ask for confirmation.</div>':''}
+ ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
+ <div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
@@ -15019,7 +15102,7 @@ function salesLineServicesModal(line,index){
 function salesOrderServicesModal(){
  const groups=salesOrderChargeGroups(),currency=soDraft.currency||'CAD',summary=salesOrderPricingSummary();
  const commercial=salesOrderCommercialAdjustmentsHtml(currency);
- return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Services & Pricing</h3><span class="sales-bulk-pricing-badge">Bulk price edit</span></div><small>A rate changed in this window applies to every order line with the same service. Geometry and quantity do not change.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length||commercial?`${groups.length?`<div class="sales-bulk-pricing-banner"><b>Bulk edit</b><span>Changing an Order rate below applies it to all matching services in this order.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Pricing incomplete</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are excluded from the order monetary total until a rate is entered.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Service / Processing</span><span>Order basis</span><span>Catalog rate</span><span>Order rate</span><span>Final total</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Lines:</span> ${g.entries.length}${g.lineOverrides?' · <span>Overrides:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Unpriced:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Not set</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Rate required</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Reset to Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Mass edit rule</b><span>Changing an Order rate applies it to all matching services in this order and clears older line exceptions for that service. A specific line can then be overridden from its Services cell.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Services / processing total for the whole order</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${commercial}`:`<div class="empty compact sales-service-empty">No services or processing charges in this order yet.</div>`}</div></div>`;
+ return `<div class="sales-service-modal-back" onclick="if(event.target===this)salesCloseServices()"><div class="sales-service-modal order-modal"><div class="sales-service-modal-head"><div><span>Sales Order</span><div class="sales-bulk-pricing-title"><h3>Services & Pricing</h3><span class="sales-bulk-pricing-badge">Bulk price edit</span></div><small>Applies to every line with this service.</small></div><button onclick="salesCloseServices()">×</button></div>${groups.length||commercial?`${groups.length?`<div class="sales-bulk-pricing-banner"><b>Bulk edit</b><span>Order rate applies to all matching services.</span></div>${summary.unpriced?`<div class="sales-pricing-warning"><b>Pricing incomplete</b><span><b data-raw>${summary.unpriced}</b> <span>charges have no effective rate. They are excluded from the order monetary total until a rate is entered.</span></span></div>`:''}<div class="sales-order-service-table"><div class="sales-order-service-row head"><span>Service / Processing</span><span>Order basis</span><span>Catalog rate</span><span>Order rate</span><span>Final total</span><span></span></div>${groups.map(function(g){const orderValue=g.orderRate==null?'':String(g.orderRate),placeholder=g.catalogRates.length===1?String(g.catalogRates[0]):'';return `<div class="sales-order-service-row${g.unpriced?' unpriced':''}"><span class="sales-price-charge"><b>${esc(g.label)}</b><small><span>Lines:</span> ${g.entries.length}${g.lineOverrides?' · <span>Overrides:</span> '+g.lineOverrides:''}${g.unpriced?' · <span class="sales-price-missing"><span>Unpriced:</span> <span data-raw>'+g.unpriced+'</span></span>':''}</small></span><span class="sales-price-basis">${esc(salesOrderGroupBasisText(g))}</span><span>${g.catalogRates.length?esc(salesOrderGroupCatalogText(g,currency)):'<span class="sales-price-missing">Not set</span>'}</span><span class="sales-order-rate"><input type="number" min="0" step="0.01" value="${esc(orderValue)}" placeholder="${esc(placeholder)}" onchange="salesSetOrderGroupRate('${esc(g.key)}',this.value)"><small class="sales-rate-origin ${g.orderRate!=null?'order':'catalog'}">${g.orderRate!=null?'ORDER':'CATALOG'}</small></span><strong>${g.unpriced&&g.total===0?'<span class="sales-price-missing">Rate required</span>':g.total.toFixed(2)+' '+esc(currency)+(g.unpriced?' + ?':'')}</strong><button class="sm" onclick="salesResetOrderGroupRate('${esc(g.key)}')">Reset to Catalog</button></div>`;}).join('')}</div><div class="sales-service-order-note"><b>Mass edit rule</b><span>Order rate applies to all matching services.</span></div><div class="sales-service-modal-total grand${summary.unpriced?' incomplete':''}"><span>Services / processing total for the whole order</span><strong>${summary.total.toFixed(2)} ${esc(currency)}</strong>${summary.unpriced?`<small>+ <span data-raw>${summary.unpriced}</span> <span>unpriced</span></small>`:''}</div>`:''}${commercial}`:`<div class="empty compact sales-service-empty">No services or processing charges in this order yet.</div>`}</div></div>`;
 }
 
 function salesServicesModal(){if(soServiceOrderOpen)return salesOrderServicesModal();if(soServiceLineId){const i=(soDraft.lines||[]).findIndex(function(l){return l.id===soServiceLineId;});if(i>=0)return salesLineServicesModal(soDraft.lines[i],i);}return '';}
@@ -15039,7 +15122,7 @@ function salesExcelModal(){
   +(soExcelNote?`<div class="excel-note">${esc(soExcelNote)}</div>`:'')
   +salesExcelMapHtml()
   +`<div id="salesExcelGrid" class="excel-grid-wrap">${salesExcelGridInnerHtml()}</div>`
-  +`<div class="excel-foot"><span class="excel-tip">Copy the block in Excel, click a cell here and paste — the columns land as they are. Typing works too: Tab moves across, Enter goes down.</span><span id="salesExcelSummary" class="excel-summary">${salesExcelSummaryHtml(c)}</span></div>`
+  +`<div class="excel-foot"><span class="excel-tip">Paste from Excel · Tab → · Enter ↓</span><span id="salesExcelSummary" class="excel-summary">${salesExcelSummaryHtml(c)}</span></div>`
   +`<div class="sales-modal-actions"><button class="sm" onclick="salesExcelAddBlankRows()">+ 5 rows</button><button class="sm" onclick="salesExcelClearGrid()">Clear</button><span class="excel-actions-sp"></span><button onclick="salesExcelClose()">Cancel</button><button class="pri" id="salesExcelAdd" ${c.ready?'':'disabled'} onclick="salesExcelApply()">${esc(salesExcelAddLabel(c))}</button></div></div></div>`;
 }
 
@@ -18471,7 +18554,7 @@ function optimizationSetTab(key){
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
 function optimizationOpenOrder(id){
- if(soDraft&&salesDraftHasWork()&&!confirm('Open this order without saving the changes in the current editor?'))return;
+ if(soDraft&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
  tab='sales';salesOrderEdit(id);
 }
 function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
@@ -18484,14 +18567,14 @@ function optimizationRunOrders(ids,action,opts){
  const allowed=o=>salesRecordTransitionAllowed(o,next(o),{back:action==='back'});
  const held=orders.find(o=>o&&o.onHold&&['verified','batched'].includes(action));
  if(held){salesHoldBlocked(held.id);return;}
- if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Select orders that are ready for this action. Lines on hold cannot go to batch. All lines must go to batch before the order can be marked ready, handed over or closed.',buttons:[{label:'Back'}]});return;}
+ if(orders.some(o=>!o||!allowed(o))){salesDialogOpen({title:'Selection has changed',note:'Some orders are not ready for this.',buttons:[{label:'Back'}]});return;}
  if(['verified','batched'].includes(action)){
   const invalid=orders.find(o=>!salesFindCustomer(o.customerId)||(o.lines||[]).some(l=>!l.width16||!l.height16));
-  if(invalid){salesDialogOpen({title:'Check order '+invalid.businessNumber,note:'Open the order and check its customer and line dimensions before continuing.',buttons:[{label:'Back'}]});return;}
+  if(invalid){salesDialogOpen({title:'Check order '+invalid.businessNumber,note:'Check customer and sizes.',buttons:[{label:'Back'}]});return;}
  }
  const stamp=()=>JSON.stringify([ids.map(salesRecord),DB.customer,DB.receipt]),before=stamp();
  const finish=()=>{
-  if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'No orders were changed by this action. Review the selection and try again.',buttons:[{label:'Back'}]});return;}
+  if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'Nothing changed. Try again.',buttons:[{label:'Back'}]});return;}
   const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesBatchableLines(o).length)?salesNextBatchNumber():'';
   orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
   touch();optimizationSel.clear();
@@ -18503,7 +18586,7 @@ function optimizationRunOrders(ids,action,opts){
   const cancel=action==='cancelled';
   salesDialogOpen({title:cancel?'Cancel '+orders.length+' order'+(orders.length===1?'':'s')+'?':'Move '+orders.length+' order'+(orders.length===1?'':'s')+' back?',
    rows:orders.map(o=>[o.businessNumber+' · '+salesCustomerDisplay(o.customerId),cancel?finFmt(finOrderPaid(o.id).paid)+' to deposit':salesStatusLabel(o)+' → '+salesStatusLabel(o,next(o))]),
-   note:cancel?'Allocated receipts return to each customer’s deposit on account. Batched lines stay locked.':'The current step date is removed. Production locks remain. Use Unbatch to release uncut lines.',
+   note:cancel?'Payments → customer deposit.':'Locks stay.',
    buttons:[{label:'Back'},{label:cancel?'Cancel orders':'Move back',kind:cancel?'dl':'pri',run:finish}]});return;
  }
  const checkOrder=i=>{
@@ -18520,10 +18603,10 @@ function optimizationUnbatch(ids){
  const stamp=()=>JSON.stringify(orders.map(o=>salesRecord(o.id))),before=stamp();
  const lineChoices=orders.flatMap(o=>o.lines.filter(salesLineLocked).map((l,i)=>({id:l.id,orderId:o.id,disabled:!!l.cutStartedAt,
   label:'Order '+o.businessNumber+' · '+(l.mark||'Line '+(i+1)),detail:(l.width16/16)+' × '+(l.height16/16)+' in · Qty '+l.qty+' · '+(l.batchNo||'Batched')})));
- salesDialogOpen({title:'Unbatch — release uncut lines',sub:'Keep any lines that have already been cut unchecked.',lineChoices,checkedLines:lineChoices.filter(l=>!l.disabled).map(l=>l.id),confirmed:false,
-  note:'The selected lines will be unlocked. Their orders return to New and must be verified again before batching. Cutting is not tracked automatically yet; confirm with the cutting table before continuing.',
+ salesDialogOpen({title:'Unbatch — release uncut lines',sub:'Uncheck cut lines.',lineChoices,checkedLines:lineChoices.filter(l=>!l.disabled).map(l=>l.id),confirmed:false,
+  note:'Lines unlock · order → To verify.',
   buttons:[{label:'Back'},{label:'Unbatch selected lines',kind:'pri',requiresConfirmation:true,run:d=>{
-   if(before!==stamp()){salesDialogOpen({title:'Orders changed during confirmation',note:'Review the lines and try Unbatch again.',buttons:[{label:'Back'}]});return;}
+   if(before!==stamp()){salesDialogOpen({title:'Orders changed during confirmation',note:'Try again.',buttons:[{label:'Back'}]});return;}
    const chosen=new Set(d.checkedLines),affected=orders.map(o=>({o,ids:o.lines.filter(l=>chosen.has(l.id)).map(l=>l.id)})).filter(x=>x.ids.length);
    if(!d.confirmed||!affected.length||affected.some(x=>!salesUnbatchEligible(x.o)||x.ids.some(id=>{const l=x.o.lines.find(l=>l.id===id);return !l||!salesLineLocked(l)||!!l.cutStartedAt;})))return;
    const now=new Date().toISOString();affected.forEach(x=>salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}));touch();optimizationSel.clear();
@@ -18556,15 +18639,14 @@ function viewOrderQueue(shipping){
   return `<tr data-queue-order="${esc(o.id)}" class="${o.onHold?'oq-hold':chosen?'oq-selected':''}"><td><input type="checkbox" data-queue-check aria-label="Select order ${esc(o.businessNumber)}" ${chosen?'checked':''} ${blocked?'disabled':''} onchange="optimizationToggle('${esc(o.id)}',this.checked)"></td>${cols.map(cell).join('')}
    <td class="oq-actions"><button type="button" class="sm" data-queue-open onclick="optimizationOpenOrder('${esc(o.id)}')">Open</button>${o.onHold?`<button type="button" class="sm" data-queue-release onclick="salesReleaseHold(['${esc(o.id)}'])">Release</button>`:''}</td></tr>`;
  }).join('');
- return `<section class="optimization-queue ${shipping?'shipping-queue':''}"><div class="page-head"><div><h2>${shipping?'Shipping':'Order queue'}</h2><p>${shipping?'Readiness, pickup, delivery and order closeout.':'Verify orders, create batches and release uncut lines.'}</p></div></div>
+ return `<section class="optimization-queue ${shipping?'shipping-queue':''}"><div class="page-head"><div><h2>${shipping?'Shipping':'Order queue'}</h2></div></div>
   <div class="oq-tabs" role="tablist" aria-label="Order queues">${tabs}</div>
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${shipping&&key==='awaiting'?'<div class="oq-hint">Until shop-floor completion is connected, mark orders ready after checking that all production work is finished.</div>':''}
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
-  ${shipping?'':`<div class="card oq-bridge"><div class="section-title"><h3>Perfect Cut bridge</h3><span class="pill warn">connection not configured</span></div><p class="mut">Prototype · cutting layouts and machine exchange are not available yet.</p><button disabled>${ico('link','icon-inline')}Send batch</button></div>`}
+  ${shipping?'':`<div class="card oq-bridge"><div class="section-title"><h3>Perfect Cut bridge</h3><span class="pill warn">connection not configured</span></div><p class="mut">Not connected yet.</p><button disabled>${ico('link','icon-inline')}Send batch</button></div>`}
   ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
 }
 
@@ -18809,6 +18891,7 @@ const MD_TABS=[
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
  {k:'company',   label:'Company'},
+ {k:'ncr',       label:'NCR'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -18863,7 +18946,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -20461,8 +20544,8 @@ function salesListCleanFilter(k,f){
  return {mode:f.mode==='exclude'?'exclude':'include',conds,values,preset};
 }
 function salesListColumns(){
- const p=salesListLoadPrefs(),both=salesShow.orders&&salesShow.quotes;
- /* Type нужна, только когда в списке и заказы, и квоты. */
+ const p=salesListLoadPrefs(),both=['orders','quotes','ncr'].filter(k=>salesShow[k]).length>1;
+ /* Type нужна, только когда в списке больше одного вида: заказы, квоты, NCR. */
  return p.cols.filter(c=>c.on&&(c.k!=='type'||both)).map(c=>salesListColumn(c.k));
 }
 
@@ -20599,9 +20682,10 @@ function salesListCompare(col,dir){
 function salesListBase(){
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
- const all=salesListVisible();
- const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo);
- return {all,infos};
+ const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
+ const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
+  .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
+ return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 function salesListRows(infos){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
@@ -20656,6 +20740,7 @@ function salesListFilterChips(){
 /* ------------------------------ Экран ---------------------------------- */
 function salesListNum(v,digits){return v==null||v===''?'<span class="mut">—</span>':Number(v).toLocaleString('en-US',{minimumFractionDigits:digits||0,maximumFractionDigits:digits||0});}
 function salesListCell(info,col){
+ if(info.n)return ncrListCell(info,col);
  const o=info.o,q=info.q,v=salesListValue(info,col.k);
  switch(col.k){
   case 'type':return `<td><span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span></td>`;
@@ -20677,10 +20762,10 @@ function salesListCell(info,col){
  }
 }
 function salesListFooter(rows,cols){
- const orders=rows.filter(r=>!r.q),quotes=rows.filter(r=>r.q);
+ const orders=rows.filter(r=>!r.q&&!r.n),quotes=rows.filter(r=>r.q),ncrs=rows.filter(r=>r.n);
  const tally=(list,fn)=>{const m={};list.forEach(r=>{const s=fn(r);m[s]=(m[s]||0)+1;});return Object.keys(m).map(k=>k+' '+m[k]).join(' · ');};
- const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):''].filter(Boolean).join(' · ');
- const head=`<b>${rows.length} row${rows.length===1?'':'s'} · Orders ${orders.length} · Quotes ${quotes.length}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
+ const detail=[tally(orders,r=>salesStatusLabel(r.o)),quotes.length?'Quotes: '+tally(quotes,r=>salesStatusLabel(r.o,salesListStatus(r.o))):'',ncrs.length?'NCR: '+tally(ncrs,r=>r.memo.status):''].filter(Boolean).join(' · ');
+ const head=`<b>${rows.length} row${rows.length===1?'':'s'} · Orders ${orders.length} · Quotes ${quotes.length}${salesShow.ncr?' · NCR '+ncrs.length:''}</b>${detail?`<small>${esc(detail)}</small>`:''}`;
  const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
  const sums=cols.slice(lead).map(c=>{
   if(!c.sum)return '<td></td>';
@@ -20696,14 +20781,15 @@ function salesListView(){
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
  const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
- const rowIds=rows.map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
+ const rowIds=rows.filter(r=>!r.n).map(r=>r.o.id),allSel=rowIds.length>0&&rowIds.every(id=>salesListSel.has(id));
  const th=c=>{const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
  const body=rows.map(r=>{
+  if(r.n)return ncrListRow(r,cols);
   const o=r.o,sel=salesListSel.has(o.id),cls=[!r.q&&o.onHold?'sl-row-hold':'',!r.q&&o.status==='batched'?'sl-row-work':'',!r.q&&o.status==='done'?'sl-row-done':'',!r.q&&o.status==='closed'?'sl-row-closed':'',sel?'sl-row-sel':''].filter(Boolean).join(' ');
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -20852,7 +20938,7 @@ function salesListHoldSelected(){
 }
 function salesHoldOpen(ids){
  const orders=(ids||[]).map(id=>(DB.salesOrder||[]).find(o=>o.id===id)).filter(o=>o&&!salesIsQuote(o)&&!o.onHold&&o.status!=='closed'&&o.status!=='cancelled');
- if(!orders.length){alert('Select orders to put on hold. Quotes, closed and cancelled orders cannot be put on hold.');return;}
+ if(!orders.length){alert('Select orders first.');return;}
  salesHoldDialog={ids:orders.map(o=>o.id),choice:0,other:''};render();
 }
 function salesHoldClose(){salesHoldDialog=null;render();}
@@ -20908,7 +20994,7 @@ function salesHoldBar(o){
 }
 function salesHoldBlocked(orderId){
  const o=orderId?salesRecord(orderId):soDraft;if(!o)return;
- salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold before verifying the order or sending it to batch.',
+ salesDialogOpen({title:'Order '+(o.businessNumber||'')+' is On Hold',sub:o.holdReason||'',rows:[],note:'Release the hold first.',
   buttons:[{label:'Back'},{label:'Release hold',kind:'pri',run:()=>salesReleaseHold([o.id])}]});
 }
 
@@ -20916,14 +21002,15 @@ function salesHoldBlocked(orderId){
 /* Компактные средства списка Sales. Период использует тот же фильтр created,
    что и меню колонки: второго, невидимого ограничения здесь нет. */
 function salesListShowButton(){
- const label=salesShow.orders&&salesShow.quotes?'Orders + Quotes':salesShow.quotes?'Quotes':'Orders';
+ const label=[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].filter(x=>salesShow[x[0]]).map(x=>x[1]).join(' + ')||'Orders';
  return `<button type="button" class="sl-quiet" data-show-menu aria-label="Show orders or quotes" aria-expanded="${!!salesListMenu&&salesListMenu.kind==='show'}" onclick="salesListOpenShow(event)">${label}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
 function salesListOpenShow(e){salesListMenu=Object.assign({kind:'show',scope:'sales'},salesListAt(e,220));render();}
 function salesListShowMenuHTML(style){
- return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes']].map(([key,label])=>{
- const n=(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
- return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${salesShow[key]&&!salesShow[key==='orders'?'quotes':'orders']?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
+ return `<div class="sl-menu sl-show-menu" style="${style}" role="dialog" aria-label="Show orders or quotes">${[['orders','Orders'],['quotes','Quotes'],['ncr','NCR']].map(([key,label])=>{
+ const n=key==='ncr'?(DB.ncr||[]).length:(DB.salesOrder||[]).filter(o=>(key==='quotes')===salesIsQuote(o)&&(!salesIsQuote(o)||salesQuoteRepresentative(o).id===o.id)).length;
+ const only=salesShow[key]&&['orders','quotes','ncr'].filter(k=>salesShow[k]).length===1;
+ return `<label><input type="checkbox" data-show="${key}" ${salesShow[key]?'checked':''} ${only?'disabled':''} onchange="salesToggleShow('${key}')">${label}<small>${n}</small></label>`;
  }).join('')}</div>`;
 }
 function salesListToggleStatuses(){const p=salesListLoadPrefs();p.statusExpanded=!p.statusExpanded;salesListSavePrefs();render();}
@@ -21073,16 +21160,25 @@ function glassBatchActive(orderId){
  return m;
 }
 function glassPieceMap(orderId){const m=new Map();(DB.glassPiece||[]).forEach(r=>{if(!orderId||r.key.startsWith(orderId+'|'))m.set(r.key,r);});return m;}
+/* Места перереза NCR: «ключ стекла|NCR1001.1» (erp/quality/ncr). */
+function glassRecutSlots(orderId,lineId){return typeof ncrRecutSlotsFor==='function'?ncrRecutSlotsFor(orderId,lineId):[];}
+function glassUnitValid(u){return Number.isSafeInteger(u)&&u>=0||typeof u==='string'&&/^NCR\d+\.\d+$/.test(u);}
+function glassPieceAt(rec,unit){
+ if(!rec)return '';
+ if(typeof unit==='string'){const [nr,k]=unit.split('.');return rec.extra&&rec.extra[nr]?rec.extra[nr][+k-1]||'':'';}
+ return rec.ids[unit-1]||'';
+}
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 function glassBatchRemaining(o,l,active){
- const cs=glassBatchComponents(o,l);
- if(!l.batchManaged)return salesLineLocked(l)?0:l.qty*cs.length;
+ const cs=glassBatchComponents(o,l),recut=glassRecutSlots(o.id,l.id);
  active=active||glassBatchActive(o.id);
- return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0);
+ const pending=recut.filter(x=>!active.has(x.key+'|'+x.unit)).length;
+ if(!l.batchManaged)return (salesLineLocked(l)?0:l.qty*cs.length)+pending;
+ return cs.reduce((n,c)=>n+l.qty-glassBatchTaken(active,c.key,l.qty),0)+pending;
 }
 function glassBatchProgress(o){
  const active=glassBatchActive(o.id);let total=0,left=0;
- (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length;left+=glassBatchRemaining(o,l,active);});
+ (o.lines||[]).forEach(l=>{total+=l.qty*glassBatchComponents(o,l).length+glassRecutSlots(o.id,l.id).length;left+=glassBatchRemaining(o,l,active);});
  return {total,left,assigned:total-left};
 }
 /* Номера выдаются сохранённому заказу (не квоте): при сохранении, переходах
@@ -21102,6 +21198,13 @@ function glassPieceEnsure(o){
   for(let i=0;i<want;i++)if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId();changed=true;}
   if(rec.ids.length>want){rec.ids.length=want;changed=true;}
  }));
+ /* Перерез NCR получает свои номера; сама запись NCR не меняется. */
+ glassRecutSlots(o.id).forEach(x=>{
+  keep.add(x.key);let rec=map.get(x.key);
+  if(!rec){rec={key:x.key,ids:[]};DB.glassPiece.push(rec);map.set(x.key,rec);changed=true;}
+  if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ncr]||(rec.extra[x.ncr]=[]);
+  if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId();changed=true;}
+ });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
  if(next.length!==DB.glassPiece.length){DB.glassPiece=next;changed=true;}
  return changed;
@@ -21126,6 +21229,10 @@ function glassBatchRows(orders){
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
      rows.push(Object.assign({},c,base,{slot:c.key+'|'+unit,unit,piece,reason:hold||(piece?'':'Glass ID missing')}));
     }
+    glassRecutSlots(o.id,l.id).filter(x=>x.key===c.key&&!active.has(x.key+'|'+x.unit)).forEach(x=>{
+     const piece=glassPieceValid(glassPieceAt(rec,x.unit))?glassPieceAt(rec,x.unit):'';
+     rows.push(Object.assign({},c,base,{slot:x.key+'|'+x.unit,unit:x.unit,k:x.k,of:x.of,recut:x.ncr,piece,reason:hold||(piece?'':'Glass ID missing')}));
+    });
    });
   });
  }));
@@ -21141,7 +21248,7 @@ function glassBatchSelectionStamp(rows){
  return JSON.stringify([ids.map(salesRecord),DB.glassBatch,DB.glassPiece,DB.shapeDef,DB.glassProduct,DB.serviceRate,DB.customer,DB.receipt]);
 }
 function glassBatchPartSnapshot(r){
- return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
+ return {order:r.o.businessNumber,customer:r.customer,line:r.line,of:r.of,...(r.recut?{recut:r.recut}:{}),lite:r.lite,glassId:r.glassId,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,heat:r.heat,coating:r.coating,
   production:{pane:glassBatchClone(r.pane),shape:glassBatchClone(r.shape),cuttingPoints:glassBatchClone(r.cut.cuttingPoints||[]),line:salesLockedLineSnapshot(r.o,r.l)}};
 }
 /* Внутренний commit вызывается только после всех проверок выбранной группы.
@@ -21219,24 +21326,28 @@ function normalizeGlassBatches(){
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  const ids=new Set();
  DB.glassPiece=DB.glassPiece.filter(r=>r&&typeof r.key==='string'&&r.key.split('|').length===4&&Array.isArray(r.ids)&&salesRecord(r.key.split('|')[0]))
-  .map(r=>({key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')}));
+  .map(r=>{
+   const out={key:r.key,ids:r.ids.map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'')};
+   if(r.extra&&typeof r.extra==='object'){const extra={};Object.keys(r.extra).filter(nr=>/^NCR\d+$/.test(nr)&&Array.isArray(r.extra[nr])).forEach(nr=>{extra[nr]=r.extra[nr].map(id=>glassPieceValid(id)&&!ids.has(id)?(ids.add(id),id):'');});if(Object.keys(extra).length)out.extra=extra;}
+   return out;
+  });
  DB.glassBatch=DB.glassBatch.filter(b=>b&&typeof b==='object'&&salesBatchNumber(b.number)&&Array.isArray(b.items));
  DB.glassBatch.forEach(b=>{
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
-  b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&Number.isSafeInteger(i.unit)&&i.unit>=0);
+  b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
   b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
  });
  let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
- DB.glassPiece.forEach(r=>r.ids.forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
+ DB.glassPiece.forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>{top=Math.max(top,glassPieceNumber(id));}));
  DB.glassBatch.forEach(b=>b.items.forEach(i=>{top=Math.max(top,glassPieceNumber(i.piece));}));
  DB.glassPieceSeq=top;
  /* Места для записей без номера изделия: активные — первые свободные. */
- const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit>0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
+ const taken=new Set();DB.glassBatch.forEach(b=>b.items.forEach(i=>{if(i.unit!==0&&!i.releasedAt)taken.add(b.parts[i.part].key+'|'+i.unit);}));
  DB.glassBatch.forEach(b=>{const released=new Map();b.items.forEach(i=>{
-  if(i.unit>0)return;const key=b.parts[i.part].key;
+  if(i.unit!==0)return;const key=b.parts[i.part].key;
   if(i.releasedAt){const n=(released.get(key)||0)+1;released.set(key,n);i.unit=n;return;}
   let u=1;while(taken.has(key+'|'+u))u++;i.unit=u;taken.add(key+'|'+u);
  });});
@@ -21255,7 +21366,7 @@ function normalizeGlassBatches(){
  (DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
-  b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const rec=pieces.get(b.parts[i.part].key),id=rec&&rec.ids[i.unit-1];i.piece=glassPieceValid(id)?id:glassPieceNextId();});
+  b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const id=glassPieceAt(pieces.get(b.parts[i.part].key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId();});
   b.history.forEach(h=>{if(h.convert){h.pieces=h.convert.map(i=>i.piece);delete h.convert;}});
  });
  (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
@@ -21271,6 +21382,7 @@ function validateGlassBatchesPayload(src){
  (Array.isArray(src.glassPiece)?src.glassPiece:[]).forEach(r=>{
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==4||!Array.isArray(r.ids))throw new Error('Invalid glass ID record.');
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
+  if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^NCR\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
  if(src.glassBatch==null)return;
  if(!Array.isArray(src.glassBatch))throw new Error('Glass batches must be an array.');
@@ -21280,10 +21392,10 @@ function validateGlassBatchesPayload(src){
   if(!Array.isArray(b.parts))return;
   b.parts.forEach(p=>{if(!p||typeof p.key!=='string'||p.key.split('|').length!==4||!salesRefId(p.orderId)||!salesRefId(p.lineId)||!p.key.startsWith(p.orderId+'|'+p.lineId+'|')||!p.snapshot||typeof p.snapshot!=='object')throw new Error('Invalid glass batch part.');});
   b.items.forEach(i=>{
-   if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!Number.isSafeInteger(i.unit)||i.unit<1||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
+   if(!i||!glassPieceValid(i.piece)||!Number.isSafeInteger(i.part)||!b.parts[i.part]||!glassUnitValid(i.unit)||i.unit===0||typeof i.at!=='string'||!i.at||typeof i.releasedAt!=='string'||typeof i.cutStartedAt!=='string')throw new Error('Invalid glass batch item.');
    if(i.releasedAt)return;
    const p=b.parts[i.part],slot=p.key+'|'+i.unit,l=lineOf(p.orderId,p.lineId);
-   if(!l||i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
+   if(!l||typeof i.unit==='number'&&i.unit>Number(l.qty)||slots.has(slot)||active.has(i.piece)||slotPiece.has(slot)&&slotPiece.get(slot)!==i.piece)throw new Error('Glass batch quantity or order reference is invalid.');
    slots.add(slot);active.add(i.piece);
   });
   b.history.forEach(h=>{if(!h||typeof h.at!=='string'||typeof h.action!=='string'||!Array.isArray(h.pieces)||!Number.isFinite(h.qty))throw new Error('Invalid batch history.');});
@@ -21308,7 +21420,7 @@ function glassBatchStatus(b){
  return !a.length?'Unbatched':a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
- const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
+ const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?'Recut '+r.recut+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
   status:r.reason?(o.onHold||r.l.onHold?'On Hold':'Needs review'):'Waiting',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo,heat:r.heat,coating:r.coating,reason:r.reason}};
 }
 function glassBatchInfos(){
@@ -21318,7 +21430,7 @@ function glassBatchInfos(){
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
-  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
+  return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?'Recut '+item.unit.split('.')[0]+' · '+item.unit.split('.')[1]+' of '+(s.of||'?'):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
    status:item.releasedAt?'Unbatched':item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
@@ -21345,22 +21457,22 @@ function glassBatchCreateSelected(){
  const before=glassBatchSelectionStamp(rows),groups=new Map();rows.forEach(r=>{if(!groups.has(r.glassId))groups.set(r.glassId,[]);groups.get(r.glassId).push(r);});
  const orders=[...new Set(rows.map(r=>r.orderId))].map(salesRecord);
  const finish=()=>{
-  if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const list=[...groups.values()];
-  if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Review the glass queue and select the pieces again. No batch was created.',buttons:[{label:'Back'}]});return;}
+  if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const now=new Date().toISOString(),made=list.map(g=>glassBatchAssign(g,{now,deferTouch:true})).filter(Boolean);
   touch();glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
  const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
- if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'Each glass type gets its own batch. Unselected glass stays in the queue.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
+ if(groups.size>1){salesDialogOpen({title:'Create '+groups.size+' batches?',rows:[...groups.values()].map(a=>[a[0].glass,a.length+' pcs']),note:'One batch per glass type.',buttons:[{label:'Back'},{label:'Create batches',kind:'pri',run:()=>check(0)}]});}else check(0);
 }
 function glassBatchUnbatchSelected(){
  const selected=glassBatchFiltered().filter(i=>i.item&&glassBatchSelection.has(glassBatchRowKey(i))&&glassBatchPickable(i));if(!selected.length)return;
  const stamp=()=>JSON.stringify([DB.glassBatch,selected.map(i=>salesRecord(i.part.orderId))]),before=stamp();
  const lineChoices=selected.map(i=>({id:glassBatchRowKey(i),label:i.item.piece+' · Order '+i.memo.number+' · Line '+i.memo.line+' · Unit '+i.memo.unit+' · Lite '+i.memo.lite,detail:i.memo.glass}));
- salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Only selected glass returns. Glass IDs stay the same. Other batches stay locked. Affected orders return to To verify before batching again. Confirm with the cutting table that cutting has not started.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
-  if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Review the batch and try again.',buttons:[{label:'Back'}]});return;}
+ salesDialogOpen({title:'Unbatch selected glass',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,note:'Selected glass → queue · order → To verify.',buttons:[{label:'Back'},{label:'Unbatch selected glass',kind:'pri',requiresConfirmation:true,run:d=>{
+  if(before!==stamp()){salesDialogOpen({title:'Batch changed',note:'Try again.',buttons:[{label:'Back'}]});return;}
   if(glassBatchRelease(selected.filter(i=>d.checkedLines.includes(glassBatchRowKey(i))).map(i=>({batch:i.b,item:i.item})),{confirmed:d.confirmed})){glassBatchSelection.clear();glassBatchAnchor='';render();}
  }}]});
 }
@@ -21377,10 +21489,9 @@ function glassBatchUnbatchOrder(orderId){
  free.forEach(x=>{const k=x.batch.number;if(!groups.has(k))groups.set(k,{glass:new Set(),n:0});groups.get(k).glass.add(x.part.snapshot.glass);groups.get(k).n++;});
  const stamp=()=>JSON.stringify([DB.glassBatch,salesRecord(orderId)]),before=stamp(),lineChoices=[...groups].map(([k,g])=>({id:k,label:k+' · '+[...g.glass].join(' / '),detail:g.n+' pcs'}));
  salesDialogOpen({title:'Unbatch order '+o.businessNumber+'?',sub:salesCustomerDisplay(o.customerId)+' · '+p.assigned+' of '+p.total+' pcs in batches',lineChoices,checkedLines:lineChoices.map(x=>x.id),confirmed:false,
-  confirmLabel:'I confirm cutting has not started for this order.',
-  note:'Glass of this order in the selected batches returns to the glass queue. Other orders in these batches stay batched. The order returns to To verify.'+(cut?' '+cut+' pcs with cutting started stay in their batch.':''),
+  note:'Order glass → queue · order → To verify'+(cut?' · '+cut+' pcs cutting stay':''),
   buttons:[{label:'Back'},{label:'Unbatch order',kind:'pri',requiresConfirmation:true,run:d=>{
-   if(before!==stamp()){salesDialogOpen({title:'Order changed',note:'Review the order and try Unbatch again.',buttons:[{label:'Back'}]});return;}
+   if(before!==stamp()){salesDialogOpen({title:'Order changed',note:'Try again.',buttons:[{label:'Back'}]});return;}
    const chosen=new Set(d.checkedLines);glassBatchRelease(glassBatchOrderReleasable(salesRecord(orderId)).filter(x=>chosen.has(x.batch.number)).map(x=>({batch:x.batch,item:x.item})),{confirmed:d.confirmed});render();
   }}]});
 }
@@ -21419,15 +21530,374 @@ function viewGlassBatches(){
  const active=b?glassBatchActiveItems(b):[],activeOrders=new Set(active.map(i=>b.parts[i.part].orderId)).size,status=b?glassBatchStatus(b):'';
  const history=b?`<div class="gb-history">${b.history.map(h=>`<div><time>${esc(salesShortDate(h.at))}</time><b>${esc(h.action)}</b><span>${h.qty} pcs</span><span class="gb-orders">${esc(orderNumbers(h.pieces).map(n=>'Order '+n).join(', '))}</span><span class="gb-orders" data-history-pieces>${esc((h.pieces||[]).length<=6?(h.pieces||[]).join(', '):h.pieces[0]+' … '+h.pieces[h.pieces.length-1])}</span></div>`).join('')||'<p class="mut">No events.</p>'}</div>`:'';
  const waiting=b?glassBatchStillWaiting(b):[],plural=(c,w)=>c+' '+w+(c===1?'':'s');
- const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:`<p>${scope==='glassQueue'?'Verified glass waiting for cutting. Each row is one glass. Filter only when you need to.':'Batch contents and history.'}</p>`;
+ const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${plural(rows.length,'batch').replace('batchs','batches')} · ${rows.reduce((c,i)=>c+i.memo.units,0)} pcs`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
  return `<section class="optimization-queue glass-batches"><div class="page-head"><div>${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:''}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
  <div class="card oq-card">${b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
- ${b?'<p class="gb-note">Unbatch is available only before cutting starts. Cutting layouts are not available yet.</p>':registry?'':'<p class="gb-note">Shift-click selects a range of glass.</p>'}</div>
- ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing else is waiting in these orders.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
+ ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
+ ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+}
+
+/* ==== src/erp/quality/reasons.js ==== */
+/* =====================================================================
+   erp/quality/reasons  ·  ncr-reasons-1.0
+   Справочник причин брака и рекламаций: «Где» — станция цеха или Office,
+   «Что» — что случилось. Общие причины действуют на каждой станции.
+   IN : DB.station — станции цеха; новая станция сразу появляется в «Где»
+   OUT: DB.ncrReason {id, where: '*' | 'OFFICE' | код станции, name, active}
+        NCR_SOURCES · NCR_ACTIONS
+   Владелец, 15–17 сентября 2026: «по нашей системе — где и что»; «станция и
+   что сломало: базовые — удар, сломалось; например, на закалке взорвалось
+   в машине»; «добавь офис»; «скретч, а ещё с доли или со скида стекло падает».
+   Списки Spil не переносятся. Причину не удаляют — выключают (Active).
+   Записи NCR по номеру стекла и перерез — следующий этап.
+   ===================================================================== */
+DEFAULT.ncrReason=[];
+const NCR_ALL='*',NCR_OFFICE='OFFICE';
+const NCR_SOURCES=['Found in shop','Customer claim'];
+const NCR_ACTIONS=['Recut','Remake order','Repair','Replace from stock','Credit','No action'];
+/* Стартовый набор. Office — ошибки оформления, ударов и падений там нет. */
+const NCR_SEED={
+ '*':   ['Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],
+ OFFICE:['Order entered wrong','Drawing wrong','Cut list wrong','Program error'],
+ CUT:   ['Wrong size','Wrong glass','Shape cut wrong'],
+ EDGE:  ['Wrong edgework','Bevel width wrong','Miter angle wrong','Polish burn'],
+ DRILL: ['Chipped at hole','Hole position wrong','Hole size wrong','Drilling skipped before tempering'],
+ CNC:   ['Chipped at cut-out','Position wrong','Size / radius wrong','CNC program error'],
+ CERP:  ['Frit position wrong','Pinholes / coverage','Wrong color or pattern'],
+ HEAT:  ['Exploded in furnace','Broke in quench','Broke in heat soak','Bow / warp','Roller marks','Wrong treatment (FT / HS)'],
+ SAND:  ['Pattern position wrong','Uneven frosting'],
+ PAINT: ['Paint defect','Wrong color','Painted wrong side'],
+ LAM:   ['Bubbles','Delamination','Lites offset','Debris inside'],
+ IGU:   ['Seal failure / fogging','Dirty inside','Wrong spacer or gas','Low-E on wrong surface','Muntin misaligned'],
+ SHIPR: ['Damaged in rack','Wrong label','Missing piece'],
+ SHIP:  ['Broke in transit','Spontaneous breakage','Broke on install','Delivered to wrong customer']
+};
+function ncrSeedRows(){
+ return Object.keys(NCR_SEED).flatMap(where=>NCR_SEED[where].map((name,i)=>({id:'NR-'+(where===NCR_ALL?'ALL':where)+'-'+String(i+1).padStart(2,'0'),where,name,active:true})));
+}
+function ncrName(v){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,80);}
+/* Пустой справочник (новая база или старый файл) получает стартовый набор. */
+function normalizeNcrReasons(){
+ if(!Array.isArray(DB.ncrReason)||!DB.ncrReason.length){DB.ncrReason=ncrSeedRows();return;}
+ const ids=new Set();
+ DB.ncrReason=DB.ncrReason.filter(r=>r&&typeof r==='object')
+  .map(r=>({id:typeof r.id==='string'&&r.id?r.id:salesUid('NR'),where:typeof r.where==='string'?r.where.trim().toUpperCase():'',name:ncrName(r.name),active:r.active!==false}))
+  .filter(r=>{if(!r.where||!r.name||ids.has(r.id))return false;ids.add(r.id);return true;});
+}
+function ncrWhereList(){
+ return [{code:NCR_OFFICE,name:'Office'}].concat((DB.station||[]).slice().sort((a,b)=>(a.seq||0)-(b.seq||0)).map(s=>({code:s.code,name:s.nameEn||s.name||s.code})));
+}
+function ncrWhereName(code){if(code===NCR_ALL)return 'All stations';const w=ncrWhereList().find(x=>x.code===code);return w?w.name:code;}
+/* Причины места: у станции — общие и свои, у Office и All stations — только свои. */
+function ncrReasonsFor(where,opts){
+ opts=opts||{};const all=(DB.ncrReason||[]).filter(r=>!opts.activeOnly||r.active);
+ const base=where===NCR_ALL||where===NCR_OFFICE?[]:all.filter(r=>r.where===NCR_ALL);
+ return base.concat(all.filter(r=>r.where===where));
+}
+/* Одинаковое название нельзя завести там, где обе причины окажутся в одном
+   списке: общая причина видна на каждой станции, но не в Office. */
+function ncrReasonProblem(where,name,exceptId){
+ name=ncrName(name);if(!name)return 'Enter a reason.';
+ const low=name.toLowerCase();
+ const clash=(DB.ncrReason||[]).some(r=>r.id!==exceptId&&r.name.toLowerCase()===low&&(r.where===where||where!==NCR_OFFICE&&r.where!==NCR_OFFICE&&(r.where===NCR_ALL||where===NCR_ALL)));
+ return clash?'Already exists':'';
+}
+function ncrReasonAdd(where,name){
+ if(where!==NCR_ALL&&!ncrWhereList().some(w=>w.code===where))return 'Choose where it happened.';
+ const problem=ncrReasonProblem(where,name);if(problem)return problem;
+ DB.ncrReason.push({id:salesUid('NR'),where,name:ncrName(name),active:true});touch();return '';
+}
+function ncrReasonRename(id,name){
+ const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return 'Reason not found.';
+ const problem=ncrReasonProblem(r.where,name,id);if(problem)return problem;
+ r.name=ncrName(name);touch();return '';
+}
+function ncrReasonSetActive(id,on){const r=(DB.ncrReason||[]).find(x=>x.id===id);if(!r)return false;r.active=!!on;touch();return true;}
+
+/* ==== src/erp/views/ncr-reasons-ui.js ==== */
+/* =====================================================================
+   view/ncr-reasons · ncr-reasons-ui-1.0
+   Master Data → NCR: слева «Где» (All stations, Office, станции), справа
+   «Что» этого места. Общие причины правятся в All stations; на станции они
+   видны только для чтения. Название правится прямо в строке; причину не
+   удаляют — выключают переключателем Active.
+   IN : DB.ncrReason, DB.station (erp/quality/reasons)
+   OUT: HTML вкладки; запись через ncrReasonAdd / Rename / SetActive
+   ===================================================================== */
+let ncrWhere='CUT',ncrError='';
+function ncrSelect(code){ncrWhere=code;ncrError='';render();}
+function ncrAddFromInput(){
+ const el=document.querySelector('[data-ncr-new]');ncrError=ncrReasonAdd(ncrWhere,el?el.value:'');render();
+ if(!ncrError){const next=document.querySelector('[data-ncr-new]');if(next)next.focus();}
+}
+function ncrRenameFromInput(id,el){ncrError=ncrReasonRename(id,el.value);render();}
+function ncrToggle(id,on){ncrReasonSetActive(id,on);ncrError='';render();}
+function viewMdNcr(){
+ const places=ncrWhereList();
+ if(ncrWhere!==NCR_ALL&&!places.some(w=>w.code===ncrWhere))ncrWhere=places.length>1?places[1].code:NCR_ALL;
+ const active=code=>(code===NCR_ALL?(DB.ncrReason||[]).filter(r=>r.where===NCR_ALL):ncrReasonsFor(code)).filter(r=>r.active).length;
+ const place=(code,label,name)=>`<button type="button" class="ncr-where${ncrWhere===code?' on':''}" data-ncr-where="${esc(code)}" aria-pressed="${ncrWhere===code}" onclick="ncrSelect('${esc(code)}')"><span><b>${esc(label)}</b>${esc(name)}</span><span class="ncr-count">${active(code)}</span></button>`;
+ const side=place(NCR_ALL,'ALL','All stations')+'<hr>'+places.map(w=>place(w.code,w.code,w.name)).join('');
+ const station=ncrWhere!==NCR_ALL&&ncrWhere!==NCR_OFFICE;
+ const hint=ncrWhere===NCR_ALL?'Shown on every station':'';
+ const row=r=>{
+  const base=station&&r.where===NCR_ALL,scope=r.where===NCR_ALL?'All stations':(r.where===NCR_OFFICE?'Office':r.where)+' only';
+  return `<tr data-ncr-reason="${esc(r.id)}" class="${r.active?'':'ncr-off'}"><td>${base?`<span class="ncr-name">${esc(r.name)}</span>`:`<input class="ncr-name-input" data-ncr-name value="${esc(r.name)}" maxlength="80" aria-label="Reason name" onchange="ncrRenameFromInput('${esc(r.id)}',this)">`}</td>
+   <td><span class="pill ${r.where===NCR_ALL?'ncr-scope-all':'ncr-scope-own'}">${esc(scope)}</span></td>
+   <td class="ncr-active">${base?`<span class="mut" title="Change in All stations">${r.active?'On':'Off'}</span>`:`<label class="ncr-switch"><input type="checkbox" data-ncr-active ${r.active?'checked':''} aria-label="Active: ${esc(r.name)}" onchange="ncrToggle('${esc(r.id)}',this.checked)"><span></span></label>`}</td></tr>`;
+ };
+ const rows=ncrReasonsFor(ncrWhere);
+ const pills=list=>`<div class="ncr-pills">${list.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div>`;
+ return ` <div class="ncr-layout">
+  <div class="card ncr-side"><div class="ncr-label">WHERE</div>${side}</div>
+  <div>
+   <div class="card ncr-main">
+    <div class="ncr-head"><div><div class="ncr-label">WHAT HAPPENED</div><h3>${esc(ncrWhere===NCR_ALL?'All stations':ncrWhere===NCR_OFFICE?'Office':ncrWhere+' · '+ncrWhereName(ncrWhere))}</h3>${hint?`<p>${esc(hint)}</p>`:''}</div>
+     <div class="ncr-add"><input data-ncr-new maxlength="80" placeholder="New reason" aria-label="New reason" onkeydown="if(event.key==='Enter')ncrAddFromInput()"><button type="button" class="pri" data-ncr-add onclick="ncrAddFromInput()">+ Add reason</button></div></div>
+    ${ncrError?`<div class="ncr-error" role="alert">${esc(ncrError)}</div>`:''}
+    <table class="ncr-table"><thead><tr><th>Reason</th><th>Applies to</th><th>Active</th></tr></thead><tbody>${rows.map(row).join('')||'<tr><td colspan="3" class="empty">No reasons yet.</td></tr>'}</tbody></table>
+   </div>
+   <div class="ncr-lists">
+    <div class="card"><div class="ncr-label">SOURCE · WHO FOUND IT</div>${pills(NCR_SOURCES)}</div>
+    <div class="card"><div class="ncr-label">ACTION</div>${pills(NCR_ACTIONS)}</div>
+   </div>
+  </div>
+ </div>`;
+}
+
+/* ==== src/erp/quality/ncr.js ==== */
+/* =====================================================================
+   erp/quality/ncr  ·  ncr-1.0
+   Запись NCR на основе сохранённого заказа: кто нашёл (Source), где и что
+   (справочник erp/quality/reasons), действие и затронутое стекло позиций.
+   IN : DB.salesOrder, DB.ncrReason
+   OUT: DB.ncr {id, number NCR1001, orderId, createdAt, source, where, reasonId,
+        reason, action, note, glass[{lineId, line, mark, which, lite, keys, qty}],
+        remakeOrderId}
+   Владелец, 17 сентября 2026: кнопка NCR внутри заказа; Recut — новые стёкла
+   этой позиции уходят в To batch этого же заказа, заказ не закроется, пока их
+   не сделают; Remake order — новый заказ, связанный с исходным, $0 по
+   умолчанию; номер «обычный NCR2021»; список — в Sales рядом с Orders и Quotes.
+   Glass ID в Sales не показывается: стёкла выбираются позицией и лайтом.
+   ===================================================================== */
+DEFAULT.ncr=[];
+const NCR_RECUT='Recut',NCR_REMAKE='Remake order';
+function ncrNextNumber(){let n=1000;(DB.ncr||[]).forEach(r=>{const m=/^NCR(\d+)$/.exec(r&&r.number||'');if(m)n=Math.max(n,+m[1]);});return 'NCR'+(n+1);}
+function ncrForOrder(orderId){return (DB.ncr||[]).filter(n=>n.orderId===orderId);}
+function ncrFind(id){return (DB.ncr||[]).find(n=>n.id===id)||null;}
+function ncrPaneCode(p){
+ if(p&&p.category==='laminated'){const L=p.laminated||{},a=glassProductById(L.outer&&L.outer.glassProductId),b=glassProductById(L.inner&&L.inner.glassProductId);return (a?a.code:'?')+'+'+(b?b.code:'?');}
+ const g=glassProductById(p&&p.glassProductId);return g?g.code:'?';
+}
+/* Какое стекло позиции: весь пакет или один лайт (у ламината — обе плиты). */
+function ncrLiteOptions(o,l){
+ const m=salesMakeupById(o,l.makeupId),panes=m&&m.panes||[];
+ if(panes.length<2)return [{value:'unit',label:panes.length?'Glass · '+ncrPaneCode(panes[0]):'Whole unit'}];
+ return [{value:'unit',label:'Whole unit'}].concat(panes.map((p,i)=>({value:String(i),label:'Lite '+(i+1)+' · '+ncrPaneCode(p)})));
+}
+function ncrGlassKeys(o,l,which){return glassBatchComponents(o,l).filter(c=>which==='unit'||String(c.index)===String(which)).map(c=>c.key);}
+/* Стёкла перереза: ключ стекла позиции и место «NCR1001.1». Номер стекла
+   выдаётся при создании NCR (erp/production/glass-batches). */
+function ncrRecutSlots(n){
+ if(!n||n.action!==NCR_RECUT)return [];
+ return (n.glass||[]).flatMap(g=>(g.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+g.qty)||0)},(_,i)=>({key,lineId:g.lineId,unit:n.number+'.'+(i+1),k:i+1,of:+g.qty,ncr:n.number}))));
+}
+function ncrRecutSlotsFor(orderId,lineId){return (DB.ncr||[]).filter(n=>n&&n.orderId===orderId).flatMap(ncrRecutSlots).filter(s=>!lineId||s.lineId===lineId);}
+/* Статус выводится из связей: Recut открыт, пока его стекло не в батче или
+   заказ не дошёл до Ready; Remake — пока новый заказ не выдан или не закрыт. */
+function ncrStatus(n){
+ if(n.action===NCR_RECUT){
+  const o=salesRecord(n.orderId);if(!o||o.status==='cancelled')return 'Done';
+  const active=glassBatchActive(o.id);
+  return ncrRecutSlots(n).some(s=>!active.has(s.key+'|'+s.unit))||!['ready','done','closed'].includes(o.status)?'Open':'Done';
+ }
+ if(n.action===NCR_REMAKE){const r=salesRecord(n.remakeOrderId);return r&&['done','closed','cancelled'].includes(r.status)?'Done':'Open';}
+ return 'Done';
+}
+function ncrPieces(n){return (n.glass||[]).reduce((s,g)=>s+g.qty*(n.action===NCR_REMAKE?1:(g.keys||[]).length),0);}
+function ncrWhereLabel(n){return n.where===NCR_OFFICE?'Office':n.where;}
+function ncrOrderStamp(o){return JSON.stringify([o&&o.lines,o&&o.makeups,o&&o.status]);}
+/* Создание: всё проверяется до записи; ошибка возвращается текстом для окна. */
+function ncrCreate(d){
+ const o=salesRecord(d&&d.orderId);
+ if(!o||salesIsQuote(o)||o.status==='cancelled')return {error:'This order cannot get an NCR.'};
+ if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen NCR.'};
+ if(!NCR_SOURCES.includes(d.source))return {error:'Choose who found it.'};
+ if(!NCR_ACTIONS.includes(d.action))return {error:'Choose the action.'};
+ const reason=ncrReasonsFor(d.where,{activeOnly:true}).find(r=>r.id===d.reasonId);
+ if(!reason)return {error:'Choose where and what happened.'};
+ if(d.action===NCR_RECUT&&o.status==='closed')return {error:'Order closed · use Remake'};
+ const glass=[];
+ for(let i=0;i<o.lines.length;i++){
+  const l=o.lines[i],x=d.lines&&d.lines[l.id];if(!x||!x.on)continue;
+  const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
+  const which=d.action===NCR_REMAKE?'unit':String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
+  if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
+  glass.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});
+ }
+ if(!glass.length)return {error:'Select the affected glass.'};
+ const now=new Date().toISOString();
+ const n={id:salesUid('NCR'),number:ncrNextNumber(),orderId:o.id,createdAt:now,source:d.source,where:d.where,reasonId:reason.id,reason:reason.name,action:d.action,note:salesString(d.note).slice(0,500),glass,remakeOrderId:''};
+ DB.ncr.push(n);
+ if(n.action===NCR_RECUT){glassPieceEnsure(o);o.updatedAt=now;}
+ if(n.action===NCR_REMAKE){
+  const src=JSON.parse(JSON.stringify(o)),byLine=new Map(glass.map(g=>[g.lineId,g.qty]));
+  src.lines=src.lines.filter(l=>byLine.has(l.id)).map(l=>Object.assign(l,{qty:byLine.get(l.id),batchedAt:'',batchNo:'',cutStartedAt:'',batchManaged:false,onHold:false,holdReason:'',holdAt:''}));
+  const used=new Set(src.lines.map(l=>l.makeupId));src.makeups=src.makeups.filter(m=>used.has(m.id));src.extraItems=[];
+  const copy=salesCopySalesRecord(src,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:'',wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',
+   batchNo:'',batchHistory:[],unbatchHistory:[],onHold:false,holdReason:'',holdAt:'',fulfilledVia:'',dueDate:'',notes:'Remake for '+n.number+' · order '+o.businessNumber,noCharge:true,remakeNcrId:n.id,createdAt:now,updatedAt:now});
+  DB.salesOrder.push(normalizeSalesOrder(copy));normalizeSalesData();
+  n.remakeOrderId=copy.id;glassPieceEnsure(salesRecord(copy.id));
+ }
+ touch();return {ncr:n};
+}
+function normalizeNcrRecords(){
+ if(!Array.isArray(DB.ncr))DB.ncr=[];
+ const ids=new Set(),numbers=new Set();
+ DB.ncr=DB.ncr.filter(n=>n&&typeof n==='object').map(n=>({id:typeof n.id==='string'&&n.id?n.id:salesUid('NCR'),number:/^NCR\d+$/.test(n.number||'')?n.number:'',orderId:salesString(n.orderId),createdAt:salesString(n.createdAt),
+  source:NCR_SOURCES.includes(n.source)?n.source:NCR_SOURCES[0],where:salesString(n.where).toUpperCase(),reasonId:salesString(n.reasonId),reason:ncrName(n.reason),action:NCR_ACTIONS.includes(n.action)?n.action:'No action',note:salesString(n.note).slice(0,500),
+  glass:(Array.isArray(n.glass)?n.glass:[]).filter(g=>g&&typeof g==='object').map(g=>({lineId:salesString(g.lineId),line:Math.max(1,Math.floor(+g.line)||1),mark:salesString(g.mark),which:g.which==null?'unit':String(g.which),lite:salesString(g.lite),
+   keys:(Array.isArray(g.keys)?g.keys:[]).filter(k=>typeof k==='string'&&k.split('|').length===4),qty:Math.max(1,Math.floor(+g.qty)||1)})).filter(g=>g.lineId&&g.keys.length),remakeOrderId:salesString(n.remakeOrderId)}))
+  .filter(n=>{if(!n.orderId||ids.has(n.id))return false;ids.add(n.id);return true;});
+ DB.ncr.forEach(n=>{if(n.number&&numbers.has(n.number))n.number='';if(n.number)numbers.add(n.number);});
+ DB.ncr.forEach(n=>{if(!n.number)n.number=ncrNextNumber();});
+}
+function validateNcrPayload(src){
+ if(src.ncr==null||!Array.isArray(src.ncr))return;
+ const numbers=new Set();
+ src.ncr.forEach(n=>{
+  if(!n||typeof n!=='object'||Array.isArray(n)||!salesRefId(n.orderId))throw new Error('Invalid NCR record.');
+  if(n.number!=null&&n.number!==''){if(!/^NCR\d+$/.test(n.number))throw new Error('Invalid NCR number.');if(numbers.has(n.number))throw new Error('Duplicate NCR number '+n.number+'.');numbers.add(n.number);}
+  if(n.glass!=null&&!Array.isArray(n.glass))throw new Error('Invalid NCR record.');
+ });
+}
+
+/* ==== src/erp/views/ncr-ui.js ==== */
+/* =====================================================================
+   view/ncr · ncr-ui-1.0
+   NCR в Sales: кнопка NCR в заказе → форма на основе сохранённого заказа;
+   окно просмотра; полоса NCR в заказе и отметка Remake; строки NCR в
+   списке Sales (меню Show). Номера стёкол G-… здесь не показываются.
+   IN : DB.ncr, DB.ncrReason, сохранённый заказ; OUT: ncrCreate, HTML
+   ===================================================================== */
+let ncrForm=null,ncrViewId='';
+function ncrCanOpen(o){return !!o&&!salesIsQuote(o)&&soEdit!=='new'&&!!salesRecord(o.id)&&o.status!=='cancelled';}
+function ncrOpenForm(){
+ if(!soDraft||!ncrCanOpen(soDraft))return;
+ if(salesDraftHasWork()){salesDialogOpen({title:'Save the order first',buttons:[{label:'Back'}]});return;}
+ const o=salesRecord(soDraft.id);
+ ncrForm={orderId:o.id,source:NCR_SOURCES[0],where:'',reasonId:'',action:o.status==='closed'?NCR_REMAKE:NCR_RECUT,note:'',lines:{},stamp:ncrOrderStamp(o),error:''};
+ render();
+}
+function ncrFormClose(){ncrForm=null;render();}
+function ncrFormSet(key,value){
+ if(!ncrForm)return;ncrForm[key]=value;ncrForm.error='';
+ if(key==='where')ncrForm.reasonId='';
+ render();
+}
+function ncrFormLine(lineId,key,value,redraw){
+ if(!ncrForm)return;const x=ncrForm.lines[lineId]||(ncrForm.lines[lineId]={on:false,qty:'',which:'unit'});
+ x[key]=value;if(key==='on'&&value&&!x.qty)x.qty=1;ncrForm.error='';if(redraw)render();
+}
+function ncrFormCreate(){
+ if(!ncrForm)return;const lines={};Object.keys(ncrForm.lines).forEach(id=>{const x=ncrForm.lines[id];lines[id]=Object.assign({},x,{qty:String(x.qty).trim()===''?NaN:Number(x.qty)});});
+ const res=ncrCreate(Object.assign({},ncrForm,{lines}));
+ if(res.error){ncrForm.error=res.error;render();return;}
+ ncrForm=null;ncrViewId=res.ncr.id;render();
+}
+function ncrView(id){if(!ncrFind(id))return;ncrForm=null;ncrViewId=id;salesListMenu=null;render();}
+function ncrViewClose(){ncrViewId='';render();}
+function ncrOpenOrder(id){
+ if(!salesRecord(id))return;
+ if(soDraft&&soDraft.id!==id&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
+ ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);
+}
+function ncrEffectText(f,o){
+ const picked=o.lines.filter(l=>f.lines[l.id]&&f.lines[l.id].on);
+ const n=picked.reduce((s,l)=>{const x=f.lines[l.id],q=Number(x.qty)||0;return s+(f.action===NCR_REMAKE?q:q*ncrGlassKeys(o,l,x.which||'unit').length);},0);
+ if(f.action===NCR_RECUT)return (n?n+' pcs':'Recut')+' → glass queue';
+ if(f.action===NCR_REMAKE)return 'New order'+(n?' · '+n+' unit'+(n===1?'':'s'):'')+' · $0';
+ return '';
+}
+function ncrFormHTML(){
+ const f=ncrForm,o=salesRecord(f.orderId);if(!o){ncrForm=null;return '';}
+ const places=ncrWhereList(),reasons=f.where?ncrReasonsFor(f.where,{activeOnly:true}):[],remake=f.action===NCR_REMAKE;
+ const glassCodes=l=>{const m=salesMakeupById(o,l.makeupId);return m?(m.panes||[]).map(ncrPaneCode).join(' / '):'—';};
+ const rows=o.lines.map((l,i)=>{
+  const x=f.lines[l.id]||{on:false,qty:'',which:'unit'},opts=ncrLiteOptions(o,l);
+  return `<tr data-ncr-line="${esc(l.id)}" class="${x.on?'on':''}"><td><input type="checkbox" data-ncr-line-on ${x.on?'checked':''} aria-label="Line ${i+1} affected" onchange="ncrFormLine('${esc(l.id)}','on',this.checked,true)"></td>
+   <td>Line ${i+1}${l.mark?' · '+esc(l.mark):''}</td><td class="nowrap">${esc(dimIn16(l.width16/16))} × ${esc(dimIn16(l.height16/16))}</td><td>${esc(glassCodes(l))}</td><td class="n">${l.qty}</td>
+   <td><input type="number" min="1" max="${l.qty}" step="1" data-ncr-line-qty value="${esc(x.qty)}" ${x.on?'':'disabled'} aria-label="Affected on line ${i+1}" oninput="ncrFormLine('${esc(l.id)}','qty',this.value)"></td>
+   <td><select data-ncr-line-which ${x.on&&!remake&&opts.length>1?'':'disabled'} aria-label="Which glass on line ${i+1}" onchange="ncrFormLine('${esc(l.id)}','which',this.value,true)">${(remake?[opts[0]]:opts).map(v=>`<option value="${esc(v.value)}" ${String(x.which)===v.value?'selected':''}>${esc(v.label)}</option>`).join('')}</select></td></tr>`;
+ }).join('');
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrFormClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="New NCR">
+  <div class="sales-service-modal-head"><h3>New NCR · Order ${esc(o.businessNumber)}</h3><button type="button" aria-label="Close" onclick="ncrFormClose()">×</button></div>
+  <div class="sales-dialog-body ncr-form">
+   <p class="mut">${esc([salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · '))}</p>
+   <div><div class="ncr-label">SOURCE · WHO FOUND IT</div><div class="ncr-seg">${NCR_SOURCES.map(s=>`<button type="button" class="sm ${f.source===s?'pri':''}" data-ncr-source="${esc(s)}" aria-pressed="${f.source===s}" onclick="ncrFormSet('source','${esc(s)}')">${esc(s)}</button>`).join('')}</div></div>
+   <div><div class="ncr-label">AFFECTED GLASS</div><div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th>Glass</th><th class="n">Qty</th><th>Affected</th><th>Which glass</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+   <div class="ncr-pick">
+    <label><span class="ncr-label">WHERE</span><select data-ncr-where-select onchange="ncrFormSet('where',this.value)"><option value="">Choose…</option>${places.map(w=>`<option value="${esc(w.code)}" ${f.where===w.code?'selected':''}>${esc(w.code===NCR_OFFICE?'Office':w.code+' · '+w.name)}</option>`).join('')}</select></label>
+    <label><span class="ncr-label">WHAT HAPPENED</span><select data-ncr-reason-select ${f.where?'':'disabled'} onchange="ncrFormSet('reasonId',this.value)"><option value="">${f.where?'Choose…':'Choose where first'}</option>${reasons.map(r=>`<option value="${esc(r.id)}" ${f.reasonId===r.id?'selected':''}>${esc(r.name)}</option>`).join('')}</select></label>
+    <label><span class="ncr-label">ACTION</span><select data-ncr-action-select onchange="ncrFormSet('action',this.value)">${NCR_ACTIONS.map(a=>`<option value="${esc(a)}" ${f.action===a?'selected':''} ${a===NCR_RECUT&&o.status==='closed'?'disabled':''}>${esc(a)}</option>`).join('')}</select></label>
+   </div>
+   <label><span class="ncr-label">NOTE</span><textarea rows="2" data-ncr-note maxlength="500" oninput="ncrForm.note=this.value">${esc(f.note)}</textarea></label>
+   ${ncrEffectText(f,o)?`<div class="sales-quote-note ncr-effect" data-ncr-effect>${esc(ncrEffectText(f,o))}</div>`:''}
+   ${f.error?`<div class="ncr-error" role="alert" data-ncr-error>${esc(f.error)}</div>`:''}
+  </div>
+  <div class="sales-dialog-actions"><button type="button" onclick="ncrFormClose()">Cancel</button><button type="button" class="pri" data-ncr-create onclick="ncrFormCreate()">Create NCR</button></div></div></div>`;
+}
+function ncrViewHTML(){
+ const n=ncrFind(ncrViewId);if(!n){ncrViewId='';return '';}
+ const o=salesRecord(n.orderId),r=salesRecord(n.remakeOrderId),status=ncrStatus(n);
+ const row=(k,v)=>`<span>${esc(k)}</span><b>${esc(v)}</b>`;
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)ncrViewClose()"><div class="sales-service-modal sales-dialog ncr-modal" role="dialog" aria-modal="true" aria-label="${esc(n.number)}">
+  <div class="sales-service-modal-head"><h3>${esc(n.number)}${o?' · Order '+esc(o.businessNumber):''} <span class="pill ${status==='Open'?'ncr-st-open':'ncr-st-done'}" data-ncr-status>${esc(status)}</span></h3><button type="button" aria-label="Close" onclick="ncrViewClose()">×</button></div>
+  <div class="sales-dialog-body ncr-form">
+   <div class="sales-dialog-rows">${row('Created',salesShortDate(n.createdAt))}${row('Customer',o?salesCustomerDisplay(o.customerId):'—')}${row('Source',n.source)}${row('Where',n.where===NCR_OFFICE?'Office':n.where+' · '+ncrWhereName(n.where))}${row('What happened',n.reason)}${row('Action',n.action)}</div>
+   <div class="ncr-lines-wrap"><table class="ncr-lines"><thead><tr><th>Line</th><th>Which glass</th><th class="n">Affected</th></tr></thead><tbody>${n.glass.map(g=>`<tr><td>Line ${g.line}${g.mark?' · '+esc(g.mark):''}</td><td>${esc(g.lite)}</td><td class="n">${g.qty}</td></tr>`).join('')}</tbody></table></div>
+   ${n.note?`<p class="ncr-note">${esc(n.note)}</p>`:''}
+   ${n.action===NCR_RECUT?`<div class="sales-quote-note">${esc(ncrPieces(n)+' pcs → glass queue')}</div>`:''}
+   ${n.action===NCR_REMAKE?`<div class="sales-quote-note">${r?'Remake order '+esc(r.businessNumber)+' · '+esc(salesStatusLabel(r)):'Remake order deleted'}</div>`:''}
+  </div>
+  <div class="sales-dialog-actions"><button type="button" onclick="ncrViewClose()">Close</button>${r?`<button type="button" data-ncr-open-remake onclick="ncrOpenOrder('${esc(r.id)}')">Open order ${esc(r.businessNumber)}</button>`:''}${o&&(!soDraft||soDraft.id!==o.id)?`<button type="button" class="pri" data-ncr-open-order onclick="ncrOpenOrder('${esc(o.id)}')">Open order ${esc(o.businessNumber)}</button>`:''}</div></div></div>`;
+}
+function ncrModalHTML(){return ncrForm?ncrFormHTML():ncrViewId?ncrViewHTML():'';}
+/* Полоса в заказе: его NCR и отметка «Remake for …» с No charge. */
+function ncrOrderStrip(o){
+ if(!o||salesIsQuote(o)||soEdit==='new')return '';
+ const list=ncrForOrder(o.id),src=o.remakeNcrId?ncrFind(o.remakeNcrId):null,parent=src&&salesRecord(src.orderId);
+ const items=list.map(n=>{const s=ncrStatus(n);return `<div class="ncr-strip-row" data-ncr-strip="${esc(n.id)}"><b class="mono">${esc(n.number)}</b><span>${esc(ncrWhereLabel(n))} · ${esc(n.reason)} · ${esc(n.action)} · ${ncrPieces(n)} ${n.action===NCR_REMAKE?'unit':'pc'}${ncrPieces(n)===1?'':'s'}</span><span class="pill ${s==='Open'?'ncr-st-open':'ncr-st-done'}">${esc(s)}</span><button type="button" class="sm" onclick="ncrView('${esc(n.id)}')">View</button></div>`;}).join('');
+ const remake=src?`<div class="ncr-strip-row ncr-remake" data-ncr-remake><b>Remake for ${esc(src.number)}</b><span>${parent?'order '+esc(parent.businessNumber):''}</span><label class="chk"><input type="checkbox" data-no-charge ${o.noCharge?'checked':''} onchange="soDraft.noCharge=this.checked;render()"> No charge</label><button type="button" class="sm" onclick="ncrView('${esc(src.id)}')">View NCR</button></div>`:'';
+ return list.length||remake?`<div class="ncr-strip">${remake}${items}</div>`:'';
+}
+/* Строки NCR в списке Sales: значения колонок заранее, без расчётов заказа. */
+function ncrListInfos(){
+ return (DB.ncr||[]).map(n=>{
+  const o=salesRecord(n.orderId)||{},c=salesFindCustomer(o.customerId)||{},status=ncrStatus(n);
+  const codes=[...new Set(n.glass.flatMap(g=>g.keys.map(k=>{const paneId=k.split('|')[2],m=(o.makeups||[]).find(m=>(m.panes||[]).some(p=>p.id===paneId)),p=m&&m.panes.find(p=>p.id===paneId);return p?ncrPaneCode(p):'';})).filter(Boolean))];
+  return {o:{id:n.id,kind:'ncr',createdAt:n.createdAt,ncrStatus:status},q:false,n,c,memo:{type:'NCR',number:n.number,customer:c.displayName||c.legalName||'',po:o.customerPo||'',created:salesListIsoDay(n.createdAt),due:'',status,priority:'',glass:codes.join(' / '),
+   units:null,area:null,total:null,receipts:null,balance:null,hold:'',delivery:'',rep:c.salesRep||'',terms:'',lines:n.glass.length,weight:null,unitType:'',shapes:null,validUntil:'',revisions:null,fromQuote:'',updated:salesListIsoDay(n.createdAt)}};
+ });
+}
+function ncrListCell(info,col){
+ const n=info.n,v=salesListValue(info,col.k),o=salesRecord(n.orderId);
+ switch(col.k){
+  case 'type':return '<td><span class="pill kind-ncr">NCR</span></td>';
+  case 'number':return `<td><b class="mono">${esc(n.number)}</b>${o?` <span class="mut small">for ${esc(o.businessNumber)}</span>`:''}</td>`;
+  case 'customer':return `<td><b>${esc(v||'—')}</b></td>`;
+  case 'status':return `<td><span class="pill ${v==='Open'?'ncr-st-open':'ncr-st-done'}">${esc(v)}</span> <span class="mut small">${esc(n.action+' · '+ncrWhereLabel(n)+' · '+n.reason)}</span></td>`;
+  case 'created':case 'updated':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+  case 'glass':return `<td><span class="sl-glass" title="${esc(v)}">${esc(v||'—')}</span></td>`;
+ }
+ return v==null||v===''?(col.type==='number'?'<td class="n"><span class="mut">—</span></td>':'<td><span class="mut">—</span></td>'):`<td class="${col.type==='number'?'n':''}">${esc(String(v))}</td>`;
+}
+function ncrListRow(r,cols){
+ return `<tr data-ncr-row="${esc(r.n.id)}" class="sl-row-ncr"><td class="sl-check"></td>${cols.map(c=>ncrListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="ncrView('${esc(r.n.id)}')">Open</button></td></tr>`;
 }
 
 /* ==== src/erp/storage.js ==== */
@@ -21488,6 +21958,7 @@ function validateImportedState(src){
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
+ if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -21560,7 +22031,9 @@ function normalizeDB(){
  if(typeof normalizeHardwareCatalog==='function')normalizeHardwareCatalog();
  if(typeof normalizeCustomers==='function')normalizeCustomers();
  if(typeof normalizeSalesData==='function')normalizeSalesData();
+ if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
+ if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
