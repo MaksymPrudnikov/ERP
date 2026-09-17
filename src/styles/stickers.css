@@ -12,6 +12,10 @@
 .stk-lines tr.off td{color:#98a2b3}
 .stk-recut{color:#93370d}
 .stk-count{margin:0}
+.stk-custom{font-size:13px;color:#026aa2}
+.stk-modal .sales-dialog-actions .sp{flex:1}
+.stk-edit-modal{width:1180px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
+.stk-edit-modal .stk-builder{margin-top:0}
 .stk-count.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
 .stk-builder{margin-top:12px}
 .stk-head{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid #eaecf0}
@@ -29,7 +33,7 @@
 .stk-row.drop-after{box-shadow:inset 0 -2px 0 #1f6f9f}
 .stk-grip{color:#98a2b3;cursor:grab;letter-spacing:-2px;user-select:none}
 .stk-name{flex:1;min-width:0;cursor:pointer}
-.stk-text{width:150px;padding:3px 6px;font-size:12px;margin-left:4px}
+.stk-text{width:100%;max-width:260px;padding:4px 6px;font-size:12px}
 .stk-row select{width:84px;padding:4px 6px;font-size:12px}
 .stk-step{display:inline-flex;align-items:center;border:1px solid #d0d5dd;border-radius:6px;overflow:hidden}
 .stk-step button{border:0;border-radius:0;box-shadow:none;background:#fff;padding:3px 8px;min-width:0;font-size:14px;line-height:1}
@@ -38,9 +42,11 @@
 .stk-icon[data-stk-gear]{font-size:16px;line-height:1}
 .stk-icon.on{background:#e0f2fe;color:#026aa2;border-color:#b9e6fe}
 .stk-icon-sp{display:inline-block;width:28px}
-.stk-details{display:flex;flex-wrap:wrap;gap:6px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
+.stk-details{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 12px 10px 44px;background:#f8fafc;border-top:1px solid #eaecf0;font-size:12px}
 .stk-details label{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#344054}
-.stk-add{display:flex;gap:8px}
+.stk-add{display:flex;gap:8px;flex-wrap:wrap}
+.stk-add select,.stk-details select{max-width:260px;font-size:12px}
+.stk-seg-sm button{padding:3px 9px;font-size:12px}
 .stk-preview{background:#e4e7ec;border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
 .stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:#fff}
 .stk-paper svg{display:block}

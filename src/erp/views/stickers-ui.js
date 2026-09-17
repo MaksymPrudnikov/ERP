@@ -12,7 +12,7 @@
      блока, блоки двигаются мышкой — в списке и прямо на стикере.
    Glass ID в окнах Sales не показывается — только на бумаге.
    ===================================================================== */
-let stkDialog=null,stkBuilder=null,stkDrag='';
+let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='';
 const STK_SIZE_PREF='glass_erp_sticker_size_v1',STK_PX=1.3;
 function stkPrefSize(){try{const v=localStorage.getItem(STK_SIZE_PREF);return STK_SIZES.some(s=>s.k===v)?v:'4x6';}catch(e){return '4x6';}}
 function stkSetPrefSize(v){try{localStorage.setItem(STK_SIZE_PREF,v);}catch(e){}}
@@ -29,10 +29,11 @@ function stkParseUnits(text,max){
 function stkBatchOf(o,c,unit){const x=glassBatchActive(o.id).get(c.key+'|'+unit);return x?x.batch.number:'';}
 
 /* ------------------------------ Печать ------------------------------ */
-function stkPages(jobs,size){
+/* override — шаблон «только для этой печати» из ✎ Customize. */
+function stkPages(jobs,size,override){
  const tpls={};
  return jobs.map(j=>{
-  const tpl=tpls[j.type]||(tpls[j.type]=stkTemplate(j.type,size));
+  const tpl=tpls[j.type]||(tpls[j.type]=override||stkTemplate(j.type,size));
   const d=j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});
   return stkLayout(tpl,size,d);
  });
@@ -76,8 +77,8 @@ function stkOpenForBatch(number){
 }
 function stkDialogType(v){stkDialogSet('type',v);}
 function stkDialogSize(v){stkDialogSet('size',v);}
-function stkDialogClose(){stkDialog=null;render();}
-function stkDialogSet(k,v){if(!stkDialog)return;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
+function stkDialogClose(){stkDialog=null;stkPrintEdit=null;render();}
+function stkDialogSet(k,v){if(!stkDialog)return;if(stkDialog[k]!==v&&(k==='type'||k==='size'))stkDialog.tpl=null;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
 function stkDialogRow(key,k,v,rerender){
  const d=stkDialog;if(!d||!d.rows[key])return;d.rows[key][k]=v;d.warning='';d.error='';
  if(rerender)render();else stkDialogRefresh();
@@ -123,13 +124,32 @@ function stkDialogPrint(){
  const d=stkDialog;if(!d)return;
  const r=stkDialogJobs();if(r.error){d.error=r.error;render();return;}
  if(!r.jobs.length)return;
- let pages;try{pages=stkPages(r.jobs,d.size);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
+ let pages;try{pages=stkPages(r.jobs,d.size,d.tpl);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
  const over=[...new Set(pages.flatMap(p=>p.overflow))];
  if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
  stkDialog=null;render();stkPrint(pages);
 }
+/* Трудный заказ правится на месте, а не шаблон для всех: «не проще дать
+   отредактировать точечно заказ на момент сложного стикера» (владелец,
+   17 сентября 2026). Тот же редактор, образцы — стикеры этой печати. */
+function stkPrintCustomize(){
+ const d=stkDialog;if(!d)return;const r=stkDialogJobs();if(r.error||!r.jobs.length){d.error=r.error||'Nothing to print.';render();return;}
+ const key=stkKey(d.type,d.size);
+ stkPrintEdit={type:d.type,size:d.size,drafts:{[key]:{tpl:JSON.parse(JSON.stringify(d.tpl||stkTemplate(d.type,d.size))),dirty:false}},sample:'0',sel:'',open:'',notice:'',print:true,jobs:r.jobs.slice(0,60),count:r.jobs.length};
+ render();
+}
+function stkPrintEditDone(){const d=stkDialog,e=stkPrintEdit;if(d&&e){d.tpl=JSON.parse(JSON.stringify(e.drafts[stkKey(e.type,e.size)].tpl));d.warning='';}stkPrintEdit=null;render();}
+function stkPrintEditCancel(){stkPrintEdit=null;render();}
+function stkPrintEditSave(){
+ const e=stkPrintEdit;if(!e)return;const k=stkKey(e.type,e.size),tpl=stkCleanTemplate(e.type,e.size,e.drafts[k].tpl);
+ DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:tpl});if(stkBuilder&&stkBuilder.drafts)delete stkBuilder.drafts[k];touch();stkPrintEditDone();
+}
+function stkDialogUndoLayout(){if(stkDialog){stkDialog.tpl=null;stkDialog.warning='';render();}}
 function stkDialogHTML(){
  const d=stkDialog;if(!d)return '';
+ if(stkPrintEdit)return `<div class="sales-service-modal-back sales-dialog-back"><div class="sales-service-modal sales-dialog stk-edit-modal" role="dialog" aria-modal="true" aria-label="Customize this print">
+  <div class="sales-service-modal-head"><h3>Customize this print · ${esc(stkTypeLabel(stkPrintEdit.type))} · ${esc(stkSizeDef(stkPrintEdit.size).label)}</h3><button type="button" aria-label="Close" onclick="stkPrintEditCancel()">×</button></div>
+  <div class="sales-dialog-body">${stkEditorHTML()}</div></div></div>`;
  const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} onclick="${fn}('${x.k}')">${esc(x.label)}</button>`).join('')}</div>`;
  const r=stkDialogJobs(),count=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');
  let title,sub,body='';
@@ -157,21 +177,23 @@ function stkDialogHTML(){
    <div class="stk-dialog-pick">${types}<div><div class="ncr-label">SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
    ${body}
    <div class="sales-quote-note stk-count${r.error?' bad':''}" data-stk-count>${esc(count)}</div>
+   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" onclick="stkDialogUndoLayout()">Undo</button></div>`:''}
    ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
    ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
   </div>
-  <div class="sales-dialog-actions"><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
+  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${r.error||!r.jobs.length?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
 }
 
 /* ---------------------------- Конструктор ---------------------------- */
 function stkBuilderState(){
+ if(stkPrintEdit)return stkPrintEdit;
  if(!stkBuilder)stkBuilder={type:'production',size:'4x6',drafts:{},sample:'',sel:'',open:'',notice:''};
  const k=stkKey(stkBuilder.type,stkBuilder.size);
  if(!stkBuilder.drafts[k])stkBuilder.drafts[k]={tpl:stkTemplate(stkBuilder.type,stkBuilder.size),dirty:false};
  return stkBuilder;
 }
 function stkDraft(){const s=stkBuilderState();return s.drafts[stkKey(s.type,s.size)];}
-function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilder.notice='';render();}
+function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilderState().notice='';render();}
 function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
@@ -186,16 +208,23 @@ function stkBSize(id,v,delta){
   b.size=Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2));});
 }
 function stkBBold(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.bold=!b.bold;});}
+function stkBAlign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&STK_ALIGNS.some(x=>x.k===a))b.align=a;});}
+function stkBField(id,label){if(!label)return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=((b.text||'').trim()+' {'+label+'}').trim().slice(0,STK_TEXT_MAX);});}
+function stkBAddField(label){if(!label)return;const s=stkBuilderState();stkEditTpl(t=>{const b=stkBlock('text','full',null,{text:'{'+label+'}',bold:false}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});}
 function stkBDetail(id,key,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&b.details)b.details[key]=!!on;});}
-function stkBText(id,v){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=String(v||'').slice(0,80);});}
+function stkBText(id,v){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=String(v||'').slice(0,STK_TEXT_MAX);});}
 function stkBAdd(k){
  const s=stkBuilderState();
- stkEditTpl(t=>{const b=stkBlock(k,'full',null,k==='text'?{text:'TEXT'}:{}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=b.id;});
+ stkEditTpl(t=>{const b=stkBlock(k,'full',null,k==='text'?{text:'TEXT'}:{}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});
 }
 function stkBRemove(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id),def=b&&stkBlockDef(b.k);if(def&&def.multi)t.blocks=t.blocks.filter(x=>x.id!==id);});}
-function stkBSelect(id){const s=stkBuilderState();s.sel=s.sel===id?'':id;render();}
-function stkBOpen(id){const s=stkBuilderState();s.open=s.open===id?'':id;s.sel=id;render();}
-function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
+/* Клик по блоку в списке или на стикере выделяет его и открывает настройки. */
+function stkBSelect(id){
+ const s=stkBuilderState();s.sel=s.open=s.open===id?'':id;render();
+ const r=s.sel&&document.querySelector('[data-stk-block="'+s.sel+'"]');if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
+}
+function stkBOpen(id){stkBSelect(id);}
+function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
 function stkBSave(){
  const s=stkBuilderState(),d=stkDraft(),k=stkKey(s.type,s.size);
  DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:stkCleanTemplate(s.type,s.size,d.tpl)});
@@ -210,14 +239,14 @@ function stkMoveBlock(from,to,where,adopt){
   if(target.at==='bottom')b.at='bottom';else if(adopt)b.at=target.at;else if(b.at==='bottom')b.at='full';
   const j=t.blocks.indexOf(target);t.blocks.splice(where==='after'?j+1:j,0,b);
   t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));
-  stkBuilder.sel=b.id;
+  const st=stkBuilderState();st.sel=st.open=b.id;
  });
 }
 function stkMoveToZone(from,zone){
  stkEditTpl(t=>{const i=t.blocks.findIndex(b=>b.id===from);if(i<0)return;const [b]=t.blocks.splice(i,1);
   if(zone==='bottom')b.at='bottom';else if(b.at==='bottom')b.at='full';
   const top=t.blocks.filter(x=>x.at!=='bottom'),bot=t.blocks.filter(x=>x.at==='bottom');
-  t.blocks=zone==='bottom'?top.concat(bot,[b]):top.concat([b],bot);stkBuilder.sel=b.id;});
+  t.blocks=zone==='bottom'?top.concat(bot,[b]):top.concat([b],bot);const st=stkBuilderState();st.sel=st.open=b.id;});
 }
 function stkDragStart(e,id){stkDrag=id;try{e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}catch(x){}}
 function stkDragOver(e){if(!stkDrag)return;e.preventDefault();e.stopPropagation();const r=e.currentTarget.getBoundingClientRect(),after=e.clientY>r.top+r.height/2;e.currentTarget.classList.toggle('drop-before',!after);e.currentTarget.classList.toggle('drop-after',after);}
@@ -237,48 +266,61 @@ function stkSamples(type){
  }));
  return out.slice(0,80);
 }
+function stkJobData(j){return j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
- const list=stkSamples(type),s=list.find(x=>x.key===stkBuilder.sample)||list[0];let data=null;
+ const st=stkBuilderState();
+ if(st.print){
+  const list=st.jobs.map((j,i)=>({key:String(i),label:(i+1)+' of '+st.count+' · Line '+(j.o.lines.indexOf(j.l)+1)+(j.type==='unit'?' · Unit '+j.unit:typeof j.unit==='string'?' · '+recutUnitText(j.unit,'?').replace(/ · \d+ of \?$/,''):' · Unit '+j.unit+' · Lite '+j.c.lite)}));
+  const i=Math.max(0,list.findIndex(x=>x.key===st.sample));return {data:stkJobData(st.jobs[i]),list,key:String(i)};
+ }
+ const list=stkSamples(type),s=list.find(x=>x.key===st.sample)||list[0];let data=null;
  if(s)try{data=type==='unit'?stkUnitData(s.o,s.l,1):stkGlassData(type,s.o,s.l,s.c,1,{batch:stkBatchOf(s.o,s.c,1)});}catch(e){data=null;}
  if(!data)return {data:stkDemoData(type),list,key:''};
  if(!data.id)data.id=type==='unit'?'U-0000000':'G-0000000';
  return {data,list,key:s.key};
 }
-function viewMdStickers(){
+function viewMdStickers(){return stkEditorHTML();}
+function stkEditorHTML(){
  const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data);
  const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
  const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
  const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
+ const fields=Object.keys(data.vars||{}).filter(k=>data.vars[k]!=='');
+ const fieldSelect=(attr,call)=>`<select ${attr} aria-label="Insert field" onchange="${call}"><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
  const row=b=>{
-  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,textLike=!def.graphic;
-  const details=open&&def.details.length?`<div class="stk-details" data-stk-details-panel="${b.id}">${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}</div>`:'';
+  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=stkAlignOf(b,b.at==='right'?'right':'full');
+  const panel=open?`<div class="stk-details" data-stk-details-panel="${b.id}">
+    ${b.k==='divider'||b.k==='route'?'':`<span class="stk-seg stk-seg-sm">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} onchange="stkBBold('${b.id}')"> Bold</label>`}
+    ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}
+    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}</div>`:'';
   return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
    <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
-   <span class="stk-name">${esc(def.label)}${b.k==='text'?` <input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="80" aria-label="Text" onchange="stkBText('${b.id}',this.value)">`:''}</span>
+   <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" onchange="stkBText('${b.id}',this.value)">`:esc(def.label)}</span>
    <select data-stk-place aria-label="Place" onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
    <span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" onchange="stkBSize('${b.id}',this.value)"><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>
-   ${textLike?`<button type="button" class="stk-icon${b.bold?' on':''}" data-stk-bold title="Bold" aria-pressed="${b.bold}" onclick="stkBBold('${b.id}')"><b>B</b></button>`:'<span class="stk-icon-sp"></span>'}
-   ${def.details.length?`<button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Details" aria-expanded="${open}" onclick="stkBOpen('${b.id}')">⚙</button>`:'<span class="stk-icon-sp"></span>'}
+   <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" onclick="stkBSelect('${b.id}')">⚙</button>
    ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
-  </div>${details}`;
+  </div>${panel}`;
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
  const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${(x.x*STK_PX).toFixed(1)}px;top:${(x.y*STK_PX).toFixed(1)}px;width:${(x.w*STK_PX).toFixed(1)}px;height:${Math.max(6,x.h*STK_PX).toFixed(1)}px" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
  const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
- const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilder.sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
+ const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
   <div class="stk-head">
-   <div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
-   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>
+   ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
+   <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>`}
    <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
    <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
   </div>
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
-    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button><button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
+    <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
    <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;height:${H.toFixed(0)}px">${stkPageSVG(pg,W.toFixed(0),H.toFixed(0))}${hits}</div><div class="stk-fit">${fit}</div></div>
   </div>
-  <div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>
+  ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
+  :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}
  </div>`;
 }

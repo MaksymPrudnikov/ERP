@@ -86,7 +86,7 @@ module.exports=async function({page,eq,ok}){
   const tabs=[...document.querySelectorAll('.card > .tabs button')].map(b=>b.textContent),saveOff=document.querySelector('[data-stk-save]').disabled,before=fontOf('NORTHSIDE');
   row('customer').querySelector('[data-stk-plus]').click();row('customer').querySelector('[data-stk-plus]').click();const plus=fontOf('NORTHSIDE');
   const input=row('customer').querySelector('[data-stk-size]');input.value='200';input.dispatchEvent(new Event('change'));const clamped=+row('customer').querySelector('[data-stk-size]').value;
-  input.value;row('customer').querySelector('[data-stk-size]').value='18';row('customer').querySelector('[data-stk-size]').dispatchEvent(new Event('change'));
+  input.value;row('customer').querySelector('[data-stk-size]').value='22';row('customer').querySelector('[data-stk-size]').dispatchEvent(new Event('change'));
   row('glass').querySelector('[data-stk-gear]').click();const panel=!!document.querySelector('[data-stk-details-panel]');
   document.querySelector('[data-stk-details-panel] [data-stk-detail="code"]').click();const code=document.querySelector('[data-stk-paper]').textContent.includes('6CLEAR · Tempered');
   document.querySelector('[data-stk-add="text"]').click();const txt=document.querySelectorAll('[data-stk-kind="text"]');const mine=txt[txt.length-1].querySelector('[data-stk-text]');mine.value='FRAGILE';mine.dispatchEvent(new Event('change'));
@@ -94,7 +94,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-stk-save]').click();
   const saved=DB.stickerTemplate['production|4x6'],cust=saved.blocks.find(b=>b.k==='customer');
   return {tabs:tabs.includes('Stickers'),saveOff,before,plus,clamped,panel,code,shown,dirty,after:!!document.querySelector('[data-stk-dirty]'),saved:[cust.size,saved.blocks.find(b=>b.k==='glass').details.code,saved.blocks.filter(b=>b.k==='text').map(b=>b.text).includes('FRAGILE')]};
- }),{tabs:true,saveOff:true,before:16,plus:18,clamped:60,panel:true,code:true,shown:true,dirty:true,after:false,saved:[18,true,true]});
+ }),{tabs:true,saveOff:true,before:18,plus:20,clamped:60,panel:true,code:true,shown:true,dirty:true,after:false,saved:[22,true,true]});
 
  eq('шаблон переживает перезагрузку; Reset to base возвращает базу; 3×4 и ориентация — свои шаблоны',await t.p.evaluate(async()=>{
   const k=DB.stickerTemplate['production|4x6'].blocks.find(b=>b.k==='customer').size;
@@ -104,7 +104,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-stk-seg="4x6"]').click();document.querySelector('[data-stk-reset]').click();const reset=stkDraft().tpl.blocks.find(b=>b.k==='customer').size;
   const marks=[...document.querySelectorAll('[data-stk-seg]')].filter(b=>b.textContent.endsWith('•')).map(b=>b.dataset.stkSeg);
   return {k,kept,small,orient,reset,marks};
- }),{k:18,kept:18,small:'landscape',orient:'portrait',reset:16,marks:['production','4x6','3x4']});
+ }),{k:22,kept:22,small:'landscape',orient:'portrait',reset:18,marks:['production','4x6','3x4']});
 
  await t.p.evaluate(()=>{stkBuilder=null;DB.stickerTemplate={};tab='masterdata';mdSetTab('stickers');});
  const orderOf=()=>t.p.evaluate(()=>stkDraft().tpl.blocks.filter(b=>b.at!=='bottom').map(b=>b.k).slice(0,6));
@@ -117,6 +117,35 @@ module.exports=async function({page,eq,ok}){
   const bl=stkDraft().tpl.blocks,po=bl.find(b=>b.k==='po'),due=bl.find(b=>b.k==='due');const at=po.at,next=bl.indexOf(po)===bl.indexOf(due)-1;
   stkMoveToZone(bl.find(b=>b.k==='glass').id,'bottom');const b2=stkDraft().tpl.blocks;return {at,next,glass:b2.find(b=>b.k==='glass').at,last:b2[b2.length-1].k};})},
   {beforeDrag:['company','batch','barcode','divider','order','unit'],afterList:['customer','company','batch','barcode','divider','order'],po:{at:'right',next:true,glass:'bottom',last:'glass'}});
+
+ eq('выравнивание: штрихкод Full по центру; Left / Right в настройках блока; клик по блоку на стикере открывает настройки',await t.p.evaluate(()=>{
+  oqReset();stkBuilder=null;DB.stickerTemplate={};stOrder();tab='masterdata';mdSetTab('stickers');
+  const pg=()=>{const s=stkBuilderState(),d=stkSampleData(s.type).data;return stkLayout(stkDraft().tpl,s.size,d);};
+  const bar=()=>{const p=pg(),id=stkDraft().tpl.blocks.find(b=>b.k==='barcode').id,bx=p.boxes.find(b=>b.id===id),r=p.items.filter(i=>i.t==='rect'&&i.y===bx.y);const a=Math.min(...r.map(i=>i.x)),z=Math.max(...r.map(i=>i.x+i.w));return Math.round((a+z)/2-p.w/2);};
+  const center=bar(),id=stkDraft().tpl.blocks.find(b=>b.k==='barcode').id;
+  document.querySelector('[data-stk-hit="'+id+'"]').click();const panel=!!document.querySelector('[data-stk-details-panel="'+id+'"] [data-stk-align="left"]');
+  document.querySelector('[data-stk-align="left"]').click();const left=bar();document.querySelector('[data-stk-align="right"]').click();const right=bar();
+  return {center,panel,left:left<-15,right:right>15};
+ }),{center:0,panel:true,left:true,right:true});
+
+ eq('размер — готовый, без бордера; бордер — в сервисах; контур формы из плана резки во всех форматах',await t.p.evaluate(()=>{
+  oqReset();const id=stOrder();salesOrderEdit(id);const l=soDraft.lines[1],s=newShapeDef('raked');s.w='30';s.h='40';Object.assign(s.params,{shortHeight:'28',rakeSide:'top',shortSide:'right'});s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);salesOrderSave();soDraft=null;soEdit=null;
+  const o=salesRecord(id),line=o.lines[1],c=glassBatchComponents(o,line)[0],d=stkGlassData('production',o,line,c,1,{}),plan=stkPlan(o,line);
+  const svc=stkLayout(stkBase('production','4x6'),'4x6',d).items.filter(i=>i.t==='text').map(i=>i.s).filter(x=>/BORDER|ARRIS/.test(x));
+  const shapes=STK_SIZES.flatMap(z=>['portrait','landscape'].map(or=>{const tpl=stkBase('production',z.k,or),pg=stkLayout(tpl,z.k,d);return !!pg.boxes.find(b=>b.id===tpl.blocks.find(x=>x.k==='shape').id)&&!pg.overflow.length;}));
+  const rect=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{}).shape;
+  return {size:d.finished,border:d.route.border,svc,shapes,rect,points:d.shape.points.length};
+ }),{size:{w:30,h:40},border:{value:1,edges:['D']},svc:['BORDER 1″ · D','ROUGH ARRIS'],shapes:[true,true,true,true],rect:null,points:4});
+
+ eq('свои поля: {Customer: Name}, {Order: Customer po}, {Line: Mark} в Custom text; + Field… добавляет блок; пустое поле не печатается',await t.p.evaluate(()=>{
+  oqReset();stkBuilder=null;DB.stickerTemplate={};const id=stOrder(),o=salesRecord(id),d=stkGlassData('production',o,o.lines[0],glassBatchComponents(o,o.lines[0])[0],1,{});
+  const filled=stkFill('{Customer: Name} · PO {Order: Customer po} · {Line: Mark} · {Nope}',d);
+  tab='masterdata';mdSetTab('stickers');const sel=document.querySelector('[data-stk-add-field]'),has=[...sel.options].some(x=>x.value==='Order: Customer po');
+  sel.value='Line: Mark';sel.dispatchEvent(new Event('change'));const b=stkDraft().tpl.blocks.filter(x=>x.k==='text').pop();
+  const shown=document.querySelector('[data-stk-paper]').textContent.includes('Kitchen W2'),open=!!document.querySelector('[data-stk-details-panel="'+b.id+'"] [data-stk-field]');
+  const empty=stkLayout({orient:'portrait',blocks:[stkBlock('text','full',12,{text:'{Order: Notes}'})]},'4x6',d).boxes.length;
+  return {filled,has,token:b.text,shown,open,empty,russian:/[А-яЁё]/.test([...sel.options].map(x=>x.value).join(''))};
+ }),{filled:'Northside Windows · PO 123 · Kitchen W2 · ',has:true,token:'{Line: Mark}',shown:true,open:true,empty:0,russian:false});
 
  eq('Sales: кнопка Stickers — один выбранный заказ; квота, несколько, отменённый — нет; пункт Print stickers… в меню',await t.p.evaluate(()=>{
   oqReset();DB.stickerTemplate={};const a=stOrder(),b=stOrder(),q=oqOrder(oqCustomer(),{kind:'quote'});soDraft=null;soEdit=null;const c=stOrder();salesSetRecordStatus(c,'cancelled');
@@ -152,6 +181,17 @@ module.exports=async function({page,eq,ok}){
   const after=window.stPrinted-printed;stkPrintCleanup();DB.stickerTemplate={};
   return {count,recut:pages.every(p=>p.includes('RECUT 1')),ids:pages.map(p=>/G-\d{7}/.exec(p)[0]).join()===glassPieceMap(id).get(r.keys[0]).extra.R1.join(),warn:warn.startsWith("⚠ Doesn't fit"),btn,after};
  }),{count:'2 stickers',recut:true,ids:true,warn:true,btn:'Print anyway',after:1});
+
+ eq('трудный заказ: ✎ Customize правит только эту печать; Done → печать с правкой, шаблон не меняется; Save as template — меняется',await t.p.evaluate(()=>{
+  oqReset();DB.stickerTemplate={};const id=stOrder();stList([]);stkOpenForOrder(id);stkDialogSize('4x6');
+  document.querySelector('[data-stk-customize]').click();const modal=document.querySelector('.stk-edit-modal h3').textContent,samples=document.querySelectorAll('[data-stk-sample] option').length,types=!!document.querySelector('.stk-edit-modal [data-stk-seg="final"]');
+  const cust=()=>stkDraft().tpl.blocks.find(b=>b.k==='customer');document.querySelector('.stk-edit-modal [data-stk-block="'+cust().id+'"] [data-stk-plus]').click();
+  document.querySelector('[data-stk-done]').click();const note=!!document.querySelector('[data-stk-custom]');
+  stkDialogPrint();const size=+[...document.querySelectorAll('#stkPrintHost text')].find(x=>x.textContent==='NORTHSIDE WINDOWS').getAttribute('font-size');stkPrintCleanup();
+  const kept=JSON.stringify(DB.stickerTemplate);
+  stkOpenForOrder(id);stkPrintCustomize();const c2=stkDraft().tpl.blocks.find(b=>b.k==='customer');stkBSize(c2.id,0,3);stkPrintEditSave();
+  return {modal,samples,types,note,size,kept,saved:DB.stickerTemplate['production|4x6'].blocks.find(b=>b.k==='customer').size,undo:(stkDialogUndoLayout(),!document.querySelector('[data-stk-custom]'))};
+ }),{modal:'Customize this print · Production · 4 × 6',samples:6,types:false,note:true,size:19,kept:'{}',saved:21,undo:true});
 
  eq('батч: Print stickers — все стёкла по порядку заказ → позиция → изделие → лайт; с выбором — только выбранные',await t.p.evaluate(()=>{
   oqReset();const b1=stOrder({businessNumber:'80002'}),a1=stOrder({businessNumber:'80001'});[a1,b1].forEach(id=>oqThrough(id,'verified'));
