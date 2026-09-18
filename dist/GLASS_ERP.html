@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 81 модулей, 14 стиля.
+  Состав сборки: 82 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1744,6 +1744,14 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:#667085}
 .cut-menu-sheets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px}
 .cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid #d0d5dd}
+.cut-menu-split{display:flex;align-items:center;gap:4px;padding:2px 8px 6px;font-size:12px}
+.cut-menu-split input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
+.cut-menu-split button{width:auto;padding:3px 10px;border:1px solid #d0d5dd}
+.cut-svg [data-cut-offcut],.cut-svg [data-cut-stock]{cursor:context-menu}
+.cut-offcuts-head{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.cut-offcut-acts{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cut-offcut-acts input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
+.cut-offcut-acts button{padding:3px 10px;font-size:12px}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
@@ -1789,7 +1797,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1ed5cfd3c973';
+var ERP_BUILD='f30aaefb796c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21864,21 +21872,25 @@ function barcode128Items(text,x,y,h,module){
    и их Details. Glass ID и номер юнита есть только на самом стикере.
    ===================================================================== */
 DEFAULT.stickerTemplate={};
-const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'}];
+/* Stock offcut — кусок листа, забуканный в сток: номер S-…, размер, тип
+   стекла (владелец, 18 сентября 2026). */
+const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'},{k:'stock',label:'Stock offcut'}];
 const STK_SIZES=[{k:'4x6',label:'4 × 6',short:288,long:432},{k:'3x4',label:'3 × 4',short:216,long:288}];
 const STK_ALIGNS=[{k:'left',label:'Left'},{k:'center',label:'Center'},{k:'right',label:'Right'}];
 const STK_PLACES=[{k:'full',label:'Full'},{k:'left',label:'Left'},{k:'right',label:'Right'},{k:'bottom',label:'Bottom'}];
 const STK_TEXT_MAX=160;
-const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'];
+const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'],STK_ANY=STK_ALL.concat(['stock']);
 /* Каталог блоков. size — кегль в pt у текста; у графики — высота (штрихкод,
    маршрут), сторона контура, толщина линии. details — мелочи внутри блока:
    [ключ, подпись, включено в базе]. Новый блок в каталоге появится и в старых
    сохранённых шаблонах — выключенным, в конце списка. */
 const STK_BLOCKS=[
- {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
+ {k:'company',label:'Company',group:'Header',types:STK_ANY,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
  {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[12,6,48],bold:true,details:[]},
  {k:'sheet',label:'Sheet · position',group:'Header',types:['production'],size:[12,6,48],bold:true,details:[['pos','Position on the sheet',true]]},
- {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'barcode',label:'Barcode',group:'Header',types:STK_ANY,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'stockNo',label:'Stock number',group:'Header',types:['stock'],size:[30,8,90],bold:true,details:[['label','"STOCK" label',true]]},
+ {k:'stockFrom',label:'From batch · sheet',group:'Header',types:['stock'],size:[11,6,36],details:[['date','Date',true]]},
  {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[38,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
  {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[14,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
  {k:'orderInfo',label:'Order details',group:'Customer',types:STK_ALL,size:[10,6,48],details:[['priority','Priority',true],['delivery','Pickup / Delivery',true],['created','Order date',false]]},
@@ -21886,17 +21898,17 @@ const STK_BLOCKS=[
  {k:'po',label:'PO',group:'Customer',types:STK_ALL,size:[13,6,48],details:[['label','"PO" label',true]]},
  {k:'mark',label:'Mark',group:'Customer',types:STK_ALL,size:[13,6,60],bold:true,details:[['label','"Mark" label',true]]},
  {k:'due',label:'Due date',group:'Customer',types:STK_ALL,size:[13,6,48],bold:true,details:[['weekday','Weekday',true],['rush','Black when Rush',true]]},
- {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
+ {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS.concat(['stock']),size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
  {k:'makeup',label:'Unit makeup',group:'Glass',types:['unit'],size:[10,6,36],details:[['heading','Unit type',true],['thickness','Overall thickness',true],['code','Makeup code',false],['glass','Glass of each lite',true],['heat','Treatment',true],['surface','Surfaces',true],['film','Interlayer and mm',true],['spacer','Spacer',true],['gas','Gas',true],['sealant','Sealants',false],['muntin','Muntins',true]]},
  {k:'summary',label:'Unit makeup code',group:'Glass',types:['final'],size:[9,6,36],details:[['label','"Unit" label',true]]},
- {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
- {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
+ {k:'size',label:'Size',group:'Glass',types:STK_ANY,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
+ {k:'area',label:'Area ft²',group:'Glass',types:STK_ANY,size:[13,6,48],details:[]},
  {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
  {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
  {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
  {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
- {k:'divider',label:'Divider line',group:'Other',types:STK_ALL,size:[1,0.5,6],graphic:true,multi:true,details:[]},
- {k:'text',label:'Custom text',group:'Other',types:STK_ALL,size:[14,6,72],bold:true,multi:true,details:[]}
+ {k:'divider',label:'Divider line',group:'Other',types:STK_ANY,size:[1,0.5,6],graphic:true,multi:true,details:[]},
+ {k:'text',label:'Custom text',group:'Other',types:STK_ANY,size:[14,6,72],bold:true,multi:true,details:[]}
 ];
 function stkBlockDef(k){return STK_BLOCKS.find(b=>b.k===k)||null;}
 function stkTypeLabel(k){const t=STK_TYPES.find(x=>x.k===k);return t?t.label:'Sticker';}
@@ -21918,6 +21930,16 @@ function stkBase(type,size,orient){
  /* Кегль по формату: [4×6 стоя, 4×6 лёжа, 3×4 стоя, 3×4 лёжа]. */
  const k=small?(land?3:2):(land?1:0),z=a=>a[k];
  const tpl=blocks=>({orient:land?'landscape':'portrait',blocks});
+ if(type==='stock'){
+  /* Номер стока, штрихкод, стекло, размер крупно, откуда. Толщина уже в
+     названии стекла («Clear 6mm») — отдельно не выводим. Крупно: стикер
+     не должен «пустовать». */
+  const glass=B('glass','full',z([22,16,15,11]));
+  const size=B('size','full',z([56,36,34,24]),{details:{cut:false}}),extra=B('text','full',z([14,12,10,9]),{on:false,text:''});
+  if(land){glass.at='left';size.at='left';
+   return tpl([B('company','left',9,{on:!small}),B('stockNo','left',z([0,26,0,17])),glass,size,B('barcode','right',z([0,50,0,32])),B('area','right',z([0,13,0,9])),B('stockFrom','right',z([0,11,0,8])),extra]);}
+  return tpl([B('company','left',z([9,0,8,0]),{on:!small}),B('stockNo','full',z([34,0,22,0])),B('barcode','full',z([62,0,40,0])),B('divider','full',1,{on:!small}),glass,size,B('area','left',z([16,0,11,0])),B('stockFrom','full',z([13,0,9,0])),extra]);
+ }
  const extra=B('text','full',z([14,12,10,9]),{on:false,text:'HANDLE WITH CARE'}),info=B('orderInfo','left',z([11,10,8,8]),{on:false});
  const sheetB=prod?[B('sheet','full',z([12,10,9,8]),{on:false})]:[];
  const tail=prod?[extra,B('route','bottom',z([28,22,18,16])),B('services','bottom',z([12,10,9,8]))]:fin?[B('summary','full',z([10,9,8,7])),extra]:[extra];
@@ -22087,8 +22109,16 @@ function stkUnitData(o,l,unit){
    finished:stkFinished(lite,l),cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShapeOf(lite)});
  });
 }
+/* Данные стикера остатка из записи DB.stockOffcut. */
+function stkStockData(r){
+ const g=typeof glassProductByCode==='function'?glassProductByCode(r.glass):null,d=r.at?new Date(r.at):null;
+ return {kind:'stock',id:r.id,glass:{name:g&&g.name||r.glass,code:r.glass,mm:r.mm||g&&g.thicknessMm||null,heat:'',heatSoak:false,surface:'',paint:[],ply:''},
+  finished:{w:r.w,h:r.h},cut:null,area:Math.round(r.w*r.h/144*100)/100,
+  from:{batch:r.batch||'',sheet:r.sheet||0,date:d&&!isNaN(d)?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):''},vars:{}};
+}
 /* Образец для конструктора, когда в программе ещё нет заказов. */
 function stkDemoData(type){
+ if(type==='stock')return stkStockData({id:'S-0000001',glass:'6CLEAR',mm:6,w:48,h:40.5,batch:'B-0001',sheet:3,at:'2026-09-18T12:00:00Z'});
  const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
   unit:2,of:5,lites:2,recut:'',batch:'B-0001',sheet:{sheet:2,pos:6},finished:{w:37,h:71},cut:{w:37.125,h:71.125},area:18.24,shape:null,
   vars:{'Customer: Name':'Northside Windows','Customer: Phone':'416 555 0199','Line: Mark':'Kitchen W2','Order: Notes':'Call before delivery'}};
@@ -22186,6 +22216,8 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
    return logo?lh+2:sz*1.15;}
   case 'batch':{if(!d.batch)return 0;line(d.batch,y+sz*.9,sz,bold);return sz*1.15;}
+  case 'stockNo':{if(!d.id)return 0;const t=(det.label?'STOCK  ':'')+d.id,f=shrink(t,sz,bold,w);put(t,ax(docTextWidth(t,f,bold)),y+sz*.85,f,bold);return sz*1.1;}
+  case 'stockFrom':{const fr=d.from;if(!fr)return 0;const t=[fr.batch?'From '+fr.batch:'',fr.sheet?'Sheet '+fr.sheet:'',det.date?fr.date:''].filter(Boolean).join(' · ');if(!t)return 0;line(t,y+sz*.9,sz,bold);return sz*1.2;}
   case 'sheet':{if(!d.sheet)return 0;line('Sheet '+d.sheet.sheet+(det.pos?' · #'+d.sheet.pos:''),y+sz*.9,sz,bold);return sz*1.2;}
   case 'barcode':{
    if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
@@ -22476,7 +22508,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,keepOffcut:false,pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -22506,24 +22538,31 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  sheets.forEach(s=>{delete s.strips;});
  return {sheets,unplaced};
 }
-function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,keepOffcut:!!s.keepOffcut,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+/* Что занято на листе: стёкла и забуканные в сток куски. */
+function cutTaken(sheet){return sheet.pieces.concat((sheet.stock||[]).map(x=>({piece:x.id,x:x.x,y:x.y,w:x.w,h:x.h,shape:false,locked:true})));}
 /* Самый большой свободный прямоугольник листа — тот кусок, который кладут
    на стеллаж. Остальной остаток — брак (NetScrap). */
-function cutFreeRect(sheet,size,params){
+/* Самый большой свободный кусок не меньше минимального. extra — уже
+   найденные куски: так на одном листе находятся все хорошие остатки, а не
+   один («показывать оба, конечно» — владелец, 18 сентября 2026). */
+function cutFreeRect(sheet,size,params,extra){
  const {x0,y0,W,H}=cutUsable(size,params);
  if(!(W>0&&H>0))return null;
- const xs=[0,W],ys=[0,H];
- sheet.pieces.forEach(p=>{xs.push(cutRound(p.x-x0),cutRound(p.x-x0+p.w));ys.push(cutRound(p.y-y0),cutRound(p.y-y0+p.h));});
+ const xs=[0,W],ys=[0,H],taken=cutTaken(sheet).concat(extra||[]);
+ taken.forEach(p=>{xs.push(cutRound(p.x-x0),cutRound(p.x-x0+p.w));ys.push(cutRound(p.y-y0),cutRound(p.y-y0+p.h));});
  const X=[...new Set(xs.filter(v=>v>=0&&v<=W))].sort((a,b)=>a-b),Y=[...new Set(ys.filter(v=>v>=0&&v<=H))].sort((a,b)=>a-b);
  const cols=X.length-1,rows=Y.length-1;if(cols<1||rows<1)return null;
  const busy=[];
  for(let r=0;r<rows;r++){busy.push(new Array(cols).fill(false));}
- sheet.pieces.forEach(p=>{
+ taken.forEach(p=>{
   const px=cutRound(p.x-x0),py=cutRound(p.y-y0);
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
    if(X[c]>=px-1e-6&&X[c+1]<=px+p.w+1e-6&&Y[r]>=py-1e-6&&Y[r+1]<=py+p.h+1e-6)busy[r][c]=true;
   }
  });
+ const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
+ const good=(w,h)=>Math.min(w,h)>=Math.min(minW,minH)-1e-6&&Math.max(w,h)>=Math.max(minW,minH)-1e-6;
  let best=null;
  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
   if(busy[r][c])continue;
@@ -22532,21 +22571,26 @@ function cutFreeRect(sheet,size,params){
    let c2=c;while(c2<maxC&&!busy[r2][c2])c2++;
    maxC=Math.min(maxC,c2);if(maxC<=c)break;
    const w=X[maxC]-X[c],h=Y[r2+1]-Y[r];
-   if(!best||w*h>best.w*best.h)best={x:cutRound(x0+X[c]),y:cutRound(y0+Y[r]),w:cutRound(w),h:cutRound(h)};
+   if(good(w,h)&&(!best||w*h>best.w*best.h))best={x:cutRound(x0+X[c]),y:cutRound(y0+Y[r]),w:cutRound(w),h:cutRound(h)};
   }
  }
- if(!best)return null;
- const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
- const ok=Math.min(best.w,best.h)>=Math.min(minW,minH)-1e-6&&Math.max(best.w,best.h)>=Math.max(minW,minH)-1e-6;
- return ok?best:null;
+ return best;
 }
-/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Остаток
-   вычитается из брака, только если его отметили «в сток» (keepOffcut). */
+function cutFreeRects(sheet,size,params){
+ const out=[];
+ for(let i=0;i<8;i++){const r=cutFreeRect(sheet,size,params,out);if(!r)break;out.push(r);}
+ return out;
+}
+/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Из брака
+   вычитаются только куски, забуканные в сток (sheet.stock, номер S-…);
+   подсказки (sheet.offcuts) — отход, пока их не взяли. */
 function cutSheetNumbers(sheet,size,params){
  size=sheet.size||size;
+ if(!Array.isArray(sheet.stock))sheet.stock=[];
  const used=sheet.pieces.reduce((a,p)=>a+cutArea(p.w,p.h),0),total=cutArea(size.w,size.h);
- const offcut=cutFreeRect(sheet,size,params),keep=offcut&&sheet.keepOffcut?cutArea(offcut.w,offcut.h):0;
- sheet.offcut=offcut;sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
+ const keep=sheet.stock.reduce((a,x)=>a+cutArea(x.w,x.h),0);
+ sheet.offcuts=cutFreeRects(sheet,size,params);delete sheet.offcut;delete sheet.keepOffcut;
+ sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
  return sheet;
 }
 function cutGroupNumbers(group,paramsFor){group.sheets.forEach(s=>cutSheetNumbers(s,s.size||group.sheet,paramsFor(s.size||group.sheet)));return group;}
@@ -22597,7 +22641,7 @@ function cutPlanRun(number){
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
-   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,keepOffcut:!!s.keepOffcut,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
+   if(alive.length||(s.stock||[]).length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
   const rest=list.filter(p=>!keptIds.has(p.piece));
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
@@ -22616,27 +22660,67 @@ function cutPlanRun(number){
  if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,
   excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{}};
+ /* Незаблокированный лист пересобран — его куски в стоке больше не на месте:
+    снимаем их со стока, номера не выдаются повторно. */
+ const cancelled=[];
+ if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
  cutPlanRefresh(plan,all);
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();
- return {plan};
+ return {plan,cancelled};
 }
 /* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
    листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
    решает лишь при полном равенстве — это бонус, а не цель. */
 function cutScore(g){
  const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
- const offcut=g.sheets.reduce((a,s)=>a+(s.offcut?cutArea(s.offcut.w,s.offcut.h):0),0);
+ const offcut=g.sheets.reduce((a,s)=>a+((s.offcuts||[])[0]?cutArea(s.offcuts[0].w,s.offcuts[0].h):0),0);
  return [(g.unplaced||[]).length,area,g.sheets.length,-offcut];
 }
 function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
-/* Остаток листа — в сток или в отход. Решает человек, не программа. */
-function cutSheetKeepOffcut(number,glass,sheetNo,value){
+/* ------------------------------ Остатки в сток ------------------------------
+   Решает человек, не программа: подсказанный кусок (sheet.offcuts) идёт в сток
+   кнопкой — получает номер S-…, запись в DB.stockOffcut и стикер. Лист при
+   этом блокируется: кусок забукан с этого места, пересчёт его не сдвинет.
+   Split — отрезать от подсказки кусок нужного размера (от угла ближе к нулю). */
+function cutSheetAt(number,glass,sheetNo){
+ const plan=cutPlanFor(number),g=plan&&plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
+ return s?{plan,g,s}:null;
+}
+function cutStockBook(number,glass,sheetNo,rect){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,params=cutGroupParams(g,s.size),u=cutUsable(s.size||g.sheet,params);
+ const box={x:cutRound(+rect.x),y:cutRound(+rect.y),w:cutRound(+rect.w),h:cutRound(+rect.h)};
+ if(!(box.w>0&&box.h>0))return {error:'Enter the size, for example 40 × 40.'};
+ if(box.x<u.x0-1e-6||box.y<u.y0-1e-6||box.x+box.w>u.x1+1e-6||box.y+box.h>u.y1+1e-6)return {error:'Outside the sheet'};
+ const hit=cutTaken(s).find(p=>box.x<p.x+p.w-1e-6&&p.x<box.x+box.w-1e-6&&box.y<p.y+p.h-1e-6&&p.y<box.y+box.h-1e-6);
+ if(hit)return {error:'Overlaps '+hit.piece};
+ const rec=stockOffcutAdd({glass:g.glass,mm:g.mm,w:box.w,h:box.h,batch:number,sheet:s.no,x:box.x,y:box.y});
+ s.stock.push(Object.assign({id:rec.id},box));s.locked=true;
+ cutPlanRefresh(plan);touch();return {ok:true,id:rec.id};
+}
+function cutStockTake(number,glass,sheetNo,index){
+ const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
+ if(!o)return {error:'No such offcut.'};
+ return cutStockBook(number,glass,sheetNo,o);
+}
+function cutStockSplit(number,glass,sheetNo,index,w,h){
+ const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
+ if(!o)return {error:'No such offcut.'};
+ let a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
+ if(!(a>0&&b>0))return {error:'Enter the size, for example 40 × 40.'};
+ if(a>o.w+1e-6||b>o.h+1e-6){if(b<=o.w+1e-6&&a<=o.h+1e-6){const t=a;a=b;b=t;}else return {error:'Does not fit in this offcut.'};}
+ return cutStockBook(number,glass,sheetNo,{x:o.x,y:o.y,w:a,h:b});
+}
+/* Снять со стока — обратно в отход. Номер остаётся за записью: стикер с ним
+   мог уже уйти на стеллаж. */
+function cutStockCancel(number,id){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
- const g=plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
- if(!s)return {error:'No such sheet.'};
- if(!s.offcut&&value)return {error:'No usable offcut on this sheet.'};
- s.keepOffcut=!!value;cutPlanRefresh(plan);touch();return {ok:true};
+ for(const g of plan.groups)for(const s of g.sheets){
+  const i=(s.stock||[]).findIndex(x=>x.id===id);
+  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);touch();return {ok:true};}
+ }
+ return {error:'Not in stock.'};
 }
 /* Пересчёт цифр после любой правки руками. */
 function cutPlanRefresh(plan,pieces){
@@ -22718,7 +22802,7 @@ function cutSetting(number,pieceId,field,value){
 function cutRoom(group,sheet,box,params,ignore,src){
  const u=cutUsable(sheet.size||group.sheet,params);
  if(box.x<u.x0-1e-6||box.y<u.y0-1e-6||box.x+box.w>u.x1+1e-6||box.y+box.h>u.y1+1e-6)return 'Outside the sheet';
- const hit=sheet.pieces.find(p=>{
+ const hit=cutTaken(sheet).find(p=>{
   if(p.piece===ignore)return false;
   const gap=cutGapBetween(src,{shape:p.shape},params);
   return box.x<p.x+p.w+gap-1e-6&&p.x<box.x+box.w+gap-1e-6&&box.y<p.y+p.h+gap-1e-6&&p.y<box.y+box.h+gap-1e-6;
@@ -22737,8 +22821,8 @@ function cutCompactSheet(group,sheet){
  sheet.pieces.slice().sort((a,b)=>a.x-b.x||a.y-b.y).forEach(p=>{
   if(p.locked)return;
   let x=u.x0;
-  sheet.pieces.forEach(q=>{
-   if(q===p)return;
+  cutTaken(sheet).forEach(q=>{
+   if(q===p||q.piece===p.piece)return;
    const gap=cutGapBetween(p,q,params);
    if(q.y<p.y+p.h+gap-1e-6&&p.y<q.y+q.h+gap-1e-6&&q.x+q.w<=p.x+1e-6)x=Math.max(x,cutRound(q.x+q.w+gap));
   });
@@ -22775,7 +22859,7 @@ function cutPieceAuto(number,pieceId,sheetNo){
  if(!src||src.off)return {error:'Piece is not in this cut.'};
  const group=plan.groups.find(g=>g.glass===src.glass&&g.mm===src.mm);if(!group)return {error:'No layout for this glass.'};
  const sheet=group.sheets.find(x=>x.no===+sheetNo);if(!sheet)return {error:'No such sheet.'};
- const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params),xs=[u.x0].concat(sheet.pieces.map(p=>cutRound(p.x+p.w))),ys=[u.y0].concat(sheet.pieces.map(p=>cutRound(p.y+p.h)));
+ const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params),xs=[u.x0].concat(cutTaken(sheet).map(p=>cutRound(p.x+p.w))),ys=[u.y0].concat(cutTaken(sheet).map(p=>cutRound(p.y+p.h)));
  /* Своя ориентация, а если не лезет и поворот разрешён — повёрнутая. */
  const turns=[false].concat(params.rotate&&!src.norot&&src.w!==src.h?[true]:[]);
  for(const y of [...new Set(ys)].sort((a,b)=>a-b))for(const x of [...new Set(xs)].sort((a,b)=>a-b))for(const rot of turns){
@@ -22822,7 +22906,8 @@ function normalizeCutPlans(){
   .map(p=>{
    const plan=Object.assign({},p,{settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
-     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,keepOffcut:!!s.keepOffcut,
+     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
+      stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}
@@ -22837,6 +22922,61 @@ function validateCutPlanPayload(src){
   if(!p||typeof p!=='object'||typeof p.batch!=='string'||!p.batch||!Array.isArray(p.groups))throw new Error('Invalid cut plan.');
   if(seen.has(p.batch))throw new Error('Duplicate cut plan for '+p.batch+'.');seen.add(p.batch);
   if(p.settings!=null&&(typeof p.settings!=='object'||Array.isArray(p.settings)))throw new Error('Invalid cut plan settings.');
+ });
+}
+
+/* ==== src/erp/production/stock-offcuts.js ==== */
+/* =====================================================================
+   erp/production/stock-offcuts  ·  stock-1.0
+   Остатки листа, забуканные в сток: номер S-0000001, стекло, размер и
+   откуда он (батч, лист). Это задел будущего склада остатков.
+   IN : раскрой батча (erp/production/cut-layout)
+   OUT: DB.stockOffcut, стикер Stock (erp/production/stickers)
+
+   Владелец, 18 сентября 2026: «ты только подсказываешь, что стекло было бы
+   неплохо для стока, но если мы его не выбрали — значит, это не сток, а
+   отход». В сток — только руками; потом стикер (номер стока, размер, тип
+   стекла), и только после этого остаток уходит из отходов. Номер
+   S-0000001 — в одном ряду с G- и U-. Снятый со стока номер не выдаётся
+   повторно: стикер с ним мог уже уйти на стеллаж.
+   ===================================================================== */
+DEFAULT.stockOffcut=[];DEFAULT.stockOffcutSeq=0;
+const STOCK_STATUSES=['stock','cancelled'];
+function stockIdValid(id){return typeof id==='string'&&/^S-\d{7,}$/.test(id);}
+function stockIdNumber(id){return stockIdValid(id)?+id.slice(2):0;}
+function stockIdNext(){
+ const top=(DB.stockOffcut||[]).reduce((m,r)=>Math.max(m,stockIdNumber(r&&r.id)),0);
+ DB.stockOffcutSeq=Math.max(Number.isSafeInteger(DB.stockOffcutSeq)&&DB.stockOffcutSeq>0?DB.stockOffcutSeq:0,top)+1;
+ return 'S-'+String(DB.stockOffcutSeq).padStart(7,'0');
+}
+function stockOffcutFind(id){return (DB.stockOffcut||[]).find(r=>r.id===id)||null;}
+function stockOffcutClean(r){
+ const num=(v,d)=>Number.isFinite(+v)?Math.round(+v*16)/16:d;
+ return {id:r.id,glass:String(r.glass||''),mm:Number.isFinite(+r.mm)?+r.mm:0,w:num(r.w,0),h:num(r.h,0),
+  batch:String(r.batch||''),sheet:Number.isSafeInteger(+r.sheet)&&+r.sheet>0?+r.sheet:0,x:num(r.x,0),y:num(r.y,0),
+  at:typeof r.at==='string'?r.at:'',status:STOCK_STATUSES.includes(r.status)?r.status:'stock'};
+}
+function stockOffcutAdd(rec){
+ const r=stockOffcutClean(Object.assign({id:stockIdNext(),at:new Date().toISOString(),status:'stock'},rec));
+ if(!Array.isArray(DB.stockOffcut))DB.stockOffcut=[];
+ DB.stockOffcut.push(r);return r;
+}
+function stockOffcutCancel(id){const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
+function normalizeStockOffcuts(){
+ const seen=new Set();
+ DB.stockOffcut=(Array.isArray(DB.stockOffcut)?DB.stockOffcut:[])
+  .filter(r=>r&&typeof r==='object'&&stockIdValid(r.id)&&!seen.has(r.id)&&(seen.add(r.id),true)).map(stockOffcutClean)
+  .filter(r=>r.w>0&&r.h>0);
+ const top=DB.stockOffcut.reduce((m,r)=>Math.max(m,stockIdNumber(r.id)),0);
+ DB.stockOffcutSeq=Math.max(Number.isSafeInteger(DB.stockOffcutSeq)&&DB.stockOffcutSeq>0?DB.stockOffcutSeq:0,top);
+}
+function validateStockOffcutPayload(src){
+ if(src.stockOffcut==null)return;
+ if(!Array.isArray(src.stockOffcut))throw new Error('Stock offcuts must be an array.');
+ const seen=new Set();
+ src.stockOffcut.forEach(r=>{
+  if(!r||typeof r!=='object'||!stockIdValid(r.id))throw new Error('Invalid stock offcut.');
+  if(seen.has(r.id))throw new Error('Duplicate stock offcut '+r.id+'.');seen.add(r.id);
  });
 }
 
@@ -23501,6 +23641,12 @@ function stkPrintPrepare(pages){
  return pages.length;
 }
 function stkPrintCleanup(){document.body.classList.remove('stk-printing');const h=document.getElementById('stkPrintHost');if(h)h.innerHTML='';}
+/* Стикеры остатков в сток — по номерам S-…, текущим шаблоном Stock offcut. */
+function stkPrintStock(ids){
+ const size=stkPrefSize(),tpl=stkTemplate('stock',size);
+ const pages=(ids||[]).map(stockOffcutFind).filter(r=>r&&r.status==='stock').map(r=>stkLayout(tpl,size,stkStockData(r)));
+ return pages.length?stkPrint(pages):false;
+}
 function stkPrint(pages){
  if(!stkPrintPrepare(pages))return false;
  window.addEventListener('afterprint',stkPrintCleanup,{once:true});
@@ -23729,6 +23875,11 @@ function stkSamples(type){
 function stkJobData(j){return j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
  const st=stkBuilderState();
+ if(type==='stock'&&!st.print){
+  const list=(DB.stockOffcut||[]).filter(r=>r.status==='stock').slice(-30).reverse().map(r=>({key:r.id,label:r.id+' · '+frac16(r.w)+' × '+frac16(r.h)+'″',r}));
+  const s=list.find(x=>x.key===st.sample)||list[0];
+  return {data:s?stkStockData(s.r):stkDemoData('stock'),list,key:s?s.key:''};
+ }
  if(st.print){
   const list=st.jobs.map((j,i)=>({key:String(i),label:(i+1)+' of '+st.count+' · Line '+(j.o.lines.indexOf(j.l)+1)+(j.type==='unit'?' · Unit '+j.unit:typeof j.unit==='string'?' · '+recutUnitText(j.unit,'?').replace(/ · \d+ of \?$/,''):' · Unit '+j.unit+' · Lite '+j.c.lite)}));
   const i=Math.max(0,list.findIndex(x=>x.key===st.sample));return {data:stkJobData(st.jobs[i]),list,key:String(i)};
@@ -23885,7 +24036,15 @@ function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,
 function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
 function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
-function cutUiKeep(glass,no,value){cutUiRun(()=>cutSheetKeepOffcut(cutUi.batch,glass,no,value));}
+/* В сток: номер S-…, запись и сразу стикер — «и потом генерить для него стикер». */
+function cutUiStockDone(r){cutNotice=r&&r.error||'';render();if(r&&r.ok&&r.id&&typeof stkPrintStock==='function')stkPrintStock([r.id]);}
+function cutUiStockTake(glass,no,i){cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockTake(cutUi.batch,glass,no,i));}
+function cutUiStockSplit(glass,no,i,wId,hId){
+ const w=document.getElementById(wId),h=document.getElementById(hId);
+ cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockSplit(cutUi.batch,glass,no,i,w?w.value:'',h?h.value:''));
+}
+function cutUiStockCancel(id){if(!confirm('Put '+id+' back to waste?'))return;cutUiRun(()=>cutStockCancel(cutUi.batch,id));}
+function cutUiStockPrint(ids){if(ids.length&&typeof stkPrintStock==='function')stkPrintStock(ids);}
 function cutUiSet(pieceId,field,value){cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value));}
 function cutUiDragStart(e,pieceId){
  cutUi.drag=pieceId;cutUi.sel=pieceId;cutUi.dropBox=null;
@@ -24020,11 +24179,11 @@ function cutUiDrop(e,glass,no){
 /* Правая кнопка: меню стекла, остатка или листа. */
 let cutMenuActs=[];
 function cutUiMenuClose(){const m=document.getElementById('cutMenu');if(m){m.remove();cutMenuActs=[];return true;}return false;}
-function cutUiMenuDo(i){const fn=cutMenuActs[i];cutUiMenuClose();if(fn)fn();}
+function cutUiMenuDo(i){const fn=cutMenuActs[i];if(fn)fn();cutUiMenuClose();}
 function cutUiMenu(e,glass,no){
  e.preventDefault();cutUiMenuClose();
  const ctx=cutUiCtx(glass,no);if(!ctx)return;
- const t=e.target,g=t.closest&&t.closest('[data-cut-piece]'),off=t.closest&&t.closest('[data-cut-offcut]');
+ const t=e.target,g=t.closest&&t.closest('[data-cut-piece]'),off=t.closest&&t.closest('[data-cut-offcut]'),stk=t.closest&&t.closest('[data-cut-stock]');
  const rows=[],act=(label,key,fn,attr)=>{cutMenuActs.push(fn);rows.push(`<button type="button" ${attr||''} onclick="cutUiMenuDo(${cutMenuActs.length-1})"><span>${esc(label)}</span>${key?`<kbd>${key}</kbd>`:''}</button>`);};
  cutUi.glass=glass;cutUi.sheet=+no;
  if(g){
@@ -24041,8 +24200,21 @@ function cutUiMenu(e,glass,no){
    others.forEach(x=>act(String(x.no),'',()=>{cutUi.sheet=x.no;cutUiRun(()=>cutPieceAuto(cutUi.batch,id,x.no));},'data-cut-menu-sheet="'+x.no+'"'));
    rows.push('</div>');
   }
+ }else if(stk){
+  const id=stk.dataset.cutStock,x=(ctx.sheet.stock||[]).find(q=>q.id===id);
+  rows.push(`<div class="cut-menu-head">${esc(id)}${x?' · '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″':''}</div>`);
+  act('Print sticker','',()=>cutUiStockPrint([id]),'data-cut-menu="stock-print"');
+  act('Back to waste','',()=>cutUiStockCancel(id),'data-cut-menu="stock-cancel"');
  }else if(off){
-  act(ctx.sheet.keepOffcut?'Offcut back to waste':'Offcut to stock','',()=>cutUiKeep(glass,no,!ctx.sheet.keepOffcut),'data-cut-menu="keep"');
+  /* Подсказка: взять целиком или отрезать нужный размер (Split). */
+  const i=+off.dataset.cutOffcut,o=(ctx.sheet.offcuts||[])[i];
+  if(o){
+   rows.push(`<div class="cut-menu-head">Offcut ${esc(frac16(o.w))} × ${esc(frac16(o.h))}″</div>`);
+   act('To stock','',()=>cutUiStockTake(glass,no,i),'data-cut-menu="stock"');
+   rows.push(`<div class="cut-menu-sub">Split — cut a size to stock</div><div class="cut-menu-split"><input type="text" id="cutSplitW" placeholder="length" aria-label="Length, in"> × <input type="text" id="cutSplitH" placeholder="width" aria-label="Width, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split]').click()">`);
+   act('Cut','',()=>cutUiStockSplit(glass,no,i,'cutSplitW','cutSplitH'),'data-cut-menu="split"');
+   rows.push('</div>');
+  }
  }
  act(ctx.sheet.locked?'Unlock sheet':'Lock sheet','',()=>cutUiSheetLock(),'data-cut-menu="sheet-lock"');
  const m=document.createElement('div');m.id='cutMenu';m.className='cut-menu';m.setAttribute('role','menu');m.innerHTML=rows.join('');
@@ -24098,10 +24270,14 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
   '<rect width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'" fill="'+(edged?'#fef0c7':'#f2f4f7')+'" stroke="#98a2b3"/>'];
  if(edged)out.push('<rect x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'" fill="#f2f4f7"/>');
- /* Остаток: подсказка серым, пока его не отметили «в сток»; отмеченный — зелёный. */
- if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h),kept=!!sheet.keepOffcut;
-  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+(kept?'#ecfdf3':'#f9fafb')+'" stroke="'+(kept?'#12b76a':'#d0d5dd')+'" stroke-width="1.2" data-cut-offcut="'+sheet.no+'" '+(kept?'data-cut-stock-area':'data-cut-offcut-hint')+'/>');
-  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+(kept?'#067647':'#98a2b3')+'">'+(kept?'To stock ':'Offcut ')+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
+ /* Остатки: подсказка серым — это отход, пока его не взяли; забуканный в сток
+    кусок — зелёный с номером S-…. Правая кнопка по ним — To stock, Split. */
+ const block=(o,fill,stroke,attr,label,color)=>{const oy=fy(o.y,o.h);
+  out.push('<g '+attr+'><rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/>');
+  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+color+'">'+label+'</text>');
+  out.push('</g>');};
+ (sheet.offcuts||[]).forEach((o,i)=>block(o,'#f9fafb','#d0d5dd','data-cut-offcut="'+i+'"','Offcut '+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″','#98a2b3'));
+ (sheet.stock||[]).forEach(o=>block(o,'#ecfdf3','#12b76a','data-cut-stock="'+esc(o.id)+'"',esc(o.id)+' · '+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″','#067647'));
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
@@ -24140,7 +24316,7 @@ function cutPrintLayouts(number){
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
    return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${p.rot?'rotated':''}</td></tr>`;}).join('');
   pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
-   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${s.offcut&&s.keepOffcut?' · To stock '+esc(frac16(s.offcut.w))+' × '+esc(frac16(s.offcut.h))+'″':''}</p>
+   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${(s.stock||[]).length?' · To stock '+s.stock.map(x=>esc(x.id)+' '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″').join(', '):''}</p>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
    <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }));
@@ -24158,7 +24334,7 @@ function cutStatsBar(plan,sheet){
  const area=sheet?cutArea((sheet.size||plan.groups[0].sheet).w,(sheet.size||plan.groups[0].sheet).h):0;
  const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used %',cutPct(sheet.used,area)+'%',1)}${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}</div>`:'';
  const s=plan.stats;
- const stock=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.offcut&&x.keepOffcut).length,0);
+ const stock=plan.groups.reduce((n,g)=>n+g.sheets.reduce((a,x)=>a+(x.stock||[]).length,0),0);
  return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used %',s.usedPct+'%',1)}${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
 }
 function cutPieceRow(p,at,sel){
@@ -24200,7 +24376,7 @@ function viewCutLayout(b){
     <select data-cut-jump onchange="cutUiSheet('${esc(group.glass)}',this.value)">${group.sheets.map(x=>`<option value="${x.no}" ${x.no===sheet.no?'selected':''}>Sheet ${x.no}${x.locked?' · locked':''} · ${x.pieces.length} pcs · net ${x.net} ft²</option>`).join('')}</select>
     <button type="button" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)">›</button>
     <span class="mut">${sheet.no} / ${group.sheets.length}</span></div>`
-  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${x.offcut&&x.keepOffcut?' · stock':''}</small></button>`).join('');
+  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${(x.stock||[]).length?' · stock '+x.stock.length:''}</small></button>`).join('');
  const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
@@ -24226,10 +24402,19 @@ function viewCutLayout(b){
    ${num('Min offcut W','minOffcutW',frac16(group.params.minOffcutW))}${num('H','minOffcutH',frac16(group.params.minOffcutH))}
    <label class="chk"><input type="checkbox" data-cut-rot ${group.params.rotate?'checked':''} onchange="cutUiParam('${esc(group.glass)}','rotate',this.checked)"> Rotate</label>
    <button type="button" class="gb-link" data-cut-reset-params onclick="cutUiResetParams('${esc(group.glass)}')">Reset to Master Data</button></div></div>`:'';
- const offcuts=plan.groups.flatMap(g=>g.sheets.filter(x=>x.offcut).map(x=>({g,x})));
- /* Остатки — подсказка: в сток идёт только отмеченное, остальное — отход. */
- const kept=offcuts.filter(({x})=>x.keepOffcut).length;
- const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts · ${kept} of ${offcuts.length} to stock</h4><p class="mut">Not ticked — waste.</p><table class="sl-table"><thead><tr><th>To stock</th><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><input type="checkbox" data-cut-keep-row="${x.no}" ${x.keepOffcut?'checked':''} aria-label="Sheet ${x.no} offcut to stock" onchange="cutUiKeep('${esc(g.glass)}',${x.no},this.checked)"></td><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${cutFt2(cutArea(x.offcut.w,x.offcut.h))}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+ /* Остатки внизу: подсказки (в сток — кнопкой или Split) и то, что уже в
+    стоке, с номером и стикером. Не взятое — отход. */
+ const hints=plan.groups.flatMap(g=>g.sheets.flatMap(x=>(x.offcuts||[]).map((o,i)=>({g,x,o,i}))));
+ const booked=plan.groups.flatMap(g=>g.sheets.flatMap(x=>(x.stock||[]).map(o=>({g,x,o}))));
+ const sizeOf=o=>esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″';
+ const hintRows=hints.map(({g,x,o,i})=>`<tr data-cut-hint-row="${x.no}-${i}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td class="mut">Waste</td>
+  <td class="cut-offcut-acts"><button type="button" data-cut-stock-take onclick="cutUiStockTake('${esc(g.glass)}',${x.no},${i})">To stock</button>
+   <input type="text" id="cutSp${x.no}_${i}w" placeholder="length" aria-label="Split length"> × <input type="text" id="cutSp${x.no}_${i}h" placeholder="width" aria-label="Split width">
+   <button type="button" data-cut-stock-split onclick="cutUiStockSplit('${esc(g.glass)}',${x.no},${i},'cutSp${x.no}_${i}w','cutSp${x.no}_${i}h')">Split</button></td></tr>`).join('');
+ const bookRows=booked.map(({g,x,o})=>`<tr data-cut-stock-row="${esc(o.id)}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td><span class="pill ok">${esc(o.id)}</span></td>
+  <td class="cut-offcut-acts"><button type="button" data-cut-stock-print onclick="cutUiStockPrint(['${esc(o.id)}'])">Print sticker</button><button type="button" class="gb-link" data-cut-stock-cancel onclick="cutUiStockCancel('${esc(o.id)}')">Back to waste</button></td></tr>`).join('');
+ const stockList=hints.length||booked.length?`<div class="cut-orders" data-cut-offcuts><div class="cut-offcuts-head"><h4>Offcuts · ${booked.length} in stock · ${hints.length} possible</h4>${booked.length?`<button type="button" data-cut-stock-print-all onclick="cutUiStockPrint(${esc(JSON.stringify(booked.map(b=>b.o.id)))})">Print stock stickers · ${booked.length}</button>`:''}</div>
+  <p class="mut">Not taken — waste.</p><table class="sl-table"><thead><tr><th>Sheet</th><th>Glass</th><th>Size</th><th class="n">ft²</th><th>Stock</th><th></th></tr></thead><tbody>${bookRows}${hintRows}</tbody></table></div>`:'';
  const orders=(plan.orders||[]).length?`<div class="cut-orders" data-cut-orders><h4>Waste by order</h4><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Net scrap ft²</th><th class="n">%</th></tr></thead><tbody>${plan.orders.map(o=>`<tr><td>${esc(o.order)}</td><td>${esc(o.customer)}</td><td class="n">${o.pieces}</td><td class="n">${o.used}</td><td class="n">${o.net}</td><td class="n">${o.pct}%</td></tr>`).join('')}</tbody></table></div>`:'';
  return `${head}${notice}${need}${params}<div class="cut-stats">${cutStatsBar(plan,sheet)}</div>
  <div class="cut-grid">
@@ -24240,7 +24425,6 @@ function viewCutLayout(b){
   </div>
   <div class="cut-sheet-pane">${glasses}<div class="cut-tabs">${tabs}</div>
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
-    ${sheet.offcut?`<button type="button" class="${sheet.keepOffcut?'on':''}" data-cut-keep onclick="cutUiKeep('${esc(group.glass)}',${sheet.no},${sheet.keepOffcut?'false':'true'})">${sheet.keepOffcut?'Offcut to stock ✓':'Offcut to stock'}</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
    ${actions}<p class="mut cut-hint">Drag glass on the sheet, to a sheet tab or to the list · double-click or R — rotate · right-click — menu</p>
@@ -24313,6 +24497,7 @@ function validateImportedState(src){
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
 
  if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
+ if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -24394,6 +24579,7 @@ function normalizeDB(){
  if(typeof normalizeCutting==='function')normalizeCutting();
 
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
+ if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
