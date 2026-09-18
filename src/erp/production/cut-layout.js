@@ -502,7 +502,19 @@ function cutStockSplit(number,glass,sheetNo,index,axis,size){
 }
 /* Ещё одна строка того же размера в складе прогона — сразу без Trim и Border;
    поля правятся как у любой строки. */
-function cutAddSameSize(number,glass,key){
+/* Правка параметров прогона: пересчитать сразу или отложить до кнопки
+   Rebuild. Экран всегда откладывает: «изменил и нажал пересобрать» —
+   человек сам решает, когда пересобрать (владелец, 18 сентября 2026). Пока
+   не пересобрали, стёкла стоят где стояли; линии, подсказки остатков и
+   цифры уже по новым значениям; план помечен pending. */
+function cutApply(number,later,soft){
+ if(!later)return cutPlanRun(number);
+ const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+ plan.groups.forEach(g=>{g.pick=plan.sheetPick&&plan.sheetPick[g.glass]||null;g.params=cutRunParams(g.mm,g.sheet,g.pick);});
+ if(!soft)plan.pending=true;
+ cutPlanRefresh(plan);touch();return {ok:true,pending:!!plan.pending,plan};
+}
+function cutAddSameSize(number,glass,key,later){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  const base=cutBaseKey(key),opt=cutSheetOptions(glass).find(r=>cutSheetKey(r)===base);if(!opt)return {error:'No such sheet size.'};
  const pick=cutRunPick(plan,glass);
@@ -511,12 +523,12 @@ function cutAddSameSize(number,glass,key){
  const row={key:base+'#'+n,base,w:opt.w,h:opt.h,limit:0,off:false,trimX:0,trimY:0,borderX:0,borderY:0};
  const at=pick.sizes.map(x=>x&&cutBaseKey(x.key)).lastIndexOf(base);
  pick.sizes.splice(at<0?pick.sizes.length:at+1,0,row);
- touch();return Object.assign(cutPlanRun(number),{key:row.key});
+ touch();return Object.assign(cutApply(number,later),{key:row.key});
 }
-function cutRemoveSameSize(number,glass,key){
+function cutRemoveSameSize(number,glass,key,later){
  const plan=cutPlanFor(number);if(!plan||String(key).indexOf('#')<0)return {error:'No such sheet size.'};
  const pick=cutRunPick(plan,glass);pick.sizes=(pick.sizes||[]).filter(x=>x&&x.key!==key);
- touch();return cutPlanRun(number);
+ touch();return cutApply(number,later);
 }
 /* Удалить лист: его стёкла уходят в «Not on a sheet», сток с него — в отход
    («нет функции удаления листа… нужно добавить удаление любого листа, а если
@@ -622,7 +634,7 @@ function cutRunPick(plan,glass){
  if(!plan.sheetPick||typeof plan.sheetPick!=='object')plan.sheetPick={};
  return plan.sheetPick[glass]||(plan.sheetPick[glass]={});
 }
-function cutSetStock(number,glass,key,field,value){
+function cutSetStock(number,glass,key,field,value,later){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  let edge=null;
  if(CUT_EDGES.includes(field)&&String(value==null?'':value).trim()!==''){
@@ -637,21 +649,22 @@ function cutSetStock(number,glass,key,field,value){
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
  if(CUT_EDGES.includes(field)){if(edge==null)delete row[field];else row[field]=edge;}
- touch();return cutPlanRun(number);
+ touch();return cutApply(number,later);
 }
 const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','rotate'];
-function cutSetParam(number,glass,field,value){
+function cutSetParam(number,glass,field,value,later){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  if(!CUT_RUN_FIELDS.includes(field))return {error:'Unknown cutting parameter.'};
  const pick=cutRunPick(plan,glass);
  if(field==='rotate')pick.rotate=!!value;
  else{const v=typeof cutIn==='function'?cutIn(value,null):+value;if(v==null||!Number.isFinite(v))return {error:'Enter a size like 3/4 or 1 1/2.'};pick[field]=v;}
- touch();return cutPlanRun(number);
+ /* Минимальный остаток стёкла не двигает — только подсказки остатков. */
+ touch();return cutApply(number,later,/^minOffcut/.test(field));
 }
-function cutResetParams(number,glass){
+function cutResetParams(number,glass,later){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  if(plan.sheetPick)delete plan.sheetPick[glass];
- touch();return cutPlanRun(number);
+ touch();return cutApply(number,later);
 }
 function cutSetting(number,pieceId,field,value){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};

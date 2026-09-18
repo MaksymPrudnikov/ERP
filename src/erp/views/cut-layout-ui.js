@@ -66,11 +66,12 @@ function cutUiState(number){
 function cutRunBatch(number){const r=cutPlanRun(number);cutNotice=r.error||'';render();}
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
    Data → Cutting) и сразу пересчитывает раскрой. */
-function cutUiAddSize(number,wId,hId){
+function cutUiAddSize(number,wId,hId,later){
  const w=document.getElementById(wId),h=document.getElementById(hId);
  const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
  if(r.error){cutNotice=r.error;render();return;}
- const run=cutPlanRun(number);cutNotice=run.error||'';render();
+ /* Из таблицы SHEETS — ждёт Rebuild; из блока «No sheet size» — раскладывает сразу. */
+ const run=later&&cutPlanFor(number)?cutApply(number,true):cutPlanRun(number);cutNotice=run.error||'';render();
 }
 /* Стёкла батча, для которых не нашлось ни одного размера листа. */
 function cutNeedSizes(b,plan,pieces){
@@ -122,15 +123,16 @@ function cutUiSheetDelete(glass,no){
 let cutFull=false;
 function cutUiFull(on){cutFull=typeof on==='boolean'?on:!cutFull;document.body.classList.toggle('cut-full',cutFull);render();}
 /* Второй лист того же размера — для оверсайза, без Trim и Border. */
-function cutUiSameSize(glass,key){cutUiRun(()=>cutAddSameSize(cutUi.batch,glass,key));}
-function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.batch,glass,key));}
+function cutUiSameSize(glass,key){cutUiRun(()=>cutAddSameSize(cutUi.batch,glass,key,true));}
+function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.batch,glass,key,true));}
 function cutUiOpenBatch(number){cutInfo=null;glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
 function cutUiRotate(){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel));}
 function cutUiTake(){cutUiRun(()=>cutPieceTake(cutUi.batch,cutUi.sel));}
 function cutUiLock(){cutUiRun(()=>cutPieceLock(cutUi.batch,cutUi.sel));}
-function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,glass,key,field,value));}
-function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
-function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
+/* Правки склада и параметров ждут кнопки Rebuild — раскладка не прыгает сама. */
+function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,glass,key,field,value,true));}
+function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value,true));}
+function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass,true));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
 /* В сток: номер S-…, запись и сразу стикер — «и потом генерить для него стикер». */
 function cutUiStockDone(r){cutNotice=r&&r.error||'';render();if(r&&r.ok&&r.id&&typeof stkPrintStock==='function')stkPrintStock([r.id]);}
@@ -397,7 +399,7 @@ function cutFitLabel(cx,cy,w,h,lines,color){
 function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
- const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
+ const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
  /* На экране лист тянется на всю ширину колонки; в печати — свой размер. */
  const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
@@ -418,7 +420,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
-  out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel?2:1)+'"/>');
+  out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(outside(p)?'#d92d20':sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel||outside(p)?2:1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
   const lines=[];
   if(h>52&&w>84){lines.push([src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),9,'#475467']);}
   else if(h>30&&w>64)lines.push([String(i+1)+' · '+frac16(p.w)+' × '+frac16(p.h)+'″',9,'#101828']);
@@ -487,12 +489,12 @@ function viewCutLayout(b){
  const s=cutUiState(b.number),plan=cutPlanFor(b.number),stale=plan&&cutPlanStale(b.number);
  const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · used ${plan.stats.usedPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
   <span class="sp"></span>${plan?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button><button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
-  <button type="button" class="pri" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Re-optimize':'Optimize'}</button></div>`;
+  <button type="button" class="pri${plan&&plan.pending?' cut-pending':''}" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Rebuild':'Optimize'}</button></div>`;
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'')+info;
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — press Rebuild.</div>':plan&&plan.pending?'<div class="ncr-warning" data-cut-pending>Settings changed — press Rebuild. Locked sheets stay and go first.</div>':'')+info;
  if(!plan)return `${head}${notice}${need}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const pieces=cutPieces(b,plan.settings||{}),group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
@@ -542,7 +544,7 @@ function viewCutLayout(b){
  const params=group?`<div class="cut-params" data-cut-params>
   <table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th></th><th></th></tr></thead><tbody>${stockRows}
    <tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
-    <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr></tbody></table>
+    <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH',true)">+ Add sheet size</button></td></tr></tbody></table>
   <div class="cut-knobs">
    ${num('Min dist','minDist',frac16(group.params.minDist))}
    ${num('Min offcut W','minOffcutW',frac16(group.params.minOffcutW))}${num('H','minOffcutH',frac16(group.params.minOffcutH))}
