@@ -49,7 +49,7 @@ function cutRow(r){
   borderMin:cutIn(r.borderMin!=null?r.borderMin:r.gapMin,0),border:cutIn(r.border!=null?r.border:r.gap,0),minDist:cutIn(r.minDist,0)};
 }
 function cutRowsDefault(){return CUT_ROWS_SHOP.map(cutRow);}
-function cutSettingsDefault(){return Object.assign({rows:cutRowsDefault(),sheets:[]},CUT_DEFAULT);}
+function cutSettingsDefault(){return Object.assign({rows:cutRowsDefault(),sheets:[],sizes:[]},CUT_DEFAULT);}
 /* Отступы у каждого размера листа свои: 130 и 144 режут по-разному
    (владелец, 18 сентября 2026). Пусто — берётся значение по толщине. */
 /* Ключ размера — всегда лёжа: длинная сторона первой (X). */
@@ -66,15 +66,44 @@ function cutSheetTrimSet(key,field,value){
  if(CUT_EDGES.every(f=>row[f]==null))s.sheets=s.sheets.filter(r=>r!==row);
  normalizeCutting();touch();
 }
-/* Размеры листов, которые знает программа: из поставок стекла. */
-function cutSheetSizes(){
+/* Размеры листов цеха — для любого стекла. Строки поставки пусты, пока их
+   не завела закупка, а резать надо уже сейчас. Владелец, 18 сентября 2026, на
+   первом настоящем батче: «говорит, что листа нет для оптимизации, и я не
+   могу найти в Master Data, где его добавить». У стекла сначала идут размеры
+   из его поставок, за ними — размеры цеха. */
+const CUT_SIZE_MAX=400;
+function cutShopSizes(){return (cutSettings().sizes||[]).map(s=>({key:s.key,w:s.w,h:s.h}));}
+function cutShopSizeAdd(w,h){
+ const a=cutIn(w,null),b=cutIn(h,null);
+ if(!(a>0&&b>0))return {error:'Enter the sheet size, for example 130 × 96.'};
+ if(a>CUT_SIZE_MAX||b>CUT_SIZE_MAX)return {error:'Sheet size is in inches, for example 130 × 96.'};
+ const key=cutSheetTrimKey(a,b),s=cutSettings();
+ if((s.sizes||[]).some(x=>x.key===key))return {error:'This sheet size is already there.'};
+ s.sizes=(s.sizes||[]).concat([{w:a,h:b}]);normalizeCutting();touch();
+ return {ok:true,key};
+}
+/* Убрать размер цеха; его отступы уходят вместе с ним, если этот размер не
+   приходит и из поставок — иначе они остались бы невидимыми. */
+function cutShopSizeRemove(key){
+ const s=cutSettings();if(!(s.sizes||[]).some(x=>x.key===key))return {error:'Sheet size not found.'};
+ s.sizes=s.sizes.filter(x=>x.key!==key);
+ if(!cutSupplySizes().some(x=>x.key===key))s.sheets=(s.sheets||[]).filter(r=>r.key!==key);
+ normalizeCutting();touch();return {ok:true};
+}
+function cutSupplySizes(){
  const out=new Map();
- (DB.glassSheet||[]).filter(x=>x&&+x.sheetWIn>0&&+x.sheetHIn>0).forEach(x=>{
+ (DB.glassSheet||[]).filter(x=>x&&x.availability!=='inactive'&&+x.sheetWIn>0&&+x.sheetHIn>0).forEach(x=>{
   const key=cutSheetTrimKey(x.sheetWIn,x.sheetHIn);
   if(!out.has(key))out.set(key,{key,w:Math.max(+x.sheetWIn,+x.sheetHIn),h:Math.min(+x.sheetWIn,+x.sheetHIn),codes:new Set()});
   out.get(key).codes.add(x.productCode);
  });
- return [...out.values()].map(x=>Object.assign(x,{codes:[...x.codes].sort()})).sort((a,b)=>b.w*b.h-a.w*a.h);
+ return [...out.values()].map(x=>Object.assign(x,{codes:[...x.codes].sort()}));
+}
+/* Все размеры, которые знает программа: из поставок стекла и размеры цеха. */
+function cutSheetSizes(){
+ const out=new Map(cutSupplySizes().map(x=>[x.key,Object.assign(x,{shop:false})]));
+ cutShopSizes().forEach(x=>{if(out.has(x.key))out.get(x.key).shop=true;else out.set(x.key,{key:x.key,w:x.w,h:x.h,codes:[],shop:true});});
+ return [...out.values()].sort((a,b)=>b.w*b.h-a.w*a.h);
 }
 function normalizeCutting(){
  const src=DB.cutting&&typeof DB.cutting==='object'&&!Array.isArray(DB.cutting)?DB.cutting:{};
@@ -85,7 +114,10 @@ function normalizeCutting(){
  const sheets=(Array.isArray(src.sheets)?src.sheets:[]).filter(r=>r&&typeof r.key==='string'&&/^\d+(\.\d+)?x\d+(\.\d+)?$/.test(r.key))
   .map(r=>{const o={key:r.key};CUT_EDGES.forEach(f=>{o[f]=r[f]==null?null:cutIn(r[f],null);});return o;})
   .filter(r=>CUT_EDGES.some(f=>r[f]!=null));
- DB.cutting={rows:clean.length?clean:cutRowsDefault(),sheets,
+ const keys=new Set(),sizes=(Array.isArray(src.sizes)?src.sizes:[]).filter(r=>r&&typeof r==='object')
+  .map(r=>{const a=cutIn(r.w,null),b=cutIn(r.h,null);return a>0&&b>0&&a<=CUT_SIZE_MAX&&b<=CUT_SIZE_MAX?{key:cutSheetTrimKey(a,b),w:Math.max(a,b),h:Math.min(a,b)}:null;})
+  .filter(r=>r&&!keys.has(r.key)&&(keys.add(r.key),true)).sort((a,b)=>b.w*b.h-a.w*a.h);
+ DB.cutting={rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
   minOffcutW:cutIn(src.minOffcutW,CUT_DEFAULT.minOffcutW),minOffcutH:cutIn(src.minOffcutH,CUT_DEFAULT.minOffcutH),
   rotate:typeof src.rotate==='boolean'?src.rotate:CUT_DEFAULT.rotate};
 }
@@ -94,6 +126,7 @@ function validateCuttingPayload(src){
  if(typeof src.cutting!=='object'||Array.isArray(src.cutting))throw new Error('Cutting parameters must be an object.');
  if(src.cutting.rows!=null&&!Array.isArray(src.cutting.rows))throw new Error('Cutting rows must be an array.');
  if(src.cutting.sheets!=null&&!Array.isArray(src.cutting.sheets))throw new Error('Cutting sheet trims must be an array.');
+ if(src.cutting.sizes!=null&&!Array.isArray(src.cutting.sizes))throw new Error('Cutting sheet sizes must be an array.');
  (Array.isArray(src.cutting.rows)?src.cutting.rows:[]).forEach(r=>{
   if(!r||typeof r!=='object'||!(+r.mm>0))throw new Error('Invalid cutting row.');
  });

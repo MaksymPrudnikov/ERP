@@ -10,7 +10,7 @@
    справа лист, сверху цифры потерь и параметры прогона; действия — у
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
-let cutNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+let cutNotice='',cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -23,7 +23,11 @@ function cutMdSetting(field,value){
  normalizeCutting();touch();render();
 }
 function cutMdSheetTrim(key,field,value){cutSheetTrimSet(key,field,value);render();}
-function cutMdReset(){DB.cutting=cutSettingsDefault();normalizeCutting();touch();render();}
+/* Сброс к таблице цеха не трогает размеры листов: это не параметры реза, а
+   то, что лежит на складе. */
+function cutMdReset(){const sizes=cutSettings().sizes||[];DB.cutting=Object.assign(cutSettingsDefault(),{sizes});normalizeCutting();touch();render();}
+function cutMdSizeAdd(){const r=cutShopSizeAdd(mdVal('cutMdSizeW'),mdVal('cutMdSizeH'));cutMdNotice=r.error||'';render();}
+function cutMdSizeRemove(key){if(!confirm('Remove this sheet size?'))return;const r=cutShopSizeRemove(key);cutMdNotice=r.error||'';render();}
 function viewMdCutting(){
  const s=cutSettings();
  const cell=(row,field)=>`<td class="n"><input type="text" data-cut-${field}="${row.mm}" value="${esc(frac16(row[field]))}" aria-label="${field} ${row.mm} mm" onchange="cutMdSet(${row.mm},'${field}',this.value)"><small>${esc(frac16(row[field+'Min']))}</small></td>`;
@@ -32,12 +36,16 @@ function viewMdCutting(){
   <div class="cut-md-head"><div><h3>Cutting parameters</h3><p class="mut">Trim — bottom and left sheet edge. Border — top and right. Min distance — around shaped pieces only. Small number — shop minimum.</p></div>
    <button type="button" data-cut-reset onclick="cutMdReset()">Reset to shop table</button></div>
   <div class="sales-table-wrap"><table class="ncr-table cut-table"><thead><tr><th>Thickness</th><th class="n">Trim</th><th class="n">Border</th><th class="n">Min distance</th></tr></thead><tbody>${rows}</tbody></table></div>
-  ${(function(){const sizes=cutSheetSizes();if(!sizes.length)return '<p class="mut cut-md-note" data-cut-sheets-empty>Sheet sizes appear here from the glass supply rows in Materials.</p>';
+  ${(function(){const sizes=cutSheetSizes();
    const edge=(x,own,f,label)=>`<td class="n"><input type="text" data-cut-${f.toLowerCase()}="${esc(x.key)}" value="${own[f]==null?'':esc(frac16(own[f]))}" placeholder="—" aria-label="${label} ${esc(x.key)}" onchange="cutMdSheetTrim('${esc(x.key)}','${f}',this.value)"></td>`;
-   return `<h4 class="cut-md-sub">Edges by sheet size</h4><p class="mut">130 and 144 are not the same. Empty — the value by thickness.</p>
-   <div class="sales-table-wrap"><table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
-    return `<tr data-cut-sheet-row="${esc(x.key)}"><td><b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}″</b></td><td class="mut">${esc(x.codes.slice(0,4).join(', '))}</td>
-     ${edge(x,own,'trimX','Trim X')}${edge(x,own,'trimY','Trim Y')}${edge(x,own,'borderX','Border X')}${edge(x,own,'borderY','Border Y')}</tr>`;}).join('')}</tbody></table></div>`;})()}
+   const whose=x=>[x.shop?'All glass':'',x.codes.slice(0,4).join(', ')+(x.codes.length>4?' +'+(x.codes.length-4):'')].filter(Boolean).join(' · ');
+   return `<h4 class="cut-md-sub">Sheet sizes</h4><p class="mut">Supply sizes of a glass go first, shop sizes work for any glass. Empty edge — the value by thickness.</p>
+   <div class="sales-table-wrap"><table class="ncr-table cut-table" data-cut-sheet-table><thead><tr><th>Sheet</th><th>Glass</th><th class="n">Trim X <small>bottom</small></th><th class="n">Trim Y <small>left</small></th><th class="n">Border X <small>top</small></th><th class="n">Border Y <small>right</small></th><th></th></tr></thead><tbody>${sizes.map(x=>{const own=cutSheetTrim(x.key)||{};
+    return `<tr data-cut-sheet-row="${esc(x.key)}"><td><b>${esc(frac16(x.w))} × ${esc(frac16(x.h))}″</b></td><td class="mut">${esc(whose(x))}</td>
+     ${edge(x,own,'trimX','Trim X')}${edge(x,own,'trimY','Trim Y')}${edge(x,own,'borderX','Border X')}${edge(x,own,'borderY','Border Y')}
+     <td>${x.shop?`<button type="button" class="sm dl" data-cut-size-remove="${esc(x.key)}" aria-label="Remove ${esc(x.key)}" onclick="cutMdSizeRemove('${esc(x.key)}')">×</button>`:''}</td></tr>`;}).join('')||'<tr><td colspan="7" class="mut" data-cut-sheets-empty>No sheet sizes yet — add the ones you cut.</td></tr>'}</tbody></table></div>
+   <div class="cut-size-add" data-cut-size-add><input type="text" id="cutMdSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutMdSizeH" placeholder="width" aria-label="Sheet width, in"> <button type="button" onclick="cutMdSizeAdd()">+ Add sheet size</button>
+   ${cutMdNotice?`<span class="cut-md-error" role="alert" data-cut-md-error>${esc(cutMdNotice)}</span>`:''}</div>`;})()}
   <div class="cut-md-foot">
    <label><span class="ncr-label">MIN OFFCUT W</span><input type="text" data-cut-offcut-w value="${esc(frac16(s.minOffcutW))}" onchange="cutMdSetting('minOffcutW',this.value)"></label>
    <label><span class="ncr-label">MIN OFFCUT H</span><input type="text" data-cut-offcut-h value="${esc(frac16(s.minOffcutH))}" onchange="cutMdSetting('minOffcutH',this.value)"></label>
@@ -56,6 +64,24 @@ function cutUiState(number){
  return cutUi;
 }
 function cutRunBatch(number){const r=cutPlanRun(number);cutNotice=r.error||'';render();}
+/* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
+   Data → Cutting) и сразу пересчитывает раскрой. */
+function cutUiAddSize(number,wId,hId){
+ const w=document.getElementById(wId),h=document.getElementById(hId);
+ const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
+ if(r.error){cutNotice=r.error;render();return;}
+ const run=cutPlanRun(number);cutNotice=run.error||'';render();
+}
+/* Стёкла батча, для которых не нашлось ни одного размера листа. */
+function cutNeedSizes(b,plan,pieces){
+ const pick=g=>plan&&plan.sheetPick&&plan.sheetPick[g]||null;
+ const need=[...new Set((pieces||cutPieces(b,plan&&plan.settings||{})).filter(p=>!p.off).map(p=>p.glass))].filter(g=>!cutStockFor(g,pick(g)).length).sort();
+ if(!need.length)return '';
+ return `<div class="cut-need" data-cut-need><span><b>No sheet size</b> · ${esc(need.join(', '))}</span>
+  <input type="text" id="cutNeedW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutNeedH" placeholder="width" aria-label="Sheet width, in">
+  <button type="button" class="pri" data-cut-need-add onclick="cutUiAddSize('${esc(b.number)}','cutNeedW','cutNeedH')">Add and optimize</button>
+  <span class="mut">Saved to Master Data → Cutting</span></div>`;
+}
 function cutUiPick(pieceId){cutUi.sel=cutUi.sel===pieceId?'':pieceId;const at=cutUi.sel&&cutFind(cutPlanFor(cutUi.batch)||{groups:[]},cutUi.sel);if(at){cutUi.glass=at.group.glass;cutUi.sheet=at.sheet.no;}render();}
 function cutUiSheet(glass,no){cutUi.glass=glass;cutUi.sheet=+no;render();}
 function cutUiStep(glass,delta){
@@ -198,8 +224,11 @@ function viewCutLayout(b){
  const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · net ${plan.stats.netPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
   <span class="sp"></span>${plan?`<button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
   <button type="button" class="pri" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Re-optimize':'Optimize'}</button></div>`;
- const notice=cutNotice?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'';
- if(!plan)return `${head}${notice}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet size comes from Master Data.</p>`;
+ /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
+    над ним повторяла бы то же самое. */
+ const need=cutNeedSizes(b,plan),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
+ const notice=own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'';
+ if(!plan)return `${head}${notice}${need}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const pieces=cutPieces(b,plan.settings||{}),group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
  const at=id=>cutFind(plan,id);
@@ -238,7 +267,9 @@ function viewCutLayout(b){
    <td class="mut">${used?'used '+used:''}</td>
    <td><button type="button" class="gb-link" data-cut-first onclick="cutUiStock('${esc(group.glass)}','${esc(key)}','first',1)">use first</button></td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
-  <table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th></th><th></th></tr></thead><tbody>${stockRows}</tbody></table>
+  <table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th></th><th></th></tr></thead><tbody>${stockRows}
+   <tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
+    <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr></tbody></table>
   <div class="cut-knobs">
    ${num('Min dist','minDist',frac16(group.params.minDist))}
    ${num('Min offcut W','minOffcutW',frac16(group.params.minOffcutW))}${num('H','minOffcutH',frac16(group.params.minOffcutH))}
@@ -247,7 +278,7 @@ function viewCutLayout(b){
  const offcuts=plan.groups.flatMap(g=>g.sheets.filter(x=>x.offcut).map(x=>({g,x})));
  const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts to stock · ${offcuts.length}</h4><table class="sl-table"><thead><tr><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${x.keep}</td></tr>`;}).join('')}</tbody></table></div>`:'';
  const orders=(plan.orders||[]).length?`<div class="cut-orders" data-cut-orders><h4>Waste by order</h4><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Net scrap ft²</th><th class="n">%</th></tr></thead><tbody>${plan.orders.map(o=>`<tr><td>${esc(o.order)}</td><td>${esc(o.customer)}</td><td class="n">${o.pieces}</td><td class="n">${o.used}</td><td class="n">${o.net}</td><td class="n">${o.pct}%</td></tr>`).join('')}</tbody></table></div>`:'';
- return `${head}${notice}${params}<div class="cut-stats">${cutStatsBar(plan,sheet)}</div>
+ return `${head}${notice}${need}${params}<div class="cut-stats">${cutStatsBar(plan,sheet)}</div>
  <div class="cut-grid">
   <div class="cut-side" ondragover="event.preventDefault()" ondrop="cutUiDropList(event)">
    ${waiting.length?`<div class="cut-list-head" data-cut-waiting>Not on a sheet · ${waiting.length}</div>${listTable(rows(waiting))}`:''}

@@ -88,7 +88,7 @@ function viewMasterData(){
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-function mdSetTab(k){mdTab=k;mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+function mdSetTab(k){mdTab=k;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
     иначе Works показал бы палитру спандрела. */

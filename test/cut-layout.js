@@ -191,6 +191,61 @@ module.exports=async function({page,eq,ok}){
    outside:ctOutside(plan),bad,shown,back,md:cutSheetTrim('144x96')};
  }),{y144:2,x144:0.875,y130:0.875,x130:1.5,outside:[],bad:'Enter a size like 3/4 or 1 1/2.',shown:['144x96 2 7/8','130x96 7/8 1 1/2'],back:0.875,md:null});
 
+ eq('нет размера листа: экран говорит, для какого стекла, размер добавляется прямо здесь и сразу раскладывает',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
+  const none=cutPlanRun(b.number).error;
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+  document.querySelector('[data-tab-optimization]').click();document.querySelector('[data-cut-run]').click();
+  const need=document.querySelector('[data-cut-need]'),needText=need?need.textContent.replace(/\s+/g,' ').trim():'';
+  const shownError=!!document.querySelector('[data-cut-error]');
+  document.getElementById('cutNeedW').value='3300';document.getElementById('cutNeedH').value='96';document.querySelector('[data-cut-need-add]').click();
+  const inches=document.querySelector('[data-cut-error]').textContent;
+  document.getElementById('cutNeedW').value='96';document.getElementById('cutNeedH').value='130';document.querySelector('[data-cut-need-add]').click();
+  const plan=cutPlanFor(b.number);
+  return {none,shownError,needText:/No sheet size · 6CLEAR/.test(needText),inches,
+   laid:plan?plan.stats.placed:0,size:plan?cutSheetKey(plan.groups[0].sheets[0].size):'',gone:!document.querySelector('[data-cut-need]'),
+   error:!!document.querySelector('[data-cut-error]'),shop:cutShopSizes().map(x=>x.key),stockRow:!!document.querySelector('[data-cut-stock="130x96"]'),
+   russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{none:'No sheet size for 6CLEAR. Add one below.',shownError:false,needText:true,inches:'Sheet size is in inches, for example 130 × 96.',
+  laid:2,size:'130x96',gone:true,error:false,shop:['130x96'],stockRow:true,russian:false});
+
+ eq('размер с экрана прогона и из Master Data: добавить, повтор и ошибка, убрать; сброс таблицы цеха размеры не трогает',await t.p.evaluate(()=>{
+  const b=DB.glassBatch[0];
+  document.getElementById('cutRunSizeW').value='144';document.getElementById('cutRunSizeH').value='96';document.querySelector('[data-cut-size-new]').click();
+  const run=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock);
+  const dup=cutShopSizeAdd('96','130').error,bad=cutShopSizeAdd('abc','96').error;
+  cutSheetTrimSet('144x96','borderY','2');
+  tab='masterdata';mdSetTab('cutting');
+  const rows=[...document.querySelectorAll('[data-cut-sheet-row]')].map(r=>r.dataset.cutSheetRow+' '+r.children[1].textContent);
+  document.getElementById('cutMdSizeW').value='84';document.getElementById('cutMdSizeH').value='130';document.querySelector('[data-cut-size-add] button').click();
+  const added=cutShopSizes().map(x=>x.key);
+  document.getElementById('cutMdSizeW').value='130';document.getElementById('cutMdSizeH').value='84';document.querySelector('[data-cut-size-add] button').click();
+  const mdError=(document.querySelector('[data-cut-md-error]')||{}).textContent;
+  document.querySelector('[data-cut-size-remove="144x96"]').click();
+  const removed=cutShopSizes().map(x=>x.key),edgesGone=cutSheetTrim('144x96');
+  document.querySelector('[data-cut-reset]').click();
+  return {run,dup,bad,rows,added,mdError,removed,edgesGone,afterReset:cutShopSizes().map(x=>x.key)};
+ }),{run:['144x96','130x96'],dup:'This sheet size is already there.',bad:'Enter the sheet size, for example 130 × 96.',
+  rows:['144x96 All glass','130x96 All glass'],added:['144x96','130x96','130x84'],mdError:'This sheet size is already there.',
+  removed:['130x96','130x84'],edgesGone:null,afterReset:['130x96','130x84']});
+
+ eq('размеры поставки стекла идут первыми, размеры цеха — за ними; один размер от двух поставщиков — одна строка',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
+  DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Guardian',sheetWIn:130,sheetHIn:96,availability:'stock'}));
+  cutShopSizeAdd('144','96');cutShopSizeAdd('130','96');ctOrder([[46,60,4]]);const b=DB.glassBatch[0];
+  const options=cutSheetOptions('6CLEAR').map(x=>cutSheetKey(x)+(x.shop?' shop':'')),first=cutSheetKey(cutPlanRun(b.number).plan.groups[0].sheets[0].size);
+  const chosen=cutSheetKey(cutSetStock(b.number,'6CLEAR','144x96','first',1).plan.groups[0].sheets[0].size);
+  const md=cutSheetSizes().map(x=>x.key+' '+(x.shop?'shop':'')+' '+x.codes.join());
+  return {options,first,chosen,md};
+ }),{options:['130x96','144x96 shop'],first:'130x96',chosen:'144x96',md:['144x96 shop ','130x96 shop 6CLEAR']});
+
+ eq('размеры цеха в JSON: не массив — отказ, мусор и повторы чистятся',await t.p.evaluate(()=>{
+  let shape='accepted';try{validateCuttingPayload({cutting:{sizes:{}}});}catch(e){shape=e.message;}
+  DB.cutting={sizes:[{w:96,h:130},{w:'130',h:'96'},{w:0,h:5},{w:'abc',h:1},{w:3300,h:96},null]};normalizeCutting();
+  const sizes=DB.cutting.sizes;oqReset();
+  return {shape,sizes};
+ }),{shape:'Cutting sheet sizes must be an array.',sizes:[{key:'130x96',w:130,h:96}]});
+
  eq('большой батч: десятки листов, всё разложено, ничего не налезает, лист выбирается стрелками',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,120],[28,38,60]]);const b=DB.glassBatch[0];
   const t0=Date.now(),plan=cutPlanRun(b.number).plan,ms=Date.now()-t0;
