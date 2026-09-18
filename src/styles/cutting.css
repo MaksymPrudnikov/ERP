@@ -89,6 +89,14 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:#667085}
 .cut-menu-sheets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px}
 .cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid #d0d5dd}
+.cut-menu-split{display:flex;align-items:center;gap:4px;padding:2px 8px 6px;font-size:12px}
+.cut-menu-split input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
+.cut-menu-split button{width:auto;padding:3px 10px;border:1px solid #d0d5dd}
+.cut-svg [data-cut-offcut],.cut-svg [data-cut-stock]{cursor:context-menu}
+.cut-offcuts-head{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.cut-offcut-acts{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cut-offcut-acts input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
+.cut-offcut-acts button{padding:3px 10px;font-size:12px}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}

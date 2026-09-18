@@ -157,7 +157,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,keepOffcut:false,pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -187,24 +187,31 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  sheets.forEach(s=>{delete s.strips;});
  return {sheets,unplaced};
 }
-function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,keepOffcut:!!s.keepOffcut,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+/* Что занято на листе: стёкла и забуканные в сток куски. */
+function cutTaken(sheet){return sheet.pieces.concat((sheet.stock||[]).map(x=>({piece:x.id,x:x.x,y:x.y,w:x.w,h:x.h,shape:false,locked:true})));}
 /* Самый большой свободный прямоугольник листа — тот кусок, который кладут
    на стеллаж. Остальной остаток — брак (NetScrap). */
-function cutFreeRect(sheet,size,params){
+/* Самый большой свободный кусок не меньше минимального. extra — уже
+   найденные куски: так на одном листе находятся все хорошие остатки, а не
+   один («показывать оба, конечно» — владелец, 18 сентября 2026). */
+function cutFreeRect(sheet,size,params,extra){
  const {x0,y0,W,H}=cutUsable(size,params);
  if(!(W>0&&H>0))return null;
- const xs=[0,W],ys=[0,H];
- sheet.pieces.forEach(p=>{xs.push(cutRound(p.x-x0),cutRound(p.x-x0+p.w));ys.push(cutRound(p.y-y0),cutRound(p.y-y0+p.h));});
+ const xs=[0,W],ys=[0,H],taken=cutTaken(sheet).concat(extra||[]);
+ taken.forEach(p=>{xs.push(cutRound(p.x-x0),cutRound(p.x-x0+p.w));ys.push(cutRound(p.y-y0),cutRound(p.y-y0+p.h));});
  const X=[...new Set(xs.filter(v=>v>=0&&v<=W))].sort((a,b)=>a-b),Y=[...new Set(ys.filter(v=>v>=0&&v<=H))].sort((a,b)=>a-b);
  const cols=X.length-1,rows=Y.length-1;if(cols<1||rows<1)return null;
  const busy=[];
  for(let r=0;r<rows;r++){busy.push(new Array(cols).fill(false));}
- sheet.pieces.forEach(p=>{
+ taken.forEach(p=>{
   const px=cutRound(p.x-x0),py=cutRound(p.y-y0);
   for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
    if(X[c]>=px-1e-6&&X[c+1]<=px+p.w+1e-6&&Y[r]>=py-1e-6&&Y[r+1]<=py+p.h+1e-6)busy[r][c]=true;
   }
  });
+ const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
+ const good=(w,h)=>Math.min(w,h)>=Math.min(minW,minH)-1e-6&&Math.max(w,h)>=Math.max(minW,minH)-1e-6;
  let best=null;
  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
   if(busy[r][c])continue;
@@ -213,21 +220,26 @@ function cutFreeRect(sheet,size,params){
    let c2=c;while(c2<maxC&&!busy[r2][c2])c2++;
    maxC=Math.min(maxC,c2);if(maxC<=c)break;
    const w=X[maxC]-X[c],h=Y[r2+1]-Y[r];
-   if(!best||w*h>best.w*best.h)best={x:cutRound(x0+X[c]),y:cutRound(y0+Y[r]),w:cutRound(w),h:cutRound(h)};
+   if(good(w,h)&&(!best||w*h>best.w*best.h))best={x:cutRound(x0+X[c]),y:cutRound(y0+Y[r]),w:cutRound(w),h:cutRound(h)};
   }
  }
- if(!best)return null;
- const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
- const ok=Math.min(best.w,best.h)>=Math.min(minW,minH)-1e-6&&Math.max(best.w,best.h)>=Math.max(minW,minH)-1e-6;
- return ok?best:null;
+ return best;
 }
-/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Остаток
-   вычитается из брака, только если его отметили «в сток» (keepOffcut). */
+function cutFreeRects(sheet,size,params){
+ const out=[];
+ for(let i=0;i<8;i++){const r=cutFreeRect(sheet,size,params,out);if(!r)break;out.push(r);}
+ return out;
+}
+/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Из брака
+   вычитаются только куски, забуканные в сток (sheet.stock, номер S-…);
+   подсказки (sheet.offcuts) — отход, пока их не взяли. */
 function cutSheetNumbers(sheet,size,params){
  size=sheet.size||size;
+ if(!Array.isArray(sheet.stock))sheet.stock=[];
  const used=sheet.pieces.reduce((a,p)=>a+cutArea(p.w,p.h),0),total=cutArea(size.w,size.h);
- const offcut=cutFreeRect(sheet,size,params),keep=offcut&&sheet.keepOffcut?cutArea(offcut.w,offcut.h):0;
- sheet.offcut=offcut;sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
+ const keep=sheet.stock.reduce((a,x)=>a+cutArea(x.w,x.h),0);
+ sheet.offcuts=cutFreeRects(sheet,size,params);delete sheet.offcut;delete sheet.keepOffcut;
+ sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
  return sheet;
 }
 function cutGroupNumbers(group,paramsFor){group.sheets.forEach(s=>cutSheetNumbers(s,s.size||group.sheet,paramsFor(s.size||group.sheet)));return group;}
@@ -278,7 +290,7 @@ function cutPlanRun(number){
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
-   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,keepOffcut:!!s.keepOffcut,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
+   if(alive.length||(s.stock||[]).length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
   const rest=list.filter(p=>!keptIds.has(p.piece));
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
@@ -297,27 +309,67 @@ function cutPlanRun(number){
  if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,
   excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{}};
+ /* Незаблокированный лист пересобран — его куски в стоке больше не на месте:
+    снимаем их со стока, номера не выдаются повторно. */
+ const cancelled=[];
+ if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
  cutPlanRefresh(plan,all);
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();
- return {plan};
+ return {plan,cancelled};
 }
 /* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
    листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
    решает лишь при полном равенстве — это бонус, а не цель. */
 function cutScore(g){
  const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
- const offcut=g.sheets.reduce((a,s)=>a+(s.offcut?cutArea(s.offcut.w,s.offcut.h):0),0);
+ const offcut=g.sheets.reduce((a,s)=>a+((s.offcuts||[])[0]?cutArea(s.offcuts[0].w,s.offcuts[0].h):0),0);
  return [(g.unplaced||[]).length,area,g.sheets.length,-offcut];
 }
 function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
-/* Остаток листа — в сток или в отход. Решает человек, не программа. */
-function cutSheetKeepOffcut(number,glass,sheetNo,value){
+/* ------------------------------ Остатки в сток ------------------------------
+   Решает человек, не программа: подсказанный кусок (sheet.offcuts) идёт в сток
+   кнопкой — получает номер S-…, запись в DB.stockOffcut и стикер. Лист при
+   этом блокируется: кусок забукан с этого места, пересчёт его не сдвинет.
+   Split — отрезать от подсказки кусок нужного размера (от угла ближе к нулю). */
+function cutSheetAt(number,glass,sheetNo){
+ const plan=cutPlanFor(number),g=plan&&plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
+ return s?{plan,g,s}:null;
+}
+function cutStockBook(number,glass,sheetNo,rect){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,params=cutGroupParams(g,s.size),u=cutUsable(s.size||g.sheet,params);
+ const box={x:cutRound(+rect.x),y:cutRound(+rect.y),w:cutRound(+rect.w),h:cutRound(+rect.h)};
+ if(!(box.w>0&&box.h>0))return {error:'Enter the size, for example 40 × 40.'};
+ if(box.x<u.x0-1e-6||box.y<u.y0-1e-6||box.x+box.w>u.x1+1e-6||box.y+box.h>u.y1+1e-6)return {error:'Outside the sheet'};
+ const hit=cutTaken(s).find(p=>box.x<p.x+p.w-1e-6&&p.x<box.x+box.w-1e-6&&box.y<p.y+p.h-1e-6&&p.y<box.y+box.h-1e-6);
+ if(hit)return {error:'Overlaps '+hit.piece};
+ const rec=stockOffcutAdd({glass:g.glass,mm:g.mm,w:box.w,h:box.h,batch:number,sheet:s.no,x:box.x,y:box.y});
+ s.stock.push(Object.assign({id:rec.id},box));s.locked=true;
+ cutPlanRefresh(plan);touch();return {ok:true,id:rec.id};
+}
+function cutStockTake(number,glass,sheetNo,index){
+ const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
+ if(!o)return {error:'No such offcut.'};
+ return cutStockBook(number,glass,sheetNo,o);
+}
+function cutStockSplit(number,glass,sheetNo,index,w,h){
+ const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
+ if(!o)return {error:'No such offcut.'};
+ let a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
+ if(!(a>0&&b>0))return {error:'Enter the size, for example 40 × 40.'};
+ if(a>o.w+1e-6||b>o.h+1e-6){if(b<=o.w+1e-6&&a<=o.h+1e-6){const t=a;a=b;b=t;}else return {error:'Does not fit in this offcut.'};}
+ return cutStockBook(number,glass,sheetNo,{x:o.x,y:o.y,w:a,h:b});
+}
+/* Снять со стока — обратно в отход. Номер остаётся за записью: стикер с ним
+   мог уже уйти на стеллаж. */
+function cutStockCancel(number,id){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
- const g=plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
- if(!s)return {error:'No such sheet.'};
- if(!s.offcut&&value)return {error:'No usable offcut on this sheet.'};
- s.keepOffcut=!!value;cutPlanRefresh(plan);touch();return {ok:true};
+ for(const g of plan.groups)for(const s of g.sheets){
+  const i=(s.stock||[]).findIndex(x=>x.id===id);
+  if(i>=0){s.stock.splice(i,1);if(typeof stockOffcutCancel==='function')stockOffcutCancel(id);cutPlanRefresh(plan);touch();return {ok:true};}
+ }
+ return {error:'Not in stock.'};
 }
 /* Пересчёт цифр после любой правки руками. */
 function cutPlanRefresh(plan,pieces){
@@ -399,7 +451,7 @@ function cutSetting(number,pieceId,field,value){
 function cutRoom(group,sheet,box,params,ignore,src){
  const u=cutUsable(sheet.size||group.sheet,params);
  if(box.x<u.x0-1e-6||box.y<u.y0-1e-6||box.x+box.w>u.x1+1e-6||box.y+box.h>u.y1+1e-6)return 'Outside the sheet';
- const hit=sheet.pieces.find(p=>{
+ const hit=cutTaken(sheet).find(p=>{
   if(p.piece===ignore)return false;
   const gap=cutGapBetween(src,{shape:p.shape},params);
   return box.x<p.x+p.w+gap-1e-6&&p.x<box.x+box.w+gap-1e-6&&box.y<p.y+p.h+gap-1e-6&&p.y<box.y+box.h+gap-1e-6;
@@ -418,8 +470,8 @@ function cutCompactSheet(group,sheet){
  sheet.pieces.slice().sort((a,b)=>a.x-b.x||a.y-b.y).forEach(p=>{
   if(p.locked)return;
   let x=u.x0;
-  sheet.pieces.forEach(q=>{
-   if(q===p)return;
+  cutTaken(sheet).forEach(q=>{
+   if(q===p||q.piece===p.piece)return;
    const gap=cutGapBetween(p,q,params);
    if(q.y<p.y+p.h+gap-1e-6&&p.y<q.y+q.h+gap-1e-6&&q.x+q.w<=p.x+1e-6)x=Math.max(x,cutRound(q.x+q.w+gap));
   });
@@ -456,7 +508,7 @@ function cutPieceAuto(number,pieceId,sheetNo){
  if(!src||src.off)return {error:'Piece is not in this cut.'};
  const group=plan.groups.find(g=>g.glass===src.glass&&g.mm===src.mm);if(!group)return {error:'No layout for this glass.'};
  const sheet=group.sheets.find(x=>x.no===+sheetNo);if(!sheet)return {error:'No such sheet.'};
- const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params),xs=[u.x0].concat(sheet.pieces.map(p=>cutRound(p.x+p.w))),ys=[u.y0].concat(sheet.pieces.map(p=>cutRound(p.y+p.h)));
+ const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params),xs=[u.x0].concat(cutTaken(sheet).map(p=>cutRound(p.x+p.w))),ys=[u.y0].concat(cutTaken(sheet).map(p=>cutRound(p.y+p.h)));
  /* Своя ориентация, а если не лезет и поворот разрешён — повёрнутая. */
  const turns=[false].concat(params.rotate&&!src.norot&&src.w!==src.h?[true]:[]);
  for(const y of [...new Set(ys)].sort((a,b)=>a-b))for(const x of [...new Set(xs)].sort((a,b)=>a-b))for(const rot of turns){
@@ -503,7 +555,8 @@ function normalizeCutPlans(){
   .map(p=>{
    const plan=Object.assign({},p,{settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
-     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,keepOffcut:!!s.keepOffcut,
+     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
+      stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}

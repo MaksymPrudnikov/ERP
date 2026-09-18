@@ -84,6 +84,8 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
    return logo?lh+2:sz*1.15;}
   case 'batch':{if(!d.batch)return 0;line(d.batch,y+sz*.9,sz,bold);return sz*1.15;}
+  case 'stockNo':{if(!d.id)return 0;const t=(det.label?'STOCK  ':'')+d.id,f=shrink(t,sz,bold,w);put(t,ax(docTextWidth(t,f,bold)),y+sz*.85,f,bold);return sz*1.1;}
+  case 'stockFrom':{const fr=d.from;if(!fr)return 0;const t=[fr.batch?'From '+fr.batch:'',fr.sheet?'Sheet '+fr.sheet:'',det.date?fr.date:''].filter(Boolean).join(' · ');if(!t)return 0;line(t,y+sz*.9,sz,bold);return sz*1.2;}
   case 'sheet':{if(!d.sheet)return 0;line('Sheet '+d.sheet.sheet+(det.pos?' · #'+d.sheet.pos:''),y+sz*.9,sz,bold);return sz*1.2;}
   case 'barcode':{
    if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;

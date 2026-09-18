@@ -60,6 +60,7 @@ function validateImportedState(src){
  if(typeof validateStickerPayload==='function')validateStickerPayload(src);
  if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
  if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
+ if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -139,6 +140,7 @@ function normalizeDB(){
  if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
  if(typeof normalizeCutting==='function')normalizeCutting();
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
+ if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
