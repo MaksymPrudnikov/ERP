@@ -1752,6 +1752,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-offcut-acts{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .cut-offcut-acts input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
 .cut-offcut-acts button{padding:3px 10px;font-size:12px}
+.cut-split-row{display:inline-flex;align-items:center;gap:4px;margin-left:6px}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
@@ -1775,6 +1776,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
  .cut-print-table{width:100%;border-collapse:collapse;font-size:11px}
  .cut-print-table th,.cut-print-table td{border-bottom:1px solid #d0d5dd;padding:3px 6px;text-align:left}
 }
+.cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid #abefc6;border-radius:8px;background:#ecfdf3;color:#067647;font-size:13px}
 
 </style>
 </head>
@@ -1797,7 +1799,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f30aaefb796c';
+var ERP_BUILD='b496c48a0536';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -21705,6 +21707,32 @@ function glassBatchRelease(entries,opts){
  });
  if(!opts.deferTouch)touch();return true;
 }
+/* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
+   выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть
+   такая переменная как день ожидания» (владелец, 18 сентября 2026). Запись
+   в старом батче закрывается с пометкой movedTo, в новом открывается запись с
+   тем же Glass ID; заказы остаются в Batched. Начатый рез не переносится. */
+function glassBatchMove(number,pieceIds,opts){
+ opts=opts||{};const from=glassBatchFind(number);if(!from)return {error:'Batch not found.'};
+ const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
+ if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
+ const lineOf=i=>{const p=from.parts[i.part],o=p&&salesRecord(p.orderId);return {p,o,l:o&&(o.lines||[]).find(x=>x.id===p.lineId)};};
+ if(items.some(i=>{const {l}=lineOf(i);return i.cutStartedAt||l&&l.cutStartedAt;}))return {error:'Cutting has started on this glass.'};
+ const now=opts.now||new Date().toISOString(),to={number:salesNextBatchNumber(),createdAt:now,parts:[],items:[],history:[]},parts=new Map();
+ items.forEach(i=>{
+  if(!parts.has(i.part)){parts.set(i.part,to.parts.length);to.parts.push(glassBatchClone(from.parts[i.part]));}
+  to.items.push({piece:i.piece,part:parts.get(i.part),unit:i.unit,at:now,releasedAt:'',cutStartedAt:''});
+  i.releasedAt=now;i.movedTo=to.number;
+ });
+ DB.glassBatch.push(to);
+ const pieces=items.map(i=>i.piece);
+ from.history.push({at:now,action:'Moved to '+to.number,pieces,qty:pieces.length});
+ to.history.push({at:now,action:'Created from '+number,pieces,qty:pieces.length});
+ const orders=new Map();items.forEach(i=>{const {o,l}=lineOf(i);if(!o||!l)return;if(!orders.has(o))orders.set(o,new Set());orders.get(o).add(l);});
+ orders.forEach((lines,o)=>{lines.forEach(l=>glassBatchSyncLine(o,l));o.batchNo=to.number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number,to.number))];o.updatedAt=now;});
+ if(!opts.deferTouch)touch();
+ return {ok:true,number:to.number,pieces};
+}
 /* Черновой формат PR #84 до номеров стёкол: запись несла количество.
    Каждое стекло получает своё место; номера проставляются после Ensure. */
 function glassBatchConvertCounted(b){
@@ -21740,7 +21768,7 @@ function normalizeGlassBatches(){
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
   b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
-  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';});
+  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
  });
  let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
@@ -22495,7 +22523,10 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
   if(pr.rotate&&!p.norot&&p.w!==p.h)a.push({w:p.h,h:p.w,rot:true});
   return a.filter(o=>o.w<=W+1e-6&&o.h<=H+1e-6);
  };
- const best=(list,W)=>list.slice().sort((a,b)=>Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
+ /* Ориентация детали, открывающей полосу: больше штук в полосу, либо
+    шире (полоса ниже), либо выше — у каждой стратегии своя. Разные стратегии
+    дают разные раскладки, а лучшую выбирает cutScore. */
+ const best=(list,W)=>list.slice().sort((a,b)=>strategy.prefer==='wide'?b.w-a.w||a.h-b.h:strategy.prefer==='tall'?b.h-a.h||a.w-b.w:Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
  const order=list.slice().sort((a,b)=>(a.priority-b.priority)*(strategy.prefer==='priority'?1000000:1)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
  const push=(s,st,o,p)=>{
   const {x0,y0,p:pr}=room(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
@@ -22704,13 +22735,47 @@ function cutStockTake(number,glass,sheetNo,index){
  if(!o)return {error:'No such offcut.'};
  return cutStockBook(number,glass,sheetNo,o);
 }
-function cutStockSplit(number,glass,sheetNo,index,w,h){
+/* Split — один рез, как на столе: по длине (X) или по ширине (Y). Кусок в
+   сток получает вторую сторону целиком — до линии Border: «40 × 40 — это
+   минимальный размер, а не базовый; всё, что вне, можно использовать —
+   экстендед размер прям до края бордера» (владелец, 18 сентября 2026).
+   Кусок — от стороны нуля, у стёкол; остаток — к краю листа, он снова
+   подсказка, если не меньше минимума. */
+function cutStockSplit(number,glass,sheetNo,index,axis,size){
  const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
  if(!o)return {error:'No such offcut.'};
- let a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
- if(!(a>0&&b>0))return {error:'Enter the size, for example 40 × 40.'};
- if(a>o.w+1e-6||b>o.h+1e-6){if(b<=o.w+1e-6&&a<=o.h+1e-6){const t=a;a=b;b=t;}else return {error:'Does not fit in this offcut.'};}
- return cutStockBook(number,glass,sheetNo,{x:o.x,y:o.y,w:a,h:b});
+ if(axis!=='length'&&axis!=='width')return {error:'Cut along length or width.'};
+ const v=typeof cutIn==='function'?cutIn(size,null):+size,full=axis==='length'?o.w:o.h;
+ if(!(v>0))return {error:'Enter the size, for example 40.'};
+ if(v>full+1e-6)return {error:'Longer than this offcut.'};
+ const box=axis==='length'?{x:o.x,y:o.y,w:v,h:o.h}:{x:o.x,y:o.y,w:o.w,h:v};
+ const params=cutGroupParams(at.g,at.s.size),minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
+ if(Math.min(box.w,box.h)<Math.min(minW,minH)-1e-6||Math.max(box.w,box.h)<Math.max(minW,minH)-1e-6)
+  return {error:'Smaller than the minimum offcut '+frac16(minW)+' × '+frac16(minH)+'″.'};
+ return cutStockBook(number,glass,sheetNo,box);
+}
+/* Не резать лист сейчас: его стёкла уходят в новый батч, раскладка листа — с
+   ними (как владелец делает сейчас: «вырезая или копируя с прошлой
+   оптимизации»), забуканный на листе сток — тоже. В новом батче лист без
+   стока не заблокирован: придут новые заказы — пересчёт дозаполнит место. */
+function cutMoveSheet(number,glass,sheetNo){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,ids=s.pieces.map(p=>p.piece);if(!ids.length)return {error:'No glass on this sheet.'};
+ const wasStale=cutPlanStale(number),moved=glassBatchMove(number,ids,{deferTouch:true});if(moved.error)return moved;
+ /* Со стоком лист остаётся заблокированным — иначе пересчёт в новом батче снял бы сток. */
+ const to=moved.number,sheet=cutCloneSheet(s);delete sheet.strips;sheet.no=1;sheet.locked=!!(sheet.stock||[]).length;
+ g.sheets=g.sheets.filter(x=>x!==s);g.sheets.forEach((x,i)=>{x.no=i+1;});
+ if(!g.sheets.length)plan.groups=plan.groups.filter(x=>x!==g);
+ (s.stock||[]).forEach(x=>{const r=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(r){r.batch=to;r.sheet=1;}});
+ const settings={};ids.forEach(id=>{if(plan.settings&&plan.settings[id])settings[id]=Object.assign({},plan.settings[id]);});
+ const pick=plan.sheetPick&&plan.sheetPick[glass]?JSON.parse(JSON.stringify(plan.sheetPick[glass])):null;
+ const np={batch:to,at:new Date().toISOString(),stamp:'',settings,sheetPick:pick?{[glass]:pick}:{},
+  groups:[{glass:g.glass,mm:g.mm,sheet:Object.assign({},s.size||g.sheet),stock:g.stock,pick,params:g.params,sheets:[sheet],unplaced:[],strategy:'moved'}],missing:[],excluded:[],stats:{}};
+ DB.cutPlan.push(np);
+ np.stamp=cutStamp(cutPieces(glassBatchFind(to),settings));cutPlanRefresh(np);
+ if(!wasStale)plan.stamp=cutStamp(cutPieces(glassBatchFind(number),plan.settings||{}));
+ cutPlanRefresh(plan);touch();
+ return {ok:true,number:to,pieces:ids.length};
 }
 /* Снять со стока — обратно в отход. Номер остаётся за записью: стикер с ним
    мог уже уйти на стеллаж. */
@@ -22995,7 +23060,7 @@ function glassBatchColumns(){
 function glassBatchActiveItems(b){return b.items.filter(i=>!i.releasedAt&&b.parts[i.part]);}
 function glassBatchStatus(b){
  const a=glassBatchActiveItems(b);
- return !a.length?'Unbatched':a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
+ return !a.length?(b.items.length&&b.items.every(i=>i.movedTo)?'Moved':'Unbatched'):a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
  const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
@@ -23009,7 +23074,7 @@ function glassBatchInfos(){
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
   return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?recutUnitText(item.unit,s.of):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
-   status:item.releasedAt?'Unbatched':item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
+   status:item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
 function glassBatchFiltered(){return salesListRows(glassBatchInfos());}
@@ -23085,7 +23150,7 @@ function glassBatchCell(i,c){
  const v=salesListValue(i,c.k);let text=v==null||v===''?'—':c.type==='date'?salesListShortDay(v):['width','height'].includes(c.k)?dimIn16(v):String(v);
  if(c.k==='number')return `<td><button type="button" class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${esc(i.r?i.r.orderId:i.part.orderId)}')`}">${esc(text)}</button></td>`;
  if(c.k==='piece')return `<td class="gb-piece">${esc(text)}</td>`;
- if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }
 function viewGlassBatches(){
@@ -23949,7 +24014,7 @@ function stkEditorHTML(){
    справа лист, сверху цифры потерь и параметры прогона; действия — у
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
-let cutNotice='',cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+let cutNotice='',cutInfo=null,cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -24028,7 +24093,16 @@ function cutUiStep(glass,delta){
  const i=g.sheets.findIndex(x=>x.no===cutUi.sheet),next=g.sheets[Math.min(g.sheets.length-1,Math.max(0,i+delta))];
  if(next)cutUiSheet(glass,next.no);
 }
-function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';render();}
+function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';cutInfo=null;render();}
+/* Лист не режем — стёкла в новый батч. Решает человек, поэтому спрашиваем. */
+function cutUiMoveSheet(glass,no){
+ const at=cutSheetAt(cutUi.batch,glass,no);if(!at)return;
+ if(!confirm('Move the '+at.s.pieces.length+' glass of sheet '+no+' to a new batch? This sheet will not be cut in '+cutUi.batch+'.'))return;
+ const r=cutMoveSheet(cutUi.batch,glass,no);cutNotice=r.error||'';
+ cutInfo=r.ok?{text:'Sheet '+no+' · '+r.pieces+' glass → '+r.number,batch:r.number}:null;
+ if(r.ok){cutUi.sheet=1;cutUi.sel='';}render();
+}
+function cutUiOpenBatch(number){cutInfo=null;glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
 function cutUiRotate(){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel));}
 function cutUiTake(){cutUiRun(()=>cutPieceTake(cutUi.batch,cutUi.sel));}
 function cutUiLock(){cutUiRun(()=>cutPieceLock(cutUi.batch,cutUi.sel));}
@@ -24039,9 +24113,17 @@ function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutU
 /* В сток: номер S-…, запись и сразу стикер — «и потом генерить для него стикер». */
 function cutUiStockDone(r){cutNotice=r&&r.error||'';render();if(r&&r.ok&&r.id&&typeof stkPrintStock==='function')stkPrintStock([r.id]);}
 function cutUiStockTake(glass,no,i){cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockTake(cutUi.batch,glass,no,i));}
-function cutUiStockSplit(glass,no,i,wId,hId){
- const w=document.getElementById(wId),h=document.getElementById(hId);
- cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockSplit(cutUi.batch,glass,no,i,w?w.value:'',h?h.value:''));
+function cutUiStockSplit(glass,no,i,axis,inputId){
+ const el=document.getElementById(inputId);
+ cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockSplit(cutUi.batch,glass,no,i,axis,el?el.value:''));
+}
+/* Split одним резом: видно, какой кусок уйдёт в сток — вписанная сторона ×
+   вторая сторона остатка целиком. */
+function cutSplitForm(glass,no,i,o,pre,menu){
+ const btn=(axis,id)=>menu?'':`<button type="button" data-cut-split-${axis} onclick="cutUiStockSplit('${esc(glass)}',${no},${i},'${axis}','${id}')">Cut</button>`;
+ const L=pre+'L',W=pre+'W';
+ return {L,W,html:`<span class="cut-split-row"><input type="text" id="${L}" placeholder="length" aria-label="Length to stock, in" onkeydown="if(event.key==='Enter')cutUiStockSplit('${esc(glass)}',${no},${i},'length','${L}')"> × ${esc(frac16(o.h))}″ ${btn('length',L)}</span>
+  <span class="cut-split-row">${esc(frac16(o.w))}″ × <input type="text" id="${W}" placeholder="width" aria-label="Width to stock, in" onkeydown="if(event.key==='Enter')cutUiStockSplit('${esc(glass)}',${no},${i},'width','${W}')"> ${btn('width',W)}</span>`};
 }
 function cutUiStockCancel(id){if(!confirm('Put '+id+' back to waste?'))return;cutUiRun(()=>cutStockCancel(cutUi.batch,id));}
 function cutUiStockPrint(ids){if(ids.length&&typeof stkPrintStock==='function')stkPrintStock(ids);}
@@ -24211,12 +24293,17 @@ function cutUiMenu(e,glass,no){
   if(o){
    rows.push(`<div class="cut-menu-head">Offcut ${esc(frac16(o.w))} × ${esc(frac16(o.h))}″</div>`);
    act('To stock','',()=>cutUiStockTake(glass,no,i),'data-cut-menu="stock"');
-   rows.push(`<div class="cut-menu-sub">Split — cut a size to stock</div><div class="cut-menu-split"><input type="text" id="cutSplitW" placeholder="length" aria-label="Length, in"> × <input type="text" id="cutSplitH" placeholder="width" aria-label="Width, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split]').click()">`);
-   act('Cut','',()=>cutUiStockSplit(glass,no,i,'cutSplitW','cutSplitH'),'data-cut-menu="split"');
+   /* Один рез: по длине — кусок длиной N на всю ширину остатка; по ширине —
+      на всю длину. */
+   rows.push(`<div class="cut-menu-sub">Split · one cut to stock</div><div class="cut-menu-split"><input type="text" id="cutSplitL" placeholder="length" aria-label="Length to stock, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split-length]').click()"> × ${esc(frac16(o.h))}″`);
+   act('Cut','',()=>cutUiStockSplit(glass,no,i,'length','cutSplitL'),'data-cut-menu="split-length"');
+   rows.push(`</div><div class="cut-menu-split">${esc(frac16(o.w))}″ × <input type="text" id="cutSplitW" placeholder="width" aria-label="Width to stock, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split-width]').click()">`);
+   act('Cut','',()=>cutUiStockSplit(glass,no,i,'width','cutSplitW'),'data-cut-menu="split-width"');
    rows.push('</div>');
   }
  }
  act(ctx.sheet.locked?'Unlock sheet':'Lock sheet','',()=>cutUiSheetLock(),'data-cut-menu="sheet-lock"');
+ if(!g&&!off&&!stk&&ctx.sheet.pieces.length)act('Move sheet to a new batch','',()=>cutUiMoveSheet(glass,no),'data-cut-menu="move-sheet"');
  const m=document.createElement('div');m.id='cutMenu';m.className='cut-menu';m.setAttribute('role','menu');m.innerHTML=rows.join('');
  document.body.appendChild(m);
  const w=m.offsetWidth,h=m.offsetHeight;
@@ -24354,7 +24441,8 @@ function viewCutLayout(b){
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
- const notice=own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'';
+ const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'')+info;
  if(!plan)return `${head}${notice}${need}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const pieces=cutPieces(b,plan.settings||{}),group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
@@ -24409,8 +24497,7 @@ function viewCutLayout(b){
  const sizeOf=o=>esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″';
  const hintRows=hints.map(({g,x,o,i})=>`<tr data-cut-hint-row="${x.no}-${i}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td class="mut">Waste</td>
   <td class="cut-offcut-acts"><button type="button" data-cut-stock-take onclick="cutUiStockTake('${esc(g.glass)}',${x.no},${i})">To stock</button>
-   <input type="text" id="cutSp${x.no}_${i}w" placeholder="length" aria-label="Split length"> × <input type="text" id="cutSp${x.no}_${i}h" placeholder="width" aria-label="Split width">
-   <button type="button" data-cut-stock-split onclick="cutUiStockSplit('${esc(g.glass)}',${x.no},${i},'cutSp${x.no}_${i}w','cutSp${x.no}_${i}h')">Split</button></td></tr>`).join('');
+   <span class="mut">or split:</span>${cutSplitForm(g.glass,x.no,i,o,'cutSp'+x.no+'_'+i,false).html}</td></tr>`).join('');
  const bookRows=booked.map(({g,x,o})=>`<tr data-cut-stock-row="${esc(o.id)}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td><span class="pill ok">${esc(o.id)}</span></td>
   <td class="cut-offcut-acts"><button type="button" data-cut-stock-print onclick="cutUiStockPrint(['${esc(o.id)}'])">Print sticker</button><button type="button" class="gb-link" data-cut-stock-cancel onclick="cutUiStockCancel('${esc(o.id)}')">Back to waste</button></td></tr>`).join('');
  const stockList=hints.length||booked.length?`<div class="cut-orders" data-cut-offcuts><div class="cut-offcuts-head"><h4>Offcuts · ${booked.length} in stock · ${hints.length} possible</h4>${booked.length?`<button type="button" data-cut-stock-print-all onclick="cutUiStockPrint(${esc(JSON.stringify(booked.map(b=>b.o.id)))})">Print stock stickers · ${booked.length}</button>`:''}</div>
@@ -24425,6 +24512,7 @@ function viewCutLayout(b){
   </div>
   <div class="cut-sheet-pane">${glasses}<div class="cut-tabs">${tabs}</div>
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
+    ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveSheet('${esc(group.glass)}',${sheet.no})">Move to new batch</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
    ${actions}<p class="mut cut-hint">Drag glass on the sheet, to a sheet tab or to the list · double-click or R — rotate · right-click — menu</p>
