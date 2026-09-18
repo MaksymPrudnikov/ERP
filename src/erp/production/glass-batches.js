@@ -226,16 +226,26 @@ function glassBatchMove(number,pieceIds,opts){
  if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
  const lineOf=i=>{const p=from.parts[i.part],o=p&&salesRecord(p.orderId);return {p,o,l:o&&(o.lines||[]).find(x=>x.id===p.lineId)};};
  if(items.some(i=>{const {l}=lineOf(i);return i.cutStartedAt||l&&l.cutStartedAt;}))return {error:'Cutting has started on this glass.'};
- const now=opts.now||new Date().toISOString(),to={number:salesNextBatchNumber(),createdAt:now,parts:[],items:[],history:[]},parts=new Map();
+ const now=opts.now||new Date().toISOString();
+ /* opts.to — уже открытый батч: стёкла добавляются к нему. */
+ let to=opts.to?glassBatchFind(opts.to):null;const added=!!to;
+ if(opts.to&&(!to||to===from))return {error:'Batch not found.'};
+ if(to&&to.items.some(i=>!i.releasedAt&&i.cutStartedAt))return {error:'Cutting has started in '+to.number+'.'};
+ if(!to)to={number:salesNextBatchNumber(),createdAt:now,parts:[],items:[],history:[]};
+ const parts=new Map();
  items.forEach(i=>{
-  if(!parts.has(i.part)){parts.set(i.part,to.parts.length);to.parts.push(glassBatchClone(from.parts[i.part]));}
+  if(!parts.has(i.part)){
+   const src=from.parts[i.part],text=JSON.stringify(src.snapshot);let at=to.parts.findIndex(p=>p.key===src.key&&JSON.stringify(p.snapshot)===text);
+   if(at<0){at=to.parts.length;to.parts.push(glassBatchClone(src));}
+   parts.set(i.part,at);
+  }
   to.items.push({piece:i.piece,part:parts.get(i.part),unit:i.unit,at:now,releasedAt:'',cutStartedAt:''});
   i.releasedAt=now;i.movedTo=to.number;
  });
- DB.glassBatch.push(to);
+ if(!added)DB.glassBatch.push(to);
  const pieces=items.map(i=>i.piece);
  from.history.push({at:now,action:'Moved to '+to.number,pieces,qty:pieces.length});
- to.history.push({at:now,action:'Created from '+number,pieces,qty:pieces.length});
+ to.history.push({at:now,action:(added?'Added from ':'Created from ')+number,pieces,qty:pieces.length});
  const orders=new Map();items.forEach(i=>{const {o,l}=lineOf(i);if(!o||!l)return;if(!orders.has(o))orders.set(o,new Set());orders.get(o).add(l);});
  orders.forEach((lines,o)=>{lines.forEach(l=>glassBatchSyncLine(o,l));o.batchNo=to.number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number,to.number))];o.updatedAt=now;});
  if(!opts.deferTouch)touch();

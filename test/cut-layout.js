@@ -351,13 +351,13 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,30,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();window.cutPrinted=0;
   const ctx=el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));return [...document.querySelectorAll('#cutMenu [data-cut-menu]')].map(x=>x.dataset.cutMenu);};
-  const hintMenu=ctx(document.querySelector('.cut-paper [data-cut-offcut="0"] rect'));
+  const oh=cutPlanFor(b.number).groups[0].sheets[0].offcuts[0].h,hintMenu=ctx(document.querySelector('.cut-paper [data-cut-offcut="0"] rect'));
   document.getElementById('cutSplitL').value='50';document.querySelector('#cutMenu [data-cut-menu="split-length"]').click();
   const s=cutPlanFor(b.number).groups[0].sheets[0],split=s.stock.map(x=>x.id+' '+x.w+'×'+x.h),printed=window.cutPrinted,menuGone=!document.getElementById('cutMenu');
   const stockMenu=ctx(document.querySelector('.cut-paper [data-cut-stock="S-0000001"] rect'));
   document.querySelector('#cutMenu [data-cut-menu="stock-cancel"]').click();
-  return {hintMenu,split,printed,menuGone,stockMenu,back:cutPlanFor(b.number).groups[0].sheets[0].stock.length,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
- }),{hintMenu:['stock','split-length','split-width','sheet-lock'],split:['S-0000001 50×64.25'],printed:1,menuGone:true,stockMenu:['stock-print','stock-cancel','sheet-lock'],back:0,russian:false});
+  return {hintMenu,split:split.map(x=>x.replace('×'+oh,'×H')),printed,menuGone,stockMenu,back:cutPlanFor(b.number).groups[0].sheets[0].stock.length,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{hintMenu:['stock','split-length','split-width','sheet-lock'],split:['S-0000001 50×H'],printed:1,menuGone:true,stockMenu:['stock-print','stock-cancel','sheet-lock'],back:0,russian:false});
 
  eq('остатки в JSON: не массив и повтор номера — отказ; мусор чистится, счётчик не отстаёт',await t.p.evaluate(()=>{
   const fail=v=>{try{validateStockOffcutPayload({stockOffcut:v});return 'accepted';}catch(e){return e.message;}};
@@ -391,12 +391,65 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
   const g=cutPlanRun(b.number).plan.groups[0],last=g.sheets[g.sheets.length-1];const hint=cutStockTake(b.number,g.glass,last.no,0).id;
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:last.no,sel:'',drag:''};render();
-  cutUi.sheet=last.no;render();document.querySelector('[data-cut-move-sheet]').click();
+  cutUi.sheet=last.no;render();document.querySelector('[data-cut-move-sheet]').click();document.querySelector('#cutMenu [data-cut-menu="move-new"]').click();
   const info=(document.querySelector('[data-cut-info]')||{}).textContent||'',rec=stockOffcutFind(hint);
   document.querySelector('[data-cut-open-batch]').click();
   const np=cutPlanFor('B-0002'),sh=np.groups[0].sheets[0];
   return {info:/→ B-0002/.test(info),rec:[rec.batch,rec.sheet,rec.status].join(),sheetStock:sh.stock.map(x=>x.id),locked:sh.locked,opened:glassBatchOpenNumber,tab:glassBatchDetailTab,paper:!!document.querySelector('.cut-paper')};
  }),{info:true,rec:'B-0002,1,stock',sheetStock:['S-0000001'],locked:true,opened:'B-0002',tab:'optimization',paper:true});
+
+ eq('укладчик забивает лист: пример владельца — девять 50 × 30 на 144 × 102; 46 штук — 6 листов; смешанный батч не хуже рядов',await t.p.evaluate(()=>{
+  const one=(sheet,sizes)=>{oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',sheet[1],sheet[0]);ctOrder(sizes);const b=DB.glassBatch[0];
+   const g=cutPlanRun(b.number).plan.groups[0],pieces=cutPieces(b,{}),stock=cutStockFor('6CLEAR',null),pf=size=>cutRunParams(6,size,null);
+   const strips=Math.min(...CUT_STRATEGIES.map(st=>cutPack(pieces,stock,pf,st,[],6).sheets.length));
+   return {sheets:g.sheets.length,per:g.sheets.map(x=>x.pieces.length).join(),strips,overlap:ctOverlap(cutPlanFor(b.number)).length,outside:ctOutside(cutPlanFor(b.number)).length,slivers:ctSlivers(cutPlanFor(b.number)).length};};
+  const a=one([144,102],[[50,30,9]]),c=one([144,102],[[50,30,46]]),m=one([144,102],[[50,30,20],[20,100,4],[46,60,10],[28,38,20],[36,72,6]]);
+  return {example:a.per,many:c.sheets,mixedBetter:m.sheets<=m.strips,clean:[a,c,m].every(x=>!x.overlap&&!x.outside)};
+ }),{example:'9',many:6,mixedBetter:true,clean:true});
+
+ eq('удалить лист: стёкла — в «Not on a sheet», сток — в отход, листы перенумерованы',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);const b=DB.glassBatch[0];
+  const g=cutPlanRun(b.number).plan.groups[0],n=g.sheets.length,s1=g.sheets[0],ids=s1.pieces.map(p=>p.piece);
+  const hint=(s1.offcuts||[]).length?cutStockTake(b.number,g.glass,1,0).id:'';
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  document.querySelector('[data-cut-sheet-delete]').click();
+  const p2=cutPlanFor(b.number),g2=p2.groups[0],waiting=document.querySelector('[data-cut-waiting]').textContent;
+  return {sheets:g2.sheets.length===n-1,numbers:g2.sheets.map(x=>x.no).join()===g2.sheets.map((x,i)=>i+1).join(),gone:!ids.some(id=>cutFind(p2,id)),
+   waiting:/Not on a sheet · 2/.test(waiting)||new RegExp('Not on a sheet · '+ids.length).test(waiting),stock:hint?stockOffcutFind(hint).status:'cancelled'};
+ }),{sheets:true,numbers:true,gone:true,waiting:true,stock:'cancelled'});
+
+ eq('оверсайз: стекло больше поля между линиями — подсказка и «+ same size» без Trim и Border; у размера свои Used % и отход',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3],[129.5,95.5,1]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  const over=(document.querySelector('[data-cut-over]')||{}).textContent||'';
+  document.querySelector('[data-cut-over-add]').click();
+  const p=cutPlanFor(b.number),g=p.groups[0],keys=g.sheets.map(x=>cutSheetKey(x.size)),row=document.querySelector('[data-cut-stock="130x96#2"]');
+  const nums=[...document.querySelectorAll('[data-cut-size-nums]')].map(x=>x.dataset.cutSizeNums+' '+x.textContent.replace(/\s+/g,' ').trim());
+  const edges=['trimx','trimy','borderx','bordery'].map(f=>row.querySelector('[data-cut-edge-'+f+']').value).join();
+  const placed=p.stats.placed,total=p.stats.total;
+  document.querySelector('[data-cut-same-remove="130x96#2"]').click();
+  return {over:/1 glass larger than the sheet/.test(over),variant:keys.includes('130x96#2'),placed:placed===total,edges,nums:nums.every(x=>/% used · .*% waste · .* ft²/.test(x)),removed:!document.querySelector('[data-cut-stock="130x96#2"]'),overBack:!!document.querySelector('[data-cut-over]')};
+ }),{over:true,variant:true,placed:true,edges:'0,0,0,0',nums:true,removed:true,overBack:true});
+
+ eq('перенос листа в уже открытый батч с тем же стеклом: стёкла и лист — туда, история «Added from»',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);ctOrder([[28,38,3]]);
+  const [b1,b2]=DB.glassBatch;cutPlanRun(b1.number);cutPlanRun(b2.number);
+  const g=cutPlanFor(b1.number).groups[0],last=g.sheets[g.sheets.length-1],ids=last.pieces.map(p=>p.piece),before=cutPlanFor(b2.number).groups[0].sheets.length;
+  const targets=cutMoveTargets(b1.number,'6CLEAR').map(x=>x.number);
+  const r=cutMoveSheet(b1.number,'6CLEAR',last.no,b2.number),g2=cutPlanFor(b2.number).groups[0];
+  return {targets,ok:!!r.ok,sheets:g2.sheets.length===before+1,same:g2.sheets[g2.sheets.length-1].pieces.map(p=>p.piece).join()===ids.join(),
+   active:ids.every(id=>b2.items.some(i=>i.piece===id&&!i.releasedAt)),history:b2.history[b2.history.length-1].action,stale:cutPlanStale(b2.number),
+   bad:cutMoveSheet(b1.number,'6CLEAR',1,'B-0099').error};
+ }),{targets:['B-0002'],ok:true,sheets:true,same:true,active:true,history:'Added from B-0001',stale:false,bad:'Batch B-0099 cannot take this glass.'});
+
+ eq('подпись куска влезает в кусок; лист на весь экран и обратно по Esc',await t.p.evaluate(()=>{
+  const narrow=cutFitLabel(0,0,116,180,['S-0000001','29 1/16 × 45 1/4″'],'#000'),wide=cutFitLabel(0,0,400,60,['S-0000001','40 × 40″'],'#000'),tiny=cutFitLabel(0,0,20,20,['S-0000001','1 × 1″'],'#000');
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  document.querySelector('[data-cut-full]').click();const hidden=getComputedStyle(document.querySelector('.side')).display==='none',label=document.querySelector('[data-cut-full]').textContent;
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const back=getComputedStyle(document.querySelector('.side')).display!=='none';
+  return {narrow:(narrow.match(/<text/g)||[]).length===2||/rotate/.test(narrow),wide:(wide.match(/<text/g)||[]).length===1,tiny,hidden,label,back};
+ }),{narrow:true,wide:true,tiny:'',hidden:true,label:'Exit full screen',back:true});
 
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {
