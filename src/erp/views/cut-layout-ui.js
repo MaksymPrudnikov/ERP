@@ -423,12 +423,17 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
   out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(outside(p)?'#d92d20':sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel||outside(p)?2:1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
-  const lines=[];
-  if(h>52&&w>84){lines.push([src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),9,'#475467']);}
-  else if(h>30&&w>64)lines.push([String(i+1)+' · '+frac16(p.w)+' × '+frac16(p.h)+'″',9,'#101828']);
-  else if(h>12&&w>18)lines.push([String(i+1),9,'#101828']);
-  const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=y+h/2-total/2;
-  lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="'+(x+w/2).toFixed(1)+'" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
+  /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
+     она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
+     «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
+  const size16=frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),turn=!(h>52&&w>84)&&w>52&&h>84;
+  if(h>52&&w>84||turn){
+   const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[size16,9,'#475467']];
+   const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
+   out.push('<g transform="translate('+(x+w/2).toFixed(1)+' '+(y+h/2).toFixed(1)+')'+(turn?' rotate(-90)':'')+'">');
+   lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
+   out.push('</g>');
+  }else out.push(cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1),size16],'#101828')||cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1)],'#101828'));
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
   out.push('</g>');
   /* У выбранного стекла — кнопка поворота в углу, левой кнопкой мыши. */

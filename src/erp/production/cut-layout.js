@@ -292,7 +292,7 @@ const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s
 /* Случайный, но повторяемый порядок: одно и то же зерно — одна и та же
    раскладка. mulberry32. */
 function cutRandom(seed){let a=seed>>>0;return ()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
-/* К 288 вариантам листа — 64 случайных: 16 порядков стёкол (случайный и «по
+/* К 384 вариантам листа — 64 случайных: 16 порядков стёкол (случайный и «по
    площади с шумом») × 4 способа укладки. Сравнение с Perfect Cut (владелец,
    19 сентября 2026: у нас 24 листа, у Perfect Cut 23) показало, что одних
    правильных порядков мало; случайные находят сочетания, которые ими не
@@ -329,6 +329,66 @@ function cutPackFill(list,stock,paramsFor,fixed,urgent,seed){
   sheets.push({no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
   rest=best.rest.concat(other);
  }
+ return {sheets,unplaced};
+}
+/* ------------------- Столбиками во всю высоту (X-резы) -------------------
+   Владелец, 19 сентября 2026: «144 × 102, Trim 1, без Border; 20 1/4 × 100 1/4 —
+   111, 60 1/4 × 50 1/4 — 30, 12 1/4 × 50 1/4 — 10: у нас 24 листа, у Perfect
+   Cut 23». Жадный «забей лист» съедает удобные сочетания на первых листах.
+   Здесь, как X-резы в Perfect Cut: сначала стёкла собираются в столбики во всю
+   высоту поля (стёкла одной ширины — одно над другим), потом столбики
+   раскладываются по листам, начиная с самых широких. rows — то же рядами во
+   всю ширину. orient — как поворачивать стёкла: как есть, стоя или лёжа.
+   Формы со скосом сюда не идут — у них свой зазор. */
+function cutPackColumns(list,stock,paramsFor,fixed,opt){
+ if(!stock.length||list.some(p=>p.shape))return null;
+ const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
+ sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
+ const T=!!opt.rows,dims=row=>{const u=cutUsable(row,paramsFor(row));return {u,W:T?u.H:u.W,H:T?u.W:u.H};};
+ const first=dims(stock[0]),pr0=paramsFor(stock[0]),md=+pr0.minDist||0;
+ const items=[];
+ list.forEach(p=>{
+  let w=T?p.h:p.w,h=T?p.w:p.h;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
+  if(can&&(opt.orient==='tall'&&w>h||opt.orient==='wide'&&h>w)){const x=w;w=h;h=x;}
+  if((w>first.W+1e-6||h>first.H+1e-6)&&can&&h<=first.W+1e-6&&w<=first.H+1e-6){const x=w;w=h;h=x;}
+  if(w>first.W+1e-6||h>first.H+1e-6){unplaced.push({piece:p.piece,reason:'Larger than the sheet'});return;}
+  items.push({p,w,h});
+ });
+ items.sort((a,b)=>b.w-a.w||b.h-a.h||cutPrioRank(a.p.priority)-cutPrioRank(b.p.priority)||a.p.piece.localeCompare(b.p.piece));
+ /* Столбик: ширина — у первого стекла; уже — только если полоска сбоку не
+    тоньше Min distance. */
+ const cols=[];
+ items.forEach(it=>{
+  let c=cols.find(c=>c.used+it.h<=first.H+1e-6&&(Math.abs(c.w-it.w)<1e-6||c.w-it.w>=md-1e-6));
+  if(!c){c={w:it.w,used:0,items:[]};cols.push(c);}
+  c.items.push({it,y:c.used});c.used=cutRound(c.used+it.h);
+ });
+ cols.sort((a,b)=>b.w-a.w||b.used-a.used);
+ const bins=[];
+ const open=c=>{
+  for(const row of stock){
+   if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
+   const d=dims(row);if(c.w>d.W+1e-6||c.used>d.H+1e-6)continue;
+   used.set(row.key,(used.get(row.key)||0)+1);const b={row,d,x:0,cols:[]};bins.push(b);return b;
+  }
+  return null;
+ };
+ cols.forEach(c=>{
+  let b=null;
+  if(opt.fit==='bfd'){let left=Infinity;bins.forEach(x=>{const l=x.d.W-x.x-c.w;if(l>=-1e-6&&c.used<=x.d.H+1e-6&&l<left){left=l;b=x;}});}
+  else b=bins.find(x=>x.x+c.w<=x.d.W+1e-6&&c.used<=x.d.H+1e-6);
+  if(!b)b=open(c);
+  if(!b){c.items.forEach(({it})=>unplaced.push({piece:it.p.piece,reason:'No sheets left'}));return;}
+  b.cols.push({c,x:b.x});b.x=cutRound(b.x+c.w);
+ });
+ bins.forEach(b=>{
+  const u=b.d.u,pieces=[];
+  b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
+   const q=it.p,w=T?it.h:it.w,h=T?it.w:it.h;
+   pieces.push({piece:q.piece,shape:false,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,rot:w!==q.w,locked:false});
+  }));
+  sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
+ });
  return {sheets,unplaced};
 }
 function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
@@ -442,7 +502,13 @@ function cutPlanRun(number){
   const candidates=CUT_STRATEGIES.map(strategy=>({strategy,packed:cutPack(rest,stock,paramsFor,strategy,keptSheets,mm)}));
   /* Три прохода «лист за листом» с разными зёрнами случайности; результат
      повторяемый — зёрна постоянные. */
-  [1,2,3].forEach(seed=>candidates.push({strategy:{k:'fill'+seed},packed:cutPackFill(rest,stock,paramsFor,keptSheets,false,seed)}));
+  /* На больших батчах меньше проходов — чтобы пересборка оставалась быстрой. */
+  (rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>candidates.push({strategy:{k:'fill'+seed},packed:cutPackFill(rest,stock,paramsFor,keptSheets,false,seed)}));
+  /* Столбиками и рядами во всю высоту/ширину — как X-резы Perfect Cut. */
+  [false,true].forEach(rows=>['asis','tall','wide'].forEach(orient=>['ffd','bfd'].forEach(fit=>{
+   const packed=cutPackColumns(rest,stock,paramsFor,keptSheets,{rows,orient,fit});
+   if(packed)candidates.push({strategy:{k:(rows?'rows-':'cols-')+orient+'-'+fit},packed});
+  })));
   const prio=new Map(rest.map(p=>[p.piece,p.priority]));
   if(rest.some(p=>p.priority>0))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
   candidates.forEach(({strategy,packed})=>{
