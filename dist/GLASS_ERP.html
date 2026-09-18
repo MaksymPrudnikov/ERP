@@ -1696,6 +1696,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-stat span{display:flex;flex-direction:column;line-height:1.25}
 .cut-stat small{font-size:10px;color:#667085}
 .cut-stat b{font-size:13px;color:#101828;font-variant-numeric:tabular-nums}
+.cut-stat .cut-main b{font-size:18px;color:#067647}
 .cut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:20px;margin-top:14px;align-items:start}
 .cut-side{min-width:0}
 .cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
@@ -1770,7 +1771,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='84a286062ed1';
+var ERP_BUILD='ff10061b92d1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -8800,7 +8801,9 @@ const CUT_ROWS_SHOP=[
  {mm:19,trimMin:'0',    trim:'0',     borderMin:'4',    border:'4',     minDist:'4'}
 ];
 const CUT_EDGES=['trimX','trimY','borderX','borderY'];
-const CUT_DEFAULT={minOffcutW:12,minOffcutH:12,rotate:true};
+/* Остаток, который вообще стоит подсвечивать: «не меньше 40 на 40»
+   (владелец, 18 сентября 2026). Было 12 × 12 — такие куски на склад не идут. */
+const CUT_DEFAULT={minOffcutW:40,minOffcutH:40,rotate:true};
 function cutIn(v,fallback){
  if(typeof v==='number')return Number.isFinite(v)&&v>=0?Math.round(v*16)/16:fallback;
  const r=typeof fabParseDimStrict==='function'?fabParseDimStrict(v):{ok:false};
@@ -8880,7 +8883,10 @@ function normalizeCutting(){
  const keys=new Set(),sizes=(Array.isArray(src.sizes)?src.sizes:[]).filter(r=>r&&typeof r==='object')
   .map(r=>{const a=cutIn(r.w,null),b=cutIn(r.h,null);return a>0&&b>0&&a<=CUT_SIZE_MAX&&b<=CUT_SIZE_MAX?{key:cutSheetTrimKey(a,b),w:Math.max(a,b),h:Math.min(a,b)}:null;})
   .filter(r=>r&&!keys.has(r.key)&&(keys.add(r.key),true)).sort((a,b)=>b.w*b.h-a.w*a.h);
- DB.cutting={rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
+ /* Старое умолчание 12 × 12 никто не выбирал — переводим на 40 × 40 один раз. */
+ const oldMin=!src.v&&+src.minOffcutW===12&&+src.minOffcutH===12;
+ if(oldMin){src.minOffcutW=CUT_DEFAULT.minOffcutW;src.minOffcutH=CUT_DEFAULT.minOffcutH;}
+ DB.cutting={v:2,rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
   minOffcutW:cutIn(src.minOffcutW,CUT_DEFAULT.minOffcutW),minOffcutH:cutIn(src.minOffcutH,CUT_DEFAULT.minOffcutH),
   rotate:typeof src.rotate==='boolean'?src.rotate:CUT_DEFAULT.rotate};
 }
@@ -22308,6 +22314,10 @@ function stkPageSVG(pg,widthCss,heightCss){
      не заходят;
    - «основной задачей является оптимизация под низший процент», приоритет
      лишь тянет деталь на первые листы;
+   - главное — порезать заказы, потратив меньше стекла; сток — только бонус
+     (18 сентября: «моя задача оптимизировать заказы под хороший процент, а не
+     хорошо коллекционировать стекло в стоке»). Раскладку выбираем по площади
+     листов, остаток решает лишь при равенстве;
    - потери нужно видеть по каждому листу и по всем: по ним считают цену
      большого заказа;
    - раскладку правят руками: снять, положить, повернуть, перенести,
@@ -22315,7 +22325,9 @@ function stkPageSVG(pg,widthCss,heightCss){
      первый в очереди, остальные после».
    Счёт потерь как у Perfect Cut: Gross Scrap — весь остаток листа,
    NetScrap — остаток за вычетом куска, который кладут на стеллаж,
-   Used % = used / (used + net).
+   Used % = used / (used + net). Кусок на стеллаж программа только
+   подсказывает; пока его не отметили «в сток», он отход и Net = Gross:
+   «если мы его не выбрали, значит, оно не сток, а отход».
    ===================================================================== */
 DEFAULT.cutPlan=[];
 const CUT_STRATEGIES=[
@@ -22446,7 +22458,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,keepOffcut:false,pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -22476,7 +22488,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  sheets.forEach(s=>{delete s.strips;});
  return {sheets,unplaced};
 }
-function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,keepOffcut:!!s.keepOffcut,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
 /* Самый большой свободный прямоугольник листа — тот кусок, который кладут
    на стеллаж. Остальной остаток — брак (NetScrap). */
 function cutFreeRect(sheet,size,params){
@@ -22510,11 +22522,12 @@ function cutFreeRect(sheet,size,params){
  const ok=Math.min(best.w,best.h)>=Math.min(minW,minH)-1e-6&&Math.max(best.w,best.h)>=Math.max(minW,minH)-1e-6;
  return ok?best:null;
 }
-/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. */
+/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Остаток
+   вычитается из брака, только если его отметили «в сток» (keepOffcut). */
 function cutSheetNumbers(sheet,size,params){
  size=sheet.size||size;
  const used=sheet.pieces.reduce((a,p)=>a+cutArea(p.w,p.h),0),total=cutArea(size.w,size.h);
- const offcut=cutFreeRect(sheet,size,params),keep=offcut?cutArea(offcut.w,offcut.h):0;
+ const offcut=cutFreeRect(sheet,size,params),keep=offcut&&sheet.keepOffcut?cutArea(offcut.w,offcut.h):0;
  sheet.offcut=offcut;sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
  return sheet;
 }
@@ -22525,7 +22538,10 @@ function cutTotals(groups){
   const size=s.size||g.sheet;t.sheets++;t.placed+=s.pieces.length;t.used+=s.used;t.gross+=s.gross;t.net+=s.net;t.keep+=s.keep;t.area+=cutArea(size.w,size.h);
  }));
  ['used','gross','net','keep','area'].forEach(k=>{t[k]=cutFt2(t[k]);});
- t.usedPct=cutPct(t.used,t.used+t.net);t.grossPct=cutPct(t.gross,t.area);t.netPct=cutPct(t.net,t.area);
+ /* Used % — сколько листа ушло в заказы: «главный процент — это сколько
+    использовано, мы должны максимально использовать лист» (владелец,
+    18 сентября 2026). Сток его не улучшает. */
+ t.usedPct=cutPct(t.used,t.area);t.grossPct=cutPct(t.gross,t.area);t.netPct=cutPct(t.net,t.area);
  return t;
 }
 /* Потери по заказу: NetScrap делится по площади деталей заказа. По этой
@@ -22563,7 +22579,7 @@ function cutPlanRun(number){
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
-   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
+   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,keepOffcut:!!s.keepOffcut,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
   const rest=list.filter(p=>!keptIds.has(p.piece));
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
@@ -22574,8 +22590,8 @@ function cutPlanRun(number){
    /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
    const g={glass,mm,sheet:first,stock,pick,params:paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
    cutGroupNumbers(g,paramsFor);
-   const net=g.sheets.reduce((a,s)=>a+s.net,0),score=[net,g.sheets.length];
-   if(!win||score[0]<win.score[0]-1e-9||(Math.abs(score[0]-win.score[0])<1e-9&&score[1]<win.score[1]))win={g,score,strategy:strategy.k};
+   const score=cutScore(g);
+   if(!win||cutScoreLess(score,win.score))win={g,score,strategy:strategy.k};
   });
   win.g.strategy=win.strategy;groups.push(win.g);
  });
@@ -22586,6 +22602,23 @@ function cutPlanRun(number){
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();
  return {plan};
+}
+/* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
+   листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
+   решает лишь при полном равенстве — это бонус, а не цель. */
+function cutScore(g){
+ const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
+ const offcut=g.sheets.reduce((a,s)=>a+(s.offcut?cutArea(s.offcut.w,s.offcut.h):0),0);
+ return [(g.unplaced||[]).length,area,g.sheets.length,-offcut];
+}
+function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
+/* Остаток листа — в сток или в отход. Решает человек, не программа. */
+function cutSheetKeepOffcut(number,glass,sheetNo,value){
+ const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+ const g=plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
+ if(!s)return {error:'No such sheet.'};
+ if(!s.offcut&&value)return {error:'No usable offcut on this sheet.'};
+ s.keepOffcut=!!value;cutPlanRefresh(plan);touch();return {ok:true};
 }
 /* Пересчёт цифр после любой правки руками. */
 function cutPlanRefresh(plan,pieces){
@@ -22771,7 +22804,7 @@ function normalizeCutPlans(){
   .map(p=>{
    const plan=Object.assign({},p,{settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
-     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
+     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,keepOffcut:!!s.keepOffcut,
       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}
@@ -23834,6 +23867,7 @@ function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,
 function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
 function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
+function cutUiKeep(glass,no,value){cutUiRun(()=>cutSheetKeepOffcut(cutUi.batch,glass,no,value));}
 function cutUiSet(pieceId,field,value){cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value));}
 function cutUiDragStart(e,pieceId){cutUi.drag=pieceId;cutUi.sel=pieceId;try{e.dataTransfer.setData('text/plain',pieceId);e.dataTransfer.effectAllowed='move';}catch(x){}}
 /* Бросок на лист: координаты пересчитываются из экранных в дюймы. */
@@ -23885,9 +23919,10 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" class="cut-svg" font-family="Helvetica, Arial, sans-serif">',
   '<rect width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'" fill="'+(edged?'#fef0c7':'#f2f4f7')+'" stroke="#98a2b3"/>'];
  if(edged)out.push('<rect x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'" fill="#f2f4f7"/>');
- if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h);
-  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="#ecfdf3" stroke="#12b76a" stroke-width="1.2" data-cut-stock-area/>');
-  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="#067647">To stock '+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
+ /* Остаток: подсказка серым, пока его не отметили «в сток»; отмеченный — зелёный. */
+ if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h),kept=!!sheet.keepOffcut;
+  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+(kept?'#ecfdf3':'#f9fafb')+'" stroke="'+(kept?'#12b76a':'#d0d5dd')+'" stroke-width="1.2" '+(kept?'data-cut-stock-area':'data-cut-offcut-hint')+'/>');
+  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+(kept?'#067647':'#98a2b3')+'">'+(kept?'To stock ':'Offcut ')+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel?2:1)+'"'+(opts.ids?' data-cut-piece="'+esc(p.piece)+'"':'')+'/>');
@@ -23928,7 +23963,7 @@ function cutPrintLayouts(number){
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
    return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${p.rot?'rotated':''}</td></tr>`;}).join('');
   pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
-   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${s.offcut?' · Offcut '+esc(frac16(s.offcut.w))+' × '+esc(frac16(s.offcut.h))+'″':''}</p>
+   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${s.offcut&&s.keepOffcut?' · To stock '+esc(frac16(s.offcut.w))+' × '+esc(frac16(s.offcut.h))+'″':''}</p>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
    <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }));
@@ -23941,11 +23976,13 @@ function cutPrintLayouts(number){
 }
 /* --------------------------------- Экран --------------------------------- */
 function cutStatsBar(plan,sheet){
- const cell=(k,v)=>`<span><small>${k}</small><b>${v}</b></span>`;
- const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}${cell('Used %',(sheet.used+sheet.net?Math.round(sheet.used/(sheet.used+sheet.net)*1000)/10:0)+'%')}</div>`:'';
+ /* Главная цифра — Used %: сколько листа ушло в заказы. */
+ const cell=(k,v,main)=>`<span${main?' class="cut-main" data-cut-used-pct':''}><small>${k}</small><b>${v}</b></span>`;
+ const area=sheet?cutArea((sheet.size||plan.groups[0].sheet).w,(sheet.size||plan.groups[0].sheet).h):0;
+ const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used %',cutPct(sheet.used,area)+'%',1)}${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}</div>`:'';
  const s=plan.stats;
- const stock=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.offcut).length,0);
- return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Used %',s.usedPct+'%')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
+ const stock=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.offcut&&x.keepOffcut).length,0);
+ return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used %',s.usedPct+'%',1)}${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
 }
 function cutPieceRow(p,at,sel){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';
@@ -23958,7 +23995,7 @@ function cutPieceRow(p,at,sel){
 }
 function viewCutLayout(b){
  const s=cutUiState(b.number),plan=cutPlanFor(b.number),stale=plan&&cutPlanStale(b.number);
- const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · net ${plan.stats.netPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
+ const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · used ${plan.stats.usedPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
   <span class="sp"></span>${plan?`<button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
   <button type="button" class="pri" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Re-optimize':'Optimize'}</button></div>`;
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
@@ -23986,7 +24023,7 @@ function viewCutLayout(b){
     <select data-cut-jump onchange="cutUiSheet('${esc(group.glass)}',this.value)">${group.sheets.map(x=>`<option value="${x.no}" ${x.no===sheet.no?'selected':''}>Sheet ${x.no}${x.locked?' · locked':''} · ${x.pieces.length} pcs · net ${x.net} ft²</option>`).join('')}</select>
     <button type="button" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)">›</button>
     <span class="mut">${sheet.no} / ${group.sheets.length}</span></div>`
-  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${x.offcut?' · stock':''}</small></button>`).join('');
+  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${x.offcut&&x.keepOffcut?' · stock':''}</small></button>`).join('');
  const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
@@ -24013,7 +24050,9 @@ function viewCutLayout(b){
    <label class="chk"><input type="checkbox" data-cut-rot ${group.params.rotate?'checked':''} onchange="cutUiParam('${esc(group.glass)}','rotate',this.checked)"> Rotate</label>
    <button type="button" class="gb-link" data-cut-reset-params onclick="cutUiResetParams('${esc(group.glass)}')">Reset to Master Data</button></div></div>`:'';
  const offcuts=plan.groups.flatMap(g=>g.sheets.filter(x=>x.offcut).map(x=>({g,x})));
- const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts to stock · ${offcuts.length}</h4><table class="sl-table"><thead><tr><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${x.keep}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+ /* Остатки — подсказка: в сток идёт только отмеченное, остальное — отход. */
+ const kept=offcuts.filter(({x})=>x.keepOffcut).length;
+ const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts · ${kept} of ${offcuts.length} to stock</h4><p class="mut">Not ticked — waste.</p><table class="sl-table"><thead><tr><th>To stock</th><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><input type="checkbox" data-cut-keep-row="${x.no}" ${x.keepOffcut?'checked':''} aria-label="Sheet ${x.no} offcut to stock" onchange="cutUiKeep('${esc(g.glass)}',${x.no},this.checked)"></td><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${cutFt2(cutArea(x.offcut.w,x.offcut.h))}</td></tr>`;}).join('')}</tbody></table></div>`:'';
  const orders=(plan.orders||[]).length?`<div class="cut-orders" data-cut-orders><h4>Waste by order</h4><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Net scrap ft²</th><th class="n">%</th></tr></thead><tbody>${plan.orders.map(o=>`<tr><td>${esc(o.order)}</td><td>${esc(o.customer)}</td><td class="n">${o.pieces}</td><td class="n">${o.used}</td><td class="n">${o.net}</td><td class="n">${o.pct}%</td></tr>`).join('')}</tbody></table></div>`:'';
  return `${head}${notice}${need}${params}<div class="cut-stats">${cutStatsBar(plan,sheet)}</div>
  <div class="cut-grid">
@@ -24024,6 +24063,7 @@ function viewCutLayout(b){
   </div>
   <div class="cut-sheet-pane">${glasses}<div class="cut-tabs">${tabs}</div>
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
+    ${sheet.offcut?`<button type="button" class="${sheet.keepOffcut?'on':''}" data-cut-keep onclick="cutUiKeep('${esc(group.glass)}',${sheet.no},${sheet.keepOffcut?'false':'true'})">${sheet.keepOffcut?'Offcut to stock ✓':'Offcut to stock'}</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="event.preventDefault()" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onclick="cutUiPaperClick(event,'${esc(group.glass)}',${sheet.no})">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
    ${actions}<p class="mut cut-hint">Drag a piece onto the sheet · click a piece, then a free spot to move it</p>
