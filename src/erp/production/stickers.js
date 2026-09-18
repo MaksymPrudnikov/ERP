@@ -14,21 +14,25 @@
    и их Details. Glass ID и номер юнита есть только на самом стикере.
    ===================================================================== */
 DEFAULT.stickerTemplate={};
-const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'}];
+/* Stock offcut — кусок листа, забуканный в сток: номер S-…, размер, тип
+   стекла (владелец, 18 сентября 2026). */
+const STK_TYPES=[{k:'production',label:'Production'},{k:'final',label:'Final · each glass'},{k:'unit',label:'Final · whole unit'},{k:'stock',label:'Stock offcut'}];
 const STK_SIZES=[{k:'4x6',label:'4 × 6',short:288,long:432},{k:'3x4',label:'3 × 4',short:216,long:288}];
 const STK_ALIGNS=[{k:'left',label:'Left'},{k:'center',label:'Center'},{k:'right',label:'Right'}];
 const STK_PLACES=[{k:'full',label:'Full'},{k:'left',label:'Left'},{k:'right',label:'Right'},{k:'bottom',label:'Bottom'}];
 const STK_TEXT_MAX=160;
-const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'];
+const STK_ALL=['production','final','unit'],STK_GLASS=['production','final'],STK_ANY=STK_ALL.concat(['stock']);
 /* Каталог блоков. size — кегль в pt у текста; у графики — высота (штрихкод,
    маршрут), сторона контура, толщина линии. details — мелочи внутри блока:
    [ключ, подпись, включено в базе]. Новый блок в каталоге появится и в старых
    сохранённых шаблонах — выключенным, в конце списка. */
 const STK_BLOCKS=[
- {k:'company',label:'Company',group:'Header',types:STK_ALL,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
+ {k:'company',label:'Company',group:'Header',types:STK_ANY,size:[9,6,48],bold:true,details:[['logo','Logo',true],['name','Name',true]]},
  {k:'batch',label:'Batch number',group:'Header',types:STK_GLASS,size:[12,6,48],bold:true,details:[]},
  {k:'sheet',label:'Sheet · position',group:'Header',types:['production'],size:[12,6,48],bold:true,details:[['pos','Position on the sheet',true]]},
- {k:'barcode',label:'Barcode',group:'Header',types:STK_ALL,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'barcode',label:'Barcode',group:'Header',types:STK_ANY,size:[48,20,150],graphic:true,details:[['number','Number under bars',true]]},
+ {k:'stockNo',label:'Stock number',group:'Header',types:['stock'],size:[30,8,90],bold:true,details:[['label','"STOCK" label',true]]},
+ {k:'stockFrom',label:'From batch · sheet',group:'Header',types:['stock'],size:[11,6,36],details:[['date','Date',true]]},
  {k:'order',label:'Order / line',group:'Header',types:STK_ALL,size:[38,8,90],bold:true,details:[['line','Line number',true],['recut','RECUT tag',true]]},
  {k:'unit',label:'Unit · lite',group:'Header',types:STK_ALL,size:[14,6,48],details:[['unit','Unit n of N',true],['lite','Lite n of N',true],['ply','Laminated ply',true]]},
  {k:'orderInfo',label:'Order details',group:'Customer',types:STK_ALL,size:[10,6,48],details:[['priority','Priority',true],['delivery','Pickup / Delivery',true],['created','Order date',false]]},
@@ -36,17 +40,17 @@ const STK_BLOCKS=[
  {k:'po',label:'PO',group:'Customer',types:STK_ALL,size:[13,6,48],details:[['label','"PO" label',true]]},
  {k:'mark',label:'Mark',group:'Customer',types:STK_ALL,size:[13,6,60],bold:true,details:[['label','"Mark" label',true]]},
  {k:'due',label:'Due date',group:'Customer',types:STK_ALL,size:[13,6,48],bold:true,details:[['weekday','Weekday',true],['rush','Black when Rush',true]]},
- {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS,size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
+ {k:'glass',label:'Glass',group:'Glass',types:STK_GLASS.concat(['stock']),size:[16,6,48],bold:true,details:[['code','Code instead of name',false],['thickness','Thickness mm',false],['heat','Treatment',true],['heatSoak','Heat soak',true],['surface','Coating surface',true],['paint','Frit / spandrel',true],['ply','Laminated ply',false]]},
  {k:'makeup',label:'Unit makeup',group:'Glass',types:['unit'],size:[10,6,36],details:[['heading','Unit type',true],['thickness','Overall thickness',true],['code','Makeup code',false],['glass','Glass of each lite',true],['heat','Treatment',true],['surface','Surfaces',true],['film','Interlayer and mm',true],['spacer','Spacer',true],['gas','Gas',true],['sealant','Sealants',false],['muntin','Muntins',true]]},
  {k:'summary',label:'Unit makeup code',group:'Glass',types:['final'],size:[9,6,36],details:[['label','"Unit" label',true]]},
- {k:'size',label:'Size',group:'Glass',types:STK_ALL,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
- {k:'area',label:'Area ft²',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
+ {k:'size',label:'Size',group:'Glass',types:STK_ANY,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
+ {k:'area',label:'Area ft²',group:'Glass',types:STK_ANY,size:[13,6,48],details:[]},
  {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
  {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
  {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
  {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
- {k:'divider',label:'Divider line',group:'Other',types:STK_ALL,size:[1,0.5,6],graphic:true,multi:true,details:[]},
- {k:'text',label:'Custom text',group:'Other',types:STK_ALL,size:[14,6,72],bold:true,multi:true,details:[]}
+ {k:'divider',label:'Divider line',group:'Other',types:STK_ANY,size:[1,0.5,6],graphic:true,multi:true,details:[]},
+ {k:'text',label:'Custom text',group:'Other',types:STK_ANY,size:[14,6,72],bold:true,multi:true,details:[]}
 ];
 function stkBlockDef(k){return STK_BLOCKS.find(b=>b.k===k)||null;}
 function stkTypeLabel(k){const t=STK_TYPES.find(x=>x.k===k);return t?t.label:'Sticker';}
@@ -68,6 +72,16 @@ function stkBase(type,size,orient){
  /* Кегль по формату: [4×6 стоя, 4×6 лёжа, 3×4 стоя, 3×4 лёжа]. */
  const k=small?(land?3:2):(land?1:0),z=a=>a[k];
  const tpl=blocks=>({orient:land?'landscape':'portrait',blocks});
+ if(type==='stock'){
+  /* Номер стока, штрихкод, стекло, размер крупно, откуда. Толщина уже в
+     названии стекла («Clear 6mm») — отдельно не выводим. Крупно: стикер
+     не должен «пустовать». */
+  const glass=B('glass','full',z([22,16,15,11]));
+  const size=B('size','full',z([56,36,34,24]),{details:{cut:false}}),extra=B('text','full',z([14,12,10,9]),{on:false,text:''});
+  if(land){glass.at='left';size.at='left';
+   return tpl([B('company','left',9,{on:!small}),B('stockNo','left',z([0,26,0,17])),glass,size,B('barcode','right',z([0,50,0,32])),B('area','right',z([0,13,0,9])),B('stockFrom','right',z([0,11,0,8])),extra]);}
+  return tpl([B('company','left',z([9,0,8,0]),{on:!small}),B('stockNo','full',z([34,0,22,0])),B('barcode','full',z([62,0,40,0])),B('divider','full',1,{on:!small}),glass,size,B('area','left',z([16,0,11,0])),B('stockFrom','full',z([13,0,9,0])),extra]);
+ }
  const extra=B('text','full',z([14,12,10,9]),{on:false,text:'HANDLE WITH CARE'}),info=B('orderInfo','left',z([11,10,8,8]),{on:false});
  const sheetB=prod?[B('sheet','full',z([12,10,9,8]),{on:false})]:[];
  const tail=prod?[extra,B('route','bottom',z([28,22,18,16])),B('services','bottom',z([12,10,9,8]))]:fin?[B('summary','full',z([10,9,8,7])),extra]:[extra];
@@ -237,8 +251,16 @@ function stkUnitData(o,l,unit){
    finished:stkFinished(lite,l),cut:null,area:stkPieceArea(l,o),weight:stkWeight(l,o,null),shape:stkShapeOf(lite)});
  });
 }
+/* Данные стикера остатка из записи DB.stockOffcut. */
+function stkStockData(r){
+ const g=typeof glassProductByCode==='function'?glassProductByCode(r.glass):null,d=r.at?new Date(r.at):null;
+ return {kind:'stock',id:r.id,glass:{name:g&&g.name||r.glass,code:r.glass,mm:r.mm||g&&g.thicknessMm||null,heat:'',heatSoak:false,surface:'',paint:[],ply:''},
+  finished:{w:r.w,h:r.h},cut:null,area:Math.round(r.w*r.h/144*100)/100,
+  from:{batch:r.batch||'',sheet:r.sheet||0,date:d&&!isNaN(d)?d.toLocaleDateString('en-US',{month:'short',day:'numeric'}):''},vars:{}};
+}
 /* Образец для конструктора, когда в программе ещё нет заказов. */
 function stkDemoData(type){
+ if(type==='stock')return stkStockData({id:'S-0000001',glass:'6CLEAR',mm:6,w:48,h:40.5,batch:'B-0001',sheet:3,at:'2026-09-18T12:00:00Z'});
  const base={order:'76622',line:1,customer:'Northside Windows',po:'123',mark:'Kitchen W2',due:'Sep 25',dueWeekday:'Fri',rush:false,priority:'',delivery:'Delivery',created:'Sep 17',
   unit:2,of:5,lites:2,recut:'',batch:'B-0001',sheet:{sheet:2,pos:6},finished:{w:37,h:71},cut:{w:37.125,h:71.125},area:18.24,shape:null,
   vars:{'Customer: Name':'Northside Windows','Customer: Phone':'416 555 0199','Line: Mark':'Kitchen W2','Order: Notes':'Call before delivery'}};

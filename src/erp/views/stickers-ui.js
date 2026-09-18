@@ -49,6 +49,12 @@ function stkPrintPrepare(pages){
  return pages.length;
 }
 function stkPrintCleanup(){document.body.classList.remove('stk-printing');const h=document.getElementById('stkPrintHost');if(h)h.innerHTML='';}
+/* Стикеры остатков в сток — по номерам S-…, текущим шаблоном Stock offcut. */
+function stkPrintStock(ids){
+ const size=stkPrefSize(),tpl=stkTemplate('stock',size);
+ const pages=(ids||[]).map(stockOffcutFind).filter(r=>r&&r.status==='stock').map(r=>stkLayout(tpl,size,stkStockData(r)));
+ return pages.length?stkPrint(pages):false;
+}
 function stkPrint(pages){
  if(!stkPrintPrepare(pages))return false;
  window.addEventListener('afterprint',stkPrintCleanup,{once:true});
@@ -277,6 +283,11 @@ function stkSamples(type){
 function stkJobData(j){return j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
  const st=stkBuilderState();
+ if(type==='stock'&&!st.print){
+  const list=(DB.stockOffcut||[]).filter(r=>r.status==='stock').slice(-30).reverse().map(r=>({key:r.id,label:r.id+' · '+frac16(r.w)+' × '+frac16(r.h)+'″',r}));
+  const s=list.find(x=>x.key===st.sample)||list[0];
+  return {data:s?stkStockData(s.r):stkDemoData('stock'),list,key:s?s.key:''};
+ }
  if(st.print){
   const list=st.jobs.map((j,i)=>({key:String(i),label:(i+1)+' of '+st.count+' · Line '+(j.o.lines.indexOf(j.l)+1)+(j.type==='unit'?' · Unit '+j.unit:typeof j.unit==='string'?' · '+recutUnitText(j.unit,'?').replace(/ · \d+ of \?$/,''):' · Unit '+j.unit+' · Lite '+j.c.lite)}));
   const i=Math.max(0,list.findIndex(x=>x.key===st.sample));return {data:stkJobData(st.jobs[i]),list,key:String(i)};

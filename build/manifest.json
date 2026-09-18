@@ -89,6 +89,7 @@
   "src/erp/production/stickers.js",
   "src/erp/production/sticker-layout.js",
   "src/erp/production/cut-layout.js",
+  "src/erp/production/stock-offcuts.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",
