@@ -1697,7 +1697,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-stat small{font-size:10px;color:#667085}
 .cut-stat b{font-size:13px;color:#101828;font-variant-numeric:tabular-nums}
 .cut-stat .cut-main b{font-size:18px;color:#067647}
-.cut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:20px;margin-top:14px;align-items:start}
+.cut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:20px;margin-top:14px;align-items:start}
 .cut-side{min-width:0}
 .cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
 .cut-list-head:first-child{margin-top:0}
@@ -1723,9 +1723,27 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
 .cut-sheet-head .mut{font-size:12px}
-.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:10px;display:inline-block;line-height:0}
+.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:10px;display:block;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
 .cut-svg{display:block}
-.cut-svg [data-cut-piece]{cursor:pointer}
+.cut-paper .cut-svg{width:100%;height:auto}
+.cut-svg .cut-pc{cursor:grab}
+.cut-svg .cut-pc.locked{cursor:default}
+.cut-svg .cut-pc.cut-hl rect{stroke:#1f6f9f;stroke-width:2}
+.cut-svg .cut-pc.cut-drag-src{opacity:.35}
+.cut-svg .cut-rot{cursor:pointer}
+.cut-svg [data-cut-offcut]{cursor:context-menu}
+body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
+.cut-list tbody tr.cut-hl td{background:#f5f8ff}
+.cut-tabs button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
+.cut-side.cut-hot{outline:2px solid #1f6f9f;outline-offset:4px;border-radius:8px}
+.cut-menu{position:fixed;z-index:1000;min-width:200px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16);font-size:13px}
+.cut-menu button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:6px 10px;border:0;border-radius:6px;background:none;box-shadow:none;color:#101828;font-size:13px;text-align:left}
+.cut-menu button:hover{background:#f2f4f7}
+.cut-menu kbd{font-family:inherit;font-size:11px;color:#98a2b3}
+.cut-menu-head{padding:6px 10px 4px;font-size:11px;font-weight:600;color:#667085}
+.cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:#667085}
+.cut-menu-sheets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px}
+.cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid #d0d5dd}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
@@ -1771,7 +1789,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ff10061b92d1';
+var ERP_BUILD='1ed5cfd3c973';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -23869,29 +23887,189 @@ function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass))
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
 function cutUiKeep(glass,no,value){cutUiRun(()=>cutSheetKeepOffcut(cutUi.batch,glass,no,value));}
 function cutUiSet(pieceId,field,value){cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value));}
-function cutUiDragStart(e,pieceId){cutUi.drag=pieceId;cutUi.sel=pieceId;try{e.dataTransfer.setData('text/plain',pieceId);e.dataTransfer.effectAllowed='move';}catch(x){}}
-/* Бросок на лист: координаты пересчитываются из экранных в дюймы. */
-function cutUiPieceH(plan,id){
- const at=cutFind(plan,id);if(at)return at.piece.h;
- const src=cutPieces(glassBatchFind(cutUi.batch),plan.settings||{}).find(p=>p.piece===id);return src?src.h:0;
+function cutUiDragStart(e,pieceId){
+ cutUi.drag=pieceId;cutUi.sel=pieceId;cutUi.dropBox=null;
+ /* Размер детали — один раз на весь перенос, а не на каждое движение мыши. */
+ const plan=cutPlanFor(cutUi.batch),at=plan&&cutFind(plan,pieceId),src=plan&&cutPieces(glassBatchFind(cutUi.batch),plan.settings||{}).find(p=>p.piece===pieceId);
+ cutUi.dragDim=at?{w:at.piece.w,h:at.piece.h,shape:!!at.piece.shape}:src?{w:src.w,h:src.h,shape:!!src.shape}:null;
+ try{e.dataTransfer.setData('text/plain',pieceId);e.dataTransfer.effectAllowed='move';}catch(x){}
 }
-function cutUiDrop(e,glass,sheetNo){
- e.preventDefault();const id=cutUi.drag;cutUi.drag='';if(!id)return;
- const plan=cutPlanFor(cutUi.batch),g=plan&&plan.groups.find(x=>x.glass===glass),sheet=g&&g.sheets.find(x=>x.no===+sheetNo);
- if(!sheet)return;
- const pt=cutUiPoint(e,sheet,g,cutUiPieceH(plan,id));
- cutUiRun(()=>cutPiecePlace(cutUi.batch,id,sheetNo,pt.x,pt.y));
+/* ------------------------------ Мышь на листе ------------------------------
+   Владелец, 18 сентября 2026: «интерфейс не сильно подстроен на работу с
+   мышкой». Нужно: заблокировать лайаут и стекло, повернуть стекло левой
+   кнопкой, вынести стекло с листа и занести обратно. Поэтому:
+   - стекло тащится прямо по листу; тень показывает, куда ляжет (синяя —
+     можно, красная — занято), и липнет к линиям листа и к соседям;
+   - бросить стекло на вкладку листа — перенос на тот лист, в список — снять;
+   - клик по стеклу выбирает (и по подписи тоже), двойной клик или ⟲ —
+     поворот; клик по пустому месту снимает выбор;
+   - правая кнопка — меню; клавиши R, Delete, L, Esc;
+   - наведение подсвечивает стекло и на листе, и в списке. */
+let cutDrag=null,cutClick={id:'',t:0};
+/* Экранная точка → дюймы: X от нуля, Y от верха листа (yTop) и высота листа. */
+function cutUiSvgInches(svg,cx,cy){
+ const m=svg&&svg.getScreenCTM&&svg.getScreenCTM();if(!m)return null;
+ const pt=svg.createSVGPoint();pt.x=cx;pt.y=cy;const u=pt.matrixTransform(m.inverse()),S=+svg.dataset.cutScale||1;
+ return {x:u.x/S,yTop:u.y/S,sh:+svg.dataset.cutSh||0};
 }
-/* Клик по детали выбирает её, клик по свободному месту — переносит туда.
-   Тащить прямоугольник SVG мышью браузер не даёт, а два клика понятны. */
-function cutUiPaperClick(e,glass,sheetNo){
- const id=e.target&&e.target.dataset&&e.target.dataset.cutPiece;
- if(id){cutUiPick(id);return;}
- if(!cutUi.sel)return;
- const plan=cutPlanFor(cutUi.batch),g=plan&&plan.groups.find(x=>x.glass===glass),sheet=g&&g.sheets.find(x=>x.no===+sheetNo);
- if(!sheet)return;
- const pt=cutUiPoint(e,sheet,g,cutUiPieceH(plan,cutUi.sel));
- cutUiRun(()=>cutPiecePlace(cutUi.batch,cutUi.sel,sheetNo,pt.x,pt.y));
+function cutUiCtx(glass,no){
+ const plan=cutPlanFor(cutUi.batch),g=plan&&plan.groups.find(x=>x.glass===glass),sheet=g&&g.sheets.find(x=>x.no===+no);
+ if(!sheet)return null;
+ const params=cutGroupParams(g,sheet.size);
+ return {plan,g,sheet,params,u:cutUsable(sheet.size||g.sheet,params)};
+}
+/* Угол детали липнет к линиям листа и краям соседей ближе 1 1/2″. */
+function cutUiSnap(ctx,id,x,y,w,h){
+ const tol=1.5,xs=[ctx.u.x0,ctx.u.x1-w],ys=[ctx.u.y0,ctx.u.y1-h];
+ ctx.sheet.pieces.forEach(q=>{if(q.piece!==id){xs.push(q.x+q.w,q.x-w,q.x);ys.push(q.y+q.h,q.y-h,q.y);}});
+ const near=(v,list)=>{let best=v,d=tol;list.forEach(t=>{if(Math.abs(t-v)<=d){d=Math.abs(t-v);best=t;}});return best;};
+ return {x:cutRound(near(x,xs)),y:cutRound(near(y,ys))};
+}
+function cutUiGhost(svg,box,ok){
+ let r=svg&&svg.querySelector('[data-cut-ghost]');
+ if(!box){if(r)r.remove();return;}
+ if(!r){r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('data-cut-ghost','');r.setAttribute('pointer-events','none');svg.appendChild(r);}
+ const S=+svg.dataset.cutScale,sh=+svg.dataset.cutSh;
+ r.setAttribute('x',(box.x*S).toFixed(1));r.setAttribute('y',((sh-box.y-box.h)*S).toFixed(1));
+ r.setAttribute('width',(box.w*S).toFixed(1));r.setAttribute('height',(box.h*S).toFixed(1));
+ r.setAttribute('fill',ok?'rgba(31,111,159,.16)':'rgba(217,45,32,.16)');r.setAttribute('stroke',ok?'#1f6f9f':'#d92d20');r.setAttribute('stroke-width','1.5');
+ r.setAttribute('data-ok',ok?'1':'0');
+}
+/* Куда бросят: вкладка листа или список стёкол — подсветить. */
+function cutUiHot(el){
+ document.querySelectorAll('.cut-hot').forEach(x=>x.classList.remove('cut-hot'));
+ const t=el&&el.closest&&(el.closest('[data-cut-tab]')||el.closest('.cut-side'));if(t)t.classList.add('cut-hot');
+}
+function cutUiHover(id){
+ document.querySelectorAll('.cut-hl').forEach(x=>x.classList.remove('cut-hl'));
+ if(!id)return;
+ document.querySelectorAll('[data-cut-piece="'+CSS.escape(id)+'"],[data-cut-list="'+CSS.escape(id)+'"]').forEach(x=>x.classList.add('cut-hl'));
+}
+function cutUiOver(e){const g=e.target&&e.target.closest&&e.target.closest('[data-cut-piece]');if(!cutDrag)cutUiHover(g?g.dataset.cutPiece:'');}
+function cutUiDown(e,glass,no){
+ if(e.button!==0)return;
+ cutUiMenuClose();
+ const svg=e.currentTarget.querySelector('svg');if(!svg)return;
+ const t=e.target,rot=t.closest&&t.closest('[data-cut-rot-handle]');
+ if(rot){e.preventDefault();cutUi.sel=rot.dataset.cutRotHandle;cutUiRotate();return;}
+ const g=t.closest&&t.closest('[data-cut-piece]'),id=g?g.dataset.cutPiece:'',pt=cutUiSvgInches(svg,e.clientX,e.clientY);if(!pt)return;
+ const d={id,glass,no:+no,svg,sx:e.clientX,sy:e.clientY,moving:false};
+ if(id){
+  e.preventDefault();
+  const ctx=cutUiCtx(glass,no),p=ctx&&ctx.sheet.pieces.find(x=>x.piece===id);
+  if(p){d.ctx=ctx;d.p=p;d.dx=pt.x-p.x;d.dy=(pt.sh-pt.yTop)-p.y;}
+ }
+ cutDrag=d;
+ window.addEventListener('pointermove',cutUiMove);
+ window.addEventListener('pointerup',cutUiUp);
+}
+function cutUiMove(e){
+ const d=cutDrag;if(!d||!d.p||d.ctx.sheet.locked||d.p.locked)return;
+ if(!d.moving&&Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<5)return;
+ if(!d.moving){
+  d.moving=true;document.body.classList.add('cut-dragging');
+  const el=d.svg.querySelector('[data-cut-piece="'+CSS.escape(d.id)+'"]');if(el)el.classList.add('cut-drag-src');
+ }
+ const over=document.elementFromPoint(e.clientX,e.clientY);
+ if(!(over&&(over===d.svg||d.svg.contains(over)))){cutUiGhost(d.svg,null);d.box=null;cutUiHot(over);return;}
+ cutUiHot(null);
+ const pt=cutUiSvgInches(d.svg,e.clientX,e.clientY);if(!pt)return;
+ const s=cutUiSnap(d.ctx,d.id,pt.x-d.dx,(pt.sh-pt.yTop)-d.dy,d.p.w,d.p.h),box={x:s.x,y:s.y,w:d.p.w,h:d.p.h};
+ d.box=box;d.ok=!cutRoom(d.ctx.g,d.ctx.sheet,box,d.ctx.params,d.id,d.p);cutUiGhost(d.svg,box,d.ok);
+}
+function cutUiUp(e){
+ window.removeEventListener('pointermove',cutUiMove);window.removeEventListener('pointerup',cutUiUp);
+ const d=cutDrag;cutDrag=null;document.body.classList.remove('cut-dragging');if(!d)return;
+ if(d.moving){
+  cutUiGhost(d.svg,null);cutUiHot(null);
+  const over=document.elementFromPoint(e.clientX,e.clientY),tab=over&&over.closest&&over.closest('[data-cut-tab]'),side=over&&over.closest&&over.closest('.cut-side');
+  cutUi.sel=d.id;
+  if(tab){const to=+tab.dataset.cutTab;cutUi.sheet=to;return cutUiRun(()=>cutPieceAuto(cutUi.batch,d.id,to));}
+  if(side)return cutUiRun(()=>cutPieceTake(cutUi.batch,d.id));
+  if(d.box)return cutUiRun(()=>cutPiecePlace(cutUi.batch,d.id,d.no,d.box.x,d.box.y));
+  return render();
+ }
+ /* Клик: по стеклу — выбрать, второй клик по нему же — повернуть; по пустому
+    месту — снять выбор. Двойной клик ловим сами: после первого клика экран
+    перерисован, и браузерный dblclick не доходит. */
+ if(d.id){
+  const now=Date.now(),twice=cutClick.id===d.id&&now-cutClick.t<450;
+  cutClick=twice?{id:'',t:0}:{id:d.id,t:now};
+  cutUi.sel=d.id;cutUi.glass=d.glass;cutUi.sheet=d.no;
+  return twice?cutUiRotate():render();
+ }
+ if(cutUi.sel){cutUi.sel='';render();}
+}
+/* Бросок из списка: тень под курсором, деталь центром к курсору. */
+function cutUiDragOver(e,glass,no){
+ e.preventDefault();
+ const dim=cutUi.drag&&cutUi.dragDim,svg=e.currentTarget.querySelector('svg'),ctx=dim&&cutUiCtx(glass,no);
+ if(!ctx||!svg)return;
+ const pt=cutUiSvgInches(svg,e.clientX,e.clientY);if(!pt)return;
+ const s=cutUiSnap(ctx,cutUi.drag,pt.x-dim.w/2,(pt.sh-pt.yTop)-dim.h/2,dim.w,dim.h),box={x:s.x,y:s.y,w:dim.w,h:dim.h};
+ const ok=!cutRoom(ctx.g,ctx.sheet,box,ctx.params,cutUi.drag,dim);
+ cutUi.dropBox=box;cutUiGhost(svg,box,ok);
+}
+function cutUiDragLeave(e){if(!e.currentTarget.contains(e.relatedTarget))cutUiGhost(e.currentTarget.querySelector('svg'),null);}
+function cutUiDrop(e,glass,no){
+ e.preventDefault();const id=cutUi.drag,box=cutUi.dropBox;cutUi.drag='';cutUi.dropBox=null;
+ cutUiGhost(e.currentTarget.querySelector('svg'),null);if(!id)return;
+ cutUi.sel=id;cutUi.glass=glass;cutUi.sheet=+no;
+ cutUiRun(()=>box?cutPiecePlace(cutUi.batch,id,no,box.x,box.y):cutPieceAuto(cutUi.batch,id,no));
+}
+/* Правая кнопка: меню стекла, остатка или листа. */
+let cutMenuActs=[];
+function cutUiMenuClose(){const m=document.getElementById('cutMenu');if(m){m.remove();cutMenuActs=[];return true;}return false;}
+function cutUiMenuDo(i){const fn=cutMenuActs[i];cutUiMenuClose();if(fn)fn();}
+function cutUiMenu(e,glass,no){
+ e.preventDefault();cutUiMenuClose();
+ const ctx=cutUiCtx(glass,no);if(!ctx)return;
+ const t=e.target,g=t.closest&&t.closest('[data-cut-piece]'),off=t.closest&&t.closest('[data-cut-offcut]');
+ const rows=[],act=(label,key,fn,attr)=>{cutMenuActs.push(fn);rows.push(`<button type="button" ${attr||''} onclick="cutUiMenuDo(${cutMenuActs.length-1})"><span>${esc(label)}</span>${key?`<kbd>${key}</kbd>`:''}</button>`);};
+ cutUi.glass=glass;cutUi.sheet=+no;
+ if(g){
+  const id=g.dataset.cutPiece,p=ctx.sheet.pieces.find(x=>x.piece===id);
+  /* Выбор переходит на это стекло — полоса действий и подсветка про него же. */
+  if(cutUi.sel!==id){cutUi.sel=id;render();}
+  rows.push(`<div class="cut-menu-head">${esc(id)}${p?' · '+esc(frac16(p.w))+' × '+esc(frac16(p.h))+'″':''}</div>`);
+  act('Rotate','R',()=>cutUiRotate(),'data-cut-menu="rotate"');
+  act('Take off the sheet','Del',()=>cutUiTake(),'data-cut-menu="take"');
+  act(p&&p.locked?'Unlock glass':'Lock glass','L',()=>cutUiLock(),'data-cut-menu="lock"');
+  const others=ctx.g.sheets.filter(x=>x.no!==ctx.sheet.no&&!x.locked);
+  if(others.length){
+   rows.push('<div class="cut-menu-sub">Move to sheet</div><div class="cut-menu-sheets">');
+   others.forEach(x=>act(String(x.no),'',()=>{cutUi.sheet=x.no;cutUiRun(()=>cutPieceAuto(cutUi.batch,id,x.no));},'data-cut-menu-sheet="'+x.no+'"'));
+   rows.push('</div>');
+  }
+ }else if(off){
+  act(ctx.sheet.keepOffcut?'Offcut back to waste':'Offcut to stock','',()=>cutUiKeep(glass,no,!ctx.sheet.keepOffcut),'data-cut-menu="keep"');
+ }
+ act(ctx.sheet.locked?'Unlock sheet':'Lock sheet','',()=>cutUiSheetLock(),'data-cut-menu="sheet-lock"');
+ const m=document.createElement('div');m.id='cutMenu';m.className='cut-menu';m.setAttribute('role','menu');m.innerHTML=rows.join('');
+ document.body.appendChild(m);
+ const w=m.offsetWidth,h=m.offsetHeight;
+ m.style.left=Math.max(4,Math.min(e.clientX,window.innerWidth-w-4))+'px';m.style.top=Math.max(4,Math.min(e.clientY,window.innerHeight-h-4))+'px';
+}
+/* Клавиши — пока открыт раскрой и курсор не в поле ввода. */
+function cutUiKey(e){
+ if(!document.querySelector('[data-cut-sheet]'))return;
+ const t=e.target,tag=t&&t.tagName||'';
+ if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||t&&t.isContentEditable)return;
+ if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();}return;}
+ if(!cutUi.sel||e.metaKey||e.ctrlKey||e.altKey)return;
+ const k=String(e.key||'').toLowerCase();
+ if(k==='r'){e.preventDefault();cutUiRotate();}
+ else if(k==='delete'||k==='backspace'){e.preventDefault();cutUiTake();}
+ else if(k==='l'){e.preventDefault();cutUiLock();}
+}
+if(typeof document!=='undefined'&&!window.cutUiKeysOn){
+ window.cutUiKeysOn=true;
+ document.addEventListener('keydown',cutUiKey);
+ document.addEventListener('pointerdown',e=>{const m=document.getElementById('cutMenu');if(m&&!m.contains(e.target))cutUiMenuClose();},true);
+ /* Закрываем по колесу, а не по scroll: прокрутка страницы доходит на
+    следующем кадре и закрыла бы только что открытое меню. */
+ window.addEventListener('wheel',()=>cutUiMenuClose(),{passive:true,capture:true});
+ window.addEventListener('resize',()=>cutUiMenuClose());
 }
 function cutUiTabDrop(e,glass,sheetNo){
  e.preventDefault();const id=cutUi.drag;cutUi.drag='';if(!id)return;
@@ -23916,16 +24094,19 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
- const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" class="cut-svg" font-family="Helvetica, Arial, sans-serif">',
+ /* На экране лист тянется на всю ширину колонки; в печати — свой размер. */
+ const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
   '<rect width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'" fill="'+(edged?'#fef0c7':'#f2f4f7')+'" stroke="#98a2b3"/>'];
  if(edged)out.push('<rect x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'" fill="#f2f4f7"/>');
  /* Остаток: подсказка серым, пока его не отметили «в сток»; отмеченный — зелёный. */
  if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h),kept=!!sheet.keepOffcut;
-  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+(kept?'#ecfdf3':'#f9fafb')+'" stroke="'+(kept?'#12b76a':'#d0d5dd')+'" stroke-width="1.2" '+(kept?'data-cut-stock-area':'data-cut-offcut-hint')+'/>');
+  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+(kept?'#ecfdf3':'#f9fafb')+'" stroke="'+(kept?'#12b76a':'#d0d5dd')+'" stroke-width="1.2" data-cut-offcut="'+sheet.no+'" '+(kept?'data-cut-stock-area':'data-cut-offcut-hint')+'/>');
   if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+(kept?'#067647':'#98a2b3')+'">'+(kept?'To stock ':'Offcut ')+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
-  out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel?2:1)+'"'+(opts.ids?' data-cut-piece="'+esc(p.piece)+'"':'')+'/>');
+  /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
+  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
+  out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel?2:1)+'"/>');
   const lines=[];
   if(h>52&&w>84){lines.push([src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),9,'#475467']);}
   else if(h>30&&w>64)lines.push([String(i+1)+' · '+frac16(p.w)+' × '+frac16(p.h)+'″',9,'#101828']);
@@ -23933,6 +24114,9 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=y+h/2-total/2;
   lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="'+(x+w/2).toFixed(1)+'" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
+  out.push('</g>');
+  /* У выбранного стекла — кнопка поворота в углу, левой кнопкой мыши. */
+  if(sel&&opts.ids&&!p.locked&&w>30&&h>30)out.push('<g data-cut-rot-handle="'+esc(p.piece)+'" class="cut-rot"><title>Rotate (R)</title><circle cx="'+(x+w-11).toFixed(1)+'" cy="'+(y+11).toFixed(1)+'" r="8" fill="#1f6f9f"/><text x="'+(x+w-11).toFixed(1)+'" y="'+(y+15).toFixed(1)+'" text-anchor="middle" font-size="11" fill="#ffffff">⟲</text></g>');
  });
  const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(pr[edge]))+'″</title></line>');
  if(u.y0>0)line('trimX',0,H-u.y0*S,W,H-u.y0*S);
@@ -23945,13 +24129,6 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   '<text x="-4" y="10" text-anchor="end" font-size="10" fill="#475467">Y</text>',
   '<text x="-4" y="22" text-anchor="end" font-size="9" fill="#475467">'+esc(frac16(size.h))+'″</text>');
  return out.join('')+'</svg>';
-}
-/* Экранная точка на листе → дюймы от нуля (слева внизу); угол детали — там,
-   куда кликнули или бросили. */
-function cutUiPoint(e,sheet,group,h){
- const svg=e.currentTarget.querySelector('svg')||e.currentTarget,box=svg.getBoundingClientRect(),size=sheet.size||group.sheet;
- const pad=CUT_SVG_PAD,S=(box.width-pad)/size.w,x=(e.clientX-box.left-pad)/S,yTop=(e.clientY-box.top)/S;
- return {x:Math.max(0,x),y:Math.max(0,size.h-yTop-(h||0))};
 }
 /* --------------------------------- Печать -------------------------------- */
 function cutPrintHost(){let h=document.getElementById('cutPrintHost');if(!h){h=document.createElement('div');h.id='cutPrintHost';document.body.appendChild(h);}return h;}
@@ -23986,7 +24163,7 @@ function cutStatsBar(plan,sheet){
 }
 function cutPieceRow(p,at,sel){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';
- return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${p.off?' off':''}" draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onclick="cutUiPick('${esc(p.piece)}')">
+ return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${p.off?' off':''}" draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onclick="cutUiPick('${esc(p.piece)}')" onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
   <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
   <td class="gb-piece">${esc(p.piece)}</td><td class="nowrap">${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${p.shape?' <span class="pill">shape</span>':''}</td>
   <td><button type="button" class="gb-link" data-cut-open="${esc(p.orderId)}" title="Open the order and its shape" onclick="event.stopPropagation();optimizationOpenOrder('${esc(p.orderId)}')">${esc(p.order)} / ${p.line}</button>${p.mark?' · '+esc(p.mark):''}</td><td>${esc(p.customer)}</td>
@@ -24065,8 +24242,8 @@ function viewCutLayout(b){
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
     ${sheet.offcut?`<button type="button" class="${sheet.keepOffcut?'on':''}" data-cut-keep onclick="cutUiKeep('${esc(group.glass)}',${sheet.no},${sheet.keepOffcut?'false':'true'})">${sheet.keepOffcut?'Offcut to stock ✓':'Offcut to stock'}</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
-   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="event.preventDefault()" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onclick="cutUiPaperClick(event,'${esc(group.glass)}',${sheet.no})">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
-   ${actions}<p class="mut cut-hint">Drag a piece onto the sheet · click a piece, then a free spot to move it</p>
+   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
+   ${actions}<p class="mut cut-hint">Drag glass on the sheet, to a sheet tab or to the list · double-click or R — rotate · right-click — menu</p>
   </div>
  </div>${stockList}${orders}`;
 }
