@@ -475,15 +475,20 @@ function cutPrintLayouts(number){
    хаос» (владелец, 18 сентября 2026): было две карточки по 4–9 цифр, Scrap и
    Net почти всегда одинаковые, процент листа повторялся в шапке. */
 function cutNum(v,d){return (+v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+/* Плитка: крупное значение сверху, подпись мелко снизу. Все цифры на месте —
+   «количество данных было нормально, отображение некрасивое, друг на друге»
+   (владелец, 18 сентября 2026). */
+function cutTile(label,value,main){return `<div class="cut-tile${main?' cut-tile-main':''}"${main?' data-cut-used-pct':''}><b>${value}</b><small>${label}</small></div>`;}
 function cutSumTotal(plan){
- const s=plan.stats,stock=plan.groups.reduce((n,g)=>n+g.sheets.reduce((a,x)=>a+(x.stock||[]).length,0),0);
- return `<div class="cut-sum" data-cut-total><b class="cut-sum-pct" data-cut-used-pct>${cutNum(s.usedPct,1)}%</b><span class="cut-sum-word">used</span>
-  <span class="cut-sum-meta" data-cut-stats>${s.sheets} sheet${s.sheets===1?'':'s'} · ${s.placed} / ${s.total} glass · waste ${cutNum(s.net,1)} ft² · ${cutNum(s.netPct,1)}%${stock?` · stock ${stock} · ${cutNum(s.keep,1)} ft²`:''}</span></div>`;
+ const s=plan.stats,n=plan.groups.reduce((a,g)=>a+g.sheets.reduce((b,x)=>b+(x.stock||[]).length,0),0);
+ return `<div class="cut-tiles" data-cut-total><span class="cut-tiles-cap">All sheets</span>
+  ${cutTile('Used %',cutNum(s.usedPct,1)+'%',1)}${cutTile('Used',cutNum(s.used,1)+' ft²')}${cutTile('Scrap',cutNum(s.gross,1)+' ft²')}${cutTile('Net',cutNum(s.net,1)+' ft²')}${cutTile('Net %',cutNum(s.netPct,1)+'%')}
+  <span class="cut-tiles-gap"></span>${cutTile('Sheets',s.sheets)}${cutTile('Pieces',s.placed+' / '+s.total)}${cutTile('To stock',n?n+' · '+cutNum(s.keep,1)+' ft²':'0')}</div>`;
 }
 function cutSumSheet(group,sheet){
  const z=sheet.size||group.sheet,area=cutArea(z.w,z.h);
- return `<span class="cut-sheet-size">${esc(frac16(z.w))} × ${esc(frac16(z.h))}″ · ${sheet.pieces.length} glass</span>
-  <span class="cut-sheet-pct" data-cut-current><b>${cutNum(cutPct(sheet.used,area),1)}%</b> used · ${cutNum(sheet.net,1)} ft² waste${(sheet.stock||[]).length?` · stock ${sheet.stock.length}`:''}</span>`;
+ return `<span class="cut-sheet-size">${esc(frac16(z.w))} × ${esc(frac16(z.h))}″ · ${sheet.pieces.length} glass${(sheet.stock||[]).length?' · stock '+sheet.stock.length:''}</span>
+  <div class="cut-tiles cut-tiles-sheet" data-cut-current>${cutTile('Used %',cutNum(cutPct(sheet.used,area),1)+'%',1)}${cutTile('Used',cutNum(sheet.used,1)+' ft²')}${cutTile('Scrap',cutNum(sheet.gross,1)+' ft²')}${cutTile('Net',cutNum(sheet.net,1)+' ft²')}</div>`;
 }
 function cutPieceRow(p,at,sel){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';

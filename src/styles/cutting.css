@@ -145,11 +145,18 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-sheet-pane .cut-stock-row input[type=number]{width:52px}
 .cut-sheet-pane .cut-stock th{padding-right:6px;font-size:10px}
 .cut-sheet-pane .cut-stock td{padding-right:6px}
-/* Сводка: одна крупная цифра, остальное мелко одной строкой. */
-.cut-sum{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
-.cut-toolbar .cut-sum .cut-sum-pct{font-size:24px;font-weight:650;letter-spacing:-.02em;color:#067647;line-height:1}
-.cut-sum-word{font-size:13px;color:#344054;margin-right:10px}
-.cut-sum-meta{font-size:12px;color:#667085}
+/* Цифры плитками: значение сверху, подпись снизу, одна линия, ничего не
+   налезает; Used % — крупно и зелёным. */
+.cut-tiles{display:flex;align-items:flex-end;gap:0;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.cut-tiles-cap{align-self:center;margin-right:14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#98a2b3}
+.cut-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:64px;padding:0 14px;border-left:1px solid #eaecf0}
+.cut-tile:first-of-type,.cut-tiles-gap+.cut-tile{border-left:0}
+.cut-tiles-gap{width:18px}
+.cut-tile b{font-size:14px;font-weight:600;color:#101828;line-height:1.15;white-space:nowrap}
+.cut-tile small{margin-top:2px;font-size:10px;color:#667085;letter-spacing:.02em;white-space:nowrap}
+.cut-toolbar .cut-tiles .cut-tile-main b,.cut-tile-main b{font-size:22px;font-weight:650;letter-spacing:-.02em;color:#067647}
+.cut-tiles-cap+.cut-tile{padding-left:0}
+.cut-tiles-sheet{margin-left:10px}
+.cut-tiles-sheet .cut-tile{min-width:56px;padding:0 10px}
+.cut-tiles-sheet .cut-tile-main b{font-size:17px}
 .cut-sheet-size{font-size:12px;color:#667085}
-.cut-sheet-pct{font-size:12px;color:#667085;font-variant-numeric:tabular-nums;margin-left:6px;padding-left:10px;border-left:1px solid #eaecf0}
-.cut-sheet-pct b{font-size:15px;color:#067647;font-weight:650}
