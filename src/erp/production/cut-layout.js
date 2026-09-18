@@ -58,7 +58,13 @@ function cutPieces(batch,settings){
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }
-function cutPriority(v){const n=Math.round(+v);return Number.isFinite(n)&&n>=1&&n<=10?n:5;}
+/* Приоритет: 0 — нет (по умолчанию), 1 — самый срочный … 10. «Приоритизация
+   базово 0 у всех, если она будет нужна — я сам выберу» (владелец,
+   18 сентября 2026). cutPrioRank — порядок (без приоритета — последним),
+   cutPrioWeight — вес срочности (0 у стекла без приоритета). */
+function cutPriority(v){const n=Math.round(+v);return Number.isFinite(n)&&n>=0&&n<=10?n:0;}
+function cutPrioRank(p){return p>0?p:11;}
+function cutPrioWeight(p){return p>0?11-p:0;}
 /* Размеры листов этого стекла из поставок Master Data. Лист всегда лёжа:
    длинная сторона — X по горизонтали, как на столе и в Perfect Cut
    (владелец, 18 сентября 2026: «ориентация щита должна быть по горизонтали»). */
@@ -92,7 +98,7 @@ function cutRunParams(mm,size,pick){
  const edge=(f,base)=>num(row[f],num(run[f],own&&own[f]!=null?own[f]:base));
  return Object.assign({},p,{
   trimX:edge('trimX',p.trim),trimY:edge('trimY',p.trim),borderX:edge('borderX',p.border),borderY:edge('borderY',p.border),
-  minDist:num(run.minDist,p.minDist),
+  minDist:num(row.minDist,num(run.minDist,p.minDist)),
   rotate:typeof run.rotate==='boolean'?run.rotate:p.rotate,
   minOffcutW:num(run.minOffcutW,p.minOffcutW),minOffcutH:num(run.minOffcutH,p.minOffcutH)});
 }
@@ -155,7 +161,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
     шире (полоса ниже), либо выше — у каждой стратегии своя. Разные стратегии
     дают разные раскладки, а лучшую выбирает cutScore. */
  const best=(list,W)=>list.slice().sort((a,b)=>strategy.prefer==='wide'?b.w-a.w||a.h-b.h:strategy.prefer==='tall'?b.h-a.h||a.w-b.w:Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
- const order=list.slice().sort((a,b)=>(a.priority-b.priority)*(strategy.prefer==='priority'?1000000:1)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
+ const order=list.slice().sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
  const push=(s,st,o,p)=>{
   const {x0,y0,p:pr}=room(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
   const x=st.pieces.length?st.x+gap:st.x;st.x=x+o.w;st.pieces.push(p);
@@ -241,7 +247,7 @@ function cutFillSheet(list,u,params,v){
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
- const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?a.priority-b.priority:0)||CUT_FILL_SORTS[v.s](a,b)||a.priority-b.priority||a.piece.localeCompare(b.piece));
+ const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||CUT_FILL_SORTS[v.s](a,b)||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
  let used=0,urgent=0;
  const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
  for(const p of order){
@@ -276,7 +282,7 @@ function cutFillSheet(list,u,params,v){
   const x=cutRound(F.x+best.gl),y=cutRound(F.y+best.gb),q=p.t0;
   placed.push(T?{piece:q.piece,shape:!!q.shape,x:y,y:x,w:best.o.h,h:best.o.w,rot:(best.o.h!==q.w),locked:false}
    :{piece:q.piece,shape:!!q.shape,x,y,w:best.o.w,h:best.o.h,rot:best.o.w!==q.w,locked:false});
-  used+=q.w*q.h;urgent+=Math.max(0,5-(q.priority||5));
+  used+=q.w*q.h;urgent+=cutPrioWeight(q.priority);
  }
  return {placed,rest,used,urgent};
 }
@@ -418,7 +424,7 @@ function cutPlanRun(number){
   const candidates=CUT_STRATEGIES.map(strategy=>({strategy,packed:cutPack(rest,stock,paramsFor,strategy,keptSheets,mm)}));
   candidates.push({strategy:{k:'fill'},packed:cutPackFill(rest,stock,paramsFor,keptSheets)});
   const prio=new Map(rest.map(p=>[p.piece,p.priority]));
-  if(rest.some(p=>p.priority<5))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
+  if(rest.some(p=>p.priority>0))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
   candidates.forEach(({strategy,packed})=>{
    const first=packed.sheets[0]&&packed.sheets[0].size||stock[0];
    /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
@@ -451,7 +457,7 @@ function cutPlanRun(number){
 function cutScore(g,prio){
  const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
  const offcut=g.sheets.reduce((a,s)=>a+((s.offcuts||[])[0]?cutArea(s.offcuts[0].w,s.offcuts[0].h):0),0);
- const late=prio?g.sheets.reduce((a,s,i)=>a+s.pieces.reduce((b,p)=>b+Math.max(0,5-(prio.get(p.piece)||5))*i,0),0):0;
+ const late=prio?g.sheets.reduce((a,s,i)=>a+s.pieces.reduce((b,p)=>b+cutPrioWeight(prio.get(p.piece))*i,0),0):0;
  return [(g.unplaced||[]).length,area,g.sheets.length,late,-offcut];
 }
 function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
@@ -637,7 +643,9 @@ function cutRunPick(plan,glass){
 function cutSetStock(number,glass,key,field,value,later){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
  let edge=null;
- if(CUT_EDGES.includes(field)&&String(value==null?'':value).trim()!==''){
+ /* Min dist — тоже у каждой строки размера, как на макете владельца. */
+ const rowField=CUT_EDGES.includes(field)||field==='minDist';
+ if(rowField&&String(value==null?'':value).trim()!==''){
   edge=typeof cutIn==='function'?cutIn(value,null):+value;
   if(edge==null||!Number.isFinite(edge))return {error:'Enter a size like 3/4 or 1 1/2.'};
  }
@@ -648,7 +656,7 @@ function cutSetStock(number,glass,key,field,value,later){
  if(field==='off')row.off=!!value;
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
- if(CUT_EDGES.includes(field)){if(edge==null)delete row[field];else row[field]=edge;}
+ if(rowField){if(edge==null)delete row[field];else row[field]=edge;}
  touch();return cutApply(number,later);
 }
 const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','rotate'];

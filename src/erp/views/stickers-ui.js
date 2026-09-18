@@ -33,8 +33,8 @@ function stkBatchOf(o,c,unit){const x=glassBatchActive(o.id).get(c.key+'|'+unit)
 function stkPages(jobs,size,override){
  const tpls={};
  return jobs.map(j=>{
-  const tpl=tpls[j.type]||(tpls[j.type]=override||stkTemplate(j.type,size));
-  const d=j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});
+  const tpl=tpls[j.type]||(tpls[j.type]=j.type==='stock'?stkTemplate('stock',size):override||stkTemplate(j.type,size));
+  const d=stkJobData(j);
   return stkLayout(tpl,size,d);
  });
 }
@@ -108,6 +108,11 @@ function stkBatchJobs(b,pieces,order){
   jobs.push({type:'production',o,l,c,unit:item.unit,
    sort:at?[0,at.sheet,at.pos,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
+ /* По листу: после стёкол листа — его куски в стоке. Стикер стока не
+    печатается кнопкой «в сток» — «он будет печататься, следуя листам»
+    (владелец, 18 сентября 2026). */
+ const plan=sheets&&!pick&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
+ if(plan)plan.groups.forEach(g=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sort:[0,s.no,1e6+i,0]});})));
  return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
 }
 function stkDialogJobs(){
@@ -148,7 +153,7 @@ function stkDialogPrint(){
 function stkPrintCustomize(){
  const d=stkDialog;if(!d)return;const r=stkDialogJobs();if(r.error||!r.jobs.length){d.error=r.error||'Nothing to print.';render();return;}
  const key=stkKey(d.type,d.size);
- stkPrintEdit={type:d.type,size:d.size,drafts:{[key]:{tpl:JSON.parse(JSON.stringify(d.tpl||stkTemplate(d.type,d.size))),dirty:false}},sample:'0',sel:'',open:'',notice:'',print:true,jobs:r.jobs.slice(0,60),count:r.jobs.length};
+ stkPrintEdit={type:d.type,size:d.size,drafts:{[key]:{tpl:JSON.parse(JSON.stringify(d.tpl||stkTemplate(d.type,d.size))),dirty:false}},sample:'0',sel:'',open:'',notice:'',print:true,jobs:r.jobs.filter(j=>j.type!=='stock').slice(0,60),count:r.jobs.filter(j=>j.type!=='stock').length};
  render();
 }
 function stkPrintEditDone(){const d=stkDialog,e=stkPrintEdit;if(d&&e){d.tpl=JSON.parse(JSON.stringify(e.drafts[stkKey(e.type,e.size)].tpl));d.warning='';}stkPrintEdit=null;render();}
@@ -280,7 +285,7 @@ function stkSamples(type){
  }));
  return out.slice(0,80);
 }
-function stkJobData(j){return j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
+function stkJobData(j){return j.type==='stock'?stkStockData(j.rec):j.type==='unit'?stkUnitData(j.o,j.l,j.unit):stkGlassData(j.type,j.o,j.l,j.c,j.unit,{batch:stkBatchOf(j.o,j.c,j.unit)});}
 function stkSampleData(type){
  const st=stkBuilderState();
  if(type==='stock'&&!st.print){
