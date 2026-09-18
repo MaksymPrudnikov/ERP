@@ -129,3 +129,4 @@ body.cut-full:has([data-cut-full]) .shell{grid-template-columns:minmax(0,1fr)}
 body.cut-full:has([data-cut-full]) .side,body.cut-full:has([data-cut-full]) header{display:none}
 body.cut-full:has([data-cut-full]) main{padding:12px 16px}
 body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(560px,1fr) minmax(0,1.7fr)}
+.cut-toolbar button.cut-pending{box-shadow:0 0 0 3px #fedf89}

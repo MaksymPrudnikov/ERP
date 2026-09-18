@@ -422,12 +422,12 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3],[129.5,95.5,1]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const over=(document.querySelector('[data-cut-over]')||{}).textContent||'';
-  document.querySelector('[data-cut-over-add]').click();
+  document.querySelector('[data-cut-over-add]').click();document.querySelector('[data-cut-run]').click();
   const p=cutPlanFor(b.number),g=p.groups[0],keys=g.sheets.map(x=>cutSheetKey(x.size)),row=document.querySelector('[data-cut-stock="130x96#2"]');
   const nums=[...document.querySelectorAll('[data-cut-size-nums]')].map(x=>x.dataset.cutSizeNums+' '+x.textContent.replace(/\s+/g,' ').trim());
   const edges=['trimx','trimy','borderx','bordery'].map(f=>row.querySelector('[data-cut-edge-'+f+']').value).join();
   const placed=p.stats.placed,total=p.stats.total;
-  document.querySelector('[data-cut-same-remove="130x96#2"]').click();
+  document.querySelector('[data-cut-same-remove="130x96#2"]').click();document.querySelector('[data-cut-run]').click();
   return {over:/1 glass larger than the sheet/.test(over),variant:keys.includes('130x96#2'),placed:placed===total,edges,nums:nums.every(x=>/% used · .*% waste · .* ft²/.test(x)),removed:!document.querySelector('[data-cut-stock="130x96#2"]'),overBack:!!document.querySelector('[data-cut-over]')};
  }),{over:true,variant:true,placed:true,edges:'0,0,0,0',nums:true,removed:true,overBack:true});
 
@@ -450,6 +450,25 @@ module.exports=async function({page,eq,ok}){
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const back=getComputedStyle(document.querySelector('.side')).display!=='none';
   return {narrow:(narrow.match(/<text/g)||[]).length===2||/rotate/.test(narrow),wide:(wide.match(/<text/g)||[]).length===1,tiny,hidden,label,back};
  }),{narrow:true,wide:true,tiny:'',hidden:true,label:'Exit full screen',back:true});
+
+ eq('правки склада и параметров ждут кнопки Rebuild: раскладка стоит, строка «Settings changed», стекло за новой линией — красное; Rebuild пересобирает, заблокированный лист — первым',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  const lay=()=>JSON.stringify(cutPlanFor(b.number).groups[0].sheets.map(s=>s.pieces.map(p=>[p.piece,p.x,p.y])));
+  const before=lay(),btn=document.querySelector('[data-cut-run]').textContent;
+  const trim=document.querySelector('[data-cut-edge-trimx]');trim.value='20';trim.dispatchEvent(new Event('change'));
+  const still=lay()===before,pending=!!document.querySelector('[data-cut-pending]'),red=document.querySelectorAll('.cut-paper [data-cut-out]').length>0,
+   lit=document.querySelector('[data-cut-run]').classList.contains('cut-pending');
+  /* Минимальный остаток — сразу, без «Settings changed». */
+  const g0=cutPlanFor(b.number).groups[0];
+  cutSheetLock(b.number,'6CLEAR',g0.sheets.length);const lockedIds=g0.sheets[g0.sheets.length-1].pieces.map(p=>p.piece).join();render();
+  document.querySelector('[data-cut-run]').click();
+  const p=cutPlanFor(b.number),g=p.groups[0];
+  const rebuilt=!document.querySelector('[data-cut-pending]'),first=g.sheets[0].locked&&g.sheets[0].pieces.map(x=>x.piece).join()===lockedIds;
+  const moved=g.sheets.filter(x=>!x.locked).every(x=>x.pieces.every(q=>q.y>=20-1e-6));
+  cutSetParam(b.number,'6CLEAR','minOffcutW','24',true);const soft=!cutPlanFor(b.number).pending;
+  return {btn,still,pending,red,lit,rebuilt,first,moved,soft};
+ }),{btn:'Rebuild',still:true,pending:true,red:true,lit:true,rebuilt:true,first:true,moved:true,soft:true});
 
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {
