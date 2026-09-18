@@ -97,6 +97,7 @@ function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,
 function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
 function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
+function cutUiKeep(glass,no,value){cutUiRun(()=>cutSheetKeepOffcut(cutUi.batch,glass,no,value));}
 function cutUiSet(pieceId,field,value){cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value));}
 function cutUiDragStart(e,pieceId){cutUi.drag=pieceId;cutUi.sel=pieceId;try{e.dataTransfer.setData('text/plain',pieceId);e.dataTransfer.effectAllowed='move';}catch(x){}}
 /* Бросок на лист: координаты пересчитываются из экранных в дюймы. */
@@ -148,9 +149,10 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" class="cut-svg" font-family="Helvetica, Arial, sans-serif">',
   '<rect width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'" fill="'+(edged?'#fef0c7':'#f2f4f7')+'" stroke="#98a2b3"/>'];
  if(edged)out.push('<rect x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'" fill="#f2f4f7"/>');
- if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h);
-  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="#ecfdf3" stroke="#12b76a" stroke-width="1.2" data-cut-stock-area/>');
-  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="#067647">To stock '+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
+ /* Остаток: подсказка серым, пока его не отметили «в сток»; отмеченный — зелёный. */
+ if(sheet.offcut){const o=sheet.offcut,oy=fy(o.y,o.h),kept=!!sheet.keepOffcut;
+  out.push('<rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+(kept?'#ecfdf3':'#f9fafb')+'" stroke="'+(kept?'#12b76a':'#d0d5dd')+'" stroke-width="1.2" '+(kept?'data-cut-stock-area':'data-cut-offcut-hint')+'/>');
+  if(o.w*S>70&&o.h*S>16)out.push('<text x="'+((o.x+o.w/2)*S).toFixed(1)+'" y="'+(oy+o.h*S/2+4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="'+(kept?'#067647':'#98a2b3')+'">'+(kept?'To stock ':'Offcut ')+esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″</text>');}
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel?2:1)+'"'+(opts.ids?' data-cut-piece="'+esc(p.piece)+'"':'')+'/>');
@@ -191,7 +193,7 @@ function cutPrintLayouts(number){
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
    return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${p.rot?'rotated':''}</td></tr>`;}).join('');
   pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
-   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${s.offcut?' · Offcut '+esc(frac16(s.offcut.w))+' × '+esc(frac16(s.offcut.h))+'″':''}</p>
+   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${s.offcut&&s.keepOffcut?' · To stock '+esc(frac16(s.offcut.w))+' × '+esc(frac16(s.offcut.h))+'″':''}</p>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
    <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }));
@@ -204,11 +206,13 @@ function cutPrintLayouts(number){
 }
 /* --------------------------------- Экран --------------------------------- */
 function cutStatsBar(plan,sheet){
- const cell=(k,v)=>`<span><small>${k}</small><b>${v}</b></span>`;
- const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}${cell('Used %',(sheet.used+sheet.net?Math.round(sheet.used/(sheet.used+sheet.net)*1000)/10:0)+'%')}</div>`:'';
+ /* Главная цифра — Used %: сколько листа ушло в заказы. */
+ const cell=(k,v,main)=>`<span${main?' class="cut-main" data-cut-used-pct':''}><small>${k}</small><b>${v}</b></span>`;
+ const area=sheet?cutArea((sheet.size||plan.groups[0].sheet).w,(sheet.size||plan.groups[0].sheet).h):0;
+ const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used %',cutPct(sheet.used,area)+'%',1)}${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}</div>`:'';
  const s=plan.stats;
- const stock=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.offcut).length,0);
- return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Used %',s.usedPct+'%')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
+ const stock=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.offcut&&x.keepOffcut).length,0);
+ return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used %',s.usedPct+'%',1)}${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
 }
 function cutPieceRow(p,at,sel){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';
@@ -221,7 +225,7 @@ function cutPieceRow(p,at,sel){
 }
 function viewCutLayout(b){
  const s=cutUiState(b.number),plan=cutPlanFor(b.number),stale=plan&&cutPlanStale(b.number);
- const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · net ${plan.stats.netPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
+ const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · used ${plan.stats.usedPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
   <span class="sp"></span>${plan?`<button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
   <button type="button" class="pri" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Re-optimize':'Optimize'}</button></div>`;
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
@@ -249,7 +253,7 @@ function viewCutLayout(b){
     <select data-cut-jump onchange="cutUiSheet('${esc(group.glass)}',this.value)">${group.sheets.map(x=>`<option value="${x.no}" ${x.no===sheet.no?'selected':''}>Sheet ${x.no}${x.locked?' · locked':''} · ${x.pieces.length} pcs · net ${x.net} ft²</option>`).join('')}</select>
     <button type="button" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)">›</button>
     <span class="mut">${sheet.no} / ${group.sheets.length}</span></div>`
-  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${x.offcut?' · stock':''}</small></button>`).join('');
+  :group.sheets.map(x=>`<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})">Sheet ${x.no}${x.locked?' 🔒':''}<small>${x.pieces.length} pcs · net ${x.net} ft²${x.offcut&&x.keepOffcut?' · stock':''}</small></button>`).join('');
  const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
@@ -276,7 +280,9 @@ function viewCutLayout(b){
    <label class="chk"><input type="checkbox" data-cut-rot ${group.params.rotate?'checked':''} onchange="cutUiParam('${esc(group.glass)}','rotate',this.checked)"> Rotate</label>
    <button type="button" class="gb-link" data-cut-reset-params onclick="cutUiResetParams('${esc(group.glass)}')">Reset to Master Data</button></div></div>`:'';
  const offcuts=plan.groups.flatMap(g=>g.sheets.filter(x=>x.offcut).map(x=>({g,x})));
- const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts to stock · ${offcuts.length}</h4><table class="sl-table"><thead><tr><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${x.keep}</td></tr>`;}).join('')}</tbody></table></div>`:'';
+ /* Остатки — подсказка: в сток идёт только отмеченное, остальное — отход. */
+ const kept=offcuts.filter(({x})=>x.keepOffcut).length;
+ const stockList=offcuts.length?`<div class="cut-orders" data-cut-offcuts><h4>Offcuts · ${kept} of ${offcuts.length} to stock</h4><p class="mut">Not ticked — waste.</p><table class="sl-table"><thead><tr><th>To stock</th><th>Sheet</th><th>Glass</th><th>Sheet size</th><th>Offcut</th><th class="n">ft²</th></tr></thead><tbody>${offcuts.map(({g,x})=>{const sz=x.size||g.sheet;return `<tr><td><input type="checkbox" data-cut-keep-row="${x.no}" ${x.keepOffcut?'checked':''} aria-label="Sheet ${x.no} offcut to stock" onchange="cutUiKeep('${esc(g.glass)}',${x.no},this.checked)"></td><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td>${esc(frac16(sz.w))} × ${esc(frac16(sz.h))}″</td><td><b>${esc(frac16(x.offcut.w))} × ${esc(frac16(x.offcut.h))}″</b></td><td class="n">${cutFt2(cutArea(x.offcut.w,x.offcut.h))}</td></tr>`;}).join('')}</tbody></table></div>`:'';
  const orders=(plan.orders||[]).length?`<div class="cut-orders" data-cut-orders><h4>Waste by order</h4><table class="sl-table"><thead><tr><th>Order</th><th>Customer</th><th class="n">Pcs</th><th class="n">Glass ft²</th><th class="n">Net scrap ft²</th><th class="n">%</th></tr></thead><tbody>${plan.orders.map(o=>`<tr><td>${esc(o.order)}</td><td>${esc(o.customer)}</td><td class="n">${o.pieces}</td><td class="n">${o.used}</td><td class="n">${o.net}</td><td class="n">${o.pct}%</td></tr>`).join('')}</tbody></table></div>`:'';
  return `${head}${notice}${need}${params}<div class="cut-stats">${cutStatsBar(plan,sheet)}</div>
  <div class="cut-grid">
@@ -287,6 +293,7 @@ function viewCutLayout(b){
   </div>
   <div class="cut-sheet-pane">${glasses}<div class="cut-tabs">${tabs}</div>
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
+    ${sheet.offcut?`<button type="button" class="${sheet.keepOffcut?'on':''}" data-cut-keep onclick="cutUiKeep('${esc(group.glass)}',${sheet.no},${sheet.keepOffcut?'false':'true'})">${sheet.keepOffcut?'Offcut to stock ✓':'Offcut to stock'}</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="event.preventDefault()" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onclick="cutUiPaperClick(event,'${esc(group.glass)}',${sheet.no})">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
    ${actions}<p class="mut cut-hint">Drag a piece onto the sheet · click a piece, then a free spot to move it</p>

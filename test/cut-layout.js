@@ -74,6 +74,24 @@ module.exports=async function({page,eq,ok}){
    netPct:s.netPct>0&&s.netPct<100,orders:plan.orders.length};
  }),{sum:true,net:true,usedPct:true,sheetKeep:true,netPct:true,orders:1});
 
+ eq('остаток — подсказка: пока не отмечен «в сток», он отход; Used % — доля листа под заказы; раскрой берёт меньше квадратных футов',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[46,60,5],[28,38,6]]);const b=DB.glassBatch[0];
+  const plan=cutPlanRun(b.number).plan,g=plan.groups[0],withCut=g.sheets.find(s=>s.offcut);
+  const before={net:plan.stats.net,gross:plan.stats.gross,keep:plan.stats.keep,usedPct:plan.stats.usedPct,honest:Math.abs(plan.stats.usedPct-Math.round(plan.stats.used/plan.stats.area*1000)/10)<0.05};
+  const min=[cutSettings().minOffcutW,cutSettings().minOffcutH],big=g.sheets.filter(s=>s.offcut).every(s=>s.offcut.w>=40&&s.offcut.h>=40);
+  const kept=cutSheetKeepOffcut(b.number,g.glass,withCut.no,true),after=cutPlanFor(b.number).stats,area=cutFt2(cutArea(withCut.offcut.w,withCut.offcut.h));
+  const none=cutSheetKeepOffcut(b.number,g.glass,g.sheets.find(s=>!s.offcut)?g.sheets.find(s=>!s.offcut).no:999,true).error;
+  /* Из всех стратегий взята та, что тратит меньше квадратных футов листа. */
+  const params=size=>cutRunParams(g.mm,size,null),pieces=cutPieces(b,{}).filter(p=>!p.off);
+  const areas=CUT_STRATEGIES.map(st=>{const r=cutPack(pieces,cutStockFor(g.glass,null),params,st,[],g.mm);return r.unplaced.length?Infinity:r.sheets.reduce((a,s)=>a+cutArea(s.size.w,s.size.h),0);});
+  const chosen=g.sheets.reduce((a,s)=>a+cutArea(s.size.w,s.size.h),0);
+  /* Старое умолчание 12 × 12 переводится на 40 × 40 один раз. */
+  DB.cutting={minOffcutW:12,minOffcutH:12};normalizeCutting();const migrated=[DB.cutting.minOffcutW,DB.cutting.minOffcutH];
+  DB.cutting.minOffcutW=12;DB.cutting.minOffcutH=12;normalizeCutting();const own=[DB.cutting.minOffcutW,DB.cutting.minOffcutH];
+  return {netIsGross:before.net===before.gross,keep0:before.keep,honest:before.honest,min,big,kept:!!kept.ok,keepAfter:after.keep===area,netAfter:Math.abs(after.net-(after.gross-area))<0.02,
+   usedSame:after.usedPct===before.usedPct,none,leastArea:Math.abs(chosen-Math.min(...areas))<1e-6,migrated,own};
+ }),{netIsGross:true,keep0:0,honest:true,min:[40,40],big:true,kept:true,keepAfter:true,netAfter:true,usedSame:true,none:'No usable offcut on this sheet.',leastArea:true,migrated:[40,40],own:[12,12]});
+
  eq('вокруг формы со скосом зазор появляется, у прямоугольников остаётся 0',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,2]]);
   const o=salesRecord(id),l=o.lines[0],s=newShapeDef('raked');s.w='40';s.h='50';Object.assign(s.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
@@ -158,7 +176,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-cut-sheet-lock]').click();const locked=/Unlock/.test(document.querySelector('[data-cut-sheet-lock]').textContent);
   document.querySelector('[data-cut-sheet-lock]').click();
   document.querySelector('[data-cut-print]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();
-  return {stats:/sheets? · \d+ \/ \d+ pcs · net \d/.test(stats),rows,cur,total:/All sheets/.test(total),labels:/Northside/.test(svg)&&/76002/.test(svg),
+  return {stats:/sheets? · \d+ \/ \d+ pcs · used \d/.test(stats),rows,cur,total:/All sheets/.test(total),labels:/Northside/.test(svg)&&/76002/.test(svg),
    sheetView,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{stats:true,rows:8,cur:true,total:true,labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 
