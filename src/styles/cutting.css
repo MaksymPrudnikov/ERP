@@ -42,7 +42,7 @@
 .cut-stat small{font-size:10px;color:#667085}
 .cut-stat b{font-size:13px;color:#101828;font-variant-numeric:tabular-nums}
 .cut-stat .cut-main b{font-size:18px;color:#067647}
-.cut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,560px);gap:20px;margin-top:14px;align-items:start}
+.cut-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:20px;margin-top:14px;align-items:start}
 .cut-side{min-width:0}
 .cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
 .cut-list-head:first-child{margin-top:0}
@@ -68,9 +68,27 @@
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
 .cut-sheet-head .mut{font-size:12px}
-.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:10px;display:inline-block;line-height:0}
+.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:10px;display:block;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
 .cut-svg{display:block}
-.cut-svg [data-cut-piece]{cursor:pointer}
+.cut-paper .cut-svg{width:100%;height:auto}
+.cut-svg .cut-pc{cursor:grab}
+.cut-svg .cut-pc.locked{cursor:default}
+.cut-svg .cut-pc.cut-hl rect{stroke:#1f6f9f;stroke-width:2}
+.cut-svg .cut-pc.cut-drag-src{opacity:.35}
+.cut-svg .cut-rot{cursor:pointer}
+.cut-svg [data-cut-offcut]{cursor:context-menu}
+body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
+.cut-list tbody tr.cut-hl td{background:#f5f8ff}
+.cut-tabs button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
+.cut-side.cut-hot{outline:2px solid #1f6f9f;outline-offset:4px;border-radius:8px}
+.cut-menu{position:fixed;z-index:1000;min-width:200px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16);font-size:13px}
+.cut-menu button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:6px 10px;border:0;border-radius:6px;background:none;box-shadow:none;color:#101828;font-size:13px;text-align:left}
+.cut-menu button:hover{background:#f2f4f7}
+.cut-menu kbd{font-family:inherit;font-size:11px;color:#98a2b3}
+.cut-menu-head{padding:6px 10px 4px;font-size:11px;font-weight:600;color:#667085}
+.cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:#667085}
+.cut-menu-sheets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px}
+.cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid #d0d5dd}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
