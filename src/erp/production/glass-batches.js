@@ -215,6 +215,32 @@ function glassBatchRelease(entries,opts){
  });
  if(!opts.deferTouch)touch();return true;
 }
+/* Перенос стёкол в новый батч. Последний лист с большим пустым местом бывает
+   выгоднее не резать — его стёкла уходят в новый батч; решает человек, «есть
+   такая переменная как день ожидания» (владелец, 18 сентября 2026). Запись
+   в старом батче закрывается с пометкой movedTo, в новом открывается запись с
+   тем же Glass ID; заказы остаются в Batched. Начатый рез не переносится. */
+function glassBatchMove(number,pieceIds,opts){
+ opts=opts||{};const from=glassBatchFind(number);if(!from)return {error:'Batch not found.'};
+ const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
+ if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
+ const lineOf=i=>{const p=from.parts[i.part],o=p&&salesRecord(p.orderId);return {p,o,l:o&&(o.lines||[]).find(x=>x.id===p.lineId)};};
+ if(items.some(i=>{const {l}=lineOf(i);return i.cutStartedAt||l&&l.cutStartedAt;}))return {error:'Cutting has started on this glass.'};
+ const now=opts.now||new Date().toISOString(),to={number:salesNextBatchNumber(),createdAt:now,parts:[],items:[],history:[]},parts=new Map();
+ items.forEach(i=>{
+  if(!parts.has(i.part)){parts.set(i.part,to.parts.length);to.parts.push(glassBatchClone(from.parts[i.part]));}
+  to.items.push({piece:i.piece,part:parts.get(i.part),unit:i.unit,at:now,releasedAt:'',cutStartedAt:''});
+  i.releasedAt=now;i.movedTo=to.number;
+ });
+ DB.glassBatch.push(to);
+ const pieces=items.map(i=>i.piece);
+ from.history.push({at:now,action:'Moved to '+to.number,pieces,qty:pieces.length});
+ to.history.push({at:now,action:'Created from '+number,pieces,qty:pieces.length});
+ const orders=new Map();items.forEach(i=>{const {o,l}=lineOf(i);if(!o||!l)return;if(!orders.has(o))orders.set(o,new Set());orders.get(o).add(l);});
+ orders.forEach((lines,o)=>{lines.forEach(l=>glassBatchSyncLine(o,l));o.batchNo=to.number;o.batchHistory=[...new Set((o.batchHistory||[]).concat(number,to.number))];o.updatedAt=now;});
+ if(!opts.deferTouch)touch();
+ return {ok:true,number:to.number,pieces};
+}
 /* Черновой формат PR #84 до номеров стёкол: запись несла количество.
    Каждое стекло получает своё место; номера проставляются после Ensure. */
 function glassBatchConvertCounted(b){
@@ -250,7 +276,7 @@ function normalizeGlassBatches(){
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
   b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
-  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';});
+  b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
   b.history.forEach(h=>{if(!Array.isArray(h.pieces))h.pieces=[];});
  });
  let top=Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0;
