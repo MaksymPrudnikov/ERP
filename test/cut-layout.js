@@ -95,15 +95,34 @@ module.exports=async function({page,eq,ok}){
  eq('правки руками: снять, положить, повернуть, закрепить; на занятое место и за лист не кладёт',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan,id=plan.groups[0].sheets[0].pieces[0].piece,other=Object.assign({},plan.groups[0].sheets[0].pieces[1]);
-  const took=cutPieceTake(b.number,id),gone=!cutFind(cutPlanFor(b.number),id);
-  const onTop=cutPiecePlace(b.number,id,1,other.x,other.y),far=cutPiecePlace(b.number,id,1,900,900);
   const u=cutUsable(plan.groups[0].sheets[0].size,cutGroupParams(plan.groups[0],plan.groups[0].sheets[0].size));
-  const back=cutPiecePlace(b.number,id,1,u.x0,u.y0),at=cutFind(cutPlanFor(b.number),id),size=[at.piece.w,at.piece.h];
+  const took=cutPieceTake(b.number,id),gone=!cutFind(cutPlanFor(b.number),id);
+  /* Сосед подъехал к краю — место снятого стекла не остаётся дырой. */
+  const now=Object.assign({},cutFind(cutPlanFor(b.number),other.piece).piece),slid=now.x===u.x0;
+  const onTop=cutPiecePlace(b.number,id,1,now.x,now.y),far=cutPiecePlace(b.number,id,1,900,900);
+  const back=cutPiecePlace(b.number,id,1,now.x+now.w,u.y0),at=cutFind(cutPlanFor(b.number),id),size=[at.piece.w,at.piece.h];
   const rot=cutPieceRotate(b.number,id),after=cutFind(cutPlanFor(b.number),id);
   const lock=cutPieceLock(b.number,id),locked=cutFind(cutPlanFor(b.number),id).piece.locked;
-  return {took:!!took.ok,gone,onTop:/Overlaps/.test(onTop.error||''),far:far.error,
+  return {took:!!took.ok,gone,slid,onTop:/Overlaps/.test(onTop.error||''),far:far.error,
    back:!!back.ok,rot:!!rot.ok,turned:[after.piece.w,after.piece.h].join()===[size[1],size[0]].join(),lock:!!lock.ok,locked};
- }),{took:true,gone:true,onTop:true,far:'Outside the sheet',back:true,rot:true,turned:true,lock:true,locked:true});
+ }),{took:true,gone:true,slid:true,onTop:true,far:'Outside the sheet',back:true,rot:true,turned:true,lock:true,locked:true});
+
+ eq('после поворота и снятия стёкла подъезжают к краю или к соседу; стало шире — соседи отодвигаются; нет места — отказ',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
+  const g0=cutPlanRun(b.number).plan.groups[0],u=cutUsable(g0.sheets[0].size,cutGroupParams(g0,g0.sheets[0].size));
+  const pcs=()=>cutPlanFor(b.number).groups[0].sheets[0].pieces.slice().sort((a,c)=>a.x-c.x);
+  const row=()=>pcs().map(p=>[cutRound(p.x-u.x0),p.w,p.h].join(':'));
+  const start=row(),mid=pcs()[1].piece;
+  const wide=cutPieceRotate(b.number,mid),afterWide=row();
+  const narrow=cutPieceRotate(b.number,mid),afterNarrow=row();
+  cutPieceTake(b.number,pcs()[0].piece);const afterTake=row(),overlap=ctOverlap(cutPlanFor(b.number));
+  /* Ряд забит: повернуть шире некуда — отказ, ряд не тронут. */
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[32,40,4]]);const c=DB.glassBatch[0];
+  const full=cutPlanRun(c.number).plan.groups[0].sheets[0].pieces.slice().sort((a,d)=>a.x-d.x),before=JSON.stringify(full.map(p=>[p.x,p.w]));
+  const no=cutPieceRotate(c.number,full[1].piece),same=JSON.stringify(cutPlanFor(c.number).groups[0].sheets[0].pieces.slice().sort((a,d)=>a.x-d.x).map(p=>[p.x,p.w]))===before;
+  return {start,wide:!!wide.ok,afterWide,narrow:!!narrow.ok,afterNarrow,afterTake,overlap,no:no.error,same};
+ }),{start:['0:30:40','30:30:40','60:30:40'],wide:true,afterWide:['0:30:40','30:40:30','70:30:40'],narrow:true,afterNarrow:['0:30:40','30:30:40','60:30:40'],
+  afterTake:['0:30:40','30:30:40'],overlap:[],no:'No room to rotate on this sheet.',same:true});
 
  eq('заблокированный лист переживает пересчёт и идёт первым',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,4],[30,40,4]]);const b=DB.glassBatch[0];

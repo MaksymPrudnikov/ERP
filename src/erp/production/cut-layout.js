@@ -379,10 +379,30 @@ function cutRoom(group,sheet,box,params,ignore,src){
  });
  return hit?'Overlaps '+hit.piece:'';
 }
+/* После каждой правки руками стёкла листа сдвигаются к нулю — влево, пока не
+   упрутся в линию Trim Y или в соседнее стекло (у форм — с Min distance).
+   «Нужно, чтобы второе стекло подвигалось к ближнему краю или бордеру другого
+   стекла — мы же говорим про оптимизацию» (владелец, 18 сентября 2026).
+   Только влево и только в своём ряду по высоте: ряд остаётся рядом, и лист
+   по-прежнему режется сквозными резами. Закреплённые стёкла стоят. */
+function cutCompactSheet(group,sheet){
+ if(!sheet||sheet.locked)return;
+ const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params);
+ sheet.pieces.slice().sort((a,b)=>a.x-b.x||a.y-b.y).forEach(p=>{
+  if(p.locked)return;
+  let x=u.x0;
+  sheet.pieces.forEach(q=>{
+   if(q===p)return;
+   const gap=cutGapBetween(p,q,params);
+   if(q.y<p.y+p.h+gap-1e-6&&p.y<q.y+q.h+gap-1e-6&&q.x+q.w<=p.x+1e-6)x=Math.max(x,cutRound(q.x+q.w+gap));
+  });
+  if(x<p.x-1e-6)p.x=x;
+ });
+}
 function cutPieceTake(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
  if(at.sheet.locked)return {error:'Sheet is locked.'};
- at.sheet.pieces.splice(at.index,1);cutPlanRefresh(plan);touch();return {ok:true};
+ at.sheet.pieces.splice(at.index,1);cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
 function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
@@ -392,13 +412,14 @@ function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const at=cutFind(plan,pieceId);
  const sheet=group.sheets.find(s=>s.no===+sheetNo)||(at&&at.sheet);if(!sheet)return {error:'No such sheet.'};
  const params=cutGroupParams(group,sheet.size);
- if(sheet.locked)return {error:'Sheet is locked.'};
+ if(sheet.locked||at&&at.sheet.locked)return {error:'Sheet is locked.'};
  const rot=typeof turn==='boolean'?turn:at?!!at.piece.rot:false,w=rot?src.h:src.w,h=rot?src.w:src.h;
  const box={x:cutRound(+x),y:cutRound(+y),w,h},bad=cutRoom(group,sheet,box,params,pieceId,src);
  if(bad)return {error:bad};
  if(at)at.sheet.pieces.splice(at.index,1);
  sheet.pieces.push({piece:pieceId,shape:!!src.shape,x:box.x,y:box.y,w,h,rot,locked:at?!!at.piece.locked:false});
- cutPlanRefresh(plan);touch();return {ok:true};
+ if(at&&at.sheet!==sheet)cutCompactSheet(group,at.sheet);
+ cutCompactSheet(group,sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
 /* Положить деталь на лист самому: первое свободное место сверху вниз.
    Так работает бросок на вкладку листа — координаты человеку не нужны. */
@@ -422,8 +443,19 @@ function cutPieceRotate(number,pieceId){
  if(at.sheet.locked)return {error:'Sheet is locked.'};
  const params=cutGroupParams(at.group,at.sheet.size),p=at.piece,box={x:p.x,y:p.y,w:p.h,h:p.w};
  const src=cutPieces(glassBatchFind(number),plan.settings||{}).find(x=>x.piece===pieceId)||{};
- const bad=cutRoom(at.group,at.sheet,box,params,pieceId,src);if(bad)return {error:bad};
- p.w=box.w;p.h=box.h;p.rot=!p.rot;cutPlanRefresh(plan);touch();return {ok:true};
+ /* Стала шире — стёкла справа в её ряду отодвигаются, если на листе есть
+    место; стала уже — после поворота они сами подъедут. */
+ const grow=cutRound(box.w-p.w),moved=[];
+ if(grow>0)at.sheet.pieces.filter(q=>q!==p&&q.x>=p.x+p.w-1e-6&&q.y<box.y+box.h-1e-6&&box.y<q.y+q.h-1e-6).forEach(q=>{moved.push([q,q.x]);q.x=cutRound(q.x+grow);});
+ const back=()=>moved.forEach(([q,x])=>{q.x=x;});
+ if(moved.some(([q])=>q.locked)){back();return {error:'A locked piece is in the way.'};}
+ const blocked=moved.map(([q])=>cutRoom(at.group,at.sheet,q,params,q.piece,q)).find(Boolean);
+ if(blocked){back();return {error:blocked==='Outside the sheet'?'No room to rotate on this sheet.':blocked};}
+ const bad=cutRoom(at.group,at.sheet,box,params,pieceId,src);if(bad){back();return {error:bad};}
+ /* В ряду не должно остаться полоски тоньше Min distance — её не сломать. */
+ const row=at.sheet.pieces.filter(q=>q!==p&&Math.abs(q.y-box.y)<1e-6).map(q=>q.h).concat([box.h]),top=Math.max(...row);
+ if(row.some(h=>!cutSliverOk(top-h,params))){back();return {error:'Leaves a strip thinner than Min dist.'};}
+ p.w=box.w;p.h=box.h;p.rot=!p.rot;cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
 function cutPieceLock(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
