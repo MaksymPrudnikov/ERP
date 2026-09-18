@@ -1266,7 +1266,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* 16–19 mm получили авто-значение 1/2" (владелец, 31 августа 2026): редкие
        толщины, и этого бордера хватает. Ручной ввод остаётся обязательным
        только вне таблицы — тоньше 4 mm и толще 19 mm. */
-    eq('16–19 мм имеют авто-бордер, вне таблицы нужен ручной ввод', border.outside, {mm19:{value:.5,manual:false},mm3:{value:0,manual:true}});
+    eq('15–19 мм — бордер 3″, 3 мм — 1″ (таблица цеха, 17 сентября 2026)', border.outside, {mm19:{value:3,manual:false},mm3:{value:1,manual:false}});
     eq('ручной ввод даёт OVERRIDE, дробь и округление 1/16″', border.override, {state:'OVERRIDE',value:2.0625,rounded:1,junkState:'AUTO'});
     eq('бордер НЕ меняет контур реза', {contour:border.contourSame,payloadOuter:border.outerSame}, {contour:true,payloadOuter:true});
     eq('бордер увеличивает оплачиваемый габарит и уходит в payload', {grew:border.footprintGrows,payload:border.payloadValue}, {grew:3,payload:3});
@@ -5933,7 +5933,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok});
   await b.close();
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

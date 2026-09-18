@@ -28,6 +28,7 @@ const MD_TABS=[
  {k:'weight',    label:'Weight norms'},
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
+ {k:'cutting',   label:'Cutting'},
  {k:'ncr',       label:'NCR'},
  {k:'overview',  label:'Data overview'}
 ];
@@ -83,7 +84,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }

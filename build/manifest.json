@@ -13,7 +13,8 @@
   "src/styles/optimization.css",
   "src/styles/glass-batches.css",
   "src/styles/ncr.css",
-  "src/styles/stickers.css"
+  "src/styles/stickers.css",
+  "src/styles/cutting.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -45,6 +46,7 @@
   "src/erp/masterdata/hardware.js",
   "src/erp/masterdata/glass-catalog.js",
   "src/erp/masterdata/glass.js",
+  "src/erp/masterdata/cutting.js",
   "src/erp/customers/data.js",
   "src/erp/sales/data.js",
   "src/erp/sales/lifecycle.js",
@@ -86,6 +88,7 @@
   "src/erp/production/barcode.js",
   "src/erp/production/stickers.js",
   "src/erp/production/sticker-layout.js",
+  "src/erp/production/cut-layout.js",
   "src/erp/views/glass-batches.js",
   "src/erp/quality/reasons.js",
   "src/erp/views/ncr-reasons-ui.js",
@@ -93,6 +96,7 @@
   "src/erp/quality/recut.js",
   "src/erp/views/ncr-ui.js",
   "src/erp/views/stickers-ui.js",
+  "src/erp/views/cut-layout-ui.js",
   "src/erp/storage.js"
  ]
 }

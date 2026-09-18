@@ -103,8 +103,9 @@ function shapeAllowanceDefaults(){
   flatLike.forEach(function(op){
     rows.push(shapeAllowanceRow(op,'mono',3,6,'1/16'));
     rows.push(shapeAllowanceRow(op,'mono',8,10,'1/8'));
-    rows.push(shapeAllowanceRow(op,'mono',12,15,'3/16'));
-    rows.push(shapeAllowanceRow(op,'mono',16,19,'1/2'));
+    rows.push(shapeAllowanceRow(op,'mono',12,14,'3/16'));
+    /* 15 мм — уже толстая полоса таблицы цеха: 15–19 → 1/2″. */
+    rows.push(shapeAllowanceRow(op,'mono',15,19,'1/2'));
     rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','by the PLY thickness'));
     rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','by the PLY thickness'));
   });

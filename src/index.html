@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 78 модулей, 13 стиля.
+  Состав: 81 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="styles/glass-batches.css">
 <link rel="stylesheet" href="styles/ncr.css">
 <link rel="stylesheet" href="styles/stickers.css">
+<link rel="stylesheet" href="styles/cutting.css">
 </head>
 <body>
 <div class="shell">
@@ -47,7 +48,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='f10262fd8db9';
+var ERP_BUILD='531206fd2059';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -78,6 +79,7 @@ var ERP_BUILD='f10262fd8db9';
 <script src="erp/masterdata/hardware.js"></script>
 <script src="erp/masterdata/glass-catalog.js"></script>
 <script src="erp/masterdata/glass.js"></script>
+<script src="erp/masterdata/cutting.js"></script>
 <script src="erp/customers/data.js"></script>
 <script src="erp/sales/data.js"></script>
 <script src="erp/sales/lifecycle.js"></script>
@@ -119,6 +121,7 @@ var ERP_BUILD='f10262fd8db9';
 <script src="erp/production/barcode.js"></script>
 <script src="erp/production/stickers.js"></script>
 <script src="erp/production/sticker-layout.js"></script>
+<script src="erp/production/cut-layout.js"></script>
 <script src="erp/views/glass-batches.js"></script>
 <script src="erp/quality/reasons.js"></script>
 <script src="erp/views/ncr-reasons-ui.js"></script>
@@ -126,6 +129,7 @@ var ERP_BUILD='f10262fd8db9';
 <script src="erp/quality/recut.js"></script>
 <script src="erp/views/ncr-ui.js"></script>
 <script src="erp/views/stickers-ui.js"></script>
+<script src="erp/views/cut-layout-ui.js"></script>
 <script src="erp/storage.js"></script>
 </body>
 </html>

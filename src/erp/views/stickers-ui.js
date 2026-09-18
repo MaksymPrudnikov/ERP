@@ -73,9 +73,10 @@ function stkOpenForOrder(orderId){
 function stkOpenForBatch(number){
  const b=glassBatchFind(number);if(!b)return;
  const picked=glassBatchInfos().filter(i=>i.item&&!i.item.releasedAt&&glassBatchSelection.has(glassBatchRowKey(i))).map(i=>i.item.piece);
- stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),warning:'',error:''};render();
+ stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),order:typeof cutPlanFor==='function'&&cutPlanFor(number)?'sheet':'in',warning:'',error:''};render();
 }
 function stkDialogType(v){stkDialogSet('type',v);}
+function stkDialogOrder(v){stkDialogSet('order',v);}
 function stkDialogSize(v){stkDialogSet('size',v);}
 function stkDialogClose(){stkDialog=null;stkPrintEdit=null;render();}
 function stkDialogSet(k,v){if(!stkDialog)return;if(stkDialog[k]!==v&&(k==='type'||k==='size'))stkDialog.tpl=null;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
@@ -88,18 +89,24 @@ function stkDialogRefresh(){
  if(c){c.textContent=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');c.classList.toggle('bad',!!r.error);}
  if(p)p.disabled=!!r.error||!r.jobs.length;
 }
-function stkBatchJobs(b,pieces){
+/* Порядок печати: «по порядку» — заказ, позиция, изделие, лайт; «по листу» —
+   как стёкла лежат на листах раскроя: «будем печатать из нашей оптимизации». */
+function stkBatchJobs(b,pieces,order){
  const pick=pieces&&pieces.length?new Set(pieces):null,jobs=[];
+ const sheets=order==='sheet'&&typeof cutPlanIndex==='function'?cutPlanIndex(b.number):null;
  glassBatchActiveItems(b).forEach(item=>{
   if(pick&&!pick.has(item.piece))return;
   const part=b.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId),cs=o&&l?glassBatchComponents(o,l):[],c=cs.find(x=>x.key===part.key);
-  if(c)jobs.push({type:'production',o,l,c,unit:item.unit,sort:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
+  if(!c)return;
+  const at=sheets&&sheets.get(item.piece);
+  jobs.push({type:'production',o,l,c,unit:item.unit,
+   sort:at?[0,at.sheet,at.pos,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
  return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
 }
 function stkDialogJobs(){
  const d=stkDialog;if(!d)return {jobs:[],error:''};
- if(d.mode==='batch'){const b=glassBatchFind(d.batchNo);return {jobs:b?stkBatchJobs(b,d.pieces):[],error:''};}
+ if(d.mode==='batch'){const b=glassBatchFind(d.batchNo);return {jobs:b?stkBatchJobs(b,d.pieces,d.order):[],error:''};}
  const o=salesRecord(d.orderId);if(!o)return {jobs:[],error:''};
  const jobs=[];
  for(const row of stkOrderRows(o)){
@@ -170,7 +177,8 @@ function stkDialogHTML(){
   }).join('');
   body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
  }
- const types=d.mode==='batch'?'':`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
+ const plan=d.mode==='batch'&&typeof cutPlanFor==='function'?cutPlanFor(d.batchNo):null;
+ const types=d.mode==='batch'?`<div><div class="ncr-label">ORDER</div>${seg([{k:'in',label:'In order'},{k:'sheet',label:'By sheet'}],d.order||'in','stkDialogOrder',x=>x.k==='sheet'&&!plan)}</div>`:`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
   <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
   <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>

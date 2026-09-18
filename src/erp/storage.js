@@ -57,7 +57,9 @@ function validateImportedState(src){
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  if(typeof validateRecutPayload==='function')validateRecutPayload(src);
- if(typeof validateStickerPayload==='function')validateStickerPayload(src);
+ if(typeof validateStickerPayload==='function')validateStickerPayload(src);
+ if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
+ if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -134,7 +136,9 @@ function normalizeDB(){
  if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
- if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
+ if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
+ if(typeof normalizeCutting==='function')normalizeCutting();
+ if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */

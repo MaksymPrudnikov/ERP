@@ -140,7 +140,11 @@ function shapeEdgeAllowance(def,edge){
    словам владельца: это очень редкие типы стекла, и 1/2" бордера там хватает,
    чтобы избежать проблем при резке и ломке. Меньше, чем у 8–15 mm, — так и
    задумано. Вне таблицы значение обязан ввести оператор. */
-function shapeSafetyBorderAuto(th){if(th>=4&&th<8)return 1;if(th>=8&&th<=15)return 1.5;if(th>=16&&th<=19)return .5;return 0;}
+/* Запас по косой стороне — таблица цеха (владелец, 17 сентября 2026,
+   базовый сетап Perfect Cut): 3–6 мм → 1″, 8–12 → 1 1/2″, 15–19 → 3″. Раньше
+   в коде стояло 16–19 → 1/2″, и на толстом стекле программа считала запас
+   в шесть раз меньше, чем режет цех. */
+function shapeSafetyBorderAuto(th){if(th>=3&&th<8)return 1;if(th>=8&&th<15)return 1.5;if(th>=15)return 3;return 0;}
 function shapeBorderStep(v){return Math.round((+v||0)*16)/16;}
 function shapeEdgeNeedsBorder(edge,a,b){
   if(edge&&edge.type&&edge.type!=='line')return true;
