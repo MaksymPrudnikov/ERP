@@ -144,7 +144,10 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
   if(pr.rotate&&!p.norot&&p.w!==p.h)a.push({w:p.h,h:p.w,rot:true});
   return a.filter(o=>o.w<=W+1e-6&&o.h<=H+1e-6);
  };
- const best=(list,W)=>list.slice().sort((a,b)=>Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
+ /* Ориентация детали, открывающей полосу: больше штук в полосу, либо
+    шире (полоса ниже), либо выше — у каждой стратегии своя. Разные стратегии
+    дают разные раскладки, а лучшую выбирает cutScore. */
+ const best=(list,W)=>list.slice().sort((a,b)=>strategy.prefer==='wide'?b.w-a.w||a.h-b.h:strategy.prefer==='tall'?b.h-a.h||a.w-b.w:Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
  const order=list.slice().sort((a,b)=>(a.priority-b.priority)*(strategy.prefer==='priority'?1000000:1)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
  const push=(s,st,o,p)=>{
   const {x0,y0,p:pr}=room(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
@@ -353,13 +356,47 @@ function cutStockTake(number,glass,sheetNo,index){
  if(!o)return {error:'No such offcut.'};
  return cutStockBook(number,glass,sheetNo,o);
 }
-function cutStockSplit(number,glass,sheetNo,index,w,h){
+/* Split — один рез, как на столе: по длине (X) или по ширине (Y). Кусок в
+   сток получает вторую сторону целиком — до линии Border: «40 × 40 — это
+   минимальный размер, а не базовый; всё, что вне, можно использовать —
+   экстендед размер прям до края бордера» (владелец, 18 сентября 2026).
+   Кусок — от стороны нуля, у стёкол; остаток — к краю листа, он снова
+   подсказка, если не меньше минимума. */
+function cutStockSplit(number,glass,sheetNo,index,axis,size){
  const at=cutSheetAt(number,glass,sheetNo),o=at&&(at.s.offcuts||[])[+index];
  if(!o)return {error:'No such offcut.'};
- let a=typeof cutIn==='function'?cutIn(w,null):+w,b=typeof cutIn==='function'?cutIn(h,null):+h;
- if(!(a>0&&b>0))return {error:'Enter the size, for example 40 × 40.'};
- if(a>o.w+1e-6||b>o.h+1e-6){if(b<=o.w+1e-6&&a<=o.h+1e-6){const t=a;a=b;b=t;}else return {error:'Does not fit in this offcut.'};}
- return cutStockBook(number,glass,sheetNo,{x:o.x,y:o.y,w:a,h:b});
+ if(axis!=='length'&&axis!=='width')return {error:'Cut along length or width.'};
+ const v=typeof cutIn==='function'?cutIn(size,null):+size,full=axis==='length'?o.w:o.h;
+ if(!(v>0))return {error:'Enter the size, for example 40.'};
+ if(v>full+1e-6)return {error:'Longer than this offcut.'};
+ const box=axis==='length'?{x:o.x,y:o.y,w:v,h:o.h}:{x:o.x,y:o.y,w:o.w,h:v};
+ const params=cutGroupParams(at.g,at.s.size),minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
+ if(Math.min(box.w,box.h)<Math.min(minW,minH)-1e-6||Math.max(box.w,box.h)<Math.max(minW,minH)-1e-6)
+  return {error:'Smaller than the minimum offcut '+frac16(minW)+' × '+frac16(minH)+'″.'};
+ return cutStockBook(number,glass,sheetNo,box);
+}
+/* Не резать лист сейчас: его стёкла уходят в новый батч, раскладка листа — с
+   ними (как владелец делает сейчас: «вырезая или копируя с прошлой
+   оптимизации»), забуканный на листе сток — тоже. В новом батче лист без
+   стока не заблокирован: придут новые заказы — пересчёт дозаполнит место. */
+function cutMoveSheet(number,glass,sheetNo){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,ids=s.pieces.map(p=>p.piece);if(!ids.length)return {error:'No glass on this sheet.'};
+ const wasStale=cutPlanStale(number),moved=glassBatchMove(number,ids,{deferTouch:true});if(moved.error)return moved;
+ /* Со стоком лист остаётся заблокированным — иначе пересчёт в новом батче снял бы сток. */
+ const to=moved.number,sheet=cutCloneSheet(s);delete sheet.strips;sheet.no=1;sheet.locked=!!(sheet.stock||[]).length;
+ g.sheets=g.sheets.filter(x=>x!==s);g.sheets.forEach((x,i)=>{x.no=i+1;});
+ if(!g.sheets.length)plan.groups=plan.groups.filter(x=>x!==g);
+ (s.stock||[]).forEach(x=>{const r=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(r){r.batch=to;r.sheet=1;}});
+ const settings={};ids.forEach(id=>{if(plan.settings&&plan.settings[id])settings[id]=Object.assign({},plan.settings[id]);});
+ const pick=plan.sheetPick&&plan.sheetPick[glass]?JSON.parse(JSON.stringify(plan.sheetPick[glass])):null;
+ const np={batch:to,at:new Date().toISOString(),stamp:'',settings,sheetPick:pick?{[glass]:pick}:{},
+  groups:[{glass:g.glass,mm:g.mm,sheet:Object.assign({},s.size||g.sheet),stock:g.stock,pick,params:g.params,sheets:[sheet],unplaced:[],strategy:'moved'}],missing:[],excluded:[],stats:{}};
+ DB.cutPlan.push(np);
+ np.stamp=cutStamp(cutPieces(glassBatchFind(to),settings));cutPlanRefresh(np);
+ if(!wasStale)plan.stamp=cutStamp(cutPieces(glassBatchFind(number),plan.settings||{}));
+ cutPlanRefresh(plan);touch();
+ return {ok:true,number:to,pieces:ids.length};
 }
 /* Снять со стока — обратно в отход. Номер остаётся за записью: стикер с ним
    мог уже уйти на стеллаж. */

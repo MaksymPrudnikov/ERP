@@ -10,7 +10,7 @@
    справа лист, сверху цифры потерь и параметры прогона; действия — у
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
-let cutNotice='',cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+let cutNotice='',cutInfo=null,cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -89,7 +89,16 @@ function cutUiStep(glass,delta){
  const i=g.sheets.findIndex(x=>x.no===cutUi.sheet),next=g.sheets[Math.min(g.sheets.length-1,Math.max(0,i+delta))];
  if(next)cutUiSheet(glass,next.no);
 }
-function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';render();}
+function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';cutInfo=null;render();}
+/* Лист не режем — стёкла в новый батч. Решает человек, поэтому спрашиваем. */
+function cutUiMoveSheet(glass,no){
+ const at=cutSheetAt(cutUi.batch,glass,no);if(!at)return;
+ if(!confirm('Move the '+at.s.pieces.length+' glass of sheet '+no+' to a new batch? This sheet will not be cut in '+cutUi.batch+'.'))return;
+ const r=cutMoveSheet(cutUi.batch,glass,no);cutNotice=r.error||'';
+ cutInfo=r.ok?{text:'Sheet '+no+' · '+r.pieces+' glass → '+r.number,batch:r.number}:null;
+ if(r.ok){cutUi.sheet=1;cutUi.sel='';}render();
+}
+function cutUiOpenBatch(number){cutInfo=null;glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
 function cutUiRotate(){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel));}
 function cutUiTake(){cutUiRun(()=>cutPieceTake(cutUi.batch,cutUi.sel));}
 function cutUiLock(){cutUiRun(()=>cutPieceLock(cutUi.batch,cutUi.sel));}
@@ -100,9 +109,17 @@ function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutU
 /* В сток: номер S-…, запись и сразу стикер — «и потом генерить для него стикер». */
 function cutUiStockDone(r){cutNotice=r&&r.error||'';render();if(r&&r.ok&&r.id&&typeof stkPrintStock==='function')stkPrintStock([r.id]);}
 function cutUiStockTake(glass,no,i){cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockTake(cutUi.batch,glass,no,i));}
-function cutUiStockSplit(glass,no,i,wId,hId){
- const w=document.getElementById(wId),h=document.getElementById(hId);
- cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockSplit(cutUi.batch,glass,no,i,w?w.value:'',h?h.value:''));
+function cutUiStockSplit(glass,no,i,axis,inputId){
+ const el=document.getElementById(inputId);
+ cutUi.glass=glass;cutUi.sheet=+no;cutUiStockDone(cutStockSplit(cutUi.batch,glass,no,i,axis,el?el.value:''));
+}
+/* Split одним резом: видно, какой кусок уйдёт в сток — вписанная сторона ×
+   вторая сторона остатка целиком. */
+function cutSplitForm(glass,no,i,o,pre,menu){
+ const btn=(axis,id)=>menu?'':`<button type="button" data-cut-split-${axis} onclick="cutUiStockSplit('${esc(glass)}',${no},${i},'${axis}','${id}')">Cut</button>`;
+ const L=pre+'L',W=pre+'W';
+ return {L,W,html:`<span class="cut-split-row"><input type="text" id="${L}" placeholder="length" aria-label="Length to stock, in" onkeydown="if(event.key==='Enter')cutUiStockSplit('${esc(glass)}',${no},${i},'length','${L}')"> × ${esc(frac16(o.h))}″ ${btn('length',L)}</span>
+  <span class="cut-split-row">${esc(frac16(o.w))}″ × <input type="text" id="${W}" placeholder="width" aria-label="Width to stock, in" onkeydown="if(event.key==='Enter')cutUiStockSplit('${esc(glass)}',${no},${i},'width','${W}')"> ${btn('width',W)}</span>`};
 }
 function cutUiStockCancel(id){if(!confirm('Put '+id+' back to waste?'))return;cutUiRun(()=>cutStockCancel(cutUi.batch,id));}
 function cutUiStockPrint(ids){if(ids.length&&typeof stkPrintStock==='function')stkPrintStock(ids);}
@@ -272,12 +289,17 @@ function cutUiMenu(e,glass,no){
   if(o){
    rows.push(`<div class="cut-menu-head">Offcut ${esc(frac16(o.w))} × ${esc(frac16(o.h))}″</div>`);
    act('To stock','',()=>cutUiStockTake(glass,no,i),'data-cut-menu="stock"');
-   rows.push(`<div class="cut-menu-sub">Split — cut a size to stock</div><div class="cut-menu-split"><input type="text" id="cutSplitW" placeholder="length" aria-label="Length, in"> × <input type="text" id="cutSplitH" placeholder="width" aria-label="Width, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split]').click()">`);
-   act('Cut','',()=>cutUiStockSplit(glass,no,i,'cutSplitW','cutSplitH'),'data-cut-menu="split"');
+   /* Один рез: по длине — кусок длиной N на всю ширину остатка; по ширине —
+      на всю длину. */
+   rows.push(`<div class="cut-menu-sub">Split · one cut to stock</div><div class="cut-menu-split"><input type="text" id="cutSplitL" placeholder="length" aria-label="Length to stock, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split-length]').click()"> × ${esc(frac16(o.h))}″`);
+   act('Cut','',()=>cutUiStockSplit(glass,no,i,'length','cutSplitL'),'data-cut-menu="split-length"');
+   rows.push(`</div><div class="cut-menu-split">${esc(frac16(o.w))}″ × <input type="text" id="cutSplitW" placeholder="width" aria-label="Width to stock, in" onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=split-width]').click()">`);
+   act('Cut','',()=>cutUiStockSplit(glass,no,i,'width','cutSplitW'),'data-cut-menu="split-width"');
    rows.push('</div>');
   }
  }
  act(ctx.sheet.locked?'Unlock sheet':'Lock sheet','',()=>cutUiSheetLock(),'data-cut-menu="sheet-lock"');
+ if(!g&&!off&&!stk&&ctx.sheet.pieces.length)act('Move sheet to a new batch','',()=>cutUiMoveSheet(glass,no),'data-cut-menu="move-sheet"');
  const m=document.createElement('div');m.id='cutMenu';m.className='cut-menu';m.setAttribute('role','menu');m.innerHTML=rows.join('');
  document.body.appendChild(m);
  const w=m.offsetWidth,h=m.offsetHeight;
@@ -415,7 +437,8 @@ function viewCutLayout(b){
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
- const notice=own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'';
+ const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — re-optimize.</div>':'')+info;
  if(!plan)return `${head}${notice}${need}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const pieces=cutPieces(b,plan.settings||{}),group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
@@ -470,8 +493,7 @@ function viewCutLayout(b){
  const sizeOf=o=>esc(frac16(o.w))+' × '+esc(frac16(o.h))+'″';
  const hintRows=hints.map(({g,x,o,i})=>`<tr data-cut-hint-row="${x.no}-${i}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td class="mut">Waste</td>
   <td class="cut-offcut-acts"><button type="button" data-cut-stock-take onclick="cutUiStockTake('${esc(g.glass)}',${x.no},${i})">To stock</button>
-   <input type="text" id="cutSp${x.no}_${i}w" placeholder="length" aria-label="Split length"> × <input type="text" id="cutSp${x.no}_${i}h" placeholder="width" aria-label="Split width">
-   <button type="button" data-cut-stock-split onclick="cutUiStockSplit('${esc(g.glass)}',${x.no},${i},'cutSp${x.no}_${i}w','cutSp${x.no}_${i}h')">Split</button></td></tr>`).join('');
+   <span class="mut">or split:</span>${cutSplitForm(g.glass,x.no,i,o,'cutSp'+x.no+'_'+i,false).html}</td></tr>`).join('');
  const bookRows=booked.map(({g,x,o})=>`<tr data-cut-stock-row="${esc(o.id)}"><td><button type="button" class="gb-link" onclick="cutUiSheet('${esc(g.glass)}',${x.no})">Sheet ${x.no}</button></td><td>${esc(g.glass)} · ${g.mm} mm</td><td><b>${sizeOf(o)}</b></td><td class="n">${cutFt2(cutArea(o.w,o.h))}</td><td><span class="pill ok">${esc(o.id)}</span></td>
   <td class="cut-offcut-acts"><button type="button" data-cut-stock-print onclick="cutUiStockPrint(['${esc(o.id)}'])">Print sticker</button><button type="button" class="gb-link" data-cut-stock-cancel onclick="cutUiStockCancel('${esc(o.id)}')">Back to waste</button></td></tr>`).join('');
  const stockList=hints.length||booked.length?`<div class="cut-orders" data-cut-offcuts><div class="cut-offcuts-head"><h4>Offcuts · ${booked.length} in stock · ${hints.length} possible</h4>${booked.length?`<button type="button" data-cut-stock-print-all onclick="cutUiStockPrint(${esc(JSON.stringify(booked.map(b=>b.o.id)))})">Print stock stickers · ${booked.length}</button>`:''}</div>
@@ -486,6 +508,7 @@ function viewCutLayout(b){
   </div>
   <div class="cut-sheet-pane">${glasses}<div class="cut-tabs">${tabs}</div>
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
+    ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveSheet('${esc(group.glass)}',${sheet.no})">Move to new batch</button>`:''}
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
    ${actions}<p class="mut cut-hint">Drag glass on the sheet, to a sheet tab or to the list · double-click or R — rotate · right-click — menu</p>
