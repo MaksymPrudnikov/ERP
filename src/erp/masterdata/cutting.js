@@ -37,7 +37,9 @@ const CUT_ROWS_SHOP=[
  {mm:19,trimMin:'0',    trim:'0',     borderMin:'4',    border:'4',     minDist:'4'}
 ];
 const CUT_EDGES=['trimX','trimY','borderX','borderY'];
-const CUT_DEFAULT={minOffcutW:12,minOffcutH:12,rotate:true};
+/* Остаток, который вообще стоит подсвечивать: «не меньше 40 на 40»
+   (владелец, 18 сентября 2026). Было 12 × 12 — такие куски на склад не идут. */
+const CUT_DEFAULT={minOffcutW:40,minOffcutH:40,rotate:true};
 function cutIn(v,fallback){
  if(typeof v==='number')return Number.isFinite(v)&&v>=0?Math.round(v*16)/16:fallback;
  const r=typeof fabParseDimStrict==='function'?fabParseDimStrict(v):{ok:false};
@@ -117,7 +119,10 @@ function normalizeCutting(){
  const keys=new Set(),sizes=(Array.isArray(src.sizes)?src.sizes:[]).filter(r=>r&&typeof r==='object')
   .map(r=>{const a=cutIn(r.w,null),b=cutIn(r.h,null);return a>0&&b>0&&a<=CUT_SIZE_MAX&&b<=CUT_SIZE_MAX?{key:cutSheetTrimKey(a,b),w:Math.max(a,b),h:Math.min(a,b)}:null;})
   .filter(r=>r&&!keys.has(r.key)&&(keys.add(r.key),true)).sort((a,b)=>b.w*b.h-a.w*a.h);
- DB.cutting={rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
+ /* Старое умолчание 12 × 12 никто не выбирал — переводим на 40 × 40 один раз. */
+ const oldMin=!src.v&&+src.minOffcutW===12&&+src.minOffcutH===12;
+ if(oldMin){src.minOffcutW=CUT_DEFAULT.minOffcutW;src.minOffcutH=CUT_DEFAULT.minOffcutH;}
+ DB.cutting={v:2,rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
   minOffcutW:cutIn(src.minOffcutW,CUT_DEFAULT.minOffcutW),minOffcutH:cutIn(src.minOffcutH,CUT_DEFAULT.minOffcutH),
   rotate:typeof src.rotate==='boolean'?src.rotate:CUT_DEFAULT.rotate};
 }

@@ -13,6 +13,10 @@
      не заходят;
    - «основной задачей является оптимизация под низший процент», приоритет
      лишь тянет деталь на первые листы;
+   - главное — порезать заказы, потратив меньше стекла; сток — только бонус
+     (18 сентября: «моя задача оптимизировать заказы под хороший процент, а не
+     хорошо коллекционировать стекло в стоке»). Раскладку выбираем по площади
+     листов, остаток решает лишь при равенстве;
    - потери нужно видеть по каждому листу и по всем: по ним считают цену
      большого заказа;
    - раскладку правят руками: снять, положить, повернуть, перенести,
@@ -20,7 +24,9 @@
      первый в очереди, остальные после».
    Счёт потерь как у Perfect Cut: Gross Scrap — весь остаток листа,
    NetScrap — остаток за вычетом куска, который кладут на стеллаж,
-   Used % = used / (used + net).
+   Used % = used / (used + net). Кусок на стеллаж программа только
+   подсказывает; пока его не отметили «в сток», он отход и Net = Gross:
+   «если мы его не выбрали, значит, оно не сток, а отход».
    ===================================================================== */
 DEFAULT.cutPlan=[];
 const CUT_STRATEGIES=[
@@ -151,7 +157,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
    if(!ways(p,row).length)continue;
    used.set(row.key,(used.get(row.key)||0)+1);
-   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,pieces:[],strips:[]};
+   const s={no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,keepOffcut:false,pieces:[],strips:[]};
    sheets.push(s);return s;
   }
   return null;
@@ -181,7 +187,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  sheets.forEach(s=>{delete s.strips;});
  return {sheets,unplaced};
 }
-function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
+function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,keepOffcut:!!s.keepOffcut,pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
 /* Самый большой свободный прямоугольник листа — тот кусок, который кладут
    на стеллаж. Остальной остаток — брак (NetScrap). */
 function cutFreeRect(sheet,size,params){
@@ -215,11 +221,12 @@ function cutFreeRect(sheet,size,params){
  const ok=Math.min(best.w,best.h)>=Math.min(minW,minH)-1e-6&&Math.max(best.w,best.h)>=Math.max(minW,minH)-1e-6;
  return ok?best:null;
 }
-/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. */
+/* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Остаток
+   вычитается из брака, только если его отметили «в сток» (keepOffcut). */
 function cutSheetNumbers(sheet,size,params){
  size=sheet.size||size;
  const used=sheet.pieces.reduce((a,p)=>a+cutArea(p.w,p.h),0),total=cutArea(size.w,size.h);
- const offcut=cutFreeRect(sheet,size,params),keep=offcut?cutArea(offcut.w,offcut.h):0;
+ const offcut=cutFreeRect(sheet,size,params),keep=offcut&&sheet.keepOffcut?cutArea(offcut.w,offcut.h):0;
  sheet.offcut=offcut;sheet.used=cutFt2(used);sheet.gross=cutFt2(total-used);sheet.net=cutFt2(Math.max(0,total-used-keep));sheet.keep=cutFt2(keep);
  return sheet;
 }
@@ -230,7 +237,10 @@ function cutTotals(groups){
   const size=s.size||g.sheet;t.sheets++;t.placed+=s.pieces.length;t.used+=s.used;t.gross+=s.gross;t.net+=s.net;t.keep+=s.keep;t.area+=cutArea(size.w,size.h);
  }));
  ['used','gross','net','keep','area'].forEach(k=>{t[k]=cutFt2(t[k]);});
- t.usedPct=cutPct(t.used,t.used+t.net);t.grossPct=cutPct(t.gross,t.area);t.netPct=cutPct(t.net,t.area);
+ /* Used % — сколько листа ушло в заказы: «главный процент — это сколько
+    использовано, мы должны максимально использовать лист» (владелец,
+    18 сентября 2026). Сток его не улучшает. */
+ t.usedPct=cutPct(t.used,t.area);t.grossPct=cutPct(t.gross,t.area);t.netPct=cutPct(t.net,t.area);
  return t;
 }
 /* Потери по заказу: NetScrap делится по площади деталей заказа. По этой
@@ -268,7 +278,7 @@ function cutPlanRun(number){
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm);
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
-   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
+   if(alive.length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,keepOffcut:!!s.keepOffcut,pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
   const rest=list.filter(p=>!keptIds.has(p.piece));
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
@@ -279,8 +289,8 @@ function cutPlanRun(number){
    /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
    const g={glass,mm,sheet:first,stock,pick,params:paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
    cutGroupNumbers(g,paramsFor);
-   const net=g.sheets.reduce((a,s)=>a+s.net,0),score=[net,g.sheets.length];
-   if(!win||score[0]<win.score[0]-1e-9||(Math.abs(score[0]-win.score[0])<1e-9&&score[1]<win.score[1]))win={g,score,strategy:strategy.k};
+   const score=cutScore(g);
+   if(!win||cutScoreLess(score,win.score))win={g,score,strategy:strategy.k};
   });
   win.g.strategy=win.strategy;groups.push(win.g);
  });
@@ -291,6 +301,23 @@ function cutPlanRun(number){
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();
  return {plan};
+}
+/* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
+   листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
+   решает лишь при полном равенстве — это бонус, а не цель. */
+function cutScore(g){
+ const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
+ const offcut=g.sheets.reduce((a,s)=>a+(s.offcut?cutArea(s.offcut.w,s.offcut.h):0),0);
+ return [(g.unplaced||[]).length,area,g.sheets.length,-offcut];
+}
+function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
+/* Остаток листа — в сток или в отход. Решает человек, не программа. */
+function cutSheetKeepOffcut(number,glass,sheetNo,value){
+ const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+ const g=plan.groups.find(x=>x.glass===glass),s=g&&g.sheets.find(x=>x.no===+sheetNo);
+ if(!s)return {error:'No such sheet.'};
+ if(!s.offcut&&value)return {error:'No usable offcut on this sheet.'};
+ s.keepOffcut=!!value;cutPlanRefresh(plan);touch();return {ok:true};
 }
 /* Пересчёт цифр после любой правки руками. */
 function cutPlanRefresh(plan,pieces){
@@ -476,7 +503,7 @@ function normalizeCutPlans(){
   .map(p=>{
    const plan=Object.assign({},p,{settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
-     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
+     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,keepOffcut:!!s.keepOffcut,
       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}
