@@ -293,6 +293,75 @@ module.exports=async function({page,eq,ok}){
    overlap:ctOverlap(plan).length,outside:ctOutside(plan).length,fast:ms<20000,nav,second,tabs:document.querySelectorAll('[data-cut-tab]').length};
  }),{sheets:true,placed:180,total:180,overlap:0,outside:0,fast:true,nav:true,second:2,tabs:0});
 
+ /* Мышь — настоящими событиями Playwright, как рукой. */
+ {
+  /* Большое окно и одна прокрутка к листу: дальше меряем без прокрутки, иначе
+     координаты, снятые раньше, уезжают. */
+  const P=t.p,view=P.viewportSize();await P.setViewportSize({width:1600,height:1200});
+  const at=sel=>P.evaluate(q=>{const el=document.querySelector(q);if(!el)return null;const r=el.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,l:r.x,t:r.y,w:r.width,h:r.height};},sel);
+  const toSheet=()=>P.evaluate(()=>{const el=document.querySelector('.cut-grid');if(el)el.scrollIntoView({block:'start'});});
+  const setup=()=>P.evaluate(()=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
+   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
+   const ps=cutPlanFor(b.number).groups[0].sheets[0].pieces.slice().sort((a,c)=>a.x-c.x).map(p=>p.piece);return {n:b.number,ps};
+  });
+  const piece=(n,id)=>P.evaluate(([n,id])=>{const a=cutFind(cutPlanFor(n),id);return a?{x:a.piece.x,y:a.piece.y,w:a.piece.w,h:a.piece.h,locked:a.piece.locked}:null;},[n,id]);
+  let r=await setup();await toSheet();const n=r.n,[a,b2,c]=r.ps;
+  /* Клик по подписи выбирает стекло. */
+  const txt=await at(`[data-cut-piece="${a}"] text`);await P.mouse.click(txt.x,txt.y);
+  const byLabel=await P.evaluate(()=>cutUi.sel);
+  /* Двойной клик — поворот. */
+  const before=await piece(n,c),pc=await at(`[data-cut-piece="${c}"] rect`);await P.mouse.click(pc.x,pc.y);await P.mouse.click(pc.x,pc.y);
+  const turned=await piece(n,c);
+  /* Тянем стекло вверх на пустое место: легло там, где бросили, и подъехало к краю. */
+  const g=await at(`[data-cut-piece="${c}"] rect`),paper=await at('.cut-paper svg');
+  await P.mouse.move(g.x,g.y);await P.mouse.down();await P.mouse.move(g.x+10,g.y-20,{steps:3});await P.mouse.move(g.x+20,paper.t+paper.h*0.25,{steps:5});
+  const ghost=await P.evaluate(()=>{const x=document.querySelector('[data-cut-ghost]');return x?x.getAttribute('data-ok'):null;});
+  await P.mouse.up();const moved=await piece(n,c);
+  const u=await P.evaluate(n=>{const g=cutPlanFor(n).groups[0],s=g.sheets[0];return cutUsable(s.size,cutGroupParams(g,s.size));},n);
+  /* Клавиши: R — поворот, Delete — снять. */
+  const pa=await at(`[data-cut-piece="${a}"] rect`);await P.mouse.click(pa.x,pa.y);const ka=await piece(n,a);
+  await P.keyboard.press('r');const kr=await piece(n,a);await P.keyboard.press('Delete');const kd=await piece(n,a);
+  /* Правая кнопка: меню, «Lock glass». */
+  const pb=await at(`[data-cut-piece="${b2}"] rect`);await P.mouse.click(pb.x,pb.y,{button:'right'});
+  const menu=await P.evaluate(()=>[...document.querySelectorAll('#cutMenu [data-cut-menu]')].map(x=>x.dataset.cutMenu));
+  await P.click('#cutMenu [data-cut-menu="lock"]');const locked=(await piece(n,b2)).locked,menuGone=await P.evaluate(()=>!document.getElementById('cutMenu'));
+  /* Наведение подсвечивает строку списка. */
+  const ph=await at(`[data-cut-piece="${b2}"] rect`);await P.mouse.move(ph.x,ph.y);
+  const hover=await P.evaluate(id=>document.querySelector(`[data-cut-list="${id}"]`).classList.contains('cut-hl'),b2);
+  /* Из списка на лист: тень и укладка там, где бросили. */
+  const fromList=await P.evaluate(([n,id])=>{
+   cutUiDragStart({dataTransfer:{setData(){},effectAllowed:''}},id);
+   const paper=document.querySelector('.cut-paper'),svg=paper.querySelector('svg'),r=svg.getBoundingClientRect();
+   const ev={preventDefault(){},currentTarget:paper,clientX:r.x+r.width*0.8,clientY:r.y+r.height*0.3};
+   cutUiDragOver(ev,'6CLEAR',1);const ghost=!!svg.querySelector('[data-cut-ghost]');cutUiDrop(ev,'6CLEAR',1);
+   const at=cutFind(cutPlanFor(n),id);return {ghost,on:!!at};
+  },[n,a]);
+  /* Стекло тащим в список — оно снято. */
+  const pl=await at(`[data-cut-piece="${c}"] rect`),side=await at('.cut-side tbody tr');
+  await P.mouse.move(pl.x,pl.y);await P.mouse.down();await P.mouse.move(pl.x-30,pl.y,{steps:3});await P.mouse.move(side.x,side.y,{steps:6});await P.mouse.up();
+  const offList=!(await piece(n,c));
+  /* Клик по пустому месту снимает выбор. */
+  const empty=await at('.cut-paper svg');await P.mouse.click(empty.l+empty.w-6,empty.t+8);const unsel=await P.evaluate(()=>cutUi.sel);
+  eq('мышь: клик по подписи, двойной клик, перетаскивание с тенью, правая кнопка, клавиши, подсветка, бросок из списка и в список',
+   {byLabel:byLabel===a,turned:turned.w===before.h&&turned.h===before.w,ghost,moved:moved.y>=40&&moved.x===u.x0,menu,locked,menuGone,
+    keyTurn:kr.w===ka.h&&kr.h===ka.w,keyTake:kd===null,hover,fromList,offList,unsel:unsel===''},
+   {byLabel:true,turned:true,ghost:'1',moved:true,menu:['rotate','take','lock','sheet-lock'],locked:true,menuGone:true,
+    keyTurn:true,keyTake:true,hover:true,fromList:{ghost:true,on:true},offList:true,unsel:true});
+  /* Бросок на вкладку другого листа — перенос на тот лист. */
+  const tabs=await P.evaluate(()=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);const b=DB.glassBatch[0];
+   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
+   const g=cutPlanFor(b.number).groups[0];return {n:b.number,id:g.sheets[0].pieces[0].piece,count:g.sheets.length};
+  });
+  await toSheet();
+  const tp=await at(`[data-cut-piece="${tabs.id}"] rect`),tab=await at('[data-cut-tab="2"]');
+  await P.mouse.move(tp.x,tp.y);await P.mouse.down();await P.mouse.move(tp.x+20,tp.y,{steps:3});await P.mouse.move(tab.x,tab.y,{steps:6});await P.mouse.up();
+  const onTab=await P.evaluate(([n,id])=>{const a=cutFind(cutPlanFor(n),id);return a?a.sheet.no:0;},[tabs.n,tabs.id]);
+  eq('мышь: стекло, брошенное на вкладку листа, переезжает на тот лист',{sheets:tabs.count>=2,onTab},{sheets:true,onTab:2});
+  await P.setViewportSize(view||{width:1280,height:720});
+ }
+
  eq('раскрой в JSON: повтор батча отклоняется, после перезагрузки план и правки те же',await t.p.evaluate(()=>{
   const src=JSON.parse(JSON.stringify(DB));
   const fail=fn=>{const x=JSON.parse(JSON.stringify(src));fn(x);try{validateImportedState(x);return 'accepted';}catch(e){return e.message;}};
