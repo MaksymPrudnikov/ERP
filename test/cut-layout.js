@@ -178,7 +178,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-cut-sheet-lock]').click();const locked=/Unlock/.test(document.querySelector('[data-cut-sheet-lock]').textContent);
   document.querySelector('[data-cut-sheet-lock]').click();
   document.querySelector('[data-cut-print]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();
-  return {stats:/sheets? · \d+ \/ \d+ pcs · used \d/.test(stats),rows,cur,total:/All sheets/.test(total),labels:/Northside/.test(svg)&&/76002/.test(svg),
+  return {stats:/sheets? · \d+ \/ \d+ glass · waste [\d.,]+ ft²/.test(stats),rows,cur,total:/^[\d.]+%\s*used/.test(total.trim()),labels:/Northside/.test(svg)&&/76002/.test(svg),
    sheetView,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{stats:true,rows:8,cur:true,total:true,labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 

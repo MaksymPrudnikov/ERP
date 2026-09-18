@@ -35,13 +35,6 @@
 .cut-params label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#475467}
 .cut-params select{padding:4px 8px;font-size:12px}
 .cut-params input[type=number]{width:70px;padding:4px 6px;font-size:12px}
-.cut-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
-.cut-stat{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;padding:8px 12px}
-.cut-stat i{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase}
-.cut-stat span{display:flex;flex-direction:column;line-height:1.25}
-.cut-stat small{font-size:10px;color:#667085}
-.cut-stat b{font-size:13px;color:#101828;font-variant-numeric:tabular-nums}
-.cut-stat .cut-main b{font-size:18px;color:#067647}
 /* Слева список со своей прокруткой — высотой с правую часть. Справа лист —
    главное: «пропорция +-65 справа, 35 слева, та инфа слева не так важна»
    (владелец, 18 сентября 2026). */
@@ -146,14 +139,17 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-offcuts-scroll{max-height:268px;overflow:auto;border:1px solid #eaecf0;border-radius:12px}
 .cut-offcuts-scroll thead th{position:sticky;top:0;z-index:1;background:#f9fafb}
 .cut-offcuts-head .mut{font-size:12px}
-.cut-sheet-pane .cut-stats{margin-top:0;margin-bottom:10px}
 .cut-sheet-pane .cut-params{margin-top:14px;padding-top:12px;border-top:1px solid #eaecf0}
-/* Правая половина: цифры и склад листов — плотнее. */
-.cut-sheet-pane .cut-stats{gap:8px}
-.cut-sheet-pane .cut-stat{gap:10px;padding:6px 10px}
-.cut-sheet-pane .cut-stat b{font-size:12px}
-.cut-sheet-pane .cut-stat .cut-main b{font-size:16px}
+/* Правая половина: склад листов — плотнее. */
 .cut-sheet-pane .cut-stock-row input[type=text]{width:46px}
 .cut-sheet-pane .cut-stock-row input[type=number]{width:52px}
 .cut-sheet-pane .cut-stock th{padding-right:6px;font-size:10px}
 .cut-sheet-pane .cut-stock td{padding-right:6px}
+/* Сводка: одна крупная цифра, остальное мелко одной строкой. */
+.cut-sum{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.cut-toolbar .cut-sum .cut-sum-pct{font-size:24px;font-weight:650;letter-spacing:-.02em;color:#067647;line-height:1}
+.cut-sum-word{font-size:13px;color:#344054;margin-right:10px}
+.cut-sum-meta{font-size:12px;color:#667085}
+.cut-sheet-size{font-size:12px;color:#667085}
+.cut-sheet-pct{font-size:12px;color:#667085;font-variant-numeric:tabular-nums;margin-left:6px;padding-left:10px;border-left:1px solid #eaecf0}
+.cut-sheet-pct b{font-size:15px;color:#067647;font-weight:650}

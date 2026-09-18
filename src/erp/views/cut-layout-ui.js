@@ -469,14 +469,21 @@ function cutPrintLayouts(number){
  return true;
 }
 /* --------------------------------- Экран --------------------------------- */
-function cutStatsBar(plan,sheet){
- /* Главная цифра — Used %: сколько листа ушло в заказы. */
- const cell=(k,v,main)=>`<span${main?' class="cut-main" data-cut-used-pct':''}><small>${k}</small><b>${v}</b></span>`;
- const area=sheet?cutArea((sheet.size||plan.groups[0].sheet).w,(sheet.size||plan.groups[0].sheet).h):0;
- const cur=sheet?`<div class="cut-stat" data-cut-current><i>This sheet</i>${cell('Used %',cutPct(sheet.used,area)+'%',1)}${cell('Used',sheet.used+' ft²')}${cell('Scrap',sheet.gross+' ft²')}${cell('Net',sheet.net+' ft²')}</div>`:'';
- const s=plan.stats;
- const stock=plan.groups.reduce((n,g)=>n+g.sheets.reduce((a,x)=>a+(x.stock||[]).length,0),0);
- return `${cur}<div class="cut-stat" data-cut-total><i>All sheets</i>${cell('Used %',s.usedPct+'%',1)}${cell('Used',s.used+' ft²')}${cell('Scrap',s.gross+' ft²')}${cell('Net',s.net+' ft²')}${cell('Net %',s.netPct+'%')}${cell('Sheets',s.sheets)}${cell('Pieces',s.placed+' / '+s.total)}${cell('To stock',stock+' · '+s.keep+' ft²')}</div>`;
+/* Цифры раскроя — одна иерархия: одна главная цифра на уровень (Used %),
+   остальное мелко одной строкой. Весь батч — в строке кнопок, этот лист — в
+   шапке листа. «Цифры над оптимизацией сделай корректнее — они выглядят как
+   хаос» (владелец, 18 сентября 2026): было две карточки по 4–9 цифр, Scrap и
+   Net почти всегда одинаковые, процент листа повторялся в шапке. */
+function cutNum(v,d){return (+v||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});}
+function cutSumTotal(plan){
+ const s=plan.stats,stock=plan.groups.reduce((n,g)=>n+g.sheets.reduce((a,x)=>a+(x.stock||[]).length,0),0);
+ return `<div class="cut-sum" data-cut-total><b class="cut-sum-pct" data-cut-used-pct>${cutNum(s.usedPct,1)}%</b><span class="cut-sum-word">used</span>
+  <span class="cut-sum-meta" data-cut-stats>${s.sheets} sheet${s.sheets===1?'':'s'} · ${s.placed} / ${s.total} glass · waste ${cutNum(s.net,1)} ft² · ${cutNum(s.netPct,1)}%${stock?` · stock ${stock} · ${cutNum(s.keep,1)} ft²`:''}</span></div>`;
+}
+function cutSumSheet(group,sheet){
+ const z=sheet.size||group.sheet,area=cutArea(z.w,z.h);
+ return `<span class="cut-sheet-size">${esc(frac16(z.w))} × ${esc(frac16(z.h))}″ · ${sheet.pieces.length} glass</span>
+  <span class="cut-sheet-pct" data-cut-current><b>${cutNum(cutPct(sheet.used,area),1)}%</b> used · ${cutNum(sheet.net,1)} ft² waste${(sheet.stock||[]).length?` · stock ${sheet.stock.length}`:''}</span>`;
 }
 function cutPieceRow(p,at,sel){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';
@@ -489,7 +496,7 @@ function cutPieceRow(p,at,sel){
 }
 function viewCutLayout(b){
  const s=cutUiState(b.number),plan=cutPlanFor(b.number),stale=plan&&cutPlanStale(b.number);
- const head=`<div class="oq-toolbar cut-toolbar">${plan?`<b data-cut-stats>${plan.stats.sheets} sheet${plan.stats.sheets===1?'':'s'} · ${plan.stats.placed} / ${plan.stats.total} pcs · used ${plan.stats.usedPct}%</b>`:'<b data-cut-stats>Not optimized</b>'}
+ const head=`<div class="oq-toolbar cut-toolbar">${plan?cutSumTotal(plan):'<b data-cut-stats>Not optimized</b>'}
   <span class="sp"></span>${plan?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button><button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
   <button type="button" class="pri${plan&&plan.pending?' cut-pending':''}" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Rebuild':'Optimize'}</button></div>`;
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
@@ -587,8 +594,8 @@ function viewCutLayout(b){
    ${off.length?`<div class="cut-list-head" data-cut-off>Not cutting · ${off.length}</div>${listTable(rows(off))}`:''}
   </div></div>
   <div class="cut-sheet-pane">
-   <div class="cut-stats">${cutStatsBar(plan,sheet)}</div>${glasses}
-   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b><span class="mut">${esc(frac16((sheet.size||group.sheet).w))} × ${esc(frac16((sheet.size||group.sheet).h))}″ · ${sheet.pieces.length} pcs · used ${sheet.used} ft² · net ${sheet.net} ft²</span><span class="sp"></span>
+   ${glasses}
+   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}<span class="sp"></span>
     ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
     <button type="button" class="dl" data-cut-sheet-delete onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">Delete sheet</button>
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
