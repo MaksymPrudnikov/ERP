@@ -56,10 +56,17 @@ function cutPriority(v){const n=Math.round(+v);return Number.isFinite(n)&&n>=1&&
 /* Размеры листов этого стекла из поставок Master Data. Лист всегда лёжа:
    длинная сторона — X по горизонтали, как на столе и в Perfect Cut
    (владелец, 18 сентября 2026: «ориентация щита должна быть по горизонтали»). */
+/* Сначала размеры из поставок этого стекла, за ними — размеры цеха
+   (Master Data → Cutting): их берут, когда поставок с размером нет, или
+   кнопкой use first. Один размер — одна строка, даже если поставщиков два. */
 function cutSheetOptions(glassCode){
- return (typeof glassSheetsFor==='function'?glassSheetsFor(glassCode):[]).filter(s=>s&&s.availability!=='inactive'&&+s.sheetWIn>0&&+s.sheetHIn>0)
+ const seen=new Set(),out=[];
+ (typeof glassSheetsFor==='function'?glassSheetsFor(glassCode):[]).filter(s=>s&&s.availability!=='inactive'&&+s.sheetWIn>0&&+s.sheetHIn>0)
   .map(s=>({w:Math.max(+s.sheetWIn,+s.sheetHIn),h:Math.min(+s.sheetWIn,+s.sheetHIn),supplier:s.supplier||'',productCode:s.productCode||glassCode}))
-  .sort((a,b)=>b.w*b.h-a.w*a.h||String(a.supplier).localeCompare(String(b.supplier)));
+  .sort((a,b)=>b.w*b.h-a.w*a.h||String(a.supplier).localeCompare(String(b.supplier)))
+  .forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push(s);}});
+ (typeof cutShopSizes==='function'?cutShopSizes():[]).forEach(s=>{const k=cutSheetKey(s);if(!seen.has(k)){seen.add(k);out.push({w:s.w,h:s.h,supplier:'',productCode:glassCode,shop:true});}});
+ return out;
 }
 function cutSheetKey(size){return size?cutRound(size.w)+'x'+cutRound(size.h):'';}
 /* Параметры прогона: по толщине, а отступы от краёв — свои у каждого размера
@@ -277,7 +284,7 @@ function cutPlanRun(number){
   });
   win.g.strategy=win.strategy;groups.push(win.g);
  });
- if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add it in Master Data.':'No glass to optimize.'};
+ if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,
   excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{}};
  cutPlanRefresh(plan,all);
