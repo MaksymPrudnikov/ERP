@@ -247,7 +247,7 @@ function cutFillSheet(list,u,params,v){
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
- const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||CUT_FILL_SORTS[v.s](a,b)||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
+ const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||(v.keys?v.keys.get(a.piece)-v.keys.get(b.piece):CUT_FILL_SORTS[v.s](a,b))||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
  let used=0,urgent=0;
  const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
  for(const p of order){
@@ -289,7 +289,24 @@ function cutFillSheet(list,u,params,v){
 const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s++)for(let r=0;r<2;r++)for(let p=0;p<CUT_FILL_PLACE.length;p++)for(let c=0;c<CUT_FILL_SPLIT.length;c++)for(let t=0;t<2;t++)out.push({s,r,p,c,t});return out;})();
 /* urgent — лист берёт срочные первыми, даже если так он чуть хуже забит;
    какой из вариантов лучше в целом, решает cutScore. */
-function cutPackFill(list,stock,paramsFor,fixed,urgent){
+/* Случайный, но повторяемый порядок: одно и то же зерно — одна и та же
+   раскладка. mulberry32. */
+function cutRandom(seed){let a=seed>>>0;return ()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
+/* К 288 вариантам листа — 64 случайных: 16 порядков стёкол (случайный и «по
+   площади с шумом») × 4 способа укладки. Сравнение с Perfect Cut (владелец,
+   19 сентября 2026: у нас 24 листа, у Perfect Cut 23) показало, что одних
+   правильных порядков мало; случайные находят сочетания, которые ими не
+   найти: на пробных батчах минус лист в четырёх из пяти. */
+const CUT_FILL_RANDOM=[{r:0,p:3,c:0,t:0},{r:1,p:0,c:1,t:1},{r:0,p:1,c:2,t:0},{r:1,p:3,c:3,t:1}];
+function cutFillRandom(fit,seed){
+ const rnd=cutRandom(seed),out=[];
+ for(let i=0;i<16;i++){
+  const keys=new Map(fit.map(p=>[p.piece,i%2?-(p.w*p.h)*(1+0.3*rnd()):rnd()]));
+  CUT_FILL_RANDOM.forEach(v=>out.push(Object.assign({s:0,keys},v)));
+ }
+ return out;
+}
+function cutPackFill(list,stock,paramsFor,fixed,urgent,seed){
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
  sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const fitsRow=(p,row)=>{const pr=paramsFor(row),u=cutUsable(row,pr),W=u.W,H=u.H;return p.w<=W+1e-6&&p.h<=H+1e-6||pr.rotate&&!p.norot&&p.h<=W+1e-6&&p.w<=H+1e-6;};
@@ -301,7 +318,8 @@ function cutPackFill(list,stock,paramsFor,fixed,urgent){
   const pr=paramsFor(row),u=cutUsable(row,pr),fit=rest.filter(p=>fitsRow(p,row)),other=rest.filter(p=>!fitsRow(p,row));
   let best=null;
   const urgentOn=fit.some(p=>p.priority!==fit[0].priority);
-  for(const v of urgentOn?CUT_FILL_VARIANTS.concat(CUT_FILL_VARIANTS.map(x=>Object.assign({u:1},x))):CUT_FILL_VARIANTS){
+  const tries=(urgentOn?CUT_FILL_VARIANTS.concat(CUT_FILL_VARIANTS.map(x=>Object.assign({u:1},x))):CUT_FILL_VARIANTS).concat(seed?cutFillRandom(fit,seed*7919+sheets.length):[]);
+  for(const v of tries){
    const r=cutFillSheet(fit,u,pr,v);
    if(!best||(urgent?r.urgent>best.urgent||r.urgent===best.urgent&&r.used>best.used+1e-6:r.used>best.used+1e-6||Math.abs(r.used-best.used)<=1e-6&&r.urgent>best.urgent))best=r;
    if(!r.rest.length&&best===r)break;
@@ -422,7 +440,9 @@ function cutPlanRun(number){
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
   let win=null;
   const candidates=CUT_STRATEGIES.map(strategy=>({strategy,packed:cutPack(rest,stock,paramsFor,strategy,keptSheets,mm)}));
-  candidates.push({strategy:{k:'fill'},packed:cutPackFill(rest,stock,paramsFor,keptSheets)});
+  /* Три прохода «лист за листом» с разными зёрнами случайности; результат
+     повторяемый — зёрна постоянные. */
+  [1,2,3].forEach(seed=>candidates.push({strategy:{k:'fill'+seed},packed:cutPackFill(rest,stock,paramsFor,keptSheets,false,seed)}));
   const prio=new Map(rest.map(p=>[p.piece,p.priority]));
   if(rest.some(p=>p.priority>0))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
   candidates.forEach(({strategy,packed})=>{

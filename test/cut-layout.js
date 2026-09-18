@@ -490,6 +490,14 @@ module.exports=async function({page,eq,ok}){
   return {prios,value:box.value,ph:box.placeholder,rank:[cutPrioRank(0),cutPrioRank(1)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,pending:!!cutPlanFor(b.number).pending};
  }),{prios:'0,0',value:'',ph:'—',rank:'11,1',row:1.5,pending:true});
 
+ eq('случайные варианты к правильным порядкам: смешанный батч 117 стёкол — 13 листов вместо 14; раскладка повторяется',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
+  ctOrder([[46.25,58.5,14],[33,71,9],[28,28,40],[62,40,7],[19.5,44,25],[70,24,6],[38,52,16]]);const b=DB.glassBatch[0];
+  const a=cutPlanRun(b.number).plan,one=JSON.stringify(a.groups[0].sheets.map(x=>x.pieces.map(p=>[p.piece,p.x,p.y,p.rot]))),n=a.groups[0].sheets.length;
+  const c=cutPlanRun(b.number).plan,two=JSON.stringify(c.groups[0].sheets.map(x=>x.pieces.map(p=>[p.piece,p.x,p.y,p.rot])));
+  return {n,placed:c.stats.placed===c.stats.total,same:one===two,clean:!ctOverlap(c).length&&!ctOutside(c).length&&!ctSlivers(c).length};
+ }),{n:13,placed:true,same:true,clean:true});
+
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {
   /* Большое окно и одна прокрутка к листу: дальше меряем без прокрутки, иначе
