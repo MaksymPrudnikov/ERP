@@ -17,6 +17,10 @@ module.exports=async function({page,eq,ok}){
    glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
   };
   window.ctAll=plan=>plan.groups.flatMap(g=>g.sheets.flatMap(s=>{const sz=s.size||g.sheet,u=cutUsable(sz,cutGroupParams(g,sz));return s.pieces.map(p=>Object.assign({sheet:s.no,u,sw:sz.w,sh:sz.h},p));}));
+  /* Стёкла листа 1 — в один ряд, как есть: тесты правок руками и мыши проверяют
+     правки, а не выбор укладчика (маленький батч может лечь и столбиком). */
+  window.ctRow=n=>{const plan=cutPlanFor(n),g=plan.groups[0],s=g.sheets[0],u=cutUsable(s.size,cutGroupParams(g,s.size));let x=u.x0;
+   s.pieces.forEach(p=>{if(p.rot){const w=p.w;p.w=p.h;p.h=w;p.rot=false;}p.x=x;p.y=u.y0;x+=p.w;});cutPlanRefresh(plan);return plan;};
   window.ctOverlap=plan=>{const bad=[];plan.groups.forEach(g=>g.sheets.forEach(s=>
    s.pieces.forEach((a,i)=>s.pieces.slice(i+1).forEach(b=>{if(a.x<b.x+b.w-1e-6&&b.x<a.x+a.w-1e-6&&a.y<b.y+b.h-1e-6&&b.y<a.y+a.h-1e-6)bad.push(a.piece+'/'+b.piece);}))));return bad;};
   window.ctOutside=plan=>ctAll(plan).filter(p=>p.x<p.u.x0-1e-6||p.y<p.u.y0-1e-6||p.x+p.w>p.u.x1+1e-6||p.y+p.h>p.u.y1+1e-6).map(p=>p.piece);
@@ -114,7 +118,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('правки руками: снять, положить, повернуть, закрепить; на занятое место и за лист не кладёт',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
-  const plan=cutPlanRun(b.number).plan,id=plan.groups[0].sheets[0].pieces[0].piece,other=Object.assign({},plan.groups[0].sheets[0].pieces[1]);
+  cutPlanRun(b.number);const plan=ctRow(b.number),id=plan.groups[0].sheets[0].pieces[0].piece,other=Object.assign({},plan.groups[0].sheets[0].pieces[1]);
   const u=cutUsable(plan.groups[0].sheets[0].size,cutGroupParams(plan.groups[0],plan.groups[0].sheets[0].size));
   const took=cutPieceTake(b.number,id),gone=!cutFind(cutPlanFor(b.number),id);
   /* Сосед подъехал к краю — место снятого стекла не остаётся дырой. */
@@ -490,6 +494,23 @@ module.exports=async function({page,eq,ok}){
   return {prios,value:box.value,ph:box.placeholder,rank:[cutPrioRank(0),cutPrioRank(1)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,pending:!!cutPlanFor(b.number).pending};
  }),{prios:'0,0',value:'',ph:'—',rank:'11,1',row:1.5,pending:true});
 
+ eq('случайные варианты к правильным порядкам: смешанный батч 117 стёкол — 13 листов вместо 14; раскладка повторяется',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
+  ctOrder([[46.25,58.5,14],[33,71,9],[28,28,40],[62,40,7],[19.5,44,25],[70,24,6],[38,52,16]]);const b=DB.glassBatch[0];
+  const a=cutPlanRun(b.number).plan,one=JSON.stringify(a.groups[0].sheets.map(x=>x.pieces.map(p=>[p.piece,p.x,p.y,p.rot]))),n=a.groups[0].sheets.length;
+  const c=cutPlanRun(b.number).plan,two=JSON.stringify(c.groups[0].sheets.map(x=>x.pieces.map(p=>[p.piece,p.x,p.y,p.rot])));
+  return {n,placed:c.stats.placed===c.stats.total,same:one===two,clean:!ctOverlap(c).length&&!ctOutside(c).length&&!ctSlivers(c).length};
+ }),{n:13,placed:true,same:true,clean:true});
+
+ eq('столбиками, как X-резы Perfect Cut: тест владельца 144 × 102, Trim 1 — 23 листа, как у Perfect Cut; подпись узкого стекла вдоль',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
+  ctOrder([[20.25,100.25,111],[60.25,50.25,30],[12.25,50.25,10]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);[['trimX','1'],['trimY','1'],['borderX','0'],['borderY','0']].forEach(([f,v])=>cutSetParam(b.number,'6CLEAR',f,v));
+  const c=cutPlanRun(b.number).plan,g=c.groups[0],narrow=g.sheets.find(s=>s.pieces.length&&s.pieces.every(p=>p.w===20.25));
+  return {n:g.sheets.length,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,
+   turned:!!narrow&&/rotate\(-90\)/.test(cutSheetSVG(g,narrow,480,[],{}))};
+ }),{n:23,placed:true,clean:true,turned:true});
+
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {
   /* Большое окно и одна прокрутка к листу: дальше меряем без прокрутки, иначе
@@ -499,7 +520,7 @@ module.exports=async function({page,eq,ok}){
   const toSheet=()=>P.evaluate(()=>{const el=document.querySelector('.cut-grid');if(el)el.scrollIntoView({block:'start'});});
   const setup=()=>P.evaluate(()=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
-   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
+   cutPlanRun(b.number);ctRow(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
    const ps=cutPlanFor(b.number).groups[0].sheets[0].pieces.slice().sort((a,c)=>a.x-c.x).map(p=>p.piece);return {n:b.number,ps};
   });
   const piece=(n,id)=>P.evaluate(([n,id])=>{const a=cutFind(cutPlanFor(n),id);return a?{x:a.piece.x,y:a.piece.y,w:a.piece.w,h:a.piece.h,locked:a.piece.locked}:null;},[n,id]);
