@@ -1837,7 +1837,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c0d92321c28e';
+var ERP_BUILD='76ea5c1b3c8c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -22674,7 +22674,7 @@ function cutFillSheet(list,u,params,v){
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
- const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||CUT_FILL_SORTS[v.s](a,b)||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
+ const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||(v.keys?v.keys.get(a.piece)-v.keys.get(b.piece):CUT_FILL_SORTS[v.s](a,b))||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
  let used=0,urgent=0;
  const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
  for(const p of order){
@@ -22716,7 +22716,24 @@ function cutFillSheet(list,u,params,v){
 const CUT_FILL_VARIANTS=(()=>{const out=[];for(let s=0;s<CUT_FILL_SORTS.length;s++)for(let r=0;r<2;r++)for(let p=0;p<CUT_FILL_PLACE.length;p++)for(let c=0;c<CUT_FILL_SPLIT.length;c++)for(let t=0;t<2;t++)out.push({s,r,p,c,t});return out;})();
 /* urgent — лист берёт срочные первыми, даже если так он чуть хуже забит;
    какой из вариантов лучше в целом, решает cutScore. */
-function cutPackFill(list,stock,paramsFor,fixed,urgent){
+/* Случайный, но повторяемый порядок: одно и то же зерно — одна и та же
+   раскладка. mulberry32. */
+function cutRandom(seed){let a=seed>>>0;return ()=>{a=a+0x6D2B79F5>>>0;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
+/* К 384 вариантам листа — 64 случайных: 16 порядков стёкол (случайный и «по
+   площади с шумом») × 4 способа укладки. Сравнение с Perfect Cut (владелец,
+   19 сентября 2026: у нас 24 листа, у Perfect Cut 23) показало, что одних
+   правильных порядков мало; случайные находят сочетания, которые ими не
+   найти: на пробных батчах минус лист в четырёх из пяти. */
+const CUT_FILL_RANDOM=[{r:0,p:3,c:0,t:0},{r:1,p:0,c:1,t:1},{r:0,p:1,c:2,t:0},{r:1,p:3,c:3,t:1}];
+function cutFillRandom(fit,seed){
+ const rnd=cutRandom(seed),out=[];
+ for(let i=0;i<16;i++){
+  const keys=new Map(fit.map(p=>[p.piece,i%2?-(p.w*p.h)*(1+0.3*rnd()):rnd()]));
+  CUT_FILL_RANDOM.forEach(v=>out.push(Object.assign({s:0,keys},v)));
+ }
+ return out;
+}
+function cutPackFill(list,stock,paramsFor,fixed,urgent,seed){
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
  sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const fitsRow=(p,row)=>{const pr=paramsFor(row),u=cutUsable(row,pr),W=u.W,H=u.H;return p.w<=W+1e-6&&p.h<=H+1e-6||pr.rotate&&!p.norot&&p.h<=W+1e-6&&p.w<=H+1e-6;};
@@ -22728,7 +22745,8 @@ function cutPackFill(list,stock,paramsFor,fixed,urgent){
   const pr=paramsFor(row),u=cutUsable(row,pr),fit=rest.filter(p=>fitsRow(p,row)),other=rest.filter(p=>!fitsRow(p,row));
   let best=null;
   const urgentOn=fit.some(p=>p.priority!==fit[0].priority);
-  for(const v of urgentOn?CUT_FILL_VARIANTS.concat(CUT_FILL_VARIANTS.map(x=>Object.assign({u:1},x))):CUT_FILL_VARIANTS){
+  const tries=(urgentOn?CUT_FILL_VARIANTS.concat(CUT_FILL_VARIANTS.map(x=>Object.assign({u:1},x))):CUT_FILL_VARIANTS).concat(seed?cutFillRandom(fit,seed*7919+sheets.length):[]);
+  for(const v of tries){
    const r=cutFillSheet(fit,u,pr,v);
    if(!best||(urgent?r.urgent>best.urgent||r.urgent===best.urgent&&r.used>best.used+1e-6:r.used>best.used+1e-6||Math.abs(r.used-best.used)<=1e-6&&r.urgent>best.urgent))best=r;
    if(!r.rest.length&&best===r)break;
@@ -22738,6 +22756,66 @@ function cutPackFill(list,stock,paramsFor,fixed,urgent){
   sheets.push({no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
   rest=best.rest.concat(other);
  }
+ return {sheets,unplaced};
+}
+/* ------------------- Столбиками во всю высоту (X-резы) -------------------
+   Владелец, 19 сентября 2026: «144 × 102, Trim 1, без Border; 20 1/4 × 100 1/4 —
+   111, 60 1/4 × 50 1/4 — 30, 12 1/4 × 50 1/4 — 10: у нас 24 листа, у Perfect
+   Cut 23». Жадный «забей лист» съедает удобные сочетания на первых листах.
+   Здесь, как X-резы в Perfect Cut: сначала стёкла собираются в столбики во всю
+   высоту поля (стёкла одной ширины — одно над другим), потом столбики
+   раскладываются по листам, начиная с самых широких. rows — то же рядами во
+   всю ширину. orient — как поворачивать стёкла: как есть, стоя или лёжа.
+   Формы со скосом сюда не идут — у них свой зазор. */
+function cutPackColumns(list,stock,paramsFor,fixed,opt){
+ if(!stock.length||list.some(p=>p.shape))return null;
+ const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
+ sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
+ const T=!!opt.rows,dims=row=>{const u=cutUsable(row,paramsFor(row));return {u,W:T?u.H:u.W,H:T?u.W:u.H};};
+ const first=dims(stock[0]),pr0=paramsFor(stock[0]),md=+pr0.minDist||0;
+ const items=[];
+ list.forEach(p=>{
+  let w=T?p.h:p.w,h=T?p.w:p.h;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
+  if(can&&(opt.orient==='tall'&&w>h||opt.orient==='wide'&&h>w)){const x=w;w=h;h=x;}
+  if((w>first.W+1e-6||h>first.H+1e-6)&&can&&h<=first.W+1e-6&&w<=first.H+1e-6){const x=w;w=h;h=x;}
+  if(w>first.W+1e-6||h>first.H+1e-6){unplaced.push({piece:p.piece,reason:'Larger than the sheet'});return;}
+  items.push({p,w,h});
+ });
+ items.sort((a,b)=>b.w-a.w||b.h-a.h||cutPrioRank(a.p.priority)-cutPrioRank(b.p.priority)||a.p.piece.localeCompare(b.p.piece));
+ /* Столбик: ширина — у первого стекла; уже — только если полоска сбоку не
+    тоньше Min distance. */
+ const cols=[];
+ items.forEach(it=>{
+  let c=cols.find(c=>c.used+it.h<=first.H+1e-6&&(Math.abs(c.w-it.w)<1e-6||c.w-it.w>=md-1e-6));
+  if(!c){c={w:it.w,used:0,items:[]};cols.push(c);}
+  c.items.push({it,y:c.used});c.used=cutRound(c.used+it.h);
+ });
+ cols.sort((a,b)=>b.w-a.w||b.used-a.used);
+ const bins=[];
+ const open=c=>{
+  for(const row of stock){
+   if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
+   const d=dims(row);if(c.w>d.W+1e-6||c.used>d.H+1e-6)continue;
+   used.set(row.key,(used.get(row.key)||0)+1);const b={row,d,x:0,cols:[]};bins.push(b);return b;
+  }
+  return null;
+ };
+ cols.forEach(c=>{
+  let b=null;
+  if(opt.fit==='bfd'){let left=Infinity;bins.forEach(x=>{const l=x.d.W-x.x-c.w;if(l>=-1e-6&&c.used<=x.d.H+1e-6&&l<left){left=l;b=x;}});}
+  else b=bins.find(x=>x.x+c.w<=x.d.W+1e-6&&c.used<=x.d.H+1e-6);
+  if(!b)b=open(c);
+  if(!b){c.items.forEach(({it})=>unplaced.push({piece:it.p.piece,reason:'No sheets left'}));return;}
+  b.cols.push({c,x:b.x});b.x=cutRound(b.x+c.w);
+ });
+ bins.forEach(b=>{
+  const u=b.d.u,pieces=[];
+  b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
+   const q=it.p,w=T?it.h:it.w,h=T?it.w:it.h;
+   pieces.push({piece:q.piece,shape:false,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,rot:w!==q.w,locked:false});
+  }));
+  sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
+ });
  return {sheets,unplaced};
 }
 function cutCloneSheet(s){return {no:s.no,size:Object.assign({},s.size),locked:!!s.locked,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:s.pieces.map(p=>Object.assign({},p)),strips:[]};}
@@ -22849,7 +22927,15 @@ function cutPlanRun(number){
   /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
   let win=null;
   const candidates=CUT_STRATEGIES.map(strategy=>({strategy,packed:cutPack(rest,stock,paramsFor,strategy,keptSheets,mm)}));
-  candidates.push({strategy:{k:'fill'},packed:cutPackFill(rest,stock,paramsFor,keptSheets)});
+  /* Три прохода «лист за листом» с разными зёрнами случайности; результат
+     повторяемый — зёрна постоянные. */
+  /* На больших батчах меньше проходов — чтобы пересборка оставалась быстрой. */
+  (rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>candidates.push({strategy:{k:'fill'+seed},packed:cutPackFill(rest,stock,paramsFor,keptSheets,false,seed)}));
+  /* Столбиками и рядами во всю высоту/ширину — как X-резы Perfect Cut. */
+  [false,true].forEach(rows=>['asis','tall','wide'].forEach(orient=>['ffd','bfd'].forEach(fit=>{
+   const packed=cutPackColumns(rest,stock,paramsFor,keptSheets,{rows,orient,fit});
+   if(packed)candidates.push({strategy:{k:(rows?'rows-':'cols-')+orient+'-'+fit},packed});
+  })));
   const prio=new Map(rest.map(p=>[p.piece,p.priority]));
   if(rest.some(p=>p.priority>0))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
   candidates.forEach(({strategy,packed})=>{
@@ -24679,12 +24765,17 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
   out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(outside(p)?'#d92d20':sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel||outside(p)?2:1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
-  const lines=[];
-  if(h>52&&w>84){lines.push([src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),9,'#475467']);}
-  else if(h>30&&w>64)lines.push([String(i+1)+' · '+frac16(p.w)+' × '+frac16(p.h)+'″',9,'#101828']);
-  else if(h>12&&w>18)lines.push([String(i+1),9,'#101828']);
-  const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=y+h/2-total/2;
-  lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="'+(x+w/2).toFixed(1)+'" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
+  /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
+     она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
+     «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
+  const size16=frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),turn=!(h>52&&w>84)&&w>52&&h>84;
+  if(h>52&&w>84||turn){
+   const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[size16,9,'#475467']];
+   const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
+   out.push('<g transform="translate('+(x+w/2).toFixed(1)+' '+(y+h/2).toFixed(1)+')'+(turn?' rotate(-90)':'')+'">');
+   lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
+   out.push('</g>');
+  }else out.push(cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1),size16],'#101828')||cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1)],'#101828'));
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
   out.push('</g>');
   /* У выбранного стекла — кнопка поворота в углу, левой кнопкой мыши. */
