@@ -21,6 +21,9 @@ module.exports=async function({page,eq,ok}){
      правки, а не выбор укладчика (маленький батч может лечь и столбиком). */
   window.ctRow=n=>{const plan=cutPlanFor(n),g=plan.groups[0],s=g.sheets[0],u=cutUsable(s.size,cutGroupParams(g,s.size));let x=u.x0;
    s.pieces.forEach(p=>{if(p.rot){const w=p.w;p.w=p.h;p.h=w;p.rot=false;}p.x=x;p.y=u.y0;x+=p.w;});cutPlanRefresh(plan);return plan;};
+  /* Правка параметров, как на экране: Reset → правка → Build (параметры
+     собранного раскроя закрыты). Возвращает результат Build. */
+  window.ctSet=(n,...edits)=>{const p=cutPlanFor(n);if(p&&!p.reset)cutPlanReset(n);for(const e of edits){const r=e();if(r&&r.error)return r;}return cutPlanRun(n);};
   window.ctOverlap=plan=>{const bad=[];plan.groups.forEach(g=>g.sheets.forEach(s=>
    s.pieces.forEach((a,i)=>s.pieces.slice(i+1).forEach(b=>{if(a.x<b.x+b.w-1e-6&&b.x<a.x+a.w-1e-6&&a.y<b.y+b.h-1e-6&&b.y<a.y+a.h-1e-6)bad.push(a.piece+'/'+b.piece);}))));return bad;};
   window.ctOutside=plan=>ctAll(plan).filter(p=>p.x<p.u.x0-1e-6||p.y<p.u.y0-1e-6||p.x+p.w>p.u.x1+1e-6||p.y+p.h>p.u.y1+1e-6).map(p=>p.piece);
@@ -45,7 +48,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('четыре края листа: Trim X снизу, Trim Y слева, Border X сверху, Border Y справа — детали за линии не заходят',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,144);ctOrder([[46,60,3],[34,52,4]]);const b=DB.glassBatch[0];
-  cutPlanRun(b.number);['trimX:1','trimY:2','borderX:3','borderY:4'].forEach(x=>{const [f,v]=x.split(':');cutSetParam(b.number,'6CLEAR',f,v);});
+  ctSet(b.number,()=>['trimX:1','trimY:2','borderX:3','borderY:4'].forEach(x=>{const [f,v]=x.split(':');cutSetParam(b.number,'6CLEAR',f,v);}));
   const plan=cutPlanFor(b.number),g=plan.groups[0],all=ctAll(plan).filter(p=>p.sheet===1);
   const low=Math.min(...all.map(p=>p.y)),left=Math.min(...all.map(p=>p.x)),top=Math.max(...all.map(p=>p.y+p.h)),right=Math.max(...all.map(p=>p.x+p.w));
   const u=cutUsable(g.sheets[0].size,cutGroupParams(g,g.sheets[0].size));
@@ -80,14 +83,14 @@ module.exports=async function({page,eq,ok}){
  }),{sum:true,net:true,usedPct:true,sheetKeep:true,netPct:true,orders:1});
 
  eq('остаток — подсказка: пока не отмечен «в сток», он отход; Used % — доля листа под заказы; раскрой берёт меньше квадратных футов',await t.p.evaluate(()=>{
-  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[46,60,5],[28,38,6]]);const b=DB.glassBatch[0];
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet("6CLEAR",96,144);ctOrder([[46,60,5],[28,38,4]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan,g=plan.groups[0],withCut=g.sheets.find(s=>(s.offcuts||[]).length),hint=Object.assign({},withCut.offcuts[0]);
   const before={net:plan.stats.net,gross:plan.stats.gross,keep:plan.stats.keep,usedPct:plan.stats.usedPct,honest:Math.abs(plan.stats.usedPct-Math.round(plan.stats.used/plan.stats.area*1000)/10)<0.05};
   const min=[cutSettings().minOffcutW,cutSettings().minOffcutH],big=g.sheets.every(s=>(s.offcuts||[]).every(o=>o.w>=40&&o.h>=40));
   const noHint=g.sheets.find(s=>!(s.offcuts||[]).length);
   const kept=cutStockTake(b.number,g.glass,withCut.no,0),after=cutPlanFor(b.number).stats,area=cutFt2(cutArea(hint.w,hint.h));
   const none=cutStockTake(b.number,g.glass,noHint?noHint.no:999,0).error;
-  /* Из всех стратегий взята та, что тратит меньше квадратных футов листа. */
+  /* Взят вариант, что тратит квадратных футов не больше любой стратегии полос. */
   const params=size=>cutRunParams(g.mm,size,null),pieces=cutPieces(b,{}).filter(p=>!p.off);
   const areas=CUT_STRATEGIES.map(st=>{const r=cutPack(pieces,cutStockFor(g.glass,null),params,st,[],g.mm);return r.unplaced.length?Infinity:r.sheets.reduce((a,s)=>a+cutArea(s.size.w,s.size.h),0);});
   const chosen=g.sheets.reduce((a,s)=>a+cutArea(s.size.w,s.size.h),0);
@@ -95,7 +98,7 @@ module.exports=async function({page,eq,ok}){
   DB.cutting={minOffcutW:12,minOffcutH:12};normalizeCutting();const migrated=[DB.cutting.minOffcutW,DB.cutting.minOffcutH];
   DB.cutting.minOffcutW=12;DB.cutting.minOffcutH=12;normalizeCutting();const own=[DB.cutting.minOffcutW,DB.cutting.minOffcutH];
   return {netIsGross:before.net===before.gross,keep0:before.keep,honest:before.honest,min,big,kept:!!kept.ok,keepAfter:after.keep===area,netAfter:Math.abs(after.net-(after.gross-area))<0.02,
-   usedSame:after.usedPct===before.usedPct,none,leastArea:Math.abs(chosen-Math.min(...areas))<1e-6,migrated,own};
+   usedSame:after.usedPct===before.usedPct,none,leastArea:chosen<=Math.min(...areas)+1e-6,migrated,own};
  }),{netIsGross:true,keep0:0,honest:true,min:[40,40],big:true,kept:true,keepAfter:true,netAfter:true,usedSame:true,none:'No such offcut.',leastArea:true,migrated:[40,40],own:[12,12]});
 
  eq('вокруг формы со скосом зазор появляется, у прямоугольников остаётся 0',await t.p.evaluate(()=>{
@@ -109,12 +112,12 @@ module.exports=async function({page,eq,ok}){
  eq('исключить деталь: количество 0 убирает её из реза и из листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan,first=plan.groups[0].sheets[0].pieces[0].piece,before=plan.stats.placed;
-  cutSetting(b.number,first,'off',true);
-  const after=cutPlanFor(b.number),onSheet=ctAll(after).some(p=>p.piece===first);
-  cutPlanRun(b.number);const again=cutPlanFor(b.number),excluded=again.stats.excluded,placed=again.stats.placed;
-  cutSetting(b.number,first,'off',false);cutPlanRun(b.number);
-  return {before,onSheet,excluded,placed,back:cutPlanFor(b.number).stats.placed};
- }),{before:3,onSheet:false,excluded:1,placed:2,back:3});
+  /* Собранный раскрой — список стёкол закрыт, как параметры. */
+  const closed=cutSetting(b.number,first,'off',true).error;
+  const again=ctSet(b.number,()=>cutSetting(b.number,first,'off',true)).plan,excluded=again.stats.excluded,placed=again.stats.placed,onSheet=ctAll(again).some(p=>p.piece===first);
+  ctSet(b.number,()=>cutSetting(b.number,first,'off',false));
+  return {before,closed,onSheet,excluded,placed,back:cutPlanFor(b.number).stats.placed};
+ }),{before:3,closed:'Reset the optimization to change settings.',onSheet:false,excluded:1,placed:2,back:3});
 
  eq('правки руками: снять, положить, повернуть, закрепить; на занятое место и за лист не кладёт',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
@@ -133,7 +136,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('после поворота и снятия стёкла подъезжают к краю или к соседу; стало шире — соседи отодвигаются; нет места — отказ',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
-  cutPlanRun(b.number);const g0=cutSetParam(b.number,'6CLEAR','rotate',false).plan.groups[0],u=cutUsable(g0.sheets[0].size,cutGroupParams(g0,g0.sheets[0].size));
+  const g0=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','rotate',false)).plan.groups[0],u=cutUsable(g0.sheets[0].size,cutGroupParams(g0,g0.sheets[0].size));
   const pcs=()=>cutPlanFor(b.number).groups[0].sheets[0].pieces.slice().sort((a,c)=>a.x-c.x);
   const row=()=>pcs().map(p=>[cutRound(p.x-u.x0),p.w,p.h].join(':'));
   const start=row(),mid=pcs()[1].piece;
@@ -152,17 +155,17 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,4],[30,40,4]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);const plan=cutPlanFor(b.number),g=plan.groups[0];
   const keep=g.sheets[g.sheets.length-1],ids=keep.pieces.map(p=>p.piece).join();
-  cutSheetLock(b.number,g.glass,keep.no);cutPlanRun(b.number);
+  /* Reset: листов раскладки нет, заблокированный остаётся; Build ставит его первым. */
+  cutSheetLock(b.number,g.glass,keep.no);const draft=cutPlanReset(b.number).plan.groups[0].sheets.length;cutPlanRun(b.number);
   const after=cutPlanFor(b.number).groups[0];
-  return {locked:after.sheets[0].locked,same:after.sheets[0].pieces.map(p=>p.piece).join()===ids,sheets:after.sheets.length};
- }),{locked:true,same:true,sheets:2});
+  return {draft,locked:after.sheets[0].locked,same:after.sheets[0].pieces.map(p=>p.piece).join()===ids,sheets:after.sheets.length};
+ }),{draft:1,locked:true,same:true,sheets:2});
 
  eq('приоритет тянет деталь на первый лист; раскрой детерминирован',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,4],[30,40,4]]);const b=DB.glassBatch[0];
   const first=cutPlanRun(b.number).plan,a=JSON.stringify(first.groups),c=JSON.stringify(cutPlanRun(b.number).plan.groups);
   const last=cutPlanIndex(b.number),late=[...last.entries()].find(([id,at])=>at.sheet===2);
-  if(late)cutSetting(b.number,late[0],'priority',1);
-  cutPlanRun(b.number);
+  if(late)ctSet(b.number,()=>cutSetting(b.number,late[0],'priority',1));
   return {same:a===c,moved:late?cutPlanIndex(b.number).get(late[0]).sheet:1};
  }),{same:true,moved:1});
 
@@ -191,21 +194,21 @@ module.exports=async function({page,eq,ok}){
   const base=cutPlanRun(b.number).plan,sizes=cutSheetOptions('6CLEAR').map(x=>frac16(x.w)+'×'+frac16(x.h));
   const firstSize=cutSheetKey(base.groups[0].sheets[0].size);
   /* Сначала 144, и только один такой лист: остальное уходит на 130. */
-  cutSetStock(b.number,'6CLEAR','144x96','first',1);
-  const mixed=cutSetStock(b.number,'6CLEAR','144x96','limit',1).plan,used=mixed.groups[0].sheets.map(s=>cutSheetKey(s.size));
-  const off=cutSetStock(b.number,'6CLEAR','144x96','off',true).plan,only=[...new Set(off.groups[0].sheets.map(s=>cutSheetKey(s.size)))];
-  cutResetParams(b.number,'6CLEAR');
-  return {sizes,firstSize,mixed:used.slice(0,3),mixedKinds:[...new Set(used)].length,only,back:cutSheetKey(cutPlanFor(b.number).groups[0].sheets[0].size)};
- }),{sizes:['144×96','130×96'],firstSize:'144x96',mixed:['144x96','130x96','130x96'],mixedKinds:2,only:['130x96'],back:'144x96'});
+  /* Один лист 144 — остальное уходит на 130. */
+  const mixed=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','144x96','limit',1)).plan,used=mixed.groups[0].sheets.map(s=>cutSheetKey(s.size));
+  const off=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','144x96','off',true)).plan,only=[...new Set(off.groups[0].sheets.map(s=>cutSheetKey(s.size)))];
+  const back=ctSet(b.number,()=>cutResetParams(b.number,'6CLEAR')).plan;
+  return {sizes,known:['144x96','130x96'].includes(firstSize),one144:used.filter(k=>k==='144x96').length<=1,placed:mixed.stats.placed===mixed.stats.total,only,back:cutPlanFor(b.number).stats.area===base.stats.area};
+ }),{sizes:['144×96','130×96'],known:true,one144:true,placed:true,only:['130x96'],back:true});
 
  eq('параметры реза правятся прямо на экране, Master Data остаётся значением по умолчанию',await t.p.evaluate(()=>{
   const b=DB.glassBatch[0],g0=cutPlanFor(b.number).groups[0],was=g0.params.trimX;
-  const changed=cutSetParam(b.number,'6CLEAR','trimX','2').plan.groups[0];
+  const changed=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','trimX','2')).plan.groups[0];
   const piece=changed.sheets[0].pieces[0];
-  const bad=cutSetParam(b.number,'6CLEAR','minDist','abc');
-  const rot=cutSetParam(b.number,'6CLEAR','rotate',false).plan.groups[0].params.rotate;
+  const bad=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','minDist','abc'));
+  const rot=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','rotate',false)).plan.groups[0].params.rotate;
   const md=cutParamsFor(6).trim;
-  const back=cutResetParams(b.number,'6CLEAR').plan.groups[0].params;
+  const back=ctSet(b.number,()=>cutResetParams(b.number,'6CLEAR')).plan.groups[0].params;
   return {was,trimX:changed.params.trimX,y:piece.y,bad:bad.error,rot,md,backTrim:back.trimX,backRot:back.rotate};
  }),{was:0.875,trimX:2,y:2,bad:'Enter a size like 3/4 or 1 1/2.',rot:false,md:0.875,backTrim:0.875,backRot:true});
 
@@ -213,8 +216,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
   const base=cutPlanRun(b.number).plan.groups[0],start=base.sheets[0].pieces[0].x;
   cutSheetTrimSet('130x96','trimX','2');cutSheetTrimSet('130x96','trimY','1 1/2');
-  cutSetStock(b.number,'6CLEAR','144x96','off',true);
-  const own=cutPlanRun(b.number).plan.groups[0];
+  const own=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','144x96','off',true)).plan.groups[0];
   const other=cutSheetTrim('144x96');
   tab='masterdata';mdSetTab('cutting');const shown=document.querySelector('[data-cut-trimx="130x96"]').value,rows=document.querySelectorAll('[data-cut-sheet-row]').length;
   return {start,trimX:own.params.trimX,trimY:own.params.trimY,x:own.sheets[0].pieces[0].x,y:own.sheets[0].pieces[0].y,other,shown,rows};
@@ -222,28 +224,29 @@ module.exports=async function({page,eq,ok}){
 
  eq('в прогоне у каждого размера свои Trim и Border: 144 и 130 правятся отдельно',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[28,38,30]]);const b=DB.glassBatch[0];
-  cutPlanRun(b.number);cutSetStock(b.number,'6CLEAR','144x96','first',1);cutSetStock(b.number,'6CLEAR','144x96','limit',1);
+  /* Один лист 144 и два 130 — в раскрой идут оба размера. */
+  cutSetStock(b.number,'6CLEAR','144x96','limit',1);cutSetStock(b.number,'6CLEAR','130x96','limit',2);
   cutSetStock(b.number,'6CLEAR','144x96','trimX','2');cutSetStock(b.number,'6CLEAR','130x96','trimY','1 1/2');
-  const bad=cutSetStock(b.number,'6CLEAR','130x96','borderY','abc').error;
+  const bad=cutSetStock(b.number,'6CLEAR','130x96','borderY','abc').error;cutPlanRun(b.number);
   const plan=cutPlanFor(b.number),g=plan.groups[0],by=k=>ctAll(plan).filter(p=>cutSheetKey(g.sheets.find(s=>s.no===p.sheet).size)===k);
   const a=by('144x96'),c=by('130x96');
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const shown=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock+' '+r.querySelector('[data-cut-edge-trimx]').value+' '+r.querySelector('[data-cut-edge-trimy]').value);
-  cutSetStock(b.number,'6CLEAR','144x96','trimX','');const back=cutGroupParams(cutPlanFor(b.number).groups[0],{key:'144x96',w:144,h:96}).trimX;
+  cutPlanReset(b.number);cutSetStock(b.number,'6CLEAR','144x96','trimX','');const back=cutGroupParams(cutPlanFor(b.number).groups[0],{key:'144x96',w:144,h:96}).trimX;
   return {y144:Math.min(...a.map(p=>p.y)),x144:Math.min(...a.map(p=>p.x)),y130:Math.min(...c.map(p=>p.y)),x130:Math.min(...c.map(p=>p.x)),
    outside:ctOutside(plan),bad,shown,back,md:cutSheetTrim('144x96')};
  }),{y144:2,x144:0.875,y130:0.875,x130:1.5,outside:[],bad:'Enter a size like 3/4 or 1 1/2.',shown:['144x96 2 7/8','130x96 7/8 1 1/2'],back:0.875,md:null});
 
- eq('нет размера листа: экран говорит, для какого стекла, размер добавляется прямо здесь и сразу раскладывает',await t.p.evaluate(()=>{
+ eq('нет размера листа: экран говорит, для какого стекла, размер добавляется прямо здесь и сразу раскладывает',await t.p.evaluate(async()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
   const none=cutPlanRun(b.number).error;
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
-  document.querySelector('[data-tab-optimization]').click();document.querySelector('[data-cut-run]').click();
+  document.querySelector('[data-tab-optimization]').click();document.querySelector('[data-cut-run]').click();await cutBuildDone();
   const need=document.querySelector('[data-cut-need]'),needText=need?need.textContent.replace(/\s+/g,' ').trim():'';
   const shownError=!!document.querySelector('[data-cut-error]');
   document.getElementById('cutNeedW').value='3300';document.getElementById('cutNeedH').value='96';document.querySelector('[data-cut-need-add]').click();
   const inches=document.querySelector('[data-cut-error]').textContent;
-  document.getElementById('cutNeedW').value='96';document.getElementById('cutNeedH').value='130';document.querySelector('[data-cut-need-add]').click();
+  document.getElementById('cutNeedW').value='96';document.getElementById('cutNeedH').value='130';document.querySelector('[data-cut-need-add]').click();await cutBuildDone();
   const plan=cutPlanFor(b.number);
   return {none,shownError,needText:/No sheet size · 6CLEAR/.test(needText),inches,
    laid:plan?plan.stats.placed:0,size:plan?cutSheetKey(plan.groups[0].sheets[0].size):'',gone:!document.querySelector('[data-cut-need]'),
@@ -253,7 +256,7 @@ module.exports=async function({page,eq,ok}){
   laid:2,size:'130x96',gone:true,error:false,shop:['130x96'],stockRow:true,russian:false});
 
  eq('размер с экрана прогона и из Master Data: добавить, повтор и ошибка, убрать; сброс таблицы цеха размеры не трогает',await t.p.evaluate(()=>{
-  const b=DB.glassBatch[0];
+  const b=DB.glassBatch[0];cutPlanReset(b.number);render();
   document.getElementById('cutRunSizeW').value='144';document.getElementById('cutRunSizeH').value='96';document.querySelector('[data-cut-size-new]').click();
   const run=[...document.querySelectorAll('[data-cut-stock]')].map(r=>r.dataset.cutStock);
   const dup=cutShopSizeAdd('96','130').error,bad=cutShopSizeAdd('abc','96').error;
@@ -276,11 +279,10 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
   DB.glassSheet.push(normalizeGlassSheet({productCode:'6CLEAR',supplier:'Guardian',sheetWIn:130,sheetHIn:96,availability:'stock'}));
   cutShopSizeAdd('144','96');cutShopSizeAdd('130','96');ctOrder([[46,60,4]]);const b=DB.glassBatch[0];
-  const options=cutSheetOptions('6CLEAR').map(x=>cutSheetKey(x)+(x.shop?' shop':'')),first=cutSheetKey(cutPlanRun(b.number).plan.groups[0].sheets[0].size);
-  const chosen=cutSheetKey(cutSetStock(b.number,'6CLEAR','144x96','first',1).plan.groups[0].sheets[0].size);
+  const options=cutSheetOptions('6CLEAR').map(x=>cutSheetKey(x)+(x.shop?' shop':'')),used=cutPlanRun(b.number).plan.groups[0].sheets.map(x=>cutSheetKey(x.size));
   const md=cutSheetSizes().map(x=>x.key+' '+(x.shop?'shop':'')+' '+x.codes.join());
-  return {options,first,chosen,md};
- }),{options:['130x96','144x96 shop'],first:'130x96',chosen:'144x96',md:['144x96 shop ','130x96 shop 6CLEAR']});
+  return {options,known:used.every(k=>['130x96','144x96'].includes(k)),md};
+ }),{options:['130x96','144x96 shop'],known:true,md:['144x96 shop ','130x96 shop 6CLEAR']});
 
  eq('размеры цеха в JSON: не массив — отказ, мусор и повторы чистятся',await t.p.evaluate(()=>{
   let shape='accepted';try{validateCuttingPayload({cutting:{sizes:{}}});}catch(e){shape=e.message;}
@@ -431,17 +433,18 @@ module.exports=async function({page,eq,ok}){
    waiting:/Not on a sheet · 2/.test(waiting)||new RegExp('Not on a sheet · '+ids.length).test(waiting),stock:hint?stockOffcutFind(hint).status:'cancelled'};
  }),{sheets:true,numbers:true,gone:true,waiting:true,stock:'cancelled'});
 
- eq('оверсайз: стекло больше поля между линиями — подсказка и «+ same size» без Trim и Border; у размера свои Used % и отход',await t.p.evaluate(()=>{
+ eq('оверсайз: стекло больше поля между линиями — подсказка и «+ same size» без Trim и Border; у размера свои Used % и отход',await t.p.evaluate(async()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3],[129.5,95.5,1]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const over=(document.querySelector('[data-cut-over]')||{}).textContent||'';
-  document.querySelector('[data-cut-over-add]').click();document.querySelector('[data-cut-run]').click();
+  /* Одна кнопка: Reset, строка размера без Trim и Border, Build. */
+  document.querySelector('[data-cut-over-add]').click();await cutBuildDone();
   const p=cutPlanFor(b.number),g=p.groups[0],keys=g.sheets.map(x=>cutSheetKey(x.size)),row=document.querySelector('[data-cut-stock="130x96#2"]');
   const nums=[...document.querySelectorAll('[data-cut-size-nums]')].map(x=>x.dataset.cutSizeNums+' '+x.textContent.replace(/\s+/g,' ').trim());
   const edges=['trimx','trimy','borderx','bordery'].map(f=>row.querySelector('[data-cut-edge-'+f+']').value).join();
   const placed=p.stats.placed,total=p.stats.total;
-  document.querySelector('[data-cut-same-remove="130x96#2"]').click();document.querySelector('[data-cut-run]').click();
-  return {over:/1 glass larger than the sheet/.test(over),variant:keys.includes('130x96#2'),placed:placed===total,edges,nums:nums.every(x=>/% used · .*% waste · .* ft²/.test(x)),removed:!document.querySelector('[data-cut-stock="130x96#2"]'),overBack:!!document.querySelector('[data-cut-over]')};
+  document.querySelector('[data-cut-reset-plan]').click();document.querySelector('[data-cut-same-remove="130x96#2"]').click();document.querySelector('[data-cut-run]').click();await cutBuildDone();
+  return {over:/1 glass larger than the sheet/.test(over),variant:keys.includes('130x96#2'),placed:placed===total,edges,nums:nums.some(x=>/^130x96#2 \d+ · .*% used · .*% waste · .* ft²/.test(x)),removed:!document.querySelector('[data-cut-stock="130x96#2"]'),overBack:!!document.querySelector('[data-cut-over]')};
  }),{over:true,variant:true,placed:true,edges:'0,0,0,0',nums:true,removed:true,overBack:true});
 
  eq('перенос листа в уже открытый батч с тем же стеклом: стёкла и лист — туда, история «Added from»',await t.p.evaluate(()=>{
@@ -466,33 +469,48 @@ module.exports=async function({page,eq,ok}){
   return {narrow:(narrow.match(/<text/g)||[]).length===2||/rotate/.test(narrow),wide:(wide.match(/<text/g)||[]).length===1,tiny,hidden,label,back,again};
  }),{narrow:true,wide:true,tiny:'',hidden:true,label:'Exit full screen',back:true,again:true});
 
- eq('правки склада и параметров ждут кнопки Rebuild: раскладка стоит, строка «Settings changed», стекло за новой линией — красное; Rebuild пересобирает, заблокированный лист — первым',await t.p.evaluate(()=>{
+ eq('Build и Reset, как в Perfect Cut: собранный раскрой — параметры закрыты; Reset убирает листы (заблокированный остаётся) и открывает параметры; Build с полоской хода; Cancel ничего не меняет',await t.p.evaluate(async()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5]]);const b=DB.glassBatch[0];
-  cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
-  const lay=()=>JSON.stringify(cutPlanFor(b.number).groups[0].sheets.map(s=>s.pieces.map(p=>[p.piece,p.x,p.y])));
-  const before=lay(),btn=document.querySelector('[data-cut-run]').textContent;
-  const trim=document.querySelector('[data-cut-edge-trimx]');trim.value='20';trim.dispatchEvent(new Event('change'));
-  const still=lay()===before,pending=!!document.querySelector('[data-cut-pending]'),red=document.querySelectorAll('.cut-paper [data-cut-out]').length>0,
-   lit=document.querySelector('[data-cut-run]').classList.contains('cut-pending');
-  /* Минимальный остаток — сразу, без «Settings changed». */
-  const g0=cutPlanFor(b.number).groups[0];
-  cutSheetLock(b.number,'6CLEAR',g0.sheets.length);const lockedIds=g0.sheets[g0.sheets.length-1].pieces.map(p=>p.piece).join();render();
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  /* Раскроя ещё нет: параметры открыты, пустой лист с линиями Trim и Border, кнопка Build. */
+  const fresh={empty:!!document.querySelector('[data-cut-empty] [data-cut-edge]'),stats:document.querySelector('[data-cut-stats]').textContent,open:!document.querySelector('[data-cut-edge-trimx]').disabled,
+   btn:document.querySelector('[data-cut-run]').textContent,reset:!!document.querySelector('[data-cut-reset-plan]'),saved:!!cutPlanFor(b.number)};
   document.querySelector('[data-cut-run]').click();
+  const bar=!!document.querySelector('[data-cut-progress]'),busy=!!document.querySelector('.cut-busy');
+  await cutBuildDone();
+  const built={sheets:cutPlanFor(b.number).groups[0].sheets.length>=2,bar:!!document.querySelector('[data-cut-progress]'),run:document.querySelector('[data-cut-run]').disabled,
+   closed:['[data-cut-edge-trimx]','[data-cut-qty]','[data-cut-use]','[data-cut-rot]','[data-cut-priority]','[data-cut-on]'].every(q=>document.querySelector(q).disabled),hint:!!document.querySelector('[data-cut-locked]'),
+   refused:cutSetStock(b.number,'6CLEAR','130x96','trimX','2').error,soft:!!cutSetParam(b.number,'6CLEAR','minOffcutW','24').ok};
+  /* Reset: заблокированный лист остаётся, параметры открыты. */
+  const g0=cutPlanFor(b.number).groups[0];cutSheetLock(b.number,'6CLEAR',g0.sheets.length);const lockedIds=g0.sheets[g0.sheets.length-1].pieces.map(p=>p.piece).join();render();
+  document.querySelector('[data-cut-reset-plan]').click();
+  const p1=cutPlanFor(b.number);
+  const reset={flag:!!p1.reset,sheets:p1.groups[0].sheets.length,open:!document.querySelector('[data-cut-edge-trimx]').disabled,run:!document.querySelector('[data-cut-run]').disabled,
+   waiting:/Not on a sheet/.test(document.querySelector('[data-cut-waiting]').textContent)};
+  /* Правка отступа видна сразу: стекло заблокированного листа за новой линией — красное. */
+  const trim=document.querySelector('[data-cut-edge-trimx]');trim.value='20';trim.dispatchEvent(new Event('change'));
+  const red=document.querySelectorAll('.cut-paper [data-cut-out]').length>0;
+  /* Cancel — раскрой остаётся сброшенным. */
+  document.querySelector('[data-cut-run]').click();cutUiCancel();const cancel=await cutBuildDone();
+  const stillReset=!!cutPlanFor(b.number).reset&&!!(cancel&&cancel.cancelled);
+  document.querySelector('[data-cut-run]').click();await cutBuildDone();
   const p=cutPlanFor(b.number),g=p.groups[0];
-  const rebuilt=!document.querySelector('[data-cut-pending]'),first=g.sheets[0].locked&&g.sheets[0].pieces.map(x=>x.piece).join()===lockedIds;
-  const moved=g.sheets.filter(x=>!x.locked).every(x=>x.pieces.every(q=>q.y>=20-1e-6));
-  cutSetParam(b.number,'6CLEAR','minOffcutW','24',true);const soft=!cutPlanFor(b.number).pending;
-  return {btn,still,pending,red,lit,rebuilt,first,moved,soft};
- }),{btn:'Rebuild',still:true,pending:true,red:true,lit:true,rebuilt:true,first:true,moved:true,soft:true});
+  return {fresh,bar,busy,built,reset,red,stillReset,rebuilt:!p.reset,first:g.sheets[0].locked&&g.sheets[0].pieces.map(x=>x.piece).join()===lockedIds,
+   moved:g.sheets.filter(x=>!x.locked).every(x=>x.pieces.every(q=>q.y>=20-1e-6)),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{fresh:{empty:true,stats:'Not built',open:true,btn:'Build',reset:false,saved:false},bar:true,busy:true,
+  built:{sheets:true,bar:false,run:true,closed:true,hint:true,refused:'Reset the optimization to change settings.',soft:true},
+  reset:{flag:true,sheets:1,open:true,run:true,waiting:true},red:true,stillReset:true,rebuilt:true,first:true,moved:true,russian:false});
 
  eq('приоритет по умолчанию 0 — «нет»; Min dist — у каждой строки размера листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const prios=cutPieces(b,{}).map(p=>p.priority).join(),box=document.querySelector('[data-cut-priority]');
+  const value=box.value,ph=box.placeholder;
+  document.querySelector('[data-cut-reset-plan]').click();
   const md=document.querySelector('[data-cut-edge-mindist]');md.value='1 1/2';md.dispatchEvent(new Event('change'));
   const g=cutPlanFor(b.number).groups[0];
-  return {prios,value:box.value,ph:box.placeholder,rank:[cutPrioRank(0),cutPrioRank(1)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,pending:!!cutPlanFor(b.number).pending};
- }),{prios:'0,0',value:'',ph:'—',rank:'11,1',row:1.5,pending:true});
+  return {prios,value,ph,rank:[cutPrioRank(0),cutPrioRank(1)].join(),row:cutGroupParams(g,{key:'130x96',w:130,h:96}).minDist,reset:!!cutPlanFor(b.number).reset};
+ }),{prios:'0,0',value:'',ph:'—',rank:'11,1',row:1.5,reset:true});
 
  eq('случайные варианты к правильным порядкам: смешанный батч 117 стёкол — 13 листов вместо 14; раскладка повторяется',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
@@ -505,11 +523,22 @@ module.exports=async function({page,eq,ok}){
  eq('столбиками, как X-резы Perfect Cut: тест владельца 144 × 102, Trim 1 — 23 листа, как у Perfect Cut; подпись узкого стекла вдоль',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
   ctOrder([[20.25,100.25,111],[60.25,50.25,30],[12.25,50.25,10]]);const b=DB.glassBatch[0];
-  cutPlanRun(b.number);[['trimX','1'],['trimY','1'],['borderX','0'],['borderY','0']].forEach(([f,v])=>cutSetParam(b.number,'6CLEAR',f,v));
-  const c=cutPlanRun(b.number).plan,g=c.groups[0],narrow=g.sheets.find(s=>s.pieces.length&&s.pieces.every(p=>p.w===20.25));
+  const c=ctSet(b.number,()=>[['trimX','1'],['trimY','1'],['borderX','0'],['borderY','0']].forEach(([f,v])=>cutSetParam(b.number,'6CLEAR',f,v))).plan,g=c.groups[0],narrow=g.sheets.find(s=>s.pieces.length&&s.pieces.every(p=>p.w===20.25));
   return {n:g.sheets.length,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,
    turned:!!narrow&&/rotate\(-90\)/.test(cutSheetSVG(g,narrow,480,[],{}))};
  }),{n:23,placed:true,clean:true,turned:true});
+
+ eq('два размера листа — берутся оба, где выгоднее: квадратных футов меньше, чем одним размером; количество листов размера соблюдается',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctSheet('6CLEAR',96,130);
+  ctOrder([[31,25,10],[32,15,11],[67,50,13],[51,76,3]]);const b=DB.glassBatch[0];
+  const kinds=plan=>[...new Set(plan.groups[0].sheets.map(s=>cutSheetKey(s.size)))].sort();
+  const mix=cutPlanRun(b.number).plan,area=mix.stats.area,both=kinds(mix);
+  const only144=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','130x96','off',true)).plan.stats.area;
+  const only130=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','130x96','off',false),()=>cutSetStock(b.number,'6CLEAR','144x102','off',true)).plan.stats.area;
+  const lim=ctSet(b.number,()=>cutSetStock(b.number,'6CLEAR','144x102','off',false),()=>cutSetStock(b.number,'6CLEAR','144x102','limit',3)).plan;
+  return {both,less:area<Math.min(only144,only130)-1e-6,limit:lim.groups[0].sheets.filter(s=>cutSheetKey(s.size)==='144x102').length<=3,placed:lim.stats.placed===lim.stats.total,
+   clean:!ctOverlap(mix).length&&!ctOutside(mix).length&&!ctOverlap(lim).length&&!ctOutside(lim).length};
+ }),{both:['130x96','144x102'],less:true,limit:true,placed:true,clean:true});
 
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {

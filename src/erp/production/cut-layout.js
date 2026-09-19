@@ -241,16 +241,28 @@ const CUT_FILL_SPLIT=[
 ];
 /* Один лист: u — поле между линиями, t — укладка столбиками (оси
    переставлены). Возвращает места стёкол в координатах листа и остаток. */
-function cutFillSheet(list,u,params,v){
- const md=+params.minDist||0,T=!!v.t;
- const U=T?{x0:u.y0,y0:u.x0,x1:u.y1,y1:u.x1}:u;
- const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
+/* Порядок стёкол варианта. cache — один на лист: у сотен вариантов всего
+   несколько разных порядков, сортировать каждый раз незачем. */
+function cutFillOrder(list,v,cache){
+ const T=!!v.t,key=v.keys?null:(v.u?'u':'')+v.s+(T?'t':'');
+ if(key&&cache&&cache.has(key))return cache.get(key);
  /* v.u — срочные первыми: приоритет тянет стекло на ранние листы, если лист
     от этого не хуже забит (выбор между вариантами решает площадь). */
  const order=list.map(p=>T?Object.assign({},p,{w:p.h,h:p.w,t0:p}):Object.assign({},p,{t0:p})).sort((a,b)=>(v.u?cutPrioRank(a.priority)-cutPrioRank(b.priority):0)||(v.keys?v.keys.get(a.piece)-v.keys.get(b.piece):CUT_FILL_SORTS[v.s](a,b))||cutPrioRank(a.priority)-cutPrioRank(b.priority)||a.piece.localeCompare(b.piece));
+ if(key&&cache)cache.set(key,order);
+ return order;
+}
+function cutFillSheet(list,u,params,v,cache){
+ const md=+params.minDist||0,T=!!v.t;
+ const U=T?{x0:u.y0,y0:u.x0,x1:u.y1,y1:u.x1}:u;
+ const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
+ const order=cutFillOrder(list,v,cache);
  let used=0,urgent=0;
  const kind=p=>Math.max(p.w,p.h)+'x'+Math.min(p.w,p.h),left=new Map();order.forEach(p=>left.set(kind(p),(left.get(kind(p))||0)+1));
- for(const p of order){
+ for(let k=0;k<order.length;k++){
+  const p=order[k];
+  /* Лист забит — остальное сразу в остаток. */
+  if(!free.length){for(;k<order.length;k++)rest.push(order[k].t0);break;}
   const same=left.get(kind(p))||1;
   const turn=params.rotate&&!p.norot&&p.w!==p.h,ways=[{w:p.w,h:p.h,rot:false}].concat(turn?[{w:p.h,h:p.w,rot:true}]:[]);
   if(v.r&&ways.length>1)ways.reverse();
@@ -306,30 +318,100 @@ function cutFillRandom(fit,seed){
  }
  return out;
 }
-function cutPackFill(list,stock,paramsFor,fixed,urgent,seed){
+/* Лучшая укладка одного листа: все варианты, берётся тот, где на лист легло
+   больше стекла (urgent — больше срочного). rseed — случайные варианты. */
+/* Быстрая проба — какой размер листа брать: 64 варианта из 384. */
+const CUT_FILL_QUICK=CUT_FILL_VARIANTS.filter(v=>v.s<2&&(v.p===0||v.p===3));
+/* need — лист «+ same size» без Trim и Border: годится только укладка, где
+   есть стекло, которое не влезает в обычный лист. Нет такой — null. */
+function cutFillBest(fit,u,pr,urgent,rseed,variants,need){
+ let best=null;
+ const base=variants||CUT_FILL_VARIANTS,urgentOn=fit.some(p=>p.priority!==fit[0].priority);
+ const tries=(urgentOn?base.concat(base.map(x=>Object.assign({u:1},x))):base).concat(rseed?cutFillRandom(fit,rseed):[]),cache=new Map();
+ for(const v of tries){
+  const r=cutFillSheet(fit,u,pr,v,cache);
+  if(need&&!r.placed.some(q=>need.has(q.piece)))continue;
+  if(!best||(urgent?r.urgent>best.urgent||r.urgent===best.urgent&&r.used>best.used+1e-6:r.used>best.used+1e-6||Math.abs(r.used-best.used)<=1e-6&&r.urgent>best.urgent))best=r;
+  if(!r.rest.length&&best===r)break;
+ }
+ return best;
+}
+/* Лист за листом. Размеров листа несколько — каждый лист берётся того
+   размера, где стекло займёт бо́льшую долю листа: «когда есть два варианта
+   листов, оно выбирает только один, а должно выбирать и тот и тот… иногда
+   выгодно взять 5 листов 130 и 25 листов 144» (владелец, 19 сентября 2026).
+   Листы покупают за квадратный фут — доля листа и есть цена. mix выключен —
+   листы по порядку склада, как раньше: жадный выбор по доле не всегда лучше
+   в целом, поэтому считаются оба. Генератор: после каждого листа отдаёт долю
+   разложенного стекла, 0…1. */
+function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix){
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
  sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const fitsRow=(p,row)=>{const pr=paramsFor(row),u=cutUsable(row,pr),W=u.W,H=u.H;return p.w<=W+1e-6&&p.h<=H+1e-6||pr.rotate&&!p.norot&&p.h<=W+1e-6&&p.w<=H+1e-6;};
  let rest=[];
  list.forEach(p=>{if(stock.some(row=>fitsRow(p,row)))rest.push(p);else unplaced.push({piece:p.piece,reason:'Larger than the sheet'});});
+ const total=rest.reduce((a,p)=>a+p.w*p.h,0)||1;
+ /* Строка «+ same size» (base) — лист для стекла больше поля обычного листа
+    (владелец, 18 сентября 2026: «специально для этого дела, потому что
+    стекло овер»). Смешанный выбор берёт её только под такое стекло. */
+ const regular=stock.filter(r=>!r.base),over=new Set(rest.filter(p=>!regular.some(r=>fitsRow(p,r))).map(p=>p.piece));
  while(rest.length){
-  const row=stock.find(r=>(!r.limit||(used.get(r.key)||0)<r.limit)&&rest.some(p=>fitsRow(p,r)));
-  if(!row){rest.forEach(p=>unplaced.push({piece:p.piece,reason:'No sheets left'}));break;}
-  const pr=paramsFor(row),u=cutUsable(row,pr),fit=rest.filter(p=>fitsRow(p,row)),other=rest.filter(p=>!fitsRow(p,row));
-  let best=null;
-  const urgentOn=fit.some(p=>p.priority!==fit[0].priority);
-  const tries=(urgentOn?CUT_FILL_VARIANTS.concat(CUT_FILL_VARIANTS.map(x=>Object.assign({u:1},x))):CUT_FILL_VARIANTS).concat(seed?cutFillRandom(fit,seed*7919+sheets.length):[]);
-  for(const v of tries){
-   const r=cutFillSheet(fit,u,pr,v);
-   if(!best||(urgent?r.urgent>best.urgent||r.urgent===best.urgent&&r.used>best.used+1e-6:r.used>best.used+1e-6||Math.abs(r.used-best.used)<=1e-6&&r.urgent>best.urgent))best=r;
-   if(!r.rest.length&&best===r)break;
-  }
-  if(!best.placed.length){unplaced.push({piece:fit[0].piece,reason:'Larger than the sheet'});rest=fit.slice(1).concat(other);continue;}
+  const rows=stock.filter(r=>(!r.limit||(used.get(r.key)||0)<r.limit)&&rest.some(p=>fitsRow(p,r)));
+  if(!rows.length){rest.forEach(p=>unplaced.push({piece:p.piece,reason:'No sheets left'}));break;}
+  /* Размер листа — по быстрой пробе каждого; полный перебор — на выбранном. */
+  const rseed=seed?seed*7919+sheets.length:0,full=row=>{const pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));return {row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed)};};
+  let pick=null;
+  if(mix&&rows.length>1){
+   const probe=strict=>{for(const row of rows){
+    const need=strict&&row.base?over:null;if(need&&!rest.some(p=>need.has(p.piece)&&fitsRow(p,row)))continue;
+    const pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));
+    const q=cutFillBest(fit,cutUsable(row,pr),pr,urgent,0,CUT_FILL_QUICK,need);if(!q)continue;
+    const share=q.used/(row.w*row.h);
+    if(!pick||(urgent?q.urgent>pick.q.urgent||q.urgent===pick.q.urgent&&share>pick.share+1e-9:share>pick.share+1e-9))pick={row,q,share,need};
+   }};
+   probe(true);if(!pick)probe(false);
+   const {row,need}=pick,pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));
+   pick={row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed,null,need)||pick.q};
+  }else pick=full(rows[0]);
+  const {row,best,fit}=pick,other=rest.filter(p=>!fitsRow(p,row));
+  if(!best.placed.length){unplaced.push({piece:fit[0].piece,reason:'Larger than the sheet'});rest=rest.filter(p=>p!==fit[0]);continue;}
   used.set(row.key,(used.get(row.key)||0)+1);
   sheets.push({no:sheets.length+1,size:{key:row.key,w:row.w,h:row.h,supplier:row.supplier},locked:false,stock:[],pieces:best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}))});
   rest=best.rest.concat(other);
+  yield 1-rest.reduce((a,p)=>a+p.w*p.h,0)/total;
  }
  return {sheets,unplaced};
+}
+function cutDrain(it){let r=it.next();while(!r.done)r=it.next();return r.value;}
+function cutPackFill(list,stock,paramsFor,fixed,urgent,seed,mix){return cutDrain(cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix));}
+/* Лист крупнее, чем нужно его стеклу, — меньший размер склада прогона, если
+   всё стекло листа на него ложится. Так полосы и столбики, которые берут
+   листы по порядку склада, тоже доходят до смеси размеров. miss — какие
+   наборы стёкол на какой размер уже не легли: у разных вариантов раскладки
+   много одинаковых листов. */
+function cutRightSize(packed,stock,paramsFor,src,miss){
+ if(!packed||stock.length<2)return packed;
+ const used=new Map();packed.sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
+ packed.sheets.forEach(s=>{
+  if(s.locked||(s.stock||[]).length||!s.pieces.length)return;
+  const list=s.pieces.map(p=>src.get(p.piece));if(list.some(x=>!x))return;
+  const load=list.reduce((a,p)=>a+p.w*p.h,0),area=s.size.w*s.size.h;
+  /* Лист «+ same size» — не сюда: он только под стекло больше обычного поля. */
+  const smaller=stock.filter(r=>!r.base&&r.w*r.h<area-1e-6&&(!r.limit||(used.get(r.key)||0)<r.limit)).sort((a,b)=>a.w*a.h-b.w*b.h);
+  for(const row of smaller){
+   const pr=paramsFor(row),u=cutUsable(row,pr);if(load>u.W*u.H+1e-6)continue;
+   const key=row.key+'|'+list.map(p=>p.w+'x'+p.h+(p.shape?'s':'')+(p.norot?'n':'')).sort().join(',');
+   if(miss&&miss.has(key))continue;
+   let fit=null;const cache=new Map();
+   for(const v of CUT_FILL_VARIANTS){const r=cutFillSheet(list,u,pr,v,cache);if(!r.rest.length){fit=r;break;}}
+   if(!fit){if(miss)miss.add(key);continue;}
+   used.set(s.size.key,used.get(s.size.key)-1);used.set(row.key,(used.get(row.key)||0)+1);
+   s.size={key:row.key,w:row.w,h:row.h,supplier:row.supplier};
+   s.pieces=fit.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));
+   break;
+  }
+ });
+ return packed;
 }
 /* ------------------- Столбиками во всю высоту (X-резы) -------------------
    Владелец, 19 сентября 2026: «144 × 102, Trim 1, без Border; 20 1/4 × 100 1/4 —
@@ -478,12 +560,19 @@ function cutByOrder(plan,pieces){
 function cutPlanFor(number){return (DB.cutPlan||[]).find(p=>p&&p.batch===number)||null;}
 function cutStamp(pieces){return pieces.filter(p=>!p.off).map(p=>p.piece+':'+p.w+'x'+p.h).join('|');}
 function cutSettingsOf(number){const p=cutPlanFor(number);return p&&p.settings&&typeof p.settings==='object'?p.settings:{};}
-function cutPlanRun(number){
+/* Build — по шагам: после каждого варианта раскладки (и после каждого листа
+   в долгих проходах «лист за листом») отдаётся доля готового, 0…1; по ней
+   экран рисует полоску. «Иногда оптимизация скидывается, я что-то жду, но
+   не вижу визуально, что идёт процесс» (владелец, 19 сентября 2026).
+   В базу пишется только в самом конце: прерванный Build ничего не меняет.
+   cutPlanRun — то же разом. */
+const CUT_FILL_WEIGHT=40;
+function* cutPlanSteps(number){
  const b=glassBatchFind(number);if(!b)return {error:'Batch not found.'};
  const settings=cutSettingsOf(number),prev=cutPlanFor(number);
  const all=cutPieces(b,settings),live=all.filter(p=>!p.off);
  if(!live.length)return {error:'No glass to optimize.'};
- const groups=[],missing=[];
+ const sets=[],missing=[];
  const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
   const glass=list[0].glass,mm=list[0].mm,pick=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,stock=cutStockFor(glass,pick);
@@ -496,31 +585,48 @@ function cutPlanRun(number){
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
    if(alive.length||(s.stock||[]).length){keptSheets.push({no:keptSheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});alive.forEach(p=>keptIds.add(p.piece));}
   });
-  const rest=list.filter(p=>!keptIds.has(p.piece));
-  /* Несколько стратегий — берём вариант с наименьшим NetScrap. */
-  let win=null;
-  const candidates=CUT_STRATEGIES.map(strategy=>({strategy,packed:cutPack(rest,stock,paramsFor,strategy,keptSheets,mm)}));
-  /* Три прохода «лист за листом» с разными зёрнами случайности; результат
-     повторяемый — зёрна постоянные. */
-  /* На больших батчах меньше проходов — чтобы пересборка оставалась быстрой. */
-  (rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>candidates.push({strategy:{k:'fill'+seed},packed:cutPackFill(rest,stock,paramsFor,keptSheets,false,seed)}));
+  const rest=list.filter(p=>!keptIds.has(p.piece)),jobs=[];
+  /* Варианты раскладки; лучший выбирает cutScore. Полосы и столбики берут
+     листы по порядку склада — при нескольких размерах каждый размер по
+     очереди идёт первым. */
+  const orders=[stock].concat(stock.filter((r,i)=>i>0&&!r.base).map(r=>[r].concat(stock.filter(x=>x!==r))));
+  const strips=(st,tag)=>CUT_STRATEGIES.forEach(strategy=>jobs.push({k:strategy.k+tag,w:1,run:()=>cutPack(rest,st,paramsFor,strategy,keptSheets,mm)}));
   /* Столбиками и рядами во всю высоту/ширину — как X-резы Perfect Cut. */
-  [false,true].forEach(rows=>['asis','tall','wide'].forEach(orient=>['ffd','bfd'].forEach(fit=>{
-   const packed=cutPackColumns(rest,stock,paramsFor,keptSheets,{rows,orient,fit});
-   if(packed)candidates.push({strategy:{k:(rows?'rows-':'cols-')+orient+'-'+fit},packed});
-  })));
-  const prio=new Map(rest.map(p=>[p.piece,p.priority]));
-  if(rest.some(p=>p.priority>0))candidates.push({strategy:{k:'fill-urgent'},packed:cutPackFill(rest,stock,paramsFor,keptSheets,true)});
-  candidates.forEach(({strategy,packed})=>{
-   const first=packed.sheets[0]&&packed.sheets[0].size||stock[0];
-   /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
-   const g={glass,mm,sheet:first,stock,pick,params:paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
-   cutGroupNumbers(g,paramsFor);
-   const score=cutScore(g,prio);
-   if(!win||cutScoreLess(score,win.score))win={g,score,strategy:strategy.k};
-  });
-  win.g.strategy=win.strategy;groups.push(win.g);
+  const columns=(st,tag)=>[false,true].forEach(rows=>['asis','tall','wide'].forEach(orient=>['ffd','bfd'].forEach(fit=>
+   jobs.push({k:(rows?'rows-':'cols-')+orient+'-'+fit+tag,w:1,run:()=>cutPackColumns(rest,st,paramsFor,keptSheets,{rows,orient,fit})}))));
+  strips(stock,'');
+  /* Проходы «лист за листом» с разными зёрнами случайности (результат
+     повторяемый — зёрна постоянные); на больших батчах проходов меньше. */
+  (rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill'+seed,w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed)}));
+  columns(stock,'');
+  /* Несколько размеров — ещё проход «каждый лист своего размера». */
+  if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true)}));
+  if(rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
+  orders.slice(1).forEach(st=>{const tag='@'+st[0].key;strips(st,tag);columns(st,tag);});
+  sets.push({glass,mm,pick,stock,paramsFor,rest,jobs,src:new Map(rest.map(p=>[p.piece,p])),miss:new Set()});
  });
+ const total=sets.reduce((a,x)=>a+x.jobs.reduce((n,j)=>n+j.w,0),0)||1;
+ let done=0;const groups=[];
+ for(const set of sets){
+  const prio=new Map(set.rest.map(p=>[p.piece,p.priority]));let win=null;
+  for(const job of set.jobs){
+   let packed;
+   if(job.steps){const it=job.steps();let r=it.next();while(!r.done){yield (done+job.w*r.value)/total;r=it.next();}packed=r.value;}
+   else packed=job.run();
+   done+=job.w;
+   if(packed){
+    cutRightSize(packed,set.stock,set.paramsFor,set.src,set.miss);
+    const first=packed.sheets[0]&&packed.sheets[0].size||set.stock[0];
+    /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
+    const g={glass:set.glass,mm:set.mm,sheet:first,stock:set.stock,pick:set.pick,params:set.paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
+    cutGroupNumbers(g,set.paramsFor);
+    const score=cutScore(g,prio);
+    if(!win||cutScoreLess(score,win.score))win={g,score,strategy:job.k};
+   }
+   yield done/total;
+  }
+  win.g.strategy=win.strategy;groups.push(win.g);
+ }
  if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,
   excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{}};
@@ -532,6 +638,59 @@ function cutPlanRun(number){
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();
  return {plan,cancelled};
+}
+function cutPlanRun(number){return cutDrain(cutPlanSteps(number));}
+/* ------------------------------ Reset ------------------------------
+   Как в Perfect Cut: «Perfect Cut не даёт ничего изменить, если оптимизация
+   не скинута»; «добавим кнопку полный сброс оптимизации (листов, заполненных
+   оптимизацией, не будет), а Rebuild сменим на Build» (владелец, 19 сентября
+   2026). Пока раскрой собран, параметры закрыты — правится только сама
+   раскладка (руками). Reset убирает листы раскладки; остаются только
+   заблокированные — их человек закрепил сам, на них бывает забуканный сток,
+   и Build ставит их первыми. После Reset параметры правятся, Build собирает
+   заново. Раскроя ещё нет — он такой же сброшенный: сначала параметры,
+   потом Build. */
+function cutPlanDraft(number){
+ const b=glassBatchFind(number);if(!b)return null;
+ const prev=cutPlanFor(number),settings=prev&&prev.settings||{},sheetPick=prev&&prev.sheetPick||{};
+ const all=cutPieces(b,settings),live=all.filter(p=>!p.off),groups=[],missing=[];
+ const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
+ [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
+  const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick);
+  if(!stock.length){missing.push(glass);return;}
+  const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm),sheets=[];
+  if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
+   const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
+   if(alive.length||(s.stock||[]).length)sheets.push({no:sheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});
+  });
+  const first=sheets[0]&&sheets[0].size||stock[0];
+  groups.push({glass,mm,sheet:first,stock,pick,params:cutRunParams(mm,first,pick),sheets,unplaced:[],strategy:''});
+ });
+ const plan={batch:number,at:'',stamp:cutStamp(all),settings,sheetPick,groups,missing,excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{},reset:true};
+ return cutPlanRefresh(plan,all);
+}
+function cutPlanReset(number){
+ const prev=cutPlanFor(number),plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
+ const cancelled=[];
+ if(prev)prev.groups.forEach(g=>g.sheets.filter(s=>!s.locked).forEach(s=>(s.stock||[]).forEach(x=>{if(typeof stockOffcutCancel==='function')stockOffcutCancel(x.id);cancelled.push(x.id);})));
+ DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
+ touch();return {ok:true,plan,cancelled};
+}
+/* Раскладка есть — хоть один лист. По ней печать «By sheet». */
+function cutPlanLaid(number){const p=cutPlanFor(number);return p&&p.groups.some(g=>g.sheets.length)?p:null;}
+/* Параметры правятся только в сброшенном раскрое. */
+function cutPlanEditable(number){
+ const plan=cutPlanFor(number);
+ if(!plan)return cutPlanReset(number);
+ if(!plan.reset)return {error:'Reset the optimization to change settings.'};
+ return {ok:true,plan};
+}
+/* После правки параметров сброшенный раскрой пересобирается как черновик:
+   стёкла, размеры листов и линии — по новым значениям. */
+function cutPlanRedraft(number){
+ const plan=cutPlanDraft(number);if(!plan)return {error:'Batch not found.'};
+ DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
+ touch();return {ok:true,plan};
 }
 /* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
    листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
@@ -594,20 +753,12 @@ function cutStockSplit(number,glass,sheetNo,index,axis,size){
 }
 /* Ещё одна строка того же размера в складе прогона — сразу без Trim и Border;
    поля правятся как у любой строки. */
-/* Правка параметров прогона: пересчитать сразу или отложить до кнопки
-   Rebuild. Экран всегда откладывает: «изменил и нажал пересобрать» —
-   человек сам решает, когда пересобрать (владелец, 18 сентября 2026). Пока
-   не пересобрали, стёкла стоят где стояли; линии, подсказки остатков и
-   цифры уже по новым значениям; план помечен pending. */
-function cutApply(number,later,soft){
- if(!later)return cutPlanRun(number);
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
- plan.groups.forEach(g=>{g.pick=plan.sheetPick&&plan.sheetPick[g.glass]||null;g.params=cutRunParams(g.mm,g.sheet,g.pick);});
- if(!soft)plan.pending=true;
- cutPlanRefresh(plan);touch();return {ok:true,pending:!!plan.pending,plan};
-}
-function cutAddSameSize(number,glass,key,later){
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+/* Правка параметров прогона — только в сброшенном раскрое (cutPlanEditable),
+   и черновик сразу пересобирается по новым значениям (cutPlanRedraft).
+   Минимальный остаток стёкла не двигает — его можно менять и в собранном:
+   меняются только подсказки остатков. */
+function cutAddSameSize(number,glass,key){
+ const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  const base=cutBaseKey(key),opt=cutSheetOptions(glass).find(r=>cutSheetKey(r)===base);if(!opt)return {error:'No such sheet size.'};
  const pick=cutRunPick(plan,glass);
  if(!Array.isArray(pick.sizes))pick.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
@@ -615,12 +766,13 @@ function cutAddSameSize(number,glass,key,later){
  const row={key:base+'#'+n,base,w:opt.w,h:opt.h,limit:0,off:false,trimX:0,trimY:0,borderX:0,borderY:0};
  const at=pick.sizes.map(x=>x&&cutBaseKey(x.key)).lastIndexOf(base);
  pick.sizes.splice(at<0?pick.sizes.length:at+1,0,row);
- touch();return Object.assign(cutApply(number,later),{key:row.key});
+ return Object.assign(cutPlanRedraft(number),{key:row.key});
 }
-function cutRemoveSameSize(number,glass,key,later){
- const plan=cutPlanFor(number);if(!plan||String(key).indexOf('#')<0)return {error:'No such sheet size.'};
- const pick=cutRunPick(plan,glass);pick.sizes=(pick.sizes||[]).filter(x=>x&&x.key!==key);
- touch();return cutApply(number,later);
+function cutRemoveSameSize(number,glass,key){
+ if(String(key).indexOf('#')<0)return {error:'No such sheet size.'};
+ const open=cutPlanEditable(number);if(open.error)return open;
+ const pick=cutRunPick(open.plan,glass);pick.sizes=(pick.sizes||[]).filter(x=>x&&x.key!==key);
+ return cutPlanRedraft(number);
 }
 /* Удалить лист: его стёкла уходят в «Not on a sheet», сток с него — в отход
    («нет функции удаления листа… нужно добавить удаление любого листа, а если
@@ -666,7 +818,9 @@ function cutMoveSheet(number,glass,sheetNo,target){
   np.settings=Object.assign({},np.settings||{},settings);
   let tg=np.groups.find(x=>x.glass===g.glass&&x.mm===g.mm);
   if(!tg){tg={glass:g.glass,mm:g.mm,sheet:Object.assign({},s.size||g.sheet),stock:g.stock,pick:np.sheetPick&&np.sheetPick[glass]||null,params:g.params,sheets:[],unplaced:[],strategy:'moved'};np.groups.push(tg);}
-  sheet.no=tg.sheets.length+1;tg.sheets.push(sheet);
+  /* Раскрой того батча сброшен — лист без стока не встаёт: его стёкла
+     разложит Build вместе с остальными. */
+  if(!np.reset||sheet.locked){sheet.no=tg.sheets.length+1;tg.sheets.push(sheet);}
  }else{
   sheet.no=1;
   np={batch:to,at:new Date().toISOString(),stamp:'',settings,sheetPick:pick?{[glass]:pick}:{},
@@ -726,8 +880,8 @@ function cutRunPick(plan,glass){
  if(!plan.sheetPick||typeof plan.sheetPick!=='object')plan.sheetPick={};
  return plan.sheetPick[glass]||(plan.sheetPick[glass]={});
 }
-function cutSetStock(number,glass,key,field,value,later){
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+function cutSetStock(number,glass,key,field,value){
+ const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  let edge=null;
  /* Min dist — тоже у каждой строки размера, как на макете владельца. */
  const rowField=CUT_EDGES.includes(field)||field==='minDist';
@@ -743,31 +897,35 @@ function cutSetStock(number,glass,key,field,value,later){
  if(field==='first')pick.sizes=[row].concat(pick.sizes.filter(x=>x!==row));
  /* Пусто — снова значение из Master Data. */
  if(rowField){if(edge==null)delete row[field];else row[field]=edge;}
- touch();return cutApply(number,later);
+ return cutPlanRedraft(number);
 }
 const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','rotate'];
-function cutSetParam(number,glass,field,value,later){
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+function cutSetParam(number,glass,field,value){
  if(!CUT_RUN_FIELDS.includes(field))return {error:'Unknown cutting parameter.'};
- const pick=cutRunPick(plan,glass);
+ const soft=/^minOffcut/.test(field),built=cutPlanFor(number);
+ const open=soft&&built&&!built.reset?{ok:true,plan:built}:cutPlanEditable(number);if(open.error)return open;
+ const plan=open.plan,pick=cutRunPick(plan,glass);
  if(field==='rotate')pick.rotate=!!value;
  else{const v=typeof cutIn==='function'?cutIn(value,null):+value;if(v==null||!Number.isFinite(v))return {error:'Enter a size like 3/4 or 1 1/2.'};pick[field]=v;}
- /* Минимальный остаток стёкла не двигает — только подсказки остатков. */
- touch();return cutApply(number,later,/^minOffcut/.test(field));
+ if(plan.reset)return cutPlanRedraft(number);
+ /* Собранный раскрой: стёкла стоят, пересчитываются подсказки остатков. */
+ plan.groups.forEach(g=>{g.pick=plan.sheetPick[g.glass]||null;g.params=cutRunParams(g.mm,g.sheet,g.pick);});
+ cutPlanRefresh(plan);touch();return {ok:true,plan};
 }
-function cutResetParams(number,glass,later){
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
- if(plan.sheetPick)delete plan.sheetPick[glass];
- touch();return cutApply(number,later);
+function cutResetParams(number,glass){
+ const open=cutPlanEditable(number);if(open.error)return open;
+ if(open.plan.sheetPick)delete open.plan.sheetPick[glass];
+ return cutPlanRedraft(number);
 }
+/* Стекло в раскрой или нет, приоритет, поворот — тоже параметры прогона. */
 function cutSetting(number,pieceId,field,value){
- const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
+ const open=cutPlanEditable(number);if(open.error)return open;const plan=open.plan;
  if(!plan.settings||typeof plan.settings!=='object')plan.settings={};
  const own=plan.settings[pieceId]||(plan.settings[pieceId]={});
- if(field==='off'){own.off=!!value;if(own.off){const at=cutFind(plan,pieceId);if(at)at.sheet.pieces.splice(at.index,1);}}
+ if(field==='off')own.off=!!value;
  if(field==='priority')own.priority=cutPriority(value);
  if(field==='norot')own.norot=!!value;
- cutPlanRefresh(plan);touch();return {ok:true};
+ return cutPlanRedraft(number);
 }
 /* Помещается ли деталь: внутри листа и не задевает соседей с их зазором. */
 function cutRoom(group,sheet,box,params,ignore,src){
@@ -875,12 +1033,14 @@ function normalizeCutPlans(){
  const seen=new Set();
  DB.cutPlan=DB.cutPlan.filter(p=>p&&typeof p==='object'&&typeof p.batch==='string'&&Array.isArray(p.groups)&&!seen.has(p.batch)&&(seen.add(p.batch),true)&&(typeof glassBatchFind!=='function'||glassBatchFind(p.batch)))
   .map(p=>{
-   const plan=Object.assign({},p,{settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
+   const plan=Object.assign({},p,{reset:!!p.reset,settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
      sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
       stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
+   /* Отложенных правок больше нет: пока раскрой собран, параметры закрыты. */
+   delete plan.pending;
    if(typeof cutParamsFor==='function')try{cutPlanRefresh(plan);}catch(e){}
    return plan;
   });
