@@ -84,7 +84,7 @@ function cutSheetOptions(glassCode){
    Border — «130x96#2»: «хочу добавить новый лист с теми же размерами, только
    уже без тримов и бордеров… специально для этого дела, потому что стекло
    овер» (владелец, 18 сентября 2026). */
-function cutSheetKey(size){return size?(size.key&&String(size.key).indexOf('#')>0?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
+function cutSheetKey(size){return size?(size.key&&(String(size.key).indexOf('#')>0||/^S-/.test(size.key))?size.key:cutRound(size.w)+'x'+cutRound(size.h)):'';}
 function cutBaseKey(key){return String(key||'').split('#')[0];}
 /* Параметры прогона: по толщине, а отступы от краёв — свои у каждого размера
    листа: «Trim X Y Border для каждого размера индивидуальные… лучше сделать
@@ -95,7 +95,9 @@ function cutRunParams(mm,size,pick){
  const p=cutParamsFor(mm),key=cutSheetKey(size),own=typeof cutSheetTrim==='function'?cutSheetTrim(cutBaseKey(key)):null,run=pick||{};
  const row=Array.isArray(run.sizes)&&run.sizes.find(x=>x&&x.key===key)||{};
  const num=(v,fallback)=>v!=null&&v!==''&&Number.isFinite(+v)&&+v>=0?+v:fallback;
- const edge=(f,base)=>num(row[f],num(run[f],own&&own[f]!=null?own[f]:base));
+ /* Кусок со стеллажа уже резаный: кромку ему не обрезают, если не сказано иначе. */
+ const fromStock=/^S-/.test(key);
+ const edge=(f,base)=>num(row[f],fromStock?0:num(run[f],own&&own[f]!=null?own[f]:base));
  return Object.assign({},p,{
   trimX:edge('trimX',p.trim),trimY:edge('trimY',p.trim),borderX:edge('borderX',p.border),borderY:edge('borderY',p.border),
   minDist:num(row.minDist,num(run.minDist,p.minDist)),
@@ -116,7 +118,17 @@ function cutUsable(size,params){
 /* Склад прогона: какие размеры листов берём и сколько их есть. «Иногда мы
    используем 10 листов 130 и 40 листов 144» (владелец, 18 сентября 2026):
    листы берутся по порядку списка, пока не кончится их количество. */
-function cutStockFor(glassCode,pick){
+/* Куски со стеллажа (сток) этого стекла и толщины: такие же листы прогона,
+   только штучные и уже оплаченные. «А где опция использовать тот сток —
+   сейчас выглядит как накопление» (владелец, 20 сентября 2026). Сами они в
+   рез не идут: пока человек не отметил кусок галочкой, его нет в прогоне. */
+function cutStockPieces(glassCode,mm){
+ return (Array.isArray(DB.stockOffcut)?DB.stockOffcut:[])
+  .filter(r=>r&&r.status==='stock'&&r.glass===glassCode&&(!mm||!r.mm||r.mm===mm)&&+r.w>0&&+r.h>0)
+  .map(r=>({key:r.id,id:r.id,w:Math.max(+r.w,+r.h),h:Math.min(+r.w,+r.h),stock:true}))
+  .sort((a,b)=>b.w*b.h-a.w*a.h||a.key.localeCompare(b.key));
+}
+function cutStockFor(glassCode,pick,mm){
  const rows=cutSheetOptions(glassCode);if(!rows.length)return [];
  const own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
  const out=rows.map(r=>{
@@ -125,6 +137,12 @@ function cutStockFor(glassCode,pick){
  }).filter(r=>!r.off);
  /* Строки «+ same size» этого прогона. */
  (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base}));
+ /* Отмеченные куски стока — штучные листы; площадь у них своя, поэтому
+    укладчик берёт их, только если так уходит меньше квадратных футов. */
+ cutStockPieces(glassCode,mm).forEach(r=>{
+  const set=own&&own.find(x=>x&&x.key===r.key);
+  if(set&&set.off===false)out.push({key:r.key,w:r.w,h:r.h,supplier:'',limit:1,off:false,stock:true});
+ });
  if(own&&own.length)out.sort((a,b)=>{
   const ia=own.findIndex(x=>x&&x.key===a.key),ib=own.findIndex(x=>x&&x.key===b.key);
   return (ia<0?99:ia)-(ib<0?99:ib);
@@ -577,7 +595,7 @@ function* cutPlanSteps(number,probe){
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
   /* probe — прикидка «а что если»: свои параметры, в базу ничего не пишется. */
   const glass=list[0].glass,mm=list[0].mm;
-  const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick);
+  const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick,mm);
   if(!stock.length){missing.push(glass);return;}
   const paramsFor=size=>cutRunParams(mm,size,pick);
   /* Заблокированные листы прошлого прогона остаются как есть и идут первыми. */
@@ -591,7 +609,7 @@ function* cutPlanSteps(number,probe){
   /* Варианты раскладки; лучший выбирает cutScore. Полосы и столбики берут
      листы по порядку склада — при нескольких размерах каждый размер по
      очереди идёт первым. */
-  const orders=[stock].concat(stock.filter((r,i)=>i>0&&!r.base).map(r=>[r].concat(stock.filter(x=>x!==r))));
+  const orders=[stock].concat(stock.filter((r,i)=>i>0&&!r.base&&!r.stock).map(r=>[r].concat(stock.filter(x=>x!==r))));
   const strips=(st,tag)=>CUT_STRATEGIES.forEach(strategy=>jobs.push({k:strategy.k+tag,w:1,run:()=>cutPack(rest,st,paramsFor,strategy,keptSheets,mm)}));
   /* Столбиками и рядами во всю высоту/ширину — как X-резы Perfect Cut. */
   const columns=(st,tag)=>[false,true].forEach(rows=>['asis','tall','wide'].forEach(orient=>['ffd','bfd'].forEach(fit=>
@@ -656,12 +674,14 @@ function cutWhatIfCases(plan){
   cases.push({key:f,label:label+' 0',pick:(glass,own)=>{const x=copy(own);x[f]=0;(x.sizes||[]).forEach(r=>{if(r)delete r[f];});return x;}});
  };
  edge('trimX','Trim X');edge('trimY','Trim Y');edge('borderX','Border X');edge('borderY','Border Y');
- /* Выключенные размеры листа: что будет, если разрешить. */
+ /* Куски стока, которые ещё не отмечены: что будет, если взять. */
  const on=new Set(g.stock.map(r=>r.key));
+ const pickOn=key=>(glass,own)=>{const y=copy(own);if(!Array.isArray(y.sizes))y.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
+  const row=y.sizes.find(r=>r&&r.key===key);if(row)row.off=false;else y.sizes.push({key,limit:0,off:false});return y;};
+ cutStockPieces(g.glass,g.mm).filter(x=>!on.has(x.key)).slice(0,2)
+  .forEach(x=>cases.push({key:'stock:'+x.key,label:'+ '+x.id+' · '+frac16(x.w)+' × '+frac16(x.h)+'″',pick:pickOn(x.key)}));
  cutSheetOptions(g.glass).map(x=>Object.assign({},x,{key:cutSheetKey(x)})).filter(x=>!on.has(x.key)).sort((a,b)=>b.w*b.h-a.w*a.h).slice(0,2)
-  .forEach(x=>cases.push({key:'size:'+x.key,label:'+ '+frac16(x.w)+' × '+frac16(x.h)+'″',
-   pick:(glass,own)=>{const y=copy(own);if(!Array.isArray(y.sizes))y.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
-    const row=y.sizes.find(r=>r&&r.key===x.key);if(row)row.off=false;else y.sizes.push({key:x.key,limit:0,off:false});return y;}}));
+  .forEach(x=>cases.push({key:'size:'+x.key,label:'+ '+frac16(x.w)+' × '+frac16(x.h)+'″',pick:pickOn(x.key)}));
  return cases.slice(0,5);
 }
 function* cutWhatIfSteps(number){
@@ -705,7 +725,7 @@ function cutPlanDraft(number){
  const all=cutPieces(b,settings),live=all.filter(p=>!p.off),groups=[],missing=[];
  const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
-  const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick);
+  const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick,mm);
   if(!stock.length){missing.push(glass);return;}
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm),sheets=[];
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{

@@ -18,6 +18,11 @@ function stockUiDrop(id){
  if(!confirm('Put '+id+' back to waste? The sticker on the rack becomes invalid.'))return;
  const out=stockOffcutDrop(id);cutNotice=out.error||'';render();
 }
+/* Кусок уже взят в чей-то собранный раскрой — видно, в какой батч он уйдёт. */
+function stockUiInBatch(id){
+ const plan=(DB.cutPlan||[]).find(p=>p&&!p.reset&&(p.groups||[]).some(g=>g.sheets.some(s=>s.size&&s.size.key===id)));
+ return plan?plan.batch:'';
+}
 function viewStockList(){
  const rows=stockOffcutRows(),live=rows.filter(r=>r.status==='stock'),off=rows.filter(r=>r.status!=='stock');
  const shown=stockShowOff?rows:live;
@@ -28,11 +33,11 @@ function viewStockList(){
   <td class="n">${r.area}</td>
   <td>${esc(r.batch)}${r.sheet?' · sheet '+r.sheet:''}</td>
   <td>${esc(salesShortDate(r.at))}</td>
-  <td>${r.status==='stock'?'<span class="mut">On the rack</span>':'<span class="mut">Back to waste</span>'}</td>
+  <td>${r.status!=='stock'?'<span class="mut">Back to waste</span>':stockUiInBatch(r.id)?`<span class="pill" data-stock-in>In ${esc(stockUiInBatch(r.id))}</span>`:'<span class="mut">On the rack</span>'}</td>
   <td class="oq-actions">${r.status==='stock'?`<button type="button" class="sm" data-stock-print onclick="stockUiPrint('${esc(r.id)}')">Sticker</button>
    <button type="button" class="sm" data-stock-drop onclick="stockUiDrop('${esc(r.id)}')">Back to waste</button>`:''}</td></tr>`;
  const body=shown.map(row).join('')||`<tr><td colspan="8" class="empty" data-stock-empty>Nothing in stock yet. Offcuts get here from a batch layout: right-click an offcut → To stock.</td></tr>`;
- return `<section class="optimization-queue"><div class="page-head"><div><h2>Stock</h2><p>Offcuts booked from cut layouts. Numbers are on the stickers on the rack.</p></div></div>
+ return `<section class="optimization-queue"><div class="page-head"><div><h2>Stock</h2><p>Offcuts booked from cut layouts. Numbers are on the stickers on the rack. To cut one, tick its S-… row in the batch layout: Reset → SHEETS → Build.</p></div></div>
   <div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>
   <div class="card oq-card"><div class="oq-toolbar"><b data-stock-total>${live.length} in stock · ${stockOffcutTotal()} ft\u00b2</b><span class="sp"></span>
    ${off.length?`<label class="chk"><input type="checkbox" data-stock-show-off ${stockShowOff?'checked':''} onchange="stockUiShowOff(this.checked)"> Show ${off.length} back to waste</label>`:''}</div>
