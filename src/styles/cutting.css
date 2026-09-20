@@ -140,6 +140,12 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-progress i{display:block;height:100%;width:0;background:#1f6f9f;border-radius:3px;transition:width .2s ease-out}
 .cut-progress-pct{font-size:12px;color:#475467;font-variant-numeric:tabular-nums;min-width:96px}
 .cut-busy{opacity:.45;pointer-events:none;transition:opacity .2s}
+/* Прикидки «а что если»: таблица под строкой кнопок. */
+.cut-what{margin-top:10px;border:1px solid #eaecf0;border-radius:10px;padding:10px 12px;background:#fff}
+.cut-what-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.cut-what table{font-size:12px}
+.cut-what tr.on td{background:#f9fafb}
+.cut-what .cut-win{color:#067647}
 /* Листов ещё нет: пустой лист с линиями и подпись по центру. */
 .cut-paper-empty{position:relative}
 .cut-empty-cap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.3;pointer-events:none}

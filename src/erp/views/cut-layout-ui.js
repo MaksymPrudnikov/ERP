@@ -66,36 +66,55 @@ function cutUiState(number){
 /* Build идёт по кусочкам: между кусками экран успевает нарисовать полоску
    хода; Cancel останавливает, и раскрой остаётся каким был — в базу пишется
    только в конце. Пока идёт Build, экран раскроя закрыт. */
-let cutBusy=null;
+let cutBusy=null,cutWhat=null;
 function cutBuildDone(){return cutBusy?cutBusy.promise:Promise.resolve(null);}
-function cutUiBuild(number){
+/* Долгий счёт кусками: между кусками экран рисует полоску. */
+function cutUiSteps(number,it,label,done){
  if(cutBusy)return cutBusy.promise;
- const it=cutPlanSteps(number),job={batch:number,pct:0,stop:false};
+ const job={batch:number,pct:0,stop:false,label};
  job.promise=new Promise(resolve=>{
-  const finish=r=>{
-   cutBusy=null;cutNotice=r&&r.error||'';
-   if(r&&r.plan&&cutUi.batch===number){cutUi.sheet=1;cutUi.sel='';}
-   render();resolve(r);
-  };
+  const finish=r=>{cutBusy=null;done(r);render();resolve(r);};
   const tick=()=>{
    if(job.stop)return finish({cancelled:true});
    const t0=Date.now();let r;
    try{do{r=it.next();if(!r.done)job.pct=r.value;}while(!r.done&&Date.now()-t0<40);}
-   catch(e){return finish({error:e&&e.message||'Build failed.'});}
+   catch(e){return finish({error:e&&e.message||label+' failed.'});}
    if(r.done)return finish(r.value);
    cutUiProgress();setTimeout(tick,0);
   };
   /* Сначала экран с полоской, потом счёт. */
   setTimeout(tick,30);
  });
- cutBusy=job;cutNotice='';cutInfo=null;render();
+ cutBusy=job;cutNotice='';render();
  return job.promise;
+}
+function cutUiBuild(number){
+ cutInfo=null;cutWhat=null;
+ return cutUiSteps(number,cutPlanSteps(number),'Building',r=>{
+  cutNotice=r&&r.error||'';
+  if(r&&r.plan&&cutUi.batch===number){cutUi.sheet=1;cutUi.sel='';}
+ });
+}
+/* «А что если»: несколько прикидок подряд, ничего не меняется — только цифры. */
+function cutUiWhatIf(number){
+ cutWhat=null;
+ return cutUiSteps(number,cutWhatIfSteps(number),'What if',r=>{
+  cutNotice=r&&r.error||'';cutWhat=r&&r.rows?{batch:number,rows:r.rows}:null;
+ });
+}
+function cutUiWhatClose(){cutWhat=null;render();}
+/* Принять прикидку: сброс с новыми параметрами и сразу Build. */
+function cutUiWhatUse(number,key,label){
+ const row=cutWhat&&cutWhat.rows.find(x=>x.key===key);
+ if(!confirm('Reset the optimization and build with «'+(label||key)+'»?'))return;
+ const r=cutWhatIfApply(number,key);if(r.error){cutNotice=r.error;render();return;}
+ cutUiBuild(number);
 }
 function cutUiProgress(){
  const job=cutBusy;if(!job)return;
  const pct=Math.min(99,Math.round(job.pct*100)),bar=document.querySelector('[data-cut-progress]'),txt=document.querySelector('[data-cut-progress-pct]');
  if(bar){bar.setAttribute('aria-valuenow',pct);const i=bar.querySelector('i');if(i)i.style.width=pct+'%';}
- if(txt)txt.textContent='Building · '+pct+'%';
+ if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
@@ -105,7 +124,7 @@ function cutUiReset(number){
  const st=plan.groups.flatMap(g=>g.sheets.filter(x=>!x.locked).flatMap(x=>(x.stock||[]).map(o=>o.id)));
  const kept=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.locked).length,0);
  if(!confirm('Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(st.length?' Stock '+st.join(', ')+' goes back to waste.':'')))return;
- const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutUi.sheet=1;cutUi.sel='';render();
+ const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutWhat=null;cutUi.sheet=1;cutUi.sel='';render();
 }
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
    Data → Cutting). Из блока «No sheet size» — сразу Build; из таблицы
@@ -560,6 +579,17 @@ function cutPieceRow(p,at,sel,lock){
   <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled':''} aria-label="Priority, 1 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','priority',this.value||0)"></td>
   <td class="n">${place}</td></tr>`;
 }
+/* Прикидки «а что если»: только цифры, ничего не меняется. Use — сброс с
+   этими параметрами и Build. */
+function cutWhatTable(number,busy){
+ if(busy||!cutWhat||cutWhat.batch!==number)return '';
+ const sign=v=>v<-1e-9?`<b class="cut-win">−${cutNum(-v,1)} ft²</b>`:v>1e-9?`<span class="mut">+${cutNum(v,1)} ft²</span>`:'<span class="mut">—</span>';
+ const rows=cutWhat.rows.map(r=>`<tr${r.now?' class="on"':''} data-cut-what-row="${esc(r.key||'now')}"><td>${esc(r.label)}</td><td class="n">${r.sheets}</td><td class="n">${cutNum(r.area,0)}</td><td class="n">${cutNum(r.used,1)}%</td><td class="n">${r.now?'<span class="mut">now</span>':sign(r.delta)}</td>
+  <td>${r.now?'':`<button type="button" class="gb-link" data-cut-what-use="${esc(r.key)}" onclick="cutUiWhatUse('${esc(number)}','${esc(r.key)}','${esc(r.label)}')">Use</button>`}</td></tr>`).join('');
+ return `<div class="cut-what" data-cut-what><div class="cut-what-head"><b>What if</b><span class="mut">Numbers only — nothing is changed</span><span class="sp"></span>
+  <button type="button" class="gb-link" data-cut-what-close onclick="cutUiWhatClose()">Close</button></div>
+  <table class="sl-table"><thead><tr><th>Option</th><th class="n">Sheets</th><th class="n">ft²</th><th class="n">Used</th><th class="n">Difference</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
     сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
@@ -570,8 +600,8 @@ function viewCutLayout(b){
  const pieces=cutPieces(b,plan.settings||{}),laid=plan.groups.some(g=>g.sheets.length),live=pieces.filter(p=>!p.off).length;
  const pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
  /* Build идёт — полоска хода и Cancel вместо кнопок. */
- const acts=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="Building" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>Building · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
-  :`${built?`<button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+ const acts=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
+  :`${built?`<button type="button" data-cut-whatif onclick="cutUiWhatIf('${esc(b.number)}')">What if</button><button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const head=`<div class="oq-toolbar cut-toolbar">${laid?cutSumTotal(plan):`<b data-cut-stats>Not built</b><span class="mut">${live} glass</span>`}
   <span class="sp"></span>${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
   ${acts}</div>`;
@@ -579,7 +609,7 @@ function viewCutLayout(b){
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — Reset, then Build.</div>':'')+info;
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — Reset, then Build.</div>':'')+info+cutWhatTable(b.number,busy);
  if(!plan.groups.length)return `${head}${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
