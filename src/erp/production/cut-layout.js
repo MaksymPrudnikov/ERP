@@ -567,7 +567,7 @@ function cutSettingsOf(number){const p=cutPlanFor(number);return p&&p.settings&&
    В базу пишется только в самом конце: прерванный Build ничего не меняет.
    cutPlanRun — то же разом. */
 const CUT_FILL_WEIGHT=40;
-function* cutPlanSteps(number){
+function* cutPlanSteps(number,probe){
  const b=glassBatchFind(number);if(!b)return {error:'Batch not found.'};
  const settings=cutSettingsOf(number),prev=cutPlanFor(number);
  const all=cutPieces(b,settings),live=all.filter(p=>!p.off);
@@ -575,7 +575,9 @@ function* cutPlanSteps(number){
  const sets=[],missing=[];
  const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
-  const glass=list[0].glass,mm=list[0].mm,pick=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,stock=cutStockFor(glass,pick);
+  /* probe — прикидка «а что если»: свои параметры, в базу ничего не пишется. */
+  const glass=list[0].glass,mm=list[0].mm;
+  const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick);
   if(!stock.length){missing.push(glass);return;}
   const paramsFor=size=>cutRunParams(mm,size,pick);
   /* Заблокированные листы прошлого прогона остаются как есть и идут первыми. */
@@ -630,6 +632,7 @@ function* cutPlanSteps(number){
  if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,
   excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{}};
+ if(probe)return {plan:cutPlanRefresh(plan,all),probe:true};
  /* Незаблокированный лист пересобран — его куски в стоке больше не на месте:
     снимаем их со стока, номера не выдаются повторно. */
  const cancelled=[];
@@ -640,6 +643,52 @@ function* cutPlanSteps(number){
  return {plan,cancelled};
 }
 function cutPlanRun(number){return cutDrain(cutPlanSteps(number));}
+/* --------------------------- А что если ---------------------------
+   Владелец, 20 сентября 2026: на его тесте обрезка кромки 7/8 снизу стоила
+   4 листа из 50 — но решать, резать ли кромку, ему. Поэтому программа не
+   меняет ничего сама, а считает несколько прикидок и показывает цену: с
+   нулевой кромкой, с ещё одним размером листа. В базу они не пишутся. */
+function cutWhatIfCases(plan){
+ const cases=[],g=plan.groups[0];if(!g)return cases;
+ const pr=cutGroupParams(g,g.sheet),copy=pick=>JSON.parse(JSON.stringify(pick||{}));
+ const edge=(f,label)=>{
+  if(!(+pr[f]>0))return;
+  cases.push({key:f,label:label+' 0',pick:(glass,own)=>{const x=copy(own);x[f]=0;(x.sizes||[]).forEach(r=>{if(r)delete r[f];});return x;}});
+ };
+ edge('trimX','Trim X');edge('trimY','Trim Y');edge('borderX','Border X');edge('borderY','Border Y');
+ /* Выключенные размеры листа: что будет, если разрешить. */
+ const on=new Set(g.stock.map(r=>r.key));
+ cutSheetOptions(g.glass).map(x=>Object.assign({},x,{key:cutSheetKey(x)})).filter(x=>!on.has(x.key)).sort((a,b)=>b.w*b.h-a.w*a.h).slice(0,2)
+  .forEach(x=>cases.push({key:'size:'+x.key,label:'+ '+frac16(x.w)+' × '+frac16(x.h)+'″',
+   pick:(glass,own)=>{const y=copy(own);if(!Array.isArray(y.sizes))y.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
+    const row=y.sizes.find(r=>r&&r.key===x.key);if(row)row.off=false;else y.sizes.push({key:x.key,limit:0,off:false});return y;}}));
+ return cases.slice(0,5);
+}
+function* cutWhatIfSteps(number){
+ const plan=cutPlanFor(number);if(!plan||plan.reset)return {error:'Build first.'};
+ const cases=cutWhatIfCases(plan);if(!cases.length)return {error:'Nothing to try: edges are already 0 and every sheet size is on.'};
+ const now={label:'As built',sheets:plan.stats.sheets,area:plan.stats.area,used:plan.stats.usedPct,delta:0,now:true};
+ const rows=[now];
+ for(let i=0;i<cases.length;i++){
+  const c=cases[i],it=cutPlanSteps(number,c.pick);let r=it.next();
+  while(!r.done){yield (i+r.value)/cases.length;r=it.next();}
+  const out=r.value;
+  if(out&&out.plan)rows.push({key:c.key,label:c.label,sheets:out.plan.stats.sheets,area:out.plan.stats.area,used:out.plan.stats.usedPct,
+   delta:cutFt2(out.plan.stats.area-now.area)});
+  yield (i+1)/cases.length;
+ }
+ return {rows};
+}
+/* Принять прикидку: сброс, новые параметры, Build его уже собирает. */
+function cutWhatIfApply(number,key){
+ const plan=cutPlanFor(number);if(!plan)return {error:'Build first.'};
+ const c=cutWhatIfCases(plan).find(x=>x.key===key);if(!c)return {error:'No such option.'};
+ const glasses=plan.groups.map(g=>g.glass),picks={};
+ glasses.forEach(glass=>{picks[glass]=c.pick(glass,plan.sheetPick&&plan.sheetPick[glass]||null);});
+ const r=cutPlanReset(number);if(r.error)return r;
+ const next=cutPlanFor(number);next.sheetPick=Object.assign({},next.sheetPick,picks);
+ touch();return cutPlanRedraft(number);
+}
 /* ------------------------------ Reset ------------------------------
    Как в Perfect Cut: «Perfect Cut не даёт ничего изменить, если оптимизация
    не скинута»; «добавим кнопку полный сброс оптимизации (листов, заполненных
@@ -698,12 +747,19 @@ function cutPlanRedraft(number){
 /* Срочность: срочное стекло (приоритет выше 5) на позднем листе — штраф.
    Срочность идёт после ft² и числа листов: «максимально дать приоритизацию к
    первым листам, но основной задачей является оптимизация под низший
-   процент» (владелец, 17 сентября 2026). */
+   процент» (владелец, 17 сентября 2026).
+   Дальше — компактность: при равных квадратных футах берём раскладку, где
+   недобор собран на одном листе, а не размазан по нескольким. «Ни в коем
+   случае не размазывай по листам стёкла — раскрой должен быть супер
+   компактный на весь батч» (владелец, 20 сентября 2026). Процент по батчу
+   от этого не меняется (он зависит только от числа листов), но самый пустой
+   лист можно не резать, а перенести в следующий батч. */
 function cutScore(g,prio){
  const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
  const offcut=g.sheets.reduce((a,s)=>a+((s.offcuts||[])[0]?cutArea(s.offcuts[0].w,s.offcuts[0].h):0),0);
  const late=prio?g.sheets.reduce((a,s,i)=>a+s.pieces.reduce((b,p)=>b+cutPrioWeight(prio.get(p.piece))*i,0),0):0;
- return [(g.unplaced||[]).length,area,g.sheets.length,late,-offcut];
+ const fills=g.sheets.filter(s=>!s.locked).map(s=>{const z=s.size||g.sheet;return s.pieces.reduce((a,p)=>a+p.w*p.h,0)/(z.w*z.h);});
+ return [(g.unplaced||[]).length,area,g.sheets.length,late,fills.length?Math.min(...fills):0,-offcut];
 }
 function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
 /* ------------------------------ Остатки в сток ------------------------------

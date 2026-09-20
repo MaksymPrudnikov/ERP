@@ -540,6 +540,21 @@ module.exports=async function({page,eq,ok}){
    clean:!ctOverlap(mix).length&&!ctOutside(mix).length&&!ctOverlap(lim).length&&!ctOutside(lim).length};
  }),{both:['130x96','144x102'],less:true,limit:true,placed:true,clean:true});
 
+ eq('«а что если»: цена обрезки кромки и лишнего размера листа — только цифры, раскрой не тронут; Use пересобирает с этими параметрами',await t.p.evaluate(async()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[34,36,18]]);const b=DB.glassBatch[0];
+  ['borderX','borderY'].forEach(f=>cutSetParam(b.number,'6CLEAR',f,'0'));
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  document.querySelector('[data-cut-run]').click();await cutBuildDone();
+  const built=cutPlanFor(b.number).stats.sheets,none=!document.querySelector('[data-cut-what]');
+  document.querySelector('[data-cut-whatif]').click();await cutBuildDone();
+  const rows=[...document.querySelectorAll('[data-cut-what-row]')].map(r=>r.dataset.cutWhatRow);
+  const trim=cutWhat.rows.find(x=>x.key==='trimX'),same=cutPlanFor(b.number).stats.sheets===built&&!cutPlanFor(b.number).reset;
+  document.querySelector('[data-cut-what-use="trimX"]').click();await cutBuildDone();
+  const g=cutPlanFor(b.number).groups[0];
+  return {built,none,rows,less:trim.sheets<built,delta:trim.delta<0,same,after:cutPlanFor(b.number).stats.sheets,
+   trimX:cutGroupParams(g,g.sheet).trimX,closed:!document.querySelector('[data-cut-what]'),placed:cutPlanFor(b.number).stats.placed===18};
+ }),{built:3,none:true,rows:['now','trimX','trimY'],less:true,delta:true,same:true,after:2,trimX:0,closed:true,placed:true});
+
  /* Мышь — настоящими событиями Playwright, как рукой. */
  {
   /* Большое окно и одна прокрутка к листу: дальше меряем без прокрутки, иначе
