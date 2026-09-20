@@ -209,6 +209,10 @@ function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,
 function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
 function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
+/* Клик по линии реза — перевернуть её; кнопка на листе — сложить лист заново
+   сквозными резами. */
+function cutUiFlipCut(glass,no,key){cutUiRun(()=>cutFlipCut(cutUi.batch,glass,no,key));}
+function cutUiRepack(glass,no){cutUiRun(()=>cutSheetRepack(cutUi.batch,glass,no));}
 /* В сток: номер S-… и запись. Стикер не печатается сразу — он идёт вместе со
    стикерами листа (печать «By sheet»); перепечатать — кнопкой в таблице. */
 function cutUiStockDone(r){cutNotice=r&&r.error||'';render();}
@@ -293,6 +297,9 @@ function cutUiDown(e,glass,no){
  const svg=e.currentTarget.querySelector('svg');if(!svg)return;
  const t=e.target,rot=t.closest&&t.closest('[data-cut-rot-handle]');
  if(rot){e.preventDefault();cutUi.sel=rot.dataset.cutRotHandle;cutUiRotate();return;}
+ /* Линия реза: клик переворачивает её по горизонтали или вертикали. */
+ const cl=t.closest&&t.closest('[data-cut-line]');
+ if(cl){e.preventDefault();cutUi.glass=glass;cutUi.sheet=+no;cutUiFlipCut(glass,+no,cl.dataset.cutLine);return;}
  const g=t.closest&&t.closest('[data-cut-piece]'),id=g?g.dataset.cutPiece:'',pt=cutUiSvgInches(svg,e.clientX,e.clientY);if(!pt)return;
  const d={id,glass,no:+no,svg,sx:e.clientX,sy:e.clientY,moving:false};
  if(id){
@@ -480,25 +487,31 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
  /* На экране лист тянется на всю ширину колонки; в печати — свой размер. */
- const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
-  '<rect width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'" fill="'+(edged?'#fef0c7':'#f2f4f7')+'" stroke="#98a2b3"/>'];
- if(edged)out.push('<rect x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'" fill="#f2f4f7"/>');
+ /* Ширину листа на экране ограничивает высота окна: --cut-ar — отношение
+    сторон рисунка, по нему CSS считает ширину. Рамка элемента совпадает с
+    рисунком, иначе мышь считала бы дюймы неверно. */
+ const ar=((W+pad)/(H+pad)).toFixed(3);
+ const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'style="--cut-ar:'+ar+'" ':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
+  /* Блик стекла — мягкая диагональ вместо штриховки Perfect Cut. */
+  '<defs><linearGradient id="cutGlassSheen" x1="0" y1="0" x2="1" y2="1"><stop class="cut-g1" offset="0"/><stop class="cut-g2" offset="45%"/><stop class="cut-g3" offset="100%"/></linearGradient></defs>',
+  '<rect class="'+(edged?'cut-sheet-band':'cut-sheet-free')+'" width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'"/>'];
+ if(edged)out.push('<rect class="cut-sheet-free" x="'+(u.x0*S).toFixed(1)+'" y="'+fy(u.y0,u.H).toFixed(1)+'" width="'+(u.W*S).toFixed(1)+'" height="'+(u.H*S).toFixed(1)+'"/>');
  /* Остатки: подсказка серым — это отход, пока его не взяли; забуканный в сток
     кусок — зелёный с номером S-…. Правая кнопка по ним — To stock, Split. */
  /* Подпись куска влезает в кусок: одна строка, иначе две, иначе мельче,
     а у узкого высокого куска — вдоль длинной стороны. Раньше строка
     «S-0000001 · 29 1/16 × 45 1/4″» вылезала за кусок и её обрезало. */
  const labels=[];
- const block=(o,fill,stroke,attr,lines,color)=>{const oy=fy(o.y,o.h);
-  out.push('<g '+attr+'><rect x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.2"/></g>');
+ const block=(o,cls,attr,lines,color)=>{const oy=fy(o.y,o.h);
+  out.push('<g '+attr+'><rect class="'+cls+'" x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'"/></g>');
   labels.push(cutFitLabel((o.x+o.w/2)*S,oy+o.h*S/2,o.w*S,o.h*S,lines,color));};
- (sheet.offcuts||[]).forEach((o,i)=>block(o,'#f9fafb','#d0d5dd','data-cut-offcut="'+i+'"',['Offcut',frac16(o.w)+' × '+frac16(o.h)+'″'],'#98a2b3'));
- (sheet.stock||[]).forEach(o=>block(o,'#ecfdf3','#12b76a','data-cut-stock="'+esc(o.id)+'"',[o.id,frac16(o.w)+' × '+frac16(o.h)+'″'],'#067647'));
+ (sheet.offcuts||[]).forEach((o,i)=>block(o,'cut-off','data-cut-offcut="'+i+'"',['Offcut',frac16(o.w)+' × '+frac16(o.h)+'″'],'#98a2b3'));
+ (sheet.stock||[]).forEach(o=>block(o,'cut-stk','data-cut-stock="'+esc(o.id)+'"',[o.id,frac16(o.w)+' × '+frac16(o.h)+'″'],'#067647'));
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
-  out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#ffffff" stroke="'+(outside(p)?'#d92d20':sel?'#1f6f9f':'#101828')+'" stroke-width="'+(sel||outside(p)?2:1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
+  out.push('<rect class="cut-glass" rx="1.5" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
   /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
@@ -516,6 +529,23 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   if(sel&&opts.ids&&!p.locked&&w>30&&h>30)out.push('<g data-cut-rot-handle="'+esc(p.piece)+'" class="cut-rot"><title>Rotate (R)</title><circle cx="'+(x+w-11).toFixed(1)+'" cy="'+(y+11).toFixed(1)+'" r="8" fill="#1f6f9f"/><text x="'+(x+w-11).toFixed(1)+'" y="'+(y+15).toFixed(1)+'" text-anchor="middle" font-size="11" fill="#ffffff">⟲</text></g>');
  });
  out.push(labels.join(''));
+ /* Резы стола: ступень 1 — через всё поле, дальше мельче. По линии можно
+    кликнуть и перевернуть её (cutFlipCut). */
+ const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,pr,sheet.flip):{lines:[],stuck:[]};
+ cuts.lines.forEach(c=>{
+  /* Первый рез идёт через весь лист — лезвие не останавливается на поле;
+     дальше резы живут внутри своей полосы. */
+  const full=c.level===1;
+  const a=c.axis==='x'?[c.at*S,full?0:fy(c.y1,0),c.at*S,full?H:fy(c.y0,0)]:[full?0:c.x0*S,fy(c.at,0),full?W:c.x1*S,fy(c.at,0)];
+  const seg=(cls,extra)=>'<line class="'+cls+'" x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+a[2].toFixed(1)+'" y2="'+a[3].toFixed(1)+'"'+(extra||'')+'/>';
+  /* Кликается только сквозной рез: у него и выбирают направление, а тонкую
+     линию у края стекла мышь перехватывала бы при захвате. */
+  const pick=opts.ids&&full;
+  out.push('<g class="cut-cut cut-cut'+Math.min(c.level,3)+'"'+(pick?' data-cut-line="'+esc(c.key)+'"><title>Through cut · click to turn</title>':'>')
+   +(pick?seg('cut-cut-hit'):'')+seg('cut-cut-line')+'</g>');
+ });
+ /* Область, которую сквозными резами не взять: обводим и говорим в шапке. */
+ (cuts.stuck||[]).forEach(r=>out.push('<rect class="cut-stuck" data-cut-stuck x="'+(r.x0*S).toFixed(1)+'" y="'+fy(r.y1,0).toFixed(1)+'" width="'+((r.x1-r.x0)*S).toFixed(1)+'" height="'+((r.y1-r.y0)*S).toFixed(1)+'"/>'));
  const line=(edge,x1,y1,x2,y2)=>out.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#f79009" stroke-width="1.2" pointer-events="none" data-cut-edge="'+edge+'"><title>'+edge.replace(/^(trim|border)/,m=>m[0].toUpperCase()+m.slice(1)+' ')+' '+esc(frac16(pr[edge]))+'″</title></line>');
  if(u.y0>0)line('trimX',0,H-u.y0*S,W,H-u.y0*S);
  if(u.x0>0)line('trimY',u.x0*S,0,u.x0*S,H);
@@ -711,7 +741,8 @@ function viewCutLayout(b){
   </div></div>
   <div class="cut-sheet-pane">
    ${glasses}
-   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}<span class="sp"></span>
+   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
+    ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
     ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
     <button type="button" class="dl" data-cut-sheet-delete onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">Delete sheet</button>
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
@@ -719,7 +750,7 @@ function viewCutLayout(b){
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
       правка отступов видна сразу, до Build. */
    :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}
-   ${strip}${actions}<p class="mut cut-hint">Drag glass on the sheet, onto a sheet below or to the list · double-click or R — rotate · right-click — menu</p>
+   ${strip}${actions}<p class="mut cut-hint">Drag glass on the sheet, onto a sheet below or to the list · double-click or R — rotate · right-click — menu · click a cut line to turn it</p>
    ${params}
   </div>
  </div>${busy?'':stockList+orders}`;
