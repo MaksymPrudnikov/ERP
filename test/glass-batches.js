@@ -64,7 +64,7 @@ module.exports=async function({page,eq,ok}){
   [...document.querySelectorAll('.gb-link')].find(b=>b.textContent==='B-0002').click();const contents=document.querySelectorAll('[data-glass-row]').length;
   [...document.querySelectorAll('.gb-detail-tabs button')].find(b=>b.textContent==='History').click();const history=document.querySelector('.gb-history').textContent;
   return {list,counts,contents,created:history.includes('Created')&&history.includes('6 pcs'),orders:history.includes('Order '+salesRecord(gbA).businessNumber)&&history.includes('Order '+salesRecord(gbC).businessNumber)&&!history.includes('Order '+salesRecord(gbB).businessNumber)};
- }),{list:['B-0002','B-0003','B-0001'],counts:['3','0','0','3'],contents:6,created:true,orders:true});
+ }),{list:['B-0002','B-0003','B-0001'],counts:['3','0','0','3','0'],contents:6,created:true,orders:true});
 
  eq('повторный батч тех же стёкол не создаёт дубликатов; устаревшие строки отклоняются',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');const rows=glassBatchRows();

@@ -5,7 +5,7 @@
    OUT: HTML очереди и переходы через salesSetRecordStatus; черновик не сохраняет.
    Perfect Cut остаётся неактивным прототипом. Обмен не имитируется.
    ===================================================================== */
-const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches']];
+const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches'],['stock','Stock']];
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
@@ -15,7 +15,7 @@ function optimizationMatches(o,key){
  return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
   key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
-function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
+function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
 function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
 function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
@@ -86,7 +86,7 @@ function optimizationUnbatch(ids){
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
-function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():viewOrderQueue(false);}
+function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():optimizationTab==='stock'?viewStockList():viewOrderQueue(false);}
 function viewOrderQueue(shipping){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));

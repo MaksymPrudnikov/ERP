@@ -374,6 +374,24 @@ module.exports=async function({page,eq,ok}){
   return {hintMenu,split:split.map(x=>x.replace('×'+oh,'×H')),printed,menuGone,stockMenu,back:cutPlanFor(b.number).groups[0].sheets[0].stock.length,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{hintMenu:['stock','split-length','split-width','sheet-lock'],split:['S-0000001 50×H'],printed:0,menuGone:true,stockMenu:['stock-print','stock-cancel','sheet-lock'],back:0,russian:false});
 
+ eq('журнал стока (Optimization → Stock): что лежит, откуда и когда; возврат в отход снимает кусок и с листа',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5],[50,50,2]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);const g=cutPlanFor(b.number).groups[0],ids=[];
+  g.sheets.forEach(s=>{if((s.offcuts||[]).length&&ids.length<2){const r=cutStockTake(b.number,g.glass,s.no,0);if(r.id)ids.push(r.id);}});
+  tab='optimization';optimizationSetTab('stock');render();
+  const rows=[...document.querySelectorAll('[data-stock-row]')].map(r=>r.dataset.stockRow);
+  const areas=rows.map(id=>{const r=stockOffcutFind(id);return r.w*r.h;});
+  const total=document.querySelector('[data-stock-total]').textContent,count=document.querySelector('[data-queue-tab="stock"] b').textContent;
+  const before=cutPlanFor(b.number).groups[0].sheets.reduce((n,s)=>n+(s.stock||[]).length,0);
+  /* Возврат в отход из журнала — кусок уходит и с листа раскроя. */
+  document.querySelector('[data-stock-row="'+rows[0]+'"] [data-stock-drop]').click();
+  const after=cutPlanFor(b.number).groups[0].sheets.reduce((n,s)=>n+(s.stock||[]).length,0),gone=!document.querySelector('[data-stock-row="'+rows[0]+'"]');
+  stockUiShowOff(true);const withOff=!!document.querySelector('[data-stock-row="'+rows[0]+'"]');stockUiShowOff(false);
+  const again=stockOffcutDrop(rows[0]).error;
+  return {two:ids.length===2,rows:rows.length,big:areas[0]>=areas[1],total:/^2 in stock · \d/.test(total),count,before,after,gone,withOff,
+   status:stockOffcutFind(rows[0]).status,again,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{two:true,rows:2,big:true,total:true,count:'2',before:2,after:1,gone:true,withOff:true,status:'cancelled',again:'Already off stock.',russian:false});
+
  eq('остатки в JSON: не массив и повтор номера — отказ; мусор чистится, счётчик не отстаёт',await t.p.evaluate(()=>{
   const fail=v=>{try{validateStockOffcutPayload({stockOffcut:v});return 'accepted';}catch(e){return e.message;}};
   const shape=fail({}),bad=fail([{id:'X-1'}]),dup=fail([{id:'S-0000004'},{id:'S-0000004'}]);
