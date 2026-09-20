@@ -391,6 +391,25 @@ module.exports=async function({page,eq,ok}){
    placed:p.stats.placed===p.stats.total,inBatch,clean:!ctOverlap(p).length&&!ctOutside(p).length};
  }),{before:204,hidden:true,offered:true,used:true,less:true,edges:'0,0,0,0',placed:true,inBatch:'In B-0002',clean:true});
 
+ eq('кусок со стеллажа выбирается для батча прямо из журнала: отметка встаёт в его SHEETS, другому батчу он больше не предлагается; Release возвращает',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
+  ctOrder([[46,60,5]]);const b1=DB.glassBatch[0];cutPlanRun(b1.number);const g1=cutPlanFor(b1.number).groups[0];
+  const id=cutStockTake(b1.number,g1.glass,g1.sheets.find(s=>(s.offcuts||[]).length).no,0).id;
+  ctOrder([[40,44,10]]);ctOrder([[30,30,8]]);const b2=DB.glassBatch[1],b3=DB.glassBatch[2];
+  cutPlanRun(b2.number);
+  tab='optimization';optimizationSetTab('stock');render();
+  /* Свой батч не предлагается: пока его не порежут, куска физически нет. */
+  const offered=stockUiBatches(stockOffcutFind(id)).map(x=>x.number);
+  stockUiUse(id,b2.number);
+  const picked=((cutPlanFor(b2.number).sheetPick||{})['6CLEAR']||{}).sizes.filter(r=>/^S-/.test(r.key)).map(r=>r.key+':'+r.off).join();
+  const reset=!!cutPlanFor(b2.number).reset,where=(document.querySelector('[data-stock-in]')||{}).textContent;
+  const forOther=cutStockPieces('6CLEAR',6,b3.number).map(x=>x.key);
+  const built=cutPlanRun(b2.number).plan,used=built.groups[0].sheets.some(s=>s.size.key===id);
+  stockUiRelease(id,b2.number);
+  const back=cutStockPieces('6CLEAR',6,b3.number).map(x=>x.key),free=!document.querySelector('[data-stock-in]');
+  return {offered,picked,reset,where,forOther,used,back,free,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{offered:['B-0003','B-0002'],picked:'S-0000001:false',reset:true,where:'Picked for B-0002',forOther:[],used:true,back:['S-0000001'],free:true,russian:false});
+
  eq('журнал стока (Optimization → Stock): что лежит, откуда и когда; возврат в отход снимает кусок и с листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5],[50,50,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);const g=cutPlanFor(b.number).groups[0],ids=[];

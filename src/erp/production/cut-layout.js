@@ -122,13 +122,25 @@ function cutUsable(size,params){
    только штучные и уже оплаченные. «А где опция использовать тот сток —
    сейчас выглядит как накопление» (владелец, 20 сентября 2026). Сами они в
    рез не идут: пока человек не отметил кусок галочкой, его нет в прогоне. */
-function cutStockPieces(glassCode,mm){
+/* Кусок, уже отмеченный или уже лежащий в раскрое другого батча, занят:
+   физически он один, и два батча его не поделят. */
+function cutStockClaims(exceptBatch){
+ const out=new Map();
+ (DB.cutPlan||[]).forEach(p=>{
+  if(!p||p.batch===exceptBatch)return;
+  Object.keys(p.sheetPick||{}).forEach(glass=>((p.sheetPick[glass]||{}).sizes||[]).forEach(r=>{if(r&&/^S-/.test(r.key)&&r.off===false)out.set(r.key,p.batch);}));
+  (p.groups||[]).forEach(g=>g.sheets.forEach(s=>{if(s.size&&/^S-/.test(s.size.key||''))out.set(s.size.key,p.batch);}));
+ });
+ return out;
+}
+function cutStockPieces(glassCode,mm,exceptBatch){
+ const busy=cutStockClaims(exceptBatch);
  return (Array.isArray(DB.stockOffcut)?DB.stockOffcut:[])
-  .filter(r=>r&&r.status==='stock'&&r.glass===glassCode&&(!mm||!r.mm||r.mm===mm)&&+r.w>0&&+r.h>0)
+  .filter(r=>r&&r.status==='stock'&&r.glass===glassCode&&(!mm||!r.mm||r.mm===mm)&&+r.w>0&&+r.h>0&&!busy.has(r.id))
   .map(r=>({key:r.id,id:r.id,w:Math.max(+r.w,+r.h),h:Math.min(+r.w,+r.h),stock:true}))
   .sort((a,b)=>b.w*b.h-a.w*a.h||a.key.localeCompare(b.key));
 }
-function cutStockFor(glassCode,pick,mm){
+function cutStockFor(glassCode,pick,mm,batch){
  const rows=cutSheetOptions(glassCode);if(!rows.length)return [];
  const own=pick&&Array.isArray(pick.sizes)?pick.sizes:null;
  const out=rows.map(r=>{
@@ -139,7 +151,7 @@ function cutStockFor(glassCode,pick,mm){
  (own||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0&&!x.off).forEach(x=>out.push({key:x.key,w:+x.w,h:+x.h,supplier:'',limit:+x.limit>0?Math.floor(+x.limit):0,off:false,base:x.base}));
  /* Отмеченные куски стока — штучные листы; площадь у них своя, поэтому
     укладчик берёт их, только если так уходит меньше квадратных футов. */
- cutStockPieces(glassCode,mm).forEach(r=>{
+ cutStockPieces(glassCode,mm,batch).forEach(r=>{
   const set=own&&own.find(x=>x&&x.key===r.key);
   if(set&&set.off===false)out.push({key:r.key,w:r.w,h:r.h,supplier:'',limit:1,off:false,stock:true});
  });
@@ -595,7 +607,7 @@ function* cutPlanSteps(number,probe){
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
   /* probe — прикидка «а что если»: свои параметры, в базу ничего не пишется. */
   const glass=list[0].glass,mm=list[0].mm;
-  const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick,mm);
+  const own=(prev&&prev.sheetPick&&prev.sheetPick[glass])||null,pick=probe?probe(glass,own):own,stock=cutStockFor(glass,pick,mm,number);
   if(!stock.length){missing.push(glass);return;}
   const paramsFor=size=>cutRunParams(mm,size,pick);
   /* Заблокированные листы прошлого прогона остаются как есть и идут первыми. */
@@ -678,7 +690,7 @@ function cutWhatIfCases(plan){
  const on=new Set(g.stock.map(r=>r.key));
  const pickOn=key=>(glass,own)=>{const y=copy(own);if(!Array.isArray(y.sizes))y.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
   const row=y.sizes.find(r=>r&&r.key===key);if(row)row.off=false;else y.sizes.push({key,limit:0,off:false});return y;};
- cutStockPieces(g.glass,g.mm).filter(x=>!on.has(x.key)).slice(0,2)
+ cutStockPieces(g.glass,g.mm,plan.batch).filter(x=>!on.has(x.key)).slice(0,2)
   .forEach(x=>cases.push({key:'stock:'+x.key,label:'+ '+x.id+' · '+frac16(x.w)+' × '+frac16(x.h)+'″',pick:pickOn(x.key)}));
  cutSheetOptions(g.glass).map(x=>Object.assign({},x,{key:cutSheetKey(x)})).filter(x=>!on.has(x.key)).sort((a,b)=>b.w*b.h-a.w*a.h).slice(0,2)
   .forEach(x=>cases.push({key:'size:'+x.key,label:'+ '+frac16(x.w)+' × '+frac16(x.h)+'″',pick:pickOn(x.key)}));
@@ -725,7 +737,7 @@ function cutPlanDraft(number){
  const all=cutPieces(b,settings),live=all.filter(p=>!p.off),groups=[],missing=[];
  const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
-  const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick,mm);
+  const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick,mm,number);
   if(!stock.length){missing.push(glass);return;}
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm),sheets=[];
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
