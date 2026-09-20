@@ -519,39 +519,17 @@ function cutOffcutOk(w,h,params){
  const sides=Math.min(w,h)>=Math.min(minW,minH)-1e-6&&Math.max(w,h)>=Math.max(minW,minH)-1e-6;
  return sides||ft2>0&&w*h/144>=ft2-1e-6;
 }
-function cutFreeRect(sheet,size,params,extra){
- const {x0,y0,W,H}=cutUsable(size,params);
- if(!(W>0&&H>0))return null;
- const xs=[0,W],ys=[0,H],taken=cutTaken(sheet).concat(extra||[]);
- taken.forEach(p=>{xs.push(cutRound(p.x-x0),cutRound(p.x-x0+p.w));ys.push(cutRound(p.y-y0),cutRound(p.y-y0+p.h));});
- const X=[...new Set(xs.filter(v=>v>=0&&v<=W))].sort((a,b)=>a-b),Y=[...new Set(ys.filter(v=>v>=0&&v<=H))].sort((a,b)=>a-b);
- const cols=X.length-1,rows=Y.length-1;if(cols<1||rows<1)return null;
- const busy=[];
- for(let r=0;r<rows;r++){busy.push(new Array(cols).fill(false));}
- taken.forEach(p=>{
-  const px=cutRound(p.x-x0),py=cutRound(p.y-y0);
-  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-   if(X[c]>=px-1e-6&&X[c+1]<=px+p.w+1e-6&&Y[r]>=py-1e-6&&Y[r+1]<=py+p.h+1e-6)busy[r][c]=true;
-  }
- });
- const good=(w,h)=>cutOffcutOk(w,h,params);
- let best=null;
- for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
-  if(busy[r][c])continue;
-  let maxC=cols;
-  for(let r2=r;r2<rows;r2++){
-   let c2=c;while(c2<maxC&&!busy[r2][c2])c2++;
-   maxC=Math.min(maxC,c2);if(maxC<=c)break;
-   const w=X[maxC]-X[c],h=Y[r2+1]-Y[r];
-   if(good(w,h)&&(!best||w*h>best.w*best.h))best={x:cutRound(x0+X[c]),y:cutRound(y0+Y[r]),w:cutRound(w),h:cutRound(h)};
-  }
- }
- return best;
-}
+/* Куски листа, которые реально упадут со стола: пустые листья дерева резов.
+   Раньше это был самый большой свободный прямоугольник — но он не обязан
+   совпадать с резами, и подсказанный остаток стол мог разрезать надвое
+   (аудит раскроя, 20 сентября 2026). На кусок вешают номер стока и стикер,
+   поэтому обещать можно только то, что снимется одним куском. */
 function cutFreeRects(sheet,size,params){
- const out=[];
- for(let i=0;i<8;i++){const r=cutFreeRect(sheet,size,params,out);if(!r)break;out.push(r);}
- return out;
+ const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,params,sheet&&sheet.flip):null;
+ if(!cuts)return [];
+ return (cuts.free||[]).map(r=>({x:cutRound(r.x0),y:cutRound(r.y0),w:cutRound(r.x1-r.x0),h:cutRound(r.y1-r.y0)}))
+  .filter(r=>r.w>1e-6&&r.h>1e-6&&cutOffcutOk(r.w,r.h,params))
+  .sort((a,b)=>b.w*b.h-a.w*a.h||a.x-b.x||a.y-b.y).slice(0,8);
 }
 /* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Из брака
    вычитаются только куски, забуканные в сток (sheet.stock, номер S-…);
@@ -584,28 +562,43 @@ function cutSheetCuts(sheet,size,params,flips){
  const walk=(r,level)=>{
   const k=cutCutKey(r);if(memo.has(k))return memo.get(k);
   const list=inside(r),one=list.length===1&&Math.abs(list[0].x-r.x0)<E&&Math.abs(list[0].y-r.y0)<E&&Math.abs(list[0].x+list[0].w-r.x1)<E&&Math.abs(list[0].y+list[0].h-r.y1)<E;
-  let res={cost:0,lines:[],stuck:[]};
+  let res={cost:0,lines:[],stuck:[],free:list.length?[]:[r]};
   if(list.length&&!one){
+   /* Сначала отрезается целиком пустая полоса, и первой — бо́льшая: на снимке
+      Perfect Cut (владелец, 20 сентября 2026) верхняя полоса отхода остаётся
+      одним куском, а резы между стёклами заканчиваются на её границе. Без
+      этого правила рез шёл через отход и крошил его — обещанный остаток на
+      стеллаж физически не получался. */
+    const edge=axis=>{
+    const lo=axis==='x'?r.x0:r.y0,hi=axis==='x'?r.x1:r.y1,side=axis==='x'?r.y1-r.y0:r.x1-r.x0;
+    const near=Math.min(...list.map(p=>axis==='x'?p.x:p.y)),far=Math.max(...list.map(p=>axis==='x'?p.x+p.w:p.y+p.h));
+    const at=hi-far>E?far:near-lo>E?near:null;
+    return {at,area:at===null?0:(at===far?hi-far:near-lo)*side};
+   };
    const go=axis=>{
     const cs=spots(r,axis,list);if(!cs.length)return null;
-    const c=cs[0];
+    const c=edge(axis).at!==null?edge(axis).at:cs[0];
     const a=axis==='x'?{x0:r.x0,y0:r.y0,x1:c,y1:r.y1}:{x0:r.x0,y0:r.y0,x1:r.x1,y1:c};
     const b=axis==='x'?{x0:c,y0:r.y0,x1:r.x1,y1:r.y1}:{x0:r.x0,y0:c,x1:r.x1,y1:r.y1};
     const pa=walk(a,level+1),pb=walk(b,level+1),len=axis==='x'?r.y1-r.y0:r.x1-r.x0;
-    return {cost:len+pa.cost+pb.cost,stuck:pa.stuck.concat(pb.stuck),
+    return {cost:len+pa.cost+pb.cost,stuck:pa.stuck.concat(pb.stuck),free:pa.free.concat(pb.free),
      lines:[{axis,at:cutRound(c),x0:r.x0,y0:r.y0,x1:r.x1,y1:r.y1,level,key:k}].concat(pa.lines,pb.lines)};
    };
    const A=go('x'),B=go('y');
-   if(!A&&!B)res={cost:0,lines:[],stuck:[r]};
+   if(!A&&!B)res={cost:0,lines:[],stuck:[r],free:[]};
    else{
-    const best=!A?B:!B?A:A.cost<=B.cost+E?A:B,other=A&&B?(best===A?B:A):null;
+    /* Целая полоса отхода важнее короткого реза: где отрезается больше
+       отхода одним куском, туда и первый рез. Поровну — по длине резов. */
+    const ea=edge('x').area,eb=edge('y').area;
+    const win=ea>eb+E?A||B:eb>ea+E?B||A:!A?B:!B?A:A.cost<=B.cost+E?A:B;
+    const best=win,other=A&&B?(best===A?B:A):null;
     res=set.has(k)&&other?other:best;
    }
   }
   memo.set(k,res);return res;
  };
  const res=walk({x0:u.x0,y0:u.y0,x1:u.x1,y1:u.y1},1);
- return {lines:res.lines,stuck:res.stuck,ok:!res.stuck.length};
+ return {lines:res.lines,stuck:res.stuck,free:res.free,ok:!res.stuck.length};
 }
 function cutSheetCutsFor(group,sheet,flips){
  const size=sheet.size||group.sheet;
@@ -673,6 +666,52 @@ function cutByOrder(plan,pieces){
  return [...by.values()].map(r=>Object.assign(r,{used:cutFt2(r.used),
   net:cutFt2(total?plan.stats.net*r.used/total:0),
   pct:total?cutPct(plan.stats.net*r.used/total,r.used+plan.stats.net*r.used/total):0})).sort((a,b)=>b.used-a.used);
+}
+
+/* --------------------- Лишний лист после Build ---------------------
+   Аудит раскроя (Codex, 20 сентября 2026) и проверка на 20 случайных батчах:
+   укладчик «лист за листом» дробит свободное место и обратно его не
+   склеивает, поэтому последний лист иногда держит стёкла, которым на ранних
+   листах место ещё есть — ручной перенос это место находит, а Build нет.
+   Здесь после выбора лучшей раскладки последний лист пробуют растащить: его
+   стёкла раскладываются вместе со стёклами раннего листа тем же укладчиком.
+   Тем же — потому что лист обязан остаться резаемым сквозными резами: своё
+   размещение «куда влезет» дало бы минус лист, но два листа из пяти после
+   него не резались. Не трогаем заблокированные листы, закреплённые стёкла и
+   листы с забуканным стоком. На 20 случайных батчах (144 × 102, отступы 7/8):
+   минус 5 листов в 5 батчах, Used +1,8…+3,6 пункта, резы у всех сходятся. */
+function cutTightenGroup(g,paramsFor,src){
+ const area=s=>{const size=s.size||g.sheet,u=cutUsable(size,paramsFor(size));
+  return u.W*u.H-s.pieces.reduce((a,p)=>a+p.w*p.h,0)-(s.stock||[]).reduce((a,x)=>a+x.w*x.h,0);};
+ const free=s=>!s.locked&&!(s.stock||[]).length&&!s.pieces.some(p=>p.locked)&&s.pieces.every(p=>src&&src.get(p.piece));
+ let gone=0;
+ for(let pass=0;pass<3;pass++){
+  if(g.sheets.length<2)break;
+  const last=g.sheets[g.sheets.length-1];
+  if(!free(last)||!last.pieces.length)break;
+  let left=last.pieces.map(p=>src.get(p.piece));
+  const need=left.reduce((a,p)=>a+p.w*p.h,0),targets=g.sheets.slice(0,-1).filter(free);
+  /* Свободного места на ранних листах меньше, чем стекла на последнем, —
+     дальше считать нечего: на обычном батче проход стоит доли секунды. */
+  if(targets.reduce((a,s)=>a+area(s),0)<need-1e-6)break;
+  targets.sort((a,b)=>area(b)-area(a));
+  const plans=[];
+  for(const t of targets){
+   if(!left.length)break;
+   if(area(t)<Math.min(...left.map(p=>p.w*p.h))-1e-6)continue;
+   const size=t.size||g.sheet,pr=paramsFor(size),own=t.pieces.map(p=>src.get(p.piece));
+   const r=cutFillBest(own.concat(left),cutUsable(size,pr),pr,false,0,CUT_FILL_QUICK);
+   if(!r)continue;
+   const out=new Set(r.rest.map(p=>p.piece));
+   /* Свои стёкла листа выпасть не должны — иначе это не уплотнение. */
+   if(own.some(p=>out.has(p.piece))||left.every(p=>out.has(p.piece)))continue;
+   plans.push([t,r.placed]);left=left.filter(p=>out.has(p.piece));
+  }
+  if(left.length)break;
+  plans.forEach(([t,placed])=>{t.pieces=placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));});
+  g.sheets.pop();g.sheets.forEach((s,i)=>{s.no=i+1;});gone++;
+ }
+ return gone;
 }
 
 /* ------------------------------ Прогон ------------------------------ */
@@ -746,7 +785,10 @@ function* cutPlanSteps(number,probe){
    }
    yield done/total;
   }
-  win.g.strategy=win.strategy;groups.push(win.g);
+  win.g.strategy=win.strategy;
+  if(cutTightenGroup(win.g,set.paramsFor,set.src))cutGroupNumbers(win.g,set.paramsFor);
+  groups.push(win.g);
+  yield done/total;
  }
  if(!groups.length)return {error:missing.length?'No sheet size for '+missing.join(', ')+'. Add one below.':'No glass to optimize.'};
  const plan={batch:number,at:new Date().toISOString(),stamp:cutStamp(all),settings,sheetPick:(prev&&prev.sheetPick)||{},groups,missing,

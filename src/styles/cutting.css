@@ -80,6 +80,7 @@
  --cut-glass-a:#dcecfa;--cut-glass-b:#cfe4f6;--cut-glass-c:#c3dcf2;--cut-glass-line:#1b5e86;
  --cut-glass-sel:#a9d3f2;--cut-sel-line:#0b74c4;
  --cut-off:#f9fafb;--cut-off-line:#cbd5e1;--cut-stk:#d1fadf;--cut-stk-line:#12b76a;
+ --cut-cut:#8a94a6;
  --cut-bad:#d92d20;--cut-bad-fill:#fee4e2;
 }
 .cut-sheet-band{fill:var(--cut-band);stroke:#98a2b3}
@@ -95,9 +96,9 @@
 .cut-stk{fill:var(--cut-stk);stroke:var(--cut-stk-line);stroke-width:1.2}
 /* Резы стола: ступень 1 — через всё поле, дальше тоньше и светлее. Сплошные:
    «делай прямым вектором — в будущем для раскроя на машине». */
-.cut-cut-line{fill:none;stroke:#667085;stroke-width:1.1}
-.cut-cut1 .cut-cut-line{stroke:#1d2939;stroke-width:2.4}
-.cut-cut3 .cut-cut-line{stroke:#98a2b3;stroke-width:.7}
+.cut-cut-line{fill:none;stroke:var(--cut-cut);stroke-width:1}
+.cut-cut1 .cut-cut-line{stroke-width:1.4}
+.cut-cut3 .cut-cut-line{stroke-width:.8}
 .cut-cut-hit{stroke:transparent;stroke-width:9;fill:none}
 .cut-svg [data-cut-line]{cursor:pointer}
 .cut-svg [data-cut-line]:hover .cut-cut-line{stroke:var(--cut-sel-line);stroke-width:2}
