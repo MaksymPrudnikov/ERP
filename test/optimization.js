@@ -6,7 +6,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const c=oqCustomer();const states=['new','verified','batched','ready','done','closed','cancelled'];
   states.forEach((status,i)=>{const id=oqOrder(c,{businessNumber:String(76002+i)});if(status==='cancelled')salesSetRecordStatus(id,'cancelled');else if(status!=='new')oqThrough(id,status);});oqOrder(c,{kind:'quote'});oqQueue();
   return OPTIMIZATION_TABS.concat(SHIPPING_TABS).filter(t=>t[0]!=='all').map(([key])=>{oqQueue(key);return [key,optimizationRows().map(o=>o.status)];});
- }),[['new',['new']],['batch',['verified']],['production',['batched']],['awaiting',['batched']],['ready',['ready']],['done',['done']]]);
+ }),[['new',['new']],['batch',['verified']],['production',['batched']],['stock',[]],['awaiting',['batched']],['ready',['ready']],['done',['done']]]);
  eq('To batch: галочка всех стёкол (каждое отдельной строкой) и Create batch дают один номер обоим заказам и открывают его состав',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer();window.oqA=oqOrder(c);window.oqB=oqOrder(c);oqThrough(oqA,'verified');oqThrough(oqB,'verified');soDraft=null;soEdit=null;oqQueue('batch');
   document.querySelector('[data-glass-all]').click();const n=glassBatchSelection.size;document.querySelector('[data-glass-action="create"]').click();

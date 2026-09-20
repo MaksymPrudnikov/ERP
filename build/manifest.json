@@ -98,6 +98,7 @@
   "src/erp/views/ncr-ui.js",
   "src/erp/views/stickers-ui.js",
   "src/erp/views/cut-layout-ui.js",
+  "src/erp/views/stock-list.js",
   "src/erp/storage.js"
  ]
 }
