@@ -40,6 +40,27 @@ function cutArea(w,h){return (+w||0)*(+h||0)/144;}
 function cutFt2(v){return Math.round(v*100)/100;}
 function cutPct(part,whole){return whole>0?Math.round(part/whole*1000)/10:0;}
 /* ------------------------------ Детали ------------------------------ */
+/* Контур формы для листа. Владелец, 21 сентября 2026: «у нас отображается
+   квадрат — а как же резать шейп и скосы?» Стол сначала вырезает прямоугольную
+   заготовку, а потом режет по этому контуру; на листе надо видеть оба.
+   Точки — в дюймах от левого нижнего угла заготовки, ось Y вверх, как у листа.
+   Зеркало в cuttingPoints уже применено, а отверстия и вырезы лежат в исходных
+   координатах — их зеркалим здесь по той же оси (сумма min+max от зеркала не
+   меняется, поэтому ось берётся из готового контура).
+   Габарит контура обязан совпасть с заготовкой: разошлись — контур не отдаём,
+   и стекло рисуется прямоугольником, как раньше. Лист не должен врать. */
+function cutShapeGeom(lite){
+ const raw=((lite&&lite.cuttingPoints)||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
+ if(raw.length<3)return null;
+ const xs=raw.map(p=>p[0]),ys=raw.map(p=>p[1]);
+ const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ if(Math.abs(x1-x0-(+lite.cutW||0))>1/16+1e-6||Math.abs(y1-y0-(+lite.cutH||0))>1/16+1e-6)return null;
+ const mx=lite.mirrored?v=>x0+x1-v:v=>v,at=(px,py)=>[cutRound(mx(px)-x0),cutRound(py-y0)];
+ const fg=(lite.result&&lite.result.featureGeometry)||{};
+ const holes=(fg.holes||[]).map(h=>{const c=at(+h.center[0],+h.center[1]);return {x:c[0],y:c[1],d:+h.diameter||0};}).filter(h=>h.d>0&&Number.isFinite(h.x)&&Number.isFinite(h.y));
+ const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(p=>at(+p[0],+p[1]))).filter(p=>p.length>2);
+ return {pts:raw.map(p=>[cutRound(p[0]-x0),cutRound(p[1]-y0)]),holes,cutouts};
+}
 /* Стёкла батча как прямоугольники реза: тот же размер, что печатает стикер.
    shape — деталь не прямоугольная: вокруг неё нужен зазор. */
 function cutPieces(batch,settings){
@@ -51,9 +72,11 @@ function cutPieces(batch,settings){
   const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}});
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   const g=glassProductById(c.glassId),own=set[item.piece]||{};
+  const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite)),geom=shaped?cutShapeGeom(lite):null;
   out.push({piece:item.piece,key:part.key,unit:item.unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
    line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm:+((g&&g.thicknessMm)||lite.thickness)||0,
-   w:cutRound(+lite.cutW),h:cutRound(+lite.cutH),shape:!!(typeof stkShapeOf==='function'&&stkShapeOf(lite)),
+   w:cutRound(+lite.cutW),h:cutRound(+lite.cutH),shape:shaped,
+   pts:geom&&geom.pts||null,holes:geom&&geom.holes||null,cutouts:geom&&geom.cutouts||null,
    off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot});
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
@@ -612,7 +635,8 @@ function cutFlipCut(number,glass,sheetNo,key){
  const a=cutSheetCutsFor(g,s,now),b=cutSheetCutsFor(g,s,next);
  if(JSON.stringify(a.lines)===JSON.stringify(b.lines))return {error:'This cut can only go one way.'};
  if(next.length)s.flip=next;else delete s.flip;
- touch();return {ok:true};
+ /* Остатки считаются по дереву резов — перевёрнутый рез меняет и их. */
+ cutPlanRefresh(plan);touch();return {ok:true};
 }
 /* Перебрать один лист: стёкла складываются заново сквозными резами. */
 function cutSheetRepack(number,glass,sheetNo){
