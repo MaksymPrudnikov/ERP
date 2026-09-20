@@ -556,6 +556,88 @@ function cutFreeRects(sheet,size,params){
 /* Цифры листа: Used, Gross Scrap, NetScrap — как в Perfect Cut. Из брака
    вычитаются только куски, забуканные в сток (sheet.stock, номер S-…);
    подсказки (sheet.offcuts) — отход, пока их не взяли. */
+/* ---------------------- Линии реза: как режет стол ----------------------
+   Владелец, 20 сентября 2026: «у Perfect Cut есть направляющие полосы, как
+   лезвие будет резать полосами стекло, у тебя такой истории нет в интерфейсе
+   — значит при экспорте на стол у нас могут возникнуть проблемы».
+   Стол режет сквозными проходами: рез делит поле надвое, каждая половина
+   режется так же. Здесь этот разбор и считается: ступень 1 — рез через всё
+   поле, 2 — внутри полосы, дальше мельче. Если в области больше одного
+   стекла и сквозного реза нет (так бывает после правок руками), область
+   попадает в stuck, а лист помечается «не режется».
+   flips — области, где человек кликом по линии перевернул направление:
+   «как выгоднее, но на них можно кликать, чтобы менять по горизонтали и
+   вертикали» (владелец, 20 сентября 2026). Без клика берётся направление,
+   где общая длина резов меньше. */
+function cutCutKey(r){return [r.x0,r.y0,r.x1,r.y1].map(v=>cutRound(v)).join(',');}
+function cutSheetCuts(sheet,size,params,flips){
+ const E=1e-6,u=cutUsable(size,params),all=cutTaken(sheet).map(p=>({x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
+ const set=new Set(Array.isArray(flips)?flips:[]),memo=new Map();
+ const inside=r=>all.filter(p=>p.x>=r.x0-E&&p.y>=r.y0-E&&p.x+p.w<=r.x1+E&&p.y+p.h<=r.y1+E);
+ /* Где можно резать: по краю стекла, и ни одно стекло рез не пересекает. */
+ const spots=(r,axis,list)=>{
+  const lo=axis==='x'?r.x0:r.y0,hi=axis==='x'?r.x1:r.y1,seen=new Set(),out=[];
+  list.forEach(p=>{const a=axis==='x'?p.x:p.y,b=axis==='x'?p.x+p.w:p.y+p.h;
+   [a,b].forEach(c=>{if(c>lo+E&&c<hi-E&&!seen.has(c)){seen.add(c);out.push(c);}});});
+  return out.filter(c=>!list.some(p=>{const a=axis==='x'?p.x:p.y,b=axis==='x'?p.x+p.w:p.y+p.h;return a<c-E&&b>c+E;})).sort((a,b)=>a-b);
+ };
+ const walk=(r,level)=>{
+  const k=cutCutKey(r);if(memo.has(k))return memo.get(k);
+  const list=inside(r),one=list.length===1&&Math.abs(list[0].x-r.x0)<E&&Math.abs(list[0].y-r.y0)<E&&Math.abs(list[0].x+list[0].w-r.x1)<E&&Math.abs(list[0].y+list[0].h-r.y1)<E;
+  let res={cost:0,lines:[],stuck:[]};
+  if(list.length&&!one){
+   const go=axis=>{
+    const cs=spots(r,axis,list);if(!cs.length)return null;
+    const c=cs[0];
+    const a=axis==='x'?{x0:r.x0,y0:r.y0,x1:c,y1:r.y1}:{x0:r.x0,y0:r.y0,x1:r.x1,y1:c};
+    const b=axis==='x'?{x0:c,y0:r.y0,x1:r.x1,y1:r.y1}:{x0:r.x0,y0:c,x1:r.x1,y1:r.y1};
+    const pa=walk(a,level+1),pb=walk(b,level+1),len=axis==='x'?r.y1-r.y0:r.x1-r.x0;
+    return {cost:len+pa.cost+pb.cost,stuck:pa.stuck.concat(pb.stuck),
+     lines:[{axis,at:cutRound(c),x0:r.x0,y0:r.y0,x1:r.x1,y1:r.y1,level,key:k}].concat(pa.lines,pb.lines)};
+   };
+   const A=go('x'),B=go('y');
+   if(!A&&!B)res={cost:0,lines:[],stuck:[r]};
+   else{
+    const best=!A?B:!B?A:A.cost<=B.cost+E?A:B,other=A&&B?(best===A?B:A):null;
+    res=set.has(k)&&other?other:best;
+   }
+  }
+  memo.set(k,res);return res;
+ };
+ const res=walk({x0:u.x0,y0:u.y0,x1:u.x1,y1:u.y1},1);
+ return {lines:res.lines,stuck:res.stuck,ok:!res.stuck.length};
+}
+function cutSheetCutsFor(group,sheet,flips){
+ const size=sheet.size||group.sheet;
+ return cutSheetCuts(sheet,size,cutGroupParams(group,size),flips===undefined?sheet.flip:flips);
+}
+/* Перевернуть рез кликом по линии: направление другое, если оно возможно. */
+function cutFlipCut(number,glass,sheetNo,key){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,now=Array.isArray(s.flip)?s.flip.slice():[];
+ const next=now.includes(key)?now.filter(k=>k!==key):now.concat([key]);
+ const a=cutSheetCutsFor(g,s,now),b=cutSheetCutsFor(g,s,next);
+ if(JSON.stringify(a.lines)===JSON.stringify(b.lines))return {error:'This cut can only go one way.'};
+ if(next.length)s.flip=next;else delete s.flip;
+ touch();return {ok:true};
+}
+/* Перебрать один лист: стёкла складываются заново сквозными резами. */
+function cutSheetRepack(number,glass,sheetNo){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at;
+ if(s.locked)return {error:'Sheet is locked.'};
+ if((s.stock||[]).length)return {error:'Take the stock off this sheet first.'};
+ if(s.pieces.some(p=>p.locked))return {error:'A locked piece is on this sheet.'};
+ if(!s.pieces.length)return {error:'No glass on this sheet.'};
+ const src=cutPieces(glassBatchFind(number),plan.settings||{});
+ const list=s.pieces.map(p=>src.find(x=>x.piece===p.piece)).filter(Boolean);
+ if(list.length!==s.pieces.length)return {error:'This glass is not in the cut any more.'};
+ const size=s.size||g.sheet,params=cutGroupParams(g,size),best=cutFillBest(list,cutUsable(size,params),params,false,0);
+ if(!best||best.rest.length)return {error:'These pieces do not fit in straight passes.'};
+ s.pieces=best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));
+ delete s.flip;
+ cutPlanRefresh(plan);touch();return {ok:true};
+}
 function cutSheetNumbers(sheet,size,params){
  size=sheet.size||size;
  if(!Array.isArray(sheet.stock))sheet.stock=[];
@@ -1144,9 +1226,14 @@ function normalizeCutPlans(){
   .map(p=>{
    const plan=Object.assign({},p,{reset:!!p.reset,settings:p.settings&&typeof p.settings==='object'&&!Array.isArray(p.settings)?p.settings:{},
     groups:p.groups.filter(g=>g&&Array.isArray(g.sheets)&&g.sheet).map(g=>Object.assign({},g,{
-     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>Object.assign({},s,{no:i+1,locked:!!s.locked,
-      stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
-      pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)})),
+     sheets:g.sheets.filter(s=>s&&Array.isArray(s.pieces)).map((s,i)=>{
+      /* flip — перевёрнутые человеком резы; пустой список не храним. */
+      const out=Object.assign({},s,{no:i+1,locked:!!s.locked,
+       flip:(Array.isArray(s.flip)?s.flip:[]).filter(k=>typeof k==='string'),
+       stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
+       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)});
+      if(!out.flip.length)delete out.flip;
+      return out;}),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
    /* Отложенных правок больше нет: пока раскрой собран, параметры закрыты. */
    delete plan.pending;

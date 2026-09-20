@@ -39,14 +39,14 @@
    главное: «пропорция +-65 справа, 35 слева, та инфа слева не так важна»
    (владелец, 18 сентября 2026). */
 .cut-grid{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:16px;margin-top:14px;align-items:stretch}
-.cut-side{position:relative;min-width:0;min-height:560px}
+.cut-side{position:relative;min-width:0;min-height:420px}
 .cut-side-scroll{position:absolute;inset:0;overflow:auto;border:1px solid #eaecf0;border-radius:12px;background:#fff;padding:0 4px 8px}
 .cut-side-scroll .cut-list-head{position:sticky;top:0;z-index:2;margin:0;padding:10px 8px 6px;background:#fff}
 .cut-side-scroll .cut-list thead th{position:sticky;top:30px;z-index:1;background:#f9fafb}
 .cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
 .cut-list-head:first-child{margin-top:0}
 .cut-list{width:100%}
-.cut-list td,.cut-list th{padding:3px 5px;font-size:11px;line-height:1.3}
+.cut-list td,.cut-list th{padding:2px 5px;font-size:11px;line-height:1.3}
 .cut-list td:nth-child(5){max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cut-list tbody tr{cursor:grab}
 .cut-list tbody tr.on td{background:#eef4ff}
@@ -58,9 +58,9 @@
 .cut-md-sub{margin:18px 0 4px}
 .cut-md-note{margin:12px 0 0}
 /* Лента листов под листом: прокрутка вбок, выбранный — синий. */
-.cut-strip-wrap{display:flex;align-items:center;gap:6px;margin:10px 0 4px}
+.cut-strip-wrap{display:flex;align-items:center;gap:6px;margin:8px 0 2px}
 .cut-strip{display:flex;gap:6px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
-.cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:70px;padding:5px 10px;background:#fff;border:1px solid #d0d5dd;border-radius:10px;box-shadow:none;color:#344054}
+.cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:66px;padding:4px 9px;background:#fff;border:1px solid #d0d5dd;border-radius:10px;box-shadow:none;color:#344054}
 .cut-strip button b{font-size:14px;font-variant-numeric:tabular-nums}
 .cut-strip button small{font-size:10px;color:#667085;white-space:nowrap}
 .cut-strip button.on{border-color:#1f6f9f;background:#eef4ff;color:#026aa2}
@@ -68,15 +68,49 @@
 .cut-strip button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
 .cut-strip-step{flex:none;padding:6px 10px;font-size:14px;line-height:1;border-radius:10px}
 .cut-strip-count{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
-.cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:13px}
+.cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
 .cut-sheet-head .mut{font-size:12px}
-.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:10px;display:block;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
+/* Цвета листа в одном месте: стекло — холодный голубой с мягким бликом,
+   пустой лист — ровный серый, поле обрезки — темнее. «Визуально нет
+   контраста цветов, где стекло, а где пустой лист… сделай лучше, в стиле
+   2026–2030, а не 1985, как Perfect Cut» (владелец, 20 сентября 2026). */
+:root{
+ --cut-band:#e4e7ec;--cut-free:#eef1f5;
+ --cut-glass-a:#dcecfa;--cut-glass-b:#cfe4f6;--cut-glass-c:#c3dcf2;--cut-glass-line:#1b5e86;
+ --cut-glass-sel:#a9d3f2;--cut-sel-line:#0b74c4;
+ --cut-off:#f9fafb;--cut-off-line:#cbd5e1;--cut-stk:#d1fadf;--cut-stk-line:#12b76a;
+ --cut-bad:#d92d20;--cut-bad-fill:#fee4e2;
+}
+.cut-sheet-band{fill:var(--cut-band);stroke:#98a2b3}
+.cut-sheet-free{fill:var(--cut-free)}
+.cut-svg .cut-g1{stop-color:var(--cut-glass-a)}
+.cut-svg .cut-g2{stop-color:var(--cut-glass-b)}
+.cut-svg .cut-g3{stop-color:var(--cut-glass-c)}
+.cut-glass{fill:url(#cutGlassSheen);stroke:var(--cut-glass-line);stroke-width:1.1}
+.cut-pc.sel .cut-glass{fill:var(--cut-glass-sel);stroke:var(--cut-sel-line);stroke-width:2}
+.cut-pc.cut-hl .cut-glass{stroke:var(--cut-sel-line);stroke-width:2}
+.cut-glass[data-cut-out]{fill:var(--cut-bad-fill);stroke:var(--cut-bad);stroke-width:2}
+.cut-off{fill:var(--cut-off);stroke:var(--cut-off-line);stroke-width:1.2}
+.cut-stk{fill:var(--cut-stk);stroke:var(--cut-stk-line);stroke-width:1.2}
+/* Резы стола: ступень 1 — через всё поле, дальше тоньше и светлее. Сплошные:
+   «делай прямым вектором — в будущем для раскроя на машине». */
+.cut-cut-line{fill:none;stroke:#667085;stroke-width:1.1}
+.cut-cut1 .cut-cut-line{stroke:#1d2939;stroke-width:2.4}
+.cut-cut3 .cut-cut-line{stroke:#98a2b3;stroke-width:.7}
+.cut-cut-hit{stroke:transparent;stroke-width:9;fill:none}
+.cut-svg [data-cut-line]{cursor:pointer}
+.cut-svg [data-cut-line]:hover .cut-cut-line{stroke:var(--cut-sel-line);stroke-width:2}
+.cut-stuck{fill:none;stroke:var(--cut-bad);stroke-width:2}
+.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:6px;display:flex;justify-content:center;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
 .cut-svg{display:block}
-.cut-paper .cut-svg{width:100%;height:auto}
+/* Высота листа ограничена окном, ширина считается от неё: «уменьшил бы
+   процентов на 20, чтобы таблица листов была видна на одном экране»
+   (владелец, 20 сентября 2026). */
+.cut-paper .cut-svg{width:min(100%,calc(var(--cut-sheet-h,42vh) * var(--cut-ar,1.4)));height:auto}
 .cut-svg .cut-pc{cursor:grab}
 .cut-svg .cut-pc.locked{cursor:default}
-.cut-svg .cut-pc.cut-hl rect{stroke:#1f6f9f;stroke-width:2}
+
 .cut-svg .cut-pc.cut-drag-src{opacity:.35}
 .cut-svg .cut-rot{cursor:pointer}
 .cut-svg [data-cut-offcut]{cursor:context-menu}
@@ -104,7 +138,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
 .cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
-.cut-hint{margin:8px 0 0;font-size:12px}
+.cut-hint{margin:4px 0 0;font-size:11px}
 .cut-orders{margin-top:18px}
 .cut-orders h4{margin:0 0 8px}
 .cut-orders table{width:100%}
@@ -161,7 +195,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-offcuts-scroll{max-height:268px;overflow:auto;border:1px solid #eaecf0;border-radius:12px}
 .cut-offcuts-scroll thead th{position:sticky;top:0;z-index:1;background:#f9fafb}
 .cut-offcuts-head .mut{font-size:12px}
-.cut-sheet-pane .cut-params{margin-top:14px;padding-top:12px;border-top:1px solid #eaecf0}
+.cut-sheet-pane .cut-params{margin-top:8px;padding-top:8px;border-top:1px solid #eaecf0}
 /* Правая половина: склад листов — плотнее. */
 .cut-sheet-pane .cut-stock-row input[type=text]{width:46px}
 .cut-sheet-pane .cut-stock-row input[type=number]{width:52px}
