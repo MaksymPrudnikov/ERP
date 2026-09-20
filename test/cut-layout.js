@@ -374,6 +374,23 @@ module.exports=async function({page,eq,ok}){
   return {hintMenu,split:split.map(x=>x.replace('×'+oh,'×H')),printed,menuGone,stockMenu,back:cutPlanFor(b.number).groups[0].sheets[0].stock.length,russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{hintMenu:['stock','split-length','split-width','sheet-lock'],split:['S-0000001 50×H'],printed:0,menuGone:true,stockMenu:['stock-print','stock-cancel','sheet-lock'],back:0,russian:false});
 
+ eq('сток в резе: отмеченный кусок со стеллажа идёт листом прогона (кромку ему не режут) — квадратных футов меньше; What if его предлагает; в журнале видно батч',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,5]]);const b1=DB.glassBatch[0];
+  cutPlanRun(b1.number);const g1=cutPlanFor(b1.number).groups[0],withHint=g1.sheets.find(s=>(s.offcuts||[]).length);
+  const id=cutStockTake(b1.number,g1.glass,withHint.no,0).id;
+  ctOrder([[40,44,10]]);const b2=DB.glassBatch[1];
+  const before=cutPlanRun(b2.number).plan.stats.area;
+  /* Пока кусок не отмечен — его в прогоне нет, но What if его предлагает. */
+  const hidden=!cutStockFor('6CLEAR',(cutPlanFor(b2.number).sheetPick||{})['6CLEAR']||null,6).some(r=>r.key===id);
+  const offered=cutWhatIfCases(cutPlanFor(b2.number)).some(c=>c.key==='stock:'+id);
+  cutPlanReset(b2.number);cutSetStock(b2.number,'6CLEAR',id,'off',false);
+  const p=cutPlanRun(b2.number).plan,g2=p.groups[0],sheet=g2.sheets.find(s=>s.size.key===id),pr=sheet&&cutGroupParams(g2,sheet.size);
+  tab='optimization';optimizationSetTab('stock');render();
+  const inBatch=(document.querySelector('[data-stock-in]')||{}).textContent;
+  return {before,hidden,offered,used:!!sheet,less:p.stats.area<before-1e-6,edges:pr?[pr.trimX,pr.trimY,pr.borderX,pr.borderY].join():'',
+   placed:p.stats.placed===p.stats.total,inBatch,clean:!ctOverlap(p).length&&!ctOutside(p).length};
+ }),{before:204,hidden:true,offered:true,used:true,less:true,edges:'0,0,0,0',placed:true,inBatch:'In B-0002',clean:true});
+
  eq('журнал стока (Optimization → Stock): что лежит, откуда и когда; возврат в отход снимает кусок и с листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,5],[50,50,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);const g=cutPlanFor(b.number).groups[0],ids=[];
