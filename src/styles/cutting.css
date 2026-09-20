@@ -146,6 +146,9 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-what table{font-size:12px}
 .cut-what tr.on td{background:#f9fafb}
 .cut-what .cut-win{color:#067647}
+/* Строки «только одна сторона» — под своей парой, мельче. */
+.cut-what tr.cut-what-sub td{color:#667085;padding-top:2px;padding-bottom:2px}
+.cut-what tr.cut-what-sub td:first-child{padding-left:14px}
 /* Листов ещё нет: пустой лист с линиями и подпись по центру. */
 .cut-paper-empty{position:relative}
 .cut-empty-cap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.3;pointer-events:none}

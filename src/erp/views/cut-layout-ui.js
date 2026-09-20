@@ -587,7 +587,7 @@ function cutPieceRow(p,at,sel,lock){
 function cutWhatTable(number,busy){
  if(busy||!cutWhat||cutWhat.batch!==number)return '';
  const sign=v=>v<-1e-9?`<b class="cut-win">−${cutNum(-v,1)} ft²</b>`:v>1e-9?`<span class="mut">+${cutNum(v,1)} ft²</span>`:'<span class="mut">—</span>';
- const rows=cutWhat.rows.map(r=>`<tr${r.now?' class="on"':''} data-cut-what-row="${esc(r.key||'now')}"><td>${esc(r.label)}</td><td class="n">${r.sheets}</td><td class="n">${cutNum(r.area,0)}</td><td class="n">${cutNum(r.used,1)}%</td><td class="n">${r.now?'<span class="mut">now</span>':sign(r.delta)}</td>
+ const rows=cutWhat.rows.map(r=>`<tr class="${r.now?'on':r.sub?'cut-what-sub':''}" data-cut-what-row="${esc(r.key||'now')}"><td>${r.sub?'<span class="mut">└ </span>':''}${esc(r.label)}</td><td class="n">${r.sheets}</td><td class="n">${cutNum(r.area,0)}</td><td class="n">${cutNum(r.used,1)}%</td><td class="n">${r.now?'<span class="mut">now</span>':sign(r.delta)}</td>
   <td>${r.now?'':`<button type="button" class="gb-link" data-cut-what-use="${esc(r.key)}" onclick="cutUiWhatUse('${esc(number)}','${esc(r.key)}','${esc(r.label)}')">Use</button>`}</td></tr>`).join('');
  return `<div class="cut-what" data-cut-what><div class="cut-what-head"><b>What if</b><span class="mut">Numbers only — nothing is changed</span><span class="sp"></span>
   <button type="button" class="gb-link" data-cut-what-close onclick="cutUiWhatClose()">Close</button></div>

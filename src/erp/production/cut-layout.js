@@ -688,11 +688,16 @@ function cutPlanRun(number){return cutDrain(cutPlanSteps(number));}
 function cutWhatIfCases(plan){
  const cases=[],g=plan.groups[0];if(!g)return cases;
  const pr=cutGroupParams(g,g.sheet),copy=pick=>JSON.parse(JSON.stringify(pick||{}));
- const edge=(f,label)=>{
-  if(!(+pr[f]>0))return;
-  cases.push({key:f,label:label+' 0',pick:(glass,own)=>{const x=copy(own);x[f]=0;(x.sizes||[]).forEach(r=>{if(r)delete r[f];});return x;}});
+ /* Обрезка кромки и Border — парами: «сделай Trim X & Y и Border X & Y, чтобы
+    уменьшить нагрузку на глаза» (владелец, 20 сентября 2026). Если пара
+    выигрывает, каждая сторона считается отдельно и показывается под ней. */
+ const zero=fields=>(glass,own)=>{const x=copy(own);fields.forEach(f=>{x[f]=0;(x.sizes||[]).forEach(r=>{if(r)delete r[f];});});return x;};
+ const pair=(fields,label)=>{
+  const live=fields.filter(f=>+pr[f]>0);if(!live.length)return;
+  cases.push({key:live.join('+'),label:(live.length>1?label:live[0]==='trimX'?'Trim X':live[0]==='trimY'?'Trim Y':live[0]==='borderX'?'Border X':'Border Y')+' 0',
+   fields:live,pick:zero(live),parts:live.length>1?live.map(f=>({key:f,label:(f==='trimX'?'Trim X':f==='trimY'?'Trim Y':f==='borderX'?'Border X':'Border Y')+' 0 only',fields:[f],pick:zero([f])})):null});
  };
- edge('trimX','Trim X');edge('trimY','Trim Y');edge('borderX','Border X');edge('borderY','Border Y');
+ pair(['trimX','trimY'],'Trim X & Y');pair(['borderX','borderY'],'Border X & Y');
  /* Куски стока, которые ещё не отмечены: что будет, если взять. */
  const on=new Set(g.stock.map(r=>r.key));
  const pickOn=key=>(glass,own)=>{const y=copy(own);if(!Array.isArray(y.sizes))y.sizes=cutSheetOptions(glass).map(r=>({key:cutSheetKey(r),limit:0,off:false}));
@@ -703,25 +708,34 @@ function cutWhatIfCases(plan){
   .forEach(x=>cases.push({key:'size:'+x.key,label:'+ '+frac16(x.w)+' × '+frac16(x.h)+'″',pick:pickOn(x.key)}));
  return cases.slice(0,5);
 }
+/* Прикидки идут по очереди; у выигравшей пары считаются ещё и стороны по
+   отдельности — вдруг хватит убрать одну. */
 function* cutWhatIfSteps(number){
  const plan=cutPlanFor(number);if(!plan||plan.reset)return {error:'Build first.'};
  const cases=cutWhatIfCases(plan);if(!cases.length)return {error:'Nothing to try: edges are already 0 and every sheet size is on.'};
  const now={label:'As built',sheets:plan.stats.sheets,area:plan.stats.area,used:plan.stats.usedPct,delta:0,now:true};
  const rows=[now];
- for(let i=0;i<cases.length;i++){
-  const c=cases[i],it=cutPlanSteps(number,c.pick);let r=it.next();
-  while(!r.done){yield (i+r.value)/cases.length;r=it.next();}
+ const queue=cases.slice();let done=0,total=cases.length;
+ while(queue.length){
+  const c=queue.shift(),it=cutPlanSteps(number,c.pick);let r=it.next();
+  while(!r.done){yield (done+r.value)/total;r=it.next();}
+  done++;
   const out=r.value;
-  if(out&&out.plan)rows.push({key:c.key,label:c.label,sheets:out.plan.stats.sheets,area:out.plan.stats.area,used:out.plan.stats.usedPct,
-   delta:cutFt2(out.plan.stats.area-now.area)});
-  yield (i+1)/cases.length;
+  if(out&&out.plan){
+   const row={key:c.key,label:c.label,sheets:out.plan.stats.sheets,area:out.plan.stats.area,used:out.plan.stats.usedPct,
+    delta:cutFt2(out.plan.stats.area-now.area),sub:!!c.sub};
+   rows.push(row);
+   if(c.parts&&row.delta<-1e-6){c.parts.forEach(p=>{queue.push(Object.assign({sub:true},p));total++;});}
+  }
+  yield done/total;
  }
  return {rows};
 }
 /* Принять прикидку: сброс, новые параметры, Build его уже собирает. */
 function cutWhatIfApply(number,key){
  const plan=cutPlanFor(number);if(!plan)return {error:'Build first.'};
- const c=cutWhatIfCases(plan).find(x=>x.key===key);if(!c)return {error:'No such option.'};
+ const list=cutWhatIfCases(plan),c=list.find(x=>x.key===key)||list.reduce((f,x)=>f||(x.parts||[]).find(p=>p.key===key),null);
+ if(!c)return {error:'No such option.'};
  const glasses=plan.groups.map(g=>g.glass),picks={};
  glasses.forEach(glass=>{picks[glass]=c.pick(glass,plan.sheetPick&&plan.sheetPick[glass]||null);});
  const r=cutPlanReset(number);if(r.error)return r;
