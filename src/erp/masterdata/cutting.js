@@ -39,7 +39,11 @@ const CUT_ROWS_SHOP=[
 const CUT_EDGES=['trimX','trimY','borderX','borderY'];
 /* Остаток, который вообще стоит подсвечивать: «не меньше 40 на 40»
    (владелец, 18 сентября 2026). Было 12 × 12 — такие куски на склад не идут. */
-const CUT_DEFAULT={minOffcutW:40,minOffcutH:40,rotate:true};
+/* Полезный остаток: стороны не меньше 40 × 40 ЛИБО площадь от 10 ft².
+   «Минимальный размер остатка 40 на 40 или минимум 10 сквер фитов, точно так
+   же чтобы можно было менять» (владелец, 20 сентября 2026): полоса
+   33 × 101″ — это 23 ft², её берут, хотя она уже сорока. */
+const CUT_DEFAULT={minOffcutW:40,minOffcutH:40,minOffcutFt2:10,rotate:true};
 function cutIn(v,fallback){
  if(typeof v==='number')return Number.isFinite(v)&&v>=0?Math.round(v*16)/16:fallback;
  const r=typeof fabParseDimStrict==='function'?fabParseDimStrict(v):{ok:false};
@@ -124,6 +128,7 @@ function normalizeCutting(){
  if(oldMin){src.minOffcutW=CUT_DEFAULT.minOffcutW;src.minOffcutH=CUT_DEFAULT.minOffcutH;}
  DB.cutting={v:2,rows:clean.length?clean:cutRowsDefault(),sheets,sizes,
   minOffcutW:cutIn(src.minOffcutW,CUT_DEFAULT.minOffcutW),minOffcutH:cutIn(src.minOffcutH,CUT_DEFAULT.minOffcutH),
+  minOffcutFt2:cutIn(src.minOffcutFt2,CUT_DEFAULT.minOffcutFt2),
   rotate:typeof src.rotate==='boolean'?src.rotate:CUT_DEFAULT.rotate};
 }
 function validateCuttingPayload(src){
@@ -142,5 +147,5 @@ function cutParamsFor(mm){
  const s=cutSettings(),n=+mm,rows=s.rows;
  let row=rows.find(r=>r.mm===n);
  if(!row)row=rows.filter(r=>r.mm<=n).slice(-1)[0]||rows[0];
-  return {mm:row.mm,trim:row.trim,border:row.border,minDist:row.minDist,trimMin:row.trimMin,borderMin:row.borderMin,rotate:!!s.rotate,minOffcutW:s.minOffcutW,minOffcutH:s.minOffcutH};
+  return {mm:row.mm,trim:row.trim,border:row.border,minDist:row.minDist,trimMin:row.trimMin,borderMin:row.borderMin,rotate:!!s.rotate,minOffcutW:s.minOffcutW,minOffcutH:s.minOffcutH,minOffcutFt2:s.minOffcutFt2};
 }

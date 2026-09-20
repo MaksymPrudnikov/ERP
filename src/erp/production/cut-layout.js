@@ -102,7 +102,7 @@ function cutRunParams(mm,size,pick){
   trimX:edge('trimX',p.trim),trimY:edge('trimY',p.trim),borderX:edge('borderX',p.border),borderY:edge('borderY',p.border),
   minDist:num(row.minDist,num(run.minDist,p.minDist)),
   rotate:typeof run.rotate==='boolean'?run.rotate:p.rotate,
-  minOffcutW:num(run.minOffcutW,p.minOffcutW),minOffcutH:num(run.minOffcutH,p.minOffcutH)});
+  minOffcutW:num(run.minOffcutW,p.minOffcutW),minOffcutH:num(run.minOffcutH,p.minOffcutH),minOffcutFt2:num(run.minOffcutFt2,p.minOffcutFt2)});
 }
 function cutGroupParams(group,size){
  const use=size||group.sheet;
@@ -511,6 +511,14 @@ function cutTaken(sheet){return sheet.pieces.concat((sheet.stock||[]).map(x=>({p
 /* Самый большой свободный кусок не меньше минимального. extra — уже
    найденные куски: так на одном листе находятся все хорошие остатки, а не
    один («показывать оба, конечно» — владелец, 18 сентября 2026). */
+/* Полезен ли кусок: либо обе стороны не меньше минимальных, либо площадь не
+   меньше минимальной. Второе правило и вытаскивает длинные полосы: 33 × 101″
+   — 23 ft², резать есть что, хотя короткая сторона меньше 40. */
+function cutOffcutOk(w,h,params){
+ const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0,ft2=+params.minOffcutFt2||0;
+ const sides=Math.min(w,h)>=Math.min(minW,minH)-1e-6&&Math.max(w,h)>=Math.max(minW,minH)-1e-6;
+ return sides||ft2>0&&w*h/144>=ft2-1e-6;
+}
 function cutFreeRect(sheet,size,params,extra){
  const {x0,y0,W,H}=cutUsable(size,params);
  if(!(W>0&&H>0))return null;
@@ -526,8 +534,7 @@ function cutFreeRect(sheet,size,params,extra){
    if(X[c]>=px-1e-6&&X[c+1]<=px+p.w+1e-6&&Y[r]>=py-1e-6&&Y[r+1]<=py+p.h+1e-6)busy[r][c]=true;
   }
  });
- const minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
- const good=(w,h)=>Math.min(w,h)>=Math.min(minW,minH)-1e-6&&Math.max(w,h)>=Math.max(minW,minH)-1e-6;
+ const good=(w,h)=>cutOffcutOk(w,h,params);
  let best=null;
  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
   if(busy[r][c])continue;
@@ -834,9 +841,9 @@ function cutStockSplit(number,glass,sheetNo,index,axis,size){
  if(!(v>0))return {error:'Enter the size, for example 40.'};
  if(v>full+1e-6)return {error:'Longer than this offcut.'};
  const box=axis==='length'?{x:o.x,y:o.y,w:v,h:o.h}:{x:o.x,y:o.y,w:o.w,h:v};
- const params=cutGroupParams(at.g,at.s.size),minW=+params.minOffcutW||0,minH=+params.minOffcutH||0;
- if(Math.min(box.w,box.h)<Math.min(minW,minH)-1e-6||Math.max(box.w,box.h)<Math.max(minW,minH)-1e-6)
-  return {error:'Smaller than the minimum offcut '+frac16(minW)+' × '+frac16(minH)+'″.'};
+ const params=cutGroupParams(at.g,at.s.size);
+ if(!cutOffcutOk(box.w,box.h,params))
+  return {error:'Smaller than the minimum offcut '+frac16(params.minOffcutW)+' × '+frac16(params.minOffcutH)+'″'+(+params.minOffcutFt2>0?' or '+frac16(params.minOffcutFt2)+' ft²':'')+'.'};
  return cutStockBook(number,glass,sheetNo,box);
 }
 /* Ещё одна строка того же размера в складе прогона — сразу без Trim и Border;
@@ -987,7 +994,7 @@ function cutSetStock(number,glass,key,field,value){
  if(rowField){if(edge==null)delete row[field];else row[field]=edge;}
  return cutPlanRedraft(number);
 }
-const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','rotate'];
+const CUT_RUN_FIELDS=['trimX','trimY','borderX','borderY','minDist','minOffcutW','minOffcutH','minOffcutFt2','rotate'];
 function cutSetParam(number,glass,field,value){
  if(!CUT_RUN_FIELDS.includes(field))return {error:'Unknown cutting parameter.'};
  const soft=/^minOffcut/.test(field),built=cutPlanFor(number);
