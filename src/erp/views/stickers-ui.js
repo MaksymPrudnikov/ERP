@@ -79,7 +79,7 @@ function stkOpenForOrder(orderId){
 function stkOpenForBatch(number){
  const b=glassBatchFind(number);if(!b)return;
  const picked=glassBatchInfos().filter(i=>i.item&&!i.item.releasedAt&&glassBatchSelection.has(glassBatchRowKey(i))).map(i=>i.item.piece);
- stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),order:typeof cutPlanFor==='function'&&cutPlanFor(number)?'sheet':'in',warning:'',error:''};render();
+ stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),order:typeof cutPlanLaid==='function'&&cutPlanLaid(number)?'sheet':'in',warning:'',error:''};render();
 }
 function stkDialogType(v){stkDialogSet('type',v);}
 function stkDialogOrder(v){stkDialogSet('order',v);}
@@ -188,7 +188,7 @@ function stkDialogHTML(){
   }).join('');
   body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
  }
- const plan=d.mode==='batch'&&typeof cutPlanFor==='function'?cutPlanFor(d.batchNo):null;
+ const plan=d.mode==='batch'&&typeof cutPlanLaid==='function'?cutPlanLaid(d.batchNo):null;
  const types=d.mode==='batch'?`<div><div class="ncr-label">ORDER</div>${seg([{k:'in',label:'In order'},{k:'sheet',label:'By sheet'}],d.order||'in','stkDialogOrder',x=>x.k==='sheet'&&!plan)}</div>`:`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
   <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>

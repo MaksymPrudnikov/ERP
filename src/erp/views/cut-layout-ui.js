@@ -63,15 +63,61 @@ function cutUiState(number){
  }
  return cutUi;
 }
-function cutRunBatch(number){const r=cutPlanRun(number);cutNotice=r.error||'';render();}
+/* Build идёт по кусочкам: между кусками экран успевает нарисовать полоску
+   хода; Cancel останавливает, и раскрой остаётся каким был — в базу пишется
+   только в конце. Пока идёт Build, экран раскроя закрыт. */
+let cutBusy=null;
+function cutBuildDone(){return cutBusy?cutBusy.promise:Promise.resolve(null);}
+function cutUiBuild(number){
+ if(cutBusy)return cutBusy.promise;
+ const it=cutPlanSteps(number),job={batch:number,pct:0,stop:false};
+ job.promise=new Promise(resolve=>{
+  const finish=r=>{
+   cutBusy=null;cutNotice=r&&r.error||'';
+   if(r&&r.plan&&cutUi.batch===number){cutUi.sheet=1;cutUi.sel='';}
+   render();resolve(r);
+  };
+  const tick=()=>{
+   if(job.stop)return finish({cancelled:true});
+   const t0=Date.now();let r;
+   try{do{r=it.next();if(!r.done)job.pct=r.value;}while(!r.done&&Date.now()-t0<40);}
+   catch(e){return finish({error:e&&e.message||'Build failed.'});}
+   if(r.done)return finish(r.value);
+   cutUiProgress();setTimeout(tick,0);
+  };
+  /* Сначала экран с полоской, потом счёт. */
+  setTimeout(tick,30);
+ });
+ cutBusy=job;cutNotice='';cutInfo=null;render();
+ return job.promise;
+}
+function cutUiProgress(){
+ const job=cutBusy;if(!job)return;
+ const pct=Math.min(99,Math.round(job.pct*100)),bar=document.querySelector('[data-cut-progress]'),txt=document.querySelector('[data-cut-progress-pct]');
+ if(bar){bar.setAttribute('aria-valuenow',pct);const i=bar.querySelector('i');if(i)i.style.width=pct+'%';}
+ if(txt)txt.textContent='Building · '+pct+'%';
+}
+function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
+/* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
+   листы остаются. */
+function cutUiReset(number){
+ const plan=cutPlanFor(number);if(!plan||plan.reset||cutBusy)return;
+ const st=plan.groups.flatMap(g=>g.sheets.filter(x=>!x.locked).flatMap(x=>(x.stock||[]).map(o=>o.id)));
+ const kept=plan.groups.reduce((n,g)=>n+g.sheets.filter(x=>x.locked).length,0);
+ if(!confirm('Reset the optimization? Sheets are cleared'+(kept?', '+kept+' locked sheet'+(kept>1?'s stay':' stays'):'')+'.'+(st.length?' Stock '+st.join(', ')+' goes back to waste.':'')))return;
+ const r=cutPlanReset(number);cutNotice=r.error||'';cutInfo=null;cutUi.sheet=1;cutUi.sel='';render();
+}
 /* Размер листа прямо с экрана оптимизации: уходит в размеры цеха (Master
-   Data → Cutting) и сразу пересчитывает раскрой. */
-function cutUiAddSize(number,wId,hId,later){
+   Data → Cutting). Из блока «No sheet size» — сразу Build; из таблицы
+   SHEETS — в параметры сброшенного раскроя. */
+function cutUiAddSize(number,wId,hId,build){
  const w=document.getElementById(wId),h=document.getElementById(hId);
+ const plan=cutPlanFor(number),built=plan&&!plan.reset;
+ if(build&&built&&!confirm('Reset the optimization and build again?'))return;
  const r=cutShopSizeAdd(w?w.value:'',h?h.value:'');
  if(r.error){cutNotice=r.error;render();return;}
- /* Из таблицы SHEETS — ждёт Rebuild; из блока «No sheet size» — раскладывает сразу. */
- const run=later&&cutPlanFor(number)?cutApply(number,true):cutPlanRun(number);cutNotice=run.error||'';render();
+ if(build)return cutUiBuild(number);
+ const d=cutPlanEditable(number);if(!d.error)cutPlanRedraft(number);cutNotice=d.error||'';render();
 }
 /* Стёкла батча, для которых не нашлось ни одного размера листа. */
 function cutNeedSizes(b,plan,pieces){
@@ -80,7 +126,7 @@ function cutNeedSizes(b,plan,pieces){
  if(!need.length)return '';
  return `<div class="cut-need" data-cut-need><span><b>No sheet size</b> · ${esc(need.join(', '))}</span>
   <input type="text" id="cutNeedW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutNeedH" placeholder="width" aria-label="Sheet width, in">
-  <button type="button" class="pri" data-cut-need-add onclick="cutUiAddSize('${esc(b.number)}','cutNeedW','cutNeedH')">Add and optimize</button>
+  <button type="button" class="pri" data-cut-need-add onclick="cutUiAddSize('${esc(b.number)}','cutNeedW','cutNeedH',true)">Add and build</button>
   <span class="mut">Saved to Master Data → Cutting</span></div>`;
 }
 function cutUiPick(pieceId){cutUi.sel=cutUi.sel===pieceId?'':pieceId;const at=cutUi.sel&&cutFind(cutPlanFor(cutUi.batch)||{groups:[]},cutUi.sel);if(at){cutUi.glass=at.group.glass;cutUi.sheet=at.sheet.no;}render();}
@@ -124,16 +170,24 @@ function cutUiSheetDelete(glass,no){
 let cutFull=true;
 function cutUiFull(on){cutFull=typeof on==='boolean'?on:!cutFull;document.body.classList.toggle('cut-full',cutFull);render();}
 /* Второй лист того же размера — для оверсайза, без Trim и Border. */
-function cutUiSameSize(glass,key){cutUiRun(()=>cutAddSameSize(cutUi.batch,glass,key,true));}
-function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.batch,glass,key,true));}
+function cutUiSameSize(glass,key){cutUiRun(()=>cutAddSameSize(cutUi.batch,glass,key));}
+function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.batch,glass,key));}
+/* Стекло больше листа: тот же лист без Trim и Border — сброс, строка
+   размера и Build одним нажатием. */
+function cutUiOverSize(glass,key){
+ const n=cutUi.batch,plan=cutPlanFor(n);
+ if(plan&&!plan.reset){if(!confirm('Reset the optimization and build again with this sheet?'))return;cutPlanReset(n);}
+ const r=cutAddSameSize(n,glass,key);if(r.error){cutNotice=r.error;render();return;}
+ cutUiBuild(n);
+}
 function cutUiOpenBatch(number){cutInfo=null;glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
 function cutUiRotate(){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel));}
 function cutUiTake(){cutUiRun(()=>cutPieceTake(cutUi.batch,cutUi.sel));}
 function cutUiLock(){cutUiRun(()=>cutPieceLock(cutUi.batch,cutUi.sel));}
-/* Правки склада и параметров ждут кнопки Rebuild — раскладка не прыгает сама. */
-function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,glass,key,field,value,true));}
-function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value,true));}
-function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass,true));}
+/* Склад листов и параметры — только в сброшенном раскрое; Build — кнопкой. */
+function cutUiStock(glass,key,field,value){cutUiRun(()=>cutSetStock(cutUi.batch,glass,key,field,value));}
+function cutUiParam(glass,field,value){cutUiRun(()=>cutSetParam(cutUi.batch,glass,field,value));}
+function cutUiResetParams(glass){cutUiRun(()=>cutResetParams(cutUi.batch,glass));}
 function cutUiSheetLock(){cutUiRun(()=>cutSheetLock(cutUi.batch,cutUi.glass,cutUi.sheet));}
 /* В сток: номер S-… и запись. Стикер не печатается сразу — он идёт вместе со
    стикерами листа (печать «By sheet»); перепечатать — кнопкой в таблице. */
@@ -344,7 +398,7 @@ function cutUiMenu(e,glass,no){
 }
 /* Клавиши — пока открыт раскрой и курсор не в поле ввода. */
 function cutUiKey(e){
- if(!document.querySelector('[data-cut-sheet]'))return;
+ if(cutBusy||!document.querySelector('[data-cut-sheet]'))return;
  const t=e.target,tag=t&&t.tagName||'';
  if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||t&&t.isContentEditable)return;
  if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
@@ -497,32 +551,42 @@ function cutSumSheet(group,sheet){
  return `<span class="cut-sheet-size">${esc(frac16(z.w))} × ${esc(frac16(z.h))}″ · ${sheet.pieces.length} glass${(sheet.stock||[]).length?' · stock '+sheet.stock.length:''}</span>
   <div class="cut-tiles cut-tiles-sheet" data-cut-current>${cutTile('Used %',cutNum(cutPct(sheet.used,area),1)+'%','use',1)}${cutTile('Used',cutNum(sheet.used,1)+' ft²','use')}${cutTile('Scrap',cutNum(sheet.gross,1)+' ft²','waste')}${cutTile('Net',cutNum(sheet.net,1)+' ft²','waste')}</div>`;
 }
-function cutPieceRow(p,at,sel){
+function cutPieceRow(p,at,sel,lock){
  const place=at?at.sheet.no+' · '+(at.index+1):'—';
  return `<tr data-cut-list="${esc(p.piece)}" class="${sel?'on':''}${p.off?' off':''}" draggable="true" ondragstart="cutUiDragStart(event,'${esc(p.piece)}')" onclick="cutUiPick('${esc(p.piece)}')" onmouseenter="cutUiHover('${esc(p.piece)}')" onmouseleave="cutUiHover('')">
-  <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
+  <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} ${lock?'disabled':''} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
   <td class="gb-piece">${esc(p.piece)}</td><td class="nowrap">${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${p.shape?' <span class="pill">shape</span>':''}</td>
   <td><button type="button" class="gb-link" data-cut-open="${esc(p.orderId)}" title="Open the order and its shape" onclick="event.stopPropagation();optimizationOpenOrder('${esc(p.orderId)}')">${esc(p.order)} / ${p.line}</button>${p.mark?' · '+esc(p.mark):''}</td><td>${esc(p.customer)}</td>
-  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" aria-label="Priority, 1 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','priority',this.value||0)"></td>
+  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled':''} aria-label="Priority, 1 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','priority',this.value||0)"></td>
   <td class="n">${place}</td></tr>`;
 }
 function viewCutLayout(b){
- const s=cutUiState(b.number),plan=cutPlanFor(b.number),stale=plan&&cutPlanStale(b.number);
- const head=`<div class="oq-toolbar cut-toolbar">${plan?cutSumTotal(plan):'<b data-cut-stats>Not optimized</b>'}
-  <span class="sp"></span>${plan?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button><button type="button" data-cut-print onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
-  <button type="button" class="pri${plan&&plan.pending?' cut-pending':''}" data-cut-run onclick="cutRunBatch('${esc(b.number)}')">${plan?'Rebuild':'Optimize'}</button></div>`;
+ /* Собранный раскрой — параметры закрыты, правится только раскладка;
+    сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
+    сначала параметры, потом Build. */
+ const s=cutUiState(b.number),stored=cutPlanFor(b.number),built=!!(stored&&!stored.reset);
+ const plan=built||stored&&!cutPlanStale(b.number)?stored:cutPlanDraft(b.number);
+ const stale=built&&cutPlanStale(b.number),busy=!!(cutBusy&&cutBusy.batch===b.number),lock=built||!!cutBusy;
+ const pieces=cutPieces(b,plan.settings||{}),laid=plan.groups.some(g=>g.sheets.length),live=pieces.filter(p=>!p.off).length;
+ const pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
+ /* Build идёт — полоска хода и Cancel вместо кнопок. */
+ const acts=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="Building" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>Building · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
+  :`${built?`<button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+ const head=`<div class="oq-toolbar cut-toolbar">${laid?cutSumTotal(plan):`<b data-cut-stats>Not built</b><span class="mut">${live} glass</span>`}
+  <span class="sp"></span>${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
+  ${acts}</div>`;
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
- const need=cutNeedSizes(b,plan),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
+ const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
- const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — press Rebuild.</div>':plan&&plan.pending?'<div class="ncr-warning" data-cut-pending>Settings changed — press Rebuild. Locked sheets stay and go first.</div>':'')+info;
- if(!plan)return `${head}${notice}${need}<p class="mut cut-empty">Optimize lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
- const pieces=cutPieces(b,plan.settings||{}),group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
+ const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — Reset, then Build.</div>':'')+info;
+ if(!plan.groups.length)return `${head}${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
+ const group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
  const at=id=>cutFind(plan,id);
  const placed=new Set();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach(p=>placed.add(p.piece))));
  const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
- const rows=list=>list.map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece)).join('');
+ const rows=list=>list.map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece,lock)).join('');
  const listTable=body=>`<table class="sl-table cut-list"><thead><tr><th></th><th>Glass ID</th><th>Cut size</th><th>Order</th><th>Customer</th><th class="n">Pri</th><th class="n">Sheet</th></tr></thead><tbody>${body}</tbody></table>`;
  const selAt=s.sel?at(s.sel):null,selSrc=pieces.find(p=>p.piece===s.sel);
  const actions=selSrc?`<div class="cut-actions" data-cut-actions><b>${esc(selSrc.piece)}</b><span class="mut">${esc(frac16(selSrc.w))} × ${esc(frac16(selSrc.h))}″ · ${esc(selSrc.order)} / ${selSrc.line}</span><span class="sp"></span>
@@ -541,33 +605,37 @@ function viewCutLayout(b){
     Master Data остаётся значением по умолчанию. */
  const pick=group&&plan.sheetPick&&plan.sheetPick[group.glass]||{},stock=group?cutStockFor(group.glass,pick):[];
  const allSizes=group?cutSheetOptions(group.glass):[];
- const num=(label,field,value,ph)=>`<label>${label} <input type="text" data-cut-param="${field}" value="${esc(value)}" ${ph?'placeholder="'+ph+'"':''} onchange="cutUiParam('${esc(group.glass)}','${field}',this.value)"></label>`;
+ const dis=lock?'disabled':'';
+ /* Минимальный остаток не двигает стёкла — его можно менять и в собранном. */
+ const num=(label,field,value,ph)=>`<label>${label} <input type="text" data-cut-param="${field}" value="${esc(value)}" ${ph?'placeholder="'+ph+'"':''} ${cutBusy||built&&!/^minOffcut/.test(field)?'disabled':''} onchange="cutUiParam('${esc(group.glass)}','${field}',this.value)"></label>`;
  /* У каждого размера свои Trim и Border — прямо в строке размера. */
  /* Строки склада: размеры стекла и строки «+ same size» этого прогона. У
     каждой — сколько листов ушло, Used % и отход по листам этого размера:
     «мне нужно видеть % использования и мусора по каждому из добавленных
-    типов» (владелец, 18 сентября 2026). */
+    типов» (владелец, 18 сентября 2026). Какие размеры брать и сколько
+    каждого, решает укладчик: галочка — размер можно брать, Qty — сколько
+    листов есть. Кнопки use first больше нет. */
  const variants=(pick.sizes||[]).filter(x=>x&&x.base&&+x.w>0&&+x.h>0).map(x=>({key:x.key,base:x.base,w:+x.w,h:+x.h,supplier:''}));
  const rowsAll=allSizes.map(x=>Object.assign({},x,{key:cutSheetKey(x)})).flatMap(x=>[x].concat(variants.filter(v=>v.base===x.key)));
  const stockRows=rowsAll.map(x=>{const key=x.key,row=stock.find(r=>r.key===key),on=!!row,mine=group.sheets.filter(sh=>cutSheetKey(sh.size||group.sheet)===key),used=mine.length;
   const pr=cutGroupParams(group,{key,w:x.w,h:x.h}),area=mine.reduce((a,sh)=>a+cutArea(x.w,x.h),0),u=mine.reduce((a,sh)=>a+sh.used,0),net=mine.reduce((a,sh)=>a+sh.net,0);
   const nums=used?`<b>${used}</b> · ${cutPct(u,area)}% used · ${cutPct(net,area)}% waste · ${cutFt2(net)} ft²`:'';
-  const edge=(f,label)=>`<td><input type="text" data-cut-edge-${f.toLowerCase()} value="${esc(frac16(pr[f]))}" aria-label="${label} ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','${f}',this.value)"></td>`;
+  const edge=(f,label)=>`<td><input type="text" data-cut-edge-${f.toLowerCase()} value="${esc(frac16(pr[f]))}" ${dis} aria-label="${label} ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','${f}',this.value)"></td>`;
   return `<tr class="cut-stock-row${on?'':' off'}" data-cut-stock="${esc(key)}">
-   <td><label class="chk"><input type="checkbox" data-cut-use ${on?'checked':''} onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','off',!this.checked)"> ${esc(frac16(x.w))} × ${esc(frac16(x.h))}″${x.base?' · '+esc(key.split('#')[1]):''}</label>
+   <td><label class="chk"><input type="checkbox" data-cut-use ${on?'checked':''} ${dis} onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','off',!this.checked)"> ${esc(frac16(x.w))} × ${esc(frac16(x.h))}″${x.base?' · '+esc(key.split('#')[1]):''}</label>
     <div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div></td>
-   <td><input type="number" min="0" step="1" data-cut-qty value="${row&&row.limit?row.limit:''}" placeholder="all" aria-label="Sheets available ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','limit',this.value)"></td>
+   <td><input type="number" min="0" step="1" data-cut-qty value="${row&&row.limit?row.limit:''}" placeholder="all" ${dis} aria-label="Sheets available ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','limit',this.value)"></td>
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
-   <td class="cut-size-acts"><button type="button" class="gb-link" data-cut-first onclick="cutUiStock('${esc(group.glass)}','${esc(key)}','first',1)">use first</button>
-    ${x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>`}</td></tr>`;}).join('');
+   <td class="cut-size-acts">${x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>`}</td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
   <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th>Min dist</th><th></th></tr></thead><tbody>${stockRows}
-   <tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
-    <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH',true)">+ Add sheet size</button></td></tr></tbody></table></div>
+   ${lock?'':`<tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
+    <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr>`}</tbody></table></div>
   <div class="cut-knobs">
    ${num('Min offcut W','minOffcutW',frac16(group.params.minOffcutW))}${num('H','minOffcutH',frac16(group.params.minOffcutH))}
-   <label class="chk"><input type="checkbox" data-cut-rot ${group.params.rotate?'checked':''} onchange="cutUiParam('${esc(group.glass)}','rotate',this.checked)"> Rotate</label>
-   <button type="button" class="gb-link" data-cut-reset-params onclick="cutUiResetParams('${esc(group.glass)}')">Reset to Master Data</button></div></div>`:'';
+   <label class="chk"><input type="checkbox" data-cut-rot ${group.params.rotate?'checked':''} ${dis} onchange="cutUiParam('${esc(group.glass)}','rotate',this.checked)"> Rotate</label>
+   ${lock?'':`<button type="button" class="gb-link" data-cut-reset-params onclick="cutUiResetParams('${esc(group.glass)}')">Reset to Master Data</button>`}
+   ${built?'<span class="mut" data-cut-locked>Reset to change</span>':''}</div></div>`:'';
  /* Остатки внизу: подсказки (в сток — кнопкой или Split) и то, что уже в
     стоке, с номером и стикером. Не взятое — отход. */
  const hints=plan.groups.flatMap(g=>g.sheets.flatMap(x=>(x.offcuts||[]).map((o,i)=>({g,x,o,i}))));
@@ -592,14 +660,14 @@ function viewCutLayout(b){
   const fitIn=x=>big.w<=x.w+1e-6&&big.h<=x.h+1e-6||rot&&big.h<=x.w+1e-6&&big.w<=x.h+1e-6;
   const size=allSizes.slice().sort((a,c)=>a.w*a.h-c.w*c.h).find(fitIn);
   over=`<div class="cut-need" data-cut-over><span><b>${overList.length} glass larger than the sheet</b> · ${overList.slice(0,4).map(p=>esc(frac16(p.w))+' × '+esc(frac16(p.h))+'″').join(', ')}${overList.length>4?' …':''}</span>
-   ${size?`<button type="button" class="pri" data-cut-over-add onclick="cutUiSameSize('${esc(group.glass)}','${esc(cutSheetKey(size))}')">+ ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″ without Trim and Border</button>`:'<span class="mut">Larger than any sheet size.</span>'}</div>`;
+   ${size?`<button type="button" class="pri" data-cut-over-add onclick="cutUiOverSize('${esc(group.glass)}','${esc(cutSheetKey(size))}')">+ ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″ without Trim and Border</button>`:'<span class="mut">Larger than any sheet size.</span>'}</div>`;
  }
  /* Порядок экрана по макету владельца (18 сентября 2026): слева список стёкол
     со своей прокруткой, высотой с правую часть; справа — цифры, лист, лента
     листов и сразу под ней склад листов и параметры; внизу остатки. */
  if(document.body)document.body.classList.toggle('cut-full',cutFull);
  return `${head}${notice}${need}${over}
- <div class="cut-grid">
+ <div class="cut-grid${busy?' cut-busy':''}">
   <div class="cut-side" ondragover="event.preventDefault()" ondrop="cutUiDropList(event)"><div class="cut-side-scroll">
    ${waiting.length?`<div class="cut-list-head" data-cut-waiting>Not on a sheet · ${waiting.length}</div>${listTable(rows(waiting))}`:''}
    <div class="cut-list-head">On sheets · ${onSheet.length}</div>${listTable(rows(onSheet))}
@@ -611,9 +679,12 @@ function viewCutLayout(b){
     ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
     <button type="button" class="dl" data-cut-sheet-delete onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">Delete sheet</button>
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
-   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`:'<p class="mut">No sheets.</p>'}
+   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
+   /* Листов нет — пустой лист первого размера с линиями Trim и Border:
+      правка отступов видна сразу, до Build. */
+   :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}
    ${strip}${actions}<p class="mut cut-hint">Drag glass on the sheet, onto a sheet below or to the list · double-click or R — rotate · right-click — menu</p>
    ${params}
   </div>
- </div>${stockList}${orders}`;
+ </div>${busy?'':stockList+orders}`;
 }
