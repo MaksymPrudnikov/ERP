@@ -34,6 +34,24 @@ function stockOffcutAdd(rec){
  DB.stockOffcut.push(r);return r;
 }
 function stockOffcutCancel(id){const r=stockOffcutFind(id);if(r)r.status='cancelled';return r;}
+/* Журнал стока: что лежит на стеллаже, крупное первым; снятое — в конце.
+   «Пусть будет учёт тех стёкол, которые попали в сток, не только стикеры»
+   (владелец, 20 сентября 2026). */
+function stockOffcutRows(){
+ return (DB.stockOffcut||[]).map(r=>Object.assign({},r,{area:Math.round(r.w*r.h/144*100)/100}))
+  .sort((a,b)=>(a.status==='stock'?0:1)-(b.status==='stock'?0:1)||b.area-a.area||a.id.localeCompare(b.id));
+}
+function stockOffcutTotal(){return Math.round((DB.stockOffcut||[]).filter(r=>r.status==='stock').reduce((a,r)=>a+r.w*r.h/144,0)*100)/100;}
+/* Снять со стока из журнала: если кусок ещё лежит на листе раскроя, уходит и
+   оттуда — лист снова показывает его отходом. */
+function stockOffcutDrop(id){
+ const r=stockOffcutFind(id);if(!r)return {error:'No such stock offcut.'};
+ if(r.status!=='stock')return {error:'Already off stock.'};
+ if(typeof cutPlanFor==='function'&&cutPlanFor(r.batch)&&typeof cutStockCancel==='function'){
+  const out=cutStockCancel(r.batch,id);if(out&&out.ok)return out;
+ }
+ stockOffcutCancel(id);touch();return {ok:true};
+}
 function normalizeStockOffcuts(){
  const seen=new Set();
  DB.stockOffcut=(Array.isArray(DB.stockOffcut)?DB.stockOffcut:[])
