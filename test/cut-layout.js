@@ -89,7 +89,8 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet("6CLEAR",96,144);ctOrder([[46,60,5],[28,38,4]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan,g=plan.groups[0],withCut=g.sheets.find(s=>(s.offcuts||[]).length),hint=Object.assign({},withCut.offcuts[0]);
   const before={net:plan.stats.net,gross:plan.stats.gross,keep:plan.stats.keep,usedPct:plan.stats.usedPct,honest:Math.abs(plan.stats.usedPct-Math.round(plan.stats.used/plan.stats.area*1000)/10)<0.05};
-  const min=[cutSettings().minOffcutW,cutSettings().minOffcutH],big=g.sheets.every(s=>(s.offcuts||[]).every(o=>o.w>=40&&o.h>=40));
+  /* Подсказка годится по правилу цеха: 40 × 40 либо 10 ft² — длинная полоса тоже кусок. */
+  const min=[cutSettings().minOffcutW,cutSettings().minOffcutH],big=g.sheets.every(s=>(s.offcuts||[]).every(o=>cutOffcutOk(o.w,o.h,cutGroupParams(g,s.size))));
   const noHint=g.sheets.find(s=>!(s.offcuts||[]).length);
   const kept=cutStockTake(b.number,g.glass,withCut.no,0),after=cutPlanFor(b.number).stats,area=cutFt2(cutArea(hint.w,hint.h));
   const none=cutStockTake(b.number,g.glass,noHint?noHint.no:999,0).error;
@@ -754,6 +755,43 @@ module.exports=async function({page,eq,ok}){
   return {same:JSON.stringify(DB.cutPlan.map(p=>p.groups))===before,rows:DB.cutting.rows.length,
    dup:fail(x=>{x.cutPlan.push(JSON.parse(JSON.stringify(x.cutPlan[0])));}),settings:fail(x=>{x.cutPlan[0].settings=[];}),shape:fail(x=>{x.cutting=[];})};
  }),{same:true,rows:9,dup:'Duplicate cut plan for B-0001.',settings:'Invalid cut plan settings.',shape:'Cutting parameters must be an object.'});
+
+ eq('лишний лист после Build растаскивается по ранним листам: стёкла целы, листы режутся; заблокированный лист не трогают',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,2],[28,38,2]]);const b=DB.glassBatch[0];
+  const plan=cutPlanRun(b.number).plan,g=plan.groups[0],one=g.sheets.length;
+  const src=new Map(cutPieces(b,{}).filter(p=>!p.off).map(p=>[p.piece,p]));
+  const pf=size=>cutGroupParams(g,size);
+  /* Так ошибается укладчик: место на первом листе есть, а стекло уехало на свой лист. */
+  const split=()=>{const s0=cutPlanFor(b.number).groups[0].sheets[0],u=cutUsable(s0.size,pf(s0.size)),last=s0.pieces.pop();
+   cutPlanFor(b.number).groups[0].sheets.push({no:2,size:s0.size,locked:false,stock:[],pieces:[Object.assign({},last,{x:u.x0,y:u.y0})]});};
+  split();const two=cutPlanFor(b.number).groups[0].sheets.length;
+  const gone=cutTightenGroup(cutPlanFor(b.number).groups[0],pf,src),g1=cutPlanFor(b.number).groups[0];
+  const back=g1.sheets.length,kept=g1.sheets.reduce((a,s)=>a+s.pieces.length,0);
+  const ids=new Set(g1.sheets.flatMap(s=>s.pieces.map(p=>p.piece))),all=[...src.keys()].every(id=>ids.has(id));
+  const cuts=g1.sheets.every(s=>cutSheetCutsFor(g1,s).ok);
+  /* Заблокированный лист Build не перекладывает. */
+  split();const g2=cutPlanFor(b.number).groups[0];g2.sheets[0].locked=true;
+  const held=cutTightenGroup(g2,pf,src)===0&&g2.sheets.length===2;
+  return {one,two,gone,back,kept,all,cuts,held};
+ }),{one:1,two:2,gone:1,back:1,kept:4,all:true,cuts:true,held:true});
+
+ eq('полоса отхода отрезается целиком: ни один рез не проходит сквозь самый большой остаток листа',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,6],[28,38,8]]);const b=DB.glassBatch[0];
+  cutPlanRun(b.number);const g=ctRow(b.number).groups[0];
+  const bad=[];let hints=0;
+  g.sheets.forEach(s=>{
+   const size=s.size||g.sheet,c=cutSheetCutsFor(g,s),off=(s.offcuts||[])[0];
+   if(!off)return;hints++;
+   /* Рез внутри куска — кусок разваливается; по краю куска это и есть его рез. */
+   c.lines.forEach(l=>{
+    const cross=l.axis==='x'
+     ?l.at>off.x+1e-6&&l.at<off.x+off.w-1e-6&&l.y0<off.y+off.h-1e-6&&l.y1>off.y+1e-6
+     :l.at>off.y+1e-6&&l.at<off.y+off.h-1e-6&&l.x0<off.x+off.w-1e-6&&l.x1>off.x+1e-6;
+    if(cross)bad.push('sheet '+s.no+' '+l.axis+l.at);
+   });
+  });
+  return {hints:hints>0,bad};
+ }),{hints:true,bad:[]});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };
