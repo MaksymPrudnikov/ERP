@@ -793,5 +793,25 @@ module.exports=async function({page,eq,ok}){
   return {hints:hints>0,bad};
  }),{hints:true,bad:[]});
 
+ eq('после укладки стёкла подъезжают друг к другу: отход одним куском, а не полосками между стёклами; заблокированный лист не трогают',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[34,36,8],[24,24,4]]);const b=DB.glassBatch[0];
+  const plan=cutPlanRun(b.number).plan,g0=plan.groups[0];
+  const list=cutPieces(b,{}).filter(p=>!p.off),stock=cutStockFor(g0.glass,g0.pick,g0.mm,b.number);
+  const pf=size=>cutRunParams(g0.mm,size,g0.pick);
+  /* Столбиками колонка шириной по самому широкому стеклу: 24″ стекло в
+     колонке 34″ оставляло полоску 10″, и так четыре раза подряд. */
+  const mk=()=>{const r=cutPackColumns(list,stock,pf,[],{rows:false,orient:'asis',fit:'ffd'});
+   const sz=r.sheets[0].size;return {glass:g0.glass,mm:g0.mm,sheet:sz,stock,pick:g0.pick,params:pf(sz),sheets:r.sheets,unplaced:r.unplaced};};
+  const g=mk(),sheet=g.sheets[0],size=sheet.size,pr=pf(size);
+  const xs=()=>sheet.pieces.filter(p=>p.w===24).map(p=>cutRound(p.x)).sort((a,c)=>a-c);
+  const big=()=>{const f=cutSheetCuts(sheet,size,pr,null).free||[];
+   return f.map(r=>[cutRound(r.x1-r.x0),cutRound(r.y1-r.y0)]).sort((a,c)=>c[0]*c[1]-a[0]*a[1])[0]||null;};
+  const before=xs(),bigBefore=big();
+  const moved=cutTidyGroup(g,pf);
+  const after=xs(),bigAfter=big(),cuts=cutSheetCuts(sheet,size,pr,null).ok;
+  const g2=mk();g2.sheets[0].locked=true;const held=cutTidyGroup(g2,pf)===0;
+  return {before,after,moved,bigBefore,bigAfter,cuts,held};
+ }),{before:[0.875,34.875,68.875,102.875],after:[0.875,24.875,48.875,72.875],moved:1,bigBefore:[6.25,100.25],bigAfter:[40,24],cuts:true,held:true});
+
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

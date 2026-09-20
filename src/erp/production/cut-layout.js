@@ -668,6 +668,30 @@ function cutByOrder(plan,pieces){
   pct:total?cutPct(plan.stats.net*r.used/total,r.used+plan.stats.net*r.used/total):0})).sort((a,b)=>b.used-a.used);
 }
 
+/* ------------------ Отход одним куском, а не полосками ------------------
+   Владелец, 20 сентября 2026, про лист столбиками: «почему ты оптимизируешь
+   так, чтобы люди лишний раз ломали кусок стекла по середине и не было
+   возможности даже на маленький остаток». Столбики берут ширину по самому
+   широкому стеклу колонки, поэтому 24″ стекло в колонке 34″ оставляло
+   полоску 10″ — и так четыре раза подряд: четыре лишних разлома и ни одного
+   куска на стеллаж. Рука это чинила (стекло подъезжает к соседу), Build —
+   нет. Теперь то же уплотнение идёт после укладки, и остаток собирается в
+   один кусок: на его листе 8 × 34×36 и 4 × 24×24 было 0 остатков, стало
+   40 × 24″. Стекла на листе столько же — Used не меняется. */
+function cutTidyGroup(g,paramsFor){
+ let moved=0;
+ g.sheets.forEach(s=>{
+  if(s.locked||!s.pieces.length)return;
+  const size=s.size||g.sheet,was=s.pieces.map(p=>p.x);
+  cutCompactSheet(g,s);
+  if(!s.pieces.some((p,i)=>Math.abs(p.x-was[i])>1e-6))return;
+  /* Уплотнение не должно сделать лист нерезаемым сквозными резами. */
+  if(cutSheetCuts(s,size,paramsFor(size),s.flip).ok)moved++;
+  else s.pieces.forEach((p,i)=>{p.x=was[i];});
+ });
+ return moved;
+}
+
 /* --------------------- Лишний лист после Build ---------------------
    Аудит раскроя (Codex, 20 сентября 2026) и проверка на 20 случайных батчах:
    укладчик «лист за листом» дробит свободное место и обратно его не
@@ -779,14 +803,14 @@ function* cutPlanSteps(number,probe){
     const first=packed.sheets[0]&&packed.sheets[0].size||set.stock[0];
     /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
     const g={glass:set.glass,mm:set.mm,sheet:first,stock:set.stock,pick:set.pick,params:set.paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
-    cutGroupNumbers(g,set.paramsFor);
+    cutTidyGroup(g,set.paramsFor);cutGroupNumbers(g,set.paramsFor);
     const score=cutScore(g,prio);
     if(!win||cutScoreLess(score,win.score))win={g,score,strategy:job.k};
    }
    yield done/total;
   }
   win.g.strategy=win.strategy;
-  if(cutTightenGroup(win.g,set.paramsFor,set.src))cutGroupNumbers(win.g,set.paramsFor);
+  if(cutTightenGroup(win.g,set.paramsFor,set.src)){cutTidyGroup(win.g,set.paramsFor);cutGroupNumbers(win.g,set.paramsFor);}
   groups.push(win.g);
   yield done/total;
  }
