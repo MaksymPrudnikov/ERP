@@ -831,7 +831,7 @@ module.exports=async function({page,eq,ok}){
   return {before,after,moved,bigBefore,bigAfter,cuts,held};
  }),{before:[0.875,34.875,68.875,102.875],after:[0.875,24.875,48.875,72.875],moved:1,bigBefore:[6.25,100.25],bigAfter:[40,24],cuts:true,held:true});
 
- eq('полосы держат зазор вокруг формы и по вертикали: прямоугольник не садится вплотную к форме из полосы ниже',await t.p.evaluate(()=>{
+ eq('форма занимает место только там, где скос: прямые стороны вплотную, у скоса — большее из Safety border и Min distance; укладчики держат зазор и без футпринта',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
   const id=ctOrder([[40,50,3],[38,18,10],[20,12,8]]);
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='40';sh.h='50';
@@ -839,19 +839,26 @@ module.exports=async function({page,eq,ok}){
   sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];
   const pieces=cutPieces(b,{}),stock=cutStockFor(g.glass,g.pick,g.mm,b.number),pf=size=>cutRunParams(g.mm,size,g.pick);
-  /* Зазор нарушен, если коробки, раздутые на нужный зазор, налезают. */
+  const md=cutGroupParams(g,g.sheet).minDist;
+  /* Место у скоса отложено внутри заготовки — не меньше Min distance. */
+  const shaped=pieces.filter(p=>p.shape);
+  const padOk=shaped.every(p=>(+p.pad||0)>=md-1e-6);
+  /* Прямая сторона ничего не прибавляет: ширина заготовки равна размеру реза. */
+  const flat=shaped.every(p=>Math.abs(p.w-cutRound(p.w))<1e-6);
   const bad=sheets=>{const out=[];sheets.forEach(x=>{const pr=cutGroupParams(g,x.size||g.sheet);
    x.pieces.forEach((a,i)=>x.pieces.slice(i+1).forEach(c=>{const gp=cutGapBetween(a,c,pr);
     if(a.x<c.x+c.w+gp-1e-6&&c.x<a.x+a.w+gp-1e-6&&a.y<c.y+c.h+gp-1e-6&&c.y<a.y+a.h+gp-1e-6)out.push(a.piece+'/'+c.piece);}));});return out;};
-  const packs=CUT_STRATEGIES.map(st=>cutPack(pieces,stock,pf,st,[],g.mm));
-  /* Форма и другое стекло действительно оказываются друг над другом — иначе
-     проверка ничего не значит. */
-  const over=packs.some(r=>r&&r.sheets.some(x=>x.pieces.some(a=>a.shape&&x.pieces.some(c=>
-   c!==a&&a.x<c.x+c.w-1e-6&&c.x<a.x+a.w-1e-6&&c.y>a.y+a.h-1e-6))));
-  return {shapes:pieces.filter(p=>p.shape).length,strategies:packs.map(r=>r?bad(r.sheets).length:-1),
-   planBad:bad(g.sheets),over};
- }),{shapes:3,strategies:[0,0,0,0],planBad:[],over:true});
- eq('форма на листе: контур реза поверх заготовки, отход внутри заготовки виден, поворот контур не ломает; прямоугольник остаётся прямоугольником',await t.p.evaluate(()=>{
+  /* Форма без футпринта (запасной путь): зазор обязаны дать сами укладчики —
+     раньше вертикальный спрашивали только у стекла, ОТКРЫВАЮЩЕГО полосу, и
+     прямоугольник садился вплотную к форме из полосы ниже. */
+  const raw=[{piece:'S1',w:40,h:50,shape:true,priority:0},{piece:'S2',w:40,h:50,shape:true,priority:0}]
+   .concat([1,2,3,4,5,6,7,8].map(i=>({piece:'R'+i,w:38,h:18,shape:false,priority:0})));
+  const strips=CUT_STRATEGIES.map(st=>{const r=cutPack(raw,stock,pf,st,[],g.mm);return r?bad(r.sheets).length:-1;});
+  const cols=cutPackColumns(raw,stock,pf,[],{rows:false,orient:'asis',fit:'ffd'});
+  return {shapes:shaped.length,padOk,flat,planBad:bad(g.sheets),strips,colsBad:cols?bad(cols.sheets):[-1],
+   overlap:ctOverlap(plan)};
+ }),{shapes:3,padOk:true,flat:true,planBad:[],strips:[0,0,0,0],colsBad:[],overlap:[]});
+ eq('форма на листе: контур реза внутри заготовки, Safety border занимает место, поворот контур не ломает; прямоугольник остаётся прямоугольником',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);const id=ctOrder([[48.125,79,3]]);
   /* Трапеция владельца: скошенный верх, короткая сторона слева. */
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');
@@ -871,9 +878,17 @@ module.exports=async function({page,eq,ok}){
    const pts=pg.getAttribute('points').split(' ').map(q=>q.split(',').map(Number));
    const rx=+r.getAttribute('x'),ry=+r.getAttribute('y'),rw=+r.getAttribute('width'),rh=+r.getAttribute('height');
    const fit=(v,lo,hi)=>v>=lo-0.2&&v<=hi+0.2;
-   return pts.every(q=>fit(q[0],rx,rx+rw)&&fit(q[1],ry,ry+rh))
-    &&Math.abs(Math.min(...pts.map(q=>q[0]))-rx)<0.2&&Math.abs(Math.max(...pts.map(q=>q[0]))-(rx+rw))<0.2
-    &&Math.abs(Math.min(...pts.map(q=>q[1]))-ry)<0.2&&Math.abs(Math.max(...pts.map(q=>q[1]))-(ry+rh))<0.2;
+   return pts.every(q=>fit(q[0],rx,rx+rw)&&fit(q[1],ry,ry+rh));
+  });
+  /* Safety border — это место на листе: заготовка выше контура на бордер,
+     и белое поле у скоса видно, как у Perfect Cut. */
+  const margin=gs.every(x=>{
+   const r=x.querySelector('rect.cut-blank'),pg=x.querySelector('polygon.cut-glass');
+   const pts=pg.getAttribute('points').split(' ').map(q=>q.split(',').map(Number));
+   const ry=+r.getAttribute('y'),rh=+r.getAttribute('height'),rx=+r.getAttribute('x'),rw=+r.getAttribute('width');
+   const dy=Math.min(...pts.map(q=>q[1]))-ry+(ry+rh)-Math.max(...pts.map(q=>q[1]));
+   const dx=Math.min(...pts.map(q=>q[0]))-rx+(rx+rw)-Math.max(...pts.map(q=>q[0]));
+   return dx+dy>0.5;
   });
   /* Прямоугольное стекло рисуется как раньше. */
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',102,144);ctOrder([[46,60,2]]);const b2=DB.glassBatch[0];
@@ -883,12 +898,12 @@ module.exports=async function({page,eq,ok}){
   /* У прямоугольника полей формы нет вовсе: укладчик копирует стекло на
      каждый из сотен вариантов, и лишние поля стоили 60 % времени Build. */
   const lean=flat.every(x=>!('pts' in x)&&!('holes' in x)&&!('cutouts' in x));
-  return {lean,shape:one.shape,n:one.pts.length,box,blank:[one.w,one.h],
+  return {lean,margin,shape:one.shape,n:one.pts.length,box,blank:[one.w,one.h],
    less:poly(one.pts)<one.w*one.h-100,polys:d.querySelectorAll('polygon.cut-glass').length,
    blanks:d.querySelectorAll('rect.cut-blank').length,rects:d.querySelectorAll('rect.cut-glass').length,
    turned:sheet.pieces.some(p=>p.rot),inside,
    plainPoly:d2.querySelectorAll('polygon.cut-glass').length,plainRect:d2.querySelectorAll('rect.cut-glass').length};
- }),{lean:true,shape:true,n:4,box:[48.125,79],blank:[48.125,79],less:true,polys:3,blanks:3,rects:0,turned:true,inside:true,plainPoly:0,plainRect:2});
+ }),{lean:true,margin:true,shape:true,n:4,box:[48.125,79],blank:[48.125,80],less:true,polys:3,blanks:3,rects:0,turned:true,inside:true,plainPoly:0,plainRect:2});
 
  eq('размеры пустого места: кусок от 4 ft² подписан, мелкий — только по наведению; годный остаток не задваивается; переворот реза пересчитывает остатки',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,6],[28,38,8]]);const b=DB.glassBatch[0];
