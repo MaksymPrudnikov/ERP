@@ -955,13 +955,21 @@ function cutPlanDraft(number){
  const byGlass=new Map();live.forEach(p=>{const k=p.glass+'|'+p.mm;if(!byGlass.has(k))byGlass.set(k,[]);byGlass.get(k).push(p);});
  [...byGlass.entries()].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([k,list])=>{
   const glass=list[0].glass,mm=list[0].mm,pick=sheetPick[glass]||null,stock=cutStockFor(glass,pick,mm,number);
-  if(!stock.length){missing.push(glass);return;}
+  /* Галочки сняты со всех размеров — группа всё равно нужна: иначе экран
+     схлопывался в «No sheet size», таблица размеров исчезала вместе с
+     галочками, и поставить их обратно было негде. Владелец, 21 сентября 2026:
+     «убираю последнюю галочку — меня выбрасывает и не даёт пересобрать, пока
+     не создам новый размер». Build по-прежнему откажется, пока размер не
+     отмечен, — это говорит жёлтая строка сверху. */
+  const known=stock.length?null:(cutSheetOptions(glass)[0]||null);
+  if(!stock.length&&!known){missing.push(glass);return;}
+  if(!stock.length)missing.push(glass);
   const old=prev&&prev.groups.find(g=>g.glass===glass&&g.mm===mm),sheets=[];
   if(old)old.sheets.filter(s=>s.locked).forEach(s=>{
    const alive=s.pieces.filter(p=>list.some(x=>x.piece===p.piece));
    if(alive.length||(s.stock||[]).length)sheets.push({no:sheets.length+1,size:s.size||old.sheet,locked:true,stock:(s.stock||[]).map(x=>Object.assign({},x)),pieces:alive.map(p=>Object.assign({},p))});
   });
-  const first=sheets[0]&&sheets[0].size||stock[0];
+  const first=sheets[0]&&sheets[0].size||stock[0]||known;
   groups.push({glass,mm,sheet:first,stock,pick,params:cutRunParams(mm,first,pick),sheets,unplaced:[],strategy:''});
  });
  const plan={batch:number,at:'',stamp:cutStamp(all),settings,sheetPick,groups,missing,excluded:all.filter(p=>p.off).map(p=>p.piece),stats:{},reset:true};

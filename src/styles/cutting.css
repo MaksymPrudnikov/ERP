@@ -91,6 +91,10 @@
 .cut-hole{fill:var(--cut-free);stroke:var(--cut-glass-line);stroke-width:1}
 /* Пустое место: только зона наведения — куски и так очерчены линиями реза. */
 .cut-free{fill:transparent}
+/* Заголовки списка стёкол — кнопки сортировки; выглядят как заголовки. */
+.cut-list thead .cut-sort{font:inherit;color:inherit;padding:0;border:0;background:none;cursor:pointer}
+.cut-list thead .cut-sort:hover{text-decoration:underline}
+.cut-list thead .cut-sort.on{color:#0b74c4}
 .cut-svg .cut-g1{stop-color:var(--cut-glass-a)}
 .cut-svg .cut-g2{stop-color:var(--cut-glass-b)}
 .cut-svg .cut-g3{stop-color:var(--cut-glass-c)}

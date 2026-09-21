@@ -10,7 +10,7 @@
    справа лист, сверху цифры потерь и параметры прогона; действия — у
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
-let cutNotice='',cutInfo=null,cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+let cutNotice='',cutInfo=null,cutMdNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -190,6 +190,17 @@ function cutUiSheetDelete(glass,no){
 let cutFull=true;
 function cutUiFull(on){cutFull=typeof on==='boolean'?on:!cutFull;document.body.classList.toggle('cut-full',cutFull);render();}
 /* Второй лист того же размера — для оверсайза, без Trim и Border. */
+/* Убрать размер листа совсем — размеры цеха копятся от опечаток, и убирать их
+   приходилось в Master Data. Владелец, 21 сентября 2026: «удалить эту
+   вакханалию невозможно». Размер из поставок стекла не трогаем — он придёт
+   обратно, и размер, на котором уже лежат листы, тоже. */
+function cutUiSizeDrop(key){
+ if(!confirm('Delete the sheet size '+key+' everywhere?'))return;
+ const r=cutShopSizeRemove(key);
+ if(r.error){cutNotice=r.error;render();return;}
+ const d=cutPlanEditable(cutUi.batch);if(!d.error)cutPlanRedraft(cutUi.batch);
+ cutNotice=d.error||'';render();
+}
 function cutUiSameSize(glass,key){cutUiRun(()=>cutAddSameSize(cutUi.batch,glass,key));}
 function cutUiSameSizeRemove(glass,key){cutUiRun(()=>cutRemoveSameSize(cutUi.batch,glass,key));}
 /* Стекло больше листа: тот же лист без Trim и Border — сброс, строка
@@ -231,7 +242,38 @@ function cutSplitForm(glass,no,i,o,pre,menu){
 }
 function cutUiStockCancel(id){if(!confirm('Put '+id+' back to waste?'))return;cutUiRun(()=>cutStockCancel(cutUi.batch,id));}
 function cutUiStockPrint(ids){if(ids.length&&typeof stkPrintStock==='function')stkPrintStock(ids);}
-function cutUiSet(pieceId,field,value){cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value));}
+/* Приоритеты ставят пачкой по многу стёкол, а каждая правка перерисовывает
+   экран: список уезжал в начало и поле теряло фокус. Владелец, 21 сентября
+   2026: «после смены одного приоритета всё скачет». Поэтому запоминаем место
+   прокрутки и поле, и возвращаемся туда же — можно идти вниз по списку. */
+function cutUiKeepSpot(fn){
+ const el=document.activeElement;
+ const row=el&&el.closest&&el.closest('[data-cut-list]'),id=row&&row.dataset.cutList;
+ const same=el&&el.matches&&el.matches('[data-cut-priority]');
+ const box=document.querySelector('.cut-side-scroll'),top=box?box.scrollTop:0;
+ fn();
+ const back=document.querySelector('.cut-side-scroll');if(back)back.scrollTop=top;
+ if(id&&same){const q=document.querySelector('[data-cut-list="'+id+'"] [data-cut-priority]');
+  if(q){q.focus();if(q.select)q.select();}}
+}
+function cutUiSet(pieceId,field,value){cutUiKeepSpot(()=>cutUiRun(()=>cutSetting(cutUi.batch,pieceId,field,value)));}
+/* Сортировка списка стёкол: по клику на заголовок, второй клик — наоборот.
+   «Нельзя отфильтровать или отсортировать столбики» (владелец, 21 сентября). */
+function cutUiSort(by){
+ const now=cutUi.sort&&cutUi.sort.by===by?cutUi.sort:null;
+ cutUi.sort=now&&now.dir>0?{by,dir:-1}:now?null:{by,dir:1};
+ render();
+}
+function cutSortPieces(list,at){
+ const s=cutUi.sort;if(!s)return list;
+ const place=p=>{const a=at(p.piece);return a?a.sheet.no*1000+a.index:1e9;};
+ const key={piece:p=>p.piece,size:p=>p.w*p.h,order:p=>p.order+' '+p.line,
+  customer:p=>p.customer||'',pri:p=>cutPrioRank(p.priority),sheet:place}[s.by];
+ if(!key)return list;
+ return list.slice().sort((a,b)=>{const x=key(a),y=key(b);
+  const d=typeof x==='string'?x.localeCompare(y):x-y;
+  return (d||a.piece.localeCompare(b.piece))*s.dir;});
+}
 function cutUiDragStart(e,pieceId){
  cutUi.drag=pieceId;cutUi.sel=pieceId;cutUi.dropBox=null;
  /* Размер детали — один раз на весь перенос, а не на каждое движение мыши. */
@@ -694,8 +736,10 @@ function viewCutLayout(b){
  const at=id=>cutFind(plan,id);
  const placed=new Set();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach(p=>placed.add(p.piece))));
  const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
- const rows=list=>list.map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece,lock)).join('');
- const listTable=body=>`<table class="sl-table cut-list"><thead><tr><th></th><th>Glass ID</th><th>Cut size</th><th>Order</th><th>Customer</th><th class="n">Pri</th><th class="n">Sheet</th></tr></thead><tbody>${body}</tbody></table>`;
+ const rows=list=>cutSortPieces(list,at).map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece,lock)).join('');
+ const sortMark=by=>s.sort&&s.sort.by===by?(s.sort.dir>0?' ▲':' ▼'):'';
+ const sortTh=(by,label,cls)=>`<th${cls?' class="'+cls+'"':''}><button type="button" class="gb-link cut-sort${s.sort&&s.sort.by===by?' on':''}" data-cut-sort="${by}" onclick="cutUiSort('${by}')">${label}${sortMark(by)}</button></th>`;
+ const listTable=body=>`<table class="sl-table cut-list"><thead><tr><th></th>${sortTh('piece','Glass ID')}${sortTh('size','Cut size')}${sortTh('order','Order')}${sortTh('customer','Customer')}${sortTh('pri','Pri','n')}${sortTh('sheet','Sheet','n')}</tr></thead><tbody>${body}</tbody></table>`;
  const selAt=s.sel?at(s.sel):null,selSrc=pieces.find(p=>p.piece===s.sel);
  const actions=selSrc?`<div class="cut-actions" data-cut-actions><b>${esc(selSrc.piece)}</b><span class="mut">${esc(frac16(selSrc.w))} × ${esc(frac16(selSrc.h))}″ · ${esc(selSrc.order)} / ${selSrc.line}</span><span class="sp"></span>
   <button type="button" data-cut-rotate ${selAt?'':'disabled'} onclick="cutUiRotate()">Rotate</button>
@@ -737,7 +781,7 @@ function viewCutLayout(b){
     <div class="cut-size-nums" data-cut-size-nums="${esc(key)}">${nums}</div></td>
    <td>${x.stock?'<span class="mut">1</span>':`<input type="number" min="0" step="1" data-cut-qty value="${row&&row.limit?row.limit:''}" placeholder="all" ${dis} aria-label="Sheets available ${esc(key)}" onchange="cutUiStock('${esc(group.glass)}','${esc(key)}','limit',this.value)">`}</td>
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
-   <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>`}</td></tr>`;}).join('');
+   <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>${x.shop&&!used&&!lock?`<button type="button" class="gb-link dl" data-cut-size-drop="${esc(key)}" ${dis} title="Delete this sheet size everywhere" aria-label="Delete ${esc(key)}" onclick="cutUiSizeDrop('${esc(key)}')">×</button>`:''}`}</td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
   <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th>Min dist</th><th></th></tr></thead><tbody>${stockRows}
    ${lock?'':`<tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
