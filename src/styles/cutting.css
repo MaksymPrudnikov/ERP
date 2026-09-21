@@ -85,6 +85,12 @@
 }
 .cut-sheet-band{fill:var(--cut-band);stroke:#98a2b3}
 .cut-sheet-free{fill:var(--cut-free)}
+/* Заготовка формы: прямоугольник, который стол вырежет первым — то, что
+   внутри него за контуром, уйдёт в отход. Тот же серый, что пустое место. */
+.cut-blank{fill:var(--cut-free)}
+.cut-hole{fill:var(--cut-free);stroke:var(--cut-glass-line);stroke-width:1}
+/* Пустое место: только зона наведения — куски и так очерчены линиями реза. */
+.cut-free{fill:transparent}
 .cut-svg .cut-g1{stop-color:var(--cut-glass-a)}
 .cut-svg .cut-g2{stop-color:var(--cut-glass-b)}
 .cut-svg .cut-g3{stop-color:var(--cut-glass-c)}

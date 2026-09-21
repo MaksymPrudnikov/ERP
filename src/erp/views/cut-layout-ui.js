@@ -464,9 +464,23 @@ function cutUiDropList(e){
 /* Поле слева и снизу под подписи осей. 34 — чтобы влезала высота с дробью
    («96 1/4″»): у кусков со стеллажа размеры всегда дробные. */
 const CUT_SVG_PAD=34;
+/* С какой площади пустое место подписывают размером. Владелец, 21 сентября
+   2026: «может больше 4 сквер фит, я честно не знаю, я не хочу засорять
+   экран». Мельче — размер по наведению мыши. */
+const CUT_FREE_LABEL_FT2=4;
 /* Подпись в прямоугольнике w × h с центром cx, cy: одна строка, две строки,
    мельче — или поперёк, если кусок узкий и высокий. Ширина текста — по
    средней ширине знака Helvetica. */
+/* Центр тяжести контура — туда идёт подпись формы. Вырожденный контур
+   (площадь ноль) отдаёт первую точку: подпись всё равно не влезет. */
+function cutPolyMid(pts){
+ let a=0,cx=0,cy=0;
+ for(let i=0;i<pts.length;i++){
+  const p=pts[i],q=pts[(i+1)%pts.length],f=p[0]*q[1]-q[0]*p[1];
+  a+=f;cx+=(p[0]+q[0])*f;cy+=(p[1]+q[1])*f;
+ }
+ return Math.abs(a)<1e-9?[pts[0][0],pts[0][1]]:[cx/(3*a),cy/(3*a)];
+}
 function cutFitLabel(cx,cy,w,h,lines,color){
  const tw=(t,f)=>String(t).length*f*0.56,pad=6;
  const draw=(rows,f,rot)=>{const lh=f*1.15,y0=-(rows.length-1)*lh/2+f*0.35;
@@ -505,13 +519,45 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  const block=(o,cls,attr,lines,color)=>{const oy=fy(o.y,o.h);
   out.push('<g '+attr+'><rect class="'+cls+'" x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'"/></g>');
   labels.push(cutFitLabel((o.x+o.w/2)*S,oy+o.h*S/2,o.w*S,o.h*S,lines,color));};
+ /* Резы стола считаются один раз: по ним и пустые куски, и сами линии. */
+ const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,pr,sheet.flip):{lines:[],stuck:[],free:[]};
  (sheet.offcuts||[]).forEach((o,i)=>block(o,'cut-off','data-cut-offcut="'+i+'"',['Offcut',frac16(o.w)+' × '+frac16(o.h)+'″'],'#98a2b3'));
+ /* Остальное пустое место. Владелец, 21 сентября 2026: «вижу, где пустое
+    пространство, но не знаю размеры — вдруг я бы мог туда добавить… не хочу
+    засорять экран, может больше 4 сквер фит». Поэтому подпись — только у
+    кусков от CUT_FREE_LABEL_FT2, а размер мелких виден по наведению мыши.
+    Прямоугольник прозрачный: он ловит наведение и не спорит с линиями реза,
+    которые и так очерчивают каждый кусок. */
+ (cuts.free||[]).forEach(r=>{
+  const o={x:cutRound(r.x0),y:cutRound(r.y0),w:cutRound(r.x1-r.x0),h:cutRound(r.y1-r.y0)};
+  if(!(o.w>1e-6&&o.h>1e-6))return;
+  if((sheet.offcuts||[]).some(q=>Math.abs(q.x-o.x)<1e-6&&Math.abs(q.y-o.y)<1e-6&&Math.abs(q.w-o.w)<1e-6&&Math.abs(q.h-o.h)<1e-6))return;
+  const ft2=cutFt2(cutArea(o.w,o.h)),oy=fy(o.y,o.h),txt=frac16(o.w)+' × '+frac16(o.h)+'″';
+  out.push('<rect class="cut-free" data-cut-free x="'+(o.x*S).toFixed(1)+'" y="'+oy.toFixed(1)+'" width="'+(o.w*S).toFixed(1)+'" height="'+(o.h*S).toFixed(1)+'"><title>Free · '+esc(txt+' · '+ft2+' ft²')+'</title></rect>');
+  if(ft2>=CUT_FREE_LABEL_FT2)labels.push(cutFitLabel((o.x+o.w/2)*S,oy+o.h*S/2,o.w*S,o.h*S,[txt,ft2+' ft²'],'#98a2b3'));
+ });
  (sheet.stock||[]).forEach(o=>block(o,'cut-stk','data-cut-stock="'+esc(o.id)+'"',[o.id,frac16(o.w)+' × '+frac16(o.h)+'″'],'#067647'));
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
-  out.push('<rect class="cut-glass" rx="1.5" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
+  /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
+     Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
+     p.rot — заготовка повёрнута на 90° ПРОТИВ часовой: у несимметричной формы
+     две стороны поворота дают разные стёкла, и лист показывает, какое из них.
+     Контур берётся, только если его габарит совпал с заготовкой. */
+  const fit=src.pts&&src.pts.length>2&&Math.abs((p.rot?src.h:src.w)-p.w)<1e-6&&Math.abs((p.rot?src.w:src.h)-p.h)<1e-6;
+  const at=q=>{const sx=p.rot?p.w-q[1]:q[0],sy=p.rot?q[0]:q[1];return [(p.x+sx)*S,(size.h-(p.y+sy))*S];};
+  const poly=list=>list.map(at).map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
+  if(fit){
+   out.push('<rect class="cut-blank" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"/>');
+   out.push('<polygon class="cut-glass" points="'+poly(src.pts)+'"'+(outside(p)?' data-cut-out':'')+'/>');
+   (src.holes||[]).forEach(o=>{const c=at([o.x,o.y]);out.push('<circle class="cut-hole" cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="'+Math.max(1,o.d*S/2).toFixed(1)+'"/>');});
+   (src.cutouts||[]).forEach(c=>out.push('<polygon class="cut-hole" points="'+poly(c)+'"/>'));
+  }else out.push('<rect class="cut-glass" rx="1.5" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"'+(outside(p)?' data-cut-out':'')+'/>');
+  /* Подпись формы — в центр тяжести контура: середина заготовки у трапеции
+     попадает в отход над скосом. */
+  const mid=fit?cutPolyMid(src.pts.map(at)):[x+w/2,y+h/2];
   /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
@@ -519,10 +565,10 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   if(h>52&&w>84||turn){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[size16,9,'#475467']];
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
-   out.push('<g transform="translate('+(x+w/2).toFixed(1)+' '+(y+h/2).toFixed(1)+')'+(turn?' rotate(-90)':'')+'">');
+   out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turn?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
    out.push('</g>');
-  }else out.push(cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1),size16],'#101828')||cutFitLabel(x+w/2,y+h/2,w,h,[String(i+1)],'#101828'));
+  }else out.push(cutFitLabel(mid[0],mid[1],w,h,[String(i+1),size16],'#101828')||cutFitLabel(mid[0],mid[1],w,h,[String(i+1)],'#101828'));
   if(p.locked&&w>20&&h>20)out.push('<text x="'+(x+w-4).toFixed(1)+'" y="'+(y+11).toFixed(1)+'" text-anchor="end" font-size="9" fill="#93370d">lock</text>');
   out.push('</g>');
   /* У выбранного стекла — кнопка поворота в углу, левой кнопкой мыши. */
@@ -531,7 +577,6 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  out.push(labels.join(''));
  /* Резы стола: ступень 1 — через всё поле, дальше мельче. По линии можно
     кликнуть и перевернуть её (cutFlipCut). */
- const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,pr,sheet.flip):{lines:[],stuck:[]};
  cuts.lines.forEach(c=>{
   /* Первый рез идёт через весь лист — лезвие не останавливается на поле;
      дальше резы живут внутри своей полосы. */
