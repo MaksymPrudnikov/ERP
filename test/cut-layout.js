@@ -105,13 +105,31 @@ module.exports=async function({page,eq,ok}){
    usedSame:after.usedPct===before.usedPct,none,leastArea:chosen<=Math.min(...areas)+1e-6,migrated,own};
  }),{netIsGross:true,keep0:0,honest:true,min:[40,40],big:true,kept:true,keepAfter:true,netAfter:true,usedSame:true,none:'No such offcut.',leastArea:true,migrated:[40,40],own:[12,12]});
 
- eq('вокруг формы со скосом зазор появляется, у прямоугольников остаётся 0',await t.p.evaluate(()=>{
+ eq('вокруг формы со скосом зазор держится у любого соседа, у прямоугольников остаётся 0; столбики больше не отказываются от батча с формой',await t.p.evaluate(()=>{
+  /* Зазор нарушен, если коробки, раздутые на нужный зазор, налезают друг на
+     друга — то же правило, по которому проверяются правки руками. */
+  const bad=plan=>{const out=[];plan.groups.forEach(g=>g.sheets.forEach(sh=>{
+   const pr=cutGroupParams(g,sh.size||g.sheet);
+   sh.pieces.forEach((a,i)=>sh.pieces.slice(i+1).forEach(c=>{
+    const gp=cutGapBetween(a,c,pr);
+    if(a.x<c.x+c.w+gp-1e-6&&c.x<a.x+a.w+gp-1e-6&&a.y<c.y+c.h+gp-1e-6&&c.y<a.y+a.h+gp-1e-6)out.push(a.piece+'/'+c.piece);}));}));return out;};
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,2]]);
   const o=salesRecord(id),l=o.lines[0],s=newShapeDef('raked');s.w='40';s.h='50';Object.assign(s.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
   s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,pieces=cutPieces(b,{});
-  return {shape:pieces.every(p=>p.shape),gap:ctMinGap(plan),params:frac16(plan.groups[0].params.minDist)};
- }),{shape:true,gap:0.75,params:'3/4'});
+  /* Столбики должны уметь класть формы: раньше они отказывались от всего
+     батча, и одна фигурная деталь из 152 стоила листа. */
+  const stock=cutStockFor(plan.groups[0].glass,plan.groups[0].pick,plan.groups[0].mm,b.number);
+  const cols=cutPackColumns(pieces,stock,size=>cutRunParams(plan.groups[0].mm,size,plan.groups[0].pick),[],{rows:false,orient:'asis',fit:'ffd'});
+  const colPlan={groups:[{glass:plan.groups[0].glass,mm:plan.groups[0].mm,sheet:cols&&cols.sheets[0].size,pick:plan.groups[0].pick,sheets:(cols&&cols.sheets)||[]}]};
+  /* Прямоугольники стоят вплотную. */
+  oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[40,50,4]]);
+  const rect=cutPlanRun(DB.glassBatch[0].number).plan;
+  return {shape:pieces.every(p=>p.shape),params:frac16(plan.groups[0].params.minDist),
+   bad:bad(plan),cols:!!cols,colPieces:cols?cols.sheets.reduce((a,x)=>a+x.pieces.length,0):0,
+   colShape:cols?cols.sheets.every(x=>x.pieces.every(q=>q.shape)):false,colBad:bad(colPlan),
+   rectGap:ctMinGap(rect),rectBad:bad(rect)};
+ }),{shape:true,params:'3/4',bad:[],cols:true,colPieces:2,colShape:true,colBad:[],rectGap:0,rectBad:[]});
 
  eq('исключить деталь: количество 0 убирает её из реза и из листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
@@ -812,6 +830,27 @@ module.exports=async function({page,eq,ok}){
   const g2=mk();g2.sheets[0].locked=true;const held=cutTidyGroup(g2,pf)===0;
   return {before,after,moved,bigBefore,bigAfter,cuts,held};
  }),{before:[0.875,34.875,68.875,102.875],after:[0.875,24.875,48.875,72.875],moved:1,bigBefore:[6.25,100.25],bigAfter:[40,24],cuts:true,held:true});
+
+ eq('полосы держат зазор вокруг формы и по вертикали: прямоугольник не садится вплотную к форме из полосы ниже',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
+  const id=ctOrder([[40,50,3],[38,18,10],[20,12,8]]);
+  const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='40';sh.h='50';
+  Object.assign(sh.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
+  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];
+  const pieces=cutPieces(b,{}),stock=cutStockFor(g.glass,g.pick,g.mm,b.number),pf=size=>cutRunParams(g.mm,size,g.pick);
+  /* Зазор нарушен, если коробки, раздутые на нужный зазор, налезают. */
+  const bad=sheets=>{const out=[];sheets.forEach(x=>{const pr=cutGroupParams(g,x.size||g.sheet);
+   x.pieces.forEach((a,i)=>x.pieces.slice(i+1).forEach(c=>{const gp=cutGapBetween(a,c,pr);
+    if(a.x<c.x+c.w+gp-1e-6&&c.x<a.x+a.w+gp-1e-6&&a.y<c.y+c.h+gp-1e-6&&c.y<a.y+a.h+gp-1e-6)out.push(a.piece+'/'+c.piece);}));});return out;};
+  const packs=CUT_STRATEGIES.map(st=>cutPack(pieces,stock,pf,st,[],g.mm));
+  /* Форма и другое стекло действительно оказываются друг над другом — иначе
+     проверка ничего не значит. */
+  const over=packs.some(r=>r&&r.sheets.some(x=>x.pieces.some(a=>a.shape&&x.pieces.some(c=>
+   c!==a&&a.x<c.x+c.w-1e-6&&c.x<a.x+a.w-1e-6&&c.y>a.y+a.h-1e-6))));
+  return {shapes:pieces.filter(p=>p.shape).length,strategies:packs.map(r=>r?bad(r.sheets).length:-1),
+   planBad:bad(g.sheets),over};
+ }),{shapes:3,strategies:[0,0,0,0],planBad:[],over:true});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

@@ -214,14 +214,25 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(s.locked)continue;
    const {W,H}=room(s.size),list=ways(p,s.size);if(!list.length)continue;
    let done=false;
+   /* Вертикальный зазор вокруг формы. Раньше его спрашивали только у стекла,
+      ОТКРЫВАЮЩЕГО полосу: прямоугольник садился вплотную к форме из полосы
+      ниже, и на случайных батчах с формами выходило до четырёх таких пар на
+      батч — полоску тоньше Min distance не сломать. Теперь форма входит в
+      готовую полосу, только если сверху и снизу уже есть зазор, а новая
+      полоса отступает, если форма есть у неё самой или в полосе под ней.
+      Прямоугольники между собой стоят вплотную, как раньше. */
+   const md=+paramsFor(s.size).minDist||0;
+   const clear=st=>{const top=st.y+st.h;return s.strips.every(x=>x===st||x.y>=top+md-1e-6||x.y+x.h<=st.y-md+1e-6);};
    for(const st of s.strips){
     const pr=paramsFor(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
+    if(p.shape&&md>0&&!clear(st))continue;
     const o=list.find(x=>cutSliverOk(st.h-x.h,pr)&&st.x+gap+x.w<=W+1e-6);
     if(o){push(s,st,o,p);done=true;break;}
    }
    if(done)return;
    const usedH=s.strips.length?Math.max(...s.strips.map(x=>x.y+x.h)):0;
-   const vgap=s.strips.length?cutEdgeGap(p,paramsFor(s.size)):0,y=usedH?usedH+vgap:0;
+   const below=s.strips.reduce((a,x)=>!a||x.y+x.h>a.y+a.h?x:a,null);
+   const vgap=s.strips.length&&(p.shape||below&&below.pieces.some(q=>q.shape))?md:0,y=usedH?usedH+vgap:0;
    const o=best(list.filter(x=>y+x.h<=H+1e-6),W);
    if(o){const st={y,h:o.h,x:0,pieces:[]};s.strips.push(st);push(s,st,o,p);return;}
   }
@@ -453,18 +464,26 @@ function cutRightSize(packed,stock,paramsFor,src,miss){
    всю ширину. orient — как поворачивать стёкла: как есть, стоя или лёжа.
    Формы со скосом сюда не идут — у них свой зазор. */
 function cutPackColumns(list,stock,paramsFor,fixed,opt){
- if(!stock.length||list.some(p=>p.shape))return null;
+ if(!stock.length)return null;
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
  sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const T=!!opt.rows,dims=row=>{const u=cutUsable(row,paramsFor(row));return {u,W:T?u.H:u.W,H:T?u.W:u.H};};
  const first=dims(stock[0]),pr0=paramsFor(stock[0]),md=+pr0.minDist||0;
  const items=[];
+ /* Форма со скосом занимает место с зазором Min distance вокруг: её коробка
+    раздувается на зазор с четырёх сторон, а само стекло встаёт внутрь на тот
+    же зазор. Так сосед любой стороной — хоть форма, хоть прямоугольник —
+    оказывается не ближе Min distance, а прямоугольники по-прежнему стоят
+    вплотную. Раньше столбики отказывались от батча целиком, если в нём была
+    хоть одна форма: на тесте владельца одна фигурная деталь из 152 стоила
+    листа (23 → 24, Used 95,4 → 91,8 %). */
  list.forEach(p=>{
-  let w=T?p.h:p.w,h=T?p.w:p.h;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
+  const g=p.shape?md:0;
+  let w=(T?p.h:p.w)+2*g,h=(T?p.w:p.h)+2*g;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
   if(can&&(opt.orient==='tall'&&w>h||opt.orient==='wide'&&h>w)){const x=w;w=h;h=x;}
   if((w>first.W+1e-6||h>first.H+1e-6)&&can&&h<=first.W+1e-6&&w<=first.H+1e-6){const x=w;w=h;h=x;}
   if(w>first.W+1e-6||h>first.H+1e-6){unplaced.push({piece:p.piece,reason:'Larger than the sheet'});return;}
-  items.push({p,w,h});
+  items.push({p,w,h,g});
  });
  items.sort((a,b)=>b.w-a.w||b.h-a.h||cutPrioRank(a.p.priority)-cutPrioRank(b.p.priority)||a.p.piece.localeCompare(b.p.piece));
  /* Столбик: ширина — у первого стекла; уже — только если полоска сбоку не
@@ -496,8 +515,8 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
  bins.forEach(b=>{
   const u=b.d.u,pieces=[];
   b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
-   const q=it.p,w=T?it.h:it.w,h=T?it.w:it.h;
-   pieces.push({piece:q.piece,shape:false,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,rot:w!==q.w,locked:false});
+   const q=it.p,g=it.g,rw=it.w-2*g,rh=it.h-2*g,w=T?rh:rw,h=T?rw:rh;
+   pieces.push({piece:q.piece,shape:!!q.shape,x:cutRound(u.x0+(T?y:x)+g),y:cutRound(u.y0+(T?x:y)+g),w,h,rot:w!==q.w,locked:false});
   }));
   sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
  });
