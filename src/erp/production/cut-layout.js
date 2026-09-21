@@ -49,17 +49,38 @@ function cutPct(part,whole){return whole>0?Math.round(part/whole*1000)/10:0;}
    меняется, поэтому ось берётся из готового контура).
    Габарит контура обязан совпасть с заготовкой: разошлись — контур не отдаём,
    и стекло рисуется прямоугольником, как раньше. Лист не должен врать. */
-function cutShapeGeom(lite){
+function cutShapeGeom(lite,md){
  const raw=((lite&&lite.cuttingPoints)||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
  if(raw.length<3)return null;
  const xs=raw.map(p=>p[0]),ys=raw.map(p=>p[1]);
  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
  if(Math.abs(x1-x0-(+lite.cutW||0))>1/16+1e-6||Math.abs(y1-y0-(+lite.cutH||0))>1/16+1e-6)return null;
- const mx=lite.mirrored?v=>x0+x1-v:v=>v,at=(px,py)=>[cutRound(mx(px)-x0),cutRound(py-y0)];
+ /* Заготовка формы — Billable footprint, а не размер реза: Safety border у
+    скоса это место на листе, а не только строка в счёте. Владелец,
+    21 сентября 2026, про белое поле вокруг формы у Perfect Cut: «это бордеры,
+    которые мы добавляем, я почему-то не вижу в своём раскрое бордеры».
+    Бордер ложится на ту сторону габарита, куда смотрит скос (`footprint.pad`),
+    поэтому контур сдвигается внутрь на левый и нижний отступы. */
+ const fp=(lite.footprint&&+lite.footprint.width>0&&+lite.footprint.height>0)?lite.footprint:null;
+ /* Место откладывается ТОЛЬКО там, где скос. Владелец, 21 сентября 2026:
+    «у тебя скосы только сверху — зачем расстояние между прямыми линиями слева
+    и справа?» Незачем: прямая сторона режется как у прямоугольника, вплотную.
+    На стороне со скосом берётся большее из Safety border и Min distance — не
+    сумма. */
+ const side=v=>{const n=+v||0;return n>0?Math.max(n,+md||0):0;};
+ const raw4=(fp&&fp.pad)||{},L=side(raw4.left),B=side(raw4.bottom),R=side(raw4.right),T=side(raw4.top);
+ const w=fp?cutRound(x1-x0+L+R):cutRound(x1-x0),h=fp?cutRound(y1-y0+B+T):cutRound(y1-y0);
+ const mx=lite.mirrored?v=>x0+x1-v:v=>v,at=(px,py)=>[cutRound(mx(px)-x0+L),cutRound(py-y0+B)];
  const fg=(lite.result&&lite.result.featureGeometry)||{};
- const holes=(fg.holes||[]).map(h=>{const c=at(+h.center[0],+h.center[1]);return {x:c[0],y:c[1],d:+h.diameter||0};}).filter(h=>h.d>0&&Number.isFinite(h.x)&&Number.isFinite(h.y));
- const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(p=>at(+p[0],+p[1]))).filter(p=>p.length>2);
- return {pts:raw.map(p=>[cutRound(p[0]-x0),cutRound(p[1]-y0)]),holes,cutouts};
+ const holes=(fg.holes||[]).map(o=>{const c=at(+o.center[0],+o.center[1]);return {x:c[0],y:c[1],d:+o.diameter||0};}).filter(o=>o.d>0&&Number.isFinite(o.x)&&Number.isFinite(o.y));
+ const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(q=>at(+q[0],+q[1]))).filter(q=>q.length>2);
+ /* Зазор до соседа — БОЛЬШЕЕ из бордера и Min distance, а не сумма (решение
+    владельца, 21 сентября 2026). Бордер уже лежит внутри заготовки, поэтому
+    сверх него нужен только остаток; берём самую слабую сторону. */
+ /* Сверх отложенного до соседа ничего не нужно: стороны без скоса и так
+    режутся вплотную, а сторона со скосом уже держит большее из двух. */
+ const grip=Math.max(L,R,T,B);
+ return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),holes,cutouts};
 }
 /* Стёкла батча как прямоугольники реза: тот же размер, что печатает стикер.
    shape — деталь не прямоугольная: вокруг неё нужен зазор. */
@@ -72,16 +93,18 @@ function cutPieces(batch,settings){
   const plan=finWithOrder(o,()=>{try{return salesEffectiveCuttingPlan(l,salesLineGeometryShape(l),o);}catch(e){return {valid:false};}});
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   const g=glassProductById(c.glassId),own=set[item.piece]||{};
-  const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite)),geom=shaped?cutShapeGeom(lite):null;
+  const mm=+((g&&g.thicknessMm)||lite.thickness)||0;
+  const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite));
+  const geom=shaped?cutShapeGeom(lite,typeof cutParamsFor==='function'?(cutParamsFor(mm)||{}).minDist:0):null;
   const row={piece:item.piece,key:part.key,unit:item.unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
-   line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm:+((g&&g.thicknessMm)||lite.thickness)||0,
-   w:cutRound(+lite.cutW),h:cutRound(+lite.cutH),shape:shaped,
+   line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm,
+   w:geom?geom.w:cutRound(+lite.cutW),h:geom?geom.h:cutRound(+lite.cutH),shape:shaped,
    off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot};
   /* Контур кладётся только формам, и только когда есть что класть: укладчик
      копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
      лишних поля у прямоугольника стоили 60 % времени Build — тест 2 шёл
      2,6 с вместо 1,65 с. */
-  if(geom){row.pts=geom.pts;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
+  if(geom){row.pts=geom.pts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
   out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
@@ -192,10 +215,11 @@ function cutStockFor(glassCode,pick,mm,batch){
 /* Расстояние между парой деталей: у прямоугольников 0, у формы со скосом —
    Min distance по толщине. */
 function cutGapBetween(a,b,params){
- const g=x=>x&&x.shape?+params.minDist||0:0;
- return Math.max(g(a),g(b));
+ return Math.max(cutEdgeGap(a,params),cutEdgeGap(b,params));
 }
-function cutEdgeGap(p,params){return p&&p.shape?+params.minDist||0:0;}
+/* Сверх бордера, уже лежащего в заготовке, до соседа нужен только остаток
+   Min distance: большее из двух, не сумма. */
+function cutEdgeGap(p,params){return p&&p.shape?Math.max(0,(+params.minDist||0)-(+p.pad||0)):0;}
 /* Полоска между деталью и линией реза: 0 или не меньше Min distance.
    «1/16 — это ошибка: сломать нельзя, слишком маленькое расстояние;
    отправлять на полировку — это время; а если это LowE — это брак, его
@@ -223,7 +247,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  const push=(s,st,o,p)=>{
   const {x0,y0,p:pr}=room(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
   const x=st.pieces.length?st.x+gap:st.x;st.x=x+o.w;st.pieces.push(p);
-  s.pieces.push({piece:p.piece,shape:!!p.shape,x:cutRound(x0+x),y:cutRound(y0+st.y),w:cutRound(o.w),h:cutRound(o.h),rot:o.rot,locked:false});
+  s.pieces.push({piece:p.piece,shape:!!p.shape,pad:+p.pad||0,x:cutRound(x0+x),y:cutRound(y0+st.y),w:cutRound(o.w),h:cutRound(o.h),rot:o.rot,locked:false});
  };
  /* Новый лист: первый размер склада, который ещё остался. */
  const open=p=>{
@@ -361,8 +385,8 @@ function cutFillSheet(list,u,params,v,cache){
   const top=across?{x:F.x,y:F.y+best.H,w:F.w,h:best.rh}:{x:F.x,y:F.y+best.H,w:best.W,h:best.rh};
   [right,top].forEach(r=>{if(r.w>1e-6&&r.h>1e-6)free.push({x:cutRound(r.x),y:cutRound(r.y),w:cutRound(r.w),h:cutRound(r.h)});});
   const x=cutRound(F.x+best.gl),y=cutRound(F.y+best.gb),q=p.t0;
-  placed.push(T?{piece:q.piece,shape:!!q.shape,x:y,y:x,w:best.o.h,h:best.o.w,rot:(best.o.h!==q.w),locked:false}
-   :{piece:q.piece,shape:!!q.shape,x,y,w:best.o.w,h:best.o.h,rot:best.o.w!==q.w,locked:false});
+  placed.push(T?{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:y,y:x,w:best.o.h,h:best.o.w,rot:(best.o.h!==q.w),locked:false}
+   :{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x,y,w:best.o.w,h:best.o.h,rot:best.o.w!==q.w,locked:false});
   used+=q.w*q.h;urgent+=cutPrioWeight(q.priority);
  }
  return {placed,rest,used,urgent};
@@ -544,7 +568,7 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
   const u=b.d.u,pieces=[];
   b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
    const q=it.p,g=it.g,rw=it.w-2*g,rh=it.h-2*g,w=T?rh:rw,h=T?rw:rh;
-   pieces.push({piece:q.piece,shape:!!q.shape,x:cutRound(u.x0+(T?y:x)+g),y:cutRound(u.y0+(T?x:y)+g),w,h,rot:w!==q.w,locked:false});
+   pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)+g),y:cutRound(u.y0+(T?x:y)+g),w,h,rot:w!==q.w,locked:false});
   }));
   sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
  });
@@ -1238,7 +1262,7 @@ function cutRoom(group,sheet,box,params,ignore,src){
  if(box.x<u.x0-1e-6||box.y<u.y0-1e-6||box.x+box.w>u.x1+1e-6||box.y+box.h>u.y1+1e-6)return 'Outside the sheet';
  const hit=cutTaken(sheet).find(p=>{
   if(p.piece===ignore)return false;
-  const gap=cutGapBetween(src,{shape:p.shape},params);
+  const gap=cutGapBetween(src,{shape:p.shape,pad:p.pad},params);
   return box.x<p.x+p.w+gap-1e-6&&p.x<box.x+box.w+gap-1e-6&&box.y<p.y+p.h+gap-1e-6&&p.y<box.y+box.h+gap-1e-6;
  });
  return hit?'Overlaps '+hit.piece:'';
@@ -1281,7 +1305,7 @@ function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const box={x:cutRound(+x),y:cutRound(+y),w,h},bad=cutRoom(group,sheet,box,params,pieceId,src);
  if(bad)return {error:bad};
  if(at)at.sheet.pieces.splice(at.index,1);
- sheet.pieces.push({piece:pieceId,shape:!!src.shape,x:box.x,y:box.y,w,h,rot,locked:at?!!at.piece.locked:false});
+ sheet.pieces.push({piece:pieceId,shape:!!src.shape,pad:+src.pad||0,x:box.x,y:box.y,w,h,rot,locked:at?!!at.piece.locked:false});
  if(at&&at.sheet!==sheet)cutCompactSheet(group,at.sheet);
  cutCompactSheet(group,sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
