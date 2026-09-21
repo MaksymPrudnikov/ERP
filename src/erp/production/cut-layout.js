@@ -73,11 +73,16 @@ function cutPieces(batch,settings){
   const lite=plan.valid&&(plan.lites||[]).find(x=>x.index===c.index);if(!lite||!(+lite.cutW>0)||!(+lite.cutH>0))return;
   const g=glassProductById(c.glassId),own=set[item.piece]||{};
   const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite)),geom=shaped?cutShapeGeom(lite):null;
-  out.push({piece:item.piece,key:part.key,unit:item.unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
+  const row={piece:item.piece,key:part.key,unit:item.unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
    line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm:+((g&&g.thicknessMm)||lite.thickness)||0,
    w:cutRound(+lite.cutW),h:cutRound(+lite.cutH),shape:shaped,
-   pts:geom&&geom.pts||null,holes:geom&&geom.holes||null,cutouts:geom&&geom.cutouts||null,
-   off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot});
+   off:!!own.off,priority:cutPriority(own.priority),norot:!!own.norot};
+  /* Контур кладётся только формам, и только когда есть что класть: укладчик
+     копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
+     лишних поля у прямоугольника стоили 60 % времени Build — тест 2 шёл
+     2,6 с вместо 1,65 с. */
+  if(geom){row.pts=geom.pts;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
+  out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
 }

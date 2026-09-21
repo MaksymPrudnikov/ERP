@@ -878,13 +878,17 @@ module.exports=async function({page,eq,ok}){
   /* Прямоугольное стекло рисуется как раньше. */
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',102,144);ctOrder([[46,60,2]]);const b2=DB.glassBatch[0];
   const p2=cutPlanRun(b2.number).plan,g2=p2.groups[0];
-  const d2=document.createElement('div');d2.innerHTML=cutSheetSVG(g2,g2.sheets[0],520,cutPieces(b2,{}),{ids:true});
-  return {shape:one.shape,n:one.pts.length,box,blank:[one.w,one.h],
+  const flat=cutPieces(b2,{});
+  const d2=document.createElement('div');d2.innerHTML=cutSheetSVG(g2,g2.sheets[0],520,flat,{ids:true});
+  /* У прямоугольника полей формы нет вовсе: укладчик копирует стекло на
+     каждый из сотен вариантов, и лишние поля стоили 60 % времени Build. */
+  const lean=flat.every(x=>!('pts' in x)&&!('holes' in x)&&!('cutouts' in x));
+  return {lean,shape:one.shape,n:one.pts.length,box,blank:[one.w,one.h],
    less:poly(one.pts)<one.w*one.h-100,polys:d.querySelectorAll('polygon.cut-glass').length,
    blanks:d.querySelectorAll('rect.cut-blank').length,rects:d.querySelectorAll('rect.cut-glass').length,
    turned:sheet.pieces.some(p=>p.rot),inside,
    plainPoly:d2.querySelectorAll('polygon.cut-glass').length,plainRect:d2.querySelectorAll('rect.cut-glass').length};
- }),{shape:true,n:4,box:[48.125,79],blank:[48.125,79],less:true,polys:3,blanks:3,rects:0,turned:true,inside:true,plainPoly:0,plainRect:2});
+ }),{lean:true,shape:true,n:4,box:[48.125,79],blank:[48.125,79],less:true,polys:3,blanks:3,rects:0,turned:true,inside:true,plainPoly:0,plainRect:2});
 
  eq('размеры пустого места: кусок от 4 ft² подписан, мелкий — только по наведению; годный остаток не задваивается; переворот реза пересчитывает остатки',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,6],[28,38,8]]);const b=DB.glassBatch[0];
