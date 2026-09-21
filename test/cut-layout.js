@@ -851,6 +851,68 @@ module.exports=async function({page,eq,ok}){
   return {shapes:pieces.filter(p=>p.shape).length,strategies:packs.map(r=>r?bad(r.sheets).length:-1),
    planBad:bad(g.sheets),over};
  }),{shapes:3,strategies:[0,0,0,0],planBad:[],over:true});
+ eq('форма на листе: контур реза поверх заготовки, отход внутри заготовки виден, поворот контур не ломает; прямоугольник остаётся прямоугольником',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);const id=ctOrder([[48.125,79,3]]);
+  /* Трапеция владельца: скошенный верх, короткая сторона слева. */
+  const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');
+  sh.w='48.125';sh.h='79';Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});
+  sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const b=DB.glassBatch[0],pieces=cutPieces(b,{}),one=pieces[0];
+  const xs=one.pts.map(p=>p[0]),ys=one.pts.map(p=>p[1]);
+  const box=[cutRound(Math.max(...xs)-Math.min(...xs)),cutRound(Math.max(...ys)-Math.min(...ys))];
+  const poly=pp=>{let a=0;for(let i=0;i<pp.length;i++){const q=pp[i],r=pp[(i+1)%pp.length];a+=q[0]*r[1]-r[0]*q[1];}return Math.abs(a)/2;};
+  const plan=cutPlanRun(b.number).plan,g=plan.groups[0],sheet=g.sheets[0];
+  const d=document.createElement('div');d.innerHTML=cutSheetSVG(g,sheet,520,pieces,{ids:true});
+  const gs=[...d.querySelectorAll('g')].filter(x=>x.querySelector('polygon.cut-glass'));
+  /* Контур каждого стекла лежит в своей заготовке и занимает её целиком. */
+  const inside=gs.every(x=>{
+   const r=x.querySelector('rect.cut-blank'),pg=x.querySelector('polygon.cut-glass');
+   if(!r||!pg)return false;
+   const pts=pg.getAttribute('points').split(' ').map(q=>q.split(',').map(Number));
+   const rx=+r.getAttribute('x'),ry=+r.getAttribute('y'),rw=+r.getAttribute('width'),rh=+r.getAttribute('height');
+   const fit=(v,lo,hi)=>v>=lo-0.2&&v<=hi+0.2;
+   return pts.every(q=>fit(q[0],rx,rx+rw)&&fit(q[1],ry,ry+rh))
+    &&Math.abs(Math.min(...pts.map(q=>q[0]))-rx)<0.2&&Math.abs(Math.max(...pts.map(q=>q[0]))-(rx+rw))<0.2
+    &&Math.abs(Math.min(...pts.map(q=>q[1]))-ry)<0.2&&Math.abs(Math.max(...pts.map(q=>q[1]))-(ry+rh))<0.2;
+  });
+  /* Прямоугольное стекло рисуется как раньше. */
+  oqReset();DB.glassSheet=[];ctSheet('6CLEAR',102,144);ctOrder([[46,60,2]]);const b2=DB.glassBatch[0];
+  const p2=cutPlanRun(b2.number).plan,g2=p2.groups[0];
+  const d2=document.createElement('div');d2.innerHTML=cutSheetSVG(g2,g2.sheets[0],520,cutPieces(b2,{}),{ids:true});
+  return {shape:one.shape,n:one.pts.length,box,blank:[one.w,one.h],
+   less:poly(one.pts)<one.w*one.h-100,polys:d.querySelectorAll('polygon.cut-glass').length,
+   blanks:d.querySelectorAll('rect.cut-blank').length,rects:d.querySelectorAll('rect.cut-glass').length,
+   turned:sheet.pieces.some(p=>p.rot),inside,
+   plainPoly:d2.querySelectorAll('polygon.cut-glass').length,plainRect:d2.querySelectorAll('rect.cut-glass').length};
+ }),{shape:true,n:4,box:[48.125,79],blank:[48.125,79],less:true,polys:3,blanks:3,rects:0,turned:true,inside:true,plainPoly:0,plainRect:2});
+
+ eq('размеры пустого места: кусок от 4 ft² подписан, мелкий — только по наведению; годный остаток не задваивается; переворот реза пересчитывает остатки',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctOrder([[46,60,6],[28,38,8]]);const b=DB.glassBatch[0];
+  const plan=cutPlanRun(b.number).plan,g=plan.groups[0];
+  const rows=[];
+  g.sheets.forEach(s=>{
+   const size=s.size||g.sheet,pr=cutGroupParams(g,size),cuts=cutSheetCuts(s,size,pr,s.flip);
+   const d=document.createElement('div');d.innerHTML=cutSheetSVG(g,s,520,cutPieces(b,{}),{ids:true});
+   const free=[...d.querySelectorAll('[data-cut-free]')],off=d.querySelectorAll('[data-cut-offcut]').length;
+   /* Каждый пустой кусок дерева резов показан ровно один раз. */
+   rows.push({leaves:(cuts.free||[]).filter(r=>r.x1-r.x0>1e-6&&r.y1-r.y0>1e-6).length,shown:free.length+off,
+    titled:free.every(x=>/^Free · .+ · [\d.]+ ft²$/.test(x.querySelector('title').textContent))});
+  });
+  const okShown=rows.every(r=>r.leaves===r.shown),titled=rows.every(r=>r.titled);
+  /* Подпись только у крупных. */
+  const s0=g.sheets[0],size0=s0.size||g.sheet,pr0=cutGroupParams(g,size0);
+  const d0=document.createElement('div');d0.innerHTML=cutSheetSVG(g,s0,520,cutPieces(b,{}),{ids:true});
+  const texts=[...d0.querySelectorAll('text')].map(x=>x.textContent);
+  const big=(cutSheetCuts(s0,size0,pr0,s0.flip).free||[]).filter(r=>cutArea(r.x1-r.x0,r.y1-r.y0)>=4)
+   .filter(r=>!(s0.offcuts||[]).some(q=>Math.abs(q.x-cutRound(r.x0))<1e-6&&Math.abs(q.y-cutRound(r.y0))<1e-6));
+  const labelled=big.every(r=>texts.some(t=>t.indexOf(frac16(cutRound(r.x1-r.x0))+' × '+frac16(cutRound(r.y1-r.y0))+'″')>=0));
+  /* Переворот реза пересчитывает подсказки остатков. */
+  const line=cutSheetCutsFor(g,s0).lines.find(x=>x.level===1);
+  const was=JSON.stringify((cutPlanFor(b.number).groups[0].sheets[0].offcuts||[]).map(o=>[o.w,o.h]));
+  const flip=cutFlipCut(b.number,g.glass,s0.no,line.key);
+  const now=JSON.stringify((cutPlanFor(b.number).groups[0].sheets[0].offcuts||[]).map(o=>[o.w,o.h]));
+  return {okShown,titled,labelled,flip:!!flip.ok,fresh:was!==now||!JSON.parse(was).length};
+ }),{okShown:true,titled:true,labelled:true,flip:true,fresh:true});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };
