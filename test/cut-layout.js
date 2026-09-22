@@ -270,6 +270,18 @@ module.exports=async function({page,eq,ok}){
    sheetView,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{stats:true,rows:8,cur:true,total:true,labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 
+ eq('общая строка динамически считает листы 1–текущий, отдельные цифры листа остаются',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,13]]);const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};
+  const expected=no=>cutTotals([Object.assign({},g,{sheets:g.sheets.filter(x=>x.no<=no)})]);
+  const read=no=>{cutUi.sheet=no;render();const row=document.querySelector('[data-cut-total]'),cur=document.querySelector('[data-cut-current]'),e=expected(no),cap=row.querySelector('.cut-tiles-cap').textContent;
+   const vals=Object.fromEntries([...row.querySelectorAll('.cut-tile')].map(x=>[x.querySelector('small').textContent,x.querySelector('b').textContent]));
+   return {cap,current:!!cur,vals,expected:{cap:'Sheets 1–'+no,used:cutNum(e.usedPct,1)+'%',scrap:cutNum(e.gross,1)+' ft²',net:cutNum(e.net,1)+' ft²',netPct:cutNum(e.netPct,1)+'%'}};};
+  const first=read(1),second=read(2),last=read(g.sheets.length),all=cutTotals([g]);
+  const ok=x=>x.current&&x.cap===x.expected.cap&&x.vals['Used %']===x.expected.used&&x.vals.Scrap===x.expected.scrap&&x.vals.Net===x.expected.net&&x.vals['Net %']===x.expected.netPct;
+  return {sheets:g.sheets.length,first:ok(first),second:ok(second),last:ok(last),lastAll:last.vals['Used %']===cutNum(all.usedPct,1)+'%'&&last.vals['Net %']===cutNum(all.netPct,1)+'%',extra:!document.querySelector('[data-cut-progressive]')};
+ }),{sheets:4,first:true,second:true,last:true,lastAll:true,extra:true});
+
  eq('склад прогона: несколько размеров листа со своим количеством — 10 листов 130 и 40 листов 144',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctSheet('6CLEAR',96,144);ctOrder([[28,38,30]]);const b=DB.glassBatch[0];
   const base=cutPlanRun(b.number).plan,sizes=cutSheetOptions('6CLEAR').map(x=>frac16(x.w)+'×'+frac16(x.h));
