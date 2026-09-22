@@ -71,6 +71,28 @@ module.exports=async function({page,eq,ok}){
   return {clean,placed,loose,overlap:ctOverlap(cutPlanFor(b.number))};
  }),{clean:[],placed:3,loose:true,overlap:[]});
 
+ eq('столбики и ряды не оставляют между своими торцами полоску тоньше Min distance',await t.p.evaluate(()=>{
+  const stock=[{key:'130x96',w:130,h:96,supplier:''}],pf=md=>()=>({trimX:1.25,trimY:1.25,borderX:0,borderY:0,minDist:md,rotate:false});
+  const pc=(piece,w,h)=>({piece,w,h,shape:false,priority:0,norot:true});
+  /* Колонки владельца: две высотой 80 1/4″ и одна из двух деталей высотой
+     80 1/2″. Их ширины вместе ровно заполняют usable 128 3/4″. */
+  const columns=[pc('A1',24.25,80.25),pc('A2',24.25,80.25),pc('B1',80.25,40.25),pc('B2',80.25,40.25)];
+  /* Тот же дефект после транспонирования обязан быть закрыт и в rows. */
+  const rows=[pc('C1',80.25,24.25),pc('C2',80.25,24.25),pc('D1',40.25,40.25),pc('D2',40.25,40.25)];
+  const bad=(r,T,md)=>r.sheets.reduce((n,s)=>{
+   const groups=new Map();s.pieces.forEach(p=>{const k=String(T?p.y:p.x);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(p);});
+   const levels=[...groups.values()].map(a=>Math.max(...a.map(p=>T?p.x+p.w:p.y+p.h)));
+   levels.forEach((a,i)=>levels.slice(i+1).forEach(b=>{const d=Math.abs(a-b);if(d>1e-6&&d<md-1e-6)n++;}));return n;
+  },0);
+  const run=(list,T,md,fit)=>cutPackColumns(list,stock,pf(md),[],{rows:T,orient:'asis',fit});
+  const looseCols=run(columns,false,0,'ffd'),looseRows=run(rows,true,0,'ffd');
+  const safe=[];[false,true].forEach(T=>['ffd','bfd'].forEach(fit=>{const r=run(T?rows:columns,T,1,fit);safe.push({T,fit,sheets:r.sheets.length,bad:bad(r,T,1)});}));
+  return {looseCols:{sheets:looseCols.sheets.length,bad:bad(looseCols,false,1)>0},looseRows:{sheets:looseRows.sheets.length,bad:bad(looseRows,true,1)>0},safe};
+ }),{looseCols:{sheets:1,bad:true},looseRows:{sheets:1,bad:true},safe:[
+  {T:false,fit:'ffd',sheets:2,bad:0},{T:false,fit:'bfd',sheets:2,bad:0},
+  {T:true,fit:'ffd',sheets:2,bad:0},{T:true,fit:'bfd',sheets:2,bad:0}
+ ]});
+
  eq('прямоугольники лежат впритык: зазор между ними 0, за лист не выходят, не налезают',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,4],[30,40,3]]);const b=DB.glassBatch[0];
   const plan=cutPlanRun(b.number).plan;
@@ -659,13 +681,13 @@ module.exports=async function({page,eq,ok}){
   return {n,placed:c.stats.placed===c.stats.total,same:one===two,clean:!ctOverlap(c).length&&!ctOutside(c).length&&!ctSlivers(c).length};
  }),{n:13,placed:true,same:true,clean:true});
 
- eq('столбиками, как X-резы Perfect Cut: тест владельца 144 × 102, Trim 1 — 23 листа, как у Perfect Cut; подпись узкого стекла вдоль',await t.p.evaluate(()=>{
+ eq('столбиками без полоски 1/4″: тест владельца — 24 безопасных листа вместо 23 с неломаемой полоской; подпись вдоль',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);
   ctOrder([[20.25,100.25,111],[60.25,50.25,30],[12.25,50.25,10]]);const b=DB.glassBatch[0];
   const c=ctSet(b.number,()=>[['trimX','1'],['trimY','1'],['borderX','0'],['borderY','0']].forEach(([f,v])=>cutSetParam(b.number,'6CLEAR',f,v))).plan,g=c.groups[0],narrow=g.sheets.find(s=>s.pieces.length&&s.pieces.every(p=>p.w===20.25));
   return {n:g.sheets.length,placed:c.stats.placed===c.stats.total,clean:!ctOverlap(c).length&&!ctOutside(c).length,
    turned:!!narrow&&/rotate\(-90\)/.test(cutSheetSVG(g,narrow,480,[],{}))};
- }),{n:23,placed:true,clean:true,turned:true});
+ }),{n:24,placed:true,clean:true,turned:true});
 
  eq('два размера листа — берутся оба, где выгоднее: квадратных футов меньше, чем одним размером; количество листов размера соблюдается',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);ctSheet('6CLEAR',96,130);

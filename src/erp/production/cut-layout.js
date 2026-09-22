@@ -548,6 +548,13 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
  });
  cols.sort((a,b)=>b.w-a.w||b.used-a.used);
  const bins=[];
+ /* Верхние резы соседних колонок (у rows — торцы соседних рядов) не могут
+    отличаться на полоску тоньше Min distance. Например, 80 1/4″ рядом с
+    80 1/2″ оставляет 1/4″ стекла до общего реза — такую полоску не сломать.
+    Нулевая разница разрешена; достаточно большая остаётся нормальным
+    отдельным куском. Проверяем все уровни уже стоящих колонок листа: рез
+    может пройти через любую из них, не только через ближайшую по X. */
+ const levelOk=(b,c)=>{const pr=paramsFor(b.row);return b.cols.every(x=>cutSliverOk(Math.abs(x.c.used-c.used),pr));};
  const open=c=>{
   for(const row of stock){
    if(row.limit&&(used.get(row.key)||0)>=row.limit)continue;
@@ -558,8 +565,8 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
  };
  cols.forEach(c=>{
   let b=null;
-  if(opt.fit==='bfd'){let left=Infinity;bins.forEach(x=>{const l=x.d.W-x.x-c.w;if(l>=-1e-6&&c.used<=x.d.H+1e-6&&l<left){left=l;b=x;}});}
-  else b=bins.find(x=>x.x+c.w<=x.d.W+1e-6&&c.used<=x.d.H+1e-6);
+  if(opt.fit==='bfd'){let left=Infinity;bins.forEach(x=>{const l=x.d.W-x.x-c.w;if(l>=-1e-6&&c.used<=x.d.H+1e-6&&levelOk(x,c)&&l<left){left=l;b=x;}});}
+  else b=bins.find(x=>x.x+c.w<=x.d.W+1e-6&&c.used<=x.d.H+1e-6&&levelOk(x,c));
   if(!b)b=open(c);
   if(!b){c.items.forEach(({it})=>unplaced.push({piece:it.p.piece,reason:'No sheets left'}));return;}
   b.cols.push({c,x:b.x});b.x=cutRound(b.x+c.w);
