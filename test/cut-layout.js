@@ -215,6 +215,21 @@ module.exports=async function({page,eq,ok}){
   return {turns,rots,dims,unique,back,legacy,saved};
  }),{turns:[0,1,2,3,0],rots:[false,true,false,true,false],dims:true,unique:4,back:true,legacy:{turn:1,rot:true},saved:{turn:3,rot:true}});
 
+ eq('Shape можно сразу повернуть на 180°, даже когда для промежуточных 90° нет места; отдельная кнопка видна',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[50,80,2]]);
+  const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='50';sh.h='80';
+  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan;ctRow(b.number);
+  const g=plan.groups[0],pcs=g.sheets[0].pieces.slice().sort((a,c)=>a.x-c.x),p=pcs[0],before={x:p.x,y:p.y,w:p.w,h:p.h};
+  const ninety=cutPieceRotate(b.number,p.piece),sameAfterNinety=cutPieceTurn(cutFind(plan,p.piece).piece)===0;
+  const half=cutPieceRotate(b.number,p.piece,2),after=cutFind(plan,p.piece).piece;
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:g.glass,sheet:1,sel:'',drag:''};render();cutUiPick(p.piece);
+  const button=document.querySelector('[data-cut-rotate-180]');
+  return {pieces:pcs.length,ninety:ninety.error,sameAfterNinety,
+   half:!!half.ok,turn:cutPieceTurn(after),sameBox:[after.x,after.y,after.w,after.h].join()===[before.x,before.y,before.w,before.h].join(),
+   overlap:ctOverlap(plan),button:button&&button.textContent.trim()};
+ }),{pieces:2,ninety:'No room to rotate on this sheet.',sameAfterNinety:true,half:true,turn:2,sameBox:true,overlap:[],button:'Rotate 180°'});
+
  eq('после поворота и снятия стёкла подъезжают к краю или к соседу; стало шире — соседи отодвигаются; нет места — отказ',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
   const g0=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','rotate',false)).plan.groups[0],u=cutUsable(g0.sheets[0].size,cutGroupParams(g0,g0.sheets[0].size));
@@ -578,6 +593,17 @@ module.exports=async function({page,eq,ok}){
   const np=cutPlanFor('B-0002'),sh=np.groups[0].sheets[0];
   return {info:/→ B-0002/.test(info),rec:[rec.batch,rec.sheet,rec.status].join(),sheetStock:sh.stock.map(x=>x.id),locked:sh.locked,opened:glassBatchOpenNumber,tab:glassBatchDetailTab,paper:!!document.querySelector('.cut-paper')};
  }),{info:true,rec:'B-0002,1,stock',sheetStock:['S-0000001'],locked:true,opened:'B-0002',tab:'optimization',paper:true});
+
+ eq('кнопки − / + удаляют лист и добавляют пустой лист текущего размера для ручной раскладки',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
+  const plan=cutPlanRun(b.number).plan,g=plan.groups[0],n=g.sheets.length,key=cutSheetKey(g.sheets[0].size||g.sheet);
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:g.glass,sheet:1,sel:'',drag:''};render();
+  const minus=document.querySelector('[data-cut-sheet-delete]'),plus=document.querySelector('[data-cut-sheet-add]'),labels={minus:minus.textContent.trim(),plus:plus.textContent.trim(),minusTitle:minus.title,plusTitle:plus.title};
+  plus.click();const added=cutPlanFor(b.number).groups[0],addedOne=added.sheets.length===n+1,empty=added.sheets[added.sheets.length-1],opened=cutUi.sheet;
+  document.querySelector('[data-cut-sheet-delete]').click();const after=cutPlanFor(b.number).groups[0];
+  return {labels,added:addedOne,empty:empty.pieces.length===0&&(empty.stock||[]).length===0,sameSize:cutSheetKey(empty.size)===key,
+   opened:opened===empty.no,deleted:after.sheets.length===n,numbers:after.sheets.every((s,i)=>s.no===i+1)};
+ }),{labels:{minus:'−',plus:'+',minusTitle:'Delete sheet',plusTitle:'Add empty sheet'},added:true,empty:true,sameSize:true,opened:true,deleted:true,numbers:true});
 
  eq('укладчик забивает лист: пример владельца — девять 50 × 30 на 144 × 102; 46 штук — 6 листов; смешанный батч не хуже рядов',await t.p.evaluate(()=>{
   const one=(sheet,sizes)=>{oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',sheet[1],sheet[0]);ctOrder(sizes);const b=DB.glassBatch[0];

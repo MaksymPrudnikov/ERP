@@ -184,6 +184,11 @@ function cutUiSheetDelete(glass,no){
  const g=(cutPlanFor(cutUi.batch)||{groups:[]}).groups.find(x=>x.glass===glass);
  if(g){cutUi.sheet=Math.max(1,Math.min(+no,g.sheets.length));render();}
 }
+function cutUiSheetAdd(glass,no){
+ const r=cutSheetAdd(cutUi.batch,glass,no);cutNotice=r.error||'';cutInfo=null;
+ if(r.ok){cutUi.glass=glass;cutUi.sheet=r.sheet;cutUi.sel='';}
+ render();
+}
 /* Лист на весь экран: меню и шапки прячутся, пока открыт раскрой. Отдельная
    вкладка опаснее: данные в одном хранилище браузера, две вкладки затёрли бы
    правки друг друга. */
@@ -212,7 +217,7 @@ function cutUiOverSize(glass,key){
  cutUiBuild(n);
 }
 function cutUiOpenBatch(number){cutInfo=null;glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
-function cutUiRotate(){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel));}
+function cutUiRotate(step){cutUiRun(()=>cutPieceRotate(cutUi.batch,cutUi.sel,step));}
 function cutUiTake(){cutUiRun(()=>cutPieceTake(cutUi.batch,cutUi.sel));}
 function cutUiLock(){cutUiRun(()=>cutPieceLock(cutUi.batch,cutUi.sel));}
 /* Склад листов и параметры — только в сброшенном раскрое; Build — кнопкой. */
@@ -429,7 +434,8 @@ function cutUiMenu(e,glass,no){
   /* Выбор переходит на это стекло — полоса действий и подсветка про него же. */
   if(cutUi.sel!==id){cutUi.sel=id;render();}
   rows.push(`<div class="cut-menu-head">${esc(id)}${p?' · '+esc(frac16(p.w))+' × '+esc(frac16(p.h))+'″':''}</div>`);
-  act('Rotate','R',()=>cutUiRotate(),'data-cut-menu="rotate"');
+  act('Rotate 90°','R',()=>cutUiRotate(),'data-cut-menu="rotate"');
+  if(p&&p.shape)act('Rotate 180°','⇧R',()=>cutUiRotate(2),'data-cut-menu="rotate-180"');
   act('Take off the sheet','Del',()=>cutUiTake(),'data-cut-menu="take"');
   act(p&&p.locked?'Unlock glass':'Lock glass','L',()=>cutUiLock(),'data-cut-menu="lock"');
   const others=ctx.g.sheets.filter(x=>x.no!==ctx.sheet.no&&!x.locked);
@@ -473,7 +479,7 @@ function cutUiKey(e){
  if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
  if(!cutUi.sel||e.metaKey||e.ctrlKey||e.altKey)return;
  const k=String(e.key||'').toLowerCase();
- if(k==='r'){e.preventDefault();cutUiRotate();}
+ if(k==='r'){e.preventDefault();cutUiRotate(e.shiftKey?2:1);}
  else if(k==='delete'||k==='backspace'){e.preventDefault();cutUiTake();}
  else if(k==='l'){e.preventDefault();cutUiLock();}
 }
@@ -750,7 +756,8 @@ function viewCutLayout(b){
  const listTable=body=>`<table class="sl-table cut-list"><thead><tr><th></th>${sortTh('piece','Glass ID')}${sortTh('size','Cut size')}${sortTh('order','Order')}${sortTh('customer','Customer')}${sortTh('pri','Pri','n')}${sortTh('sheet','Sheet','n')}</tr></thead><tbody>${body}</tbody></table>`;
  const selAt=s.sel?at(s.sel):null,selSrc=pieces.find(p=>p.piece===s.sel);
  const actions=selSrc?`<div class="cut-actions" data-cut-actions><b>${esc(selSrc.piece)}</b><span class="mut">${esc(frac16(selSrc.w))} × ${esc(frac16(selSrc.h))}″ · ${esc(selSrc.order)} / ${selSrc.line}</span><span class="sp"></span>
-  <button type="button" data-cut-rotate ${selAt?'':'disabled'} onclick="cutUiRotate()">Rotate</button>
+  <button type="button" data-cut-rotate ${selAt?'':'disabled'} onclick="cutUiRotate()">Rotate 90°</button>
+  ${selSrc.shape?`<button type="button" data-cut-rotate-180 ${selAt?'':'disabled'} onclick="cutUiRotate(2)">Rotate 180°</button>`:''}
   <button type="button" data-cut-take ${selAt?'':'disabled'} onclick="cutUiTake()">Take off</button>
   <button type="button" class="${selAt&&selAt.piece.locked?'on':''}" data-cut-lock ${selAt?'':'disabled'} onclick="cutUiLock()">${selAt&&selAt.piece.locked?'Unlock':'Lock'}</button></div>`:'';
  /* До восьми листов — вкладки; дальше стрелки и выбор: батч бывает на
@@ -841,7 +848,7 @@ function viewCutLayout(b){
    ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
     ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
     ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
-    <button type="button" class="dl" data-cut-sheet-delete onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">Delete sheet</button>
+    <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
     <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
    <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
