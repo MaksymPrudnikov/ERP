@@ -1904,7 +1904,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='baa151782a3d';
+var ERP_BUILD='a3f51cd9b079';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -22548,7 +22548,7 @@ function cutPct(part,whole){return whole>0?Math.round(part/whole*1000)/10:0;}
    меняется, поэтому ось берётся из готового контура).
    Габарит контура обязан совпасть с заготовкой: разошлись — контур не отдаём,
    и стекло рисуется прямоугольником, как раньше. Лист не должен врать. */
-function cutShapeGeom(lite,md){
+function cutShapeGeom(lite){
  const raw=((lite&&lite.cuttingPoints)||[]).map(p=>[+p[0],+p[1]]).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
  if(raw.length<3)return null;
  const xs=raw.map(p=>p[0]),ys=raw.map(p=>p[1]);
@@ -22564,25 +22564,22 @@ function cutShapeGeom(lite,md){
  /* Место откладывается ТОЛЬКО там, где скос. Владелец, 21 сентября 2026:
     «у тебя скосы только сверху — зачем расстояние между прямыми линиями слева
     и справа?» Незачем: прямая сторона режется как у прямоугольника, вплотную.
-    На стороне со скосом берётся большее из Safety border и Min distance — не
-    сумма. */
- const side=v=>{const n=+v||0;return n>0?Math.max(n,+md||0):0;};
+    Размер берём ровно из footprint Shape: Min distance оптимизатора его не
+    увеличивает. */
+ const side=v=>Math.max(0,+v||0);
  const raw4=(fp&&fp.pad)||{},L=side(raw4.left),B=side(raw4.bottom),R=side(raw4.right),T=side(raw4.top);
  const w=fp?cutRound(x1-x0+L+R):cutRound(x1-x0),h=fp?cutRound(y1-y0+B+T):cutRound(y1-y0);
  const mx=lite.mirrored?v=>x0+x1-v:v=>v,at=(px,py)=>[cutRound(mx(px)-x0+L),cutRound(py-y0+B)];
  const fg=(lite.result&&lite.result.featureGeometry)||{};
  const holes=(fg.holes||[]).map(o=>{const c=at(+o.center[0],+o.center[1]);return {x:c[0],y:c[1],d:+o.diameter||0};}).filter(o=>o.d>0&&Number.isFinite(o.x)&&Number.isFinite(o.y));
  const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(q=>at(+q[0],+q[1]))).filter(q=>q.length>2);
- /* Зазор до соседа — БОЛЬШЕЕ из бордера и Min distance, а не сумма (решение
-    владельца, 21 сентября 2026). Бордер уже лежит внутри заготовки, поэтому
-    сверх него нужен только остаток; берём самую слабую сторону. */
- /* Сверх отложенного до соседа ничего не нужно: стороны без скоса и так
-    режутся вплотную, а сторона со скосом уже держит большее из двух. */
+ /* Safety border целиком лежит внутри этой внешней заготовки. Соседняя
+    заготовка в оптимизации касается её границы без наружной прибавки. */
  const grip=Math.max(L,R,T,B);
  return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),holes,cutouts};
 }
-/* Стёкла батча как прямоугольники реза: тот же размер, что печатает стикер.
-   shape — деталь не прямоугольная: вокруг неё нужен зазор. */
+/* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
+   Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
 function cutPieces(batch,settings){
  const out=[],set=settings||{};
  (typeof glassBatchActiveItems==='function'?glassBatchActiveItems(batch):[]).forEach(item=>{
@@ -22594,7 +22591,7 @@ function cutPieces(batch,settings){
   const g=glassProductById(c.glassId),own=set[item.piece]||{};
   const mm=+((g&&g.thicknessMm)||lite.thickness)||0;
   const shaped=!!(typeof stkShapeOf==='function'&&stkShapeOf(lite));
-  const geom=shaped?cutShapeGeom(lite,typeof cutParamsFor==='function'?(cutParamsFor(mm)||{}).minDist:0):null;
+  const geom=shaped?cutShapeGeom(lite):null;
   const row={piece:item.piece,key:part.key,unit:item.unit,orderId:o.id,order:o.businessNumber||'',customer:salesCustomerDisplay(o.customerId),
    line:o.lines.indexOf(l)+1,mark:l.mark||'',lite:c.lite,glass:c.glass,mm,
    w:geom?geom.w:cutRound(+lite.cutW),h:geom?geom.h:cutRound(+lite.cutH),shape:shaped,
@@ -22711,14 +22708,11 @@ function cutStockFor(glassCode,pick,mm,batch){
  });
  return out;
 }
-/* Расстояние между парой деталей: у прямоугольников 0, у формы со скосом —
-   Min distance по толщине. */
-function cutGapBetween(a,b,params){
- return Math.max(cutEdgeGap(a,params),cutEdgeGap(b,params));
-}
-/* Сверх бордера, уже лежащего в заготовке, до соседа нужен только остаток
-   Min distance: большее из двух, не сумма. */
-function cutEdgeGap(p,params){return p&&p.shape?Math.max(0,(+params.minDist||0)-(+p.pad||0)):0;}
+/* Safety border формы уже входит в её Billable footprint (`p.w × p.h`).
+   Оптимизатор работает с внешними границами готовых заготовок, поэтому между
+   ними ничего больше не прибавляет: ни второй border, ни Min distance.
+   Min distance ниже остаётся правилом для неломаемой полоски у линии реза. */
+function cutGapBetween(){return 0;}
 /* Полоска между деталью и линией реза: 0 или не меньше Min distance.
    «1/16 — это ошибка: сломать нельзя, слишком маленькое расстояние;
    отправлять на полировку — это время; а если это LowE — это брак, его
@@ -22744,8 +22738,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  const best=(list,W)=>list.slice().sort((a,b)=>strategy.prefer==='wide'?b.w-a.w||a.h-b.h:strategy.prefer==='tall'?b.h-a.h||a.w-b.w:Math.floor(W/b.w)-Math.floor(W/a.w)||a.h-b.h)[0];
  const order=list.slice().sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
  const push=(s,st,o,p)=>{
-  const {x0,y0,p:pr}=room(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
-  const x=st.pieces.length?st.x+gap:st.x;st.x=x+o.w;st.pieces.push(p);
+  const {x0,y0}=room(s.size),x=st.x;st.x=x+o.w;st.pieces.push(p);
   s.pieces.push({piece:p.piece,shape:!!p.shape,pad:+p.pad||0,x:cutRound(x0+x),y:cutRound(y0+st.y),w:cutRound(o.w),h:cutRound(o.h),rot:o.rot,locked:false});
  };
  /* Новый лист: первый размер склада, который ещё остался. */
@@ -22765,25 +22758,14 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
    if(s.locked)continue;
    const {W,H}=room(s.size),list=ways(p,s.size);if(!list.length)continue;
    let done=false;
-   /* Вертикальный зазор вокруг формы. Раньше его спрашивали только у стекла,
-      ОТКРЫВАЮЩЕГО полосу: прямоугольник садился вплотную к форме из полосы
-      ниже, и на случайных батчах с формами выходило до четырёх таких пар на
-      батч — полоску тоньше Min distance не сломать. Теперь форма входит в
-      готовую полосу, только если сверху и снизу уже есть зазор, а новая
-      полоса отступает, если форма есть у неё самой или в полосе под ней.
-      Прямоугольники между собой стоят вплотную, как раньше. */
-   const md=+paramsFor(s.size).minDist||0;
-   const clear=st=>{const top=st.y+st.h;return s.strips.every(x=>x===st||x.y>=top+md-1e-6||x.y+x.h<=st.y-md+1e-6);};
    for(const st of s.strips){
-    const pr=paramsFor(s.size),gap=st.pieces.length?cutGapBetween(p,st.pieces[st.pieces.length-1],pr):0;
-    if(p.shape&&md>0&&!clear(st))continue;
-    const o=list.find(x=>cutSliverOk(st.h-x.h,pr)&&st.x+gap+x.w<=W+1e-6);
+    const pr=paramsFor(s.size);
+    const o=list.find(x=>cutSliverOk(st.h-x.h,pr)&&st.x+x.w<=W+1e-6);
     if(o){push(s,st,o,p);done=true;break;}
    }
    if(done)return;
    const usedH=s.strips.length?Math.max(...s.strips.map(x=>x.y+x.h)):0;
-   const below=s.strips.reduce((a,x)=>!a||x.y+x.h>a.y+a.h?x:a,null);
-   const vgap=s.strips.length&&(p.shape||below&&below.pieces.some(q=>q.shape))?md:0,y=usedH?usedH+vgap:0;
+   const y=usedH;
    const o=best(list.filter(x=>y+x.h<=H+1e-6),W);
    if(o){const st={y,h:o.h,x:0,pieces:[]};s.strips.push(st);push(s,st,o,p);return;}
   }
@@ -22862,18 +22844,17 @@ function cutFillSheet(list,u,params,v,cache){
   for(let i=0;i<free.length;i++){
    const F=free[i],atR=Math.abs(F.x+F.w-U.x1)<1e-6,atT=Math.abs(F.y+F.h-U.y1)<1e-6;
    for(const o of ways){
-    /* У формы со скосом — Min distance до соседей; у края листа не нужно. */
-    const g=p.shape?md:0,gl=g&&F.x>U.x0+1e-6?g:0,gb=g&&F.y>U.y0+1e-6?g:0;
-    let W=gl+o.w,H=gb+o.h;
+    /* Внешняя коробка формы уже включает Safety border. Свободный кусок
+       получает ровно её размер, без ещё одного зазора оптимизатора. */
+    const W=o.w,H=o.h;
     if(W>F.w+1e-6||H>F.h+1e-6)continue;
-    if(g){W=Math.min(F.w,W+g);H=Math.min(F.h,H+g);if(W<gl+o.w+g-1e-6&&!atR)continue;if(H<gb+o.h+g-1e-6&&!atT)continue;}
     const rw=cutRound(F.w-W),rh=cutRound(F.h-H);
     /* Полоска тоньше Min distance у реза — её не сломать; у края листа она
        сливается с Border. */
     if(!atR&&rw>1e-6&&rw<md-1e-6)continue;
     if(!atT&&rh>1e-6&&rh<md-1e-6)continue;
     const sc=CUT_FILL_PLACE[v.p](F,W,H,same);
-    if(!best||sc<best.sc-1e-9)best={sc,i,o,W,H,gl,gb,rw,rh};
+    if(!best||sc<best.sc-1e-9)best={sc,i,o,W,H,rw,rh};
    }
   }
   left.set(kind(p),same-1);
@@ -22883,7 +22864,7 @@ function cutFillSheet(list,u,params,v,cache){
   const right=across?{x:F.x+best.W,y:F.y,w:best.rw,h:best.H}:{x:F.x+best.W,y:F.y,w:best.rw,h:F.h};
   const top=across?{x:F.x,y:F.y+best.H,w:F.w,h:best.rh}:{x:F.x,y:F.y+best.H,w:best.W,h:best.rh};
   [right,top].forEach(r=>{if(r.w>1e-6&&r.h>1e-6)free.push({x:cutRound(r.x),y:cutRound(r.y),w:cutRound(r.w),h:cutRound(r.h)});});
-  const x=cutRound(F.x+best.gl),y=cutRound(F.y+best.gb),q=p.t0;
+  const x=cutRound(F.x),y=cutRound(F.y),q=p.t0;
   placed.push(T?{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:y,y:x,w:best.o.h,h:best.o.w,rot:(best.o.h!==q.w),locked:false}
    :{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x,y,w:best.o.w,h:best.o.h,rot:best.o.w!==q.w,locked:false});
   used+=q.w*q.h;urgent+=cutPrioWeight(q.priority);
@@ -23013,7 +22994,7 @@ function cutRightSize(packed,stock,paramsFor,src,miss){
    высоту поля (стёкла одной ширины — одно над другим), потом столбики
    раскладываются по листам, начиная с самых широких. rows — то же рядами во
    всю ширину. orient — как поворачивать стёкла: как есть, стоя или лёжа.
-   Формы со скосом сюда не идут — у них свой зазор. */
+   Shape участвуют тем же внешним габаритом: их Safety border уже внутри. */
 function cutPackColumns(list,stock,paramsFor,fixed,opt){
  if(!stock.length)return null;
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
@@ -23021,20 +23002,14 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
  const T=!!opt.rows,dims=row=>{const u=cutUsable(row,paramsFor(row));return {u,W:T?u.H:u.W,H:T?u.W:u.H};};
  const first=dims(stock[0]),pr0=paramsFor(stock[0]),md=+pr0.minDist||0;
  const items=[];
- /* Форма со скосом занимает место с зазором Min distance вокруг: её коробка
-    раздувается на зазор с четырёх сторон, а само стекло встаёт внутрь на тот
-    же зазор. Так сосед любой стороной — хоть форма, хоть прямоугольник —
-    оказывается не ближе Min distance, а прямоугольники по-прежнему стоят
-    вплотную. Раньше столбики отказывались от батча целиком, если в нём была
-    хоть одна форма: на тесте владельца одна фигурная деталь из 152 стоила
-    листа (23 → 24, Used 95,4 → 91,8 %). */
+ /* У формы Safety border уже лежит внутри `p.w × p.h`: столбики работают с
+    этой готовой внешней коробкой и не раздувают её повторно. */
  list.forEach(p=>{
-  const g=p.shape?md:0;
-  let w=(T?p.h:p.w)+2*g,h=(T?p.w:p.h)+2*g;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
+  let w=T?p.h:p.w,h=T?p.w:p.h;const can=pr0.rotate&&!p.norot&&p.w!==p.h;
   if(can&&(opt.orient==='tall'&&w>h||opt.orient==='wide'&&h>w)){const x=w;w=h;h=x;}
   if((w>first.W+1e-6||h>first.H+1e-6)&&can&&h<=first.W+1e-6&&w<=first.H+1e-6){const x=w;w=h;h=x;}
   if(w>first.W+1e-6||h>first.H+1e-6){unplaced.push({piece:p.piece,reason:'Larger than the sheet'});return;}
-  items.push({p,w,h,g});
+  items.push({p,w,h});
  });
  items.sort((a,b)=>b.w-a.w||b.h-a.h||cutPrioRank(a.p.priority)-cutPrioRank(b.p.priority)||a.p.piece.localeCompare(b.p.piece));
  /* Столбик: ширина — у первого стекла; уже — только если полоска сбоку не
@@ -23073,8 +23048,8 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
  bins.forEach(b=>{
   const u=b.d.u,pieces=[];
   b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
-   const q=it.p,g=it.g,rw=it.w-2*g,rh=it.h-2*g,w=T?rh:rw,h=T?rw:rh;
-   pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)+g),y:cutRound(u.y0+(T?x:y)+g),w,h,rot:w!==q.w,locked:false});
+   const q=it.p,w=T?it.h:it.w,h=T?it.w:it.h;
+   pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,rot:w!==q.w,locked:false});
   }));
   sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
  });
@@ -23782,7 +23757,7 @@ function cutRoom(group,sheet,box,params,ignore,src){
  return hit?'Overlaps '+hit.piece:'';
 }
 /* После каждой правки руками стёкла листа сдвигаются к нулю — влево, пока не
-   упрутся в линию Trim Y или в соседнее стекло (у форм — с Min distance).
+   упрутся в линию Trim Y или во внешнюю границу соседней заготовки.
    «Нужно, чтобы второе стекло подвигалось к ближнему краю или бордеру другого
    стекла — мы же говорим про оптимизацию» (владелец, 18 сентября 2026).
    Только влево и только в своём ряду по высоте: ряд остаётся рядом, и лист
