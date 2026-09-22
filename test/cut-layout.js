@@ -1,5 +1,5 @@
 /* Раскрой батча: отступы от четырёх краёв листа (Trim X снизу, Trim Y слева,
-   Border X сверху, Border Y справа), расстояние только вокруг форм, без
+   Border X сверху, Border Y справа), Safety border внутри заготовки Shape, без
    полосок тоньше Min distance,
    выбор лучшего варианта по NetScrap, правки руками (снять, положить,
    повернуть, закрепить, заблокировать лист), цифры потерь, экран и печать. */
@@ -39,7 +39,7 @@ module.exports=async function({page,eq,ok}){
  });};
  await helpers();
 
- eq('параметры реза по толщине: обрезка кромки, зазор вокруг формы, минимальное расстояние; правка и сброс',await t.p.evaluate(()=>{
+ eq('параметры реза по толщине: обрезка кромки, Safety border формы, минимальное расстояние; правка и сброс',await t.p.evaluate(()=>{
   oqReset();const base=[3,6,10,19].map(mm=>{const p=cutParamsFor(mm);return mm+': '+frac16(p.trim)+' / '+frac16(p.border)+' / '+frac16(p.minDist);});
   tab='masterdata';mdSetTab('cutting');const row=document.querySelector('[data-cut-trim="6"]');row.value='1';row.dispatchEvent(new Event('change'));
   const saved=cutParamsFor(6).trim;document.querySelector('[data-cut-reset]').click();
@@ -127,9 +127,9 @@ module.exports=async function({page,eq,ok}){
    usedSame:after.usedPct===before.usedPct,none,leastArea:chosen<=Math.min(...areas)+1e-6,migrated,own};
  }),{netIsGross:true,keep0:0,honest:true,min:[40,40],big:true,kept:true,keepAfter:true,netAfter:true,usedSame:true,none:'No such offcut.',leastArea:true,migrated:[40,40],own:[12,12]});
 
- eq('вокруг формы со скосом зазор держится у любого соседа, у прямоугольников остаётся 0; столбики больше не отказываются от батча с формой',await t.p.evaluate(()=>{
-  /* Зазор нарушен, если коробки, раздутые на нужный зазор, налезают друг на
-     друга — то же правило, по которому проверяются правки руками. */
+ eq('Safety border остаётся внутри Shape, а оптимизатор не добавляет снаружи ни border, ни Min distance',await t.p.evaluate(()=>{
+  /* Внешние коробки уже содержат Safety border: между ними проверяется только
+     настоящее пересечение, без повторного раздувания. */
   const bad=plan=>{const out=[];plan.groups.forEach(g=>g.sheets.forEach(sh=>{
    const pr=cutGroupParams(g,sh.size||g.sheet);
    sh.pieces.forEach((a,i)=>sh.pieces.slice(i+1).forEach(c=>{
@@ -139,8 +139,7 @@ module.exports=async function({page,eq,ok}){
   const o=salesRecord(id),l=o.lines[0],s=newShapeDef('raked');s.w='40';s.h='50';Object.assign(s.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
   s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,pieces=cutPieces(b,{});
-  /* Столбики должны уметь класть формы: раньше они отказывались от всего
-     батча, и одна фигурная деталь из 152 стоила листа. */
+  /* Столбики должны уметь класть готовые коробки Shape без наружной рамки. */
   const stock=cutStockFor(plan.groups[0].glass,plan.groups[0].pick,plan.groups[0].mm,b.number);
   const cols=cutPackColumns(pieces,stock,size=>cutRunParams(plan.groups[0].mm,size,plan.groups[0].pick),[],{rows:false,orient:'asis',fit:'ffd'});
   const colPlan={groups:[{glass:plan.groups[0].glass,mm:plan.groups[0].mm,sheet:cols&&cols.sheets[0].size,pick:plan.groups[0].pick,sheets:(cols&&cols.sheets)||[]}]};
@@ -152,6 +151,23 @@ module.exports=async function({page,eq,ok}){
    colShape:cols?cols.sheets.every(x=>x.pieces.every(q=>q.shape)):false,colBad:bad(colPlan),
    rectGap:ctMinGap(rect),rectBad:bad(rect)};
  }),{shape:true,params:'3/4',bad:[],cols:true,colPieces:2,colShape:true,colBad:[],rectGap:0,rectBad:[]});
+
+ eq('все укладчики стыкуют внешние коробки Shape вплотную',await t.p.evaluate(()=>{
+  const raw=[{piece:'S1',w:40,h:50,shape:true,pad:1.5,priority:0,norot:true},{piece:'S2',w:40,h:50,shape:true,pad:1.5,priority:0,norot:true}];
+  const stock=[{key:'84x52',w:84,h:52,supplier:''}],pf=()=>({trimX:0,trimY:0,borderX:0,borderY:0,minDist:1,rotate:false});
+  const gap=pieces=>{let best=Infinity;pieces.forEach((a,i)=>pieces.slice(i+1).forEach(b=>{
+   if(a.y<b.y+b.h-1e-6&&b.y<a.y+a.h-1e-6)best=Math.min(best,Math.max(a.x-b.x-b.w,b.x-a.x-a.w));
+   if(a.x<b.x+b.w-1e-6&&b.x<a.x+a.w-1e-6)best=Math.min(best,Math.max(a.y-b.y-b.h,b.y-a.y-a.h));
+  }));return best===Infinity?null:cutRound(best);};
+  const strip=cutPack(raw,stock,pf,CUT_STRATEGIES[0],[],10);
+ const fill=cutFillSheet(raw,{x0:0,y0:0,x1:80,y1:50,W:80,H:50},pf(),{s:0,r:0,p:0,c:0,t:0},new Map());
+  const cols=cutPackColumns(raw,stock,pf,[],{rows:false,orient:'asis',fit:'ffd'});
+  /* Даже если Min distance больше собственного border, footprint Shape не
+     раздувается: это разные правила. Второй аргумент намеренно лишний. */
+  const geom=cutShapeGeom({cutW:40,cutH:50,cuttingPoints:[[0,0],[40,0],[40,50],[0,50]],footprint:{width:40.25,height:50,pad:{right:.25}}},1);
+  const out=r=>({placed:r.sheets?r.sheets.reduce((n,s)=>n+s.pieces.length,0):r.placed.length,gap:gap(r.sheets?r.sheets.flatMap(s=>s.pieces):r.placed)});
+  return {strip:out(strip),fill:out(fill),cols:out(cols),footprint:{w:geom.w,h:geom.h,pad:geom.pad}};
+ }),{strip:{placed:2,gap:0},fill:{placed:2,gap:0},cols:{placed:2,gap:0},footprint:{w:40.25,h:50,pad:.25}});
 
  eq('исключить деталь: количество 0 убирает её из реза и из листа',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,3]]);const b=DB.glassBatch[0];
@@ -853,7 +869,7 @@ module.exports=async function({page,eq,ok}){
   return {before,after,moved,bigBefore,bigAfter,cuts,held};
  }),{before:[0.875,34.875,68.875,102.875],after:[0.875,24.875,48.875,72.875],moved:1,bigBefore:[6.25,100.25],bigAfter:[40,24],cuts:true,held:true});
 
- eq('форма занимает место только там, где скос: прямые стороны вплотную, у скоса — большее из Safety border и Min distance; укладчики держат зазор и без футпринта',await t.p.evaluate(()=>{
+ eq('форма занимает border внутри своей коробки; снаружи укладчики дополнительного зазора не создают',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);
   const id=ctOrder([[40,50,3],[38,18,10],[20,12,8]]);
   const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='40';sh.h='50';
@@ -870,9 +886,8 @@ module.exports=async function({page,eq,ok}){
   const bad=sheets=>{const out=[];sheets.forEach(x=>{const pr=cutGroupParams(g,x.size||g.sheet);
    x.pieces.forEach((a,i)=>x.pieces.slice(i+1).forEach(c=>{const gp=cutGapBetween(a,c,pr);
     if(a.x<c.x+c.w+gp-1e-6&&c.x<a.x+a.w+gp-1e-6&&a.y<c.y+c.h+gp-1e-6&&c.y<a.y+a.h+gp-1e-6)out.push(a.piece+'/'+c.piece);}));});return out;};
-  /* Форма без футпринта (запасной путь): зазор обязаны дать сами укладчики —
-     раньше вертикальный спрашивали только у стекла, ОТКРЫВАЮЩЕГО полосу, и
-     прямоугольник садился вплотную к форме из полосы ниже. */
+  /* Даже запасная форма без footprint не получает выдуманную наружную рамку:
+     оптимизатор всегда работает с переданной ему внешней коробкой. */
   const raw=[{piece:'S1',w:40,h:50,shape:true,priority:0},{piece:'S2',w:40,h:50,shape:true,priority:0}]
    .concat([1,2,3,4,5,6,7,8].map(i=>({piece:'R'+i,w:38,h:18,shape:false,priority:0})));
   const strips=CUT_STRATEGIES.map(st=>{const r=cutPack(raw,stock,pf,st,[],g.mm);return r?bad(r.sheets).length:-1;});
