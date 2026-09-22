@@ -20,7 +20,7 @@ module.exports=async function({page,eq,ok}){
   /* Стёкла листа 1 — в один ряд, как есть: тесты правок руками и мыши проверяют
      правки, а не выбор укладчика (маленький батч может лечь и столбиком). */
   window.ctRow=n=>{const plan=cutPlanFor(n),g=plan.groups[0],s=g.sheets[0],u=cutUsable(s.size,cutGroupParams(g,s.size));let x=u.x0;
-   s.pieces.forEach(p=>{if(p.rot){const w=p.w;p.w=p.h;p.h=w;p.rot=false;}p.x=x;p.y=u.y0;x+=p.w;});cutPlanRefresh(plan);return plan;};
+   s.pieces.forEach(p=>{if(p.rot){const w=p.w;p.w=p.h;p.h=w;}p.turn=0;p.rot=false;p.x=x;p.y=u.y0;x+=p.w;});cutPlanRefresh(plan);return plan;};
   /* Правка параметров, как на экране: Reset → правка → Build (параметры
      собранного раскроя закрыты). Возвращает результат Build. */
   window.ctSet=(n,...edits)=>{const p=cutPlanFor(n);if(p&&!p.reset)cutPlanReset(n);for(const e of edits){const r=e();if(r&&r.error)return r;}return cutPlanRun(n);};
@@ -194,21 +194,42 @@ module.exports=async function({page,eq,ok}){
    back:!!back.ok,rot:!!rot.ok,turned:[after.piece.w,after.piece.h].join()===[size[1],size[0]].join(),lock:!!lock.ok,locked};
  }),{took:true,gone:true,slid:true,onTop:true,far:'Outside the sheet',back:true,rot:true,turned:true,lock:true,locked:true});
 
+ eq('Shape вручную поворачивается 0 → 90 → 180 → 270°, контур и отверстия идут вместе; старый rot читается',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',102,144);const id=ctOrder([[48.125,79,1]]);
+  const o=salesRecord(id),l=o.lines[0],sh=newShapeDef('raked');sh.w='48.125';sh.h='79';
+  Object.assign(sh.params,{shortHeight:'62',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],sheet=g.sheets[0],src=cutPieces(b,{})[0];
+  const signature=()=>{
+   const p=cutFind(plan,src.piece).piece,draw=Object.assign({},src,{holes:[{x:7,y:11,d:2}],cutouts:[[[10,12],[14,12],[14,15],[10,15]]]});
+   const d=document.createElement('div');d.innerHTML=cutSheetSVG(g,sheet,520,[draw],{ids:true});
+   const r=d.querySelector('rect.cut-blank'),poly=d.querySelector('polygon.cut-glass'),hole=d.querySelector('circle.cut-hole'),cutout=d.querySelector('polygon.cut-hole');
+   const rx=+r.getAttribute('x'),ry=+r.getAttribute('y'),round=v=>Math.round(v*10)/10;
+   const pts=el=>el.getAttribute('points').split(' ').map(q=>q.split(',').map(Number)).map(q=>[round(q[0]-rx),round(q[1]-ry)]);
+   return {turn:cutPieceTurn(p),rot:p.rot,w:p.w,h:p.h,sig:JSON.stringify({poly:pts(poly),hole:[round(+hole.getAttribute('cx')-rx),round(+hole.getAttribute('cy')-ry)],cutout:pts(cutout)})};
+  };
+  const states=[signature()];for(let i=0;i<4;i++){const r=cutPieceRotate(b.number,src.piece);if(r.error)return {error:r.error};states.push(signature());}
+  const turns=states.map(x=>x.turn),rots=states.map(x=>x.rot),dims=states.every((x,i)=>Math.abs(x.w-(i%2?src.h:src.w))<1e-6&&Math.abs(x.h-(i%2?src.w:src.h))<1e-6);
+  const unique=new Set(states.slice(0,4).map(x=>x.sig)).size,back=states[0].sig===states[4].sig;
+  let p=cutFind(plan,src.piece).piece;delete p.turn;p.rot=true;normalizeCutPlans();p=cutFind(cutPlanFor(b.number),src.piece).piece;const legacy={turn:p.turn,rot:p.rot};
+  p.turn=3;p.rot=false;normalizeCutPlans();p=cutFind(cutPlanFor(b.number),src.piece).piece;const saved={turn:p.turn,rot:p.rot};
+  return {turns,rots,dims,unique,back,legacy,saved};
+ }),{turns:[0,1,2,3,0],rots:[false,true,false,true,false],dims:true,unique:4,back:true,legacy:{turn:1,rot:true},saved:{turn:3,rot:true}});
+
  eq('после поворота и снятия стёкла подъезжают к краю или к соседу; стало шире — соседи отодвигаются; нет места — отказ',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[30,40,3]]);const b=DB.glassBatch[0];
   const g0=ctSet(b.number,()=>cutSetParam(b.number,'6CLEAR','rotate',false)).plan.groups[0],u=cutUsable(g0.sheets[0].size,cutGroupParams(g0,g0.sheets[0].size));
   const pcs=()=>cutPlanFor(b.number).groups[0].sheets[0].pieces.slice().sort((a,c)=>a.x-c.x);
   const row=()=>pcs().map(p=>[cutRound(p.x-u.x0),p.w,p.h].join(':'));
   const start=row(),mid=pcs()[1].piece;
-  const wide=cutPieceRotate(b.number,mid),afterWide=row();
-  const narrow=cutPieceRotate(b.number,mid),afterNarrow=row();
+  const wide=cutPieceRotate(b.number,mid),wideTurn=cutPieceTurn(cutFind(cutPlanFor(b.number),mid).piece),afterWide=row();
+  const narrow=cutPieceRotate(b.number,mid),narrowTurn=cutPieceTurn(cutFind(cutPlanFor(b.number),mid).piece),afterNarrow=row();
   cutPieceTake(b.number,pcs()[0].piece);const afterTake=row(),overlap=ctOverlap(cutPlanFor(b.number));
   /* Ряд забит: повернуть шире некуда — отказ, ряд не тронут. */
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[32,40,4]]);const c=DB.glassBatch[0];
   const full=cutPlanRun(c.number).plan.groups[0].sheets[0].pieces.slice().sort((a,d)=>a.x-d.x),before=JSON.stringify(full.map(p=>[p.x,p.w]));
   const no=cutPieceRotate(c.number,full[1].piece),same=JSON.stringify(cutPlanFor(c.number).groups[0].sheets[0].pieces.slice().sort((a,d)=>a.x-d.x).map(p=>[p.x,p.w]))===before;
-  return {start,wide:!!wide.ok,afterWide,narrow:!!narrow.ok,afterNarrow,afterTake,overlap,no:no.error,same};
- }),{start:['0:30:40','30:30:40','60:30:40'],wide:true,afterWide:['0:30:40','30:40:30','70:30:40'],narrow:true,afterNarrow:['0:30:40','30:30:40','60:30:40'],
+  return {start,wide:!!wide.ok,wideTurn,afterWide,narrow:!!narrow.ok,narrowTurn,afterNarrow,afterTake,overlap,no:no.error,same};
+ }),{start:['0:30:40','30:30:40','60:30:40'],wide:true,wideTurn:1,afterWide:['0:30:40','30:40:30','70:30:40'],narrow:true,narrowTurn:0,afterNarrow:['0:30:40','30:30:40','60:30:40'],
   afterTake:['0:30:40','30:30:40'],overlap:[],no:'No room to rotate on this sheet.',same:true});
 
  eq('заблокированный лист переживает пересчёт и идёт первым',await t.p.evaluate(()=>{

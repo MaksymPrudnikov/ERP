@@ -585,11 +585,15 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
   /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
      Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
-     p.rot — заготовка повёрнута на 90° ПРОТИВ часовой: у несимметричной формы
-     две стороны поворота дают разные стёкла, и лист показывает, какое из них.
-     Контур берётся, только если его габарит совпал с заготовкой. */
-  const fit=src.pts&&src.pts.length>2&&Math.abs((p.rot?src.h:src.w)-p.w)<1e-6&&Math.abs((p.rot?src.w:src.h)-p.h)<1e-6;
-  const at=q=>{const sx=p.rot?p.w-q[1]:q[0],sy=p.rot?q[0]:q[1];return [(p.x+sx)*S,(size.h-(p.y+sy))*S];};
+     `turn` — 0/90/180/270° против часовой; старый boolean rot читается как
+     0/90°. Контур, отверстия и cutout проходят одно преобразование. */
+  const quarter=cutPieceTurn(p),odd=quarter%2===1;
+  const fit=src.pts&&src.pts.length>2&&Math.abs((odd?src.h:src.w)-p.w)<1e-6&&Math.abs((odd?src.w:src.h)-p.h)<1e-6;
+  const at=q=>{let sx=q[0],sy=q[1];
+   if(quarter===1){sx=p.w-q[1];sy=q[0];}
+   else if(quarter===2){sx=p.w-q[0];sy=p.h-q[1];}
+   else if(quarter===3){sx=q[1];sy=p.h-q[0];}
+   return [(p.x+sx)*S,(size.h-(p.y+sy))*S];};
   const poly=list=>list.map(at).map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' ');
   if(fit){
    out.push('<rect class="cut-blank" x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'"/>');
@@ -603,11 +607,11 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
   /* Полная подпись — клиент, заказ, номер, размер; у узкого высокого стекла
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
-  const size16=frac16(p.w)+' × '+frac16(p.h)+'″'+(p.rot?' ⟲':''),turn=!(h>52&&w>84)&&w>52&&h>84;
-  if(h>52&&w>84||turn){
+  const size16=frac16(p.w)+' × '+frac16(p.h)+'″'+(quarter?' · '+quarter*90+'°':''),turnLabel=!(h>52&&w>84)&&w>52&&h>84;
+  if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828'],[size16,9,'#475467']];
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
-   out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turn?' rotate(-90)':'')+'">');
+   out.push('<g transform="translate('+mid[0].toFixed(1)+' '+mid[1].toFixed(1)+')'+(turnLabel?' rotate(-90)':'')+'">');
    lines.forEach(l=>{ty2+=l[1]*1.15;if(l[0])out.push('<text x="0" y="'+ty2.toFixed(1)+'" text-anchor="middle" font-size="'+l[1]+'" fill="'+l[2]+'">'+esc(l[0])+'</text>');});
    out.push('</g>');
   }else out.push(cutFitLabel(mid[0],mid[1],w,h,[String(i+1),size16],'#101828')||cutFitLabel(mid[0],mid[1],w,h,[String(i+1)],'#101828'));
@@ -653,7 +657,8 @@ function cutPrintLayouts(number){
  const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[];
  plan.groups.forEach(g=>g.sheets.forEach(s=>{
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
-   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${p.rot?'rotated':''}</td></tr>`;}).join('');
+   const turn=cutPieceTurn(p);
+   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${turn?turn*90+'°':''}</td></tr>`;}).join('');
   pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
    <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${(s.stock||[]).length?' · To stock '+s.stock.map(x=>esc(x.id)+' '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″').join(', '):''}</p>
    <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
