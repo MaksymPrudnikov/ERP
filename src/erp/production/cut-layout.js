@@ -36,6 +36,14 @@ const CUT_STRATEGIES=[
  {k:'width',  order:(a,b)=>b.w-a.w||b.h-a.h,                      prefer:'wide'}
 ];
 function cutRound(v){return Math.round(v*16)/16;}
+/* Четверть-обороты детали против часовой стрелки. Старые раскрои хранили
+   только boolean `rot`: false → 0°, true → 90°. `rot` оставляем производным,
+   чтобы прежние данные и код читались без потерь. */
+function cutTurnValue(v,legacyRot){
+ if(v!==undefined&&v!==null&&v!==''&&Number.isFinite(+v)){const n=Math.round(+v)%4;return n<0?n+4:n;}
+ return legacyRot?1:0;
+}
+function cutPieceTurn(p){return cutTurnValue(p&&p.turn,p&&p.rot);}
 function cutArea(w,h){return (+w||0)*(+h||0)/144;}
 function cutFt2(v){return Math.round(v*100)/100;}
 function cutPct(part,whole){return whole>0?Math.round(part/whole*1000)/10:0;}
@@ -229,8 +237,8 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  const used=new Map();sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const room=size=>{const p=paramsFor(size),u=cutUsable(size,p);return {W:u.W,H:u.H,x0:u.x0,y0:u.y0,p};};
  const ways=(p,size)=>{
-  const {W,H,p:pr}=room(size),a=[{w:p.w,h:p.h,rot:false}];
-  if(pr.rotate&&!p.norot&&p.w!==p.h)a.push({w:p.h,h:p.w,rot:true});
+  const {W,H,p:pr}=room(size),a=[{w:p.w,h:p.h,turn:0,rot:false}];
+  if(pr.rotate&&!p.norot&&p.w!==p.h)a.push({w:p.h,h:p.w,turn:1,rot:true});
   return a.filter(o=>o.w<=W+1e-6&&o.h<=H+1e-6);
  };
  /* Ориентация детали, открывающей полосу: больше штук в полосу, либо
@@ -240,7 +248,7 @@ function cutPack(list,stock,paramsFor,strategy,fixed,mm){
  const order=list.slice().sort((a,b)=>cutPrioRank(a.priority)-cutPrioRank(b.priority)||strategy.order(a,b)||a.piece.localeCompare(b.piece));
  const push=(s,st,o,p)=>{
   const {x0,y0}=room(s.size),x=st.x;st.x=x+o.w;st.pieces.push(p);
-  s.pieces.push({piece:p.piece,shape:!!p.shape,pad:+p.pad||0,x:cutRound(x0+x),y:cutRound(y0+st.y),w:cutRound(o.w),h:cutRound(o.h),rot:o.rot,locked:false});
+  s.pieces.push({piece:p.piece,shape:!!p.shape,pad:+p.pad||0,x:cutRound(x0+x),y:cutRound(y0+st.y),w:cutRound(o.w),h:cutRound(o.h),turn:o.turn||0,rot:!!o.rot,locked:false});
  };
  /* Новый лист: первый размер склада, который ещё остался. */
  const open=p=>{
@@ -339,7 +347,7 @@ function cutFillSheet(list,u,params,v,cache){
   /* Лист забит — остальное сразу в остаток. */
   if(!free.length){for(;k<order.length;k++)rest.push(order[k].t0);break;}
   const same=left.get(kind(p))||1;
-  const turn=params.rotate&&!p.norot&&p.w!==p.h,ways=[{w:p.w,h:p.h,rot:false}].concat(turn?[{w:p.h,h:p.w,rot:true}]:[]);
+  const turn=params.rotate&&!p.norot&&p.w!==p.h,ways=[{w:p.w,h:p.h,turn:0,rot:false}].concat(turn?[{w:p.h,h:p.w,turn:1,rot:true}]:[]);
   if(v.r&&ways.length>1)ways.reverse();
   let best=null;
   for(let i=0;i<free.length;i++){
@@ -366,8 +374,8 @@ function cutFillSheet(list,u,params,v,cache){
   const top=across?{x:F.x,y:F.y+best.H,w:F.w,h:best.rh}:{x:F.x,y:F.y+best.H,w:best.W,h:best.rh};
   [right,top].forEach(r=>{if(r.w>1e-6&&r.h>1e-6)free.push({x:cutRound(r.x),y:cutRound(r.y),w:cutRound(r.w),h:cutRound(r.h)});});
   const x=cutRound(F.x),y=cutRound(F.y),q=p.t0;
-  placed.push(T?{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:y,y:x,w:best.o.h,h:best.o.w,rot:(best.o.h!==q.w),locked:false}
-   :{piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x,y,w:best.o.w,h:best.o.h,rot:best.o.w!==q.w,locked:false});
+  const w=T?best.o.h:best.o.w,h=T?best.o.w:best.o.h,quarter=w!==q.w?1:0;
+  placed.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:T?y:x,y:T?x:y,w,h,turn:quarter,rot:quarter===1,locked:false});
   used+=q.w*q.h;urgent+=cutPrioWeight(q.priority);
  }
  return {placed,rest,used,urgent};
@@ -550,7 +558,8 @@ function cutPackColumns(list,stock,paramsFor,fixed,opt){
   const u=b.d.u,pieces=[];
   b.cols.forEach(({c,x})=>c.items.forEach(({it,y})=>{
    const q=it.p,w=T?it.h:it.w,h=T?it.w:it.h;
-   pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,rot:w!==q.w,locked:false});
+   const quarter=w!==q.w?1:0;
+   pieces.push({piece:q.piece,shape:!!q.shape,pad:+q.pad||0,x:cutRound(u.x0+(T?y:x)),y:cutRound(u.y0+(T?x:y)),w,h,turn:quarter,rot:quarter===1,locked:false});
   }));
   sheets.push({no:sheets.length+1,size:{key:b.row.key,w:b.row.w,h:b.row.h,supplier:b.row.supplier},locked:false,stock:[],pieces});
  });
@@ -1291,11 +1300,13 @@ function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const sheet=group.sheets.find(s=>s.no===+sheetNo)||(at&&at.sheet);if(!sheet)return {error:'No such sheet.'};
  const params=cutGroupParams(group,sheet.size);
  if(sheet.locked||at&&at.sheet.locked)return {error:'Sheet is locked.'};
- const rot=typeof turn==='boolean'?turn:at?!!at.piece.rot:false,w=rot?src.h:src.w,h=rot?src.w:src.h;
+ let quarter=typeof turn==='boolean'?(turn?1:0):Number.isFinite(+turn)?cutTurnValue(turn,false):at?cutPieceTurn(at.piece):0;
+ if(!src.shape)quarter%=2;
+ const rot=quarter%2===1,w=rot?src.h:src.w,h=rot?src.w:src.h;
  const box={x:cutRound(+x),y:cutRound(+y),w,h},bad=cutRoom(group,sheet,box,params,pieceId,src);
  if(bad)return {error:bad};
  if(at)at.sheet.pieces.splice(at.index,1);
- sheet.pieces.push({piece:pieceId,shape:!!src.shape,pad:+src.pad||0,x:box.x,y:box.y,w,h,rot,locked:at?!!at.piece.locked:false});
+ sheet.pieces.push({piece:pieceId,shape:!!src.shape,pad:+src.pad||0,x:box.x,y:box.y,w,h,turn:quarter,rot,locked:at?!!at.piece.locked:false});
  if(at&&at.sheet!==sheet)cutCompactSheet(group,at.sheet);
  cutCompactSheet(group,sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
@@ -1308,19 +1319,24 @@ function cutPieceAuto(number,pieceId,sheetNo){
  const group=plan.groups.find(g=>g.glass===src.glass&&g.mm===src.mm);if(!group)return {error:'No layout for this glass.'};
  const sheet=group.sheets.find(x=>x.no===+sheetNo);if(!sheet)return {error:'No such sheet.'};
  const params=cutGroupParams(group,sheet.size),u=cutUsable(sheet.size||group.sheet,params),xs=[u.x0].concat(cutTaken(sheet).map(p=>cutRound(p.x+p.w))),ys=[u.y0].concat(cutTaken(sheet).map(p=>cutRound(p.y+p.h)));
- /* Своя ориентация, а если не лезет и поворот разрешён — повёрнутая. */
- const turns=[false].concat(params.rotate&&!src.norot&&src.w!==src.h?[true]:[]);
- for(const y of [...new Set(ys)].sort((a,b)=>a-b))for(const x of [...new Set(xs)].sort((a,b)=>a-b))for(const rot of turns){
-  const box={x,y,w:rot?src.h:src.w,h:rot?src.w:src.h};
-  if(!cutRoom(group,sheet,box,params,pieceId,src))return cutPiecePlace(number,pieceId,sheetNo,x,y,rot);
+ /* При переносе сначала сохраняем ручной четверть-оборот. Автоматика может
+    попробовать только соседнюю ориентацию 90°; сама 180° не выбирает. */
+ const at=cutFind(plan,pieceId),base=at?(src.shape?cutPieceTurn(at.piece):cutPieceTurn(at.piece)%2):0;
+ const alternate=base%2?base-1:base+1;
+ const turns=[base].concat(params.rotate&&!src.norot&&src.w!==src.h?[alternate]:[]);
+ for(const y of [...new Set(ys)].sort((a,b)=>a-b))for(const x of [...new Set(xs)].sort((a,b)=>a-b))for(const quarter of turns){
+  const rot=quarter%2===1,box={x,y,w:rot?src.h:src.w,h:rot?src.w:src.h};
+  if(!cutRoom(group,sheet,box,params,pieceId,src))return cutPiecePlace(number,pieceId,sheetNo,x,y,quarter);
  }
  return {error:'No room on this sheet.'};
 }
 function cutPieceRotate(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
  if(at.sheet.locked)return {error:'Sheet is locked.'};
- const params=cutGroupParams(at.group,at.sheet.size),p=at.piece,box={x:p.x,y:p.y,w:p.h,h:p.w};
+ const params=cutGroupParams(at.group,at.sheet.size),p=at.piece;
  const src=cutPieces(glassBatchFind(number),plan.settings||{}).find(x=>x.piece===pieceId)||{};
+ const now=cutPieceTurn(p),quarter=(p.shape||src.shape)?(now+1)%4:(now%2?0:1),rot=quarter%2===1;
+ const box={x:p.x,y:p.y,w:rot?(src.h||p.h):(src.w||p.h),h:rot?(src.w||p.w):(src.h||p.w)};
  /* Стала шире — стёкла справа в её ряду отодвигаются, если на листе есть
     место; стала уже — после поворота они сами подъедут. */
  const grow=cutRound(box.w-p.w),moved=[];
@@ -1333,7 +1349,7 @@ function cutPieceRotate(number,pieceId){
  /* В ряду не должно остаться полоски тоньше Min distance — её не сломать. */
  const row=at.sheet.pieces.filter(q=>q!==p&&Math.abs(q.y-box.y)<1e-6).map(q=>q.h).concat([box.h]),top=Math.max(...row);
  if(row.some(h=>!cutSliverOk(top-h,params))){back();return {error:'Leaves a strip thinner than Min dist.'};}
- p.w=box.w;p.h=box.h;p.rot=!p.rot;cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
+ p.w=box.w;p.h=box.h;p.turn=quarter;p.rot=rot;cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
 }
 function cutPieceLock(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
@@ -1359,7 +1375,10 @@ function normalizeCutPlans(){
       const out=Object.assign({},s,{no:i+1,locked:!!s.locked,
        flip:(Array.isArray(s.flip)?s.flip:[]).filter(k=>typeof k==='string'),
        stock:(Array.isArray(s.stock)?s.stock:[]).filter(x=>x&&typeof x.id==='string'&&+x.w>0&&+x.h>0).map(x=>({id:x.id,x:+x.x||0,y:+x.y||0,w:+x.w,h:+x.h})),
-       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0)});
+       pieces:s.pieces.filter(x=>x&&typeof x.piece==='string'&&+x.w>0&&+x.h>0).map(x=>{
+        const turn=x.shape?cutPieceTurn(x):cutPieceTurn(x)%2;
+        return Object.assign({},x,{turn,rot:turn%2===1});
+       })});
       if(!out.flip.length)delete out.flip;
       return out;}),
      unplaced:Array.isArray(g.unplaced)?g.unplaced:[]}))});
