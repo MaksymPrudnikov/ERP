@@ -1113,6 +1113,20 @@ function cutSheetDelete(number,glass,sheetNo){
  cutPlanRefresh(plan);touch();
  return {ok:true,pieces:s.pieces.length,stock:(s.stock||[]).length};
 }
+/* Пустой лист того же физического размера, что открыт сейчас: оператор может
+   собрать его руками, не сбрасывая готовый раскрой. Кусок S- со стеллажа
+   нельзя клонировать — он существует в одном экземпляре. */
+function cutSheetAdd(number,glass,sheetNo){
+ const at=cutSheetAt(number,glass,sheetNo);if(!at)return {error:'No such sheet.'};
+ const {plan,g,s}=at,size=Object.assign({},s.size||g.sheet);
+ if(/^S-/.test(size.key||''))return {error:'A stock offcut cannot be duplicated.'};
+ if(!(size.w>0&&size.h>0))return {error:'This sheet has no size.'};
+ const key=cutSheetKey(size),pick=plan.sheetPick&&plan.sheetPick[glass],row=cutStockFor(glass,pick,g.mm,number).find(x=>x.key===key);
+ const used=g.sheets.filter(x=>cutSheetKey(x.size||g.sheet)===key).length;
+ if(row&&row.limit>0&&used>=row.limit)return {error:'No more sheets of this size.'};
+ const sheet={no:g.sheets.length+1,size,locked:false,stock:[],pieces:[]};
+ g.sheets.push(sheet);cutPlanRefresh(plan);touch();return {ok:true,sheet:sheet.no};
+}
 /* Куда можно перенести лист: открытые батчи с тем же стеклом, где рез не начат. */
 function cutMoveTargets(number,glass){
  return (DB.glassBatch||[]).filter(b=>b.number!==number).map(b=>{
@@ -1330,12 +1344,13 @@ function cutPieceAuto(number,pieceId,sheetNo){
  }
  return {error:'No room on this sheet.'};
 }
-function cutPieceRotate(number,pieceId){
+function cutPieceRotate(number,pieceId,step){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
  if(at.sheet.locked)return {error:'Sheet is locked.'};
  const params=cutGroupParams(at.group,at.sheet.size),p=at.piece;
  const src=cutPieces(glassBatchFind(number),plan.settings||{}).find(x=>x.piece===pieceId)||{};
- const now=cutPieceTurn(p),quarter=(p.shape||src.shape)?(now+1)%4:(now%2?0:1),rot=quarter%2===1;
+ const shaped=!!(p.shape||src.shape),now=cutPieceTurn(p),jump=shaped&&+step===2?2:1;
+ const quarter=shaped?(now+jump)%4:(now%2?0:1),rot=quarter%2===1;
  const box={x:p.x,y:p.y,w:rot?(src.h||p.h):(src.w||p.h),h:rot?(src.w||p.w):(src.h||p.w)};
  /* Стала шире — стёкла справа в её ряду отодвигаются, если на листе есть
     место; стала уже — после поворота они сами подъедут. */
