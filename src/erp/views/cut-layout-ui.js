@@ -722,31 +722,47 @@ function cutWhatTable(number,busy){
   <td>${r.now?'':`<button type="button" class="gb-link" data-cut-what-use="${esc(r.key)}" onclick="cutUiWhatUse('${esc(number)}','${esc(r.key)}','${esc(r.label)}')">Use</button>`}</td></tr>`).join('');
  return `<div class="cut-what" data-cut-what><div class="cut-what-head"><b>What if</b><span class="mut">Numbers only — nothing is changed</span><span class="sp"></span>
   <button type="button" class="gb-link" data-cut-what-close onclick="cutUiWhatClose()">Close</button></div>
-  <table class="sl-table"><thead><tr><th>Option</th><th class="n">Sheets</th><th class="n">ft²</th><th class="n">Used</th><th class="n">Difference</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ <table class="sl-table"><thead><tr><th>Option</th><th class="n">Sheets</th><th class="n">ft²</th><th class="n">Used</th><th class="n">Difference</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function viewCutLayout(b){
- /* Собранный раскрой — параметры закрыты, правится только раскладка;
-    сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
-    сначала параметры, потом Build. */
+/* Одни и те же данные нужны и шапке батча, и рабочей области. Шапка живёт
+   снаружи карточки раскроя, поэтому состояние собирается общей функцией. */
+function cutLayoutState(b){
  const s=cutUiState(b.number),stored=cutPlanFor(b.number),built=!!(stored&&!stored.reset);
  const plan=built||stored&&!cutPlanStale(b.number)?stored:cutPlanDraft(b.number);
  const stale=built&&cutPlanStale(b.number),busy=!!(cutBusy&&cutBusy.batch===b.number),lock=built||!!cutBusy;
  const pieces=cutPieces(b,plan.settings||{}),laid=plan.groups.some(g=>g.sheets.length),live=pieces.filter(p=>!p.off).length;
  const group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
- const pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
- /* Build идёт — полоска хода и Cancel вместо кнопок. */
- const acts=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
+ return {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet};
+}
+/* Используем широкое пустое место справа от названия батча. Здесь два уровня
+   результата: накопительно Sheets 1–N и открытый лист. Все кнопки обоих
+   уровней тоже наверху, поэтому карточка начинается сразу со списка и листа. */
+function cutLayoutHeader(b,status){
+ const v=cutLayoutState(b),{built,plan,busy,lock,laid,live,group,sheet}=v,pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
+ const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
   :`${built?`<button type="button" data-cut-whatif onclick="cutUiWhatIf('${esc(b.number)}')">What if</button><button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
- const head=`<div class="oq-toolbar cut-toolbar">${laid?cutSumTotal(plan,group,sheet):`<b data-cut-stats>Not built</b><span class="mut">${live} glass</span>`}
-  <span class="sp"></span>${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
-  ${acts}</div>`;
+ const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
+ const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
+ const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
+  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
+  <div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
+   <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
+   <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div></div>`:'';
+ return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<span class="sp"></span><div class="cut-page-actions">
+  ${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
+}
+function viewCutLayout(b){
+ /* Собранный раскрой — параметры закрыты, правится только раскладка;
+    сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
+    сначала параметры, потом Build. */
+ const {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet}=cutLayoutState(b);
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
  const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — Reset, then Build.</div>':'')+info+cutWhatTable(b.number,busy);
- if(!plan.groups.length)return `${head}${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
+ if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach(p=>placed.add(p.piece))));
  const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
@@ -836,7 +852,7 @@ function viewCutLayout(b){
     со своей прокруткой, высотой с правую часть; справа — цифры, лист, лента
     листов и сразу под ней склад листов и параметры; внизу остатки. */
  if(document.body)document.body.classList.toggle('cut-full',cutFull);
- return `${head}${notice}${need}${over}
+ return `${notice}${need}${over}
  <div class="cut-grid${busy?' cut-busy':''}">
   <div class="cut-side" ondragover="event.preventDefault()" ondrop="cutUiDropList(event)"><div class="cut-side-scroll">
    ${waiting.length?`<div class="cut-list-head" data-cut-waiting>Not on a sheet · ${waiting.length}</div>${listTable(rows(waiting))}`:''}
@@ -845,12 +861,7 @@ function viewCutLayout(b){
   </div></div>
   <div class="cut-sheet-pane">
    ${glasses}
-   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-    ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
-    ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
-    <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
-    <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
-   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
+   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
       правка отступов видна сразу, до Build. */
    :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}

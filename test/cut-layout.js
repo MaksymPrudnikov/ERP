@@ -269,6 +269,11 @@ module.exports=async function({page,eq,ok}){
   const b=DB.glassBatch[0];glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const stats='',rows=document.querySelectorAll('[data-cut-list]').length;
   const cur=!!document.querySelector('[data-cut-current]'),total=document.querySelector('[data-cut-total]').textContent;
+  const pageHead=document.querySelector('.page-head'),card=document.querySelector('.cut-card');
+  const lifted={total:!!pageHead.querySelector('[data-cut-total]'),current:!!pageHead.querySelector('[data-cut-current]'),
+   controls:['full','print','sheet-delete','sheet-add','sheet-lock'].every(x=>!!pageHead.querySelector('[data-cut-'+x+']')),
+   once:document.querySelectorAll('[data-cut-total]').length===1&&document.querySelectorAll('[data-cut-current]').length===1,
+   clean:!card.querySelector(':scope > .cut-toolbar')&&!card.querySelector('.cut-sheet-head'),fits:document.body.scrollWidth<=innerWidth};
   const svg=document.querySelector('.cut-paper').textContent,tabs=document.querySelectorAll('[data-cut-tab]').length;
   /* Лист лёжа, ноль слева внизу, обрезка кромки — сплошной вектор (для станка), без пунктира. */
   const tl=document.querySelector('.cut-paper [data-cut-edge]'),vb=document.querySelector('.cut-paper svg').getAttribute('viewBox').split(' ').map(Number);
@@ -281,9 +286,9 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-cut-sheet-lock]').click();const locked=/Unlock/.test(document.querySelector('[data-cut-sheet-lock]').textContent);
   document.querySelector('[data-cut-sheet-lock]').click();
   document.querySelector('[data-cut-print]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();
-  return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-total] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),labels:/Northside/.test(svg)&&/76002/.test(svg),
+  return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-total] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),lifted,labels:/Northside/.test(svg)&&/76002/.test(svg),
    sheetView,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
- }),{stats:true,rows:8,cur:true,total:true,labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
+ }),{stats:true,rows:8,cur:true,total:true,lifted:{total:true,current:true,controls:true,once:true,clean:true,fits:true},labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 
  eq('общая строка динамически считает листы 1–текущий, отдельные цифры листа остаются',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,13]]);const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];

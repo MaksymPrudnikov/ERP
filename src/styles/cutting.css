@@ -11,6 +11,17 @@
 .cut-md-foot .ncr-label{display:block;padding:0 0 6px}
 .cut-md-foot .chk{text-transform:none;letter-spacing:normal;font-size:13px;font-weight:400}
 .cut-toolbar b{font-size:13px}
+.cut-page-summary{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:2px 0}
+.cut-page-total,.cut-page-sheet{min-width:0;display:flex;align-items:center;gap:8px}
+.cut-page-total>.cut-tiles{min-width:0;flex-wrap:nowrap}
+.cut-page-actions,.cut-page-sheet-actions{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap}
+.cut-page-summary button{padding:5px 9px;font-size:12px}
+.cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
+.cut-page-sheet>b{font-size:13px;white-space:nowrap}
+.cut-page-sheet .cut-tiles-sheet{margin-left:2px}
+.cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
+.cut-card{padding-top:10px}
+.cut-card .cut-grid{margin-top:0}
 .cut-empty{margin:12px 0 0;max-width:640px}
 .cut-params{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:12px;color:#475467}
 .cut-params b{color:#101828}
@@ -227,3 +238,12 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-tiles-sheet{margin-left:10px}
 .cut-tiles-sheet .cut-tile{min-width:56px;padding:0 10px}
 .cut-sheet-size{font-size:12px;color:#667085}
+@media(max-width:1500px){
+ .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:1fr}
+ .cut-page-total>.cut-tiles{flex-wrap:wrap}
+}
+@media(max-width:900px){
+ .cut-page-total,.cut-page-sheet{flex-wrap:wrap}
+ .cut-page-total>.sp,.cut-page-sheet>.sp{display:none}
+ .cut-page-actions,.cut-page-sheet-actions{width:100%;flex-wrap:wrap}
+}
