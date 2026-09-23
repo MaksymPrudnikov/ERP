@@ -1484,6 +1484,8 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .gb-history>div{display:flex;gap:20px;align-items:center;padding:12px 0;border-bottom:1px solid #eaecf0;font-size:12px}.gb-history time{color:#8a96a8}
 @media(max-width:600px){.gb-material select{max-width:210px}.glass-batches .oq-toolbar{gap:8px}.gb-table{min-width:900px}.gb-history>div{flex-wrap:wrap;gap:8px}.glass-batches .oq-tabs{overflow-x:auto}}
 .glass-batches .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.glass-batches .page-head.cut-page-head-wrap{display:grid;grid-template-columns:minmax(260px,max-content) minmax(0,1fr);align-items:stretch;margin-bottom:10px}
+.gb-page-title{min-width:0}
 .gb-status{font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px;white-space:nowrap}
 .gb-status.wait{background:#fffaeb;color:#93370d;box-shadow:inset 0 0 0 1px #fedf89}.gb-status.cut{background:#e0f2fe;color:#026aa2}.gb-status.off{background:#f2f4f7;color:#667085}
 .gb-orders{color:#667085}
@@ -1666,6 +1668,17 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-md-foot .ncr-label{display:block;padding:0 0 6px}
 .cut-md-foot .chk{text-transform:none;letter-spacing:normal;font-size:13px;font-weight:400}
 .cut-toolbar b{font-size:13px}
+.cut-page-summary{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:2px 0}
+.cut-page-total,.cut-page-sheet{min-width:0;display:flex;align-items:center;gap:8px}
+.cut-page-total>.cut-tiles{min-width:0;flex-wrap:nowrap}
+.cut-page-actions,.cut-page-sheet-actions{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap}
+.cut-page-summary button{padding:5px 9px;font-size:12px}
+.cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
+.cut-page-sheet>b{font-size:13px;white-space:nowrap}
+.cut-page-sheet .cut-tiles-sheet{margin-left:2px}
+.cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
+.cut-card{padding-top:10px}
+.cut-card .cut-grid{margin-top:0}
 .cut-empty{margin:12px 0 0;max-width:640px}
 .cut-params{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:12px;color:#475467}
 .cut-params b{color:#101828}
@@ -1882,6 +1895,15 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 .cut-tiles-sheet{margin-left:10px}
 .cut-tiles-sheet .cut-tile{min-width:56px;padding:0 10px}
 .cut-sheet-size{font-size:12px;color:#667085}
+@media(max-width:1500px){
+ .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:1fr}
+ .cut-page-total>.cut-tiles{flex-wrap:wrap}
+}
+@media(max-width:900px){
+ .cut-page-total,.cut-page-sheet{flex-wrap:wrap}
+ .cut-page-total>.sp,.cut-page-sheet>.sp{display:none}
+ .cut-page-actions,.cut-page-sheet-actions{width:100%;flex-wrap:wrap}
+}
 
 </style>
 </head>
@@ -1904,7 +1926,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='de54140f887e';
+var ERP_BUILD='5dd956d84ad6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24117,9 +24139,11 @@ function viewGlassBatches(){
  const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
  const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${plural(rows.length,'batch').replace('batchs','batches')} · ${rows.reduce((c,i)=>c+i.memo.units,0)} pcs`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
- return `<section class="optimization-queue glass-batches"><div class="page-head"><div>${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:''}</div>
+ const statusBadge=b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:'';
+ const cutHead=b&&glassBatchDetailTab==='optimization'&&typeof cutLayoutHeader==='function'?cutLayoutHeader(b,status):'';
+ return `<section class="optimization-queue glass-batches"><div class="page-head${cutHead?' cut-page-head-wrap':''}"><div class="gb-page-title">${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${cutHead||statusBadge}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
- <div class="card oq-card">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
+ <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
  ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${salesDialogHTML()}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
@@ -25672,31 +25696,47 @@ function cutWhatTable(number,busy){
   <td>${r.now?'':`<button type="button" class="gb-link" data-cut-what-use="${esc(r.key)}" onclick="cutUiWhatUse('${esc(number)}','${esc(r.key)}','${esc(r.label)}')">Use</button>`}</td></tr>`).join('');
  return `<div class="cut-what" data-cut-what><div class="cut-what-head"><b>What if</b><span class="mut">Numbers only — nothing is changed</span><span class="sp"></span>
   <button type="button" class="gb-link" data-cut-what-close onclick="cutUiWhatClose()">Close</button></div>
-  <table class="sl-table"><thead><tr><th>Option</th><th class="n">Sheets</th><th class="n">ft²</th><th class="n">Used</th><th class="n">Difference</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ <table class="sl-table"><thead><tr><th>Option</th><th class="n">Sheets</th><th class="n">ft²</th><th class="n">Used</th><th class="n">Difference</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function viewCutLayout(b){
- /* Собранный раскрой — параметры закрыты, правится только раскладка;
-    сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
-    сначала параметры, потом Build. */
+/* Одни и те же данные нужны и шапке батча, и рабочей области. Шапка живёт
+   снаружи карточки раскроя, поэтому состояние собирается общей функцией. */
+function cutLayoutState(b){
  const s=cutUiState(b.number),stored=cutPlanFor(b.number),built=!!(stored&&!stored.reset);
  const plan=built||stored&&!cutPlanStale(b.number)?stored:cutPlanDraft(b.number);
  const stale=built&&cutPlanStale(b.number),busy=!!(cutBusy&&cutBusy.batch===b.number),lock=built||!!cutBusy;
  const pieces=cutPieces(b,plan.settings||{}),laid=plan.groups.some(g=>g.sheets.length),live=pieces.filter(p=>!p.off).length;
  const group=plan.groups.find(g=>g.glass===s.glass)||plan.groups[0];
  const sheet=group&&(group.sheets.find(x=>x.no===s.sheet)||group.sheets[0]);
- const pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
- /* Build идёт — полоска хода и Cancel вместо кнопок. */
- const acts=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
+ return {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet};
+}
+/* Используем широкое пустое место справа от названия батча. Здесь два уровня
+   результата: накопительно Sheets 1–N и открытый лист. Все кнопки обоих
+   уровней тоже наверху, поэтому карточка начинается сразу со списка и листа. */
+function cutLayoutHeader(b,status){
+ const v=cutLayoutState(b),{built,plan,busy,lock,laid,live,group,sheet}=v,pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
+ const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
   :`${built?`<button type="button" data-cut-whatif onclick="cutUiWhatIf('${esc(b.number)}')">What if</button><button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
- const head=`<div class="oq-toolbar cut-toolbar">${laid?cutSumTotal(plan,group,sheet):`<b data-cut-stats>Not built</b><span class="mut">${live} glass</span>`}
-  <span class="sp"></span>${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}
-  ${acts}</div>`;
+ const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
+ const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
+ const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
+  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
+  <div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
+   <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
+   <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div></div>`:'';
+ return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<span class="sp"></span><div class="cut-page-actions">
+  ${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
+}
+function viewCutLayout(b){
+ /* Собранный раскрой — параметры закрыты, правится только раскладка;
+    сброшенный (и раскроя ещё нет) — черновик по текущим стёклам батча:
+    сначала параметры, потом Build. */
+ const {s,stored,built,plan,stale,busy,lock,pieces,laid,live,group,sheet}=cutLayoutState(b);
  /* Про пустой размер листа говорит жёлтый блок с полями — красная строка
     над ним повторяла бы то же самое. */
  const need=cutNeedSizes(b,plan,pieces),own=cutNotice&&!(need&&/^No sheet size/.test(cutNotice));
  const info=cutInfo?`<div class="cut-info" data-cut-info>${esc(cutInfo.text)}<button type="button" class="gb-link" data-cut-open-batch onclick="cutUiOpenBatch('${esc(cutInfo.batch)}')">Open ${esc(cutInfo.batch)}</button></div>`:'';
  const notice=(own?`<div class="ncr-error" role="alert" data-cut-error>${esc(cutNotice)}</div>`:stale?'<div class="ncr-warning" data-cut-stale>⚠ Batch changed after the layout — Reset, then Build.</div>':'')+info+cutWhatTable(b.number,busy);
- if(!plan.groups.length)return `${head}${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
+ if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach(p=>placed.add(p.piece))));
  const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
@@ -25786,7 +25826,7 @@ function viewCutLayout(b){
     со своей прокруткой, высотой с правую часть; справа — цифры, лист, лента
     листов и сразу под ней склад листов и параметры; внизу остатки. */
  if(document.body)document.body.classList.toggle('cut-full',cutFull);
- return `${head}${notice}${need}${over}
+ return `${notice}${need}${over}
  <div class="cut-grid${busy?' cut-busy':''}">
   <div class="cut-side" ondragover="event.preventDefault()" ondrop="cutUiDropList(event)"><div class="cut-side-scroll">
    ${waiting.length?`<div class="cut-list-head" data-cut-waiting>Not on a sheet · ${waiting.length}</div>${listTable(rows(waiting))}`:''}
@@ -25795,12 +25835,7 @@ function viewCutLayout(b){
   </div></div>
   <div class="cut-sheet-pane">
    ${glasses}
-   ${sheet?`<div class="cut-sheet-head"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-    ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
-    ${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
-    <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
-    <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div>
-   <div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
+   ${sheet?`<div class="cut-paper" data-cut-sheet="${sheet.no}" ondragover="cutUiDragOver(event,'${esc(group.glass)}',${sheet.no})" ondragleave="cutUiDragLeave(event)" ondrop="cutUiDrop(event,'${esc(group.glass)}',${sheet.no})" onpointerdown="cutUiDown(event,'${esc(group.glass)}',${sheet.no})" oncontextmenu="cutUiMenu(event,'${esc(group.glass)}',${sheet.no})" onpointerover="cutUiOver(event)" onpointerleave="cutUiHover('')">${cutSheetSVG(group,sheet,520,pieces,{sel:s.sel,ids:true})}</div>`
    /* Листов нет — пустой лист первого размера с линиями Trim и Border:
       правка отступов видна сразу, до Build. */
    :`<div class="cut-paper cut-paper-empty" data-cut-empty>${cutSheetSVG(group,{no:0,size:group.sheet,pieces:[],stock:[],offcuts:[]},520,[],{ids:true})}<div class="cut-empty-cap"><b>${waiting.length} glass</b><span>${busy?'Building…':'Press Build'}</span></div></div>`}
