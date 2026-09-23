@@ -13,12 +13,18 @@
 .cut-toolbar b{font-size:13px}
 .cut-page-summary{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:2px 0}
 .cut-page-total,.cut-page-sheet{min-width:0;display:flex;align-items:center;gap:8px}
-.cut-page-total>.cut-tiles{min-width:0;flex-wrap:nowrap}
+.cut-page-total>.cut-tiles{min-width:0;flex:1;justify-content:center;flex-wrap:nowrap}
 .cut-page-actions,.cut-page-sheet-actions{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
-.cut-page-sheet>b{font-size:13px;white-space:nowrap}
+.cut-page-sheet-summary{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
+.cut-page-sheet-summary>b{font-size:13px;white-space:nowrap}
 .cut-page-sheet .cut-tiles-sheet{margin-left:2px}
+.cut-page-summary .cut-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;color:#475467}
+.cut-page-summary .cut-icon-btn>span,.cut-strip-step>span{display:flex}
+.cut-page-summary .cut-icon-btn svg,.cut-strip-step svg{display:block;width:16px;height:16px}
+.cut-page-summary .cut-icon-btn:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.cut-page-summary .cut-icon-btn.on{color:#026aa2;border-color:#84caff;background:#e0f2fe}
 .cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
 .cut-card{padding-top:10px}
 .cut-card .cut-grid{margin-top:0}
@@ -29,6 +35,8 @@
 .cut-stock{width:auto;border-collapse:collapse;font-size:12px}
 .cut-stock th{padding:0 8px 4px 0;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#667085;white-space:nowrap}
 .cut-stock th small{font-weight:400;text-transform:none;letter-spacing:normal}
+.cut-stock th.cut-edge-head{text-align:center;line-height:1.15;white-space:normal}
+.cut-stock th.cut-edge-head span,.cut-stock th.cut-edge-head small{display:block}
 .cut-stock td{padding:2px 8px 2px 0;white-space:nowrap}
 .cut-stock-row.off{opacity:.55}
 .cut-stock-row input[type=number]{width:62px;padding:3px 6px;font-size:12px}
@@ -70,6 +78,7 @@
 .cut-md-note{margin:12px 0 0}
 /* Лента листов под листом: прокрутка вбок, выбранный — синий. */
 .cut-strip-wrap{display:flex;align-items:center;gap:6px;margin:8px 0 2px}
+.cut-strip-nav{display:flex;align-items:center;gap:4px;flex:none}
 .cut-strip{display:flex;gap:6px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
 .cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:66px;padding:4px 9px;background:#fff;border:1px solid #d0d5dd;border-radius:10px;box-shadow:none;color:#344054}
 .cut-strip button b{font-size:14px;font-variant-numeric:tabular-nums}
@@ -77,7 +86,8 @@
 .cut-strip button.on{border-color:#1f6f9f;background:#eef4ff;color:#026aa2}
 .cut-strip button.on small{color:#026aa2}
 .cut-strip button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
-.cut-strip-step{flex:none;padding:6px 10px;font-size:14px;line-height:1;border-radius:10px}
+.cut-strip-step{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:0;font-size:14px;line-height:1;border-radius:9px;color:#475467}
+.cut-strip-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
 .cut-strip-count{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
@@ -242,8 +252,14 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
  .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:1fr}
  .cut-page-total>.cut-tiles{flex-wrap:wrap}
 }
+/* В обычном окне боковое меню съедает ширину, но в основном полноэкранном
+   режиме 1366 px уже хватает для полезной шапки справа от названия батча. */
+@media(min-width:1321px) and (max-width:1500px){
+ body.cut-full:has([data-cut-full]) .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:290px minmax(0,1fr)}
+ body.cut-full:has([data-cut-full]) .cut-page-total>.cut-tiles{flex-wrap:nowrap}
+}
 @media(max-width:900px){
  .cut-page-total,.cut-page-sheet{flex-wrap:wrap}
- .cut-page-total>.sp,.cut-page-sheet>.sp{display:none}
+ .cut-page-sheet-summary{flex-wrap:wrap;justify-content:flex-start}
  .cut-page-actions,.cut-page-sheet-actions{width:100%;flex-wrap:wrap}
 }

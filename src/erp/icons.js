@@ -30,6 +30,16 @@ const ICONS={
  alert:'<path d="M12 3 2 21h20z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
  check:'<path d="m5 12 4 4L19 6"/>',
  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+ unlock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
+ printer:'<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M18 12h.01"/>',
+ reset:'<path d="M4 4v6h6"/><path d="M5.7 15a8 8 0 1 0 .2-6.2L4 10"/>',
+ whatif:'<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 0 1 4.7.7c0 1.8-2.5 2.1-2.5 4"/><path d="M12 17h.01"/>',
+ expand:'<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="m3 8 6-6M21 8l-6-6M3 16l6 6M21 16l-6 6"/>',
+ collapse:'<path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/><path d="M9 9 3 3M15 9l6-6M9 15l-6 6M15 15l6 6"/>',
+ first:'<path d="M6 5v14M18 6l-7 6 7 6z"/>',
+ previous:'<path d="m15 18-6-6 6-6"/>',
+ next:'<path d="m9 18 6-6-6-6"/>',
+ last:'<path d="M18 5v14M6 6l7 6-7 6z"/>',
  layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
  report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>'
 };

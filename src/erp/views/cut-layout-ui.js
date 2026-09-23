@@ -157,6 +157,10 @@ function cutUiStep(glass,delta){
  const i=g.sheets.findIndex(x=>x.no===cutUi.sheet),next=g.sheets[Math.min(g.sheets.length-1,Math.max(0,i+delta))];
  if(next)cutUiSheet(glass,next.no);
 }
+function cutUiEdge(glass,last){
+ const plan=cutPlanFor(cutUi.batch),g=plan&&plan.groups.find(x=>x.glass===glass);if(!g||!g.sheets.length)return;
+ cutUiSheet(glass,g.sheets[last?g.sheets.length-1:0].no);
+}
 function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';cutInfo=null;render();}
 /* Лист не режем — стёкла в новый батч. Решает человек, поэтому спрашиваем. */
 function cutUiMoveSheet(glass,no,target){
@@ -741,16 +745,17 @@ function cutLayoutState(b){
 function cutLayoutHeader(b,status){
  const v=cutLayoutState(b),{built,plan,busy,lock,laid,live,group,sheet}=v,pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
-  :`${built?`<button type="button" data-cut-whatif onclick="cutUiWhatIf('${esc(b.number)}')">What if</button><button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+  :`${built?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
- const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
+ const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
+  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}</div>
   <div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
-   <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
-   <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div></div>`:'';
- return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<span class="sp"></span><div class="cut-page-actions">
-  ${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
+   <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
+   <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>`:'';
+ const fullLabel=cutFull?'Exit full screen':'Full screen';
+ return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
+  ${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
@@ -780,9 +785,9 @@ function viewCutLayout(b){
     десятки листов, и вкладками его не пролистать. */
  /* Листы — лента прямо под листом, с прокруткой: номер, штук, Used %.
     На ленту можно бросить стекло — оно переедет на тот лист. */
- const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" aria-label="Previous sheet">‹</button>
+ const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-first ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',false)" title="First sheet" aria-label="First sheet">${ico('first')}</button><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" title="Previous sheet" aria-label="Previous sheet">${ico('previous')}</button></div>
   <div class="cut-strip" data-cut-strip>${group.sheets.map(x=>{const z=x.size||group.sheet;return `<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})"><b>${x.no}${x.locked?' 🔒':''}</b><small>${x.pieces.length} pcs · ${cutPct(x.used,cutArea(z.w,z.h))}%${(x.stock||[]).length?' · S'+x.stock.length:''}</small></button>`;}).join('')}</div>
-  <button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" aria-label="Next sheet">›</button><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
+  <div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" title="Next sheet" aria-label="Next sheet">${ico('next')}</button><button type="button" class="cut-strip-step" data-cut-last ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',true)" title="Last sheet" aria-label="Last sheet">${ico('last')}</button></div><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
  const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
@@ -814,7 +819,7 @@ function viewCutLayout(b){
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
    <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>${x.shop&&!used&&!lock?`<button type="button" class="gb-link dl" data-cut-size-drop="${esc(key)}" ${dis} title="Delete this sheet size everywhere" aria-label="Delete ${esc(key)}" onclick="cutUiSizeDrop('${esc(key)}')">×</button>`:''}`}</td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
-  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th>Min dist</th><th></th></tr></thead><tbody>${stockRows}
+  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th class="cut-edge-head"><span>Trim X</span><small>bottom</small></th><th class="cut-edge-head"><span>Trim Y</span><small>left</small></th><th class="cut-edge-head"><span>Border X</span><small>top</small></th><th class="cut-edge-head"><span>Border Y</span><small>right</small></th><th class="cut-edge-head"><span>Min</span><small>distance</small></th><th></th></tr></thead><tbody>${stockRows}
    ${lock?'':`<tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
     <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr>`}</tbody></table></div>
   <div class="cut-knobs">

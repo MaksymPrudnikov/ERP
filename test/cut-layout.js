@@ -272,23 +272,25 @@ module.exports=async function({page,eq,ok}){
   const pageHead=document.querySelector('.page-head'),card=document.querySelector('.cut-card');
   const lifted={total:!!pageHead.querySelector('[data-cut-total]'),current:!!pageHead.querySelector('[data-cut-current]'),
    controls:['full','print','sheet-delete','sheet-add','sheet-lock'].every(x=>!!pageHead.querySelector('[data-cut-'+x+']')),
+   icons:['full','print','sheet-lock'].every(x=>!!pageHead.querySelector('[data-cut-'+x+'] svg')),
    once:document.querySelectorAll('[data-cut-total]').length===1&&document.querySelectorAll('[data-cut-current]').length===1,
    clean:!card.querySelector(':scope > .cut-toolbar')&&!card.querySelector('.cut-sheet-head'),fits:document.body.scrollWidth<=innerWidth};
   const svg=document.querySelector('.cut-paper').textContent,tabs=document.querySelectorAll('[data-cut-tab]').length;
   /* Лист лёжа, ноль слева внизу, обрезка кромки — сплошной вектор (для станка), без пунктира. */
   const tl=document.querySelector('.cut-paper [data-cut-edge]'),vb=document.querySelector('.cut-paper svg').getAttribute('viewBox').split(' ').map(Number);
   const sheetView={landscape:vb[2]>vb[3],trim:!!tl&&!tl.hasAttribute('stroke-dasharray'),dashed:document.querySelectorAll('.cut-paper [stroke-dasharray]').length,zero:[...document.querySelectorAll('.cut-paper text')].some(x=>x.textContent==='0')&&/^X \d/.test([...document.querySelectorAll('.cut-paper text')].map(x=>x.textContent).find(x=>/^X /.test(x))||'')};
+  const edgeHeads=[...document.querySelectorAll('.cut-edge-head')],paramHeads=edgeHeads.length===5&&edgeHeads.every(x=>getComputedStyle(x).textAlign==='center'&&x.children.length===2);
   const id=document.querySelector('[data-cut-list]').dataset.cutList;cutUiPick(id);
   const actions=!!document.querySelector('[data-cut-actions]');
   document.querySelector('[data-cut-take]').click();
   const waiting=/Not on a sheet · 1/.test(document.querySelector('[data-cut-waiting]').textContent);
   cutUiPick(id);cutUiRun(()=>cutPieceAuto(cutUi.batch,id,1));const backOn=!!cutFind(cutPlanFor(b.number),id);
-  document.querySelector('[data-cut-sheet-lock]').click();const locked=/Unlock/.test(document.querySelector('[data-cut-sheet-lock]').textContent);
+  document.querySelector('[data-cut-sheet-lock]').click();const locked=document.querySelector('[data-cut-sheet-lock]').getAttribute('aria-label')==='Unlock sheet';
   document.querySelector('[data-cut-sheet-lock]').click();
   document.querySelector('[data-cut-print]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();
   return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-total] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),lifted,labels:/Northside/.test(svg)&&/76002/.test(svg),
-   sheetView,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
- }),{stats:true,rows:8,cur:true,total:true,lifted:{total:true,current:true,controls:true,once:true,clean:true,fits:true},labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
+   sheetView,paramHeads,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
+ }),{stats:true,rows:8,cur:true,total:true,lifted:{total:true,current:true,controls:true,icons:true,once:true,clean:true,fits:true},labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},paramHeads:true,tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
 
  eq('общая строка динамически считает листы 1–текущий, отдельные цифры листа остаются',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];ctSheet('6CLEAR',96,130);ctOrder([[46,60,13]]);const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0];
@@ -404,15 +406,17 @@ module.exports=async function({page,eq,ok}){
   return {shape,sizes};
  }),{shape:'Cutting sheet sizes must be an array.',sizes:[{key:'130x96',w:130,h:96}]});
 
- eq('большой батч: десятки листов, всё разложено, ничего не налезает, лист выбирается стрелками',await t.p.evaluate(()=>{
+ eq('большой батч: десятки листов, всё разложено, ничего не налезает, есть переходы на соседний, первый и последний лист',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,120],[28,38,60]]);const b=DB.glassBatch[0];
   const t0=Date.now(),plan=cutPlanRun(b.number).plan,ms=Date.now()-t0;
   glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   const nav=!!document.querySelector('[data-cut-strip]');
   document.querySelector('[data-cut-next]').click();const second=cutUi.sheet;
+  document.querySelector('[data-cut-last]').click();const last=cutUi.sheet,lastDisabled=document.querySelector('[data-cut-last]').disabled;
+  document.querySelector('[data-cut-first]').click();const first=cutUi.sheet,firstDisabled=document.querySelector('[data-cut-first]').disabled;
   return {sheets:plan.stats.sheets>=10&&plan.stats.sheets<=60,placed:plan.stats.placed,total:plan.stats.total,
-   overlap:ctOverlap(plan).length,outside:ctOutside(plan).length,fast:ms<20000,nav,second,tabs:document.querySelectorAll('[data-cut-tab]').length===plan.stats.sheets};
- }),{sheets:true,placed:180,total:180,overlap:0,outside:0,fast:true,nav:true,second:2,tabs:true});
+   overlap:ctOverlap(plan).length,outside:ctOutside(plan).length,fast:ms<20000,nav,second,last:last===plan.stats.sheets,lastDisabled,first,firstDisabled,tabs:document.querySelectorAll('[data-cut-tab]').length===plan.stats.sheets};
+ }),{sheets:true,placed:180,total:180,overlap:0,outside:0,fast:true,nav:true,second:2,last:true,lastDisabled:true,first:1,firstDisabled:true,tabs:true});
 
  eq('остатки: все куски от 40 × 40 на листе, в сток — номер S-0000001, лист блокируется, из отходов уходит только взятое',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[50,50,1]]);const b=DB.glassBatch[0];
@@ -704,7 +708,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,2]]);const b=DB.glassBatch[0];
   cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
   /* Полный экран — по умолчанию: «базово увеличить экран». */
-  const hidden=getComputedStyle(document.querySelector('.side')).display==='none',label=document.querySelector('[data-cut-full]').textContent;
+  const hidden=getComputedStyle(document.querySelector('.side')).display==='none',label=document.querySelector('[data-cut-full]').getAttribute('aria-label');
   document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const back=getComputedStyle(document.querySelector('.side')).display!=='none';
   document.querySelector('[data-cut-full]').click();const again=getComputedStyle(document.querySelector('.side')).display==='none';
   return {narrow:(narrow.match(/<text/g)||[]).length===2||/rotate/.test(narrow),wide:(wide.match(/<text/g)||[]).length===1,tiny,hidden,label,back,again};
