@@ -15,6 +15,9 @@
 .cut-page-total,.cut-page-sheet{min-width:0;display:flex;align-items:center;gap:8px}
 .cut-page-total>.cut-tiles{min-width:0;flex:1;justify-content:center;flex-wrap:nowrap}
 .cut-page-actions,.cut-page-sheet-actions{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap}
+.cut-page-actions{margin-left:auto;justify-content:flex-end}
+.cut-page-tools,.cut-page-primary{display:flex;align-items:center;gap:7px;flex:none}
+.cut-page-tools:empty{display:none}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
 .cut-page-sheet-summary{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -26,6 +29,7 @@
 .cut-page-summary .cut-icon-btn:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
 .cut-page-summary .cut-icon-btn.on{color:#026aa2;border-color:#84caff;background:#e0f2fe}
 .cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
+.cut-page-total>.cut-head-unbuilt{flex:1;justify-content:center}
 .cut-card{padding-top:10px}
 .cut-card .cut-grid{margin-top:0}
 .cut-empty{margin:12px 0 0;max-width:640px}
@@ -198,7 +202,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-stock-wrap{max-width:100%;overflow-x:auto}
 body.cut-full:has([data-cut-full]) .shell{grid-template-columns:minmax(0,1fr)}
 body.cut-full:has([data-cut-full]) .side,body.cut-full:has([data-cut-full]) header{display:none}
-body.cut-full:has([data-cut-full]) main{padding:12px 16px}
+body.cut-full:has([data-cut-full]) main{padding:12px 26px 12px 16px}
 body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr) minmax(0,65fr)}
 /* Build: тонкая полоска хода в строке кнопок; экран раскроя на это время
    приглушён и не ловит мышь. */
@@ -257,9 +261,17 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 @media(min-width:1321px) and (max-width:1500px){
  body.cut-full:has([data-cut-full]) .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:290px minmax(0,1fr)}
  body.cut-full:has([data-cut-full]) .cut-page-total>.cut-tiles{flex-wrap:nowrap}
+ body.cut-full:has([data-cut-full]) .cut-page-total:has([data-cut-progress])>.cut-tiles{flex-wrap:wrap}
 }
 @media(max-width:900px){
  .cut-page-total,.cut-page-sheet{flex-wrap:wrap}
  .cut-page-sheet-summary{flex-wrap:wrap;justify-content:flex-start}
  .cut-page-actions,.cut-page-sheet-actions{width:100%;flex-wrap:wrap}
+ .cut-page-actions{justify-content:flex-end}
+}
+@media(max-width:760px){body.cut-full:has([data-cut-full]) main{padding-right:17px}}
+@media(max-width:520px){
+ body.cut-full:has([data-cut-full]) main{padding-right:10px}
+ .cut-page-actions{flex-direction:column;align-items:flex-end}
+ .cut-page-primary{flex-wrap:wrap;justify-content:flex-end}
 }

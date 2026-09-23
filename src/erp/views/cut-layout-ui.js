@@ -745,7 +745,8 @@ function cutLayoutState(b){
 function cutLayoutHeader(b,status){
  const v=cutLayoutState(b),{built,plan,busy,lock,laid,live,group,sheet}=v,pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
-  :`${built?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+  :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+ const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
@@ -755,7 +756,8 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
  return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
-  ${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
+  <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${whatActs}</div>
+  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
