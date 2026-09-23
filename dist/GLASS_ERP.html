@@ -1670,12 +1670,18 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-toolbar b{font-size:13px}
 .cut-page-summary{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:9px;padding:2px 0}
 .cut-page-total,.cut-page-sheet{min-width:0;display:flex;align-items:center;gap:8px}
-.cut-page-total>.cut-tiles{min-width:0;flex-wrap:nowrap}
+.cut-page-total>.cut-tiles{min-width:0;flex:1;justify-content:center;flex-wrap:nowrap}
 .cut-page-actions,.cut-page-sheet-actions{display:flex;align-items:center;gap:7px;flex:none;white-space:nowrap}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
-.cut-page-sheet>b{font-size:13px;white-space:nowrap}
+.cut-page-sheet-summary{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
+.cut-page-sheet-summary>b{font-size:13px;white-space:nowrap}
 .cut-page-sheet .cut-tiles-sheet{margin-left:2px}
+.cut-page-summary .cut-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;color:#475467}
+.cut-page-summary .cut-icon-btn>span,.cut-strip-step>span{display:flex}
+.cut-page-summary .cut-icon-btn svg,.cut-strip-step svg{display:block;width:16px;height:16px}
+.cut-page-summary .cut-icon-btn:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.cut-page-summary .cut-icon-btn.on{color:#026aa2;border-color:#84caff;background:#e0f2fe}
 .cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
 .cut-card{padding-top:10px}
 .cut-card .cut-grid{margin-top:0}
@@ -1686,6 +1692,8 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-stock{width:auto;border-collapse:collapse;font-size:12px}
 .cut-stock th{padding:0 8px 4px 0;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#667085;white-space:nowrap}
 .cut-stock th small{font-weight:400;text-transform:none;letter-spacing:normal}
+.cut-stock th.cut-edge-head{text-align:center;line-height:1.15;white-space:normal}
+.cut-stock th.cut-edge-head span,.cut-stock th.cut-edge-head small{display:block}
 .cut-stock td{padding:2px 8px 2px 0;white-space:nowrap}
 .cut-stock-row.off{opacity:.55}
 .cut-stock-row input[type=number]{width:62px;padding:3px 6px;font-size:12px}
@@ -1727,6 +1735,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-md-note{margin:12px 0 0}
 /* Лента листов под листом: прокрутка вбок, выбранный — синий. */
 .cut-strip-wrap{display:flex;align-items:center;gap:6px;margin:8px 0 2px}
+.cut-strip-nav{display:flex;align-items:center;gap:4px;flex:none}
 .cut-strip{display:flex;gap:6px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
 .cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:66px;padding:4px 9px;background:#fff;border:1px solid #d0d5dd;border-radius:10px;box-shadow:none;color:#344054}
 .cut-strip button b{font-size:14px;font-variant-numeric:tabular-nums}
@@ -1734,7 +1743,8 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-strip button.on{border-color:#1f6f9f;background:#eef4ff;color:#026aa2}
 .cut-strip button.on small{color:#026aa2}
 .cut-strip button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
-.cut-strip-step{flex:none;padding:6px 10px;font-size:14px;line-height:1;border-radius:10px}
+.cut-strip-step{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:0;font-size:14px;line-height:1;border-radius:9px;color:#475467}
+.cut-strip-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
 .cut-strip-count{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
@@ -1899,9 +1909,15 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
  .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:1fr}
  .cut-page-total>.cut-tiles{flex-wrap:wrap}
 }
+/* В обычном окне боковое меню съедает ширину, но в основном полноэкранном
+   режиме 1366 px уже хватает для полезной шапки справа от названия батча. */
+@media(min-width:1321px) and (max-width:1500px){
+ body.cut-full:has([data-cut-full]) .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:290px minmax(0,1fr)}
+ body.cut-full:has([data-cut-full]) .cut-page-total>.cut-tiles{flex-wrap:nowrap}
+}
 @media(max-width:900px){
  .cut-page-total,.cut-page-sheet{flex-wrap:wrap}
- .cut-page-total>.sp,.cut-page-sheet>.sp{display:none}
+ .cut-page-sheet-summary{flex-wrap:wrap;justify-content:flex-start}
  .cut-page-actions,.cut-page-sheet-actions{width:100%;flex-wrap:wrap}
 }
 
@@ -1926,7 +1942,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5dd956d84ad6';
+var ERP_BUILD='753f6555f0df';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10716,6 +10732,16 @@ const ICONS={
  alert:'<path d="M12 3 2 21h20z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
  check:'<path d="m5 12 4 4L19 6"/>',
  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+ unlock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
+ printer:'<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M18 12h.01"/>',
+ reset:'<path d="M4 4v6h6"/><path d="M5.7 15a8 8 0 1 0 .2-6.2L4 10"/>',
+ whatif:'<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 0 1 4.7.7c0 1.8-2.5 2.1-2.5 4"/><path d="M12 17h.01"/>',
+ expand:'<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="m3 8 6-6M21 8l-6-6M3 16l6 6M21 16l-6 6"/>',
+ collapse:'<path d="M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"/><path d="M9 9 3 3M15 9l6-6M9 15l-6 6M15 15l6 6"/>',
+ first:'<path d="M6 5v14M18 6l-7 6 7 6z"/>',
+ previous:'<path d="m15 18-6-6 6-6"/>',
+ next:'<path d="m9 18 6-6-6-6"/>',
+ last:'<path d="M18 5v14M6 6l7 6-7 6z"/>',
  layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
  report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>'
 };
@@ -25131,6 +25157,10 @@ function cutUiStep(glass,delta){
  const i=g.sheets.findIndex(x=>x.no===cutUi.sheet),next=g.sheets[Math.min(g.sheets.length-1,Math.max(0,i+delta))];
  if(next)cutUiSheet(glass,next.no);
 }
+function cutUiEdge(glass,last){
+ const plan=cutPlanFor(cutUi.batch),g=plan&&plan.groups.find(x=>x.glass===glass);if(!g||!g.sheets.length)return;
+ cutUiSheet(glass,g.sheets[last?g.sheets.length-1:0].no);
+}
 function cutUiRun(fn){const r=fn();cutNotice=r&&r.error||'';cutInfo=null;render();}
 /* Лист не режем — стёкла в новый батч. Решает человек, поэтому спрашиваем. */
 function cutUiMoveSheet(glass,no,target){
@@ -25715,16 +25745,17 @@ function cutLayoutState(b){
 function cutLayoutHeader(b,status){
  const v=cutLayoutState(b),{built,plan,busy,lock,laid,live,group,sheet}=v,pct=busy?Math.min(99,Math.round(cutBusy.pct*100)):0;
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
-  :`${built?`<button type="button" data-cut-whatif onclick="cutUiWhatIf('${esc(b.number)}')">What if</button><button type="button" data-cut-reset-plan onclick="cutUiReset('${esc(b.number)}')">Reset</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
+  :`${built?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:''}<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
- const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
-  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}<span class="sp"></span>
+ const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
+  ${(c=>c&&!c.ok?`<span class="pill bad" data-cut-not-cuttable>Not cuttable</span><button type="button" data-cut-repack onclick="cutUiRepack('${esc(group.glass)}',${sheet.no})">Re-pack sheet</button>`:'')(typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null)}</div>
   <div class="cut-page-sheet-actions">${sheet.pieces.length?`<button type="button" data-cut-move-sheet onclick="cutUiMoveMenu(event,'${esc(group.glass)}',${sheet.no})">Move to batch ▾</button>`:''}
-   <button type="button" class="dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
-   <button type="button" class="${sheet.locked?'on':''}" data-cut-sheet-lock onclick="cutUiSheetLock()">${sheet.locked?'Unlock sheet':'Lock sheet'}</button></div></div>`:'';
- return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<span class="sp"></span><div class="cut-page-actions">
-  ${plan.groups.length?`<button type="button" data-cut-full onclick="cutUiFull()">${cutFull?'Exit full screen':'⤢ Full screen'}</button>`:''}${laid?`<button type="button" data-cut-print ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">Print layouts</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
+   <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
+   <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>`:'';
+ const fullLabel=cutFull?'Exit full screen':'Full screen';
+ return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
+  ${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${buildActs}${statusBadge}</div></div>${sheetState}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
@@ -25754,9 +25785,9 @@ function viewCutLayout(b){
     десятки листов, и вкладками его не пролистать. */
  /* Листы — лента прямо под листом, с прокруткой: номер, штук, Used %.
     На ленту можно бросить стекло — оно переедет на тот лист. */
- const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" aria-label="Previous sheet">‹</button>
+ const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-first ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',false)" title="First sheet" aria-label="First sheet">${ico('first')}</button><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" title="Previous sheet" aria-label="Previous sheet">${ico('previous')}</button></div>
   <div class="cut-strip" data-cut-strip>${group.sheets.map(x=>{const z=x.size||group.sheet;return `<button type="button" class="${x.no===sheet.no?'on':''}" data-cut-tab="${x.no}" ondragover="event.preventDefault()" ondrop="cutUiTabDrop(event,'${esc(group.glass)}',${x.no})" onclick="cutUiSheet('${esc(group.glass)}',${x.no})"><b>${x.no}${x.locked?' 🔒':''}</b><small>${x.pieces.length} pcs · ${cutPct(x.used,cutArea(z.w,z.h))}%${(x.stock||[]).length?' · S'+x.stock.length:''}</small></button>`;}).join('')}</div>
-  <button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" aria-label="Next sheet">›</button><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
+  <div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" title="Next sheet" aria-label="Next sheet">${ico('next')}</button><button type="button" class="cut-strip-step" data-cut-last ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',true)" title="Last sheet" aria-label="Last sheet">${ico('last')}</button></div><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
  const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
@@ -25788,7 +25819,7 @@ function viewCutLayout(b){
    ${edge('trimX','Trim X')}${edge('trimY','Trim Y')}${edge('borderX','Border X')}${edge('borderY','Border Y')}${edge('minDist','Min dist')}
    <td class="cut-size-acts">${x.stock?'<span class="mut">from stock</span>':x.base?`<button type="button" class="gb-link dl" data-cut-same-remove="${esc(key)}" ${dis} aria-label="Remove ${esc(key)}" onclick="cutUiSameSizeRemove('${esc(group.glass)}','${esc(key)}')">×</button>`:`<button type="button" class="gb-link" data-cut-same="${esc(key)}" ${dis} title="Same size with its own Trim and Border" onclick="cutUiSameSize('${esc(group.glass)}','${esc(key)}')">+ same size</button>${x.shop&&!used&&!lock?`<button type="button" class="gb-link dl" data-cut-size-drop="${esc(key)}" ${dis} title="Delete this sheet size everywhere" aria-label="Delete ${esc(key)}" onclick="cutUiSizeDrop('${esc(key)}')">×</button>`:''}`}</td></tr>`;}).join('');
  const params=group?`<div class="cut-params" data-cut-params>
-  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th>Trim X <small>bottom</small></th><th>Trim Y <small>left</small></th><th>Border X <small>top</small></th><th>Border Y <small>right</small></th><th>Min dist</th><th></th></tr></thead><tbody>${stockRows}
+  <div class="cut-stock-wrap"><table class="cut-stock"><thead><tr><th>Sheets</th><th>Qty</th><th class="cut-edge-head"><span>Trim X</span><small>bottom</small></th><th class="cut-edge-head"><span>Trim Y</span><small>left</small></th><th class="cut-edge-head"><span>Border X</span><small>top</small></th><th class="cut-edge-head"><span>Border Y</span><small>right</small></th><th class="cut-edge-head"><span>Min</span><small>distance</small></th><th></th></tr></thead><tbody>${stockRows}
    ${lock?'':`<tr class="cut-stock-add"><td colspan="8"><input type="text" id="cutRunSizeW" placeholder="length" aria-label="Sheet length, in"> × <input type="text" id="cutRunSizeH" placeholder="width" aria-label="Sheet width, in">
     <button type="button" class="gb-link" data-cut-size-new onclick="cutUiAddSize('${esc(b.number)}','cutRunSizeW','cutRunSizeH')">+ Add sheet size</button></td></tr>`}</tbody></table></div>
   <div class="cut-knobs">
