@@ -1084,5 +1084,48 @@ module.exports=async function({page,eq,ok}){
   return {n:plain.length,sortedUp:asc[0]===asc.slice().sort()[0],reversed:desc[0]===asc[asc.length-1],back:off.join()===plain.join(),stay,saved};
  }),{n:5,sortedUp:true,reversed:true,back:true,stay:true,saved:3});
 
+ eq('машинный снимок: только готовый рез, без пустого листа; раскрой не меняется',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],before=JSON.stringify(plan);
+  const job=cutMachineSnapshot(b.number),after=JSON.stringify(plan);
+  const added=cutSheetAdd(b.number,g.glass,g.sheets[0].no),withEmpty=cutMachineSnapshot(b.number);
+  return {valid:job.valid,errors:job.errors,pieces:job.sheets.flatMap(s=>s.pieces).length,
+   cuts:job.sheets.some(s=>s.throughCuts.length>0),unchanged:before===after,
+   emptyAdded:!!added.ok,emptySkipped:withEmpty.valid&&withEmpty.sheets.length===job.sheets.length};
+ }),{valid:true,errors:[],pieces:2,cuts:true,unchanged:true,emptyAdded:true,emptySkipped:true});
+
+ eq('машинный снимок отвергает устаревший план и пропавшую деталь',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,stamp=plan.stamp;
+  plan.stamp='old';const stale=cutMachineSnapshot(b.number);plan.stamp=stamp;
+  const lost=plan.groups[0].sheets[0].pieces.pop(),missing=cutMachineSnapshot(b.number);
+  return {stale:!stale.valid&&stale.errors.some(x=>x.includes('changed after Build')),
+   missing:!missing.valid&&missing.errors.some(x=>x.includes(lost.piece+' is not on any sheet'))};
+ }),{stale:true,missing:true});
+
+ eq('машинный снимок не пропускает пересечение и выход детали за лист',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,s=plan.groups[0].sheets[0],a=s.pieces[0],p=s.pieces[1],old={x:p.x,y:p.y};
+  p.x=a.x;p.y=a.y;const overlap=cutMachineSnapshot(b.number);
+  p.x=s.size.w;p.y=old.y;const outside=cutMachineSnapshot(b.number);
+  p.x=old.x;p.y=old.y;
+  return {overlap:!overlap.valid&&overlap.errors.some(x=>x.includes('overlapping occupants')),
+   outside:!outside.valid&&outside.errors.some(x=>x.includes('outside the usable area'))};
+ }),{overlap:true,outside:true});
+
+ eq('машинный снимок формы: поворот 180° сохраняет настоящий контур, без отверстий и вырезов',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
+  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
+  Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,p=plan.groups[0].sheets[0].pieces[0],src=cutPieces(b,{})[0];
+  p.turn=2;p.rot=false;const job=cutMachineSnapshot(b.number),part=job.sheets[0].pieces[0];
+  const q=src.pts[0],first=[p.x+p.w-q[0],p.y+p.h-q[1]];
+  const area=Math.abs(part.contour.reduce((a,c,i)=>{const n=part.contour[(i+1)%part.contour.length];return a+c[0]*n[1]-n[0]*c[1];},0))/2;
+  return {valid:job.valid,turn:part.turn,shape:part.shape,firstOk:part.contour[0].every((v,i)=>Math.abs(v-first[i])<1e-6),
+   shaped:area<part.footprint.w*part.footprint.h-1,
+   noMachining:!('holes' in part)&&!('cutouts' in part)};
+ }),{valid:true,turn:2,shape:true,firstOk:true,shaped:true,noMachining:true});
+
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };
