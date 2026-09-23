@@ -275,6 +275,22 @@ function shapeBorderFootprint(points,plan){
     else key=my>=cy?'top':'bottom';
     if(v>sides[key])sides[key]=v;
   }
+  /* A straight side spanning the complete bounding-box edge is already the
+     outer cut line. An angled edge meeting its corner must not add a second
+     safety strip outside that same straight side. */
+  var eps=1e-6,straight={left:false,right:false,top:false,bottom:false};
+  for(i=0;i<n;i++){
+    var from=points[i],to=points[(i+1)%n];
+    if(Math.abs(from[0]-to[0])<eps&&Math.min(from[1],to[1])<=b.minY+eps&&Math.max(from[1],to[1])>=b.maxY-eps){
+      if(Math.abs(from[0]-b.minX)<eps)straight.left=true;
+      if(Math.abs(from[0]-b.maxX)<eps)straight.right=true;
+    }
+    if(Math.abs(from[1]-to[1])<eps&&Math.min(from[0],to[0])<=b.minX+eps&&Math.max(from[0],to[0])>=b.maxX-eps){
+      if(Math.abs(from[1]-b.minY)<eps)straight.bottom=true;
+      if(Math.abs(from[1]-b.maxY)<eps)straight.top=true;
+    }
+  }
+  Object.keys(straight).forEach(function(side){if(straight[side])sides[side]=0;});
   /* pad — отступ по каждой стороне габарита. Бордер меряется по прямой, под
      90°, а не параллельно скосу: стол режет прямыми и зазор до соседней
      детали тоже прямой. Скошенная кромка отодвигает границу от САМОЙ ДАЛЬНЕЙ

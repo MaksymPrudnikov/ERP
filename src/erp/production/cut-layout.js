@@ -6,17 +6,16 @@
    OUT: DB.cutPlan — листы с местами стёкол, остаток, Used / Gross / Net
 
    Владелец, 17 сентября 2026, по своему проекту Perfect Cut:
-   - между прямоугольниками зазора НЕТ; минимальное расстояние нужно,
-     «только когда шейп кривой, имеет скос специфичный»;
+   - между прямоугольниками зазора НЕТ; у фигур бордер уже включён в размер;
+     Min distance — минимальная ширина реально отламываемой полосы;
    - Trim и Border — отступы от краёв листа (18 сентября): Trim X снизу,
      Trim Y слева, Border X сверху, Border Y справа; детали за эти линии
      не заходят;
    - «основной задачей является оптимизация под низший процент», приоритет
      лишь тянет деталь на первые листы;
-   - главное — порезать заказы, потратив меньше стекла; сток — только бонус
+   - сначала меньше физических листов, потом отходов и надломов; сток — бонус
      (18 сентября: «моя задача оптимизировать заказы под хороший процент, а не
-     хорошо коллекционировать стекло в стоке»). Раскладку выбираем по площади
-     листов, остаток решает лишь при равенстве;
+     хорошо коллекционировать стекло в стоке»);
    - потери нужно видеть по каждому листу и по всем: по ним считают цену
      большого заказа;
    - раскладку правят руками: снять, положить, повернуть, перенести,
@@ -170,6 +169,47 @@ function cutGroupParams(group,size){
 function cutUsable(size,params){
  const x0=+params.trimY||0,y0=+params.trimX||0,x1=cutRound(size.w-(+params.borderY||0)),y1=cutRound(size.h-(+params.borderX||0));
  return {x0,y0,x1,y1,W:cutRound(x1-x0),H:cutRound(y1-y0)};
+}
+/* Trim Y в настройке — минимальная обрезка. Только узкий зазор до первой
+   детали поглощаем тримом; широкая полоса остаётся отдельным отходом/стоком. */
+function cutEffectiveTrimY(sheet,params){
+ const parts=cutTaken(sheet),minimum=+params.trimY||0,md=+params.minDist||0;
+ if(!parts.length)return minimum;
+ const first=Math.min(...parts.map(p=>+p.x)),gap=first-minimum;
+ return gap>1e-6&&gap<md-1e-6?cutRound(first):minimum;
+}
+/* В соседних горизонтальных полосах нельзя оставлять уступ 5/16″ от
+   общей линии левого трима: это отдельный узкий рез, а не полезный остаток. */
+function cutTrimBands(sheet){
+ const parts=cutTaken(sheet),seen=new Set(),bands=[];
+ parts.forEach(start=>{
+  if(seen.has(start))return;
+  const band=[start];seen.add(start);
+  for(let i=0;i<band.length;i++)parts.forEach(p=>{
+   if(!seen.has(p)&&p.y<band[i].y+band[i].h-1e-6&&band[i].y<p.y+p.h-1e-6){seen.add(p);band.push(p);}
+  });
+  bands.push({parts:band,left:Math.min(...band.map(p=>+p.x)),y0:Math.min(...band.map(p=>+p.y)),y1:Math.max(...band.map(p=>+p.y+p.h))});
+ });
+ return bands;
+}
+function cutTrimBandSlivers(sheet,params){
+ const bands=cutTrimBands(sheet),md=+params.minDist||0,trim=cutEffectiveTrimY(sheet,params);
+ return bands.filter(b=>b.left-trim>1e-6&&b.left-trim<md-1e-6).map(b=>({reason:'minDist',width:cutRound(b.left-trim),required:md,x0:trim,x1:b.left,y0:b.y0,y1:b.y1}));
+}
+function cutAlignTrimY(sheet,size,params){
+ if(sheet.locked||(sheet.stock||[]).length)return false;
+ const bands=cutTrimBands(sheet),md=+params.minDist||0;
+ if(bands.length<2||md<=0)return false;
+ const left=Math.min(...bands.map(b=>b.left)),target=Math.max(...bands.filter(b=>b.left-left<md-1e-6).map(b=>b.left));
+ if(target-left<1e-6)return false;
+ const limit=cutUsable(size,params).x1;
+ let changed=false;
+ bands.forEach(b=>{
+  const dx=cutRound(target-b.left);
+  if(dx<1e-6||dx>=md-1e-6||b.parts.some(p=>p.locked||p.x+p.w+dx>limit+1e-6))return;
+  b.parts.forEach(p=>{p.x=cutRound(p.x+dx);});changed=true;
+ });
+ return changed;
 }
 /* Склад прогона: какие размеры листов берём и сколько их есть. «Иногда мы
    используем 10 листов 130 и 40 листов 144» (владелец, 18 сентября 2026):
@@ -336,7 +376,7 @@ function cutFillOrder(list,v,cache){
  return order;
 }
 function cutFillSheet(list,u,params,v,cache){
- const md=+params.minDist||0,T=!!v.t;
+ const T=!!v.t;
  const U=T?{x0:u.y0,y0:u.x0,x1:u.y1,y1:u.x1}:u;
  const free=[{x:U.x0,y:U.y0,w:cutRound(U.x1-U.x0),h:cutRound(U.y1-U.y0)}],placed=[],rest=[];
  const order=cutFillOrder(list,v,cache);
@@ -351,17 +391,15 @@ function cutFillSheet(list,u,params,v,cache){
   if(v.r&&ways.length>1)ways.reverse();
   let best=null;
   for(let i=0;i<free.length;i++){
-   const F=free[i],atR=Math.abs(F.x+F.w-U.x1)<1e-6,atT=Math.abs(F.y+F.h-U.y1)<1e-6;
+   const F=free[i];
    for(const o of ways){
     /* Внешняя коробка формы уже включает Safety border. Свободный кусок
        получает ровно её размер, без ещё одного зазора оптимизатора. */
     const W=o.w,H=o.h;
     if(W>F.w+1e-6||H>F.h+1e-6)continue;
     const rw=cutRound(F.w-W),rh=cutRound(F.h-H);
-    /* Полоска тоньше Min distance у реза — её не сломать; у края листа она
-       сливается с Border. */
-    if(!atR&&rw>1e-6&&rw<md-1e-6)continue;
-    if(!atT&&rh>1e-6&&rh<md-1e-6)continue;
+    /* Свободный прямоугольник ещё не линия реза: узкий остаток может
+       слиться с соседним при другом направлении. Проверяет cutSheetCuts. */
     const sc=CUT_FILL_PLACE[v.p](F,W,H,same);
     if(!best||sc<best.sc-1e-9)best={sc,i,o,W,H,rw,rh};
    }
@@ -404,17 +442,34 @@ function cutFillRandom(fit,seed){
    больше стекла (urgent — больше срочного). rseed — случайные варианты. */
 /* Быстрая проба — какой размер листа брать: 64 варианта из 384. */
 const CUT_FILL_QUICK=CUT_FILL_VARIANTS.filter(v=>v.s<2&&(v.p===0||v.p===3));
+/* What if на тысячах деталей — предварительная оценка, не повтор полного
+   Build пять раз подряд. Use всегда запускает обычный полный Build. */
+const CUT_FILL_PREVIEW=CUT_FILL_VARIANTS.filter(v=>v.s===0&&(v.p===0||v.p===3)&&v.c<2);
 /* need — лист «+ same size» без Trim и Border: годится только укладка, где
    есть стекло, которое не влезает в обычный лист. Нет такой — null. */
-function cutFillBest(fit,u,pr,urgent,rseed,variants,need){
- let best=null;
+function cutFillBest(fit,u,pr,urgent,rseed,variants,need,size){
+ let best=null;const top=[];
  const base=variants||CUT_FILL_VARIANTS,urgentOn=fit.some(p=>p.priority!==fit[0].priority);
  const tries=(urgentOn?base.concat(base.map(x=>Object.assign({u:1},x))):base).concat(rseed?cutFillRandom(fit,rseed):[]),cache=new Map();
+ const better=(a,b)=>urgent?a.urgent>b.urgent||a.urgent===b.urgent&&a.used>b.used+1e-6:
+  a.used>b.used+1e-6||Math.abs(a.used-b.used)<=1e-6&&a.urgent>b.urgent;
  for(const v of tries){
   const r=cutFillSheet(fit,u,pr,v,cache);
   if(need&&!r.placed.some(q=>need.has(q.piece)))continue;
-  if(!best||(urgent?r.urgent>best.urgent||r.urgent===best.urgent&&r.used>best.used+1e-6:r.used>best.used+1e-6||Math.abs(r.used-best.used)<=1e-6&&r.urgent>best.urgent))best=r;
-  if(!r.rest.length&&best===r)break;
+  if(!best||better(r,best))best=r;
+  if(size&&(!top.length||top.length<64||better(r,top[top.length-1]))){
+   let at=top.findIndex(x=>better(r,x));if(at<0)at=top.length;
+   top.splice(at,0,r);if(top.length>64)top.pop();
+  }
+  if(!size&&!r.rest.length&&best===r)break;
+ }
+ if(size){
+  /* Максимум площади может давать узкую неотламываемую полоску. Сравниваем
+     несколько лучших смешанных геометрий и берём плотнейшую безопасную. */
+  for(const r of top){
+   const sheet={pieces:r.placed,stock:[]};cutHealEdgeSlivers(sheet,size,pr);
+   if(cutSheetCuts(sheet,size,pr).ok)return r;
+  }
  }
  return best;
 }
@@ -426,7 +481,7 @@ function cutFillBest(fit,u,pr,urgent,rseed,variants,need){
    листы по порядку склада, как раньше: жадный выбор по доле не всегда лучше
    в целом, поэтому считаются оба. Генератор: после каждого листа отдаёт долю
    разложенного стекла, 0…1. */
-function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix){
+function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix,variants){
  const sheets=(fixed||[]).map(s=>cutCloneSheet(s)),unplaced=[],used=new Map();
  sheets.forEach(s=>used.set(s.size.key,(used.get(s.size.key)||0)+1));
  const fitsRow=(p,row)=>{const pr=paramsFor(row),u=cutUsable(row,pr),W=u.W,H=u.H;return p.w<=W+1e-6&&p.h<=H+1e-6||pr.rotate&&!p.norot&&p.h<=W+1e-6&&p.w<=H+1e-6;};
@@ -441,7 +496,7 @@ function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix){
   const rows=stock.filter(r=>(!r.limit||(used.get(r.key)||0)<r.limit)&&rest.some(p=>fitsRow(p,r)));
   if(!rows.length){rest.forEach(p=>unplaced.push({piece:p.piece,reason:'No sheets left'}));break;}
   /* Размер листа — по быстрой пробе каждого; полный перебор — на выбранном. */
-  const rseed=seed?seed*7919+sheets.length:0,full=row=>{const pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));return {row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed)};};
+  const rseed=seed?seed*7919+sheets.length:0,full=row=>{const pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));return {row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed,variants,null,variants?null:row)};};
   let pick=null;
   if(mix&&rows.length>1){
    const probe=strict=>{for(const row of rows){
@@ -453,7 +508,7 @@ function* cutPackFillSteps(list,stock,paramsFor,fixed,urgent,seed,mix){
    }};
    probe(true);if(!pick)probe(false);
    const {row,need}=pick,pr=paramsFor(row),fit=rest.filter(p=>fitsRow(p,row));
-   pick={row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed,null,need)||pick.q};
+   pick={row,fit,best:cutFillBest(fit,cutUsable(row,pr),pr,urgent,rseed,variants,need,variants?null:row)||pick.q};
   }else pick=full(rows[0]);
   const {row,best,fit}=pick,other=rest.filter(p=>!fitsRow(p,row));
   if(!best.placed.length){unplaced.push({piece:fit[0].piece,reason:'Larger than the sheet'});rest=rest.filter(p=>p!==fit[0]);continue;}
@@ -587,7 +642,7 @@ function cutOffcutOk(w,h,params){
    (аудит раскроя, 20 сентября 2026). На кусок вешают номер стока и стикер,
    поэтому обещать можно только то, что снимется одним куском. */
 function cutFreeRects(sheet,size,params){
- const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,params,sheet&&sheet.flip):null;
+ const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,params,sheet&&sheet.flip,true):null;
  if(!cuts)return [];
  return (cuts.free||[]).map(r=>({x:cutRound(r.x0),y:cutRound(r.y0),w:cutRound(r.x1-r.x0),h:cutRound(r.y1-r.y0)}))
   .filter(r=>r.w>1e-6&&r.h>1e-6&&cutOffcutOk(r.w,r.h,params))
@@ -610,10 +665,18 @@ function cutFreeRects(sheet,size,params){
    вертикали» (владелец, 20 сентября 2026). Без клика берётся направление,
    где общая длина резов меньше. */
 function cutCutKey(r){return [r.x0,r.y0,r.x1,r.y1].map(v=>cutRound(v)).join(',');}
-function cutSheetCuts(sheet,size,params,flips){
- const E=1e-6,u=cutUsable(size,params),all=cutTaken(sheet).map(p=>({x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
+const cutCutsCache=new Map();
+function cutSheetCuts(sheet,size,params,flips,usableOnly){
+ /* Рез идёт до физического края листа: Trim/Border входят в отламываемую
+    полосу. Для подсказки полезного остатка отдельно разбираем поле между
+    линиями Trim/Border, чтобы не обещать стоку обрезанную кромку. */
+ const E=1e-6,u=usableOnly?Object.assign(cutUsable(size,params),{x0:cutEffectiveTrimY(sheet,params)}):{x0:0,y0:0,x1:size.w,y1:size.h},md=usableOnly?0:+params.minDist||0,
+  all=cutTaken(sheet).map(p=>({x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
  const set=new Set(Array.isArray(flips)?flips:[]),memo=new Map();
+ const cacheKey=[cutCutKey(u),md,+params.trimY||0,[...set].sort().join(';'),all.map(p=>[p.x,p.y,p.w,p.h].join(',')).sort().join(';')].join('|');
+ if(cutCutsCache.has(cacheKey))return cutCutsCache.get(cacheKey);
  const inside=r=>all.filter(p=>p.x>=r.x0-E&&p.y>=r.y0-E&&p.x+p.w<=r.x1+E&&p.y+p.h<=r.y1+E);
+ const better=(a,b)=>!b||a.stuck.length<b.stuck.length||a.stuck.length===b.stuck.length&&(a.lines.length<b.lines.length||a.lines.length===b.lines.length&&a.cost<b.cost-E);
  /* Где можно резать: по краю стекла, и ни одно стекло рез не пересекает. */
  const spots=(r,axis,list)=>{
   const lo=axis==='x'?r.x0:r.y0,hi=axis==='x'?r.x1:r.y1,seen=new Set(),out=[];
@@ -622,7 +685,7 @@ function cutSheetCuts(sheet,size,params,flips){
   return out.filter(c=>!list.some(p=>{const a=axis==='x'?p.x:p.y,b=axis==='x'?p.x+p.w:p.y+p.h;return a<c-E&&b>c+E;})).sort((a,b)=>a-b);
  };
  const walk=(r,level)=>{
-  const k=cutCutKey(r);if(memo.has(k))return memo.get(k);
+  const k=cutCutKey(r),mk=k+'|'+level;if(memo.has(mk))return memo.get(mk);
   const list=inside(r),one=list.length===1&&Math.abs(list[0].x-r.x0)<E&&Math.abs(list[0].y-r.y0)<E&&Math.abs(list[0].x+list[0].w-r.x1)<E&&Math.abs(list[0].y+list[0].h-r.y1)<E;
   let res={cost:0,lines:[],stuck:[],free:list.length?[]:[r]};
   if(list.length&&!one){
@@ -639,12 +702,23 @@ function cutSheetCuts(sheet,size,params,flips){
    };
    const go=axis=>{
     const cs=spots(r,axis,list);if(!cs.length)return null;
-    const c=edge(axis).at!==null?edge(axis).at:cs[0];
-    const a=axis==='x'?{x0:r.x0,y0:r.y0,x1:c,y1:r.y1}:{x0:r.x0,y0:r.y0,x1:r.x1,y1:c};
-    const b=axis==='x'?{x0:c,y0:r.y0,x1:r.x1,y1:r.y1}:{x0:r.x0,y0:c,x1:r.x1,y1:r.y1};
-    const pa=walk(a,level+1),pb=walk(b,level+1),len=axis==='x'?r.y1-r.y0:r.x1-r.x0;
-    return {cost:len+pa.cost+pb.cost,stuck:pa.stuck.concat(pb.stuck),free:pa.free.concat(pb.free),
-     lines:[{axis,at:cutRound(c),x0:r.x0,y0:r.y0,x1:r.x1,y1:r.y1,level,key:k}].concat(pa.lines,pb.lines)};
+    const near=edge(axis).at,ordered=near===null?cs:[near].concat(cs.filter(c=>Math.abs(c-near)>E));
+    let chosen=null;
+    for(const c of ordered){
+     const a=axis==='x'?{x0:r.x0,y0:r.y0,x1:c,y1:r.y1}:{x0:r.x0,y0:r.y0,x1:r.x1,y1:c};
+     const b=axis==='x'?{x0:c,y0:r.y0,x1:r.x1,y1:r.y1}:{x0:r.x0,y0:c,x1:r.x1,y1:r.y1};
+     const part=q=>{
+      if(inside(q).length)return walk(q,level+1);
+      const width=axis==='x'?q.x1-q.x0:q.y1-q.y0;
+      return {cost:0,lines:[],free:[q],stuck:width>0&&width<md-E?[Object.assign({reason:'minDist',width:cutRound(width),required:md},q)]:[]};
+     };
+     const pa=part(a),pb=part(b),len=axis==='x'?r.y1-r.y0:r.x1-r.x0;
+     const candidate={cost:len+pa.cost+pb.cost,stuck:pa.stuck.concat(pb.stuck),free:pa.free.concat(pb.free),
+      lines:[{axis,at:cutRound(c),x0:r.x0,y0:r.y0,x1:r.x1,y1:r.y1,level,key:k}].concat(pa.lines,pb.lines)};
+     if(better(candidate,chosen))chosen=candidate;
+     if(chosen&&!chosen.stuck.length)break;
+    }
+    return chosen;
    };
    const A=go('x'),B=go('y');
    if(!A&&!B)res={cost:0,lines:[],stuck:[r],free:[]};
@@ -652,19 +726,78 @@ function cutSheetCuts(sheet,size,params,flips){
     /* Целая полоса отхода важнее короткого реза: где отрезается больше
        отхода одним куском, туда и первый рез. Поровну — по длине резов. */
     const ea=edge('x').area,eb=edge('y').area;
-    const win=ea>eb+E?A||B:eb>ea+E?B||A:!A?B:!B?A:A.cost<=B.cost+E?A:B;
+    const win=!A?B:!B?A:A.stuck.length!==B.stuck.length?(A.stuck.length<B.stuck.length?A:B):ea>eb+E?A:eb>ea+E?B:A.cost<=B.cost+E?A:B;
     const best=win,other=A&&B?(best===A?B:A):null;
     res=set.has(k)&&other?other:best;
    }
   }
-  memo.set(k,res);return res;
+  memo.set(mk,res);return res;
  };
  const res=walk({x0:u.x0,y0:u.y0,x1:u.x1,y1:u.y1},1);
- return {lines:res.lines,stuck:res.stuck,free:res.free,ok:!res.stuck.length};
+ const stuck=res.stuck.concat(usableOnly?[]:cutTrimBandSlivers(sheet,params));
+ const result={lines:res.lines,stuck,free:res.free,ok:!stuck.length,breaks:res.lines.length};
+ if(cutCutsCache.size>=1024)cutCutsCache.delete(cutCutsCache.keys().next().value);
+ cutCutsCache.set(cacheKey,result);
+ return result;
+}
+/* Сдвиг блока к краю устраняет узкий остаток, не меняя взаимное
+   расположение деталей и не добавляя новый лист. */
+function cutHealEdgeSlivers(sheet,size,params){
+ if(sheet.locked||(sheet.stock||[]).length||!sheet.pieces.length)return false;
+ const E=1e-6,u=cutUsable(size,params),md=+params.minDist||0,pieces=sheet.pieces;
+ const fits=()=>pieces.every(p=>p.x>=u.x0-E&&p.y>=u.y0-E&&p.x+p.w<=u.x1+E&&p.y+p.h<=u.y1+E)&&
+  pieces.every((p,i)=>pieces.slice(i+1).every(q=>p.x>=q.x+q.w-E||q.x>=p.x+p.w-E||p.y>=q.y+q.h-E||q.y>=p.y+p.h-E));
+ let changed=cutAlignTrimY(sheet,size,params);
+ for(let pass=0;pass<6;pass++){
+  const bad=cutSheetCuts(sheet,size,params).stuck.length;if(!bad)break;
+  let healed=false;
+  for(const r of cutSheetCuts(sheet,size,params).stuck){
+   if(r.reason!=='minDist')continue;
+   const edges=[['left',Math.abs(r.x0)<E,r.x1-r.x0],['right',Math.abs(r.x1-size.w)<E,r.x1-r.x0],
+    ['bottom',Math.abs(r.y0)<E,r.y1-r.y0],['top',Math.abs(r.y1-size.h)<E,r.y1-r.y0]];
+   for(const [edge,touches,width] of edges){
+    if(!touches||Math.abs(width-r.width)>E)continue;
+    const horizontal=edge==='left'||edge==='right';
+    const projected=pieces.filter(p=>horizontal?p.y<r.y1-E&&p.y+p.h>r.y0+E:p.x<r.x1-E&&p.x+p.w>r.x0+E);
+    const contact=projected.filter(p=>edge==='left'?Math.abs(p.x-r.x1)<E:edge==='right'?Math.abs(p.x+p.w-r.x0)<E:
+     edge==='bottom'?Math.abs(p.y-r.y1)<E:Math.abs(p.y+p.h-r.y0)<E);
+    if(!contact.length)continue;
+    const limit=edge==='right'?Math.min(...contact.map(p=>p.x)):edge==='left'?Math.max(...contact.map(p=>p.x+p.w)):
+     edge==='top'?Math.min(...contact.map(p=>p.y)):Math.max(...contact.map(p=>p.y+p.h));
+    const slab=pieces.filter(p=>edge==='right'?p.x>=limit-E:edge==='left'?p.x+p.w<=limit+E:
+     edge==='top'?p.y>=limit-E:p.y+p.h<=limit+E);
+    const toward=(edge==='left'||edge==='bottom')?-width:width;
+    /* Сперва сдвигаем весь лист: один увеличенный Trim Y для всех рядов
+       лучше, чем разный край у верхней и нижней полосы. Если весь лист не
+       влезает, остаются прежние локальные варианты. */
+    for(const move of [pieces,projected,slab]){
+     if(!move.length||move.some(p=>p.locked))continue;
+     const original=move.map(p=>horizontal?p.x:p.y);
+     for(const d of [toward,-Math.sign(toward)*(md-width)]){
+      if(Math.abs(d)<E)continue;
+      move.forEach((p,i)=>{if(horizontal)p.x=cutRound(original[i]+d);else p.y=cutRound(original[i]+d);});
+      const next=fits()?cutSheetCuts(sheet,size,params):null;
+      if(next&&next.stuck.length<bad){changed=healed=true;break;}
+      move.forEach((p,i)=>{if(horizontal)p.x=original[i];else p.y=original[i];});
+     }
+     if(healed)break;
+    }
+    if(healed)break;
+   }
+   if(healed)break;
+  }
+  if(!healed)break;
+ }
+ return changed;
 }
 function cutSheetCutsFor(group,sheet,flips){
  const size=sheet.size||group.sheet;
  return cutSheetCuts(sheet,size,cutGroupParams(group,size),flips===undefined?sheet.flip:flips);
+}
+function cutCutIssue(cuts){
+ const thin=(cuts.stuck||[]).find(r=>r.reason==='minDist');
+ if(thin)return 'A '+frac16(thin.width)+'″ strip is narrower than Min distance '+frac16(thin.required)+'″ and cannot be broken off safely.';
+ return 'No straight-through cutting sequence separates every glass on this sheet.';
 }
 /* Перевернуть рез кликом по линии: направление другое, если оно возможно. */
 function cutFlipCut(number,glass,sheetNo,key){
@@ -688,8 +821,22 @@ function cutSheetRepack(number,glass,sheetNo){
  const src=cutPieces(glassBatchFind(number),plan.settings||{});
  const list=s.pieces.map(p=>src.find(x=>x.piece===p.piece)).filter(Boolean);
  if(list.length!==s.pieces.length)return {error:'This glass is not in the cut any more.'};
- const size=s.size||g.sheet,params=cutGroupParams(g,size),best=cutFillBest(list,cutUsable(size,params),params,false,0);
- if(!best||best.rest.length)return {error:'These pieces do not fit in straight passes.'};
+ const size=s.size||g.sheet,params=cutGroupParams(g,size),u=cutUsable(size,params),cache=new Map();
+ let best=null,breaks=Infinity;
+ /* Try the current geometry first: a small edge shift may repair it without
+    moving any glass to a different sheet. Work on a clone until validated. */
+ const current={pieces:s.pieces.map(p=>Object.assign({},p)),stock:[]};
+ if(cutHealEdgeSlivers(current,size,params)&&cutSheetCuts(current,size,params).ok){
+  best={placed:current.pieces};breaks=cutSheetCuts(current,size,params).breaks;
+ }
+ const tries=CUT_FILL_VARIANTS.concat(cutFillRandom(list,0x5eed),cutFillRandom(list,0x5eef));
+ for(const v of tries){
+  const trial=cutFillSheet(list,u,params,v,cache);if(trial.rest.length)continue;
+  const candidate={pieces:trial.placed,stock:[]};cutHealEdgeSlivers(candidate,size,params);
+  const cuts=cutSheetCuts(candidate,size,params);
+  if(cuts.ok&&cuts.breaks<breaks){best={placed:candidate.pieces};breaks=cuts.breaks;}
+ }
+ if(!best)return {error:cutCutIssue(cutSheetCutsFor(g,s))+' Re-pack cannot keep all these pieces on this same sheet; move one to another sheet.'};
  s.pieces=best.placed.map(q=>Object.assign(q,{x:cutRound(q.x),y:cutRound(q.y)}));
  delete s.flip;
  cutPlanRefresh(plan);touch();return {ok:true};
@@ -704,6 +851,40 @@ function cutSheetNumbers(sheet,size,params){
  return sheet;
 }
 function cutGroupNumbers(group,paramsFor){group.sheets.forEach(s=>cutSheetNumbers(s,s.size||group.sheet,paramsFor(s.size||group.sheet)));return group;}
+/* Очередь резки: листы одного физического размера идут цельным блоком.
+   Меняются только номера/порядок листов, геометрия и состав не трогаются. */
+function cutSizeId(size){return cutRound(size.w)+'x'+cutRound(size.h);}
+function cutSizeOrder(group){
+ const sizes=new Map();group.sheets.forEach(s=>{const z=s.size||group.sheet;sizes.set(cutSizeId(z),z);});
+ const known=[...new Set((Array.isArray(group.sizeOrder)?group.sizeOrder:[]).filter(k=>typeof k==='string'&&sizes.has(k)))];
+ const rest=[...sizes.keys()].filter(k=>!known.includes(k)).sort((a,b)=>{
+  const A=sizes.get(a),B=sizes.get(b);return A.w*A.h-B.w*B.h||A.w-B.w||A.h-B.h;
+ });
+ return known.concat(rest);
+}
+function cutArrangeSheets(group,order){
+ const keys=order||cutSizeOrder(group),rank=new Map(keys.map((k,i)=>[k,i]));
+ group.sizeOrder=keys.slice();
+ group.sheets=group.sheets.map((s,i)=>({s,i})).sort((a,b)=>
+  (rank.get(cutSizeId(a.s.size||group.sheet))??999)-(rank.get(cutSizeId(b.s.size||group.sheet))??999)||a.i-b.i).map(x=>x.s);
+ group.sheets.forEach((s,i)=>{s.no=i+1;});
+ return group;
+}
+function cutSheetSizeGroup(number,glass){
+ const plan=cutPlanFor(number),group=plan&&plan.groups.find(g=>g.glass===glass);
+ if(!group)return {error:'No cutting layout for this glass.'};
+ if(group.sheets.some(s=>s.locked||(s.stock||[]).length))return {error:'Unlock sheets and release booked stock before changing the cutting order.'};
+ cutArrangeSheets(group);cutPlanRefresh(plan);touch();return {ok:true};
+}
+function cutSheetSizeMove(number,glass,key,direction){
+ const plan=cutPlanFor(number),group=plan&&plan.groups.find(g=>g.glass===glass);
+ if(!group)return {error:'No cutting layout for this glass.'};
+ if(group.sheets.some(s=>s.locked||(s.stock||[]).length))return {error:'Unlock sheets and release booked stock before changing the cutting order.'};
+ const order=cutSizeOrder(group),at=order.indexOf(key),to=at+direction;
+ if(at<0||to<0||to>=order.length)return {error:'This sheet size cannot move farther.'};
+ [order[at],order[to]]=[order[to],order[at]];
+ cutArrangeSheets(group,order);cutPlanRefresh(plan);touch();return {ok:true};
+}
 function cutTotals(groups){
  const t={pieces:0,placed:0,sheets:0,used:0,gross:0,net:0,keep:0,area:0};
  groups.forEach(g=>g.sheets.forEach(s=>{
@@ -719,9 +900,9 @@ function cutTotals(groups){
 /* Потери по заказу: NetScrap делится по площади деталей заказа. По этой
    цифре владелец считает цену большого заказа. */
 function cutByOrder(plan,pieces){
- const by=new Map();
+ const by=new Map(),source=new Map(pieces.map(p=>[p.piece,p]));
  plan.groups.forEach(g=>g.sheets.forEach(s=>s.pieces.forEach(p=>{
-  const src=pieces.find(x=>x.piece===p.piece);if(!src)return;
+  const src=source.get(p.piece);if(!src)return;
   const row=by.get(src.order)||{order:src.order,customer:src.customer,pieces:0,used:0};
   row.pieces++;row.used+=cutArea(p.w,p.h);by.set(src.order,row);
  })));
@@ -800,6 +981,48 @@ function cutTightenGroup(g,paramsFor,src){
  }
  return gone;
 }
+/* Финальный перенос редких деталей между листами: пробуем оба направления
+   и удаляем лист только после проверки всех новых сквозных резов. */
+function cutConsolidateSheets(group,paramsFor,source){
+ if(group.sheets.length<2)return 0;
+ const area=s=>s.pieces.reduce((n,p)=>n+p.w*p.h,0),eligible=s=>!s.locked&&!(s.stock||[]).length&&!/^S-/.test((s.size||group.sheet).key||'')&&!s.pieces.some(p=>p.locked);
+ let removed=0;
+ for(let round=0;round<2;round++){
+  const donors=group.sheets.map((s,i)=>({i,s,area:area(s)})).filter(x=>eligible(x.s)&&x.s.pieces.length&&x.s.pieces.length<=18)
+   .sort((a,b)=>a.area-b.area||b.i-a.i).slice(0,15);
+  let success=false;
+  for(const choice of donors){
+   const trial=group.sheets.map(s=>Object.assign({},s,{pieces:s.pieces.map(p=>Object.assign({},p))})),donor=trial[choice.i];
+   let allMoved=true;
+   for(const p of donor.pieces.slice().sort((a,b)=>b.w*b.h-a.w*a.h)){
+    const src=source.get(p.piece);if(!src){allMoved=false;break;}
+    const targets=trial.map((s,i)=>({s,i,free:(s.size||group.sheet).w*(s.size||group.sheet).h-area(s)}))
+     .filter(x=>x.i!==choice.i&&eligible(x.s)&&x.free>=p.w*p.h-1e-6)
+     .sort((a,b)=>b.free-a.free||a.i-b.i).slice(0,60);
+    let moved=false;
+    for(const {s} of targets){
+     const size=s.size||group.sheet,params=paramsFor(size),list=s.pieces.map(q=>source.get(q.piece));
+     if(list.some(q=>!q))continue;
+     list.push(src);
+     const cache=new Map();
+     for(const v of CUT_FILL_VARIANTS){
+      const fit=cutFillSheet(list,cutUsable(size,params),params,v,cache);
+      if(fit.rest.length)continue;
+      const next={pieces:fit.placed,stock:[]};cutHealEdgeSlivers(next,size,params);
+      if(!cutSheetCuts(next,size,params).ok)continue;
+      s.pieces=next.pieces;delete s.flip;donor.pieces=donor.pieces.filter(q=>q.piece!==p.piece);moved=true;break;
+     }
+     if(moved)break;
+    }
+    if(!moved){allMoved=false;break;}
+   }
+   if(!allMoved||donor.pieces.length)continue;
+   trial.splice(choice.i,1);group.sheets=trial;group.sheets.forEach((s,i)=>{s.no=i+1;});removed++;success=true;break;
+  }
+  if(!success)break;
+ }
+ return removed;
+}
 
 /* ------------------------------ Прогон ------------------------------ */
 function cutPlanFor(number){return (DB.cutPlan||[]).find(p=>p&&p.batch===number)||null;}
@@ -812,7 +1035,7 @@ function cutSettingsOf(number){const p=cutPlanFor(number);return p&&p.settings&&
    В базу пишется только в самом конце: прерванный Build ничего не меняет.
    cutPlanRun — то же разом. */
 const CUT_FILL_WEIGHT=40;
-function* cutPlanSteps(number,probe){
+function* cutPlanSteps(number,probe,quick){
  const b=glassBatchFind(number);if(!b)return {error:'Batch not found.'};
  const settings=cutSettingsOf(number),prev=cutPlanFor(number);
  const all=cutPieces(b,settings),live=all.filter(p=>!p.off);
@@ -844,13 +1067,13 @@ function* cutPlanSteps(number,probe){
   strips(stock,'');
   /* Проходы «лист за листом» с разными зёрнами случайности (результат
      повторяемый — зёрна постоянные); на больших батчах проходов меньше. */
-  (rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill'+seed,w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed)}));
+  (quick?[0]:rest.length<=150?[1,2,3]:rest.length<=300?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill'+seed,w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,false,quick?CUT_FILL_PREVIEW:null)}));
   columns(stock,'');
   /* Несколько размеров — ещё проход «каждый лист своего размера». */
-  if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true)}));
-  if(rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
+  if(stock.filter(r=>!r.base).length>1||stock.some(r=>r.base))(quick?[0]:rest.length<=150?[1,2]:[1]).forEach(seed=>jobs.push({k:'fill-mix'+seed,w:CUT_FILL_WEIGHT*stock.length,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,false,seed,true,quick?CUT_FILL_PREVIEW:null)}));
+  if(!quick&&rest.some(p=>p.priority>0))jobs.push({k:'fill-urgent',w:CUT_FILL_WEIGHT,steps:()=>cutPackFillSteps(rest,stock,paramsFor,keptSheets,true)});
   orders.slice(1).forEach(st=>{const tag='@'+st[0].key;strips(st,tag);columns(st,tag);});
-  sets.push({glass,mm,pick,stock,paramsFor,rest,jobs,src:new Map(rest.map(p=>[p.piece,p])),miss:new Set()});
+  sets.push({glass,mm,pick,stock,paramsFor,rest,jobs,src:new Map(rest.map(p=>[p.piece,p])),miss:new Set(),sizeOrder:old&&old.sizeOrder});
  });
  const total=sets.reduce((a,x)=>a+x.jobs.reduce((n,j)=>n+j.w,0),0)||1;
  let done=0;const groups=[];
@@ -862,10 +1085,11 @@ function* cutPlanSteps(number,probe){
    else packed=job.run();
    done+=job.w;
    if(packed){
-    cutRightSize(packed,set.stock,set.paramsFor,set.src,set.miss);
+    if(!quick)cutRightSize(packed,set.stock,set.paramsFor,set.src,set.miss);
     const first=packed.sheets[0]&&packed.sheets[0].size||set.stock[0];
     /* pick — правки прогона на экране: по ним же проверяются ручные правки и рисуется лист. */
     const g={glass:set.glass,mm:set.mm,sheet:first,stock:set.stock,pick:set.pick,params:set.paramsFor(first),sheets:packed.sheets,unplaced:packed.unplaced};
+    if(!quick)g.sheets.forEach(s=>cutHealEdgeSlivers(s,s.size||g.sheet,set.paramsFor(s.size||g.sheet)));
     cutTidyGroup(g,set.paramsFor);cutGroupNumbers(g,set.paramsFor);
     const score=cutScore(g,prio);
     if(!win||cutScoreLess(score,win.score))win={g,score,strategy:job.k};
@@ -873,7 +1097,19 @@ function* cutPlanSteps(number,probe){
    yield done/total;
   }
   win.g.strategy=win.strategy;
-  if(cutTightenGroup(win.g,set.paramsFor,set.src)){cutTidyGroup(win.g,set.paramsFor);cutGroupNumbers(win.g,set.paramsFor);}
+  if(!quick){
+   const before=win.g.sheets.map(cutCloneSheet),safe=cutGroupCutQuality(win.g).bad===0;
+   if(cutTightenGroup(win.g,set.paramsFor,set.src)){
+    cutTidyGroup(win.g,set.paramsFor);
+    win.g.sheets.forEach(s=>cutHealEdgeSlivers(s,s.size||win.g.sheet,set.paramsFor(s.size||win.g.sheet)));
+    if(safe&&cutGroupCutQuality(win.g).bad)win.g.sheets=before;
+    cutGroupNumbers(win.g,set.paramsFor);
+   }
+   if(cutGroupCutQuality(win.g).bad===0&&cutConsolidateSheets(win.g,set.paramsFor,set.src))cutGroupNumbers(win.g,set.paramsFor);
+  }
+  if(!win.g.sheets.some(s=>s.locked||(s.stock||[]).length)){
+   win.g.sizeOrder=set.sizeOrder||[];cutArrangeSheets(win.g);
+  }
   groups.push(win.g);
   yield done/total;
  }
@@ -926,14 +1162,14 @@ function* cutWhatIfSteps(number){
  const cases=cutWhatIfCases(plan);if(!cases.length)return {error:'Nothing to try: edges are already 0 and every sheet size is on.'};
  const now={label:'As built',sheets:plan.stats.sheets,area:plan.stats.area,used:plan.stats.usedPct,delta:0,now:true};
  const rows=[now];
- const queue=cases.slice();let done=0,total=cases.length;
+ const queue=cases.slice(),quick=plan.stats.total>300;let done=0,total=cases.length;
  while(queue.length){
-  const c=queue.shift(),it=cutPlanSteps(number,c.pick);let r=it.next();
+  const c=queue.shift(),it=cutPlanSteps(number,c.pick,quick);let r=it.next();
   while(!r.done){yield (done+r.value)/total;r=it.next();}
   done++;
   const out=r.value;
   if(out&&out.plan){
-   const row={key:c.key,label:c.label,sheets:out.plan.stats.sheets,area:out.plan.stats.area,used:out.plan.stats.usedPct,
+   const row={key:c.key,label:c.label,sheets:out.plan.stats.sheets,area:out.plan.stats.area,used:out.plan.stats.usedPct,estimated:quick,
     delta:cutFt2(out.plan.stats.area-now.area),sub:!!c.sub};
    rows.push(row);
    if(c.parts&&row.delta<-1e-6){c.parts.forEach(p=>{queue.push(Object.assign({sub:true},p));total++;});}
@@ -1013,9 +1249,15 @@ function cutPlanRedraft(number){
  DB.cutPlan=(DB.cutPlan||[]).filter(p=>p&&p.batch!==number).concat([plan]);
  touch();return {ok:true,plan};
 }
-/* Какой вариант лучше: сначала разложить все заказы, потом меньше площади
-   листов (стекла потрачено меньше), потом меньше листов. Кусок на сток
-   решает лишь при полном равенстве — это бонус, а не цель. */
+/* Вариант с неразламываемой полосой или застрявшим резом не должен побеждать
+   пригодную для стола укладку даже при меньшем числе листов. */
+function cutGroupCutQuality(g){
+ let bad=0,breaks=0;
+ g.sheets.forEach(s=>{const c=cutSheetCuts(s,s.size||g.sheet,cutGroupParams(g,s.size||g.sheet),s.flip);if(!c.ok)bad++;breaks+=c.breaks;});
+ return {bad,breaks};
+}
+/* Цель: все детали и режущаяся схема → минимум листов → минимум отхода →
+   минимум надломов. Срочность и компактность разрешают оставшееся равенство. */
 /* Срочность: срочное стекло (приоритет выше 5) на позднем листе — штраф.
    Срочность идёт после ft² и числа листов: «максимально дать приоритизацию к
    первым листам, но основной задачей является оптимизация под низший
@@ -1026,12 +1268,13 @@ function cutPlanRedraft(number){
    компактный на весь батч» (владелец, 20 сентября 2026). Процент по батчу
    от этого не меняется (он зависит только от числа листов), но самый пустой
    лист можно не резать, а перенести в следующий батч. */
-function cutScore(g,prio){
+function cutScore(g,prio,quality){
+ quality=quality||cutGroupCutQuality(g);
  const area=g.sheets.reduce((a,s)=>{const z=s.size||g.sheet;return a+cutArea(z.w,z.h);},0);
  const offcut=g.sheets.reduce((a,s)=>a+((s.offcuts||[])[0]?cutArea(s.offcuts[0].w,s.offcuts[0].h):0),0);
  const late=prio?g.sheets.reduce((a,s,i)=>a+s.pieces.reduce((b,p)=>b+cutPrioWeight(prio.get(p.piece))*i,0),0):0;
  const fills=g.sheets.filter(s=>!s.locked).map(s=>{const z=s.size||g.sheet;return s.pieces.reduce((a,p)=>a+p.w*p.h,0)/(z.w*z.h);});
- return [(g.unplaced||[]).length,area,g.sheets.length,late,fills.length?Math.min(...fills):0,-offcut];
+ return [(g.unplaced||[]).length,quality.bad,g.sheets.length,area,late,-offcut,quality.breaks,fills.length?Math.min(...fills):0];
 }
 function cutScoreLess(a,b){for(let i=0;i<a.length;i++){if(a[i]<b[i]-1e-9)return true;if(a[i]>b[i]+1e-9)return false;}return false;}
 /* ------------------------------ Остатки в сток ------------------------------
@@ -1125,7 +1368,9 @@ function cutSheetAdd(number,glass,sheetNo){
  const used=g.sheets.filter(x=>cutSheetKey(x.size||g.sheet)===key).length;
  if(row&&row.limit>0&&used>=row.limit)return {error:'No more sheets of this size.'};
  const sheet={no:g.sheets.length+1,size,locked:false,stock:[],pieces:[]};
- g.sheets.push(sheet);cutPlanRefresh(plan);touch();return {ok:true,sheet:sheet.no};
+ const last=g.sheets.findLastIndex(x=>cutSizeId(x.size||g.sheet)===cutSizeId(size));
+ g.sheets.splice(last+1,0,sheet);g.sheets.forEach((x,i)=>{x.no=i+1;});
+ cutPlanRefresh(plan);touch();return {ok:true,sheet:sheet.no};
 }
 /* Куда можно перенести лист: открытые батчи с тем же стеклом, где рез не начат. */
 function cutMoveTargets(number,glass){
@@ -1197,9 +1442,9 @@ function cutPlanRefresh(plan,pieces){
  plan.orders=cutByOrder(plan,pieces);
  return plan;
 }
-function cutPlanStale(number){
+function cutPlanStale(number,pieces){
  const plan=cutPlanFor(number),b=glassBatchFind(number);
- return !!(plan&&b&&plan.stamp!==cutStamp(cutPieces(b,plan.settings||{})));
+ return !!(plan&&b&&plan.stamp!==cutStamp(pieces||cutPieces(b,plan.settings||{})));
 }
 function cutPlanIndex(number){
  const plan=cutPlanFor(number),m=new Map();if(!plan)return m;
@@ -1300,10 +1545,28 @@ function cutCompactSheet(group,sheet){
   if(x<p.x-1e-6)p.x=x;
  });
 }
+/* Ручная правка не должна уничтожать безопасный общий трим. Например,
+   шесть деталей шириной 142 11/16″ на листе 144″ с минимальным Trim Y 1″
+   требуют фактического трима 1 5/16″ для обоих рядов, без отдельной полоски.
+   Сначала пробуем уплотнить, затем вылечить край; если резы всё ещё плохие,
+   возвращаем координаты после правки, но до автоматического уплотнения. */
+function cutManualSettle(group,sheet){
+ if(!sheet||sheet.locked)return true;
+ const before=sheet.pieces.map(p=>[p.x,p.y]),size=sheet.size||group.sheet,params=cutGroupParams(group,size);
+ cutCompactSheet(group,sheet);
+ if(cutSheetCutsFor(group,sheet).ok)return true;
+ cutHealEdgeSlivers(sheet,size,params);
+ if(cutSheetCutsFor(group,sheet).ok)return true;
+ sheet.pieces.forEach((p,i)=>{p.x=before[i][0];p.y=before[i][1];});
+ return cutSheetCutsFor(group,sheet).ok;
+}
 function cutPieceTake(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
  if(at.sheet.locked)return {error:'Sheet is locked.'};
- at.sheet.pieces.splice(at.index,1);cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
+ const original=at.sheet.pieces.map(p=>Object.assign({},p)),wasSafe=cutSheetCutsFor(at.group,at.sheet).ok;
+ at.sheet.pieces.splice(at.index,1);
+ if(!cutManualSettle(at.group,at.sheet)&&wasSafe){at.sheet.pieces=original;return {error:'Taking this glass would leave a sheet that cannot be cut safely.'};}
+ cutPlanRefresh(plan);touch();return {ok:true};
 }
 function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const plan=cutPlanFor(number);if(!plan)return {error:'Optimize first.'};
@@ -1319,10 +1582,12 @@ function cutPiecePlace(number,pieceId,sheetNo,x,y,turn){
  const rot=quarter%2===1,w=rot?src.h:src.w,h=rot?src.w:src.h;
  const box={x:cutRound(+x),y:cutRound(+y),w,h},bad=cutRoom(group,sheet,box,params,pieceId,src);
  if(bad)return {error:bad};
+ const affected=[...new Set([sheet,at&&at.sheet].filter(Boolean))],backups=affected.map(s=>({s,pieces:s.pieces.map(p=>Object.assign({},p)),safe:cutSheetCutsFor(group,s).ok}));
  if(at)at.sheet.pieces.splice(at.index,1);
  sheet.pieces.push({piece:pieceId,shape:!!src.shape,pad:+src.pad||0,x:box.x,y:box.y,w,h,turn:quarter,rot,locked:at?!!at.piece.locked:false});
- if(at&&at.sheet!==sheet)cutCompactSheet(group,at.sheet);
- cutCompactSheet(group,sheet);cutPlanRefresh(plan);touch();return {ok:true};
+ const failed=affected.some(s=>!cutManualSettle(group,s)&&backups.find(b=>b.s===s).safe);
+ if(failed){backups.forEach(b=>{b.s.pieces=b.pieces;});return {error:'This move would leave a sheet that cannot be cut safely.'};}
+ cutPlanRefresh(plan);touch();return {ok:true};
 }
 /* Положить деталь на лист самому: первое свободное место сверху вниз.
    Так работает бросок на вкладку листа — координаты человеку не нужны. */
@@ -1347,6 +1612,7 @@ function cutPieceAuto(number,pieceId,sheetNo){
 function cutPieceRotate(number,pieceId,step){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};
  if(at.sheet.locked)return {error:'Sheet is locked.'};
+ const original=at.sheet.pieces.map(p=>Object.assign({},p)),wasSafe=cutSheetCutsFor(at.group,at.sheet).ok;
  const params=cutGroupParams(at.group,at.sheet.size),p=at.piece;
  const src=cutPieces(glassBatchFind(number),plan.settings||{}).find(x=>x.piece===pieceId)||{};
  const shaped=!!(p.shape||src.shape),now=cutPieceTurn(p),jump=shaped&&+step===2?2:1;
@@ -1364,7 +1630,9 @@ function cutPieceRotate(number,pieceId,step){
  /* В ряду не должно остаться полоски тоньше Min distance — её не сломать. */
  const row=at.sheet.pieces.filter(q=>q!==p&&Math.abs(q.y-box.y)<1e-6).map(q=>q.h).concat([box.h]),top=Math.max(...row);
  if(row.some(h=>!cutSliverOk(top-h,params))){back();return {error:'Leaves a strip thinner than Min dist.'};}
- p.w=box.w;p.h=box.h;p.turn=quarter;p.rot=rot;cutCompactSheet(at.group,at.sheet);cutPlanRefresh(plan);touch();return {ok:true};
+ p.w=box.w;p.h=box.h;p.turn=quarter;p.rot=rot;
+ if(!cutManualSettle(at.group,at.sheet)&&wasSafe){at.sheet.pieces=original;return {error:'Rotation would leave a sheet that cannot be cut safely.'};}
+ cutPlanRefresh(plan);touch();return {ok:true};
 }
 function cutPieceLock(number,pieceId){
  const plan=cutPlanFor(number),at=plan&&cutFind(plan,pieceId);if(!at)return {error:'Piece is not on a sheet.'};

@@ -31,7 +31,7 @@ function cutMachineSnapshot(number){
   if(!size||!(+size.w>0)||!(+size.h>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
-  const params=cutGroupParams(group,size),usable=cutUsable(size,params);
+  const params=cutGroupParams(group,size),usable=cutUsable(size,params),effectiveTrimY=cutEffectiveTrimY(sheet,params);
   if(!(usable.W>0)||!(usable.H>0)){
    errors.push('Sheet '+sheet.no+' has invalid dimensions or margins.');return;
   }
@@ -77,8 +77,9 @@ function cutMachineSnapshot(number){
   }
   sheets.push({glass:group.glass,mm:+group.mm,no:sheet.no,
    size:{w:+size.w,h:+size.h,key:cutSheetKey(size)},
-   margins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
-   usable:{x0:usable.x0,y0:usable.y0,x1:usable.x1,y1:usable.y1},
+   margins:{trimX:params.trimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
+   minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
+   usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
    throughCuts:cut?(cut.lines||[]).map(x=>({x0:x.x0,y0:x.y0,x1:x.x1,y1:x.y1,level:x.level})):[]});
  }));
