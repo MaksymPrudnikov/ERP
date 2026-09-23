@@ -20,8 +20,11 @@
 .cut-page-tools:empty{display:none}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
+.cut-page-problem{font-size:12px;line-height:1.35;color:#b42318;text-align:center}
 .cut-page-sheet-summary{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
 .cut-page-sheet-summary>b{font-size:13px;white-space:nowrap}
+.cut-auto-trim{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:3px 7px;border:1px solid #fedf89;border-radius:999px;background:#fffaeb;color:#93370d;font-size:11px;font-variant-numeric:tabular-nums}
+.cut-auto-trim b{font-size:11px}
 .cut-page-sheet .cut-tiles-sheet{margin-left:2px}
 .cut-page-summary .cut-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;color:#475467}
 .cut-page-summary .cut-icon-btn>span,.cut-strip-step>span{display:flex}
@@ -64,15 +67,17 @@
 .cut-grid{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:16px;margin-top:14px;align-items:stretch}
 .cut-side{position:relative;min-width:0;min-height:420px}
 .cut-side-scroll{position:absolute;inset:0;overflow:auto;border:1px solid #eaecf0;border-radius:12px;background:#fff;padding:0 4px 8px}
+.cut-list-found{padding:2px 8px 6px;font-size:11px;color:#667085}
 .cut-side-scroll .cut-list-head{position:sticky;top:0;z-index:2;margin:0;padding:10px 8px 6px;background:#fff}
 .cut-side-scroll .cut-list thead th{position:sticky;top:30px;z-index:1;background:#f9fafb}
+.cut-list-more{display:block;width:calc(100% - 16px);margin:10px 8px;padding:8px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#175cd3;cursor:pointer}
 .cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
 .cut-list-head:first-child{margin-top:0}
 .cut-list{width:100%}
 .cut-list td,.cut-list th{padding:2px 5px;font-size:11px;line-height:1.3}
 .cut-list td:nth-child(5){max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cut-list tbody tr{cursor:grab}
-.cut-list tbody tr.on td{background:#eef4ff}
+.cut-list tbody tr.on td{background:#dbeafe;color:#075985}
 .cut-list tbody tr.off td{color:#98a2b3}
 .cut-list input[type=number]{width:36px;padding:1px 3px;font-size:11px}
 .cut-list .pill{font-size:10px;padding:1px 6px}
@@ -89,10 +94,25 @@
 .cut-strip button small{font-size:10px;color:#667085;white-space:nowrap}
 .cut-strip button.on{border-color:#1f6f9f;background:#eef4ff;color:#026aa2}
 .cut-strip button.on small{color:#026aa2}
+.cut-strip button small.cut-tab-trim,.cut-strip button.on small.cut-tab-trim{font-weight:700;color:#b54708}
 .cut-strip button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
+.cut-strip .cut-repeat-toggle{min-width:116px;border-color:#84caff;background:#f0f9ff}
+.cut-strip .cut-repeat-toggle b{display:flex;justify-content:space-between;gap:8px;width:100%}
+.cut-strip .cut-repeat-toggle span{color:#026aa2}
 .cut-strip-step{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:0;font-size:14px;line-height:1;border-radius:9px;color:#475467}
 .cut-strip-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
 .cut-strip-count{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
+.cut-size-queue{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:3px 2px 6px;scrollbar-width:thin}
+.cut-size-queue-title{flex:none;font-size:11px;font-weight:700;color:#667085;text-transform:uppercase;letter-spacing:.04em}
+.cut-size-block{display:flex;align-items:center;flex:none;border:1px solid #d0d5dd;border-radius:10px;background:#fff;overflow:hidden}
+.cut-size-block.on{border-color:#1f6f9f;background:#eef4ff}
+.cut-size-jump{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:4px 9px;border:0;background:transparent;color:#344054;white-space:nowrap}
+.cut-size-jump b{font-size:12px;font-variant-numeric:tabular-nums}
+.cut-size-jump small{font-size:10px;color:#667085}
+.cut-size-order-btn{align-self:stretch;width:25px;padding:0;border:0;border-left:1px solid #eaecf0;border-radius:0;background:transparent;color:#475467}
+.cut-size-order-btn:hover:not(:disabled){background:#dbeafe;color:#026aa2}
+.cut-size-order-btn:disabled{opacity:.35}
+.cut-size-group{flex:none;padding:5px 9px;font-size:11px;white-space:nowrap}
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
 .cut-sheet-head .sp{flex:1}
 .cut-sheet-head .mut{font-size:12px}
@@ -124,7 +144,7 @@
 .cut-svg .cut-g2{stop-color:var(--cut-glass-b)}
 .cut-svg .cut-g3{stop-color:var(--cut-glass-c)}
 .cut-glass{fill:url(#cutGlassSheen);stroke:var(--cut-glass-line);stroke-width:1.1}
-.cut-pc.sel .cut-glass{fill:var(--cut-glass-sel);stroke:var(--cut-sel-line);stroke-width:2}
+.cut-pc.sel .cut-glass{fill:var(--cut-glass-sel);stroke:var(--cut-sel-line);stroke-width:3}
 .cut-pc.cut-hl .cut-glass{stroke:var(--cut-sel-line);stroke-width:2}
 .cut-glass[data-cut-out]{fill:var(--cut-bad-fill);stroke:var(--cut-bad);stroke-width:2}
 .cut-off{fill:var(--cut-off);stroke:var(--cut-off-line);stroke-width:1.2}
@@ -135,6 +155,7 @@
 .cut-cut1 .cut-cut-line{stroke-width:1.4}
 .cut-cut3 .cut-cut-line{stroke-width:.8}
 .cut-cut-hit{stroke:transparent;stroke-width:9;fill:none}
+.cut-cut-hit-inner{stroke-width:5}
 .cut-svg [data-cut-line]{cursor:pointer}
 .cut-svg [data-cut-line]:hover .cut-cut-line{stroke:var(--cut-sel-line);stroke-width:2}
 .cut-stuck{fill:none;stroke:var(--cut-bad);stroke-width:2}

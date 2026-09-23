@@ -1,5 +1,11 @@
 # GLASS ERP — Cutting Geometry Handoff
 
+> **Исторический документ (27 августа 2026).** Не является действующей
+> спецификацией раскроя или экспорта. Для текущих правил Min distance, Trim,
+> Shape и станочных файлов см. верхние разделы
+> [`GLASS_ERP_HANDOFF.md`](GLASS_ERP_HANDOFF.md) и
+> [`MACHINE_EXPORT_STATUS.md`](MACHINE_EXPORT_STATUS.md).
+
 **Date:** 2026-08-27
 **Replaces:** `EFFECTIVE_CUTTING_HANDOFF_2026-08-26.md` (see §10 for what changed and why)
 **Purpose:** production context for continuing work in a new ChatGPT/Codex session.
@@ -316,5 +322,9 @@ Verify the real repository state before analysing anything. Do not assume a hist
 ---
 
 ## 14. Start message for a new session
+
+> **Архивный пример, не использовать как стартовый запрос.** Он отражает
+> ограничения августа и противоречит нынешним решениям владельца. Актуальный
+> вход указан в `КАРТА-ПРОЕКТА.md` и хендоффе v5.74.
 
 > Use `CUTTING_HANDOFF_2026-08-27.md` as the current production context for GLASS ERP. Verify the actual repository state first. The cutting file already generates correctly — the edge allowance, driven by edge service type and thickness, is applied properly and must not be rewritten. There are exactly two defects: cutouts and notches are taken into account in the cutting contour when they must never be, and there is no way to set a Safety Border. The model is deliberately simple: the cutting contour is the finished shape plus the edge-service allowance applied perpendicular to each side, and nothing else. Notches, holes and cutouts are never in the cutting file because they are machined after edgework. Safety Border is clearance between parts during cutting and breakout — 1" for 4–8 mm glass, 1 1/2" for 8–15 mm, applied to angled and curved edges only, against both neighbouring parts and the sheet edge — and it is a nesting parameter, never part geometry, though the sheet area it consumes is billed to the customer. Geometry is authored only in the Shape; the cutting screen is for review and border adjustment, not a second editor. Audit the current Effective Production / cutting-shape implementation, report where it conflicts with this model, and propose the smallest safe data-contract and UI changes plus regression tests. Do not build Maver/Dasai output yet.
