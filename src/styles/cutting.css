@@ -25,6 +25,7 @@
 .cut-trial-intro{display:flex;align-items:center;gap:8px;flex:1 1 100%;flex-wrap:wrap}
 .cut-trial-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cut-trial-target b{min-width:42px}
+.cut-trial-error{flex:1 1 100%;padding:7px 9px;border:1px solid #fda29b;border-radius:6px;background:#fef3f2;color:#b42318;line-height:1.35}
 .cut-trial-panel [data-cut-trial-result]{flex:1 1 100%}
 .cut-trial-panel [data-cut-trial-result]:empty{display:none}
 .cut-trial-panel button{background:#fff;border-color:#fdba74;color:#9a3412}
