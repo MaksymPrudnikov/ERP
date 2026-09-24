@@ -144,12 +144,12 @@ function cutUiTrialResult(message){
  const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
  const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
 }
-/* Имя стола в конце папки: пары файлов Maver и Disai одного листа иначе
-   ложатся в папки с одинаковым именем (владелец, 24.09.2026: «папки»). */
-function cutUiTrialFolderName(batch,glass,machine){
+/* Имя стола в конце папки (владелец, 24.09.2026: «папки»). Disai — папка
+   проекта `.prjx` с тем же именем, что у файлов внутри. */
+function cutUiTrialFolderName(p,machine){
+ if(machine==='disai')return cutTrialDisaiBase(p)+'.prjx';
  const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
- const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
- return safe(batch)+'_'+safe(glass)+'_'+date+'_'+(machine==='disai'?'DISAI':'MAVER');
+ return safe(p.batch)+'_'+safe(p.sheet.glass)+'_'+cutTrialDate()+'_MAVER';
 }
 function cutUiTrialExport(machine,kind){
  const prepared=cutUiTrialFiles(machine);
@@ -162,14 +162,14 @@ function cutUiTrialExport(machine,kind){
   const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=file.name;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(note?' '+note:''));
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(machine==='disai'?' Put both in a folder named '+cutUiTrialFolderName(p,'disai')+'.':'')+(note?' '+note:''));
  }catch(e){cutUiTrialFail(machine,'Trial file could not be created: '+(e&&e.message||'unknown error'));}
 }
 async function cutUiTrialFolder(machine){
  if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
  const prepared=cutUiTrialFiles(machine);
  if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
- const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass,machine);
+ const {p,files}=prepared,folderName=cutUiTrialFolderName(p,machine);
  try{
   const root=await window.showDirectoryPicker({mode:'readwrite'});
   if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;

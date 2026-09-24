@@ -10,10 +10,27 @@ function cutTrial3(n){return Number(n).toFixed(3);}
 function cutTrial2(n){return Number(n).toFixed(2);}
 function cutTrialText(v){return String(v==null?'':v).replace(/[\r\n=\[\]{}]/g,' ').slice(0,80);}
 function cutTrialNameToken(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';}
-function cutTrialDisaiBase(program){return 'TRIAL-'+cutTrialNameToken(program.batch)+'-'+cutTrialNameToken(program.sheet.glass)+'-S'+program.sheet.no;}
+function cutTrialDate(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
+/* Disai открывает проект: папку `<имя>.prjx`, внутри `<имя>.sum` и
+   `<имя>-001.dst`. Имя — «что ввёл оператор» через дефисы, затем `_` и код
+   стекла из GID без пробелов: `5MMCLEAR#1-24-SEPT-2026_5CL`,
+   `C-16333_6CL-LOWER-272` при GID `6CL -LOWE R -272` (образцы и папки стола
+   владельца, 24.09.2026; наша папка `…_DISAI` без кода стекла — «wrong file»).
+   Одна пробная папка — один лист, поэтому номер листа в имени. */
+function cutTrialDisaiBase(program){
+ const d=new Date(),mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
+ const part=v=>String(v==null?'':v).replace(/[^A-Za-z0-9#-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';
+ const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
+ return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
+}
+/* Disai: в 13 проектах стола владельца (24.09.2026) 4CL/5CL/6CL/6LOWE —
+   4.000/5.000/6.000, а 3CL, 6GREY и ламинат — 76.200/152.400, то есть толщина
+   части стёкол в библиотеке Perfect Cut введена в дюймах. Пишем миллиметры,
+   как у 6CL. Maver: 152 — из единственного 6-мм образца, стол его читает. */
 function cutTrialThickness(mm,machine){
  if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
- if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
+ if(Math.abs(mm-5)<1e-6)return machine==='disai'?'5.000':null;
+ if(Math.abs(mm-6)<1e-6)return machine==='disai'?'6.000':'152';
  if(Math.abs(mm-10)<1e-6)return machine==='disai'?'10.000':'10';
  return null;
 }
@@ -193,9 +210,9 @@ function cutTrialDisai(program){
    'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
    'CLASSIFY=1','CTIMES=1');
  });
- out.push('');
+ out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
-  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (7-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();
@@ -203,6 +220,6 @@ function cutTrialDisaiSum(program){
   '[PRJXINFO]','QUANTITY=1','DIMENX=1','PATTERNX=1','',
   '[DIMEN1]','WIDTH='+cutTrial3(cutTrialMm(s.size.w)),
   'HEIGHT='+cutTrial3(cutTrialMm(s.size.h)),'GTHICKNESS='+program.thickness,
-  'GCLR=','QNTY=1','OTHERS=',''];
+  'GCLR=','QNTY=1','OTHERS=','',''];
  return {name:cutTrialDisaiBase(program)+'.sum',data:out.join('\r\n'),mime:'text/plain'};
 }
