@@ -234,5 +234,5 @@ function cutTrialDisaiScheme(sheet,depth){
  const same=mine.length===theirs.length&&mine.every((c,i)=>{const d=theirs[i];return c.axis===d.axis&&[c.at-d.at,c.a-d.a,c.b-d.b].every(x=>Math.abs(x)<=2);});
  const breaks=cutDisaiBreakLines(mine);
  if(breaks.error)return breaks;
- return {scheme,index,breaks:breaks.lines,sameAsScreen:same&&!changed};
+ return {scheme,index,breaks:breaks.lines,cuts:mine,sameAsScreen:same&&!changed};
 }
