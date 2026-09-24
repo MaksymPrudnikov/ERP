@@ -31,7 +31,7 @@ function cutMachineSnapshot(number,scope){
  if(!plan||plan.reset)errors.push('Build the cutting layout first.');
  if(errors.length)return {valid:false,batch:number,errors,sheets:[]};
  if(cutPlanStale(number))errors.push('The batch changed after Build. Reset and Build again.');
- const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[];
+ const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[],poByOrder=new Map();
  source.forEach(p=>{if(byId.has(p.piece))errors.push('Duplicate source piece '+p.piece+'.');byId.set(p.piece,p);});
  (plan.groups||[]).forEach(group=>(group.sheets||[]).forEach(sheet=>{
   if(scope&&(group.glass!==scope.glass||sheet.no!==+scope.no))return;
@@ -68,8 +68,12 @@ function cutMachineSnapshot(number,scope){
    if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-6||q[0]>piece.x+piece.w+1e-6||
       q[1]<piece.y-1e-6||q[1]>piece.y+piece.h+1e-6))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
    occupants.push(footprint);
+   if(!poByOrder.has(src.orderId)){
+    const order=salesRecord(src.orderId);
+    poByOrder.set(src.orderId,order&&order.customerPo||'');
+   }
    parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
-    unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
+    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
     footprint,contour});
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
@@ -92,8 +96,11 @@ function cutMachineSnapshot(number,scope){
    size:{w:+size.w,h:+size.h,key:cutSheetKey(size)},
    margins:{trimX:params.trimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
    minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
+   minDist:+params.minDist||0,
    usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
+   free:cut?(cut.free||[]).map(r=>({x:r.x0,y:r.y0,w:r.x1-r.x0,h:r.y1-r.y0})):[],
+   offcuts:(sheet.offcuts||[]).filter(o=>[o.x,o.y,o.w,o.h].every(Number.isFinite)&&o.w>0&&o.h>0).map(o=>({id:o.id||'',x:o.x,y:o.y,w:o.w,h:o.h})),
    throughCuts:cut?(cut.lines||[]).map(cutMachineThroughCut):[]});
  }));
  if(!scope)source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});

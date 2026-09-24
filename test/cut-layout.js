@@ -1203,14 +1203,15 @@ module.exports=async function({page,eq,ok}){
  }),{thin:true,other:true});
 
  eq('машинный снимок: только готовый рез, без пустого листа; раскрой не меняется',await t.p.evaluate(()=>{
-  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]],{customerPo:'PO-TEST'});
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],before=JSON.stringify(plan);
   const job=cutMachineSnapshot(b.number),after=JSON.stringify(plan);
   const added=cutSheetAdd(b.number,g.glass,g.sheets[0].no),withEmpty=cutMachineSnapshot(b.number);
   return {valid:job.valid,errors:job.errors,pieces:job.sheets.flatMap(s=>s.pieces).length,
    cuts:job.sheets.some(s=>s.throughCuts.length>0),unchanged:before===after,
+   po:job.sheets[0].pieces[0].po,free:job.sheets[0].free.length>0,
    emptyAdded:!!added.ok,emptySkipped:withEmpty.valid&&withEmpty.sheets.length===job.sheets.length};
- }),{valid:true,errors:[],pieces:2,cuts:true,unchanged:true,emptyAdded:true,emptySkipped:true});
+ }),{valid:true,errors:[],pieces:2,cuts:true,unchanged:true,po:'PO-TEST',free:true,emptyAdded:true,emptySkipped:true});
 
  eq('пробный экспорт одного прямоугольного листа готовит парные Maver и Disai файлы без архива',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
@@ -1227,6 +1228,19 @@ module.exports=async function({page,eq,ok}){
    folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(cutUiTrialFolderName(b.number,g.glass))};
  }),{mError:'',dError:'',iso:true,bmp:true,dst:true,sum:true,names:true,folder:true});
 
+ eq('BMP 440×320 показывает клиента, PO, полный Glass ID, размер и обозначение остатка',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[50,50,1]],{customerPo:'PO-BMP'});
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],p=cutTrialSheet(b.number,g.glass,s.no,'maver');
+  if(p.error)return {error:p.error};
+  const labels=[],original=CanvasRenderingContext2D.prototype.fillText;
+  CanvasRenderingContext2D.prototype.fillText=function(value,...args){labels.push(String(value));return original.call(this,value,...args);};
+  let bmp;try{bmp=cutTrialMaverBmp(p);}finally{CanvasRenderingContext2D.prototype.fillText=original;}
+  return {error:'',size:bmp.data.length,customer:labels.some(x=>x.includes('Northside Windows')),
+   po:labels.includes('PO PO-BMP'),id:labels.includes(p.sheet.pieces[0].id),
+   order:labels.some(x=>x.includes('Order '+p.sheet.pieces[0].order)),
+   dims:labels.some(x=>x.includes('50"')),waste:labels.some(x=>x==='WASTE'||x==='OFFCUT')};
+ }),{error:'',size:422454,customer:true,po:true,id:true,order:true,dims:true,waste:true});
+
  eq('пробная выгрузка Shape останавливается до неподтверждённых команд станка',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
@@ -1235,6 +1249,17 @@ module.exports=async function({page,eq,ok}){
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],r=cutTrialSheet(b.number,g.glass,s.no,'maver');
   return {blocked:!!r.error&&r.error.includes('Shape commands need controller verification')};
  }),{blocked:true});
+
+ {
+  await t.p.evaluate(()=>{const b=DB.glassBatch[0];glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;render();});
+  await t.p.click('[data-cut-trial-open]');
+  await t.p.click('[data-cut-trial-disai-dst]');
+  eq('отказ Disai виден прямо возле кнопок, а не выглядит пустым кликом',await t.p.evaluate(()=>({
+   panel:!!document.querySelector('[data-cut-trial-panel]'),
+   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('Shape commands need controller verification')||false,
+   alert:document.querySelector('[data-cut-trial-error]')?.getAttribute('role')||''
+  })),{panel:true,error:true,alert:'alert'});
+ }
 
  {
   const ui=await t.p.evaluate(()=>{
@@ -1263,7 +1288,7 @@ module.exports=async function({page,eq,ok}){
   await cutUiTrialFolder('maver');
   const first={folder:created[0],names:[...files.keys()].sort(),nonempty:[...files.values()].every(x=>x.length>0)};
   await cutUiTrialFolder('maver');
-  const second={calls:created.length,count:files.size,refused:cutNotice.includes('No files were overwritten')};
+  const second={calls:created.length,count:files.size,refused:!!cutTrialError&&cutTrialError.error.includes('No files were overwritten')};
   window.showDirectoryPicker=old;
   return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(first.folder),names:first.names,nonempty:first.nonempty,second};
  }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true}});
@@ -1377,6 +1402,61 @@ module.exports=async function({page,eq,ok}){
    shaped:area<part.footprint.w*part.footprint.h-1,
    noMachining:!('holes' in part)&&!('cutouts' in part)};
  }),{valid:true,turn:2,shape:true,firstOk:true,shaped:true,noMachining:true});
+
+ /* Лист 120 из экспорта Perfect Cut 6 мм (23.09.2026): только геометрия.
+    X/Y/Z/U/V — уровни схемы, а не оси стола; BREAKLN выводится из SCHEME. */
+ eq('Disai: BREAKLN образца Perfect Cut выводится из его SCHEME один в один',await t.p.evaluate(()=>{
+  const scheme=['X3632.200','Y25.400','Z2000.000','Y2062.163','Z628.650','U687.388 IB2627','U687.387 IB2627','U687.388 IB2627',
+   'Z628.650','U687.388 IB2627','U687.387 IB2627','U687.388 IB2627','Z628.650','U687.388 IB2627','U687.387 IB2627','U687.388 IB2627',
+   'Z1374.775','U628.650','V687.388 IB127','V687.387 IB127','U628.650','V687.388 IB127','V687.387 IB127','U628.650','V687.388 IB127','V687.387 IB127'];
+  const want=['25.40 1.00 25.40 2437.40','654.05 26.40 654.05 2086.56','1282.70 26.40 1282.70 2086.56','1911.35 26.40 1911.35 2086.56',
+   '2025.40 1.00 2025.40 24.40','2598.74 26.40 2598.74 1910.35','3286.13 26.40 3286.13 2086.56','26.40 25.40 3656.60 25.40',
+   '1912.35 654.05 3285.13 654.05','26.40 712.79 1910.35 712.79','1912.35 1282.70 3285.13 1282.70','26.40 1400.18 1910.35 1400.18',
+   '1912.35 1911.35 3285.13 1911.35','26.40 2087.56 3656.60 2087.56'];
+  const parsed=cutDisaiParse(scheme,{x0:25400,y0:0,x1:3657600,y1:2438400,borderRight:25400});
+  const got=cutDisaiBreakLines(cutDisaiCuts(parsed.root)).lines||[];
+  return {glass:parsed.boxes.filter(b=>b.ib).length,
+   same:got.length===want.length&&got.every((l,i)=>l.split(' ').every((v,j)=>Math.abs(+v-+want[i].split(' ')[j])<=0.011))};
+ }),{glass:15,same:true});
+
+ eq('Disai: нижний трим идёт через правый бордер, но не через широкий отход',await t.p.evaluate(()=>{
+  const line=border=>{const r=cutDisaiParse(['X500.000','Y25.400','Y300.000 IB1'],{x0:25400,y0:0,x1:550800,y1:1000000,borderRight:border});
+   return cutDisaiCuts(r.root).find(c=>c.axis==='y'&&c.at===25400).b;};
+  return {border:line(25400),wide:line(10000)};
+ }),{border:550800,wide:525400});
+
+ eq('Disai: лист 130×96 владельца (стопка 12×12 у колонки 24 1/8″) выгружается в пять уровней',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[24.125,24.125,4],[12,12,4]]);
+  const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],p=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'disai');
+  if(p.error)return {error:p.error};
+  const r=cutTrialDisaiScheme(p.sheet),file=cutTrialDisai(p);if(r.error||file.error)return {error:r.error||file.error};
+  const parsed=cutDisaiParse(r.scheme,{x0:cutDisaiQ(p.sheet.margins.trimY),y0:0,x1:cutDisaiQ(p.sheet.size.w),y1:cutDisaiQ(p.sheet.size.h)});
+  const boxes=new Map(parsed.boxes.filter(x=>x.ib).map(x=>[x.ib,x]));
+  const exact=p.sheet.pieces.every(q=>{const x=boxes.get(r.index.get(q.id)),f=q.footprint;
+   return x&&Math.abs(x.x0-cutDisaiQ(f.x))<=2&&Math.abs(x.y0-cutDisaiQ(f.y))<=2&&Math.abs(x.x1-cutDisaiQ(f.x+f.w))<=2&&Math.abs(x.y1-cutDisaiQ(f.y+f.h))<=2;});
+  return {error:'',pieces:p.sheet.pieces.length,exact,levels:[...new Set(r.scheme.map(l=>l[0]))].join(''),
+   inFile:file.data.includes('[BREAKLN]\r\n'+r.breaks[0]),note:!!file.note};
+ }),{error:'',pieces:8,exact:true,levels:'XYZUV',inFile:true,note:true});
+
+ eq('Disai: повёрнутое стекло получает номер 2500 + ID, как в образце Perfect Cut',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],p=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'disai');
+  if(p.error)return {error:p.error};
+  const sheet=Object.assign({},p.sheet,{pieces:p.sheet.pieces.map((q,i)=>Object.assign({},q,{turn:i===0?1:0}))});
+  const r=cutTrialDisaiScheme(sheet);
+  return {error:r.error||'',first:r.index.get(sheet.pieces[0].id),second:r.index.get(sheet.pieces[1].id),
+   used:r.scheme.some(l=>/ IB2501$/.test(l))};
+ }),{error:'',first:2501,second:2,used:true});
+
+ eq('Disai отказывает, если лист не укладывается в пять уровней',await t.p.evaluate(()=>{
+  const size={w:100,h:100},params={trimX:0,trimY:0,borderX:0,borderY:0,minDist:.5};
+  const rects=[[0,0,10,100],[10,0,90,10],[10,10,10,90],[20,10,80,10],[20,20,10,80],[30,20,10,10]];
+  const sheet={pieces:rects.map(([x,y,w,h],i)=>({piece:'P'+i,x,y,w,h})),stock:[]},cuts=cutSheetCuts(sheet,size,params);
+  const r=cutTrialDisaiScheme({size,margins:{trimY:0,borderY:0},minDist:.5,
+   pieces:sheet.pieces.map(q=>({id:q.piece,turn:0,footprint:{x:q.x,y:q.y,w:q.w,h:q.h}})),
+   throughCuts:cuts.lines.map(cutMachineThroughCut)});
+  return {cuttable:cuts.ok,refused:!!r.error&&r.error.includes('five Disai levels')};
+ }),{cuttable:true,refused:true});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
 };

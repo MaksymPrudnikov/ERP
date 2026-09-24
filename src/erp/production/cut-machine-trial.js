@@ -66,22 +66,102 @@ function cutTrialMaver(program){
  out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
  return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain'};
 }
+function cutTrialBmpRect(r){
+ if(!r)return null;
+ const x=Number(r.x==null?r.x0:r.x),y=Number(r.y==null?r.y0:r.y),
+  w=Number(r.w==null?Number(r.x1)-x:r.w),h=Number(r.h==null?Number(r.y1)-y:r.h);
+ return [x,y,w,h].every(Number.isFinite)&&w>0&&h>0?{x,y,w,h}:null;
+}
+function cutTrialBmpSafe(v){return String(v==null?'':v).replace(/[\x00-\x1f\x7f]/g,' ').trim();}
+function cutTrialBmpText(ctx,value,x,y,maxW,maxFont,minFont,align,allowShorten){
+ const text=cutTrialBmpSafe(value);if(!text||maxW<8)return false;
+ ctx.textAlign=align||'center';ctx.textBaseline='middle';
+ for(let font=maxFont;font>=minFont-0.01;font-=0.5){
+  ctx.font=font+'px Arial';
+  if(ctx.measureText(text).width<=maxW){ctx.fillText(text,x,y);return true;}
+ }
+ if(allowShorten===false)return false;
+ ctx.font=minFont+'px Arial';
+ let short=text;
+ while(short&&ctx.measureText(short+'…').width>maxW)short=short.slice(0,-1);
+ if(short){ctx.fillText(short+'…',x,y);return true;}
+ return false;
+}
+function cutTrialBmpArea(ctx,r,project,label,fill){
+ const {x,y,w,h}=project(r);if(w<2||h<2)return;
+ ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);
+ ctx.strokeStyle='#a5acb8';ctx.lineWidth=0.7;ctx.strokeRect(x+0.35,y+0.35,w-0.7,h-0.7);
+ if(!label||w<31||h<21)return;
+ ctx.save();ctx.beginPath();ctx.rect(x+2,y+2,w-4,h-4);ctx.clip();
+ ctx.fillStyle='#596579';
+ cutTrialBmpText(ctx,label,x+w/2,y+h/2-4,w-6,8,6,'center');
+ cutTrialBmpText(ctx,frac16(r.w)+' × '+frac16(r.h)+'"',x+w/2,y+h/2+6,w-6,7,5.5,'center');
+ ctx.restore();
+}
 function cutTrialMaverBmp(program){
  const sheet=program.sheet,canvas=document.createElement('canvas');canvas.width=440;canvas.height=320;
  const ctx=canvas.getContext('2d');if(!ctx)return {error:'BMP preview is unavailable in this browser.'};
  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,440,320);
- ctx.fillStyle='#a01818';ctx.font='bold 13px Arial';ctx.fillText('TRIAL ONLY - DO NOT CUT',12,17);
- const scale=Math.min(416/sheet.size.w,270/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=302;
- ctx.fillStyle='#f7f9fc';ctx.fillRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
- ctx.strokeStyle='#20252b';ctx.lineWidth=1;ctx.strokeRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ ctx.fillStyle='#a01818';ctx.font='bold 10px Arial';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+ ctx.fillText('TRIAL ONLY - DO NOT CUT',5,10);
+ ctx.fillStyle='#27394e';
+ cutTrialBmpText(ctx,'Batch '+program.batch+'  |  '+sheet.glass+'  |  Sheet '+sheet.no+
+  '  |  '+frac16(sheet.size.w)+' × '+frac16(sheet.size.h)+'"  |  '+sheet.mm+' mm',5,21,430,9,6,'left');
+ const scale=Math.min(430/sheet.size.w,288/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=316;
+ const project=r=>({x:left+r.x*scale,y:bottom-(r.y+r.h)*scale,w:r.w*scale,h:r.h*scale});
+ ctx.fillStyle='#ffffff';ctx.fillRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ const free=(sheet.free||[]).map(cutTrialBmpRect).filter(Boolean),
+  offcuts=(sheet.offcuts||[]).map(cutTrialBmpRect).filter(Boolean);
+ /* A candidate offcut is still waste until explicitly taken to stock. Draw
+    physical free leaves first, then distinguish usable offcut suggestions. */
+ const overlaps=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*
+  Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+ free.forEach(r=>{
+  const covered=offcuts.some(o=>overlaps(r,o)>0.5*o.w*o.h);
+  cutTrialBmpArea(ctx,r,project,covered?'':'WASTE','#f5f6f8');
+ });
+ offcuts.forEach(r=>cutTrialBmpArea(ctx,r,project,'OFFCUT','#f8eedc'));
  sheet.pieces.forEach(p=>{
-  const f=p.footprint,x=left+f.x*scale,y=bottom-(f.y+f.h)*scale;
-  ctx.fillStyle='#dceefb';ctx.fillRect(x,y,f.w*scale,f.h*scale);
-  ctx.strokeStyle='#4e708e';ctx.strokeRect(x,y,f.w*scale,f.h*scale);
-  if(f.w*scale>36&&f.h*scale>25){ctx.fillStyle='#27394e';ctx.font='10px Arial';ctx.fillText(String(p.id).slice(-8),x+3,y+13);}
+  const f=p.footprint,{x,y,w,h}=project(f);
+  ctx.fillStyle='#dceefb';ctx.fillRect(x,y,w,h);
+  if(w>=1&&h>=1){ctx.strokeStyle='#4e708e';ctx.lineWidth=0.8;ctx.strokeRect(x+0.4,y+0.4,w-0.8,h-0.8);}
  });
  ctx.strokeStyle='#db7927';ctx.lineWidth=1;
  program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
+ sheet.pieces.forEach((p,i)=>{
+  const f=p.footprint,{x,y,w,h}=project(f);
+  if(w<11||h<11)return;
+  ctx.save();ctx.beginPath();ctx.rect(x+1,y+1,w-2,h-2);ctx.clip();ctx.fillStyle='#27394e';
+  const innerX=x+8,innerW=w-12,rows=[];
+  if(p.customer)rows.push(p.customer);
+  if(p.po)rows.push('PO '+p.po);
+  if(p.order)rows.push('Order '+p.order+(p.line?' / '+p.line:''));
+  if(p.id)rows.push(p.id);
+  const available=h-21,rowH=7.5,showRows=available>=rows.length*rowH+13?rows.length:
+   available>=26?Math.min(rows.length,3):available>=18?Math.min(rows.length,2):Math.min(rows.length,1);
+  /* On narrow pieces keep the full Glass ID before lower-priority metadata. */
+  const visible=showRows===rows.length?rows:rows.length&&showRows?
+   rows.slice(0,Math.max(0,showRows-1)).concat(rows[rows.length-1]):[];
+  visible.forEach((row,j)=>{
+   const idRow=row===p.id;
+   const shown=cutTrialBmpText(ctx,row,innerX+innerW/2,y+5+j*rowH,innerW,7,5,'center',!idRow);
+   if(idRow&&!shown&&h>=20){
+    ctx.save();ctx.translate(x+w-4,y+h/2);ctx.rotate(-Math.PI/2);
+    cutTrialBmpText(ctx,p.id,0,0,h-9,6,5,'center',false);ctx.restore();
+   }
+  });
+  const posY=Math.max(y+11+visible.length*rowH,y+h/2);
+  if(posY<y+h-10){ctx.fillStyle='#172b4d';cutTrialBmpText(ctx,String(i+1),x+w/2,posY,w-13,14,9,'center');}
+  ctx.fillStyle='#3a4e68';
+  cutTrialBmpText(ctx,frac16(f.w)+'"',x+w/2,y+h-5,w-11,7,5.5,'center');
+  if(h>=20){
+   ctx.save();ctx.translate(x+4,y+h/2);ctx.rotate(-Math.PI/2);
+   cutTrialBmpText(ctx,frac16(f.h)+'"',0,0,h-8,7,5.5,'center');ctx.restore();
+  }
+  ctx.restore();
+ });
+ ctx.strokeStyle='#20252b';ctx.lineWidth=1;
+ ctx.strokeRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
  const image=ctx.getImageData(0,0,440,320).data,stride=(440*3+3)&~3,bytes=new Uint8Array(54+stride*320),v=new DataView(bytes.buffer);
  bytes[0]=66;bytes[1]=77;v.setUint32(2,bytes.length,true);v.setUint32(10,54,true);v.setUint32(14,40,true);
  v.setInt32(18,440,true);v.setInt32(22,320,true);v.setUint16(26,1,true);v.setUint16(28,24,true);
@@ -92,38 +172,8 @@ function cutTrialMaverBmp(program){
  }
  return {name:String(sheet.no)+'.BMP',data:bytes,mime:'image/bmp'};
 }
-/* Disai SCHEME is a recursive guillotine description. The first trial
-   version accepts only straight full-width columns of vertically stacked
-   rectangles: this exact X/Y form is present in the provided samples.
-   More complicated X/Y/Z/U/V trees must not be silently approximated. */
-function cutTrialDisaiColumns(sheet){
- const E=1e-5,parts=sheet.pieces.slice().sort((a,b)=>a.footprint.x-b.footprint.x||a.footprint.y-b.footprint.y),columns=[];
- for(const p of parts){
-  const f=p.footprint,last=columns[columns.length-1];
-  if(last&&Math.abs(last.x-f.x)<E){
-   if(Math.abs(last.w-f.w)>E)return {error:'Disai trial needs equal widths within each column.'};
-   last.pieces.push(p);
-  }else columns.push({x:f.x,w:f.w,pieces:[p]});
- }
- if(!columns.length)return {error:'There are no pieces on this sheet.'};
- if(Math.abs(columns[0].x-sheet.margins.trimY)>E)return {error:'Disai trial needs the first column at the left Trim Y line.'};
- for(let i=1;i<columns.length;i++)if(Math.abs(columns[i].x-(columns[i-1].x+columns[i-1].w))>E)return {error:'Disai trial does not yet support gaps or staggered columns.'};
- const scheme=[],index=new Map(sheet.pieces.map((p,i)=>[p.id,i+1]));
- for(const col of columns){
-  scheme.push('X'+cutTrial3(cutTrialMm(col.w)));
-  let y=0;
-  for(const p of col.pieces.sort((a,b)=>a.footprint.y-b.footprint.y)){
-   const f=p.footprint,gap=f.y-y;
-   if(gap<-E)return {error:'Disai trial columns overlap.'};
-   if(gap>E)scheme.push('Y'+cutTrial3(cutTrialMm(gap)));
-   scheme.push('Y'+cutTrial3(cutTrialMm(f.h))+' IB'+index.get(p.id));
-   y=f.y+f.h;
-  }
- }
- return {scheme,index};
-}
 function cutTrialDisai(program){
- const {sheet,lines,thickness}=program,layout=cutTrialDisaiColumns(sheet);
+ const {sheet,thickness}=program,layout=cutTrialDisaiScheme(sheet);
  if(layout.error)return layout;
  const gid=cutTrialText(sheet.glass),out=['[PATTERN]',
   'GID='+gid,'GDESCRIPTION='+gid,'GSTRUCTURED=0','GCOATED=0','REPEAT=1',
@@ -132,11 +182,10 @@ function cutTrialDisai(program){
   'TRIMLEFT='+cutTrial3(cutTrialMm(sheet.margins.trimY)),
   'TRIMBOTTOM=0','BORDERTOP='+cutTrial3(cutTrialMm(sheet.margins.borderX)),
   'BORDERRIGHT='+cutTrial3(cutTrialMm(sheet.margins.borderY)),'',
-  '[SCHEME]',...layout.scheme,'','[BREAKLN]'];
- lines.forEach(c=>out.push([c.x0,c.y0,c.x1,c.y1].map(cutTrial2).join(' ')));
+  '[SCHEME]',...layout.scheme,'','[BREAKLN]',...layout.breaks];
  sheet.pieces.forEach((p,i)=>{
   const f=p.footprint;
-  out.push('','[IB'+(i+1)+']','ID='+(i+1),
+  out.push('','[IB'+layout.index.get(p.id)+']','ID='+(i+1),
    'ORDER='+cutTrialText(p.order+' / '+p.line),'CUSTOMER='+cutTrialText(p.customer),
    'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn===1?'1':'0'),
    'WIDTH='+cutTrial2(cutTrialMm(f.w)),'HEIGHT='+cutTrial2(cutTrialMm(f.h)),
@@ -145,7 +194,8 @@ function cutTrialDisai(program){
    'CLASSIFY=1','CTIMES=1');
  });
  out.push('');
- return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain'};
+ return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();

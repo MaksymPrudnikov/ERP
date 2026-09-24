@@ -11,7 +11,7 @@
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
 let cutNotice='',cutInfo=null,cutMdNotice='',cutRepackNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
-let cutTrialOpen=false;
+let cutTrialOpen=false,cutTrialError=null;
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -56,7 +56,7 @@ function viewMdCutting(){
 }
 /* --------------------------- Батч → Optimization -------------------------- */
 function cutUiState(number){
- if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;}
+ if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;}
  const plan=cutPlanFor(number);
  if(plan&&plan.groups.length){
   if(!plan.groups.some(g=>g.glass===cutUi.glass))cutUi.glass=plan.groups[0].glass;
@@ -119,7 +119,11 @@ function cutUiProgress(){
  if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
-function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutNotice='';render();}
+function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutTrialError=null;cutNotice='';render();}
+function cutUiTrialFail(machine,error){
+ cutTrialError={key:[cutUi.batch,cutUi.glass,cutUi.sheet].join('|'),machine,error};
+ cutNotice='';render();
+}
 function cutUiTrialFiles(machine){
  const p=cutTrialSheet(cutUi.batch,cutUi.glass,cutUi.sheet,machine);
  if(p.error)return p;
@@ -133,9 +137,11 @@ function cutUiTrialFiles(machine){
   if(dst.error||sum.error)return {error:dst.error||sum.error};
   files=[dst,sum];
  }
- return {p,files};
+ return {p,files,note:files.map(f=>f.note||'').filter(Boolean).join(' ')};
 }
 function cutUiTrialResult(message){
+ cutTrialError=null;
+ const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
  const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
 }
 function cutUiTrialFolderName(batch,glass){
@@ -145,22 +151,22 @@ function cutUiTrialFolderName(batch,glass){
 }
 function cutUiTrialExport(machine,kind){
  const prepared=cutUiTrialFiles(machine);
- if(prepared.error){cutNotice=prepared.error;render();return;}
- const {p,files}=prepared;
+ if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
+ const {p,files,note}=prepared;
  const file=files.find(f=>f.name.toLowerCase().endsWith('.'+kind));
- if(!file){cutNotice='Choose a Maver .ISO/.BMP or Disai .dst/.sum file.';render();return;}
+ if(!file){cutUiTrialFail(machine,'Choose a Maver .ISO/.BMP or Disai .dst/.sum file.');return;}
  if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nOpen sheet '+p.sheet.no+' on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut. Download '+file.name+'?'))return;
  try{
   const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=file.name;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.');
- }catch(e){cutNotice='Trial file could not be created: '+(e&&e.message||'unknown error');render();}
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(note?' '+note:''));
+ }catch(e){cutUiTrialFail(machine,'Trial file could not be created: '+(e&&e.message||'unknown error'));}
 }
 async function cutUiTrialFolder(machine){
- if(typeof window.showDirectoryPicker!=='function'){cutNotice='This browser cannot save a folder. Download the two raw files separately.';render();return;}
+ if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
  const prepared=cutUiTrialFiles(machine);
- if(prepared.error){cutNotice=prepared.error;render();return;}
+ if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
  const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass);
  try{
   const root=await window.showDirectoryPicker({mode:'readwrite'});
@@ -171,16 +177,16 @@ async function cutUiTrialFolder(machine){
    try{await dir.getFileHandle(file.name);existing.push(file.name);}
    catch(e){if(e.name!=='NotFoundError')throw e;}
   }
-  if(existing.length){cutNotice='Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.';render();return;}
+  if(existing.length){cutUiTrialFail(machine,'Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.');return;}
   for(const file of files){
    const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
    try{await writer.write(file.data);await writer.close();}
    catch(e){await writer.abort().catch(()=>{});throw e;}
   }
-  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.');
+  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.'+(prepared.note?' '+prepared.note:''));
  }catch(e){
   if(e.name==='AbortError')return;
-  cutNotice='Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||'');render();
+  cutUiTrialFail(machine,'Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||''));
  }
 }
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
@@ -934,8 +940,10 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
  const folderAvailable=typeof window.showDirectoryPicker==='function';
+ const trialIssue=cutTrialError&&cutTrialError.key===[cutUi.batch,cutUi.glass,cutUi.sheet].join('|')?cutTrialError:null;
  const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
   <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Rectangles only; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
+  ${trialIssue?`<div class="cut-trial-error" data-cut-trial-error role="alert"><b>${esc(trialIssue.machine==='disai'?'Disai':'Maver')} could not export this sheet.</b> ${esc(trialIssue.error)}</div>`:''}
   <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
   <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
   <span data-cut-trial-result role="status" aria-live="polite"></span></div>`:'';
