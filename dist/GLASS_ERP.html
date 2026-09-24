@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 85 модулей, 14 стиля.
+  Состав сборки: 86 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1682,6 +1682,7 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-trial-intro{display:flex;align-items:center;gap:8px;flex:1 1 100%;flex-wrap:wrap}
 .cut-trial-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cut-trial-target b{min-width:42px}
+.cut-trial-error{flex:1 1 100%;padding:7px 9px;border:1px solid #fda29b;border-radius:6px;background:#fef3f2;color:#b42318;line-height:1.35}
 .cut-trial-panel [data-cut-trial-result]{flex:1 1 100%}
 .cut-trial-panel [data-cut-trial-result]:empty{display:none}
 .cut-trial-panel button{background:#fff;border-color:#fdba74;color:#9a3412}
@@ -1985,7 +1986,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1411b8523943';
+var ERP_BUILD='aa0861eccf17';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24356,7 +24357,7 @@ function cutMachineSnapshot(number,scope){
  if(!plan||plan.reset)errors.push('Build the cutting layout first.');
  if(errors.length)return {valid:false,batch:number,errors,sheets:[]};
  if(cutPlanStale(number))errors.push('The batch changed after Build. Reset and Build again.');
- const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[];
+ const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[],poByOrder=new Map();
  source.forEach(p=>{if(byId.has(p.piece))errors.push('Duplicate source piece '+p.piece+'.');byId.set(p.piece,p);});
  (plan.groups||[]).forEach(group=>(group.sheets||[]).forEach(sheet=>{
   if(scope&&(group.glass!==scope.glass||sheet.no!==+scope.no))return;
@@ -24393,8 +24394,12 @@ function cutMachineSnapshot(number,scope){
    if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-6||q[0]>piece.x+piece.w+1e-6||
       q[1]<piece.y-1e-6||q[1]>piece.y+piece.h+1e-6))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
    occupants.push(footprint);
+   if(!poByOrder.has(src.orderId)){
+    const order=salesRecord(src.orderId);
+    poByOrder.set(src.orderId,order&&order.customerPo||'');
+   }
    parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
-    unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
+    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
     footprint,contour});
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
@@ -24417,14 +24422,255 @@ function cutMachineSnapshot(number,scope){
    size:{w:+size.w,h:+size.h,key:cutSheetKey(size)},
    margins:{trimX:params.trimX,trimY:effectiveTrimY,borderX:params.borderX,borderY:params.borderY},
    minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
+   minDist:+params.minDist||0,
    usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
+   free:cut?(cut.free||[]).map(r=>({x:r.x0,y:r.y0,w:r.x1-r.x0,h:r.y1-r.y0})):[],
+   offcuts:(sheet.offcuts||[]).filter(o=>[o.x,o.y,o.w,o.h].every(Number.isFinite)&&o.w>0&&o.h>0).map(o=>({id:o.id||'',x:o.x,y:o.y,w:o.w,h:o.h})),
    throughCuts:cut?(cut.lines||[]).map(cutMachineThroughCut):[]});
  }));
  if(!scope)source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
  if(!sheets.length)errors.push('There are no occupied sheets to export.');
  return {valid:!errors.length,batch:number,stamp:plan.stamp,at:plan.at,
   sheets,excluded:(plan.excluded||[]).slice(),errors};
+}
+
+/* ==== src/erp/production/cut-machine-disai.js ==== */
+/* =====================================================================
+   erp/production/cut-machine-disai
+   Disai [SCHEME] and [BREAKLN] for one trial sheet, written from the same
+   verified cut tree the ERP draws (cutSheetCuts). Trial only.
+
+   Read from the owner's Perfect Cut exports (6, 4 and 10 mm, 132 patterns,
+   24 September 2026). SCHEME letters are NOT machine axes but depth in a
+   guillotine tree; the cut direction alternates level by level:
+     X — strips across the width, starting at TRIMLEFT;
+     Y — rows inside a strip, from the bottom edge of the sheet;
+     Z — pieces inside a row, U — inside Z, V — inside U.
+   Each entry is a span in mm, `IBn` marks the glass. A leading gap is a
+   span without IB, the trailing remainder is left implicit; at most five
+   levels. BREAKLN lists every score line of that tree: vertical lines
+   sorted by X, then horizontal by Y; touching collinear lines merged;
+   both ends stop 1 mm short. The table itself cuts plain X/Y lines.
+   ===================================================================== */
+const CUT_DISAI_LEVELS='XYZUV';
+/* Positions in 0.001 mm integers. Every span is a difference of rounded
+   absolute positions, so long rows do not accumulate rounding drift. */
+function cutDisaiQ(inches){return Math.round(inches*25400);}
+function cutDisaiText(um,digits){return (um/1000).toFixed(digits);}
+/* SCHEME back to rectangles. frame — the tree field in 0.001 mm: X from
+   TRIMLEFT, Y from the bottom edge. */
+function cutDisaiParse(scheme,frame){
+ const T=2,root=Object.assign({level:0,children:[],cursor:frame.x0},frame),stack=[root],boxes=[];
+ for(const line of scheme){
+  const m=/^([XYZUV])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
+  if(!m)return {error:'Unreadable Disai SCHEME line '+line+'.'};
+  const level=CUT_DISAI_LEVELS.indexOf(m[1])+1,parent=stack[level-1];
+  if(!parent)return {error:'Disai SCHEME line '+line+' has no parent level.'};
+  const alongX=level%2===1,span=Math.round(parseFloat(m[2])*1000),start=parent.cursor,end=start+span;
+  if(!(span>0)||end>(alongX?parent.x1:parent.y1)+T)return {error:'Disai SCHEME line '+line+' runs outside its parent.'};
+  const ib=/IB(\d+)/.exec(m[3]);
+  const box={level,children:[],ib:ib?+ib[1]:null,
+   x0:alongX?start:parent.x0,x1:alongX?end:parent.x1,y0:alongX?parent.y0:start,y1:alongX?parent.y1:end};
+  box.cursor=alongX?box.y0:box.x0;
+  parent.cursor=end;parent.children.push(box);boxes.push(box);
+  stack[level]=box;stack.length=level+1;
+ }
+ return {root,boxes};
+}
+/* Collinear touching lines become one score line, also across a crossing
+   cut: Perfect Cut writes a row edge shared by two strips as one line.
+   Spans are rounded per strip, so "collinear" allows 0.002 mm. */
+function cutDisaiMerge(list){
+ const T=2,out=[],sorted=list.slice().sort((p,q)=>(p.axis==='y')-(q.axis==='y')||p.at-q.at||p.a-q.a);
+ const lanes=[];
+ sorted.forEach(c=>{
+  let lane=lanes.find(l=>l.axis===c.axis&&Math.abs(l.at-c.at)<=T);
+  if(!lane){lane={axis:c.axis,at:c.at,list:[]};lanes.push(lane);}
+  lane.list.push(c);
+ });
+ lanes.forEach(l=>{
+  let cur=null;
+  l.list.sort((p,q)=>p.a-q.a).forEach(s=>{if(cur&&s.a<=cur.b+T)cur.b=Math.max(cur.b,s.b);else{cur={axis:l.axis,at:l.at,a:s.a,b:s.b};out.push(cur);}});
+ });
+ return out.sort((p,q)=>(p.axis==='y')-(q.axis==='y')||p.at-q.at||p.a-q.a);
+}
+/* The bottom trim: when every strip starts with the same empty row and
+   only the right border is left past the last strip, Perfect Cut scores
+   that row edge across the border too (15 patterns of the 6 mm sample).
+   With a wider remainder it stops at the strip (all four 10 mm ones). */
+function cutDisaiBottomTrim(root){
+ const T=2,strips=root.children;
+ if(!strips.length)return null;
+ const first=strips.map(s=>s.children[0]),end=strips[strips.length-1].x1;
+ if(first.some(r=>!r||r.ib||r.children.length))return null;
+ const g=first[0].y1;
+ if(!first.every(r=>Math.abs(r.y1-g)<=T)||g<=root.y0+T)return null;
+ return end<root.x1-T&&root.x1-end<=(+root.borderRight||0)+T?g:null;
+}
+/* Every cut of the tree: the end of each child while the parent field
+   continues past it, plus the left and bottom trims across the sheet. */
+function cutDisaiCuts(root){
+ const T=2,out=[],bottom=cutDisaiBottomTrim(root);
+ if(root.x0>T)out.push({axis:'x',at:root.x0,a:root.y0,b:root.y1});
+ if(bottom!==null)out.push({axis:'y',at:bottom,a:root.x0,b:root.x1});
+ const walk=box=>box.children.forEach(c=>{
+  const alongX=c.level%2===1;
+  if(alongX&&c.x1<box.x1-T)out.push({axis:'x',at:c.x1,a:box.y0,b:box.y1});
+  if(!alongX&&c.y1<box.y1-T)out.push({axis:'y',at:c.y1,a:box.x0,b:box.x1});
+  walk(c);
+ });
+ walk(root);
+ return cutDisaiMerge(out);
+}
+function cutDisaiBreakLines(cuts){
+ const lines=[];
+ for(const c of cuts){
+  if(c.b-c.a<=2002)return {error:'A cut line is too short for the 1 mm Disai end gap.'};
+  const a=c.a+1000,b=c.b-1000;
+  lines.push((c.axis==='x'?[c.at,a,c.at,b]:[a,c.at,b,c.at]).map(v=>cutDisaiText(v,2)).join(' '));
+ }
+ return {lines};
+}
+/* The ERP cut tree → Disai levels. Same-direction cuts in a row collapse
+   into one level; a level that does not cut here gets one full-width span.
+   The result is parsed back: every glass and every cut line must match the
+   drawing, otherwise nothing is written. */
+function cutTrialDisaiScheme(sheet){
+ const E=1e-6,parts=(sheet&&sheet.pieces||[]).slice(),size=sheet&&sheet.size||{};
+ const trim=sheet&&sheet.margins?+sheet.margins.trimY:NaN,md=+(sheet&&sheet.minDist)||0;
+ if(!parts.length)return {error:'There are no pieces on this sheet.'};
+ if(!Number.isFinite(trim)||trim<0||![size.w,size.h].every(v=>Number.isFinite(+v)&&+v>0))return {error:'Disai trial has invalid sheet geometry.'};
+ if(parts.length>=2500)return {error:'Disai trial has too many glass pieces for verified IB identifiers.'};
+ if(parts.some(p=>!p||!p.footprint||![p.footprint.x,p.footprint.y,p.footprint.w,p.footprint.h].every(Number.isFinite)||p.footprint.w<=0||p.footprint.h<=0))return {error:'Disai trial has invalid glass geometry.'};
+ /* Perfect Cut numbers a rotated glass 2500 + ID ([IB127] and [IB2627] in
+    the 6 mm sample are the same glass type, ROTATE=0 and ROTATE=1). */
+ const index=new Map(parts.map((p,i)=>[p.id,(p.turn===1?2500:0)+i+1]));
+ if(index.size!==parts.length)return {error:'Disai trial has duplicate glass identifiers.'};
+ const lines=sheet.throughCuts||[],byKey=new Map(lines.map(c=>[c.key,c])),top=lines.find(c=>c.level===1);
+ if(!top)return {error:'Disai trial needs the verified cut lines of this sheet.'};
+ let fail='';
+ const inside=r=>parts.filter(p=>{const f=p.footprint;return f.x>=r.x0-E&&f.y>=r.y0-E&&f.x+f.w<=r.x1+E&&f.y+f.h<=r.y1+E;});
+ const build=(r,depth)=>{
+  if(fail)return null;
+  if(depth>lines.length+1){fail='Disai trial found a looping cut tree.';return null;}
+  const c=byKey.get(cutCutKey(r));
+  if(!c){
+   const list=inside(r),one=list[0];
+   if(list.length>1||one&&[one.footprint.x-r.x0,one.footprint.y-r.y0,one.footprint.x+one.footprint.w-r.x1,one.footprint.y+one.footprint.h-r.y1].some(d=>Math.abs(d)>E))
+    fail='Disai trial found glass without a verified cut around it.';
+   return {r,piece:one||null};
+  }
+  const lo=c.axis==='x'?{x0:r.x0,y0:r.y0,x1:c.at,y1:r.y1}:{x0:r.x0,y0:r.y0,x1:r.x1,y1:c.at};
+  const hi=c.axis==='x'?{x0:c.at,y0:r.y0,x1:r.x1,y1:r.y1}:{x0:r.x0,y0:c.at,x1:r.x1,y1:r.y1};
+  return {r,axis:c.axis,at:c.at,lo:build(lo,depth+1),hi:build(hi,depth+1)};
+ };
+ const v=String(top.key).split(',').map(Number),tree=build({x0:v[0],y0:v[1],x1:v[2],y1:v[3]},0);
+ if(fail)return {error:fail};
+ /* Disai starts at the left trim line and cuts it through the full height,
+    also through waste the drawing keeps whole. That extra cut must not
+    leave a strip narrower than Min distance. */
+ const clip=n=>{
+  if(!n||fail)return null;
+  if(n.r.x1<=trim+E){if(inside(n.r).length)fail='Glass lies left of the Trim Y line.';return null;}
+  if(n.r.x0>=trim-E)return n;
+  const r=Object.assign({},n.r,{x0:trim});
+  if(!n.axis){
+   if(n.piece)fail='Glass lies left of the Trim Y line.';
+   else if(r.x1-trim<md-E)fail='The left Trim line would leave a '+frac16(r.x1-trim)+'″ strip narrower than Min distance.';
+   return {r,piece:null};
+  }
+  if(n.axis==='x'&&n.at<=trim+E){
+   if(inside(n.lo.r).length)fail='Glass lies left of the Trim Y line.';
+   return clip(n.hi);
+  }
+  return {r,axis:n.axis,at:n.at,lo:clip(n.lo),hi:n.axis==='x'?n.hi:clip(n.hi)};
+ };
+ const field=clip(tree);
+ if(fail||!field)return {error:fail||'Disai trial has no glass right of the Trim Y line.'};
+ /* Levels: the drawing's own cuts first. Where they would need a sixth
+    level, that region alone is cut the way Perfect Cut does it — at every
+    edge that crosses no glass (for a 12″ stack beside waste: rows across
+    the column, then one short cut per row). Every loose piece of waste must
+    stay at least Min distance wide. */
+ const nodes=new Map(),keep=n=>{if(!n)return;nodes.set(cutCutKey(n.r),n);keep(n.lo);keep(n.hi);};keep(field);
+ const exact=(p,r)=>{const f=p.footprint;return [f.x-r.x0,f.y-r.y0,f.x+f.w-r.x1,f.y+f.h-r.y1].every(d=>Math.abs(d)<=E);};
+ const flat=(n,axis)=>n.axis===axis?flat(n.lo,axis).concat(flat(n.hi,axis)):[n];
+ const along=(r,axis)=>axis==='x'?[r.x0,r.x1]:[r.y0,r.y1];
+ const spots=(r,axis,list)=>{
+  const [lo,hi]=along(r,axis),out=new Set();
+  list.forEach(p=>{const f=p.footprint;(axis==='x'?[f.x,f.x+f.w]:[f.y,f.y+f.h]).forEach(c=>{if(c>lo+E&&c<hi-E)out.add(c);});});
+  return [...out].filter(c=>!list.some(p=>{const f=p.footprint,a=axis==='x'?f.x:f.y,b=axis==='x'?f.x+f.w:f.y+f.h;return a<c-E&&b>c+E;})).sort((a,b)=>a-b);
+ };
+ const split=(r,axis,points)=>{
+  const [lo,hi]=along(r,axis),edge=[lo,...points,hi];
+  return edge.slice(1).map((b,i)=>axis==='x'?{x0:edge[i],x1:b,y0:r.y0,y1:r.y1}:{x0:r.x0,x1:r.x1,y0:edge[i],y1:b});
+ };
+ let changed=false;
+ const level=(r,L)=>{
+  if(L>CUT_DISAI_LEVELS.length)return null;
+  const axis=L%2?'x':'y',list=inside(r),n=nodes.get(cutCutKey(r)),tries=[];
+  if(n)tries.push({regions:flat(n,axis).map(s=>s.r),own:true});
+  tries.push({regions:split(r,axis,spots(r,axis,list)),own:false});
+  for(const t of tries){
+   const out=[];
+   for(const s of t.regions){
+    const here=inside(s),[a,b]=along(s,axis);
+    if(!here.length){if(b-a<md-E){out.length=0;break;}out.push({r:s});continue;}
+    if(here.length===1&&exact(here[0],s)){out.push({r:s,piece:here[0]});continue;}
+    const kids=level(s,L+1);
+    if(!kids){out.length=0;break;}
+    out.push({r:s,kids});
+   }
+   if(out.length){if(!t.own)changed=changed||!!n;return out;}
+  }
+  return null;
+ };
+ const plan=level(field.r,1);
+ if(!plan)return {error:'This sheet needs more than five Disai levels (X/Y/Z/U/V).'};
+ const scheme=[];
+ const emit=(slices,L)=>{
+  const axis=L%2?'x':'y';let last=slices.length-1;
+  while(last>=0&&!slices[last].piece&&!slices[last].kids)last--;
+  for(let i=0;i<=last;i++){
+   const s=slices[i],[a,b]=along(s.r,axis);
+   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?' IB'+index.get(s.piece.id):''));
+   if(s.kids)emit(s.kids,L+1);
+  }
+ };
+ emit(plan,1);
+ const W=cutDisaiQ(+size.w),H=cutDisaiQ(+size.h),T=cutDisaiQ(trim);
+ const parsed=cutDisaiParse(scheme,{x0:T,y0:0,x1:W,y1:H,borderRight:cutDisaiQ(+sheet.margins.borderY||0)});
+ if(parsed.error)return parsed;
+ const boxes=new Map(parsed.boxes.filter(b=>b.ib).map(b=>[b.ib,b]));
+ if(boxes.size!==parts.length||parts.some(p=>{
+  const b=boxes.get(index.get(p.id)),f=p.footprint;
+  return !b||[b.x0-cutDisaiQ(f.x),b.y0-cutDisaiQ(f.y),b.x1-cutDisaiQ(f.x+f.w),b.y1-cutDisaiQ(f.y+f.h)].some(d=>Math.abs(d)>2);
+ }))return {error:'Disai SCHEME does not reconstruct every glass footprint exactly.'};
+ const drawn=[];
+ lines.forEach(c=>{
+  if(c.axis==='x'){
+   const at=cutDisaiQ(c.x0);
+   if(Math.abs(at-T)>2)drawn.push({axis:'x',at,a:cutDisaiQ(Math.min(c.y0,c.y1)),b:cutDisaiQ(Math.max(c.y0,c.y1))});
+  }else{
+   const a=Math.max(T,cutDisaiQ(Math.min(c.x0,c.x1))),b=cutDisaiQ(Math.max(c.x0,c.x1));
+   if(b-a>2)drawn.push({axis:'y',at:cutDisaiQ(c.y0),a,b});
+  }
+ });
+ if(T>2)drawn.push({axis:'x',at:T,a:0,b:H});
+ const bottom=cutDisaiBottomTrim(parsed.root);
+ if(bottom!==null)drawn.push({axis:'y',at:bottom,a:T,b:W});
+ const mine=cutDisaiCuts(parsed.root),theirs=cutDisaiMerge(drawn);
+ if(mine.some(c=>parts.some(p=>{
+  const f=p.footprint,x0=cutDisaiQ(f.x),x1=cutDisaiQ(f.x+f.w),y0=cutDisaiQ(f.y),y1=cutDisaiQ(f.y+f.h);
+  return c.axis==='x'?x0<c.at-2&&c.at<x1-2&&y0<c.b-2&&c.a<y1-2:y0<c.at-2&&c.at<y1-2&&x0<c.b-2&&c.a<x1-2;
+ })))return {error:'A Disai cut line would pass through glass.'};
+ /* Same lines as on the screen, unless a region had to be re-cut for the
+    five-level limit: then the operator is told the order differs. */
+ const same=mine.length===theirs.length&&mine.every((c,i)=>{const d=theirs[i];return c.axis===d.axis&&[c.at-d.at,c.a-d.a,c.b-d.b].every(x=>Math.abs(x)<=2);});
+ const breaks=cutDisaiBreakLines(mine);
+ if(breaks.error)return breaks;
+ return {scheme,index,breaks:breaks.lines,sameAsScreen:same&&!changed};
 }
 
 /* ==== src/erp/production/cut-machine-trial.js ==== */
@@ -24496,22 +24742,102 @@ function cutTrialMaver(program){
  out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
  return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain'};
 }
+function cutTrialBmpRect(r){
+ if(!r)return null;
+ const x=Number(r.x==null?r.x0:r.x),y=Number(r.y==null?r.y0:r.y),
+  w=Number(r.w==null?Number(r.x1)-x:r.w),h=Number(r.h==null?Number(r.y1)-y:r.h);
+ return [x,y,w,h].every(Number.isFinite)&&w>0&&h>0?{x,y,w,h}:null;
+}
+function cutTrialBmpSafe(v){return String(v==null?'':v).replace(/[\x00-\x1f\x7f]/g,' ').trim();}
+function cutTrialBmpText(ctx,value,x,y,maxW,maxFont,minFont,align,allowShorten){
+ const text=cutTrialBmpSafe(value);if(!text||maxW<8)return false;
+ ctx.textAlign=align||'center';ctx.textBaseline='middle';
+ for(let font=maxFont;font>=minFont-0.01;font-=0.5){
+  ctx.font=font+'px Arial';
+  if(ctx.measureText(text).width<=maxW){ctx.fillText(text,x,y);return true;}
+ }
+ if(allowShorten===false)return false;
+ ctx.font=minFont+'px Arial';
+ let short=text;
+ while(short&&ctx.measureText(short+'…').width>maxW)short=short.slice(0,-1);
+ if(short){ctx.fillText(short+'…',x,y);return true;}
+ return false;
+}
+function cutTrialBmpArea(ctx,r,project,label,fill){
+ const {x,y,w,h}=project(r);if(w<2||h<2)return;
+ ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);
+ ctx.strokeStyle='#a5acb8';ctx.lineWidth=0.7;ctx.strokeRect(x+0.35,y+0.35,w-0.7,h-0.7);
+ if(!label||w<31||h<21)return;
+ ctx.save();ctx.beginPath();ctx.rect(x+2,y+2,w-4,h-4);ctx.clip();
+ ctx.fillStyle='#596579';
+ cutTrialBmpText(ctx,label,x+w/2,y+h/2-4,w-6,8,6,'center');
+ cutTrialBmpText(ctx,frac16(r.w)+' × '+frac16(r.h)+'"',x+w/2,y+h/2+6,w-6,7,5.5,'center');
+ ctx.restore();
+}
 function cutTrialMaverBmp(program){
  const sheet=program.sheet,canvas=document.createElement('canvas');canvas.width=440;canvas.height=320;
  const ctx=canvas.getContext('2d');if(!ctx)return {error:'BMP preview is unavailable in this browser.'};
  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,440,320);
- ctx.fillStyle='#a01818';ctx.font='bold 13px Arial';ctx.fillText('TRIAL ONLY - DO NOT CUT',12,17);
- const scale=Math.min(416/sheet.size.w,270/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=302;
- ctx.fillStyle='#f7f9fc';ctx.fillRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
- ctx.strokeStyle='#20252b';ctx.lineWidth=1;ctx.strokeRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ ctx.fillStyle='#a01818';ctx.font='bold 10px Arial';ctx.textAlign='left';ctx.textBaseline='alphabetic';
+ ctx.fillText('TRIAL ONLY - DO NOT CUT',5,10);
+ ctx.fillStyle='#27394e';
+ cutTrialBmpText(ctx,'Batch '+program.batch+'  |  '+sheet.glass+'  |  Sheet '+sheet.no+
+  '  |  '+frac16(sheet.size.w)+' × '+frac16(sheet.size.h)+'"  |  '+sheet.mm+' mm',5,21,430,9,6,'left');
+ const scale=Math.min(430/sheet.size.w,288/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=316;
+ const project=r=>({x:left+r.x*scale,y:bottom-(r.y+r.h)*scale,w:r.w*scale,h:r.h*scale});
+ ctx.fillStyle='#ffffff';ctx.fillRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ const free=(sheet.free||[]).map(cutTrialBmpRect).filter(Boolean),
+  offcuts=(sheet.offcuts||[]).map(cutTrialBmpRect).filter(Boolean);
+ /* A candidate offcut is still waste until explicitly taken to stock. Draw
+    physical free leaves first, then distinguish usable offcut suggestions. */
+ const overlaps=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*
+  Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+ free.forEach(r=>{
+  const covered=offcuts.some(o=>overlaps(r,o)>0.5*o.w*o.h);
+  cutTrialBmpArea(ctx,r,project,covered?'':'WASTE','#f5f6f8');
+ });
+ offcuts.forEach(r=>cutTrialBmpArea(ctx,r,project,'OFFCUT','#f8eedc'));
  sheet.pieces.forEach(p=>{
-  const f=p.footprint,x=left+f.x*scale,y=bottom-(f.y+f.h)*scale;
-  ctx.fillStyle='#dceefb';ctx.fillRect(x,y,f.w*scale,f.h*scale);
-  ctx.strokeStyle='#4e708e';ctx.strokeRect(x,y,f.w*scale,f.h*scale);
-  if(f.w*scale>36&&f.h*scale>25){ctx.fillStyle='#27394e';ctx.font='10px Arial';ctx.fillText(String(p.id).slice(-8),x+3,y+13);}
+  const f=p.footprint,{x,y,w,h}=project(f);
+  ctx.fillStyle='#dceefb';ctx.fillRect(x,y,w,h);
+  if(w>=1&&h>=1){ctx.strokeStyle='#4e708e';ctx.lineWidth=0.8;ctx.strokeRect(x+0.4,y+0.4,w-0.8,h-0.8);}
  });
  ctx.strokeStyle='#db7927';ctx.lineWidth=1;
  program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
+ sheet.pieces.forEach((p,i)=>{
+  const f=p.footprint,{x,y,w,h}=project(f);
+  if(w<11||h<11)return;
+  ctx.save();ctx.beginPath();ctx.rect(x+1,y+1,w-2,h-2);ctx.clip();ctx.fillStyle='#27394e';
+  const innerX=x+8,innerW=w-12,rows=[];
+  if(p.customer)rows.push(p.customer);
+  if(p.po)rows.push('PO '+p.po);
+  if(p.order)rows.push('Order '+p.order+(p.line?' / '+p.line:''));
+  if(p.id)rows.push(p.id);
+  const available=h-21,rowH=7.5,showRows=available>=rows.length*rowH+13?rows.length:
+   available>=26?Math.min(rows.length,3):available>=18?Math.min(rows.length,2):Math.min(rows.length,1);
+  /* On narrow pieces keep the full Glass ID before lower-priority metadata. */
+  const visible=showRows===rows.length?rows:rows.length&&showRows?
+   rows.slice(0,Math.max(0,showRows-1)).concat(rows[rows.length-1]):[];
+  visible.forEach((row,j)=>{
+   const idRow=row===p.id;
+   const shown=cutTrialBmpText(ctx,row,innerX+innerW/2,y+5+j*rowH,innerW,7,5,'center',!idRow);
+   if(idRow&&!shown&&h>=20){
+    ctx.save();ctx.translate(x+w-4,y+h/2);ctx.rotate(-Math.PI/2);
+    cutTrialBmpText(ctx,p.id,0,0,h-9,6,5,'center',false);ctx.restore();
+   }
+  });
+  const posY=Math.max(y+11+visible.length*rowH,y+h/2);
+  if(posY<y+h-10){ctx.fillStyle='#172b4d';cutTrialBmpText(ctx,String(i+1),x+w/2,posY,w-13,14,9,'center');}
+  ctx.fillStyle='#3a4e68';
+  cutTrialBmpText(ctx,frac16(f.w)+'"',x+w/2,y+h-5,w-11,7,5.5,'center');
+  if(h>=20){
+   ctx.save();ctx.translate(x+4,y+h/2);ctx.rotate(-Math.PI/2);
+   cutTrialBmpText(ctx,frac16(f.h)+'"',0,0,h-8,7,5.5,'center');ctx.restore();
+  }
+  ctx.restore();
+ });
+ ctx.strokeStyle='#20252b';ctx.lineWidth=1;
+ ctx.strokeRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
  const image=ctx.getImageData(0,0,440,320).data,stride=(440*3+3)&~3,bytes=new Uint8Array(54+stride*320),v=new DataView(bytes.buffer);
  bytes[0]=66;bytes[1]=77;v.setUint32(2,bytes.length,true);v.setUint32(10,54,true);v.setUint32(14,40,true);
  v.setInt32(18,440,true);v.setInt32(22,320,true);v.setUint16(26,1,true);v.setUint16(28,24,true);
@@ -24522,38 +24848,8 @@ function cutTrialMaverBmp(program){
  }
  return {name:String(sheet.no)+'.BMP',data:bytes,mime:'image/bmp'};
 }
-/* Disai SCHEME is a recursive guillotine description. The first trial
-   version accepts only straight full-width columns of vertically stacked
-   rectangles: this exact X/Y form is present in the provided samples.
-   More complicated X/Y/Z/U/V trees must not be silently approximated. */
-function cutTrialDisaiColumns(sheet){
- const E=1e-5,parts=sheet.pieces.slice().sort((a,b)=>a.footprint.x-b.footprint.x||a.footprint.y-b.footprint.y),columns=[];
- for(const p of parts){
-  const f=p.footprint,last=columns[columns.length-1];
-  if(last&&Math.abs(last.x-f.x)<E){
-   if(Math.abs(last.w-f.w)>E)return {error:'Disai trial needs equal widths within each column.'};
-   last.pieces.push(p);
-  }else columns.push({x:f.x,w:f.w,pieces:[p]});
- }
- if(!columns.length)return {error:'There are no pieces on this sheet.'};
- if(Math.abs(columns[0].x-sheet.margins.trimY)>E)return {error:'Disai trial needs the first column at the left Trim Y line.'};
- for(let i=1;i<columns.length;i++)if(Math.abs(columns[i].x-(columns[i-1].x+columns[i-1].w))>E)return {error:'Disai trial does not yet support gaps or staggered columns.'};
- const scheme=[],index=new Map(sheet.pieces.map((p,i)=>[p.id,i+1]));
- for(const col of columns){
-  scheme.push('X'+cutTrial3(cutTrialMm(col.w)));
-  let y=0;
-  for(const p of col.pieces.sort((a,b)=>a.footprint.y-b.footprint.y)){
-   const f=p.footprint,gap=f.y-y;
-   if(gap<-E)return {error:'Disai trial columns overlap.'};
-   if(gap>E)scheme.push('Y'+cutTrial3(cutTrialMm(gap)));
-   scheme.push('Y'+cutTrial3(cutTrialMm(f.h))+' IB'+index.get(p.id));
-   y=f.y+f.h;
-  }
- }
- return {scheme,index};
-}
 function cutTrialDisai(program){
- const {sheet,lines,thickness}=program,layout=cutTrialDisaiColumns(sheet);
+ const {sheet,thickness}=program,layout=cutTrialDisaiScheme(sheet);
  if(layout.error)return layout;
  const gid=cutTrialText(sheet.glass),out=['[PATTERN]',
   'GID='+gid,'GDESCRIPTION='+gid,'GSTRUCTURED=0','GCOATED=0','REPEAT=1',
@@ -24562,11 +24858,10 @@ function cutTrialDisai(program){
   'TRIMLEFT='+cutTrial3(cutTrialMm(sheet.margins.trimY)),
   'TRIMBOTTOM=0','BORDERTOP='+cutTrial3(cutTrialMm(sheet.margins.borderX)),
   'BORDERRIGHT='+cutTrial3(cutTrialMm(sheet.margins.borderY)),'',
-  '[SCHEME]',...layout.scheme,'','[BREAKLN]'];
- lines.forEach(c=>out.push([c.x0,c.y0,c.x1,c.y1].map(cutTrial2).join(' ')));
+  '[SCHEME]',...layout.scheme,'','[BREAKLN]',...layout.breaks];
  sheet.pieces.forEach((p,i)=>{
   const f=p.footprint;
-  out.push('','[IB'+(i+1)+']','ID='+(i+1),
+  out.push('','[IB'+layout.index.get(p.id)+']','ID='+(i+1),
    'ORDER='+cutTrialText(p.order+' / '+p.line),'CUSTOMER='+cutTrialText(p.customer),
    'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn===1?'1':'0'),
    'WIDTH='+cutTrial2(cutTrialMm(f.w)),'HEIGHT='+cutTrial2(cutTrialMm(f.h)),
@@ -24575,7 +24870,8 @@ function cutTrialDisai(program){
    'CLASSIFY=1','CTIMES=1');
  });
  out.push('');
- return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain'};
+ return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();
@@ -25637,7 +25933,7 @@ function stkEditorHTML(){
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
 let cutNotice='',cutInfo=null,cutMdNotice='',cutRepackNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
-let cutTrialOpen=false;
+let cutTrialOpen=false,cutTrialError=null;
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -25682,7 +25978,7 @@ function viewMdCutting(){
 }
 /* --------------------------- Батч → Optimization -------------------------- */
 function cutUiState(number){
- if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;}
+ if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;}
  const plan=cutPlanFor(number);
  if(plan&&plan.groups.length){
   if(!plan.groups.some(g=>g.glass===cutUi.glass))cutUi.glass=plan.groups[0].glass;
@@ -25745,7 +26041,11 @@ function cutUiProgress(){
  if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
-function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutNotice='';render();}
+function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutTrialError=null;cutNotice='';render();}
+function cutUiTrialFail(machine,error){
+ cutTrialError={key:[cutUi.batch,cutUi.glass,cutUi.sheet].join('|'),machine,error};
+ cutNotice='';render();
+}
 function cutUiTrialFiles(machine){
  const p=cutTrialSheet(cutUi.batch,cutUi.glass,cutUi.sheet,machine);
  if(p.error)return p;
@@ -25759,9 +26059,11 @@ function cutUiTrialFiles(machine){
   if(dst.error||sum.error)return {error:dst.error||sum.error};
   files=[dst,sum];
  }
- return {p,files};
+ return {p,files,note:files.map(f=>f.note||'').filter(Boolean).join(' ')};
 }
 function cutUiTrialResult(message){
+ cutTrialError=null;
+ const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
  const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
 }
 function cutUiTrialFolderName(batch,glass){
@@ -25771,22 +26073,22 @@ function cutUiTrialFolderName(batch,glass){
 }
 function cutUiTrialExport(machine,kind){
  const prepared=cutUiTrialFiles(machine);
- if(prepared.error){cutNotice=prepared.error;render();return;}
- const {p,files}=prepared;
+ if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
+ const {p,files,note}=prepared;
  const file=files.find(f=>f.name.toLowerCase().endsWith('.'+kind));
- if(!file){cutNotice='Choose a Maver .ISO/.BMP or Disai .dst/.sum file.';render();return;}
+ if(!file){cutUiTrialFail(machine,'Choose a Maver .ISO/.BMP or Disai .dst/.sum file.');return;}
  if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nOpen sheet '+p.sheet.no+' on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut. Download '+file.name+'?'))return;
  try{
   const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=file.name;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.');
- }catch(e){cutNotice='Trial file could not be created: '+(e&&e.message||'unknown error');render();}
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(note?' '+note:''));
+ }catch(e){cutUiTrialFail(machine,'Trial file could not be created: '+(e&&e.message||'unknown error'));}
 }
 async function cutUiTrialFolder(machine){
- if(typeof window.showDirectoryPicker!=='function'){cutNotice='This browser cannot save a folder. Download the two raw files separately.';render();return;}
+ if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
  const prepared=cutUiTrialFiles(machine);
- if(prepared.error){cutNotice=prepared.error;render();return;}
+ if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
  const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass);
  try{
   const root=await window.showDirectoryPicker({mode:'readwrite'});
@@ -25797,16 +26099,16 @@ async function cutUiTrialFolder(machine){
    try{await dir.getFileHandle(file.name);existing.push(file.name);}
    catch(e){if(e.name!=='NotFoundError')throw e;}
   }
-  if(existing.length){cutNotice='Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.';render();return;}
+  if(existing.length){cutUiTrialFail(machine,'Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.');return;}
   for(const file of files){
    const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
    try{await writer.write(file.data);await writer.close();}
    catch(e){await writer.abort().catch(()=>{});throw e;}
   }
-  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.');
+  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.'+(prepared.note?' '+prepared.note:''));
  }catch(e){
   if(e.name==='AbortError')return;
-  cutNotice='Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||'');render();
+  cutUiTrialFail(machine,'Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||''));
  }
 }
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
@@ -26560,8 +26862,10 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
  const folderAvailable=typeof window.showDirectoryPicker==='function';
+ const trialIssue=cutTrialError&&cutTrialError.key===[cutUi.batch,cutUi.glass,cutUi.sheet].join('|')?cutTrialError:null;
  const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
   <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Rectangles only; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
+  ${trialIssue?`<div class="cut-trial-error" data-cut-trial-error role="alert"><b>${esc(trialIssue.machine==='disai'?'Disai':'Maver')} could not export this sheet.</b> ${esc(trialIssue.error)}</div>`:''}
   <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
   <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
   <span data-cut-trial-result role="status" aria-live="polite"></span></div>`:'';
