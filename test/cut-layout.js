@@ -1225,7 +1225,7 @@ module.exports=async function({page,eq,ok}){
    bmp:bmp.data.length===422454&&bmp.data[0]===66&&bmp.data[1]===77,
    dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1')&&dst.data.endsWith('CTIMES=1\r\n\r\n'),
    sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm')&&sum.data.endsWith('OTHERS=\r\n\r\n'),
-   names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===base+'-001.dst'&&/^B-\d+_6CLEAR_S1_\d{4}-\d{2}-\d{2}_DISAI$/.test(base),
+   names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===base+'-001.dst'&&/^B-\d+-S1-\d{2}-[A-Z]{3}-\d{4}-DISAI_6CLEAR$/.test(base),
    folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(cutUiTrialFolderName(m,'maver'))&&cutUiTrialFolderName(d,'disai')===base+'.prjx'};
  }),{mError:'',dError:'',iso:true,bmp:true,dst:true,sum:true,names:true,folder:true});
 
@@ -1292,7 +1292,7 @@ module.exports=async function({page,eq,ok}){
   const second={calls:created.length,count:files.size,refused:!!cutTrialError&&cutTrialError.error.includes('No files were overwritten')};
   await cutUiTrialFolder('disai');
   const prjx=created[2]||'',base=prjx.replace(/\.prjx$/,'');
-  const disai={prjx:/^B-\d+_6CLEAR_S1_\d{4}-\d{2}-\d{2}_DISAI\.prjx$/.test(prjx),
+  const disai={prjx:/^B-\d+-S1-\d{2}-[A-Z]{3}-\d{4}-DISAI_6CLEAR\.prjx$/.test(prjx),
    names:files.has(base+'.sum')&&files.has(base+'-001.dst')&&files.size===4};
   window.showDirectoryPicker=old;
   return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second,disai};

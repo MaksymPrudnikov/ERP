@@ -12,10 +12,17 @@ function cutTrialText(v){return String(v==null?'':v).replace(/[\r\n=\[\]{}]/g,' 
 function cutTrialNameToken(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';}
 function cutTrialDate(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
 /* Disai открывает проект: папку `<имя>.prjx`, внутри `<имя>.sum` и
-   `<имя>-001.dst` с тем же именем — так во всех образцах Perfect Cut; без
-   `.prjx` стол файл не прочитал (владелец, 24.09.2026). Одна пробная папка —
-   один лист, поэтому номер листа в имени. */
-function cutTrialDisaiBase(program){return cutTrialNameToken(program.batch)+'_'+cutTrialNameToken(program.sheet.glass)+'_S'+program.sheet.no+'_'+cutTrialDate()+'_DISAI';}
+   `<имя>-001.dst`. Имя — «что ввёл оператор» через дефисы, затем `_` и код
+   стекла из GID без пробелов: `5MMCLEAR#1-24-SEPT-2026_5CL`,
+   `C-16333_6CL-LOWER-272` при GID `6CL -LOWE R -272` (образцы и папки стола
+   владельца, 24.09.2026; наша папка `…_DISAI` без кода стекла — «wrong file»).
+   Одна пробная папка — один лист, поэтому номер листа в имени. */
+function cutTrialDisaiBase(program){
+ const d=new Date(),mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
+ const part=v=>String(v==null?'':v).replace(/[^A-Za-z0-9#-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';
+ const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
+ return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
+}
 function cutTrialThickness(mm,machine){
  if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
  if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
