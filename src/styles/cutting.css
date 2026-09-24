@@ -18,6 +18,16 @@
 .cut-page-actions{margin-left:auto;justify-content:flex-end}
 .cut-page-tools,.cut-page-primary{display:flex;align-items:center;gap:7px;flex:none}
 .cut-page-tools:empty{display:none}
+.cut-trial-trigger{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:#9a3412;border-color:#fdba74;background:#fff7ed}
+.cut-trial-trigger svg{display:block;width:15px;height:15px}
+.cut-trial-trigger.on,.cut-trial-trigger:hover{background:#ffedd5;border-color:#fb923c}
+.cut-trial-panel{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 14px;padding:8px 10px;border:1px solid #fdba74;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12px}
+.cut-trial-intro{display:flex;align-items:center;gap:8px;flex:1 1 100%;flex-wrap:wrap}
+.cut-trial-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cut-trial-target b{min-width:42px}
+.cut-trial-panel [data-cut-trial-result]{flex:1 1 100%}
+.cut-trial-panel [data-cut-trial-result]:empty{display:none}
+.cut-trial-panel button{background:#fff;border-color:#fdba74;color:#9a3412}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
 .cut-page-problem{font-size:12px;line-height:1.35;color:#b42318;text-align:center}
