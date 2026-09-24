@@ -1212,6 +1212,22 @@ module.exports=async function({page,eq,ok}){
    emptyAdded:!!added.ok,emptySkipped:withEmpty.valid&&withEmpty.sheets.length===job.sheets.length};
  }),{valid:true,errors:[],pieces:2,cuts:true,unchanged:true,emptyAdded:true,emptySkipped:true});
 
+ eq('машинный снимок передаёт реальные упорядоченные линии реза, а не границы областей',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],raw=cutSheetCutsFor(g,s).lines;
+  const out=cutMachineSnapshot(b.number).sheets[0].throughCuts;
+  const match=raw.length===out.length&&raw.every((c,i)=>{
+   const x=out[i],vertical=c.axis==='x';
+   return x.sequence===i+1&&x.axis===c.axis&&x.at===c.at&&x.level===c.level&&x.key===c.key&&
+    x.x0===(vertical?c.at:c.x0)&&x.y0===(vertical?c.y0:c.at)&&
+    x.x1===(vertical?c.at:c.x1)&&x.y1===(vertical?c.y1:c.at);
+  });
+  const v=cutMachineThroughCut({axis:'x',at:40,x0:10,y0:20,x1:90,y1:80,level:2,key:'v'},0);
+  const h=cutMachineThroughCut({axis:'y',at:30,x0:10,y0:20,x1:90,y1:80,level:3,key:'h'},1);
+  return {hasCuts:raw.length>0,match,vertical:[v.sequence,v.x0,v.y0,v.x1,v.y1].join(',')==='1,40,20,40,80',
+   horizontal:[h.sequence,h.x0,h.y0,h.x1,h.y1].join(',')==='2,10,30,90,30'};
+ }),{hasCuts:true,match:true,vertical:true,horizontal:true});
+
  eq('машинный снимок отвергает устаревший план и пропавшую деталь',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,stamp=plan.stamp;
@@ -1220,6 +1236,57 @@ module.exports=async function({page,eq,ok}){
   return {stale:!stale.valid&&stale.errors.some(x=>x.includes('changed after Build')),
    missing:!missing.valid&&missing.errors.some(x=>x.includes(lost.piece+' is not on any sheet'))};
  }),{stale:true,missing:true});
+
+ eq('изменение скоса Shape при прежней коробке требует нового Build до машинного экспорта',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
+  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
+  Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,before=cutPieces(b,plan.settings||{})[0];
+  const originallyFresh=!cutPlanStale(b.number),modern=plan.stamp;
+  plan.stamp=cutLegacyStamp(cutPieces(b,plan.settings||{}));const legacyShapeStale=cutPlanStale(b.number);
+  plan.stamp=modern;
+  shape.params.shortHeight='42';shape.revision=(shape.revision||0)+1;l.shapeRef=salesShapeRefFrom(shape);
+  const after=cutPieces(b,plan.settings||{})[0],sameBox=before.w===after.w&&before.h===after.h,
+   changedContour=JSON.stringify(before.pts)!==JSON.stringify(after.pts),stale=cutPlanStale(b.number),blocked=cutMachineSnapshot(b.number);
+  cutPlanReset(b.number);const rebuilt=cutPlanRun(b.number).plan;
+  return {originallyFresh,legacyShapeStale,sameBox,changedContour,stale,
+   blocked:!blocked.valid&&blocked.errors.some(x=>x.includes('changed after Build')),
+   rebuiltFresh:!cutPlanStale(b.number),newStamp:rebuilt.stamp!==modern};
+ }),{originallyFresh:true,legacyShapeStale:true,sameBox:true,changedContour:true,stale:true,blocked:true,rebuiltFresh:true,newStamp:true});
+
+ eq('старый прямоугольный план остаётся свежим, но смена материала при том же размере — нет',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,1]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,pieces=cutPieces(b,plan.settings||{});
+  plan.stamp=cutLegacyStamp(pieces);
+  const legacyFresh=!cutPlanStale(b.number);
+  /* A batch can already have another material group: compare the specific
+     placed piece, not merely whether its new group exists somewhere. */
+  plan.groups.push({glass:'10CLEAR',mm:10,sheets:[]});
+  return {legacyFresh,differentThickness:cutPlanStale(b.number,pieces.map(p=>Object.assign({},p,{mm:10}))),
+   differentGlass:cutPlanStale(b.number,pieces.map(p=>Object.assign({},p,{glass:'10CLEAR'})))};
+ }),{legacyFresh:true,differentThickness:true,differentGlass:true});
+
+ eq('малый сдвиг скоса Shape не теряется в снимке и отпечатке из-за сетки 1/16',await t.p.evaluate(()=>{
+  const make=y=>cutShapeGeom({cutW:40,cutH:50,cuttingPoints:[[0,0],[40,0],[40,50],[20,y],[0,50]]});
+  const a=make(49.98),b=make(49.99),mirrored=cutShapeGeom({cutW:40,cutH:50,mirrored:true,
+   cuttingPoints:[[0,0],[40,0],[40,50],[20,49.98],[0,50]]}),piece=g=>({piece:'S1',w:g.w,h:g.h,glass:'6CLEAR',mm:6,shape:true,
+   norot:false,pts:g.pts,machinePts:g.machinePts,pad:g.pad});
+  return {sameDisplay:JSON.stringify(a.pts)===JSON.stringify(b.pts),
+   differentMachine:JSON.stringify(a.machinePts)!==JSON.stringify(b.machinePts),
+   exact:a.machinePts[3][1]===49.98&&b.machinePts[3][1]===49.99,
+   noDoubleMirror:JSON.stringify(mirrored.machinePts)===JSON.stringify(a.machinePts),
+   differentStamp:cutStamp([piece(a)])!==cutStamp([piece(b)])};
+ }),{sameDisplay:true,differentMachine:true,exact:true,noDoubleMirror:true,differentStamp:true});
+
+ eq('машинный снимок не выдаёт вручную повёрнутое стекло с запретом поворота',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,1]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,p=plan.groups[0].sheets[0].pieces[0];
+  p.turn=1;p.rot=true;[p.w,p.h]=[p.h,p.w];plan.settings[p.piece]={norot:true};
+  plan.stamp=cutLegacyStamp(cutPieces(b,plan.settings||{}));
+  const job=cutMachineSnapshot(b.number);
+  return {legacyFresh:!cutPlanStale(b.number),blocked:!job.valid&&job.errors.some(x=>x.includes('marked no-rotate'))};
+ }),{legacyFresh:true,blocked:true});
 
  eq('машинный снимок не пропускает пересечение и выход детали за лист',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
@@ -1238,7 +1305,7 @@ module.exports=async function({page,eq,ok}){
   shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,p=plan.groups[0].sheets[0].pieces[0],src=cutPieces(b,{})[0];
   p.turn=2;p.rot=false;const job=cutMachineSnapshot(b.number),part=job.sheets[0].pieces[0];
-  const q=src.pts[0],first=[p.x+p.w-q[0],p.y+p.h-q[1]];
+  const q=src.machinePts[0],first=[p.x+p.w-q[0],p.y+p.h-q[1]];
   const area=Math.abs(part.contour.reduce((a,c,i)=>{const n=part.contour[(i+1)%part.contour.length];return a+c[0]*n[1]-n[0]*c[1];},0))/2;
   return {valid:job.valid,turn:part.turn,shape:part.shape,firstOk:part.contour[0].every((v,i)=>Math.abs(v-first[i])<1e-6),
    shaped:area<part.footprint.w*part.footprint.h-1,

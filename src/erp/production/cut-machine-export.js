@@ -14,6 +14,15 @@ function cutMachinePoint(piece,q){
  if(turn===3)return [piece.x+y,piece.y+piece.h-x];
  return [piece.x+x,piece.y+y];
 }
+/* cutSheetCuts describes each partition by its bounds plus axis/at. Machine
+   adapters need the actual ordered score segment, not the partition rectangle. */
+function cutMachineThroughCut(c,index){
+ const vertical=c.axis==='x';
+ return {sequence:index+1,axis:c.axis,at:c.at,
+  x0:vertical?c.at:c.x0,y0:vertical?c.y0:c.at,
+  x1:vertical?c.at:c.x1,y1:vertical?c.y1:c.at,
+  level:c.level,key:c.key};
+}
 function cutMachineSnapshot(number){
  const errors=[],batch=glassBatchFind(number),plan=cutPlanFor(number);
  if(!batch)errors.push('Batch not found.');
@@ -44,13 +53,14 @@ function cutMachineSnapshot(number){
    seen.add(piece.piece);
    if(src.glass!==group.glass||Math.abs(src.mm-group.mm)>1e-6)errors.push('Piece '+piece.piece+' has the wrong glass or thickness.');
    if(!src.shape&&turn>1)errors.push('Rectangle '+piece.piece+' has an unsupported rotation.');
+   if(src.norot&&odd)errors.push('Piece '+piece.piece+' is marked no-rotate but is turned.');
    if(![piece.x,piece.y,piece.w,piece.h].every(Number.isFinite)||!(piece.w>0)||!(piece.h>0)||
       Math.abs(piece.w-(odd?src.h:src.w))>1/16+1e-6||Math.abs(piece.h-(odd?src.w:src.h))>1/16+1e-6){
     errors.push('Piece '+piece.piece+' has invalid placement dimensions.');return;
    }
    const footprint={x:piece.x,y:piece.y,w:piece.w,h:piece.h};
-   if(src.shape&&(!Array.isArray(src.pts)||src.pts.length<3))errors.push('Shape '+piece.piece+' has no verified cutting contour.');
-   const local=src.shape?Array.isArray(src.pts)?src.pts:[]:[[0,0],[src.w,0],[src.w,src.h],[0,src.h]];
+   if(src.shape&&(!Array.isArray(src.machinePts)||src.machinePts.length<3))errors.push('Shape '+piece.piece+' has no verified cutting contour.');
+   const local=src.shape?Array.isArray(src.machinePts)?src.machinePts:[]:[[0,0],[src.w,0],[src.w,src.h],[0,src.h]];
    const contour=local.map(q=>cutMachinePoint(piece,q));
    if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-6||q[0]>piece.x+piece.w+1e-6||
       q[1]<piece.y-1e-6||q[1]>piece.y+piece.h+1e-6))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
@@ -81,7 +91,7 @@ function cutMachineSnapshot(number){
    minimumMargins:{trimX:params.trimX,trimY:params.trimY,borderX:params.borderX,borderY:params.borderY},
    usable:{x0:effectiveTrimY,y0:usable.y0,x1:usable.x1,y1:usable.y1},
    pieces:parts,stock,
-   throughCuts:cut?(cut.lines||[]).map(x=>({x0:x.x0,y0:x.y0,x1:x.x1,y1:x.y1,level:x.level})):[]});
+   throughCuts:cut?(cut.lines||[]).map(cutMachineThroughCut):[]});
  }));
  source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
  if(!sheets.length)errors.push('There are no occupied sheets to export.');
