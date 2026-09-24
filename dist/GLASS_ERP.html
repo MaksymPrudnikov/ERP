@@ -1986,7 +1986,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1e1608fd3659';
+var ERP_BUILD='58d7e8e6acf9';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -24446,14 +24446,15 @@ function cutMachineSnapshot(number,scope){
    guillotine tree; the cut direction alternates level by level:
      X — strips across the width, starting at TRIMLEFT;
      Y — rows inside a strip, from the bottom edge of the sheet;
-     Z — pieces inside a row, U — inside Z, V — inside U.
+     Z — pieces inside a row, U — inside Z, V — inside U, W, R.
    Each entry is a span in mm, `IBn` marks the glass. A leading gap is a
-   span without IB, the trailing remainder is left implicit; at most five
-   levels. BREAKLN lists every score line of that tree: vertical lines
+   span without IB, the trailing remainder is left implicit. Seven levels
+   X…R are seen in the owner's exports (4 mm, 24.09.2026); deeper letters
+   are not known, so a deeper sheet is refused. BREAKLN lists every score line of that tree: vertical lines
    sorted by X, then horizontal by Y; touching collinear lines merged;
    both ends stop 1 mm short. The table itself cuts plain X/Y lines.
    ===================================================================== */
-const CUT_DISAI_LEVELS='XYZUV';
+const CUT_DISAI_LEVELS='XYZUVWR';
 /* Positions in 0.001 mm integers. Every span is a difference of rounded
    absolute positions, so long rows do not accumulate rounding drift. */
 function cutDisaiQ(inches){return Math.round(inches*25400);}
@@ -24463,7 +24464,7 @@ function cutDisaiText(um,digits){return (um/1000).toFixed(digits);}
 function cutDisaiParse(scheme,frame){
  const T=2,root=Object.assign({level:0,children:[],cursor:frame.x0},frame),stack=[root],boxes=[];
  for(const line of scheme){
-  const m=/^([XYZUV])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
+  const m=/^([XYZUVWR])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
   if(!m)return {error:'Unreadable Disai SCHEME line '+line+'.'};
   const level=CUT_DISAI_LEVELS.indexOf(m[1])+1,parent=stack[level-1];
   if(!parent)return {error:'Disai SCHEME line '+line+' has no parent level.'};
@@ -24536,7 +24537,7 @@ function cutDisaiBreakLines(cuts){
    into one level; a level that does not cut here gets one full-width span.
    The result is parsed back: every glass and every cut line must match the
    drawing, otherwise nothing is written. */
-function cutTrialDisaiScheme(sheet){
+function cutTrialDisaiScheme(sheet,depth){
  const E=1e-6,parts=(sheet&&sheet.pieces||[]).slice(),size=sheet&&sheet.size||{};
  const trim=sheet&&sheet.margins?+sheet.margins.trimY:NaN,md=+(sheet&&sheet.minDist)||0;
  if(!parts.length)return {error:'There are no pieces on this sheet.'};
@@ -24588,7 +24589,7 @@ function cutTrialDisaiScheme(sheet){
  };
  const field=clip(tree);
  if(fail||!field)return {error:fail||'Disai trial has no glass right of the Trim Y line.'};
- /* Levels: the drawing's own cuts first. Where they would need a sixth
+ /* Levels: the drawing's own cuts first. Where they would need an eighth
     level, that region alone is cut the way Perfect Cut does it — at every
     edge that crosses no glass (for a 12″ stack beside waste: rows across
     the column, then one short cut per row). Every loose piece of waste must
@@ -24607,8 +24608,9 @@ function cutTrialDisaiScheme(sheet){
   return edge.slice(1).map((b,i)=>axis==='x'?{x0:edge[i],x1:b,y0:r.y0,y1:r.y1}:{x0:r.x0,x1:r.x1,y0:edge[i],y1:b});
  };
  let changed=false;
+ const most=Math.min(+depth||CUT_DISAI_LEVELS.length,CUT_DISAI_LEVELS.length);
  const level=(r,L)=>{
-  if(L>CUT_DISAI_LEVELS.length)return null;
+  if(L>most)return null;
   const axis=L%2?'x':'y',list=inside(r),n=nodes.get(cutCutKey(r)),tries=[];
   if(n)tries.push({regions:flat(n,axis).map(s=>s.r),own:true});
   tries.push({regions:split(r,axis,spots(r,axis,list)),own:false});
@@ -24627,7 +24629,7 @@ function cutTrialDisaiScheme(sheet){
   return null;
  };
  const plan=level(field.r,1);
- if(!plan)return {error:'This sheet needs more than five Disai levels (X/Y/Z/U/V).'};
+ if(!plan)return {error:'This sheet needs more than '+most+' Disai levels ('+CUT_DISAI_LEVELS.slice(0,most).split('').join('/')+').'};
  const scheme=[];
  const emit=(slices,L)=>{
   const axis=L%2?'x':'y';let last=slices.length-1;
@@ -24666,7 +24668,7 @@ function cutTrialDisaiScheme(sheet){
   return c.axis==='x'?x0<c.at-2&&c.at<x1-2&&y0<c.b-2&&c.a<y1-2:y0<c.at-2&&c.at<y1-2&&x0<c.b-2&&c.a<x1-2;
  })))return {error:'A Disai cut line would pass through glass.'};
  /* Same lines as on the screen, unless a region had to be re-cut for the
-    five-level limit: then the operator is told the order differs. */
+    level limit: then the operator is told the order differs. */
  const same=mine.length===theirs.length&&mine.every((c,i)=>{const d=theirs[i];return c.axis===d.axis&&[c.at-d.at,c.a-d.a,c.b-d.b].every(x=>Math.abs(x)<=2);});
  const breaks=cutDisaiBreakLines(mine);
  if(breaks.error)return breaks;
@@ -24686,10 +24688,27 @@ function cutTrial3(n){return Number(n).toFixed(3);}
 function cutTrial2(n){return Number(n).toFixed(2);}
 function cutTrialText(v){return String(v==null?'':v).replace(/[\r\n=\[\]{}]/g,' ').slice(0,80);}
 function cutTrialNameToken(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';}
-function cutTrialDisaiBase(program){return 'TRIAL-'+cutTrialNameToken(program.batch)+'-'+cutTrialNameToken(program.sheet.glass)+'-S'+program.sheet.no;}
+function cutTrialDate(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
+/* Disai открывает проект: папку `<имя>.prjx`, внутри `<имя>.sum` и
+   `<имя>-001.dst`. Имя — «что ввёл оператор» через дефисы, затем `_` и код
+   стекла из GID без пробелов: `5MMCLEAR#1-24-SEPT-2026_5CL`,
+   `C-16333_6CL-LOWER-272` при GID `6CL -LOWE R -272` (образцы и папки стола
+   владельца, 24.09.2026; наша папка `…_DISAI` без кода стекла — «wrong file»).
+   Одна пробная папка — один лист, поэтому номер листа в имени. */
+function cutTrialDisaiBase(program){
+ const d=new Date(),mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()];
+ const part=v=>String(v==null?'':v).replace(/[^A-Za-z0-9#-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';
+ const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
+ return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
+}
+/* Disai: в 13 проектах стола владельца (24.09.2026) 4CL/5CL/6CL/6LOWE —
+   4.000/5.000/6.000, а 3CL, 6GREY и ламинат — 76.200/152.400, то есть толщина
+   части стёкол в библиотеке Perfect Cut введена в дюймах. Пишем миллиметры,
+   как у 6CL. Maver: 152 — из единственного 6-мм образца, стол его читает. */
 function cutTrialThickness(mm,machine){
  if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
- if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
+ if(Math.abs(mm-5)<1e-6)return machine==='disai'?'5.000':null;
+ if(Math.abs(mm-6)<1e-6)return machine==='disai'?'6.000':'152';
  if(Math.abs(mm-10)<1e-6)return machine==='disai'?'10.000':'10';
  return null;
 }
@@ -24869,9 +24888,9 @@ function cutTrialDisai(program){
    'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
    'CLASSIFY=1','CTIMES=1');
  });
- out.push('');
+ out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
-  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (7-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();
@@ -24879,7 +24898,7 @@ function cutTrialDisaiSum(program){
   '[PRJXINFO]','QUANTITY=1','DIMENX=1','PATTERNX=1','',
   '[DIMEN1]','WIDTH='+cutTrial3(cutTrialMm(s.size.w)),
   'HEIGHT='+cutTrial3(cutTrialMm(s.size.h)),'GTHICKNESS='+program.thickness,
-  'GCLR=','QNTY=1','OTHERS=',''];
+  'GCLR=','QNTY=1','OTHERS=','',''];
  return {name:cutTrialDisaiBase(program)+'.sum',data:out.join('\r\n'),mime:'text/plain'};
 }
 
@@ -26066,12 +26085,12 @@ function cutUiTrialResult(message){
  const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
  const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
 }
-/* Имя стола в конце папки: пары файлов Maver и Disai одного листа иначе
-   ложатся в папки с одинаковым именем (владелец, 24.09.2026: «папки»). */
-function cutUiTrialFolderName(batch,glass,machine){
+/* Имя стола в конце папки (владелец, 24.09.2026: «папки»). Disai — папка
+   проекта `.prjx` с тем же именем, что у файлов внутри. */
+function cutUiTrialFolderName(p,machine){
+ if(machine==='disai')return cutTrialDisaiBase(p)+'.prjx';
  const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
- const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
- return safe(batch)+'_'+safe(glass)+'_'+date+'_'+(machine==='disai'?'DISAI':'MAVER');
+ return safe(p.batch)+'_'+safe(p.sheet.glass)+'_'+cutTrialDate()+'_MAVER';
 }
 function cutUiTrialExport(machine,kind){
  const prepared=cutUiTrialFiles(machine);
@@ -26084,14 +26103,14 @@ function cutUiTrialExport(machine,kind){
   const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
   a.href=url;a.download=file.name;
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(note?' '+note:''));
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(machine==='disai'?' Put both in a folder named '+cutUiTrialFolderName(p,'disai')+'.':'')+(note?' '+note:''));
  }catch(e){cutUiTrialFail(machine,'Trial file could not be created: '+(e&&e.message||'unknown error'));}
 }
 async function cutUiTrialFolder(machine){
  if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
  const prepared=cutUiTrialFiles(machine);
  if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
- const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass,machine);
+ const {p,files}=prepared,folderName=cutUiTrialFolderName(p,machine);
  try{
   const root=await window.showDirectoryPicker({mode:'readwrite'});
   if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;
