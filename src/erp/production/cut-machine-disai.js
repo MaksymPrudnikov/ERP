@@ -8,14 +8,15 @@
    guillotine tree; the cut direction alternates level by level:
      X — strips across the width, starting at TRIMLEFT;
      Y — rows inside a strip, from the bottom edge of the sheet;
-     Z — pieces inside a row, U — inside Z, V — inside U.
+     Z — pieces inside a row, U — inside Z, V — inside U, W, R.
    Each entry is a span in mm, `IBn` marks the glass. A leading gap is a
-   span without IB, the trailing remainder is left implicit; at most five
-   levels. BREAKLN lists every score line of that tree: vertical lines
+   span without IB, the trailing remainder is left implicit. Seven levels
+   X…R are seen in the owner's exports (4 mm, 24.09.2026); deeper letters
+   are not known, so a deeper sheet is refused. BREAKLN lists every score line of that tree: vertical lines
    sorted by X, then horizontal by Y; touching collinear lines merged;
    both ends stop 1 mm short. The table itself cuts plain X/Y lines.
    ===================================================================== */
-const CUT_DISAI_LEVELS='XYZUV';
+const CUT_DISAI_LEVELS='XYZUVWR';
 /* Positions in 0.001 mm integers. Every span is a difference of rounded
    absolute positions, so long rows do not accumulate rounding drift. */
 function cutDisaiQ(inches){return Math.round(inches*25400);}
@@ -25,7 +26,7 @@ function cutDisaiText(um,digits){return (um/1000).toFixed(digits);}
 function cutDisaiParse(scheme,frame){
  const T=2,root=Object.assign({level:0,children:[],cursor:frame.x0},frame),stack=[root],boxes=[];
  for(const line of scheme){
-  const m=/^([XYZUV])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
+  const m=/^([XYZUVWR])(\d+(?:\.\d+)?)((?:\s+(?:DB|IB)\d+)*)\s*$/.exec(String(line).trim());
   if(!m)return {error:'Unreadable Disai SCHEME line '+line+'.'};
   const level=CUT_DISAI_LEVELS.indexOf(m[1])+1,parent=stack[level-1];
   if(!parent)return {error:'Disai SCHEME line '+line+' has no parent level.'};
@@ -98,7 +99,7 @@ function cutDisaiBreakLines(cuts){
    into one level; a level that does not cut here gets one full-width span.
    The result is parsed back: every glass and every cut line must match the
    drawing, otherwise nothing is written. */
-function cutTrialDisaiScheme(sheet){
+function cutTrialDisaiScheme(sheet,depth){
  const E=1e-6,parts=(sheet&&sheet.pieces||[]).slice(),size=sheet&&sheet.size||{};
  const trim=sheet&&sheet.margins?+sheet.margins.trimY:NaN,md=+(sheet&&sheet.minDist)||0;
  if(!parts.length)return {error:'There are no pieces on this sheet.'};
@@ -150,7 +151,7 @@ function cutTrialDisaiScheme(sheet){
  };
  const field=clip(tree);
  if(fail||!field)return {error:fail||'Disai trial has no glass right of the Trim Y line.'};
- /* Levels: the drawing's own cuts first. Where they would need a sixth
+ /* Levels: the drawing's own cuts first. Where they would need an eighth
     level, that region alone is cut the way Perfect Cut does it — at every
     edge that crosses no glass (for a 12″ stack beside waste: rows across
     the column, then one short cut per row). Every loose piece of waste must
@@ -169,8 +170,9 @@ function cutTrialDisaiScheme(sheet){
   return edge.slice(1).map((b,i)=>axis==='x'?{x0:edge[i],x1:b,y0:r.y0,y1:r.y1}:{x0:r.x0,x1:r.x1,y0:edge[i],y1:b});
  };
  let changed=false;
+ const most=Math.min(+depth||CUT_DISAI_LEVELS.length,CUT_DISAI_LEVELS.length);
  const level=(r,L)=>{
-  if(L>CUT_DISAI_LEVELS.length)return null;
+  if(L>most)return null;
   const axis=L%2?'x':'y',list=inside(r),n=nodes.get(cutCutKey(r)),tries=[];
   if(n)tries.push({regions:flat(n,axis).map(s=>s.r),own:true});
   tries.push({regions:split(r,axis,spots(r,axis,list)),own:false});
@@ -189,7 +191,7 @@ function cutTrialDisaiScheme(sheet){
   return null;
  };
  const plan=level(field.r,1);
- if(!plan)return {error:'This sheet needs more than five Disai levels (X/Y/Z/U/V).'};
+ if(!plan)return {error:'This sheet needs more than '+most+' Disai levels ('+CUT_DISAI_LEVELS.slice(0,most).split('').join('/')+').'};
  const scheme=[];
  const emit=(slices,L)=>{
   const axis=L%2?'x':'y';let last=slices.length-1;
@@ -228,7 +230,7 @@ function cutTrialDisaiScheme(sheet){
   return c.axis==='x'?x0<c.at-2&&c.at<x1-2&&y0<c.b-2&&c.a<y1-2:y0<c.at-2&&c.at<y1-2&&x0<c.b-2&&c.a<x1-2;
  })))return {error:'A Disai cut line would pass through glass.'};
  /* Same lines as on the screen, unless a region had to be re-cut for the
-    five-level limit: then the operator is told the order differs. */
+    level limit: then the operator is told the order differs. */
  const same=mine.length===theirs.length&&mine.every((c,i)=>{const d=theirs[i];return c.axis===d.axis&&[c.at-d.at,c.a-d.a,c.b-d.b].every(x=>Math.abs(x)<=2);});
  const breaks=cutDisaiBreakLines(mine);
  if(breaks.error)return breaks;

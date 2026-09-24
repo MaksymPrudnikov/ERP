@@ -23,9 +23,14 @@ function cutTrialDisaiBase(program){
  const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
  return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
 }
+/* Disai: в 13 проектах стола владельца (24.09.2026) 4CL/5CL/6CL/6LOWE —
+   4.000/5.000/6.000, а 3CL, 6GREY и ламинат — 76.200/152.400, то есть толщина
+   части стёкол в библиотеке Perfect Cut введена в дюймах. Пишем миллиметры,
+   как у 6CL. Maver: 152 — из единственного 6-мм образца, стол его читает. */
 function cutTrialThickness(mm,machine){
  if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
- if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
+ if(Math.abs(mm-5)<1e-6)return machine==='disai'?'5.000':null;
+ if(Math.abs(mm-6)<1e-6)return machine==='disai'?'6.000':'152';
  if(Math.abs(mm-10)<1e-6)return machine==='disai'?'10.000':'10';
  return null;
 }
@@ -207,7 +212,7 @@ function cutTrialDisai(program){
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
-  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
+  note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (7-level limit).'};
 }
 function cutTrialDisaiSum(program){
  const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();

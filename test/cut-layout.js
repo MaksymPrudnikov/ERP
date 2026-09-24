@@ -1223,7 +1223,7 @@ module.exports=async function({page,eq,ok}){
   const base=sum.name.replace(/\.sum$/,'');
   return {mError:'',dError:'',iso:iso.data.includes('VN216=152')&&iso.data.includes('TEST ONLY - DO NOT CUT')&&iso.data.includes('G0X'),
    bmp:bmp.data.length===422454&&bmp.data[0]===66&&bmp.data[1]===77,
-   dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1')&&dst.data.endsWith('CTIMES=1\r\n\r\n'),
+   dst:dst.data.includes('GTHICKNESS=6.000')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1')&&dst.data.endsWith('CTIMES=1\r\n\r\n'),
    sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm')&&sum.data.endsWith('OTHERS=\r\n\r\n'),
    names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===base+'-001.dst'&&/^B-\d+-S1-\d{2}-[A-Z]{3}-\d{4}-DISAI_6CLEAR$/.test(base),
    folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(cutUiTrialFolderName(m,'maver'))&&cutUiTrialFolderName(d,'disai')===base+'.prjx'};
@@ -1430,7 +1430,7 @@ module.exports=async function({page,eq,ok}){
   return {border:line(25400),wide:line(10000)};
  }),{border:550800,wide:525400});
 
- eq('Disai: лист 130×96 владельца (стопка 12×12 у колонки 24 1/8″) выгружается в пять уровней',await t.p.evaluate(()=>{
+ eq('Disai: лист 130×96 владельца (стопка 12×12 у колонки 24 1/8″) выгружается в порядке экрана; при пяти уровнях — обходом',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[24.125,24.125,4],[12,12,4]]);
   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],p=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'disai');
   if(p.error)return {error:p.error};
@@ -1439,9 +1439,11 @@ module.exports=async function({page,eq,ok}){
   const boxes=new Map(parsed.boxes.filter(x=>x.ib).map(x=>[x.ib,x]));
   const exact=p.sheet.pieces.every(q=>{const x=boxes.get(r.index.get(q.id)),f=q.footprint;
    return x&&Math.abs(x.x0-cutDisaiQ(f.x))<=2&&Math.abs(x.y0-cutDisaiQ(f.y))<=2&&Math.abs(x.x1-cutDisaiQ(f.x+f.w))<=2&&Math.abs(x.y1-cutDisaiQ(f.y+f.h))<=2;});
+  const five=cutTrialDisaiScheme(p.sheet,5),p5=cutDisaiParse(five.scheme||[],{x0:cutDisaiQ(p.sheet.margins.trimY),y0:0,x1:cutDisaiQ(p.sheet.size.w),y1:cutDisaiQ(p.sheet.size.h)});
   return {error:'',pieces:p.sheet.pieces.length,exact,levels:[...new Set(r.scheme.map(l=>l[0]))].join(''),
-   inFile:file.data.includes('[BREAKLN]\r\n'+r.breaks[0]),note:!!file.note};
- }),{error:'',pieces:8,exact:true,levels:'XYZUV',inFile:true,note:true});
+   inFile:file.data.includes('[BREAKLN]\r\n'+r.breaks[0]),note:!!file.note,same:r.sameAsScreen,
+   five:{levels:[...new Set((five.scheme||[]).map(l=>l[0]))].join(''),same:five.sameAsScreen,glass:(p5.boxes||[]).filter(x=>x.ib).length}};
+ }),{error:'',pieces:8,exact:true,levels:'XYZUVW',inFile:true,note:false,same:true,five:{levels:'XYZUV',same:false,glass:8}});
 
  eq('Disai: повёрнутое стекло получает номер 2500 + ID, как в образце Perfect Cut',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
@@ -1453,14 +1455,14 @@ module.exports=async function({page,eq,ok}){
    used:r.scheme.some(l=>/ IB2501$/.test(l))};
  }),{error:'',first:2501,second:2,used:true});
 
- eq('Disai отказывает, если лист не укладывается в пять уровней',await t.p.evaluate(()=>{
+ eq('Disai отказывает, если лист не укладывается в семь уровней X…R',await t.p.evaluate(()=>{
   const size={w:100,h:100},params={trimX:0,trimY:0,borderX:0,borderY:0,minDist:.5};
-  const rects=[[0,0,10,100],[10,0,90,10],[10,10,10,90],[20,10,80,10],[20,20,10,80],[30,20,10,10]];
+  const rects=[[0,0,10,100],[10,0,90,10],[10,10,10,90],[20,10,80,10],[20,20,10,80],[30,20,70,10],[30,30,10,70],[40,30,10,10]];
   const sheet={pieces:rects.map(([x,y,w,h],i)=>({piece:'P'+i,x,y,w,h})),stock:[]},cuts=cutSheetCuts(sheet,size,params);
   const r=cutTrialDisaiScheme({size,margins:{trimY:0,borderY:0},minDist:.5,
    pieces:sheet.pieces.map(q=>({id:q.piece,turn:0,footprint:{x:q.x,y:q.y,w:q.w,h:q.h}})),
    throughCuts:cuts.lines.map(cutMachineThroughCut)});
-  return {cuttable:cuts.ok,refused:!!r.error&&r.error.includes('five Disai levels')};
+  return {cuttable:cuts.ok,refused:!!r.error&&r.error.includes('more than 7 Disai levels')};
  }),{cuttable:true,refused:true});
 
  eq('раскрой без ошибок страницы',t.errs,[]);await t.c.close();
