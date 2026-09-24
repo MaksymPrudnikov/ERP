@@ -77,14 +77,22 @@ function cutShapeGeom(lite){
  const side=v=>Math.max(0,+v||0);
  const raw4=(fp&&fp.pad)||{},L=side(raw4.left),B=side(raw4.bottom),R=side(raw4.right),T=side(raw4.top);
  const w=fp?cutRound(x1-x0+L+R):cutRound(x1-x0),h=fp?cutRound(y1-y0+B+T):cutRound(y1-y0);
- const mx=lite.mirrored?v=>x0+x1-v:v=>v,at=(px,py)=>[cutRound(mx(px)-x0+L),cutRound(py-y0+B)];
+ const mx=lite.mirrored?v=>x0+x1-v:v=>v,
+  exactAt=(px,py)=>[mx(px)-x0+L,py-y0+B],
+  at=(px,py)=>exactAt(px,py).map(cutRound);
  const fg=(lite.result&&lite.result.featureGeometry)||{};
  const holes=(fg.holes||[]).map(o=>{const c=at(+o.center[0],+o.center[1]);return {x:c[0],y:c[1],d:+o.diameter||0};}).filter(o=>o.d>0&&Number.isFinite(o.x)&&Number.isFinite(o.y));
  const cutouts=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(q=>at(+q[0],+q[1]))).filter(q=>q.length>2);
  /* Safety border целиком лежит внутри этой внешней заготовки. Соседняя
     заготовка в оптимизации касается её границы без наружной прибавки. */
  const grip=Math.max(L,R,T,B);
- return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),holes,cutouts};
+ /* The placement/UI grid is 1/16″, but the controller contour must retain
+    the source coordinates. Rounding a raked edge by 1/32″ can shift it by
+    nearly 0.8 mm; keep that geometry separate and fail closed later if it
+    does not fit inside the rounded footprint. */
+ return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),
+  /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
+  machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
 }
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
@@ -108,7 +116,7 @@ function cutPieces(batch,settings){
      копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
      лишних поля у прямоугольника стоили 60 % времени Build — тест 2 шёл
      2,6 с вместо 1,65 с. */
-  if(geom){row.pts=geom.pts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
+  if(geom){row.pts=geom.pts;row.machinePts=geom.machinePts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
   out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
@@ -1026,7 +1034,19 @@ function cutConsolidateSheets(group,paramsFor,source){
 
 /* ------------------------------ Прогон ------------------------------ */
 function cutPlanFor(number){return (DB.cutPlan||[]).find(p=>p&&p.batch===number)||null;}
-function cutStamp(pieces){return pieces.filter(p=>!p.off).map(p=>p.piece+':'+p.w+'x'+p.h).join('|');}
+/* The old stamp covered only the footprint. A raked Shape can change its cut
+   contour without changing that footprint, leaving an old layout apparently
+   fresh and allowing the new contour to be exported from it. Keep the legacy
+   format only for read-only migration of existing rectangular plans below;
+   every newly built plan records its production geometry and material. */
+function cutLegacyStamp(pieces){return pieces.filter(p=>!p.off).map(p=>p.piece+':'+p.w+'x'+p.h).join('|');}
+function cutStamp(pieces){
+ return 'v2:'+JSON.stringify(pieces.filter(p=>!p.off).map(p=>[
+  p.piece,p.w,p.h,p.glass,+p.mm,!!p.shape,!!p.norot,
+  p.shape?p.pts||null:null,p.shape?p.machinePts||null:null,p.shape?+p.pad||0:0,
+  p.shape?p.holes||[]:null,p.shape?p.cutouts||[]:null
+ ]));
+}
 function cutSettingsOf(number){const p=cutPlanFor(number);return p&&p.settings&&typeof p.settings==='object'?p.settings:{};}
 /* Build — по шагам: после каждого варианта раскладки (и после каждого листа
    в долгих проходах «лист за листом») отдаётся доля готового, 0…1; по ней
@@ -1444,7 +1464,20 @@ function cutPlanRefresh(plan,pieces){
 }
 function cutPlanStale(number,pieces){
  const plan=cutPlanFor(number),b=glassBatchFind(number);
- return !!(plan&&b&&plan.stamp!==cutStamp(pieces||cutPieces(b,plan.settings||{})));
+ if(!plan||!b)return false;
+ const source=pieces||cutPieces(b,plan.settings||{});
+ if(plan.stamp===cutStamp(source))return false;
+ if(plan.stamp!==cutLegacyStamp(source))return true;
+ /* Existing rectangle-only plans remain usable after the upgrade. A legacy
+    stamp cannot prove a Shape contour, so any such plan must be rebuilt. */
+ if(source.some(p=>!p.off&&p.shape)||plan.groups.some(g=>g.sheets.some(s=>s.pieces.some(p=>p.shape))))return true;
+ const groups=new Set(),placed=new Map();
+ plan.groups.forEach(g=>{
+  const material=g.glass+'|'+g.mm;groups.add(material);
+  g.sheets.forEach(s=>s.pieces.forEach(p=>placed.set(p.piece,material)));
+ });
+ return source.some(p=>!p.off&&(!groups.has(p.glass+'|'+p.mm)||
+  placed.has(p.piece)&&placed.get(p.piece)!==p.glass+'|'+p.mm));
 }
 function cutPlanIndex(number){
  const plan=cutPlanFor(number),m=new Map();if(!plan)return m;
