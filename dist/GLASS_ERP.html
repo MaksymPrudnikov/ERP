@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 84 модулей, 14 стиля.
+  Состав сборки: 85 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1675,6 +1675,16 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-page-actions{margin-left:auto;justify-content:flex-end}
 .cut-page-tools,.cut-page-primary{display:flex;align-items:center;gap:7px;flex:none}
 .cut-page-tools:empty{display:none}
+.cut-trial-trigger{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:#9a3412;border-color:#fdba74;background:#fff7ed}
+.cut-trial-trigger svg{display:block;width:15px;height:15px}
+.cut-trial-trigger.on,.cut-trial-trigger:hover{background:#ffedd5;border-color:#fb923c}
+.cut-trial-panel{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 14px;padding:8px 10px;border:1px solid #fdba74;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12px}
+.cut-trial-intro{display:flex;align-items:center;gap:8px;flex:1 1 100%;flex-wrap:wrap}
+.cut-trial-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cut-trial-target b{min-width:42px}
+.cut-trial-panel [data-cut-trial-result]{flex:1 1 100%}
+.cut-trial-panel [data-cut-trial-result]:empty{display:none}
+.cut-trial-panel button{background:#fff;border-color:#fdba74;color:#9a3412}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
 .cut-page-problem{font-size:12px;line-height:1.35;color:#b42318;text-align:center}
@@ -1975,7 +1985,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='d13d26384a10';
+var ERP_BUILD='1411b8523943';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10783,6 +10793,7 @@ const ICONS={
  lock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
  unlock:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2"/>',
  printer:'<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/><path d="M18 12h.01"/>',
+ download:'<path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v4h16v-4"/>',
  reset:'<path d="M4 4v6h6"/><path d="M5.7 15a8 8 0 1 0 .2-6.2L4 10"/>',
  whatif:'<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 0 1 4.7.7c0 1.8-2.5 2.1-2.5 4"/><path d="M12 17h.01"/>',
  expand:'<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="m3 8 6-6M21 8l-6-6M3 16l6 6M21 16l-6 6"/>',
@@ -24319,7 +24330,7 @@ function validateCutPlanPayload(src){
    This is NOT a controller program. Maver uses ISO + BMP, while Disai uses
    DST + SUM in the owner's Perfect Cut samples (23 September 2026). Their
    commands, thickness encoding and shaped-glass records must be verified
-   before either machine format is offered for download.
+   before either machine format is approved for production cutting.
    ===================================================================== */
 function cutMachinePoint(piece,q){
  const turn=cutPieceTurn(piece),x=+q[0],y=+q[1];
@@ -24337,7 +24348,9 @@ function cutMachineThroughCut(c,index){
   x1:vertical?c.at:c.x1,y1:vertical?c.y1:c.at,
   level:c.level,key:c.key};
 }
-function cutMachineSnapshot(number){
+/* scope is for a single trial sheet. It never relaxes the checks on that
+   sheet, but other sheets are not part of the requested trial program. */
+function cutMachineSnapshot(number,scope){
  const errors=[],batch=glassBatchFind(number),plan=cutPlanFor(number);
  if(!batch)errors.push('Batch not found.');
  if(!plan||plan.reset)errors.push('Build the cutting layout first.');
@@ -24346,6 +24359,7 @@ function cutMachineSnapshot(number){
  const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[];
  source.forEach(p=>{if(byId.has(p.piece))errors.push('Duplicate source piece '+p.piece+'.');byId.set(p.piece,p);});
  (plan.groups||[]).forEach(group=>(group.sheets||[]).forEach(sheet=>{
+  if(scope&&(group.glass!==scope.glass||sheet.no!==+scope.no))return;
   /* A manually added empty sheet is not a cutting program. Keep its number in
      the ERP plan, but do not invent a machine file for it. */
   if(!(sheet.pieces||[]).length&&!(sheet.stock||[]).length)return;
@@ -24407,10 +24421,170 @@ function cutMachineSnapshot(number){
    pieces:parts,stock,
    throughCuts:cut?(cut.lines||[]).map(cutMachineThroughCut):[]});
  }));
- source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
+ if(!scope)source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
  if(!sheets.length)errors.push('There are no occupied sheets to export.');
  return {valid:!errors.length,batch:number,stamp:plan.stamp,at:plan.at,
   sheets,excluded:(plan.excluded||[]).slice(),errors};
+}
+
+/* ==== src/erp/production/cut-machine-trial.js ==== */
+/* =====================================================================
+   erp/production/cut-machine-trial
+   Trial files for opening ONE rectangular layout on Maver / Disai without
+   cutting. These are NOT production programs and cannot be marked as such
+   until each controller has been checked with the operator. No Shape,
+   stock-offcut or unsupported thickness is serialized by guesswork.
+   ===================================================================== */
+function cutTrialMm(inches){return inches*25.4;}
+function cutTrial3(n){return Number(n).toFixed(3);}
+function cutTrial2(n){return Number(n).toFixed(2);}
+function cutTrialText(v){return String(v==null?'':v).replace(/[\r\n=\[\]{}]/g,' ').slice(0,80);}
+function cutTrialNameToken(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';}
+function cutTrialDisaiBase(program){return 'TRIAL-'+cutTrialNameToken(program.batch)+'-'+cutTrialNameToken(program.sheet.glass)+'-S'+program.sheet.no;}
+function cutTrialThickness(mm,machine){
+ if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
+ if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
+ if(Math.abs(mm-10)<1e-6)return machine==='disai'?'10.000':'10';
+ return null;
+}
+function cutTrialLines(sheet){
+ const w=cutTrialMm(sheet.size.w),h=cutTrialMm(sheet.size.h),result=[];
+ for(const c of sheet.throughCuts){
+  if(!['x','y'].includes(c.axis)||![c.x0,c.y0,c.x1,c.y1].every(Number.isFinite))return {error:'Unsupported cut line.'};
+  const vertical=c.axis==='x',a=vertical?cutTrialMm(c.y0):cutTrialMm(c.x0),b=vertical?cutTrialMm(c.y1):cutTrialMm(c.x1),fixed=cutTrialMm(vertical?c.x0:c.y0);
+  if(Math.abs(b-a)<=2.01||fixed<-1e-6||fixed>(vertical?w:h)+1e-6)return {error:'A cut line is too short or outside the sheet.'};
+  const dir=b>a?1:-1,from=a+dir,to=b-dir;
+  const line=vertical?{x0:fixed,y0:from,x1:fixed,y1:to}:{x0:from,y0:fixed,x1:to,y1:fixed};
+  if(Math.min(line.x0,line.x1)<-1e-6||Math.max(line.x0,line.x1)>w+1e-6||Math.min(line.y0,line.y1)<-1e-6||Math.max(line.y0,line.y1)>h+1e-6)return {error:'A cut line is outside the sheet.'};
+  result.push(Object.assign({axis:c.axis,sequence:c.sequence},line));
+ }
+ if(!result.length)return {error:'No verified through-cut lines on this sheet.'};
+ /* All supplied Maver ISO and Disai BREAKLN examples score vertical lines
+    before horizontal ones. Keep each axis's own partition order. */
+ result.sort((a,b)=>(a.axis==='y')-(b.axis==='y')||a.sequence-b.sequence);
+ return {lines:result};
+}
+function cutTrialSheet(number,glass,no,machine){
+ if(!['maver','disai'].includes(machine))return {error:'Choose Maver or Disai.'};
+ const snap=cutMachineSnapshot(number,{glass,no});
+ if(!snap.valid)return {error:snap.errors.join(' ')};
+ const sheet=snap.sheets[0];
+ if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
+ if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
+ if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
+ if(sheet.pieces.some(p=>p.shape))return {error:'Trial export is limited to rectangles. Shape commands need controller verification.'};
+ if(sheet.pieces.some(p=>p.turn>1))return {error:'Unsupported piece rotation.'};
+ const thick=cutTrialThickness(sheet.mm,machine);
+ if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
+ const cut=cutTrialLines(sheet);if(cut.error)return cut;
+ return {batch:number,sheet,lines:cut.lines,thickness:thick,machine,trial:true};
+}
+function cutTrialMaver(program){
+ const {sheet,lines,thickness}=program,n=sheet.no;
+ if(!Number.isSafeInteger(n)||n<1||n>999)return {error:'Maver trial sheet number must be 1–999.'};
+ const out=['%'+String(n).padStart(3,'0'),'G60G45','M12',
+  '{ Lastra #'+n+' }','{ N #1 }','{ TEST ONLY - DO NOT CUT }',
+  'M94 VN210=1 ','M94 VN211='+Math.round(cutTrialMm(sheet.size.w))+' ',
+  'M94 VN212='+Math.round(cutTrialMm(sheet.size.h))+' ',
+  'M94 VN215=1','M94 VN230=0','M94 VN231=0','M15','M5','M13','G102',
+  'M94 VN216='+thickness,'M19'];
+ lines.forEach(c=>{
+  const z=c.axis==='x'?'90.000':'0.000';
+  out.push('G0X'+cutTrial3(c.x0)+'Y'+cutTrial3(c.y0)+'Z'+z,'M3',
+   'G0X'+cutTrial3(c.x1)+'Y'+cutTrial3(c.y1)+'Z'+z,'M5');
+ });
+ out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
+ return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain'};
+}
+function cutTrialMaverBmp(program){
+ const sheet=program.sheet,canvas=document.createElement('canvas');canvas.width=440;canvas.height=320;
+ const ctx=canvas.getContext('2d');if(!ctx)return {error:'BMP preview is unavailable in this browser.'};
+ ctx.fillStyle='#ffffff';ctx.fillRect(0,0,440,320);
+ ctx.fillStyle='#a01818';ctx.font='bold 13px Arial';ctx.fillText('TRIAL ONLY - DO NOT CUT',12,17);
+ const scale=Math.min(416/sheet.size.w,270/sheet.size.h),left=(440-sheet.size.w*scale)/2,bottom=302;
+ ctx.fillStyle='#f7f9fc';ctx.fillRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ ctx.strokeStyle='#20252b';ctx.lineWidth=1;ctx.strokeRect(left,bottom-sheet.size.h*scale,sheet.size.w*scale,sheet.size.h*scale);
+ sheet.pieces.forEach(p=>{
+  const f=p.footprint,x=left+f.x*scale,y=bottom-(f.y+f.h)*scale;
+  ctx.fillStyle='#dceefb';ctx.fillRect(x,y,f.w*scale,f.h*scale);
+  ctx.strokeStyle='#4e708e';ctx.strokeRect(x,y,f.w*scale,f.h*scale);
+  if(f.w*scale>36&&f.h*scale>25){ctx.fillStyle='#27394e';ctx.font='10px Arial';ctx.fillText(String(p.id).slice(-8),x+3,y+13);}
+ });
+ ctx.strokeStyle='#db7927';ctx.lineWidth=1;
+ program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
+ const image=ctx.getImageData(0,0,440,320).data,stride=(440*3+3)&~3,bytes=new Uint8Array(54+stride*320),v=new DataView(bytes.buffer);
+ bytes[0]=66;bytes[1]=77;v.setUint32(2,bytes.length,true);v.setUint32(10,54,true);v.setUint32(14,40,true);
+ v.setInt32(18,440,true);v.setInt32(22,320,true);v.setUint16(26,1,true);v.setUint16(28,24,true);
+ v.setUint32(34,stride*320,true);v.setInt32(38,3780,true);v.setInt32(42,3780,true);
+ for(let y=0;y<320;y++)for(let x=0;x<440;x++){
+  const src=((319-y)*440+x)*4,dst=54+y*stride+x*3;
+  bytes[dst]=image[src+2];bytes[dst+1]=image[src+1];bytes[dst+2]=image[src];
+ }
+ return {name:String(sheet.no)+'.BMP',data:bytes,mime:'image/bmp'};
+}
+/* Disai SCHEME is a recursive guillotine description. The first trial
+   version accepts only straight full-width columns of vertically stacked
+   rectangles: this exact X/Y form is present in the provided samples.
+   More complicated X/Y/Z/U/V trees must not be silently approximated. */
+function cutTrialDisaiColumns(sheet){
+ const E=1e-5,parts=sheet.pieces.slice().sort((a,b)=>a.footprint.x-b.footprint.x||a.footprint.y-b.footprint.y),columns=[];
+ for(const p of parts){
+  const f=p.footprint,last=columns[columns.length-1];
+  if(last&&Math.abs(last.x-f.x)<E){
+   if(Math.abs(last.w-f.w)>E)return {error:'Disai trial needs equal widths within each column.'};
+   last.pieces.push(p);
+  }else columns.push({x:f.x,w:f.w,pieces:[p]});
+ }
+ if(!columns.length)return {error:'There are no pieces on this sheet.'};
+ if(Math.abs(columns[0].x-sheet.margins.trimY)>E)return {error:'Disai trial needs the first column at the left Trim Y line.'};
+ for(let i=1;i<columns.length;i++)if(Math.abs(columns[i].x-(columns[i-1].x+columns[i-1].w))>E)return {error:'Disai trial does not yet support gaps or staggered columns.'};
+ const scheme=[],index=new Map(sheet.pieces.map((p,i)=>[p.id,i+1]));
+ for(const col of columns){
+  scheme.push('X'+cutTrial3(cutTrialMm(col.w)));
+  let y=0;
+  for(const p of col.pieces.sort((a,b)=>a.footprint.y-b.footprint.y)){
+   const f=p.footprint,gap=f.y-y;
+   if(gap<-E)return {error:'Disai trial columns overlap.'};
+   if(gap>E)scheme.push('Y'+cutTrial3(cutTrialMm(gap)));
+   scheme.push('Y'+cutTrial3(cutTrialMm(f.h))+' IB'+index.get(p.id));
+   y=f.y+f.h;
+  }
+ }
+ return {scheme,index};
+}
+function cutTrialDisai(program){
+ const {sheet,lines,thickness}=program,layout=cutTrialDisaiColumns(sheet);
+ if(layout.error)return layout;
+ const gid=cutTrialText(sheet.glass),out=['[PATTERN]',
+  'GID='+gid,'GDESCRIPTION='+gid,'GSTRUCTURED=0','GCOATED=0','REPEAT=1',
+  'GCLR=GREEN','GTHICKNESS='+thickness,
+  'WIDTH='+cutTrial3(cutTrialMm(sheet.size.w)),'HEIGHT='+cutTrial3(cutTrialMm(sheet.size.h)),
+  'TRIMLEFT='+cutTrial3(cutTrialMm(sheet.margins.trimY)),
+  'TRIMBOTTOM=0','BORDERTOP='+cutTrial3(cutTrialMm(sheet.margins.borderX)),
+  'BORDERRIGHT='+cutTrial3(cutTrialMm(sheet.margins.borderY)),'',
+  '[SCHEME]',...layout.scheme,'','[BREAKLN]'];
+ lines.forEach(c=>out.push([c.x0,c.y0,c.x1,c.y1].map(cutTrial2).join(' ')));
+ sheet.pieces.forEach((p,i)=>{
+  const f=p.footprint;
+  out.push('','[IB'+(i+1)+']','ID='+(i+1),
+   'ORDER='+cutTrialText(p.order+' / '+p.line),'CUSTOMER='+cutTrialText(p.customer),
+   'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn===1?'1':'0'),
+   'WIDTH='+cutTrial2(cutTrialMm(f.w)),'HEIGHT='+cutTrial2(cutTrialMm(f.h)),
+   'SPEC='+cutTrialText(sheet.glass),'RACK=','NOTE1='+cutTrialText(p.id),
+   'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
+   'CLASSIFY=1','CTIMES=1');
+ });
+ out.push('');
+ return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain'};
+}
+function cutTrialDisaiSum(program){
+ const s=program.sheet,day=new Date(),date=day.getFullYear()+'-'+(day.getMonth()+1)+'-'+day.getDate();
+ const out=['[SUMINFO]','CVERSION=1.0','MEASUREMENT=mm','DATE='+date,'VENDOR=','',
+  '[PRJXINFO]','QUANTITY=1','DIMENX=1','PATTERNX=1','',
+  '[DIMEN1]','WIDTH='+cutTrial3(cutTrialMm(s.size.w)),
+  'HEIGHT='+cutTrial3(cutTrialMm(s.size.h)),'GTHICKNESS='+program.thickness,
+  'GCLR=','QNTY=1','OTHERS=',''];
+ return {name:cutTrialDisaiBase(program)+'.sum',data:out.join('\r\n'),mime:'text/plain'};
 }
 
 /* ==== src/erp/production/stock-offcuts.js ==== */
@@ -25463,6 +25637,7 @@ function stkEditorHTML(){
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
 let cutNotice='',cutInfo=null,cutMdNotice='',cutRepackNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
+let cutTrialOpen=false;
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -25507,7 +25682,7 @@ function viewMdCutting(){
 }
 /* --------------------------- Батч → Optimization -------------------------- */
 function cutUiState(number){
- if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};}
+ if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;}
  const plan=cutPlanFor(number);
  if(plan&&plan.groups.length){
   if(!plan.groups.some(g=>g.glass===cutUi.glass))cutUi.glass=plan.groups[0].glass;
@@ -25570,6 +25745,70 @@ function cutUiProgress(){
  if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
+function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutNotice='';render();}
+function cutUiTrialFiles(machine){
+ const p=cutTrialSheet(cutUi.batch,cutUi.glass,cutUi.sheet,machine);
+ if(p.error)return p;
+ let files;
+ if(machine==='maver'){
+  const iso=cutTrialMaver(p),bmp=cutTrialMaverBmp(p);
+  if(iso.error||bmp.error)return {error:iso.error||bmp.error};
+  files=[iso,bmp];
+ }else{
+  const dst=cutTrialDisai(p),sum=cutTrialDisaiSum(p);
+  if(dst.error||sum.error)return {error:dst.error||sum.error};
+  files=[dst,sum];
+ }
+ return {p,files};
+}
+function cutUiTrialResult(message){
+ const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
+}
+function cutUiTrialFolderName(batch,glass){
+ const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
+ const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+ return safe(batch)+'_'+safe(glass)+'_'+date;
+}
+function cutUiTrialExport(machine,kind){
+ const prepared=cutUiTrialFiles(machine);
+ if(prepared.error){cutNotice=prepared.error;render();return;}
+ const {p,files}=prepared;
+ const file=files.find(f=>f.name.toLowerCase().endsWith('.'+kind));
+ if(!file){cutNotice='Choose a Maver .ISO/.BMP or Disai .dst/.sum file.';render();return;}
+ if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nOpen sheet '+p.sheet.no+' on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut. Download '+file.name+'?'))return;
+ try{
+  const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=file.name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.');
+ }catch(e){cutNotice='Trial file could not be created: '+(e&&e.message||'unknown error');render();}
+}
+async function cutUiTrialFolder(machine){
+ if(typeof window.showDirectoryPicker!=='function'){cutNotice='This browser cannot save a folder. Download the two raw files separately.';render();return;}
+ const prepared=cutUiTrialFiles(machine);
+ if(prepared.error){cutNotice=prepared.error;render();return;}
+ const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass);
+ try{
+  const root=await window.showDirectoryPicker({mode:'readwrite'});
+  if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;
+  const dir=await root.getDirectoryHandle(folderName,{create:true});
+  const existing=[];
+  for(const file of files){
+   try{await dir.getFileHandle(file.name);existing.push(file.name);}
+   catch(e){if(e.name!=='NotFoundError')throw e;}
+  }
+  if(existing.length){cutNotice='Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.';render();return;}
+  for(const file of files){
+   const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
+   try{await writer.write(file.data);await writer.close();}
+   catch(e){await writer.abort().catch(()=>{});throw e;}
+  }
+  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.');
+ }catch(e){
+  if(e.name==='AbortError')return;
+  cutNotice='Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||'');render();
+ }
+}
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
    листы остаются. */
 function cutUiReset(number){
@@ -26309,6 +26548,7 @@ function cutLayoutHeader(b,status){
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
   :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
+ const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-trial-trigger${cutTrialOpen?' on':''}" data-cut-trial-open aria-expanded="${cutTrialOpen}" onclick="cutUiTrialToggle()">${ico('download')}<span>Trial export</span></button>`:'';
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
@@ -26319,9 +26559,15 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
+ const folderAvailable=typeof window.showDirectoryPicker==='function';
+ const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
+  <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Rectangles only; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
+  <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
+  <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
+  <span data-cut-trial-result role="status" aria-live="polite"></span></div>`:'';
  return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
-  <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${whatActs}</div>
-  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}</div>`;
+  <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${trialAct}${whatActs}</div>
+  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}${trialPanel}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
