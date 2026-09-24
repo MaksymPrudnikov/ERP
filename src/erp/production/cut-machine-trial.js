@@ -23,16 +23,37 @@ function cutTrialDisaiBase(program){
  const gid=cutTrialText(program.sheet.glass).replace(/\s+/g,'').replace(/[<>:"/\\|?*\u0000-\u001f_]/g,'-')||'GLASS';
  return part(program.batch)+'-S'+program.sheet.no+'-'+String(d.getDate()).padStart(2,'0')+'-'+mon+'-'+d.getFullYear()+'-DISAI_'+gid;
 }
-/* Disai: в 13 проектах стола владельца (24.09.2026) 4CL/5CL/6CL/6LOWE —
-   4.000/5.000/6.000, а 3CL, 6GREY и ламинат — 76.200/152.400, то есть толщина
-   части стёкол в библиотеке Perfect Cut введена в дюймах. Пишем миллиметры,
-   как у 6CL. Maver: 152 — из единственного 6-мм образца, стол его читает. */
+/* Толщина в миллиметрах. В проектах стола владельца (24.09.2026) прозрачное
+   и LowE: Disai 4.000/5.000/6.000/10.000, Maver 5/6/10/12 (502 программы).
+   76.2/152.4/381 у 3CL, серых, ламината и 15 мм — толщина этих стёкол в
+   библиотеке Perfect Cut введена в дюймах; повторять это не нужно. */
 function cutTrialThickness(mm,machine){
- if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
- if(Math.abs(mm-5)<1e-6)return machine==='disai'?'5.000':null;
- if(Math.abs(mm-6)<1e-6)return machine==='disai'?'6.000':'152';
- if(Math.abs(mm-10)<1e-6)return machine==='disai'?'10.000':'10';
- return null;
+ const known={4:['4.000','4'],5:['5.000','5'],6:['6.000','6'],10:['10.000','10'],12:[null,'12']};
+ const row=Object.keys(known).find(k=>Math.abs(mm-k)<1e-6);
+ return row?known[row][machine==='disai'?0:1]:null;
+}
+/* Порядок резов Maver, как у Perfect Cut: сначала все вертикали, потом все
+   горизонтали; головка идёт к ближайшему концу следующей линии и режет её
+   оттуда. Сверено с 13 листами, выгруженными и для Maver, и для Disai
+   (24.09.2026): линии те же, что BREAKLN, порядок совпал на 12 из 13. */
+function cutTrialMaverOrder(cuts){
+ const out=[];let x=0,y=0;
+ for(const axis of ['x','y']){
+  const left=cuts.filter(c=>c.axis===axis).map(c=>{
+   const a=c.a+1000,b=c.b-1000;
+   return axis==='x'?[[c.at,a],[c.at,b]]:[[a,c.at],[b,c.at]];
+  });
+  while(left.length){
+   let best=null;
+   left.forEach((l,i)=>[[l[0],l[1]],[l[1],l[0]]].forEach(([p,q])=>{
+    const d=Math.hypot(p[0]-x,p[1]-y);if(!best||d<best.d-1e-9)best={d,i,p,q};
+   }));
+   left.splice(best.i,1);
+   out.push({axis,x0:best.p[0]/1000,y0:best.p[1]/1000,x1:best.q[0]/1000,y1:best.q[1]/1000});
+   x=best.q[0];y=best.q[1];
+  }
+ }
+ return out;
 }
 function cutTrialLines(sheet){
  const w=cutTrialMm(sheet.size.w),h=cutTrialMm(sheet.size.h),result=[];
@@ -64,7 +85,12 @@ function cutTrialSheet(number,glass,no,machine){
  const thick=cutTrialThickness(sheet.mm,machine);
  if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
  const cut=cutTrialLines(sheet);if(cut.error)return cut;
- return {batch:number,sheet,lines:cut.lines,thickness:thick,machine,trial:true};
+ /* Maver режет те же линии, что Disai (BREAKLN), в своём порядке. Если схема
+    Disai для листа не строится, остаются линии экрана. */
+ const layout=machine==='maver'?cutTrialDisaiScheme(sheet):null;
+ const lines=layout&&!layout.error?cutTrialMaverOrder(layout.cuts):cut.lines;
+ return {batch:number,sheet,lines,thickness:thick,machine,trial:true,
+  note:layout&&!layout.error&&!layout.sameAsScreen?'Maver cuts some waste in a different order than the screen.':''};
 }
 function cutTrialMaver(program){
  const {sheet,lines,thickness}=program,n=sheet.no;
@@ -81,7 +107,7 @@ function cutTrialMaver(program){
    'G0X'+cutTrial3(c.x1)+'Y'+cutTrial3(c.y1)+'Z'+z,'M5');
  });
  out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
- return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain'};
+ return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain',note:program.note||''};
 }
 function cutTrialBmpRect(r){
  if(!r)return null;

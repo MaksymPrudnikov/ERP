@@ -1221,7 +1221,7 @@ module.exports=async function({page,eq,ok}){
   const iso=cutTrialMaver(m),bmp=cutTrialMaverBmp(m),dst=cutTrialDisai(d),sum=cutTrialDisaiSum(d);
   if(dst.error)return {dError:dst.error};
   const base=sum.name.replace(/\.sum$/,'');
-  return {mError:'',dError:'',iso:iso.data.includes('VN216=152')&&iso.data.includes('TEST ONLY - DO NOT CUT')&&iso.data.includes('G0X'),
+  return {mError:'',dError:'',iso:iso.data.includes('VN216=6\r\n')&&iso.data.includes('TEST ONLY - DO NOT CUT')&&iso.data.includes('G0X'),
    bmp:bmp.data.length===422454&&bmp.data[0]===66&&bmp.data[1]===77,
    dst:dst.data.includes('GTHICKNESS=6.000')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1')&&dst.data.endsWith('CTIMES=1\r\n\r\n'),
    sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm')&&sum.data.endsWith('OTHERS=\r\n\r\n'),
@@ -1439,11 +1439,17 @@ module.exports=async function({page,eq,ok}){
   const boxes=new Map(parsed.boxes.filter(x=>x.ib).map(x=>[x.ib,x]));
   const exact=p.sheet.pieces.every(q=>{const x=boxes.get(r.index.get(q.id)),f=q.footprint;
    return x&&Math.abs(x.x0-cutDisaiQ(f.x))<=2&&Math.abs(x.y0-cutDisaiQ(f.y))<=2&&Math.abs(x.x1-cutDisaiQ(f.x+f.w))<=2&&Math.abs(x.y1-cutDisaiQ(f.y+f.h))<=2;});
+  const mv=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'maver'),key=(x0,y0,x1,y1)=>[Math.min(x0,x1),Math.min(y0,y1),Math.max(x0,x1),Math.max(y0,y1)].map(v=>v.toFixed(2)).join();
+  const firstH=mv.lines.findIndex(c=>c.axis==='y');
+  const maver={same:mv.lines.map(c=>key(c.x0,c.y0,c.x1,c.y1)).sort().join('|')===r.breaks.map(l=>key(...l.split(' ').map(Number))).sort().join('|'),
+   trim:mv.lines[0].axis==='x'&&Math.abs(mv.lines[0].y0-1)<1e-9&&Math.abs(mv.lines[0].y1-cutDisaiQ(p.sheet.size.h)/1000+1)<1e-9,
+   vertFirst:firstH>0&&mv.lines.slice(firstH).every(c=>c.axis==='y'),
+   nearest:mv.lines.every((c,i)=>!i||c.axis!==mv.lines[i-1].axis||mv.lines.slice(i).filter(d=>d.axis===c.axis).every(d=>Math.hypot(c.x0-mv.lines[i-1].x1,c.y0-mv.lines[i-1].y1)<=Math.min(Math.hypot(d.x0-mv.lines[i-1].x1,d.y0-mv.lines[i-1].y1),Math.hypot(d.x1-mv.lines[i-1].x1,d.y1-mv.lines[i-1].y1))+1e-9))};
   const five=cutTrialDisaiScheme(p.sheet,5),p5=cutDisaiParse(five.scheme||[],{x0:cutDisaiQ(p.sheet.margins.trimY),y0:0,x1:cutDisaiQ(p.sheet.size.w),y1:cutDisaiQ(p.sheet.size.h)});
   return {error:'',pieces:p.sheet.pieces.length,exact,levels:[...new Set(r.scheme.map(l=>l[0]))].join(''),
-   inFile:file.data.includes('[BREAKLN]\r\n'+r.breaks[0]),note:!!file.note,same:r.sameAsScreen,
+   inFile:file.data.includes('[BREAKLN]\r\n'+r.breaks[0]),note:!!file.note,same:r.sameAsScreen,maver,
    five:{levels:[...new Set((five.scheme||[]).map(l=>l[0]))].join(''),same:five.sameAsScreen,glass:(p5.boxes||[]).filter(x=>x.ib).length}};
- }),{error:'',pieces:8,exact:true,levels:'XYZUVW',inFile:true,note:false,same:true,five:{levels:'XYZUV',same:false,glass:8}});
+ }),{error:'',pieces:8,exact:true,levels:'XYZUVW',inFile:true,note:false,same:true,maver:{same:true,trim:true,vertFirst:true,nearest:true},five:{levels:'XYZUV',same:false,glass:8}});
 
  eq('Disai: повёрнутое стекло получает номер 2500 + ID, как в образце Perfect Cut',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
