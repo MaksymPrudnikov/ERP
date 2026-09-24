@@ -73,7 +73,7 @@ function cutMachineSnapshot(number,scope){
     poByOrder.set(src.orderId,order&&order.customerPo||'');
    }
    parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
-    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
+    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,curved:!!src.curved,turn,
     footprint,contour});
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));

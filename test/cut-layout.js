@@ -1242,14 +1242,34 @@ module.exports=async function({page,eq,ok}){
    dims:labels.some(x=>x.includes('50"')),waste:labels.some(x=>x==='WASTE'||x==='OFFCUT')};
  }),{error:'',size:422454,customer:true,po:true,id:true,order:true,dims:true,waste:true});
 
- eq('пробная выгрузка Shape останавливается до неподтверждённых команд станка',await t.p.evaluate(()=>{
+ /* Формат фигур — по экспортам Perfect Cut (10 мм, 126 фигурных программ
+    Maver): Maver — этап M14/M20/G103, `{имя}`, G0 с углом реза в Z, M9, G1;
+    Disai — `DB<n> IB<n>` в SCHEME и раздел [DB] после всех [IB]. */
+ eq('пробная выгрузка Shape со скосом: Maver — этап M14/M9/G1, Disai — [DB] с линией скоса',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
   Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
   shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
-  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],r=cutTrialSheet(b.number,g.glass,s.no,'maver');
-  return {blocked:!!r.error&&r.error.includes('Shape commands need controller verification')};
- }),{blocked:true});
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0];
+  const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
+  if(mv.error||ds.error)return {error:mv.error||ds.error};
+  const iso=cutTrialMaver(mv).data,dst=cutTrialDisai(ds).data,W=cutDisaiQ(ds.sheet.pieces[0].footprint.w)/1000;
+  const db=(dst.split('[DB1]\r\n')[1]||'').split('\r\n').filter(x=>/ D LS$/.test(x)),v=(db[0]||'').split(' ').map(Number);
+  const turned=cutTrialDisai(Object.assign({},ds,{sheet:Object.assign({},ds.sheet,{pieces:ds.sheet.pieces.map(q=>Object.assign({},q,{turn:1}))})})).data;
+  return {error:'',maverStage:iso.includes('\r\nM14\r\nM20\r\nG103P1000VQ0\r\nM94 VN216=6\r\n{M1}\r\nG0X')&&/\r\nM9\r\nG1X[\d.]+Y[\d.]+\r\nM5\r\nM101/.test(iso),
+   maverCuts:(iso.match(/^G1X/gm)||[]).length,scheme:dst.includes(' DB1 IB1\r\n'),spec:dst.includes('[DB1]\r\nSID=1\r\nSPEC=M1_1\r\n'),
+   dbLines:db.length,inset:Math.abs(v[0]-1.001)<1e-9&&Math.abs(v[2]-(W-1.001))<1e-6&&v[1]>v[3],
+   after:dst.indexOf('[DB1]')>dst.lastIndexOf('[IB'),turned:turned.includes(' DB2501 IB2501')&&turned.includes('SPEC=M1_1R')};
+ }),{error:'',maverStage:true,maverCuts:1,scheme:true,spec:true,dbLines:1,inset:true,after:true,turned:true});
+
+ eq('Shape с дугой (круг) не выгружается, пока нет экспорта дуг',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[36,36,1]]);
+  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('circle');shape.w='36';shape.h='36';
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
+  const r=['maver','disai'].map(m=>cutTrialSheet(b.number,g.glass,s.no,m));
+  return {curved:!!cutPieces(b,{})[0].curved,blocked:r.every(x=>!!x.error&&x.error.includes('Shape arcs are not exported yet'))};
+ }),{curved:true,blocked:true});
 
  {
   await t.p.evaluate(()=>{const b=DB.glassBatch[0];glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;render();});
@@ -1257,7 +1277,7 @@ module.exports=async function({page,eq,ok}){
   await t.p.click('[data-cut-trial-disai-dst]');
   eq('отказ Disai виден прямо возле кнопок, а не выглядит пустым кликом',await t.p.evaluate(()=>({
    panel:!!document.querySelector('[data-cut-trial-panel]'),
-   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('Shape commands need controller verification')||false,
+   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('Shape arcs are not exported yet')||false,
    alert:document.querySelector('[data-cut-trial-error]')?.getAttribute('role')||''
   })),{panel:true,error:true,alert:'alert'});
  }
