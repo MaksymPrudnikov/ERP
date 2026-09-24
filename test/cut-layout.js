@@ -1220,13 +1220,13 @@ module.exports=async function({page,eq,ok}){
   if(m.error||d.error)return {mError:m.error||'',dError:d.error||''};
   const iso=cutTrialMaver(m),bmp=cutTrialMaverBmp(m),dst=cutTrialDisai(d),sum=cutTrialDisaiSum(d);
   if(dst.error)return {dError:dst.error};
+  const base=sum.name.replace(/\.sum$/,'');
   return {mError:'',dError:'',iso:iso.data.includes('VN216=152')&&iso.data.includes('TEST ONLY - DO NOT CUT')&&iso.data.includes('G0X'),
    bmp:bmp.data.length===422454&&bmp.data[0]===66&&bmp.data[1]===77,
-   dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1'),
-   sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm'),
-   names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===sum.name.replace(/\.sum$/,'-001.dst')&&sum.name.includes(b.number+'-6CLEAR-S1.sum'),
-   folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(cutUiTrialFolderName(b.number,g.glass,'maver'))&&
-    /^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_DISAI$/.test(cutUiTrialFolderName(b.number,g.glass,'disai'))};
+   dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1')&&dst.data.endsWith('CTIMES=1\r\n\r\n'),
+   sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm')&&sum.data.endsWith('OTHERS=\r\n\r\n'),
+   names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===base+'-001.dst'&&/^B-\d+_6CLEAR_S1_\d{4}-\d{2}-\d{2}_DISAI$/.test(base),
+   folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(cutUiTrialFolderName(m,'maver'))&&cutUiTrialFolderName(d,'disai')===base+'.prjx'};
  }),{mError:'',dError:'',iso:true,bmp:true,dst:true,sum:true,names:true,folder:true});
 
  eq('BMP 440×320 показывает клиента, PO, полный Glass ID, размер и обозначение остатка',await t.p.evaluate(()=>{
@@ -1290,9 +1290,13 @@ module.exports=async function({page,eq,ok}){
   const first={folder:created[0],names:[...files.keys()].sort(),nonempty:[...files.values()].every(x=>x.length>0)};
   await cutUiTrialFolder('maver');
   const second={calls:created.length,count:files.size,refused:!!cutTrialError&&cutTrialError.error.includes('No files were overwritten')};
+  await cutUiTrialFolder('disai');
+  const prjx=created[2]||'',base=prjx.replace(/\.prjx$/,'');
+  const disai={prjx:/^B-\d+_6CLEAR_S1_\d{4}-\d{2}-\d{2}_DISAI\.prjx$/.test(prjx),
+   names:files.has(base+'.sum')&&files.has(base+'-001.dst')&&files.size===4};
   window.showDirectoryPicker=old;
-  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second};
- }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true}});
+  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second,disai};
+ }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true},disai:{prjx:true,names:true}});
 
  {
   const widths=[];

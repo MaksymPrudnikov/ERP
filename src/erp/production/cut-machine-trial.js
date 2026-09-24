@@ -10,7 +10,12 @@ function cutTrial3(n){return Number(n).toFixed(3);}
 function cutTrial2(n){return Number(n).toFixed(2);}
 function cutTrialText(v){return String(v==null?'':v).replace(/[\r\n=\[\]{}]/g,' ').slice(0,80);}
 function cutTrialNameToken(v){return String(v==null?'':v).replace(/[^A-Za-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36)||'GLASS';}
-function cutTrialDisaiBase(program){return 'TRIAL-'+cutTrialNameToken(program.batch)+'-'+cutTrialNameToken(program.sheet.glass)+'-S'+program.sheet.no;}
+function cutTrialDate(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
+/* Disai открывает проект: папку `<имя>.prjx`, внутри `<имя>.sum` и
+   `<имя>-001.dst` с тем же именем — так во всех образцах Perfect Cut; без
+   `.prjx` стол файл не прочитал (владелец, 24.09.2026). Одна пробная папка —
+   один лист, поэтому номер листа в имени. */
+function cutTrialDisaiBase(program){return cutTrialNameToken(program.batch)+'_'+cutTrialNameToken(program.sheet.glass)+'_S'+program.sheet.no+'_'+cutTrialDate()+'_DISAI';}
 function cutTrialThickness(mm,machine){
  if(Math.abs(mm-4)<1e-6)return machine==='disai'?'4.000':'4';
  if(Math.abs(mm-6)<1e-6)return machine==='disai'?'152.400':'152';
@@ -193,7 +198,7 @@ function cutTrialDisai(program){
    'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
    'CLASSIFY=1','CTIMES=1');
  });
- out.push('');
+ out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
   note:layout.sameAsScreen?'':'Disai cuts some waste in a different order than the screen (5-level limit).'};
 }
@@ -203,6 +208,6 @@ function cutTrialDisaiSum(program){
   '[PRJXINFO]','QUANTITY=1','DIMENX=1','PATTERNX=1','',
   '[DIMEN1]','WIDTH='+cutTrial3(cutTrialMm(s.size.w)),
   'HEIGHT='+cutTrial3(cutTrialMm(s.size.h)),'GTHICKNESS='+program.thickness,
-  'GCLR=','QNTY=1','OTHERS=',''];
+  'GCLR=','QNTY=1','OTHERS=','',''];
  return {name:cutTrialDisaiBase(program)+'.sum',data:out.join('\r\n'),mime:'text/plain'};
 }
