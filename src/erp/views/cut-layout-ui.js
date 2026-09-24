@@ -11,6 +11,7 @@
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
 let cutNotice='',cutInfo=null,cutMdNotice='',cutRepackNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
+let cutTrialOpen=false;
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -55,7 +56,7 @@ function viewMdCutting(){
 }
 /* --------------------------- Батч → Optimization -------------------------- */
 function cutUiState(number){
- if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};}
+ if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;}
  const plan=cutPlanFor(number);
  if(plan&&plan.groups.length){
   if(!plan.groups.some(g=>g.glass===cutUi.glass))cutUi.glass=plan.groups[0].glass;
@@ -118,6 +119,70 @@ function cutUiProgress(){
  if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
+function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutNotice='';render();}
+function cutUiTrialFiles(machine){
+ const p=cutTrialSheet(cutUi.batch,cutUi.glass,cutUi.sheet,machine);
+ if(p.error)return p;
+ let files;
+ if(machine==='maver'){
+  const iso=cutTrialMaver(p),bmp=cutTrialMaverBmp(p);
+  if(iso.error||bmp.error)return {error:iso.error||bmp.error};
+  files=[iso,bmp];
+ }else{
+  const dst=cutTrialDisai(p),sum=cutTrialDisaiSum(p);
+  if(dst.error||sum.error)return {error:dst.error||sum.error};
+  files=[dst,sum];
+ }
+ return {p,files};
+}
+function cutUiTrialResult(message){
+ const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
+}
+function cutUiTrialFolderName(batch,glass){
+ const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
+ const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+ return safe(batch)+'_'+safe(glass)+'_'+date;
+}
+function cutUiTrialExport(machine,kind){
+ const prepared=cutUiTrialFiles(machine);
+ if(prepared.error){cutNotice=prepared.error;render();return;}
+ const {p,files}=prepared;
+ const file=files.find(f=>f.name.toLowerCase().endsWith('.'+kind));
+ if(!file){cutNotice='Choose a Maver .ISO/.BMP or Disai .dst/.sum file.';render();return;}
+ if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nOpen sheet '+p.sheet.no+' on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut. Download '+file.name+'?'))return;
+ try{
+  const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=file.name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.');
+ }catch(e){cutNotice='Trial file could not be created: '+(e&&e.message||'unknown error');render();}
+}
+async function cutUiTrialFolder(machine){
+ if(typeof window.showDirectoryPicker!=='function'){cutNotice='This browser cannot save a folder. Download the two raw files separately.';render();return;}
+ const prepared=cutUiTrialFiles(machine);
+ if(prepared.error){cutNotice=prepared.error;render();return;}
+ const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass);
+ try{
+  const root=await window.showDirectoryPicker({mode:'readwrite'});
+  if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;
+  const dir=await root.getDirectoryHandle(folderName,{create:true});
+  const existing=[];
+  for(const file of files){
+   try{await dir.getFileHandle(file.name);existing.push(file.name);}
+   catch(e){if(e.name!=='NotFoundError')throw e;}
+  }
+  if(existing.length){cutNotice='Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.';render();return;}
+  for(const file of files){
+   const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
+   try{await writer.write(file.data);await writer.close();}
+   catch(e){await writer.abort().catch(()=>{});throw e;}
+  }
+  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.');
+ }catch(e){
+  if(e.name==='AbortError')return;
+  cutNotice='Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||'');render();
+ }
+}
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
    листы остаются. */
 function cutUiReset(number){
@@ -857,6 +922,7 @@ function cutLayoutHeader(b,status){
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
   :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
+ const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-trial-trigger${cutTrialOpen?' on':''}" data-cut-trial-open aria-expanded="${cutTrialOpen}" onclick="cutUiTrialToggle()">${ico('download')}<span>Trial export</span></button>`:'';
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
@@ -867,9 +933,15 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
+ const folderAvailable=typeof window.showDirectoryPicker==='function';
+ const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
+  <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Rectangles only; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
+  <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
+  <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
+  <span data-cut-trial-result role="status" aria-live="polite"></span></div>`:'';
  return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
-  <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${whatActs}</div>
-  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}</div>`;
+  <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${trialAct}${whatActs}</div>
+  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}${trialPanel}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;

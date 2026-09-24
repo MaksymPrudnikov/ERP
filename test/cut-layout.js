@@ -1212,6 +1212,72 @@ module.exports=async function({page,eq,ok}){
    emptyAdded:!!added.ok,emptySkipped:withEmpty.valid&&withEmpty.sheets.length===job.sheets.length};
  }),{valid:true,errors:[],pieces:2,cuts:true,unchanged:true,emptyAdded:true,emptySkipped:true});
 
+ eq('пробный экспорт одного прямоугольного листа готовит парные Maver и Disai файлы без архива',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+  const b=DB.glassBatch[0],plan=ctRow(cutPlanRun(b.number).plan.batch),g=plan.groups[0],s=g.sheets[0];
+  const m=cutTrialSheet(b.number,g.glass,s.no,'maver'),d=cutTrialSheet(b.number,g.glass,s.no,'disai');
+  if(m.error||d.error)return {mError:m.error||'',dError:d.error||''};
+  const iso=cutTrialMaver(m),bmp=cutTrialMaverBmp(m),dst=cutTrialDisai(d),sum=cutTrialDisaiSum(d);
+  if(dst.error)return {dError:dst.error};
+  return {mError:'',dError:'',iso:iso.data.includes('VN216=152')&&iso.data.includes('TEST ONLY - DO NOT CUT')&&iso.data.includes('G0X'),
+   bmp:bmp.data.length===422454&&bmp.data[0]===66&&bmp.data[1]===77,
+   dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1'),
+   sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm'),
+   names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===sum.name.replace(/\.sum$/,'-001.dst')&&sum.name.includes(b.number+'-6CLEAR-S1.sum'),
+   folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(cutUiTrialFolderName(b.number,g.glass))};
+ }),{mError:'',dError:'',iso:true,bmp:true,dst:true,sum:true,names:true,folder:true});
+
+ eq('пробная выгрузка Shape останавливается до неподтверждённых команд станка',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,50,1]]);
+  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('raked');shape.w='40';shape.h='50';
+  Object.assign(shape.params,{shortHeight:'44',rakeSide:'top',shortSide:'right'});
+  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],r=cutTrialSheet(b.number,g.glass,s.no,'maver');
+  return {blocked:!!r.error&&r.error.includes('Shape commands need controller verification')};
+ }),{blocked:true});
+
+ {
+  const ui=await t.p.evaluate(()=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
+   const b=DB.glassBatch[0];ctRow(cutPlanRun(b.number).plan.batch);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+   return {trigger:!!document.querySelector('[data-cut-trial-open]'),before:!!document.querySelector('[data-cut-trial-panel]')};
+  });
+  await t.p.click('[data-cut-trial-open]');
+  const panel=await t.p.evaluate(()=>({open:!!document.querySelector('[data-cut-trial-panel]'),maver:!!document.querySelector('[data-cut-trial-maver-iso]')&&!!document.querySelector('[data-cut-trial-maver-bmp]'),disai:!!document.querySelector('[data-cut-trial-disai-dst]')&&!!document.querySelector('[data-cut-trial-disai-sum]')}));
+  const names=[];
+  for(const [machine,ext] of [['maver','iso'],['maver','bmp'],['disai','dst'],['disai','sum']]){
+   const download=t.p.waitForEvent('download');await t.p.click(`[data-cut-trial-${machine}-${ext}]`);names.push((await download).suggestedFilename());
+  }
+  const open=await t.p.evaluate(()=>!!document.querySelector('[data-cut-trial-panel]'));
+  eq('кнопка пробного экспорта скачивает четыре исходных файла без ZIP, панель остаётся открытой',
+   {trigger:ui.trigger,before:ui.before,...panel,names:names[0]==='1.ISO'&&names[1]==='1.BMP'&&names[2]===names[3].replace(/\.sum$/,'-001.dst'),stillOpen:open},
+   {trigger:true,before:false,open:true,maver:true,disai:true,names:true,stillOpen:true});
+ }
+
+ eq('папка пробного экспорта получает номер батча, тип стекла и дату без перезаписи файлов',await t.p.evaluate(async()=>{
+  const old=window.showDirectoryPicker,created=[],files=new Map();
+  window.showDirectoryPicker=async()=>({getDirectoryHandle:async(name)=>{created.push(name);return {getFileHandle:async(file,opts)=>{
+   if(!opts||!opts.create){if(files.has(file))return files.get(file);throw Object.assign(new Error('not found'),{name:'NotFoundError'});}
+   const handle={createWritable:async()=>({write:async data=>{files.set(file,data);},close:async()=>{},abort:async()=>{}})};return handle;
+  }};}});
+  await cutUiTrialFolder('maver');
+  const first={folder:created[0],names:[...files.keys()].sort(),nonempty:[...files.values()].every(x=>x.length>0)};
+  await cutUiTrialFolder('maver');
+  const second={calls:created.length,count:files.size,refused:cutNotice.includes('No files were overwritten')};
+  window.showDirectoryPicker=old;
+  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(first.folder),names:first.names,nonempty:first.nonempty,second};
+ }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true}});
+
+ {
+  const widths=[];
+  for(const width of [390,768,1366]){
+   await t.p.setViewportSize({width,height:844});
+   widths.push(await t.p.evaluate(()=>{render();const r=document.querySelector('[data-cut-trial-panel]').getBoundingClientRect();
+    return document.documentElement.scrollWidth<=innerWidth+1&&r.left>=0&&r.right<=innerWidth+1;}));
+  }
+  eq('панель прямых файлов не расширяет экран телефона, планшета и ноутбука',widths,[true,true,true]);
+ }
+
  eq('машинный снимок передаёт реальные упорядоченные линии реза, а не границы областей',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
   const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0],raw=cutSheetCutsFor(g,s).lines;

@@ -5,7 +5,7 @@
    This is NOT a controller program. Maver uses ISO + BMP, while Disai uses
    DST + SUM in the owner's Perfect Cut samples (23 September 2026). Their
    commands, thickness encoding and shaped-glass records must be verified
-   before either machine format is offered for download.
+   before either machine format is approved for production cutting.
    ===================================================================== */
 function cutMachinePoint(piece,q){
  const turn=cutPieceTurn(piece),x=+q[0],y=+q[1];
@@ -23,7 +23,9 @@ function cutMachineThroughCut(c,index){
   x1:vertical?c.at:c.x1,y1:vertical?c.y1:c.at,
   level:c.level,key:c.key};
 }
-function cutMachineSnapshot(number){
+/* scope is for a single trial sheet. It never relaxes the checks on that
+   sheet, but other sheets are not part of the requested trial program. */
+function cutMachineSnapshot(number,scope){
  const errors=[],batch=glassBatchFind(number),plan=cutPlanFor(number);
  if(!batch)errors.push('Batch not found.');
  if(!plan||plan.reset)errors.push('Build the cutting layout first.');
@@ -32,6 +34,7 @@ function cutMachineSnapshot(number){
  const source=cutPieces(batch,plan.settings||{}).filter(p=>!p.off),byId=new Map(),seen=new Set(),sheets=[];
  source.forEach(p=>{if(byId.has(p.piece))errors.push('Duplicate source piece '+p.piece+'.');byId.set(p.piece,p);});
  (plan.groups||[]).forEach(group=>(group.sheets||[]).forEach(sheet=>{
+  if(scope&&(group.glass!==scope.glass||sheet.no!==+scope.no))return;
   /* A manually added empty sheet is not a cutting program. Keep its number in
      the ERP plan, but do not invent a machine file for it. */
   if(!(sheet.pieces||[]).length&&!(sheet.stock||[]).length)return;
@@ -93,7 +96,7 @@ function cutMachineSnapshot(number){
    pieces:parts,stock,
    throughCuts:cut?(cut.lines||[]).map(cutMachineThroughCut):[]});
  }));
- source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
+ if(!scope)source.forEach(p=>{if(!seen.has(p.piece))errors.push('Piece '+p.piece+' is not on any sheet.');});
  if(!sheets.length)errors.push('There are no occupied sheets to export.');
  return {valid:!errors.length,batch:number,stamp:plan.stamp,at:plan.at,
   sheets,excluded:(plan.excluded||[]).slice(),errors};
