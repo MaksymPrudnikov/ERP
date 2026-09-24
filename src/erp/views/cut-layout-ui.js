@@ -144,10 +144,12 @@ function cutUiTrialResult(message){
  const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
  const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
 }
-function cutUiTrialFolderName(batch,glass){
+/* Имя стола в конце папки: пары файлов Maver и Disai одного листа иначе
+   ложатся в папки с одинаковым именем (владелец, 24.09.2026: «папки»). */
+function cutUiTrialFolderName(batch,glass,machine){
  const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
  const d=new Date(),date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
- return safe(batch)+'_'+safe(glass)+'_'+date;
+ return safe(batch)+'_'+safe(glass)+'_'+date+'_'+(machine==='disai'?'DISAI':'MAVER');
 }
 function cutUiTrialExport(machine,kind){
  const prepared=cutUiTrialFiles(machine);
@@ -167,7 +169,7 @@ async function cutUiTrialFolder(machine){
  if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
  const prepared=cutUiTrialFiles(machine);
  if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
- const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass);
+ const {p,files}=prepared,folderName=cutUiTrialFolderName(cutUi.batch,p.sheet.glass,machine);
  try{
   const root=await window.showDirectoryPicker({mode:'readwrite'});
   if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;

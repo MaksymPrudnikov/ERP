@@ -1225,7 +1225,8 @@ module.exports=async function({page,eq,ok}){
    dst:dst.data.includes('GTHICKNESS=152.400')&&dst.data.includes('[SCHEME]')&&dst.data.includes('[BREAKLN]')&&dst.data.includes('IB1'),
    sum:sum.data.includes('QUANTITY=1')&&sum.data.includes('MEASUREMENT=mm'),
    names:iso.name==='1.ISO'&&bmp.name==='1.BMP'&&dst.name===sum.name.replace(/\.sum$/,'-001.dst')&&sum.name.includes(b.number+'-6CLEAR-S1.sum'),
-   folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(cutUiTrialFolderName(b.number,g.glass))};
+   folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(cutUiTrialFolderName(b.number,g.glass,'maver'))&&
+    /^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_DISAI$/.test(cutUiTrialFolderName(b.number,g.glass,'disai'))};
  }),{mError:'',dError:'',iso:true,bmp:true,dst:true,sum:true,names:true,folder:true});
 
  eq('BMP 440×320 показывает клиента, PO, полный Glass ID, размер и обозначение остатка',await t.p.evaluate(()=>{
@@ -1290,7 +1291,7 @@ module.exports=async function({page,eq,ok}){
   await cutUiTrialFolder('maver');
   const second={calls:created.length,count:files.size,refused:!!cutTrialError&&cutTrialError.error.includes('No files were overwritten')};
   window.showDirectoryPicker=old;
-  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}$/.test(first.folder),names:first.names,nonempty:first.nonempty,second};
+  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second};
  }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true}});
 
  {
