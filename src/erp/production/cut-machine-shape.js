@@ -53,7 +53,7 @@ function cutShapeCircle(a,b,c){
    clockwise, Perfect Cut starts at the arc on the top end of the minor axis
    (the left end for a standing ellipse); returned clockwise like the ERP
    contour, which the Disai writer turns back. Null unless every sample lies
-   within 0.1 mm of the ellipse. */
+   within 0.1 mm of the ellipse and of the arcs. */
 function cutShapeEllipse(P){
  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
  const off=(p,cx,cy,rx,ry)=>{const u=(p[0]-cx)/rx,v=(p[1]-cy)/ry;return Math.abs(u*u+v*v-1)/(2*Math.hypot(u/rx,v/ry));};
@@ -63,16 +63,21 @@ function cutShapeEllipse(P){
     box is exact; a coarse DXF may miss them, then a least-squares fit. */
  let e=[(x0+x1)/2,(y0+y1)/2,(x1-x0)/2,(y1-y0)/2];
  if(!on(...e)){e=cutShapeEllipseFit(P);if(!e||!on(...e))return null;}
- const [cx,cy,rx,ry]=e;
- const N=34,step=2*Math.PI/N,th0=rx>=ry?Math.PI:1.5*Math.PI;
+ const [cx,cy,rx,ry]=e,th0=rx>=ry?Math.PI:1.5*Math.PI;
  const at=f=>{const t=Math.atan2(-Math.cos(f)/rx,Math.sin(f)/ry);return [cx+rx*Math.cos(t),cy+ry*Math.sin(t)];};
- const ccw=[];
- for(let k=0;k<N;k++){
-  const f=th0+k*step,a=at(f-step/2),b=at(f+step/2),c=cutShapeCircle(a,at(f),b);if(!c)return null;
-  const sweep=((cutShapeDeg(Math.atan2(b[1]-c.cy,b[0]-c.cx)-Math.atan2(a[1]-c.cy,a[0]-c.cx))%360)+360)%360;
-  ccw.push({type:'arc',x0:a[0],y0:a[1],x1:b[0],y1:b[1],cx:c.cx,cy:c.cy,r:c.r,sweep});
+ /* 34 arcs keep a 2:1 ellipse within 0.075 mm, a long one (30×10″, 48×12″)
+    runs 0.15–1.9 mm off: then more arcs of the same build, four at a time
+    so that arcs stay centred on the minor axis, until 0.1 mm holds. */
+ for(let N=34;N<=298;N+=4){
+  const step=2*Math.PI/N,ccw=[];
+  for(let k=0;k<N;k++){
+   const f=th0+k*step,a=at(f-step/2),b=at(f+step/2),c=cutShapeCircle(a,at(f),b);if(!c)return null;
+   const sweep=((cutShapeDeg(Math.atan2(b[1]-c.cy,b[0]-c.cx)-Math.atan2(a[1]-c.cy,a[0]-c.cx))%360)+360)%360;
+   ccw.push({type:'arc',x0:a[0],y0:a[1],x1:b[0],y1:b[1],cx:c.cx,cy:c.cy,r:c.r,sweep});
+  }
+  if(cutShapeCovers(P,ccw))return ccw.reverse().map(cutShapeReverse);
  }
- return ccw.reverse().map(cutShapeReverse);
+ return null;
 }
 /* Distance from a point to a written line or arc, 0.001 mm (Infinity off
    an arc's span). */

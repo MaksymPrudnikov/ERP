@@ -1321,17 +1321,20 @@ module.exports=async function({page,eq,ok}){
     точки сидят в углах, на одной окружности — проверка по одним точкам
     выдавала круг. Прямая, бравшая точки в 0,1 мм, съедала скругление; у
     DXF-эллипса без точек на концах осей не сходилась рамка. */
- eq('Shape: скруглённый многоугольник — не круг, скругления 2 мм — дуги, редкий DXF-эллипс — 34 дуги',await t.p.evaluate(()=>{
+ eq('Shape: скруглённый многоугольник — не круг, скругления 2 мм — дуги, редкий DXF-эллипс — 34 дуги, вытянутый — больше',await t.p.evaluate(()=>{
   const um=v=>Math.round(v*25400),poly=[],R=10,rc=2/25.4,d=rc/Math.sin(72*Math.PI/180);
   for(let k=0;k<10;k++){const th=(90-36*k)*Math.PI/180,cx=(R-d)*Math.cos(th),cy=(R-d)*Math.sin(th);
    for(let j=0;j<=6;j++){const a=th+(18-6*j)*Math.PI/180;poly.push([um(cx+rc*Math.cos(a)),um(cy+rc*Math.sin(a))]);}}
   const fit=cutShapeFit(poly).prims,arcs=fit.filter(p=>p.type==='arc');
   const ell=[];for(let i=0;i<72;i++){const a=-(i+0.5)*5*Math.PI/180;ell.push([um(20*Math.cos(a)),um(10*Math.sin(a))]);}
   const e=cutShapeFit(ell).prims;
-  return {circle:fit.some(p=>p.type==='arc'&&Math.abs(p.sweep)>=359.99),lines:fit.filter(p=>p.type==='line').length,
+  /* Вытянутый 48×12″: 34 дуги отходят на 0,44 мм — берётся больше дуг. */
+  const lg=[];for(let i=0;i<1024;i++){const a=Math.PI-2*Math.PI*i/1024;lg.push([um(24+24*Math.cos(a)),um(6+6*Math.sin(a))]);}
+  const L=cutShapeFit(lg).prims;
+  return {long:L.length>34&&L.every(p=>p.type==='arc')&&cutShapeCovers(lg,L),circle:fit.some(p=>p.type==='arc'&&Math.abs(p.sweep)>=359.99),lines:fit.filter(p=>p.type==='line').length,
    corners:arcs.length,cornerSweep:arcs.every(p=>Math.abs(Math.abs(p.sweep)-36)<0.5),
    ellipse:e.length,ellipseArcs:e.every(p=>p.type==='arc'&&Math.abs(Math.abs(p.sweep)-360/34)<0.2)};
- }),{circle:false,lines:10,corners:10,cornerSweep:true,ellipse:34,ellipseArcs:true});
+ }),{long:true,circle:false,lines:10,corners:10,cornerSweep:true,ellipse:34,ellipseArcs:true});
 
  /* Maver: граница между колоннами — от нижнего трима, граница к широкому
     отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */
