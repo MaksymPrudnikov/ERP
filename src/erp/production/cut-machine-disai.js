@@ -108,7 +108,7 @@ function cutTrialDisaiScheme(sheet,depth){
  if(parts.some(p=>!p||!p.footprint||![p.footprint.x,p.footprint.y,p.footprint.w,p.footprint.h].every(Number.isFinite)||p.footprint.w<=0||p.footprint.h<=0))return {error:'Disai trial has invalid glass geometry.'};
  /* Perfect Cut numbers a rotated glass 2500 + ID ([IB127] and [IB2627] in
     the 6 mm sample are the same glass type, ROTATE=0 and ROTATE=1). */
- const index=new Map(parts.map((p,i)=>[p.id,(p.turn===1?2500:0)+i+1]));
+ const index=new Map(parts.map((p,i)=>[p.id,(p.turn%2===1?2500:0)+i+1]));
  if(index.size!==parts.length)return {error:'Disai trial has duplicate glass identifiers.'};
  const lines=sheet.throughCuts||[],byKey=new Map(lines.map(c=>[c.key,c])),top=lines.find(c=>c.level===1);
  if(!top)return {error:'Disai trial needs the verified cut lines of this sheet.'};
@@ -198,7 +198,7 @@ function cutTrialDisaiScheme(sheet,depth){
   while(last>=0&&!slices[last].piece&&!slices[last].kids)last--;
   for(let i=0;i<=last;i++){
    const s=slices[i],[a,b]=along(s.r,axis);
-   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?' IB'+index.get(s.piece.id):''));
+   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?(s.piece.scores&&s.piece.scores.length?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
    if(s.kids)emit(s.kids,L+1);
   }
  };

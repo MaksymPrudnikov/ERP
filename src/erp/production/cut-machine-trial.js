@@ -80,8 +80,14 @@ function cutTrialSheet(number,glass,no,machine){
  if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
  if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
  if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
- if(sheet.pieces.some(p=>p.shape))return {error:'Trial export is limited to rectangles. Shape commands need controller verification.'};
- if(sheet.pieces.some(p=>p.turn>1))return {error:'Unsupported piece rotation.'};
+ if(sheet.pieces.some(p=>p.curved))return {error:'Shape arcs are not exported yet — only straight-edged Shapes.'};
+ /* Straight-edged Shape: its score lines, clipped as Perfect Cut does. */
+ for(const p of sheet.pieces){
+  p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
+  if(!p.shape)continue;
+  const s=cutShapeScoreChains(p);if(s.error)return s;
+  p.scores=s.chains;p.scoreBox=s.box;
+ }
  const thick=cutTrialThickness(sheet.mm,machine);
  if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
  const cut=cutTrialLines(sheet);if(cut.error)return cut;
@@ -89,7 +95,12 @@ function cutTrialSheet(number,glass,no,machine){
     Disai для листа не строится, остаются линии экрана. */
  const layout=machine==='maver'?cutTrialDisaiScheme(sheet):null;
  const lines=layout&&!layout.error?cutTrialMaverOrder(layout.cuts):cut.lines;
- return {batch:number,sheet,lines,thickness:thick,machine,trial:true,
+ /* Shapes follow the SCHEME order, starting where the last through cut ended. */
+ const ibToId=layout&&!layout.error?new Map([...layout.index].map(([id,ib])=>[ib,id])):null;
+ const order=ibToId?layout.scheme.map(l=>(/ IB(\d+)$/.exec(l)||[])[1]).filter(Boolean).map(n=>ibToId.get(+n)):sheet.pieces.map(p=>p.id);
+ const end=lines.length?lines[lines.length-1]:{x1:0,y1:0};
+ const shapes=machine==='maver'?cutShapeMaverOrder(sheet.pieces,order,[Math.round(end.x1*1000),Math.round(end.y1*1000)]):[];
+ return {batch:number,sheet,lines,shapes,thickness:thick,machine,trial:true,
   note:layout&&!layout.error&&!layout.sameAsScreen?'Maver cuts some waste in a different order than the screen.':''};
 }
 function cutTrialMaver(program){
@@ -106,6 +117,22 @@ function cutTrialMaver(program){
   out.push('G0X'+cutTrial3(c.x0)+'Y'+cutTrial3(c.y0)+'Z'+z,'M3',
    'G0X'+cutTrial3(c.x1)+'Y'+cutTrial3(c.y1)+'Z'+z,'M5');
  });
+ /* Shape stage as in all 126 Perfect Cut shape programs: M14 M20 G103,
+    thickness again, then per Shape `{name}` and for every score
+    [M5] G0 start with the cut direction in Z, M9, G1 end; M5 at the end. */
+ const shapes=(program.shapes||[]).filter(s=>s.segs.length);
+ if(shapes.length){
+  out.push('M14','M20','G103P1000VQ0','M94 VN216='+thickness);
+  let first=true;
+  shapes.forEach(s=>{
+   out.push('{'+s.name+'}');
+   s.segs.forEach(g=>{
+    if(!first)out.push('M5');first=false;
+    out.push('G0X'+cutTrial3(g.x0/1000)+'Y'+cutTrial3(g.y0/1000)+'Z'+cutShapeMaverAngle(g),'M9','G1X'+cutTrial3(g.x1/1000)+'Y'+cutTrial3(g.y1/1000));
+   });
+  });
+  out.push('M5');
+ }
  out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
  return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain',note:program.note||''};
 }
@@ -171,6 +198,7 @@ function cutTrialMaverBmp(program){
  });
  ctx.strokeStyle='#db7927';ctx.lineWidth=1;
  program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
+ (program.shapes||[]).forEach(sh=>sh.segs.forEach(g=>{ctx.beginPath();ctx.moveTo(left+g.x0/25400*scale,bottom-g.y0/25400*scale);ctx.lineTo(left+g.x1/25400*scale,bottom-g.y1/25400*scale);ctx.stroke();}));
  sheet.pieces.forEach((p,i)=>{
   const f=p.footprint,{x,y,w,h}=project(f);
   if(w<11||h<11)return;
@@ -230,11 +258,18 @@ function cutTrialDisai(program){
   const f=p.footprint;
   out.push('','[IB'+layout.index.get(p.id)+']','ID='+(i+1),
    'ORDER='+cutTrialText(p.order+' / '+p.line),'CUSTOMER='+cutTrialText(p.customer),
-   'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn===1?'1':'0'),
+   'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn%2===1?'1':'0'),
    'WIDTH='+cutTrial2(cutTrialMm(f.w)),'HEIGHT='+cutTrial2(cutTrialMm(f.h)),
    'SPEC='+cutTrialText(sheet.glass),'RACK=','NOTE1='+cutTrialText(p.id),
    'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
    'CLASSIFY=1','CTIMES=1');
+ });
+ /* [DB] after all [IB], as Perfect Cut: SPEC = name_ID, R when turned. */
+ sheet.pieces.forEach((p,i)=>{
+  if(!p.scores||!p.scores.length)return;
+  const ib=layout.index.get(p.id),box=p.scoreBox;
+  out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
+  p.scores.forEach(c=>c.forEach(s=>out.push([s.x0-box.x,s.y0-box.y,s.x1-box.x,s.y1-box.y].map(v=>cutDisaiText(v,3)).join(' ')+' D LS')));
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',

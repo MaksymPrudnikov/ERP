@@ -91,6 +91,7 @@
   "src/erp/production/cut-layout.js",
   "src/erp/production/cut-machine-export.js",
   "src/erp/production/cut-machine-disai.js",
+  "src/erp/production/cut-machine-shape.js",
   "src/erp/production/cut-machine-trial.js",
   "src/erp/production/stock-offcuts.js",
   "src/erp/views/glass-batches.js",
