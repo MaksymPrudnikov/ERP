@@ -280,11 +280,14 @@ function cutTrialDisai(program){
   const ib=layout.index.get(p.id),box=p.scoreBox;
   out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
   /* A line `x0 y0 x1 y1 F LS`, an arc `x0 y0 cx cy sweep r F CR`; F is C
-     when the next segment carries on with less than 5° of turn. */
+     when the next segment carries on with less than 5° of turn. A full
+     circle is `cx cy r D CO`, as Perfect Cut writes it for this table: the
+     table only touched the glass on a 360° CR (25 Sep 2026). */
   const t=v=>cutDisaiText(Math.round(v),3);
   p.scores.forEach(c=>c.forEach((s,k)=>{
    const flag=cutShapeSmooth(s,c[k+1])?'C':'D';
-   out.push(s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
+   out.push(s.type==='arc'&&Math.abs(s.sweep)>=359.99?[t(s.cx-box.x),t(s.cy-box.y),t(s.r),'D','CO'].join(' '):
+    s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
     [t(s.x0-box.x),t(s.y0-box.y),t(s.x1-box.x),t(s.y1-box.y),flag,'LS'].join(' '));
   }));
  });

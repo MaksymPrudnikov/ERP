@@ -1264,8 +1264,10 @@ module.exports=async function({page,eq,ok}){
 
  /* Дуги — по 13 программам Maver (G2/G3, центр в I J) и листу Disai с
     7 дугами (`x0 y0 cx cy угол r C|D CR`); полный круг — G3, как все 65
-    кругов образцов. Кривую ERP раскладываем на прямые и дуги в 0,1 мм. */
- eq('Shape с дугами: круг — один G3, арка из DXF — прямая, дуга 180°, прямая; овал — две полуокружности',await t.p.evaluate(()=>{
+    кругов образцов, а у Disai — `cx cy r D CO`, как пишет Perfect Cut: на
+    дуге 360° `CR` стол 25.09.2026 только касался стекла. Кривую ERP
+    раскладываем на прямые и дуги в 0,1 мм. */
+ eq('Shape с дугами: круг — один G3 и CO у Disai, арка из DXF — прямая, дуга 180°, прямая; овал — две полуокружности',await t.p.evaluate(()=>{
   const run=(w,h,setup)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w=String(w);shape.h=String(h);setup(shape);
@@ -1274,7 +1276,7 @@ module.exports=async function({page,eq,ok}){
    const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
    if(mv.error||ds.error)return {error:mv.error||ds.error};
    const iso=cutTrialMaver(mv).data,dst=cutTrialDisai(ds).data;
-   return {iso:iso.slice(iso.indexOf('\r\nM14\r\n')),db:(dst.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR)$/.test(x))};
+   return {iso:iso.slice(iso.indexOf('\r\nM14\r\n')),db:(dst.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR|CO)$/.test(x))};
   };
   const circle=run(36,36,s=>{s.type='circle';s.w='36';s.h='36';});
   const arch=[[0,0],[40,0],[40,30]];for(let i=1;i<64;i++){const a=i/64*Math.PI;arch.push([20+20*Math.cos(a),30+20*Math.sin(a)]);}arch.push([0,30]);
@@ -1282,7 +1284,7 @@ module.exports=async function({page,eq,ok}){
   const oval=run(40,20,s=>{s.type='oval';s.w='40';s.h='20';});
   const kinds=r=>r.db?r.db.map(x=>x.endsWith('CR')?'arc':'line').join(','):r.error;
   return {circleMaver:(circle.iso.match(/^G[123]X/gm)||[]).join(','),circleG3:/\r\nM9\r\nG3X([\d.]+)Y([\d.]+)I[\d.]+J[\d.]+\r\nM5\r\n/.test(circle.iso),
-   circleDisai:circle.db&&circle.db.length===1&&/ 360 457\.200 D CR$/.test(circle.db[0]),
+   circleDisai:circle.db&&circle.db.length===1&&/^([\d.]+) \1 457\.200 D CO$/.test(circle.db[0]),
    arch:kinds(dxf),archArc:!!dxf.db&&/ -?180 508\.000 C CR$/.test(dxf.db[1]),
    oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 254\.000 C CR$/.test(x)).length};
  }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'arc,line,arc,line',ovalR:2});
