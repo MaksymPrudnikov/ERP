@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 86 модулей, 14 стиля.
+  Состав сборки: 87 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1986,7 +1986,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0655e17c8f46';
+var ERP_BUILD='8966ec3a8dd5';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -22698,9 +22698,26 @@ function cutShapeGeom(lite){
     the source coordinates. Rounding a raked edge by 1/32″ can shift it by
     nearly 0.8 mm; keep that geometry separate and fail closed later if it
     does not fit inside the rounded footprint. */
+ /* Дуги станкам нужны дугами (G2/G3 у Maver, CR у Disai), а контур здесь —
+    ломаная. Пока экспорт дуг не сделан, такая форма помечается и в станочный
+    файл не идёт. Тип кромок знает модуль Shape, но не у всех фигур (у круга
+    список кромок пуст), поэтому ещё и по геометрии: много точек или мелкие
+    отрезки с пологим изломом — это дуга. */
+ const res=lite.result||{},edges=Array.isArray(res.edges)?res.edges:res.geometry&&Array.isArray(res.geometry.edges)?res.geometry.edges:null;
+ const curved=!!(edges&&edges.some(e=>e&&e.type&&e.type!=='line'))||cutShapeLooksCurved(raw);
  return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),
   /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
-  machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
+  machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts,curved};
+}
+function cutShapeLooksCurved(pts){
+ if(pts.length>24)return true;
+ return pts.some((p,i)=>{
+  const a=pts[(i+pts.length-1)%pts.length],b=pts[(i+1)%pts.length];
+  const u=[p[0]-a[0],p[1]-a[1]],v=[b[0]-p[0],b[1]-p[1]],lu=Math.hypot(...u),lv=Math.hypot(...v);
+  if(lu<1e-9||lv<1e-9)return false;
+  const turn=Math.abs(Math.atan2(u[0]*v[1]-u[1]*v[0],u[0]*v[0]+u[1]*v[1]))*180/Math.PI;
+  return turn>0.5&&turn<20&&lu<3&&lv<3;
+ });
 }
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
@@ -22724,7 +22741,7 @@ function cutPieces(batch,settings){
      копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
      лишних поля у прямоугольника стоили 60 % времени Build — тест 2 шёл
      2,6 с вместо 1,65 с. */
-  if(geom){row.pts=geom.pts;row.machinePts=geom.machinePts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
+  if(geom){row.pts=geom.pts;row.machinePts=geom.machinePts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;if(geom.curved)row.curved=true;}
   out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
@@ -24399,7 +24416,7 @@ function cutMachineSnapshot(number,scope){
     poByOrder.set(src.orderId,order&&order.customerPo||'');
    }
    parts.push({id:piece.piece,order:src.order,orderId:src.orderId,customer:src.customer,line:src.line,
-    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,turn,
+    po:poByOrder.get(src.orderId),unit:src.unit,mark:src.mark,glass:src.glass,mm:src.mm,shape:!!src.shape,curved:!!src.curved,turn,
     footprint,contour});
   });
   const stock=(sheet.stock||[]).map(p=>({id:p.id,x:+p.x,y:+p.y,w:+p.w,h:+p.h}));
@@ -24546,7 +24563,7 @@ function cutTrialDisaiScheme(sheet,depth){
  if(parts.some(p=>!p||!p.footprint||![p.footprint.x,p.footprint.y,p.footprint.w,p.footprint.h].every(Number.isFinite)||p.footprint.w<=0||p.footprint.h<=0))return {error:'Disai trial has invalid glass geometry.'};
  /* Perfect Cut numbers a rotated glass 2500 + ID ([IB127] and [IB2627] in
     the 6 mm sample are the same glass type, ROTATE=0 and ROTATE=1). */
- const index=new Map(parts.map((p,i)=>[p.id,(p.turn===1?2500:0)+i+1]));
+ const index=new Map(parts.map((p,i)=>[p.id,(p.turn%2===1?2500:0)+i+1]));
  if(index.size!==parts.length)return {error:'Disai trial has duplicate glass identifiers.'};
  const lines=sheet.throughCuts||[],byKey=new Map(lines.map(c=>[c.key,c])),top=lines.find(c=>c.level===1);
  if(!top)return {error:'Disai trial needs the verified cut lines of this sheet.'};
@@ -24636,7 +24653,7 @@ function cutTrialDisaiScheme(sheet,depth){
   while(last>=0&&!slices[last].piece&&!slices[last].kids)last--;
   for(let i=0;i<=last;i++){
    const s=slices[i],[a,b]=along(s.r,axis);
-   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?' IB'+index.get(s.piece.id):''));
+   scheme.push(CUT_DISAI_LEVELS[L-1]+cutDisaiText(cutDisaiQ(b)-cutDisaiQ(a),3)+(s.piece?(s.piece.scores&&s.piece.scores.length?' DB'+index.get(s.piece.id):'')+' IB'+index.get(s.piece.id):''));
    if(s.kids)emit(s.kids,L+1);
   }
  };
@@ -24673,6 +24690,91 @@ function cutTrialDisaiScheme(sheet,depth){
  const breaks=cutDisaiBreakLines(mine);
  if(breaks.error)return breaks;
  return {scheme,index,breaks:breaks.lines,cuts:mine,sameAsScreen:same&&!changed};
+}
+
+/* ==== src/erp/production/cut-machine-shape.js ==== */
+/* =====================================================================
+   erp/production/cut-machine-shape
+   Score lines of a straight-edged Shape for the trial Maver / Disai files.
+
+   Read from the owner's Perfect Cut exports (10 mm pair, 13 Disai projects,
+   126 Maver shape programs, 24–25 September 2026):
+   · only the contour edges that do NOT lie on the sides of the piece's
+     rectangular footprint are scored — the sides come from the through
+     cuts. The Safety border stays between the contour and the footprint;
+   · each edge is clipped to the footprint shrunk by 1.001 mm, so the wheel
+     stops just short of the edge (`1.001 682.313 1141.917 680.446`);
+   · Disai lists them in `[DB<IB>]` in footprint coordinates, Maver in sheet
+     coordinates — the same segments;
+   · Maver cuts the pieces in the SCHEME order; inside a piece, connected
+     edges are one chain, started from its nearer end (97 of 113 programs).
+   Arcs are not handled here: a curved Shape is refused before this point.
+   ===================================================================== */
+const CUT_SHAPE_INSET=1001,CUT_SHAPE_ON_SIDE=1600;
+/* Liang–Barsky: the part of a..b inside the rectangle, in 0.001 mm. */
+function cutShapeClip(a,b,x0,y0,x1,y1){
+ let t0=0,t1=1;const dx=b[0]-a[0],dy=b[1]-a[1];
+ for(const [p,q] of [[-dx,a[0]-x0],[dx,x1-a[0]],[-dy,a[1]-y0],[dy,y1-a[1]]]){
+  if(p===0){if(q<0)return null;continue;}
+  const r=q/p;
+  if(p<0){if(r>t1)return null;if(r>t0)t0=r;}else{if(r<t0)return null;if(r<t1)t1=r;}
+ }
+ const s={x0:Math.round(a[0]+t0*dx),y0:Math.round(a[1]+t0*dy),x1:Math.round(a[0]+t1*dx),y1:Math.round(a[1]+t1*dy)};
+ return Math.hypot(s.x1-s.x0,s.y1-s.y0)>2000?s:null;
+}
+/* Chains of score segments of one snapshot part, sheet coordinates in
+   0.001 mm, clockwise as Perfect Cut lists `[DB]`. A rectangle-like Shape
+   whose contour runs along the footprint has no chains. */
+function cutShapeScoreChains(part){
+ const q=cutDisaiQ,f=part.footprint,X0=q(f.x),Y0=q(f.y),X1=q(f.x+f.w),Y1=q(f.y+f.h);
+ let pts=(part.contour||[]).map(p=>[q(p[0]),q(p[1])]);
+ pts=pts.filter((p,i)=>{const n=pts[(i+1)%pts.length];return Math.hypot(p[0]-n[0],p[1]-n[1])>2;});
+ if(pts.length<3)return {error:'Shape '+part.id+' has no cutting contour.'};
+ const area=pts.reduce((s,p,i)=>{const n=pts[(i+1)%pts.length];return s+p[0]*n[1]-n[0]*p[1];},0);
+ if(area>0)pts.reverse();
+ /* The footprint is on the 1/16″ grid, the contour is exact: an edge within
+    1.6 mm of a side is that side, not a separate score. */
+ const onSide=(a,b)=>[[0,X0],[0,X1],[1,Y0],[1,Y1]].some(([k,v])=>Math.abs(a[k]-v)<=CUT_SHAPE_ON_SIDE&&Math.abs(b[k]-v)<=CUT_SHAPE_ON_SIDE);
+ const edges=pts.map((a,i)=>{const b=pts[(i+1)%pts.length];return {a,b,side:onSide(a,b)};});
+ const k=edges.findIndex(e=>e.side),ring=k<0?edges:edges.slice(k+1).concat(edges.slice(0,k+1));
+ const chains=[];let cur=null;
+ ring.forEach(e=>{
+  if(e.side){cur=null;return;}
+  const s=cutShapeClip(e.a,e.b,X0+CUT_SHAPE_INSET,Y0+CUT_SHAPE_INSET,X1-CUT_SHAPE_INSET,Y1-CUT_SHAPE_INSET);
+  if(!s)return;
+  if(!cur){cur=[];chains.push(cur);}
+  cur.push(s);
+ });
+ return {chains,box:{x:X0,y:Y0}};
+}
+/* Maver order of all Shape scores of a sheet: pieces in `order`, chains by
+   the nearer end from where the head is. */
+function cutShapeMaverOrder(parts,order,start){
+ const byId=new Map(parts.map(p=>[p.id,p])),out=[];let x=start[0],y=start[1];
+ order.forEach(id=>{
+  const p=byId.get(id);if(!p||!p.scores||!p.scores.length)return;
+  const left=p.scores.map(c=>c.slice()),segs=[];
+  while(left.length){
+   let best=null;
+   left.forEach((c,i)=>{
+    const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
+    const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
+    if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da};
+   });
+   const c=left.splice(best.i,1)[0],run=best.rev?c.slice().reverse().map(s=>({x0:s.x1,y0:s.y1,x1:s.x0,y1:s.y0})):c;
+   run.forEach(s=>segs.push(s));
+   const e=run[run.length-1];x=e.x1;y=e.y1;
+  }
+  out.push({id,name:p.shapeName,segs});
+ });
+ return out;
+}
+/* Maver head angle for a Shape score: the direction of the cut in degrees,
+   kept in (-90, 270] as in every sample (180.053, -89.828, 253.273). */
+function cutShapeMaverAngle(s){
+ let a=Math.atan2(s.y1-s.y0,s.x1-s.x0)*180/Math.PI;
+ if(a<=-90)a+=360;
+ return a.toFixed(3);
 }
 
 /* ==== src/erp/production/cut-machine-trial.js ==== */
@@ -24758,8 +24860,14 @@ function cutTrialSheet(number,glass,no,machine){
  if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
  if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
  if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
- if(sheet.pieces.some(p=>p.shape))return {error:'Trial export is limited to rectangles. Shape commands need controller verification.'};
- if(sheet.pieces.some(p=>p.turn>1))return {error:'Unsupported piece rotation.'};
+ if(sheet.pieces.some(p=>p.curved))return {error:'Shape arcs are not exported yet — only straight-edged Shapes.'};
+ /* Straight-edged Shape: its score lines, clipped as Perfect Cut does. */
+ for(const p of sheet.pieces){
+  p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
+  if(!p.shape)continue;
+  const s=cutShapeScoreChains(p);if(s.error)return s;
+  p.scores=s.chains;p.scoreBox=s.box;
+ }
  const thick=cutTrialThickness(sheet.mm,machine);
  if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
  const cut=cutTrialLines(sheet);if(cut.error)return cut;
@@ -24767,7 +24875,12 @@ function cutTrialSheet(number,glass,no,machine){
     Disai для листа не строится, остаются линии экрана. */
  const layout=machine==='maver'?cutTrialDisaiScheme(sheet):null;
  const lines=layout&&!layout.error?cutTrialMaverOrder(layout.cuts):cut.lines;
- return {batch:number,sheet,lines,thickness:thick,machine,trial:true,
+ /* Shapes follow the SCHEME order, starting where the last through cut ended. */
+ const ibToId=layout&&!layout.error?new Map([...layout.index].map(([id,ib])=>[ib,id])):null;
+ const order=ibToId?layout.scheme.map(l=>(/ IB(\d+)$/.exec(l)||[])[1]).filter(Boolean).map(n=>ibToId.get(+n)):sheet.pieces.map(p=>p.id);
+ const end=lines.length?lines[lines.length-1]:{x1:0,y1:0};
+ const shapes=machine==='maver'?cutShapeMaverOrder(sheet.pieces,order,[Math.round(end.x1*1000),Math.round(end.y1*1000)]):[];
+ return {batch:number,sheet,lines,shapes,thickness:thick,machine,trial:true,
   note:layout&&!layout.error&&!layout.sameAsScreen?'Maver cuts some waste in a different order than the screen.':''};
 }
 function cutTrialMaver(program){
@@ -24784,6 +24897,22 @@ function cutTrialMaver(program){
   out.push('G0X'+cutTrial3(c.x0)+'Y'+cutTrial3(c.y0)+'Z'+z,'M3',
    'G0X'+cutTrial3(c.x1)+'Y'+cutTrial3(c.y1)+'Z'+z,'M5');
  });
+ /* Shape stage as in all 126 Perfect Cut shape programs: M14 M20 G103,
+    thickness again, then per Shape `{name}` and for every score
+    [M5] G0 start with the cut direction in Z, M9, G1 end; M5 at the end. */
+ const shapes=(program.shapes||[]).filter(s=>s.segs.length);
+ if(shapes.length){
+  out.push('M14','M20','G103P1000VQ0','M94 VN216='+thickness);
+  let first=true;
+  shapes.forEach(s=>{
+   out.push('{'+s.name+'}');
+   s.segs.forEach(g=>{
+    if(!first)out.push('M5');first=false;
+    out.push('G0X'+cutTrial3(g.x0/1000)+'Y'+cutTrial3(g.y0/1000)+'Z'+cutShapeMaverAngle(g),'M9','G1X'+cutTrial3(g.x1/1000)+'Y'+cutTrial3(g.y1/1000));
+   });
+  });
+  out.push('M5');
+ }
  out.push('M101 VB1401 = 1 J#1','M6','M11','M30','');
  return {name:String(n)+'.ISO',data:out.join('\r\n'),mime:'text/plain',note:program.note||''};
 }
@@ -24849,6 +24978,7 @@ function cutTrialMaverBmp(program){
  });
  ctx.strokeStyle='#db7927';ctx.lineWidth=1;
  program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
+ (program.shapes||[]).forEach(sh=>sh.segs.forEach(g=>{ctx.beginPath();ctx.moveTo(left+g.x0/25400*scale,bottom-g.y0/25400*scale);ctx.lineTo(left+g.x1/25400*scale,bottom-g.y1/25400*scale);ctx.stroke();}));
  sheet.pieces.forEach((p,i)=>{
   const f=p.footprint,{x,y,w,h}=project(f);
   if(w<11||h<11)return;
@@ -24908,11 +25038,18 @@ function cutTrialDisai(program){
   const f=p.footprint;
   out.push('','[IB'+layout.index.get(p.id)+']','ID='+(i+1),
    'ORDER='+cutTrialText(p.order+' / '+p.line),'CUSTOMER='+cutTrialText(p.customer),
-   'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn===1?'1':'0'),
+   'BARCODE='+cutTrialText(p.id),'ROTATE='+(p.turn%2===1?'1':'0'),
    'WIDTH='+cutTrial2(cutTrialMm(f.w)),'HEIGHT='+cutTrial2(cutTrialMm(f.h)),
    'SPEC='+cutTrialText(sheet.glass),'RACK=','NOTE1='+cutTrialText(p.id),
    'NOTE2=TEST ONLY - DO NOT CUT','NOTE3=OPEN AND VERIFY WITHOUT CUTTING',
    'CLASSIFY=1','CTIMES=1');
+ });
+ /* [DB] after all [IB], as Perfect Cut: SPEC = name_ID, R when turned. */
+ sheet.pieces.forEach((p,i)=>{
+  if(!p.scores||!p.scores.length)return;
+  const ib=layout.index.get(p.id),box=p.scoreBox;
+  out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
+  p.scores.forEach(c=>c.forEach(s=>out.push([s.x0-box.x,s.y0-box.y,s.x1-box.x,s.y1-box.y].map(v=>cutDisaiText(v,3)).join(' ')+' D LS')));
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
@@ -26911,7 +27048,7 @@ function cutLayoutHeader(b,status){
  const folderAvailable=typeof window.showDirectoryPicker==='function';
  const trialIssue=cutTrialError&&cutTrialError.key===[cutUi.batch,cutUi.glass,cutUi.sheet].join('|')?cutTrialError:null;
  const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
-  <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Rectangles only; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
+  <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Straight edges only, no arcs yet; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
   ${trialIssue?`<div class="cut-trial-error" data-cut-trial-error role="alert"><b>${esc(trialIssue.machine==='disai'?'Disai':'Maver')} could not export this sheet.</b> ${esc(trialIssue.error)}</div>`:''}
   <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
   <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
