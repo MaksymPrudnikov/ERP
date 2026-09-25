@@ -1355,6 +1355,25 @@ module.exports=async function({page,eq,ok}){
    down:[cutShapeMaverAngle(-90),cutShapeMaverAngle(-89.9999997),cutShapeMaverAngle(270.0000004),cutShapeMaverAngle(359.9999999)].join(' ')};
  }),{decagon:'10 arcs, 10 lines, gaps 0',oval:'L 180 L 180',down:'270.000 270.000 270.000 -0.000'});
 
+ /* Шестиугольник со стороной 10″ высотой 17,3205″ и DXF шириной 280 мм
+    (11,024″): при округлении до ближайшей 1/16″ заготовка выходила меньше
+    контура (17 5/16″ и 11″), и выгрузка отказывала. Теперь 17 3/8″ и
+    11 1/16″; бордер 1″ у косых сторон — как раньше. Владелец 26.09.2026 выбрал округлять вверх
+    — фигурное стекло доводит CNC. */
+ eq('Shape: заготовка многоугольника и метрического DXF округляется вверх — выгрузка не отказывает',await t.p.evaluate(()=>{
+  const run=(w,h,setup)=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
+   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');setup(shape);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0],ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
+   if(ds.error)return ds.error;const f=ds.sheet.pieces[0].footprint;return [f.w,f.h].map(v=>Math.round(v*16)).sort((a,b)=>a-b).join('x')+'/16';
+  };
+  const hex=run(20,17.3125,s=>{s.type='polygon';s.params={sides:'6',sideLength:'10'};s.w='20';s.h='17.3125';});
+  const P=[[0,0],[11.023622,0],[11.023622,5],[5.5,9.2],[0,5]];
+  const dxf=run(11,9.1875,s=>{s.source={kind:'dxf',fileName:'metric.dxf',fileSize:4000,uploadedAt:'2026-09-26',preview:{units:'in',points:P,width16:176,height16:147}};});
+  return {hex,dxf};
+ }),{hex:'278x352/16',dxf:'164x177/16'});
+
  /* Maver: граница между колоннами — от нижнего трима, граница к широкому
     отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */
  eq('Maver: граница колонн начинается от нижнего трима, граница с отходом — во всю высоту',await t.p.evaluate(()=>{

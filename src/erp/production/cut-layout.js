@@ -76,7 +76,13 @@ function cutShapeGeom(lite){
     увеличивает. */
  const side=v=>Math.max(0,+v||0);
  const raw4=(fp&&fp.pad)||{},L=side(raw4.left),B=side(raw4.bottom),R=side(raw4.right),T=side(raw4.top);
- const w=fp?cutRound(x1-x0+L+R):cutRound(x1-x0),h=fp?cutRound(y1-y0+B+T):cutRound(y1-y0);
+ /* Заготовка на сетке 1/16″ округляется ВВЕРХ: контур точный, и при
+    округлении вниз правильный многоугольник или DXF не кратного 1/16″
+    размера вылезал за заготовку до 0,8 мм — станочная выгрузка отказывала.
+    Владелец, 26 сентября 2026: «делай б — такое стекло пойдёт на CNC, там
+    доведут до правильного размера»; лишнее — не больше 1/16″. */
+ const up=v=>Math.ceil(v*16-1e-3)/16;
+ const w=fp?up(x1-x0+L+R):up(x1-x0),h=fp?up(y1-y0+B+T):up(y1-y0);
  const mx=lite.mirrored?v=>x0+x1-v:v=>v,
   exactAt=(px,py)=>[mx(px)-x0+L,py-y0+B],
   at=(px,py)=>exactAt(px,py).map(cutRound);
