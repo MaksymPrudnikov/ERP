@@ -7,8 +7,8 @@
    · only contour edges that do NOT lie on the sides of the piece's
      rectangular footprint are scored — the sides come from the through
      cuts. The Safety border stays between the contour and the footprint;
-   · a straight edge is clipped to the footprint shrunk by 1.001 mm
-     (`1.001 682.313 1141.917 680.446`);
+   · a straight edge, and an arc end at a side, is clipped to the footprint
+     shrunk by 1.001 mm (`1.001 682.313 1141.917 680.446`);
    · curves are circular arcs: Maver `G2` (clockwise) / `G3` with the
      absolute centre in `I J` (96 arcs), Disai `x0 y0 cx cy sweep r F CR`
      (start, centre, signed sweep in degrees, radius; 7 arcs of one sheet
@@ -17,7 +17,9 @@
      of turn and `D` otherwise; Maver keeps the wheel down on the same 5°
      (no lift up to 4.83°, lift from 5.13° in 173 joints);
    · Maver cuts the pieces in the SCHEME order; inside a piece, connected
-     edges are one chain, started from its nearer end (97 of 113 programs).
+     edges are one chain, started from its nearer end (97 of 113 programs);
+   · a closed loop runs counter-clockwise on Disai; an ellipse is Perfect
+     Cut's 34 arcs (6 mm shape set, 25.09.2026).
    The ERP contour is a polyline sampled to ~0.01 mm; it is refitted to
    lines and arcs within 0.1 mm, or the export is refused.
    ===================================================================== */
@@ -43,6 +45,28 @@ function cutShapeCircle(a,b,c){
  const a2=a[0]*a[0]+a[1]*a[1],b2=b[0]*b[0]+b[1]*b[1],c2=c[0]*c[0]+c[1]*c[1];
  const cx=(a2*(b[1]-c[1])+b2*(c[1]-a[1])+c2*(a[1]-b[1]))/d,cy=(a2*(c[0]-b[0])+b2*(a[0]-c[0])+c2*(b[0]-a[0]))/d;
  return {cx,cy,r:Math.hypot(a[0]-cx,a[1]-cy)};
+}
+/* An upright ellipse the way Perfect Cut writes it (GR03 40×20″ and GR04
+   12×6″ of 25.09.2026, Disai and Maver alike): 34 arcs, each turning the
+   tangent by 360/34°, centred on the ends of the minor axis; an arc passes
+   through its two ends and its middle point on the ellipse. Counter-
+   clockwise, Perfect Cut starts at the arc on the top end of the minor axis
+   (the left end for a standing ellipse); returned clockwise like the ERP
+   contour, which the Disai writer turns back. Null unless every sample lies
+   within 0.1 mm of the ellipse. */
+function cutShapeEllipse(P){
+ const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ const cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;
+ if(!(rx>0&&ry>0)||!P.every(p=>{const u=(p[0]-cx)/rx,v=(p[1]-cy)/ry;return Math.abs(u*u+v*v-1)/(2*Math.hypot(u/rx,v/ry))<=CUT_SHAPE_TOL;}))return null;
+ const N=34,step=2*Math.PI/N,th0=rx>=ry?Math.PI:1.5*Math.PI;
+ const at=f=>{const t=Math.atan2(-Math.cos(f)/rx,Math.sin(f)/ry);return [cx+rx*Math.cos(t),cy+ry*Math.sin(t)];};
+ const ccw=[];
+ for(let k=0;k<N;k++){
+  const f=th0+k*step,a=at(f-step/2),b=at(f+step/2),c=cutShapeCircle(a,at(f),b);if(!c)return null;
+  const sweep=((cutShapeDeg(Math.atan2(b[1]-c.cy,b[0]-c.cx)-Math.atan2(a[1]-c.cy,a[0]-c.cx))%360)+360)%360;
+  ccw.push({type:'arc',x0:a[0],y0:a[1],x1:b[0],y1:b[1],cx:c.cx,cy:c.cy,r:c.r,sweep});
+ }
+ return ccw.reverse().map(cutShapeReverse);
 }
 /* Polyline (0.001 mm, closed, clockwise) → lines and arcs within 0.1 mm.
    Corners over 25° always split. Between them the longest arc wins over a
@@ -94,12 +118,13 @@ function cutShapeFit(P){
  };
  const corners=[];for(let i=0;i<n;i++)if(turn(i)>CUT_SHAPE_CORNER)corners.push(i);
  if(!corners.length){
-  /* A smooth closed loop: one full circle — counter-clockwise, as all 65
-     full circles of the Maver samples (G3) — or arcs around it. */
+  /* A smooth closed loop: one full circle — counter-clockwise from its
+     rightmost point, as 66 of the 67 full circles of the Maver samples
+     (G3, Z90) — or arcs around it. */
   const c=cutShapeCircle(P[0],P[Math.floor(n/3)],P[Math.floor(2*n/3)]);
   if(c&&P.every(q=>Math.abs(Math.hypot(q[0]-c.cx,q[1]-c.cy)-c.r)<=T))
-   return {prims:[{type:'arc',x0:P[0][0],y0:P[0][1],x1:P[0][0],y1:P[0][1],cx:c.cx,cy:c.cy,r:c.r,sweep:360}]};
-  return {prims:fitRun(P.concat([P[0]]))};
+   return {prims:[{type:'arc',x0:c.cx+c.r,y0:c.cy,x1:c.cx+c.r,y1:c.cy,cx:c.cx,cy:c.cy,r:c.r,sweep:360}]};
+  return {prims:cutShapeEllipse(P)||fitRun(P.concat([P[0]]))};
  }
  const prims=[];
  corners.forEach((s,k)=>{
@@ -120,6 +145,30 @@ function cutShapeClip(a,b,x0,y0,x1,y1){
  const s={type:'line',x0:a[0]+t0*dx,y0:a[1]+t0*dy,x1:a[0]+t1*dx,y1:a[1]+t1*dy};
  return Math.hypot(s.x1-s.x0,s.y1-s.y0)>2000?s:null;
 }
+/* How far along the arc, from its start, the score begins when the start
+   lies on a side (`sides`: [axis, side, inward] from cutShapeScoreChains).
+   Perfect Cut ends an arc on the footprint shrunk by 1.001 mm, as it does a
+   line (RC14, RC21, L50, L59 of 25.09.2026). An arc that meets the side
+   nearly along it would lose centimetres that way, so beyond 5 mm it stops
+   1.001 mm along the arc instead. */
+function cutShapeArcTrim(p,sides){
+ const len=Math.abs(p.sweep)*Math.PI/180*p.r,a0=Math.atan2(p.y0-p.cy,p.x0-p.cx),dir=Math.sign(p.sweep);
+ let cut=0;
+ for(const [k,v,inward] of sides){
+  const w=v+inward*CUT_SHAPE_INSET;
+  if(((k?p.y0:p.x0)-w)*inward>=0)continue;
+  const c=(w-(k?p.cy:p.cx))/p.r;let best=null;
+  if(Math.abs(c)<=1){
+   const b=k?Math.asin(c):Math.acos(c);
+   for(const a of k?[b,Math.PI-b]:[b,-b]){
+    const d=((dir*(a-a0))%(2*Math.PI)+2*Math.PI)%(2*Math.PI)*p.r;
+    if(d<=len&&(best===null||d<best))best=d;
+   }
+  }
+  cut=Math.max(cut,best!==null&&best<=5000?best:CUT_SHAPE_INSET);
+ }
+ return cut;
+}
 /* Chains of score segments of one snapshot part, sheet coordinates in
    0.001 mm, clockwise as Perfect Cut lists `[DB]`. */
 function cutShapeScoreChains(part){
@@ -132,7 +181,7 @@ function cutShapeScoreChains(part){
  const fit=cutShapeFit(pts);
  /* The footprint is on the 1/16″ grid, the contour is exact: a straight
     edge within 1.6 mm of a side is that side, not a separate score. */
- const near=(x,y)=>[[0,X0],[0,X1],[1,Y0],[1,Y1]].filter(([k,v])=>Math.abs((k?y:x)-v)<=CUT_SHAPE_ON_SIDE);
+ const near=(x,y)=>[[0,X0,1],[0,X1,-1],[1,Y0,1],[1,Y1,-1]].filter(([k,v])=>Math.abs((k?y:x)-v)<=CUT_SHAPE_ON_SIDE);
  const onSide=p=>p.type==='line'&&[[0,X0],[0,X1],[1,Y0],[1,Y1]].some(([k,v])=>Math.abs((k?p.y0:p.x0)-v)<=CUT_SHAPE_ON_SIDE&&Math.abs((k?p.y1:p.x1)-v)<=CUT_SHAPE_ON_SIDE);
  const prims=fit.prims,k0=prims.findIndex(onSide),ring=k0<0?prims:prims.slice(k0+1).concat(prims.slice(0,k0+1));
  const chains=[];let cur=null;
@@ -141,10 +190,10 @@ function cutShapeScoreChains(part){
   let s=null;
   if(p.type==='line')s=cutShapeClip([p.x0,p.y0],[p.x1,p.y1],X0+CUT_SHAPE_INSET,Y0+CUT_SHAPE_INSET,X1-CUT_SHAPE_INSET,Y1-CUT_SHAPE_INSET);
   else{
-   /* An arc stops 1.001 mm (along the arc) short of a side it reaches —
-      clipping a tangent arc by the shrunk box would leave centimetres. */
+   /* Only an end that reaches a side is shortened; an arc touching a side
+      between its ends keeps its whole length. */
    const full=Math.abs(p.sweep)>=359.99,len=Math.abs(p.sweep)*Math.PI/180*p.r;
-   const cut0=!full&&near(p.x0,p.y0).length?CUT_SHAPE_INSET:0,cut1=!full&&near(p.x1,p.y1).length?CUT_SHAPE_INSET:0;
+   const cut0=full?0:cutShapeArcTrim(p,near(p.x0,p.y0)),cut1=full?0:cutShapeArcTrim(cutShapeReverse(p),near(p.x1,p.y1));
    if(len-cut0-cut1>2000){
     const t0=cut0/len,t1=1-cut1/len,a=cutShapeArcPoint(p,t0),b=full?a:cutShapeArcPoint(p,t1);
     s={type:'arc',x0:a[0],y0:a[1],x1:b[0],y1:b[1],cx:p.cx,cy:p.cy,r:p.r,sweep:p.sweep*(t1-t0)};
@@ -168,7 +217,9 @@ function cutShapeScoreChains(part){
  return {chains,box:{x:X0,y:Y0}};
 }
 /* Maver order of all Shape scores of a sheet: pieces in `order`, chains by
-   the nearer end from where the head is. */
+   the nearer end from where the head is. A closed loop starts at its point
+   nearest the head and keeps its clockwise direction (GR05B, L57 of the
+   25.09.2026 set). */
 function cutShapeMaverOrder(parts,order,start){
  const byId=new Map(parts.map(p=>[p.id,p])),out=[];let x=start[0],y=start[1];
  order.forEach(id=>{
@@ -178,11 +229,17 @@ function cutShapeMaverOrder(parts,order,start){
    let best=null;
    left.forEach((c,i)=>{
     const a=[c[0].x0,c[0].y0],b=[c[c.length-1].x1,c[c.length-1].y1];
-    const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
-    if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da};
+    if(c.length>1&&Math.hypot(a[0]-b[0],a[1]-b[1])<=10)c.forEach((g,j)=>{
+     const d=Math.hypot(g.x0-x,g.y0-y);if(!best||d<best.d-1e-9)best={d,i,rev:false,at:j};
+    });
+    else{
+     const da=Math.hypot(a[0]-x,a[1]-y),db=Math.hypot(b[0]-x,b[1]-y);
+     if(!best||Math.min(da,db)<best.d-1e-9)best={d:Math.min(da,db),i,rev:db<da,at:0};
+    }
    });
    /* A full circle keeps its counter-clockwise direction. */
-   const c=left.splice(best.i,1)[0],run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?c.slice().reverse().map(cutShapeReverse):c;
+   const c=left.splice(best.i,1)[0],ring=best.at?c.slice(best.at).concat(c.slice(0,best.at)):c;
+   const run=best.rev&&!c.some(g=>Math.abs(g.sweep)>=359.99)?ring.slice().reverse().map(cutShapeReverse):ring;
    chains.push(run);
    const e=run[run.length-1];x=e.x1;y=e.y1;
   }
@@ -191,10 +248,11 @@ function cutShapeMaverOrder(parts,order,start){
  return out;
 }
 /* Maver head angle: the cut direction in degrees, kept in (-90, 270] as in
-   every sample (180.053, -89.828, 253.273). */
+   every sample (180.053, -89.828, 253.273). Straight to the right is
+   `-0.000` in all six such shape runs of the samples. */
 function cutShapeMaverAngle(h){
  let a=((h%360)+360)%360;if(a>270)a-=360;
- return Math.abs(a)<0.0005?'0.000':a.toFixed(3);
+ return Math.abs(a)<0.0005?'-0.000':a.toFixed(3);
 }
 /* Does `b` carry on from `a` without lifting the wheel (< 5° of turn)? */
 function cutShapeSmooth(a,b){

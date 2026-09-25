@@ -1265,9 +1265,13 @@ module.exports=async function({page,eq,ok}){
  /* Дуги — по 13 программам Maver (G2/G3, центр в I J) и листу Disai с
     7 дугами (`x0 y0 cx cy угол r C|D CR`); полный круг — G3, как все 65
     кругов образцов, а у Disai — `cx cy r D CO`, как пишет Perfect Cut: на
-    дуге 360° `CR` стол 25.09.2026 только касался стекла. Кривую ERP
+    дуге 360° `CR` стол 25.09.2026 только касался стекла. Круг Maver — с
+    правой точки (66 из 67 кругов образцов). Замкнутый контур у Disai — против
+    часовой, как все замкнутые фигуры Perfect Cut для этого стола. Эллипс —
+    34 дуги Perfect Cut (стоячий 40×20″ в заготовке 22×42″ начинается у левого
+    конца малой оси, запись та же, что у Perfect Cut). Остальные кривые ERP
     раскладываем на прямые и дуги в 0,1 мм. */
- eq('Shape с дугами: круг — один G3 и CO у Disai, арка из DXF — прямая, дуга 180°, прямая; овал — две полуокружности',await t.p.evaluate(()=>{
+ eq('Shape с дугами: круг — один G3 с правой точки и CO у Disai, арка из DXF — прямая, дуга 180°, прямая; овал у Disai — против часовой, эллипс — 34 дуги',await t.p.evaluate(()=>{
   const run=(w,h,setup)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w=String(w);shape.h=String(h);setup(shape);
@@ -1282,12 +1286,44 @@ module.exports=async function({page,eq,ok}){
   const arch=[[0,0],[40,0],[40,30]];for(let i=1;i<64;i++){const a=i/64*Math.PI;arch.push([20+20*Math.cos(a),30+20*Math.sin(a)]);}arch.push([0,30]);
   const dxf=run(40,50,s=>{s.source={kind:'dxf',fileName:'arch.dxf',fileSize:5000,uploadedAt:'2026-09-25',preview:{units:'in',points:arch,width16:640,height16:800}};});
   const oval=run(40,20,s=>{s.type='oval';s.w='40';s.h='20';});
+  const ell=run(40,20,s=>{s.type='ellipse';s.w='40';s.h='20';});
   const kinds=r=>r.db?r.db.map(x=>x.endsWith('CR')?'arc':'line').join(','):r.error;
-  return {circleMaver:(circle.iso.match(/^G[123]X/gm)||[]).join(','),circleG3:/\r\nM9\r\nG3X([\d.]+)Y([\d.]+)I[\d.]+J[\d.]+\r\nM5\r\n/.test(circle.iso),
+  const g3=/G0X([\d.]+)Y([\d.]+)Z90\.000\r\nM9\r\nG3X\1Y\2I([\d.]+)J([\d.]+)\r\nM5\r\n/.exec(circle.iso);
+  return {circleMaver:(circle.iso.match(/^G[123]X/gm)||[]).join(','),
+   circleG3:!!g3&&Math.abs(g3[1]-g3[3]-457.2)<0.0015&&g3[2]===g3[4],
    circleDisai:circle.db&&circle.db.length===1&&/^([\d.]+) \1 457\.200 D CO$/.test(circle.db[0]),
    arch:kinds(dxf),archArc:!!dxf.db&&/ -?180 508\.000 C CR$/.test(dxf.db[1]),
-   oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 254\.000 C CR$/.test(x)).length};
- }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'arc,line,arc,line',ovalR:2});
+   oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 254\.000 [CD] CR$/.test(x)&&+x.split(' ')[4]>0).length,
+   ellipse:ell.db?ell.db.length+' '+ell.db.map(x=>x.split(' ')[6]).join('')+' '+ell.db[0]:ell.error};
+ }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'line,arc,line,arc',ovalR:2,
+  ellipse:'34 '+'C'.repeat(33)+'D 29.653 625.970 1035.021 533.400 10.521 1009.621 C CR'});
+
+ /* Конец дуги у стороны заготовки Perfect Cut ставит на рамку, ужатую на
+    1,001 мм, как у прямой (RC14, RC21, L50, L59 набора 25.09.2026), а не на
+    1,001 мм по дуге: у косого подхода это разные точки. */
+ eq('Shape: дуга, упёршаяся в сторону под углом, кончается на рамке 1,001 мм',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[40,40,1]]);
+  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w='40';shape.h='40';
+  const a0=Math.atan2(22.3607,20),pts=[[0,0],[40,0]];for(let i=0;i<=64;i++){const a=a0+i/64*(Math.PI-2*a0);pts.push([20+30*Math.cos(a),10+30*Math.sin(a)]);}
+  shape.source={kind:'dxf',fileName:'segment.dxf',fileSize:5000,uploadedAt:'2026-09-25',preview:{units:'in',points:pts,width16:640,height16:640}};
+  const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+  const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],ds=cutTrialSheet(b.number,g.glass,g.sheets[0].no,'disai');
+  if(ds.error)return {error:ds.error};
+  const db=(cutTrialDisai(ds).data.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR|CO)$/.test(x));
+  const v=(db[0]||'').split(' ').map(Number),a=Math.atan2(v[1]-v[3],v[0]-v[2])+v[4]*Math.PI/180,end=[v[2]+v[5]*Math.cos(a),v[3]+v[5]*Math.sin(a)];
+  /* The end comes from the sweep, written to 0.001°: ±0.01 mm at this radius;
+     1.001 mm along the arc would put it 0.3 mm off the frame. */
+  const onFrame=(x,e)=>Math.abs(x-1.001)<e||Math.abs(x-1014.999)<e;
+  return {error:'',records:db.length,arc:/ D CR$/.test(db[0]||''),start:onFrame(v[0],0.002),end:onFrame(end[0],0.02)};
+ }),{error:'',records:1,arc:true,start:true,end:true});
+
+ /* Maver: граница между колоннами — от нижнего трима, граница к широкому
+    отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */
+ eq('Maver: граница колонн начинается от нижнего трима, граница с отходом — во всю высоту',await t.p.evaluate(()=>{
+  const run=w=>{const r=cutDisaiParse(['X1000.000','Y25.400','Y500.000 IB1','X1000.000','Y25.400','Y700.000 IB2'],{x0:25400,y0:0,x1:w,y1:1000000,borderRight:25400});
+   return cutDisaiMaverCuts(r.root).filter(c=>c.axis==='x').map(c=>c.at/1000+':'+c.a/1000).join(' ');};
+  return {wide:run(3000000),narrow:run(2045400)};
+ }),{wide:'25.4:0 1025.4:25.4 2025.4:0',narrow:'25.4:0 1025.4:25.4 2025.4:25.4'});
 
  {
   await t.p.evaluate(()=>{
