@@ -80,8 +80,7 @@ function cutTrialSheet(number,glass,no,machine){
  if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
  if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
  if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
- if(sheet.pieces.some(p=>p.curved))return {error:'Shape arcs are not exported yet — only straight-edged Shapes.'};
- /* Straight-edged Shape: its score lines, clipped as Perfect Cut does. */
+ /* Shape: its score lines and arcs, clipped as Perfect Cut does. */
  for(const p of sheet.pieces){
   p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
   if(!p.shape)continue;
@@ -118,18 +117,24 @@ function cutTrialMaver(program){
    'G0X'+cutTrial3(c.x1)+'Y'+cutTrial3(c.y1)+'Z'+z,'M5');
  });
  /* Shape stage as in all 126 Perfect Cut shape programs: M14 M20 G103,
-    thickness again, then per Shape `{name}` and for every score
-    [M5] G0 start with the cut direction in Z, M9, G1 end; M5 at the end. */
- const shapes=(program.shapes||[]).filter(s=>s.segs.length);
+    thickness again, then per Shape `{name}`; each run starts with [M5] G0
+    at its start with the cut direction in Z and M9; a line is G1, an arc
+    G2 (clockwise) / G3 with the absolute centre in I J. The next segment
+    follows without lifting when it turns less than 5°; M5 at the end. */
+ const shapes=(program.shapes||[]).filter(s=>s.chains.length);
  if(shapes.length){
   out.push('M14','M20','G103P1000VQ0','M94 VN216='+thickness);
-  let first=true;
+  const mm=v=>cutTrial3(v/1000);let first=true;
   shapes.forEach(s=>{
    out.push('{'+s.name+'}');
-   s.segs.forEach(g=>{
-    if(!first)out.push('M5');first=false;
-    out.push('G0X'+cutTrial3(g.x0/1000)+'Y'+cutTrial3(g.y0/1000)+'Z'+cutShapeMaverAngle(g),'M9','G1X'+cutTrial3(g.x1/1000)+'Y'+cutTrial3(g.y1/1000));
-   });
+   s.chains.forEach(c=>c.forEach((g,i)=>{
+    if(!cutShapeSmooth(i?c[i-1]:null,g)){
+     if(!first)out.push('M5');
+     out.push('G0X'+mm(g.x0)+'Y'+mm(g.y0)+'Z'+cutShapeMaverAngle(cutShapeHeading(g,false)),'M9');
+    }
+    first=false;
+    out.push(g.type==='arc'?(g.sweep<0?'G2':'G3')+'X'+mm(g.x1)+'Y'+mm(g.y1)+'I'+mm(g.cx)+'J'+mm(g.cy):'G1X'+mm(g.x1)+'Y'+mm(g.y1));
+   }));
   });
   out.push('M5');
  }
@@ -198,7 +203,12 @@ function cutTrialMaverBmp(program){
  });
  ctx.strokeStyle='#db7927';ctx.lineWidth=1;
  program.lines.forEach(c=>{ctx.beginPath();ctx.moveTo(left+c.x0/25.4*scale,bottom-c.y0/25.4*scale);ctx.lineTo(left+c.x1/25.4*scale,bottom-c.y1/25.4*scale);ctx.stroke();});
- (program.shapes||[]).forEach(sh=>sh.segs.forEach(g=>{ctx.beginPath();ctx.moveTo(left+g.x0/25400*scale,bottom-g.y0/25400*scale);ctx.lineTo(left+g.x1/25400*scale,bottom-g.y1/25400*scale);ctx.stroke();}));
+ (program.shapes||[]).forEach(sh=>sh.chains.forEach(c=>c.forEach(g=>{
+  const px=v=>left+v/25400*scale,py=v=>bottom-v/25400*scale;ctx.beginPath();
+  if(g.type==='arc'){const a0=Math.atan2(g.y0-g.cy,g.x0-g.cx),a1=a0+g.sweep*Math.PI/180;ctx.arc(px(g.cx),py(g.cy),g.r/25400*scale,-a0,-a1,g.sweep>0);}
+  else{ctx.moveTo(px(g.x0),py(g.y0));ctx.lineTo(px(g.x1),py(g.y1));}
+  ctx.stroke();
+ })));
  sheet.pieces.forEach((p,i)=>{
   const f=p.footprint,{x,y,w,h}=project(f);
   if(w<11||h<11)return;
@@ -269,7 +279,14 @@ function cutTrialDisai(program){
   if(!p.scores||!p.scores.length)return;
   const ib=layout.index.get(p.id),box=p.scoreBox;
   out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
-  p.scores.forEach(c=>c.forEach(s=>out.push([s.x0-box.x,s.y0-box.y,s.x1-box.x,s.y1-box.y].map(v=>cutDisaiText(v,3)).join(' ')+' D LS')));
+  /* A line `x0 y0 x1 y1 F LS`, an arc `x0 y0 cx cy sweep r F CR`; F is C
+     when the next segment carries on with less than 5° of turn. */
+  const t=v=>cutDisaiText(Math.round(v),3);
+  p.scores.forEach(c=>c.forEach((s,k)=>{
+   const flag=cutShapeSmooth(s,c[k+1])?'C':'D';
+   out.push(s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
+    [t(s.x0-box.x),t(s.y0-box.y),t(s.x1-box.x),t(s.y1-box.y),flag,'LS'].join(' '));
+  }));
  });
  out.push('','');
  return {name:cutTrialDisaiBase(program)+'-001.dst',data:out.join('\r\n'),mime:'text/plain',
