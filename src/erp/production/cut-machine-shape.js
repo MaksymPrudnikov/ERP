@@ -149,8 +149,9 @@ function cutShapeEllipseFit(P){
    have no samples in between, while 0.1 mm let a line eat the start of a
    tangent arc (a 2 mm corner radius vanished). A real polygon has bigger
    steps and stays straight; no chord may bulge more than 0.5 mm from the
-   arc and the chords of one arc may differ at most 4× — otherwise a long
-   straight side next to a curve passes for a 10 m arc. Perfect Cut, too,
+   arc and none may be over twice the mean of the others — else a straight side
+   next to a curve passes for part of an arc (a 10 m arc; an almost round
+   oval's 11 mm side inside an arc of R 437 around R 425). Perfect Cut, too,
    cuts a coarse DXF polyline as the lines it is. At least three chords per
    arc. */
 function cutShapeFit(P){
@@ -164,17 +165,17 @@ function cutShapeFit(P){
   if(j-i<3)return null;
   const m=(i+j)>>1,c=cutShapeCircle(q[i],q[m],q[j]);if(!c||c.r>1e8)return null;
   const ccw=(q[m][0]-q[i][0])*(q[j][1]-q[m][1])-(q[m][1]-q[i][1])*(q[j][0]-q[m][0])>0;
-  let lo=Infinity,hi=0;
+  let sum=0,hi=0;
   for(let k=i;k<=j;k++){
    if(Math.abs(Math.hypot(q[k][0]-c.cx,q[k][1]-c.cy)-c.r)>T)return null;
    if(k<j){
     const s=cutShapeDeg(Math.atan2(q[k+1][1]-c.cy,q[k+1][0]-c.cx)-Math.atan2(q[k][1]-c.cy,q[k][0]-c.cx)),d=((s%360)+540)%360-180;
     const L=Math.hypot(q[k+1][0]-q[k][0],q[k+1][1]-q[k][1]),sag=c.r-Math.sqrt(Math.max(0,c.r*c.r-L*L/4));
     if((ccw?d:-d)<=0||Math.abs(d)>10||sag>500)return null;
-    lo=Math.min(lo,L);hi=Math.max(hi,L);
+    sum+=L;hi=Math.max(hi,L);
    }
   }
-  if(hi>4*lo)return null;
+  if(hi>2*(sum-hi)/(j-i-1))return null;
   const a0=Math.atan2(q[i][1]-c.cy,q[i][0]-c.cx),a1=Math.atan2(q[j][1]-c.cy,q[j][0]-c.cx);
   let sweep=cutShapeDeg(a1-a0);sweep=ccw?(sweep%360+360)%360:-((-sweep%360+360)%360);
   if(!(Math.abs(sweep)>0.01&&Math.abs(sweep)<359))return null;
@@ -205,10 +206,11 @@ function cutShapeFit(P){
   if(c&&P.every((q,i)=>{const w=P[(i+1)%n];return onC(q,T)&&onC([(q[0]+w[0])/2,(q[1]+w[1])/2],500);}))
    return {prims:[{type:'arc',x0:c.cx+c.r,y0:c.cy,x1:c.cx+c.r,y1:c.cy,cx:c.cx,cy:c.cy,r:c.r,sweep:360}]};
   const el=cutShapeEllipse(P);if(el)return {prims:el};
-  /* Start the loop at its longest chord when that is a straight edge (4×
-     the typical step): an arc is then never split at the start. */
-  const len=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1])),mid=len.slice().sort((a,b)=>a-b)[n>>1];
-  const s0=len.indexOf(Math.max(...len)),R=len[s0]>4*mid?P.slice(s0).concat(P.slice(0,s0)):P;
+  /* Start the loop at its longest chord — a straight edge if there is one
+     (an oval's side, even a short one next to fine arc samples): an arc is
+     then not split at the start into a piece too short to fit. */
+  const len=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1])),s0=len.indexOf(Math.max(...len));
+  const R=P.slice(s0).concat(P.slice(0,s0));
   return {prims:cutShapeSnap(fitRun(R.concat([R[0]])),R)};
  }
  const prims=[];
@@ -219,7 +221,11 @@ function cutShapeFit(P){
  });
  return {prims:cutShapeSnap(prims,P)};
 }
-/* Liang–Barsky: the part of a..b inside the rectangle, in 0.001 mm. */
+/* Liang–Barsky: the part of a..b inside the rectangle, in 0.001 mm. A
+   remnant the clipping leaves shorter than 2 mm is not worth a score, but a
+   segment lying wholly inside is kept at any length: dropping a short edge
+   of the contour left an unscored gap (a 1.6 mm step of an almost round
+   oval, found by the stress test of 26.09.2026). */
 function cutShapeClip(a,b,x0,y0,x1,y1){
  let t0=0,t1=1;const dx=b[0]-a[0],dy=b[1]-a[1];
  for(const [p,q] of [[-dx,a[0]-x0],[dx,x1-a[0]],[-dy,a[1]-y0],[dy,y1-a[1]]]){
@@ -227,8 +233,8 @@ function cutShapeClip(a,b,x0,y0,x1,y1){
   const r=q/p;
   if(p<0){if(r>t1)return null;if(r>t0)t0=r;}else{if(r<t0)return null;if(r<t1)t1=r;}
  }
- const s={type:'line',x0:a[0]+t0*dx,y0:a[1]+t0*dy,x1:a[0]+t1*dx,y1:a[1]+t1*dy};
- return Math.hypot(s.x1-s.x0,s.y1-s.y0)>2000?s:null;
+ const s={type:'line',x0:a[0]+t0*dx,y0:a[1]+t0*dy,x1:a[0]+t1*dx,y1:a[1]+t1*dy},L=Math.hypot(s.x1-s.x0,s.y1-s.y0);
+ return L>2000||(t0===0&&t1===1&&L>0)?s:null;
 }
 /* How far along the arc, from its start, the score begins when the start
    lies on a side (`sides`: [axis, side, inward] from cutShapeScoreChains).
@@ -279,7 +285,8 @@ function cutShapeScoreChains(part){
       between its ends keeps its whole length. */
    const full=Math.abs(p.sweep)>=359.99,len=Math.abs(p.sweep)*Math.PI/180*p.r;
    const cut0=full?0:cutShapeArcTrim(p,near(p.x0,p.y0)),cut1=full?0:cutShapeArcTrim(cutShapeReverse(p),near(p.x1,p.y1));
-   if(len-cut0-cut1>2000){
+   /* The same for arcs: a 2 mm corner radius of GR05B is a 1.3 mm arc. */
+   if(len-cut0-cut1>2000||(!cut0&&!cut1&&len>0)){
     const t0=cut0/len,t1=1-cut1/len,a=cutShapeArcPoint(p,t0),b=full?a:cutShapeArcPoint(p,t1);
     s={type:'arc',x0:a[0],y0:a[1],x1:b[0],y1:b[1],cx:p.cx,cy:p.cy,r:p.r,sweep:p.sweep*(t1-t0)};
    }
@@ -326,10 +333,11 @@ function cutShapeMaverOrder(parts,order,start){
  return out;
 }
 /* Maver head angle: the cut direction in degrees, kept in (-90, 270] as in
-   every sample (180.053, -89.828, 253.273). Straight to the right is
-   `-0.000` in all six such shape runs of the samples. */
+   every sample (180.053, -89.828, 253.273); straight down is `270` (RC03 of
+   25.09.2026) and straight to the right `-0.000` (all six such shape runs).
+   Rounded first, so that -89.9999997 of a vertical line is 270 too. */
 function cutShapeMaverAngle(h){
- let a=((h%360)+360)%360;if(a>270)a-=360;
+ let a=Math.round((((h%360)+360)%360)*1000)/1000;if(a>270)a-=360;
  return Math.abs(a)<0.0005?'-0.000':a.toFixed(3);
 }
 /* Does `b` carry on from `a` without lifting the wheel (< 5° of turn)? */

@@ -1336,6 +1336,25 @@ module.exports=async function({page,eq,ok}){
    ellipse:e.length,ellipseArcs:e.every(p=>p.type==='arc'&&Math.abs(Math.abs(p.sweep)-360/34)<0.2)};
  }),{long:true,circle:false,lines:10,corners:10,cornerSweep:true,ellipse:34,ellipseArcs:true});
 
+ /* Стресс-тест 26.09.2026 (1600 случайных заказов, независимая проверка
+    файлов): кусок короче 2 мм выбрасывался и внутри контура — у почти
+    круглого овала оставалась щель 1,6 мм, скругление 2 мм (дуга 1,3 мм)
+    пропадало целиком. Короткая сторона овала пряталась в дугу. Строго вниз
+    Maver писал -90, Perfect Cut пишет 270. */
+ eq('Shape: короткие куски внутри контура не выпадают, почти круглый овал — ровно 180°, вниз — Z270',await t.p.evaluate(()=>{
+  const IN=25.4,poly=[],R=10,rc=2/IN,d=rc/Math.sin(72*Math.PI/180);
+  for(let k=0;k<10;k++){const th=(90-36*k)*Math.PI/180,cx=11+(R-d)*Math.cos(th),cy=11+(R-d)*Math.sin(th);
+   for(let j=0;j<=6;j++){const a=th+(18-6*j)*Math.PI/180;poly.push([cx+rc*Math.cos(a),cy+rc*Math.sin(a)]);}}
+  const dec=cutShapeScoreChains({id:'D',footprint:{x:0,y:0,w:22,h:22},contour:poly});
+  const all=dec.chains?dec.chains.flat():[],gaps=dec.chains?dec.chains.map(c=>c.filter((g,k)=>k&&Math.hypot(g.x0-c[k-1].x1,g.y0-c[k-1].y1)>10).length).reduce((a,b)=>a+b,0):-1;
+  const cap=[],r=16.75,st=0.435,n=400;cap.push([1+r,1],[1+r+st,1]);for(let i=1;i<=n;i++){const a=-Math.PI/2+Math.PI*i/n;cap.push([1+r+st+r*Math.cos(a),1+r+r*Math.sin(a)]);}
+  cap.push([1+r,1+2*r]);for(let i=1;i<n;i++){const a=Math.PI/2+Math.PI*i/n;cap.push([1+r+r*Math.cos(a),1+r+r*Math.sin(a)]);}
+  const ov=cutShapeScoreChains({id:'O',footprint:{x:0,y:0,w:2*r+st+2,h:2*r+2},contour:cap});
+  return {decagon:all.filter(g=>g.type==='arc').length+' arcs, '+all.filter(g=>g.type==='line').length+' lines, gaps '+gaps,
+   oval:ov.chains?ov.chains.flat().map(g=>g.type==='arc'?Math.abs(+g.sweep.toFixed(3)):'L').join(' '):ov.error,
+   down:[cutShapeMaverAngle(-90),cutShapeMaverAngle(-89.9999997),cutShapeMaverAngle(270.0000004),cutShapeMaverAngle(359.9999999)].join(' ')};
+ }),{decagon:'10 arcs, 10 lines, gaps 0',oval:'L 180 L 180',down:'270.000 270.000 270.000 -0.000'});
+
  /* Maver: граница между колоннами — от нижнего трима, граница к широкому
     отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */
  eq('Maver: граница колонн начинается от нижнего трима, граница с отходом — во всю высоту',await t.p.evaluate(()=>{
