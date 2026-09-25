@@ -1262,24 +1262,46 @@ module.exports=async function({page,eq,ok}){
    after:dst.indexOf('[DB1]')>dst.lastIndexOf('[IB'),turned:turned.includes(' DB2501 IB2501')&&turned.includes('SPEC=M1_1R')};
  }),{error:'',maverStage:true,maverCuts:1,scheme:true,spec:true,dbLines:1,inset:true,after:true,turned:true});
 
- eq('Shape с дугой (круг) не выгружается, пока нет экспорта дуг',await t.p.evaluate(()=>{
-  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[36,36,1]]);
-  const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('circle');shape.w='36';shape.h='36';
-  shape.ownerLineId=l.id;DB.shapeDef.push(shape);l.shapeRef=salesShapeRefFrom(shape);
-  const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
-  const r=['maver','disai'].map(m=>cutTrialSheet(b.number,g.glass,s.no,m));
-  return {curved:!!cutPieces(b,{})[0].curved,blocked:r.every(x=>!!x.error&&x.error.includes('Shape arcs are not exported yet'))};
- }),{curved:true,blocked:true});
+ /* Дуги — по 13 программам Maver (G2/G3, центр в I J) и листу Disai с
+    7 дугами (`x0 y0 cx cy угол r C|D CR`); полный круг — G3, как все 65
+    кругов образцов. Кривую ERP раскладываем на прямые и дуги в 0,1 мм. */
+ eq('Shape с дугами: круг — один G3, арка из DXF — прямая, дуга 180°, прямая; овал — две полуокружности',await t.p.evaluate(()=>{
+  const run=(w,h,setup)=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
+   const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w=String(w);shape.h=String(h);setup(shape);
+   const def=normalizeShapeDef(shape);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);
+   const b=DB.glassBatch[0],g=cutPlanRun(b.number).plan.groups[0],s=g.sheets[0];
+   const mv=cutTrialSheet(b.number,g.glass,s.no,'maver'),ds=cutTrialSheet(b.number,g.glass,s.no,'disai');
+   if(mv.error||ds.error)return {error:mv.error||ds.error};
+   const iso=cutTrialMaver(mv).data,dst=cutTrialDisai(ds).data;
+   return {iso:iso.slice(iso.indexOf('\r\nM14\r\n')),db:(dst.split(/\[DB\d+\]\r\n/)[1]||'').split('\r\n').filter(x=>/ (LS|CR)$/.test(x))};
+  };
+  const circle=run(36,36,s=>{s.type='circle';s.w='36';s.h='36';});
+  const arch=[[0,0],[40,0],[40,30]];for(let i=1;i<64;i++){const a=i/64*Math.PI;arch.push([20+20*Math.cos(a),30+20*Math.sin(a)]);}arch.push([0,30]);
+  const dxf=run(40,50,s=>{s.source={kind:'dxf',fileName:'arch.dxf',fileSize:5000,uploadedAt:'2026-09-25',preview:{units:'in',points:arch,width16:640,height16:800}};});
+  const oval=run(40,20,s=>{s.type='oval';s.w='40';s.h='20';});
+  const kinds=r=>r.db?r.db.map(x=>x.endsWith('CR')?'arc':'line').join(','):r.error;
+  return {circleMaver:(circle.iso.match(/^G[123]X/gm)||[]).join(','),circleG3:/\r\nM9\r\nG3X([\d.]+)Y([\d.]+)I[\d.]+J[\d.]+\r\nM5\r\n/.test(circle.iso),
+   circleDisai:circle.db&&circle.db.length===1&&/ 360 457\.200 D CR$/.test(circle.db[0]),
+   arch:kinds(dxf),archArc:!!dxf.db&&/ -?180 508\.000 C CR$/.test(dxf.db[1]),
+   oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 254\.000 C CR$/.test(x)).length};
+ }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'arc,line,arc,line',ovalR:2});
 
  {
-  await t.p.evaluate(()=>{const b=DB.glassBatch[0];glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;render();});
+  await t.p.evaluate(()=>{
+   /* Disai: для 12 мм образцов нет — отказ должен стоять у кнопок. */
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,1]]);
+   glassProductByCode('6CLEAR').thicknessMm=12;
+   const b=DB.glassBatch[0];cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;render();
+  });
   await t.p.click('[data-cut-trial-open]');
   await t.p.click('[data-cut-trial-disai-dst]');
   eq('отказ Disai виден прямо возле кнопок, а не выглядит пустым кликом',await t.p.evaluate(()=>({
    panel:!!document.querySelector('[data-cut-trial-panel]'),
-   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('Shape arcs are not exported yet')||false,
+   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('No verified sample for 12 mm thickness')||false,
    alert:document.querySelector('[data-cut-trial-error]')?.getAttribute('role')||''
   })),{panel:true,error:true,alert:'alert'});
+  await t.p.evaluate(()=>{glassProductByCode('6CLEAR').thicknessMm=6;});
  }
 
  {

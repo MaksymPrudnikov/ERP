@@ -90,26 +90,9 @@ function cutShapeGeom(lite){
     the source coordinates. Rounding a raked edge by 1/32″ can shift it by
     nearly 0.8 mm; keep that geometry separate and fail closed later if it
     does not fit inside the rounded footprint. */
- /* Дуги станкам нужны дугами (G2/G3 у Maver, CR у Disai), а контур здесь —
-    ломаная. Пока экспорт дуг не сделан, такая форма помечается и в станочный
-    файл не идёт. Тип кромок знает модуль Shape, но не у всех фигур (у круга
-    список кромок пуст), поэтому ещё и по геометрии: много точек или мелкие
-    отрезки с пологим изломом — это дуга. */
- const res=lite.result||{},edges=Array.isArray(res.edges)?res.edges:res.geometry&&Array.isArray(res.geometry.edges)?res.geometry.edges:null;
- const curved=!!(edges&&edges.some(e=>e&&e.type&&e.type!=='line'))||cutShapeLooksCurved(raw);
  return {w,h,pad:grip,pts:raw.map(q=>[cutRound(q[0]-x0+L),cutRound(q[1]-y0+B)]),
   /* cuttingPoints already include the mirror; only holes/cutouts use exactAt. */
-  machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts,curved};
-}
-function cutShapeLooksCurved(pts){
- if(pts.length>24)return true;
- return pts.some((p,i)=>{
-  const a=pts[(i+pts.length-1)%pts.length],b=pts[(i+1)%pts.length];
-  const u=[p[0]-a[0],p[1]-a[1]],v=[b[0]-p[0],b[1]-p[1]],lu=Math.hypot(...u),lv=Math.hypot(...v);
-  if(lu<1e-9||lv<1e-9)return false;
-  const turn=Math.abs(Math.atan2(u[0]*v[1]-u[1]*v[0],u[0]*v[0]+u[1]*v[1]))*180/Math.PI;
-  return turn>0.5&&turn<20&&lu<3&&lv<3;
- });
+  machinePts:raw.map(q=>[q[0]-x0+L,q[1]-y0+B]),holes,cutouts};
 }
 /* Стёкла батча как прямоугольные заготовки. У Shape размер уже включает
    Safety border на стороне скоса; оптимизатор его повторно не прибавляет. */
@@ -133,7 +116,7 @@ function cutPieces(batch,settings){
      копирует стекло на каждый из сотен вариантов (`cutFillOrder`), и три
      лишних поля у прямоугольника стоили 60 % времени Build — тест 2 шёл
      2,6 с вместо 1,65 с. */
-  if(geom){row.pts=geom.pts;row.machinePts=geom.machinePts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;if(geom.curved)row.curved=true;}
+  if(geom){row.pts=geom.pts;row.machinePts=geom.machinePts;if(geom.pad>0)row.pad=geom.pad;if(geom.holes.length)row.holes=geom.holes;if(geom.cutouts.length)row.cutouts=geom.cutouts;}
   out.push(row);
  });
  return out.sort((a,b)=>a.piece.localeCompare(b.piece));
