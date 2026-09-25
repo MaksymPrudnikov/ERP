@@ -86,6 +86,19 @@ function cutDisaiCuts(root){
  walk(root);
  return cutDisaiMerge(out);
 }
+/* Maver scores the same lines, except that a boundary between two X strips
+   starts at the bottom trim instead of the sheet edge, as the trim row lies
+   on both sides of it. The boundary to a wide remainder keeps the full
+   height. Perfect Cut, 6 mm set of 25.09.2026: all five sheets with more
+   than one strip. */
+function cutDisaiMaverCuts(root){
+ const T=2,cuts=cutDisaiCuts(root),strips=root.children,first=strips.map(s=>s.children[0]);
+ if(!strips.length||first.some(r=>!r||r.ib||r.children.length))return cuts;
+ const g=first[0].y1;
+ if(!first.every(r=>Math.abs(r.y1-g)<=T)||g<=root.y0+T)return cuts;
+ const through=cutDisaiBottomTrim(root)!==null,inner=strips.slice(0,through?strips.length:strips.length-1).map(s=>s.x1);
+ return cuts.map(c=>c.axis==='x'&&c.a<=root.y0+T&&inner.some(x=>Math.abs(x-c.at)<=T)?Object.assign({},c,{a:g}):c);
+}
 function cutDisaiBreakLines(cuts){
  const lines=[];
  for(const c of cuts){
@@ -234,5 +247,5 @@ function cutTrialDisaiScheme(sheet,depth){
  const same=mine.length===theirs.length&&mine.every((c,i)=>{const d=theirs[i];return c.axis===d.axis&&[c.at-d.at,c.a-d.a,c.b-d.b].every(x=>Math.abs(x)<=2);});
  const breaks=cutDisaiBreakLines(mine);
  if(breaks.error)return breaks;
- return {scheme,index,breaks:breaks.lines,cuts:mine,sameAsScreen:same&&!changed};
+ return {scheme,index,breaks:breaks.lines,cuts:mine,maverCuts:cutDisaiMaverCuts(parsed.root),sameAsScreen:same&&!changed};
 }

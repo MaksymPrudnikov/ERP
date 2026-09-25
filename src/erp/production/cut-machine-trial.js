@@ -90,10 +90,11 @@ function cutTrialSheet(number,glass,no,machine){
  const thick=cutTrialThickness(sheet.mm,machine);
  if(!thick)return {error:'No verified sample for '+sheet.mm+' mm thickness.'};
  const cut=cutTrialLines(sheet);if(cut.error)return cut;
- /* Maver режет те же линии, что Disai (BREAKLN), в своём порядке. Если схема
-    Disai для листа не строится, остаются линии экрана. */
+ /* Maver режет те же линии, что Disai (BREAKLN), в своём порядке; граница
+    между колоннами начинается от нижнего трима. Если схема Disai для листа
+    не строится, остаются линии экрана. */
  const layout=machine==='maver'?cutTrialDisaiScheme(sheet):null;
- const lines=layout&&!layout.error?cutTrialMaverOrder(layout.cuts):cut.lines;
+ const lines=layout&&!layout.error?cutTrialMaverOrder(layout.maverCuts):cut.lines;
  /* Shapes follow the SCHEME order, starting where the last through cut ended. */
  const ibToId=layout&&!layout.error?new Map([...layout.index].map(([id,ib])=>[ib,id])):null;
  const order=ibToId?layout.scheme.map(l=>(/ IB(\d+)$/.exec(l)||[])[1]).filter(Boolean).map(n=>ibToId.get(+n)):sheet.pieces.map(p=>p.id);
@@ -280,11 +281,19 @@ function cutTrialDisai(program){
   const ib=layout.index.get(p.id),box=p.scoreBox;
   out.push('','[DB'+ib+']','SID='+ib,'SPEC='+p.shapeName+'_'+(i+1)+(p.turn%2===1?'R':''));
   /* A line `x0 y0 x1 y1 F LS`, an arc `x0 y0 cx cy sweep r F CR`; F is C
-     when the next segment carries on with less than 5° of turn. */
+     when the next segment carries on with less than 5° of turn. A full
+     circle is `cx cy r D CO`, as Perfect Cut writes it for this table: the
+     table only touched the glass on a 360° CR (25 Sep 2026). */
   const t=v=>cutDisaiText(Math.round(v),3);
-  p.scores.forEach(c=>c.forEach((s,k)=>{
+  /* A closed loop runs counter-clockwise, as every closed Perfect Cut shape
+     for Disai (GR03, GR04, GR05B, L55, L57); the ERP contour is clockwise. */
+  p.scores.map(c=>{
+   const a=c[0],b=c[c.length-1];
+   return c.length>1&&Math.hypot(a.x0-b.x1,a.y0-b.y1)<=10?c.slice().reverse().map(cutShapeReverse):c;
+  }).forEach(c=>c.forEach((s,k)=>{
    const flag=cutShapeSmooth(s,c[k+1])?'C':'D';
-   out.push(s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
+   out.push(s.type==='arc'&&Math.abs(s.sweep)>=359.99?[t(s.cx-box.x),t(s.cy-box.y),t(s.r),'D','CO'].join(' '):
+    s.type==='arc'?[t(s.x0-box.x),t(s.y0-box.y),t(s.cx-box.x),t(s.cy-box.y),String(+s.sweep.toFixed(3)),t(s.r),flag,'CR'].join(' '):
     [t(s.x0-box.x),t(s.y0-box.y),t(s.x1-box.x),t(s.y1-box.y),flag,'LS'].join(' '));
   }));
  });

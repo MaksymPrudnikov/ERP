@@ -65,8 +65,9 @@ function cutMachineSnapshot(number,scope){
    if(src.shape&&(!Array.isArray(src.machinePts)||src.machinePts.length<3))errors.push('Shape '+piece.piece+' has no verified cutting contour.');
    const local=src.shape?Array.isArray(src.machinePts)?src.machinePts:[]:[[0,0],[src.w,0],[src.w,src.h],[0,src.h]];
    const contour=local.map(q=>cutMachinePoint(piece,q));
-   if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-6||q[0]>piece.x+piece.w+1e-6||
-      q[1]<piece.y-1e-6||q[1]>piece.y+piece.h+1e-6))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
+   /* 0.0001″ (0.0025 mm): the footprint is rounded up with that slack. */
+   if(contour.some(q=>!q.every(Number.isFinite)||q[0]<piece.x-1e-4||q[0]>piece.x+piece.w+1e-4||
+      q[1]<piece.y-1e-4||q[1]>piece.y+piece.h+1e-4))errors.push('Piece '+piece.piece+' has a contour outside its footprint.');
    occupants.push(footprint);
    if(!poByOrder.has(src.orderId)){
     const order=salesRecord(src.orderId);
