@@ -1271,7 +1271,7 @@ module.exports=async function({page,eq,ok}){
     34 дуги Perfect Cut (стоячий 40×20″ в заготовке 22×42″ начинается у левого
     конца малой оси, запись та же, что у Perfect Cut). Остальные кривые ERP
     раскладываем на прямые и дуги в 0,1 мм. */
- eq('Shape с дугами: круг — один G3 с правой точки и CO у Disai, арка из DXF — прямая, дуга 180°, прямая; овал у Disai — против часовой, эллипс — 34 дуги',await t.p.evaluate(()=>{
+ eq('Shape с дугами: круг — один G3 с правой точки и CO у Disai, арка из DXF — прямая, дуга 180°, прямая; овал у Disai — против часовой, торцы ровно 180°, эллипс — 34 дуги',await t.p.evaluate(()=>{
   const run=(w,h,setup)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);const id=ctOrder([[w,h,1]]);
    const o=salesRecord(id),l=o.lines[0],shape=newShapeDef('custom');shape.w=String(w);shape.h=String(h);setup(shape);
@@ -1293,9 +1293,9 @@ module.exports=async function({page,eq,ok}){
    circleG3:!!g3&&Math.abs(g3[1]-g3[3]-457.2)<0.0015&&g3[2]===g3[4],
    circleDisai:circle.db&&circle.db.length===1&&/^([\d.]+) \1 457\.200 D CO$/.test(circle.db[0]),
    arch:kinds(dxf),archArc:!!dxf.db&&/ -?180 508\.000 C CR$/.test(dxf.db[1]),
-   oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 254\.000 [CD] CR$/.test(x)&&+x.split(' ')[4]>0).length,
+   oval:kinds(oval),ovalR:!!oval.db&&oval.db.filter(x=>/ 180 254\.000 [CD] CR$/.test(x)).length,
    ellipse:ell.db?ell.db.length+' '+ell.db.map(x=>x.split(' ')[6]).join('')+' '+ell.db[0]:ell.error};
- }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'line,arc,line,arc',ovalR:2,
+ }),{circleMaver:'G3X',circleG3:true,circleDisai:true,arch:'line,arc,line',archArc:true,oval:'arc,line,arc,line',ovalR:2,
   ellipse:'34 '+'C'.repeat(33)+'D 29.653 625.970 1035.021 533.400 10.521 1009.621 C CR'});
 
  /* Конец дуги у стороны заготовки Perfect Cut ставит на рамку, ужатую на
@@ -1316,6 +1316,22 @@ module.exports=async function({page,eq,ok}){
   const onFrame=(x,e)=>Math.abs(x-1.001)<e||Math.abs(x-1014.999)<e;
   return {error:'',records:db.length,arc:/ D CR$/.test(db[0]||''),start:onFrame(v[0],0.002),end:onFrame(end[0],0.02)};
  }),{error:'',records:1,arc:true,start:true,end:true});
+
+ /* Аудит по набору 25.09.2026: у десятиугольника со скруглением 2 мм все
+    точки сидят в углах, на одной окружности — проверка по одним точкам
+    выдавала круг. Прямая, бравшая точки в 0,1 мм, съедала скругление; у
+    DXF-эллипса без точек на концах осей не сходилась рамка. */
+ eq('Shape: скруглённый многоугольник — не круг, скругления 2 мм — дуги, редкий DXF-эллипс — 34 дуги',await t.p.evaluate(()=>{
+  const um=v=>Math.round(v*25400),poly=[],R=10,rc=2/25.4,d=rc/Math.sin(72*Math.PI/180);
+  for(let k=0;k<10;k++){const th=(90-36*k)*Math.PI/180,cx=(R-d)*Math.cos(th),cy=(R-d)*Math.sin(th);
+   for(let j=0;j<=6;j++){const a=th+(18-6*j)*Math.PI/180;poly.push([um(cx+rc*Math.cos(a)),um(cy+rc*Math.sin(a))]);}}
+  const fit=cutShapeFit(poly).prims,arcs=fit.filter(p=>p.type==='arc');
+  const ell=[];for(let i=0;i<72;i++){const a=-(i+0.5)*5*Math.PI/180;ell.push([um(20*Math.cos(a)),um(10*Math.sin(a))]);}
+  const e=cutShapeFit(ell).prims;
+  return {circle:fit.some(p=>p.type==='arc'&&Math.abs(p.sweep)>=359.99),lines:fit.filter(p=>p.type==='line').length,
+   corners:arcs.length,cornerSweep:arcs.every(p=>Math.abs(Math.abs(p.sweep)-36)<0.5),
+   ellipse:e.length,ellipseArcs:e.every(p=>p.type==='arc'&&Math.abs(Math.abs(p.sweep)-360/34)<0.2)};
+ }),{circle:false,lines:10,corners:10,cornerSweep:true,ellipse:34,ellipseArcs:true});
 
  /* Maver: граница между колоннами — от нижнего трима, граница к широкому
     отходу — во всю высоту (все пять листов набора 25.09.2026 с колоннами). */

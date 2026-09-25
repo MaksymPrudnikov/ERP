@@ -23,7 +23,7 @@
    The ERP contour is a polyline sampled to ~0.01 mm; it is refitted to
    lines and arcs within 0.1 mm, or the export is refused.
    ===================================================================== */
-const CUT_SHAPE_INSET=1001,CUT_SHAPE_ON_SIDE=1600,CUT_SHAPE_TOL=100,CUT_SHAPE_CORNER=25,CUT_SHAPE_SMOOTH=5;
+const CUT_SHAPE_INSET=1001,CUT_SHAPE_ON_SIDE=1600,CUT_SHAPE_TOL=100,CUT_SHAPE_LINE_TOL=5,CUT_SHAPE_CORNER=25,CUT_SHAPE_SMOOTH=5;
 const cutShapeDeg=r=>r*180/Math.PI;
 function cutShapeTurn(a,b){return Math.abs(((a-b)%360+540)%360-180);}
 function cutShapeHeading(p,atEnd){
@@ -56,8 +56,14 @@ function cutShapeCircle(a,b,c){
    within 0.1 mm of the ellipse. */
 function cutShapeEllipse(P){
  const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]),x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
- const cx=(x0+x1)/2,cy=(y0+y1)/2,rx=(x1-x0)/2,ry=(y1-y0)/2;
- if(!(rx>0&&ry>0)||!P.every(p=>{const u=(p[0]-cx)/rx,v=(p[1]-cy)/ry;return Math.abs(u*u+v*v-1)/(2*Math.hypot(u/rx,v/ry))<=CUT_SHAPE_TOL;}))return null;
+ const off=(p,cx,cy,rx,ry)=>{const u=(p[0]-cx)/rx,v=(p[1]-cy)/ry;return Math.abs(u*u+v*v-1)/(2*Math.hypot(u/rx,v/ry));};
+ const on=(cx,cy,rx,ry)=>rx>0&&ry>0&&P.every((p,i)=>{const q=P[(i+1)%P.length];
+  return off(p,cx,cy,rx,ry)<=CUT_SHAPE_TOL&&off([(p[0]+q[0])/2,(p[1]+q[1])/2],cx,cy,rx,ry)<=500;});
+ /* ERP samples its ellipse through the ends of both axes, so the bounding
+    box is exact; a coarse DXF may miss them, then a least-squares fit. */
+ let e=[(x0+x1)/2,(y0+y1)/2,(x1-x0)/2,(y1-y0)/2];
+ if(!on(...e)){e=cutShapeEllipseFit(P);if(!e||!on(...e))return null;}
+ const [cx,cy,rx,ry]=e;
  const N=34,step=2*Math.PI/N,th0=rx>=ry?Math.PI:1.5*Math.PI;
  const at=f=>{const t=Math.atan2(-Math.cos(f)/rx,Math.sin(f)/ry);return [cx+rx*Math.cos(t),cy+ry*Math.sin(t)];};
  const ccw=[];
@@ -68,34 +74,102 @@ function cutShapeEllipse(P){
  }
  return ccw.reverse().map(cutShapeReverse);
 }
+/* Distance from a point to a written line or arc, 0.001 mm (Infinity off
+   an arc's span). */
+function cutShapeDist(pt,s){
+ if(s.type==='arc'){const a=Math.atan2(pt[1]-s.cy,pt[0]-s.cx),b=Math.atan2(s.y0-s.cy,s.x0-s.cx);
+  let d=cutShapeDeg(a-b);d=s.sweep>0?(d%360+360)%360:-((-d%360+360)%360);
+  return Math.abs(d)<=Math.abs(s.sweep)+1e-6||Math.abs(s.sweep)>=359.99?Math.abs(Math.hypot(pt[0]-s.cx,pt[1]-s.cy)-s.r):Infinity;}
+ const dx=s.x1-s.x0,dy=s.y1-s.y0,L2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((pt[0]-s.x0)*dx+(pt[1]-s.y0)*dy)/L2));
+ return Math.hypot(pt[0]-s.x0-t*dx,pt[1]-s.y0-t*dy);
+}
+/* Does what is written cover the polyline? Every sample within 0.1 mm and
+   the middle of every chord within 0.5 mm — the bulge a sampled arc may
+   have. Checking the samples alone passed a polygon with rounded corners as
+   a circle: all its samples sit in the corners, on one circle. */
+function cutShapeCovers(P,prims){
+ const n=P.length,near=(pt,t)=>prims.some(s=>cutShapeDist(pt,s)<=t);
+ return P.every((p,i)=>{const q=P[(i+1)%n];return near(p,CUT_SHAPE_TOL+2)&&near([(p[0]+q[0])/2,(p[1]+q[1])/2],502);});
+}
+/* A line running into an arc along its tangent meets it at the tangent
+   point — the foot of the perpendicular from the centre. Near the join the
+   samples fit both, so without this a rounded corner came out 88° and an
+   oval end 179°, where Perfect Cut writes 90° and 180° (L25, L55, L57 of
+   25.09.2026). Kept only if every sample still lies on what is written. */
+function cutShapeSnap(prims,P){
+ const out=prims.map(p=>Object.assign({},p)),n=out.length;
+ for(let k=0;k<n&&n>1;k++){
+  const a=out[k],b=out[(k+1)%n];
+  if(a.type===b.type||!cutShapeSmooth(a,b))continue;
+  const line=a.type==='line'?a:b,arc=a.type==='arc'?a:b,dx=line.x1-line.x0,dy=line.y1-line.y0,L2=dx*dx+dy*dy;
+  const t=((arc.cx-line.x0)*dx+(arc.cy-line.y0)*dy)/L2,fx=line.x0+t*dx,fy=line.y0+t*dy,d=Math.hypot(fx-arc.cx,fy-arc.cy);
+  if(!(t>0&&t<1)||!(d>0)||Math.abs(d-arc.r)>20)continue;
+  const x=arc.cx+(fx-arc.cx)*arc.r/d,y=arc.cy+(fy-arc.cy)*arc.r/d,dir=Math.sign(arc.sweep);
+  const turn=(from,to)=>dir*((dir*(to-from)%(2*Math.PI)+2*Math.PI)%(2*Math.PI));
+  if(a===line){
+   const s=cutShapeDeg(turn(Math.atan2(y-arc.cy,x-arc.cx),Math.atan2(arc.y1-arc.cy,arc.x1-arc.cx)));
+   if(!(Math.abs(s)>0.01&&Math.abs(s)<359))continue;
+   line.x1=x;line.y1=y;arc.x0=x;arc.y0=y;arc.sweep=s;
+  }else{
+   const s=cutShapeDeg(turn(Math.atan2(arc.y0-arc.cy,arc.x0-arc.cx),Math.atan2(y-arc.cy,x-arc.cx)));
+   if(!(Math.abs(s)>0.01&&Math.abs(s)<359))continue;
+   arc.x1=x;arc.y1=y;arc.sweep=s;line.x0=x;line.y0=y;
+  }
+ }
+ return cutShapeCovers(P,out)?out:prims;
+}
+/* Upright ellipse through the samples by least squares:
+   A·x² + B·y² + C·x + D·y = 1 around their mean. */
+function cutShapeEllipseFit(P){
+ const n=P.length,mx=P.reduce((s,p)=>s+p[0],0)/n,my=P.reduce((s,p)=>s+p[1],0)/n,k=1e-3;
+ const M=[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]];
+ P.forEach(p=>{const x=(p[0]-mx)*k,y=(p[1]-my)*k,v=[x*x,y*y,x,y];for(let i=0;i<4;i++){for(let j=0;j<4;j++)M[i][j]+=v[i]*v[j];M[i][4]+=v[i];}});
+ for(let c=0;c<4;c++){
+  let r=c;for(let i=c+1;i<4;i++)if(Math.abs(M[i][c])>Math.abs(M[r][c]))r=i;
+  if(Math.abs(M[r][c])<1e-12)return null;[M[c],M[r]]=[M[r],M[c]];
+  for(let i=0;i<4;i++)if(i!==c){const f=M[i][c]/M[c][c];for(let j=c;j<5;j++)M[i][j]-=f*M[c][j];}
+ }
+ const [A,B,C,D]=M.map((row,i)=>row[4]/row[i]);
+ if(!(A>0&&B>0))return null;
+ const F=1+C*C/(4*A)+D*D/(4*B);
+ return [mx-C/(2*A)/k,my-D/(2*B)/k,Math.sqrt(F/A)/k,Math.sqrt(F/B)/k];
+}
 /* Polyline (0.001 mm, closed, clockwise) → lines and arcs within 0.1 mm.
    Corners over 25° always split. Between them the longest arc wins over a
    line when every sample lies within tolerance of one circle and the
    samples step round it by at most 10° in one direction — a sampled curve,
    even a coarse DXF one (the chord midpoints of a 2.8° step sit 0.15 mm off
-   the arc, which is the polyline's error, not the curve's). A real polygon
-   has bigger steps and stays straight, and no chord may bulge more than
-   0.5 mm from the arc — otherwise a long straight side next to a curve
-   passes for a 10 m arc. At least three chords per arc. */
+   the arc, which is the polyline's error, not the curve's). A line takes in
+   only samples within 0.005 mm of it: straight edges of ERP and DXF shapes
+   have no samples in between, while 0.1 mm let a line eat the start of a
+   tangent arc (a 2 mm corner radius vanished). A real polygon has bigger
+   steps and stays straight; no chord may bulge more than 0.5 mm from the
+   arc and the chords of one arc may differ at most 4× — otherwise a long
+   straight side next to a curve passes for a 10 m arc. Perfect Cut, too,
+   cuts a coarse DXF polyline as the lines it is. At least three chords per
+   arc. */
 function cutShapeFit(P){
  const n=P.length,T=CUT_SHAPE_TOL;
  const lineOk=(q,i,j)=>{
   const a=q[i],b=q[j],L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<1)return false;
-  for(let k=i+1;k<j;k++)if(Math.abs((b[0]-a[0])*(a[1]-q[k][1])-(a[0]-q[k][0])*(b[1]-a[1]))/L>T)return false;
+  for(let k=i+1;k<j;k++)if(Math.abs((b[0]-a[0])*(a[1]-q[k][1])-(a[0]-q[k][0])*(b[1]-a[1]))/L>CUT_SHAPE_LINE_TOL)return false;
   return true;
  };
  const arcOk=(q,i,j)=>{
   if(j-i<3)return null;
   const m=(i+j)>>1,c=cutShapeCircle(q[i],q[m],q[j]);if(!c||c.r>1e8)return null;
   const ccw=(q[m][0]-q[i][0])*(q[j][1]-q[m][1])-(q[m][1]-q[i][1])*(q[j][0]-q[m][0])>0;
+  let lo=Infinity,hi=0;
   for(let k=i;k<=j;k++){
    if(Math.abs(Math.hypot(q[k][0]-c.cx,q[k][1]-c.cy)-c.r)>T)return null;
    if(k<j){
     const s=cutShapeDeg(Math.atan2(q[k+1][1]-c.cy,q[k+1][0]-c.cx)-Math.atan2(q[k][1]-c.cy,q[k][0]-c.cx)),d=((s%360)+540)%360-180;
     const L=Math.hypot(q[k+1][0]-q[k][0],q[k+1][1]-q[k][1]),sag=c.r-Math.sqrt(Math.max(0,c.r*c.r-L*L/4));
     if((ccw?d:-d)<=0||Math.abs(d)>10||sag>500)return null;
+    lo=Math.min(lo,L);hi=Math.max(hi,L);
    }
   }
+  if(hi>4*lo)return null;
   const a0=Math.atan2(q[i][1]-c.cy,q[i][0]-c.cx),a1=Math.atan2(q[j][1]-c.cy,q[j][0]-c.cx);
   let sweep=cutShapeDeg(a1-a0);sweep=ccw?(sweep%360+360)%360:-((-sweep%360+360)%360);
   if(!(Math.abs(sweep)>0.01&&Math.abs(sweep)<359))return null;
@@ -122,9 +196,15 @@ function cutShapeFit(P){
      rightmost point, as 66 of the 67 full circles of the Maver samples
      (G3, Z90) — or arcs around it. */
   const c=cutShapeCircle(P[0],P[Math.floor(n/3)],P[Math.floor(2*n/3)]);
-  if(c&&P.every(q=>Math.abs(Math.hypot(q[0]-c.cx,q[1]-c.cy)-c.r)<=T))
+  const onC=(q,t)=>Math.abs(Math.hypot(q[0]-c.cx,q[1]-c.cy)-c.r)<=t;
+  if(c&&P.every((q,i)=>{const w=P[(i+1)%n];return onC(q,T)&&onC([(q[0]+w[0])/2,(q[1]+w[1])/2],500);}))
    return {prims:[{type:'arc',x0:c.cx+c.r,y0:c.cy,x1:c.cx+c.r,y1:c.cy,cx:c.cx,cy:c.cy,r:c.r,sweep:360}]};
-  return {prims:cutShapeEllipse(P)||fitRun(P.concat([P[0]]))};
+  const el=cutShapeEllipse(P);if(el)return {prims:el};
+  /* Start the loop at its longest chord when that is a straight edge (4×
+     the typical step): an arc is then never split at the start. */
+  const len=P.map((p,i)=>Math.hypot(P[(i+1)%n][0]-p[0],P[(i+1)%n][1]-p[1])),mid=len.slice().sort((a,b)=>a-b)[n>>1];
+  const s0=len.indexOf(Math.max(...len)),R=len[s0]>4*mid?P.slice(s0).concat(P.slice(0,s0)):P;
+  return {prims:cutShapeSnap(fitRun(R.concat([R[0]])),R)};
  }
  const prims=[];
  corners.forEach((s,k)=>{
@@ -132,7 +212,7 @@ function cutShapeFit(P){
   for(let i=s;;i=(i+1)%n){q.push(P[i]);if(i===e&&q.length>1)break;}
   fitRun(q).forEach(p=>prims.push(p));
  });
- return {prims};
+ return {prims:cutShapeSnap(prims,P)};
 }
 /* Liang–Barsky: the part of a..b inside the rectangle, in 0.001 mm. */
 function cutShapeClip(a,b,x0,y0,x1,y1){
@@ -206,14 +286,7 @@ function cutShapeScoreChains(part){
   cur.push(s);
  }
  /* Every contour sample must lie on what is written, within 0.1 mm. */
- const dist=(pt,s)=>{
-  if(s.type==='arc'){const a=Math.atan2(pt[1]-s.cy,pt[0]-s.cx),b=Math.atan2(s.y0-s.cy,s.x0-s.cx);
-   let d=cutShapeDeg(a-b);d=s.sweep>0?(d%360+360)%360:-((-d%360+360)%360);
-   return Math.abs(d)<=Math.abs(s.sweep)+1e-6||Math.abs(s.sweep)>=359.99?Math.abs(Math.hypot(pt[0]-s.cx,pt[1]-s.cy)-s.r):Infinity;}
-  const dx=s.x1-s.x0,dy=s.y1-s.y0,L2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((pt[0]-s.x0)*dx+(pt[1]-s.y0)*dy)/L2));
-  return Math.hypot(pt[0]-s.x0-t*dx,pt[1]-s.y0-t*dy);
- };
- if(pts.some(pt=>!prims.some(s=>dist(pt,s)<=CUT_SHAPE_TOL+2)))return {error:'Shape '+part.id+' could not be written as lines and arcs within 0.1 mm.'};
+ if(!cutShapeCovers(pts,prims))return {error:'Shape '+part.id+' could not be written as lines and arcs within 0.1 mm.'};
  return {chains,box:{x:X0,y:Y0}};
 }
 /* Maver order of all Shape scores of a sheet: pieces in `order`, chains by
