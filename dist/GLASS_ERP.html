@@ -302,7 +302,8 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
      а не чертёж. В печатную разметку они не попадают уже на сборке; это
      страховка на случай, если страницу печатают мимо кнопки, через Ctrl+P. */
   .shape-dim-menu,.shape-dim-ghost{display:none!important}
-  .print-sheet{width:100%}
+  .print-sheet{width:100%;break-after:page}
+  .print-sheet:last-child{break-after:auto}
   .print-sheet svg{width:100%;height:auto;max-height:96vh;max-width:100%}
   .print-caption{margin-top:5mm;font:11px Arial,sans-serif;color:#475467}
 }
@@ -1121,6 +1122,21 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
  .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
  .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
 }
+/* Вкладка Drawings: мокап — настоящий лист чертежа 850 × 1100 (как у
+   печати), уменьшенный в бумагу 255 × 330. */
+.doc-drawing-count{color:#475467;font-size:12px;white-space:nowrap}
+.doc-drawings{min-height:0;overflow:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,259px);grid-auto-rows:max-content;justify-content:center;align-content:start;gap:16px}
+.doc-drawing{margin:0;background:#fff;border:2px solid transparent;border-radius:8px;box-shadow:0 2px 12px rgba(16,24,40,.18);overflow:hidden}
+.doc-drawing.on{border-color:#16325c}
+.doc-drawing.focus{box-shadow:0 0 0 4px #fdb022}
+.doc-drawing-head{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;border-bottom:1px solid #eaecf0;font-size:12px;cursor:pointer}
+.doc-drawing-head input{flex:none;width:auto;margin:0}
+.doc-drawing-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475467}
+.doc-drawing-paper{position:relative;width:255px;height:330px;overflow:hidden}
+.doc-drawing-scale{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.3);transform-origin:0 0;pointer-events:none}
+.doc-drawing-scale .print-sheet{height:100%}
+.doc-drawing-error{padding:12px;color:#b42318;font-size:12px}
+.doc-drawing:not(.on) .doc-drawing-paper{opacity:.45}
 @media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
 
 
@@ -1675,17 +1691,6 @@ button.recut-btn{border-color:#fdb022;color:#93370d}
 .cut-page-actions{margin-left:auto;justify-content:flex-end}
 .cut-page-tools,.cut-page-primary{display:flex;align-items:center;gap:7px;flex:none}
 .cut-page-tools:empty{display:none}
-.cut-trial-trigger{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:#9a3412;border-color:#fdba74;background:#fff7ed}
-.cut-trial-trigger svg{display:block;width:15px;height:15px}
-.cut-trial-trigger.on,.cut-trial-trigger:hover{background:#ffedd5;border-color:#fb923c}
-.cut-trial-panel{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:7px 14px;padding:8px 10px;border:1px solid #fdba74;border-radius:8px;background:#fff7ed;color:#9a3412;font-size:12px}
-.cut-trial-intro{display:flex;align-items:center;gap:8px;flex:1 1 100%;flex-wrap:wrap}
-.cut-trial-target{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.cut-trial-target b{min-width:42px}
-.cut-trial-error{flex:1 1 100%;padding:7px 9px;border:1px solid #fda29b;border-radius:6px;background:#fef3f2;color:#b42318;line-height:1.35}
-.cut-trial-panel [data-cut-trial-result]{flex:1 1 100%}
-.cut-trial-panel [data-cut-trial-result]:empty{display:none}
-.cut-trial-panel button{background:#fff;border-color:#fdba74;color:#9a3412}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
 .cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
 .cut-page-problem{font-size:12px;line-height:1.35;color:#b42318;text-align:center}
@@ -1871,17 +1876,21 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 @media(max-width:1200px){.cut-grid{grid-template-columns:minmax(0,1fr)}}
 /* Печать схем для стола резки. */
 #cutPrintHost{display:none}
-@page cutsheet{size:8.5in 11in;margin:12mm}
+/* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
 @media print{
+ html:has(body.cut-printing),body.cut-printing{background:#fff!important}
  body.cut-printing>*{display:none!important}
  body.cut-printing>#cutPrintHost{display:block!important}
  .cut-print-page{page:cutsheet;break-after:page;font:12px Helvetica,Arial,sans-serif}
  .cut-print-page:last-child{break-after:auto}
- .cut-print-page h3{margin:0 0 4px}
- .cut-print-page p{margin:0 0 10px;color:#475467}
+ .cut-print-page h3{margin:0 0 4px;break-after:avoid}
+ .cut-print-page p{margin:0 0 10px;color:#475467;break-after:avoid}
  .cut-print-sheet{margin-bottom:12px}
+ .cut-print-sheet svg{display:block;max-width:100%;height:auto}
  .cut-print-table{width:100%;border-collapse:collapse;font-size:11px}
+ .cut-print-table tr{break-inside:avoid}
  .cut-print-table th,.cut-print-table td{border-bottom:1px solid #d0d5dd;padding:3px 6px;text-align:left}
+ .cut-print-turn{color:#475467;white-space:nowrap}
 }
 .cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid #abefc6;border-radius:8px;background:#ecfdf3;color:#067647;font-size:13px}
 .cut-size-nums{font-size:10px;color:#667085;margin-top:2px;white-space:nowrap}
@@ -1986,7 +1995,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='3cb02aaeb2c6';
+var ERP_BUILD='c9c4252bf268';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9990,7 +9999,10 @@ function salesLockedLineGuard(line){
  alert('Line is batched and locked. Unbatch it in Optimization to edit.');
  return true;
 }
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+/* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
+   чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
+function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked'":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;
@@ -14235,7 +14247,8 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   var line=salesSheetLineOf(shape);
   var order=(typeof soDraft!=='undefined')?soDraft:null;
   var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
-  var areaFt2=result&&result.valid?result.area/144:0;
+  var ok=typeof shapeSheetOk==='function'?shapeSheetOk(result):!!(result&&result.valid);
+  var areaFt2=ok?result.area/144:0;
   var pane=makeup&&(makeup.panes||[])[0];
   var weight='';
   if(makeup&&(makeup.panes||[]).length){
@@ -14248,7 +14261,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
     if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
   }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
 
-  var finished=result&&result.valid?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  var finished=ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
@@ -14298,6 +14311,24 @@ function salesShapeSheetHTML(shape,result,svg,kind){
     '<div class="sheet-foot"><span></span>'+
       '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
   '</div>';
+}
+/* Лист чертежа строки без открытия редактора — окно Drawings и печать
+   нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не
+   открыть и не распечатать. Редактор рисует лист из своего sDraft и
+   salesBridge, поэтому на время отрисовки подставляем копию формы строки и
+   всё возвращаем. Редактировать здесь нечего — строка в батче тоже рисуется. */
+function salesLineDrawing(line){
+  var shape=line&&salesShapeByRef(line.shapeRef);if(!shape)return null;
+  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
+  try{
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge={kind:'shape',lineId:line.id};
+    sView='production';sEdgeLite=null;sManufacturingPlace=null;
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(line,sDraft);
+    var r=ShapeModule.compute(sDraft);
+    if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
+    return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
+  }catch(e){return {line:line,error:String(e&&e.message||e)};}
+  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры
@@ -15665,7 +15696,9 @@ function salesStockPickerModal(){
   </div></div>`;
 }
 function salesLineShapeCell(l,i){
- const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
+ const s=salesShapeByRef(l.shapeRef);
+ if(salesLineLocked(l))return s?`<div class="line-config-cell"><button class="line-link-btn ${salesShapeIsLineRect(s)?'rect':'linked'}" data-line-drawing title="View drawing" onclick="docOpen('drawings','${esc(l.id)}')">${esc(salesShapeIsLineRect(s)?'Rect':s.name)}</button></div>`:'';
+ if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
  /* Простой прямоугольник строки — это её собственная геометрия, а не выбранная
     из библиотеки форма: в таблице он не занимает место именем, а зовёт туда,
     где правится геометрия и кромка. */
@@ -17119,12 +17152,12 @@ function shapeMarksBodyHTML(){
   body+=shapeSandblastCardsHTML(g);
   return body;
 }
-function shapeDxfPreviewSvg(source,includeMarks){
+function shapeDxfPreviewSvg(source,includeMarks,still){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
-  var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
-  return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
+  var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&!still&&sManufacturingPlace?' placing':'';
+  return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks&&!still?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
     <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
     ${markers}
@@ -17587,20 +17620,26 @@ function shapeFitPreview(){
   var avail=Math.max(340,(window.innerHeight||800)-top-28);
   svg.style.maxHeight=Math.round(avail)+'px';
 }
+/* Чертёж для печатного листа. Лист несёт свою шапку и маршрут, поэтому
+   чертёж рисуется без собственного заголовка и в чёрно-белом варианте: цех
+   печатает ч/б, и цветом стороны там не различить — их называет буква на
+   кромке. DXF из Fusion 360 (владелец, 26.09.2026: «выдадим ему чертёж») —
+   его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
+   DXF; внутренних размеров нет — исходный файл ERP не хранит. */
+function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
+function shapeSheetSvg(r,cutting){
+  if(r.externalFile)return shapeDxfPreviewSvg((r.definition&&r.definition.source)||sDraft.source,!cutting,true);
+  return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
+}
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
    поэтому печатается он же — печатаем ровно то, что человек видит. */
 function shapePrintDrawing(){
   var r=shapeDraftResult(),e=document.getElementById('e_shape');
   if(e)e.style.display='none';
-  if(r.externalFile){if(e)fail(e,'A DXF file from Fusion 360 is not printed as a Production Shape drawing.');return;}
-  if(!r.valid){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
-  /* Лист несёт свою шапку и маршрут, поэтому чертёж рисуется без собственного
-     заголовка и в чёрно-белом варианте: цех печатает ч/б, и цветом стороны там
-     не различить — их называет буква на кромке. */
+  if(!shapeSheetOk(r)){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
   var cutting=sView==='cutting';
-  var svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
-  var kind=cutting?'CUTTING SHAPE':'PRODUCTION DRAWING';
-  printSheet(salesShapeSheetHTML(sDraft,r,svg,kind),'',salesSheetFitDrawing);
+  var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
+  printSheet(salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
@@ -18235,7 +18274,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Configurator geometry is disabled for this revision: the contour and bounding dimensions were read from the external DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit shape'}</h3><p>${external?'Cutting comes from a Fusion 360 DXF; ERP stores only the derived 2D contour and dimensions, not the original file contents.':'All dimensions are finished sizes in inches. Invalid geometry cannot be saved or exported.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}
@@ -18759,7 +18798,7 @@ shapeForm=function(){
   var cutoutCount=shapeCutoutItemCount();
   var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Fabrication</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
-    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`
+    ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
   return `<div class='module-editor shape-workspace-editor' id='shapeEditorRoot'>${shapeLiteBanner()}<div class='shape-workspace-toolbar'><div class='shape-workspace-identity'><b>${sEdit==='new'?'New Production Shape':'Edit Production Shape'}</b><span data-raw>${esc(sDraft.name||shapePresetInfo(sDraft.type).label)}</span></div><span class='sp'></span><div class='shape-workspace-actions'><button onclick='cancelShapeEdit()'>Cancel</button><button class='pri' onclick='saveShape()'>Save revision</button></div></div><div class='err' id='e_shape'></div><div class='shape-editor-layout'><div class='shape-workspace-left'>${workspaceTabs}<div class='shape-controls'>${controls}</div></div><div class='shape-preview-side'>${tabs}<div id='shapeLivePreview' class='shape-drawing-preview'>${shapePreviewMarkup(r)}</div><div id='shapeLiveDerived'>${shapeDerivedHTML(r)}</div>${shapeArtifacts(r)}</div></div></div>`;
 };
@@ -18895,7 +18934,7 @@ function salesOrderColumnCell(key,l,i,linked,st){
 }
 function salesOrderLines(){
   var entries=salesServiceFilteredEntries(),visible=entries.map(function(x){return x.line;}),allSelected=visible.length>0&&visible.every(function(l){return soSelectedLines.has(l.id);}),currency=soDraft.currency||'CAD',pricing=salesOrderPricingSummary(),commercial=salesOrderCommercialAdjustments(soDraft),commercialLines=commercial.reduce(function(n,g){return n+g.lines;},0),hasServices=pricing.charges>0||commercial.length>0,columns=salesOrderScreenColumns();
-  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}><td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td><td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>${columns.map(function(key){return salesOrderColumnCell(key,l,i,linked,st);}).join('')}<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td></tr>`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
+  return `<section class='sales-block sales-lines-block'><div class='sales-lines-head'><div><b>ORDER LINES</b><span>Drag and reorder columns in Columns</span></div><div class='sales-line-tools'>${salesMetricsTools()}<button class='sales-services-order-btn ${hasServices?'has-services':''}${pricing.unpriced?' incomplete':''}' onclick='salesOpenOrderServices()'><span>Services & prices</span><span class='sales-order-price-summary'><b>${pricing.total.toFixed(2)} ${esc(currency)}</b>${pricing.unpriced?`<small>${pricing.unpriced} no rate</small>`:(commercial.length?`<small>${commercialLines} price adjustment${commercialLines===1?'':'s'}</small>`:'')}</span></button><button class='ss-order-btn' onclick='salesOpenServiceSets()'>Edgework Sets <span>${(soDraft.serviceSets||[]).length}</span></button><button onclick='salesExcelOpen()'>Paste Excel</button><button onclick='salesOrderAddTen()'>+10</button><button class='pri' onclick='salesOrderAddLine(null,true)'>+ Line</button></div></div>${salesServiceFiltersHtml()}${salesBulkServiceControls()}<div class='sales-table-wrap'><table class='sales-lines-table sales-lines-with-services'><thead><tr><th class='line-check'><input type='checkbox' ${allSelected?'checked':''} onchange='salesToggleAllLines(this.checked)'></th><th>#</th>${columns.map(salesOrderColumnHeader).join('')}<th></th></tr></thead><tbody>${entries.map(function(x){var l=x.line,i=x.index,linked=!salesLineOwnsDimensions(l),st=salesLineServiceStatus(l);return `<tr data-metrics-line-id="${esc(l.id)}"${salesLineRowAttrs(l)}>${salesLockedCell(l,`<td class='line-check'><input type='checkbox' ${soSelectedLines.has(l.id)?'checked':''} onchange='salesToggleLine("${esc(l.id)}",this.checked)'></td>`)}${salesLockedCell(l,`<td class='mono line-num'>${i+1}${salesLineBadge(l)}</td>`)}${columns.map(function(key){return salesLockedCell(l,salesOrderColumnCell(key,l,i,linked,st),key);}).join('')}${salesLockedCell(l,`<td><button class='sm dl line-delete' onclick='salesOrderRemoveLine(${i})'>×</button></td>`)}</tr>`;}).join('')||`<tr><td colspan='${columns.length+3}' class='empty'>No lines in this filter.</td></tr>`}</tbody></table></div>${salesCommercialOrderSummary()}</section>`;
 }
 
 /* ---------- Edgework Set editor ---------- */
@@ -20551,18 +20590,22 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
-function docOpen(kind){
+/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26.09.2026):
+   мокапы всех строк, галочками — какие печатать. focus — строка, к которой
+   прокрутить окно (клик по форме строки в батче). */
+function docOpen(kind,focus){
  if(!soDraft)return;
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
- kind=kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
+ kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur};
+ docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,skip:[],focus:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
- if(!docState||!soDraft||!docKindsFor(soDraft).some(d=>d.k===kind))return;
- if(kind!=='quote')docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
+ if(!docState||!soDraft||!(kind==='drawings'||docKindsFor(soDraft).some(d=>d.k===kind)))return;
+ if(kind!=='quote'&&kind!=='drawings')docLastKind=kind;
+ docState.kind=kind;docState.opts=kind==='drawings'?{}:docDefaultOptions(kind);docState.status='';if(kind==='drawings')docState.panel=false;render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
 /* Галочка меняет только этот показ. В заказ ничего не пишется, а набор по
@@ -20600,7 +20643,7 @@ function docRevisionPicker(){
  return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} onchange="docToggleRev('${esc(m.id)}',this.checked)"> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
 }
 function docWarnings(){
- const out=[];
+ const out=[];if(docState.kind==='drawings')return '';
  if(!soDraft.businessNumber&&!salesQuoteCurrentId())out.push(salesIsQuote(soDraft)?'Save the quote to give the document its number.':'Save the order to give the document its number.');
  if(docState.kind==='quote'&&salesQuoteCurrentId()&&!(docState.revs||[]).length)out.push('Tick at least one revision to print or email.');
  if(!soDraft.customerId)out.push('No customer selected.');
@@ -20611,17 +20654,68 @@ function docWarnings(){
 
 function docModal(){
  if(!docState||!soDraft)return '';
+ const drawings=docState.kind==='drawings',items=drawings?docDrawingItems():null;
  let pages=[],error='';
- try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
+ if(!drawings)try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
+ const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>`;
+ const body=drawings?docDrawingsBody(items):`<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>`;
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
   <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
-   <button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>
-   <button type="button" onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button><button type="button" onclick="docClose()">Close</button></div>
+   ${tools}
+   <button type="button" data-doc-print onclick="docPrint()">Print</button>${drawings?'':'<button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
-  <div class="doc-body${docState.panel?' with-panel':''}"><div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>${docState.panel?docPanel():''}</div>
+  <div class="doc-body${docState.panel&&!drawings?' with-panel':''}">${body}${docState.panel&&!drawings?docPanel():''}</div>
  </div></div>`;
+}
+/* ----------------------------- Чертежи ------------------------------ */
+/* Мокап — тот же лист, что уйдёт на печать (salesLineDrawing), в уменьшенной
+   бумаге. Листы строятся один раз на открытие окна: пока оно открыто, заказ
+   не правится, а 60 строк считались ~3 с на каждую перерисовку. Галочки и
+   All/None меняют только сам экран. */
+function docDrawingItems(){
+ const done=docState.drawings||(docState.drawings=new Map());
+ return (soDraft.lines||[]).map((l,i)=>{if(!done.has(l.id))done.set(l.id,salesLineDrawing(l));const d=done.get(l.id);return d?Object.assign({i},d):null;}).filter(Boolean);
+}
+function docDrawingPicked(items){const skip=new Set(docState.skip||[]);return items.filter(x=>x.html&&!skip.has(x.line.id));}
+function docDrawingTools(items){
+ const ok=items.filter(x=>x.html);
+ return `<span class="doc-drawing-count" data-doc-drawing-count>${docDrawingPicked(ok).length} of ${ok.length}</span><button type="button" data-doc-all onclick="docDrawingAll(true)">All</button><button type="button" data-doc-none onclick="docDrawingAll(false)">None</button>`;
+}
+function docDrawingsBody(items){
+ const skip=new Set(docState.skip||[]);
+ setTimeout(docDrawingsFit,0);
+ if(!items.length)return '<div class="doc-drawings"><div class="empty">No drawings.</div></div>';
+ return `<div class="doc-drawings">${items.map(x=>{const id=esc(x.line.id),on=!!x.html&&!skip.has(x.line.id);
+  return `<figure class="doc-drawing${on?' on':''}" data-doc-drawing="${id}">
+   <label class="doc-drawing-head"><input type="checkbox" ${x.html?'':'disabled'} ${on?'checked':''} onchange="docDrawingToggle('${id}',this.checked)"><b>Line ${x.i+1}</b><span>${esc(x.line.mark||'')}</span></label>
+   <div class="doc-drawing-paper">${x.html?`<div class="doc-drawing-scale"><div class="print-sheet">${printSheetUniqueIds(x.html)}</div></div>`:`<div class="doc-drawing-error">${esc(x.error)}</div>`}</div></figure>`;}).join('')}</div>`;
+}
+function docDrawingsFit(){
+ document.querySelectorAll('.doc-drawing .print-sheet').forEach(el=>salesSheetFitDrawing(el));
+ const f=docState&&docState.focus;if(!f)return;docState.focus='';
+ const el=[...document.querySelectorAll('[data-doc-drawing]')].find(x=>x.dataset.docDrawing===f);
+ if(el){el.scrollIntoView({block:'center'});el.classList.add('focus');}
+}
+function docDrawingShow(){
+ const skip=new Set(docState.skip||[]),boxes=[...document.querySelectorAll('[data-doc-drawing]')];
+ boxes.forEach(el=>{const input=el.querySelector('input'),on=!input.disabled&&!skip.has(el.dataset.docDrawing);input.checked=on;el.classList.toggle('on',on);});
+ const count=document.querySelector('[data-doc-drawing-count]'),ok=boxes.filter(el=>!el.querySelector('input').disabled);
+ if(count)count.textContent=ok.filter(el=>!skip.has(el.dataset.docDrawing)).length+' of '+ok.length;
+}
+function docDrawingToggle(id,on){
+ if(!docState)return;
+ const s=new Set(docState.skip||[]);if(on)s.delete(id);else s.add(id);docState.skip=[...s];docDrawingShow();
+}
+function docDrawingAll(on){
+ if(!docState)return;docState.skip=on?[]:(soDraft.lines||[]).map(l=>l.id);
+ if(docState.status){docState.status='';render();}else docDrawingShow();
+}
+function docDrawingsPrint(){
+ const sheets=docDrawingPicked(docDrawingItems()).map(x=>x.html);
+ if(!sheets.length){docState.status='Tick at least one drawing.';render();return;}
+ docState.status='';printSheet(sheets,'',salesSheetFitDrawing);
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -20651,6 +20745,7 @@ function docPrintPrepare(){
 function docPrintCleanup(){document.body.classList.remove('doc-printing');const h=document.getElementById('docPrintHost');if(h)h.innerHTML='';}
 function docPrint(){
  if(!docState)return;
+ if(docState.kind==='drawings'){docDrawingsPrint();return;}
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);
@@ -21500,7 +21595,7 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
@@ -21510,6 +21605,7 @@ function salesListMenuRun(act){
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
+ else if(act==='drawings'){salesOrderEdit(o.id);docOpen('drawings');}
  else if(act==='unbatch')glassBatchUnbatchOrder(o.id);
  else if(act==='stickers')stkOpenForOrder(o.id);
  else if(act==='cancel')salesCancelOrder(o.id);
@@ -25125,7 +25221,7 @@ function cutTrialSheet(number,glass,no,machine){
  const sheet=snap.sheets[0];
  if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
  if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
- if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
+ if(sheet.stock.length)return {error:'Stock offcuts are not supported yet.'};
  /* Shape: its score lines and arcs, clipped as Perfect Cut does. */
  for(const p of sheet.pieces){
   p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
@@ -26407,7 +26503,6 @@ function stkEditorHTML(){
    выбранной детали, а не кнопками в каждой строке.
    ===================================================================== */
 let cutNotice='',cutInfo=null,cutMdNotice='',cutRepackNotice='',cutUi={batch:'',glass:'',sheet:1,sel:'',drag:'',sort:null};
-let cutTrialOpen=false,cutTrialError=null;
 /* ------------------------- Master Data → Cutting ------------------------- */
 function cutMdSet(mm,field,value){
  const s=cutSettings(),row=s.rows.find(r=>r.mm===+mm);if(!row)return;
@@ -26452,7 +26547,7 @@ function viewMdCutting(){
 }
 /* --------------------------- Батч → Optimization -------------------------- */
 function cutUiState(number){
- if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;}
+ if(cutUi.batch!==number){cutUi={batch:number,glass:'',sheet:1,sel:'',drag:''};}
  const plan=cutPlanFor(number);
  if(plan&&plan.groups.length){
   if(!plan.groups.some(g=>g.glass===cutUi.glass))cutUi.glass=plan.groups[0].glass;
@@ -26515,11 +26610,19 @@ function cutUiProgress(){
  if(txt)txt.textContent=job.label+' · '+pct+'%';
 }
 function cutUiCancel(){if(cutBusy)cutBusy.stop=true;}
-function cutUiTrialToggle(){cutTrialOpen=!cutTrialOpen;cutTrialError=null;cutNotice='';render();}
-function cutUiTrialFail(machine,error){
- cutTrialError={key:[cutUi.batch,cutUi.glass,cutUi.sheet].join('|'),machine,error};
- cutNotice='';render();
+/* Выгрузка открытого листа на стол. Владелец, 26 сентября 2026: одиночный
+   файл он не качает никогда — только выбор Maver или Disai, и пара файлов
+   ложится в папку. Слова «Trial» и окна-предупреждения нет: с файлами
+   работает он сам и знает, когда выгрузка перестанет быть пробной. */
+function cutUiTrialMenu(e){
+ e.preventDefault();e.stopPropagation();cutUiMenuClose();
+ const rows=['<div class="cut-menu-head">Sheet '+(+cutUi.sheet||1)+'</div>'],act=cutMenuAct(rows);
+ act('Maver','',()=>cutUiTrialSave('maver'),'data-cut-trial-maver');
+ act('Disai','',()=>cutUiTrialSave('disai'),'data-cut-trial-disai');
+ const r=e.currentTarget.getBoundingClientRect();cutUiMenuShow(rows,r.left,r.bottom+4);
 }
+function cutUiTrialFail(machine,error){cutNotice=(machine==='disai'?'Disai':'Maver')+': '+error;render();}
+function cutUiTrialDone(){if(cutNotice){cutNotice='';render();}}
 function cutUiTrialFiles(machine){
  const p=cutTrialSheet(cutUi.batch,cutUi.glass,cutUi.sheet,machine);
  if(p.error)return p;
@@ -26533,12 +26636,7 @@ function cutUiTrialFiles(machine){
   if(dst.error||sum.error)return {error:dst.error||sum.error};
   files=[dst,sum];
  }
- return {p,files,note:files.map(f=>f.note||'').filter(Boolean).join(' ')};
-}
-function cutUiTrialResult(message){
- cutTrialError=null;
- const error=document.querySelector('[data-cut-trial-error]');if(error)error.remove();
- const el=document.querySelector('[data-cut-trial-result]');if(el)el.textContent=message;
+ return {p,files};
 }
 /* Имя стола в конце папки (владелец, 24.09.2026: «папки»). Disai — папка
    проекта `.prjx` с тем же именем, что у файлов внутри. */
@@ -26547,44 +26645,40 @@ function cutUiTrialFolderName(p,machine){
  const safe=v=>String(v||'unknown').replace(/[<>:"/\\|?*\u0000-\u001f]/g,'-').replace(/\s+/g,'-').replace(/^-+|-+$/g,'').slice(0,60)||'unknown';
  return safe(p.batch)+'_'+safe(p.sheet.glass)+'_'+cutTrialDate()+'_MAVER';
 }
-function cutUiTrialExport(machine,kind){
- const prepared=cutUiTrialFiles(machine);
- if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
- const {p,files,note}=prepared;
- const file=files.find(f=>f.name.toLowerCase().endsWith('.'+kind));
- if(!file){cutUiTrialFail(machine,'Choose a Maver .ISO/.BMP or Disai .dst/.sum file.');return;}
- if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nOpen sheet '+p.sheet.no+' on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut. Download '+file.name+'?'))return;
+/* Браузер без выбора папки получает оба файла обычной загрузкой. */
+function cutUiTrialDownload(machine,files){
  try{
-  const blob=new Blob([file.data],{type:file.mime}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=file.name;
-  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-  cutNotice='';cutUiTrialResult(file.name+' downloaded. Download its paired file too.'+(machine==='disai'?' Put both in a folder named '+cutUiTrialFolderName(p,'disai')+'.':'')+(note?' '+note:''));
- }catch(e){cutUiTrialFail(machine,'Trial file could not be created: '+(e&&e.message||'unknown error'));}
+  files.forEach(file=>{
+   const url=URL.createObjectURL(new Blob([file.data],{type:file.mime})),a=document.createElement('a');
+   a.href=url;a.download=file.name;
+   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  });
+  cutUiTrialDone();
+ }catch(e){cutUiTrialFail(machine,'files not created'+(e&&e.message?' ('+e.message+')':'')+'.');}
 }
-async function cutUiTrialFolder(machine){
- if(typeof window.showDirectoryPicker!=='function'){cutUiTrialFail(machine,'This browser cannot save a folder. Download the two raw files separately.');return;}
+async function cutUiTrialSave(machine){
  const prepared=cutUiTrialFiles(machine);
  if(prepared.error){cutUiTrialFail(machine,prepared.error);return;}
  const {p,files}=prepared,folderName=cutUiTrialFolderName(p,machine);
+ if(typeof window.showDirectoryPicker!=='function'){cutUiTrialDownload(machine,files);return;}
  try{
-  const root=await window.showDirectoryPicker({mode:'readwrite'});
-  if(!confirm('TRIAL ONLY — NOT VERIFIED FOR CUTTING.\n\nCreate '+folderName+' in the folder you chose and save '+files.map(f=>f.name).join(' + ')+'? Open on '+(machine==='maver'?'Maver':'Disai')+' for preview only. Do not start the cut.'))return;
+  const root=await window.showDirectoryPicker({id:'cut-machine',mode:'readwrite'});
   const dir=await root.getDirectoryHandle(folderName,{create:true});
   const existing=[];
   for(const file of files){
    try{await dir.getFileHandle(file.name);existing.push(file.name);}
    catch(e){if(e.name!=='NotFoundError')throw e;}
   }
-  if(existing.length){cutUiTrialFail(machine,'Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.');return;}
+  if(existing.length){cutUiTrialFail(machine,folderName+' already exists — nothing overwritten.');return;}
   for(const file of files){
    const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
    try{await writer.write(file.data);await writer.close();}
    catch(e){await writer.abort().catch(()=>{});throw e;}
   }
-  cutNotice='';cutUiTrialResult('Saved '+files.map(f=>f.name).join(' + ')+' in '+folderName+'.'+(prepared.note?' '+prepared.note:''));
+  cutUiTrialDone();
  }catch(e){
   if(e.name==='AbortError')return;
-  cutUiTrialFail(machine,'Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||''));
+  cutUiTrialFail(machine,'save failed'+(e&&e.message?' ('+e.message+')':'')+'. Check '+folderName+'.');
  }
 }
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
@@ -27179,20 +27273,42 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
 /* --------------------------------- Печать -------------------------------- */
 function cutPrintHost(){let h=document.getElementById('cutPrintHost');if(!h){h=document.createElement('div');h.id='cutPrintHost';document.body.appendChild(h);}return h;}
 function cutPrintCleanup(){document.body.classList.remove('cut-printing');const h=document.getElementById('cutPrintHost');if(h)h.innerHTML='';}
+/* Владелец, 26 сентября 2026: печатают редко, но на Letter. Схема шла
+   полоской 520 px на книжной странице, подписи стёкол наезжали. Теперь
+   ориентация — по листам батча, а схема занимает всю область печати: подписи
+   по размеру куска сами переходят в полный вид. */
+const CUT_PRINT_MARGIN_MM=12,CUT_PRINT_HEAD_PX=64,CUT_PRINT_ROW_PX=20;
+function cutPrintLandscape(plan){
+ let wide=0,tall=0;
+ plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet;if(z.w>=z.h)wide++;else tall++;}));
+ return wide>=tall;
+}
+/* Размер схемы для cutSheetSVG: вся ширина области печати, по высоте — то,
+   что остаётся под шапку и таблицу. Если таблица на той же странице ужала бы
+   схему больше чем на четверть (лист 130 × 96 и 20 стёкол — было 380 px),
+   схема берёт страницу целиком, а таблица уходит на следующую. */
+function cutPrintSheetPx(size,landscape,rows){
+ const m=CUT_PRINT_MARGIN_MM/25.4,pw=((landscape?11:8.5)-2*m)*96,ph=((landscape?8.5:11)-2*m)*96-8;
+ const fit=room=>Math.min((pw-CUT_SVG_PAD)/size.w,(room-CUT_SVG_PAD)/size.h);
+ const page=fit(ph-CUT_PRINT_HEAD_PX),shared=fit(ph-CUT_PRINT_HEAD_PX-(rows+1)*CUT_PRINT_ROW_PX);
+ return Math.floor(Math.max(size.w,size.h)*(shared>=page*0.75?shared:page));
+}
 function cutPrintLayouts(number){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[];
+ const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[],landscape=cutPrintLandscape(plan);
  plan.groups.forEach(g=>g.sheets.forEach(s=>{
-  const autoTrim=cutAutoTrimInfo(g,s);
+  const autoTrim=cutAutoTrimInfo(g,s),size=s.size||g.sheet;
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
    const turn=cutPieceTurn(p);
-   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${turn?turn*90+'°':''}</td></tr>`;}).join('');
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
+   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${turn?` <span class="cut-print-turn">· ${turn*90}°</span>`:''}</td></tr>`;}).join('');
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″</h3>
    <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″ (+ '+esc(frac16(autoTrim.extra))+'″)':''}${(s.stock||[]).length?' · To stock '+s.stock.map(x=>esc(x.id)+' '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″').join(', '):''}</p>
-   <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
-   <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`);
+   <div class="cut-print-sheet">${cutSheetSVG(g,s,cutPrintSheetPx(size,landscape,s.pieces.length),pieces)}</div>
+   <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }));
  if(!pages.length)return false;
+ let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
+ st.textContent='@page cutsheet{size:'+(landscape?'11in 8.5in':'8.5in 11in')+';margin:'+CUT_PRINT_MARGIN_MM+'mm}';
  cutPrintHost().innerHTML=pages.join('');
  document.body.classList.add('cut-printing');
  window.addEventListener('afterprint',cutPrintCleanup,{once:true});setTimeout(cutPrintCleanup,60000);
@@ -27326,7 +27442,7 @@ function cutLayoutHeader(b,status){
  const buildActs=busy?`<div class="cut-progress" data-cut-progress role="progressbar" aria-label="${esc(cutBusy.label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div><span class="cut-progress-pct" data-cut-progress-pct>${esc(cutBusy.label)} · ${pct}%</span><button type="button" data-cut-cancel onclick="cutUiCancel()">Cancel</button>`
   :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
- const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-trial-trigger${cutTrialOpen?' on':''}" data-cut-trial-open aria-expanded="${cutTrialOpen}" onclick="cutUiTrialToggle()">${ico('download')}<span>Trial export</span></button>`:'';
+ const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-icon-btn" data-cut-trial-open title="Export to machine" aria-label="Export to machine" aria-haspopup="menu" onclick="cutUiTrialMenu(event)">${ico('download')}</button>`:'';
  const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
@@ -27337,17 +27453,9 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn dl" data-cut-sheet-delete title="Delete sheet" aria-label="Delete sheet" onclick="cutUiSheetDelete('${esc(group.glass)}',${sheet.no})">−</button><button type="button" class="cut-icon-btn" data-cut-sheet-add title="Add empty sheet" aria-label="Add empty sheet" onclick="cutUiSheetAdd('${esc(group.glass)}',${sheet.no})">+</button>
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div></div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
- const folderAvailable=typeof window.showDirectoryPicker==='function';
- const trialIssue=cutTrialError&&cutTrialError.key===[cutUi.batch,cutUi.glass,cutUi.sheet].join('|')?cutTrialError:null;
- const trialPanel=trialAct&&cutTrialOpen?`<div class="cut-trial-panel" data-cut-trial-panel role="group" aria-label="Trial machine export">
-  <div class="cut-trial-intro"><b>Sheet ${sheet.no} · preview only</b><span>Raw files, no ZIP. Shapes: lines and arcs; not verified for cutting.${folderAvailable?'':' Folder saving is unavailable in this browser.'}</span></div>
-  ${trialIssue?`<div class="cut-trial-error" data-cut-trial-error role="alert"><b>${esc(trialIssue.machine==='disai'?'Disai':'Maver')} could not export this sheet.</b> ${esc(trialIssue.error)}</div>`:''}
-  <div class="cut-trial-target"><b>Maver</b><button type="button" data-cut-trial-maver-iso onclick="cutUiTrialExport('maver','iso')">.ISO</button><button type="button" data-cut-trial-maver-bmp onclick="cutUiTrialExport('maver','bmp')">.BMP</button>${folderAvailable?'<button type="button" data-cut-trial-folder-maver onclick="cutUiTrialFolder(\'maver\')">Save both to folder</button>':''}</div>
-  <div class="cut-trial-target"><b>Disai</b><button type="button" data-cut-trial-disai-dst onclick="cutUiTrialExport('disai','dst')">.dst</button><button type="button" data-cut-trial-disai-sum onclick="cutUiTrialExport('disai','sum')">.sum</button>${folderAvailable?'<button type="button" data-cut-trial-folder-disai onclick="cutUiTrialFolder(\'disai\')">Save both to folder</button>':''}</div>
-  <span data-cut-trial-result role="status" aria-live="polite"></span></div>`:'';
  return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
   <div class="cut-page-tools">${laid?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${trialAct}${whatActs}</div>
-  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}${trialPanel}</div>`;
+  <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}</div>`;
 }
 function viewCutLayout(b){
  /* Собранный раскрой — параметры закрыты, правится только раскладка;
@@ -27774,8 +27882,11 @@ function printSheetCleanup(){
    ещё и превью с тем же <marker id="shpArr">, а браузер разрешает url(#id) по
    первому совпадению в документе — им оказывался скрытый превью-элемент, и на
    бумаге у цепочек размеров пропадали стрелки. */
+/* Счётчик — для нескольких листов в одной печати: в одну миллисекунду
+   Date.now() совпал бы, и стрелки всех листов брали бы маркер первого. */
+var printSheetSeq=0;
 function printSheetUniqueIds(svg){
-  var n='pr'+Date.now().toString(36);
+  var n='pr'+Date.now().toString(36)+(++printSheetSeq).toString(36);
   return String(svg)
     /* Кавычки могут быть и одинарными: разметка чертежа собирается шаблонными
        строками, и там id пишется через '. Пока правило смотрело только на ",
@@ -27787,16 +27898,19 @@ function printSheetUniqueIds(svg){
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
 function printSheetPrepare(svg,caption,after){
-  if(!svg)return false;
+  /* Несколько чертежей (окно Drawings) — массив: каждый на своей странице. */
+  var list=(Array.isArray(svg)?svg:[svg]).filter(Boolean);
+  if(!list.length)return false;
   var h=printSheetHost();
-  h.innerHTML='<div class="print-sheet">'+printSheetUniqueIds(svg)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';
+  h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
      по фактическому содержимому, а его можно измерить только в документе. */
-  if(typeof after==='function')try{after(h);}catch(e){}
+  if(typeof after==='function')Array.prototype.forEach.call(h.querySelectorAll('.print-sheet'),function(el){try{after(el);}catch(e){}});
   return true;
 }
-/* svg — готовая разметка чертежа, caption — подпись под листом (что печатаем). */
+/* svg — готовая разметка чертежа (или массив листов), caption — подпись под
+   листом (что печатаем). */
 function printSheet(svg,caption,after){
   if(!printSheetPrepare(svg,caption,after))return false;
   window.addEventListener('afterprint',printSheetCleanup,{once:true});
