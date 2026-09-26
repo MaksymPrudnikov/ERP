@@ -162,7 +162,7 @@ function cutUiTrialDownload(machine,files){
    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   });
   cutUiTrialDone();
- }catch(e){cutUiTrialFail(machine,'Files could not be created: '+(e&&e.message||'unknown error'));}
+ }catch(e){cutUiTrialFail(machine,'files not created'+(e&&e.message?' ('+e.message+')':'')+'.');}
 }
 async function cutUiTrialSave(machine){
  const prepared=cutUiTrialFiles(machine);
@@ -177,7 +177,7 @@ async function cutUiTrialSave(machine){
    try{await dir.getFileHandle(file.name);existing.push(file.name);}
    catch(e){if(e.name!=='NotFoundError')throw e;}
   }
-  if(existing.length){cutUiTrialFail(machine,'Folder '+folderName+' already contains '+existing.join(', ')+'. No files were overwritten.');return;}
+  if(existing.length){cutUiTrialFail(machine,folderName+' already exists — nothing overwritten.');return;}
   for(const file of files){
    const handle=await dir.getFileHandle(file.name,{create:true}),writer=await handle.createWritable();
    try{await writer.write(file.data);await writer.close();}
@@ -186,7 +186,7 @@ async function cutUiTrialSave(machine){
   cutUiTrialDone();
  }catch(e){
   if(e.name==='AbortError')return;
-  cutUiTrialFail(machine,'Folder save failed; check '+folderName+' for a partial export. '+(e&&e.message||''));
+  cutUiTrialFail(machine,'save failed'+(e&&e.message?' ('+e.message+')':'')+'. Check '+folderName+'.');
  }
 }
 /* Reset — листов раскладки больше нет, параметры открыты. Заблокированные
@@ -791,14 +791,15 @@ function cutPrintLandscape(plan){
  plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet;if(z.w>=z.h)wide++;else tall++;}));
  return wide>=tall;
 }
-/* Размер схемы для cutSheetSVG: вся ширина области печати, а по высоте —
-   то, что остаётся под шапку и таблицу (не меньше 40% страницы: длинная
-   таблица уходит на следующую страницу). */
+/* Размер схемы для cutSheetSVG: вся ширина области печати, по высоте — то,
+   что остаётся под шапку и таблицу. Если таблица на той же странице ужала бы
+   схему больше чем на четверть (лист 130 × 96 и 20 стёкол — было 380 px),
+   схема берёт страницу целиком, а таблица уходит на следующую. */
 function cutPrintSheetPx(size,landscape,rows){
- const m=CUT_PRINT_MARGIN_MM/25.4,pw=((landscape?11:8.5)-2*m)*96,ph=((landscape?8.5:11)-2*m)*96;
- const room=Math.max(ph*0.4,ph-CUT_PRINT_HEAD_PX-(rows+1)*CUT_PRINT_ROW_PX);
- const S=Math.min((pw-CUT_SVG_PAD)/size.w,(room-CUT_SVG_PAD)/size.h);
- return Math.floor(Math.max(size.w,size.h)*S);
+ const m=CUT_PRINT_MARGIN_MM/25.4,pw=((landscape?11:8.5)-2*m)*96,ph=((landscape?8.5:11)-2*m)*96-8;
+ const fit=room=>Math.min((pw-CUT_SVG_PAD)/size.w,(room-CUT_SVG_PAD)/size.h);
+ const page=fit(ph-CUT_PRINT_HEAD_PX),shared=fit(ph-CUT_PRINT_HEAD_PX-(rows+1)*CUT_PRINT_ROW_PX);
+ return Math.floor(Math.max(size.w,size.h)*(shared>=page*0.75?shared:page));
 }
 function cutPrintLayouts(number){
  const plan=cutPlanFor(number);if(!plan)return false;

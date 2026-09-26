@@ -1399,8 +1399,11 @@ module.exports=async function({page,eq,ok}){
   const wide=run(102,35.5),tallSize={w:35.5,h:102},tallPx=cutPrintSheetPx(tallSize,false,3),tallS=tallPx/102;
   return {wide:wide.page.includes('size:11in 8.5in')&&wide.width>900&&wide.width<=966,
    tall:!cutPrintLandscape({groups:[{sheet:tallSize,sheets:[{},{}]},{sheet:{w:102,h:35.5},sheets:[{}]}]})&&35.5*tallS+CUT_SVG_PAD<=726&&102*tallS+CUT_SVG_PAD<=966&&102*tallS+CUT_SVG_PAD>800,
+   /* Длинная таблица не ужимает схему: 130 × 96 и 20 стёкол — схема на всю
+      страницу, таблица на следующей; 3 стекла — таблица рядом. */
+   full:cutPrintSheetPx({w:130,h:96},true,20)>=830&&cutPrintSheetPx({w:130,h:96},true,3)<830,
    heads:wide.heads,cols:[...new Set(wide.cols)],turn:/ · 180°$/.test(wide.turn)};
- }),{wide:true,tall:true,heads:['#','Glass ID','Customer','Order','Mark','Size'],cols:[6],turn:true});
+ }),{wide:true,tall:true,full:true,heads:['#','Glass ID','Customer','Order','Mark','Size'],cols:[6],turn:true});
 
  {
   await t.p.evaluate(()=>{
@@ -1458,7 +1461,7 @@ module.exports=async function({page,eq,ok}){
   await cutUiTrialSave('maver');
   const first={folder:created[0],names:[...files.keys()].sort(),nonempty:[...files.values()].every(x=>x.length>0)};
   await cutUiTrialSave('maver');
-  const second={calls:created.length,count:files.size,refused:cutNotice.startsWith('Maver: ')&&cutNotice.includes('No files were overwritten')};
+  const second={calls:created.length,count:files.size,refused:cutNotice.startsWith('Maver: B-')&&cutNotice.endsWith('already exists — nothing overwritten.')};
   cutNotice='';
   await cutUiTrialSave('disai');
   const prjx=created[2]||'',base=prjx.replace(/\.prjx$/,'');
