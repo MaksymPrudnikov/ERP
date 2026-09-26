@@ -42,7 +42,7 @@ module.exports=async function({page,eq,ok}){
    ownShapes:qShapes(r1).every((id,i)=>!!id&&id!==baseShapes[i]&&!!salesShapeByRef({id})),baseSame:JSON.stringify(qShapes(saved))===JSON.stringify(baseShapes),bar,addBtn,list};
  }),{baseNo:'Q-10001',r1:'Q-10001-R1',group:true,rev:1,ownShapes:true,baseSame:true,bar:2,addBtn:true,list:1});
 
- eq('Documents у квоты: только бланк Quote и галочки ревизий; Email — два PDF одним письмом, обе ревизии Sent, Valid until +180 дней',await t.p.evaluate(()=>{
+ eq('Documents у квоты: из бланков только Quote (и вкладка Drawings), галочки ревизий; Email — два PDF одним письмом, обе ревизии Sent, Valid until +180 дней',await t.p.evaluate(()=>{
   const r1=soDraft.id,base=soDraft.quoteGroupId;
   docOpen();
   const kinds=[...document.querySelectorAll('.doc-kinds>button')].map(b=>b.textContent.trim()),boxes=document.querySelectorAll('[data-doc-rev]').length;
@@ -53,7 +53,7 @@ module.exports=async function({page,eq,ok}){
   return {kinds,boxes,twoSheets,title:model.title,validRow:model.meta.some(m=>m.label==='Valid until'),files:qDownloads.slice(),
    subject:url.includes('su=Quote Q-10001, Q-10001-R1'),to:url.includes('to=buyer@qaquote.ca'),sent:[b.status,r.status],dates:[b.validUntil===valid,r.validUntil===valid],
    copyMode:soQuoteCopyOf===r1,status:/marked Sent/.test(docState.status)};
- }),{kinds:['Quote'],boxes:2,twoSheets:true,title:'QUOTE',validRow:true,files:['Quote_Q_10001.pdf','Quote_Q_10001_R1.pdf'],subject:true,to:true,sent:['sent','sent'],dates:[true,true],copyMode:true,status:true});
+ }),{kinds:['Quote','Drawings'],boxes:2,twoSheets:true,title:'QUOTE',validRow:true,files:['Quote_Q_10001.pdf','Quote_Q_10001_R1.pdf'],subject:true,to:true,sent:['sent','sent'],dates:[true,true],copyMode:true,status:true});
 
  eq('отправленная ревизия открывается копией: баннер, свои фигуры; закрыть без правок — без вопроса, новой ревизии нет, копии фигур убраны',await t.p.evaluate(()=>{
   docClose();const r1=DB.salesOrder.find(o=>o.businessNumber==='Q-10001-R1');
@@ -96,10 +96,10 @@ module.exports=async function({page,eq,ok}){
   return {chips,deleted:n-DB.salesOrder.length,msg:msg.includes('Delete quote Q-10002 and all 2 revisions')};
  }),{chips:['Not sent 1','Sent 0','Won 1'],deleted:2,msg:true});
 
- eq('у заказа — бланки заказа, бланка Quote нет',await t.p.evaluate(()=>{
+ eq('у заказа — бланки заказа и вкладка Drawings, бланка Quote нет',await t.p.evaluate(()=>{
   const o=DB.salesOrder.find(x=>x.kind==='order');salesOrderEdit(o.id);docOpen();
   const kinds=[...document.querySelectorAll('.doc-kinds>button')].map(b=>b.textContent.trim());docClose();soEdit=null;soDraft=null;render();return kinds;
- }),['Work order','Proforma invoice','Order confirmation']);
+ }),['Work order','Proforma invoice','Order confirmation','Drawings']);
 
  eq('ревизии, бланк Quote и список квот — без русского текста',await t.p.evaluate(()=>{
   const c=DB.customer.find(x=>/^QAQUOTE/.test(x.code));qNew(c);salesOrderSave();salesQuoteNewRevision();docOpen();

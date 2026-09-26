@@ -14,18 +14,22 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
-function docOpen(kind){
+/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26.09.2026):
+   мокапы всех строк, галочками — какие печатать. focus — строка, к которой
+   прокрутить окно (клик по форме строки в батче). */
+function docOpen(kind,focus){
  if(!soDraft)return;
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
- kind=kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
+ kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur};
+ docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,skip:[],focus:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
 function docSetKind(kind){
- if(!docState||!soDraft||!docKindsFor(soDraft).some(d=>d.k===kind))return;
- if(kind!=='quote')docLastKind=kind;docState.kind=kind;docState.opts=docDefaultOptions(kind);docState.status='';render();
+ if(!docState||!soDraft||!(kind==='drawings'||docKindsFor(soDraft).some(d=>d.k===kind)))return;
+ if(kind!=='quote'&&kind!=='drawings')docLastKind=kind;
+ docState.kind=kind;docState.opts=kind==='drawings'?{}:docDefaultOptions(kind);docState.status='';if(kind==='drawings')docState.panel=false;render();
 }
 function docTogglePanel(){if(!docState)return;docState.panel=!docState.panel;render();}
 /* Галочка меняет только этот показ. В заказ ничего не пишется, а набор по
@@ -63,7 +67,7 @@ function docRevisionPicker(){
  return `<span class="doc-revs">Revisions ${ms.map(m=>`<label><input type="checkbox" data-doc-rev="${esc(m.id)}" ${(docState.revs||[]).includes(m.id)?'checked':''} onchange="docToggleRev('${esc(m.id)}',this.checked)"> ${esc(salesQuoteRevName(m))}</label>`).join('')}</span>`;
 }
 function docWarnings(){
- const out=[];
+ const out=[];if(docState.kind==='drawings')return '';
  if(!soDraft.businessNumber&&!salesQuoteCurrentId())out.push(salesIsQuote(soDraft)?'Save the quote to give the document its number.':'Save the order to give the document its number.');
  if(docState.kind==='quote'&&salesQuoteCurrentId()&&!(docState.revs||[]).length)out.push('Tick at least one revision to print or email.');
  if(!soDraft.customerId)out.push('No customer selected.');
@@ -74,17 +78,68 @@ function docWarnings(){
 
 function docModal(){
  if(!docState||!soDraft)return '';
+ const drawings=docState.kind==='drawings',items=drawings?docDrawingItems():null;
  let pages=[],error='';
- try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
+ if(!drawings)try{pages=docCurrentPages();}catch(e){error=e&&e.message||String(e);console.error(e);}
  const warn=docWarnings(),status=docState.status?'<span>'+esc(docState.status)+'</span>':'';
- const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('');
+ const kinds=docKindsFor(soDraft).map(d=>`<button type="button" class="${d.k===docState.kind?'on':''}" onclick="docSetKind('${d.k}')">${d.label}</button>`).join('')+`<button type="button" class="${drawings?'on':''}" data-doc-kind="drawings" onclick="docSetKind('drawings')">Drawings</button>`;
+ const tools=drawings?docDrawingTools(items):`<button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>`;
+ const body=drawings?docDrawingsBody(items):`<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>`;
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
   <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
-   <button type="button" class="doc-pen${docState.panel?' on':''}" aria-pressed="${docState.panel}" onclick="docTogglePanel()">✎ Customize</button>
-   <button type="button" onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button><button type="button" onclick="docClose()">Close</button></div>
+   ${tools}
+   <button type="button" data-doc-print onclick="docPrint()">Print</button>${drawings?'':'<button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
-  <div class="doc-body${docState.panel?' with-panel':''}"><div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div>${docState.panel?docPanel():''}</div>
+  <div class="doc-body${docState.panel&&!drawings?' with-panel':''}">${body}${docState.panel&&!drawings?docPanel():''}</div>
  </div></div>`;
+}
+/* ----------------------------- Чертежи ------------------------------ */
+/* Мокап — тот же лист, что уйдёт на печать (salesLineDrawing), в уменьшенной
+   бумаге. Листы строятся один раз на открытие окна: пока оно открыто, заказ
+   не правится, а 60 строк считались ~3 с на каждую перерисовку. Галочки и
+   All/None меняют только сам экран. */
+function docDrawingItems(){
+ const done=docState.drawings||(docState.drawings=new Map());
+ return (soDraft.lines||[]).map((l,i)=>{if(!done.has(l.id))done.set(l.id,salesLineDrawing(l));const d=done.get(l.id);return d?Object.assign({i},d):null;}).filter(Boolean);
+}
+function docDrawingPicked(items){const skip=new Set(docState.skip||[]);return items.filter(x=>x.html&&!skip.has(x.line.id));}
+function docDrawingTools(items){
+ const ok=items.filter(x=>x.html);
+ return `<span class="doc-drawing-count" data-doc-drawing-count>${docDrawingPicked(ok).length} of ${ok.length}</span><button type="button" data-doc-all onclick="docDrawingAll(true)">All</button><button type="button" data-doc-none onclick="docDrawingAll(false)">None</button>`;
+}
+function docDrawingsBody(items){
+ const skip=new Set(docState.skip||[]);
+ setTimeout(docDrawingsFit,0);
+ if(!items.length)return '<div class="doc-drawings"><div class="empty">No drawings.</div></div>';
+ return `<div class="doc-drawings">${items.map(x=>{const id=esc(x.line.id),on=!!x.html&&!skip.has(x.line.id);
+  return `<figure class="doc-drawing${on?' on':''}" data-doc-drawing="${id}">
+   <label class="doc-drawing-head"><input type="checkbox" ${x.html?'':'disabled'} ${on?'checked':''} onchange="docDrawingToggle('${id}',this.checked)"><b>Line ${x.i+1}</b><span>${esc(x.line.mark||'')}</span></label>
+   <div class="doc-drawing-paper">${x.html?`<div class="doc-drawing-scale"><div class="print-sheet">${printSheetUniqueIds(x.html)}</div></div>`:`<div class="doc-drawing-error">${esc(x.error)}</div>`}</div></figure>`;}).join('')}</div>`;
+}
+function docDrawingsFit(){
+ document.querySelectorAll('.doc-drawing .print-sheet').forEach(el=>salesSheetFitDrawing(el));
+ const f=docState&&docState.focus;if(!f)return;docState.focus='';
+ const el=[...document.querySelectorAll('[data-doc-drawing]')].find(x=>x.dataset.docDrawing===f);
+ if(el){el.scrollIntoView({block:'center'});el.classList.add('focus');}
+}
+function docDrawingShow(){
+ const skip=new Set(docState.skip||[]),boxes=[...document.querySelectorAll('[data-doc-drawing]')];
+ boxes.forEach(el=>{const input=el.querySelector('input'),on=!input.disabled&&!skip.has(el.dataset.docDrawing);input.checked=on;el.classList.toggle('on',on);});
+ const count=document.querySelector('[data-doc-drawing-count]'),ok=boxes.filter(el=>!el.querySelector('input').disabled);
+ if(count)count.textContent=ok.filter(el=>!skip.has(el.dataset.docDrawing)).length+' of '+ok.length;
+}
+function docDrawingToggle(id,on){
+ if(!docState)return;
+ const s=new Set(docState.skip||[]);if(on)s.delete(id);else s.add(id);docState.skip=[...s];docDrawingShow();
+}
+function docDrawingAll(on){
+ if(!docState)return;docState.skip=on?[]:(soDraft.lines||[]).map(l=>l.id);
+ if(docState.status){docState.status='';render();}else docDrawingShow();
+}
+function docDrawingsPrint(){
+ const sheets=docDrawingPicked(docDrawingItems()).map(x=>x.html);
+ if(!sheets.length){docState.status='Tick at least one drawing.';render();return;}
+ docState.status='';printSheet(sheets,'',salesSheetFitDrawing);
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -114,6 +169,7 @@ function docPrintPrepare(){
 function docPrintCleanup(){document.body.classList.remove('doc-printing');const h=document.getElementById('docPrintHost');if(h)h.innerHTML='';}
 function docPrint(){
  if(!docState)return;
+ if(docState.kind==='drawings'){docDrawingsPrint();return;}
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);

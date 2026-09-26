@@ -34,6 +34,21 @@
  .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
  .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
 }
+/* Вкладка Drawings: мокап — настоящий лист чертежа 850 × 1100 (как у
+   печати), уменьшенный в бумагу 255 × 330. */
+.doc-drawing-count{color:#475467;font-size:12px;white-space:nowrap}
+.doc-drawings{min-height:0;overflow:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,259px);grid-auto-rows:max-content;justify-content:center;align-content:start;gap:16px}
+.doc-drawing{margin:0;background:#fff;border:2px solid transparent;border-radius:8px;box-shadow:0 2px 12px rgba(16,24,40,.18);overflow:hidden}
+.doc-drawing.on{border-color:#16325c}
+.doc-drawing.focus{box-shadow:0 0 0 4px #fdb022}
+.doc-drawing-head{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;border-bottom:1px solid #eaecf0;font-size:12px;cursor:pointer}
+.doc-drawing-head input{flex:none;width:auto;margin:0}
+.doc-drawing-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475467}
+.doc-drawing-paper{position:relative;width:255px;height:330px;overflow:hidden}
+.doc-drawing-scale{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.3);transform-origin:0 0;pointer-events:none}
+.doc-drawing-scale .print-sheet{height:100%}
+.doc-drawing-error{padding:12px;color:#b42318;font-size:12px}
+.doc-drawing:not(.on) .doc-drawing-paper{opacity:.45}
 @media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
 
 

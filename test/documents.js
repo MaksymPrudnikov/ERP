@@ -174,8 +174,39 @@ module.exports=async function({page,eq,ok}){
   return {listLabel,select:sel?sel.value:null,days};
  }),{listLabel:true,select:'credit',days:true});
 
+ /* Владелец, 26.09.2026: чертежи всех строк — мокапами, печать всех сразу или
+    по выбору; строка в батче тоже; DXF получает свой лист (контур и габарит). */
+ eq('Drawings: мокапы всех строк, строка в батче и DXF со своим листом, печать отмеченных по одному на страницу',await t.p.evaluate(()=>{
+  docFixture({lines:[[37,71,1,'W-1'],[30,40,1,'W-2'],[20,20,1,'W-3']]});
+  const add=(l,setup)=>{const s=newShapeDef('custom');setup(s);const def=normalizeShapeDef(s);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);salesSyncLineFromShape(l,def);};
+  add(soDraft.lines[1],s=>{s.type='circle';s.w='30';s.h='30';});
+  add(soDraft.lines[2],s=>{s.w='20';s.h='20';s.source={kind:'dxf',fileName:'part.dxf',fileSize:4000,uploadedAt:'2026-09-26',preview:{units:'in',points:[[0,0],[20,0],[20,12],[10,20],[0,12]],width16:320,height16:320}};});
+  soDraft.lines[0].batchedAt='2026-09-26T10:00:00Z';
+  const before={draft:sDraft,bridge:salesBridge},drawOnce=salesLineDrawing;let built=0;
+  salesLineDrawing=function(l){built++;return drawOnce(l);};
+  render();docOpen('drawings');
+  const cards=[...document.querySelectorAll('[data-doc-drawing]')],dxf=cards[2];
+  const r={cards:cards.length,checked:cards.filter(c=>c.querySelector('input').checked).length,
+   sheets:cards.filter(c=>c.querySelector('.print-shape-sheet')).length,
+   dxf:!!dxf&&!!dxf.querySelector('.shape-dxf-svg')&&!dxf.querySelector('.shape-dxf-svg[onclick]')&&dxf.textContent.includes('Finished 20″ × 20″'),
+   bar:[...document.querySelectorAll('.doc-bar button')].map(b=>b.textContent).filter(x=>/Email|Customize|All|None|Print/.test(x)),
+   count:document.querySelector('[data-doc-drawing-count]').textContent};
+  docDrawingToggle(soDraft.lines[1].id,false);
+  r.after=document.querySelector('[data-doc-drawing-count]').textContent;
+  const oldPrint=window.print;let printed=0;window.print=()=>{printed++;};
+  docPrint();window.print=oldPrint;
+  const host=document.getElementById('printSheetHost'),ids=[...host.querySelectorAll('[id]')].map(x=>x.id);
+  r.print={calls:printed,pages:host.querySelectorAll('.print-sheet').length,sheets:host.querySelectorAll('.print-shape-sheet').length,uniqueIds:new Set(ids).size===ids.length};
+  printSheetCleanup();docDrawingAll(false);r.cleared=[...document.querySelectorAll('[data-doc-drawing] input:checked')].length+' / '+document.querySelector('[data-doc-drawing-count]').textContent;
+  docPrint();r.none=docState.status;render();
+  /* Листы строятся один раз на окно: перерисовки и All/None их не пересчитывают. */
+  r.built=built;salesLineDrawing=drawOnce;
+  r.kept=sDraft===before.draft&&salesBridge===before.bridge;
+  docClose();soDraft.lines[0].batchedAt='';return r;
+ }),{cards:3,checked:3,sheets:3,dxf:true,bar:['All','None','Print'],count:'3 of 3',after:'2 of 3',print:{calls:1,pages:2,sheets:2,uniqueIds:true},cleared:'0 / 0 of 3',none:'Tick at least one drawing.',built:3,kept:true});
+
  eq('окно бланков с панелью и вкладка Company — без русского текста',await t.p.evaluate(()=>{
-  docFixture();render();docOpen('workOrder');docTogglePanel();const a=document.querySelector('.doc-window').innerText;docClose();
+  docFixture();render();docOpen('workOrder');docTogglePanel();let a=document.querySelector('.doc-window').innerText;docSetKind('drawings');a+=document.querySelector('.doc-window').innerText;docClose();
   tab='masterdata';mdSetTab('company');render();const b=document.querySelector('.doc-company').innerText;
   return /[А-яЁё]/.test(a+b);
  }),false);
