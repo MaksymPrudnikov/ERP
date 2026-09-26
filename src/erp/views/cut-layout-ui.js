@@ -781,20 +781,41 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
 /* --------------------------------- Печать -------------------------------- */
 function cutPrintHost(){let h=document.getElementById('cutPrintHost');if(!h){h=document.createElement('div');h.id='cutPrintHost';document.body.appendChild(h);}return h;}
 function cutPrintCleanup(){document.body.classList.remove('cut-printing');const h=document.getElementById('cutPrintHost');if(h)h.innerHTML='';}
+/* Владелец, 26 сентября 2026: печатают редко, но на Letter. Схема шла
+   полоской 520 px на книжной странице, подписи стёкол наезжали. Теперь
+   ориентация — по листам батча, а схема занимает всю область печати: подписи
+   по размеру куска сами переходят в полный вид. */
+const CUT_PRINT_MARGIN_MM=12,CUT_PRINT_HEAD_PX=64,CUT_PRINT_ROW_PX=20;
+function cutPrintLandscape(plan){
+ let wide=0,tall=0;
+ plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet;if(z.w>=z.h)wide++;else tall++;}));
+ return wide>=tall;
+}
+/* Размер схемы для cutSheetSVG: вся ширина области печати, а по высоте —
+   то, что остаётся под шапку и таблицу (не меньше 40% страницы: длинная
+   таблица уходит на следующую страницу). */
+function cutPrintSheetPx(size,landscape,rows){
+ const m=CUT_PRINT_MARGIN_MM/25.4,pw=((landscape?11:8.5)-2*m)*96,ph=((landscape?8.5:11)-2*m)*96;
+ const room=Math.max(ph*0.4,ph-CUT_PRINT_HEAD_PX-(rows+1)*CUT_PRINT_ROW_PX);
+ const S=Math.min((pw-CUT_SVG_PAD)/size.w,(room-CUT_SVG_PAD)/size.h);
+ return Math.floor(Math.max(size.w,size.h)*S);
+}
 function cutPrintLayouts(number){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[];
+ const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[],landscape=cutPrintLandscape(plan);
  plan.groups.forEach(g=>g.sheets.forEach(s=>{
-  const autoTrim=cutAutoTrimInfo(g,s);
+  const autoTrim=cutAutoTrimInfo(g,s),size=s.size||g.sheet;
   const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
    const turn=cutPieceTurn(p);
-   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″</td><td>${turn?turn*90+'°':''}</td></tr>`;}).join('');
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16((s.size||g.sheet).w))} × ${esc(frac16((s.size||g.sheet).h))}″</h3>
+   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${turn?` <span class="cut-print-turn">· ${turn*90}°</span>`:''}</td></tr>`;}).join('');
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″</h3>
    <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″ (+ '+esc(frac16(autoTrim.extra))+'″)':''}${(s.stock||[]).length?' · To stock '+s.stock.map(x=>esc(x.id)+' '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″').join(', '):''}</p>
-   <div class="cut-print-sheet">${cutSheetSVG(g,s,520,pieces)}</div>
-   <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`);
+   <div class="cut-print-sheet">${cutSheetSVG(g,s,cutPrintSheetPx(size,landscape,s.pieces.length),pieces)}</div>
+   <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>`);
  }));
  if(!pages.length)return false;
+ let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
+ st.textContent='@page cutsheet{size:'+(landscape?'11in 8.5in':'8.5in 11in')+';margin:'+CUT_PRINT_MARGIN_MM+'mm}';
  cutPrintHost().innerHTML=pages.join('');
  document.body.classList.add('cut-printing');
  window.addEventListener('afterprint',cutPrintCleanup,{once:true});setTimeout(cutPrintCleanup,60000);

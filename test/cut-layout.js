@@ -1382,6 +1382,26 @@ module.exports=async function({page,eq,ok}){
   return {wide:run(3000000),narrow:run(2045400)};
  }),{wide:'25.4:0 1025.4:25.4 2025.4:0',narrow:'25.4:0 1025.4:25.4 2025.4:25.4'});
 
+ eq('печать схем: широкий лист — альбомный Letter во всю ширину, высокий — книжный, поворот в ячейке размера',await t.p.evaluate(()=>{
+  const run=(w,h)=>{
+   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',w,h);ctOrder([[14,14,2],[16,6,1]]);
+   const b=DB.glassBatch[0];cutPlanRun(b.number);cutPlanFor(b.number).groups[0].sheets[0].pieces[0].turn=2;
+   cutPrintLayouts(b.number);
+   const host=document.getElementById('cutPrintHost'),svg=host.querySelector('.cut-print-sheet svg');
+   const r={page:(document.getElementById('cutPageStyle')||{}).textContent||'',width:+svg.getAttribute('width'),height:+svg.getAttribute('height'),
+    heads:[...host.querySelectorAll('.cut-print-table th')].map(x=>x.textContent),
+    cols:[...host.querySelectorAll('.cut-print-table tbody tr')].map(tr=>tr.children.length),
+    turn:host.querySelector('.cut-print-table tbody tr td:last-child').textContent};
+   cutPrintCleanup();return r;
+  };
+  /* Листы цеха хранятся лёжа, но лист можно повернуть стоя (orient) —
+     тогда книжная страница и схема по высоте. */
+  const wide=run(102,35.5),tallSize={w:35.5,h:102},tallPx=cutPrintSheetPx(tallSize,false,3),tallS=tallPx/102;
+  return {wide:wide.page.includes('size:11in 8.5in')&&wide.width>900&&wide.width<=966,
+   tall:!cutPrintLandscape({groups:[{sheet:tallSize,sheets:[{},{}]},{sheet:{w:102,h:35.5},sheets:[{}]}]})&&35.5*tallS+CUT_SVG_PAD<=726&&102*tallS+CUT_SVG_PAD<=966&&102*tallS+CUT_SVG_PAD>800,
+   heads:wide.heads,cols:[...new Set(wide.cols)],turn:/ · 180°$/.test(wide.turn)};
+ }),{wide:true,tall:true,heads:['#','Glass ID','Customer','Order','Mark','Size'],cols:[6],turn:true});
+
  {
   await t.p.evaluate(()=>{
    /* Disai: для 12 мм образцов нет — отказ стоит красной строкой, а выбор

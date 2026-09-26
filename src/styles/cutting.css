@@ -203,17 +203,21 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 @media(max-width:1200px){.cut-grid{grid-template-columns:minmax(0,1fr)}}
 /* Печать схем для стола резки. */
 #cutPrintHost{display:none}
-@page cutsheet{size:8.5in 11in;margin:12mm}
+/* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
 @media print{
+ html:has(body.cut-printing),body.cut-printing{background:#fff!important}
  body.cut-printing>*{display:none!important}
  body.cut-printing>#cutPrintHost{display:block!important}
  .cut-print-page{page:cutsheet;break-after:page;font:12px Helvetica,Arial,sans-serif}
  .cut-print-page:last-child{break-after:auto}
- .cut-print-page h3{margin:0 0 4px}
- .cut-print-page p{margin:0 0 10px;color:#475467}
+ .cut-print-page h3{margin:0 0 4px;break-after:avoid}
+ .cut-print-page p{margin:0 0 10px;color:#475467;break-after:avoid}
  .cut-print-sheet{margin-bottom:12px}
+ .cut-print-sheet svg{display:block;max-width:100%;height:auto}
  .cut-print-table{width:100%;border-collapse:collapse;font-size:11px}
+ .cut-print-table tr{break-inside:avoid}
  .cut-print-table th,.cut-print-table td{border-bottom:1px solid #d0d5dd;padding:3px 6px;text-align:left}
+ .cut-print-turn{color:#475467;white-space:nowrap}
 }
 .cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid #abefc6;border-radius:8px;background:#ecfdf3;color:#067647;font-size:13px}
 .cut-size-nums{font-size:10px;color:#667085;margin-top:2px;white-space:nowrap}
