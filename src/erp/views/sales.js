@@ -102,7 +102,9 @@ function salesStockPickerModal(){
   </div></div>`;
 }
 function salesLineShapeCell(l,i){
- const s=salesShapeByRef(l.shapeRef);if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
+ const s=salesShapeByRef(l.shapeRef);
+ if(salesLineLocked(l))return s?`<div class="line-config-cell"><button class="line-link-btn ${salesShapeIsLineRect(s)?'rect':'linked'}" data-line-drawing title="View drawing" onclick="docOpen('drawings','${esc(l.id)}')">${esc(salesShapeIsLineRect(s)?'Rect':s.name)}</button></div>`:'';
+ if(!s)return `<button class="line-link-btn" onclick="salesOrderConfigureShape(${i})">+ Shape</button>`;
  /* Простой прямоугольник строки — это её собственная геометрия, а не выбранная
     из библиотеки форма: в таблице он не занимает место именем, а зовёт туда,
     где правится геометрия и кромка. */

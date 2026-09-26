@@ -189,8 +189,11 @@ function printSheetCleanup(){
    ещё и превью с тем же <marker id="shpArr">, а браузер разрешает url(#id) по
    первому совпадению в документе — им оказывался скрытый превью-элемент, и на
    бумаге у цепочек размеров пропадали стрелки. */
+/* Счётчик — для нескольких листов в одной печати: в одну миллисекунду
+   Date.now() совпал бы, и стрелки всех листов брали бы маркер первого. */
+var printSheetSeq=0;
 function printSheetUniqueIds(svg){
-  var n='pr'+Date.now().toString(36);
+  var n='pr'+Date.now().toString(36)+(++printSheetSeq).toString(36);
   return String(svg)
     /* Кавычки могут быть и одинарными: разметка чертежа собирается шаблонными
        строками, и там id пишется через '. Пока правило смотрело только на ",
@@ -202,16 +205,19 @@ function printSheetUniqueIds(svg){
 /* Подготовка листа отделена от вызова печати: так её можно проверить тестом,
    не открывая системный диалог. */
 function printSheetPrepare(svg,caption,after){
-  if(!svg)return false;
+  /* Несколько чертежей (окно Drawings) — массив: каждый на своей странице. */
+  var list=(Array.isArray(svg)?svg:[svg]).filter(Boolean);
+  if(!list.length)return false;
   var h=printSheetHost();
-  h.innerHTML='<div class="print-sheet">'+printSheetUniqueIds(svg)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';
+  h.innerHTML=list.map(function(x){return '<div class="print-sheet">'+printSheetUniqueIds(x)+(caption?'<div class="print-caption">'+esc(caption)+'</div>':'')+'</div>';}).join('');
   document.body.classList.add('printing');
   /* Доводка выполняется ПОСЛЕ вставки: чертёж подгоняется под отведённое место
      по фактическому содержимому, а его можно измерить только в документе. */
-  if(typeof after==='function')try{after(h);}catch(e){}
+  if(typeof after==='function')Array.prototype.forEach.call(h.querySelectorAll('.print-sheet'),function(el){try{after(el);}catch(e){}});
   return true;
 }
-/* svg — готовая разметка чертежа, caption — подпись под листом (что печатаем). */
+/* svg — готовая разметка чертежа (или массив листов), caption — подпись под
+   листом (что печатаем). */
 function printSheet(svg,caption,after){
   if(!printSheetPrepare(svg,caption,after))return false;
   window.addEventListener('afterprint',printSheetCleanup,{once:true});

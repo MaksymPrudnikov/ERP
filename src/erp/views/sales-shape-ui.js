@@ -1203,12 +1203,12 @@ function shapeMarksBodyHTML(){
   body+=shapeSandblastCardsHTML(g);
   return body;
 }
-function shapeDxfPreviewSvg(source,includeMarks){
+function shapeDxfPreviewSvg(source,includeMarks,still){
   source=shapeNormalizeSource(source);var T=shapeDxfPreviewTransform(source);if(!T)return '';
   var P=T.P,b=T.b,W=T.W,H=T.H,vw=T.vw,vh=T.vh,sc=T.sc,dw=T.dw,dh=T.dh,x0=T.x0,y0=T.y0,X=T.X,Y=T.Y;
   var path=P.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(2)+' '+Y(p[1]).toFixed(2);}).join(' ')+' Z';
-  var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&sManufacturingPlace?' placing':'';
-  return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
+  var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&!still&&sManufacturingPlace?' placing':'';
+  return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks&&!still?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
     <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
     ${markers}
@@ -1671,20 +1671,26 @@ function shapeFitPreview(){
   var avail=Math.max(340,(window.innerHeight||800)-top-28);
   svg.style.maxHeight=Math.round(avail)+'px';
 }
+/* Чертёж для печатного листа. Лист несёт свою шапку и маршрут, поэтому
+   чертёж рисуется без собственного заголовка и в чёрно-белом варианте: цех
+   печатает ч/б, и цветом стороны там не различить — их называет буква на
+   кромке. DXF из Fusion 360 (владелец, 26.09.2026: «выдадим ему чертёж») —
+   его контур, габарит и отметки ERP, как на вкладке Production Drawing ·
+   DXF; внутренних размеров нет — исходный файл ERP не хранит. */
+function shapeSheetOk(r){return !!r&&(r.valid||!!(r.externalFile&&r.sourceValid));}
+function shapeSheetSvg(r,cutting){
+  if(r.externalFile)return shapeDxfPreviewSvg((r.definition&&r.definition.source)||sDraft.source,!cutting,true);
+  return cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
+}
 /* Печать активной вкладки чертежа. Setup показывает Production Drawing,
    поэтому печатается он же — печатаем ровно то, что человек видит. */
 function shapePrintDrawing(){
   var r=shapeDraftResult(),e=document.getElementById('e_shape');
   if(e)e.style.display='none';
-  if(r.externalFile){if(e)fail(e,'A DXF file from Fusion 360 is not printed as a Production Shape drawing.');return;}
-  if(!r.valid){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
-  /* Лист несёт свою шапку и маршрут, поэтому чертёж рисуется без собственного
-     заголовка и в чёрно-белом варианте: цех печатает ч/б, и цветом стороны там
-     не различить — их называет буква на кромке. */
+  if(!shapeSheetOk(r)){if(e)fail(e,'Invalid geometry cannot be printed: '+(r.errors&&r.errors[0]||r.reason||''));return;}
   var cutting=sView==='cutting';
-  var svg=cutting?ShapeModule.cuttingSvg(r):shapeDrawnProductionSvg(r,false,{sheet:true});
-  var kind=cutting?'CUTTING SHAPE':'PRODUCTION DRAWING';
-  printSheet(salesShapeSheetHTML(sDraft,r,svg,kind),'',salesSheetFitDrawing);
+  var kind=cutting?(r.externalFile?'CUTTING DXF':'CUTTING SHAPE'):'PRODUCTION DRAWING';
+  printSheet(salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,cutting),kind),'',salesSheetFitDrawing);
 }
 /* Снятый угловой блок уносит с собой свои рёбра E/F/G…, но обработка кромки по
    ним оставалась в edgeOps и навсегда роняла форму в «Edge processing references
@@ -2319,7 +2325,7 @@ function shapeForm(){
   var r=shapeDraftResult(),external=shapeIsDxfSource(sDraft),geo=external?{ok:false,points:[],edges:[],vertices:[]}:shapeDraftGeometry(),presetOptions=shapePresetChoices(sDraft.type).map(function(p){return `<option value='${p.id}' ${p.id===sDraft.type?'selected':''}>${esc(p.code+' · '+p.label)}</option>`;}).join('');
   var master=external?`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div><div><label>Width</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.width16||0)/16))}'></div><div><label>Height</label><input class='ro' readonly value='${esc(frac64((sDraft.source.preview.height16||0)/16))}'></div></div>`:`<div class='grid shape-master-fields'><div><label>Name *</label><input value='${esc(sDraft.name||'')}' oninput='sDraft.name=this.value'></div><div><label>Shape type</label><select onchange='setShapeType(this.value)'>${presetOptions}</select></div>${shapeMasterSizeFields()}</div>`;
   var controls=external?`<div class='validation-box infobox'>Configurator geometry is disabled for this revision: the contour and bounding dimensions were read from the external DXF.</div>${shapeCutoutEditor(geo)}`:`${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeCutoutEditor(geo)}${shapeEdgeworkEditor()}`;
-  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' disabled>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
+  var tabs=external?`<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`:`<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()' data-i18n-title='Print drawing or save as PDF'>Print / PDF</button></div>`;
   return `<div class='module-editor' id='shapeEditorRoot'><div class='module-editor-head'><div><h3>${sEdit==='new'?'New Production Shape':'Edit shape'}</h3><p>${external?'Cutting comes from a Fusion 360 DXF; ERP stores only the derived 2D contour and dimensions, not the original file contents.':'All dimensions are finished sizes in inches. Invalid geometry cannot be saved or exported.'}</p></div></div>
     <div class='shape-editor-layout'><div class='shape-controls'>
       ${master}${shapeSourceEditor()}${controls}

@@ -81,7 +81,10 @@ function salesLockedLineGuard(line){
  alert('Line is batched and locked. Unbatch it in Optimization to edit.');
  return true;
 }
-function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked' inert":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+/* У строки в батче закрыта каждая ячейка, кроме Shape: форма открывает
+   чертёж на просмотр и печать (владелец, 26.09.2026), редактор — нет. */
+function salesLineRowAttrs(line){return salesLineLocked(line)?" class='line-locked'":(line.onHold?" class='sales-line-on-hold'":'')+salesLineHoldRowAttrs(line);}
+function salesLockedCell(line,html,key){return salesLineLocked(line)&&key!=='shape'?String(html).replace(/^<td\b/,'<td inert'):html;}
 function salesLineBadge(line){
  if(!soDraft||salesIsQuote(soDraft))return '';
  if(salesLineLocked(line))return ` <span class="line-lock" title="Batched ${esc(salesShortDate(line.batchedAt))}${line.batchNo?' · '+esc(line.batchNo):''}">🔒</span>`;

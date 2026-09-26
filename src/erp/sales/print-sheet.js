@@ -251,7 +251,8 @@ function salesShapeSheetHTML(shape,result,svg,kind){
   var line=salesSheetLineOf(shape);
   var order=(typeof soDraft!=='undefined')?soDraft:null;
   var makeup=(line&&order&&typeof salesMakeupById==='function')?salesMakeupById(order,line.makeupId):null;
-  var areaFt2=result&&result.valid?result.area/144:0;
+  var ok=typeof shapeSheetOk==='function'?shapeSheetOk(result):!!(result&&result.valid);
+  var areaFt2=ok?result.area/144:0;
   var pane=makeup&&(makeup.panes||[])[0];
   var weight='';
   if(makeup&&(makeup.panes||[]).length){
@@ -264,7 +265,7 @@ function salesShapeSheetHTML(shape,result,svg,kind){
     if(ok&&total>0)weight=salesSheetWeightText({kg:total,exact:exact});
   }else if(pane)weight=salesSheetWeightText(salesSheetPaneWeightKg(pane,areaFt2));
 
-  var finished=result&&result.valid?dimIn16(result.width)+' × '+dimIn16(result.height):'';
+  var finished=ok?dimIn16(result.width)+' × '+dimIn16(result.height):'';
   var size=finished?'Finished '+finished:'';
   var mass=[areaFt2?areaFt2.toFixed(2)+' sq ft':'',weight?weight:''].filter(Boolean).join(' · ');
   var lineText=salesSheetLineNumber(line);
@@ -314,6 +315,24 @@ function salesShapeSheetHTML(shape,result,svg,kind){
     '<div class="sheet-foot"><span></span>'+
       '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
   '</div>';
+}
+/* Лист чертежа строки без открытия редактора — окно Drawings и печать
+   нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не
+   открыть и не распечатать. Редактор рисует лист из своего sDraft и
+   salesBridge, поэтому на время отрисовки подставляем копию формы строки и
+   всё возвращаем. Редактировать здесь нечего — строка в батче тоже рисуется. */
+function salesLineDrawing(line){
+  var shape=line&&salesShapeByRef(line.shapeRef);if(!shape)return null;
+  var keep={draft:sDraft,bridge:salesBridge,view:sView,lite:typeof sEdgeLite==='undefined'?null:sEdgeLite,place:sManufacturingPlace};
+  try{
+    sDraft=normalizeShapeDef(JSON.parse(JSON.stringify(shape)));salesBridge={kind:'shape',lineId:line.id};
+    sView='production';sEdgeLite=null;sManufacturingPlace=null;
+    if(typeof salesApplyLineGlassThicknessToShape==='function')salesApplyLineGlassThicknessToShape(line,sDraft);
+    var r=ShapeModule.compute(sDraft);
+    if(!shapeSheetOk(r))return {line:line,error:String((r.errors&&r.errors[0])||r.reason||'Invalid geometry')};
+    return {line:line,html:salesShapeSheetHTML(sDraft,r,shapeSheetSvg(r,false),'PRODUCTION DRAWING')};
+  }catch(e){return {line:line,error:String(e&&e.message||e)};}
+  finally{sDraft=keep.draft;salesBridge=keep.bridge;sView=keep.view;sEdgeLite=keep.lite;sManufacturingPlace=keep.place;}
 }
 /* Состав стоит СПРАВА от чертежа — так решил владелец, и это раскладка по
    умолчанию. Уступает она только там, где сама себе мешает: у лежачей фигуры

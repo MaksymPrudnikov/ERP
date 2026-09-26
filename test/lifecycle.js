@@ -22,11 +22,14 @@ module.exports=async function({page,eq,ok}){
  }),{title:'Northside Windows Ltd is over the credit limit',buttons:['Back','Verify anyway'],status:'verified'});
  eq('батч блокирует фигуру, удаление и сохранение изменённых размеров; новых кнопок шагов в заказе нет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqQueue();oqThrough(id,'batched');tab='sales';salesOrderEdit(id);
-  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.hasAttribute('inert')),muLocked=!!document.querySelector('.mu-locked[inert]');
+  /* Закрыта каждая ячейка, кроме Shape: форма открывает чертёж, не редактор. */
+  const inert=[...document.querySelectorAll('tr[data-metrics-line-id]')].every(r=>r.classList.contains('line-locked')&&[...r.children].every(td=>td.hasAttribute('inert')!==!!td.querySelector('[data-line-drawing]'))),muLocked=!!document.querySelector('.mu-locked[inert]');
   const alerts=[],prev=window.alert;window.alert=m=>alerts.push(m);salesOrderConfigureShape(0);salesOrderRemoveLine(0);window.alert=prev;
+  document.querySelector('[data-line-drawing]').click();
+  const drawing=!!docState&&docState.kind==='drawings'&&docState.focus===soDraft.lines[0].id&&tab==='sales';docClose();
   soDraft.lines[0].width16+=16;const saved=salesOrderSave(),error=document.getElementById('e_sales_order').textContent;soDraft.lines[0].width16-=16;
-  return {inert,muLocked,alerts:alerts.length,tab,kept:soDraft.lines.length,saved:!!saved,error:/Batched lines cannot change/.test(error),buttons:document.querySelectorAll('[data-next-status],[data-batch-new],.sales-status-row button').length,batch:document.querySelector('.sales-lockbar').textContent.includes('B-0001')};
- }),{inert:true,muLocked:true,alerts:2,tab:'sales',kept:2,saved:false,error:true,buttons:0,batch:true});
+  return {inert,drawing,muLocked,alerts:alerts.length,tab,kept:soDraft.lines.length,saved:!!saved,error:/Batched lines cannot change/.test(error),buttons:document.querySelectorAll('[data-next-status],[data-batch-new],.sales-status-row button').length,batch:document.querySelector('.sales-lockbar').textContent.includes('B-0001')};
+ }),{inert:true,drawing:true,muLocked:true,alerts:2,tab:'sales',kept:2,saved:false,error:true,buttons:0,batch:true});
  eq('новая строка из готового заказа идёт в новый батч; старые номера и замки сохраняются',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'ready');tab='sales';salesOrderEdit(id);const first=soDraft.lines.map(l=>[l.id,l.batchedAt,l.batchNo]);salesOrderAddLine(null,false);const l=soDraft.lines.at(-1);l.width16=320;l.height16=320;salesEnsureLineShape(l);salesOrderSave();const badge=document.body.textContent.includes('added after batch'),buttons=document.querySelectorAll('[data-batch-new]').length;oqQueue('batch');const appears=optimizationRows().some(o=>o.id===id),ready=optimizationMatches(salesRecord(id),'ready');oqAdvance(id,'batched');const o=salesRecord(id);return {badge,buttons,appears,ready,status:o.status,old:o.lines.slice(0,2).map(l=>[l.id,l.batchedAt,l.batchNo]),first,newBatch:o.lines.at(-1).batchNo,numbers:salesOrderBatchNumbers(o),allLocked:o.lines.every(salesLineLocked),readyDate:!!o.statusDates.ready};
  }).then(r=>({...r,old:JSON.stringify(r.old)===JSON.stringify(r.first),first:undefined})),{badge:true,buttons:0,appears:true,ready:false,status:'batched',old:true,first:undefined,newBatch:'B-0002',numbers:['B-0001','B-0002'],allLocked:true,readyDate:false});
