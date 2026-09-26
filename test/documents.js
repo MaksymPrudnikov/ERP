@@ -182,7 +182,8 @@ module.exports=async function({page,eq,ok}){
   add(soDraft.lines[1],s=>{s.type='circle';s.w='30';s.h='30';});
   add(soDraft.lines[2],s=>{s.w='20';s.h='20';s.source={kind:'dxf',fileName:'part.dxf',fileSize:4000,uploadedAt:'2026-09-26',preview:{units:'in',points:[[0,0],[20,0],[20,12],[10,20],[0,12]],width16:320,height16:320}};});
   soDraft.lines[0].batchedAt='2026-09-26T10:00:00Z';
-  const before={draft:sDraft,bridge:salesBridge};
+  const before={draft:sDraft,bridge:salesBridge},drawOnce=salesLineDrawing;let built=0;
+  salesLineDrawing=function(l){built++;return drawOnce(l);};
   render();docOpen('drawings');
   const cards=[...document.querySelectorAll('[data-doc-drawing]')],dxf=cards[2];
   const r={cards:cards.length,checked:cards.filter(c=>c.querySelector('input').checked).length,
@@ -196,10 +197,13 @@ module.exports=async function({page,eq,ok}){
   docPrint();window.print=oldPrint;
   const host=document.getElementById('printSheetHost'),ids=[...host.querySelectorAll('[id]')].map(x=>x.id);
   r.print={calls:printed,pages:host.querySelectorAll('.print-sheet').length,sheets:host.querySelectorAll('.print-shape-sheet').length,uniqueIds:new Set(ids).size===ids.length};
-  printSheetCleanup();docDrawingAll(false);docPrint();r.none=docState.status;
+  printSheetCleanup();docDrawingAll(false);r.cleared=[...document.querySelectorAll('[data-doc-drawing] input:checked')].length+' / '+document.querySelector('[data-doc-drawing-count]').textContent;
+  docPrint();r.none=docState.status;render();
+  /* Листы строятся один раз на окно: перерисовки и All/None их не пересчитывают. */
+  r.built=built;salesLineDrawing=drawOnce;
   r.kept=sDraft===before.draft&&salesBridge===before.bridge;
   docClose();soDraft.lines[0].batchedAt='';return r;
- }),{cards:3,checked:3,sheets:3,dxf:true,bar:['All','None','Print'],count:'3 of 3',after:'2 of 3',print:{calls:1,pages:2,sheets:2,uniqueIds:true},none:'Tick at least one drawing.',kept:true});
+ }),{cards:3,checked:3,sheets:3,dxf:true,bar:['All','None','Print'],count:'3 of 3',after:'2 of 3',print:{calls:1,pages:2,sheets:2,uniqueIds:true},cleared:'0 / 0 of 3',none:'Tick at least one drawing.',built:3,kept:true});
 
  eq('окно бланков с панелью и вкладка Company — без русского текста',await t.p.evaluate(()=>{
   docFixture();render();docOpen('workOrder');docTogglePanel();let a=document.querySelector('.doc-window').innerText;docSetKind('drawings');a+=document.querySelector('.doc-window').innerText;docClose();
