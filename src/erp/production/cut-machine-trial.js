@@ -79,7 +79,7 @@ function cutTrialSheet(number,glass,no,machine){
  const sheet=snap.sheets[0];
  if(!sheet||sheet.glass!==glass||sheet.no!==+no)return {error:'This sheet was not found.'};
  if(!sheet.pieces.length)return {error:'This sheet has no glass.'};
- if(sheet.stock.length)return {error:'Trial export does not support stock offcuts yet.'};
+ if(sheet.stock.length)return {error:'Stock offcuts are not supported yet.'};
  /* Shape: its score lines and arcs, clipped as Perfect Cut does. */
  for(const p of sheet.pieces){
   p.shapeName=cutTrialText(p.mark||p.id).replace(/_/g,'-')||'SHAPE';
