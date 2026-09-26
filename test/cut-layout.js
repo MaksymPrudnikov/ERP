@@ -1384,65 +1384,80 @@ module.exports=async function({page,eq,ok}){
 
  {
   await t.p.evaluate(()=>{
-   /* Disai: для 12 мм образцов нет — отказ должен стоять у кнопок. */
+   /* Disai: для 12 мм образцов нет — отказ стоит красной строкой, а выбор
+      папки даже не открывается. */
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,1]]);
    glassProductByCode('6CLEAR').thicknessMm=12;
-   const b=DB.glassBatch[0];cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutTrialOpen=false;cutTrialError=null;render();
+   const b=DB.glassBatch[0];cutPlanRun(b.number);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};cutNotice='';render();
+   window.__pickerCalls=0;window.__oldPicker=window.showDirectoryPicker;
+   window.showDirectoryPicker=async()=>{window.__pickerCalls++;throw Object.assign(new Error('cancel'),{name:'AbortError'});};
   });
   await t.p.click('[data-cut-trial-open]');
-  await t.p.click('[data-cut-trial-disai-dst]');
-  eq('отказ Disai виден прямо возле кнопок, а не выглядит пустым кликом',await t.p.evaluate(()=>({
-   panel:!!document.querySelector('[data-cut-trial-panel]'),
-   error:document.querySelector('[data-cut-trial-error]')?.textContent.includes('No verified sample for 12 mm thickness')||false,
-   alert:document.querySelector('[data-cut-trial-error]')?.getAttribute('role')||''
-  })),{panel:true,error:true,alert:'alert'});
-  await t.p.evaluate(()=>{glassProductByCode('6CLEAR').thicknessMm=6;});
+  await t.p.click('[data-cut-trial-disai]');
+  eq('отказ Disai виден красной строкой, выбор папки не открывался',await t.p.evaluate(()=>{
+   const el=document.querySelector('[data-cut-error]'),r={error:el?.textContent.includes('Disai: No verified sample for 12 mm thickness')||false,
+    alert:el?.getAttribute('role')||'',picker:window.__pickerCalls,menu:!!document.getElementById('cutMenu')};
+   window.showDirectoryPicker=window.__oldPicker;return r;
+  }),{error:true,alert:'alert',picker:0,menu:false});
+  await t.p.evaluate(()=>{glassProductByCode('6CLEAR').thicknessMm=6;cutNotice='';});
  }
 
  {
   const ui=await t.p.evaluate(()=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);
    const b=DB.glassBatch[0];ctRow(cutPlanRun(b.number).plan.batch);glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
-   return {trigger:!!document.querySelector('[data-cut-trial-open]'),before:!!document.querySelector('[data-cut-trial-panel]')};
+   /* Браузер без выбора папки: оба файла приходят обычной загрузкой. */
+   window.__oldPicker=window.showDirectoryPicker;window.showDirectoryPicker=undefined;
+   const btn=document.querySelector('[data-cut-trial-open]');
+   return {trigger:!!btn,text:btn?btn.textContent.trim():'x',icon:!!btn&&btn.classList.contains('cut-icon-btn'),menu:!!document.getElementById('cutMenu')};
   });
-  await t.p.click('[data-cut-trial-open]');
-  const panel=await t.p.evaluate(()=>({open:!!document.querySelector('[data-cut-trial-panel]'),maver:!!document.querySelector('[data-cut-trial-maver-iso]')&&!!document.querySelector('[data-cut-trial-maver-bmp]'),disai:!!document.querySelector('[data-cut-trial-disai-dst]')&&!!document.querySelector('[data-cut-trial-disai-sum]')}));
-  const names=[];
-  for(const [machine,ext] of [['maver','iso'],['maver','bmp'],['disai','dst'],['disai','sum']]){
-   const download=t.p.waitForEvent('download');await t.p.click(`[data-cut-trial-${machine}-${ext}]`);names.push((await download).suggestedFilename());
+  const got={};
+  for(const machine of ['maver','disai']){
+   await t.p.click('[data-cut-trial-open]');
+   got.items=await t.p.evaluate(()=>[...document.querySelectorAll('#cutMenu > *')].map(x=>x.textContent.trim()));
+   const names=[],onDownload=d=>names.push(d.suggestedFilename());
+   t.p.on('download',onDownload);
+   await t.p.click(`[data-cut-trial-${machine}]`);
+   for(let i=0;i<50&&names.length<2;i++)await t.p.waitForTimeout(100);
+   t.p.off('download',onDownload);
+   got[machine]=names;
   }
-  const open=await t.p.evaluate(()=>!!document.querySelector('[data-cut-trial-panel]'));
-  eq('кнопка пробного экспорта скачивает четыре исходных файла без ZIP, панель остаётся открытой',
-   {trigger:ui.trigger,before:ui.before,...panel,names:names[0]==='1.ISO'&&names[1]==='1.BMP'&&names[2]===names[3].replace(/\.sum$/,'-001.dst'),stillOpen:open},
-   {trigger:true,before:false,open:true,maver:true,disai:true,names:true,stillOpen:true});
+  await t.p.evaluate(()=>{window.showDirectoryPicker=window.__oldPicker;});
+  eq('иконка выгрузки без текста открывает меню Maver / Disai, каждый пункт даёт пару файлов',
+   {...ui,items:got.items,maver:got.maver,disai:got.disai.length===2&&got.disai[0]===got.disai[1].replace(/\.sum$/,'-001.dst')},
+   {trigger:true,text:'',icon:true,menu:false,items:['Sheet 1','Maver','Disai'],maver:['1.ISO','1.BMP'],disai:true});
  }
 
- eq('папка пробного экспорта получает номер батча, тип стекла и дату без перезаписи файлов',await t.p.evaluate(async()=>{
-  const old=window.showDirectoryPicker,created=[],files=new Map();
-  window.showDirectoryPicker=async()=>({getDirectoryHandle:async(name)=>{created.push(name);return {getFileHandle:async(file,opts)=>{
+ eq('папка выгрузки получает номер батча, тип стекла и дату, без вопросов и без перезаписи файлов',await t.p.evaluate(async()=>{
+  const old=window.showDirectoryPicker,oldConfirm=window.confirm,created=[],files=new Map(),ids=[];let asked=0;
+  window.confirm=()=>{asked++;return true;};
+  window.showDirectoryPicker=async opts=>{ids.push(opts&&opts.id);return {getDirectoryHandle:async(name)=>{created.push(name);return {getFileHandle:async(file,opts)=>{
    if(!opts||!opts.create){if(files.has(file))return files.get(file);throw Object.assign(new Error('not found'),{name:'NotFoundError'});}
    const handle={createWritable:async()=>({write:async data=>{files.set(file,data);},close:async()=>{},abort:async()=>{}})};return handle;
-  }};}});
-  await cutUiTrialFolder('maver');
+  }};}};};
+  await cutUiTrialSave('maver');
   const first={folder:created[0],names:[...files.keys()].sort(),nonempty:[...files.values()].every(x=>x.length>0)};
-  await cutUiTrialFolder('maver');
-  const second={calls:created.length,count:files.size,refused:!!cutTrialError&&cutTrialError.error.includes('No files were overwritten')};
-  await cutUiTrialFolder('disai');
+  await cutUiTrialSave('maver');
+  const second={calls:created.length,count:files.size,refused:cutNotice.startsWith('Maver: ')&&cutNotice.includes('No files were overwritten')};
+  cutNotice='';
+  await cutUiTrialSave('disai');
   const prjx=created[2]||'',base=prjx.replace(/\.prjx$/,'');
   const disai={prjx:/^B-\d+-S1-\d{2}-[A-Z]{3}-\d{4}-DISAI_6CLEAR\.prjx$/.test(prjx),
-   names:files.has(base+'.sum')&&files.has(base+'-001.dst')&&files.size===4};
-  window.showDirectoryPicker=old;
-  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second,disai};
- }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true},disai:{prjx:true,names:true}});
+   names:files.has(base+'.sum')&&files.has(base+'-001.dst')&&files.size===4,clean:cutNotice===''};
+  window.showDirectoryPicker=old;window.confirm=oldConfirm;
+  return {folder:/^B-\d+_6CLEAR_\d{4}-\d{2}-\d{2}_MAVER$/.test(first.folder),names:first.names,nonempty:first.nonempty,second,disai,asked,ids:[...new Set(ids)]};
+ }),{folder:true,names:['1.BMP','1.ISO'],nonempty:true,second:{calls:2,count:2,refused:true},disai:{prjx:true,names:true,clean:true},asked:0,ids:['cut-machine']});
 
  {
   const widths=[];
   for(const width of [390,768,1366]){
    await t.p.setViewportSize({width,height:844});
-   widths.push(await t.p.evaluate(()=>{render();const r=document.querySelector('[data-cut-trial-panel]').getBoundingClientRect();
+   await t.p.evaluate(()=>{cutUiMenuClose();render();});
+   await t.p.click('[data-cut-trial-open]');
+   widths.push(await t.p.evaluate(()=>{const r=document.getElementById('cutMenu').getBoundingClientRect();cutUiMenuClose();
     return document.documentElement.scrollWidth<=innerWidth+1&&r.left>=0&&r.right<=innerWidth+1;}));
   }
-  eq('панель прямых файлов не расширяет экран телефона, планшета и ноутбука',widths,[true,true,true]);
+  eq('кнопка и меню выгрузки не расширяют экран телефона, планшета и ноутбука',widths,[true,true,true]);
  }
 
  eq('машинный снимок передаёт реальные упорядоченные линии реза, а не границы областей',await t.p.evaluate(()=>{
