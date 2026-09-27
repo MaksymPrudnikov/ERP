@@ -3683,7 +3683,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Triple сохраняет выбранную камеру в форме и рисует бар только в ней', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
-      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);sDraft.name='Triple cavity';
+      salesOrderConfigureShape(0);sWorkspaceTab='cutout';setShapeMuntinEnabled(true);sDraft.name='Triple cavity';
       const makeup=soDraft.makeups[0],before=shapeDraftResult().fingerprint;
       const select=()=>document.querySelector('.shape-muntin-cavity');
       const initial=select().value;
@@ -3699,7 +3699,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const out={initial,missing,first,second,afterReset,saved:sDraft.muntin.cavityIndex,
         json:normalizeShapeDef(JSON.parse(JSON.stringify(sDraft))).muntin.cavityIndex,
         selected:select().value,fingerprintChanged,sections:shapeMuntinPriceText(sDraft.muntin).sections};
-      cancelShapeEdit();return out;
+      sWorkspaceTab='designer';cancelShapeEdit();return out;
     }), {initial:'',missing:[false,false],first:[true,false],second:[false,true],afterReset:1,saved:1,json:1,selected:'1',fingerprintChanged:true,sections:4});
 
     eq('раскладка не переносится между строками с одним Makeup, пустая камера не угадывается', await t.p.evaluate(() => {
@@ -3752,7 +3752,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);render();
+      salesOrderConfigureShape(0);sWorkspaceTab='cutout';render();
       setShapeMuntinEnabled(true);
       setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',2);
       const lab=g=>[...document.querySelectorAll('#shapeLivePreview .shape-mi-prod-dims.'+g+' text')].map(t=>t.textContent);
@@ -3780,7 +3780,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       resetShapeMuntinPositions();
       out.restored=cut()===cut0;
       out.cutChanged=cutInset!==cut0;out.clearanceChanged=cutClear!==cutInset;
-      cancelShapeEdit();
+      sWorkspaceTab='designer';cancelShapeEdit();
       return out;
     })()`), {sightline:1,gap:['7/16″','7/16″'],
              clear:['15 5/16″','15 1/4″','15 5/16″','11 5/16″','11 1/4″','11 5/16″'],
@@ -4480,6 +4480,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page();
+    /* Единственный аккордеон Fabrication — раскладка (с 27.09.2026 она здесь, а не в Designer). */
     eq('Cutout — одна категория с двумя подписанными группами и меткой на карточке', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
       sDraft.manufacturingItems=[
@@ -4501,7 +4502,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit=null;sDraft=null;render();return out;
     /* Двух секций больше нет: «Manufacturing items» и «Geometry modifiers» сведены
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
-    }), {accordions:[],cutout:1,
+    }), {accordions:['Muntin bar'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
       /* Зеркальные позиции заведены 10 сентября 2026 по решению владельца:
          «добавь в раздел Fabrication, пусть работают как сандбласт». */
