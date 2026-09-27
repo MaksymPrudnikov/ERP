@@ -174,9 +174,10 @@ module.exports=async function({page,eq,ok}){
   return {listLabel,select:sel?sel.value:null,days};
  }),{listLabel:true,select:'credit',days:true});
 
- /* Владелец, 26–27.09.2026: чертежи всех строк крупно, листаются прокруткой;
-    строка в батче тоже; DXF получает свой лист; Print — этот лист или все. */
- eq('Drawings: листы всех строк крупно, строка в батче и DXF со своим листом; Print — этот лист или все',await t.p.evaluate(()=>{
+ /* Владелец, 26–27.09.2026: лист строки крупно, лента мини-листов с номерами,
+    ‹ › и стрелки клавиатуры; строка в батче тоже; DXF получает свой лист;
+    Print — этот лист или все. */
+ eq('Drawings: лист крупно и лента мини-листов, ‹ › и ← →; строка в батче и DXF со своим листом; Print — этот лист или все',await t.p.evaluate(()=>{
   docFixture({lines:[[37,71,1,'W-1'],[30,40,1,'W-2'],[20,20,1,'W-3']]});
   const add=(l,setup)=>{const s=newShapeDef('custom');setup(s);const def=normalizeShapeDef(s);def.ownerLineId=l.id;DB.shapeDef.push(def);l.shapeRef=salesShapeRefFrom(def);salesSyncLineFromShape(l,def);};
   add(soDraft.lines[1],s=>{s.type='circle';s.w='30';s.h='30';});
@@ -185,11 +186,16 @@ module.exports=async function({page,eq,ok}){
   const before={draft:sDraft,bridge:salesBridge},drawOnce=salesLineDrawing;let built=0;
   salesLineDrawing=function(l){built++;return drawOnce(l);};
   render();docOpen('drawings',soDraft.lines[2].id);
-  const sheets=[...document.querySelectorAll('[data-doc-drawing]')],dxf=sheets[2],label=()=>document.querySelector('[data-doc-drawing-now]').textContent;
-  const r={sheets:sheets.length,full:sheets.filter(c=>c.querySelector('.print-shape-sheet')).length,
-   dxf:!!dxf&&!!dxf.querySelector('.shape-dxf-svg')&&!dxf.querySelector('.shape-dxf-svg[onclick]')&&dxf.textContent.includes('Finished 20″ × 20″'),
-   big:sheets.every(c=>c.getBoundingClientRect().height>300),
-   bar:[...document.querySelectorAll('.doc-bar button')].map(b=>b.textContent).filter(x=>/Email|Customize|Print/.test(x)),now:label()};
+  const big=()=>document.querySelector('[data-doc-drawing]'),label=()=>document.querySelector('[data-doc-drawing-now]').textContent;
+  const on=()=>[...document.querySelectorAll('[data-doc-thumb]')].findIndex(x=>x.classList.contains('on'))+1;
+  const r={thumbs:document.querySelectorAll('[data-doc-thumb]').length,minis:document.querySelectorAll('[data-doc-thumb] .print-shape-sheet').length,
+   numbers:[...document.querySelectorAll('[data-doc-thumb] b')].map(b=>b.textContent).join(','),
+   dxf:!!big().querySelector('.shape-dxf-svg')&&!big().querySelector('.shape-dxf-svg[onclick]')&&big().textContent.includes('Finished 20″ × 20″'),
+   bigger:big().getBoundingClientRect().height>300,now:label(),on:on(),next:document.querySelector('[data-doc-next]').disabled,
+   bar:[...document.querySelectorAll('.doc-bar button')].map(b=>b.textContent).filter(x=>/Email|Customize|Print/.test(x))};
+  docDrawingStep(-1);r.back={now:label(),on:on(),circle:big().dataset.docDrawing===soDraft.lines[1].id};
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));r.key={now:label(),prev:document.querySelector('[data-doc-prev]').disabled};
+  document.querySelectorAll('[data-doc-thumb]')[1].click();r.click=label();
   docDrawingPrintMenu({stopPropagation(){}});
   r.menu=[...document.querySelectorAll('[data-doc-print-menu] button')].map(b=>b.textContent);
   const oldPrint=window.print;let printed=0;window.print=()=>{printed++;};
@@ -197,16 +203,14 @@ module.exports=async function({page,eq,ok}){
   docDrawingsPrint('one');r.one=host.querySelectorAll('.print-shape-sheet').length;printSheetCleanup();
   docDrawingsPrint('all');const ids=[...host.querySelectorAll('[id]')].map(x=>x.id);
   r.all={pages:host.querySelectorAll('.print-sheet').length,uniqueIds:new Set(ids).size===ids.length};printSheetCleanup();
-  window.print=oldPrint;r.calls=printed;
-  /* Прокрутка к первому листу меняет подпись и «этот лист» в Print. */
-  document.querySelector('[data-doc-drawings]').scrollTop=0;docDrawingTrack();r.top=label();
-  docDrawingPrintMenu({stopPropagation(){}});r.topMenu=document.querySelector('[data-doc-print-one]').textContent;
-  render();
-  /* Листы строятся один раз на окно: перерисовки их не пересчитывают. */
+  window.print=oldPrint;r.calls=printed;render();
+  /* Листы строятся один раз на окно: переходы и перерисовки их не пересчитывают. */
   r.built=built;salesLineDrawing=drawOnce;
   r.kept=sDraft===before.draft&&salesBridge===before.bridge;
   docClose();soDraft.lines[0].batchedAt='';return r;
- }),{sheets:3,full:3,dxf:true,big:true,bar:['Print ▾'],now:'Line 3 · W-3 · 3 of 3',menu:['This drawing · Line 3','All · 3'],one:1,all:{pages:3,uniqueIds:true},calls:2,top:'Line 1 · W-1 · 1 of 3',topMenu:'This drawing · Line 1',built:3,kept:true});
+ }),{thumbs:3,minis:3,numbers:'1,2,3',dxf:true,bigger:true,now:'Line 3 · W-3 · 3 of 3',on:3,next:true,bar:['Print ▾'],
+  back:{now:'Line 2 · W-2 · 2 of 3',on:2,circle:true},key:{now:'Line 1 · W-1 · 1 of 3',prev:true},click:'Line 2 · W-2 · 2 of 3',
+  menu:['This drawing · Line 2','All · 3'],one:1,all:{pages:3,uniqueIds:true},calls:2,built:3,kept:true});
 
  eq('окно бланков с панелью и вкладка Company — без русского текста',await t.p.evaluate(()=>{
   docFixture();render();docOpen('workOrder');docTogglePanel();let a=document.querySelector('.doc-window').innerText;docSetKind('drawings');a+=document.querySelector('.doc-window').innerText;docClose();

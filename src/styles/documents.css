@@ -34,13 +34,25 @@
  .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
  .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
 }
-/* Вкладка Drawings: листы чертежа 850 × 1100 (как у печати) крупно, один под
-   другим; zoom подгоняет лист под высоту окна, прокрутка встаёт на лист. */
+/* Вкладка Drawings: лист чертежа 850 × 1100 (как у печати) крупно, по бокам
+   ‹ ›, снизу лента мини-листов с номерами строк. */
 .doc-drawing-now{color:#475467;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch}
-.doc-drawings{min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;align-items:center;gap:18px;scroll-snap-type:y proximity}
-.doc-drawing{flex:none;margin:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18);scroll-snap-align:center}
-.doc-drawing .print-sheet{height:100%}
+.doc-drawings{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}
+.doc-stage{min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px}
+.doc-drawing{flex:none;margin:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-drawing .print-sheet,.doc-thumb-sheet .print-sheet{height:100%}
 .doc-drawing-error{color:#b42318;font-size:14px}
+.doc-step{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0 0 3px;border:1px solid #d0d5dd;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(16,24,40,.12);color:#344054;font-size:30px;line-height:1}
+.doc-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.doc-step:disabled{opacity:.3;box-shadow:none}
+.doc-film{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;border-top:1px solid #d9dfe8;background:#f8fafc;scrollbar-width:thin}
+.doc-thumb{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 5px;border:2px solid transparent;border-radius:9px;background:none;box-shadow:none;cursor:pointer}
+.doc-thumb:hover{background:#f0f9ff}
+.doc-thumb.on{border-color:#1f6f9f;background:#eef4ff}
+.doc-thumb-paper{position:relative;display:block;width:56px;height:72px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.22)}
+.doc-thumb-sheet{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.0659);transform-origin:0 0;pointer-events:none}
+.doc-thumb b{font-size:12px;font-variant-numeric:tabular-nums;color:#344054}
+.doc-thumb.on b{color:#026aa2}
 .doc-print-pick{position:relative}
 .doc-print-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:2;display:flex;flex-direction:column;min-width:180px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16)}
 .doc-print-menu[hidden]{display:none}
