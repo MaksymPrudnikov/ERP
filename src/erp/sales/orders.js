@@ -31,8 +31,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -44,10 +44,58 @@ function salesDraftHasWork(){
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
-function salesOrderClose(){
- if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;if(salesPruneOrphanShapes())touch();render();
+/* Формы строк лежат в общем DB.shapeDef и меняются на месте ещё до Update:
+   размер строки, Save revision в редакторе формы, съёмы кромки, наборы
+   сервисов, свои формы лайтов, Unlink. Поэтому при открытии черновика
+   запоминаем формы сохранённого заказа, а «Don't save / Don't update»
+   возвращает их как было (владелец, 27.09.2026: «не нажал Update — в заказе
+   ничего не меняется»). Новые формы черновика убирает salesPruneOrphanShapes. */
+let soShapeSnapshot=null;
+function salesShapeIdsOf(o){
+ const ids=new Set();
+ (o&&o.lines||[]).forEach(l=>{if(l.shapeRef&&l.shapeRef.id)ids.add(l.shapeRef.id);Object.keys(l.liteShapes||{}).forEach(k=>{const r=l.liteShapes[k];if(r&&r.id)ids.add(r.id);});});
+ return ids;
 }
+function salesShapeSnapshotTake(o){const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
+function salesShapeSnapshotRestore(){
+ if(soShapeSnapshot==null)return false;
+ let changed=false;
+ JSON.parse(soShapeSnapshot).forEach(s=>{const i=DB.shapeDef.findIndex(x=>x&&x.id===s.id);
+  if(i<0){DB.shapeDef.push(s);changed=true;}else if(JSON.stringify(DB.shapeDef[i])!==JSON.stringify(s)){DB.shapeDef[i]=s;changed=true;}});
+ soShapeSnapshot=null;return changed;
+}
+/* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
+   сохранённым, редактор формы строки закрывается вместе с заказом. */
+function salesDraftDrop(discard){
+ const restored=!!discard&&salesShapeSnapshotRestore();
+ if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
+ if(salesPruneOrphanShapes()||restored)touch();
+}
+/* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
+   Don't save — заказа нет. Сохранённый изменён — «обновить?»: Don't update —
+   в базе ничего не меняется. Одно окно на любой уход: Close, боковое меню,
+   другой заказ, новый заказ, другая ревизия квоты. */
+function salesLeaveDraft(next){
+ const go=()=>{if(typeof next==='function')next();else render();};
+ if(!soDraft){go();return;}
+ if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
+ const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
+ salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
+  buttons:[{label:'Back'},
+   {label:isNew?"Don't save":"Don't update",run:()=>{salesDraftDrop(true);go();}},
+   {label:isNew?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+}
+function salesOrderClose(){salesLeaveDraft();}
+/* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
+   вопрос. nav.js про заказы не знает — только спрашивает стражей. */
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
+ if(!soDraft)return false;
+ const inOrder=tab==='sales'||(tab==='configurators'&&!!salesBridge);
+ if(!inOrder)return false;
+ salesLeaveDraft(go);return true;
+});
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(function(){return salesDialogHTML();});
 function salesOrderSave(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
@@ -78,7 +126,7 @@ function salesOrderSave(opts){
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
- normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 

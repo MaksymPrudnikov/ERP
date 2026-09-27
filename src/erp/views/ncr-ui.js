@@ -39,8 +39,8 @@ function ncrView(id){if(!ncrFind(id))return;ncrForm=null;ncrViewId=id;salesListM
 function ncrViewClose(){ncrViewId='';render();}
 function ncrOpenOrder(id){
  if(!salesRecord(id))return;
- if(soDraft&&soDraft.id!==id&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
- ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);
+ if(soDraft&&soDraft.id===id){ncrViewId='';ncrForm=null;tab='sales';render();return;}
+ salesLeaveDraft(()=>{ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);});
 }
 function ncrEffectText(f,o){
  const picked=o.lines.filter(l=>f.lines[l.id]&&f.lines[l.id].on);

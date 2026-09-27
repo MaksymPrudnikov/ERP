@@ -2221,14 +2221,16 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();
       const draftShapes=DB.shapeDef.length;
-      salesOrderClose();
+      /* Уход из черновика спрашивает «сохранить?» — Don't save. */
+      const dontSave=()=>{if(salesDialog)salesDialogChoose(salesDialog.buttons.findIndex(b=>/^Don't/.test(b.label)));};
+      salesOrderClose();dontSave();
       const afterClose=DB.shapeDef.length;
       salesOrderNew();soDraft.customerId='CUS-SH';soDraft.lines=[];
       salesExcelPasteText('1\t20\t30\tA\n1\t24\t36\tB',0);salesExcelApply();salesOrderSave();
       const saved=DB.shapeDef.length,id=soEdit;
       salesOrderRemoveLine(0);
       const removedInDraft=DB.shapeDef.length;
-      salesOrderClose();
+      salesOrderClose();dontSave();
       const closedWithoutSave=DB.shapeDef.length;
       salesOrderEdit(id);salesOrderRemoveLine(0);salesOrderSave();
       const afterSave=DB.shapeDef.length;
