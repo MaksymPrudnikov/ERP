@@ -14,15 +14,16 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
-/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26.09.2026):
-   мокапы всех строк, галочками — какие печатать. focus — строка, к которой
-   прокрутить окно (клик по форме строки в батче). */
+/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
+   листы крупно, один под другим, листаются прокруткой; печать — этот лист
+   или все. focus — строка, к которой прокрутить окно (клик по форме строки в
+   батче). */
 function docOpen(kind,focus){
  if(!soDraft)return;
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
  kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,skip:[],focus:focus||'',drawings:null};
+ docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
@@ -88,58 +89,65 @@ function docModal(){
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
   <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
    ${tools}
-   <button type="button" data-doc-print onclick="docPrint()">Print</button>${drawings?'':'<button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
+   ${drawings?`<span class="doc-print-pick"><button type="button" data-doc-print onclick="docDrawingPrintMenu(event)">Print ▾</button><span class="doc-print-menu" data-doc-print-menu hidden></span></span>`:'<button type="button" data-doc-print onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
   <div class="doc-body${docState.panel&&!drawings?' with-panel':''}">${body}${docState.panel&&!drawings?docPanel():''}</div>
  </div></div>`;
 }
 /* ----------------------------- Чертежи ------------------------------ */
-/* Мокап — тот же лист, что уйдёт на печать (salesLineDrawing), в уменьшенной
-   бумаге. Листы строятся один раз на открытие окна: пока оно открыто, заказ
-   не правится, а 60 строк считались ~3 с на каждую перерисовку. Галочки и
-   All/None меняют только сам экран. */
+/* Лист — тот же, что уйдёт на печать (salesLineDrawing), в бумаге 850 × 1100,
+   уменьшенной под высоту окна. Листы строятся один раз на открытие окна: пока
+   оно открыто, заказ не правится, а 60 строк считались ~3 с на перерисовку. */
 function docDrawingItems(){
  const done=docState.drawings||(docState.drawings=new Map());
  return (soDraft.lines||[]).map((l,i)=>{if(!done.has(l.id))done.set(l.id,salesLineDrawing(l));const d=done.get(l.id);return d?Object.assign({i},d):null;}).filter(Boolean);
 }
-function docDrawingPicked(items){const skip=new Set(docState.skip||[]);return items.filter(x=>x.html&&!skip.has(x.line.id));}
+function docDrawingName(x){return 'Line '+(x.i+1)+(x.line.mark?' · '+x.line.mark:'');}
+function docDrawingNow(items){return items.find(x=>x.line.id===docState.current)||items[0]||null;}
 function docDrawingTools(items){
- const ok=items.filter(x=>x.html);
- return `<span class="doc-drawing-count" data-doc-drawing-count>${docDrawingPicked(ok).length} of ${ok.length}</span><button type="button" data-doc-all onclick="docDrawingAll(true)">All</button><button type="button" data-doc-none onclick="docDrawingAll(false)">None</button>`;
+ const now=docDrawingNow(items);
+ return `<span class="doc-drawing-now" data-doc-drawing-now>${now?esc(docDrawingName(now))+' · '+(items.indexOf(now)+1)+' of '+items.length:''}</span>`;
 }
+/* Масштаб листа: целиком по высоте окна (и не шире колонки). */
+function docDrawingZoom(){return Math.max(.3,Math.min(1,(Math.min(1280,window.innerWidth-36)-60)/850,(window.innerHeight-36-58-36)/1100));}
 function docDrawingsBody(items){
- const skip=new Set(docState.skip||[]);
  setTimeout(docDrawingsFit,0);
  if(!items.length)return '<div class="doc-drawings"><div class="empty">No drawings.</div></div>';
- return `<div class="doc-drawings">${items.map(x=>{const id=esc(x.line.id),on=!!x.html&&!skip.has(x.line.id);
-  return `<figure class="doc-drawing${on?' on':''}" data-doc-drawing="${id}">
-   <label class="doc-drawing-head"><input type="checkbox" ${x.html?'':'disabled'} ${on?'checked':''} onchange="docDrawingToggle('${id}',this.checked)"><b>Line ${x.i+1}</b><span>${esc(x.line.mark||'')}</span></label>
-   <div class="doc-drawing-paper">${x.html?`<div class="doc-drawing-scale"><div class="print-sheet">${printSheetUniqueIds(x.html)}</div></div>`:`<div class="doc-drawing-error">${esc(x.error)}</div>`}</div></figure>`;}).join('')}</div>`;
+ const z=docDrawingZoom().toFixed(3);
+ return `<div class="doc-drawings" data-doc-drawings onscroll="docDrawingTrack()">${items.map(x=>`<figure class="doc-drawing" data-doc-drawing="${esc(x.line.id)}" style="zoom:${z}">${x.html?`<div class="print-sheet">${printSheetUniqueIds(x.html)}</div>`:`<div class="doc-drawing-error"><b>${esc(docDrawingName(x))}</b> ${esc(x.error)}</div>`}</figure>`).join('')}</div>`;
 }
 function docDrawingsFit(){
  document.querySelectorAll('.doc-drawing .print-sheet').forEach(el=>salesSheetFitDrawing(el));
  const f=docState&&docState.focus;if(!f)return;docState.focus='';
  const el=[...document.querySelectorAll('[data-doc-drawing]')].find(x=>x.dataset.docDrawing===f);
- if(el){el.scrollIntoView({block:'center'});el.classList.add('focus');}
+ if(el)el.scrollIntoView({block:'center'});
 }
-function docDrawingShow(){
- const skip=new Set(docState.skip||[]),boxes=[...document.querySelectorAll('[data-doc-drawing]')];
- boxes.forEach(el=>{const input=el.querySelector('input'),on=!input.disabled&&!skip.has(el.dataset.docDrawing);input.checked=on;el.classList.toggle('on',on);});
- const count=document.querySelector('[data-doc-drawing-count]'),ok=boxes.filter(el=>!el.querySelector('input').disabled);
- if(count)count.textContent=ok.filter(el=>!skip.has(el.dataset.docDrawing)).length+' of '+ok.length;
+/* Какой лист сейчас перед глазами — ближайший к середине окна. Меняется
+   только подпись в шапке, без перерисовки. */
+function docDrawingTrack(){
+ const box=document.querySelector('[data-doc-drawings]');if(!box||!docState)return;
+ const r=box.getBoundingClientRect(),mid=r.top+r.height/2;let best=null,dist=Infinity;
+ box.querySelectorAll('[data-doc-drawing]').forEach(el=>{const q=el.getBoundingClientRect(),d=Math.abs(q.top+q.height/2-mid);if(d<dist){dist=d;best=el;}});
+ if(!best||best.dataset.docDrawing===docState.current)return;
+ docState.current=best.dataset.docDrawing;
+ const label=document.querySelector('[data-doc-drawing-now]'),t=document.createElement('span');t.innerHTML=docDrawingTools(docDrawingItems());
+ if(label)label.textContent=t.textContent;
 }
-function docDrawingToggle(id,on){
- if(!docState)return;
- const s=new Set(docState.skip||[]);if(on)s.delete(id);else s.add(id);docState.skip=[...s];docDrawingShow();
+/* Print у чертежей спрашивает: этот лист или все (владелец, 27.09.2026). */
+function docDrawingPrintMenu(e){
+ e.stopPropagation();
+ const m=document.querySelector('[data-doc-print-menu]');if(!m)return;
+ const items=docDrawingItems().filter(x=>x.html),now=docDrawingNow(docDrawingItems());
+ m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc('Line '+(now.i+1))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
+ m.hidden=!m.hidden;
+ if(!m.hidden)setTimeout(()=>document.addEventListener('click',()=>{m.hidden=true;},{once:true}),0);
 }
-function docDrawingAll(on){
- if(!docState)return;docState.skip=on?[]:(soDraft.lines||[]).map(l=>l.id);
- if(docState.status){docState.status='';render();}else docDrawingShow();
-}
-function docDrawingsPrint(){
- const sheets=docDrawingPicked(docDrawingItems()).map(x=>x.html);
- if(!sheets.length){docState.status='Tick at least one drawing.';render();return;}
- docState.status='';printSheet(sheets,'',salesSheetFitDrawing);
+function docDrawingsPrint(which){
+ const items=docDrawingItems(),now=docDrawingNow(items);
+ const sheets=(which==='one'?[now]:items).filter(x=>x&&x.html).map(x=>x.html);
+ const m=document.querySelector('[data-doc-print-menu]');if(m)m.hidden=true;
+ if(!sheets.length)return;
+ printSheet(sheets,'',salesSheetFitDrawing);
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -169,7 +177,7 @@ function docPrintPrepare(){
 function docPrintCleanup(){document.body.classList.remove('doc-printing');const h=document.getElementById('docPrintHost');if(h)h.innerHTML='';}
 function docPrint(){
  if(!docState)return;
- if(docState.kind==='drawings'){docDrawingsPrint();return;}
+ if(docState.kind==='drawings'){docDrawingsPrint('all');return;}
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);
