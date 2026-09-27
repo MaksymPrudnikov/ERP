@@ -590,8 +590,10 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    линиями. */
 .print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:#101828!important}
 /* Фон листа обводки не имеет и получать её не должен: иначе вокруг чертежа
-   появляется лишняя рамка. */
-.print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
+   появляется лишняя рамка. Фон — прямоугольник без x/y; бары раскладки — тоже
+   прямоугольники в корне чертежа, и когда salesSheetFitDrawing убирает фон,
+   первым становится бар: белый бар терял обводку (владелец, 27.09.2026). */
+.print-shape-sheet .sheet-field svg>rect:first-of-type:not([x]):not([y]){stroke:none!important}
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
 .print-shape-sheet .sheet-field svg .shape-inch-reference{fill:#667085!important}

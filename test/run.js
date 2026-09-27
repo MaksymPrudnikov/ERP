@@ -3599,24 +3599,41 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               soloStatus:salesLineServiceStatus(line).key,attention:salesLineNeedsServiceAttention(line)};
     })()`), {paid:true,unitStatus:'ready',solo:false,soloStatus:'muntin',attention:true});
 
-    /* Настройка живёт в ЛЕВОЙ колонке, рядом с геометрией, вырезами и кромкой,
-       и сворачивается как «Lites of the unit»: под чертежом она съедала место
-       у самого чертежа. Добавление и удаление находятся в шапке,
-       а сворачивание секции сохраняет раскладку. */
+    /* Настройка живёт в ЛЕВОЙ колонке вкладки Fabrication (владелец,
+       27.09.2026: в дизайне шейпа раскладке не место) и сворачивается как
+       «Lites of the unit»: под чертежом она съедала место у самого чертежа.
+       Добавление и удаление находятся в шапке, а сворачивание секции
+       сохраняет раскладку. */
     eq('раскладка добавляется и удаляется в шапке, сворачивание сохраняет бары', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);sMuntinOpen=false;render();
+      salesOrderConfigureShape(0);sMuntinOpen=false;sWorkspaceTab='designer';render();
+      const designer=!!document.querySelector('.shape-muntin-editor');setShapeWorkspaceTab('cutout');
       const sec=()=>document.querySelector('.shape-muntin-editor'),action=()=>sec().querySelector('.shape-muntin-action');
-      const off={inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),checkbox:!!sec().querySelector('input[type=checkbox]'),action:action().textContent,body:!!sec().querySelector('.shape-accordion-body')};
+      const off={designer,inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),checkbox:!!sec().querySelector('input[type=checkbox]'),action:action().textContent,body:!!sec().querySelector('.shape-accordion-body')};
       action().click();setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
       const on={open:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length};
       sec().querySelector('button.shape-accordion-head').click();
       const folded={body:!!sec().querySelector('.shape-accordion-body'),bars:sDraft.muntin.verticalBars,expanded:sec().querySelector('button.shape-accordion-head').getAttribute('aria-expanded')};
       sDraft.dims={'mb:cv1':{offset:2},'keep:1':{offset:1}};
       action().click();const removed={enabled:!!sDraft.muntin.enabled,body:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length,dims:Object.keys(sDraft.dims)};
-      cancelShapeEdit();return {off,on,folded,removed};
-    }), {off:{inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
+      sWorkspaceTab='designer';cancelShapeEdit();return {off,on,folded,removed};
+    }), {off:{designer:false,inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
+
+    /* Бары раскладки — прямоугольники в корне чертежа. Когда подгонка листа
+       убирает фон, первый бар становился «первым прямоугольником» и терял
+       обводку по правилу для фона: белый бар на бумаге пропадал. */
+    eq('белая раскладка: в печати обводку получает каждый бар', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('double');
+      soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);setShapeMuntinSetup('productId','mb058_white');
+      setShapeMuntinSetup('verticalBars',3);setShapeMuntinSetup('horizontalBars',1);
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),''),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost'),bars=[...host.querySelectorAll('.sheet-field .shape-muntin-bar')];
+      const out={many:bars.length>=4,stroked:bars.every(b=>getComputedStyle(b).stroke!=='none')};
+      printSheetCleanup();cancelShapeEdit();return out;
+    }), {many:true,stroked:true});
 
     /* Сечение получает именно форму печатаемой строки, включая черновик.
        Проверяем настоящие размеры в режиме печати: общий CSS для SVG раньше
@@ -3666,7 +3683,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('Triple сохраняет выбранную камеру в форме и рисует бар только в ней', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();salesSetUnitType('triple');
       soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
-      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);sDraft.name='Triple cavity';
+      salesOrderConfigureShape(0);sWorkspaceTab='cutout';setShapeMuntinEnabled(true);sDraft.name='Triple cavity';
       const makeup=soDraft.makeups[0],before=shapeDraftResult().fingerprint;
       const select=()=>document.querySelector('.shape-muntin-cavity');
       const initial=select().value;
@@ -3682,7 +3699,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const out={initial,missing,first,second,afterReset,saved:sDraft.muntin.cavityIndex,
         json:normalizeShapeDef(JSON.parse(JSON.stringify(sDraft))).muntin.cavityIndex,
         selected:select().value,fingerprintChanged,sections:shapeMuntinPriceText(sDraft.muntin).sections};
-      cancelShapeEdit();return out;
+      sWorkspaceTab='designer';cancelShapeEdit();return out;
     }), {initial:'',missing:[false,false],first:[true,false],second:[false,true],afterReset:1,saved:1,json:1,selected:'1',fingerprintChanged:true,sections:4});
 
     eq('раскладка не переносится между строками с одним Makeup, пустая камера не угадывается', await t.p.evaluate(() => {
@@ -3735,7 +3752,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesExcelPasteText('1\\t48\\t36\\tX',0);salesExcelApply();
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);
       m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);render();
+      salesOrderConfigureShape(0);sWorkspaceTab='cutout';render();
       setShapeMuntinEnabled(true);
       setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',2);
       const lab=g=>[...document.querySelectorAll('#shapeLivePreview .shape-mi-prod-dims.'+g+' text')].map(t=>t.textContent);
@@ -3763,7 +3780,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       resetShapeMuntinPositions();
       out.restored=cut()===cut0;
       out.cutChanged=cutInset!==cut0;out.clearanceChanged=cutClear!==cutInset;
-      cancelShapeEdit();
+      sWorkspaceTab='designer';cancelShapeEdit();
       return out;
     })()`), {sightline:1,gap:['7/16″','7/16″'],
              clear:['15 5/16″','15 1/4″','15 5/16″','11 5/16″','11 1/4″','11 5/16″'],
@@ -4463,6 +4480,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page();
+    /* Единственный аккордеон Fabrication — раскладка (с 27.09.2026 она здесь, а не в Designer). */
     eq('Cutout — одна категория с двумя подписанными группами и меткой на карточке', await t.p.evaluate(() => {
       tab='configurators';subtab='shape';openShapeNew('rectangle');sDraft.w='20';sDraft.h='40';
       sDraft.manufacturingItems=[
@@ -4484,7 +4502,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit=null;sDraft=null;render();return out;
     /* Двух секций больше нет: «Manufacturing items» и «Geometry modifiers» сведены
        в одну категорию Cutout. Язык интерфейса по умолчанию английский. */
-    }), {accordions:[],cutout:1,
+    }), {accordions:['Muntin bar'],cutout:1,
       groups:['Does not change the cut','Changes the cutting shape'],flags:{draw:2,cut:1},
       /* Зеркальные позиции заведены 10 сентября 2026 по решению владельца:
          «добавь в раздел Fabrication, пусть работают как сандбласт». */
