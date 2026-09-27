@@ -189,7 +189,7 @@ module.exports=async function({page,eq,ok}){
   const big=()=>document.querySelector('[data-doc-drawing]'),label=()=>document.querySelector('[data-doc-drawing-now]').textContent;
   const on=()=>[...document.querySelectorAll('[data-doc-thumb]')].findIndex(x=>x.classList.contains('on'))+1;
   const r={thumbs:document.querySelectorAll('[data-doc-thumb]').length,minis:document.querySelectorAll('[data-doc-thumb] .print-shape-sheet').length,
-   numbers:[...document.querySelectorAll('[data-doc-thumb] b')].map(b=>b.textContent).join(','),
+   numbers:[...document.querySelectorAll('[data-doc-thumb] > b')].map(b=>b.textContent).join(','),
    dxf:!!big().querySelector('.shape-dxf-svg')&&!big().querySelector('.shape-dxf-svg[onclick]')&&big().textContent.includes('Finished 20″ × 20″'),
    bigger:big().getBoundingClientRect().height>300,now:label(),on:on(),next:document.querySelector('[data-doc-next]').disabled,
    bar:[...document.querySelectorAll('.doc-bar button')].map(b=>b.textContent).filter(x=>/Email|Customize|Print/.test(x))};
