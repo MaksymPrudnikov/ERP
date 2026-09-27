@@ -24,6 +24,18 @@ function shapeAnnDim(v){
   try{return String(dimIn16(Math.abs(+v||0))).replace(/[″”"]/g,'').trim().replace(/^(\d+)\s+(\d+\/\d+)$/,'$1-$2');}
   catch(e){return String(v==null?'':v);}
 }
+/* Кегль чертежа (владелец, 28.09.2026: «размеры чуточку увеличить», выбран
+   18 для всех типов чертежей): цифры размеров и — ступенью меньше — подписи
+   уклона, смещения, буквы сторон. */
+var SHAPE_DIM_FONT=18,SHAPE_NOTE_FONT=16;
+/* Белая подложка под подписью, которая садится на линии чертежа: пунктир
+   габарита уходит под число, подпись не двигается (владелец, 28.09.2026). */
+function shapeAnnBg(boxes){
+  var b=boxes.filter(Boolean);if(!b.length)return '';
+  var x1=Math.min.apply(null,b.map(function(q){return q.x1;})),y1=Math.min.apply(null,b.map(function(q){return q.y1;})),
+      x2=Math.max.apply(null,b.map(function(q){return q.x2;})),y2=Math.max.apply(null,b.map(function(q){return q.y2;}));
+  return '<rect class="shape-ann-bg" x="'+(x1-1.5).toFixed(1)+'" y="'+(y1+1).toFixed(1)+'" width="'+(x2-x1+3).toFixed(1)+'" height="'+(y2-y1-2).toFixed(1)+'" fill="#fff" stroke="none"/>';
+}
 function shapeAnnText(x,y,txt,o){
   o=o||{};var rot=o.rot?' transform="rotate('+o.rot+' '+x+' '+y+')"':'';
   return '<text x="'+x+'" y="'+y+'" text-anchor="'+(o.anchor||'middle')+'" font-size="'+(o.size||11)+'" fill="'+(o.color||'#101828')+'" font-family="Arial,sans-serif"'+(o.weight?' font-weight="'+o.weight+'"':'')+' stroke="#fff" stroke-width="'+(o.halo==null?3.2:o.halo)+'" stroke-linejoin="round" paint-order="stroke fill"'+rot+'>'+shapeXml(txt)+'</text>';
@@ -104,10 +116,10 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
         b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
     if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
       SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
-      return shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+      return (skip?shapeAnnBg([b1,b2]):'')+shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
     }
   }
-  return shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+  return (skip?shapeAnnBg([shapeAnnBoxOf(x,y,l1,o),l2?shapeAnnBoxOf(x,y+gap,l2,o):null]):'')+shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
 }
 /* Стоп-рыска на концах — то же оформление, что у размеров Cutout: видно, до
    какой ТОЧКИ размер, а не примерно куда смотрит остриё. Smart-Shape рисует свои
@@ -117,12 +129,12 @@ function shapeAnnTickH(x,y){return '<line x1="'+x+'" y1="'+(y-5)+'" x2="'+x+'" y
 function shapeAnnTickV(x,y){return '<line x1="'+(x-5)+'" y1="'+y+'" x2="'+(x+5)+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>';}
 function shapeAnnDimH(x1,x2,y,label){
   if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y)+shapeAnnPlace((x1+x2)/2,y-8,label,{size:14,weight:700},[0,-1]);
+  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y)+shapeAnnPlace((x1+x2)/2,y-8,label,{size:SHAPE_DIM_FONT,weight:700},[0,-1]);
 }
 function shapeAnnDimV(x,y1,y2,label){
   if(Math.abs(y2-y1)<0.5)return '';
   var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2)+shapeAnnPlace(x-10,cy,label,{size:14,weight:700,rot:-90},[-1,0]);
+  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2)+shapeAnnPlace(x-11,cy,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90},[-1,0]);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -532,7 +544,7 @@ function shapeAnnCallouts(r,S,DP,opts,F){
          скобки — шум, эталон их тоже не ставит. */
       var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;
       var body=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
-        {size:13,anchor:anchor,weight:600,overContour:true},step);
+        {size:SHAPE_NOTE_FONT,anchor:anchor,weight:600,overContour:true},step);
       out+=shapeAnnUiWrap(opts,key,body,x+step[0]*32,y+step[1]*32,F);
     });
   });
@@ -582,7 +594,7 @@ function shapeAnnContour(r,DP,active,mono){
        уже стоят размерные цепочки и подписи обработки. */
     var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
     var lx=mx+dx/d*16,ly=my+dy/d*16;
-    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="13" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(names[e.id]||e.id)+'</text>';
+    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="'+SHAPE_NOTE_FONT+'" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(names[e.id]||e.id)+'</text>';
   });
   return out;
 }

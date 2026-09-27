@@ -354,6 +354,13 @@ function salesSheetFitDrawing(host){
     var background=svg.querySelector(':scope > rect:first-of-type');
     if(background&&background.getAttribute('x')==null&&background.getAttribute('y')==null)background.remove();
     var b=svg.getBBox();if(!(b.width>0&&b.height>0))return;
+    /* По центру листа — сама деталь, а не весь чертёж с размерами: у круга,
+       эллипса, треугольника габарит высоты стоит только слева, и деталь
+       уезжала вправо (владелец, 28.09.2026: «больно на глаза»). Рамку
+       расширяем так, чтобы середина контура стала серединой поля. */
+    var glass=svg.querySelector('.shape-sheet-glass');
+    if(glass){var gb=glass.getBBox(),cx=gb.x+gb.width/2,hw=Math.max(cx-b.x,b.x+b.width-cx);
+      if(gb.width>0&&hw>0)b={x:cx-hw,y:b.y,width:hw*2,height:b.height};}
     var m=Math.max(3,Math.min(b.width,b.height)*0.01);
     svg.setAttribute('viewBox',(b.x-m).toFixed(1)+' '+(b.y-m).toFixed(1)+' '+
       (b.width+m*2).toFixed(1)+' '+(b.height+m*2).toFixed(1));

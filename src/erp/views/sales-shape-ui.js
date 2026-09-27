@@ -1210,7 +1210,7 @@ function shapeDxfPreviewSvg(source,includeMarks,still){
   var widthLabel=shapeDrawingDim(source.preview.width16/16),heightLabel=shapeDrawingDim(source.preview.height16/16),topY=Math.max(20,y0-24),leftX=Math.max(24,x0-26),markers=includeMarks?(shapeManufacturingMarkersSvg(source,T)+shapeAnnotationOverlaySvg(T)):'',placing=includeMarks&&!still&&sManufacturingPlace?' placing':'';
   return `<svg class='shape-dxf-svg${placing}' viewBox='0 0 ${vw} ${vh}' role='img' aria-label='DXF contour preview' ${includeMarks&&!still?"onclick='shapePlaceManufacturingFromEvent(event,this)'":''}>
     <defs><marker id='shapeDxfArrow' viewBox='0 0 8 8' refX='8' refY='4' markerWidth='5' markerHeight='5' orient='auto-start-reverse'><path d='M0,0 L8,4 L0,8 Z' fill='#d92d20'/></marker></defs>
-    <path d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
+    <path class='shape-sheet-glass' d='${path}' fill='rgba(46,144,250,.04)' stroke='#667085' stroke-width='1.5'/>
     ${markers}
     <line x1='${x0}' y1='${topY}' x2='${x0+dw}' y2='${topY}' class='shape-dxf-dim-line' marker-start='url(#shapeDxfArrow)' marker-end='url(#shapeDxfArrow)'/>
     <line x1='${x0}' y1='${topY-5}' x2='${x0}' y2='${topY+5}' class='shape-dxf-dim-line'/><line x1='${x0+dw}' y1='${topY-5}' x2='${x0+dw}' y2='${topY+5}' class='shape-dxf-dim-line'/>

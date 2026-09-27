@@ -3622,6 +3622,23 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sWorkspaceTab='designer';cancelShapeEdit();return {off,on,folded,removed};
     }), {off:{designer:false,inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
 
+    /* Владелец, 28.09.2026: размеры на чертеже крупнее — 18 (подписи уклона и
+       буквы сторон 16) для всех типов; подпись на линии получает белую
+       подложку; деталь стоит по центру листа, а не уезжает от размера слева. */
+    eq('печатный чертёж: размеры 18, подпись уклона 16 на белой подложке без рамки, деталь по центру листа', await t.p.evaluate(() => {
+      const sheet=(type,setup)=>{tab='configurators';subtab='shape';openShapeNew(type);setup();render();const r=shapeDraftResult();
+        printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),''),'',salesSheetFitDrawing);
+        const svg=document.querySelector('#printSheetHost .sheet-field svg'),vb=svg.getAttribute('viewBox').split(/\s+/).map(Number),g=svg.querySelector('.shape-sheet-glass').getBBox();
+        const out={sizes:[...new Set([...svg.querySelectorAll('text')].map(t=>t.getAttribute('font-size')).filter(Boolean))].sort(),
+          bg:[...svg.querySelectorAll('.shape-ann-bg')].map(r=>getComputedStyle(r).stroke),
+          centered:Math.abs((g.x+g.width/2)-(vb[0]+vb[2]/2))<vb[2]*0.01};
+        printSheetCleanup();sEdit=null;sDraft=null;return out;};
+      const smart=sheet('smart',()=>{setShapeField('h','90');setShapeField('w','20');setShapeC('60');});
+      const circle=sheet('circle',()=>{setShapeField('w','24');});
+      const rect=sheet('rectangle',()=>{setShapeField('w','48');setShapeField('h','36');});
+      render();return {smart:{sizes:smart.sizes,bg:smart.bg.length>0&&smart.bg.every(s=>s==='none'),centered:smart.centered},circle:{sizes:circle.sizes,centered:circle.centered},rect:{sizes:rect.sizes,centered:rect.centered}};
+    }), {smart:{sizes:['16','18'],bg:true,centered:true},circle:{sizes:['18'],centered:true},rect:{sizes:['16','18'],centered:true}});
+
     /* Бары раскладки — прямоугольники в корне чертежа. Когда подгонка листа
        убирает фон, первый бар становился «первым прямоугольником» и терял
        обводку по правилу для фона: белый бар на бумаге пропадал. */
@@ -4525,7 +4542,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const outside=edgeLabels.every(t=>{const e=contour.find(x=>x.getAttribute('stroke')===SHAPE_EDGE_HEX[t.dataset.edgeId]),mx=(+e.getAttribute('x1')+ +e.getAttribute('x2'))/2,my=(+e.getAttribute('y1')+ +e.getAttribute('y2'))/2,tx=+t.getAttribute('x'),ty=+t.getAttribute('y');return (tx-mx)*(mx-cx)+(ty-my)*(my-cy)>0;});
       const drawing={noInch:!svg.textContent.includes('″'),noInternalCodes:triple.labels.every(x=>!/[VH]|C-C/.test(x)),edgeLabels:edgeLabels.map(x=>x.textContent.trim()),outside};
       sEdit=null;sDraft=null;render();return {initial,changed,triple,drawing};
-    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'14px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['3 1/8','2 1/4'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false},drawing:{noInch:true,noInternalCodes:true,edgeLabels:['A 40','D 20','C 40','B 20'],outside:true}});
+    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'18px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['3 1/8','2 1/4'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false},drawing:{noInch:true,noInternalCodes:true,edgeLabels:['A 40','D 20','C 40','B 20'],outside:true}});
     /* Заготовка при дропе. Владелец: «отступ 3 по горизонтали, у двойного между
        отверстиями 6, у тройного 6 по вертикали и 12 по горизонтали». Высота —
        по месту дропа, горизонталь — со стандартного отступа от ближнего края. */
@@ -5751,7 +5768,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sDraft.features=[newShapeFeature('cutout',shapeDraftGeometry())];
       sWorkspaceTab='cutout';render();
       const svg=document.querySelector('#shapeLivePreview svg');
-      const boxes=[...svg.querySelectorAll('text')].map(t=>{const b=t.getBBox();
+      /* Экранные рамки: getBBox не учитывает поворот, а подписи у вертикальных
+         кромок повёрнуты на −90°, и их неповёрнутые рамки «сталкивались». */
+      const boxes=[...svg.querySelectorAll('text')].map(t=>{const b=t.getBoundingClientRect();
         return {txt:t.textContent.trim(),x:b.x,y:b.y,w:b.width,h:b.height,
           mine:!!t.closest('.shape-mi-marker,.shape-mi-prod-dims,.shape-cut-dims')};});
       const hit=(a,b)=>!(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y);
