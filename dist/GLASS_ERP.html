@@ -834,8 +834,10 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
    линиями. */
 .print-shape-sheet .sheet-field svg *:not(text):not(tspan){stroke:#101828!important}
 /* Фон листа обводки не имеет и получать её не должен: иначе вокруг чертежа
-   появляется лишняя рамка. */
-.print-shape-sheet .sheet-field svg>rect:first-of-type{stroke:none!important}
+   появляется лишняя рамка. Фон — прямоугольник без x/y; бары раскладки — тоже
+   прямоугольники в корне чертежа, и когда salesSheetFitDrawing убирает фон,
+   первым становится бар: белый бар терял обводку (владелец, 27.09.2026). */
+.print-shape-sheet .sheet-field svg>rect:first-of-type:not([x]):not([y]){stroke:none!important}
 .print-shape-sheet .sheet-field svg marker path{fill:#101828!important}
 .print-shape-sheet .sheet-field svg text{fill:#101828!important}
 .print-shape-sheet .sheet-field svg .shape-inch-reference{fill:#667085!important}
@@ -1996,7 +1998,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='efe877e1e127';
+var ERP_BUILD='7af7e7475114';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -18794,9 +18796,12 @@ shapeForm=function(){
   var designer=external
     ? `<div class='shape-prod-external-note'>DXF is the <b>FINISHED</b> contour. Geometry is read-only; processing remains editable.</div>${shapeProdDxfEdgeProcessing()}`
     : `${sDraft.type==='smart'?shapeSmartControls():shapeGenericControls()}${shapeLiteSplitEditor()}${shapeEdgeworkEditor()}`;
-  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true):shapeProdMasterFields()+designer+(typeof shapeMuntinEditor==='function'?shapeMuntinEditor():'');
-  var cutoutCount=shapeCutoutItemCount();
-  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Fabrication</b><small>Hole · Hardware · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
+  /* Раскладка — изготовление, а не геометрия: живёт во Fabrication
+     (владелец, 27.09.2026: «ему в дизайне шейпа не место»). */
+  var muntinOn=!!(sDraft.muntin&&sDraft.muntin.enabled);
+  var controls=sWorkspaceTab==='cutout'?shapeCutoutEditor(geo,true)+(typeof shapeMuntinEditor==='function'?shapeMuntinEditor():''):shapeProdMasterFields()+designer;
+  var cutoutCount=shapeCutoutItemCount()+(muntinOn?1:0);
+  var workspaceTabs=`<div class='shape-workspace-tabs' role='tablist' aria-label='Shape workflow'><button type='button' role='tab' aria-selected='${sWorkspaceTab==='designer'}' class='${sWorkspaceTab==='designer'?'on':''}' onclick='setShapeWorkspaceTab("designer")'><span>1</span><b>Shape Designer</b><small>Geometry · Lites · Edge processing</small></button><button type='button' role='tab' aria-selected='${sWorkspaceTab==='cutout'}' class='${sWorkspaceTab==='cutout'?'on':''}' onclick='setShapeWorkspaceTab("cutout")'><span>2</span><b>Fabrication</b><small>Hole · Hardware · Muntin · Stamp · Sandblast · Cut shape</small>${cutoutCount?`<i>${cutoutCount}</i>`:''}</button></div>`;
   var tabs=external
     ? `<div class='shape-view-tabs'><button class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting DXF</button>${shapeMetricToggleButton(true)}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`
     : `<div class='shape-view-tabs'><button data-shape-view='production' class='${sView!=='cutting'?'on':''}' onclick='setShapeView("production")'>Production Drawing</button><button data-shape-view='cutting' class='${sView==='cutting'?'on':''}' onclick='setShapeView("cutting")'>Cutting Shape</button>${shapeMetricToggleButton(sView==='cutting')}<button class='shape-print-btn' onclick='shapePrintDrawing()'>Print / PDF</button></div>`;
