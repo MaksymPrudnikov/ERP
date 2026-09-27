@@ -1382,28 +1382,24 @@ module.exports=async function({page,eq,ok}){
   return {wide:run(3000000),narrow:run(2045400)};
  }),{wide:'25.4:0 1025.4:25.4 2025.4:0',narrow:'25.4:0 1025.4:25.4 2025.4:25.4'});
 
- eq('печать схем: широкий лист — альбомный Letter во всю ширину, высокий — книжный, поворот в ячейке размера',await t.p.evaluate(()=>{
+ /* Владелец, 27.09.2026: лист стекла — одна страница, и никакого текста вне
+    листа: заказчик, заказ и номер стекла подписаны на самих стёклах. */
+ eq('печать схем: лист стекла — одна страница, только строка заголовка и схема во всю страницу',await t.p.evaluate(()=>{
   const run=(w,h)=>{
    oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',w,h);ctOrder([[14,14,2],[16,6,1]]);
-   const b=DB.glassBatch[0];cutPlanRun(b.number);cutPlanFor(b.number).groups[0].sheets[0].pieces[0].turn=2;
+   const b=DB.glassBatch[0];cutPlanRun(b.number);
    cutPrintLayouts(b.number);
-   const host=document.getElementById('cutPrintHost'),svg=host.querySelector('.cut-print-sheet svg');
+   const host=document.getElementById('cutPrintHost'),page=host.querySelector('.cut-print-page'),svg=host.querySelector('.cut-print-sheet svg');
    const r={page:(document.getElementById('cutPageStyle')||{}).textContent||'',width:+svg.getAttribute('width'),height:+svg.getAttribute('height'),
-    heads:[...host.querySelectorAll('.cut-print-table th')].map(x=>x.textContent),
-    cols:[...host.querySelectorAll('.cut-print-table tbody tr')].map(tr=>tr.children.length),
-    turn:host.querySelector('.cut-print-table tbody tr td:last-child').textContent};
+    parts:[...page.children].map(x=>x.tagName.toLowerCase()),labels:svg.textContent.includes('Northside Windows')};
    cutPrintCleanup();return r;
   };
-  /* Листы цеха хранятся лёжа, но лист можно повернуть стоя (orient) —
-     тогда книжная страница и схема по высоте. */
-  const wide=run(102,35.5),tallSize={w:35.5,h:102},tallPx=cutPrintSheetPx(tallSize,false,3),tallS=tallPx/102;
+  const wide=run(102,35.5),square=run(144,102),tall=cutPrintPlan([{w:35.5,h:102}]),box=cutPrintBox(true);
   return {wide:wide.page.includes('size:11in 8.5in')&&wide.width>900&&wide.width<=966,
-   tall:!cutPrintLandscape({groups:[{sheet:tallSize,sheets:[{},{}]},{sheet:{w:102,h:35.5},sheets:[{}]}]})&&35.5*tallS+CUT_SVG_PAD<=726&&102*tallS+CUT_SVG_PAD<=966&&102*tallS+CUT_SVG_PAD>800,
-   /* Длинная таблица не ужимает схему: 130 × 96 и 20 стёкол — схема на всю
-      страницу, таблица на следующей; 3 стекла — таблица рядом. */
-   full:cutPrintSheetPx({w:130,h:96},true,20)>=830&&cutPrintSheetPx({w:130,h:96},true,3)<830,
-   heads:wide.heads,cols:[...new Set(wide.cols)],turn:/ · 180°$/.test(wide.turn)};
- }),{wide:true,tall:true,full:true,heads:['#','Glass ID','Customer','Order','Mark','Size'],cols:[6],turn:true});
+   /* Лист 144 × 102: вся альбомная страница под схему. */
+   square:square.page.includes('size:11in 8.5in')&&square.width>900&&square.height+CUT_PRINT_HEAD_PX<=box.h+0.5,
+   tall:tall.landscape,parts:wide.parts,labels:wide.labels};
+ }),{wide:true,square:true,tall:false,parts:['h3','div'],labels:true});
 
  {
   await t.p.evaluate(()=>{
