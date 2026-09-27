@@ -33,12 +33,12 @@ function viewDashboard(){
   <div class="dashboard-grid">
    <div class="card">
     <div class="section-title"><h3>ERP map</h3><span class="pill">green dot = screen already exists</span></div>
-    <div class="sub">This is a visual map of data ownership by business domain. Perfect Cut remains an external optimizer, not part of the ERP.</div>
+    <div class="sub">This is a visual map of data ownership by business domain.</div>
     <div class="domain-map">
       <div class="flow-row">
        <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Configuration</b><small>Shape · Muntin · drawings · cutting geometry</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node external"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Perfect Cut</b><small>external cutting optimization through the bridge</small></div>
+       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Optimization</b><small>batches · cut layout · Maver / Disai files</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
        <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Production</b><small>stations · work positions · operations · terminals</small></div>
        <div class="flow-arrow">${ico('arrow')}</div>
@@ -58,7 +58,7 @@ function viewDashboard(){
     <div class="phase-list">
      <div class="phase-item current"><div class="phase-num">1</div><div><b>Foundation</b><span>master data and domain shell</span><div class="progress"><span style="width:42%"></span></div></div></div>
      <div class="phase-item"><div class="phase-num">2</div><div><b>Product engineering</b><span>Shape revisions · Muntin · drawings · cutting geometry</span></div></div>
-     <div class="phase-item"><div class="phase-num">3</div><div><b>Shop floor</b><span>Perfect Cut bridge · WIP · breakage · stock</span></div></div>
+     <div class="phase-item"><div class="phase-num">3</div><div><b>Shop floor</b><span>WIP · breakage · stock</span></div></div>
      <div class="phase-item"><div class="phase-num">4</div><div><b>Planning</b><span>capacity · batches · racks · delivery</span></div></div>
      <div class="phase-item"><div class="phase-num">5</div><div><b>Closeout</b><span>MRP · actual costing · BI</span></div></div>
     </div>
@@ -68,7 +68,6 @@ function viewDashboard(){
   <div class="card">
    <div class="section-title"><h3>What currently needs a decision, not design</h3><span class="pill warn">${ico('alert','icon-inline')}open questions</span></div>
    <div class="machine-grid">
-    <div class="card-soft"><b>Perfect Cut ↔ ERP</b><div class="hint">Do not design the protocol until we have the actual Spil connector settings / R.O. SRL response.</div></div>
     <div class="card-soft"><b>Station sizes</b><div class="hint">${unsized} of ${DB.station.length} stations await measurement. The seeded 144 × 100″ is a sheet size, not a machine size, so the fit check rests on an assumption.</div></div>
     <div class="card-soft"><b>Three CNCs</b><div class="hint">Whether CNC1 / CNC2 / CNC3 share the same working field. If not, the route has to know which one is allowed.</div></div>
     <div class="card-soft"><b>Terminals</b><div class="hint">The screen behaviour is known; how many stand in the shop and which positions hang on each is not. We do not create invented rows here.</div></div>
