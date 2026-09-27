@@ -392,7 +392,15 @@ function shapeOpText(o){
   if(o.type==='CNC Lami Polish')return 'CNC LP';
   return o.type;
 }
-function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
+function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext){
+  /* ext — насколько подписи сторон, размеры фурнитуры и «лесенка» раскладки
+     выходят за деталь с каждой стороны: по нему общий габарит встаёт сразу
+     за ними, а не на запасе в 120 px (владелец, 28.09.2026). */
+  ext=ext||{};['L','R','T','B'].forEach(function(k){ext[k]=ext[k]||0;});
+  var bx=layer&&layer.box;
+  var track=function(cx,cy,txt,angDeg,size){if(!bx)return;
+    var hl=String(txt).length*size*.31+3,hh=size*.62,r=(angDeg||0)*Math.PI/180,ex=Math.abs(Math.cos(r))*hl+Math.abs(Math.sin(r))*hh,ey=Math.abs(Math.sin(r))*hl+Math.abs(Math.cos(r))*hh;
+    ext.L=Math.max(ext.L,bx.left-(cx-ex));ext.R=Math.max(ext.R,(cx+ex)-bx.right);ext.T=Math.max(ext.T,bx.top-(cy-ey));ext.B=Math.max(ext.B,(cy+ey)-bx.bottom);};
   /* Размеры позиций фурнитуры по кромке (петля, патч, клэмп) стоят у своей
      стороны: ряд 34 px + 22 на следующий, подпись ещё на 19 px наружу. Длина
      стороны — общий размер — уходит за них: крупная подпись иначе ложилась
@@ -405,6 +413,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
   var mun=result.definition&&result.definition.muntin,munRows={T:0,R:0};
   if(mun&&mun.enabled){munRows.T=Math.max(0,(+mun.verticalBars||0)-1);munRows.R=Math.max(0,(+mun.horizontalBars||0)-1);}
   var sideBase=function(key){var base=32;if(mfgSide[key])base=Math.max(base,66+(mfgSide[key]-1)*22);if(munRows[key])base=Math.max(base,munRows[key]*22+31);return base;};
+  ['L','R','T','B'].forEach(function(k){if(mfgSide[k])ext[k]=Math.max(ext[k],62+(mfgSide[k]-1)*22);if(munRows[k])ext[k]=Math.max(ext[k],munRows[k]*22+25);});
   var orient=fabSignedArea(result.points),lanes={},out='',DP=(layer&&layer.DP)||function(p){return [F.X(p[0]),F.Y(p[1])];};
   var edgeNames=shapeEdgeNames(result.geometry);
   shapeEdgeGroups(result.geometry).forEach(function(g){
@@ -439,7 +448,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
       var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dimLead=dimOff+14,dimX=mx+dn[0]*dimLead,dimY=my+dn[1]*dimLead;
       var dimAng=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(dimAng>90)dimAng-=180;if(dimAng<-90)dimAng+=180;
       var dimBody='<g class="shape-inch-edge-dimension" data-edge-id="'+shapeXml(g.id)+'">'+shapeMetricEdgeDimSvg(a,b,dn[0],dn[1],dimOff,'#344054',true)+shapeLabelBg(dimX,dimY+6,edgeName+' '+shapeDrawingDim(g.length),SHAPE_DIM_FONT,'rotate('+dimAng+' '+dimX+' '+dimY+')')+'<text class="shape-inch-edge-length" data-edge-id="'+shapeXml(g.id)+'" x="'+dimX+'" y="'+(dimY+6)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+dimX+' '+dimY+')">'+shapeXml(edgeName+' '+shapeDrawingDim(g.length))+'</text></g>';
-      out+=shapeAnnUiWrap(layoutOpts,moveKey,dimBody,dimX,dimY+27,F);
+      out+=shapeAnnUiWrap(layoutOpts,moveKey,dimBody,dimX,dimY+27,F);track(dimX,dimY,edgeName+' '+shapeDrawingDim(g.length),dimAng,SHAPE_DIM_FONT);
       if(ops.length){
         var opOff=14,opX=mx+dn[0]*opOff,opY=my+dn[1]*opOff;
         out+='<text class="shape-edge-label-outside shape-edge-operation-label" data-edge-id="'+shapeXml(g.id)+'" x="'+opX+'" y="'+(opY+4.5)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+opX+' '+opY+')">'+shapeXml(ops.join(' + '))+'</text>';
@@ -451,7 +460,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean){
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var body=(metricMode?'':shapeLabelBg(x,y,txt,SHAPE_DIM_FONT,'rotate('+ang+' '+x+' '+y+')'))+'<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+(metricMode?9:SHAPE_DIM_FONT)+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
-    out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);
+    out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);if(!metricMode)track(x,y-SHAPE_DIM_FONT*.35,txt,ang,SHAPE_DIM_FONT);
   });return out;
 }
 function shapeProductionFeaturesSvg(result,F){
@@ -535,16 +544,19 @@ function shapeProductionSvg(result,opts){
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
+  var edgeExt={},edgeSvg=shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation,metricClean,edgeExt);
   if(!L.smart&&result.definition.type!=='rectangle'&&!F.metric){
     var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
-    var near=1;
-    var wy=L.box.bottom+118*near+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-128*near-shapeAnnUiShift(annOpts,hKey);
+    /* Габарит — сразу за подписями сторон этой стороны (подпись ширины стоит
+       над линией, между деталью и линией; подпись высоты — снаружи линии).
+       Раньше 118 и 128 px запаса: деталь на листе выходила мелкой. */
+    var wy=L.box.bottom+Math.max(34,edgeExt.B+36)+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-Math.max(24,edgeExt.L+14)-shapeAnnUiShift(annOpts,hKey);
     o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
     o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
-  o+=shapeProductionFeaturesSvg(result,F)+shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation,metricClean);
+  o+=shapeProductionFeaturesSvg(result,F)+edgeSvg;
   if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }

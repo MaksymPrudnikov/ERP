@@ -3624,20 +3624,21 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
 
     /* Владелец, 28.09.2026: размеры на чертеже крупнее — 18 (подписи уклона и
        буквы сторон 16) для всех типов; подпись на линии получает белую
-       подложку; деталь стоит по центру листа, а не уезжает от размера слева. */
+       подложку; деталь стоит по центру листа, а не уезжает от размера слева;
+       общий габарит прижат к детали — у круга лист почти весь занят кругом. */
     eq('печатный чертёж: размеры 18, подпись уклона 16 на белой подложке без рамки, деталь по центру листа', await t.p.evaluate(() => {
       const sheet=(type,setup)=>{tab='configurators';subtab='shape';openShapeNew(type);setup();render();const r=shapeDraftResult();
         printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),''),'',salesSheetFitDrawing);
         const svg=document.querySelector('#printSheetHost .sheet-field svg'),vb=svg.getAttribute('viewBox').split(/\s+/).map(Number),g=svg.querySelector('.shape-sheet-glass').getBBox();
-        const out={sizes:[...new Set([...svg.querySelectorAll('text')].map(t=>t.getAttribute('font-size')).filter(Boolean))].sort(),
+        const out={compact:vb[2]<g.width*1.45,sizes:[...new Set([...svg.querySelectorAll('text')].map(t=>t.getAttribute('font-size')).filter(Boolean))].sort(),
           bg:[...svg.querySelectorAll('.shape-ann-bg')].map(r=>getComputedStyle(r).stroke),
           centered:Math.abs((g.x+g.width/2)-(vb[0]+vb[2]/2))<vb[2]*0.01};
         printSheetCleanup();sEdit=null;sDraft=null;return out;};
       const smart=sheet('smart',()=>{setShapeField('h','90');setShapeField('w','20');setShapeC('60');});
       const circle=sheet('circle',()=>{setShapeField('w','24');});
       const rect=sheet('rectangle',()=>{setShapeField('w','48');setShapeField('h','36');});
-      render();return {smart:{sizes:smart.sizes,bg:smart.bg.length>0&&smart.bg.every(s=>s==='none'),centered:smart.centered},circle:{sizes:circle.sizes,centered:circle.centered},rect:{sizes:rect.sizes,centered:rect.centered}};
-    }), {smart:{sizes:['16','18'],bg:true,centered:true},circle:{sizes:['18'],centered:true},rect:{sizes:['16','18'],centered:true}});
+      render();return {smart:{sizes:smart.sizes,bg:smart.bg.length>0&&smart.bg.every(s=>s==='none'),centered:smart.centered},circle:{sizes:circle.sizes,centered:circle.centered,compact:circle.compact},rect:{sizes:rect.sizes,centered:rect.centered}};
+    }), {smart:{sizes:['16','18'],bg:true,centered:true},circle:{sizes:['18'],centered:true,compact:true},rect:{sizes:['16','18'],centered:true}});
 
     /* Бары раскладки — прямоугольники в корне чертежа. Когда подгонка листа
        убирает фон, первый бар становился «первым прямоугольником» и терял
