@@ -1122,21 +1122,30 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
  .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
  .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
 }
-/* Вкладка Drawings: мокап — настоящий лист чертежа 850 × 1100 (как у
-   печати), уменьшенный в бумагу 255 × 330. */
-.doc-drawing-count{color:#475467;font-size:12px;white-space:nowrap}
-.doc-drawings{min-height:0;overflow:auto;padding:18px;display:grid;grid-template-columns:repeat(auto-fill,259px);grid-auto-rows:max-content;justify-content:center;align-content:start;gap:16px}
-.doc-drawing{margin:0;background:#fff;border:2px solid transparent;border-radius:8px;box-shadow:0 2px 12px rgba(16,24,40,.18);overflow:hidden}
-.doc-drawing.on{border-color:#16325c}
-.doc-drawing.focus{box-shadow:0 0 0 4px #fdb022}
-.doc-drawing-head{display:flex;align-items:center;gap:8px;margin:0;padding:6px 10px;border-bottom:1px solid #eaecf0;font-size:12px;cursor:pointer}
-.doc-drawing-head input{flex:none;width:auto;margin:0}
-.doc-drawing-head span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#475467}
-.doc-drawing-paper{position:relative;width:255px;height:330px;overflow:hidden}
-.doc-drawing-scale{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.3);transform-origin:0 0;pointer-events:none}
-.doc-drawing-scale .print-sheet{height:100%}
-.doc-drawing-error{padding:12px;color:#b42318;font-size:12px}
-.doc-drawing:not(.on) .doc-drawing-paper{opacity:.45}
+/* Вкладка Drawings: лист чертежа 850 × 1100 (как у печати) крупно, по бокам
+   ‹ ›, снизу лента мини-листов с номерами строк. */
+.doc-drawing-now{color:#475467;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch}
+.doc-drawings{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}
+.doc-stage{min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px}
+.doc-drawing{flex:none;margin:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-drawing .print-sheet,.doc-thumb-sheet .print-sheet{height:100%}
+.doc-drawing-error{color:#b42318;font-size:14px}
+.doc-step{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0 0 3px;border:1px solid #d0d5dd;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(16,24,40,.12);color:#344054;font-size:30px;line-height:1}
+.doc-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.doc-step:disabled{opacity:.3;box-shadow:none}
+.doc-film{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;border-top:1px solid #d9dfe8;background:#f8fafc;scrollbar-width:thin}
+.doc-thumb{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 5px;border:2px solid transparent;border-radius:9px;background:none;box-shadow:none;cursor:pointer}
+.doc-thumb:hover{background:#f0f9ff}
+.doc-thumb.on{border-color:#1f6f9f;background:#eef4ff}
+.doc-thumb-paper{position:relative;display:block;width:56px;height:72px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.22)}
+.doc-thumb-sheet{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.0659);transform-origin:0 0;pointer-events:none}
+.doc-thumb b{font-size:12px;font-variant-numeric:tabular-nums;color:#344054}
+.doc-thumb.on b{color:#026aa2}
+.doc-print-pick{position:relative}
+.doc-print-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:2;display:flex;flex-direction:column;min-width:180px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16)}
+.doc-print-menu[hidden]{display:none}
+.doc-print-menu button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:6px;white-space:nowrap}
+.doc-print-menu button:hover{background:#f2f4f7}
 @media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
 
 
@@ -1883,14 +1892,8 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
  body.cut-printing>#cutPrintHost{display:block!important}
  .cut-print-page{page:cutsheet;break-after:page;font:12px Helvetica,Arial,sans-serif}
  .cut-print-page:last-child{break-after:auto}
- .cut-print-page h3{margin:0 0 4px;break-after:avoid}
- .cut-print-page p{margin:0 0 10px;color:#475467;break-after:avoid}
- .cut-print-sheet{margin-bottom:12px}
+ .cut-print-page h3{margin:0 0 6px;font-size:13px;line-height:18px}
  .cut-print-sheet svg{display:block;max-width:100%;height:auto}
- .cut-print-table{width:100%;border-collapse:collapse;font-size:11px}
- .cut-print-table tr{break-inside:avoid}
- .cut-print-table th,.cut-print-table td{border-bottom:1px solid #d0d5dd;padding:3px 6px;text-align:left}
- .cut-print-turn{color:#475467;white-space:nowrap}
 }
 .cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid #abefc6;border-radius:8px;background:#ecfdf3;color:#067647;font-size:13px}
 .cut-size-nums{font-size:10px;color:#667085;margin-top:2px;white-space:nowrap}
@@ -1995,7 +1998,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='c9c4252bf268';
+var ERP_BUILD='aff5db6c7ee1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20590,15 +20593,15 @@ let docState=null,docLastKind='proforma';
 /* Квота печатается только бланком Quote, заказ — тремя бланками заказа. У
    квоты с ревизиями галочками выбирается, какие ревизии печатать и слать. */
 function docKindsFor(o){return DOC_KINDS.filter(d=>salesIsQuote(o)?d.k==='quote':d.k!=='quote');}
-/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26.09.2026):
-   мокапы всех строк, галочками — какие печатать. focus — строка, к которой
-   прокрутить окно (клик по форме строки в батче). */
+/* Чертежи строк — не бланк, а своя вкладка окна (владелец, 26–27.09.2026):
+   лист текущей строки крупно, лента мини-листов, печать — этот лист или все.
+   focus — строка, с которой открыть окно (клик по форме строки в батче). */
 function docOpen(kind,focus){
  if(!soDraft)return;
  const kinds=docKindsFor(soDraft).map(d=>d.k),q=salesIsQuote(soDraft);
  kind=kind==='drawings'||kinds.includes(kind)?kind:q?'quote':kinds.includes(docLastKind)?docLastKind:kinds[0];
  const cur=q?salesQuoteCurrentId():null;
- docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,skip:[],focus:focus||'',drawings:null};
+ docState={kind,opts:kind==='drawings'?{}:docDefaultOptions(kind),panel:false,status:'',revs:cur?[cur]:[],cur,focus:focus||'',current:focus||'',drawings:null};
  render();
 }
 function docClose(){docState=null;render();}
@@ -20664,58 +20667,86 @@ function docModal(){
  return `<div class="doc-back" onclick="if(event.target===this)docClose()"><div class="doc-window" role="dialog" aria-modal="true" aria-label="Documents">
   <div class="doc-bar"><b class="doc-title">Preview · ${docState.kind==='quote'?'Quote '+esc(salesQuoteBaseNumber(salesQuoteShown(soDraft))||'draft'):'Order '+esc(soDraft.businessNumber||'draft')}</b><div class="doc-kinds">${kinds}${docRevisionPicker()}</div><span class="doc-spacer"></span>
    ${tools}
-   <button type="button" data-doc-print onclick="docPrint()">Print</button>${drawings?'':'<button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
+   ${drawings?`<span class="doc-print-pick"><button type="button" data-doc-print onclick="docDrawingPrintMenu(event)">Print ▾</button><span class="doc-print-menu" data-doc-print-menu hidden></span></span>`:'<button type="button" data-doc-print onclick="docPrint()">Print</button><button type="button" onclick="docEmail()">Email</button>'}<button type="button" onclick="docClose()">Close</button></div>
   ${warn||status?`<div class="doc-status">${warn}${status}</div>`:''}
   <div class="doc-body${docState.panel&&!drawings?' with-panel':''}">${body}${docState.panel&&!drawings?docPanel():''}</div>
  </div></div>`;
 }
 /* ----------------------------- Чертежи ------------------------------ */
-/* Мокап — тот же лист, что уйдёт на печать (salesLineDrawing), в уменьшенной
-   бумаге. Листы строятся один раз на открытие окна: пока оно открыто, заказ
-   не правится, а 60 строк считались ~3 с на каждую перерисовку. Галочки и
-   All/None меняют только сам экран. */
+/* Лист — тот же, что уйдёт на печать (salesLineDrawing), в бумаге 850 × 1100,
+   уменьшенной под окно (крупно) и под ленту (мини). Листы строятся один раз на открытие окна: пока
+   оно открыто, заказ не правится, а 60 строк считались ~3 с на перерисовку. */
 function docDrawingItems(){
  const done=docState.drawings||(docState.drawings=new Map());
  return (soDraft.lines||[]).map((l,i)=>{if(!done.has(l.id))done.set(l.id,salesLineDrawing(l));const d=done.get(l.id);return d?Object.assign({i},d):null;}).filter(Boolean);
 }
-function docDrawingPicked(items){const skip=new Set(docState.skip||[]);return items.filter(x=>x.html&&!skip.has(x.line.id));}
+function docDrawingName(x){return 'Line '+(x.i+1)+(x.line.mark?' · '+x.line.mark:'');}
+function docDrawingNow(items){return items.find(x=>x.line.id===docState.current)||items[0]||null;}
 function docDrawingTools(items){
- const ok=items.filter(x=>x.html);
- return `<span class="doc-drawing-count" data-doc-drawing-count>${docDrawingPicked(ok).length} of ${ok.length}</span><button type="button" data-doc-all onclick="docDrawingAll(true)">All</button><button type="button" data-doc-none onclick="docDrawingAll(false)">None</button>`;
+ const now=docDrawingNow(items);
+ return `<span class="doc-drawing-now" data-doc-drawing-now>${now?esc(docDrawingName(now))+' · '+(items.indexOf(now)+1)+' of '+items.length:''}</span>`;
 }
+/* Владелец, 27.09.2026: «скролл по листам влево и вправо, чтобы чертежи
+   было видно в мини-формате и по номерам». Посередине — лист текущей строки
+   крупно, по бокам ‹ ›, снизу лента мини-листов с номерами строк; стрелки
+   ← → на клавиатуре. Переход меняет только лист, ленту и подпись — весь экран
+   не перерисовывается (заказ на 60 строк рисуется ~2,5 с). */
+function docDrawingZoom(){return Math.max(.25,Math.min(1,(Math.min(1280,window.innerWidth-36)-140)/850,(window.innerHeight-36-58-110-24)/1100));}
+function docDrawingSheet(x){return !x?'':x.html?`<div class="print-sheet">${printSheetUniqueIds(x.html)}</div>`:`<div class="doc-drawing-error"><b>${esc(docDrawingName(x))}</b> ${esc(x.error)}</div>`;}
 function docDrawingsBody(items){
- const skip=new Set(docState.skip||[]);
  setTimeout(docDrawingsFit,0);
  if(!items.length)return '<div class="doc-drawings"><div class="empty">No drawings.</div></div>';
- return `<div class="doc-drawings">${items.map(x=>{const id=esc(x.line.id),on=!!x.html&&!skip.has(x.line.id);
-  return `<figure class="doc-drawing${on?' on':''}" data-doc-drawing="${id}">
-   <label class="doc-drawing-head"><input type="checkbox" ${x.html?'':'disabled'} ${on?'checked':''} onchange="docDrawingToggle('${id}',this.checked)"><b>Line ${x.i+1}</b><span>${esc(x.line.mark||'')}</span></label>
-   <div class="doc-drawing-paper">${x.html?`<div class="doc-drawing-scale"><div class="print-sheet">${printSheetUniqueIds(x.html)}</div></div>`:`<div class="doc-drawing-error">${esc(x.error)}</div>`}</div></figure>`;}).join('')}</div>`;
+ const now=docDrawingNow(items),at=items.indexOf(now),many=items.length>1;
+ const step=(d,label,sign,off)=>many?`<button type="button" class="doc-step" data-doc-${d} aria-label="${label}" title="${label} (${d==='prev'?'←':'→'})" ${off?'disabled':''} onclick="docDrawingStep(${sign})">${d==='prev'?'‹':'›'}</button>`:'';
+ return `<div class="doc-drawings" data-doc-drawings>
+  <div class="doc-stage">${step('prev','Previous drawing',-1,at<=0)}<figure class="doc-drawing" data-doc-drawing="${esc(now.line.id)}" style="zoom:${docDrawingZoom().toFixed(3)}">${docDrawingSheet(now)}</figure>${step('next','Next drawing',1,at>=items.length-1)}</div>
+  ${many?`<div class="doc-film" data-doc-film>${items.map(x=>`<button type="button" class="doc-thumb${x===now?' on':''}" data-doc-thumb="${esc(x.line.id)}" title="${esc(docDrawingName(x))}" onclick="docDrawingGo('${esc(x.line.id)}')"><span class="doc-thumb-paper"><span class="doc-thumb-sheet">${x.html?docDrawingSheet(x):''}</span></span><b>${x.i+1}</b></button>`).join('')}</div>`:''}
+ </div>`;
 }
 function docDrawingsFit(){
- document.querySelectorAll('.doc-drawing .print-sheet').forEach(el=>salesSheetFitDrawing(el));
- const f=docState&&docState.focus;if(!f)return;docState.focus='';
- const el=[...document.querySelectorAll('[data-doc-drawing]')].find(x=>x.dataset.docDrawing===f);
- if(el){el.scrollIntoView({block:'center'});el.classList.add('focus');}
+ document.querySelectorAll('.doc-drawings .print-sheet').forEach(el=>salesSheetFitDrawing(el));
+ docDrawingFilmShow();docState&&(docState.focus='');
 }
-function docDrawingShow(){
- const skip=new Set(docState.skip||[]),boxes=[...document.querySelectorAll('[data-doc-drawing]')];
- boxes.forEach(el=>{const input=el.querySelector('input'),on=!input.disabled&&!skip.has(el.dataset.docDrawing);input.checked=on;el.classList.toggle('on',on);});
- const count=document.querySelector('[data-doc-drawing-count]'),ok=boxes.filter(el=>!el.querySelector('input').disabled);
- if(count)count.textContent=ok.filter(el=>!skip.has(el.dataset.docDrawing)).length+' of '+ok.length;
+function docDrawingFilmShow(){const el=document.querySelector('.doc-thumb.on');if(el&&el.scrollIntoView)el.scrollIntoView({block:'nearest',inline:'center'});}
+function docDrawingGo(id){
+ if(!docState||docState.kind!=='drawings')return;
+ const items=docDrawingItems(),x=items.find(i=>i.line.id===id),fig=document.querySelector('[data-doc-drawing]');if(!x||!fig)return;
+ docState.current=id;const at=items.indexOf(x);
+ fig.dataset.docDrawing=id;fig.innerHTML=docDrawingSheet(x);
+ const sheet=fig.querySelector('.print-sheet');if(sheet)salesSheetFitDrawing(sheet);
+ document.querySelectorAll('[data-doc-thumb]').forEach(el=>el.classList.toggle('on',el.dataset.docThumb===id));
+ const prev=document.querySelector('[data-doc-prev]'),next=document.querySelector('[data-doc-next]');
+ if(prev)prev.disabled=at<=0;if(next)next.disabled=at>=items.length-1;
+ const label=document.querySelector('[data-doc-drawing-now]'),t=document.createElement('span');t.innerHTML=docDrawingTools(items);
+ if(label)label.textContent=t.textContent;
+ const m=document.querySelector('[data-doc-print-menu]');if(m)m.hidden=true;
+ docDrawingFilmShow();
 }
-function docDrawingToggle(id,on){
- if(!docState)return;
- const s=new Set(docState.skip||[]);if(on)s.delete(id);else s.add(id);docState.skip=[...s];docDrawingShow();
+function docDrawingStep(d){
+ if(!docState||docState.kind!=='drawings')return;
+ const items=docDrawingItems(),at=items.indexOf(docDrawingNow(items)),x=items[Math.max(0,Math.min(items.length-1,at+d))];
+ if(x)docDrawingGo(x.line.id);
 }
-function docDrawingAll(on){
- if(!docState)return;docState.skip=on?[]:(soDraft.lines||[]).map(l=>l.id);
- if(docState.status){docState.status='';render();}else docDrawingShow();
+document.addEventListener('keydown',e=>{
+ if(!docState||docState.kind!=='drawings'||e.altKey||e.ctrlKey||e.metaKey)return;
+ if(e.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
+ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();docDrawingStep(e.key==='ArrowRight'?1:-1);}
+});
+/* Print у чертежей спрашивает: этот лист или все (владелец, 27.09.2026). */
+function docDrawingPrintMenu(e){
+ e.stopPropagation();
+ const m=document.querySelector('[data-doc-print-menu]');if(!m)return;
+ const items=docDrawingItems().filter(x=>x.html),now=docDrawingNow(docDrawingItems());
+ m.innerHTML=(now&&now.html?`<button type="button" data-doc-print-one onclick="docDrawingsPrint('one')">This drawing · ${esc('Line '+(now.i+1))}</button>`:'')+`<button type="button" data-doc-print-all onclick="docDrawingsPrint('all')">All · ${items.length}</button>`;
+ m.hidden=!m.hidden;
+ if(!m.hidden)setTimeout(()=>document.addEventListener('click',()=>{m.hidden=true;},{once:true}),0);
 }
-function docDrawingsPrint(){
- const sheets=docDrawingPicked(docDrawingItems()).map(x=>x.html);
- if(!sheets.length){docState.status='Tick at least one drawing.';render();return;}
- docState.status='';printSheet(sheets,'',salesSheetFitDrawing);
+function docDrawingsPrint(which){
+ const items=docDrawingItems(),now=docDrawingNow(items);
+ const sheets=(which==='one'?[now]:items).filter(x=>x&&x.html).map(x=>x.html);
+ const m=document.querySelector('[data-doc-print-menu]');if(m)m.hidden=true;
+ if(!sheets.length)return;
+ printSheet(sheets,'',salesSheetFitDrawing);
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -20745,7 +20776,7 @@ function docPrintPrepare(){
 function docPrintCleanup(){document.body.classList.remove('doc-printing');const h=document.getElementById('docPrintHost');if(h)h.innerHTML='';}
 function docPrint(){
  if(!docState)return;
- if(docState.kind==='drawings'){docDrawingsPrint();return;}
+ if(docState.kind==='drawings'){docDrawingsPrint('all');return;}
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);
@@ -27273,39 +27304,29 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
 /* --------------------------------- Печать -------------------------------- */
 function cutPrintHost(){let h=document.getElementById('cutPrintHost');if(!h){h=document.createElement('div');h.id='cutPrintHost';document.body.appendChild(h);}return h;}
 function cutPrintCleanup(){document.body.classList.remove('cut-printing');const h=document.getElementById('cutPrintHost');if(h)h.innerHTML='';}
-/* Владелец, 26 сентября 2026: печатают редко, но на Letter. Схема шла
-   полоской 520 px на книжной странице, подписи стёкол наезжали. Теперь
-   ориентация — по листам батча, а схема занимает всю область печати: подписи
-   по размеру куска сами переходят в полный вид. */
-const CUT_PRINT_MARGIN_MM=12,CUT_PRINT_HEAD_PX=64,CUT_PRINT_ROW_PX=20;
-function cutPrintLandscape(plan){
- let wide=0,tall=0;
- plan.groups.forEach(g=>g.sheets.forEach(s=>{const z=s.size||g.sheet;if(z.w>=z.h)wide++;else tall++;}));
- return wide>=tall;
-}
-/* Размер схемы для cutSheetSVG: вся ширина области печати, по высоте — то,
-   что остаётся под шапку и таблицу. Если таблица на той же странице ужала бы
-   схему больше чем на четверть (лист 130 × 96 и 20 стёкол — было 380 px),
-   схема берёт страницу целиком, а таблица уходит на следующую. */
-function cutPrintSheetPx(size,landscape,rows){
- const m=CUT_PRINT_MARGIN_MM/25.4,pw=((landscape?11:8.5)-2*m)*96,ph=((landscape?8.5:11)-2*m)*96-8;
- const fit=room=>Math.min((pw-CUT_SVG_PAD)/size.w,(room-CUT_SVG_PAD)/size.h);
- const page=fit(ph-CUT_PRINT_HEAD_PX),shared=fit(ph-CUT_PRINT_HEAD_PX-(rows+1)*CUT_PRINT_ROW_PX);
- return Math.floor(Math.max(size.w,size.h)*(shared>=page*0.75?shared:page));
+/* Владелец, 26 сентября 2026: печатают редко, но на Letter; 27 сентября:
+   «зачем два листа», «зачем текст вне листа — на листе и так есть все
+   данные». Лист стекла — одна страница: строка заголовка (батч, лист, стекло,
+   размер, увеличенный Trim Y) и схема во всю страницу. Ориентация общая на
+   батч — та, где самый мелкий лист выходит крупнее. Подписи стёкол по размеру
+   куска сами переходят в полный вид. */
+const CUT_PRINT_MARGIN_MM=12,CUT_PRINT_HEAD_PX=30;
+function cutPrintBox(landscape){const m=CUT_PRINT_MARGIN_MM/25.4;return {w:((landscape?11:8.5)-2*m)*96,h:((landscape?8.5:11)-2*m)*96-8};}
+function cutPrintFit(size,landscape){const box=cutPrintBox(landscape);return Math.min((box.w-CUT_SVG_PAD)/size.w,(box.h-CUT_PRINT_HEAD_PX-CUT_SVG_PAD)/size.h);}
+function cutPrintPlan(sizes){
+ const worst=landscape=>Math.min(...sizes.map(z=>cutPrintFit(z,landscape))),landscape=worst(true)>=worst(false);
+ return {landscape,scales:sizes.map(z=>cutPrintFit(z,landscape))};
 }
 function cutPrintLayouts(number){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),by=new Map(pieces.map(p=>[p.piece,p])),pages=[],landscape=cutPrintLandscape(plan);
- plan.groups.forEach(g=>g.sheets.forEach(s=>{
-  const autoTrim=cutAutoTrimInfo(g,s),size=s.size||g.sheet;
-  const rows=s.pieces.map((p,i)=>{const src=by.get(p.piece)||{};
-   const turn=cutPieceTurn(p);
-   return `<tr><td>${i+1}</td><td>${esc(p.piece)}</td><td>${esc(src.customer||'')}</td><td>${esc(src.order||'')} / ${src.line||''}</td><td>${esc(src.mark||'')}</td><td>${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${turn?` <span class="cut-print-turn">· ${turn*90}°</span>`:''}</td></tr>`;}).join('');
-  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″</h3>
-   <p>Used ${s.used} ft² · Scrap ${s.gross} ft² · Net ${s.net} ft²${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″ (+ '+esc(frac16(autoTrim.extra))+'″)':''}${(s.stock||[]).length?' · To stock '+s.stock.map(x=>esc(x.id)+' '+esc(frac16(x.w))+' × '+esc(frac16(x.h))+'″').join(', '):''}</p>
-   <div class="cut-print-sheet">${cutSheetSVG(g,s,cutPrintSheetPx(size,landscape,s.pieces.length),pieces)}</div>
-   <table class="cut-print-table"><thead><tr><th>#</th><th>Glass ID</th><th>Customer</th><th>Order</th><th>Mark</th><th>Size</th></tr></thead><tbody>${rows}</tbody></table></div>`);
- }));
+ const pieces=cutPieces(glassBatchFind(number),plan.settings||{}),pages=[];
+ const list=plan.groups.flatMap(g=>g.sheets.map(s=>({g,s,size:s.size||g.sheet})));
+ const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
+ list.forEach(({g,s,size},k)=>{
+  const autoTrim=cutAutoTrimInfo(g,s);
+  pages.push(`<div class="cut-print-page"><h3>Batch ${esc(number)} · Sheet ${s.no} · ${esc(g.glass)} ${g.mm} mm · ${esc(frac16(size.w))} × ${esc(frac16(size.h))}″${autoTrim?' · Trim Y '+esc(frac16(autoTrim.minimum))+'″ → '+esc(frac16(autoTrim.actual))+'″':''}</h3>
+   <div class="cut-print-sheet">${cutSheetSVG(g,s,Math.floor(Math.max(size.w,size.h)*layout.scales[k]),pieces)}</div></div>`);
+ });
  if(!pages.length)return false;
  let st=document.getElementById('cutPageStyle');if(!st){st=document.createElement('style');st.id='cutPageStyle';document.head.appendChild(st);}
  st.textContent='@page cutsheet{size:'+(landscape?'11in 8.5in':'8.5in 11in')+';margin:'+CUT_PRINT_MARGIN_MM+'mm}';
