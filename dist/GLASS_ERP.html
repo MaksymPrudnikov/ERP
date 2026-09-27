@@ -1298,6 +1298,10 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-dialog-note{margin-top:8px;padding:8px 10px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;color:#7a2e0e}
 .sales-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #eaecf0;background:#f9fafb}
 @media(max-width:900px){.sales-status-row{overflow-x:auto}.sales-status-row .sales-steps{min-width:660px}.sales-status-tools{flex-direction:row;flex-wrap:wrap}}
+/* Сохранено ли то, что на экране: метка у кнопок заказа. */
+.sales-save-state{align-self:center;margin-right:4px;font-size:12px;color:#667085;white-space:nowrap}
+.sales-save-state.dirty{color:#b54708;font-weight:600}
+.sales-save-state.dirty::before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#f79009;vertical-align:1px}
 
 /* ---- src/styles/quotes.css ---- */
 /* Ревизии квоты, отправка, выбор ревизии при Convert to order. */
@@ -1998,7 +2002,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='7af7e7475114';
+var ERP_BUILD='919431b5e108';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10056,7 +10060,7 @@ function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -10193,9 +10197,7 @@ function salesTakeRecordPayment(orderId,amount){
 }
 function salesTakePayment(amount){if(soDraft)salesTakeRecordPayment(soDraft.id,amount);}
 function salesNewOrderForCustomer(customerId){
- if(salesDraftHasWork()&&!confirm('Leave this order without saving the changes?'))return;
- salesOrderNew('order');
- if(customerId){salesApplyCustomerDefaults(customerId);render();}
+ salesLeaveDraft(()=>{salesOrderNew('order');if(customerId){salesApplyCustomerDefaults(customerId);render();}});
 }
 
 /* ----------------------- Квота → заказ -------------------------------- */
@@ -10225,9 +10227,27 @@ function salesConvertQuoteRecord(id){
 }
 
 /* ------------------------ Шапка редактора ----------------------------- */
+/* Сохранено ли то, что на экране (владелец, 27.09.2026: «обновление
+   происходит непонятно как»): короткая метка у кнопок, а Save / Update
+   активна, только когда есть что сохранять. */
+function salesSaveState(o){
+ const dirty=salesDraftHasWork(),at=o&&o.updatedAt?new Date(o.updatedAt):null,ok=at&&!isNaN(at);
+ const when=!ok?'':at.toDateString()===new Date().toDateString()?String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):salesShortDate(o.updatedAt);
+ return {dirty,text:dirty?'Unsaved changes':soEdit==='new'?'Not saved':'Saved'+(when?' · '+when:'')};
+}
+/* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
+function salesSaveStateRefresh(){
+ if(!soDraft)return;
+ const el=document.querySelector('[data-order-state]'),btn=document.querySelector('[data-order-save]');if(!el&&!btn)return;
+ const st=salesSaveState(soDraft);
+ if(el){el.textContent=st.text;el.classList.toggle('dirty',st.dirty);}
+ if(btn)btn.disabled=!st.dirty;
+}
+['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
- const parts=['<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ const st=salesSaveState(o);
+ const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');
@@ -10377,8 +10397,7 @@ function salesQuoteSettle(){
 /* ---------------------------- Действия ---------------------------------- */
 function salesQuoteOpenRevision(id){
  if(id===salesQuoteCurrentId())return;
- if(salesDraftHasWork()&&!confirm('Leave this revision without saving the changes?'))return;
- salesOrderEdit(id);
+ salesLeaveDraft(()=>salesOrderEdit(id));
 }
 function salesQuoteNewRevision(){
  if(!soDraft||!salesIsQuote(soDraft)||salesQuoteWonMember(soDraft))return;
@@ -10873,11 +10892,19 @@ function renderNav(){
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
    if(n.soon) return `<div class="nav-item soon" title="${n.label} · planned">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
-   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="tab='${n.k}';subtab=null;render()">${ico(n.icon)} <span>${n.label}</span></div>`;
+   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></div>`;
   }).join('') +
   `<div class="side-footer">Phase 1 · Foundation<br>Spil remains the operational system until the control phases are passed.</div>`;
 }
 
+/* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
+   правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
+   про заказы по-прежнему не знает. */
+function navGo(k){
+ const go=()=>{tab=k;subtab=null;render();};
+ if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
+ go();
+}
 let subtab=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* ИСПРАВЛЕНО (авг 2026): данные, которые ввёл пользователь, переводчику не отдаём.
@@ -10924,7 +10951,9 @@ function render(){
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
- document.getElementById('app').innerHTML = V ? V() : '<div class="empty">module planned</div>';
+ /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
+    «сохранить заказ?» может прийти и из редактора формы строки. */
+ document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  afterRender();
 }
 
@@ -11246,8 +11275,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -11259,10 +11288,58 @@ function salesDraftHasWork(){
  const saved=DB.salesOrder.find(x=>x.id===soEdit);
  return saved?JSON.stringify(saved)!==JSON.stringify(normalizeSalesOrder(soDraft)):soDraft.lines.length>0;
 }
-function salesOrderClose(){
- if(salesDraftHasWork()&&!confirm('Close without saving? Unsaved changes to this order will be lost.'))return;
- salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;if(salesPruneOrphanShapes())touch();render();
+/* Формы строк лежат в общем DB.shapeDef и меняются на месте ещё до Update:
+   размер строки, Save revision в редакторе формы, съёмы кромки, наборы
+   сервисов, свои формы лайтов, Unlink. Поэтому при открытии черновика
+   запоминаем формы сохранённого заказа, а «Don't save / Don't update»
+   возвращает их как было (владелец, 27.09.2026: «не нажал Update — в заказе
+   ничего не меняется»). Новые формы черновика убирает salesPruneOrphanShapes. */
+let soShapeSnapshot=null;
+function salesShapeIdsOf(o){
+ const ids=new Set();
+ (o&&o.lines||[]).forEach(l=>{if(l.shapeRef&&l.shapeRef.id)ids.add(l.shapeRef.id);Object.keys(l.liteShapes||{}).forEach(k=>{const r=l.liteShapes[k];if(r&&r.id)ids.add(r.id);});});
+ return ids;
 }
+function salesShapeSnapshotTake(o){const ids=salesShapeIdsOf(o);soShapeSnapshot=JSON.stringify((DB.shapeDef||[]).filter(s=>s&&ids.has(s.id)));}
+function salesShapeSnapshotRestore(){
+ if(soShapeSnapshot==null)return false;
+ let changed=false;
+ JSON.parse(soShapeSnapshot).forEach(s=>{const i=DB.shapeDef.findIndex(x=>x&&x.id===s.id);
+  if(i<0){DB.shapeDef.push(s);changed=true;}else if(JSON.stringify(DB.shapeDef[i])!==JSON.stringify(s)){DB.shapeDef[i]=s;changed=true;}});
+ soShapeSnapshot=null;return changed;
+}
+/* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
+   сохранённым, редактор формы строки закрывается вместе с заказом. */
+function salesDraftDrop(discard){
+ const restored=!!discard&&salesShapeSnapshotRestore();
+ if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
+ salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
+ if(salesPruneOrphanShapes()||restored)touch();
+}
+/* Уход из заказа (владелец, 27.09.2026). Новый не сохранён — «сохранить?»:
+   Don't save — заказа нет. Сохранённый изменён — «обновить?»: Don't update —
+   в базе ничего не меняется. Одно окно на любой уход: Close, боковое меню,
+   другой заказ, новый заказ, другая ревизия квоты. */
+function salesLeaveDraft(next){
+ const go=()=>{if(typeof next==='function')next();else render();};
+ if(!soDraft){go();return;}
+ if(!salesDraftHasWork()){salesDraftDrop(true);go();return;}
+ const isNew=soEdit==='new',what=salesIsQuote(soDraft)?'quote':'order',name=soDraft.businessNumber||'';
+ salesDialogOpen({title:isNew?'Save the '+what+' before leaving?':'Update '+(name||'the '+what)+' before leaving?',rows:[],
+  buttons:[{label:'Back'},
+   {label:isNew?"Don't save":"Don't update",run:()=>{salesDraftDrop(true);go();}},
+   {label:isNew?'Save':'Update',kind:'pri',run:()=>{if(salesOrderSave()===true){salesDraftDrop(false);go();}}}]});
+}
+function salesOrderClose(){salesLeaveDraft();}
+/* Боковое меню: уход из заказа (и из редактора формы его строки) — тот же
+   вопрос. nav.js про заказы не знает — только спрашивает стражей. */
+(window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
+ if(!soDraft)return false;
+ const inOrder=tab==='sales'||(tab==='configurators'&&!!salesBridge);
+ if(!inOrder)return false;
+ salesLeaveDraft(go);return true;
+});
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(function(){return salesDialogHTML();});
 function salesOrderSave(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
@@ -11293,7 +11370,7 @@ function salesOrderSave(opts){
  if(!soDraft.businessNumber)soDraft.businessNumber=salesIsQuote(soDraft)?nextSalesQuoteNumber():nextSalesOrderNumber();
  soDraft.updatedAt=new Date().toISOString();if(!soDraft.createdAt)soDraft.createdAt=soDraft.updatedAt;if(!soDraft.statusDates[soDraft.status])soDraft.statusDates[soDraft.status]=soDraft.updatedAt;
  if(soEdit==='new')DB.salesOrder.push(soDraft);else{const i=DB.salesOrder.findIndex(x=>x.id===soEdit);if(i>=0)DB.salesOrder[i]=soDraft;else DB.salesOrder.push(soDraft);}
- normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
+ normalizeSalesData();if(typeof glassPieceEnsure==='function')glassPieceEnsure(DB.salesOrder.find(x=>x.id===soDraft.id));soQuoteCopyOf=null;salesPruneOrphanShapes();soEdit=soDraft.id;soDraft=JSON.parse(JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit)));salesShapeSnapshotTake(soDraft);if(!salesMakeupById(soDraft,soMakeupId))soMakeupId=soDraft.makeups[0].id;touch();render();return true;
 }
 function salesOrderDelete(id){const i=DB.salesOrder.findIndex(x=>x.id===id);if(i<0)return;if(salesDeleteBlocked(DB.salesOrder[i]))return;if(salesIsQuote(DB.salesOrder[i])){salesQuoteDeleteGroup(DB.salesOrder[i]);return;}const paid=typeof finOrderPaid==='function'?finOrderPaid(id).paid:0;if(!confirm(paid>0?'Delete this order? Its receipts of $'+paid.toFixed(2)+' go back to the customer deposit on account.':'Delete this order?'))return;if(typeof finReleaseOrder==='function')finReleaseOrder(id);DB.salesOrder.splice(i,1);salesPruneOrphanShapes();touch();render();}
 
@@ -15616,7 +15693,7 @@ function salesOrderEditor(){
  ${q?'':salesDepositHint(o)}${c&&c.onHold?'<div class="sales-hold">Customer on hold</div>':''}
  ${salesGlassSectionHTML()}
  ${salesExtraItemsSection()}
- ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
+ ${typeof recutOrderSection==='function'?recutOrderSection(o):''}<div class="sales-notes"><label>Order Notes</label><textarea rows="2" oninput="soDraft.notes=this.value">${esc(o.notes)}</textarea></div>${ro?'</div>':''}<div class="err" id="e_sales_order"></div>${typeof ncrModalHTML==='function'?ncrModalHTML():''}${salesLineHoldMenuHTML()}${salesExcelModal()}${salesServicesModal()}${salesMetricsModal()}${salesStockPickerModal()}${docModal()}${finApplyModal()}</div>`;
 }
 /* Владелец 11 сентября 2026 сначала попросил прятать GLASS / IGU MAKEUPS,
    пока в заказе нет строк (сценарий: клиент уже забрал и оплатил стекло,
@@ -19185,8 +19262,8 @@ function optimizationSetTab(key){
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
 function optimizationOpenOrder(id){
- if(soDraft&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
- tab='sales';salesOrderEdit(id);
+ if(soDraft&&soDraft.id===id){tab='sales';render();return;}
+ salesLeaveDraft(()=>{tab='sales';salesOrderEdit(id);});
 }
 function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
 /* Все предупреждения группы проходят ДО записи. Back или Take payment
@@ -19277,7 +19354,7 @@ function viewOrderQueue(shipping){
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
-  ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+  ${salesListMenuHTML(infos)}</section>`;
 }
 
 /* ==== src/erp/views/shipping.js ==== */
@@ -21507,7 +21584,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${salesDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div><div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
@@ -25697,7 +25774,7 @@ function viewGlassBatches(){
  <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
  ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
- ${salesListMenuHTML(infos)}${salesDialogHTML()}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
+ ${salesListMenuHTML(infos)}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
 
 /* ==== src/erp/quality/reasons.js ==== */
@@ -26077,8 +26154,8 @@ function ncrView(id){if(!ncrFind(id))return;ncrForm=null;ncrViewId=id;salesListM
 function ncrViewClose(){ncrViewId='';render();}
 function ncrOpenOrder(id){
  if(!salesRecord(id))return;
- if(soDraft&&soDraft.id!==id&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
- ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);
+ if(soDraft&&soDraft.id===id){ncrViewId='';ncrForm=null;tab='sales';render();return;}
+ salesLeaveDraft(()=>{ncrViewId='';ncrForm=null;tab='sales';salesOrderEdit(id);});
 }
 function ncrEffectText(f,o){
  const picked=o.lines.filter(l=>f.lines[l.id]&&f.lines[l.id].on);
@@ -27732,6 +27809,12 @@ function touch(){
 window.addEventListener('beforeunload',function(e){
  if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork())return;
  e.preventDefault();e.returnValue='';return '';
+});
+/* Ушли со страницы, не сохранив заказ: формы строк возвращаются к
+   сохранённым, иначе база осталась бы с формами без заказа. */
+window.addEventListener('pagehide',function(){
+ if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
+ salesDraftDrop(true);
 });
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
