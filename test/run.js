@@ -3599,24 +3599,41 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
               soloStatus:salesLineServiceStatus(line).key,attention:salesLineNeedsServiceAttention(line)};
     })()`), {paid:true,unitStatus:'ready',solo:false,soloStatus:'muntin',attention:true});
 
-    /* Настройка живёт в ЛЕВОЙ колонке, рядом с геометрией, вырезами и кромкой,
-       и сворачивается как «Lites of the unit»: под чертежом она съедала место
-       у самого чертежа. Добавление и удаление находятся в шапке,
-       а сворачивание секции сохраняет раскладку. */
+    /* Настройка живёт в ЛЕВОЙ колонке вкладки Fabrication (владелец,
+       27.09.2026: в дизайне шейпа раскладке не место) и сворачивается как
+       «Lites of the unit»: под чертежом она съедала место у самого чертежа.
+       Добавление и удаление находятся в шапке, а сворачивание секции
+       сохраняет раскладку. */
     eq('раскладка добавляется и удаляется в шапке, сворачивание сохраняет бары', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
       const m=salesMakeupById(soDraft,soDraft.lines[0].makeupId);m.unitType='double';salesSelectMakeup(m.id);
-      salesOrderConfigureShape(0);sMuntinOpen=false;render();
+      salesOrderConfigureShape(0);sMuntinOpen=false;sWorkspaceTab='designer';render();
+      const designer=!!document.querySelector('.shape-muntin-editor');setShapeWorkspaceTab('cutout');
       const sec=()=>document.querySelector('.shape-muntin-editor'),action=()=>sec().querySelector('.shape-muntin-action');
-      const off={inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),checkbox:!!sec().querySelector('input[type=checkbox]'),action:action().textContent,body:!!sec().querySelector('.shape-accordion-body')};
+      const off={designer,inLeft:!!document.querySelector('.shape-controls .shape-muntin-editor'),checkbox:!!sec().querySelector('input[type=checkbox]'),action:action().textContent,body:!!sec().querySelector('.shape-accordion-body')};
       action().click();setShapeMuntinSetup('verticalBars',2);setShapeMuntinSetup('horizontalBars',1);
       const on={open:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length};
       sec().querySelector('button.shape-accordion-head').click();
       const folded={body:!!sec().querySelector('.shape-accordion-body'),bars:sDraft.muntin.verticalBars,expanded:sec().querySelector('button.shape-accordion-head').getAttribute('aria-expanded')};
       sDraft.dims={'mb:cv1':{offset:2},'keep:1':{offset:1}};
       action().click();const removed={enabled:!!sDraft.muntin.enabled,body:!!sec().querySelector('.shape-accordion-body'),action:action().textContent,bars:document.querySelectorAll('#shapeLivePreview .shape-muntin-bar').length,dims:Object.keys(sDraft.dims)};
-      cancelShapeEdit();return {off,on,folded,removed};
-    }), {off:{inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
+      sWorkspaceTab='designer';cancelShapeEdit();return {off,on,folded,removed};
+    }), {off:{designer:false,inLeft:true,checkbox:false,action:'+',body:false},on:{open:true,action:'−',bars:3},folded:{body:false,bars:2,expanded:'false'},removed:{enabled:false,body:false,action:'+',bars:0,dims:['keep:1']}});
+
+    /* Бары раскладки — прямоугольники в корне чертежа. Когда подгонка листа
+       убирает фон, первый бар становился «первым прямоугольником» и терял
+       обводку по правилу для фона: белый бар на бумаге пропадал. */
+    eq('белая раскладка: в печати обводку получает каждый бар', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();salesSetUnitType('double');
+      soDraft.lines[0].width16=48*16;soDraft.lines[0].height16=36*16;
+      salesOrderConfigureShape(0);setShapeMuntinEnabled(true);setShapeMuntinSetup('productId','mb058_white');
+      setShapeMuntinSetup('verticalBars',3);setShapeMuntinSetup('horizontalBars',1);
+      const r=shapeDraftResult();
+      printSheetPrepare(salesShapeSheetHTML(sDraft,r,shapeDrawnProductionSvg(r,false,{sheet:true}),''),'',salesSheetFitDrawing);
+      const host=document.getElementById('printSheetHost'),bars=[...host.querySelectorAll('.sheet-field .shape-muntin-bar')];
+      const out={many:bars.length>=4,stroked:bars.every(b=>getComputedStyle(b).stroke!=='none')};
+      printSheetCleanup();cancelShapeEdit();return out;
+    }), {many:true,stroked:true});
 
     /* Сечение получает именно форму печатаемой строки, включая черновик.
        Проверяем настоящие размеры в режиме печати: общий CSS для SVG раньше
