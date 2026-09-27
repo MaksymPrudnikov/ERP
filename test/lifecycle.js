@@ -12,7 +12,7 @@ module.exports=async function({page,eq,ok}){
   const o=salesRecord(id);return {seen,dates:Object.keys(o.statusDates),batch:o.batchNo,readOnly:salesOrderReadOnly(o),draft:soDraft};
  }),{seen:[['verified',false],['batched',false],['ready',false],['done',false],['closed',false]],dates:['new','verified','batched','ready','done','closed'],batch:'B-0001',readOnly:true,draft:null});
  eq('Verify cash-клиента: окно в очереди, Back не меняет заказ, Verify anyway продолжает',await t.p.evaluate(()=>{
-  oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'}));soDraft=null;soEdit=null;oqQueue();oqAdvance(id,'verified');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label),shown=!!document.querySelector('.optimization-queue .sales-dialog');oqChoose('Back');const before=salesRecord(id).status;oqAdvance(id,'verified');oqChoose('Verify anyway');return {title:/^Deposit not received — order \d+$/.test(title),buttons,shown,before,after:salesRecord(id).status};
+  oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'}));soDraft=null;soEdit=null;oqQueue();oqAdvance(id,'verified');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label),shown=tab==='optimization'&&!!document.querySelector('#app .sales-dialog');oqChoose('Back');const before=salesRecord(id).status;oqAdvance(id,'verified');oqChoose('Verify anyway');return {title:/^Deposit not received — order \d+$/.test(title),buttons,shown,before,after:salesRecord(id).status};
  }),{title:true,buttons:['Back','Verify anyway','Take payment'],shown:true,before:'new',after:'verified'});
  eq('Take payment по ID открывает Finance на нужный заказ и сохраняет чужой черновик нетронутым',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({paymentMode:'cash'})),o=salesRecord(id),dep=salesMoney(finOrderBalance(o).total*.5).toFixed(2);const other=oqOrder(oqCustomer({legalName:'Other customer'}));soDraft.notes='Unsaved note';oqQueue();oqAdvance(id,'verified');oqChoose('Take payment');return {tab,form:finEdit,amount:finDraft.amount,apply:finDraft.apply[id],customer:finDraft.customerId===o.customerId,note:finDraft.note,status:salesRecord(id).status,draft:soDraft.id===other&&soDraft.notes==='Unsaved note',saved:salesRecord(other).notes,dep};
@@ -20,6 +20,39 @@ module.exports=async function({page,eq,ok}){
  eq('Verify сверх кредитного лимита требует подтверждения',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({creditLimit:100}));oqQueue();oqAdvance(id,'verified');const title=salesDialog.title,buttons=salesDialog.buttons.map(b=>b.label);oqChoose('Verify anyway');return {title,buttons,status:salesRecord(id).status};
  }),{title:'Northside Windows Ltd is over the credit limit',buttons:['Back','Verify anyway'],status:'verified'});
+ /* Владелец, 27.09.2026: новый заказ не сохранён — при уходе «сохранить?»,
+    Don't save — заказа нет; сохранённый изменён — «обновить?», Don't update —
+    в базе ничего не меняется, в том числе формы строк. */
+ eq('уход из заказа: новый — Save / Don\'t save, сохранённый — Update / Don\'t update; метка и кнопка знают, сохранено ли',await t.p.evaluate(()=>{
+  const pick=l=>salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label===l)),state=()=>document.querySelector('[data-order-state]').textContent,off=()=>document.querySelector('[data-order-save]').disabled;
+  oqReset();const cust=oqCustomer(),orders=DB.salesOrder.length;
+  tab='sales';salesOrderNew();salesApplyCustomerDefaults(cust.id);soDraft.lines[0].width16=30*16;soDraft.lines[0].height16=20*16;salesEnsureLineShape(soDraft.lines[0]);render();
+  const shape=soDraft.lines[0].shapeRef.id,fresh={state:state(),off:off()};
+  salesOrderClose();const ask=[salesDialog.title,salesDialog.buttons.map(b=>b.label).join(' / ')];
+  pick("Don't save");const gone={orders:DB.salesOrder.length===orders,draft:soDraft===null,shape:!DB.shapeDef.some(s=>s.id===shape)};
+  const id=oqOrder(cust);salesOrderEdit(id);render();const saved={state:/^Saved · /.test(state()),off:off()};
+  const w=document.querySelector('[data-so-width]');w.value='40';w.dispatchEvent(new Event('change',{bubbles:true}));const dirty={state:state(),off:off()};
+  navGo('dashboard');const leave=[salesDialog.title,salesDialog.buttons.map(b=>b.label).join(' / ')];pick('Back');const back=tab==='sales'&&!!soDraft;
+  navGo('dashboard');pick("Don't update");const kept={tab,width:salesRecord(id).lines[0].width16/16};
+  tab='sales';salesOrderEdit(id);const w2=document.querySelector('[data-so-width]');w2.value='40';w2.dispatchEvent(new Event('change',{bubbles:true}));
+  salesOrderClose();pick('Update');const updated={draft:soDraft===null,width:salesRecord(id).lines[0].width16/16};
+  return {fresh,ask,gone,saved,dirty,leave,back,kept,updated};
+ }),{fresh:{state:'Unsaved changes',off:false},ask:['Save the order before leaving?','Back / Don\'t save / Save'],gone:{orders:true,draft:true,shape:true},
+  saved:{state:true,off:true},dirty:{state:'Unsaved changes',off:false},leave:['Update 76002 before leaving?','Back / Don\'t update / Update'],back:true,
+  kept:{tab:'dashboard',width:37},updated:{draft:true,width:40}});
+ eq('Don\'t update возвращает формы строк: размер строки, Save revision в редакторе формы',await t.p.evaluate(()=>{
+  const pick=l=>salesDialogChoose(salesDialog.buttons.findIndex(b=>b.label===l));
+  oqReset();const id=oqOrder(oqCustomer());tab='sales';salesOrderEdit(id);render();
+  const ref=soDraft.lines[0].shapeRef.id,before=JSON.stringify(DB.shapeDef.find(s=>s.id===ref));
+  /* Форма строки лежит в общем DB.shapeDef и меняется ещё до Update. */
+  salesOrderConfigureShape(0);sDraft.w='50';saveShape();
+  const changed=JSON.stringify(DB.shapeDef.find(s=>s.id===ref))!==before,back=tab==='sales';
+  salesOrderClose();pick("Don't update");
+  const restored=JSON.stringify(DB.shapeDef.find(s=>s.id===ref))===before;
+  salesOrderEdit(id);salesOrderConfigureShape(0);sDraft.w='50';saveShape();salesOrderClose();pick('Update');
+  const shape=DB.shapeDef.find(s=>s.id===salesRecord(id).lines[0].shapeRef.id);
+  return {changed,back,restored,kept:{w:shape.w,line:salesRecord(id).lines[0].width16/16}};
+ }),{changed:true,back:true,restored:true,kept:{w:'50',line:50}});
  eq('батч блокирует фигуру, удаление и сохранение изменённых размеров; новых кнопок шагов в заказе нет',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqQueue();oqThrough(id,'batched');tab='sales';salesOrderEdit(id);
   /* Закрыта каждая ячейка, кроме Shape: форма открывает чертёж, не редактор. */

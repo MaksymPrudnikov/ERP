@@ -28,8 +28,8 @@ function optimizationSetTab(key){
 function optimizationToggle(id,on){const o=salesRecord(id);if(!o||!optimizationRows().some(x=>x.id===id)||optimizationBlocked(o))return;if(on)optimizationSel.add(id);else optimizationSel.delete(id);render();}
 function optimizationSelectAll(on){optimizationRows().filter(o=>!optimizationBlocked(o)).forEach(o=>{if(on)optimizationSel.add(o.id);else optimizationSel.delete(o.id);});render();}
 function optimizationOpenOrder(id){
- if(soDraft&&salesDraftHasWork()&&!confirm('Discard unsaved changes?'))return;
- tab='sales';salesOrderEdit(id);
+ if(soDraft&&soDraft.id===id){tab='sales';render();return;}
+ salesLeaveDraft(()=>{tab='sales';salesOrderEdit(id);});
 }
 function optimizationAction(action,delivery){if(action==='unbatch')optimizationUnbatch([...optimizationSel]);else optimizationRunOrders([...optimizationSel],action,{delivery});}
 /* Все предупреждения группы проходят ДО записи. Back или Take payment
@@ -120,5 +120,5 @@ function viewOrderQueue(shipping){
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
-  ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
+  ${salesListMenuHTML(infos)}</section>`;
 }

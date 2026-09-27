@@ -135,7 +135,7 @@ function salesDialogHTML(){
  const d=salesDialog;if(!d)return '';
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)salesDialogChoose(0)"><div class="sales-service-modal sales-dialog" role="dialog" aria-modal="true" aria-label="${esc(d.title)}">
   <div class="sales-service-modal-head"><h3>${esc(d.title)}</h3><button type="button" aria-label="Close" onclick="salesDialogChoose(0)">×</button></div>
-  <div class="sales-dialog-body">${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}</div>
+  ${(body=>body?`<div class="sales-dialog-body">${body}</div>`:'')(`${d.sub?`<p class="mut">${esc(d.sub)}</p>`:''}${d.rows&&d.rows.length?`<div class="sales-dialog-rows">${d.rows.map(r=>`<span>${esc(r[0])}</span><b class="${r[2]?'sales-dialog-red':''}">${esc(r[1])}</b>`).join('')}</div>`:''}${d.choices&&d.choices.length?`<div class="sales-dialog-choices">${d.choices.map(c=>`<label class="sales-dialog-choice${d.choice===c.id?' on':''}"><input type="radio" name="salesDialogChoice" data-dialog-choice="${esc(c.id)}" ${d.choice===c.id?'checked':''} onchange="salesDialogPick('${esc(c.id)}')"><span><b>${esc(c.label)}</b> · ${esc(c.detail)}</span><b>${esc(c.value)}</b></label>`).join('')}</div>`:''}${d.lineChoices?`<div class="sales-dialog-lines">${d.lineChoices.map(l=>`<label><input type="checkbox" data-unbatch-line="${esc(l.id)}" ${d.checkedLines.includes(l.id)?'checked':''} ${l.disabled?'disabled':''} onchange="salesDialogToggleLine('${esc(l.id)}',this.checked)"><span><b>${esc(l.label)}</b><small>${esc(l.detail)}${l.disabled?' · Cutting started — locked':''}</small></span></label>`).join('')}</div><label class="sales-unbatch-confirm"><input type="checkbox" data-unbatch-confirm ${d.confirmed?'checked':''} onchange="salesDialogConfirm(this.checked)"> ${esc(d.confirmLabel||'Cutting not started')}</label>`:''}${d.note?`<div class="sales-dialog-note">${esc(d.note)}</div>`:''}`)}
   <div class="sales-dialog-actions">${d.buttons.map((b,i)=>`<button type="button" class="${b.kind||''}" data-dialog-button="${i}" ${b.requiresConfirmation&&(!d.confirmed||!d.checkedLines.length)?'disabled':''} onclick="salesDialogChoose(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
 }
 
@@ -272,9 +272,7 @@ function salesTakeRecordPayment(orderId,amount){
 }
 function salesTakePayment(amount){if(soDraft)salesTakeRecordPayment(soDraft.id,amount);}
 function salesNewOrderForCustomer(customerId){
- if(salesDraftHasWork()&&!confirm('Leave this order without saving the changes?'))return;
- salesOrderNew('order');
- if(customerId){salesApplyCustomerDefaults(customerId);render();}
+ salesLeaveDraft(()=>{salesOrderNew('order');if(customerId){salesApplyCustomerDefaults(customerId);render();}});
 }
 
 /* ----------------------- Квота → заказ -------------------------------- */
@@ -304,9 +302,27 @@ function salesConvertQuoteRecord(id){
 }
 
 /* ------------------------ Шапка редактора ----------------------------- */
+/* Сохранено ли то, что на экране (владелец, 27.09.2026: «обновление
+   происходит непонятно как»): короткая метка у кнопок, а Save / Update
+   активна, только когда есть что сохранять. */
+function salesSaveState(o){
+ const dirty=salesDraftHasWork(),at=o&&o.updatedAt?new Date(o.updatedAt):null,ok=at&&!isNaN(at);
+ const when=!ok?'':at.toDateString()===new Date().toDateString()?String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):salesShortDate(o.updatedAt);
+ return {dirty,text:dirty?'Unsaved changes':soEdit==='new'?'Not saved':'Saved'+(when?' · '+when:'')};
+}
+/* Ввод в поля заказа экран не перерисовывает — метку и кнопку обновляем по месту. */
+function salesSaveStateRefresh(){
+ if(!soDraft)return;
+ const el=document.querySelector('[data-order-state]'),btn=document.querySelector('[data-order-save]');if(!el&&!btn)return;
+ const st=salesSaveState(soDraft);
+ if(el){el.textContent=st.text;el.classList.toggle('dirty',st.dirty);}
+ if(btn)btn.disabled=!st.dirty;
+}
+['input','change'].forEach(t=>document.addEventListener(t,()=>{if(soDraft&&tab==='sales')salesSaveStateRefresh();}));
 function salesHeaderActions(o){
- const parts=['<button onclick="salesOrderClose()">Close</button>'];
- if(!salesOrderReadOnly(o))parts.push(`<button class="pri" onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
+ const st=salesSaveState(o);
+ const parts=[`<span class="sales-save-state${st.dirty?' dirty':''}" data-order-state>${esc(st.text)}</span>`,'<button onclick="salesOrderClose()">Close</button>'];
+ if(!salesOrderReadOnly(o))parts.push(`<button class="pri" data-order-save ${st.dirty?'':'disabled'} onclick="salesOrderSave()">${salesIsQuote(o)&&soQuoteCopyOf?'Save as '+salesQuoteNextRevName():soEdit==='new'?'Save':'Update'}</button>`);
  parts.push('<button onclick="docOpen()">Documents</button>');
  if(typeof recutCanOpenHere==='function'&&recutCanOpenHere(o))parts.push('<button class="recut-btn" data-recut-open onclick="ncrOpenForm(\'recut\')">Recut</button>');
  if(typeof ncrCanOpen==='function'&&ncrCanOpen(o))parts.push('<button class="ncr-btn" data-ncr-open onclick="ncrOpenForm(\'ncr\')">NCR</button>');

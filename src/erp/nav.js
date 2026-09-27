@@ -44,11 +44,19 @@ function renderNav(){
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
    if(n.soon) return `<div class="nav-item soon" title="${n.label} · planned">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
-   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="tab='${n.k}';subtab=null;render()">${ico(n.icon)} <span>${n.label}</span></div>`;
+   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></div>`;
   }).join('') +
   `<div class="side-footer">Phase 1 · Foundation<br>Spil remains the operational system until the control phases are passed.</div>`;
 }
 
+/* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
+   правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
+   про заказы по-прежнему не знает. */
+function navGo(k){
+ const go=()=>{tab=k;subtab=null;render();};
+ if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
+ go();
+}
 let subtab=null;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 /* ИСПРАВЛЕНО (авг 2026): данные, которые ввёл пользователь, переводчику не отдаём.
@@ -95,6 +103,8 @@ function render(){
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
- document.getElementById('app').innerHTML = V ? V() : '<div class="empty">module planned</div>';
+ /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
+    «сохранить заказ?» может прийти и из редактора формы строки. */
+ document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
  afterRender();
 }

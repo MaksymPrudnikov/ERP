@@ -88,8 +88,7 @@ function salesQuoteSettle(){
 /* ---------------------------- Действия ---------------------------------- */
 function salesQuoteOpenRevision(id){
  if(id===salesQuoteCurrentId())return;
- if(salesDraftHasWork()&&!confirm('Leave this revision without saving the changes?'))return;
- salesOrderEdit(id);
+ salesLeaveDraft(()=>salesOrderEdit(id));
 }
 function salesQuoteNewRevision(){
  if(!soDraft||!salesIsQuote(soDraft)||salesQuoteWonMember(soDraft))return;

@@ -21,6 +21,12 @@ window.addEventListener('beforeunload',function(e){
  if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork())return;
  e.preventDefault();e.returnValue='';return '';
 });
+/* Ушли со страницы, не сохранив заказ: формы строк возвращаются к
+   сохранённым, иначе база осталась бы с формами без заказа. */
+window.addEventListener('pagehide',function(){
+ if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
+ salesDraftDrop(true);
+});
 function doExport(){
  const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
