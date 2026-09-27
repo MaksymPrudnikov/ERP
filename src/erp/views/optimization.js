@@ -3,7 +3,8 @@
    Общий экран очередей: Optimization — проверка/батч; Shipping — выдача.
    IN : DB.salesOrder / customer / receipt, фильтр и выбранные ID
    OUT: HTML очереди и переходы через salesSetRecordStatus; черновик не сохраняет.
-   Perfect Cut остаётся неактивным прототипом. Обмен не имитируется.
+   Моста к Perfect Cut нет (владелец, 27.09.2026): фигуры, раскрой и файлы
+   Maver / Disai ERP делает сама — см. views/cut-layout-ui.
    ===================================================================== */
 const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches'],['stock','Stock']];
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
@@ -119,6 +120,5 @@ function viewOrderQueue(shipping){
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
    ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
-  ${shipping?'':`<div class="card oq-bridge"><div class="section-title"><h3>Perfect Cut bridge</h3><span class="pill warn">connection not configured</span></div><p class="mut">Not connected yet.</p><button disabled>${ico('link','icon-inline')}Send batch</button></div>`}
   ${salesListMenuHTML(infos)}${salesDialogHTML()}</section>`;
 }
