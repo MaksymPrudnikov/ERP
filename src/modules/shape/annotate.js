@@ -626,6 +626,8 @@ function shapeAnnotationLayer(result,F,active,opts){
   /* Рёбер немного — рисуем цветной контур по рёбрам (как в Designer);
      у круга/многоугольника рёбер много, там цветная россыпь читается хуже. */
   var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
-  return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,
+  /* letters — буквы сторон стоят внутри детали (печать, до 12 рёбер): размер
+     стороны тогда пишется без буквы, иначе она дважды (владелец, 28.09.2026). */
+  return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,letters:!!byEdge&&!!(opts&&opts.mono),
     path:disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z'};
 }

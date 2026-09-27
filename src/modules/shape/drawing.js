@@ -427,8 +427,8 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
     var operationsOnly=!!(layer&&layer.contour&&layer.smart);
     /* Машинный id ребра на чертеже не нужен: сторону называет буква, как у
        Smart-Shape, а рядом стоит её длина — на скосах это единственный размер. */
-    var edgeName=edgeNames[g.id]||g.id;
-    var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):([edgeName,shapeDrawingDim(g.length)].concat(ops).join(' ')));
+    var edgeName=edgeNames[g.id]||g.id,named=layer&&layer.letters?'':edgeName+' ';
+    var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):((named+shapeDrawingDim(g.length)).split(' ').filter(Boolean).concat(ops).join(' ')));
     if(!txt)return;
     /* A/B/C/D и обработка всегда стоят СНАРУЖИ контура. Короткая подпись
        поворачивается вдоль ребра и не отнимает место у отверстий и петель. */
@@ -447,8 +447,12 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
       var dn=[n[0],-n[1]],shift=shapeAnnUiShift(layoutOpts,moveKey),dimOff=Math.max(18,sideBase(key)+lane*16+shift);
       var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dimLead=dimOff+14,dimX=mx+dn[0]*dimLead,dimY=my+dn[1]*dimLead;
       var dimAng=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(dimAng>90)dimAng-=180;if(dimAng<-90)dimAng+=180;
-      var dimBody='<g class="shape-inch-edge-dimension" data-edge-id="'+shapeXml(g.id)+'">'+shapeMetricEdgeDimSvg(a,b,dn[0],dn[1],dimOff,'#344054',true)+shapeLabelBg(dimX,dimY+6,edgeName+' '+shapeDrawingDim(g.length),SHAPE_DIM_FONT,'rotate('+dimAng+' '+dimX+' '+dimY+')')+'<text class="shape-inch-edge-length" data-edge-id="'+shapeXml(g.id)+'" x="'+dimX+'" y="'+(dimY+6)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+dimX+' '+dimY+')">'+shapeXml(edgeName+' '+shapeDrawingDim(g.length))+'</text></g>';
-      out+=shapeAnnUiWrap(layoutOpts,moveKey,dimBody,dimX,dimY+27,F);track(dimX,dimY,edgeName+' '+shapeDrawingDim(g.length),dimAng,SHAPE_DIM_FONT);
+      var dimBody='<g class="shape-inch-edge-dimension" data-edge-id="'+shapeXml(g.id)+'">'+shapeMetricEdgeDimSvg(a,b,dn[0],dn[1],dimOff,'#344054',true)+shapeLabelBg(dimX,dimY+6,named+shapeDrawingDim(g.length),SHAPE_DIM_FONT,'rotate('+dimAng+' '+dimX+' '+dimY+')')+'<text class="shape-inch-edge-length" data-edge-id="'+shapeXml(g.id)+'" x="'+dimX+'" y="'+(dimY+6)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+dimX+' '+dimY+')">'+shapeXml(named+shapeDrawingDim(g.length))+'</text></g>';
+      /* Осевая сторона во всю ширину или высоту детали уже даёт габарит:
+         общий размер рядом повторял бы её («A 48» и «48»). */
+      if(Math.abs(dimAng)<1&&Math.abs(g.length-F.W)<1/32)ext.fullW=true;
+      if(Math.abs(Math.abs(dimAng)-90)<1&&Math.abs(g.length-F.H)<1/32)ext.fullH=true;
+      out+=shapeAnnUiWrap(layoutOpts,moveKey,dimBody,dimX,dimY+27,F);track(dimX,dimY,named+shapeDrawingDim(g.length),dimAng,SHAPE_DIM_FONT);
       if(ops.length){
         var opOff=14,opX=mx+dn[0]*opOff,opY=my+dn[1]*opOff;
         out+='<text class="shape-edge-label-outside shape-edge-operation-label" data-edge-id="'+shapeXml(g.id)+'" x="'+opX+'" y="'+(opY+4.5)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+opX+' '+opY+')">'+shapeXml(ops.join(' + '))+'</text>';
@@ -525,7 +529,9 @@ function shapeProductionSvg(result,opts){
   var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
-  if(result.definition.type!=='rectangle'&&result.definition.type!=='parallelogram')o+='<rect x="'+L.box.left+'" y="'+L.box.top+'" width="'+(L.box.right-L.box.left)+'" height="'+(L.box.bottom-L.box.top)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
+  /* Пунктирная рамка габарита — у круга, эллипса и овала лишняя (владелец,
+     28.09.2026): габарит и так читается по размерам. */
+  if(['rectangle','parallelogram','circle','ellipse','oval'].indexOf(result.definition.type)<0)o+='<rect x="'+L.box.left+'" y="'+L.box.top+'" width="'+(L.box.right-L.box.left)+'" height="'+(L.box.bottom-L.box.top)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path class="shape-sheet-glass" d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
@@ -551,8 +557,8 @@ function shapeProductionSvg(result,opts){
        над линией, между деталью и линией; подпись высоты — снаружи линии).
        Раньше 118 и 128 px запаса: деталь на листе выходила мелкой. */
     var wy=L.box.bottom+Math.max(34,edgeExt.B+36)+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-Math.max(24,edgeExt.L+14)-shapeAnnUiShift(annOpts,hKey);
-    o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
-    o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
+    if(!edgeExt.fullW)o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
+    if(!edgeExt.fullH)o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */

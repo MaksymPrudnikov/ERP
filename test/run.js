@@ -821,7 +821,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {edges:[...doc.querySelectorAll('.shape-inch-edge-dimension')].map(x=>x.getAttribute('data-edge-id')),overall:doc.querySelectorAll('[data-inch-primary-key^="inch:overall:"]').length};
     }), {edges:['A','D','C','B'],overall:0});
     eq('ручной отступ габарита имеет те же координаты на экране и в печати', await p.evaluate(() => {
-      const d=newShapeDef('raked');d.w='33';d.h='80';d.params.shortHeight='60';const r=ShapeModule.compute(d);
+      /* Эллипс: у raked общей ширины больше нет — её даёт сторона B во всю ширину. */
+      const d=newShapeDef('ellipse');d.w='33';d.h='80';const r=ShapeModule.compute(d);
       function read(sheet,offsets){
         const annotation={interactive:true,offsets:offsets||{}};
         const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(r,{sheet:sheet,annotation:annotation}),'image/svg+xml');
