@@ -226,6 +226,7 @@ function stationCard(){
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   peek:{cls:'st-info',head:'Details'}
  }[c.kind]||{cls:'st-red',head:c.kind};
+ if(c.kind==='ok'&&urg===2)K.cls='st-red';
  /* Большой блок слева — главное действие рабочего. */
  let big;
  if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
