@@ -3,7 +3,7 @@ module.exports=async function({page,eq}){
  console.log('finance ledger');const t=await page();
  await t.p.evaluate(()=>{
   window.financeSeed=function(){
-   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finFrom='';finTo='';finSearch='';finActor='QA Operator';
+   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.financeExport=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finFrom='';finTo='';finSearch='';finActor='QA Operator';
    const c=normalizeCustomer({id:'CUS-FIN',code:'FIN',legalName:'Finance Test',paymentMode:'credit',creditDays:30});DB.customer.push(c);
    const o=normalizeSalesOrder({id:'SO-FIN',businessNumber:'91001',customerId:c.id,lines:[],extraItems:[{id:'EXT-FIN',table:'stockItem',itemId:'TEST',qty:1,priceOverride:100}],orderCharges:{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:false},skidDeposit:{enabled:false}}});DB.salesOrder.push(o);
    finCaptureTerms(o);tab='finance';finTab='accounts';finAccountId='';render();return {c,o};
@@ -92,13 +92,55 @@ module.exports=async function({page,eq}){
   const allowed=salesTransitionChecks(o,'done').length;finSaveTerms(o.id,{paymentMode:'credit',depositPercent:0,creditDays:30,issuedOn:'2020-01-01',dueOn:'2020-02-01'},'Past due');
   return {printed,allowed,warned:salesTransitionChecks(o,'done').some(x=>x.title.includes('overdue payments'))};
  }),{printed:'Net 30 days',allowed:0,warned:true});
- eq('receipt and statement documents: company block, balance after this payment, refunds, deposit netted on the statement',await t.p.evaluate(()=>{
-  financeSeed();DB.company=Object.assign(DB.company||{},{legalName:'QA Glass Co'});const r=financePayment(100,20);finCreateRefund({receiptId:r.id,amount:25,date:'2026-09-02',method:'cash',reason:'Return'});
+ eq('receipt: company block, balance after this payment, refunds; statement for a period: orders, activity, balance forward and closing',await t.p.evaluate(()=>{
+  const {o}=financeSeed();DB.company=Object.assign(DB.company||{},{legalName:'QA Glass Co'});const r=financePayment(100,20);finCreateRefund({receiptId:r.id,amount:25,date:'2026-09-02',method:'cash',reason:'Return'});
   const later=finSaveReceiptRecord({customerId:'CUS-FIN',currency:'CAD',date:'2026-09-05',method:'cash',reference:'',amount:30,note:'',allocations:[{orderId:'SO-FIN',amount:30}]});
-  const receipt=finDocText(finReceiptDoc(r.id)),statement=finDocText(finStatementDoc('CUS-FIN','2026-09-10'));
+  o.status='done';o.statusDates.done=new Date('2026-09-03T15:00:00').toISOString();
+  const receipt=finDocText(finReceiptDoc(r.id)),d=finStatementData('CUS-FIN','2026-09-02','2026-09-30'),statement=finDocText(finStatementDoc('CUS-FIN','2026-09-02','2026-09-30','2026-10-01'));
   return {company:receipt.includes('QA Glass Co')&&statement.includes('QA Glass Co'),title:receipt.includes('PAYMENT RECEIPT'),after:receipt.includes('$80.00')&&!receipt.includes('$50.00'),refund:receipt.includes('Refunded')&&receipt.includes('$25.00'),
-   open:statement.includes('$50.00'),net:statement.includes('Payments on account')&&statement.includes('Credit on account')&&statement.includes('$5.00'),later:!!later};
- }),{company:true,title:true,after:true,refund:true,open:true,net:true,later:true});
+   data:[d.opening,d.billed,d.paid,d.refunded,d.closing],lines:d.rows.map(l=>l.kind+':'+l.balance),orders:statement.includes('91001')&&statement.includes('Orders')&&statement.includes('Account activity'),
+   closing:statement.includes('Balance forward')&&statement.includes('-$100.00')&&statement.includes('Credit balance')&&statement.includes('$5.00'),later:!!later};
+ }),{company:true,title:true,after:true,refund:true,data:[-100,100,30,25,-5],lines:['refund:-75','order:25','payment:-5'],orders:true,closing:true,later:true});
+ eq('monthly statements: last month range, customers with activity only, CSV for the customer books, email text with totals',await t.p.evaluate(()=>{
+  const {o}=financeSeed();financePayment(100,100);o.status='done';o.statusDates.done=new Date('2026-09-10T15:00:00').toISOString();
+  DB.customer.push(normalizeCustomer({id:'CUS-IDLE',code:'IDLE',legalName:'Idle Ltd'}));
+  const range=finMonthRange(-1,'2026-10-15'),dec=finMonthRange(-1,'2027-01-05');finStatements={from:range.from,to:range.to,period:'custom',sent:{}};
+  const list=finStatementsList().map(x=>x.c.id),csv=finStatementCSV('CUS-FIN',range.from,range.to).split('\r\n'),mail=finStatementMail('CUS-FIN',range.from,range.to);finStatements=null;
+  return {range,dec,list,csv:[csv[0],csv[1],csv[csv.length-1]],rows:csv.length,mail:mail.includes('September 2026')&&mail.includes('Payments received: $100.00')&&mail.includes('Balance due: $0.00'),period:finPeriodText('2026-09-01','2026-09-30')};
+ }),{range:{from:'2026-09-01',to:'2026-09-30'},dec:{from:'2026-12-01',to:'2026-12-31'},list:['CUS-FIN'],csv:['Date,Document,Type,Description,Charges,Payments,Balance','2026-09-01,,Balance forward,,,,0.00','2026-09-30,,Closing balance,,,,0.00'],rows:5,mail:true,period:'September 2026'});
+ eq('Debit and Credit card are separate; old «Card» stays readable but is not offered for new payments',await t.p.evaluate(()=>{
+  financeSeed();const old=normalizeReceipt({id:'OLD-CARD',customerId:'CUS-FIN',amount:10,method:'card',date:'2026-09-01'});
+  return {fresh:finMethodChoices('cash').map(m=>m.k),legacy:finMethodChoices('card').some(m=>m.k==='card'),kept:old.method,label:finMethodLabel(old.method),credit:finMethodLabel('creditcard')};
+ }),{fresh:['cash','cheque','etransfer','debit','creditcard'],legacy:true,kept:'card',label:'Card',credit:'Credit card'});
+ eq('credit card payment flags an order without card fee; one click adds the fee and raises the balance; debit does not',await t.p.evaluate(()=>{
+  const {o}=financeSeed();finNewReceipt('CUS-FIN');finDraft.method='debit';render();const debit=!!document.querySelector('.fin-card-fee');
+  finDraft.method='creditcard';render();const credit=!!document.querySelector('.fin-card-fee'),before=finOrderBalance(o).total;
+  finAddCardFee(o.id);const after=finOrderBalance(o).total;finDraft.method='creditcard';render();
+  return {debit,credit,enabled:o.orderCharges.card.enabled,raised:after>before,rate:finMoney(after-before)===finMoney(before*o.orderCharges.card.rate/100),gone:!document.querySelector('.fin-card-fee')};
+ }),{debit:false,credit:true,enabled:true,raised:true,rate:true,gone:true});
+ eq('QuickBooks «only new»: new, corrected and voided after export come back once; voided before export is skipped; rollback keeps marks',await t.p.evaluate(()=>{
+  financeSeed();const a=financePayment(100,20),b=finSaveReceiptRecord({customerId:'CUS-FIN',currency:'CAD',date:'2026-09-02',method:'cash',reference:'',amount:40,note:'',allocations:[]});
+  const skip=finSaveReceiptRecord({customerId:'CUS-FIN',currency:'CAD',date:'2026-09-03',method:'cash',reference:'',amount:5,note:'',allocations:[]});finVoidReceipt(skip.id,'Typo');
+  const first=finExportPending().map(x=>x.x.number+':'+x.state);let file='';const old=customerDownload;customerDownload=(n,t)=>file=t;finExportQuickBooks();
+  const afterFirst=finExportPending().length;
+  finSaveReceiptRecord({...a,note:'Changed'},a.id,'Note only');const noteOnly=finExportPending().length;
+  finSaveReceiptRecord({...a,allocations:[{orderId:'SO-FIN',amount:30}]},a.id,'Reallocated');finVoidReceipt(b.id,'Bounced');const refund=finCreateRefund({receiptId:a.id,amount:10,date:'2026-09-04',method:'cash',reason:'Back'});
+  const second=finExportPending().map(x=>(x.x.number)+':'+x.state).sort();
+  const keep=touch;touch=()=>false;finExportQuickBooks();touch=keep;const rolled=finExportPending().length;
+  finExportQuickBooks();customerDownload=old;
+  return {first,afterFirst,noteOnly,second,rolled,last:finExportPending().length,labels:file.includes(',Corrected')&&file.includes(',Voided')&&file.includes(refund.number),batches:finExportLastBatch()};
+ }),{first:['R-0001:new','R-0002:new'],afterFirst:0,noteOnly:0,second:['R-0001:changed','R-0002:voided','RF-0001:new'],rolled:3,last:0,labels:true,batches:2});
+ eq('QuickBooks marks travel with the JSON backup and damaged marks are rejected',await t.p.evaluate(()=>{
+  financeSeed();financePayment(100,0);const old=customerDownload;customerDownload=()=>{};finExportQuickBooks();customerDownload=old;
+  const raw=finCopy(DB),next=prepareImportedState(raw);raw.financeExport[0].kind='invoice';let rejected=false;try{prepareImportedState(raw);}catch(e){rejected=true;}
+  return {kept:next.financeExport.length,rejected};
+ }),{kept:1,rejected:true});
+ eq('balances: prepaid is money on orders not yet picked up; totals for all customers; customer card shows the same numbers',await t.p.evaluate(()=>{
+  const {c,o}=financeSeed();financePayment(100,60);const inWork=finCustomerMoney(c.id);o.status='done';o.statusDates.done=new Date().toISOString();const shipped=finCustomerMoney(c.id);
+  const all=finAllMoney();tab='finance';finSetTab('accounts');const foot=document.querySelector('.fin-table tfoot');
+  const doc=finDocText(finBalancesDoc(finAccountsList(),'Open accounts'));tab='customers';customerEdit(c.id);const strip=document.querySelector('.fin-customer-strip').textContent;cEdit=null;cDraft=null;
+  return {inWork:[inWork.balance,inWork.prepaid,inWork.deposit],shipped:[shipped.balance,shipped.prepaid],all:[all.balance,all.prepaid,all.deposit],foot:!foot,doc:doc.includes('CUSTOMER BALANCES')&&doc.includes('$40.00'),strip:strip.includes('$40.00')&&strip.includes('Finance account')};
+ }),{inWork:[40,60,40],shipped:[40,0],all:[40,0,40],foot:true,doc:true,strip:true});
  await t.p.evaluate(()=>{
   window.financeScheduleSeed=function(){
    const {o}=financeSeed();DB.salesOrder=[];DB.financeTerms=[];

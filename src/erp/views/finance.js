@@ -38,7 +38,7 @@ function finReceiptsView(){
  const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided&&finCurrency(r)==='CAD');
  return `${finFilterChips()}<div class="fin-toolbar"><input class="fin-search" id="finSearch" value="${esc(finSearch)}" placeholder="Search customer, order, cheque #…" oninput="finSearchChange(this)">
   <label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;render()"></label>
-  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds for QuickBooks">CSV</button></div>
+  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>
  <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th></tr></thead>
  <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="7" class="empty">No payments</td></tr>'}</tbody>
  ${active.length?`<tfoot><tr><td colspan="4">${active.length} ${active.length===1?'payment':'payments'}</td><td class="n"><b>${finFmt(finMoney(active.reduce((s,r)=>s+r.amount,0)))}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
@@ -86,6 +86,19 @@ function finFormNoPrice(){
  const d=finDraft;if(!d||!d.customerId)return 0;
  return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)&&finOrderBalance(o).status==='incomplete').length;
 }
+/* Кредитка без сбора в заказе — цех платит процент сам. Подсказка стоит у
+   заказа в форме оплаты и добавляет сбор одной кнопкой; дебет не трогаем. */
+function finCardFeeTag(o){
+ const c=o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return '';
+ return `<div class="fin-card-fee">No card fee <button type="button" class="sm" onclick="finAddCardFee('${esc(o.id)}')">Add ${esc(c.rate)}%</button></div>`;
+}
+function finAddCardFee(orderId){
+ const o=(DB.salesOrder||[]).find(x=>x.id===orderId),c=o&&o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return;
+ const was=o.updatedAt;c.enabled=true;o.updatedAt=new Date().toISOString();
+ if(touch()===false){c.enabled=false;o.updatedAt=was;alert('Not saved. Try again or export a backup.');return;}
+ if(soDraft&&soDraft.id===orderId&&soDraft.orderCharges&&soDraft.orderCharges.card)soDraft.orderCharges.card.enabled=true;
+ render();
+}
 function finSummaryHTML(amount,applied,refunded){
  refunded=refunded||0;const left=finMoney(amount-applied-refunded);
  return `<span>Receipt <b>${finFmt(amount)}</b></span><span>Applied <b>${finFmt(applied)}</b></span>${refunded?`<span>Refunded <b>${finFmt(refunded)}</b></span>`:''}${left<0?`<span class="fin-over">Applied more than received by <b>${finFmt(-left)}</b></span>`:`<span>Left on account (deposit) <b class="fin-deposit">${finFmt(left)}</b></span>`}`;
@@ -106,17 +119,17 @@ function finApplyMax(orderId){
 function finReceiptForm(){
  const d=finDraft,r=finEdit!=='new'?(DB.receipt||[]).find(x=>x.id===finEdit):null,locked=!!(r&&(r.voided||finCurrency(r)!=='CAD')),dis=locked?' disabled':'';
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'||c.id===d.customerId),rows=finFormOrders(),noPrice=finFormNoPrice();
- const ph=({cheque:'Cheque #',etransfer:'Transfer reference',card:'Last 4 digits or approval #'})[d.method]||'Optional';
+ const ph=({cheque:'Cheque #',etransfer:'Transfer reference',debit:'Last 4 digits or approval #',creditcard:'Last 4 digits or approval #',card:'Last 4 digits or approval #'})[d.method]||'Optional';
  const table=!d.customerId?'<p class="mut">Select a customer to apply the receipt to orders.</p>':rows.length?`<h4 class="fin-h4">Apply to orders of this customer</h4>
   <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
-   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b></td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
-   <td class="n fin-apply-cell"><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</td></tr>`).join('')}</tbody></table></div>`
+   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b>${!locked&&d.method==='creditcard'?finCardFeeTag(x.order):''}</td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
+   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</div></td></tr>`).join('')}</tbody></table></div>`
   :'<p class="mut fin-apply-empty">This customer has no orders with a balance due — the whole amount stays on account as a deposit.</p>';
  return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
  <div class="fin-grid">
   <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" onchange="finDraft.customerId=this.value;finDraft.apply={};render()"><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select>${!r&&d.customerId&&finCustomerDeposit(d.customerId)>0?`<div class="mut small">Already on account ${finFmt(finCustomerDeposit(d.customerId))}</div>`:''}</div>
   <div><label>Date</label><input type="date"${dis} value="${esc(d.date)}" onchange="finDraft.date=this.value"></div>
-  <div class="fin-span2"><label>Method</label><div class="fin-seg">${FIN_METHODS.map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
+  <div class="fin-span2"><label>Method</label><div class="fin-seg">${finMethodChoices(d.method).map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
   <div><label>Amount · CAD *</label><input type="number" min="0" step="0.01" id="finAmount"${dis} value="${esc(d.amount)}" oninput="finDraft.amount=this.value;finRefreshSummary()"></div>
   <div class="fin-span2"><label>Reference</label><input${dis} id="finReference" value="${esc(d.reference)}" placeholder="${ph}" oninput="finDraft.reference=this.value"></div>
   <div class="fin-span4"><label>Note</label><input${dis} id="finNote" value="${esc(d.note)}" oninput="finDraft.note=this.value"></div>

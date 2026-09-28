@@ -112,8 +112,8 @@ module.exports=async function({page,eq,ok}){
   DB.receipt.push(normalizeReceipt({number:'R-0002',date:'2026-09-21',customerId:cust.id,method:'cash',amount:50,voided:true,voidReason:'Duplicate'}));
   const refund=finCreateRefund({receiptId:'CSV-1',amount:25,date:'2026-09-22',method:'cheque',reason:'Returned'});
   const lines=finMovementsCSV(DB.receipt,DB.refund).split('\r\n');DB.refund=[];DB.financeEvent=[];
-  return {head:lines[0],first:lines[1]===['2026-09-20','R-0001','Payment','"QA CSV, Ltd"','QACSV','Cheque','#1042','500.00','CAD',o.businessNumber+': 200.00','Active',''].join(','),second:lines[2],third:lines[3]===['2026-09-22',refund.number,'Refund','"QA CSV, Ltd"','QACSV','Cheque','','-25.00','CAD','Payment R-0001','Active','Returned'].join(',')};
- }),{head:'Date,Document,Type,Customer,Account,Method,Reference,Amount,Currency,Applied to orders,Status,Note',first:true,second:'2026-09-21,R-0002,Payment,"QA CSV, Ltd",QACSV,Cash,,50.00,CAD,,Void,Duplicate',third:true});
+  return {head:lines[0],first:lines[1]===['2026-09-20','R-0001','Payment','"QA CSV, Ltd"','QACSV','Cheque','#1042','500.00','CAD',o.businessNumber+': 200.00','Active','',''].join(','),second:lines[2],third:lines[3]===['2026-09-22',refund.number,'Refund','"QA CSV, Ltd"','QACSV','Cheque','','-25.00','CAD','Payment R-0001','Active','Returned',''].join(',')};
+ }),{head:'Date,Document,Type,Customer,Account,Method,Reference,Amount,Currency,Applied to orders,Status,Note,QuickBooks',first:true,second:'2026-09-21,R-0002,Payment,"QA CSV, Ltd",QACSV,Cash,,50.00,CAD,,Void,Duplicate,',third:true});
  eq('Proforma: «Paid to date» и «Balance due» в итогах, депозит к оплате уменьшается на внесённое',await t.p.evaluate(()=>{
   finCleanup();const {cust,o,total}=finFixture(),part=finMoney(total*.2),dep=salesMoney(total*.5);
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:cust.id,amount:part,allocations:[{orderId:o.id,amount:part}]}));

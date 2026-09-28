@@ -13,8 +13,12 @@
 DEFAULT.receipt=[];
 if(!Array.isArray(DB.receipt))DB.receipt=[];
 
-const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'card',label:'Card'}];
+/* Debit и Credit card раздельно (владелец, 28 сентября 2026): сбор за карту
+   берётся только с кредитки. Старое общее «Card» остаётся читаемым у прежних
+   оплат, но для новых не предлагается — задним числом его не угадываем. */
+const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'debit',label:'Debit'},{k:'creditcard',label:'Credit card'},{k:'card',label:'Card',legacy:true}];
 function finMethodLabel(k){const m=FIN_METHODS.find(x=>x.k===k);return m?m.label:'Other';}
+function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k===current);}
 function finMoney(v){const n=Number(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
 function finUid(){
  try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return 'RCPT-'+crypto.randomUUID();}catch(e){}
