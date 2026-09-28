@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 90 модулей, 14 стиля.
+  Состав сборки: 91 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1202,13 +1202,12 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .fin-deposit{color:#026aa2}
 .fin-due{color:#b42318}
 .fin-paid{color:#067647}
-.fin-total{margin-top:8px;text-align:right;color:var(--muted,#667085)}
 .fin-form-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .fin-form-head h3{margin:0}
 .fin-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .fin-span2{grid-column:span 2}.fin-span3{grid-column:span 3}.fin-span4{grid-column:span 4}
 .fin-h4{margin:16px 0 6px}
-.fin-apply-cell{display:flex;justify-content:flex-end;gap:6px}
+.fin-apply-cell>div{display:flex;justify-content:flex-end;gap:6px}
 .fin-apply-cell input{width:110px;text-align:right}
 .fin-apply-empty{margin:14px 0 4px}
 .fin-summary{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px 22px;margin-top:12px;font-size:13.5px}
@@ -1231,26 +1230,34 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
  .sales-editor-top .fin-strip{margin-left:0;flex-wrap:wrap}
 }
 
-/* Finance workspace */
-.fin-schedule-filters .fin-date select{width:auto;min-width:125px}.fin-schedule-help{font-size:12px;color:#647782;margin-top:16px}.fin-schedule-help summary{cursor:pointer}.fin-schedule-help p{max-width:900px;line-height:1.6}.fin-due-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}.fin-due-summary .row{flex-wrap:wrap}.fin-card>.tabs{overflow-x:auto}
-.fin-workspace-head{display:flex;align-items:center;gap:20px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-.fin-overview{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px 24px;flex:1}
-.fin-overview-caption{flex-basis:100%;font-size:11px;color:#647782}
-.fin-stat{display:inline-flex;gap:7px;align-items:baseline;white-space:nowrap;font-size:12px;color:#647782}
-.fin-stat strong{font-size:16px;font-variant-numeric:tabular-nums;color:#163b50}
-.fin-operator{display:flex;flex-direction:column;gap:4px;min-width:175px}.fin-operator label{font-size:11px;margin:0}.fin-operator select{padding:7px}
+/* Finance workspace: две цифры сверху, три вкладки */
+.fin-card>.tabs{overflow-x:auto}
+.fin-workspace-head{display:flex;align-items:center;gap:20px;margin-bottom:14px}
+.fin-overview{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;flex:1}
+.fin-stat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:150px;padding:8px 14px;border:1px solid var(--line,#e3e7ee);border-radius:9px;background:#fbfcfd;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#647782;cursor:pointer}
+.fin-stat:hover{border-color:#9fb4c3}
+.fin-stat strong{font-size:18px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums;color:#163b50}
+.fin-stat small{font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;color:#8a99a4}
+.fin-stat.bad{border-color:#fecdca;background:#fef3f2}.fin-stat.bad strong{color:#b42318}
 .fin-link{border:0;background:none;color:#185b80;padding:2px 0;text-align:left;font-weight:650;cursor:pointer}.fin-link:hover{text-decoration:underline}
+.fin-row{cursor:pointer}.fin-row:hover td{background:#f7fafc}
+.fin-table tfoot td{border-top:1px solid var(--line,#d0d5dd);color:var(--muted,#667085);font-size:12px}
 .fin-account-head{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.fin-account-head h3{margin:12px 0 5px}
-.fin-account-totals{display:flex;gap:28px;padding:18px 0;margin:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.fin-account-totals span{display:flex;flex-direction:column;gap:5px;color:#657783;font-size:12px}.fin-account-totals b{font-size:20px;color:#1a3647}
-.fin-scope{display:flex;align-items:center;gap:12px;background:#edf5fa;padding:10px 14px;border-radius:8px;margin:12px 0}
-.fin-receipt-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px;background:#f3f7fa;border-radius:8px;margin:12px 0}.fin-receipt-tools>span{flex:1;font-size:12px}
+.fin-account-totals{display:flex;gap:28px;padding:14px 0;margin:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.fin-account-totals span{display:flex;flex-direction:column;align-items:flex-start;gap:5px;color:#657783;font-size:12px}.fin-account-totals b{font-size:20px;color:#1a3647}.fin-account-totals b.fin-due{color:#b42318}.fin-account-totals b.fin-deposit{color:#026aa2}
+.fin-more{margin-top:8px}
+.fin-export-last{font-size:12px;font-weight:600}
+.fin-card-fee{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:11px;color:#b54708;font-weight:600}
+.fin-customer-strip{display:flex;align-items:center;flex-wrap:wrap;gap:8px 26px;margin:0 0 12px;padding:10px 14px;border:1px solid var(--line,#e3e7ee);border-radius:9px;background:#fbfcfd}.fin-customer-strip>span{display:flex;flex-direction:column;gap:2px;font-size:11px;color:#647782}.fin-customer-strip b{font-size:15px;color:#163b50;font-variant-numeric:tabular-nums}.fin-customer-strip b.fin-due{color:#b42318}.fin-customer-strip b.fin-deposit{color:#026aa2}.fin-customer-strip>button{margin-left:auto}
+.fin-scope{display:flex;align-items:center;gap:12px;background:#edf5fa;padding:8px 14px;border-radius:8px;margin:0 0 12px}
+.fin-receipt-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
 .fin-duplicate{padding:12px;background:#fff6df;display:flex;gap:8px;align-items:center;margin-top:12px;text-transform:none}.fin-duplicate input{width:auto}
-.fin-history{margin-top:16px}.fin-event{border-bottom:1px solid var(--line)}.fin-event summary{display:flex;gap:12px;align-items:start;padding:14px 2px;cursor:pointer}.fin-event summary>span:nth-child(2){flex:1}.fin-event summary small{display:block;color:#647782;margin-top:4px;font-size:11px}.fin-event-no{font-size:11px;color:#82939d;padding-top:2px;min-width:32px}.fin-event-time{text-align:right;font-size:11px}.fin-event-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px 46px}.fin-event-diff section{background:#f5f8fa;padding:12px;border-radius:8px}.fin-event-diff h5{margin:0 0 8px}.fin-event-diff dl{display:grid;grid-template-columns:100px 1fr;gap:8px;margin:0;font-size:12px}.fin-event-diff dt{color:#647782}.fin-event-diff dd{margin:0;overflow-wrap:anywhere}
-.fin-card h4{margin:24px 0 12px}.fin-modal-body textarea{width:100%;min-height:70px}.fin-modal-body>.fin-grid{margin-bottom:14px}.fin-modal-body label{text-transform:none}.fin-card button:focus-visible,.fin-modal button:focus-visible{outline:3px solid #79b6d8;outline-offset:2px}
-.fin-print{width:100%;font:12px/1.4 Arial,sans-serif;color:#17212b;padding:18px}.fin-print h1{font-size:22px}.fin-print h2{font-size:16px}.fin-print table{width:100%;border-collapse:collapse}.fin-print th,.fin-print td{border-bottom:1px solid #ccd6dd;padding:8px;text-align:left;font-size:11px;overflow-wrap:anywhere}
-@media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-overview{gap:10px 18px}.fin-stat strong{font-size:14px}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-operator{min-width:140px}.fin-account-totals{gap:16px}.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line)}}
-@media print{.fin-print{padding:0}.fin-print tr{break-inside:avoid}.print-sheet:has(.fin-print){align-items:stretch;justify-content:flex-start}}
-.fin-toolbar>input{width:auto;flex:0 1 280px;min-width:180px}.fin-toolbar>select{width:auto;min-width:170px}.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
+.fin-history-box{margin-top:18px}.fin-history-box>summary{cursor:pointer;font-size:12px;font-weight:700;color:#647782}
+.fin-history{margin-top:8px}.fin-event{border-bottom:1px solid var(--line)}.fin-event summary{display:flex;gap:12px;align-items:start;padding:10px 2px;cursor:pointer}.fin-event summary>span:nth-child(2){flex:1}.fin-event summary small{display:block;color:#647782;margin-top:4px;font-size:11px}.fin-event-no{font-size:11px;color:#82939d;padding-top:2px;min-width:32px}.fin-event-time{text-align:right;font-size:11px}.fin-event-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px 46px}.fin-event-diff section{background:#f5f8fa;padding:12px;border-radius:8px}.fin-event-diff h5{margin:0 0 8px}.fin-event-diff dl{display:grid;grid-template-columns:100px 1fr;gap:8px;margin:0;font-size:12px}.fin-event-diff dt{color:#647782}.fin-event-diff dd{margin:0;overflow-wrap:anywhere}
+.fin-card h4{margin:22px 0 10px}.fin-modal-body>.fin-grid{margin-bottom:14px}.fin-modal-body label{text-transform:none}.fin-modal-body label small{display:block;margin-top:3px;font-weight:500;text-transform:none;letter-spacing:0}.fin-card button:focus-visible,.fin-modal button:focus-visible,.fin-stat:focus-visible{outline:3px solid #79b6d8;outline-offset:2px}
+.fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:#eef1f5;flex:1}.fin-preview .fin-preview-note{margin:8px 16px 0}.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,#e3e7ee)}
+.fin-statements{width:min(980px,96vw)}.fin-preview-back{z-index:120}
+@media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
+.fin-toolbar>input{width:auto;flex:0 1 280px;min-width:180px}.fin-toolbar>select{width:auto;min-width:150px}.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -2026,7 +2033,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='98b3b301a308';
+var ERP_BUILD='308f4374f508';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10159,11 +10166,19 @@ function salesTransitionChecks(o,next){
    if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
   }
  }
- const datedCredit=next==='done'&&terms.paymentMode==='credit'&&finPaymentDue(o)>=finToday()&&c&&!c.onHold&&!finCustomerAccount(c).overLimit;
- if((next==='done'||next==='closed')&&!datedCredit&&b.balance!=null&&b.balance>0){
-  out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Receipt total',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
+ /* Кредит: товар уходит без оплаты — срок считается от дня выдачи
+    (finPaymentDue). Остановка только если клиент уже опаздывает, на Hold
+    или за лимитом; иначе каждая выдача Net-клиенту пугала бы «Take payment». */
+ const anyway=o.delivery==='delivery'?'Deliver anyway':'Pick up anyway';
+ if(next==='done'&&terms.paymentMode==='credit'&&b.balance!=null&&b.balance>0){
+  const late=c?finCustomerOverdue(c.id):0,acc=c?finCustomerAccount(c):null;
+  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway});
+  else if(late>0)out.push({title:name+' has overdue payments',sub,rows:[['Overdue',finFmt(late),true]],note:'Collect before release.',anyway});
+  else if(acc&&acc.overLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due',finFmt(acc.balanceDue),true]],note:'',anyway});
+ }else if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
+  out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Paid',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
    note:next==='done'?'Take payment first.':'Balance due.',
-   anyway:next==='closed'?'Close anyway':o.delivery==='delivery'?'Deliver anyway':'Pick up anyway',pay:next==='done'?b.balance:null});
+   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
  }
  return out;
 }
@@ -10296,7 +10311,8 @@ function salesConvertQuoteRecord(id){
  const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
  const now=new Date().toISOString();
  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now});
- DB.salesOrder.push(normalizeSalesOrder(copy));
+ const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
+ if(typeof finCaptureTerms==='function')finCaptureTerms(order);
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
  normalizeSalesData();touch();
  salesOrderEdit(copy.id);
@@ -10701,7 +10717,7 @@ function normalizeDocuments(){normalizeCompany();normalizeDocumentSettings();}
    erp/finance/data  ·  finance-1.0
    Оплаты клиентов: квитанции, разнесение по заказам, депозит на счёте.
    IN : DB.receipt, DB.salesOrder, DB.customer
-   OUT: баланс заказа, депозит и счёт клиента, CSV для QuickBooks
+   OUT: баланс заказа, депозит и счёт клиента
    Правило: сумма заказа берётся из расчёта самого заказа
    (salesOrderCommercialTotals) — своих цен здесь нет. Бухгалтерии здесь тоже
    нет: владелец переносит оплаты в QuickBooks руками (14 сентября 2026),
@@ -10712,8 +10728,12 @@ function normalizeDocuments(){normalizeCompany();normalizeDocumentSettings();}
 DEFAULT.receipt=[];
 if(!Array.isArray(DB.receipt))DB.receipt=[];
 
-const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'card',label:'Card'}];
+/* Debit и Credit card раздельно (владелец, 28 сентября 2026): сбор за карту
+   берётся только с кредитки. Старое общее «Card» остаётся читаемым у прежних
+   оплат, но для новых не предлагается — задним числом его не угадываем. */
+const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'debit',label:'Debit'},{k:'creditcard',label:'Credit card'},{k:'card',label:'Card',legacy:true}];
 function finMethodLabel(k){const m=FIN_METHODS.find(x=>x.k===k);return m?m.label:'Other';}
+function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k===current);}
 function finMoney(v){const n=Number(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
 function finUid(){
  try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return 'RCPT-'+crypto.randomUUID();}catch(e){}
@@ -10863,27 +10883,22 @@ function finVoidReceipt(id,reason){
  return true;
 }
 
-function finCsvCell(v){let s=String(v==null?'':v);if(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+/* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
+   ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
+function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
-function finReceiptsCsv(rows){
- const H=['Receipt No','Date','Customer','Customer Account','Method','Reference','Amount','Applied','Applied To Orders','On Account','Status','Void Reason','Note'];
- const body=rows.map(r=>{
-  const c=(DB.customer||[]).find(x=>x.id===r.customerId)||{};
-  return [r.number,r.date,c.legalName||c.displayName||'',c.code||'',finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finReceiptApplied(r).toFixed(2),
-   r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),finReceiptOnAccount(r).toFixed(2),r.voided?'Void':'Active',r.voidReason,r.note];
- });
- return [H].concat(body).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
-}
 
 /* ==== src/erp/finance/ledger.js ==== */
 /* Finance commands and history. No DOM; balances keep using the order pricing
    contract. Events are append-only through these commands; local JSON is not
    an authenticated or tamper-proof accounting ledger. */
-DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeVersion=1;
-for(const k of ['refund','financeEvent','financeTerms'])if(!Array.isArray(DB[k]))DB[k]=[];
+DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeVersion=1;
+const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport'];
+for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
+/* Who recorded an entry. Stays empty until the app has sign-in: a name picked
+   by hand is not evidence, so the screen no longer asks for it. */
 let finActor='';
-try{finActor=localStorage.getItem('glass_finance_actor')||'';}catch(e){}
 function finCopy(x){return JSON.parse(JSON.stringify(x));}
 function finDateValid(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(s)))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s;}
 function finCents(v){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
@@ -10903,14 +10918,17 @@ function finEvent(kind,before,after,reason,entity){
 }
 function finEnsureHistory(r){if(!finHistoryFor(r.id).length)finEvent('opening',null,r,'Existing record; earlier changes are not available.');}
 function normalizeFinanceLedger(){
- for(const k of ['refund','financeEvent','financeTerms'])if(!Array.isArray(DB[k]))DB[k]=[];
+ for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
+ /* Отметка выгрузки живёт, пока жива сама оплата или возврат. */
+ const alive=new Set((DB.receipt||[]).concat(DB.refund||[]).map(x=>x&&x.id));
+ DB.financeExport=DB.financeExport.filter(e=>e&&typeof e==='object'&&alive.has(e.entityId));
  DB.financeVersion=1;
  (DB.receipt||[]).forEach(finEnsureHistory);
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
 function finPersist(fn){
- const keys=['receipt','refund','financeEvent','financeTerms'],before={};keys.forEach(k=>before[k]=finCopy(DB[k]||[]));
+ const keys=['receipt'].concat(FIN_TABLES),before={};keys.forEach(k=>before[k]=finCopy(DB[k]||[]));
  try{const value=fn();finAssert(value!==false,'The operation could not be completed.');finAssert(touch()!==false,'Not saved. Your changes are still open; retry or export a backup.');return {ok:true,value};}
  catch(e){keys.forEach(k=>DB[k]=before[k]);return {ok:false,error:e.message};}
 }
@@ -10981,32 +10999,160 @@ function finCaptureTerms(o){
 function finSaveTerms(orderId,d,reason){
  const o=(DB.salesOrder||[]).find(o=>o.id===orderId);finAssert(o&&finOrderCounts(o),'Select an active order.');
  finAssert(['cash','credit'].includes(d.paymentMode),'Select payment terms.');
- const pct=Number(d.depositPercent),days=d.creditDays===''?null:Number(d.creditDays);
+ const pct=Number(d.depositPercent),days=d.creditDays===''||d.creditDays==null?null:Number(d.creditDays);
  finAssert(Number.isFinite(pct)&&pct>=0&&pct<=100,'Deposit percent must be between 0 and 100.');
  finAssert(days===null||Number.isInteger(days)&&days>=0&&days<=365,'Credit days must be between 0 and 365.');
  finAssert(!d.issuedOn||finDateValid(d.issuedOn),'Enter a valid billing date.');finAssert(!d.dueOn||finDateValid(d.dueOn),'Enter a valid payment due date.');
  finAssert(!d.issuedOn||!d.dueOn||d.dueOn>=d.issuedOn,'Payment due date cannot precede the billing date.');
- finAssert(String(reason||'').trim(),'Enter the reason for changing terms.');
  const before=finCopy(finTermsFor(o)),next={orderId,customerId:o.customerId,currency:finCurrency(o),paymentMode:d.paymentMode,depositPercent:pct,creditDays:days,issuedOn:d.issuedOn||'',dueOn:d.dueOn||'',capturedAt:before.capturedAt||new Date().toISOString()};
+ const same=['paymentMode','depositPercent','creditDays','issuedOn','dueOn'].every(k=>before[k]===next[k]);if(same&&before.capturedAt)return before;
  const at=DB.financeTerms.findIndex(t=>t.orderId===orderId);if(at<0)DB.financeTerms.push(next);else DB.financeTerms[at]=next;
  finEvent('terms',before,next,reason,'terms');return next;
 }
+/* Calendar date in the shop's time zone: an entry made in the evening must not
+   land on tomorrow, which toISOString() would do. */
+function finLocalDate(iso){const d=new Date(iso||'');if(!iso||isNaN(d))return '';const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function finAddDays(date,days){const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
+function finShortDate(date,today){
+ if(!finDateValid(date))return '';const [y,m,d]=date.split('-').map(Number),year=String(today||finToday()).slice(0,4);
+ return DOC_MONTHS[m-1]+' '+d+(String(y)===year?'':', '+y);
+}
+/* Billing date: typed by hand, otherwise the day the order was picked up or
+   delivered. Nobody has to remember to set it, and it disappears again if the
+   pickup is undone. */
+function finBillingDate(o){const t=finTermsFor(o);return t.issuedOn||finLocalDate(o&&o.statusDates&&o.statusDates.done);}
+/* Payment due: agreed date, otherwise billing date + Net days (credit) or the
+   billing date itself (cash pays at pickup). Before pickup there is no date;
+   credit without Net days has none either — it is not invented. */
 function finPaymentDue(o){
  const t=finTermsFor(o);if(t.dueOn)return t.dueOn;
- if(t.paymentMode==='credit'&&t.issuedOn&&t.creditDays!=null){const d=new Date(t.issuedOn+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+t.creditDays);return d.toISOString().slice(0,10);}return '';
+ const billed=finBillingDate(o);if(!billed)return '';
+ if(t.paymentMode!=='credit')return billed;
+ return t.creditDays==null?'':finAddDays(billed,t.creditDays);
 }
+function finShipped(o){return !!o&&['done','closed'].includes(o.status);}
+/* One reading of an order's money for every screen: status text and its tone
+   (bad = act now, good = paid, info = nothing to do yet). */
 function finOrderFinancial(o,today){
  const b=finOrderBalance(o),t=finTermsFor(o),dueOn=finPaymentDue(o),c=salesFindCustomer(o.customerId),day=today||finToday();
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
  const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
- const depositMissing=depositRequired==null?null:finMoney(Math.max(0,depositRequired-b.paid));
- let status=!finOrderCounts(o)?'Inactive':finCurrency(o)!=='CAD'?'Currency review':b.total==null?'Pricing incomplete':c&&c.onHold?'Customer on hold':b.balance<=0?'Paid':overdue?'Overdue':t.paymentMode==='credit'?(dueOn?'Credit terms':'Credit · payment date not set'):'Payment required';
- return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status};
+ const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
+ let status,tone='info';
+ if(!finOrderCounts(o))status='Inactive';
+ else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
+ else if(b.total==null){status='Pricing incomplete';tone='warn';}
+ else if(b.balance<0)status='Overpaid';
+ else if(b.balance===0){status='Paid';tone='good';}
+ else if(overdue){status='Overdue';tone='bad';}
+ else if(c&&c.onHold){status='Customer on hold';tone='bad';}
+ else if(depositMissing>0){status='Deposit due';tone='bad';}
+ else if(dueOn)status=dueOn===day?'Due today':'Due '+finShortDate(dueOn,day);
+ else if(t.paymentMode==='credit'&&t.creditDays==null){status='Net days not set';tone='warn';}
+ else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'Due at pickup';
+ return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone};
+}
+function finCustomerOverdue(customerId,today){
+ return finMoney((DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).reduce((s,o)=>s+finOrderFinancial(o,today).overdue,0));
+}
+/* Деньги клиента одним взглядом. Balance — остаток по заказам; Prepaid —
+   оплачено по заказам, которые ещё не выданы (деньги клиента у нас, товар
+   ещё в работе); On account — внесено и ни к чему не привязано. */
+function finCustomerMoney(customerId,today){
+ const day=today||finToday(),m={balance:0,overdue:0,prepaid:0,orders:0,incomplete:0};
+ (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).forEach(o=>finMoneyAdd(m,o,day));
+ return finMoneyRound(Object.assign(m,{deposit:finCustomerDeposit(customerId)}));
+}
+function finMoneyAdd(m,o,day){
+ const f=finOrderFinancial(o,day),b=f.b;
+ if(b.total==null)m.incomplete++;
+ if(b.balance>0){m.balance+=b.balance;m.orders++;}
+ m.overdue+=f.overdue;
+ if(!finShipped(o)&&finCurrency(o)==='CAD')m.prepaid+=b.paid;
+ return f;
+}
+function finMoneyRound(m){['balance','overdue','prepaid','deposit'].forEach(k=>m[k]=finMoney(m[k]));return m;}
+/* То же по всем клиентам — для четырёх цифр в шапке Finance. */
+function finAllMoney(today){
+ const day=today||finToday(),m={balance:0,overdue:0,prepaid:0,orders:0,incomplete:0},late=new Set();
+ (DB.salesOrder||[]).filter(finOrderCounts).forEach(o=>{if(finMoneyAdd(m,o,day).overdue>0)late.add(o.customerId);});
+ m.deposit=finActiveReceipts().filter(r=>finCurrency(r)==='CAD').reduce((s,r)=>s+finReceiptOnAccount(r),0);
+ m.lateCustomers=late.size;
+ return finMoneyRound(m);
+}
+
+/* Выписка за период (владелец, 28 сентября 2026: «раз в месяц слать клиенту
+   файл… чтобы клиент тоже мог вести свой учёт»). Счёт клиента как в его
+   книгах: заказ становится начислением в день выдачи (billing date), оплата —
+   в свой день, возврат снова увеличивает долг. Остаток на начало периода +
+   начисления − оплаты + возвраты = остаток на конец. Минус — деньги клиента
+   у нас (депозит, предоплата по заказам в работе). */
+function finStatementLines(customerId){
+ const lines=[],skipped=[];
+ (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
+  const billed=finBillingDate(o);if(!billed)return;
+  const f=finOrderFinancial(o);if(f.b.total==null){skipped.push(o);return;}
+  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · PO '+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
+ });
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)==='CAD').forEach(r=>lines.push({date:r.date,sort:1,doc:r.number,kind:'payment',
+  text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount}));
+ (DB.refund||[]).filter(x=>x.customerId===customerId&&!x.voided&&x.currency==='CAD').forEach(x=>lines.push({date:x.date,sort:2,doc:x.number,kind:'refund',text:'Refund · '+finMethodLabel(x.method),charge:x.amount,payment:0}));
+ lines.sort((a,b)=>a.date.localeCompare(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc)));
+ return {lines,skipped};
+}
+function finStatementData(customerId,from,to){
+ const {lines,skipped}=finStatementLines(customerId);
+ const opening=finMoney(lines.filter(l=>from&&l.date<from).reduce((s,l)=>s+l.charge-l.payment,0));
+ const rows=lines.filter(l=>(!from||l.date>=from)&&(!to||l.date<=to)).map(l=>Object.assign({},l));
+ let run=opening;rows.forEach(l=>{run=finMoney(run+l.charge-l.payment);l.balance=run;});
+ const sum=(kind,k)=>finMoney(rows.filter(l=>l.kind===kind).reduce((s,l)=>s+l[k],0));
+ /* Просрочка «сейчас» не больше текущего долга: свободный депозит клиента
+    уже уменьшил его счёт, даже если к заказу ещё не привязан. */
+ const money=finCustomerMoney(customerId),today=finToday(),current=finMoney(lines.filter(l=>l.date<=today).reduce((s,l)=>s+l.charge-l.payment,0));
+ return {from,to,opening,rows,closing:run,current,billed:sum('order','charge'),paid:sum('payment','payment'),refunded:sum('refund','charge'),overdue:finMoney(Math.min(money.overdue,Math.max(0,current))),prepaid:money.prepaid,skipped};
+}
+/* Прошлый месяц (или текущий) целиком — по местному календарю. */
+function finMonthRange(offset,today){
+ const t=today||finToday(),y=+t.slice(0,4),m=+t.slice(5,7)-1+(offset||0),d=new Date(Date.UTC(y,m,1)),e=new Date(Date.UTC(y,m+1,0));
+ return {from:d.toISOString().slice(0,10),to:e.toISOString().slice(0,10)};
+}
+
+/* Выгрузка в QuickBooks «только новое». У каждой выгруженной оплаты и
+   возврата запоминается подпись того, что ушло в файл. Новая запись, правка
+   после выгрузки и Void после выгрузки попадают в следующий файл с пометкой;
+   аннулированная до выгрузки в QuickBooks не нужна. */
+function finExportSig(kind,x){
+ return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided]:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount])]);
+}
+function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
+function finExportState(kind,x){
+ const e=finExportRecord(x.id);
+ if(!e)return x.voided?'skip':'new';
+ return e.sig===finExportSig(kind,x)?'done':x.voided?'voided':'changed';
+}
+const FIN_EXPORT_LABELS={new:'New',changed:'Corrected',voided:'Voided',done:'Exported',skip:'Not needed'};
+function finExportPending(){
+ const out=[];
+ (DB.receipt||[]).forEach(x=>{const state=finExportState('receipt',x);if(state!=='done'&&state!=='skip')out.push({kind:'receipt',x,state});});
+ (DB.refund||[]).forEach(x=>{const state=finExportState('refund',x);if(state!=='done'&&state!=='skip')out.push({kind:'refund',x,state});});
+ return out;
+}
+function finExportLastBatch(){return (DB.financeExport||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
+function finExportMark(list){
+ finAssert(list.length,'Nothing new to export.');
+ const batch=finExportLastBatch()+1,at=new Date().toISOString();
+ list.forEach(({kind,x})=>{
+  const e={entityId:x.id,kind,sig:finExportSig(kind,x),at,batch},i=DB.financeExport.findIndex(y=>y.entityId===x.id);
+  if(i<0)DB.financeExport.push(e);else DB.financeExport[i]=e;
+ });
+ return batch;
 }
 function finValidatePayload(src){
  const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,96}$/.test(v),money=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e10&&Math.abs(v*100-Math.round(v*100))<0.001;
  const unique=(rows,key,label)=>{const seen=new Set();(rows||[]).forEach(r=>{finAssert(r&&typeof r==='object'&&id(r[key]),label+': invalid id.');finAssert(!seen.has(r[key]),label+': duplicate id.');seen.add(r[key]);});};
- for(const k of ['refund','financeEvent','financeTerms'])finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
+ for(const k of FIN_TABLES)finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
+ unique(src.financeExport,'entityId','QuickBooks export');
+ (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
  unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
  unique(src.receipt,'id','Payment');
  const receipts=new Map((src.receipt||[]).map(r=>[r.id,r])),refunds=new Map(),orders=new Map((src.salesOrder||[]).map(o=>[o.id,o]));
@@ -11452,6 +11598,7 @@ function customerForm(){
  const c=cDraft;
  return `<div class="card customer-editor">
   <div class="section-title"><div><h3>${cEdit==='new'?'New customer':raw(c.displayName||c.legalName||'Customer')}</h3><div class="sub">Internal ID: <span class="mono" data-raw>${esc(c.id)}</span></div></div><div class="row customer-editor-actions"><button class="pri" onclick="saveCustomer()">Save</button><button onclick="cEdit=null;cDraft=null;render()">Cancel</button></div></div>
+  ${cEdit!=='new'&&typeof finCustomerStrip==='function'?finCustomerStrip(cEdit):''}
   <div class="tabs customer-tabs">${customerTabButton('general','General')}${customerTabButton('contacts','Contacts')}${customerTabButton('addresses','Addresses')}${customerTabButton('credit','Credit & terms')}${customerTabButton('accounting','Accounting')}${customerTabButton('legacy','Legacy IDs')}</div>
   ${cTab==='general'?customerGeneralForm():cTab==='contacts'?customerContactsForm():cTab==='addresses'?customerAddressesForm():cTab==='credit'?customerCreditForm():cTab==='accounting'?customerAccountingForm():customerLegacyForm()}
   <div class="err" id="e_customer"></div>
@@ -15554,7 +15701,9 @@ function docHeader(P,m){
  }
  P.text(W.right,y+15,m.title,{size:18,bold:true,color:C.navy,align:'right'});
  P.text(W.right,y+30,m.number,{size:10.5,bold:true,align:'right'});
- P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,'No.',{size:8,align:'right'});
+ /* Выписка подписывает номер «Account», внутренний список — ничем. */
+ const numberLabel=m.numberLabel!=null?m.numberLabel:'No.';
+ if(numberLabel)P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,numberLabel,{size:8,align:'right'});
  P.text(W.right,y+41,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
  y=Math.max(leftBottom,y+44)+12;
  if(m.meta.length)y=docCells(P,m.meta,y,28,7.8)+10;
@@ -15921,6 +16070,158 @@ function docPdfBytes(pages,info){
  const bytes=new Uint8Array(out.length);
  for(let i=0;i<out.length;i++)bytes[i]=out.charCodeAt(i)&255;
  return bytes;
+}
+
+/* ==== src/erp/finance/print.js ==== */
+/* =====================================================================
+   erp/finance/print  ·  finance-1.1
+   Бланки денег: квитанция клиенту, выписка по счёту клиента и внутренний
+   список сроков оплаты. Те же листы Letter, что Proforma: шапка компании,
+   ячейки, таблица, итог справа — из них и печать, и PDF для письма.
+   IN : DB.receipt, DB.refund, DB.salesOrder, DB.customer, DB.company
+   OUT: листы (docPage) для docPageSVG / docPdfBytes
+   Правило: сумм здесь не считают — только читают finance/data и ledger.
+   ===================================================================== */
+
+function finDocBase(title,docName,number,c){
+ const company=DB.company||{};
+ return {company:docCompanyBlock(),title,docName,number,customerName:c?(c.legalName||c.displayName||''):'',po:'',meta:[],boxes:[],cols:[],rows:[],empty:'',end:null,
+  footerLeft:company.footerText||'',footerRight:''};
+}
+function finDocAddress(c){return c?docAddressText(customerAddressByType(c,'billing')):'';}
+/* Таблицы бланка: строка — одна линия текста, лист кончается между строками,
+   на новом листе заголовок таблицы повторяется. Таблиц может быть несколько
+   (m.sections) — у выписки это заказы и движение денег. */
+function finDocLayout(m){
+ const W=DOC_PAGE,C=DOC_COLOR,pages=[];let P=null,y=0,top=0,cur=null;
+ const sections=m.sections||[{cols:m.cols,rows:m.rows,empty:m.empty}];
+ const head=()=>{if(!cur||!cur.cols.length)return;cur.cols.forEach(c=>docLabel(P,c.x,y+6,c.label,{align:c.align||'left'}));P.line(W.left,y+11,W.right,y+11,{stroke:C.navy,lw:1.3});y+=16;};
+ const start=()=>{P=docPage();pages.push(P);y=pages.length===1?docHeader(P,m):docContHeader(P,m);head();top=y;};
+ start();
+ sections.forEach((sec,si)=>{
+  cur=null;if(y+(sec.title?22:0)+31>W.bottom&&y>top+1)start();
+  if(sec.title){y+=si?10:0;P.text(W.left,y+11,sec.title,{size:9,bold:true,color:C.navy});y+=18;}
+  cur=sec;head();
+  sec.rows.forEach(r=>{
+   const h=15;if(y+h>W.bottom)start();
+   r.cells.forEach((v,i)=>{const c=sec.cols[i];if(!c)return;P.text(c.x,y+10.5,docFit(String(v==null?'':v),7.8,!!(c.bold||r.bold),c.w),{size:7.8,bold:!!(c.bold||r.bold),align:c.align||'left',color:r.due&&c.due?C.due:r.mut?C.mut:C.ink});});
+   P.line(W.left,y+h,W.right,y+h,{stroke:C.line,lw:.5});y+=h;
+  });
+  if(!sec.rows.length&&sec.empty){P.text(W.left,y+12,sec.empty,{size:7.8,color:C.mut});y+=18;}
+ });
+ cur=null;
+ if(m.end){const b=docEndBlock(m);if(y+b.h>W.bottom&&y>top+1)start();b.draw(P,y);y+=b.h;}
+ const N=pages.length;
+ pages.forEach((pg,i)=>{
+  const label='Page '+(i+1)+' of '+N;
+  pg.items.forEach(x=>{if(x.pageLabel)x.s=label;});
+  pg.line(W.left,W.footer-9,W.right,W.footer-9,{stroke:C.line,lw:.5});
+  if(m.footerLeft)pg.text(W.left,W.footer,docFit(m.footerLeft,6.8,false,240),{size:6.8,color:C.faint});
+  pg.text(W.right,W.footer,[m.footerRight,label].filter(Boolean).join(' · '),{size:6.8,color:C.faint,align:'right'});
+ });
+ return pages;
+}
+function finDocText(pages){return (pages||[]).flatMap(p=>p.items.filter(x=>x.t==='text').map(x=>x.s)).join(' ');}
+
+/* Оплачено по заказу на момент этой квитанции: более поздние оплаты в её
+   «остаток после» не входят, иначе старая квитанция врала бы задним числом. */
+function finOrderPaidThrough(orderId,receipt){
+ const key=r=>r.date+'|'+r.number,upTo=key(receipt);
+ return finMoney((DB.receipt||[]).filter(r=>(!r.voided||r.id===receipt.id)&&finCurrency(r)===finCurrency(receipt)&&key(r)<=upTo)
+  .reduce((s,r)=>s+r.allocations.filter(a=>a.orderId===orderId).reduce((t,a)=>t+a.amount,0),0));
+}
+function finReceiptDoc(id){
+ const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return [];
+ const c=salesFindCustomer(r.customerId),refunded=finRefunded(r.id),money=docMoney;
+ const m=finDocBase(r.voided?'VOID RECEIPT':'PAYMENT RECEIPT','Receipt',r.number,c);
+ m.meta=[{label:'Date',value:docDate(r.date)},{label:'Method',value:finMethodLabel(r.method)},{label:'Reference',value:r.reference||'—'},{label:'Account',value:c&&c.code||'—'},{label:'Currency',value:finCurrency(r)}];
+ m.boxes=[{label:'Received from',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
+ m.cols=[{label:'Order',x:36,w:80,bold:true},{label:'Customer PO',x:124,w:150},{label:'Order total',x:372,w:90,align:'right'},{label:'This payment',x:474,w:90,align:'right'},{label:'Balance after',x:576,w:90,align:'right'}];
+ m.rows=r.allocations.map(a=>{
+  const o=(DB.salesOrder||[]).find(x=>x.id===a.orderId),total=o?finOrderBalance(o).total:null;
+  return {cells:[finOrderNumber(a.orderId),o&&o.customerPo||'—',money(total),money(a.amount),total==null?'—':money(Math.max(0,finMoney(total-finOrderPaidThrough(a.orderId,r))))]};
+ });
+ m.empty='Not applied to an order: kept on account.';
+ const rows=[{label:'Applied to orders',value:money(finReceiptApplied(r))}];
+ if(refunded>0)rows.push({label:'Refunded',value:money(refunded)});
+ if(!r.voided)rows.push({label:'Kept on account',value:money(finReceiptOnAccount(r))});
+ m.end={left:[r.voided?{label:'Void',text:r.voidReason||'Void'}:null,r.note?{label:'Note',text:r.note}:null].filter(Boolean),rows,grand:{label:'Amount received',value:money(r.amount)}};
+ return finDocLayout(m);
+}
+/* Срок для клиента — без внутренних пометок вроде «Customer on hold». */
+function finDueText(f){
+ if(f.dueOn)return docDate(f.dueOn);
+ const t=f.terms;return t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'At pickup';
+}
+function finSigned(v){return v<0?'-'+docMoney(-v):docMoney(v);}
+const FIN_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function finPeriodText(from,to){
+ if(from&&to){const a=finMonthRange(0,from);if(a.from===from&&a.to===to)return FIN_MONTH_NAMES[+from.slice(5,7)-1]+' '+from.slice(0,4);}
+ return (from?docDate(from):'Start')+' – '+docDate(to||finToday());
+}
+/* Заказы выписки: выданные за период, ещё не оплаченные, оплаченные в этом
+   периоде и заказы в работе, по которым уже внесли деньги. */
+function finStatementOrders(customerId,from,to,today){
+ const inPeriod=d=>!!d&&(!from||d>=from)&&(!to||d<=to);
+ const paidIn=new Set(finActiveReceipts().filter(r=>r.customerId===customerId&&inPeriod(r.date)).flatMap(r=>r.allocations.map(a=>a.orderId)));
+ return (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').map(o=>({o,f:finOrderFinancial(o,today),billed:finBillingDate(o)}))
+  .filter(x=>x.f.b.total!=null&&(x.f.b.balance>0||paidIn.has(x.o.id)||inPeriod(x.billed)||!x.billed&&x.f.b.paid>0))
+  .sort((a,b)=>(a.billed||'9999').localeCompare(b.billed||'9999')||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
+}
+/* Выписка за период — клиенту раз в месяц для его учёта: какие заказы и на
+   сколько, что он заплатил, остаток на начало и на конец периода. */
+function finStatementDoc(customerId,from,to,today){
+ const c=salesFindCustomer(customerId);if(!c)return [];
+ const day=today||finToday(),money=docMoney,company=DB.company||{},d=finStatementData(c.id,from,to);
+ const m=finDocBase('STATEMENT','Statement',c.code||'—',c);m.numberLabel='Account';
+ m.meta=[{label:'Period',value:finPeriodText(from,to)},{label:'Statement date',value:docDate(day)},{label:'Terms',value:paymentTermsLabel(paymentTermsFrom(c))},{label:'Currency',value:'CAD'}];
+ const limit=finCustomerAccount(c).creditLimit;if(limit!=null)m.meta.push({label:'Credit limit',value:money(limit)});
+ m.boxes=[{label:'Bill to',title:m.customerName||'—',lines:[finDocAddress(c)].filter(Boolean)}];
+ const orders=finStatementOrders(c.id,from,to,day);
+ m.sections=[
+  {title:'Orders',empty:'No orders in this period.',cols:[{label:'Order',x:36,w:58,bold:true},{label:'Customer PO',x:98,w:96},{label:'Picked up',x:198,w:64},{label:'Due',x:266,w:100,due:true},{label:'Total',x:430,w:62,align:'right'},{label:'Paid',x:504,w:62,align:'right'},{label:'Balance',x:576,w:62,align:'right',bold:true,due:true}],
+   rows:orders.map(({o,f,billed})=>({due:f.overdue>0,mut:!billed,cells:[o.businessNumber,o.customerPo||'—',billed?docDate(billed):'In work',finDueText(f)+(f.overdue?' · overdue':''),money(f.b.total),money(f.b.paid),money(Math.max(0,f.b.balance))]}))},
+  {title:'Account activity',empty:'',cols:[{label:'Date',x:36,w:58},{label:'Document',x:98,w:52,bold:true},{label:'Description',x:154,w:204},{label:'Charges',x:418,w:58,align:'right'},{label:'Payments',x:494,w:58,align:'right'},{label:'Balance',x:576,w:66,align:'right',bold:true}],
+   rows:[{mut:true,cells:[from?docDate(from):'','','Balance forward','','',finSigned(d.opening)]}].concat(d.rows.map(l=>({due:l.overdue,cells:[docDate(l.date),l.doc,l.text,l.charge?money(l.charge):'',l.payment?money(l.payment):'',finSigned(l.balance)]})))}
+ ];
+ const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
+ if(orders.some(x=>!x.billed))left.push({label:'In work',text:'Orders not yet picked up are billed on pickup.'+(d.prepaid>0?' '+money(d.prepaid)+' already paid on them is in the balance.':'')});
+ const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:'-'+money(d.paid)}];
+ if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
+ m.end={left,rows,grand:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
+ m.footerRight=finPeriodText(from,to);
+ return finDocLayout(m);
+}
+/* То же для учёта клиента в таблице: движение денег с остатком. */
+function finStatementCSV(customerId,from,to){
+ const d=finStatementData(customerId,from,to),kind={order:'Order',payment:'Payment',refund:'Refund'};
+ return [['Date','Document','Type','Description','Charges','Payments','Balance']].concat([[from||'','','Balance forward','','','',d.opening.toFixed(2)]],
+  d.rows.map(l=>[l.date,l.doc,kind[l.kind],l.text,l.charge?l.charge.toFixed(2):'',l.payment?l.payment.toFixed(2):'',l.balance.toFixed(2)]),
+  [[to||'','','Closing balance','','','',d.closing.toFixed(2)]]).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
+}
+/* Внутренний список «кто и когда должен заплатить» — для обзвона. */
+function finScheduleDoc(result,filter){
+ const day=finToday(),money=docMoney,m=finDocBase('PAYMENTS DUE','Payments due',docDate(day),null);
+ m.numberLabel='';m.customerName=finDueDescription(filter,result.range);m.footerLeft='';
+ m.meta=[{label:'Selection',value:m.customerName},{label:'Orders',value:String(result.rows.length)},{label:'Customers',value:String(result.customers)},{label:'Currency',value:'CAD'}];
+ m.cols=[{label:'Due',x:36,w:62,due:true},{label:'Customer',x:104,w:124,bold:true},{label:'Order · PO',x:234,w:106},{label:'Terms',x:346,w:88},{label:'Timing',x:440,w:76,due:true},{label:'Outstanding',x:576,w:56,align:'right',bold:true}];
+ m.rows=result.rows.map(x=>({due:x.days!=null&&x.days<0,cells:[x.f.dueOn?docDate(x.f.dueOn):finDueText(x.f),finCustomerName(x.c),x.o.businessNumber+(x.o.customerPo?' · '+x.o.customerPo:''),paymentTermsLabel(x.f.terms),finDueTiming(x),money(x.f.b.balance)]}));
+ m.empty='No unpaid orders in this selection.';
+ m.end={left:[],rows:[],grand:{label:'Outstanding',value:money(result.total)}};
+ return finDocLayout(m);
+}
+/* Балансы всех клиентов (или отфильтрованных) — кто сколько должен и чьи
+   деньги у нас: предоплата по заказам в работе и свободный депозит. */
+function finBalancesDoc(list,selection){
+ const day=finToday(),money=docMoney,m=finDocBase('CUSTOMER BALANCES','Customer balances',docDate(day),null);
+ const sum=k=>finMoney(list.reduce((s,x)=>s+x.m.money[k],0)),dash=v=>v>0?money(v):'—';
+ m.numberLabel='';m.customerName=selection||'';m.footerLeft='';
+ m.meta=[{label:'Date',value:docDate(day)},{label:'Selection',value:selection||'All'},{label:'Customers',value:String(list.length)},{label:'Currency',value:'CAD'}];
+ m.cols=[{label:'Customer',x:36,w:150,bold:true},{label:'Terms',x:192,w:80},{label:'Balance',x:340,w:62,align:'right',bold:true},{label:'Overdue',x:400,w:56,align:'right',due:true},{label:'Prepaid',x:460,w:56,align:'right'},{label:'On account',x:518,w:56,align:'right'},{label:'Credit limit',x:576,w:54,align:'right'}];
+ m.rows=list.map(({c,m:x})=>({due:x.money.overdue>0,cells:[finCustomerName(c)+(c.code?' · '+c.code:''),x.account.terms,dash(x.money.balance),dash(x.money.overdue),dash(x.money.prepaid),dash(x.money.deposit),x.account.creditLimit==null?'—':money(x.account.creditLimit)]}));
+ m.empty='No customers in this selection.';
+ m.end={left:[],rows:[{label:'Prepaid · orders in work',value:money(sum('prepaid'))},{label:'On account · not applied',value:money(sum('deposit'))}],grand:{label:'Customers owe',value:money(sum('balance'))},paid:sum('overdue')>0?[{label:'Overdue',value:money(sum('overdue')),tone:'due'}]:null};
+ return finDocLayout(m);
 }
 
 /* ==== src/erp/views/sales.js ==== */
@@ -21250,9 +21551,9 @@ function companyLogoUpload(input){
 
 /* ==== src/erp/views/finance.js ==== */
 /* =====================================================================
-   views/finance  ·  finance-1.0
-   Экран Finance (Receipts, Customer accounts), зачёт депозита и полоса
-   оплат в шапке заказа.
+   views/finance  ·  finance-1.1
+   Вкладка Payments, форма оплаты, зачёт депозита и полоса оплат в шапке
+   заказа. Остальной экран — views/finance-workspace.
    IN : DB.receipt, DB.salesOrder, DB.customer
    OUT: квитанции, разнесение, CSV для QuickBooks
    Владелец, 14 сентября 2026: оплату вносят на отдельном экране Finance, в
@@ -21260,11 +21561,11 @@ function companyLogoUpload(input){
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
-let finTab='accounts',finSearch='',finMethod='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
+let finTab='accounts',finSearch='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
-function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts','refunds','journal'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
+function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
 function finSearchChange(el){
  finSearch=el.value;const pos=el.selectionStart;render();
  requestAnimationFrame(()=>{const e=document.getElementById('finSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
@@ -21278,8 +21579,6 @@ function finFilteredReceipts(){
  return (DB.receipt||[]).filter(r=>{
   if(finCustomerFilter&&r.customerId!==finCustomerFilter)return false;
   if(finOrderFilter&&!r.allocations.some(a=>a.orderId===finOrderFilter)&&!finHistoryFor(r.id).some(e=>(e.orders||[]).some(o=>o.id===finOrderFilter)))return false;
-  if(finStatus==='active'&&r.voided||finStatus==='void'&&!r.voided)return false;
-  if(finMethod&&r.method!==finMethod)return false;
   if(finFrom&&r.date<finFrom)return false;
   if(finTo&&r.date>finTo)return false;
   if(!q)return true;
@@ -21288,28 +21587,25 @@ function finFilteredReceipts(){
  }).sort((a,b)=>(b.date+b.number).localeCompare(a.date+a.number));
 }
 function finReceiptsView(){
- const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided);
- const methods=[['','All']].concat(FIN_METHODS.map(m=>[m.k,m.label]));
+ const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided&&finCurrency(r)==='CAD');
  return `${finFilterChips()}<div class="fin-toolbar"><input class="fin-search" id="finSearch" value="${esc(finSearch)}" placeholder="Search customer, order, cheque #…" oninput="finSearchChange(this)">
-  <select aria-label="Payment status" onchange="finStatus=this.value;render()">${[['all','All statuses'],['active','Active'],['void','Void']].map(x=>`<option value="${x[0]}" ${finStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select><div class="fin-seg">${methods.map(m=>`<button type="button" class="${finMethod===m[0]?'on':''}" onclick="finMethod='${m[0]}';render()">${m[1]}</button>`).join('')}</div>
   <label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;render()"></label>
-  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()">Export payments CSV</button><button type="button" class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th><th></th></tr></thead>
- <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="8" class="empty">No receipts yet</td></tr>'}</tbody></table></div>
- ${active.length?`<div class="fin-total">${active.length} receipt${active.length===1?'':'s'} · <b>${finFmt(finMoney(active.filter(r=>finCurrency(r)==='CAD').reduce((s,r)=>s+r.amount,0)))}</b></div>`:''}`;
+  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th></tr></thead>
+ <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="7" class="empty">No payments</td></tr>'}</tbody>
+ ${active.length?`<tfoot><tr><td colspan="4">${active.length} ${active.length===1?'payment':'payments'}</td><td class="n"><b>${finFmt(finMoney(active.reduce((s,r)=>s+r.amount,0)))}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
 }
 function finReceiptRow(r){
- const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r);
- const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">not applied</span>';
- return `<tr class="${r.voided?'fin-void':''}" data-receipt="${esc(r.id)}"><td><b class="mono">${raw(r.number)}</b>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
-  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b><div class="mut small">${esc(finCurrency(r))}${finRefunded(r.id)>0?' · refunded '+finFmt(finRefunded(r.id)):''}</div></td>
+ const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r),refunded=finRefunded(r.id);
+ const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">—</span>';
+ return `<tr class="fin-row${r.voided?' fin-void':''}" data-receipt="${esc(r.id)}" onclick="finOpenReceipt('${esc(r.id)}')"><td><button type="button" class="fin-link mono" onclick="event.stopPropagation();finOpenReceipt('${esc(r.id)}')">${raw(r.number)}</button>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
+  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b>${finCurrency(r)!=='CAD'?` <span class="mut small">${esc(finCurrency(r))}</span>`:''}${refunded>0?`<div class="mut small">refunded ${finFmt(refunded)}</div>`:''}</td>
   <td>${applied}${r.voided&&r.voidReason?`<div class="mut small">Void: ${raw(r.voidReason)}</div>`:''}</td>
-  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td>
-  <td class="fin-actions"><button class="sm" onclick="finOpenReceipt('${esc(r.id)}')">Open</button></td></tr>`;
+  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td></tr>`;
 }
 function finExportCsv(){
- const rows=finFilteredReceipts().slice().reverse();
- customerDownload('receipts'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finPaymentsCSV(rows),'text/csv;charset=utf-8');
+ const rows=finFilteredReceipts(),refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!finFrom||x.date>=finFrom)&&(!finTo||x.date<=finTo));
+ customerDownload('payments'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
 }
 
 /* ------------------------------ Форма -------------------------------- */
@@ -21342,6 +21638,19 @@ function finFormNoPrice(){
  const d=finDraft;if(!d||!d.customerId)return 0;
  return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)&&finOrderBalance(o).status==='incomplete').length;
 }
+/* Кредитка без сбора в заказе — цех платит процент сам. Подсказка стоит у
+   заказа в форме оплаты и добавляет сбор одной кнопкой; дебет не трогаем. */
+function finCardFeeTag(o){
+ const c=o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return '';
+ return `<div class="fin-card-fee">No card fee <button type="button" class="sm" onclick="finAddCardFee('${esc(o.id)}')">Add ${esc(c.rate)}%</button></div>`;
+}
+function finAddCardFee(orderId){
+ const o=(DB.salesOrder||[]).find(x=>x.id===orderId),c=o&&o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return;
+ const was=o.updatedAt;c.enabled=true;o.updatedAt=new Date().toISOString();
+ if(touch()===false){c.enabled=false;o.updatedAt=was;alert('Not saved. Try again or export a backup.');return;}
+ if(soDraft&&soDraft.id===orderId&&soDraft.orderCharges&&soDraft.orderCharges.card)soDraft.orderCharges.card.enabled=true;
+ render();
+}
 function finSummaryHTML(amount,applied,refunded){
  refunded=refunded||0;const left=finMoney(amount-applied-refunded);
  return `<span>Receipt <b>${finFmt(amount)}</b></span><span>Applied <b>${finFmt(applied)}</b></span>${refunded?`<span>Refunded <b>${finFmt(refunded)}</b></span>`:''}${left<0?`<span class="fin-over">Applied more than received by <b>${finFmt(-left)}</b></span>`:`<span>Left on account (deposit) <b class="fin-deposit">${finFmt(left)}</b></span>`}`;
@@ -21362,17 +21671,17 @@ function finApplyMax(orderId){
 function finReceiptForm(){
  const d=finDraft,r=finEdit!=='new'?(DB.receipt||[]).find(x=>x.id===finEdit):null,locked=!!(r&&(r.voided||finCurrency(r)!=='CAD')),dis=locked?' disabled':'';
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'||c.id===d.customerId),rows=finFormOrders(),noPrice=finFormNoPrice();
- const ph=({cheque:'Cheque #',etransfer:'Transfer reference',card:'Last 4 digits or approval #'})[d.method]||'Optional';
+ const ph=({cheque:'Cheque #',etransfer:'Transfer reference',debit:'Last 4 digits or approval #',creditcard:'Last 4 digits or approval #',card:'Last 4 digits or approval #'})[d.method]||'Optional';
  const table=!d.customerId?'<p class="mut">Select a customer to apply the receipt to orders.</p>':rows.length?`<h4 class="fin-h4">Apply to orders of this customer</h4>
   <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
-   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b></td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
-   <td class="n fin-apply-cell"><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</td></tr>`).join('')}</tbody></table></div>`
+   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b>${!locked&&d.method==='creditcard'?finCardFeeTag(x.order):''}</td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
+   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</div></td></tr>`).join('')}</tbody></table></div>`
   :'<p class="mut fin-apply-empty">This customer has no orders with a balance due — the whole amount stays on account as a deposit.</p>';
- return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3><span class="pill info">${esc(d.currency||'CAD')}</span>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
+ return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
  <div class="fin-grid">
-  <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" onchange="finDraft.customerId=this.value;finDraft.apply={};render()"><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select></div>
+  <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" onchange="finDraft.customerId=this.value;finDraft.apply={};render()"><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select>${!r&&d.customerId&&finCustomerDeposit(d.customerId)>0?`<div class="mut small">Already on account ${finFmt(finCustomerDeposit(d.customerId))}</div>`:''}</div>
   <div><label>Date</label><input type="date"${dis} value="${esc(d.date)}" onchange="finDraft.date=this.value"></div>
-  <div class="fin-span2"><label>Method</label><div class="fin-seg">${FIN_METHODS.map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
+  <div class="fin-span2"><label>Method</label><div class="fin-seg">${finMethodChoices(d.method).map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
   <div><label>Amount · CAD *</label><input type="number" min="0" step="0.01" id="finAmount"${dis} value="${esc(d.amount)}" oninput="finDraft.amount=this.value;finRefreshSummary()"></div>
   <div class="fin-span2"><label>Reference</label><input${dis} id="finReference" value="${esc(d.reference)}" placeholder="${ph}" oninput="finDraft.reference=this.value"></div>
   <div class="fin-span4"><label>Note</label><input${dis} id="finNote" value="${esc(d.note)}" oninput="finDraft.note=this.value"></div>
@@ -21382,7 +21691,7 @@ function finReceiptForm(){
  ${r&&!locked?`<label>Correction reason *</label><input id="finCorrectionReason" value="${esc(d.reason||'')}" oninput="finDraft.reason=this.value" placeholder="Explain what changed and why">`:''}
  ${finReceiptDuplicates(d,finEdit==='new'?null:finEdit).length?`<label class="fin-duplicate"><input type="checkbox" ${d.duplicate?'checked':''} onchange="finDraft.duplicate=this.checked"> Same reference already exists. I reviewed the payment and intend to record another.</label>`:''}
  <div class="err" id="e_fin"></div>
- <div class="fin-form-actions"><button type="button" onclick="finCloseReceipt()">${locked?'Back':'Cancel'}</button>${r&&!locked?'<button type="button" class="dl" onclick="finVoidCurrent()">Void receipt</button>':''}${locked?'':'<button type="button" class="pri" onclick="finSaveReceipt()">Save receipt</button>'}</div>${r?finJournalTable(finHistoryFor(r.id)):''}</div>`;
+ <div class="fin-form-actions"><button type="button" onclick="finCloseReceipt()">${locked?'Back':'Cancel'}</button>${r&&!locked?'<button type="button" class="dl" onclick="finVoidCurrent()">Void receipt</button>':''}${locked?'':'<button type="button" class="pri" onclick="finSaveReceipt()">Save receipt</button>'}</div>${r&&finHistoryFor(r.id).length?`<details class="fin-history-box"><summary>History · ${finHistoryFor(r.id).length}</summary>${finJournalTable(finHistoryFor(r.id))}</details>`:''}</div>`;
 }
 function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
@@ -21399,11 +21708,9 @@ function finVoidCurrent(){
  const out=finPersist(()=>finVoidReceipt(r.id,reason));if(!out.ok)return fail(document.getElementById('e_fin'),finRefunded(r.id)>0?'Void the refund record first. A payment with an active refund cannot be voided.':out.error);finCloseReceipt(true);
 }
 
-/* -------------------------- Customer accounts ------------------------ */
-function finAccountsView(){return finAccountsWorkspace();}
-
-function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finMethod='';finFrom='';finTo='';finStatus='all';render();}
-function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finMethod='';finFrom='';finTo='';finStatus='all';render();}
+/* --------------------- Переход к оплатам клиента/заказа --------------- */
+function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
+function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finFrom='';finTo='';render();}
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){
@@ -21439,15 +21746,15 @@ function finApplyModal(){
 
 /* ------------------------- Оплаты в заказе ---------------------------- */
 function salesOrderIsSaved(o){return !!o&&soEdit!=='new'&&(DB.salesOrder||[]).some(x=>x.id===o.id);}
-function finBalancePill(b){
- return b.status==='due'?`<span class="pill bad">Balance due ${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:b.status==='incomplete'&&b.paid>0?'<span class="pill warn">Price incomplete</span>':'';
-}
+/* Полоса в шапке заказа: красное — только когда надо действовать (просрочка,
+   нет депозита, клиент на Hold). Долг Net-клиента до срока — обычная
+   информация со сроком, а не тревога. */
 function salesPaymentStrip(o){
  if(!salesOrderIsSaved(o))return '<div class="fin-strip fin-strip-new">Save the order to take payments</div>';
  /* Отменённый заказ не долг: его оплаты ушли на депозит клиента. */
  if(!finOrderCounts(o))return '<div class="fin-strip fin-strip-new">Cancelled — not counted in the customer balance</div>';
- const b=finOrderBalance(o);
- return `<div class="fin-strip">${finBalancePill(b)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Receipt total</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${b.status==='due'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Receipts</button></div>`;
+ const f=finOrderFinancial(o),b=f.b;
+ return `<div class="fin-strip">${finStatusPill(f)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Paid</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${f.tone==='bad'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Payments</button></div>`;
 }
 function salesDepositHint(o){
  if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o))return '';
@@ -21459,117 +21766,282 @@ function salesDepositHint(o){
 function finMoveOverpayment(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return;const out=finPersist(()=>finReleaseOverpayment(o));if(!out.ok)alert(out.error);render();}
 function salesListBalanceCells(o){
  if(!finOrderCounts(o)){const t=finOrderTotals(o);return `<td class="n mut">${finFmt(t.complete?finMoney(t.grand):null)}</td><td class="n mut">—</td><td class="n mut">—</td>`;}
- const b=finOrderBalance(o);
- return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
+ const f=finOrderFinancial(o),b=f.b;
+ return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?(f.tone==='bad'?`<span class="pill bad" title="${esc(f.status)}">${finFmt(b.balance)}</span>`:`<span title="${esc(f.status)}">${finFmt(b.balance)}</span>`):b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
 }
 
 /* ==== src/erp/views/finance-workspace.js ==== */
-/* Finance workspace. Commands live in finance/ledger; UI never invents money. */
-let finCustomerFilter='',finOrderFilter='',finStatus='all',finAccountId='',finAccountQuery='',finAccountMode='all',finDraftBaseline='',finAction=null,finActionBaseline='',finJournalKind='',finJournalPage=0;
+/* =====================================================================
+   views/finance-workspace  ·  finance-1.1
+   Экран Finance. Сверху две цифры, по которым действуют: Overdue и деньги
+   на счетах клиентов (On account). Три вкладки: Accounts, Due dates,
+   Payments. Журнал изменений пишется всегда, а показывается там, где он
+   нужен, — в оплате и в карточке клиента (владелец, 28 сентября 2026:
+   «минималистично и эффективно»). Команды — в finance/ledger; экран денег
+   не придумывает.
+   ===================================================================== */
+let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountQuery='',finAccountMode='open',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
 function finHasWork(){return !!(finDraft&&JSON.stringify(finDraft)!==finDraftBaseline||finAction&&JSON.stringify(finAction)!==finActionBaseline);}
 function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance changes?');}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
- finDraft=null;finEdit=null;finAction=null;finApply=null;return false;
+ finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;return false;
 });
 window.addEventListener('beforeunload',function(e){if(!finHasWork())return;e.preventDefault();e.returnValue='';});
-function finActorSet(v){finActor=v;try{localStorage.setItem('glass_finance_actor',v);}catch(e){}}
-function finResetFilters(){finCustomerFilter='';finOrderFilter='';finSearch='';finMethod='';finFrom='';finTo='';finStatus='all';finJournalKind='';finJournalPage=0;render();}
+function finResetFilters(){finCustomerFilter='';finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
 function finFilterChips(){
  const c=salesFindCustomer(finCustomerFilter);
- return finCustomerFilter||finOrderFilter?`<div class="fin-scope"><span>Showing ${esc(c?finCustomerName(c):finOrderFilter?'order '+finOrderNumber(finOrderFilter):'customer')}</span><button class="sm" onclick="finResetFilters()">Clear filter</button></div>`:'';
+ return finCustomerFilter||finOrderFilter?`<div class="fin-scope"><span>${esc(c?finCustomerName(c):'Order '+finOrderNumber(finOrderFilter))}</span><button class="sm" onclick="finResetFilters()">Show all</button></div>`:'';
 }
+const FIN_TABS=[['accounts','Accounts'],['schedule','Due dates'],['receipts','Payments']];
 function finWorkspaceHTML(){
- const tabs=[['accounts','Customer accounts'],['schedule','Payment due dates'],['receipts','Payments'],['refunds','Refunds'],['journal','Journal']];
- const users=[...new Set((DB.user||[]).map(u=>u.name).filter(Boolean))];if(finActor&&!users.includes(finActor))users.push(finActor);
- return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<div class="fin-operator"><label for="finActor">Recorded by</label><select id="finActor" onchange="finActorSet(this.value)"><option value="">Not specified</option>${users.map(n=>`<option ${n===finActor?'selected':''}>${esc(n)}</option>`).join('')}</select></div></div>
- <div class="tabs" role="tablist" aria-label="Finance sections">${tabs.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
- ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finTab==='journal'?finJournalView():finTab==='refunds'?finRefundsView():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}`;
+ return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
+ <div class="tabs" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
+ ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}`;
 }
+/* Четыре цифры по всем клиентам и переход к списку за каждой. Сколько
+   должны нам, сколько из этого просрочено, и сколько денег клиентов у нас:
+   предоплата по заказам в работе и свободный депозит. */
 function finOverviewHTML(){
- const month=finToday().slice(0,7),received=finActiveReceipts().filter(r=>r.date.startsWith(month)&&finCurrency(r)==='CAD').reduce((s,r)=>s+r.amount,0),refunded=DB.refund.filter(r=>!r.voided&&r.date.startsWith(month)&&r.currency==='CAD').reduce((s,r)=>s+r.amount,0);
- const deposit=finActiveReceipts().filter(r=>finCurrency(r)==='CAD').reduce((s,r)=>s+finReceiptOnAccount(r),0);
- const overdue=(DB.salesOrder||[]).filter(finOrderCounts).reduce((s,o)=>s+finOrderFinancial(o).overdue,0);
- return `<div class="fin-overview"><span class="fin-overview-caption">All accounts · CAD</span>${[['Received this month',received],['Refunded this month',refunded],['Unapplied deposits',deposit],['Overdue',overdue]].map(([label,n])=>`<span class="fin-stat"><span>${label}</span><strong>${finFmt(finMoney(n))}</strong></span>`).join('')}</div>`;
+ const m=finAllMoney(),tile=(label,value,sub,go,tone)=>`<button type="button" class="fin-stat${tone?' '+tone:''}" onclick="${go}"><span>${label}</span><strong>${finFmt(value)}</strong><small>${sub}</small></button>`;
+ return `<div class="fin-overview">${tile('Customers owe',m.balance,m.orders+(m.orders===1?' order':' orders'),"finGoAccounts('balance')")}${tile('Overdue',m.overdue,m.lateCustomers?m.lateCustomers+(m.lateCustomers===1?' customer':' customers'):'none','finGoOverdue()',m.overdue>0?'bad':'')}${tile('Prepaid',m.prepaid,'orders in work',"finGoAccounts('prepaid')")}${tile('On account',m.deposit,'not applied',"finGoAccounts('deposit')")}</div>`;
 }
+function finGoOverdue(){if(!finCanLeave())return;finDraft=null;finEdit=null;finAccountId='';finTab='schedule';finSchedule=Object.assign({},finSchedule,{period:'overdue'});render();}
+function finGoAccounts(mode){if(!finCanLeave())return;finDraft=null;finEdit=null;finAccountId='';finTab='accounts';finAccountMode=mode;render();}
+
+/* ------------------------------ Accounts ----------------------------- */
+const FIN_ACCOUNT_MODES=[['open','Open accounts'],['balance','Owe money'],['overdue','Overdue'],['prepaid','Prepaid'],['deposit','Money on account'],['all','All customers']];
 function finAccountMetrics(c){
  const rows=(DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).map(o=>({o,f:finOrderFinancial(o)}));
- const total=key=>finMoney(rows.reduce((s,x)=>s+(x.f[key]||0),0));
- return {rows,account:finCustomerAccount(c),overdue:total('overdue'),unknownDue:rows.filter(x=>x.f.b.balance>0&&!x.f.dueOn).length};
+ return {rows,account:finCustomerAccount(c),money:finCustomerMoney(c.id)};
 }
-function finAccountsWorkspace(){
+function finAccountOpen(m){const x=m.money;return x.balance>0||x.deposit>0||x.prepaid>0||x.incomplete>0;}
+function finAccountsList(){
  const q=finAccountQuery.trim().toLowerCase();
- const customers=DB.customer.map(c=>({c,m:finAccountMetrics(c)})).filter(({c,m})=>(!q||[c.code,c.legalName,c.displayName].join(' ').toLowerCase().includes(q))&&(finAccountMode!=='overdue'||m.overdue>0)&&(finAccountMode!=='deposit'||m.account.deposit>0)&&(finAccountMode!=='balance'||m.account.balanceDue>0)&&(c.status!=='archived'||m.account.balanceDue>0||m.account.deposit>0||m.account.incomplete||DB.receipt.some(r=>r.customerId===c.id)));
- return `<div class="fin-toolbar"><input id="finAccountSearch" aria-label="Search customer accounts" placeholder="Search customer or account…" value="${esc(finAccountQuery)}" oninput="finAccountQuery=this.value;finRerenderInput('finAccountSearch')"><select aria-label="Account filter" onchange="finAccountMode=this.value;render()">${[['all','All accounts'],['balance','With balance'],['overdue','Overdue'],['deposit','With deposit']].map(([k,v])=>`<option value="${k}" ${finAccountMode===k?'selected':''}>${v}</option>`).join('')}</select><span class="fin-spacer"></span><button class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
- <p class="mut">Order balances are separate from unapplied deposits. Payment due dates are set per order; the production due date is not used.</p>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Terms</th><th class="n">Order balances · CAD</th><th class="n">Overdue</th><th class="n">Deposit</th><th class="n">Credit limit</th><th></th></tr></thead><tbody>${customers.map(({c,m})=>{const a=m.account;return `<tr data-account="${esc(c.id)}"><td><button class="fin-link" onclick="finOpenAccount('${esc(c.id)}')">${raw(finCustomerName(c))}</button><div class="mut small">${raw(c.code)}${c.status==='archived'?' · Archived':''}</div></td><td>${esc(a.terms)}</td><td class="n"><b>${finFmt(a.balanceDue)}</b>${a.incomplete?`<div class="mut small">${a.incomplete} require pricing / currency review</div>`:''}</td><td class="n ${m.overdue?'fin-due':''}">${finFmt(m.overdue)}${m.unknownDue?`<div class="mut small">${m.unknownDue} without payment date</div>`:''}</td><td class="n fin-deposit">${finFmt(a.deposit)}</td><td class="n">${a.creditLimit==null?'—':finFmt(a.creditLimit)}${a.overLimit?'<div class="pill bad">Over limit</div>':''}</td><td class="fin-actions"><button class="sm" onclick="finOpenAccount('${esc(c.id)}')">Open account</button>${a.deposit>0&&a.balanceDue>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply deposit</button>`:''}</td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No accounts match this filter</td></tr>'}</tbody></table></div>`;
+ return (DB.customer||[]).map(c=>({c,m:finAccountMetrics(c)})).filter(({c,m})=>{
+  if(q&&![c.code,c.legalName,c.displayName].join(' ').toLowerCase().includes(q))return false;
+  const x=m.money;
+  if(finAccountMode==='balance')return x.balance>0;
+  if(finAccountMode==='overdue')return x.overdue>0;
+  if(finAccountMode==='prepaid')return x.prepaid>0;
+  if(finAccountMode==='deposit')return x.deposit>0;
+  if(finAccountMode==='all')return c.status!=='archived'||finAccountOpen(m);
+  return finAccountOpen(m);
+ }).sort((x,y)=>y.m.money.overdue-x.m.money.overdue||y.m.money.balance-x.m.money.balance||finCustomerName(x.c).localeCompare(finCustomerName(y.c)));
 }
+function finMoneyCell(v,cls){return v>0?`<span class="${cls||''}">${finFmt(v)}</span>`:'<span class="mut">—</span>';}
+function finAccountsWorkspace(){
+ const list=finAccountsList(),sum=k=>finMoney(list.reduce((s,x)=>s+x.m.money[k],0));
+ return `<div class="fin-toolbar"><input id="finAccountSearch" aria-label="Search customer accounts" placeholder="Search customer…" value="${esc(finAccountQuery)}" oninput="finAccountQuery=this.value;finRerenderInput('finAccountSearch')"><select aria-label="Account filter" onchange="finAccountMode=this.value;render()">${FIN_ACCOUNT_MODES.map(([k,v])=>`<option value="${k}" ${finAccountMode===k?'selected':''}>${v}</option>`).join('')}</select><span class="fin-spacer"></span><button onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button ${list.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button ${list.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button></div>
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Terms</th><th class="n">Balance</th><th class="n">Overdue</th><th class="n">Prepaid</th><th class="n">On account</th><th class="n">Credit limit</th><th></th></tr></thead><tbody>${list.map(({c,m})=>{const a=m.account,x=m.money;return `<tr data-account="${esc(c.id)}"><td><button class="fin-link" onclick="finOpenAccount('${esc(c.id)}')">${raw(finCustomerName(c))}</button><div class="mut small">${raw(c.code)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td><td>${esc(a.terms)}</td><td class="n">${x.balance>0?`<b>${finFmt(x.balance)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td><td class="n">${finMoneyCell(x.overdue,'fin-due')}</td><td class="n">${finMoneyCell(x.prepaid)}</td><td class="n">${finMoneyCell(x.deposit,'fin-deposit')}</td><td class="n">${a.creditLimit==null?'<span class="mut">—</span>':finFmt(a.creditLimit)}${a.overLimit?'<div><span class="pill bad">Over limit</span></div>':''}</td><td class="fin-actions">${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply deposit</button>`:''}</td></tr>`;}).join('')||`<tr><td colspan="8" class="empty">${finAccountMode==='open'&&!finAccountQuery?'No open balances':'No accounts match'}</td></tr>`}</tbody>
+ ${list.length>1?`<tfoot><tr><td colspan="2">${list.length} customers</td><td class="n"><b>${finFmt(sum('balance'))}</b></td><td class="n">${finMoneyCell(sum('overdue'),'fin-due')}</td><td class="n">${finMoneyCell(sum('prepaid'))}</td><td class="n">${finMoneyCell(sum('deposit'),'fin-deposit')}</td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
+}
+function finBalancesCSV(list){return [['Customer','Account','Terms','Balance','Overdue','Prepaid','On account','Credit limit','Over limit','Orders not priced']].concat(list.map(({c,m})=>[finCustomerName(c),c.code||'',m.account.terms,m.money.balance.toFixed(2),m.money.overdue.toFixed(2),m.money.prepaid.toFixed(2),m.money.deposit.toFixed(2),m.account.creditLimit==null?'':m.account.creditLimit.toFixed(2),m.account.overLimit?'Yes':'',m.money.incomplete||''])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
+function finBalancesExport(){const list=finAccountsList();if(!list.length)return;customerDownload('customer-balances_'+finToday()+'.csv',finBalancesCSV(list),'text/csv;charset=utf-8');}
 function finRerenderInput(id){const el=document.getElementById(id),pos=el&&el.selectionStart;render();const next=document.getElementById(id);if(next){next.focus();if(pos!=null)next.setSelectionRange(pos,pos);}}
-function finOpenAccount(id){if(!finCanLeave())return;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finFrom='';finTo='';render();}
+function finOpenAccount(id){if(!finCanLeave())return;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
+function finStatusPill(f){return `<span class="pill ${f.tone}">${esc(f.status)}</span>`;}
 function finAccountHTML(){
  const c=salesFindCustomer(finAccountId);if(!c)return '<p>Customer not found.</p>';
- const m=finAccountMetrics(c),a=m.account,receipts=DB.receipt.filter(r=>r.customerId===c.id&&finInPeriod(r.date)),refunds=DB.refund.filter(r=>r.customerId===c.id&&finInPeriod(r.date));
- return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← All accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}</span></div><div class="row"><button onclick="finShowCustomer('${esc(c.id)}')">Payments</button><button onclick="finPrintAccount('${esc(c.id)}')">Print statement / PDF</button><button onclick="finExportAccount('${esc(c.id)}')">Export activity CSV</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ New receipt</button></div></div>
- <div class="fin-account-totals"><span>Order balances <b>${finFmt(a.balanceDue)}</b></span><span>Overdue <b class="fin-due">${finFmt(m.overdue)}</b></span><span>Available deposit <b class="fin-deposit">${finFmt(a.deposit)}</b></span><span>Currency <b>CAD</b></span></div>
- <h4>Orders</h4><div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order / PO</th><th>Terms / payment due</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Balance</th><th>Financial status</th><th></th></tr></thead><tbody>${m.rows.map(({o,f})=>`<tr><td><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><div class="mut small">${raw(o.customerPo||'—')}</div></td><td>${esc(paymentTermsLabel(f.terms))}<div class="mut small">${esc(f.dueOn||'Payment date not set')}</div></td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}${finCurrency(o)!=='CAD'?' '+esc(finCurrency(o)):''}</td><td class="n">${finFmt(f.b.balance)}</td><td><span class="pill ${f.overdue?'bad':f.b.status==='paid'?'good':'info'}">${esc(f.status)}</span>${f.depositMissing>0?`<div class="mut small">Deposit still required ${finFmt(f.depositMissing)}</div>`:''}</td><td class="fin-actions"><button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms & dates</button>${a.deposit>0&&f.b.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}','${esc(o.id)}')">Apply deposit</button>`:''}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No active orders</td></tr>'}</tbody></table></div>
- <h4>Payments & refunds</h4>${finPeriodHTML()}<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Date</th><th>Document</th><th>Method / reference</th><th class="n">Received</th><th class="n">Refunded</th><th class="n">Available deposit</th><th>Status</th></tr></thead><tbody>${receipts.map(r=>`<tr><td>${esc(r.date)}</td><td><button class="fin-link" onclick="finOpenReceipt('${esc(r.id)}')">${esc(r.number)}</button></td><td>${esc(finMethodLabel(r.method))} · ${raw(r.reference)}</td><td class="n">${finFmt(r.amount)} ${esc(finCurrency(r))}</td><td class="n">${finFmt(finRefunded(r.id))}</td><td class="n">${finFmt(finReceiptOnAccount(r))}</td><td>${r.voided?'Void':'Active'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No payments yet</td></tr>'}</tbody></table></div>
- ${refunds.length?'<h4>Refund records</h4>'+finRefundTable(refunds):''}<h4>History <button class="sm" onclick="finShowHistory('${esc(c.id)}')">View full journal</button></h4>${finJournalTable(DB.financeEvent.filter(e=>e.customerId===c.id&&finInPeriod(e.at.slice(0,10))).slice(-50))}`;
+ const m=finAccountMetrics(c),a=m.account,x=m.money,open=m.rows.filter(x=>x.f.b.balance!==0),paid=m.rows.length-open.length,rows=finAccountPaid?m.rows:open;
+ const receipts=DB.receipt.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),refunds=DB.refund.filter(r=>r.customerId===c.id).sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)),events=DB.financeEvent.filter(e=>e.customerId===c.id);
+ return `<div class="fin-account-head"><div><button class="sm" onclick="finAccountId='';render()">← Accounts</button><h3>${raw(finCustomerName(c))}</h3><span class="mut">${raw(c.code)} · ${esc(a.terms)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</span></div><div class="row"><button onclick="finOpenStatement('${esc(c.id)}')">Statement</button><button class="pri" onclick="finNewReceipt('${esc(c.id)}')">+ Receipt</button></div></div>
+ <div class="fin-account-totals"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>Prepaid <b>${finFmt(x.prepaid)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b>${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply</button>`:''}</span>${a.creditLimit!=null?`<span>Credit limit <b class="${a.overLimit?'fin-due':''}">${finFmt(a.creditLimit)}</b></span>`:''}</div>
+ <h4>Orders</h4><div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order / PO</th><th>Billed</th><th>Due</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Balance</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(({o,f})=>`<tr data-order="${esc(o.id)}"><td><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><div class="mut small">${raw(o.customerPo||'—')}</div></td><td>${esc(finBillingDate(o)?finShortDate(finBillingDate(o)):'—')}</td><td class="${f.overdue?'fin-due':''}">${esc(f.dueOn?finShortDate(f.dueOn):'—')}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions"><button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">No open orders</td></tr>`}</tbody></table></div>
+ ${paid?`<button class="sm fin-more" onclick="finAccountPaid=!finAccountPaid;render()">${finAccountPaid?'Hide paid orders':'Show paid orders ('+paid+')'}</button>`:''}
+ <h4>Payments</h4><div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Method · reference</th><th class="n">Amount</th><th class="n">Applied</th><th class="n">Refunded</th><th class="n">On account</th></tr></thead><tbody>${receipts.map(r=>`<tr class="${r.voided?'fin-void':''}"><td><button class="fin-link" onclick="finOpenReceipt('${esc(r.id)}')">${esc(r.number)}</button>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td>${esc(finMethodLabel(r.method))}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b></td><td class="n">${finFmt(finReceiptApplied(r))}</td><td class="n">${finRefunded(r.id)>0?finFmt(finRefunded(r.id)):'<span class="mut">—</span>'}</td><td class="n">${finReceiptOnAccount(r)>0?`<span class="fin-deposit">${finFmt(finReceiptOnAccount(r))}</span>`:'<span class="mut">—</span>'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No payments yet</td></tr>'}</tbody></table></div>
+ ${refunds.length?'<h4>Refunds</h4>'+finRefundTable(refunds):''}
+ ${events.length?`<details class="fin-history-box"><summary>History · ${events.length}</summary>${finJournalTable(events)}</details>`:''}`;
 }
 function finOpenSales(id){if(!finCanLeave())return;const go=()=>{finDraft=null;finEdit=null;tab='sales';salesOrderEdit(id);};if(soDraft&&salesDraftHasWork())salesLeaveDraft(go);else go();}
+
+/* --------------------------- Оплата: форма --------------------------- */
 function finReceiptSummary(){return finSummaryHTML(finMoney(finDraft.amount),finFormApplied(),finEdit!=='new'?finRefunded(finEdit):0);}
-function finReceiptTools(r){return `<div class="fin-receipt-tools"><span>Received ${finFmt(r.amount)} · Applied ${finFmt(finReceiptApplied(r))} · Refunded ${finFmt(finRefunded(r.id))} · Available ${finFmt(finReceiptOnAccount(r))}</span><button type="button" onclick="finPrintReceipt('${esc(r.id)}')">Print receipt / PDF</button>${!r.voided&&finReceiptOnAccount(r)>0&&finCurrency(r)==='CAD'?`<button type="button" onclick="finOpenRefund('${esc(r.id)}')">Record refund</button>`:''}</div>`;}
-function finOpenRefund(id){if(!finCanLeave())return;const r=DB.receipt.find(r=>r.id===id);if(!r)return;finDraft=null;finEdit=null;finTab='refunds';finAction={type:'refund',receiptId:id,date:finToday(),amount:'',method:r.method,reference:'',reason:''};finActionBaseline=JSON.stringify(finAction);render();}
+function finReceiptTools(r){
+ const refunds=DB.refund.filter(x=>x.receiptId===r.id);
+ return `<div class="fin-receipt-tools"><button type="button" onclick="finOpenPreview('receipt','${esc(r.id)}')">Print / email receipt</button>${!r.voided&&finReceiptOnAccount(r)>0&&finCurrency(r)==='CAD'?`<button type="button" onclick="finOpenRefund('${esc(r.id)}')">Refund</button>`:''}</div>${refunds.length?finRefundTable(refunds):''}`;
+}
+function finOpenRefund(id){const r=DB.receipt.find(r=>r.id===id);if(!r||!finCanLeave())return;if(finDraft){finDraft=null;finEdit=null;finOpenReceipt(id);}finAction={type:'refund',receiptId:id,date:finToday(),amount:'',method:r.method,reference:'',reason:''};finActionBaseline=JSON.stringify(finAction);render();}
 function finEditTerms(orderId){const o=DB.salesOrder.find(o=>o.id===orderId);if(!o)return;finAction=Object.assign({type:'terms',reason:''},finTermsFor(o));finActionBaseline=JSON.stringify(finAction);render();}
-function finCloseAction(){if(!finCanLeave())return;finAction=null;render();}
+function finCloseAction(){if(finAction&&JSON.stringify(finAction)!==finActionBaseline&&!confirm('Discard unsaved finance changes?'))return;finAction=null;render();}
 function finActionHTML(){
- if(!finAction)return '';const d=finAction,r=DB.receipt.find(r=>r.id===d.receiptId),terms=d.type==='terms';
+ if(!finAction)return '';const d=finAction,r=DB.receipt.find(r=>r.id===d.receiptId),terms=d.type==='terms',o=terms&&DB.salesOrder.find(x=>x.id===d.orderId);
+ const auto=o?finLocalDate(o.statusDates&&o.statusDates.done):'';
  return `<div class="sales-service-modal-back fin-modal-back"><div class="sales-service-modal fin-modal" role="dialog" aria-modal="true" aria-label="${terms?'Payment terms':'Record refund'}"><div class="sales-service-modal-head"><h3>${terms?'Terms · '+esc(finOrderNumber(d.orderId)):'Refund · '+esc(r&&r.number||'')}</h3><button aria-label="Close" onclick="finCloseAction()">×</button></div><div class="fin-modal-body">
- ${terms?`<p class="mut">These terms belong to this order. Billing and payment dates are separate from the production due date.</p><div class="fin-grid"><label class="fin-span2">Payment terms<select onchange="finAction.paymentMode=this.value"><option value="cash" ${d.paymentMode==='cash'?'selected':''}>Cash / deposit</option><option value="credit" ${d.paymentMode==='credit'?'selected':''}>Credit</option></select></label><label class="fin-span2">Deposit %<input type="number" min="0" max="100" value="${d.depositPercent}" oninput="finAction.depositPercent=this.value"></label><label class="fin-span2">Credit days<input type="number" min="0" max="365" value="${d.creditDays==null?'':d.creditDays}" oninput="finAction.creditDays=this.value"></label><label class="fin-span3">Billing date<input type="date" value="${esc(d.issuedOn)}" onchange="finAction.issuedOn=this.value"></label><label class="fin-span3">Payment due override<input type="date" value="${esc(d.dueOn)}" onchange="finAction.dueOn=this.value"></label></div><p class="mut small">For credit orders, a blank override uses billing date + credit days. With neither date set, overdue is unknown.</p>`:
- `<p>Available for refund: <b>${finFmt(r?finReceiptOnAccount(r):0)} CAD</b></p><p class="mut">Record money already returned to the customer. This does not initiate a bank transfer. Applied funds must first be released from the order.</p><div class="fin-grid"><label class="fin-span3">Amount · CAD<input id="finRefundAmount" type="number" min="0.01" step="0.01" value="${esc(d.amount)}" oninput="finAction.amount=this.value"></label><label class="fin-span3">Refund date<input type="date" value="${esc(d.date)}" onchange="finAction.date=this.value"></label><label class="fin-span3">Method<select onchange="finAction.method=this.value">${FIN_METHODS.map(m=>`<option value="${m.k}" ${d.method===m.k?'selected':''}>${m.label}</option>`).join('')}</select></label><label class="fin-span3">Reference<input value="${esc(d.reference)}" oninput="finAction.reference=this.value"></label></div>`}
- <label>Reason *<textarea id="finActionReason" oninput="finAction.reason=this.value">${esc(d.reason)}</textarea></label><div class="err" id="e_fin_action"></div><div class="fin-form-actions"><button onclick="finCloseAction()">Cancel</button><button class="pri" onclick="finSaveAction()">${terms?'Save terms':'Record refund'}</button></div></div></div></div>`;
+ ${terms?`<div class="fin-grid"><label class="fin-span3">Payment terms<select onchange="finAction.paymentMode=this.value;render()"><option value="cash" ${d.paymentMode==='cash'?'selected':''}>Cash / deposit</option><option value="credit" ${d.paymentMode==='credit'?'selected':''}>Credit</option></select></label>${d.paymentMode==='cash'?`<label class="fin-span3">Deposit %<input type="number" min="0" max="100" value="${esc(d.depositPercent)}" oninput="finAction.depositPercent=this.value"></label>`:`<label class="fin-span3">Net days<input type="number" min="0" max="365" value="${d.creditDays==null?'':esc(d.creditDays)}" oninput="finAction.creditDays=this.value"></label>`}<label class="fin-span3">Billing date<input type="date" value="${esc(d.issuedOn)}" onchange="finAction.issuedOn=this.value"><small class="mut">${auto?'Blank = pickup '+esc(finShortDate(auto)):'Blank = pickup day'}</small></label><label class="fin-span3">Due date<input type="date" value="${esc(d.dueOn)}" onchange="finAction.dueOn=this.value"><small class="mut">Blank = by terms</small></label></div><label>Note<input value="${esc(d.reason)}" oninput="finAction.reason=this.value"></label>`:
+ `<p>Available <b>${finFmt(r?finReceiptOnAccount(r):0)}</b></p><div class="fin-grid"><label class="fin-span3">Amount · CAD<input id="finRefundAmount" type="number" min="0.01" step="0.01" value="${esc(d.amount)}" oninput="finAction.amount=this.value"></label><label class="fin-span3">Date<input type="date" value="${esc(d.date)}" onchange="finAction.date=this.value"></label><label class="fin-span3">Method<select onchange="finAction.method=this.value">${finMethodChoices(d.method).map(m=>`<option value="${m.k}" ${d.method===m.k?'selected':''}>${m.label}</option>`).join('')}</select></label><label class="fin-span3">Reference<input value="${esc(d.reference)}" oninput="finAction.reference=this.value"></label></div><label>Reason *<input id="finActionReason" value="${esc(d.reason)}" oninput="finAction.reason=this.value"></label>`}
+ <div class="err" id="e_fin_action"></div><div class="fin-form-actions"><button onclick="finCloseAction()">Cancel</button><button class="pri" onclick="finSaveAction()">${terms?'Save terms':'Record refund'}</button></div></div></div></div>`;
 }
 function finSaveAction(){if(!finAction)return;const d=finCopy(finAction),out=finPersist(()=>d.type==='terms'?finSaveTerms(d.orderId,d,d.reason):finCreateRefund(d));if(!out.ok)return fail(document.getElementById('e_fin_action'),out.error);finAction=null;render();}
-function finRefundsView(){const rows=DB.refund.filter(r=>(!finCustomerFilter||r.customerId===finCustomerFilter)&&(!finFrom||r.date>=finFrom)&&(!finTo||r.date<=finTo)).slice().sort((a,b)=>(b.date+b.number).localeCompare(a.date+a.number));return `${finFilterChips()}<p class="mut">Refunds record money returned from a payment's available deposit. Open a payment to record a refund.</p>${finPeriodHTML()}<button onclick="finExportRefunds()">Export refunds CSV</button>${finRefundTable(rows)}`;}
-function finRefundTable(rows){return `<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Refund / date</th><th>Customer / payment</th><th class="n">Amount</th><th>Method / reference</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(r=>{const p=DB.receipt.find(p=>p.id===r.receiptId);return `<tr><td><b>${esc(r.number)}</b><div class="mut small">${esc(r.date)}</div></td><td>${raw(finCustomerName(salesFindCustomer(r.customerId)))}<div><button class="fin-link" onclick="finOpenReceipt('${esc(r.receiptId)}')">${esc(p?p.number:r.receiptId)}</button></div></td><td class="n">${finFmt(r.amount)} ${esc(r.currency)}</td><td>${esc(finMethodLabel(r.method))}<div class="mut">${raw(r.reference)}</div></td><td>${raw(r.reason)}</td><td>${r.voided?'Void · '+esc(r.voidReason):'Recorded'}</td><td>${r.voided?'':`<button class="sm" onclick="finVoidRefundUI('${esc(r.id)}')">Void record</button>`}</td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No refunds recorded</td></tr>'}</tbody></table></div>`;}
-function finVoidRefundUI(id){const reason=prompt('Void an incorrectly recorded refund. This restores the deposit in ERP only. Reason:','');if(reason===null)return;const out=finPersist(()=>finVoidRefund(id,reason));if(!out.ok)return alert(out.error);render();}
-function finPeriodHTML(){return `<div class="fin-toolbar"><label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;finJournalPage=0;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;finJournalPage=0;render()"></label><button class="sm" onclick="finFrom='';finTo='';finJournalPage=0;render()">All dates</button></div>`;}
-function finJournalRows(customerId){return DB.financeEvent.filter(e=>(!customerId||e.customerId===customerId)&&(!finCustomerFilter||e.customerId===finCustomerFilter)&&(!finOrderFilter||(e.orders||[]).some(o=>o.id===finOrderFilter))&&(!finFrom||e.at.slice(0,10)>=finFrom)&&(!finTo||e.at.slice(0,10)<=finTo)&&(!finJournalKind||e.kind===finJournalKind)).slice().sort((a,b)=>b.seq-a.seq);}
-function finJournalView(){const rows=finJournalRows(),pages=Math.max(1,Math.ceil(rows.length/50));finJournalPage=Math.min(finJournalPage,pages-1);return `${finFilterChips()}<p class="mut">Recorded changes, newest first. Opening records show imported balances; earlier history is not reconstructed. The recorded operator is selected locally.</p>${finPeriodHTML()}<div class="fin-toolbar"><select aria-label="Journal action" onchange="finJournalKind=this.value;finJournalPage=0;render()"><option value="">All actions</option>${Object.entries(FIN_EVENT_LABELS).map(([k,v])=>`<option value="${k}" ${finJournalKind===k?'selected':''}>${v}</option>`).join('')}</select><button onclick="finExportJournal()">Export journal CSV</button><span class="fin-spacer"></span><button ${finJournalPage===0?'disabled':''} onclick="finJournalPage--;render()">Previous</button><span>${finJournalPage+1} / ${pages} · ${rows.length} entries</span><button ${finJournalPage+1>=pages?'disabled':''} onclick="finJournalPage++;render()">Next</button></div>${finJournalTable(rows.slice(finJournalPage*50,(finJournalPage+1)*50))}`;}
-function finSnapshotHTML(r,entity,orders){if(!r)return '<span class="mut">No previous record</span>';const fields=entity==='terms'?[['Terms',paymentTermsLabel(r)],['Billing date',r.issuedOn||'Not set'],['Payment due',r.dueOn||'Calculated / not set']]:[['Amount',finFmt(r.amount)+' '+finCurrency(r)],['Date',r.date],['Method',finMethodLabel(r.method)],['Reference',r.reference||'—'],['Status',r.voided?'Void':'Active'],['Note / reason',r.note||r.reason||r.voidReason||'—'],['Applied',(r.allocations||[]).map(a=>(((orders||[]).find(o=>o.id===a.orderId)||{}).number||finOrderNumber(a.orderId))+': '+finFmt(a.amount)).join('; ')||'—']];return `<dl>${fields.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;}
-function finJournalTable(rows){return `<div class="fin-history">${rows.slice().sort((a,b)=>b.seq-a.seq).map(e=>`<details class="fin-event"><summary><span class="fin-event-no">#${e.seq}</span><span><b>${esc(FIN_EVENT_LABELS[e.kind]||e.kind)}</b> · ${esc(e.number)}<small>${esc(e.customerName)}${e.reason?' · '+esc(e.reason):''}</small></span><span class="fin-event-time">${esc(new Date(e.at).toLocaleString('en-CA'))}<small>${esc(e.actor||'Not specified')}</small></span></summary><div class="fin-event-diff"><section><h5>Before</h5>${finSnapshotHTML(e.before,e.entity,e.orders)}</section><section><h5>After</h5>${finSnapshotHTML(e.after,e.entity,e.orders)}</section></div></details>`).join('')||'<div class="empty">No history recorded yet</div>'}</div>`;}
-function finJournalCSV(rows){return [['Sequence','Recorded at','Action','Customer','Document','Currency','Recorded by','Reason','Amount before','Amount after','Order references']].concat(rows.map(e=>[e.seq,e.at,FIN_EVENT_LABELS[e.kind],e.customerName,e.number,e.currency,e.actor,e.reason,e.before&&e.before.amount!=null?e.before.amount:'',e.after&&e.after.amount!=null?e.after.amount:'',(e.orders||[]).map(o=>o.number).join('; ')])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
-function finExportJournal(){customerDownload('finance-journal.csv',finJournalCSV(finJournalRows().reverse()),'text/csv;charset=utf-8');}
-function finExportAccount(id){customerDownload('customer-activity.csv',finJournalCSV(DB.financeEvent.filter(e=>e.customerId===id&&finInPeriod(e.at.slice(0,10)))),'text/csv;charset=utf-8');}
-function finPrintPages(title,customer,summary,heads,rows,currency){
- currency=currency||'CAD';
- const pages=[];for(let i=0;i<Math.max(1,rows.length);i+=16)pages.push(`<section class="fin-print"><h1>${esc(title)}</h1><h2>${esc(customer)}</h2><p>Generated ${esc(finToday())} · ${esc(currency)} · Page ${pages.length+1}</p><p>${esc(summary)}</p><table><thead><tr>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.slice(i,i+16).map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></section>`);return pages;
+function finRefundTable(rows){return `<div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Refund</th><th>Date</th><th>Payment</th><th class="n">Amount</th><th>Method · reference</th><th>Reason</th><th></th></tr></thead><tbody>${rows.map(r=>{const p=DB.receipt.find(p=>p.id===r.receiptId);return `<tr class="${r.voided?'fin-void':''}"><td><b>${esc(r.number)}</b>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><button class="fin-link" onclick="finOpenReceipt('${esc(r.receiptId)}')">${esc(p?p.number:r.receiptId)}</button></td><td class="n">${finFmt(r.amount)}</td><td>${esc(finMethodLabel(r.method))}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td>${raw(r.voided?r.voidReason:r.reason)}</td><td class="fin-actions">${r.voided?'':`<button class="sm" onclick="finVoidRefundUI('${esc(r.id)}')">Void</button>`}</td></tr>`;}).join('')}</tbody></table></div>`;}
+function finVoidRefundUI(id){const reason=prompt('Void this refund record. Reason:','');if(reason===null)return;const out=finPersist(()=>finVoidRefund(id,reason));if(!out.ok)return alert(out.error);render();}
+
+/* ------------------------------ Журнал ------------------------------- */
+function finSnapshotHTML(r,entity,orders){if(!r)return '<span class="mut">—</span>';const fields=entity==='terms'?[['Terms',paymentTermsLabel(r)],['Billing date',r.issuedOn||'Pickup day'],['Due date',r.dueOn||'By terms']]:[['Amount',finFmt(r.amount)+' '+finCurrency(r)],['Date',r.date],['Method',finMethodLabel(r.method)],['Reference',r.reference||'—'],['Status',r.voided?'Void':'Active'],['Note / reason',r.note||r.reason||r.voidReason||'—'],['Applied',(r.allocations||[]).map(a=>(((orders||[]).find(o=>o.id===a.orderId)||{}).number||finOrderNumber(a.orderId))+': '+finFmt(a.amount)).join('; ')||'—']];return `<dl>${fields.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`;}
+function finJournalTable(rows){return `<div class="fin-history">${rows.slice().sort((a,b)=>b.seq-a.seq).map(e=>`<details class="fin-event"><summary><span class="fin-event-no">#${e.seq}</span><span><b>${esc(FIN_EVENT_LABELS[e.kind]||e.kind)}</b> · ${esc(e.number)}${e.reason?`<small>${esc(e.reason)}</small>`:''}</span><span class="fin-event-time">${esc(new Date(e.at).toLocaleString('en-CA'))}${e.actor&&e.actor!=='Not specified'?`<small>${esc(e.actor)}</small>`:''}</span></summary><div class="fin-event-diff"><section><h5>Before</h5>${finSnapshotHTML(e.before,e.entity,e.orders)}</section><section><h5>After</h5>${finSnapshotHTML(e.after,e.entity,e.orders)}</section></div></details>`).join('')}</div>`;}
+
+/* ------------------------- Бланки: просмотр -------------------------- */
+/* Квитанция, выписка и списки открываются как в Documents: лист на экране,
+   Print и Email PDF (PDF в Загрузки + Gmail с готовым адресом и текстом).
+   У выписки сверху период: прошлый месяц, этот месяц или свои даты. */
+function finOpenPreview(kind,id){finPreview={kind,id:id||'',status:''};render();}
+function finOpenStatement(id,range){const r=range||finMonthRange(-1);finPreview={kind:'statement',id,from:r.from,to:r.to,period:range?'custom':'last',status:''};render();}
+function finClosePreview(){finPreview=null;render();}
+function finStatementPeriod(v){if(!finPreview)return;if(v==='last'||v==='this'){const r=finMonthRange(v==='last'?-1:0);finPreview.from=r.from;finPreview.to=r.to;}finPreview.period=v;finPreview.status='';render();}
+function finStatementDate(k,v){if(!finPreview)return;finPreview[k]=v;finPreview.period='custom';finPreview.status='';render();}
+function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateValid(p.to)||p.from&&p.to&&p.from>p.to?'From must be on or before To.':'';}
+function finPreviewPages(){
+ const p=finPreview;if(!p)return [];
+ if(p.kind==='receipt')return finReceiptDoc(p.id);
+ if(p.kind==='statement')return finPeriodError(p)?[]:finStatementDoc(p.id,p.from,p.to);
+ if(p.kind==='balances')return finBalancesDoc(finAccountsList(),FIN_ACCOUNT_MODES.find(x=>x[0]===finAccountMode)[1]+(finAccountQuery.trim()?' · '+finAccountQuery.trim():''));
+ return finScheduleDoc(finDueRows(finSchedule),finSchedule);
 }
-function finPrintReceipt(id){const r=DB.receipt.find(r=>r.id===id);if(!r)return;const rows=r.allocations.map(a=>[finOrderNumber(a.orderId),finFmt(a.amount)]);rows.push(['Available deposit',finFmt(finReceiptOnAccount(r))],['Refunded',finFmt(finRefunded(id))]);printSheet(finPrintPages('Payment receipt '+r.number,finCustomerName(salesFindCustomer(r.customerId)),`${r.voided?'VOID · ':''}${r.date} · ${finMethodLabel(r.method)} · ${r.reference||'No reference'} · Received ${finFmt(r.amount)}`,['Allocation','Amount'],rows,finCurrency(r)));}
-function finPrintAccount(id){const c=salesFindCustomer(id);if(!c)return;const m=finAccountMetrics(c),rows=m.rows.map(({o,f})=>[o.businessNumber,o.customerPo||'',f.dueOn||'Not set',finFmt(f.b.total),finFmt(f.b.paid)+' '+finCurrency(o),finFmt(f.b.balance)]);const pages=finPrintPages('Customer account · current balances',finCustomerName(c),`Order balances ${finFmt(m.account.balanceDue)} · Overdue ${finFmt(m.overdue)} · Unapplied deposit ${finFmt(m.account.deposit)}. Deposits are shown separately.`,['Order','PO','Payment due','Total','Paid','Balance'],rows);const activity=DB.receipt.filter(r=>r.customerId===id&&finInPeriod(r.date)).map(r=>[r.date,r.number,r.voided?'Void':'Payment',finFmt(r.amount)+' '+finCurrency(r),finFmt(finReceiptOnAccount(r))]).concat(DB.refund.filter(r=>r.customerId===id&&finInPeriod(r.date)).map(r=>[r.date,r.number,r.voided?'Void refund':'Refund',finFmt(r.amount)+' '+finCurrency(r),'—'])).sort((a,b)=>a[0].localeCompare(b[0]));pages.push(...finPrintPages('Customer account · payments & refunds',finCustomerName(c),'Payment dates: '+(finFrom||'beginning')+' to '+(finTo||'today')+'. Current records; corrections are available in the Finance journal.',['Date','Document','Type','Amount','Available deposit'],activity,'Currency shown per payment'));printSheet(pages);}
+function finStatementMail(id,from,to){
+ const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+'.',''];
+ lines.push('Orders billed: '+docMoney(d.billed)+'.','Payments received: '+docMoney(d.paid)+'.');
+ lines.push(d.closing>=0?'Balance due: '+docMoney(d.closing)+'.':'Credit balance: '+docMoney(-d.closing)+'.');
+ if(d.overdue>0)lines.push('Overdue now: '+docMoney(d.overdue)+'.');
+ return lines.join('\n');
+}
+function finPreviewInfo(){
+ const p=finPreview,company=(DB.company||{}).legalName||'';
+ if(p.kind==='receipt'){const r=DB.receipt.find(x=>x.id===p.id)||{},c=salesFindCustomer(r.customerId);return {title:'Receipt '+(r.number||''),c,file:'Receipt_'+(r.number||''),subject:['Payment receipt '+(r.number||''),company].filter(Boolean).join(' · '),
+  body:'Thank you for your payment of '+docMoney(r.amount)+' received on '+docDate(r.date)+'. Receipt '+r.number+' is attached.'};}
+ if(p.kind==='statement'){const c=salesFindCustomer(p.id);return {title:'Statement · '+finCustomerName(c),c,file:'Statement_'+((c&&c.code)||'account')+'_'+(p.from||'start')+'_'+(p.to||finToday()),subject:['Statement '+finPeriodText(p.from,p.to),company].filter(Boolean).join(' · '),
+  body:finStatementMail(p.id,p.from,p.to)};}
+ if(p.kind==='balances')return {title:'Customer balances',c:null,file:'Customer_balances_'+finToday()};
+ return {title:'Payments due',c:null,file:'Payments_due_'+finToday()};
+}
+function finStatementControls(p){
+ const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
+ return `<div class="fin-toolbar fin-preview-period"><select aria-label="Statement period" onchange="finStatementPeriod(this.value)">${[['last','Last month'],['this','This month'],['custom','Custom dates']].map(([k,v])=>`<option value="${k}" ${p.period===k?'selected':''}>${v}</option>`).join('')}</select><label class="fin-date">From <input type="date" aria-label="Statement from" value="${esc(p.from)}" onchange="finStatementDate('from',this.value)"></label><label class="fin-date">To <input type="date" aria-label="Statement to" value="${esc(p.to)}" onchange="finStatementDate('to',this.value)"></label><span class="fin-spacer"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}`;
+}
+function finStatementExport(){const p=finPreview;if(!p||finPeriodError(p))return;const c=salesFindCustomer(p.id);customerDownload('Statement_'+((c&&c.code)||'account').replace(/[^A-Za-z0-9-]+/g,'_')+'_'+(p.from||'start')+'_'+(p.to||finToday())+'.csv',finStatementCSV(p.id,p.from,p.to),'text/csv;charset=utf-8');}
+function finPreviewHTML(){
+ if(!finPreview)return '';let pages=[],error='';
+ try{pages=finPreviewPages();}catch(e){error=e&&e.message||String(e);}
+ const info=finPreviewInfo();
+ return `<div class="sales-service-modal-back fin-modal-back fin-preview-back" onclick="if(event.target===this)finClosePreview()"><div class="sales-service-modal fin-preview" role="dialog" aria-modal="true" aria-label="${esc(info.title)}"><div class="sales-service-modal-head"><h3>${esc(info.title)}</h3><div class="fin-preview-actions"><button type="button" ${pages.length?'':'disabled'} onclick="finPrintPreview()">Print</button>${info.c?`<button type="button" class="pri" ${pages.length?'':'disabled'} onclick="finEmailPreview()">Email PDF</button>`:''}</div><button type="button" aria-label="Close" onclick="finClosePreview()">×</button></div>
+ ${finPreview.kind==='statement'?finStatementControls(finPreview):''}${finPreview.status?`<div class="fin-hint fin-preview-note">${esc(finPreview.status)}</div>`:''}<div class="doc-pages">${error?`<div class="err" style="display:block">${esc(error)}</div>`:pages.map(pg=>`<div class="doc-sheet">${docPageSVG(pg)}</div>`).join('')}</div></div></div>`;
+}
+function finPrintDoc(pages){
+ if(!pages||!pages.length)return false;
+ const host=docPrintHost();host.innerHTML=pages.map(pg=>`<div class="doc-print-page">${docPageSVG(pg)}</div>`).join('');
+ document.body.classList.add('doc-printing');
+ window.addEventListener('afterprint',docPrintCleanup,{once:true});setTimeout(docPrintCleanup,60000);
+ try{window.print();}catch(e){docPrintCleanup();}
+ return true;
+}
+function finPrintPreview(){try{finPrintDoc(finPreviewPages());}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));}}
+/* PDF в Загрузки и письмо в Gmail с адресом клиента — как у Proforma:
+   программа с диска не может вложить файл в чужую вкладку сама. */
+function finEmailDoc(info,pages){
+ const bytes=docPdfBytes(pages,{title:info.title});
+ const file=info.file.replace(/[^A-Za-z0-9-]+/g,'_')+'.pdf',to=info.c.invoiceEmail||customerPrimaryContact(info.c).email||'',first=String(customerPrimaryContact(info.c).name||'').trim().split(/\s+/)[0];
+ docDownload(file,bytes);
+ const win=window.open(docGmailUrl(to,info.subject,['Hello'+(first?' '+first:'')+',','',info.body,'',(DB.company||{}).legalName||''].join('\n')),'_blank');
+ return 'PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' No email for this customer.')+(win?'':' Allow pop-ups for Gmail.');
+}
+function finEmailPreview(){
+ const info=finPreviewInfo();if(!info.c)return;
+ try{finPreview.status=finEmailDoc(info,finPreviewPages());}catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
+ render();
+}
 
-function finPaymentsCSV(rows){return [['Payment','Date','Customer','Currency','Method','Reference','Received','Applied','Refunded','Available deposit','Status']].concat(rows.map(r=>[r.number,r.date,finCustomerName(salesFindCustomer(r.customerId)),finCurrency(r),finMethodLabel(r.method),r.reference,r.amount,finReceiptApplied(r),finRefunded(r.id),finReceiptOnAccount(r),r.voided?'Void':'Active'])).map(r=>r.map(finCsvCell).join(',')).join('\r\n');}
-function finExportRefunds(){const rows=DB.refund.filter(r=>(!finCustomerFilter||r.customerId===finCustomerFilter)&&(!finFrom||r.date>=finFrom)&&(!finTo||r.date<=finTo));const csv=[['Refund','Payment','Date','Customer','Currency','Amount','Method','Reference','Reason','Status']].concat(rows.map(r=>[r.number,(DB.receipt.find(p=>p.id===r.receiptId)||{}).number,r.date,finCustomerName(salesFindCustomer(r.customerId)),r.currency,r.amount,finMethodLabel(r.method),r.reference,r.reason,r.voided?'Void':'Recorded'])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');customerDownload('refunds.csv',csv,'text/csv;charset=utf-8');}
+/* ----------------------- Выписки за месяц всем ---------------------- */
+/* Раз в месяц: список клиентов, у которых было движение или есть остаток,
+   с суммами периода; у каждого — посмотреть и отправить PDF. */
+function finOpenStatements(){const r=finMonthRange(-1);finStatements={from:r.from,to:r.to,period:'last',sent:{}};render();}
+function finCloseStatements(){finStatements=null;render();}
+function finStatementsPeriod(v){if(v==='last'||v==='this'){const r=finMonthRange(v==='last'?-1:0);finStatements.from=r.from;finStatements.to=r.to;}finStatements.period=v;render();}
+function finStatementsDate(k,v){finStatements[k]=v;finStatements.period='custom';render();}
+function finStatementsList(){
+ const p=finStatements;if(!p||finPeriodError(p))return [];
+ return (DB.customer||[]).map(c=>({c,d:finStatementData(c.id,p.from,p.to)})).filter(x=>x.d.rows.length||x.d.opening!==0||x.d.closing!==0)
+  .sort((a,b)=>finCustomerName(a.c).localeCompare(finCustomerName(b.c)));
+}
+function finStatementsEmail(id){
+ const p=finStatements,c=salesFindCustomer(id);if(!p||!c)return;
+ try{finEmailDoc({title:'Statement · '+finCustomerName(c),c,file:'Statement_'+(c.code||'account')+'_'+p.from+'_'+p.to,subject:['Statement '+finPeriodText(p.from,p.to),(DB.company||{}).legalName||''].filter(Boolean).join(' · '),body:finStatementMail(id,p.from,p.to)},finStatementDoc(id,p.from,p.to));}
+ catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
+ p.sent[id]=true;render();
+}
+function finStatementsHTML(){
+ const p=finStatements;if(!p)return '';const err=finPeriodError(p),list=finStatementsList();
+ return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
+ <div class="fin-modal-body"><div class="fin-toolbar"><select aria-label="Statements period" onchange="finStatementsPeriod(this.value)">${[['last','Last month'],['this','This month'],['custom','Custom dates']].map(([k,v])=>`<option value="${k}" ${p.period===k?'selected':''}>${v}</option>`).join('')}</select><label class="fin-date">From <input type="date" aria-label="Statements from" value="${esc(p.from)}" onchange="finStatementsDate('from',this.value)"></label><label class="fin-date">To <input type="date" aria-label="Statements to" value="${esc(p.to)}" onchange="finStatementsDate('to',this.value)"></label></div>
+ ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=c.invoiceEmail||customerPrimaryContact(c).email||'';return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
+ ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
+}
 
-function finInPeriod(date){return (!finFrom||date>=finFrom)&&(!finTo||date<=finTo);}
-function finShowHistory(id){if(!finCanLeave())return;finTab='journal';finCustomerFilter=id;finOrderFilter='';finJournalKind='';finJournalPage=0;render();}
+/* -------------------------------- CSV -------------------------------- */
+/* Движение денег для переноса в QuickBooks: оплаты и возвраты одной
+   таблицей по дате, возврат — минусом. Колонка QuickBooks: для выгрузки
+   «только новое» — New / Corrected / Voided, для обычной — выгружено ли. */
+function finMovementsCSV(receipts,refunds,states){
+ const who=id=>{const c=salesFindCustomer(id)||{};return [finCustomerName(c),c.code||''];};
+ const qb=(kind,x)=>{if(states&&states.has(x.id))return FIN_EXPORT_LABELS[states.get(x.id)];const e=finExportRecord(x.id);return e?'Exported '+finLocalDate(e.at):'';};
+ const rows=receipts.map(r=>[r.date,r.number,'Payment',...who(r.customerId),finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finCurrency(r),r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),r.voided?'Void':'Active',r.voided?r.voidReason:r.note,qb('receipt',r)])
+  .concat(refunds.map(x=>[x.date,x.number,'Refund',...who(x.customerId),finMethodLabel(x.method),x.reference,(-x.amount).toFixed(2),x.currency,'Payment '+((DB.receipt.find(r=>r.id===x.receiptId)||{}).number||''),x.voided?'Void':'Active',x.voided?x.voidReason:x.reason,qb('refund',x)]))
+  .sort((a,b)=>(a[0]+a[1]).localeCompare(b[0]+b[1]));
+ return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
+}
+function finExportFile(list,batch){
+ const states=new Map(list.map(x=>[x.x.id,x.state]));
+ customerDownload('quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states),'text/csv;charset=utf-8');
+}
+/* Кнопка QuickBooks: файл только с тем, чего в QuickBooks ещё нет или что
+   изменилось после выгрузки; после записи они считаются выгруженными. */
+function finExportQuickBooks(){
+ const list=finExportPending();if(!list.length)return;
+ const out=finPersist(()=>finExportMark(list));if(!out.ok)return alert(out.error);
+ finExportFile(list,out.value);render();
+}
+/* Тот же файл ещё раз — если прошлый потерялся. Суммы — текущие. */
+function finExportAgain(){
+ const batch=finExportLastBatch();if(!batch)return;
+ const ids=new Set(DB.financeExport.filter(e=>e.batch===batch).map(e=>e.entityId));
+ const list=DB.receipt.filter(r=>ids.has(r.id)).map(x=>({kind:'receipt',x,state:'done'})).concat(DB.refund.filter(r=>ids.has(r.id)).map(x=>({kind:'refund',x,state:'done'})));
+ finExportFile(list,batch);
+}
+function finExportButtonHTML(){
+ const n=finExportPending().length,batch=finExportLastBatch(),last=batch?DB.financeExport.filter(e=>e.batch===batch):[];
+ return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV with payments and refunds not yet in QuickBooks">${n?'QuickBooks · '+n+' new':'QuickBooks · up to date'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
+}
+
+/* ------------------------- Карточка клиента ------------------------- */
+/* Одна строка денег в карточке клиента (раздел Customers) и переход в его
+   счёт в Finance. */
+function finCustomerStrip(customerId){
+ const c=salesFindCustomer(customerId);if(!c)return '';
+ const x=finCustomerMoney(c.id);
+ return `<div class="fin-customer-strip"><span>Balance <b>${finFmt(x.balance)}</b></span><span>Overdue <b class="${x.overdue>0?'fin-due':''}">${finFmt(x.overdue)}</b></span><span>Prepaid <b>${finFmt(x.prepaid)}</b></span><span>On account <b class="fin-deposit">${finFmt(x.deposit)}</b></span><button type="button" class="sm" onclick="finOpenAccount('${esc(c.id)}')">Finance account</button></div>`;
+}
 
 /* ==== src/erp/views/finance-schedule.js ==== */
-/* Expected customer payments. Independent of receipt/journal date filters.
-   Calendar-day arithmetic in UTC avoids DST shifts; today is the local date. */
-let finSchedule={period:'30',from:'',to:'',query:'',terms:'all'};
-const FIN_DUE_PERIODS=[['overdue','Overdue'],['today','Today'],['7','Next 7 days'],['14','Next 14 days'],['30','Next 30 days'],['all','All unpaid'],['undated','No payment date'],['custom','Custom dates']];
+/* =====================================================================
+   views/finance-schedule  ·  finance-1.1
+   Вкладка Due dates: неоплаченные остатки заказов по сроку оплаты, самые
+   ранние сверху. Срок ставится сам от дня выдачи (finPaymentDue), поэтому
+   заказы до выдачи — отдельный фильтр «Before pickup», а не «без даты».
+   Дни считаются по календарю в UTC — переход на летнее время их не сдвигает.
+   ===================================================================== */
+let finSchedule={period:'all',from:'',to:'',query:'',terms:'all'};
+const FIN_DUE_PERIODS=[['all','All unpaid'],['overdue','Overdue'],['7','Due in 7 days'],['30','Due in 30 days'],['undated','Before pickup'],['custom','Custom dates']];
 function finDueDayDiff(date,today){return Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);}
-function finDueShift(today,days){const d=new Date(today+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
 function finDueRange(filter,today){
  if(filter.period==='today')return {from:today,to:today};
- if(['7','14','30'].includes(filter.period))return {from:today,to:finDueShift(today,Number(filter.period))};
+ if(/^\d+$/.test(filter.period))return {from:today,to:finAddDays(today,Number(filter.period))};
  if(filter.period==='custom')return {from:filter.from,to:filter.to};
  return {from:'',to:''};
 }
 function finDueRows(filter,today){
  today=today||finToday();const range=finDueRange(filter,today);
  const invalid=(!finDateValid(today)||range.from&&!finDateValid(range.from)||range.to&&!finDateValid(range.to)||range.from&&range.to&&range.from>range.to);
- if(invalid)return {rows:[],total:0,customers:0,review:0,error:'Enter a valid date range. From must be on or before To.',range};
+ if(invalid)return {rows:[],total:0,customers:0,review:0,error:'From must be on or before To.',range};
  const query=String(filter.query||'').trim().toLowerCase();let review=0;
  const rows=(DB.salesOrder||[]).filter(finOrderCounts).map(o=>{
   const c=salesFindCustomer(o.customerId),f=finOrderFinancial(o,today);
@@ -21578,7 +22050,7 @@ function finDueRows(filter,today){
   const {o,c,f}=x;
   if(query&&![c&&c.displayName,c&&c.legalName,c&&c.code,o.businessNumber,o.customerPo].join(' ').toLowerCase().includes(query))return false;
   if(filter.terms!=='all'&&filter.terms!==f.terms.paymentMode)return false;
-  // No invented CAD amounts or due balances for orders with incomplete pricing.
+  // Без полной цены сумму не выдумываем — такие заказы только считаются.
   if(f.b.total==null){review++;return false;}
   if(!(f.b.balance>0))return false;
   if(filter.period==='undated')return !f.dueOn;
@@ -21589,30 +22061,30 @@ function finDueRows(filter,today){
  }).sort((a,b)=>(a.f.dueOn||'9999').localeCompare(b.f.dueOn||'9999')||finCustomerName(a.c).localeCompare(finCustomerName(b.c))||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
  return {rows,total:finMoney(rows.reduce((s,x)=>s+x.f.b.balance,0)),customers:new Set(rows.map(x=>x.o.customerId)).size,review,error:'',range};
 }
-function finDueTiming(x){return x.days==null?'Payment date not set':x.days<0?Math.abs(x.days)+' days overdue':x.days===0?'Due today':'In '+x.days+' days';}
+function finDueTiming(x){return x.days==null?(x.f.terms.paymentMode==='credit'?'After pickup':'At pickup'):x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
 function finDuePeriodSet(period){finSchedule.period=period;render();}
 function finDueDateSet(key,value){
  const range=finDueRange(finSchedule,finToday());
  if(finSchedule.period!=='custom'){finSchedule.from=range.from;finSchedule.to=range.to;}
  finSchedule.period='custom';finSchedule[key]=value;render();
 }
-function finDueReset(){finSchedule={period:'30',from:'',to:'',query:'',terms:'all'};render();}
+function finDueReset(){finSchedule={period:'all',from:'',to:'',query:'',terms:'all'};render();}
 function finDueDescription(filter,range){
  const label=(FIN_DUE_PERIODS.find(p=>p[0]===filter.period)||[])[1]||'Custom dates';
- return label+(range.from||range.to?' · '+(range.from||'any date')+' to '+(range.to||'any date'):'')+' · '+(filter.terms==='all'?'All terms':filter.terms==='credit'?'Credit / Net terms':'Cash / deposit')+(filter.query.trim()?' · Search: '+filter.query.trim():'');
+ return label+(range.from||range.to?' · '+(range.from||'any date')+' to '+(range.to||'any date'):'')+(filter.terms==='all'?'':filter.terms==='credit'?' · Credit':' · Cash')+(filter.query.trim()?' · '+filter.query.trim():'');
 }
 function finScheduleHTML(){
- const result=finDueRows(finSchedule),{rows,range}=result;
- return `<div class="fin-toolbar fin-schedule-filters"><label class="fin-date">Period <select aria-label="Payment due period" onchange="finDuePeriodSet(this.value)">${FIN_DUE_PERIODS.map(([key,label])=>`<option value="${key}" ${finSchedule.period===key?'selected':''}>${label}</option>`).join('')}</select></label><label class="fin-date">Due from <input aria-label="Payment due from" type="date" value="${esc(range.from)}" onchange="finDueDateSet('from',this.value)"></label><label class="fin-date">Due to <input aria-label="Payment due to" type="date" value="${esc(range.to)}" onchange="finDueDateSet('to',this.value)"></label><input id="finDueSearch" aria-label="Search payment schedule" placeholder="Customer, order or PO…" value="${esc(finSchedule.query)}" oninput="finSchedule.query=this.value;finRerenderInput('finDueSearch')"><select aria-label="Schedule payment terms" onchange="finSchedule.terms=this.value;render()">${[['all','All terms'],['credit','Credit / Net terms'],['cash','Cash / deposit']].map(([key,label])=>`<option value="${key}" ${finSchedule.terms===key?'selected':''}>${label}</option>`).join('')}</select><button class="sm" onclick="finDueReset()">Reset filters</button></div>
+ const result=finDueRows(finSchedule),{rows,range}=result,custom=finSchedule.period==='custom';
+ const changed=finSchedule.period!=='all'||finSchedule.query||finSchedule.terms!=='all';
+ return `<div class="fin-toolbar fin-schedule-filters"><select aria-label="Payment due period" onchange="finDuePeriodSet(this.value)">${FIN_DUE_PERIODS.map(([key,label])=>`<option value="${key}" ${finSchedule.period===key?'selected':''}>${label}</option>`).join('')}</select>${custom?`<label class="fin-date">From <input aria-label="Payment due from" type="date" value="${esc(range.from)}" onchange="finDueDateSet('from',this.value)"></label><label class="fin-date">To <input aria-label="Payment due to" type="date" value="${esc(range.to)}" onchange="finDueDateSet('to',this.value)"></label>`:''}<input id="finDueSearch" aria-label="Search payment schedule" placeholder="Customer, order or PO…" value="${esc(finSchedule.query)}" oninput="finSchedule.query=this.value;finRerenderInput('finDueSearch')"><select aria-label="Schedule payment terms" onchange="finSchedule.terms=this.value;render()">${[['all','All terms'],['credit','Credit'],['cash','Cash']].map(([key,label])=>`<option value="${key}" ${finSchedule.terms===key?'selected':''}>${label}</option>`).join('')}</select>${changed?'<button class="sm" onclick="finDueReset()">Reset</button>':''}
+  <span class="fin-spacer"></span><button ${result.error||!rows.length?'disabled':''} onclick="finDueExport()">CSV</button><button ${result.error||!rows.length?'disabled':''} onclick="finOpenPreview('schedule')">Print</button></div>
  ${result.error?`<p role="alert" class="fin-due">${esc(result.error)}</p>`:''}
- <div class="fin-due-summary" aria-live="polite"><span><b>${rows.length}</b> unpaid ${rows.length===1?'order':'orders'} · <b>${result.customers}</b> ${result.customers===1?'customer':'customers'} · <b>${finFmt(result.total)} CAD</b> outstanding in this selection</span><div class="row"><button ${result.error||!rows.length?'disabled':''} onclick="finDueExport()">Export schedule CSV</button><button ${result.error||!rows.length?'disabled':''} onclick="finDuePrint()">Print schedule / PDF</button></div></div>
- ${result.review?`<p class="fin-hint">${result.review} matching orders require pricing / currency review and are excluded from these totals. Review them in Customer accounts.</p>`:''}
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Payment due</th><th>Customer / order</th><th>Terms</th><th class="n">Total · CAD</th><th class="n">Paid</th><th class="n">Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>{const {o,c,f}=x;return `<tr data-due-order="${esc(o.id)}"><td><b>${esc(f.dueOn||'Not set')}</b><div class="small ${x.days<0?'fin-due':'mut'}">${esc(finDueTiming(x))}</div></td><td><button class="fin-link" onclick="finOpenAccount('${esc(o.customerId)}')">${esc(finCustomerName(c))}</button>${c&&c.status==='archived'?'<span class="mut small"> · Archived</span>':''}<div><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button><span class="mut small"> · PO ${esc(o.customerPo||'—')}</span></div></td><td>${esc(paymentTermsLabel(f.terms))}<div class="mut small">Billing: ${esc(f.terms.issuedOn||'Not set')}</div></td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td><span class="pill ${x.days<0?'bad':'info'}">${esc(f.status)}</span></td><td class="fin-actions"><button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms & dates</button></td></tr>`;}).join('')||`<tr><td colspan="8" class="empty">${result.error?'Correct the date range to view payments.':'No unpaid orders match these filters.'}</td></tr>`}</tbody></table></div>
- <details class="fin-schedule-help"><summary>How payment dates work</summary><p>Net terms use billing date + credit days unless an agreed due date is set. Upcoming periods include today through the end date shown in the filter. Both boundaries are inclusive.</p><p>Unapplied deposits are shown separately in Customer accounts; they do not reduce an order balance until allocated. Orders without a payment date appear under No payment date or All unpaid. This is the outstanding balance at its payment due date, not an instalment or deposit schedule.</p></details>`;
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Due</th><th>Customer / order</th><th>Terms</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>{const {o,c,f}=x;return `<tr data-due-order="${esc(o.id)}"><td><b>${esc(f.dueOn?finShortDate(f.dueOn):'—')}</b><div class="small ${x.days<0?'fin-due':'mut'}">${esc(finDueTiming(x))}</div></td><td><button class="fin-link" onclick="finOpenAccount('${esc(o.customerId)}')">${esc(finCustomerName(c))}</button>${c&&c.status==='archived'?'<span class="mut small"> · Archived</span>':''}<div><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button>${o.customerPo?`<span class="mut small"> · ${esc(o.customerPo)}</span>`:''}</div></td><td>${esc(paymentTermsLabel(f.terms))}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions"><button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`;}).join('')||`<tr><td colspan="8" class="empty">${result.error?'Correct the dates.':'Nothing unpaid here.'}</td></tr>`}</tbody>
+ ${rows.length?`<tfoot><tr><td colspan="5">${rows.length} ${rows.length===1?'order':'orders'} · ${result.customers} ${result.customers===1?'customer':'customers'}</td><td class="n"><b>${finFmt(result.total)}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>
+ ${result.review?`<p class="mut small">${result.review} not priced — not in totals.</p>`:''}`;
 }
-function finDueCSV(rows){return [['Customer','Order','Customer PO','Terms','Billing date','Payment due','Days until due','Currency','Total','Paid','Outstanding','Financial status']].concat(rows.map(({o,c,f,days})=>[finCustomerName(c),o.businessNumber,o.customerPo||'',paymentTermsLabel(f.terms),f.terms.issuedOn,f.dueOn,days==null?'':days,'CAD',f.b.total,f.b.paid,f.b.balance,f.status])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
-function finDueExport(){const result=finDueRows(finSchedule);if(result.error||!result.rows.length)return;customerDownload('payment-due-schedule.csv',finDueCSV(result.rows),'text/csv;charset=utf-8');}
-function finDuePrint(){const result=finDueRows(finSchedule);if(result.error||!result.rows.length)return;printSheet(finPrintPages('Payment due schedule',finDueDescription(finSchedule,result.range),`${result.rows.length} unpaid orders · ${result.customers} customers · Outstanding ${finFmt(result.total)} CAD. Unapplied deposits are separate.`,['Customer','Order / PO','Payment due','Timing','Terms','Outstanding'],result.rows.map(x=>[finCustomerName(x.c),x.o.businessNumber+' / '+(x.o.customerPo||'—'),x.f.dueOn||'Not set',finDueTiming(x),paymentTermsLabel(x.f.terms),finFmt(x.f.b.balance)])));}
+function finDueCSV(rows){return [['Customer','Order','Customer PO','Terms','Billing date','Payment due','Days until due','Currency','Total','Paid','Outstanding','Status']].concat(rows.map(({o,c,f,days})=>[finCustomerName(c),o.businessNumber,o.customerPo||'',paymentTermsLabel(f.terms),finBillingDate(o),f.dueOn,days==null?'':days,'CAD',f.b.total,f.b.paid,f.b.balance,f.status])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
+function finDueExport(){const result=finDueRows(finSchedule);if(result.error||!result.rows.length)return;customerDownload('payments-due.csv',finDueCSV(result.rows),'text/csv;charset=utf-8');}
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
