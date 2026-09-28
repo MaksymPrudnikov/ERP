@@ -1,0 +1,159 @@
+/* Finance commands and history. No DOM; balances keep using the order pricing
+   contract. Events are append-only through these commands; local JSON is not
+   an authenticated or tamper-proof accounting ledger. */
+DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeVersion=1;
+for(const k of ['refund','financeEvent','financeTerms'])if(!Array.isArray(DB[k]))DB[k]=[];
+const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
+let finActor='';
+try{finActor=localStorage.getItem('glass_finance_actor')||'';}catch(e){}
+function finCopy(x){return JSON.parse(JSON.stringify(x));}
+function finDateValid(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(s)))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s;}
+function finCents(v){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
+function finAssert(cond,message){if(!cond)throw new Error(message);}
+function finCurrency(r){return r&&r.currency||'CAD';}
+function finRefunded(id){return finMoney((DB.refund||[]).filter(r=>r.receiptId===id&&!r.voided).reduce((s,r)=>s+r.amount,0));}
+function finHistoryFor(id){return (DB.financeEvent||[]).filter(e=>e.entityId===id);}
+function finEvent(kind,before,after,reason,entity){
+ const r=after||before,customer=(DB.customer||[]).find(c=>c.id===r.customerId);
+ const number=r.number||finOrderNumber(r.orderId),snapshot=x=>x?finCopy(x):null;
+ const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),0)+1;
+ const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
+  customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
+  actor:finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
+ e.orders=[...new Set([...(before&&before.allocations||[]),...(after&&after.allocations||[])].map(a=>a.orderId).concat(r.orderId?[r.orderId]:[]))].map(id=>({id,number:finOrderNumber(id)}));
+ DB.financeEvent.push(e);return e;
+}
+function finEnsureHistory(r){if(!finHistoryFor(r.id).length)finEvent('opening',null,r,'Existing record; earlier changes are not available.');}
+function normalizeFinanceLedger(){
+ for(const k of ['refund','financeEvent','financeTerms'])if(!Array.isArray(DB[k]))DB[k]=[];
+ DB.financeVersion=1;
+ (DB.receipt||[]).forEach(finEnsureHistory);
+}
+/* Commit money and its history together. A failed write leaves the UI draft
+   available, and restores the previous in-memory balances. */
+function finPersist(fn){
+ const keys=['receipt','refund','financeEvent','financeTerms'],before={};keys.forEach(k=>before[k]=finCopy(DB[k]||[]));
+ try{const value=fn();finAssert(value!==false,'The operation could not be completed.');finAssert(touch()!==false,'Not saved. Your changes are still open; retry or export a backup.');return {ok:true,value};}
+ catch(e){keys.forEach(k=>DB[k]=before[k]);return {ok:false,error:e.message};}
+}
+function finReceiptDuplicates(d,id){
+ const ref=String(d.reference||'').trim().toLowerCase();if(!ref||d.method==='cash')return [];
+ return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
+}
+function finSaveReceiptRecord(d,id,reason,allowDuplicate){
+ const old=id?(DB.receipt||[]).find(r=>r.id===id):null;
+ finAssert(!id||!!old,'Payment not found.');finAssert(!old||!old.voided,'A void payment cannot be edited.');
+ finAssert(!!salesFindCustomer(d.customerId),'Select a customer');
+ finAssert(finCurrency(d)==='CAD','Payments currently support CAD only.');
+ finAssert(finDateValid(d.date),'Enter a valid payment date.');
+ finAssert(FIN_METHODS.some(m=>m.k===d.method),'Select a payment method.');
+ const cents=finCents(d.amount);finAssert(cents!=null&&cents>0,'Enter a positive amount with a maximum of 10 billion.');
+ if(old){finAssert(!(DB.refund||[]).some(x=>x.receiptId===old.id&&!x.voided&&x.date<d.date),'Payment date cannot be after an active refund.');finAssert(old.customerId===d.customerId,'The customer of a recorded payment cannot change. Void it and enter the correct payment.');finAssert(finCurrency(old)==='CAD','This payment currency is not supported.');}
+ const refunded=old?finCents(finRefunded(old.id)):0;
+ finAssert(cents>=refunded,'The amount cannot be less than money already refunded.');
+ const allocations=[],seen=new Set();let applied=0;
+ (d.allocations||[]).forEach(a=>{
+  const value=finCents(a.amount);finAssert(value!=null&&value>=0,'Allocation amounts must be valid and non-negative.');if(!value)return;
+  finAssert(!seen.has(a.orderId),'An order can only appear once in a payment.');seen.add(a.orderId);
+  const o=(DB.salesOrder||[]).find(o=>o.id===a.orderId);
+  finAssert(o&&o.customerId===d.customerId&&finOrderCounts(o),'Select an active order of this customer.');
+  finAssert(finCurrency(o)==='CAD','A CAD payment cannot be applied to another currency.');
+  const b=finOrderBalance(o),mine=old?(old.allocations.find(x=>x.orderId===o.id)||{}).amount||0:0;
+  finAssert(b.total!=null,'Finish pricing the order before applying a payment.');
+  finAssert(value<=finCents(Math.max(0,b.balance+mine)),'Allocation exceeds the order balance.');
+  applied+=value;allocations.push({orderId:o.id,amount:value/100});
+ });
+ finAssert(applied+refunded<=cents,'Applied and refunded amounts exceed the payment.');
+ const now=new Date().toISOString(),next=normalizeReceipt({id:old?old.id:finUid(),number:old?old.number:finNextReceiptNumber(),createdAt:old?old.createdAt:now,customerId:d.customerId,date:d.date,method:d.method,reference:d.reference,note:d.note,amount:cents/100,allocations,currency:'CAD',updatedAt:now});
+ if(old){const equal=r=>JSON.stringify([r.date,r.method,r.reference,r.amount,r.note,r.allocations]);if(equal(old)===equal(next))return old;
+  finAssert(String(reason||'').trim(),'Enter a reason for correcting this payment.');}
+ finAssert(allowDuplicate||!finReceiptDuplicates(next,id).length,'A payment with this reference already exists. Review it or confirm the duplicate.');
+ if(old){finEnsureHistory(old);const before=finCopy(old);Object.assign(old,next);finEvent('corrected',before,old,reason);return old;}
+ DB.receipt.push(next);finEvent('received',null,next,'');return next;
+}
+function finCreateRefund(d){
+ const r=DB.receipt.find(r=>r.id===d.receiptId);
+ finAssert(r&&!r.voided,'Select an active payment.');finAssert(finCurrency(r)==='CAD','Refunds currently support CAD only.');
+ const cents=finCents(d.amount);finAssert(cents!=null&&cents>0,'Enter a positive refund amount.');
+ finAssert(cents<=finCents(finReceiptOnAccount(r)),'Refund exceeds the available deposit. Release the order allocation first.');
+ finAssert(finDateValid(d.date)&&d.date>=r.date,'Refund date must be valid and not before the payment.');
+ finAssert(FIN_METHODS.some(m=>m.k===d.method),'Select a refund method.');finAssert(String(d.reason||'').trim(),'Enter the refund reason.');
+ finEnsureHistory(r);
+ const seq=DB.refund.reduce((n,x)=>Math.max(n,+String(x.number).replace('RF-','')||0),0)+1;
+ const out={id:'RF-'+finUid(),number:'RF-'+String(seq).padStart(4,'0'),receiptId:r.id,customerId:r.customerId,currency:'CAD',amount:cents/100,
+  date:d.date,method:d.method,reference:String(d.reference||'').trim().slice(0,80),reason:String(d.reason).trim().slice(0,300),createdAt:new Date().toISOString(),voided:false,voidReason:'',voidedAt:''};
+ DB.refund.push(out);finEvent('refunded',null,out,out.reason,'refund');return out;
+}
+function finVoidRefund(id,reason){
+ const r=DB.refund.find(r=>r.id===id);finAssert(r&&!r.voided,'Refund not found or already void.');finAssert(String(reason||'').trim(),'Enter a reason.');
+ const before=finCopy(r);r.voided=true;r.voidReason=String(reason).trim().slice(0,300);r.voidedAt=new Date().toISOString();finEvent('refund_voided',before,r,r.voidReason,'refund');return r;
+}
+function finTermsFor(o){
+ const stored=(DB.financeTerms||[]).find(t=>t.orderId===o.id);if(stored&&stored.customerId===o.customerId)return stored;
+ const c=salesFindCustomer(o.customerId)||{},t=paymentTermsFrom(c);
+ return {orderId:o.id,customerId:o.customerId,currency:finCurrency(o),paymentMode:t.paymentMode,depositPercent:paymentDepositPercent(t),creditDays:t.creditDays,issuedOn:'',dueOn:'',capturedAt:''};
+}
+function finCaptureTerms(o){
+ if(!o||o.kind==='quote')return;
+ const at=DB.financeTerms.findIndex(t=>t.orderId===o.id),old=DB.financeTerms[at];
+ if(old&&old.customerId===o.customerId)return;
+ const next=Object.assign({},finTermsFor(o),{capturedAt:new Date().toISOString()});
+ if(old){DB.financeTerms[at]=next;finEvent('terms',old,next,'Order customer changed.','terms');}else DB.financeTerms.push(next);
+}
+function finSaveTerms(orderId,d,reason){
+ const o=(DB.salesOrder||[]).find(o=>o.id===orderId);finAssert(o&&finOrderCounts(o),'Select an active order.');
+ finAssert(['cash','credit'].includes(d.paymentMode),'Select payment terms.');
+ const pct=Number(d.depositPercent),days=d.creditDays===''?null:Number(d.creditDays);
+ finAssert(Number.isFinite(pct)&&pct>=0&&pct<=100,'Deposit percent must be between 0 and 100.');
+ finAssert(days===null||Number.isInteger(days)&&days>=0&&days<=365,'Credit days must be between 0 and 365.');
+ finAssert(!d.issuedOn||finDateValid(d.issuedOn),'Enter a valid billing date.');finAssert(!d.dueOn||finDateValid(d.dueOn),'Enter a valid payment due date.');
+ finAssert(!d.issuedOn||!d.dueOn||d.dueOn>=d.issuedOn,'Payment due date cannot precede the billing date.');
+ finAssert(String(reason||'').trim(),'Enter the reason for changing terms.');
+ const before=finCopy(finTermsFor(o)),next={orderId,customerId:o.customerId,currency:finCurrency(o),paymentMode:d.paymentMode,depositPercent:pct,creditDays:days,issuedOn:d.issuedOn||'',dueOn:d.dueOn||'',capturedAt:before.capturedAt||new Date().toISOString()};
+ const at=DB.financeTerms.findIndex(t=>t.orderId===orderId);if(at<0)DB.financeTerms.push(next);else DB.financeTerms[at]=next;
+ finEvent('terms',before,next,reason,'terms');return next;
+}
+function finPaymentDue(o){
+ const t=finTermsFor(o);if(t.dueOn)return t.dueOn;
+ if(t.paymentMode==='credit'&&t.issuedOn&&t.creditDays!=null){const d=new Date(t.issuedOn+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+t.creditDays);return d.toISOString().slice(0,10);}return '';
+}
+function finOrderFinancial(o,today){
+ const b=finOrderBalance(o),t=finTermsFor(o),dueOn=finPaymentDue(o),c=salesFindCustomer(o.customerId),day=today||finToday();
+ const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
+ const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
+ const depositMissing=depositRequired==null?null:finMoney(Math.max(0,depositRequired-b.paid));
+ let status=!finOrderCounts(o)?'Inactive':finCurrency(o)!=='CAD'?'Currency review':b.total==null?'Pricing incomplete':c&&c.onHold?'Customer on hold':b.balance<=0?'Paid':overdue?'Overdue':t.paymentMode==='credit'?(dueOn?'Credit terms':'Credit · payment date not set'):'Payment required';
+ return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status};
+}
+function finValidatePayload(src){
+ const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,96}$/.test(v),money=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e10&&Math.abs(v*100-Math.round(v*100))<0.001;
+ const unique=(rows,key,label)=>{const seen=new Set();(rows||[]).forEach(r=>{finAssert(r&&typeof r==='object'&&id(r[key]),label+': invalid id.');finAssert(!seen.has(r[key]),label+': duplicate id.');seen.add(r[key]);});};
+ for(const k of ['refund','financeEvent','financeTerms'])finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
+ unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
+ unique(src.receipt,'id','Payment');
+ const receipts=new Map((src.receipt||[]).map(r=>[r.id,r])),refunds=new Map(),orders=new Map((src.salesOrder||[]).map(o=>[o.id,o]));
+ const numbers=new Set();
+ (src.receipt||[]).forEach(r=>{
+  finAssert(money(r.amount)&&finDateValid(r.date)&&['CAD','USD'].includes(finCurrency(r)),'Payment has an invalid amount, date or currency.');
+  finAssert(!r.number||!numbers.has(r.number),'Duplicate payment number.');if(r.number)numbers.add(r.number);
+  finAssert(!r.allocations||Array.isArray(r.allocations),'Payment allocations must be an array.');
+  const seen=new Set();let applied=0;
+  (r.allocations||[]).forEach(a=>{const o=a&&orders.get(a.orderId);finAssert(a&&money(a.amount)&&a.amount>0&&!seen.has(a.orderId),'Invalid or duplicate payment allocation.');seen.add(a.orderId);applied+=a.amount;
+   finAssert(o&&o.customerId===r.customerId&&finCurrency(o)===finCurrency(r)&&o.kind!=='quote','Payment allocation must match the customer, order and currency.');});
+  finAssert(finMoney(applied)<=r.amount,'Applied amounts exceed the payment.');
+ });
+ (src.refund||[]).forEach(r=>{
+  const receipt=receipts.get(r.receiptId);finAssert(receipt&&receipt.customerId===r.customerId,'Refund must reference its customer payment.');
+  finAssert(money(r.amount)&&r.amount>0&&r.currency===finCurrency(receipt)&&finDateValid(r.date)&&r.date>=receipt.date,'Invalid refund amount, currency or date.');
+  finAssert(typeof r.voided==='boolean'&&String(r.reason||'').trim(),'Refund requires status and reason.');
+  if(!r.voided){finAssert(!receipt.voided,'A void payment cannot have active refunds.');refunds.set(receipt.id,(refunds.get(receipt.id)||0)+r.amount);}
+ });
+ (src.receipt||[]).forEach(r=>{const refunded=refunds.get(r.id)||0;if(refunded)finAssert(finMoney(refunded+(r.allocations||[]).reduce((s,a)=>s+a.amount,0))<=r.amount,'Refunded and applied amounts exceed the payment.');});
+ const refundNumbers=new Set();(src.refund||[]).forEach(r=>{finAssert(typeof r.number==='string'&&!refundNumbers.has(r.number),'Refund numbers must be unique.');refundNumbers.add(r.number);});
+ const seqs=new Set();(src.financeEvent||[]).forEach(e=>{
+  finAssert(Number.isSafeInteger(e.seq)&&e.seq>0&&!seqs.has(e.seq),'Journal sequence must be unique.');seqs.add(e.seq);
+  finAssert(Array.isArray(e.orders)&&e.orders.every(o=>o&&id(o.id)&&typeof o.number==='string')&&(e.before===null||e.before&&typeof e.before==='object'&&!Array.isArray(e.before))&&e.after&&typeof e.after==='object'&&!Array.isArray(e.after),'Invalid journal snapshots or order references.');
+  finAssert(Object.prototype.hasOwnProperty.call(FIN_EVENT_LABELS,e.kind)&&['receipt','refund','terms'].includes(e.entity)&&id(e.entityId)&&id(e.customerId)&&Number.isFinite(Date.parse(e.at)),'Invalid journal entry.');
+ });
+ (src.financeTerms||[]).forEach(t=>{finAssert(['cash','credit'].includes(t.paymentMode)&&Number.isFinite(t.depositPercent)&&t.depositPercent>=0&&t.depositPercent<=100&&(t.creditDays==null||Number.isInteger(t.creditDays)&&t.creditDays>=0&&t.creditDays<=365)&&(!t.issuedOn||finDateValid(t.issuedOn))&&(!t.dueOn||finDateValid(t.dueOn))&&(!t.issuedOn||!t.dueOn||t.dueOn>=t.issuedOn),'Invalid payment terms.');});
+}

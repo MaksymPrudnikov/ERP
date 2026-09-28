@@ -40,7 +40,7 @@ function normalizeReceipt(r){
  return {id:/^[A-Za-z0-9_-]{1,96}$/.test(String(r.id||''))?String(r.id):finUid(),number:String(r.number||'').trim().slice(0,20),
   date:/^\d{4}-\d{2}-\d{2}$/.test(String(r.date||''))?String(r.date):finToday(),customerId:String(r.customerId||'').trim(),
   method:FIN_METHODS.some(m=>m.k===r.method)?r.method:'cash',reference:String(r.reference||'').trim().slice(0,80),
-  amount,note:String(r.note||'').trim().slice(0,500),allocations,
+  currency:['CAD','USD'].includes(r.currency)?r.currency:'CAD',amount,note:String(r.note||'').trim().slice(0,500),allocations,
   voided,voidReason:voided?String(r.voidReason||'').trim().slice(0,300):'',voidedAt:voided?String(r.voidedAt||''):'',
   createdAt:String(r.createdAt||''),updatedAt:String(r.updatedAt||'')};
 }
@@ -66,7 +66,7 @@ function normalizeReceipts(){
 
 function finActiveReceipts(){return (DB.receipt||[]).filter(r=>!r.voided);}
 function finReceiptApplied(r){return finMoney((r.allocations||[]).reduce((s,a)=>s+a.amount,0));}
-function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r));}
+function finReceiptOnAccount(r){return r.voided?0:finMoney(r.amount-finReceiptApplied(r)-finRefunded(r.id));}
 /* Долг и лимит — только по заказам: квота не долг, отменённый заказ тоже. */
 function finOrderCounts(o){return !!o&&o.kind!=='quote'&&o.status!=='cancelled';}
 
@@ -81,21 +81,23 @@ function finWithOrder(order,fn){
 function finOrderTotals(order){return finWithOrder(order,()=>salesOrderCommercialTotals(order));}
 function finOrderPaid(orderId){
  let paid=0,receipts=0;
- finActiveReceipts().forEach(r=>r.allocations.forEach(a=>{if(a.orderId===orderId){paid+=a.amount;receipts++;}}));
+ const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
+ finActiveReceipts().filter(r=>!order||finCurrency(r)===finCurrency(order)).forEach(r=>r.allocations.forEach(a=>{if(a.orderId===orderId){paid+=a.amount;receipts++;}}));
  return {paid:finMoney(paid),receipts};
 }
 /* status: due — должен доплатить; paid — оплачен; overpaid — внесли больше
    суммы заказа (заказ после оплаты подешевел); incomplete — у заказа нет
    полной цены, долг посчитать нельзя; empty — пустой заказ без оплат. */
 function finOrderBalance(order){
- const t=finOrderTotals(order),p=finOrderPaid(order.id),total=t.complete?finMoney(t.grand):null;
+ const t=finOrderTotals(order),p=finOrderPaid(order.id),total=t.complete&&finCurrency(order)==='CAD'?finMoney(t.grand):null;
  const balance=total==null?null:finMoney(total-p.paid);
  let status=total==null?'incomplete':balance>0?'due':balance<0?'overpaid':'paid';
  if(total===0&&p.paid===0)status='empty';
  return {total,paid:p.paid,receipts:p.receipts,balance,status};
 }
-function finCustomerDeposit(customerId){
- return finMoney(finActiveReceipts().filter(r=>r.customerId===customerId).reduce((s,r)=>s+finReceiptOnAccount(r),0));
+function finCustomerDeposit(customerId,currency){
+ currency=currency||'CAD';
+ return finMoney(finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===currency).reduce((s,r)=>s+finReceiptOnAccount(r),0));
 }
 function finCustomerAccount(c){
  let due=0,dueOrders=0,incomplete=0;
@@ -113,16 +115,17 @@ function finCustomerAccount(c){
    которых есть незачтённый остаток; в заказ ложится не больше его долга. */
 function finApplyDeposit(customerId,orderId,amount){
  const order=(DB.salesOrder||[]).find(o=>o.id===orderId);
- if(!order||order.customerId!==customerId||!finOrderCounts(order))return 0;
+ if(!order||order.customerId!==customerId||!finOrderCounts(order)||finCurrency(order)!=='CAD')return 0;
  const b=finOrderBalance(order);if(b.status!=='due')return 0;
  let want=finMoney(Math.min(finMoney(amount),b.balance,finCustomerDeposit(customerId)));
  if(!(want>0))return 0;
  let done=0;const now=new Date().toISOString();
- finActiveReceipts().filter(r=>r.customerId===customerId).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
+ finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)===finCurrency(order)).sort((x,y)=>(x.date+x.number).localeCompare(y.date+y.number)).forEach(r=>{
   const free=finReceiptOnAccount(r);if(want<=0||free<=0)return;
+  finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(free,want)),a=r.allocations.find(x=>x.orderId===orderId);
   if(a)a.amount=finMoney(a.amount+take);else r.allocations.push({orderId,amount:take});
-  r.updatedAt=now;want=finMoney(want-take);done=finMoney(done+take);
+  r.updatedAt=now;want=finMoney(want-take);done=finMoney(done+take);finEvent('allocated',before,r,'Deposit applied to order '+finOrderNumber(orderId));
  });
  return done;
 }
@@ -133,9 +136,10 @@ function finReleaseOverpayment(order){
  let extra=finMoney(-b.balance),moved=0;const now=new Date().toISOString();
  finActiveReceipts().slice().sort((x,y)=>(y.date+y.number).localeCompare(x.date+x.number)).forEach(r=>{
   const a=r.allocations.find(x=>x.orderId===order.id);if(extra<=0||!a)return;
+  finEnsureHistory(r);const before=finCopy(r);
   const take=finMoney(Math.min(a.amount,extra));
   a.amount=finMoney(a.amount-take);if(a.amount<=0)r.allocations=r.allocations.filter(x=>x!==a);
-  r.updatedAt=now;extra=finMoney(extra-take);moved=finMoney(moved+take);
+  r.updatedAt=now;extra=finMoney(extra-take);moved=finMoney(moved+take);finEvent('released',before,r,'Order overpayment moved to deposit.');
  });
  return moved;
 }
@@ -145,20 +149,22 @@ function finReleaseOrder(orderId){
  (DB.receipt||[]).forEach(r=>{
   const keep=r.allocations.filter(a=>a.orderId!==orderId);
   if(keep.length===r.allocations.length)return;
+  finEnsureHistory(r);const before=finCopy(r);
   if(!r.voided)moved+=r.allocations.filter(a=>a.orderId===orderId).reduce((s,a)=>s+a.amount,0);
-  r.allocations=keep;r.updatedAt=now;
+  r.allocations=keep;r.updatedAt=now;finEvent('released',before,r,'Order cancelled or deleted; allocation returned to deposit.');
  });
  return finMoney(moved);
 }
 /* Ошибочная квитанция не удаляется, а аннулируется с причиной: остаётся в
    списке для сверки с QuickBooks и перестаёт считаться в балансах. */
 function finVoidReceipt(id,reason){
- const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided)return false;
- r.voided=true;r.voidReason=String(reason||'').trim().slice(0,300);r.voidedAt=new Date().toISOString();r.updatedAt=r.voidedAt;
+ const r=(DB.receipt||[]).find(x=>x.id===id);if(!r||r.voided||!String(reason||'').trim()||finRefunded(id)>0)return false;
+ finEnsureHistory(r);const before=finCopy(r);
+ r.voided=true;r.voidReason=String(reason||'').trim().slice(0,300);r.voidedAt=new Date().toISOString();r.updatedAt=r.voidedAt;finEvent('voided',before,r,r.voidReason);
  return true;
 }
 
-function finCsvCell(v){const s=String(v==null?'':v);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function finCsvCell(v){let s=String(v==null?'':v);if(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
 function finReceiptsCsv(rows){
  const H=['Receipt No','Date','Customer','Customer Account','Method','Reference','Amount','Applied','Applied To Orders','On Account','Status','Void Reason','Note'];
