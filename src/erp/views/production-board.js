@@ -45,29 +45,37 @@ function prodBoard(){
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||['cancelled','closed'].includes(o.status))return;
   const pieces=glassPieceMap(o.id);if(!pieces.size)return;
-  const counts={queue:0},lines=[],codes=[];let inProd=false,shipped=0,total=0;
+  const counts={queue:0},route={},lines=[],codes=[];let inProd=false,shipped=0,total=0;
   (o.lines||[]).forEach((l,li)=>{
    const lites=[];
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0};let ls=0;
+    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0;
     ids.forEach(id=>{
-     const e=batches.get(id)||null,scans=scansBy.get(id)||[];total++;
-     if(!e&&!scans.length){lc.queue++;counts.queue++;return;}
+     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
+     const place=stationPlace(g,scans),queued=!e&&!scans.length;
+     /* Клетка станции знает три вещи: сколько ждёт здесь, сколько уже
+        прошло и есть ли станция в маршруте вообще. «·» у стеклопакета
+        перед IGU и пусто у одинарного стекла — разные вещи (владелец). */
+     place.route.forEach((code,i)=>{
+      const t=lr[code]||(lr[code]={w:0,p:0,n:0}),u=route[code]||(route[code]={w:0,p:0,n:0});
+      t.n++;u.n++;if(!queued&&i<=place.far){t.p++;u.p++;}
+      if(!queued&&code===place.waiting){t.w++;u.w++;}
+     });
+     if(queued){lc.queue++;counts.queue++;return;}
      inProd=true;
-     const place=stationPlace({id,o,l,c,entry:e},scans);
      if(place.shipped||!place.waiting){ls++;shipped++;return;}
      lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
     });
     if(!codes.includes(c.glass))codes.push(c.glass);
-    lites.push({glass:c.glass,lite:c.lite,counts:lc,shipped:ls,total:ids.length});
+    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length});
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
   });
   if(!inProd)return;
   const urg=stationUrgency(o),t=Date.parse(o.dueDate||''),days=Number.isNaN(t)?99999:Math.floor(t/864e5);
-  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,shipped,total,lines,rank:(2-urg)*1e6+days});
+  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,shipped,total,lines,rank:(2-urg)*1e6+days});
  });
  prodBoardCache={stamp,data:orders};
  return orders;
@@ -90,9 +98,16 @@ function prodFocusStation(code){
 }
 function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
 function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?' pb-cut':''}">${n}</span>`:'<span class="pb-z">·</span>';}
+/* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
+   дошли. Станции нет в маршруте — клетка пустая. */
+function prodStation(t,code){
+ if(!t||!t.n)return '';
+ if(t.w)return prodCount(t.w,code);
+ return t.p===t.n?'<span class="pb-done" title="Passed">✓</span>':'<span class="pb-z" title="Not there yet">·</span>';
+}
 function prodCell(r,c){
  const v=salesListValue(r,c.k),x=r.x;
- if(c.station)return `<td class="pb-st">${prodCount(v,c.station)}</td>`;
+ if(c.station)return `<td class="pb-st">${prodStation(x.route[c.station],c.station)}</td>`;
  switch(c.k){
   case 'number':return `<td class="mono"><button type="button" class="pb-open" onclick="event.stopPropagation();prodToggle('${esc(x.o.id)}')">${prodOpen.has(x.o.id)?'▾':'▸'} <b>${esc(v)}</b></button></td>`;
   case 'customer':return `<td>${raw(v)}</td>`;
@@ -109,7 +124,7 @@ function prodCell(r,c){
    своими станциями. */
 function prodSubRows(r,cols){
  return r.x.lines.map(L=>L.lites.map((t,i)=>`<tr class="pb-sub">${cols.map(c=>{
-  if(c.station)return `<td class="pb-st">${prodCount(t.counts[c.station]||0,c.station)}</td>`;
+  if(c.station)return `<td class="pb-st">${prodStation(t.route[c.station],c.station)}</td>`;
   switch(c.k){
    case 'number':return `<td class="mut">${i?'':'Line '+L.no}</td>`;
    case 'customer':return `<td>${i?'':`<b>${esc(L.size)}</b> · ${L.units} unit${L.units===1?'':'s'}${L.mark?` · <span data-raw>${esc(L.mark)}</span>`:''}`}</td>`;
@@ -124,10 +139,11 @@ function prodSubRows(r,cols){
 function viewProdOrders(){
  const infos=prodListInfos(),p=salesListLoadPrefs(),rows=salesListRows(infos);
  const total=k=>infos.reduce((n,i)=>n+(i.memo[k]||0),0),cut=stationCutCode();
- /* Двенадцать станций в ширину не влезают: пустая станция колонку не
-    занимает и появляется, как только на ней появится стекло. Плитки
-    сверху — все. */
- const cols=salesListColumns().filter(c=>!(c.station||c.k==='queue')||total(c.k)>0);
+ /* Двенадцать станций в ширину не влезают: колонка есть, пока станция
+    впереди хоть у одного стекла в производстве (ждут или ещё не дошли).
+    Нет сверловки в работе — нет колонки DRILL. Плитки сверху — все. */
+ const ahead=code=>infos.some(i=>{const t=i.x.route[code];return t&&t.n>t.p;});
+ const cols=salesListColumns().filter(c=>c.station?ahead(c.station):c.k!=='queue'||total('queue')>0);
  const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).map(s=>{
   const k='st_'+s.code,n=total(k),f=p.filters[k],on=!!f&&salesListFilterActive(f);
   return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'}</small></button>`;
