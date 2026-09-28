@@ -85,6 +85,7 @@
   "src/erp/views/finance.js",
   "src/erp/views/finance-workspace.js",
   "src/erp/views/finance-schedule.js",
+  "src/erp/views/finance-lists.js",
   "src/erp/views/sales-list-ui.js",
   "src/erp/views/sales-list-controls.js",
   "src/erp/sales/line-hold.js",
