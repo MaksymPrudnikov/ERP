@@ -1,7 +1,7 @@
 /* =====================================================================
-   views/finance  ·  finance-1.0
-   Экран Finance (Receipts, Customer accounts), зачёт депозита и полоса
-   оплат в шапке заказа.
+   views/finance  ·  finance-1.1
+   Вкладка Payments, форма оплаты, зачёт депозита и полоса оплат в шапке
+   заказа. Остальной экран — views/finance-workspace.
    IN : DB.receipt, DB.salesOrder, DB.customer
    OUT: квитанции, разнесение, CSV для QuickBooks
    Владелец, 14 сентября 2026: оплату вносят на отдельном экране Finance, в
@@ -9,11 +9,11 @@
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
-let finTab='accounts',finSearch='',finMethod='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
+let finTab='accounts',finSearch='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
-function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts','refunds','journal'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
+function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
 function finSearchChange(el){
  finSearch=el.value;const pos=el.selectionStart;render();
  requestAnimationFrame(()=>{const e=document.getElementById('finSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
@@ -27,8 +27,6 @@ function finFilteredReceipts(){
  return (DB.receipt||[]).filter(r=>{
   if(finCustomerFilter&&r.customerId!==finCustomerFilter)return false;
   if(finOrderFilter&&!r.allocations.some(a=>a.orderId===finOrderFilter)&&!finHistoryFor(r.id).some(e=>(e.orders||[]).some(o=>o.id===finOrderFilter)))return false;
-  if(finStatus==='active'&&r.voided||finStatus==='void'&&!r.voided)return false;
-  if(finMethod&&r.method!==finMethod)return false;
   if(finFrom&&r.date<finFrom)return false;
   if(finTo&&r.date>finTo)return false;
   if(!q)return true;
@@ -37,28 +35,25 @@ function finFilteredReceipts(){
  }).sort((a,b)=>(b.date+b.number).localeCompare(a.date+a.number));
 }
 function finReceiptsView(){
- const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided);
- const methods=[['','All']].concat(FIN_METHODS.map(m=>[m.k,m.label]));
+ const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided&&finCurrency(r)==='CAD');
  return `${finFilterChips()}<div class="fin-toolbar"><input class="fin-search" id="finSearch" value="${esc(finSearch)}" placeholder="Search customer, order, cheque #…" oninput="finSearchChange(this)">
-  <select aria-label="Payment status" onchange="finStatus=this.value;render()">${[['all','All statuses'],['active','Active'],['void','Void']].map(x=>`<option value="${x[0]}" ${finStatus===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select><div class="fin-seg">${methods.map(m=>`<button type="button" class="${finMethod===m[0]?'on':''}" onclick="finMethod='${m[0]}';render()">${m[1]}</button>`).join('')}</div>
   <label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;render()"></label>
-  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()">Export payments CSV</button><button type="button" class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th><th></th></tr></thead>
- <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="8" class="empty">No receipts yet</td></tr>'}</tbody></table></div>
- ${active.length?`<div class="fin-total">${active.length} receipt${active.length===1?'':'s'} · <b>${finFmt(finMoney(active.filter(r=>finCurrency(r)==='CAD').reduce((s,r)=>s+r.amount,0)))}</b></div>`:''}`;
+  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>
+ <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th></tr></thead>
+ <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="7" class="empty">No payments</td></tr>'}</tbody>
+ ${active.length?`<tfoot><tr><td colspan="4">${active.length} ${active.length===1?'payment':'payments'}</td><td class="n"><b>${finFmt(finMoney(active.reduce((s,r)=>s+r.amount,0)))}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
 }
 function finReceiptRow(r){
- const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r);
- const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">not applied</span>';
- return `<tr class="${r.voided?'fin-void':''}" data-receipt="${esc(r.id)}"><td><b class="mono">${raw(r.number)}</b>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
-  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b><div class="mut small">${esc(finCurrency(r))}${finRefunded(r.id)>0?' · refunded '+finFmt(finRefunded(r.id)):''}</div></td>
+ const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r),refunded=finRefunded(r.id);
+ const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">—</span>';
+ return `<tr class="fin-row${r.voided?' fin-void':''}" data-receipt="${esc(r.id)}" onclick="finOpenReceipt('${esc(r.id)}')"><td><button type="button" class="fin-link mono" onclick="event.stopPropagation();finOpenReceipt('${esc(r.id)}')">${raw(r.number)}</button>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
+  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b>${finCurrency(r)!=='CAD'?` <span class="mut small">${esc(finCurrency(r))}</span>`:''}${refunded>0?`<div class="mut small">refunded ${finFmt(refunded)}</div>`:''}</td>
   <td>${applied}${r.voided&&r.voidReason?`<div class="mut small">Void: ${raw(r.voidReason)}</div>`:''}</td>
-  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td>
-  <td class="fin-actions"><button class="sm" onclick="finOpenReceipt('${esc(r.id)}')">Open</button></td></tr>`;
+  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td></tr>`;
 }
 function finExportCsv(){
- const rows=finFilteredReceipts().slice().reverse();
- customerDownload('receipts'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finPaymentsCSV(rows),'text/csv;charset=utf-8');
+ const rows=finFilteredReceipts(),refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!finFrom||x.date>=finFrom)&&(!finTo||x.date<=finTo));
+ customerDownload('payments'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
 }
 
 /* ------------------------------ Форма -------------------------------- */
@@ -91,6 +86,19 @@ function finFormNoPrice(){
  const d=finDraft;if(!d||!d.customerId)return 0;
  return (DB.salesOrder||[]).filter(o=>o.customerId===d.customerId&&finOrderCounts(o)&&finOrderBalance(o).status==='incomplete').length;
 }
+/* Кредитка без сбора в заказе — цех платит процент сам. Подсказка стоит у
+   заказа в форме оплаты и добавляет сбор одной кнопкой; дебет не трогаем. */
+function finCardFeeTag(o){
+ const c=o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return '';
+ return `<div class="fin-card-fee">No card fee <button type="button" class="sm" onclick="finAddCardFee('${esc(o.id)}')">Add ${esc(c.rate)}%</button></div>`;
+}
+function finAddCardFee(orderId){
+ const o=(DB.salesOrder||[]).find(x=>x.id===orderId),c=o&&o.orderCharges&&o.orderCharges.card;if(!c||c.enabled)return;
+ const was=o.updatedAt;c.enabled=true;o.updatedAt=new Date().toISOString();
+ if(touch()===false){c.enabled=false;o.updatedAt=was;alert('Not saved. Try again or export a backup.');return;}
+ if(soDraft&&soDraft.id===orderId&&soDraft.orderCharges&&soDraft.orderCharges.card)soDraft.orderCharges.card.enabled=true;
+ render();
+}
 function finSummaryHTML(amount,applied,refunded){
  refunded=refunded||0;const left=finMoney(amount-applied-refunded);
  return `<span>Receipt <b>${finFmt(amount)}</b></span><span>Applied <b>${finFmt(applied)}</b></span>${refunded?`<span>Refunded <b>${finFmt(refunded)}</b></span>`:''}${left<0?`<span class="fin-over">Applied more than received by <b>${finFmt(-left)}</b></span>`:`<span>Left on account (deposit) <b class="fin-deposit">${finFmt(left)}</b></span>`}`;
@@ -111,17 +119,17 @@ function finApplyMax(orderId){
 function finReceiptForm(){
  const d=finDraft,r=finEdit!=='new'?(DB.receipt||[]).find(x=>x.id===finEdit):null,locked=!!(r&&(r.voided||finCurrency(r)!=='CAD')),dis=locked?' disabled':'';
  const customers=(DB.customer||[]).filter(c=>c.status!=='archived'||c.id===d.customerId),rows=finFormOrders(),noPrice=finFormNoPrice();
- const ph=({cheque:'Cheque #',etransfer:'Transfer reference',card:'Last 4 digits or approval #'})[d.method]||'Optional';
+ const ph=({cheque:'Cheque #',etransfer:'Transfer reference',debit:'Last 4 digits or approval #',creditcard:'Last 4 digits or approval #',card:'Last 4 digits or approval #'})[d.method]||'Optional';
  const table=!d.customerId?'<p class="mut">Select a customer to apply the receipt to orders.</p>':rows.length?`<h4 class="fin-h4">Apply to orders of this customer</h4>
   <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Order</th><th>Customer PO</th><th class="n">Order total</th><th class="n">Paid before</th><th class="n">Balance</th><th class="n">Apply now</th></tr></thead><tbody>${rows.map(x=>`<tr>
-   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b></td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
-   <td class="n fin-apply-cell"><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</td></tr>`).join('')}</tbody></table></div>`
+   <td><b class="mono">${raw(x.order.businessNumber||'draft')}</b>${!locked&&d.method==='creditcard'?finCardFeeTag(x.order):''}</td><td>${raw(x.order.customerPo||'—')}</td><td class="n">${finFmt(x.total)}</td><td class="n">${finFmt(x.paid)}</td><td class="n"><b>${finFmt(x.balance)}</b></td>
+   <td class="n fin-apply-cell"><div><input type="number" min="0" step="0.01" data-fin-apply="${esc(x.order.id)}"${dis} value="${esc(d.apply[x.order.id]||'')}" placeholder="0.00" oninput="finApplyInput('${esc(x.order.id)}',this.value)">${locked?'':`<button type="button" class="sm" onclick="finApplyMax('${esc(x.order.id)}')">Max</button>`}</div></td></tr>`).join('')}</tbody></table></div>`
   :'<p class="mut fin-apply-empty">This customer has no orders with a balance due — the whole amount stays on account as a deposit.</p>';
- return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3><span class="pill info">${esc(d.currency||'CAD')}</span>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
+ return `<div class="fin-form"><div class="fin-form-head"><h3>${r?'Receipt '+raw(r.number):'New receipt'}</h3>${locked?`<span class="pill bad">Void</span><span class="mut">${raw(r.voidReason)}</span>`:''}</div>
  <div class="fin-grid">
-  <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" onchange="finDraft.customerId=this.value;finDraft.apply={};render()"><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select></div>
+  <div class="fin-span2"><label>Customer *</label><select${r?' disabled':dis} aria-label="Payment customer" onchange="finDraft.customerId=this.value;finDraft.apply={};render()"><option value="">— select customer —</option>${customers.map(c=>`<option data-raw value="${esc(c.id)}" ${c.id===d.customerId?'selected':''}>${esc(c.code||'')} · ${esc(finCustomerName(c))}</option>`).join('')}</select>${!r&&d.customerId&&finCustomerDeposit(d.customerId)>0?`<div class="mut small">Already on account ${finFmt(finCustomerDeposit(d.customerId))}</div>`:''}</div>
   <div><label>Date</label><input type="date"${dis} value="${esc(d.date)}" onchange="finDraft.date=this.value"></div>
-  <div class="fin-span2"><label>Method</label><div class="fin-seg">${FIN_METHODS.map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
+  <div class="fin-span2"><label>Method</label><div class="fin-seg">${finMethodChoices(d.method).map(m=>`<button type="button"${dis} data-fin-method="${m.k}" class="${d.method===m.k?'on':''}" onclick="finDraft.method='${m.k}';render()">${m.label}</button>`).join('')}</div></div>
   <div><label>Amount · CAD *</label><input type="number" min="0" step="0.01" id="finAmount"${dis} value="${esc(d.amount)}" oninput="finDraft.amount=this.value;finRefreshSummary()"></div>
   <div class="fin-span2"><label>Reference</label><input${dis} id="finReference" value="${esc(d.reference)}" placeholder="${ph}" oninput="finDraft.reference=this.value"></div>
   <div class="fin-span4"><label>Note</label><input${dis} id="finNote" value="${esc(d.note)}" oninput="finDraft.note=this.value"></div>
@@ -131,7 +139,7 @@ function finReceiptForm(){
  ${r&&!locked?`<label>Correction reason *</label><input id="finCorrectionReason" value="${esc(d.reason||'')}" oninput="finDraft.reason=this.value" placeholder="Explain what changed and why">`:''}
  ${finReceiptDuplicates(d,finEdit==='new'?null:finEdit).length?`<label class="fin-duplicate"><input type="checkbox" ${d.duplicate?'checked':''} onchange="finDraft.duplicate=this.checked"> Same reference already exists. I reviewed the payment and intend to record another.</label>`:''}
  <div class="err" id="e_fin"></div>
- <div class="fin-form-actions"><button type="button" onclick="finCloseReceipt()">${locked?'Back':'Cancel'}</button>${r&&!locked?'<button type="button" class="dl" onclick="finVoidCurrent()">Void receipt</button>':''}${locked?'':'<button type="button" class="pri" onclick="finSaveReceipt()">Save receipt</button>'}</div>${r?finJournalTable(finHistoryFor(r.id)):''}</div>`;
+ <div class="fin-form-actions"><button type="button" onclick="finCloseReceipt()">${locked?'Back':'Cancel'}</button>${r&&!locked?'<button type="button" class="dl" onclick="finVoidCurrent()">Void receipt</button>':''}${locked?'':'<button type="button" class="pri" onclick="finSaveReceipt()">Save receipt</button>'}</div>${r&&finHistoryFor(r.id).length?`<details class="fin-history-box"><summary>History · ${finHistoryFor(r.id).length}</summary>${finJournalTable(finHistoryFor(r.id))}</details>`:''}</div>`;
 }
 function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
@@ -148,11 +156,9 @@ function finVoidCurrent(){
  const out=finPersist(()=>finVoidReceipt(r.id,reason));if(!out.ok)return fail(document.getElementById('e_fin'),finRefunded(r.id)>0?'Void the refund record first. A payment with an active refund cannot be voided.':out.error);finCloseReceipt(true);
 }
 
-/* -------------------------- Customer accounts ------------------------ */
-function finAccountsView(){return finAccountsWorkspace();}
-
-function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finMethod='';finFrom='';finTo='';finStatus='all';render();}
-function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finMethod='';finFrom='';finTo='';finStatus='all';render();}
+/* --------------------- Переход к оплатам клиента/заказа --------------- */
+function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
+function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finFrom='';finTo='';render();}
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){
@@ -188,15 +194,15 @@ function finApplyModal(){
 
 /* ------------------------- Оплаты в заказе ---------------------------- */
 function salesOrderIsSaved(o){return !!o&&soEdit!=='new'&&(DB.salesOrder||[]).some(x=>x.id===o.id);}
-function finBalancePill(b){
- return b.status==='due'?`<span class="pill bad">Balance due ${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:b.status==='incomplete'&&b.paid>0?'<span class="pill warn">Price incomplete</span>':'';
-}
+/* Полоса в шапке заказа: красное — только когда надо действовать (просрочка,
+   нет депозита, клиент на Hold). Долг Net-клиента до срока — обычная
+   информация со сроком, а не тревога. */
 function salesPaymentStrip(o){
  if(!salesOrderIsSaved(o))return '<div class="fin-strip fin-strip-new">Save the order to take payments</div>';
  /* Отменённый заказ не долг: его оплаты ушли на депозит клиента. */
  if(!finOrderCounts(o))return '<div class="fin-strip fin-strip-new">Cancelled — not counted in the customer balance</div>';
- const b=finOrderBalance(o);
- return `<div class="fin-strip">${finBalancePill(b)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Receipt total</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${b.status==='due'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Receipts</button></div>`;
+ const f=finOrderFinancial(o),b=f.b;
+ return `<div class="fin-strip">${finStatusPill(f)}<div><small>Order total</small><b>${finFmt(b.total)}</b></div><div><small>Paid</small><b>${finFmt(b.paid)}</b></div><div><small>Balance</small><b class="${f.tone==='bad'?'fin-due':b.status==='paid'?'fin-paid':''}">${finFmt(b.balance)}</b></div><button type="button" class="sm" onclick="finShowOrder('${esc(o.id)}')">Payments</button></div>`;
 }
 function salesDepositHint(o){
  if(!salesOrderIsSaved(o)||!o.customerId||!finOrderCounts(o))return '';
@@ -208,6 +214,6 @@ function salesDepositHint(o){
 function finMoveOverpayment(orderId){const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return;const out=finPersist(()=>finReleaseOverpayment(o));if(!out.ok)alert(out.error);render();}
 function salesListBalanceCells(o){
  if(!finOrderCounts(o)){const t=finOrderTotals(o);return `<td class="n mut">${finFmt(t.complete?finMoney(t.grand):null)}</td><td class="n mut">—</td><td class="n mut">—</td>`;}
- const b=finOrderBalance(o);
- return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?`<span class="pill bad">${finFmt(b.balance)}</span>`:b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
+ const f=finOrderFinancial(o),b=f.b;
+ return `<td class="n">${finFmt(b.total)}</td><td class="n">${finFmt(b.paid)}</td><td class="n">${b.status==='due'?(f.tone==='bad'?`<span class="pill bad" title="${esc(f.status)}">${finFmt(b.balance)}</span>`:`<span title="${esc(f.status)}">${finFmt(b.balance)}</span>`):b.status==='paid'?'<span class="pill good">Paid</span>':b.status==='overpaid'?`<span class="pill info">Overpaid ${finFmt(-b.balance)}</span>`:'<span class="mut">—</span>'}</td>`;
 }

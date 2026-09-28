@@ -70,6 +70,7 @@
   "src/erp/documents/model.js",
   "src/erp/documents/layout.js",
   "src/erp/documents/pdf.js",
+  "src/erp/finance/print.js",
   "src/erp/views/sales.js",
   "src/erp/views/sales-line-metrics-ui.js",
   "src/erp/views/sales-shape-ui.js",

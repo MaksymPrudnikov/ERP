@@ -25,7 +25,7 @@ module.exports=async function({page,eq,ok}){
   };
   window.finCleanup=function(){
    DB.receipt=[];DB.salesOrder=DB.salesOrder.filter(o=>!/^8\d{4}$/.test(o.businessNumber));DB.customer=DB.customer.filter(c=>!/^QA/.test(c.code||''));
-   soEdit=null;soDraft=null;finEdit=null;finDraft=null;finApply=null;finSearch='';finMethod='';finFrom='';finTo='';finTab='receipts';
+   soEdit=null;soDraft=null;finEdit=null;finDraft=null;finApply=null;finSearch='';finFrom='';finTo='';finTab='receipts';
   };
  });
 
@@ -72,13 +72,13 @@ module.exports=async function({page,eq,ok}){
   return {overLimit:finCustomerAccount(a.cust).overLimit,pill:/Over limit/.test(rowA),terms:/Net 30 days/.test(rowA),deposit:/\$250\.00/.test(rowB),applyButton:/Apply deposit/.test(rowB)};
  }),{overLimit:true,pill:true,terms:true,deposit:true,applyButton:true});
 
- eq('заказ: в шапке Receipt total и Balance, красное «Balance due», после доплаты — «Paid»; в списке колонки Receipts и Balance',await t.p.evaluate(()=>{
+ eq('заказ: в шапке Paid и Balance, у cash-заказа с внесённым депозитом — «Due at pickup», после доплаты — «Paid»; в списке колонки Receipts и Balance',await t.p.evaluate(()=>{
   finCleanup();const {cust,o,total}=finFixture(),half=finMoney(total/2),rest=finMoney(total-half);
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:cust.id,amount:half,allocations:[{orderId:o.id,amount:half}]}));
   salesOrderEdit(o.id);
-  const strip=document.querySelector('.fin-strip').textContent,due=/Balance due/.test(strip)&&strip.includes(finFmt(rest));
+  const strip=document.querySelector('.fin-strip').textContent,due=document.querySelector('.fin-strip .pill').textContent==='Due at pickup'&&strip.includes(finFmt(rest))&&strip.includes('Paid');
   DB.receipt.push(normalizeReceipt({number:'R-0002',customerId:cust.id,amount:rest,allocations:[{orderId:o.id,amount:rest}]}));
-  render();const paid=/Paid/.test(document.querySelector('.fin-strip').textContent);
+  render();const paid=document.querySelector('.fin-strip .pill').textContent==='Paid';
   soEdit=null;soDraft=null;render();
   const heads=[...document.querySelectorAll('.sales-list-card th')].map(x=>x.textContent.trim());
   const row=[...document.querySelectorAll('.sales-list-card tbody tr')].find(tr=>tr.textContent.includes(o.businessNumber));
@@ -106,14 +106,14 @@ module.exports=async function({page,eq,ok}){
   return {message:/\$400\.00 go back to the customer deposit/.test(msg),gone:!DB.salesOrder.some(x=>x.id===o.id),deposit:finCustomerDeposit(cust.id),allocations:DB.receipt[0].allocations.length};
  }),{message:true,gone:true,deposit:400,allocations:0});
 
- eq('CSV для QuickBooks: квитанция с заказом и депозитом, аннулированная — со статусом Void и причиной',await t.p.evaluate(()=>{
-  finCleanup();const {cust,o}=finFixture({code:'QACSV',legalName:'QA CSV, Ltd'});
-  DB.receipt.push(normalizeReceipt({number:'R-0001',date:'2026-09-20',customerId:cust.id,method:'cheque',reference:'#1042',amount:500,allocations:[{orderId:o.id,amount:200}]}));
+ eq('CSV для QuickBooks: оплаты и возвраты одной таблицей по дате, возврат — отрицательным числом, аннулированная — Void с причиной',await t.p.evaluate(()=>{
+  finCleanup();DB.refund=[];const {cust,o}=finFixture({code:'QACSV',legalName:'QA CSV, Ltd'});
+  DB.receipt.push(normalizeReceipt({id:'CSV-1',number:'R-0001',date:'2026-09-20',customerId:cust.id,method:'cheque',reference:'#1042',amount:500,allocations:[{orderId:o.id,amount:200}]}));
   DB.receipt.push(normalizeReceipt({number:'R-0002',date:'2026-09-21',customerId:cust.id,method:'cash',amount:50,voided:true,voidReason:'Duplicate'}));
-  const lines=finReceiptsCsv(DB.receipt).split('\r\n');
-  return {head:lines[0],first:lines[1]===['R-0001','2026-09-20','"QA CSV, Ltd"','QACSV','Cheque','#1042','500.00','200.00',o.businessNumber+': 200.00','300.00','Active','',''].join(','),second:lines[2]};
- }),{head:'Receipt No,Date,Customer,Customer Account,Method,Reference,Amount,Applied,Applied To Orders,On Account,Status,Void Reason,Note',first:true,second:'R-0002,2026-09-21,"QA CSV, Ltd",QACSV,Cash,,50.00,0.00,,0.00,Void,Duplicate,'});
-
+  const refund=finCreateRefund({receiptId:'CSV-1',amount:25,date:'2026-09-22',method:'cheque',reason:'Returned'});
+  const lines=finMovementsCSV(DB.receipt,DB.refund).split('\r\n');DB.refund=[];DB.financeEvent=[];
+  return {head:lines[0],first:lines[1]===['2026-09-20','R-0001','Payment','"QA CSV, Ltd"','QACSV','Cheque','#1042','500.00','CAD',o.businessNumber+': 200.00','Active','',''].join(','),second:lines[2],third:lines[3]===['2026-09-22',refund.number,'Refund','"QA CSV, Ltd"','QACSV','Cheque','','-25.00','CAD','Payment R-0001','Active','Returned',''].join(',')};
+ }),{head:'Date,Document,Type,Customer,Account,Method,Reference,Amount,Currency,Applied to orders,Status,Note,QuickBooks',first:true,second:'2026-09-21,R-0002,Payment,"QA CSV, Ltd",QACSV,Cash,,50.00,CAD,,Void,Duplicate,',third:true});
  eq('Proforma: «Paid to date» и «Balance due» в итогах, депозит к оплате уменьшается на внесённое',await t.p.evaluate(()=>{
   finCleanup();const {cust,o,total}=finFixture(),part=finMoney(total*.2),dep=salesMoney(total*.5);
   DB.receipt.push(normalizeReceipt({number:'R-0001',customerId:cust.id,amount:part,allocations:[{orderId:o.id,amount:part}]}));

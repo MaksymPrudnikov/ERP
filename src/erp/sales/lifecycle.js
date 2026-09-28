@@ -159,11 +159,19 @@ function salesTransitionChecks(o,next){
    if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
   }
  }
- const datedCredit=next==='done'&&terms.paymentMode==='credit'&&finPaymentDue(o)>=finToday()&&c&&!c.onHold&&!finCustomerAccount(c).overLimit;
- if((next==='done'||next==='closed')&&!datedCredit&&b.balance!=null&&b.balance>0){
-  out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Receipt total',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
+ /* Кредит: товар уходит без оплаты — срок считается от дня выдачи
+    (finPaymentDue). Остановка только если клиент уже опаздывает, на Hold
+    или за лимитом; иначе каждая выдача Net-клиенту пугала бы «Take payment». */
+ const anyway=o.delivery==='delivery'?'Deliver anyway':'Pick up anyway';
+ if(next==='done'&&terms.paymentMode==='credit'&&b.balance!=null&&b.balance>0){
+  const late=c?finCustomerOverdue(c.id):0,acc=c?finCustomerAccount(c):null;
+  if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway});
+  else if(late>0)out.push({title:name+' has overdue payments',sub,rows:[['Overdue',finFmt(late),true]],note:'Collect before release.',anyway});
+  else if(acc&&acc.overLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due',finFmt(acc.balanceDue),true]],note:'',anyway});
+ }else if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
+  out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Paid',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
    note:next==='done'?'Take payment first.':'Balance due.',
-   anyway:next==='closed'?'Close anyway':o.delivery==='delivery'?'Deliver anyway':'Pick up anyway',pay:next==='done'?b.balance:null});
+   anyway:next==='closed'?'Close anyway':anyway,pay:next==='done'?b.balance:null});
  }
  return out;
 }
@@ -296,7 +304,8 @@ function salesConvertQuoteRecord(id){
  const quote=DB.salesOrder.find(o=>o.id===id);if(!quote||!salesIsQuote(quote)||salesQuoteWonMember(quote))return;
  const now=new Date().toISOString();
  const copy=salesCopySalesRecord(quote,{kind:'order',status:'new',statusDates:{new:now},businessNumber:nextSalesOrderNumber(),fromQuoteId:quote.id,wonOrderId:'',quoteGroupId:'',quoteRev:0,sentAt:'',validUntil:'',createdAt:now,updatedAt:now});
- DB.salesOrder.push(normalizeSalesOrder(copy));
+ const order=normalizeSalesOrder(copy);DB.salesOrder.push(order);
+ if(typeof finCaptureTerms==='function')finCaptureTerms(order);
  quote.status='won';quote.wonOrderId=copy.id;quote.statusDates=Object.assign({},quote.statusDates,{won:now});quote.updatedAt=now;
  normalizeSalesData();touch();
  salesOrderEdit(copy.id);

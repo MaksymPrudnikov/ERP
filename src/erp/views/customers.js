@@ -64,6 +64,7 @@ function customerForm(){
  const c=cDraft;
  return `<div class="card customer-editor">
   <div class="section-title"><div><h3>${cEdit==='new'?'New customer':raw(c.displayName||c.legalName||'Customer')}</h3><div class="sub">Internal ID: <span class="mono" data-raw>${esc(c.id)}</span></div></div><div class="row customer-editor-actions"><button class="pri" onclick="saveCustomer()">Save</button><button onclick="cEdit=null;cDraft=null;render()">Cancel</button></div></div>
+  ${cEdit!=='new'&&typeof finCustomerStrip==='function'?finCustomerStrip(cEdit):''}
   <div class="tabs customer-tabs">${customerTabButton('general','General')}${customerTabButton('contacts','Contacts')}${customerTabButton('addresses','Addresses')}${customerTabButton('credit','Credit & terms')}${customerTabButton('accounting','Accounting')}${customerTabButton('legacy','Legacy IDs')}</div>
   ${cTab==='general'?customerGeneralForm():cTab==='contacts'?customerContactsForm():cTab==='addresses'?customerAddressesForm():cTab==='credit'?customerCreditForm():cTab==='accounting'?customerAccountingForm():customerLegacyForm()}
   <div class="err" id="e_customer"></div>

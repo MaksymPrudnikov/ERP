@@ -2,7 +2,7 @@
    erp/finance/data  ·  finance-1.0
    Оплаты клиентов: квитанции, разнесение по заказам, депозит на счёте.
    IN : DB.receipt, DB.salesOrder, DB.customer
-   OUT: баланс заказа, депозит и счёт клиента, CSV для QuickBooks
+   OUT: баланс заказа, депозит и счёт клиента
    Правило: сумма заказа берётся из расчёта самого заказа
    (salesOrderCommercialTotals) — своих цен здесь нет. Бухгалтерии здесь тоже
    нет: владелец переносит оплаты в QuickBooks руками (14 сентября 2026),
@@ -13,8 +13,12 @@
 DEFAULT.receipt=[];
 if(!Array.isArray(DB.receipt))DB.receipt=[];
 
-const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'card',label:'Card'}];
+/* Debit и Credit card раздельно (владелец, 28 сентября 2026): сбор за карту
+   берётся только с кредитки. Старое общее «Card» остаётся читаемым у прежних
+   оплат, но для новых не предлагается — задним числом его не угадываем. */
+const FIN_METHODS=[{k:'cash',label:'Cash'},{k:'cheque',label:'Cheque'},{k:'etransfer',label:'E-transfer'},{k:'debit',label:'Debit'},{k:'creditcard',label:'Credit card'},{k:'card',label:'Card',legacy:true}];
 function finMethodLabel(k){const m=FIN_METHODS.find(x=>x.k===k);return m?m.label:'Other';}
+function finMethodChoices(current){return FIN_METHODS.filter(m=>!m.legacy||m.k===current);}
 function finMoney(v){const n=Number(v);return Number.isFinite(n)?Math.round((n+Number.EPSILON)*100)/100:0;}
 function finUid(){
  try{if(globalThis.crypto&&typeof crypto.randomUUID==='function')return 'RCPT-'+crypto.randomUUID();}catch(e){}
@@ -164,14 +168,7 @@ function finVoidReceipt(id,reason){
  return true;
 }
 
-function finCsvCell(v){let s=String(v==null?'':v);if(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+/* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
+   ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
+function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
-function finReceiptsCsv(rows){
- const H=['Receipt No','Date','Customer','Customer Account','Method','Reference','Amount','Applied','Applied To Orders','On Account','Status','Void Reason','Note'];
- const body=rows.map(r=>{
-  const c=(DB.customer||[]).find(x=>x.id===r.customerId)||{};
-  return [r.number,r.date,c.legalName||c.displayName||'',c.code||'',finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finReceiptApplied(r).toFixed(2),
-   r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),finReceiptOnAccount(r).toFixed(2),r.voided?'Void':'Active',r.voidReason,r.note];
- });
- return [H].concat(body).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
-}
