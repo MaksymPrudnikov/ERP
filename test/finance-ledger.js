@@ -167,6 +167,11 @@ module.exports=async function({page,eq}){
   salesListSetFilter('po',{conds:[{op:'contains',v:'d3'}]});out.po=dueNumbers();
   return out;
  }),{overdue:['closed','late'],next7:['today','d7'],next30:['today','d7','d8','d30'],empty:['undated'],cash:['d7'],po:['d30','d31']});
+ eq('due date block: the Overdue quick button applies by click (no lower date bound) and shows «Overdue»',await t.p.evaluate(()=>{
+  financeScheduleSeed();document.querySelector('[data-date-col="due"]').click();document.querySelector('[data-range-preset="overdue"]').click();
+  const from=document.querySelector('[data-range-from]').value;document.querySelector('[data-range-apply]').click();
+  return {from,menu:!!salesListMenu,rows:dueNumbers(),label:document.querySelector('[data-date-col="due"]').textContent.includes('Overdue')};
+ }),{from:'',menu:false,rows:['closed','late'],label:true});
  eq('due range: reversed dates are refused in the date block; calendar days survive leap days and DST',await t.p.evaluate(()=>{
   financeScheduleSeed();document.querySelector('[data-date-col="due"]').click();salesListDateInput('from','2026-03-16');salesListDateInput('to','2026-03-01');salesListDateApply();
   const error=!!salesListMenu&&/From must not be after To/.test(salesListMenu.error);salesListCloseMenu();
