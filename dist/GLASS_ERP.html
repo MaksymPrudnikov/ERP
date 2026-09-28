@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 91 модулей, 14 стиля.
+  Состав сборки: 92 модулей, 14 стиля.
 -->
 <html lang="en">
 <head>
@@ -1181,15 +1181,10 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 /* ---- src/styles/finance.css ---- */
 /* Finance: оплаты клиентов, счета клиентов, полоса оплат в шапке заказа. */
 .fin-card .tabs{margin-bottom:14px}
-.fin-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.fin-search{flex:0 1 280px;min-width:180px}
 .fin-seg{display:inline-flex;border:1px solid var(--line,#d0d5dd);border-radius:8px;overflow:hidden}
 .fin-seg button{border:0;border-right:1px solid var(--line,#d0d5dd);border-radius:0;background:#fff;padding:6px 11px;font-size:12px}
 .fin-seg button:last-child{border-right:0}
 .fin-seg button.on{background:#16325c;color:#fff;font-weight:700}
-.fin-date{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;color:var(--muted,#667085);text-transform:none;letter-spacing:normal;font-weight:600}
-.fin-date input{width:auto}
-.fin-spacer{flex:1}
 .fin-table-wrap{overflow-x:auto}
 .fin-table{width:100%;border-collapse:collapse}
 .fin-table th,.fin-table td{vertical-align:top}
@@ -1254,10 +1249,17 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .fin-history-box{margin-top:18px}.fin-history-box>summary{cursor:pointer;font-size:12px;font-weight:700;color:#647782}
 .fin-history{margin-top:8px}.fin-event{border-bottom:1px solid var(--line)}.fin-event summary{display:flex;gap:12px;align-items:start;padding:10px 2px;cursor:pointer}.fin-event summary>span:nth-child(2){flex:1}.fin-event summary small{display:block;color:#647782;margin-top:4px;font-size:11px}.fin-event-no{font-size:11px;color:#82939d;padding-top:2px;min-width:32px}.fin-event-time{text-align:right;font-size:11px}.fin-event-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px 46px}.fin-event-diff section{background:#f5f8fa;padding:12px;border-radius:8px}.fin-event-diff h5{margin:0 0 8px}.fin-event-diff dl{display:grid;grid-template-columns:100px 1fr;gap:8px;margin:0;font-size:12px}.fin-event-diff dt{color:#647782}.fin-event-diff dd{margin:0;overflow-wrap:anywhere}
 .fin-card h4{margin:22px 0 10px}.fin-modal-body>.fin-grid{margin-bottom:14px}.fin-modal-body label{text-transform:none}.fin-modal-body label small{display:block;margin-top:3px;font-weight:500;text-transform:none;letter-spacing:0}.fin-card button:focus-visible,.fin-modal button:focus-visible,.fin-stat:focus-visible{outline:3px solid #79b6d8;outline-offset:2px}
-.fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:#eef1f5;flex:1}.fin-preview .fin-preview-note{margin:8px 16px 0}.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,#e3e7ee)}
+.fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:#eef1f5;flex:1}.fin-preview .fin-preview-note{margin:8px 16px 0}
 .fin-statements{width:min(980px,96vw)}.fin-preview-back{z-index:120}
 @media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
-.fin-toolbar>input{width:auto;flex:0 1 280px;min-width:180px}.fin-toolbar>select{width:auto;min-width:150px}.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
+.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
+/* Таблицы Finance на движке Sales (views/finance-lists) */
+.fin-card .sl-quiet.on{background:#16325c;border-color:#16325c;color:#fff}
+.fin-list td.fin-actions,.fin-list th.fin-actions{text-align:right;width:1%}
+.fin-list tr.fin-void td{color:#98a2b3}
+.fin-list td .small{font-size:11px}
+.sl-backdrop.fin-range-back{z-index:139}.sl-menu.fin-range-menu{z-index:140}
+.fin-preview .sales-toolbar.fin-preview-period{margin:0;padding:10px 16px;border-bottom:1px solid var(--line,#e3e7ee)}
 
 /* ---- src/styles/lifecycle.css ---- */
 /* Квота и заказ: галочки Show, фильтр статусов, цепочка шагов, замок строк
@@ -1419,9 +1421,9 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-hold-choice input[type=text]{flex:1;min-width:0}
 
 /* Sales: спокойная панель, скрытые настройки и диапазон создания. */
-.sales-list-card .sales-toolbar{justify-content:flex-start;gap:6px;margin-bottom:8px}
-.sales-list-card .sl-quiet{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 8px;border:1px solid #e4e7ec;border-radius:7px;background:#fff;color:#475467;font-size:12px;font-weight:600;box-shadow:none}
-.sales-list-card .sl-quiet:hover{background:#f8fafc;border-color:#98a2b3}
+.sales-list-card .sales-toolbar,.fin-card .sales-toolbar,.fin-modal-back .sales-toolbar{justify-content:flex-start;gap:6px;margin-bottom:8px}
+.sales-list-card .sl-quiet,.fin-card .sl-quiet,.fin-modal-back .sl-quiet{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:3px 8px;border:1px solid #e4e7ec;border-radius:7px;background:#fff;color:#475467;font-size:12px;font-weight:600;box-shadow:none}
+.sales-list-card .sl-quiet:hover,.fin-card .sl-quiet:hover,.fin-modal-back .sl-quiet:hover{background:#f8fafc;border-color:#98a2b3}
 .sales-list-card .sl-hold-quiet{color:#667085;border-color:transparent}
 .sales-list-card .sl-hold-quiet:disabled{opacity:.45}
 .sl-view-controls{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:0 0 9px}
@@ -1429,7 +1431,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sl-status-options{display:flex;gap:5px;flex-wrap:wrap;align-items:center;max-width:100%;order:3;flex-basis:100%}
 .sales-status-chips .sl-status-toggle{display:inline-flex;gap:5px;align-items:center;height:28px;padding:3px 8px;border-radius:7px;color:#344054;font-weight:600;background:#fff;border:1px solid #e4e7ec;box-shadow:none}
 .sales-status-chips .sl-status-toggle b{font-size:11px;font-weight:500;color:#667085;margin:0}
-.sales-list-card .sl-disclosure{display:inline-block;width:9px;margin-left:2px;font-size:9px;line-height:1;text-align:center;color:#667085}
+.sales-list-card .sl-disclosure,.fin-card .sl-disclosure,.fin-modal-back .sl-disclosure{display:inline-block;width:9px;margin-left:2px;font-size:9px;line-height:1;text-align:center;color:#667085}
 .sl-header-tools{display:flex;align-items:center;gap:3px}
 .sl-table th.sl-check:has(.sl-header-tools){min-width:48px;padding-right:4px}
 .sl-settings{border:0;background:transparent;padding:3px;border-radius:5px;width:26px;height:26px;color:#667085;cursor:pointer}
@@ -2033,7 +2035,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='308f4374f508';
+var ERP_BUILD='206ed24193e2';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -11092,7 +11094,7 @@ function finStatementLines(customerId){
  (DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)&&finCurrency(o)==='CAD').forEach(o=>{
   const billed=finBillingDate(o);if(!billed)return;
   const f=finOrderFinancial(o);if(f.b.total==null){skipped.push(o);return;}
-  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · PO '+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
+  lines.push({date:billed,sort:0,doc:o.businessNumber,kind:'order',text:'Order'+(o.customerPo?' · '+(/^po/i.test(o.customerPo)?'':'PO ')+o.customerPo:'')+(f.dueOn?' · due '+finShortDate(f.dueOn,'0000'):''),charge:f.b.total,payment:0,overdue:f.overdue>0});
  });
  finActiveReceipts().filter(r=>r.customerId===customerId&&finCurrency(r)==='CAD').forEach(r=>lines.push({date:r.date,sort:1,doc:r.number,kind:'payment',
   text:'Payment · '+finMethodLabel(r.method)+(r.reference?' '+r.reference:'')+(r.allocations.length?' · '+r.allocations.map(a=>finOrderNumber(a.orderId)).join(', '):''),charge:0,payment:r.amount}));
@@ -16186,7 +16188,7 @@ function finStatementDoc(customerId,from,to,today){
  ];
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
  if(orders.some(x=>!x.billed))left.push({label:'In work',text:'Orders not yet picked up are billed on pickup.'+(d.prepaid>0?' '+money(d.prepaid)+' already paid on them is in the balance.':'')});
- const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:'-'+money(d.paid)}];
+ const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
@@ -16199,15 +16201,16 @@ function finStatementCSV(customerId,from,to){
   d.rows.map(l=>[l.date,l.doc,kind[l.kind],l.text,l.charge?l.charge.toFixed(2):'',l.payment?l.payment.toFixed(2):'',l.balance.toFixed(2)]),
   [[to||'','','Closing balance','','','',d.closing.toFixed(2)]]).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
-/* Внутренний список «кто и когда должен заплатить» — для обзвона. */
-function finScheduleDoc(result,filter){
- const day=finToday(),money=docMoney,m=finDocBase('PAYMENTS DUE','Payments due',docDate(day),null);
- m.numberLabel='';m.customerName=finDueDescription(filter,result.range);m.footerLeft='';
- m.meta=[{label:'Selection',value:m.customerName},{label:'Orders',value:String(result.rows.length)},{label:'Customers',value:String(result.customers)},{label:'Currency',value:'CAD'}];
+/* Внутренний список «кто и когда должен заплатить» — для обзвона. Строки —
+   те, что сейчас видны в таблице Due dates после фильтров колонок. */
+function finScheduleDoc(rows,selection){
+ const day=finToday(),money=docMoney,m=finDocBase('PAYMENTS DUE','Payments due',docDate(day),null),total=finMoney(rows.reduce((s,x)=>s+x.f.b.balance,0)),customers=new Set(rows.map(x=>x.o.customerId)).size;
+ m.numberLabel='';m.customerName=selection||'All unpaid';m.footerLeft='';
+ m.meta=[{label:'Selection',value:m.customerName},{label:'Orders',value:String(rows.length)},{label:'Customers',value:String(customers)},{label:'Currency',value:'CAD'}];
  m.cols=[{label:'Due',x:36,w:62,due:true},{label:'Customer',x:104,w:124,bold:true},{label:'Order · PO',x:234,w:106},{label:'Terms',x:346,w:88},{label:'Timing',x:440,w:76,due:true},{label:'Outstanding',x:576,w:56,align:'right',bold:true}];
- m.rows=result.rows.map(x=>({due:x.days!=null&&x.days<0,cells:[x.f.dueOn?docDate(x.f.dueOn):finDueText(x.f),finCustomerName(x.c),x.o.businessNumber+(x.o.customerPo?' · '+x.o.customerPo:''),paymentTermsLabel(x.f.terms),finDueTiming(x),money(x.f.b.balance)]}));
+ m.rows=rows.map(x=>({due:x.days!=null&&x.days<0,cells:[x.f.dueOn?docDate(x.f.dueOn):finDueText(x.f),finCustomerName(x.c),x.o.businessNumber+(x.o.customerPo?' · '+x.o.customerPo:''),paymentTermsLabel(x.f.terms),finDueTiming(x),money(x.f.b.balance)]}));
  m.empty='No unpaid orders in this selection.';
- m.end={left:[],rows:[],grand:{label:'Outstanding',value:money(result.total)}};
+ m.end={left:[],rows:[],grand:{label:'Outstanding',value:money(total)}};
  return finDocLayout(m);
 }
 /* Балансы всех клиентов (или отфильтрованных) — кто сколько должен и чьи
@@ -21561,52 +21564,14 @@ function companyLogoUpload(input){
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
-let finTab='accounts',finSearch='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
+let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
 function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
-function finSearchChange(el){
- finSearch=el.value;const pos=el.selectionStart;render();
- requestAnimationFrame(()=>{const e=document.getElementById('finSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
-}
-
 function viewFinance(){return finWorkspaceHTML();}
 
-/* ------------------------------ Receipts ----------------------------- */
-function finFilteredReceipts(){
- const q=finSearch.trim().toLowerCase();
- return (DB.receipt||[]).filter(r=>{
-  if(finCustomerFilter&&r.customerId!==finCustomerFilter)return false;
-  if(finOrderFilter&&!r.allocations.some(a=>a.orderId===finOrderFilter)&&!finHistoryFor(r.id).some(e=>(e.orders||[]).some(o=>o.id===finOrderFilter)))return false;
-  if(finFrom&&r.date<finFrom)return false;
-  if(finTo&&r.date>finTo)return false;
-  if(!q)return true;
-  const c=salesFindCustomer(r.customerId)||{};
-  return [r.number,r.reference,r.note,c.legalName,c.displayName,c.code].concat(r.allocations.map(a=>finOrderNumber(a.orderId))).join(' ').toLowerCase().includes(q);
- }).sort((a,b)=>(b.date+b.number).localeCompare(a.date+a.number));
-}
-function finReceiptsView(){
- const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided&&finCurrency(r)==='CAD');
- return `${finFilterChips()}<div class="fin-toolbar"><input class="fin-search" id="finSearch" value="${esc(finSearch)}" placeholder="Search customer, order, cheque #…" oninput="finSearchChange(this)">
-  <label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;render()"></label>
-  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th></tr></thead>
- <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="7" class="empty">No payments</td></tr>'}</tbody>
- ${active.length?`<tfoot><tr><td colspan="4">${active.length} ${active.length===1?'payment':'payments'}</td><td class="n"><b>${finFmt(finMoney(active.reduce((s,r)=>s+r.amount,0)))}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
-}
-function finReceiptRow(r){
- const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r),refunded=finRefunded(r.id);
- const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">—</span>';
- return `<tr class="fin-row${r.voided?' fin-void':''}" data-receipt="${esc(r.id)}" onclick="finOpenReceipt('${esc(r.id)}')"><td><button type="button" class="fin-link mono" onclick="event.stopPropagation();finOpenReceipt('${esc(r.id)}')">${raw(r.number)}</button>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
-  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b>${finCurrency(r)!=='CAD'?` <span class="mut small">${esc(finCurrency(r))}</span>`:''}${refunded>0?`<div class="mut small">refunded ${finFmt(refunded)}</div>`:''}</td>
-  <td>${applied}${r.voided&&r.voidReason?`<div class="mut small">Void: ${raw(r.voidReason)}</div>`:''}</td>
-  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td></tr>`;
-}
-function finExportCsv(){
- const rows=finFilteredReceipts(),refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!finFrom||x.date>=finFrom)&&(!finTo||x.date<=finTo));
- customerDownload('payments'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
-}
+/* Таблица Payments — views/finance-lists (фильтры колонок как в Sales). */
 
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
@@ -21709,8 +21674,11 @@ function finVoidCurrent(){
 }
 
 /* --------------------- Переход к оплатам клиента/заказа --------------- */
-function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
-function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finFrom='';finTo='';render();}
+/* Переход «все оплаты клиента / заказа»: фильтры колонок снимаются, иначе
+   старая оплата спряталась бы за периодом по умолчанию. */
+function finPaymentsClearFilters(){salesListMenu=null;const p=salesListLoadPrefs();p.filters={};salesListSavePrefs();}
+function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finPaymentsClearFilters();render();}
+function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finPaymentsClearFilters();render();}
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){
@@ -21780,15 +21748,15 @@ function salesListBalanceCells(o){
    «минималистично и эффективно»). Команды — в finance/ledger; экран денег
    не придумывает.
    ===================================================================== */
-let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountQuery='',finAccountMode='open',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
+let finCustomerFilter='',finOrderFilter='',finAccountId='',finAccountPaid=false,finDraftBaseline='',finAction=null,finActionBaseline='',finPreview=null,finStatements=null;
 function finHasWork(){return !!(finDraft&&JSON.stringify(finDraft)!==finDraftBaseline||finAction&&JSON.stringify(finAction)!==finActionBaseline);}
 function finCanLeave(){return !finHasWork()||confirm('Discard unsaved finance changes?');}
 (window.NAV_GUARDS=window.NAV_GUARDS||[]).push(function(k,go){
  if(tab!=='finance')return false;if(!finCanLeave())return true;
- finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;return false;
+ finDraft=null;finEdit=null;finAction=null;finApply=null;finPreview=null;finStatements=null;finRangeMenu=null;return false;
 });
 window.addEventListener('beforeunload',function(e){if(!finHasWork())return;e.preventDefault();e.returnValue='';});
-function finResetFilters(){finCustomerFilter='';finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
+function finResetFilters(){finCustomerFilter='';finOrderFilter='';render();}
 function finFilterChips(){
  const c=salesFindCustomer(finCustomerFilter);
  return finCustomerFilter||finOrderFilter?`<div class="fin-scope"><span>${esc(c?finCustomerName(c):'Order '+finOrderNumber(finOrderFilter))}</span><button class="sm" onclick="finResetFilters()">Show all</button></div>`:'';
@@ -21797,7 +21765,7 @@ const FIN_TABS=[['accounts','Accounts'],['schedule','Due dates'],['receipts','Pa
 function finWorkspaceHTML(){
  return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<button type="button" class="pri" onclick="finNewReceipt()">+ New receipt</button></div>
  <div class="tabs" role="tablist" aria-label="Finance sections">${FIN_TABS.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
- ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}`;
+ ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}${finStatementsHTML()}${finPreviewHTML()}${finRangeMenuHTML()}`;
 }
 /* Четыре цифры по всем клиентам и переход к списку за каждой. Сколько
    должны нам, сколько из этого просрочено, и сколько денег клиентов у нас:
@@ -21806,39 +21774,22 @@ function finOverviewHTML(){
  const m=finAllMoney(),tile=(label,value,sub,go,tone)=>`<button type="button" class="fin-stat${tone?' '+tone:''}" onclick="${go}"><span>${label}</span><strong>${finFmt(value)}</strong><small>${sub}</small></button>`;
  return `<div class="fin-overview">${tile('Customers owe',m.balance,m.orders+(m.orders===1?' order':' orders'),"finGoAccounts('balance')")}${tile('Overdue',m.overdue,m.lateCustomers?m.lateCustomers+(m.lateCustomers===1?' customer':' customers'):'none','finGoOverdue()',m.overdue>0?'bad':'')}${tile('Prepaid',m.prepaid,'orders in work',"finGoAccounts('prepaid')")}${tile('On account',m.deposit,'not applied',"finGoAccounts('deposit')")}</div>`;
 }
-function finGoOverdue(){if(!finCanLeave())return;finDraft=null;finEdit=null;finAccountId='';finTab='schedule';finSchedule=Object.assign({},finSchedule,{period:'overdue'});render();}
-function finGoAccounts(mode){if(!finCanLeave())return;finDraft=null;finEdit=null;finAccountId='';finTab='accounts';finAccountMode=mode;render();}
+function finGoOverdue(){finListFocus('schedule',{due:{preset:'overdue'}});}
+function finGoAccounts(col){finListFocus('accounts',{[col]:{conds:[{op:'gt',v:'0'}]}},false);}
 
 /* ------------------------------ Accounts ----------------------------- */
-const FIN_ACCOUNT_MODES=[['open','Open accounts'],['balance','Owe money'],['overdue','Overdue'],['prepaid','Prepaid'],['deposit','Money on account'],['all','All customers']];
+/* Таблица Accounts — views/finance-lists. Здесь цифры клиента и карточка. */
 function finAccountMetrics(c){
  const rows=(DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).map(o=>({o,f:finOrderFinancial(o)}));
  return {rows,account:finCustomerAccount(c),money:finCustomerMoney(c.id)};
 }
 function finAccountOpen(m){const x=m.money;return x.balance>0||x.deposit>0||x.prepaid>0||x.incomplete>0;}
-function finAccountsList(){
- const q=finAccountQuery.trim().toLowerCase();
- return (DB.customer||[]).map(c=>({c,m:finAccountMetrics(c)})).filter(({c,m})=>{
-  if(q&&![c.code,c.legalName,c.displayName].join(' ').toLowerCase().includes(q))return false;
-  const x=m.money;
-  if(finAccountMode==='balance')return x.balance>0;
-  if(finAccountMode==='overdue')return x.overdue>0;
-  if(finAccountMode==='prepaid')return x.prepaid>0;
-  if(finAccountMode==='deposit')return x.deposit>0;
-  if(finAccountMode==='all')return c.status!=='archived'||finAccountOpen(m);
-  return finAccountOpen(m);
- }).sort((x,y)=>y.m.money.overdue-x.m.money.overdue||y.m.money.balance-x.m.money.balance||finCustomerName(x.c).localeCompare(finCustomerName(y.c)));
-}
-function finMoneyCell(v,cls){return v>0?`<span class="${cls||''}">${finFmt(v)}</span>`:'<span class="mut">—</span>';}
-function finAccountsWorkspace(){
- const list=finAccountsList(),sum=k=>finMoney(list.reduce((s,x)=>s+x.m.money[k],0));
- return `<div class="fin-toolbar"><input id="finAccountSearch" aria-label="Search customer accounts" placeholder="Search customer…" value="${esc(finAccountQuery)}" oninput="finAccountQuery=this.value;finRerenderInput('finAccountSearch')"><select aria-label="Account filter" onchange="finAccountMode=this.value;render()">${FIN_ACCOUNT_MODES.map(([k,v])=>`<option value="${k}" ${finAccountMode===k?'selected':''}>${v}</option>`).join('')}</select><span class="fin-spacer"></span><button onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button ${list.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button ${list.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button></div>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Terms</th><th class="n">Balance</th><th class="n">Overdue</th><th class="n">Prepaid</th><th class="n">On account</th><th class="n">Credit limit</th><th></th></tr></thead><tbody>${list.map(({c,m})=>{const a=m.account,x=m.money;return `<tr data-account="${esc(c.id)}"><td><button class="fin-link" onclick="finOpenAccount('${esc(c.id)}')">${raw(finCustomerName(c))}</button><div class="mut small">${raw(c.code)}${c.status==='archived'?' · Archived':''}${c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td><td>${esc(a.terms)}</td><td class="n">${x.balance>0?`<b>${finFmt(x.balance)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td><td class="n">${finMoneyCell(x.overdue,'fin-due')}</td><td class="n">${finMoneyCell(x.prepaid)}</td><td class="n">${finMoneyCell(x.deposit,'fin-deposit')}</td><td class="n">${a.creditLimit==null?'<span class="mut">—</span>':finFmt(a.creditLimit)}${a.overLimit?'<div><span class="pill bad">Over limit</span></div>':''}</td><td class="fin-actions">${x.deposit>0&&x.balance>0?`<button class="sm" onclick="finOpenApply('${esc(c.id)}')">Apply deposit</button>`:''}</td></tr>`;}).join('')||`<tr><td colspan="8" class="empty">${finAccountMode==='open'&&!finAccountQuery?'No open balances':'No accounts match'}</td></tr>`}</tbody>
- ${list.length>1?`<tfoot><tr><td colspan="2">${list.length} customers</td><td class="n"><b>${finFmt(sum('balance'))}</b></td><td class="n">${finMoneyCell(sum('overdue'),'fin-due')}</td><td class="n">${finMoneyCell(sum('prepaid'))}</td><td class="n">${finMoneyCell(sum('deposit'),'fin-deposit')}</td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
-}
 function finBalancesCSV(list){return [['Customer','Account','Terms','Balance','Overdue','Prepaid','On account','Credit limit','Over limit','Orders not priced']].concat(list.map(({c,m})=>[finCustomerName(c),c.code||'',m.account.terms,m.money.balance.toFixed(2),m.money.overdue.toFixed(2),m.money.prepaid.toFixed(2),m.money.deposit.toFixed(2),m.account.creditLimit==null?'':m.account.creditLimit.toFixed(2),m.account.overLimit?'Yes':'',m.money.incomplete||''])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
 function finBalancesExport(){const list=finAccountsList();if(!list.length)return;customerDownload('customer-balances_'+finToday()+'.csv',finBalancesCSV(list),'text/csv;charset=utf-8');}
-function finRerenderInput(id){const el=document.getElementById(id),pos=el&&el.selectionStart;render();const next=document.getElementById(id);if(next){next.focus();if(pos!=null)next.setSelectionRange(pos,pos);}}
+function finListDescription(){
+ const p=salesListLoadPrefs(),parts=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])).map(k=>salesListFilterSummary(salesListColumn(k),p.filters[k]));
+ return parts.join(' · ');
+}
 function finOpenAccount(id){if(!finCanLeave())return;finDraft=null;finEdit=null;finAction=null;tab='finance';finTab='accounts';finAccountId=id;finAccountPaid=false;render();}
 function finStatusPill(f){return `<span class="pill ${f.tone}">${esc(f.status)}</span>`;}
 function finAccountHTML(){
@@ -21885,17 +21836,15 @@ function finJournalTable(rows){return `<div class="fin-history">${rows.slice().s
    Print и Email PDF (PDF в Загрузки + Gmail с готовым адресом и текстом).
    У выписки сверху период: прошлый месяц, этот месяц или свои даты. */
 function finOpenPreview(kind,id){finPreview={kind,id:id||'',status:''};render();}
-function finOpenStatement(id,range){const r=range||finMonthRange(-1);finPreview={kind:'statement',id,from:r.from,to:r.to,period:range?'custom':'last',status:''};render();}
+function finOpenStatement(id,range){const r=range||finMonthRange(-1);finPreview={kind:'statement',id,from:r.from,to:r.to,status:''};render();}
 function finClosePreview(){finPreview=null;render();}
-function finStatementPeriod(v){if(!finPreview)return;if(v==='last'||v==='this'){const r=finMonthRange(v==='last'?-1:0);finPreview.from=r.from;finPreview.to=r.to;}finPreview.period=v;finPreview.status='';render();}
-function finStatementDate(k,v){if(!finPreview)return;finPreview[k]=v;finPreview.period='custom';finPreview.status='';render();}
 function finPeriodError(p){return p.from&&!finDateValid(p.from)||p.to&&!finDateValid(p.to)||p.from&&p.to&&p.from>p.to?'From must be on or before To.':'';}
 function finPreviewPages(){
  const p=finPreview;if(!p)return [];
  if(p.kind==='receipt')return finReceiptDoc(p.id);
  if(p.kind==='statement')return finPeriodError(p)?[]:finStatementDoc(p.id,p.from,p.to);
- if(p.kind==='balances')return finBalancesDoc(finAccountsList(),FIN_ACCOUNT_MODES.find(x=>x[0]===finAccountMode)[1]+(finAccountQuery.trim()?' · '+finAccountQuery.trim():''));
- return finScheduleDoc(finDueRows(finSchedule),finSchedule);
+ if(p.kind==='balances')return finBalancesDoc(finAccountsList(),[finAccountAll?'All customers':'Open accounts',finListDescription()].filter(Boolean).join(' · '));
+ return finScheduleDoc(finDueFiltered(),finListDescription()||'All unpaid');
 }
 function finStatementMail(id,from,to){
  const d=finStatementData(id,from,to),lines=['Please find attached your statement for '+finPeriodText(from,to)+'.',''];
@@ -21915,7 +21864,7 @@ function finPreviewInfo(){
 }
 function finStatementControls(p){
  const err=finPeriodError(p),skipped=err?[]:finStatementData(p.id,p.from,p.to).skipped;
- return `<div class="fin-toolbar fin-preview-period"><select aria-label="Statement period" onchange="finStatementPeriod(this.value)">${[['last','Last month'],['this','This month'],['custom','Custom dates']].map(([k,v])=>`<option value="${k}" ${p.period===k?'selected':''}>${v}</option>`).join('')}</select><label class="fin-date">From <input type="date" aria-label="Statement from" value="${esc(p.from)}" onchange="finStatementDate('from',this.value)"></label><label class="fin-date">To <input type="date" aria-label="Statement to" value="${esc(p.to)}" onchange="finStatementDate('to',this.value)"></label><span class="fin-spacer"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
+ return `<div class="sales-toolbar fin-preview-period">${finRangeButton('preview')}<span class="sales-toolbar-sp"></span><button type="button" ${err?'disabled':''} onclick="finStatementExport()" title="Account activity for the customer's books">CSV</button></div>
  ${err?`<p role="alert" class="fin-due fin-preview-note">${esc(err)}</p>`:''}${skipped.length?`<p class="fin-hint fin-preview-note">Not priced, left out: ${esc(skipped.map(o=>o.businessNumber).join(', '))}</p>`:''}`;
 }
 function finStatementExport(){const p=finPreview;if(!p||finPeriodError(p))return;const c=salesFindCustomer(p.id);customerDownload('Statement_'+((c&&c.code)||'account').replace(/[^A-Za-z0-9-]+/g,'_')+'_'+(p.from||'start')+'_'+(p.to||finToday())+'.csv',finStatementCSV(p.id,p.from,p.to),'text/csv;charset=utf-8');}
@@ -21953,10 +21902,8 @@ function finEmailPreview(){
 /* ----------------------- Выписки за месяц всем ---------------------- */
 /* Раз в месяц: список клиентов, у которых было движение или есть остаток,
    с суммами периода; у каждого — посмотреть и отправить PDF. */
-function finOpenStatements(){const r=finMonthRange(-1);finStatements={from:r.from,to:r.to,period:'last',sent:{}};render();}
+function finOpenStatements(){const r=finMonthRange(-1);finStatements={from:r.from,to:r.to,sent:{}};render();}
 function finCloseStatements(){finStatements=null;render();}
-function finStatementsPeriod(v){if(v==='last'||v==='this'){const r=finMonthRange(v==='last'?-1:0);finStatements.from=r.from;finStatements.to=r.to;}finStatements.period=v;render();}
-function finStatementsDate(k,v){finStatements[k]=v;finStatements.period='custom';render();}
 function finStatementsList(){
  const p=finStatements;if(!p||finPeriodError(p))return [];
  return (DB.customer||[]).map(c=>({c,d:finStatementData(c.id,p.from,p.to)})).filter(x=>x.d.rows.length||x.d.opening!==0||x.d.closing!==0)
@@ -21971,11 +21918,37 @@ function finStatementsEmail(id){
 function finStatementsHTML(){
  const p=finStatements;if(!p)return '';const err=finPeriodError(p),list=finStatementsList();
  return `<div class="sales-service-modal-back fin-modal-back" onclick="if(event.target===this)finCloseStatements()"><div class="sales-service-modal fin-statements" role="dialog" aria-modal="true" aria-label="Statements"><div class="sales-service-modal-head"><h3>Statements · ${esc(err?'':finPeriodText(p.from,p.to))}</h3><button type="button" aria-label="Close" onclick="finCloseStatements()">×</button></div>
- <div class="fin-modal-body"><div class="fin-toolbar"><select aria-label="Statements period" onchange="finStatementsPeriod(this.value)">${[['last','Last month'],['this','This month'],['custom','Custom dates']].map(([k,v])=>`<option value="${k}" ${p.period===k?'selected':''}>${v}</option>`).join('')}</select><label class="fin-date">From <input type="date" aria-label="Statements from" value="${esc(p.from)}" onchange="finStatementsDate('from',this.value)"></label><label class="fin-date">To <input type="date" aria-label="Statements to" value="${esc(p.to)}" onchange="finStatementsDate('to',this.value)"></label></div>
+ <div class="fin-modal-body"><div class="sales-toolbar">${finRangeButton('statements')}</div>
  ${err?`<p role="alert" class="fin-due">${esc(err)}</p>`:''}
  <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Customer</th><th>Email</th><th class="n">Balance forward</th><th class="n">Billed</th><th class="n">Paid</th><th class="n">Balance</th><th></th></tr></thead><tbody>${list.map(({c,d})=>{const to=c.invoiceEmail||customerPrimaryContact(c).email||'';return `<tr data-statement="${esc(c.id)}"><td><b>${raw(finCustomerName(c))}</b><div class="mut small">${raw(c.code)}</div></td><td>${to?esc(to):'<span class="mut">no email</span>'}</td><td class="n">${finSigned(d.opening)}</td><td class="n">${d.billed?finFmt(d.billed):'<span class="mut">—</span>'}</td><td class="n">${d.paid?finFmt(d.paid):'<span class="mut">—</span>'}</td><td class="n"><b>${finSigned(d.closing)}</b></td><td class="fin-actions">${p.sent[c.id]?'<span class="pill good">Emailed</span> ':''}<button class="sm" onclick="finOpenStatement('${esc(c.id)}',{from:finStatements.from,to:finStatements.to})">View</button><button class="sm pri" onclick="finStatementsEmail('${esc(c.id)}')">Email PDF</button></td></tr>`;}).join('')||`<tr><td colspan="7" class="empty">${err?'Correct the dates.':'No activity in this period.'}</td></tr>`}</tbody></table></div>
  ${Object.keys(p.sent).length?'<p class="mut small">PDFs are in Downloads — drag each into its Gmail message.</p>':''}</div></div></div>`;
 }
+
+/* ----------------------- Период: блок дат как у Sales ------------------ */
+/* Выписке нужен закрытый период, поэтому быстрые кнопки — месяцы; вид и
+   поведение — как блок Created в Sales. */
+let finRangeMenu=null;
+const FIN_STATEMENT_RANGE=[['lastMonth','Last month'],['thisMonth','This month'],['thisYear','This year']];
+function finRangeState(target){return target==='statements'?finStatements:finPreview;}
+function finRangeLabel(s){const k=FIN_STATEMENT_RANGE.find(x=>{const r=salesListPresetRange(x[0]);return r&&r[0]===s.from&&r[1]===s.to;});return k?k[1]:s.from&&s.to?salesListShortDay(s.from)+' – '+salesListShortDay(s.to):'Choose dates';}
+function finRangeButton(target){const s=finRangeState(target);return s?`<button type="button" class="sl-quiet sl-date-toggle" data-period="${target}" aria-haspopup="dialog" onclick="finRangeOpen(event,'${target}')">Period: ${esc(finRangeLabel(s))}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`:'';}
+function finRangeOpen(e,target){const s=finRangeState(target);if(!s)return;finRangeMenu=Object.assign({target,from:s.from,to:s.to,error:''},salesListAt(e,340));render();}
+function finRangePreset(k){const r=salesListPresetRange(k);if(!finRangeMenu||!r)return;Object.assign(finRangeMenu,{from:r[0],to:r[1],error:''});render();}
+function finRangeInput(k,v){if(finRangeMenu){finRangeMenu[k]=v;finRangeMenu.error='';}}
+function finRangeApply(){
+ const m=finRangeMenu,s=m&&finRangeState(m.target);if(!s)return;
+ if(!m.from||!m.to||!salesListValidDay(m.from)||!salesListValidDay(m.to)||m.from>m.to){m.error='Choose a valid range. From must not be after To.';render();return;}
+ s.from=m.from;s.to=m.to;if('status' in s)s.status='';finRangeMenu=null;render();
+}
+function finRangeClose(){finRangeMenu=null;render();}
+function finRangeMenuHTML(){
+ const m=finRangeMenu;if(!m||!finRangeState(m.target))return '';
+ const top=Math.max(8,Math.min(m.y,window.innerHeight-80)),style=`left:${Math.max(8,Math.min(m.x,window.innerWidth-(m.w||340)-8))}px;top:${top}px`;
+ return `<div class="sl-backdrop fin-range-back" onclick="finRangeClose()"></div><div class="sl-menu sl-date-menu fin-range-menu" style="${style}" role="dialog" aria-label="Statement period"><div class="sl-date-presets">${FIN_STATEMENT_RANGE.map(([k,v])=>{const r=salesListPresetRange(k),on=r&&r[0]===m.from&&r[1]===m.to;return `<button type="button" class="sl-btn${on?' on':''}" data-range-preset="${k}" onclick="finRangePreset('${k}')">${v}</button>`;}).join('')}</div>
+  <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="finRangeInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="finRangeInput('to',this.value)"></label></div>
+  ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="finRangeApply()">Apply</button></div></div>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&finRangeMenu){e.preventDefault();finRangeClose();}});
 
 /* -------------------------------- CSV -------------------------------- */
 /* Движение денег для переноса в QuickBooks: оплаты и возвраты одной
@@ -22023,68 +21996,210 @@ function finCustomerStrip(customerId){
 
 /* ==== src/erp/views/finance-schedule.js ==== */
 /* =====================================================================
-   views/finance-schedule  ·  finance-1.1
-   Вкладка Due dates: неоплаченные остатки заказов по сроку оплаты, самые
-   ранние сверху. Срок ставится сам от дня выдачи (finPaymentDue), поэтому
-   заказы до выдачи — отдельный фильтр «Before pickup», а не «без даты».
-   Дни считаются по календарю в UTC — переход на летнее время их не сдвигает.
+   views/finance-schedule  ·  finance-1.2
+   Вспомогательное для вкладки Due dates: дни до срока, подпись срока и CSV.
+   Сама таблица и фильтры — views/finance-lists (движок Sales). Срок ставится
+   сам от дня выдачи (finPaymentDue); дни считаются по календарю в UTC —
+   переход на летнее время их не сдвигает.
    ===================================================================== */
-let finSchedule={period:'all',from:'',to:'',query:'',terms:'all'};
-const FIN_DUE_PERIODS=[['all','All unpaid'],['overdue','Overdue'],['7','Due in 7 days'],['30','Due in 30 days'],['undated','Before pickup'],['custom','Custom dates']];
 function finDueDayDiff(date,today){return Math.round((Date.parse(date+'T00:00:00Z')-Date.parse(today+'T00:00:00Z'))/86400000);}
-function finDueRange(filter,today){
- if(filter.period==='today')return {from:today,to:today};
- if(/^\d+$/.test(filter.period))return {from:today,to:finAddDays(today,Number(filter.period))};
- if(filter.period==='custom')return {from:filter.from,to:filter.to};
- return {from:'',to:''};
-}
-function finDueRows(filter,today){
- today=today||finToday();const range=finDueRange(filter,today);
- const invalid=(!finDateValid(today)||range.from&&!finDateValid(range.from)||range.to&&!finDateValid(range.to)||range.from&&range.to&&range.from>range.to);
- if(invalid)return {rows:[],total:0,customers:0,review:0,error:'From must be on or before To.',range};
- const query=String(filter.query||'').trim().toLowerCase();let review=0;
- const rows=(DB.salesOrder||[]).filter(finOrderCounts).map(o=>{
-  const c=salesFindCustomer(o.customerId),f=finOrderFinancial(o,today);
-  return {o,c,f,days:f.dueOn?finDueDayDiff(f.dueOn,today):null};
- }).filter(x=>{
-  const {o,c,f}=x;
-  if(query&&![c&&c.displayName,c&&c.legalName,c&&c.code,o.businessNumber,o.customerPo].join(' ').toLowerCase().includes(query))return false;
-  if(filter.terms!=='all'&&filter.terms!==f.terms.paymentMode)return false;
-  // Без полной цены сумму не выдумываем — такие заказы только считаются.
-  if(f.b.total==null){review++;return false;}
-  if(!(f.b.balance>0))return false;
-  if(filter.period==='undated')return !f.dueOn;
-  if(filter.period==='all')return true;
-  if(!f.dueOn)return false;
-  if(filter.period==='overdue')return f.dueOn<today;
-  return (!range.from||f.dueOn>=range.from)&&(!range.to||f.dueOn<=range.to);
- }).sort((a,b)=>(a.f.dueOn||'9999').localeCompare(b.f.dueOn||'9999')||finCustomerName(a.c).localeCompare(finCustomerName(b.c))||String(a.o.businessNumber).localeCompare(String(b.o.businessNumber)));
- return {rows,total:finMoney(rows.reduce((s,x)=>s+x.f.b.balance,0)),customers:new Set(rows.map(x=>x.o.customerId)).size,review,error:'',range};
-}
 function finDueTiming(x){return x.days==null?(x.f.terms.paymentMode==='credit'?'After pickup':'At pickup'):x.days<0?Math.abs(x.days)+(x.days===-1?' day':' days')+' overdue':x.days===0?'Due today':'In '+x.days+(x.days===1?' day':' days');}
-function finDuePeriodSet(period){finSchedule.period=period;render();}
-function finDueDateSet(key,value){
- const range=finDueRange(finSchedule,finToday());
- if(finSchedule.period!=='custom'){finSchedule.from=range.from;finSchedule.to=range.to;}
- finSchedule.period='custom';finSchedule[key]=value;render();
-}
-function finDueReset(){finSchedule={period:'all',from:'',to:'',query:'',terms:'all'};render();}
-function finDueDescription(filter,range){
- const label=(FIN_DUE_PERIODS.find(p=>p[0]===filter.period)||[])[1]||'Custom dates';
- return label+(range.from||range.to?' · '+(range.from||'any date')+' to '+(range.to||'any date'):'')+(filter.terms==='all'?'':filter.terms==='credit'?' · Credit':' · Cash')+(filter.query.trim()?' · '+filter.query.trim():'');
-}
-function finScheduleHTML(){
- const result=finDueRows(finSchedule),{rows,range}=result,custom=finSchedule.period==='custom';
- const changed=finSchedule.period!=='all'||finSchedule.query||finSchedule.terms!=='all';
- return `<div class="fin-toolbar fin-schedule-filters"><select aria-label="Payment due period" onchange="finDuePeriodSet(this.value)">${FIN_DUE_PERIODS.map(([key,label])=>`<option value="${key}" ${finSchedule.period===key?'selected':''}>${label}</option>`).join('')}</select>${custom?`<label class="fin-date">From <input aria-label="Payment due from" type="date" value="${esc(range.from)}" onchange="finDueDateSet('from',this.value)"></label><label class="fin-date">To <input aria-label="Payment due to" type="date" value="${esc(range.to)}" onchange="finDueDateSet('to',this.value)"></label>`:''}<input id="finDueSearch" aria-label="Search payment schedule" placeholder="Customer, order or PO…" value="${esc(finSchedule.query)}" oninput="finSchedule.query=this.value;finRerenderInput('finDueSearch')"><select aria-label="Schedule payment terms" onchange="finSchedule.terms=this.value;render()">${[['all','All terms'],['credit','Credit'],['cash','Cash']].map(([key,label])=>`<option value="${key}" ${finSchedule.terms===key?'selected':''}>${label}</option>`).join('')}</select>${changed?'<button class="sm" onclick="finDueReset()">Reset</button>':''}
-  <span class="fin-spacer"></span><button ${result.error||!rows.length?'disabled':''} onclick="finDueExport()">CSV</button><button ${result.error||!rows.length?'disabled':''} onclick="finOpenPreview('schedule')">Print</button></div>
- ${result.error?`<p role="alert" class="fin-due">${esc(result.error)}</p>`:''}
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Due</th><th>Customer / order</th><th>Terms</th><th class="n">Total</th><th class="n">Paid</th><th class="n">Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(x=>{const {o,c,f}=x;return `<tr data-due-order="${esc(o.id)}"><td><b>${esc(f.dueOn?finShortDate(f.dueOn):'—')}</b><div class="small ${x.days<0?'fin-due':'mut'}">${esc(finDueTiming(x))}</div></td><td><button class="fin-link" onclick="finOpenAccount('${esc(o.customerId)}')">${esc(finCustomerName(c))}</button>${c&&c.status==='archived'?'<span class="mut small"> · Archived</span>':''}<div><button class="fin-link" onclick="finOpenSales('${esc(o.id)}')">${esc(o.businessNumber)}</button>${o.customerPo?`<span class="mut small"> · ${esc(o.customerPo)}</span>`:''}</div></td><td>${esc(paymentTermsLabel(f.terms))}</td><td class="n">${finFmt(f.b.total)}</td><td class="n">${finFmt(f.b.paid)}</td><td class="n"><b>${finFmt(f.b.balance)}</b></td><td>${finStatusPill(f)}</td><td class="fin-actions"><button class="sm" onclick="finEditTerms('${esc(o.id)}')">Terms</button></td></tr>`;}).join('')||`<tr><td colspan="8" class="empty">${result.error?'Correct the dates.':'Nothing unpaid here.'}</td></tr>`}</tbody>
- ${rows.length?`<tfoot><tr><td colspan="5">${rows.length} ${rows.length===1?'order':'orders'} · ${result.customers} ${result.customers===1?'customer':'customers'}</td><td class="n"><b>${finFmt(result.total)}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>
- ${result.review?`<p class="mut small">${result.review} not priced — not in totals.</p>`:''}`;
-}
 function finDueCSV(rows){return [['Customer','Order','Customer PO','Terms','Billing date','Payment due','Days until due','Currency','Total','Paid','Outstanding','Status']].concat(rows.map(({o,c,f,days})=>[finCustomerName(c),o.businessNumber,o.customerPo||'',paymentTermsLabel(f.terms),finBillingDate(o),f.dueOn,days==null?'':days,'CAD',f.b.total,f.b.paid,f.b.balance,f.status])).map(row=>row.map(finCsvCell).join(',')).join('\r\n');}
-function finDueExport(){const result=finDueRows(finSchedule);if(result.error||!result.rows.length)return;customerDownload('payments-due.csv',finDueCSV(result.rows),'text/csv;charset=utf-8');}
+
+/* ==== src/erp/views/finance-lists.js ==== */
+/* =====================================================================
+   views/finance-lists  ·  finance-1.2
+   Три таблицы Finance — Accounts, Due dates, Payments — на движке списка
+   Sales: фильтр и поиск в каждой колонке, сортировка, выбор колонок, итоги
+   строкой внизу, блок дат над таблицей как у Sales. Общей строки поиска нет
+   (владелец, 28 сентября 2026: «пусть будет точно так же, как в Sales, по
+   колонкам с фильтром и поиском»). Настройки каждой таблицы — свои.
+   IN : finance/data, finance/ledger; движок — views/sales-list-ui
+   ===================================================================== */
+let finAccountAll=false;
+
+function finListScope(){
+ if(finTab==='accounts')return finAccountId?'':'finAccounts';
+ if(finTab==='schedule')return 'finDue';
+ if(finTab==='receipts')return finEdit===null?'finPayments':'';
+ return '';
+}
+/* Колонки собираются при первом вызове: движок Sales (пресеты сроков)
+   подключается позже этого файла. */
+let finListCatalogCache=null;
+function finListCatalog(){return finListCatalogCache||(finListCatalogCache={
+ finAccounts:[
+  {k:'customer',label:'Customer',type:'text',def:true},
+  {k:'code',label:'Account',type:'text'},
+  {k:'terms',label:'Terms',type:'list',def:true},
+  {k:'balance',label:'Balance',type:'number',money:true,sum:true,def:true},
+  {k:'overdue',label:'Overdue',type:'number',money:true,sum:true,def:true},
+  {k:'prepaid',label:'Prepaid',type:'number',money:true,sum:true,def:true},
+  {k:'deposit',label:'On account',type:'number',money:true,sum:true,def:true},
+  {k:'limit',label:'Credit limit',type:'number',money:true,def:true},
+  {k:'orders',label:'Open orders',type:'number',sum:true},
+  {k:'state',label:'Status',type:'list'}
+ ],
+ finDue:[
+  {k:'due',label:'Due',type:'date',def:true,presets:SALES_LIST_DUE_PRESETS,range:[['overdue','Overdue'],['next7','7 days'],['next30','30 days'],['','All']]},
+  {k:'days',label:'Days to due',type:'number'},
+  {k:'customer',label:'Customer',type:'text',def:true},
+  {k:'order',label:'Order',type:'text',def:true},
+  {k:'po',label:'PO',type:'text',def:true},
+  {k:'terms',label:'Terms',type:'list',def:true},
+  {k:'billed',label:'Picked up',type:'date'},
+  {k:'total',label:'Total',type:'number',money:true,sum:true,def:true},
+  {k:'paid',label:'Paid',type:'number',money:true,sum:true,def:true},
+  {k:'balance',label:'Outstanding',type:'number',money:true,sum:true,def:true},
+  {k:'status',label:'Status',type:'list',def:true}
+ ],
+ finPayments:[
+  {k:'date',label:'Date',type:'date',def:true,range:[['last7','7 days'],['last30','30 days'],['thisMonth','This month'],['lastMonth','Last month'],['','All time']]},
+  {k:'number',label:'Receipt',type:'text',def:true},
+  {k:'customer',label:'Customer',type:'text',def:true},
+  {k:'method',label:'Method',type:'list',def:true},
+  {k:'reference',label:'Reference',type:'text',def:true},
+  {k:'amount',label:'Amount',type:'number',money:true,sum:true,def:true},
+  {k:'orders',label:'Applied to orders',type:'text',tokens:true,def:true},
+  {k:'onAccount',label:'On account',type:'number',money:true,sum:true,def:true},
+  {k:'refunded',label:'Refunded',type:'number',money:true,sum:true},
+  {k:'status',label:'Status',type:'list'},
+  {k:'qb',label:'QuickBooks',type:'list'}
+ ]
+});}
+/* Строки текущей таблицы до фильтров колонок — для галочек в меню фильтра. */
+function finListInfos(){const k=salesListScope();return k==='finAccounts'?finAccountInfos():k==='finDue'?finDueInfos():k==='finPayments'?finPaymentInfos():[];}
+function finListColumns(){return finListCatalog()[salesListScope()]||[];}
+function finListDateColumn(){return {finDue:'due',finPayments:'date'}[salesListScope()]||'';}
+function finListDefaultSort(){return {finAccounts:{k:'balance',dir:'desc'},finDue:{k:'due',dir:'asc'},finPayments:{k:'date',dir:'desc'}}[salesListScope()]||null;}
+/* Оплаты открываются за последние 30 дней, как Sales — за 14. */
+function finListDefaults(){return salesListScope()==='finPayments'?{date:{preset:'last30'}}:{};}
+/* Перейти к таблице с готовым фильтром — так работают четыре цифры сверху. */
+function finListFocus(tabKey,filters,all){
+ if(!finCanLeave())return;
+ finDraft=null;finEdit=null;finAction=null;finAccountId='';finCustomerFilter='';finOrderFilter='';finTab=tabKey;if(all!=null)finAccountAll=all;salesListMenu=null;
+ const p=salesListLoadPrefs();p.filters={};
+ Object.entries(filters||{}).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))p.filters[k]=c;});
+ salesListSavePrefs();render();
+}
+function finMoneyText(v){return v>0?finFmt(v):'<span class="mut">—</span>';}
+function finListTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${c.label}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${c.label}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+/* Итог внизу: число строк и суммы денежных колонок — только строкой. */
+function finListFooter(rows,cols,noun){
+ const first=cols.findIndex(c=>c.sum),lead=first<0?cols.length:first;
+ const sums=cols.slice(lead).map(c=>{
+  if(!c.sum)return '<td></td>';
+  const total=rows.reduce((s,r)=>{const v=salesListValue(r,c.k);return v==null||v===''?s:s+Number(v);},0);
+  return `<td class="n" data-sum="${c.k}">${c.money?finFmt(finMoney(total)):total.toLocaleString('en-US')}</td>`;
+ }).join('');
+ const count=`<b>${rows.length} ${noun}${rows.length===1?'':'s'}</b>`;
+ return `<tfoot><tr class="sl-foot">${lead?`<td colspan="${lead}" class="sl-foot-head" data-foot-count>${count}</td>`:''}${sums}<td${lead?'':' data-foot-count'}>${lead?'':count}</td></tr></tfoot>`;
+}
+function finListTable(infos,cell,rowAttrs,noun,empty){
+ const p=salesListLoadPrefs(),rows=salesListRows(infos),cols=salesListColumns();
+ const body=rows.map(r=>`<tr ${rowAttrs(r)}>${cols.map(c=>cell(r,c)).join('')}<td class="fin-actions">${r.actions||''}</td></tr>`).join('');
+ return {rows,html:`${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table fin-list"><thead><tr>${cols.map(c=>finListTh(c,p)).join('')}<th class="fin-actions"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':empty}</td></tr>`}</tbody>${rows.length?finListFooter(rows,cols,noun):''}</table></div>${salesListMenuHTML(infos)}`};
+}
+function finDateCell(v){return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;}
+
+/* ------------------------------ Accounts ----------------------------- */
+function finAccountState(c,a){return c.status==='archived'?'Archived':c.onHold?'On hold':a.overLimit?'Over limit':'Active';}
+function finAccountInfos(){
+ return (DB.customer||[]).map(c=>{
+  const m=finAccountMetrics(c),x=m.money,a=m.account;
+  return {o:{id:c.id,createdAt:c.createdAt||''},c,m,memo:{customer:finCustomerName(c),code:c.code||'',terms:a.terms,balance:x.balance,overdue:x.overdue,prepaid:x.prepaid,deposit:x.deposit,limit:a.creditLimit,orders:x.orders,state:finAccountState(c,a)}};
+ }).filter(i=>finAccountAll?i.c.status!=='archived'||finAccountOpen(i.m):finAccountOpen(i.m));
+}
+function finAccountCell(r,c){
+ const v=salesListValue(r,c.k),x=r.m.money;
+ switch(c.k){
+  case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.c.id)}')">${raw(v)}</button><div class="mut small">${raw(r.c.code||'')}${r.c.onHold?' · <b class="fin-due">On hold</b>':''}</div></td>`;
+  case 'balance':return `<td class="n">${v>0?`<b>${finFmt(v)}</b>`:'<span class="mut">—</span>'}${x.incomplete?`<div class="mut small">${x.incomplete} not priced</div>`:''}</td>`;
+  case 'overdue':return `<td class="n">${v>0?`<b class="fin-due">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
+  case 'deposit':return `<td class="n">${v>0?`<span class="fin-deposit">${finFmt(v)}</span>`:'<span class="mut">—</span>'}</td>`;
+  case 'prepaid':return `<td class="n">${finMoneyText(v)}</td>`;
+  case 'limit':return `<td class="n">${v==null?'<span class="mut">—</span>':finFmt(v)}${r.m.account.overLimit?'<div><span class="pill bad">Over limit</span></div>':''}</td>`;
+  case 'orders':return `<td class="n">${v||'<span class="mut">—</span>'}</td>`;
+  case 'state':return `<td><span class="pill ${v==='Active'?'info':v==='Archived'?'':'bad'}">${esc(v)}</span></td>`;
+  default:return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
+ }
+}
+/* Строки таблицы Accounts после фильтров — для CSV, печати и тестов. */
+function finAccountsList(){return salesListRows(finAccountInfos()).map(r=>({c:r.c,m:r.m}));}
+function finAccountsWorkspace(){
+ const infos=finAccountInfos();infos.forEach(r=>{r.actions=r.m.money.deposit>0&&r.m.money.balance>0?`<button class="sm" onclick="finOpenApply('${esc(r.c.id)}')">Apply deposit</button>`:'';});
+ const t=finListTable(infos,finAccountCell,r=>`data-account="${esc(r.c.id)}"`,'customer',finAccountAll?'No customers yet':'No open balances');
+ return `<div class="sales-toolbar"><button type="button" class="sl-quiet${finAccountAll?'':' on'}" data-accounts="open" onclick="finAccountAll=false;render()">Open accounts</button><button type="button" class="sl-quiet${finAccountAll?' on':''}" data-accounts="all" onclick="finAccountAll=true;render()">All customers</button><span class="sales-toolbar-sp"></span><button onclick="finOpenStatements()" title="Statements for all customers for a month">Statements</button><button ${t.rows.length?'':'disabled'} onclick="finBalancesExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('balances')">Print</button></div>${t.html}`;
+}
+
+/* ------------------------------ Due dates ---------------------------- */
+/* Все неоплаченные заказы с полной ценой; без цены суммы не выдумываются —
+   такие заказы только считаются. */
+function finDueGroup(f){return f.overdue?'Overdue':f.status==='Customer on hold'||f.status==='Deposit due'||f.status==='Net days not set'?f.status:f.dueOn?'Due':'Before pickup';}
+function finDueInfos(today){
+ today=today||finToday();let review=0;
+ const infos=(DB.salesOrder||[]).filter(finOrderCounts).map(o=>{
+  const c=salesFindCustomer(o.customerId),f=finOrderFinancial(o,today);
+  if(f.b.total==null){review++;return null;}
+  if(!(f.b.balance>0))return null;
+  const days=f.dueOn?finDueDayDiff(f.dueOn,today):null;
+  return {o,c,f,days,memo:{due:f.dueOn||'',days,customer:finCustomerName(c),order:o.businessNumber||'',po:o.customerPo||'',terms:paymentTermsLabel(f.terms),billed:finBillingDate(o),total:f.b.total,paid:f.b.paid,balance:f.b.balance,status:finDueGroup(f)}};
+ }).filter(Boolean);
+ infos.review=review;return infos;
+}
+function finDueCell(r,c){
+ const v=salesListValue(r,c.k);
+ switch(c.k){
+  case 'due':return `<td><b>${esc(v?salesListShortDay(v):'—')}</b><div class="small ${r.days<0?'fin-due':'mut'}">${esc(finDueTiming(r))}</div></td>`;
+  case 'customer':return `<td><button class="fin-link" onclick="finOpenAccount('${esc(r.o.customerId)}')">${raw(v)}</button>${r.c&&r.c.status==='archived'?'<span class="mut small"> · Archived</span>':''}</td>`;
+  case 'order':return `<td><button class="fin-link mono" onclick="finOpenSales('${esc(r.o.id)}')">${esc(v)}</button></td>`;
+  case 'billed':return finDateCell(v);
+  case 'days':return `<td class="n">${v==null?'<span class="mut">—</span>':v}</td>`;
+  case 'total':case 'paid':return `<td class="n">${finFmt(v)}</td>`;
+  case 'balance':return `<td class="n"><b>${finFmt(v)}</b></td>`;
+  case 'status':return `<td>${finStatusPill(r.f)}</td>`;
+  default:return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
+ }
+}
+function finDueFiltered(){return salesListRows(finDueInfos());}
+function finScheduleHTML(){
+ const infos=finDueInfos();infos.forEach(r=>{r.actions=`<button class="sm" onclick="finEditTerms('${esc(r.o.id)}')">Terms</button>`;});
+ const t=finListTable(infos,finDueCell,r=>`data-due-order="${esc(r.o.id)}"`,'order','Nothing unpaid.');
+ return `<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><button ${t.rows.length?'':'disabled'} onclick="finDueExport()">CSV</button><button ${t.rows.length?'':'disabled'} onclick="finOpenPreview('schedule')">Print</button></div>${t.html}${infos.review?`<p class="mut small">${infos.review} not priced — not in totals.</p>`:''}`;
+}
+function finDueExport(){const rows=finDueFiltered();if(!rows.length)return;customerDownload('payments-due.csv',finDueCSV(rows),'text/csv;charset=utf-8');}
+
+/* ------------------------------ Payments ----------------------------- */
+function finPaymentInfos(){
+ return (DB.receipt||[]).filter(r=>(!finCustomerFilter||r.customerId===finCustomerFilter)&&(!finOrderFilter||r.allocations.some(a=>a.orderId===finOrderFilter)||finHistoryFor(r.id).some(e=>(e.orders||[]).some(o=>o.id===finOrderFilter))))
+  .map(r=>{const c=salesFindCustomer(r.customerId),orders=r.allocations.map(a=>finOrderNumber(a.orderId));
+   return {o:{id:r.id,createdAt:r.date+' '+r.number},r,c,tokens:{orders},memo:{date:r.date,number:r.number,customer:finCustomerName(c),method:finMethodLabel(r.method),reference:r.reference||'',amount:r.amount,orders:orders.join(', '),onAccount:finReceiptOnAccount(r),refunded:finRefunded(r.id),status:r.voided?'Void':'Active',qb:FIN_EXPORT_LABELS[finExportState('receipt',r)]}};});
+}
+function finPaymentCell(r,c){
+ const v=salesListValue(r,c.k),x=r.r;
+ switch(c.k){
+  case 'date':return finDateCell(v);
+  case 'number':return `<td><button type="button" class="fin-link mono" onclick="event.stopPropagation();finOpenReceipt('${esc(x.id)}')">${raw(v)}</button>${x.voided?' <span class="pill bad">Void</span>':''}</td>`;
+  case 'customer':return `<td><b>${raw(v)}</b></td>`;
+  case 'amount':return `<td class="n"><b>${finFmt(v)}</b>${finCurrency(x)!=='CAD'?` <span class="mut small">${esc(finCurrency(x))}</span>`:''}</td>`;
+  case 'orders':return `<td>${x.allocations.length?x.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">—</span>'}${x.voided&&x.voidReason?`<div class="mut small">Void: ${raw(x.voidReason)}</div>`:''}</td>`;
+  case 'onAccount':return `<td class="n">${v>0?`<b class="fin-deposit">${finFmt(v)}</b>`:'<span class="mut">—</span>'}</td>`;
+  case 'refunded':return `<td class="n">${finMoneyText(v)}</td>`;
+  case 'status':return `<td>${x.voided?'<span class="pill bad">Void</span>':'<span class="pill info">Active</span>'}</td>`;
+  default:return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
+ }
+}
+function finFilteredReceipts(){return salesListRows(finPaymentInfos()).map(i=>i.r);}
+function finReceiptsView(){
+ const t=finListTable(finPaymentInfos(),finPaymentCell,r=>`class="fin-row${r.r.voided?' fin-void':''}" data-receipt="${esc(r.r.id)}" onclick="finOpenReceipt('${esc(r.r.id)}')"`,'payment','No payments yet');
+ return `${finFilterChips()}<div class="sales-toolbar">${salesListDateButton('date')}<span class="sales-toolbar-sp"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>${t.html}`;
+}
+/* Возвраты в CSV — за тот же клиент/заказ и тот же период, что оплаты. */
+function finExportCsv(){
+ const rows=finFilteredReceipts(),f=salesListLoadPrefs().filters.date,col=salesListColumn('date');
+ const refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!f||salesListFilterTest(col,f,{o:{},memo:{date:x.date}})));
+ customerDownload('payments_'+finToday()+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
+}
 
 /* ==== src/erp/views/sales-list-ui.js ==== */
 /* =====================================================================
@@ -22142,6 +22257,8 @@ const SALES_LIST_OPS={
  list:[]
 };
 const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
+/* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
+const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
@@ -22149,8 +22266,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
@@ -22175,6 +22293,7 @@ function salesListCleanPrefs(p){
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
  if(salesListScope()==='sales'&&p.createdRangeInitialized!==true&&!filters.created)filters.created=salesListCleanFilter('created',{preset:'last14'});
+ if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true};
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
@@ -22185,7 +22304,7 @@ function salesListCleanFilter(k,f){
  const conds=(Array.isArray(f.conds)?f.conds:[]).filter(c=>c&&ops.includes(c.op)).slice(0,6)
   .map((c,i)=>({op:c.op,v:String(c.v==null?'':c.v).slice(0,120),v2:String(c.v2==null?'':c.v2).slice(0,120),join:i&&c.join==='or'?'or':'and'}));
  const values=(col.type==='list'||col.type==='text')&&Array.isArray(f.values)?f.values.map(v=>String(v)).slice(0,500):null;
- const preset=col.type==='date'&&SALES_LIST_PRESETS.some(x=>x[0]===f.preset)?f.preset:'';
+ const preset=col.type==='date'&&(col.presets||SALES_LIST_PRESETS).some(x=>x[0]===f.preset)?f.preset:'';
  return {mode:f.mode==='exclude'?'exclude':'include',conds,values,preset};
 }
 function salesListColumns(){
@@ -22214,6 +22333,9 @@ function salesListPresetRange(key){
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
+  case 'overdue':return ['0001-01-01',salesListDay(add(d,-1))];
+  case 'next7':case 'next30':return [salesListDay(d),salesListDay(add(d,Number(key.slice(4))))];
+  case 'nextMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()+1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+2,0))];
  }
  return null;
 }
@@ -22325,6 +22447,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
@@ -22332,15 +22455,20 @@ function salesListBase(){
   .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
+/* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
+function salesListDefaultSort(){const f=salesListScope().startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():null;return f||{k:'created',dir:'desc'};}
+/* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
+function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():'';}
 function salesListRows(infos){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
- const s=p.sort||{k:'created',dir:'desc'},col=salesListColumn(s.k)||salesListColumn('created'),cmp=salesListCompare(col,s.dir);
+ const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
    встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
 function salesListTokens(info,k){
+ if(info.tokens&&info.tokens[k])return info.tokens[k].length?info.tokens[k]:['(empty)'];
  if(k==='batch'){const v=salesOrderBatchNumbers(info.o);return v.length?v:['(empty)'];}
  if(k!=='glass')return [salesListText(info,k)];
  const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
@@ -22370,14 +22498,14 @@ function salesListFilterSummary(col,f){
   eq:'=',ne:'≠',gt:'>',gte:'≥',lt:'<',lte:'≤',between:'between',on:'on',before:'before',after:'after'};
  const fmt=v=>col.money&&String(v).trim()!==''&&Number.isFinite(+v)?finFmt(+v):col.type==='date'?salesListShortDay(v):String(v);
  const parts=[];
- if(f.preset)parts.push((SALES_LIST_PRESETS.find(x=>x[0]===f.preset)||['',''])[1]);
+ if(f.preset)parts.push(((col.presets||SALES_LIST_PRESETS).find(x=>x[0]===f.preset)||['',''])[1]);
  if(Array.isArray(f.values))parts.push(f.values.length?f.values.length<=3?f.values.join(', '):f.values.length+' values':'nothing');
  const conds=(f.conds||[]).filter(salesListCondReady).map((c,i)=>(i?(c.join==='or'?' or ':' and '):'')+opText[c.op]+(c.op==='empty'||c.op==='notEmpty'?'':' '+(c.op==='between'&&String(c.v2).trim()!==''?fmt(c.v)+' – '+fmt(c.v2):fmt(c.v))));
  if(conds.length)parts.push(conds.join(''));
  return (f.mode==='exclude'?'Not · ':'')+col.label+': '+parts.join(' · ');
 }
 function salesListFilterChips(){
- const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(salesListScope()==='sales'&&k==='created'));
+ const p=salesListLoadPrefs(),dateCol=salesListDateColumn(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&k!==dateCol);
  if(!keys.length)return '';
  return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" onclick="salesListClearFilter('${k}')">×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters onclick="salesListClearAll()">Clear filters</button></div>`;
 }
@@ -22470,10 +22598,10 @@ function salesListMenuHTML(infos){
 }
 function salesListFilterHTML(m,infos,style){
  const col=salesListColumn(m.col);if(!col)return '';
- const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||{k:'created',dir:'desc'};
+ const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||salesListDefaultSort();
  const labels=col.type==='number'?['↑ Smallest first','↓ Largest first']:col.type==='date'?['↑ Oldest first','↓ Newest first']:['↑ A → Z','↓ Z → A'];
  let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button></div>`;
- if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${SALES_LIST_PRESETS.map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
+ if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
  if(col.type!=='list'){
   const ops=SALES_LIST_OPS[col.type],input=col.type==='number'?'number':col.type==='date'?'date':'text',step=input==='number'?' step="any"':'';
   html+=`<h5>Condition</h5><div class="sl-row"><button type="button" class="sl-btn${d.mode!=='exclude'?' on':''}" data-mode="include" onclick="salesListDraft('mode','include')">Include</button><button type="button" class="sl-btn${d.mode==='exclude'?' on':''}" data-mode="exclude" onclick="salesListDraft('mode','exclude')">Exclude</button></div>`;
@@ -22671,30 +22799,35 @@ function salesListDateParts(f){
  if(cs.length===1&&cs[0].op==='between')return {preset:'',from:cs[0].v,to:cs[0].v2||'',simple:true};
  return {preset:'',from:'',to:'',simple:false};
 }
-function salesListDateButton(){
- const f=salesListLoadPrefs().filters.created,d=salesListDateParts(f);
- const label=d.preset?(SALES_LIST_PRESETS.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
- return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range title="${esc(f?salesListFilterSummary(salesListColumn('created'),f):'Created: all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event)">Created: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+/* Блок дат над таблицей. У Sales — Created; другие таблицы (Finance) дают
+   свою колонку и свои быстрые кнопки (col.range). Фильтр — тот же, что в
+   меню колонки. */
+const SALES_LIST_RANGE=[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']];
+function salesListDateButton(k){
+ k=k||'created';const col=salesListColumn(k)||{label:'Created'},f=salesListLoadPrefs().filters[k],d=salesListDateParts(f),presets=(col.presets||SALES_LIST_PRESETS).concat(col.range||[]);
+ const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
+ return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event,'${esc(k)}')">${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
-function salesListOpenDate(e){salesListMenu=Object.assign({kind:'date',scope:'sales',error:''},salesListDateParts(salesListLoadPrefs().filters.created),salesListAt(e,360));render();}
+function salesListOpenDate(e,k){k=k||'created';salesListMenu=Object.assign({kind:'date',scope:salesListScope(),col:k,error:''},salesListDateParts(salesListLoadPrefs().filters[k]),salesListAt(e,360));render();}
 function salesListDatePreset(key){
  const m=salesListMenu;if(!m||m.kind!=='date')return;
  const r=key?salesListPresetRange(key):null;Object.assign(m,{preset:key,from:r?r[0]:'',to:r?r[1]:'',simple:true,error:''});render();
 }
 function salesListDateInput(key,value){const m=salesListMenu;if(!m||m.kind!=='date'||!['from','to'].includes(key))return;m[key]=value;m.preset='';m.simple=true;m.error='';}
 function salesListDateToday(){const m=salesListMenu;if(!m||m.kind!=='date')return;m.to=salesListDay(new Date());m.preset='';m.simple=true;m.error='';render();}
-function salesListDateReset(){salesListMenu=null;salesListClearFilter('created');}
+function salesListDateReset(){const k=salesListMenu&&salesListMenu.col||'created';salesListMenu=null;salesListClearFilter(k);}
 function salesListValidDay(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const d=new Date(s+'T12:00:00');return !isNaN(d)&&salesListDay(d)===s;}
 function salesListDateApply(){
  const m=salesListMenu;if(!m||m.kind!=='date')return;
  if(!m.simple){salesListCloseMenu();return;}
  if([m.from,m.to].some(s=>s&&!salesListValidDay(s))||(m.from&&m.to&&m.from>m.to)){m.error='Choose a valid range. From must not be after To.';render();return;}
  salesListMenu=null;
- salesListSetFilter('created',m.preset?{preset:m.preset}:m.from||m.to?{conds:[{op:'between',v:m.from,v2:m.to}]}:null);
+ salesListSetFilter(m.col||'created',m.preset?{preset:m.preset}:m.from||m.to?{conds:[{op:'between',v:m.from,v2:m.to}]}:null);
 }
 function salesListDateMenuHTML(m,style){
- return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="Created date range"><div class="sl-date-presets">${[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']].map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
-  ${!m.simple?'<p class="mut">A custom Created filter is active. Choose a range to replace it.</p>':''}
+ const col=salesListColumn(m.col||'created')||{label:'Created'};
+ return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="${esc(col.label)} date range"><div class="sl-date-presets">${(col.range||SALES_LIST_RANGE).map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
+  ${!m.simple?`<p class="mut">A custom ${esc(col.label)} filter is active. Choose a range to replace it.</p>`:''}
   <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="salesListDateInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="salesListDateInput('to',this.value)"></label></div>
   ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
 }
