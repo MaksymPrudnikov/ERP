@@ -136,7 +136,7 @@ function glassBatchRows(orders){
     const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
-     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.spec.coatingSurface||'',customer};
+     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';

@@ -122,7 +122,7 @@ function salesCavityPriceBadge(c){
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));const cs=salesCoatingSurfaceOf(p,index,side);if(cs)bits.push(salesVisionTypeLabel(ply.visionType)+' '+(cs==='film'?'into film':'#'+cs));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
@@ -274,8 +274,15 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
    <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
   </div>
-  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
   ${salesLaminatedFritFields(p,index,side)}</div>`;
+}
+/* Поверхность покрытия на плите: открытая грань (#N пакета) или к плёнке.
+   Как у обычного лайта, кнопка вне каталога помечается, но не запрещается. */
+function salesLamCoatingSurfaceSelector(ply,index,side){
+ const n=salesLaminatedFritOutsideSurface(index,side),g=glassProductById(ply.glassProductId),allowed=g&&g.allowedSurfaces.length?g.allowedSurfaces:null,film=ply.coatingPosition==='in_film';
+ const offOut=!!allowed&&allowed.indexOf(n)<0,offFilm=!!allowed,off=film?offFilm:offOut;
+ return `<div class="mu-surface"><label>On Surface</label><div class="mu-surface-buttons"><button type="button" data-lam-coating="outside" class="${film?'':'on'} ${offOut?'off-catalog':''}" onclick="salesPaneSetLamPlyCoatingPosition(${index},'${side}','outside')">#${n}</button><button type="button" data-lam-coating="in_film" class="${film?'on':''} ${offFilm?'off-catalog':''}" onclick="salesPaneSetLamPlyCoatingPosition(${index},'${side}','in_film')">Into film</button></div>${off?`<div class="mu-surface-hint">catalog #${allowed.join(' #')}</div>`:''}</div>`;
 }
 function salesLaminatedFritFields(p,index,side){
  const f=p.laminated[side].frit;if(!f||!f.enabled)return '';

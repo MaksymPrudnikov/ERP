@@ -80,7 +80,8 @@ function docMakeupFullLines(m){
   const lam=p.category==='laminated',g=lam?null:glassProductById(p.glassProductId);
   let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code?' ('+g.code+')':'');
   const heat=docHeatName(lam?(p.laminated||{}).outer:p);if(heat)s+=' · '+heat;
-  if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
+  if(lam)['outer','inner'].forEach(side=>{const cs=salesCoatingSurfaceOf(p,i,side);if(cs)s+=' · coating '+(cs==='film'?'into film':'#'+cs);});
+  else if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
   if(lam){
    const films=((p.laminated||{}).interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (x?x.name:'Interlayer')+(f.thicknessMm?' '+f.thicknessMm+' mm':'');});
    if(films.length)s+=' · '+films.join(' + ');

@@ -5194,7 +5194,24 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const unknown=salesRouteSurfaceTreatments(pane,0,'outer')[0];
       return {failures,stale,missing:[missing.surface,missing.face,missing.summary.includes('Surface not selected')],
         unknown:[unknown.surface,unknown.face,unknown.summary.includes('Surface not selected')]};
-    }), {failures:[],stale:0,missing:[0,'',true],unknown:[0,'',true]});
+    }), {failures:[],stale:0,missing:[0,'',true],unknown:[1,'out',false]});
+
+    eq('laminated Low-E ply: surface is chosen on the ply (#N or Into film) and reaches route, sheet, summary, documents and batches', await t.p.evaluate(() => {
+      /* Свои стёкла: к этому месту прогона каталог уже изменён другими проверками. */
+      DB.glassProduct=DB.glassProduct.filter(x=>!/^GP-QA-LAM/.test(x.id));
+      const g=normalizeGlassProduct({id:'GP-QA-LAM-Q272',code:'QA4Q272',name:'QA LoE 272 on 4 mm',manufacturer:'QA Lam',thicknessMm:4,coatingFamily:'lowe',allowedSurfaces:[2,3]}),cl=normalizeGlassProduct({id:'GP-QA-LAM-CL4',code:'QA4CL',name:'QA 4 mm Clear',manufacturer:'QA Lam',thicknessMm:4,coatingFamily:'uncoated'});
+      DB.glassProduct.push(g,cl);
+      const m=normalizeOrderMakeup({unitType:'double'}),pane=m.panes[1];
+      pane.category='laminated';Object.assign(pane.laminated.outer,{manufacturer:g.manufacturer,thicknessMm:g.thicknessMm,visionType:'lowe',glassProductId:g.id});Object.assign(pane.laminated.inner,{manufacturer:cl.manufacturer,thicknessMm:cl.thicknessMm,glassProductId:cl.id});
+      pane.coatingSurface=4;const saved=normalizeOrderMakeup(JSON.parse(JSON.stringify(m))),p=saved.panes[1];
+      const host=document.createElement('div');host.innerHTML=salesLaminatedPlyFields(p,1,'outer','Outer ply');
+      const buttons=[...host.querySelectorAll('[data-lam-coating]')].map(x=>x.textContent+(x.classList.contains('on')?'*':'')+(x.classList.contains('off-catalog')?'!':''));
+      const route=salesRouteSurfaceTreatments(p,1,'outer')[0],summary=salesPaneProductSummary(p,1),doc=docMakeupFullLines(saved).join(' ');
+      p.laminated.outer.coatingPosition='in_film';const film=salesRouteSurfaceTreatments(p,1,'outer')[0];
+      const sheet=document.createElement('div');sheet.innerHTML=salesSheetMakeupHTML(saved);
+      return {stale:p.coatingSurface,buttons,route:[route.surface,route.face,route.summary],film:[film.where,film.face],summary:summary.includes('Low-E #3'),doc:doc.includes('coating #3'),
+        sheet:sheet.textContent.includes('Into film')&&!sheet.textContent.includes('Surface not selected'),batch:salesCoatingSurfaceOf(p,1,'outer'),inner:salesCoatingSurfaceOf(p,1,'inner')};
+    }), {stale:null,buttons:['#3*','Into film!'],route:[3,'out','Low-E · #3'],film:['Into film','in'],summary:true,doc:true,sheet:true,batch:'film',inner:0});
 
     eq('route retains edge and body services and resolves mapped furnace, frit and painting stations', await t.p.evaluate(() => {
       const s=newShapeDef('rectangle');s.w='50';s.h='50';
