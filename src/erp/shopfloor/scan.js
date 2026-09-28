@@ -3,7 +3,7 @@
    Журнал сканов станций и «где стекло ждёт».
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
-        undoneAt, undoneBy}
+        undoneAt, undoneBy[, broken, recut, reason]} · DB.sheetBreak
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
    «с батча попало на рез и находится в ожидании на следующей станции»
@@ -13,7 +13,7 @@
    Отмена скана (Undo) запись не удаляет, а помечает: журнал — история,
    и «кто отсканировал по ошибке» тоже её часть.
    ===================================================================== */
-DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;
+DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
 const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
 /* Что записывается, а что только показывается. On Hold записывается: на CUT
    стекло сканируют уже порезанным, и факт реза не отменить — рабочий
@@ -81,7 +81,11 @@ function stationRouteOf(g){
    следующая. Пройдено всё — стекло отгружено. */
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.forEach(s=>{const i=route.indexOf(s.station);if(i>far)far=i;});
+ let far=-1;scans.forEach(s=>{if(s.broken)return;const i=route.indexOf(s.station);if(i>far)far=i;});
+ /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
+    него едет стекло Recut со своим номером. */
+ const broken=scans.find(s=>s.broken)||null;
+ if(broken)return {route,far,waiting:'',shipped:false,broken};
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
@@ -97,6 +101,7 @@ function stationCheck(station,raw){
  const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
+ if(place.broken)return Object.assign(base,{kind:'broken'});
  if(here)return Object.assign(base,{kind:'already'});
  const i=place.route.indexOf(station),w=place.route.indexOf(place.waiting);
  if(i<0)return Object.assign(base,{kind:'route'});
@@ -126,6 +131,7 @@ function stationUndo(id,who,opts){
  opts=opts||{};
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
+ if(rec.broken)return {error:'Recut is in the order — change it there.'};
  const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
  if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
  rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
@@ -149,7 +155,7 @@ function stationWaiting(){
  const ids=new Set([...batches.keys(),...byPiece.keys()]),out=new Map();
  ids.forEach(id=>{
   const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled')return;
-  const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.shipped||!place.waiting)return;
+  const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.broken||place.shipped||!place.waiting)return;
   const last=scans.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()||null;
   if(!out.has(place.waiting))out.set(place.waiting,[]);
   out.get(place.waiting).push({id,g,place,last,since:last?last.at:(g.entry?g.entry.item.at:''),from:last?last.station:''});
@@ -167,13 +173,15 @@ function normalizeStationScans(){
  const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
-   undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):''}));
+   undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
+   ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
  let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
  DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
  /* Скан резки — правда о «резка началась»: у импортированных данных поле
     стекла могло потеряться, журнал его восстанавливает. */
  const cut=stationCutCode(),first=new Map();
  DB.stationScan.forEach(s=>{if(!s.undoneAt&&s.station===cut&&(!first.has(s.piece)||s.at<first.get(s.piece)))first.set(s.piece,s.at);});
+ normalizeSheetBreaks();
  if(!first.size)return;
  const lines=new Set();
  stationBatchIndex().forEach((e,piece)=>{if(first.has(piece)&&!e.item.cutStartedAt){e.item.cutStartedAt=first.get(piece);lines.add(e.part.orderId+'|'+e.part.lineId);}});
@@ -181,6 +189,50 @@ function normalizeStationScans(){
 }
 function validateStationScanPayload(src){
  if(src&&Object.prototype.hasOwnProperty.call(src,'stationScan')&&!Array.isArray(src.stationScan))throw new Error('The "stationScan" field must be an array.');
+ if(src&&Object.prototype.hasOwnProperty.call(src,'sheetBreak')&&!Array.isArray(src.sheetBreak))throw new Error('The "sheetBreak" field must be an array.');
+}
+
+/* ---------------------------------------------------------------------
+   Разбитое стекло со станции. Recut — тот же, что из заказа (erp/quality/
+   recut): одно стекло позиции, место «R1.1», новый номер стекла, очередь
+   To batch. Владелец, 29.09.2026: новое стекло ждёт следующего батча;
+   маленькое рабочие сами режут из остатка — такой скан CUT примет как рез
+   из стока. Разбитое стекло получает запись broken и выходит из маршрута.
+   --------------------------------------------------------------------- */
+function stationBreak(station,check,who,reasonId,opts){
+ opts=opts||{};
+ if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
+ const g=check.g,o=g.o,l=g.l,c=g.c;
+ if(!c||c.missing)return {error:'Glass not found in the order.'};
+ const panes=((salesMakeupById(o,l.makeupId)||{}).panes||[]);
+ const which=panes.length<2?'unit':String(c.index);
+ const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which}},note:'Glass '+g.id+' at '+station});
+ if(made.error)return made;
+ const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
+ const rec=(DB.glassPiece||[]).find(x=>x.key===c.key),fresh=rec&&rec.extra&&rec.extra[ref]?rec.extra[ref].filter(Boolean):[];
+ if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ DB.stationScan.push({id:stationScanNextId(),at:now,piece:g.id,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason});
+ /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
+ const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
+ if(!opts.deferTouch)touch();
+ return {ok:true,recut:r,ref,newIds:fresh};
+}
+/* Лопнул лист на столе — режут ту же раскладку заново, стикеры те же
+   (владелец, 29.09.2026). Система только записывает потерю листа. */
+function stationSheetBreak(batch,glass,sheetNo,who,opts){
+ opts=opts||{};
+ const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null,g=plan&&plan.groups.find(x=>x.glass===glass),sh=g&&g.sheets.find(s=>s.no===sheetNo);
+ if(!sh)return {error:'Sheet not found.'};
+ if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
+ const size=sh.size||{},rec={id:'SB-'+String(DB.sheetBreak.reduce((n,x)=>Math.max(n,+String(x.id).slice(3)||0),0)+1).padStart(5,'0'),at:opts.now||new Date().toISOString(),batch,glass,sheet:sheetNo,w:+size.w||0,h:+size.h||0,by:String(who&&who.name||'')};
+ DB.sheetBreak.push(rec);if(!opts.deferTouch)touch();
+ return {ok:true,rec};
+}
+function normalizeSheetBreaks(){
+ if(!Array.isArray(DB.sheetBreak))DB.sheetBreak=[];
+ const ids=new Set();
+ DB.sheetBreak=DB.sheetBreak.filter(x=>x&&typeof x==='object'&&/^SB-\d{5,}$/.test(String(x.id))&&!ids.has(x.id)&&(ids.add(x.id),true)&&typeof x.batch==='string')
+  .map(x=>({id:x.id,at:String(x.at||''),batch:x.batch,glass:String(x.glass||''),sheet:Math.max(1,Math.floor(+x.sheet)||1),w:+x.w||0,h:+x.h||0,by:String(x.by||'').slice(0,80)}));
 }
 
 /* ---------------------------------------------------------------------

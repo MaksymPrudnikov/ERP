@@ -286,6 +286,7 @@ function normalizeGlassBatches(){
  DB.glassBatch.forEach(b=>{
   if(!Array.isArray(b.parts))glassBatchConvertCounted(b);
   if(!Array.isArray(b.history))b.history=[];if(typeof b.createdAt!=='string')b.createdAt='';
+  if(b.cutOrder!=null&&!(Number.isSafeInteger(b.cutOrder)&&b.cutOrder>0))delete b.cutOrder;
   b.parts=b.parts.map(p=>{p=p&&typeof p==='object'?p:{};const k=String(p.key||'').split('|');return Object.assign(p,{key:String(p.key||''),orderId:k[0]||'',lineId:k[1]||'',snapshot:p.snapshot&&typeof p.snapshot==='object'?p.snapshot:{}});});
   b.items=b.items.filter(i=>i&&typeof i==='object'&&Number.isSafeInteger(i.part)&&b.parts[i.part]&&b.parts[i.part].key.split('|').length===4&&glassUnitValid(i.unit));
   b.items.forEach(i=>{['at','releasedAt','cutStartedAt'].forEach(k=>{if(typeof i[k]!=='string')i[k]='';});if(!glassPieceValid(i.piece))i.piece='';if(i.movedTo!=null&&(!salesBatchNumber(i.movedTo)||!i.releasedAt))delete i.movedTo;});
@@ -366,4 +367,17 @@ function validateGlassBatchesPayload(src){
   });
   b.history.forEach(h=>{if(!h||typeof h.at!=='string'||typeof h.action!=='string'||!Array.isArray(h.pieces)||!Number.isFinite(h.qty))throw new Error('Invalid batch history.');});
  });
+}
+/* Очередь резки. Порядок задаёт офис (владелец, 29 сентября 2026): ▲▼ в
+   Optimization → Batches; резчик видит его во вкладке Queue станции CUT.
+   В очереди — батчи, где есть непорезанное стекло; новый батч встаёт в
+   конец. */
+function glassBatchCutQueue(){
+ return (DB.glassBatch||[]).filter(b=>{const a=b.items.filter(i=>!i.releasedAt);return a.length&&a.some(i=>!i.cutStartedAt);})
+  .sort((x,y)=>(x.cutOrder||1e9)-(y.cutOrder||1e9)||String(x.number).localeCompare(String(y.number)));
+}
+function glassBatchCutMove(number,dir){
+ const q=glassBatchCutQueue(),i=q.findIndex(b=>b.number===number),j=i+(dir<0?-1:1);
+ if(i<0||j<0||j>=q.length)return false;
+ [q[i],q[j]]=[q[j],q[i]];q.forEach((b,k)=>{b.cutOrder=k+1;});touch();return true;
 }

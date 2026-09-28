@@ -51,10 +51,12 @@ function prodBoard(){
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0;
+    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0,lb=0;
     ids.forEach(id=>{
      const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
      const place=stationPlace(g,scans),queued=!e&&!scans.length;
+     /* Разбитое стекло не в производстве: вместо него едет стекло Recut. */
+     if(place.broken){total--;lb++;return;}
      /* Клетка станции знает три вещи: сколько ждёт здесь, сколько уже
         прошло и есть ли станция в маршруте вообще. «·» у стеклопакета
         перед IGU и пусто у одинарного стекла — разные вещи (владелец). */
@@ -69,7 +71,7 @@ function prodBoard(){
      lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
     });
     if(!codes.includes(c.glass))codes.push(c.glass);
-    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length});
+    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length-lb});
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
   });

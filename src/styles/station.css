@@ -62,6 +62,7 @@ body.station-mode main{padding:0}
 .st-note{background:var(--green2);border:1px solid #b9dfc9;color:var(--green);border-radius:10px;padding:9px 14px;font-weight:700}
 .st-journal td,.st-journal th{padding:7px 9px}
 .st-to{font-weight:700;color:#1f5f82}
+.st-brk{font-weight:700;color:var(--red)}
 .st-man{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;background:var(--amber2);color:var(--amber)}
 tr.st-hot td{background:#fff7f7}
 /* Лист раскроя */
@@ -104,6 +105,53 @@ tr.st-hot td{background:#fff7f7}
 .st-pin-err{color:var(--red);font-weight:700;font-size:13px}
 .st-keys{display:grid;grid-template-columns:repeat(3,72px);gap:8px;justify-content:center;margin-top:12px}
 .st-keys button{font:inherit;font-size:22px;font-weight:600;height:56px;border-radius:12px;border:1px solid var(--line);background:#fff}
+/* Вкладки CUT: Scan · Queue; на Queue поле скана — в шапке */
+.st-tabs{display:flex;gap:4px;margin-left:10px}
+.st-tabs button{font:inherit;font-size:14px;color:#aebfc8;background:none;border:0;padding:8px 14px;border-radius:9px}
+.st-tabs button.on{background:var(--nav2);color:#fff;font-weight:700;box-shadow:inset 0 -3px 0 #52a8d5}
+.st-topscan{display:flex;align-items:center;gap:8px;background:#fff;border:2px solid #52a8d5;border-radius:10px;padding:5px 12px;min-width:260px;margin-left:12px}
+.st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
+.st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
+/* Разбитое стекло на листе */
+.st-pc.broken rect{fill:var(--red2);stroke:var(--red);stroke-width:1;stroke-dasharray:none}
+.st-pc.broken .st-pc-n,.st-pc-x{fill:var(--red)}
+.st-menu button.st-menu-red{color:var(--red)}
+.st-sheetbrk{margin-left:8px}
+.b.st-red-b{border-color:#ebcccc;color:#943e3e}
+/* Окно по нажатию рабочего: Recut, Sheet broke */
+.st-dim{position:fixed;inset:64px 0 0 0;background:rgba(18,35,46,.35);z-index:6}
+.st-drawer{position:fixed;top:64px;right:0;bottom:0;width:min(560px,100%);background:#fff;box-shadow:-12px 0 40px rgba(0,0,0,.18);padding:20px 22px;display:flex;flex-direction:column;gap:6px;z-index:7;overflow:auto}
+.st-drawer.st-drawer-sm{bottom:auto;border-bottom-left-radius:14px}
+.st-drawer h2{margin:0 0 6px;font-size:21px;display:flex;align-items:center;gap:10px}
+.st-flag{display:inline-flex;font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;background:var(--red);color:#fff;letter-spacing:.03em}
+.st-dinfo{display:grid;grid-template-columns:70px minmax(0,1fr);gap:4px 10px;font-size:15px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.st-dinfo .k{color:var(--mut);font-size:13px;padding-top:2px}
+.st-rgroup{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em;margin-top:10px}
+.st-reasons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.st-reason{font:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:15px;background:#fff}
+.st-reason:hover{border-color:var(--red);background:var(--red2);color:#7d2f2f}
+.st-drawer-foot{display:flex;align-items:center;gap:12px;margin-top:14px}
+.st-drawer-foot .mut{margin-right:auto}
+.st-dtext{margin:0 0 6px;font-size:15px;color:#344651}
+/* Queue */
+.st-qstrip{display:flex;gap:4px}
+.st-qstrip div{border-radius:8px;padding:7px 9px;color:#fff;min-width:0;overflow:hidden}
+.st-qstrip b{display:block;font-size:12.5px;white-space:nowrap}
+.st-qstrip small{font-size:11.5px;opacity:.9;white-space:nowrap}
+.st-qhint{font-size:12px;margin-top:6px}
+.st-qcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.st-qcard.now{border:2px solid var(--blue)}
+.st-qh{display:flex;align-items:center;gap:10px}
+.st-qh b{font-size:17px}
+.st-qh .sp{flex:1}
+.st-qn{font-size:13px;font-weight:800;width:26px;height:26px;border-radius:8px;background:var(--blue2);color:#2f7395;display:grid;place-items:center}
+.st-qg{display:grid;grid-template-columns:120px 140px minmax(0,1fr) 150px;gap:10px;align-items:center;margin-top:9px;font-size:14px}
+.st-qbar{height:10px;border-radius:6px;background:#edf1f4;overflow:hidden}
+.st-qbar i{display:block;height:100%;background:var(--green)}
+.st-qbig{font-size:20px;font-weight:800}
+.st-qafter{font-size:15px;line-height:1.7}
+.st-qchange{color:#8a5a0f;font-weight:700}
+.gb-cutq .sm{padding:1px 6px;margin-left:2px}
 /* Офис: Production → In production (view/production-board) */
 .pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
 .pb-tile{font:inherit;flex:1;min-width:78px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
