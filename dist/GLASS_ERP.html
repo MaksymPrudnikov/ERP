@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 92 модулей, 14 стиля.
+  Состав сборки: 95 модулей, 15 стиля.
 -->
 <html lang="en">
 <head>
@@ -2014,6 +2014,145 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
  .cut-page-primary{flex-wrap:wrap;justify-content:flex-end}
 }
 
+/* ---- src/styles/station.css ---- */
+/* Экран станции (view/station): без меню и шапки ERP, крупно, под сканер
+   и под палец на планшете. */
+body.station-mode .shell{grid-template-columns:1fr;background:var(--bg)}
+body.station-mode .side,body.station-mode .main>header{display:none}
+body.station-mode main{padding:0}
+.st-top{height:64px;background:var(--nav);color:#dbe7ed;display:flex;align-items:center;gap:14px;padding:0 18px;position:sticky;top:0;z-index:4}
+.st-top .sp,.st-sec .sp{flex:1}
+.st-code{background:#2f7da8;color:#fff;font-weight:800;font-size:22px;letter-spacing:.04em;border-radius:10px;padding:5px 14px}
+.st-name{font-size:15px;font-weight:600;color:#fff}
+.st-chip{display:flex;align-items:center;gap:8px;background:var(--nav2);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 12px;font-size:13px;color:#dbe7ed}
+.st-chip b{color:#fff}
+.st-av{width:26px;height:26px;border-radius:50%;background:#dbe8f0;color:#2f7395;display:inline-grid;place-items:center;font-weight:800;font-size:11px;flex:none}
+.st-btn{font:inherit;font-size:13px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#dbe7ed;padding:7px 12px}
+.st-btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.4)}
+.st-exit{opacity:.7}
+.st-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+.st-body.st-one{grid-template-columns:minmax(0,640px);justify-content:center;padding-top:40px}
+.st-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.st-sec{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.st-sec h3{margin:0;font-size:15px}
+/* Поле скана */
+.st-scan{display:flex;align-items:center;gap:16px;border:3px solid var(--blue);box-shadow:0 0 0 5px rgba(47,125,168,.14);border-radius:16px;padding:12px 20px;background:#fff;cursor:text}
+.st-scan-ico svg{width:44px;height:44px;stroke:var(--blue);fill:none;stroke-width:1.8;display:block}
+.st-scan-lab{display:flex;flex-direction:column;flex:1;min-width:0}
+.st-scan-lab b{font-size:12px;letter-spacing:.14em;color:#1f5f82}
+.st-scan input{border:0;outline:0;font:inherit;font-size:24px;padding:2px 0;background:transparent;width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.st-scan input::placeholder{color:#a3b0b9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
+.st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(39,129,90,.18)}
+/* Карточка результата */
+.st-res{border-radius:14px;border:2px solid var(--green);background:#fff;overflow:hidden}
+.st-res-h{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--green2);color:var(--green);font-weight:700;font-size:16px}
+.st-res-h span{margin-left:auto;font-weight:500;font-size:13px;color:var(--mut)}
+.st-res.st-info{border-color:var(--blue)}.st-res.st-info .st-res-h{background:var(--blue2);color:#1f5f82}
+.st-res.st-amber{border-color:#e0b25e}.st-res.st-amber .st-res-h{background:var(--amber2);color:var(--amber)}
+.st-res.st-red{border-color:var(--red)}.st-res.st-red .st-res-h{background:var(--red2);color:var(--red)}
+.st-idle{border:2px dashed var(--line);padding:26px;text-align:center}
+.st-urg{display:flex;align-items:center;gap:10px;padding:9px 16px;background:var(--red);color:#fff;font-weight:800;font-size:16px;letter-spacing:.02em}
+.st-urg span{font-weight:500;font-size:14px}
+.st-urg.st-rush{background:#c07a16}
+.st-res-b{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;padding:14px 16px 16px;align-items:start}
+.st-big{background:var(--blue2);border:1px solid #cfe4f1;border-radius:14px;padding:12px 18px 14px;text-align:center;min-width:220px}
+.st-big small{display:block;font-size:12px;letter-spacing:.12em;color:#4d7f9c;font-weight:700}
+.st-big b{display:block;font-size:60px;line-height:1.05;color:#1f5f82;letter-spacing:.02em}
+.st-big b.st-big-code{font-size:26px;padding:12px 0;word-break:break-all}
+.st-big span{display:block;font-size:14px;color:#3d6e8a}
+.st-big.st-red{background:var(--red);border-color:var(--red)}
+.st-big.st-red small,.st-big.st-red span{color:#fde3e3}.st-big.st-red b{color:#fff}
+.st-gid{font-size:26px;font-weight:800}
+.st-kv{display:grid;grid-template-columns:70px minmax(0,1fr);gap:4px 10px;margin-top:8px;font-size:15px}
+.st-kv .k{color:var(--mut);font-size:13px;padding-top:2px}
+.st-route{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:12px}
+.st-rc{font-size:12px;font-weight:700;border-radius:7px;padding:3px 8px;border:1px solid #cbd5dc;color:#5c6a75;background:#fff}
+.st-rc.done{background:var(--green2);border-color:#b9dfc9;color:var(--green)}
+.st-rc.next{background:var(--blue);border-color:var(--blue);color:#fff}
+.st-ra{color:#a5b2ba;font-size:12px}
+.st-svc{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+.st-svc span{font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:#344651}
+.st-acts{display:flex;gap:10px;padding:0 16px 14px}
+.st-acts .b,.st-journal .b{font:inherit;font-size:14px;border-radius:10px;border:1px solid #cfd8df;background:#fff;padding:8px 16px}
+.st-journal .b.sm{font-size:12px;padding:3px 10px}
+.st-note{background:var(--green2);border:1px solid #b9dfc9;color:var(--green);border-radius:10px;padding:9px 14px;font-weight:700}
+.st-journal td,.st-journal th{padding:7px 9px}
+.st-to{font-weight:700;color:#1f5f82}
+.st-man{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;background:var(--amber2);color:var(--amber)}
+tr.st-hot td{background:#fff7f7}
+/* Лист раскроя */
+.st-sheet-card{position:relative}
+.st-sheet-card.st-empty{min-height:200px;display:grid;place-items:center}
+.st-sheet-svg{display:block;width:100%;height:auto;max-height:56vh;cursor:pointer}
+.st-sheet-bg{fill:#e6ebef;stroke:#8fa3af;stroke-width:.4}
+.st-stock{fill:#e9f6ef;stroke:#27815a;stroke-width:.4;stroke-dasharray:1.5 1}
+.st-stock-t{fill:#27815a;font-weight:700}
+.st-pc rect{fill:#fff;stroke:#8fa3af;stroke-width:.35;stroke-dasharray:1.6 1.2}
+.st-pc.cut rect{fill:#e9f6ef;stroke:#27815a;stroke-dasharray:none}
+.st-pc.now rect{fill:#d7ecf8;stroke:#2f7da8;stroke-width:1.1;stroke-dasharray:none}
+.st-pc:hover rect{stroke:#12232e}
+.st-pc-n{font-weight:800;fill:#344651;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.st-pc.cut .st-pc-n,.st-pc-c{fill:#27815a}
+.st-pc.now .st-pc-n{fill:#1f5f82}
+.st-pc-s{fill:#5c6a75}
+.st-pc text{pointer-events:none}
+.st-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;margin-top:12px}
+.st-tile{font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:11px;padding:4px 0;color:#5c6a75;background:#fff;display:flex;flex-direction:column}
+.st-tile b{font-size:14px;color:var(--text)}
+.st-tile.done{background:var(--green2);border-color:#b9dfc9}.st-tile.done b{color:var(--green)}
+.st-tile.now{border:2px solid var(--blue);background:var(--blue2)}
+.st-menu{position:absolute;z-index:3;background:#fff;border:1px solid #cfd8df;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;width:190px;display:flex;flex-direction:column}
+.st-menu-h{font-size:12px;color:var(--mut);padding:4px 10px}
+.st-menu button{font:inherit;font-size:14px;text-align:left;border:0;background:none;padding:9px 10px;border-radius:7px}
+.st-menu button:hover{background:var(--blue2)}
+/* Вход */
+.st-login h2{margin:0 0 12px;font-size:20px}
+.st-names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.st-name-btn{font:inherit;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:16px;font-weight:600;background:#fff;text-align:left}
+.st-name-btn.on{border:2px solid var(--blue);background:var(--blue2)}
+.st-name-btn .st-av{width:36px;height:36px;font-size:13px}
+.st-pin{margin-top:18px;text-align:center}
+.st-pin-t{color:var(--mut);font-size:14px}
+.st-dots{display:flex;gap:12px;justify-content:center;margin:12px 0 6px}
+.st-dots i{width:16px;height:16px;border-radius:50%;border:2px solid #9fb3bf}
+.st-dots i.f{background:#245f7f;border-color:#245f7f}
+.st-dots.bad i{border-color:var(--red)}
+.st-pin-err{color:var(--red);font-weight:700;font-size:13px}
+.st-keys{display:grid;grid-template-columns:repeat(3,72px);gap:8px;justify-content:center;margin-top:12px}
+.st-keys button{font:inherit;font-size:22px;font-weight:600;height:56px;border-radius:12px;border:1px solid var(--line);background:#fff}
+/* Офис: Production → In production (view/production-board) */
+.pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
+.pb-tile{font:inherit;flex:1;min-width:78px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
+.pb-tile b{font-size:12px}
+.pb-tile span{font-size:22px;font-weight:800;line-height:1.15;margin-top:3px}
+.pb-tile small{font-size:11px;color:var(--mut)}
+.pb-tile.zero span{color:#b8c3ca}
+.pb-tile.sel{border:2px solid var(--blue);background:var(--blue2)}
+.pb-tile.q{background:var(--panel2)}
+.pb-table th.pb-st,.pb-table td.pb-st{text-align:center;padding-left:4px;padding-right:4px;min-width:46px}
+.pb-n{display:inline-block;min-width:30px;border-radius:7px;padding:2px 6px;font-weight:800;background:var(--blue2);color:#1f5f82}
+.pb-n.pb-cut{background:#eef1f4;color:#5c6a75}
+.pb-z{color:#c3ccd3}
+.pb-done{color:var(--green);font-weight:800}
+.pb-row{cursor:pointer}
+.pb-row.pb-hot td{background:#fff7f7}
+.pb-row.pb-opened td{background:#f5fafd}
+.pb-open{font:inherit;border:0;background:none;padding:0;cursor:pointer;color:var(--text)}
+.pb-prog{white-space:nowrap}
+.pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
+.pb-bar i{display:block;height:100%;background:var(--green)}
+.pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Планшет стоя и узкие экраны: колонки друг под другом. */
+@media (max-width:900px){
+ .st-body{grid-template-columns:minmax(0,1fr)}
+ .st-res-b{grid-template-columns:minmax(0,1fr)}
+ .st-big{min-width:0}
+ .st-top{gap:8px;padding:0 10px}
+ .st-top .st-chip:not(:has(.st-av)){display:none}
+ .st-names{grid-template-columns:minmax(0,1fr)}
+}
+
 </style>
 </head>
 <body>
@@ -2035,7 +2174,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a3ee6a12be44';
+var ERP_BUILD='38af23b13ae1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -6318,8 +6457,14 @@ function normalizeSalesModules(){
    права под несуществующие должности нельзя. Цех, отгрузка и снабжение
    именованных учёток не получают: учётка принадлежит терминалу станции, а
    человек опознаётся сканом бейджа при действии.
-   Прибыль видит только Владелец; Админ — техническая роль без денег. */
-const ROLES=['Sales','Accounting','Admin','Owner'];
+   Прибыль видит только Владелец; Админ — техническая роль без денег.
+   Shop — рабочий цеха. Владелец 29 сентября 2026: «рабочий логинится и
+   открывает свою станцию, и потом всё, что он сканирует, — под его именем».
+   Вход раз в смену — имя и PIN на экране станции, не пароль. */
+const ROLES=['Sales','Accounting','Admin','Owner','Shop'];
+/* PIN — четыре цифры. Это опознание рабочего у станции, а не защита:
+   права в прототипе ещё не проверяются нигде. */
+const USER_PIN_RE=/^\d{4}$/;
 /* Неизвестная роль из импорта или из старых данных падает в самую слабую —
    Sales: она не видит ни себестоимости, ни настроек системы. */
 const SAFE_DEFAULT_ROLE='Sales';
@@ -6374,6 +6519,7 @@ function normalizeUsers(){
   u.station=DB.station.some(s=>s.code===code)?code:'';
   delete u.workPosition;
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
+  u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
  });
 }
 /* =====================================================================
@@ -11242,7 +11388,8 @@ const ICONS={
  next:'<path d="m9 18 6-6-6-6"/>',
  last:'<path d="M18 5v14M6 6l7 6-7 6z"/>',
  layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
- report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>'
+ report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+ scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>'
 };
 function ico(name, cls=''){
  const p=ICONS[name]||ICONS.layers;
@@ -11338,6 +11485,8 @@ const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  document.body.classList.toggle('sidebar-collapsed',sideCollapsed);
+ /* Экран станции — без меню и шапки ERP (view/station). */
+ document.body.classList.toggle('station-mode',tab==='station');
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
@@ -11354,7 +11503,7 @@ function render(){
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
@@ -11475,13 +11624,14 @@ function viewUsersList(){
   return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
    <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
+   <td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Edit</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="5" class="empty">empty</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[]};render()">Add user</button></div>'}`;
+  <table><thead><tr><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -11491,6 +11641,7 @@ function userForm(){
    <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
+   <div><label>Station PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
   </div>
   <div style="margin-top:12px"><label>Skills and proficiency level</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
@@ -11519,6 +11670,8 @@ function saveUser(){
  const e=document.getElementById('e_user'); e.style.display='none';
  uDraft.name=(uDraft.name||'').trim();
  if(!uDraft.name) return fail(e,'Enter a name');
+ uDraft.pin=String(uDraft.pin||'');
+ if(uDraft.pin&&!USER_PIN_RE.test(uDraft.pin)) return fail(e,'PIN: 4 digits or empty');
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
@@ -19971,12 +20124,13 @@ function viewShipping(){return viewOrderQueue(true);}
    ===================================================================== */
 
 const SF_TABS=[
+ {k:'orders',    label:'In production'},
  {k:'stations',  label:'Stations'},
  {k:'terminals', label:'Terminals'}
 ];
 
 function viewProduction(){
- if(!SF_TABS.some(t=>t.k===subtab)) subtab='stations';
+ if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
  const pipeline=DB.station.map((s,i)=>{
   const w=stationOperations(s.code);
   return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' works':'<span class="mut">no works</span>'}</div></div>`;
@@ -19984,15 +20138,15 @@ function viewProduction(){
  const empty=DB.station.filter(s=>!stationOperations(s.code).length);
  const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
-  <div class="card">
+  ${subtab!=='stations'?'':`<div class="card">
    <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
    <div class="pipeline">${pipeline}</div>
    ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
    ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
-  </div>
+  </div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
-   ${({stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
+   ${({orders:viewProdOrders,stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -20015,7 +20169,8 @@ function viewSfStations(){
    <td class="mono">${sfDimText(s)}</td>
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="stEdit=${i};render()">Edit</button>
+   <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
+   <button class="sm" onclick="stEdit=${i};render()">Edit</button>
    <button class="sm dl" onclick="delSfStation(${i})">×</button></td></tr>`;
  }).join('');
  return `${stEdit!==null?sfStationForm():''}
@@ -22292,9 +22447,10 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
+ if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
@@ -22476,6 +22632,7 @@ function salesListCompare(col,dir){
 function salesListBase(){
  if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
+ if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
  const infos=all.filter(o=>!salesStatusFilter||salesStatusFilter===salesKindOf(o)+':'+salesListStatus(o)).map(salesListInfo)
@@ -22483,9 +22640,9 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){const f=salesListScope().startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():null;return f||{k:'created',dir:'desc'};}
+function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||{k:'created',dir:'desc'};}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():'';}
+function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -23154,7 +23311,9 @@ function glassBatchMove(number,pieceIds,opts){
  const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
  if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
  const lineOf=i=>{const p=from.parts[i.part],o=p&&salesRecord(p.orderId);return {p,o,l:o&&(o.lines||[]).find(x=>x.id===p.lineId)};};
- if(items.some(i=>{const {l}=lineOf(i);return i.cutStartedAt||l&&l.cutStartedAt;}))return {error:'Cutting has started on this glass.'};
+ /* Проверка по стеклу, а не по позиции: последний лист переносят, когда
+    остальные листы уже режутся, и стёкла одной позиции лежат на обоих. */
+ if(items.some(i=>i.cutStartedAt))return {error:'Cutting has started on this glass.'};
  const now=opts.now||new Date().toISOString();
  /* opts.to — уже открытый батч: стёкла добавляются к нему. */
  let to=opts.to?glassBatchFind(opts.to):null;const added=!!to;
@@ -23254,7 +23413,11 @@ function normalizeGlassBatches(){
  });
  (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
   const active=glassBatchEntries(o.id,l.id).filter(x=>!x.item.releasedAt);if(!active.length)return;
-  l.batchManaged=true;if(l.cutStartedAt)active.forEach(x=>{if(!x.item.cutStartedAt)x.item.cutStartedAt=l.cutStartedAt;});glassBatchSyncLine(o,l);
+  /* Замок позиции без отметок стёкол — старые данные: резку отмечали всей
+     позицией. Со сканом станции отметка у каждого стекла своя, и позиция
+     лишь повторяет первую из них — раздавать её всем стёклам нельзя: одно
+     порезанное стекло сделало бы порезанными все пятьдесят. */
+  l.batchManaged=true;if(l.cutStartedAt&&!active.some(x=>x.item.cutStartedAt))active.forEach(x=>{x.item.cutStartedAt=l.cutStartedAt;});glassBatchSyncLine(o,l);
  }));
 }
 function validateGlassBatchesPayload(src){
@@ -26657,7 +26820,7 @@ let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='c
 function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
- if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('orders','Orders','number'),col('status','Status','list')];
+ if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('cut','Cut','number'),col('orders','Orders','number'),col('status','Status','list')];
  return [col('piece','Glass ID'),col('number','Order'),col('customer','Customer'),col('line','Line','number'),col('unit','Unit'),col('lite','Lite'),col('glass','Glass'),col('width','Cut W · in','number'),col('height','Cut H · in','number'),col('shape','Shape','list'),col('due','Due','date',glassBatchViewScope()==='glassQueue'),col('status','Status','list'),col('priority','Priority','list',false),col('po','PO','text',false),col('created','Created','date',false),col('heat','Heat','list',false),col('coating','Coating surface','text',false),col('reason','Hold / review reason','text',false)];
 }
 function glassBatchActiveItems(b){return b.items.filter(i=>!i.releasedAt&&b.parts[i.part]);}
@@ -26672,7 +26835,7 @@ function glassBatchInfo(r){
 function glassBatchInfos(){
  const scope=glassBatchViewScope();
  if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
- if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});
+ if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
@@ -26753,6 +26916,9 @@ function glassBatchCell(i,c){
  const v=salesListValue(i,c.k);let text=v==null||v===''?'—':c.type==='date'?salesListShortDay(v):['width','height'].includes(c.k)?dimIn16(v):String(v);
  if(c.k==='number')return `<td><button type="button" class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${esc(i.r?i.r.orderId:i.part.orderId)}')`}">${esc(text)}</button></td>`;
  if(c.k==='piece')return `<td class="gb-piece">${esc(text)}</td>`;
+ /* Сколько стёкол батча порезано — по скану станции резки (владелец,
+    29.09.2026: «в списке батчей»). */
+ if(c.k==='cut'&&i.b&&!i.item)return `<td class="n" data-batch-cut>${v?`<b>${v}</b>`:'0'} / ${i.memo.units}</td>`;
  if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }
@@ -27123,6 +27289,213 @@ function validateRecutPayload(src){
   const k=r.orderId+'#'+r.no;if(seen.has(k))throw new Error('Duplicate recut number.');seen.add(k);
  });
 }
+
+/* ==== src/erp/shopfloor/scan.js ==== */
+/* =====================================================================
+   erp/shopfloor/scan  ·  scan-1.0
+   Журнал сканов станций и «где стекло ждёт».
+   IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
+   OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
+        undoneAt, undoneBy}
+   Правило: место стекла НЕ хранится, а считается: последний скан +
+   маршрут = станция, на которой стекло ждёт. Так было и в Spil —
+   «с батча попало на рез и находится в ожидании на следующей станции»
+   (владелец, 29 сентября 2026). Запись одна на событие: это готовая
+   строка будущей таблицы базы, переезд с localStorage её не меняет.
+
+   Отмена скана (Undo) запись не удаляет, а помечает: журнал — история,
+   и «кто отсканировал по ошибке» тоже её часть.
+   ===================================================================== */
+DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;
+const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
+/* Что записывается, а что только показывается. On Hold записывается: на CUT
+   стекло сканируют уже порезанным, и факт реза не отменить — рабочий
+   откладывает стекло в сторону. */
+const STATION_RECORDED=['ok','hold'];
+
+function stationScanNextId(){
+ DB.stationScanSeq=(Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0)+1;
+ return 'SC-'+String(DB.stationScanSeq).padStart(7,'0');
+}
+/* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
+   началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */
+function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
+function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);}
+/* Номер с клавиатуры: хватает цифр — «1234» это G-0001234. Повреждённый
+   стикер не читается, а набирать весь номер у стола никто не будет. */
+function stationCodeOf(raw){
+ const text=String(raw==null?'':raw).trim().toUpperCase().replace(/\s+/g,'');
+ if(/^\d{1,9}$/.test(text))return 'G-'+text.padStart(7,'0');
+ return text;
+}
+/* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
+   index — готовая карта номеров, когда стёкол много (экран офиса). */
+function stationPieceIndex(){
+ const m=new Map();
+ (DB.glassPiece||[]).forEach(r=>{
+  const [orderId,lineId]=r.key.split('|');
+  r.ids.forEach((id,i)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:i+1});});
+  Object.keys(r.extra||{}).forEach(nr=>r.extra[nr].forEach((id,k)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:nr+'.'+(k+1)});}));
+ });
+ return m;
+}
+function stationBatchIndex(){
+ const m=new Map();
+ (DB.glassBatch||[]).forEach(batch=>batch.items.forEach(item=>{if(!item.releasedAt&&item.piece)m.set(item.piece,{batch,item,part:batch.parts[item.part]});}));
+ return m;
+}
+function stationGlass(id,index,batches){
+ const hit=index?index.get(id):(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
+ if(!hit)return null;
+ const o=salesRecord(hit.orderId),l=o&&(o.lines||[]).find(x=>x.id===hit.lineId);
+ if(!o||!l)return null;
+ const c=glassBatchComponents(o,l).find(x=>x.key===hit.key)||null;
+ const entry=(batches||stationBatchIndex()).get(id)||null;
+ return {id,o,l,c,unit:hit.unit,entry};
+}
+/* Маршрут стекла — тот же, что печатается на стикере. Кэш по позиции:
+   на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
+let stationRouteCache=new Map();
+function stationRouteOf(g){
+ const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
+ if(stationRouteCache.has(key))return stationRouteCache.get(key);
+ let r=null;
+ try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,g.l,g.c));}catch(e){r=null;}
+ if(!r||!Array.isArray(r.codes)||!r.codes.length){
+  /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
+     резку и отгрузку: станции «always». */
+  const codes=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq).map(s=>s.code);
+  r={codes,shipping:codes.filter(c=>c!==stationCutCode()),services:[]};
+ }
+ if(stationRouteCache.size>2000)stationRouteCache=new Map();
+ stationRouteCache.set(key,r);return r;
+}
+/* Где стекло: самая дальняя отсканированная станция его маршрута, дальше —
+   следующая. Пройдено всё — стекло отгружено. */
+function stationPlace(g,scans){
+ const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
+ let far=-1;scans.forEach(s=>{const i=route.indexOf(s.station);if(i>far)far=i;});
+ return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
+}
+/* Разбор скана без записи. kind:
+   ok · hold — пишется; already · passed · skipped · route · cancelled ·
+   unit · unknown — только показывается. */
+function stationCheck(station,raw){
+ const code=stationCodeOf(raw);
+ if(!code)return null;
+ if(typeof unitIdValid==='function'&&unitIdValid(code))return {kind:'unit',code};
+ if(!glassPieceValid(code))return {kind:'unknown',code};
+ const g=stationGlass(code);
+ if(!g)return {kind:'unknown',code};
+ const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station).pop()||null;
+ const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
+ if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
+ if(here)return Object.assign(base,{kind:'already'});
+ const i=place.route.indexOf(station),w=place.route.indexOf(place.waiting);
+ if(i<0)return Object.assign(base,{kind:'route'});
+ if(place.shipped||w>=0&&i<w)return Object.assign(base,{kind:'passed'});
+ if(w>=0&&i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
+ if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
+ return Object.assign(base,{kind:'ok'});
+}
+/* who: {id, name} — рабочий, вошедший на станцию. */
+function stationRecord(station,check,who,opts){
+ opts=opts||{};
+ if(!check||!STATION_RECORDED.includes(check.kind))return null;
+ if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ const now=opts.now||new Date().toISOString();
+ const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ DB.stationScan.push(rec);
+ /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
+    позиция узнаёт это через glassBatchSyncLine, как и прежде. */
+ const e=check.g&&check.g.entry;
+ if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(check.g.o,check.g.l);}
+ if(!opts.deferTouch)touch();
+ return rec;
+}
+/* Undo — только последний скан стекла: отменить CUT, когда стекло уже
+   прошло EDGE, значило бы оставить его «на EDGE без реза». */
+function stationUndo(id,who,opts){
+ opts=opts||{};
+ const rec=(DB.stationScan||[]).find(s=>s.id===id);
+ if(!rec||rec.undoneAt)return {error:'Scan not found.'};
+ const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
+ if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
+ rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
+ if(rec.station===stationCutCode()&&!stationScansFor(rec.piece).some(s=>s.station===rec.station)){
+  const e=stationBatchIndex().get(rec.piece);
+  if(e&&e.item.cutStartedAt===rec.at){
+   e.item.cutStartedAt='';
+   const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);
+   if(o&&l)glassBatchSyncLine(o,l);
+  }
+ }
+ if(!opts.deferTouch)touch();
+ return {ok:true};
+}
+/* Экран офиса: сколько стёкол ждёт на каждой станции и какие. Берём все
+   стёкла активных батчей и все, у кого уже есть скан (порезанные из стока
+   тоже едут по цеху). Отгруженные и отменённые — не в цеху. */
+function stationWaiting(){
+ const index=stationPieceIndex(),batches=stationBatchIndex(),byPiece=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!byPiece.has(s.piece))byPiece.set(s.piece,[]);byPiece.get(s.piece).push(s);});
+ const ids=new Set([...batches.keys(),...byPiece.keys()]),out=new Map();
+ ids.forEach(id=>{
+  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled')return;
+  const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.shipped||!place.waiting)return;
+  const last=scans.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()||null;
+  if(!out.has(place.waiting))out.set(place.waiting,[]);
+  out.get(place.waiting).push({id,g,place,last,since:last?last.at:(g.entry?g.entry.item.at:''),from:last?last.station:''});
+ });
+ out.forEach(list=>list.sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.since).localeCompare(String(b.since))||a.id.localeCompare(b.id)));
+ return out;
+}
+/* Срочность задаёт продажник: Critical и дата в заказе («будут выбирать
+   опцию Критикал и указывать дату», владелец 29.09.2026). Своих правил по
+   сроку система не придумывает. */
+function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='rush'?1:0;}
+
+function normalizeStationScans(){
+ if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
+ DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
+  .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
+   undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):''}));
+ let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
+ DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+ /* Скан резки — правда о «резка началась»: у импортированных данных поле
+    стекла могло потеряться, журнал его восстанавливает. */
+ const cut=stationCutCode(),first=new Map();
+ DB.stationScan.forEach(s=>{if(!s.undoneAt&&s.station===cut&&(!first.has(s.piece)||s.at<first.get(s.piece)))first.set(s.piece,s.at);});
+ if(!first.size)return;
+ const lines=new Set();
+ stationBatchIndex().forEach((e,piece)=>{if(first.has(piece)&&!e.item.cutStartedAt){e.item.cutStartedAt=first.get(piece);lines.add(e.part.orderId+'|'+e.part.lineId);}});
+ lines.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&(o.lines||[]).find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
+}
+function validateStationScanPayload(src){
+ if(src&&Object.prototype.hasOwnProperty.call(src,'stationScan')&&!Array.isArray(src.stationScan))throw new Error('The "stationScan" field must be an array.');
+}
+
+/* ---------------------------------------------------------------------
+   Живые данные между окнами. Станция и офис открыты в двух вкладках одного
+   браузера: вкладка держит базу в памяти и при сохранении пишет её ЦЕЛИКОМ.
+   Без этого офис, сохранив что угодно, стёр бы сканы станции, сделанные
+   после его загрузки. Браузер сообщает о чужой записи событием storage —
+   перечитываем базу. Экран перерисовываем, только если никто не печатает:
+   иначе курсор выпрыгивал бы из поля на каждом скане станции.
+   --------------------------------------------------------------------- */
+function storageLiveReload(text){
+ let next;
+ try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
+ DB=next;stationRouteCache=new Map();
+ const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
+ if(!typing)render();
+ return true;
+}
+window.addEventListener('storage',function(e){
+ if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
+ storageLiveReload(e.newValue);
+});
 
 /* ==== src/erp/views/ncr-ui.js ==== */
 /* =====================================================================
@@ -28798,6 +29171,505 @@ function viewStockList(){
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
 }
 
+/* ==== src/erp/views/station.js ==== */
+/* =====================================================================
+   view/station  ·  station-1.0
+   Экран станции цеха: вход рабочего, скан за сканом, карточка стекла,
+   лист раскроя, журнал с Undo. Плюс экран офиса «где стёкла ждут».
+   IN : #station=CUT в адресе · DB.stationScan (erp/shopfloor/scan)
+   OUT: html
+   Правило: скан не останавливает работу. Поле всегда в фокусе, карточка
+   меняется без кнопок, ошибки — цветом и звуком, окон нет. Владелец,
+   29 сентября 2026: «нужно, чтобы нон-стоп не прерывалось, только в редких
+   случаях выскакивало окно».
+
+   Экран открывается своей ссылкой (…/GLASS_ERP.html#station=CUT) и рисует
+   только себя, без меню и шапки ERP: на станциях слабые ПК, может быть,
+   планшеты. Кто работает — хранится в этом браузере (компьютер стоит у
+   станции), а не в базе: это свойство рабочего места, а не данных.
+   ===================================================================== */
+let stationCode='';
+let stationLast=null;      // последний скан: {check, rec, data, place, at}
+let stationNote='';        // короткая строка под карточкой: «Sheet 3 done»
+let stationSheetView=null; // какой лист показан: {batch, glass, no}
+let stationMenu=null;      // меню стекла на листе: {piece, x, y}
+let stationLoginPick='';   // выбранный на входе рабочий (viewProfileId)
+let stationPin='',stationPinError=false;
+const STATION_SESSION_KEY='glass_erp_station_session_v1';
+/* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
+   у пользователя (поле station) тоже годится. */
+const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
+
+function stationFromHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})$/.exec(location.hash||'');return m?m[1].toUpperCase():'';}
+(function(){const c=stationFromHash();if(c){stationCode=c;tab='station';}})();
+window.addEventListener('hashchange',function(){
+ const c=stationFromHash();
+ if(c){stationCode=c;tab='station';stationLast=null;stationSheetView=null;render();}
+ else if(tab==='station'){tab='production';render();}
+});
+function stationOpen(code){
+ const url=location.href.split('#')[0]+'#station='+encodeURIComponent(code);
+ const w=window.open(url,'_blank');if(!w)location.hash='station='+code;
+}
+function stationExit(){stationCode='';tab='production';subtab='orders';history.replaceState(null,'',location.href.split('#')[0]);render();}
+function stationRow(){return (DB.station||[]).find(s=>s.code===stationCode)||null;}
+function stationName(code){const s=(DB.station||[]).find(x=>x.code===code);return s?sfName(s):code;}
+
+/* --------------------------- Кто работает --------------------------- */
+function stationSession(){try{const s=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');return s&&typeof s==='object'?s:null;}catch(e){return null;}}
+function stationWho(){
+ const s=stationSession();if(!s||s.station!==stationCode)return null;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);
+ return u?{id:u.viewProfileId,name:u.name}:null;
+}
+function stationUsers(){
+ const skill=STATION_SKILL[stationCode],own=(DB.user||[]).filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
+ return (own.length?own:(DB.user||[])).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
+function stationLogin(id){
+ const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
+ try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:stationCode,userId:id,at:new Date().toISOString()}));}catch(e){return false;}
+ stationLoginPick='';stationPin='';stationPinError=false;render();return true;
+}
+function stationPickUser(id){
+ const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
+ if(!u.pin)return stationLogin(id);
+ stationLoginPick=id;stationPin='';stationPinError=false;render();
+}
+function stationPinKey(k){
+ const u=(DB.user||[]).find(x=>x.viewProfileId===stationLoginPick);if(!u)return;
+ if(k==='back')stationPin=stationPin.slice(0,-1);
+ else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
+ stationPinError=false;
+ if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
+ render();
+}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationLast=null;stationNote='';stationMenu=null;render();}
+function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+
+/* ------------------------------ Звук ------------------------------- */
+/* Разный звук на разный исход: рабочий понимает, не глядя на экран. */
+let stationAudio=null;
+function stationBeep(kind){
+ try{
+  stationAudio=stationAudio||new (window.AudioContext||window.webkitAudioContext)();
+  const tones={ok:[[880,.07]],info:[[880,.07]],twice:[[660,.06],[660,.06]],error:[[220,.35]],sheet:[[660,.08],[990,.14]],urgent:[[880,.07],[1320,.12]]}[kind]||[[880,.07]];
+  let t=stationAudio.currentTime+.01;
+  tones.forEach(([f,d])=>{const o=stationAudio.createOscillator(),g=stationAudio.createGain();o.type=kind==='error'?'square':'sine';o.frequency.value=f;g.gain.value=.12;o.connect(g);g.connect(stationAudio.destination);o.start(t);o.stop(t+d);t+=d+.05;});
+ }catch(e){}
+}
+
+/* ------------------------------- Скан ------------------------------- */
+function stationSubmit(raw){
+ const who=stationWho();if(!who)return false;
+ const check=stationCheck(stationCode,raw);if(!check)return false;
+ const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim())}):null;
+ stationShow(check,rec);
+ render();
+ return check.kind;
+}
+function stationShow(check,rec){
+ stationMenu=null;stationNote='';
+ const g=check.g||null;let data=null;
+ if(g&&g.c&&!g.c.missing){try{data=stkGlassData('production',g.o,g.l,g.c,g.unit,{batch:g.entry?g.entry.batch.number:''});}catch(e){data=null;}}
+ const place=g?stationPlace(g):null;
+ stationLast={check,rec,data,place,at:rec?rec.at:new Date().toISOString()};
+ /* Лист: показываем лист отсканированного стекла; закрылся — следующий. */
+ const kind=check.kind;let sound=kind==='ok'||kind==='hold'?(check.stock?'info':stationUrgency(g&&g.o)===2?'urgent':'ok'):kind==='already'?'twice':'error';
+ if(kind==='hold')sound='error';
+ if(g&&g.entry&&rec){
+  const at=stationSheetFind(g.entry.batch.number,g.id);
+  if(at){
+   stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};
+   if(stationSheetDone(at.sheet)){
+    const next=stationSheetNext(g.entry.batch.number,at.group,at.sheet);
+    stationNote='Sheet '+at.sheet.no+' done'+(next?' → sheet '+next.sheet.no+(next.group.glass!==at.group.glass?' · glass change → '+next.group.glass:''):' · batch '+g.entry.batch.number+' cut');
+    if(next)stationSheetView={batch:g.entry.batch.number,glass:next.group.glass,no:next.sheet.no};
+    sound='sheet';
+   }
+  }
+ }else if(g&&g.entry&&!stationSheetView){const at=stationSheetFind(g.entry.batch.number,g.id);if(at)stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};}
+ stationBeep(sound);
+}
+function stationUndoClick(id){
+ const who=stationWho();if(!who)return;
+ const r=stationUndo(id,who);
+ stationNote=r.error||'Scan undone';
+ if(!r.error&&stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast=null;
+ stationBeep(r.error?'error':'twice');render();
+}
+
+/* ------------------------------- Лист -------------------------------- */
+function stationSheetFind(batch,piece){
+ const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null;
+ if(!plan||!Array.isArray(plan.groups))return null;
+ const f=cutFind(plan,piece);return f?{plan,group:f.group,sheet:f.sheet}:null;
+}
+function stationCutSet(){const s=new Set();(DB.glassBatch||[]).forEach(b=>b.items.forEach(i=>{if(!i.releasedAt&&i.cutStartedAt)s.add(i.piece);}));return s;}
+function stationSheetDone(sheet,cut){cut=cut||stationCutSet();return (sheet.pieces||[]).length>0&&sheet.pieces.every(p=>cut.has(p.piece));}
+/* Следующий по порядку раскроя лист, где есть что резать: сначала листы
+   этого стекла после текущего, потом остальные стёкла батча, потом
+   пропущенные раньше. */
+function stationSheetNext(batch,group,sheet){
+ const plan=cutPlanFor(batch);if(!plan)return null;const cut=stationCutSet(),all=[];
+ plan.groups.forEach(g=>g.sheets.forEach(s=>all.push({group:g,sheet:s})));
+ const at=all.findIndex(x=>x.group===group&&x.sheet===sheet),order=all.slice(at+1).concat(all.slice(0,Math.max(0,at)));
+ return order.find(x=>!stationSheetDone(x.sheet,cut))||null;
+}
+function stationSheetPick(batch,glass,no){stationSheetView={batch,glass,no};stationMenu=null;render();}
+function stationPieceLabel(id){return String(+String(id).slice(2)||id);}
+function stationSheetSVG(sheet,cut,nowId){
+ const size=sheet.size||{w:144,h:102},W=+size.w||144,H=+size.h||102,fy=(y,h)=>H-y-h,f=Math.max(2,W/42);
+ const out=['<svg class="st-sheet-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" onclick="stationSheetClick(event)">',
+  '<rect class="st-sheet-bg" x="0" y="0" width="'+W+'" height="'+H+'"/>'];
+ (sheet.stock||[]).forEach(o=>{out.push('<rect class="st-stock" x="'+o.x+'" y="'+fy(o.y,o.h)+'" width="'+o.w+'" height="'+o.h+'"/>');
+  if(o.w>f*6&&o.h>f*2)out.push('<text class="st-stock-t" x="'+(o.x+o.w/2)+'" y="'+(fy(o.y,o.h)+o.h/2+f*.35)+'" font-size="'+(f*.8)+'" text-anchor="middle">'+esc(o.id)+'</text>');});
+ (sheet.pieces||[]).forEach(p=>{
+  const st=p.piece===nowId?'now':cut.has(p.piece)?'cut':'wait',y=fy(p.y,p.h),fs=Math.max(1.6,Math.min(f*1.2,p.w/6,p.h/3));
+  out.push('<g class="st-pc '+st+'" data-station-piece="'+esc(p.piece)+'"><rect x="'+(p.x+.3)+'" y="'+(y+.3)+'" width="'+Math.max(0,p.w-.6)+'" height="'+Math.max(0,p.h-.6)+'" rx=".6"/>');
+  out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2)+'" font-size="'+fs+'" text-anchor="middle" class="st-pc-n">'+esc(stationPieceLabel(p.piece))+'</text>');
+  if(p.h>fs*2.6)out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2+fs*1.1)+'" font-size="'+(fs*.72)+'" text-anchor="middle" class="st-pc-s">'+esc(frac16(p.w)+' × '+frac16(p.h))+'</text>');
+  if(st==='cut'&&p.w>fs*3&&p.h>fs*2)out.push('<text x="'+(p.x+p.w-fs*.5)+'" y="'+(y+fs*1.1)+'" font-size="'+fs+'" text-anchor="end" class="st-pc-c">✓</text>');
+  out.push('</g>');
+ });
+ return out.join('')+'</svg>';
+}
+function stationSheetClick(ev){
+ const g=ev.target.closest&&ev.target.closest('[data-station-piece]');
+ if(!g){stationMenu=null;render();return;}
+ const host=document.querySelector('.st-sheet-card'),box=host?host.getBoundingClientRect():{left:0,top:0};
+ stationMenu={piece:g.getAttribute('data-station-piece'),x:ev.clientX-box.left,y:ev.clientY-box.top};render();
+}
+/* Стикер не читается — стекло отмечают на листе. Запись та же, с пометкой
+   manual: потом видно, как часто стикеры не читаются. */
+function stationMark(piece){
+ const who=stationWho();if(!who)return;
+ const check=stationCheck(stationCode,piece);if(!check)return;
+ const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true}):null;
+ stationShow(check,rec);render();
+}
+function stationPeek(piece){
+ const check=stationCheck(stationCode,piece);if(!check)return;
+ stationMenu=null;const g=check.g;let data=null;
+ if(g&&g.c&&!g.c.missing){try{data=stkGlassData('production',g.o,g.l,g.c,g.unit,{batch:g.entry?g.entry.batch.number:''});}catch(e){}}
+ stationLast={check:Object.assign({},check,{kind:'peek'}),rec:null,data,place:g?stationPlace(g):null,at:new Date().toISOString()};render();
+}
+function stationSheetCard(){
+ const v=stationSheetView;
+ if(!v)return '<div class="card st-sheet-card st-empty"><div class="mut">Scan a glass — its sheet appears here</div></div>';
+ const plan=cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
+ if(!sheet)return '<div class="card st-sheet-card st-empty"><div class="mut">No cutting plan for '+esc(v.batch)+'</div></div>';
+ const cut=stationCutSet(),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
+ const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
+ const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
+  return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
+ const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
+ return '<div class="card st-sheet-card"><div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span><span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span></div>'+
+  stationSheetSVG(sheet,cut,nowId)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
+}
+function stationMenuHTML(){
+ const m=stationMenu,cut=stationCutSet().has(m.piece),x=Math.max(8,m.x-90),y=m.y+12;
+ return '<div class="st-menu" style="left:'+x+'px;top:'+y+'px"><div class="st-menu-h mono">'+esc(m.piece)+'</div>'+
+  (cut?'':'<button type="button" onclick="stationMark(\''+esc(m.piece)+'\')">✓ Mark cut</button>')+
+  '<button type="button" onclick="stationPeek(\''+esc(m.piece)+'\')">Details</button></div>';
+}
+
+/* ------------------------------ Карточка ----------------------------- */
+function stationRouteChips(route,place){
+ if(!route||!route.length)return '';
+ return '<div class="st-route">'+route.map((c,i)=>{const done=place&&i<=place.far,next=place&&c===place.waiting;
+  return '<span class="st-rc'+(done?' done':next?' next':'')+'">'+(done?'✓ ':'')+esc(c)+'</span>';}).join('<span class="st-ra">›</span>')+'</div>';
+}
+function stationTime(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+function stationCard(){
+ const L=stationLast;
+ if(!L)return '<div class="st-res st-idle"><div class="mut">Ready for the first scan</div></div>';
+ const c=L.check,d=L.data,g=c.g,o=g&&g.o,urg=stationUrgency(o),place=L.place;
+ const verb=stationCode===stationCutCode()?'Cut':'Done';
+ const who=c.here?stationTime(c.here.at)+' · '+(c.here.by||'—'):'';
+ const waitName=place&&place.waiting?stationName(place.waiting):'';
+ const K={
+  ok:{cls:c.stock?'st-info':'st-ok',head:'✓ '+verb+(c.stock?' · no batch — stock cut':'')},
+  hold:{cls:'st-red',head:'✓ '+verb+' · order on hold'},
+  already:{cls:'st-amber',head:'Already '+(verb==='Cut'?'cut':'done')+' · '+who},
+  passed:{cls:'st-red',head:'✕ Not for '+stationCode},
+  skipped:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not scanned'},
+  route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
+  cancelled:{cls:'st-red',head:'✕ Order cancelled'},
+  unit:{cls:'st-red',head:'✕ Unit number'},
+  unknown:{cls:'st-red',head:'✕ Unknown code'},
+  peek:{cls:'st-info',head:'Details'}
+ }[c.kind]||{cls:'st-red',head:c.kind};
+ if(c.kind==='ok'&&urg===2)K.cls='st-red';
+ /* Большой блок слева — главное действие рабочего. */
+ let big;
+ if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
+ else if(['passed','skipped','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
+ else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
+ else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
+ else if(c.kind==='unknown')big='<div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Check the sticker</span></div>';
+ else if(place&&place.shipped)big='<div class="st-big"><small>ROUTE</small><b>DONE</b><span>Shipped</span></div>';
+ else big='<div class="st-big'+(urg===2&&c.kind==='ok'?' st-red':'')+'"><small>NEXT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(urg===2&&c.kind==='ok'?'Set aside or take it now':esc(waitName))+'</span></div>';
+ const bar=o&&urg&&!['unknown','unit'].includes(c.kind)?'<div class="st-urg'+(urg===2?'':' st-rush')+'">'+(urg===2?'CRITICAL':'RUSH')+'<span>· order '+esc(o.businessNumber||'')+(d&&d.due?' · due '+esc(d.due):'')+'</span></div>':'';
+ const size=d?(d.cut||d.finished):null;
+ const lineTxt=d?'Line '+d.line+' · '+(d.recut?esc(d.recut):d.unit+' of '+d.of)+(d.lites>1?' · Lite '+esc(d.lite):''):'';
+ const info=g?'<div class="st-gid mono">'+esc(c.code)+'</div><div class="st-kv">'+
+  '<span class="k">Order</span><span><b>'+esc(o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span></span>'+
+  (d?'<span class="k">Line</span><span>'+lineTxt+'</span>':'')+
+  (d?'<span class="k">Glass</span><span><b data-raw>'+esc(d.glass.code||d.glass.name)+'</b>'+(d.glass.heat?' · '+esc(d.glass.heat):'')+'</span>':'')+
+  (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
+  (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
+  '</div>'+stationRouteChips(place&&place.route,place)+
+  (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
+ const acts=L.rec?'<div class="st-acts"><button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button></div>':'';
+ return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
+  (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+
+  '<div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+acts+'</div>';
+}
+
+/* ------------------------------ Журнал ------------------------------ */
+function stationJournal(){
+ const rows=(DB.stationScan||[]).filter(s=>s.station===stationCode&&!s.undoneAt).slice(-8).reverse();
+ if(!rows.length)return '';
+ const index=stationPieceIndex(),batches=stationBatchIndex();
+ const lastOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)lastOf.set(s.piece,s);});
+ const body=rows.map(s=>{
+  const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
+  return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
+   '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
+   '<td class="st-to">'+(place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
+   '<td style="text-align:right">'+(lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
+ }).join('');
+ return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+/* ------------------------------ Экран -------------------------------- */
+function stationBatchChip(){
+ const b=stationSheetView?glassBatchFind(stationSheetView.batch):null;if(!b)return '';
+ const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length;
+ return '<div class="st-chip">Batch <b class="mono">'+esc(b.number)+'</b> · <b>'+cut+'</b> / '+live.length+' cut</div>';
+}
+function stationTop(who){
+ const s=stationRow();
+ return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div><span class="sp"></span>'+
+  (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
+  '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
+}
+function stationLoginView(){
+ const users=stationUsers(),pick=(DB.user||[]).find(u=>u.viewProfileId===stationLoginPick);
+ const names=users.map(u=>'<button type="button" class="st-name-btn'+(pick===u?' on':'')+'" onclick="stationPickUser(\''+esc(u.viewProfileId)+'\')"><span class="st-av">'+esc(stationInitials(u.name))+'</span><span data-raw>'+esc(u.name)+'</span></button>').join('');
+ const pad=pick?'<div class="st-pin"><div class="st-pin-t">PIN · <span data-raw>'+esc(pick.name)+'</span></div><div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'+
+  (stationPinError?'<div class="st-pin-err">Wrong PIN</div>':'')+
+  '<div class="st-keys">'+['1','2','3','4','5','6','7','8','9','','0','back'].map(k=>k?'<button type="button" onclick="stationPinKey(\''+k+'\')">'+(k==='back'?'⌫':k)+'</button>':'<span></span>').join('')+'</div></div>':'';
+ return '<div class="st-login card"><h2>Who is working?</h2>'+(users.length?'<div class="st-names">'+names+'</div>':'<div class="mut">No users yet — add them in Users.</div>')+pad+'</div>';
+}
+function viewStation(){
+ const s=stationRow();
+ if(!s){
+  return stationTop(null)+'<div class="st-body st-one"><div class="card"><h2>Choose a station</h2><div class="st-names">'+(DB.station||[]).map(x=>'<button type="button" class="st-name-btn" onclick="location.hash=\'station='+esc(x.code)+'\'"><b>'+esc(x.code)+'</b> '+sfLabel(x)+'</button>').join('')+'</div></div></div>';
+ }
+ const who=stationWho();
+ if(!who)return stationTop(null)+'<div class="st-body st-one">'+stationLoginView()+'</div>';
+ setTimeout(stationFocus,0);
+ return stationTop(who)+'<div class="st-body"><div class="st-col">'+
+  '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
+  stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard():stationHereCard())+'</div></div>';
+}
+/* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
+   позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
+   (владелец, 29.09.2026) — их читает сканер. */
+function stationHereCard(){
+ const list=stationWaiting().get(stationCode)||[],groups=new Map();
+ list.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
+  if(!groups.has(k))groups.set(k,{g,n:0,li:(g.o.lines||[]).indexOf(g.l)+1});groups.get(k).n++;});
+ const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,40).map(x=>{
+  const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
+  return '<tr'+(urg===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="n"><b>'+x.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('');
+ return '<div class="card"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+list.length+' glass</span></div>'+
+  (list.length?'<table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
+}
+function stationKey(ev,el){
+ if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
+ ev.preventDefault();const v=el.value;el.value='';if(v.trim())stationSubmit(v);
+}
+function stationFocus(){
+ if(tab!=='station'||stationMenu)return;
+ const el=document.querySelector('[data-station-scan]');
+ if(el&&document.activeElement!==el)el.focus();
+}
+/* Сканер печатает, даже если фокус ушёл: нажатие вне полей ввода
+   отправляется в поле скана. */
+document.addEventListener('keydown',function(e){
+ if(tab!=='station')return;
+ const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
+ if(!stationWho()&&stationLoginPick&&(/^\d$/.test(e.key)||e.key==='Backspace')){stationPinKey(e.key==='Backspace'?'back':e.key);e.preventDefault();return;}
+ const el=document.querySelector('[data-station-scan]');if(!el||document.activeElement===el)return;
+ if(e.ctrlKey||e.metaKey||e.altKey)return;
+ if(e.key.length===1){stationMenu=null;el.focus();el.value+=e.key;e.preventDefault();}
+ else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';stationSubmit(v);}
+});
+document.addEventListener('focusout',function(){if(tab==='station')setTimeout(stationFocus,150);});
+
+/* ==== src/erp/views/production-board.js ==== */
+/* =====================================================================
+   view/production-board  ·  board-1.0
+   Production → In production: одна строка — один заказ, в колонках станций —
+   сколько его стёкол ждёт на каждой. Раскрытие — позиция (размер, юниты) →
+   стекло (код, Lite) → сколько где.
+   IN : журнал сканов и «где стекло» (erp/shopfloor/scan); движок таблицы —
+        views/sales-list-ui (фильтры колонок, блок дат, колонки — как Sales)
+   OUT: html
+   Владелец, 29 сентября 2026: в производстве бывает 3000+ стёкол — список
+   стёкол бесконечен; номер G-0000867 ничего не говорит — «как мне узнать,
+   сразу же посмотрев»; нужно: заказ, 24 × 80, 6CL — 2 на IGU, 6SNB60 — 1 на
+   IGU, 1 на EDGE. Номеров стёкол на этом экране нет. Поиск стекла по номеру
+   не нужен (он же).
+   ===================================================================== */
+let prodOpen=new Set();
+function prodListScope(){return subtab==='orders'?'prodOrders':'';}
+function prodListColumns(){
+ const st=(DB.station||[]).map(s=>({k:'st_'+s.code,label:s.code,type:'number',def:true,sum:true,station:s.code}));
+ return [
+  {k:'number',label:'Order',type:'text',def:true},
+  {k:'customer',label:'Customer',type:'text',def:true},
+  {k:'priority',label:'Priority',type:'list',def:true},
+  {k:'due',label:'Due',type:'date',def:true,presets:SALES_LIST_DUE_PRESETS,range:[['overdue','Overdue'],['next7','7 days'],['next30','30 days'],['','All']]},
+  {k:'glass',label:'Glass',type:'text',tokens:true,def:true},
+  {k:'shipped',label:'Shipped',type:'number',def:true},
+  {k:'queue',label:'To batch',type:'number',def:true,sum:true}
+ ].concat(st,[{k:'on',label:'On',type:'text',def:true},{k:'rank',label:'Urgency',type:'number',def:false}]);
+}
+/* Сначала Critical, потом Rush, дальше по сроку — горящее всегда наверху. */
+function prodListDefaultSort(){return {k:'rank',dir:'asc'};}
+
+/* Доска считается одним проходом по стёклам и кэшируется, пока не
+   изменились сканы, батчи и заказы: движок таблицы спрашивает строки
+   несколько раз за одну отрисовку. */
+let prodBoardCache={stamp:'',data:null};
+function prodBoardStamp(){
+ const scans=DB.stationScan||[];let undone=0;scans.forEach(s=>{if(s.undoneAt)undone++;});
+ let items=0,released=0,cut=0;(DB.glassBatch||[]).forEach(b=>b.items.forEach(i=>{items++;if(i.releasedAt)released++;if(i.cutStartedAt)cut++;}));
+ return [scans.length,undone,DB.stationScanSeq,items,released,cut,(DB.salesOrder||[]).map(o=>o.id+o.updatedAt+o.status+(o.priority||'')+(o.dueDate||'')).join(',')].join('|');
+}
+function prodBoard(){
+ const stamp=prodBoardStamp();if(prodBoardCache.stamp===stamp&&prodBoardCache.data)return prodBoardCache.data;
+ const batches=stationBatchIndex(),scansBy=new Map(),orders=[];
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!scansBy.has(s.piece))scansBy.set(s.piece,[]);scansBy.get(s.piece).push(s);});
+ (DB.salesOrder||[]).forEach(o=>{
+  if(!o||salesIsQuote(o)||['cancelled','closed'].includes(o.status))return;
+  const pieces=glassPieceMap(o.id);if(!pieces.size)return;
+  const counts={queue:0},route={},lines=[],codes=[];let inProd=false,shipped=0,total=0;
+  (o.lines||[]).forEach((l,li)=>{
+   const lites=[];
+   glassBatchComponents(o,l).forEach(c=>{
+    if(c.missing)return;
+    const rec=pieces.get(c.key);if(!rec)return;
+    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0;
+    ids.forEach(id=>{
+     const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
+     const place=stationPlace(g,scans),queued=!e&&!scans.length;
+     /* Клетка станции знает три вещи: сколько ждёт здесь, сколько уже
+        прошло и есть ли станция в маршруте вообще. «·» у стеклопакета
+        перед IGU и пусто у одинарного стекла — разные вещи (владелец). */
+     place.route.forEach((code,i)=>{
+      const t=lr[code]||(lr[code]={w:0,p:0,n:0}),u=route[code]||(route[code]={w:0,p:0,n:0});
+      t.n++;u.n++;if(!queued&&i<=place.far){t.p++;u.p++;}
+      if(!queued&&code===place.waiting){t.w++;u.w++;}
+     });
+     if(queued){lc.queue++;counts.queue++;return;}
+     inProd=true;
+     if(place.shipped||!place.waiting){ls++;shipped++;return;}
+     lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
+    });
+    if(!codes.includes(c.glass))codes.push(c.glass);
+    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length});
+   });
+   if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
+  });
+  if(!inProd)return;
+  const urg=stationUrgency(o),t=Date.parse(o.dueDate||''),days=Number.isNaN(t)?99999:Math.floor(t/864e5);
+  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,shipped,total,lines,rank:(2-urg)*1e6+days});
+ });
+ prodBoardCache={stamp,data:orders};
+ return orders;
+}
+function prodListInfos(){
+ return prodBoard().map(x=>{
+  const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:'',rank:x.rank};
+  (DB.station||[]).forEach(s=>{memo['st_'+s.code]=x.counts[s.code]||0;});
+  return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass},memo};
+ });
+}
+function prodToggle(id){if(prodOpen.has(id))prodOpen.delete(id);else prodOpen.add(id);render();}
+/* Плитка станции ставит фильтр колонки «> 0»: остаются заказы, у которых
+   есть стекло на этой станции. Повторное нажатие — снимает. */
+function prodFocusStation(code){
+ const k='st_'+code,p=salesListLoadPrefs(),f=p.filters[k];salesListMenu=null;
+ if(f&&salesListFilterActive(f))delete p.filters[k];
+ else{const c=salesListCleanFilter(k,{mode:'include',conds:[{op:'gt',v:'0',v2:'',join:'and'}],values:null,preset:''});if(c)p.filters[k]=c;}
+ salesListSavePrefs();render();
+}
+function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?' pb-cut':''}">${n}</span>`:'<span class="pb-z">·</span>';}
+/* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
+   дошли. Станции нет в маршруте — клетка пустая. */
+function prodStation(t,code){
+ if(!t||!t.n)return '';
+ if(t.w)return prodCount(t.w,code);
+ return t.p===t.n?'<span class="pb-done" title="Passed">✓</span>':'<span class="pb-z" title="Not there yet">·</span>';
+}
+function prodCell(r,c){
+ const v=salesListValue(r,c.k),x=r.x;
+ if(c.station)return `<td class="pb-st">${prodStation(x.route[c.station],c.station)}</td>`;
+ switch(c.k){
+  case 'number':return `<td class="mono"><button type="button" class="pb-open" onclick="event.stopPropagation();prodToggle('${esc(x.o.id)}')">${prodOpen.has(x.o.id)?'▾':'▸'} <b>${esc(v)}</b></button></td>`;
+  case 'customer':return `<td>${raw(v)}</td>`;
+  case 'priority':return `<td>${x.o.priority==='critical'?'<span class="pill bad">Critical</span>':x.o.priority==='rush'?'<span class="pill warn">Rush</span>':''}</td>`;
+  case 'due':return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+  case 'glass':return `<td data-raw>${esc(v)}</td>`;
+  case 'shipped':return `<td class="pb-prog"><span class="pb-bar"><i style="width:${x.total?Math.round(x.shipped/x.total*100):0}%"></i></span>${x.shipped} / ${x.total}</td>`;
+  case 'queue':return `<td class="pb-st">${prodCount(v)}</td>`;
+  case 'on':return '<td><span class="pb-z">—</span></td>';
+  default:return `<td>${v==null||v===''?'':esc(String(v))}</td>`;
+ }
+}
+/* Позиция → стекло: те же колонки, что у заказа, чтобы цифры стояли под
+   своими станциями. */
+function prodSubRows(r,cols){
+ return r.x.lines.map(L=>L.lites.map((t,i)=>`<tr class="pb-sub">${cols.map(c=>{
+  if(c.station)return `<td class="pb-st">${prodStation(t.route[c.station],c.station)}</td>`;
+  switch(c.k){
+   case 'number':return `<td class="mut">${i?'':'Line '+L.no}</td>`;
+   case 'customer':return `<td>${i?'':`<b>${esc(L.size)}</b> · ${L.units} unit${L.units===1?'':'s'}${L.mark?` · <span data-raw>${esc(L.mark)}</span>`:''}`}</td>`;
+   case 'glass':return `<td><b data-raw>${esc(t.glass)}</b>${L.lites.length>1?` <span class="mut">Lite ${esc(t.lite)}</span>`:''}</td>`;
+   case 'shipped':return `<td class="pb-prog mut">${t.shipped} / ${t.total}</td>`;
+   case 'queue':return `<td class="pb-st">${prodCount(t.counts.queue||0)}</td>`;
+   case 'on':return '<td><span class="pb-z">—</span></td>';
+   default:return '<td></td>';
+  }
+ }).join('')}<td></td></tr>`).join('')).join('');
+}
+function viewProdOrders(){
+ const infos=prodListInfos(),p=salesListLoadPrefs(),rows=salesListRows(infos);
+ const total=k=>infos.reduce((n,i)=>n+(i.memo[k]||0),0),cut=stationCutCode();
+ /* Двенадцать станций в ширину не влезают: колонка есть, пока станция
+    впереди хоть у одного стекла в производстве (ждут или ещё не дошли).
+    Нет сверловки в работе — нет колонки DRILL. Плитки сверху — все. */
+ const ahead=code=>infos.some(i=>{const t=i.x.route[code];return t&&t.n>t.p;});
+ const cols=salesListColumns().filter(c=>c.station?ahead(c.station):c.k!=='queue'||total('queue')>0);
+ const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).map(s=>{
+  const k='st_'+s.code,n=total(k),f=p.filters[k],on=!!f&&salesListFilterActive(f);
+  return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'}</small></button>`;
+ }).join('')+'</div>';
+ const body=rows.map(r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):'')).join('');
+ const glassN=rows.reduce((n,r)=>n+r.x.total-r.x.shipped,0);
+ const foot=rows.length?`<tfoot><tr class="sl-foot">${cols.map((c,i)=>i===0?`<td data-foot-count><b>${rows.length} order${rows.length===1?'':'s'}</b></td>`:c.sum?`<td class="n pb-st">${rows.reduce((n,r)=>n+(salesListValue(r,c.k)||0),0)||''}</td>`:'<td></td>').join('')}<td></td></tr></tfoot>`:'';
+ return `${tiles}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass in production</span></div>${salesListFilterChips()}
+  <div class="sales-table-wrap"><table class="sl-table pb-table"><thead><tr>${cols.map(c=>prodTh(c,p)).join('')}<th><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead>
+  <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+}
+
 /* ==== src/erp/storage.js ==== */
 /* =====================================================================
    erp/storage  ·  erp-1.0
@@ -28871,6 +29743,7 @@ function validateImportedState(src){
 
  if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
  if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
+ if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -28953,6 +29826,7 @@ function normalizeDB(){
 
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
+ if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
