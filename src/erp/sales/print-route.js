@@ -244,11 +244,15 @@ function salesRouteSurfaceTreatments(pane,index,side){
     add('frit',f,fs,face,lam?f.position:'');
   }
   if(ply.visionType==='lowe'||ply.visionType==='reflective'){
-    /* Пока Makeup не хранит выбор грани покрытия на ply, не подменяем его
-       наружной гранью. Legacy-номер панели применим только к своей ply. */
-    var cs=normalizeSurface(lam?pane.coatingSurface:ply.coatingSurface,surfaces);
-    if(lam&&cs!==salesLaminatedFritOutsideSurface(index,side))cs=null;
-    add('coating',{},cs,cs===surfaces[0]?'out':cs===surfaces[1]?'in':'');
+    /* У плиты ламината грань покрытия хранится на ней самой: открытая грань
+       (#N пакета) или к плёнке — так же, как фрит. */
+    if(lam){
+      var cp=ply.coatingPosition==='in_film'?'in_film':'outside';
+      add('coating',{},cp==='in_film'?0:salesLaminatedFritOutsideSurface(index,side),(side==='outer')===(cp!=='in_film')?'out':'in',cp);
+    }else{
+      var cs=normalizeSurface(ply.coatingSurface,surfaces);
+      add('coating',{},cs,cs===surfaces[0]?'out':cs===surfaces[1]?'in':'');
+    }
   }
   return out;
 }

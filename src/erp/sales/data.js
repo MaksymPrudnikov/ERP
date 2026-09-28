@@ -121,7 +121,17 @@ function normalizeSalesLaminatedFrit(raw,d){
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
-function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,frit:salesDefaultLaminatedFrit()};}
+function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
+/* Покрытие на плите ламината лежит либо на её открытой грани (номер
+   поверхности пакета, как у фрита «Outside film»), либо к плёнке. Владелец,
+   28 сентября 2026: у 4Q272/4CL выбрать поверхность было нельзя, а маршрут
+   требовал её. */
+function salesCoatingSurfaceOf(p,index,side){
+ const spec=side?p&&p.laminated&&p.laminated[side]:p;
+ if(!spec||(spec.visionType!=='lowe'&&spec.visionType!=='reflective'))return 0;
+ if(!side)return spec.coatingSurface||0;
+ return spec.coatingPosition==='in_film'?'film':salesPaneSurfaces(index)[side==='inner'?1:0];
+}
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
  const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
@@ -133,7 +143,8 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
  const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
- const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',
+  coatingPosition:SALES_LAMINATED_FRIT_POSITIONS.includes(raw.coatingPosition)?raw.coatingPosition:'outside',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
@@ -351,7 +362,9 @@ function normalizeSalesPane(p,index){
   edgework:SALES_PANE_EDGEWORK.includes(p.edgework)?p.edgework:'',
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,heatSoak:p.heatSoak===true&&p.heatTreatmentId==='HT-FT',
-  coatingSurface:normalizeSurface(p.coatingSurface,allowed),
+  /* У ламината поверхность покрытия живёт на плите (coatingPosition), номер
+     панели от прежнего Vision здесь был бы чужим. */
+  coatingSurface:category==='laminated'?null:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:normalizeSalesSpandrelSpec(sp,d.spandrel,allowed),
   laminated:{outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated),inner:normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner)}

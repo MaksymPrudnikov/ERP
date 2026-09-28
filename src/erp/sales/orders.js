@@ -231,6 +231,7 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  const base=glassBaseName(glassProductById(ply.glassProductId)),same=base?rows.find(g=>glassBaseName(g)===base):null;
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
+function salesPaneSetLamPlyCoatingPosition(i,side,v){const ply=salesPaneLamPly(i,side);if(!ply)return;ply.coatingPosition=SALES_LAMINATED_FRIT_POSITIONS.includes(v)?v:'outside';render();}
 function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
 /* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
 function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
