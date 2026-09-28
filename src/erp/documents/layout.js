@@ -119,7 +119,9 @@ function docHeader(P,m){
  }
  P.text(W.right,y+15,m.title,{size:18,bold:true,color:C.navy,align:'right'});
  P.text(W.right,y+30,m.number,{size:10.5,bold:true,align:'right'});
- P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,'No.',{size:8,align:'right'});
+ /* Выписка подписывает номер «Account», внутренний список — ничем. */
+ const numberLabel=m.numberLabel!=null?m.numberLabel:'No.';
+ if(numberLabel)P.text(W.right-docTextWidth(m.number,10.5,true)-3,y+30,numberLabel,{size:8,align:'right'});
  P.text(W.right,y+41,'Page',{size:7,color:C.faint,align:'right',pageLabel:true});
  y=Math.max(leftBottom,y+44)+12;
  if(m.meta.length)y=docCells(P,m.meta,y,28,7.8)+10;

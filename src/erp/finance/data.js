@@ -2,7 +2,7 @@
    erp/finance/data  ·  finance-1.0
    Оплаты клиентов: квитанции, разнесение по заказам, депозит на счёте.
    IN : DB.receipt, DB.salesOrder, DB.customer
-   OUT: баланс заказа, депозит и счёт клиента, CSV для QuickBooks
+   OUT: баланс заказа, депозит и счёт клиента
    Правило: сумма заказа берётся из расчёта самого заказа
    (salesOrderCommercialTotals) — своих цен здесь нет. Бухгалтерии здесь тоже
    нет: владелец переносит оплаты в QuickBooks руками (14 сентября 2026),
@@ -164,14 +164,7 @@ function finVoidReceipt(id,reason){
  return true;
 }
 
-function finCsvCell(v){let s=String(v==null?'':v);if(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+/* Ячейка CSV: текст, начинающийся с = + @ -, Excel считает формулой — ему
+   ставится апостроф. Число (и отрицательная сумма возврата) остаётся числом. */
+function finCsvCell(v){let s=String(v==null?'':v);if(!/^-?\d+(\.\d+)?$/.test(s)&&(/^[\s]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);return o?(o.businessNumber||o.id):'deleted order';}
-function finReceiptsCsv(rows){
- const H=['Receipt No','Date','Customer','Customer Account','Method','Reference','Amount','Applied','Applied To Orders','On Account','Status','Void Reason','Note'];
- const body=rows.map(r=>{
-  const c=(DB.customer||[]).find(x=>x.id===r.customerId)||{};
-  return [r.number,r.date,c.legalName||c.displayName||'',c.code||'',finMethodLabel(r.method),r.reference,r.amount.toFixed(2),finReceiptApplied(r).toFixed(2),
-   r.allocations.map(a=>finOrderNumber(a.orderId)+': '+a.amount.toFixed(2)).join('; '),finReceiptOnAccount(r).toFixed(2),r.voided?'Void':'Active',r.voidReason,r.note];
- });
- return [H].concat(body).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
-}

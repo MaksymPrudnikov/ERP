@@ -4,8 +4,9 @@
 DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeVersion=1;
 for(const k of ['refund','financeEvent','financeTerms'])if(!Array.isArray(DB[k]))DB[k]=[];
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
+/* Who recorded an entry. Stays empty until the app has sign-in: a name picked
+   by hand is not evidence, so the screen no longer asks for it. */
 let finActor='';
-try{finActor=localStorage.getItem('glass_finance_actor')||'';}catch(e){}
 function finCopy(x){return JSON.parse(JSON.stringify(x));}
 function finDateValid(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(s)))return false;const d=new Date(s+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===s;}
 function finCents(v){const n=Number(v);return v!==''&&v!=null&&Number.isFinite(n)&&Math.abs(n)<=1e10?Math.round((n+Number.EPSILON)*100):null;}
@@ -103,27 +104,61 @@ function finCaptureTerms(o){
 function finSaveTerms(orderId,d,reason){
  const o=(DB.salesOrder||[]).find(o=>o.id===orderId);finAssert(o&&finOrderCounts(o),'Select an active order.');
  finAssert(['cash','credit'].includes(d.paymentMode),'Select payment terms.');
- const pct=Number(d.depositPercent),days=d.creditDays===''?null:Number(d.creditDays);
+ const pct=Number(d.depositPercent),days=d.creditDays===''||d.creditDays==null?null:Number(d.creditDays);
  finAssert(Number.isFinite(pct)&&pct>=0&&pct<=100,'Deposit percent must be between 0 and 100.');
  finAssert(days===null||Number.isInteger(days)&&days>=0&&days<=365,'Credit days must be between 0 and 365.');
  finAssert(!d.issuedOn||finDateValid(d.issuedOn),'Enter a valid billing date.');finAssert(!d.dueOn||finDateValid(d.dueOn),'Enter a valid payment due date.');
  finAssert(!d.issuedOn||!d.dueOn||d.dueOn>=d.issuedOn,'Payment due date cannot precede the billing date.');
- finAssert(String(reason||'').trim(),'Enter the reason for changing terms.');
  const before=finCopy(finTermsFor(o)),next={orderId,customerId:o.customerId,currency:finCurrency(o),paymentMode:d.paymentMode,depositPercent:pct,creditDays:days,issuedOn:d.issuedOn||'',dueOn:d.dueOn||'',capturedAt:before.capturedAt||new Date().toISOString()};
+ const same=['paymentMode','depositPercent','creditDays','issuedOn','dueOn'].every(k=>before[k]===next[k]);if(same&&before.capturedAt)return before;
  const at=DB.financeTerms.findIndex(t=>t.orderId===orderId);if(at<0)DB.financeTerms.push(next);else DB.financeTerms[at]=next;
  finEvent('terms',before,next,reason,'terms');return next;
 }
+/* Calendar date in the shop's time zone: an entry made in the evening must not
+   land on tomorrow, which toISOString() would do. */
+function finLocalDate(iso){const d=new Date(iso||'');if(!iso||isNaN(d))return '';const p=v=>String(v).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function finAddDays(date,days){const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);}
+function finShortDate(date,today){
+ if(!finDateValid(date))return '';const [y,m,d]=date.split('-').map(Number),year=String(today||finToday()).slice(0,4);
+ return DOC_MONTHS[m-1]+' '+d+(String(y)===year?'':', '+y);
+}
+/* Billing date: typed by hand, otherwise the day the order was picked up or
+   delivered. Nobody has to remember to set it, and it disappears again if the
+   pickup is undone. */
+function finBillingDate(o){const t=finTermsFor(o);return t.issuedOn||finLocalDate(o&&o.statusDates&&o.statusDates.done);}
+/* Payment due: agreed date, otherwise billing date + Net days (credit) or the
+   billing date itself (cash pays at pickup). Before pickup there is no date;
+   credit without Net days has none either — it is not invented. */
 function finPaymentDue(o){
  const t=finTermsFor(o);if(t.dueOn)return t.dueOn;
- if(t.paymentMode==='credit'&&t.issuedOn&&t.creditDays!=null){const d=new Date(t.issuedOn+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+t.creditDays);return d.toISOString().slice(0,10);}return '';
+ const billed=finBillingDate(o);if(!billed)return '';
+ if(t.paymentMode!=='credit')return billed;
+ return t.creditDays==null?'':finAddDays(billed,t.creditDays);
 }
+function finShipped(o){return !!o&&['done','closed'].includes(o.status);}
+/* One reading of an order's money for every screen: status text and its tone
+   (bad = act now, good = paid, info = nothing to do yet). */
 function finOrderFinancial(o,today){
  const b=finOrderBalance(o),t=finTermsFor(o),dueOn=finPaymentDue(o),c=salesFindCustomer(o.customerId),day=today||finToday();
  const overdue=b.balance>0&&dueOn&&dueOn<day?b.balance:0;
  const depositRequired=b.total==null?null:finMoney(b.total*(t.paymentMode==='cash'?t.depositPercent:0)/100);
- const depositMissing=depositRequired==null?null:finMoney(Math.max(0,depositRequired-b.paid));
- let status=!finOrderCounts(o)?'Inactive':finCurrency(o)!=='CAD'?'Currency review':b.total==null?'Pricing incomplete':c&&c.onHold?'Customer on hold':b.balance<=0?'Paid':overdue?'Overdue':t.paymentMode==='credit'?(dueOn?'Credit terms':'Credit · payment date not set'):'Payment required';
- return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status};
+ const depositMissing=depositRequired==null?null:finShipped(o)?0:finMoney(Math.max(0,depositRequired-b.paid));
+ let status,tone='info';
+ if(!finOrderCounts(o))status='Inactive';
+ else if(finCurrency(o)!=='CAD'){status='Currency review';tone='warn';}
+ else if(b.total==null){status='Pricing incomplete';tone='warn';}
+ else if(b.balance<0)status='Overpaid';
+ else if(b.balance===0){status='Paid';tone='good';}
+ else if(overdue){status='Overdue';tone='bad';}
+ else if(c&&c.onHold){status='Customer on hold';tone='bad';}
+ else if(depositMissing>0){status='Deposit due';tone='bad';}
+ else if(dueOn)status=dueOn===day?'Due today':'Due '+finShortDate(dueOn,day);
+ else if(t.paymentMode==='credit'&&t.creditDays==null){status='Net days not set';tone='warn';}
+ else status=t.paymentMode==='credit'&&t.creditDays?'Net '+t.creditDays+' after pickup':'Due at pickup';
+ return {b,terms:t,dueOn,overdue,depositRequired,depositMissing,status,tone};
+}
+function finCustomerOverdue(customerId,today){
+ return finMoney((DB.salesOrder||[]).filter(o=>o.customerId===customerId&&finOrderCounts(o)).reduce((s,o)=>s+finOrderFinancial(o,today).overdue,0));
 }
 function finValidatePayload(src){
  const id=v=>typeof v==='string'&&/^[A-Za-z0-9_-]{1,96}$/.test(v),money=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e10&&Math.abs(v*100-Math.round(v*100))<0.001;

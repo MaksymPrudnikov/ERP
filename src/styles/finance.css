@@ -21,7 +21,6 @@
 .fin-deposit{color:#026aa2}
 .fin-due{color:#b42318}
 .fin-paid{color:#067647}
-.fin-total{margin-top:8px;text-align:right;color:var(--muted,#667085)}
 .fin-form-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .fin-form-head h3{margin:0}
 .fin-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
@@ -50,23 +49,26 @@
  .sales-editor-top .fin-strip{margin-left:0;flex-wrap:wrap}
 }
 
-/* Finance workspace */
-.fin-schedule-filters .fin-date select{width:auto;min-width:125px}.fin-schedule-help{font-size:12px;color:#647782;margin-top:16px}.fin-schedule-help summary{cursor:pointer}.fin-schedule-help p{max-width:900px;line-height:1.6}.fin-due-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0}.fin-due-summary .row{flex-wrap:wrap}.fin-card>.tabs{overflow-x:auto}
-.fin-workspace-head{display:flex;align-items:center;gap:20px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--line)}
-.fin-overview{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px 24px;flex:1}
-.fin-overview-caption{flex-basis:100%;font-size:11px;color:#647782}
-.fin-stat{display:inline-flex;gap:7px;align-items:baseline;white-space:nowrap;font-size:12px;color:#647782}
-.fin-stat strong{font-size:16px;font-variant-numeric:tabular-nums;color:#163b50}
-.fin-operator{display:flex;flex-direction:column;gap:4px;min-width:175px}.fin-operator label{font-size:11px;margin:0}.fin-operator select{padding:7px}
+/* Finance workspace: две цифры сверху, три вкладки */
+.fin-card>.tabs{overflow-x:auto}
+.fin-workspace-head{display:flex;align-items:center;gap:20px;margin-bottom:14px}
+.fin-overview{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;flex:1}
+.fin-stat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:150px;padding:8px 14px;border:1px solid var(--line,#e3e7ee);border-radius:9px;background:#fbfcfd;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#647782;cursor:pointer}
+.fin-stat:hover{border-color:#9fb4c3}
+.fin-stat strong{font-size:18px;letter-spacing:0;text-transform:none;font-variant-numeric:tabular-nums;color:#163b50}
+.fin-stat.bad{border-color:#fecdca;background:#fef3f2}.fin-stat.bad strong{color:#b42318}
 .fin-link{border:0;background:none;color:#185b80;padding:2px 0;text-align:left;font-weight:650;cursor:pointer}.fin-link:hover{text-decoration:underline}
+.fin-row{cursor:pointer}.fin-row:hover td{background:#f7fafc}
+.fin-table tfoot td{border-top:1px solid var(--line,#d0d5dd);color:var(--muted,#667085);font-size:12px}
 .fin-account-head{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.fin-account-head h3{margin:12px 0 5px}
-.fin-account-totals{display:flex;gap:28px;padding:18px 0;margin:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.fin-account-totals span{display:flex;flex-direction:column;gap:5px;color:#657783;font-size:12px}.fin-account-totals b{font-size:20px;color:#1a3647}
-.fin-scope{display:flex;align-items:center;gap:12px;background:#edf5fa;padding:10px 14px;border-radius:8px;margin:12px 0}
-.fin-receipt-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px;background:#f3f7fa;border-radius:8px;margin:12px 0}.fin-receipt-tools>span{flex:1;font-size:12px}
+.fin-account-totals{display:flex;gap:28px;padding:14px 0;margin:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}.fin-account-totals span{display:flex;flex-direction:column;align-items:flex-start;gap:5px;color:#657783;font-size:12px}.fin-account-totals b{font-size:20px;color:#1a3647}.fin-account-totals b.fin-due{color:#b42318}.fin-account-totals b.fin-deposit{color:#026aa2}
+.fin-more{margin-top:8px}
+.fin-scope{display:flex;align-items:center;gap:12px;background:#edf5fa;padding:8px 14px;border-radius:8px;margin:0 0 12px}
+.fin-receipt-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
 .fin-duplicate{padding:12px;background:#fff6df;display:flex;gap:8px;align-items:center;margin-top:12px;text-transform:none}.fin-duplicate input{width:auto}
-.fin-history{margin-top:16px}.fin-event{border-bottom:1px solid var(--line)}.fin-event summary{display:flex;gap:12px;align-items:start;padding:14px 2px;cursor:pointer}.fin-event summary>span:nth-child(2){flex:1}.fin-event summary small{display:block;color:#647782;margin-top:4px;font-size:11px}.fin-event-no{font-size:11px;color:#82939d;padding-top:2px;min-width:32px}.fin-event-time{text-align:right;font-size:11px}.fin-event-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px 46px}.fin-event-diff section{background:#f5f8fa;padding:12px;border-radius:8px}.fin-event-diff h5{margin:0 0 8px}.fin-event-diff dl{display:grid;grid-template-columns:100px 1fr;gap:8px;margin:0;font-size:12px}.fin-event-diff dt{color:#647782}.fin-event-diff dd{margin:0;overflow-wrap:anywhere}
-.fin-card h4{margin:24px 0 12px}.fin-modal-body textarea{width:100%;min-height:70px}.fin-modal-body>.fin-grid{margin-bottom:14px}.fin-modal-body label{text-transform:none}.fin-card button:focus-visible,.fin-modal button:focus-visible{outline:3px solid #79b6d8;outline-offset:2px}
-.fin-print{width:100%;font:12px/1.4 Arial,sans-serif;color:#17212b;padding:18px}.fin-print h1{font-size:22px}.fin-print h2{font-size:16px}.fin-print table{width:100%;border-collapse:collapse}.fin-print th,.fin-print td{border-bottom:1px solid #ccd6dd;padding:8px;text-align:left;font-size:11px;overflow-wrap:anywhere}
-@media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-overview{gap:10px 18px}.fin-stat strong{font-size:14px}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-operator{min-width:140px}.fin-account-totals{gap:16px}.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line)}}
-@media print{.fin-print{padding:0}.fin-print tr{break-inside:avoid}.print-sheet:has(.fin-print){align-items:stretch;justify-content:flex-start}}
-.fin-toolbar>input{width:auto;flex:0 1 280px;min-width:180px}.fin-toolbar>select{width:auto;min-width:170px}.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
+.fin-history-box{margin-top:18px}.fin-history-box>summary{cursor:pointer;font-size:12px;font-weight:700;color:#647782}
+.fin-history{margin-top:8px}.fin-event{border-bottom:1px solid var(--line)}.fin-event summary{display:flex;gap:12px;align-items:start;padding:10px 2px;cursor:pointer}.fin-event summary>span:nth-child(2){flex:1}.fin-event summary small{display:block;color:#647782;margin-top:4px;font-size:11px}.fin-event-no{font-size:11px;color:#82939d;padding-top:2px;min-width:32px}.fin-event-time{text-align:right;font-size:11px}.fin-event-diff{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 16px 16px 46px}.fin-event-diff section{background:#f5f8fa;padding:12px;border-radius:8px}.fin-event-diff h5{margin:0 0 8px}.fin-event-diff dl{display:grid;grid-template-columns:100px 1fr;gap:8px;margin:0;font-size:12px}.fin-event-diff dt{color:#647782}.fin-event-diff dd{margin:0;overflow-wrap:anywhere}
+.fin-card h4{margin:22px 0 10px}.fin-modal-body>.fin-grid{margin-bottom:14px}.fin-modal-body label{text-transform:none}.fin-modal-body label small{display:block;margin-top:3px;font-weight:500;text-transform:none;letter-spacing:0}.fin-card button:focus-visible,.fin-modal button:focus-visible,.fin-stat:focus-visible{outline:3px solid #79b6d8;outline-offset:2px}
+.fin-preview{width:min(860px,96vw);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}.fin-preview .sales-service-modal-head{align-items:center}.fin-preview .fin-preview-actions{flex-direction:row;gap:8px;margin-left:auto}.fin-preview .doc-pages{background:#eef1f5;flex:1}.fin-preview>.fin-hint{margin:8px 16px}
+@media(max-width:900px){.fin-workspace-head{align-items:flex-start;flex-wrap:wrap}.fin-stat{min-width:0;flex:1}.fin-event-diff{padding:0 0 12px;grid-template-columns:1fr}.fin-event-time{max-width:120px}.fin-account-head .row{flex-wrap:wrap}.fin-account-totals{gap:16px}}
+.fin-toolbar>input{width:auto;flex:0 1 280px;min-width:180px}.fin-toolbar>select{width:auto;min-width:150px}.fin-form>.fin-form-actions{position:sticky;bottom:0;background:#fff;padding:12px 0;border-top:1px solid var(--line);z-index:1}
