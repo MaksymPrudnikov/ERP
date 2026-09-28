@@ -145,7 +145,7 @@ function salesNextActionLabel(o){
 }
 function salesTransitionChecks(o,next){
  const out=[],c=salesFindCustomer(o.customerId),num=o.businessNumber||'(new)',b=finOrderBalance(o),name=c?(c.displayName||c.legalName):'No customer';
- const terms=paymentTermsFrom(c||{}),sub=name+' · '+paymentTermsLabel(terms);
+ const terms=typeof finTermsFor==='function'?finTermsFor(o):paymentTermsFrom(c||{}),sub=name+' · '+paymentTermsLabel(terms);
  if(next==='verified'||next==='batched'){
   if(c&&c.onHold)out.push({title:name+' is On Hold',sub,rows:c.holdReason?[['Hold reason',c.holdReason]]:[],note:'Check with accounting.',anyway:'Continue anyway'});
   if(b.total==null)out.push({title:'Pricing is not complete',sub,rows:[],note:'Some lines have no price.',anyway:'Continue anyway'});
@@ -159,7 +159,8 @@ function salesTransitionChecks(o,next){
    if(acc.creditLimit!=null&&due>acc.creditLimit)out.push({title:name+' is over the credit limit',sub,rows:[['Credit limit',finFmt(acc.creditLimit)],['Balance due with this order',finFmt(due),true],['Over by',finFmt(salesMoney(due-acc.creditLimit)),true]],note:'',anyway:'Verify anyway'});
   }
  }
- if((next==='done'||next==='closed')&&b.balance!=null&&b.balance>0){
+ const datedCredit=next==='done'&&terms.paymentMode==='credit'&&finPaymentDue(o)>=finToday()&&c&&!c.onHold&&!finCustomerAccount(c).overLimit;
+ if((next==='done'||next==='closed')&&!datedCredit&&b.balance!=null&&b.balance>0){
   out.push({title:'Order '+num+' has a balance due',sub,rows:[['Order total',finFmt(b.total)],['Receipt total',finFmt(b.paid)],['Balance due',finFmt(b.balance),true]],
    note:next==='done'?'Take payment first.':'Balance due.',
    anyway:next==='closed'?'Close anyway':o.delivery==='delivery'?'Deliver anyway':'Pick up anyway',pay:next==='done'?b.balance:null});
@@ -266,7 +267,7 @@ function salesRestoreOrder(orderId){
 function salesTakeRecordPayment(orderId,amount){
  const o=salesRecord(orderId);if(!o)return;
  const b=finOrderBalance(o);
- tab='finance';subtab=null;finNewReceipt(o.customerId);
+ if(finNewReceipt(o.customerId)===false)return;tab='finance';subtab=null;
  if(b.balance>0){const v=Math.min(salesMoney(+amount||b.balance),b.balance).toFixed(2);finDraft.amount=v;finDraft.apply[o.id]=v;}
  finDraft.note='Order '+o.businessNumber;render();
 }

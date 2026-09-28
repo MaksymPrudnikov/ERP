@@ -215,7 +215,7 @@ function docShopItem(model,line,index,order){
 function docBuildModel(kind,order,opts){
  order=order||soDraft;opts=Object.assign(docBaseOptions(kind),opts||{});
  const sale=kind!=='workOrder',mode=sale?opts.priceMode:'none',C=salesFindCustomer(order.customerId),company=DB.company||{};
- const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=paymentTermsFrom(C||{});
+ const number=order.businessNumber||'Draft',docName=docKindLabel(kind),terms=finTermsFor(order);
  const model={kind,sale,mode,opts,title:DOC_TITLES[kind],docName,number,customerName:C?(C.legalName||C.displayName):'',po:order.customerPo||'',
   company:opts.company?docCompanyBlock():null,meta:[],boxes:[],
   table:{amount:sale&&mode!=='none',basisRate:sale&&['full','split','glass'].includes(mode)&&opts.basisRate,perUnit:['full','split','glass'].includes(mode)},

@@ -161,7 +161,7 @@ function salesListValue(info,k){
   case 'hold':v=!q&&o.onHold?'On Hold':'Not on hold';break;
   case 'delivery':v=o.delivery==='delivery'?'Delivery':'Pickup';break;
   case 'rep':v=c.salesRep||'';break;
-  case 'terms':v=paymentTermsFrom(c).paymentMode==='credit'?'Credit':'Cash';break;
+  case 'terms':v=finTermsFor(o).paymentMode==='credit'?'Credit':'Cash';break;
   case 'lines':v=lines.length;break;
   case 'weight':v=finWithOrder(o,()=>{let kg=0,known=lines.length>0;lines.forEach(l=>{const w=salesLineWeight(l,o);if(w.complete&&w.lineKg!=null)kg+=w.lineKg;else known=false;});return known?Math.round(kg):null;});break;
   case 'unitType':v=[...new Set((o.makeups||[]).filter(m=>lines.some(l=>l.makeupId===m.id)).map(m=>docUnitLabel(m.unitType)))].join(', ');break;

@@ -122,7 +122,7 @@ function newCustomerDraft(){
 }
 function customerHasReferences(id){
  if(!id)return false;
- const collections=['salesOrder','salesOrders','orderRevision','orderRevisions','receipt'];
+ const collections=['salesOrder','salesOrders','orderRevision','orderRevisions','receipt','refund','financeEvent','financeTerms'];
  return collections.some(k=>Array.isArray(DB[k])&&DB[k].some(x=>x&&x.customerId===id));
 }
 
