@@ -129,7 +129,8 @@ function salesListPresetRange(key){
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
-  case 'overdue':return ['0001-01-01',salesListDay(add(d,-1))];
+  /* Без нижней границы: пустое From в блоке дат, а сравнение строк '' <= любой дате. */
+  case 'overdue':return ['',salesListDay(add(d,-1))];
   case 'next7':case 'next30':return [salesListDay(d),salesListDay(add(d,Number(key.slice(4))))];
   case 'nextMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()+1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+2,0))];
  }
