@@ -2035,7 +2035,7 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='22eb06f0574a';
+var ERP_BUILD='a3ee6a12be44';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -9606,7 +9606,17 @@ function normalizeSalesLaminatedFrit(raw,d){
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
-function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,frit:salesDefaultLaminatedFrit()};}
+function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
+/* Покрытие на плите ламината лежит либо на её открытой грани (номер
+   поверхности пакета, как у фрита «Outside film»), либо к плёнке. Владелец,
+   28 сентября 2026: у 4Q272/4CL выбрать поверхность было нельзя, а маршрут
+   требовал её. */
+function salesCoatingSurfaceOf(p,index,side){
+ const spec=side?p&&p.laminated&&p.laminated[side]:p;
+ if(!spec||(spec.visionType!=='lowe'&&spec.visionType!=='reflective'))return 0;
+ if(!side)return spec.coatingSurface||0;
+ return spec.coatingPosition==='in_film'?'film':salesPaneSurfaces(index)[side==='inner'?1:0];
+}
 function salesLaminatedPlyCandidates(ply){
  const fam=SALES_LAMINATED_GLASS_TYPES.includes(ply&&ply.visionType)?ply.visionType:'uncoated';
  const rows=activeGlassProducts().filter(g=>(!ply.manufacturer||g.manufacturer===ply.manufacturer)&&(!ply.thicknessMm||g.thicknessMm===+ply.thicknessMm)&&g.coatingFamily===fam);
@@ -9618,7 +9628,8 @@ function normalizeSalesLaminatedPly(raw,legacyProductId,legacyHeatTreatmentId,d)
  const basis=requested||fallback,manufacturer=salesString(raw.manufacturer)||(basis&&basis.manufacturer)||d.manufacturer;
  const thicknessMm=+raw.thicknessMm>0?+raw.thicknessMm:((basis&&basis.thicknessMm)||d.thicknessMm);
  const requestedType=raw.visionType||raw.type||(basis&&basis.coatingFamily),visionType=SALES_LAMINATED_GLASS_TYPES.includes(requestedType)?requestedType:d.visionType;
- const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
+ const out={priceOverride:salesNonNegOrNull(raw.priceOverride),manufacturer,thicknessMm,visionType,glassProductId:requestedId,heatTreatmentId:salesString(raw.heatTreatmentId||legacyHeatTreatmentId)||d.heatTreatmentId,heatSoak:raw.heatSoak===true&&(raw.heatTreatmentId||legacyHeatTreatmentId)==='HT-FT',
+  coatingPosition:SALES_LAMINATED_FRIT_POSITIONS.includes(raw.coatingPosition)?raw.coatingPosition:'outside',frit:normalizeSalesLaminatedFrit(raw.frit,d.frit)};
  const rows=salesLaminatedPlyCandidates(out);if(!rows.some(g=>g.id===out.glassProductId))out.glassProductId=(rows[0]||{}).id||'';
  return out;
 }
@@ -9836,7 +9847,9 @@ function normalizeSalesPane(p,index){
   edgework:SALES_PANE_EDGEWORK.includes(p.edgework)?p.edgework:'',
   manufacturer:salesString(p.manufacturer)||d.manufacturer,thicknessMm:+p.thicknessMm>0?+p.thicknessMm:d.thicknessMm,
   visionType,glassProductId:salesString(p.glassProductId)||d.glassProductId,heatTreatmentId:salesString(p.heatTreatmentId)||d.heatTreatmentId,heatSoak:p.heatSoak===true&&p.heatTreatmentId==='HT-FT',
-  coatingSurface:normalizeSurface(p.coatingSurface,allowed),
+  /* У ламината поверхность покрытия живёт на плите (coatingPosition), номер
+     панели от прежнего Vision здесь был бы чужим. */
+  coatingSurface:category==='laminated'?null:normalizeSurface(p.coatingSurface,allowed),
   frit:normalizeFritSpec(frit,d.frit,allowed),
   spandrel:normalizeSalesSpandrelSpec(sp,d.spandrel,allowed),
   laminated:{outer:normalizeSalesLaminatedPly(lam.outer,lam.outerGlassProductId,lam.outerHeatTreatmentId||p.heatTreatmentId,d.laminated.outer),interlayers:normalizeSalesInterlayers(lam,d.laminated),inner:normalizeSalesLaminatedPly(lam.inner,lam.innerGlassProductId,lam.innerHeatTreatmentId||p.heatTreatmentId,d.laminated.inner)}
@@ -11867,6 +11880,7 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  const base=glassBaseName(glassProductById(ply.glassProductId)),same=base?rows.find(g=>glassBaseName(g)===base):null;
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
+function salesPaneSetLamPlyCoatingPosition(i,side,v){const ply=salesPaneLamPly(i,side);if(!ply)return;ply.coatingPosition=SALES_LAMINATED_FRIT_POSITIONS.includes(v)?v:'outside';render();}
 function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
 /* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
 function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
@@ -14292,11 +14306,15 @@ function salesRouteSurfaceTreatments(pane,index,side){
     add('frit',f,fs,face,lam?f.position:'');
   }
   if(ply.visionType==='lowe'||ply.visionType==='reflective'){
-    /* Пока Makeup не хранит выбор грани покрытия на ply, не подменяем его
-       наружной гранью. Legacy-номер панели применим только к своей ply. */
-    var cs=normalizeSurface(lam?pane.coatingSurface:ply.coatingSurface,surfaces);
-    if(lam&&cs!==salesLaminatedFritOutsideSurface(index,side))cs=null;
-    add('coating',{},cs,cs===surfaces[0]?'out':cs===surfaces[1]?'in':'');
+    /* У плиты ламината грань покрытия хранится на ней самой: открытая грань
+       (#N пакета) или к плёнке — так же, как фрит. */
+    if(lam){
+      var cp=ply.coatingPosition==='in_film'?'in_film':'outside';
+      add('coating',{},cp==='in_film'?0:salesLaminatedFritOutsideSurface(index,side),(side==='outer')===(cp!=='in_film')?'out':'in',cp);
+    }else{
+      var cs=normalizeSurface(ply.coatingSurface,surfaces);
+      add('coating',{},cs,cs===surfaces[0]?'out':cs===surfaces[1]?'in':'');
+    }
   }
   return out;
 }
@@ -15067,7 +15085,7 @@ function salesCavityPriceBadge(c){
 function salesPaneProductSummary(p,index){
  if(p.category==='laminated'){
   const lam=p.laminated||{},outer=lam.outer||{},inner=lam.inner||{},a=glassProductById(outer.glassProductId),b=glassProductById(inner.glassProductId);
-  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));return bits.filter(Boolean).join(' · ');};
+  const part=(g,ply,side)=>{const ht=mdById('heatTreatment',ply&&ply.heatTreatmentId),bits=[g&&(g.code||g.name)];if(ht&&ht.code!=='AN')bits.push(ht.code+(ply.heatSoak&&ht.code==='FT'?' + HST':''));if(ply&&ply.frit&&ply.frit.enabled)bits.push('FRIT '+(ply.frit.position==='in_film'?'into film':'#'+salesLaminatedFritOutsideSurface(index,side)));const cs=salesCoatingSurfaceOf(p,index,side);if(cs)bits.push(salesVisionTypeLabel(ply.visionType)+' '+(cs==='film'?'into film':'#'+cs));return bits.filter(Boolean).join(' · ');};
   const films=(lam.interlayers||[]).map(x=>{const il=mdById('interlayerProduct',x.productId),th=Number.isFinite(+x.thicknessMm)&&+x.thicknessMm>0?' '+(+x.thicknessMm)+' mm':'';return il?(il.code||il.name)+th:'';});
   return [part(a,outer,'outer')].concat(films,part(b,inner,'inner')).filter(Boolean).join(' + ')||'Laminated';
  }
@@ -15219,8 +15237,15 @@ function salesLaminatedPlyFields(p,index,side,label){
    <div><label>Heat Treatment</label><select onchange="salesPaneSetLamPlyHeat(${index},'${side}',this.value)">${salesHeatOptions(ply)}</select></div>
    <div><label>Price · sq ft</label>${salesPriceCell('LamPly'+(side==='outer'?'Outer':'Inner'),index,salesPlyCatalogPrice(ply),ply.priceOverride)}</div>
   </div>
-  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div></div>`:''}
+  ${coated?`<div class="mu-coating-grid mu-second-row"><div><label>Selected Coating</label><select onchange="salesPaneSetLamPlyCoating(${index},'${side}',this.value)">${coatings.map(c=>salesOption(c,c+(salesGlassCoatingHasStock(ply,c)?'':' · '+glassLabel('stock','preorder')),coating,true)).join('')}</select></div>${salesLamCoatingSurfaceSelector(ply,index,side)}</div>`:''}
   ${salesLaminatedFritFields(p,index,side)}</div>`;
+}
+/* Поверхность покрытия на плите: открытая грань (#N пакета) или к плёнке.
+   Как у обычного лайта, кнопка вне каталога помечается, но не запрещается. */
+function salesLamCoatingSurfaceSelector(ply,index,side){
+ const n=salesLaminatedFritOutsideSurface(index,side),g=glassProductById(ply.glassProductId),allowed=g&&g.allowedSurfaces.length?g.allowedSurfaces:null,film=ply.coatingPosition==='in_film';
+ const offOut=!!allowed&&allowed.indexOf(n)<0,offFilm=!!allowed,off=film?offFilm:offOut;
+ return `<div class="mu-surface"><label>On Surface</label><div class="mu-surface-buttons"><button type="button" data-lam-coating="outside" class="${film?'':'on'} ${offOut?'off-catalog':''}" onclick="salesPaneSetLamPlyCoatingPosition(${index},'${side}','outside')">#${n}</button><button type="button" data-lam-coating="in_film" class="${film?'on':''} ${offFilm?'off-catalog':''}" onclick="salesPaneSetLamPlyCoatingPosition(${index},'${side}','in_film')">Into film</button></div>${off?`<div class="mu-surface-hint">catalog #${allowed.join(' #')}</div>`:''}</div>`;
 }
 function salesLaminatedFritFields(p,index,side){
  const f=p.laminated[side].frit;if(!f||!f.enabled)return '';
@@ -15348,7 +15373,8 @@ function docMakeupFullLines(m){
   const lam=p.category==='laminated',g=lam?null:glassProductById(p.glassProductId);
   let s='Lite '+(i+1)+': '+docPaneName(p)+(g&&g.code?' ('+g.code+')':'');
   const heat=docHeatName(lam?(p.laminated||{}).outer:p);if(heat)s+=' · '+heat;
-  if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
+  if(lam)['outer','inner'].forEach(side=>{const cs=salesCoatingSurfaceOf(p,i,side);if(cs)s+=' · coating '+(cs==='film'?'into film':'#'+cs);});
+  else if(p.coatingSurface)s+=' · coating #'+p.coatingSurface;
   if(lam){
    const films=((p.laminated||{}).interlayers||[]).map(f=>{const x=mdById('interlayerProduct',f.productId);return (x?x.name:'Interlayer')+(f.thicknessMm?' '+f.thicknessMm+' mm':'');});
    if(films.length)s+=' · '+films.join(' + ');
@@ -23039,7 +23065,7 @@ function glassBatchRows(orders){
     const hold=o.onHold?'Order on hold: '+(o.holdReason||''):l.onHold?'On Hold: '+(l.holdReason||''):
      !hasCustomer?'Customer missing':c.missing||!glassProductById(c.glassId)?'Glass missing':!cut?(plan.reason||'Check cutting geometry'):'';
     const base={o,l,line:li+1,of:l.qty,cut,shape:own,shapeLabel:own&&!salesShapeIsLineRect(own)?'Shape':'Rect',width:cut?cut.cutW:null,height:cut?cut.cutH:null,
-     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.spec.coatingSurface||'',customer};
+     heat:c.missing?'':salesRouteHeatOf(c.spec),coating:c.missing?'':(salesCoatingSurfaceOf(c.pane,c.index,c.ply)||''),customer};
     for(let unit=1;regular&&unit<=l.qty;unit++){
      if(active.has(c.key+'|'+unit))continue;
      const piece=rec&&glassPieceValid(rec.ids[unit-1])?rec.ids[unit-1]:'';
