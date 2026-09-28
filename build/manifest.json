@@ -14,7 +14,8 @@
   "src/styles/glass-batches.css",
   "src/styles/ncr.css",
   "src/styles/stickers.css",
-  "src/styles/cutting.css"
+  "src/styles/cutting.css",
+  "src/styles/station.css"
  ],
  "scripts": [
   "src/core/dim.js",
@@ -104,10 +105,13 @@
   "src/erp/views/ncr-reasons-ui.js",
   "src/erp/quality/ncr.js",
   "src/erp/quality/recut.js",
+  "src/erp/shopfloor/scan.js",
   "src/erp/views/ncr-ui.js",
   "src/erp/views/stickers-ui.js",
   "src/erp/views/cut-layout-ui.js",
   "src/erp/views/stock-list.js",
+  "src/erp/views/station.js",
+  "src/erp/views/production-board.js",
   "src/erp/storage.js"
  ]
 }

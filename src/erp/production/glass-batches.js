@@ -225,7 +225,9 @@ function glassBatchMove(number,pieceIds,opts){
  const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
  if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
  const lineOf=i=>{const p=from.parts[i.part],o=p&&salesRecord(p.orderId);return {p,o,l:o&&(o.lines||[]).find(x=>x.id===p.lineId)};};
- if(items.some(i=>{const {l}=lineOf(i);return i.cutStartedAt||l&&l.cutStartedAt;}))return {error:'Cutting has started on this glass.'};
+ /* Проверка по стеклу, а не по позиции: последний лист переносят, когда
+    остальные листы уже режутся, и стёкла одной позиции лежат на обоих. */
+ if(items.some(i=>i.cutStartedAt))return {error:'Cutting has started on this glass.'};
  const now=opts.now||new Date().toISOString();
  /* opts.to — уже открытый батч: стёкла добавляются к нему. */
  let to=opts.to?glassBatchFind(opts.to):null;const added=!!to;
@@ -325,7 +327,11 @@ function normalizeGlassBatches(){
  });
  (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
   const active=glassBatchEntries(o.id,l.id).filter(x=>!x.item.releasedAt);if(!active.length)return;
-  l.batchManaged=true;if(l.cutStartedAt)active.forEach(x=>{if(!x.item.cutStartedAt)x.item.cutStartedAt=l.cutStartedAt;});glassBatchSyncLine(o,l);
+  /* Замок позиции без отметок стёкол — старые данные: резку отмечали всей
+     позицией. Со сканом станции отметка у каждого стекла своя, и позиция
+     лишь повторяет первую из них — раздавать её всем стёклам нельзя: одно
+     порезанное стекло сделало бы порезанными все пятьдесят. */
+  l.batchManaged=true;if(l.cutStartedAt&&!active.some(x=>x.item.cutStartedAt))active.forEach(x=>{x.item.cutStartedAt=l.cutStartedAt;});glassBatchSyncLine(o,l);
  }));
 }
 function validateGlassBatchesPayload(src){

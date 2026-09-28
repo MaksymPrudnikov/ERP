@@ -1,0 +1,205 @@
+/* =====================================================================
+   erp/shopfloor/scan  ·  scan-1.0
+   Журнал сканов станций и «где стекло ждёт».
+   IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
+   OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
+        undoneAt, undoneBy}
+   Правило: место стекла НЕ хранится, а считается: последний скан +
+   маршрут = станция, на которой стекло ждёт. Так было и в Spil —
+   «с батча попало на рез и находится в ожидании на следующей станции»
+   (владелец, 29 сентября 2026). Запись одна на событие: это готовая
+   строка будущей таблицы базы, переезд с localStorage её не меняет.
+
+   Отмена скана (Undo) запись не удаляет, а помечает: журнал — история,
+   и «кто отсканировал по ошибке» тоже её часть.
+   ===================================================================== */
+DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;
+const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
+/* Что записывается, а что только показывается. On Hold записывается: на CUT
+   стекло сканируют уже порезанным, и факт реза не отменить — рабочий
+   откладывает стекло в сторону. */
+const STATION_RECORDED=['ok','hold'];
+
+function stationScanNextId(){
+ DB.stationScanSeq=(Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0)+1;
+ return 'SC-'+String(DB.stationScanSeq).padStart(7,'0');
+}
+/* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
+   началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */
+function stationCutCode(){return typeof salesRouteStationOf==='function'?salesRouteStationOf('cutting','CUT'):'CUT';}
+function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===piece&&!s.undoneAt);}
+/* Номер с клавиатуры: хватает цифр — «1234» это G-0001234. Повреждённый
+   стикер не читается, а набирать весь номер у стола никто не будет. */
+function stationCodeOf(raw){
+ const text=String(raw==null?'':raw).trim().toUpperCase().replace(/\s+/g,'');
+ if(/^\d{1,9}$/.test(text))return 'G-'+text.padStart(7,'0');
+ return text;
+}
+/* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
+   index — готовая карта номеров, когда стёкол много (экран офиса). */
+function stationPieceIndex(){
+ const m=new Map();
+ (DB.glassPiece||[]).forEach(r=>{
+  const [orderId,lineId]=r.key.split('|');
+  r.ids.forEach((id,i)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:i+1});});
+  Object.keys(r.extra||{}).forEach(nr=>r.extra[nr].forEach((id,k)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:nr+'.'+(k+1)});}));
+ });
+ return m;
+}
+function stationBatchIndex(){
+ const m=new Map();
+ (DB.glassBatch||[]).forEach(batch=>batch.items.forEach(item=>{if(!item.releasedAt&&item.piece)m.set(item.piece,{batch,item,part:batch.parts[item.part]});}));
+ return m;
+}
+function stationGlass(id,index,batches){
+ const hit=index?index.get(id):(()=>{const h=glassLookup(id);return h&&h.kind==='glass'?h:null;})();
+ if(!hit)return null;
+ const o=salesRecord(hit.orderId),l=o&&(o.lines||[]).find(x=>x.id===hit.lineId);
+ if(!o||!l)return null;
+ const c=glassBatchComponents(o,l).find(x=>x.key===hit.key)||null;
+ const entry=(batches||stationBatchIndex()).get(id)||null;
+ return {id,o,l,c,unit:hit.unit,entry};
+}
+/* Маршрут стекла — тот же, что печатается на стикере. Кэш по позиции:
+   на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
+let stationRouteCache=new Map();
+function stationRouteOf(g){
+ const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
+ if(stationRouteCache.has(key))return stationRouteCache.get(key);
+ let r=null;
+ try{if(g.c&&!g.c.missing)r=finWithOrder(g.o,()=>stkRoute(g.o,g.l,g.c));}catch(e){r=null;}
+ if(!r||!Array.isArray(r.codes)||!r.codes.length){
+  /* Маршрут не собрался (нет стекла в Makeup) — стекло всё равно проходит
+     резку и отгрузку: станции «always». */
+  const codes=(DB.station||[]).filter(s=>s.always).sort((a,b)=>a.seq-b.seq).map(s=>s.code);
+  r={codes,shipping:codes.filter(c=>c!==stationCutCode()),services:[]};
+ }
+ if(stationRouteCache.size>2000)stationRouteCache=new Map();
+ stationRouteCache.set(key,r);return r;
+}
+/* Где стекло: самая дальняя отсканированная станция его маршрута, дальше —
+   следующая. Пройдено всё — стекло отгружено. */
+function stationPlace(g,scans){
+ const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
+ let far=-1;scans.forEach(s=>{const i=route.indexOf(s.station);if(i>far)far=i;});
+ return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
+}
+/* Разбор скана без записи. kind:
+   ok · hold — пишется; already · passed · skipped · route · cancelled ·
+   unit · unknown — только показывается. */
+function stationCheck(station,raw){
+ const code=stationCodeOf(raw);
+ if(!code)return null;
+ if(typeof unitIdValid==='function'&&unitIdValid(code))return {kind:'unit',code};
+ if(!glassPieceValid(code))return {kind:'unknown',code};
+ const g=stationGlass(code);
+ if(!g)return {kind:'unknown',code};
+ const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station).pop()||null;
+ const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
+ if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
+ if(here)return Object.assign(base,{kind:'already'});
+ const i=place.route.indexOf(station),w=place.route.indexOf(place.waiting);
+ if(i<0)return Object.assign(base,{kind:'route'});
+ if(place.shipped||w>=0&&i<w)return Object.assign(base,{kind:'passed'});
+ if(w>=0&&i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
+ if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
+ return Object.assign(base,{kind:'ok'});
+}
+/* who: {id, name} — рабочий, вошедший на станцию. */
+function stationRecord(station,check,who,opts){
+ opts=opts||{};
+ if(!check||!STATION_RECORDED.includes(check.kind))return null;
+ if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ const now=opts.now||new Date().toISOString();
+ const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ DB.stationScan.push(rec);
+ /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
+    позиция узнаёт это через glassBatchSyncLine, как и прежде. */
+ const e=check.g&&check.g.entry;
+ if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(check.g.o,check.g.l);}
+ if(!opts.deferTouch)touch();
+ return rec;
+}
+/* Undo — только последний скан стекла: отменить CUT, когда стекло уже
+   прошло EDGE, значило бы оставить его «на EDGE без реза». */
+function stationUndo(id,who,opts){
+ opts=opts||{};
+ const rec=(DB.stationScan||[]).find(s=>s.id===id);
+ if(!rec||rec.undoneAt)return {error:'Scan not found.'};
+ const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
+ if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
+ rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
+ if(rec.station===stationCutCode()&&!stationScansFor(rec.piece).some(s=>s.station===rec.station)){
+  const e=stationBatchIndex().get(rec.piece);
+  if(e&&e.item.cutStartedAt===rec.at){
+   e.item.cutStartedAt='';
+   const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);
+   if(o&&l)glassBatchSyncLine(o,l);
+  }
+ }
+ if(!opts.deferTouch)touch();
+ return {ok:true};
+}
+/* Экран офиса: сколько стёкол ждёт на каждой станции и какие. Берём все
+   стёкла активных батчей и все, у кого уже есть скан (порезанные из стока
+   тоже едут по цеху). Отгруженные и отменённые — не в цеху. */
+function stationWaiting(){
+ const index=stationPieceIndex(),batches=stationBatchIndex(),byPiece=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.undoneAt)return;if(!byPiece.has(s.piece))byPiece.set(s.piece,[]);byPiece.get(s.piece).push(s);});
+ const ids=new Set([...batches.keys(),...byPiece.keys()]),out=new Map();
+ ids.forEach(id=>{
+  const g=stationGlass(id,index,batches);if(!g||g.o.status==='cancelled')return;
+  const scans=byPiece.get(id)||[],place=stationPlace(g,scans);if(place.shipped||!place.waiting)return;
+  const last=scans.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at))).pop()||null;
+  if(!out.has(place.waiting))out.set(place.waiting,[]);
+  out.get(place.waiting).push({id,g,place,last,since:last?last.at:(g.entry?g.entry.item.at:''),from:last?last.station:''});
+ });
+ out.forEach(list=>list.sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.since).localeCompare(String(b.since))||a.id.localeCompare(b.id)));
+ return out;
+}
+/* Срочность задаёт продажник: Critical и дата в заказе («будут выбирать
+   опцию Критикал и указывать дату», владелец 29.09.2026). Своих правил по
+   сроку система не придумывает. */
+function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='rush'?1:0;}
+
+function normalizeStationScans(){
+ if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
+ DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
+  .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
+   undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):''}));
+ let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
+ DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+ /* Скан резки — правда о «резка началась»: у импортированных данных поле
+    стекла могло потеряться, журнал его восстанавливает. */
+ const cut=stationCutCode(),first=new Map();
+ DB.stationScan.forEach(s=>{if(!s.undoneAt&&s.station===cut&&(!first.has(s.piece)||s.at<first.get(s.piece)))first.set(s.piece,s.at);});
+ if(!first.size)return;
+ const lines=new Set();
+ stationBatchIndex().forEach((e,piece)=>{if(first.has(piece)&&!e.item.cutStartedAt){e.item.cutStartedAt=first.get(piece);lines.add(e.part.orderId+'|'+e.part.lineId);}});
+ lines.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&(o.lines||[]).find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
+}
+function validateStationScanPayload(src){
+ if(src&&Object.prototype.hasOwnProperty.call(src,'stationScan')&&!Array.isArray(src.stationScan))throw new Error('The "stationScan" field must be an array.');
+}
+
+/* ---------------------------------------------------------------------
+   Живые данные между окнами. Станция и офис открыты в двух вкладках одного
+   браузера: вкладка держит базу в памяти и при сохранении пишет её ЦЕЛИКОМ.
+   Без этого офис, сохранив что угодно, стёр бы сканы станции, сделанные
+   после его загрузки. Браузер сообщает о чужой записи событием storage —
+   перечитываем базу. Экран перерисовываем, только если никто не печатает:
+   иначе курсор выпрыгивал бы из поля на каждом скане станции.
+   --------------------------------------------------------------------- */
+function storageLiveReload(text){
+ let next;
+ try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
+ DB=next;stationRouteCache=new Map();
+ const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
+ if(!typing)render();
+ return true;
+}
+window.addEventListener('storage',function(e){
+ if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
+ storageLiveReload(e.newValue);
+});

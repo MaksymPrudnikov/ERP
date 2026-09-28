@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 92 модулей, 14 стиля.
+  Состав: 95 модулей, 15 стиля.
 -->
 <html lang="en">
 <head>
@@ -28,6 +28,7 @@
 <link rel="stylesheet" href="styles/ncr.css">
 <link rel="stylesheet" href="styles/stickers.css">
 <link rel="stylesheet" href="styles/cutting.css">
+<link rel="stylesheet" href="styles/station.css">
 </head>
 <body>
 <div class="shell">
@@ -48,7 +49,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='a3ee6a12be44';
+var ERP_BUILD='38af23b13ae1';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -137,10 +138,13 @@ var ERP_BUILD='a3ee6a12be44';
 <script src="erp/views/ncr-reasons-ui.js"></script>
 <script src="erp/quality/ncr.js"></script>
 <script src="erp/quality/recut.js"></script>
+<script src="erp/shopfloor/scan.js"></script>
 <script src="erp/views/ncr-ui.js"></script>
 <script src="erp/views/stickers-ui.js"></script>
 <script src="erp/views/cut-layout-ui.js"></script>
 <script src="erp/views/stock-list.js"></script>
+<script src="erp/views/station.js"></script>
+<script src="erp/views/production-board.js"></script>
 <script src="erp/storage.js"></script>
 </body>
 </html>

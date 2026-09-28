@@ -86,6 +86,8 @@ const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  document.body.classList.toggle('sidebar-collapsed',sideCollapsed);
+ /* Экран станции — без меню и шапки ERP (view/station). */
+ document.body.classList.toggle('station-mode',tab==='station');
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
@@ -102,7 +104,7 @@ function render(){
  document.getElementById('hdr').textContent=meta[0];
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
- const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance}[tab];
+ const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
