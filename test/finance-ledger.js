@@ -3,7 +3,7 @@ module.exports=async function({page,eq}){
  console.log('finance ledger');const t=await page();
  await t.p.evaluate(()=>{
   window.financeSeed=function(){
-   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finActor='QA Operator';
+   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finFrom='';finTo='';finMethod='';finSearch='';finStatus='all';finActor='QA Operator';
    const c=normalizeCustomer({id:'CUS-FIN',code:'FIN',legalName:'Finance Test',paymentMode:'credit',creditDays:30});DB.customer.push(c);
    const o=normalizeSalesOrder({id:'SO-FIN',businessNumber:'91001',customerId:c.id,lines:[],extraItems:[{id:'EXT-FIN',table:'stockItem',itemId:'TEST',qty:1,priceOverride:100}],orderCharges:{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:false},skidDeposit:{enabled:false}}});DB.salesOrder.push(o);
    finCaptureTerms(o);tab='finance';finTab='accounts';finAccountId='';render();return {c,o};
@@ -98,6 +98,43 @@ module.exports=async function({page,eq}){
   r.currency='USD';finPrintReceipt(r.id);const currency=pages.join('').includes('USD');printSheet=old;
   return {receipt:receipt.includes('$55.00')&&receipt.includes('$25.00'),account:account.includes('current balances')&&account.includes('Refund'),currency};
  }),{receipt:true,account:true,currency:true});
+ await t.p.evaluate(()=>{
+  window.financeScheduleSeed=function(){
+   const {o}=financeSeed();DB.salesOrder=[];DB.financeTerms=[];
+   const entries=[['late','2026-03-07'],['today','2026-03-08'],['d7','2026-03-15'],['d8','2026-03-16'],['d14','2026-03-22'],['d30','2026-04-07'],['d31','2026-04-08'],['undated',''],['paid','2026-03-09'],['cancelled','2026-03-09'],['quote','2026-03-09'],['usd','2026-03-09'],['closed','2026-03-01']];
+   entries.forEach(([key,due])=>{const next=finCopy(o);next.id='DUE-'+key;next.businessNumber=key;next.customerPo='PO-'+key;if(key==='cancelled'||key==='closed')next.status=key;if(key==='quote')next.kind='quote';if(key==='usd')next.currency='USD';DB.salesOrder.push(next);DB.financeTerms.push({...finTermsFor(next),paymentMode:key==='d7'?'cash':'credit',issuedOn:'2026-02-01',creditDays:due?30:null,dueOn:due});});
+   DB.customer[0].status='archived';DB.receipt.push(normalizeReceipt({id:'DUE-PAY',number:'R-0001',customerId:o.customerId,date:'2026-03-01',amount:190,allocations:[{orderId:'DUE-today',amount:40},{orderId:'DUE-paid',amount:100}]}));
+   finSchedule={period:'custom',from:'2026-03-08',to:'2026-03-15',terms:'all',query:''};return finSchedule;
+  };
+ });
+ eq('due schedule includes exact horizon boundaries, separates overdue and sorts earliest first',await t.p.evaluate(()=>{
+  const f=financeScheduleSeed(),out={};for(const period of ['today','7','14','30','overdue'])out[period]=finDueRows({...f,period},'2026-03-08').rows.map(x=>x.o.businessNumber);return out;
+ }),{'7':['today','d7'],'14':['today','d7','d8','d14'],'30':['today','d7','d8','d14','d30'],today:['today'],overdue:['closed','late']});
+ eq('schedule counts partial balances, archived customers and cash terms without subtracting free deposits',await t.p.evaluate(()=>{
+  const f=financeScheduleSeed(),all=finDueRows({...f,period:'all'},'2026-03-08');return {total:all.total,count:all.rows.length,review:all.review,customers:all.customers,deposit:finCustomerDeposit('CUS-FIN'),undated:finDueRows({...f,period:'undated'},'2026-03-08').rows.map(x=>x.o.businessNumber),cash:finDueRows({...f,period:'all',terms:'cash'},'2026-03-08').rows.map(x=>x.o.businessNumber),search:finDueRows({...f,period:'all',query:'PO-d14'},'2026-03-08').total};
+ }),{total:860,count:9,review:1,customers:1,deposit:50,undated:['undated'],cash:['d7'],search:100});
+ eq('due ranges reject reversed/invalid dates; calendar days survive leap days and DST',await t.p.evaluate(()=>{
+  const f=financeScheduleSeed();return {errors:[{from:'2026-03-16',to:'2026-03-01'},{from:'2026-02-30',to:''}].map(d=>!!finDueRows({...f,...d},'2026-03-08').error),empty:finDueRows({...f,from:'2026-03-16',to:'2026-03-01'},'2026-03-08').total,days:finDueDayDiff('2026-03-09','2026-03-08'),leap:finDueShift('2028-02-28',2),open:finDueRows({...f,from:'2026-04-08',to:''},'2026-03-08').rows.map(x=>x.o.businessNumber)};
+ }),{errors:[true,true],empty:0,days:1,leap:'2028-03-01',open:['d31']});
+ eq('schedule uses frozen Net days or override and updates immediately after allocation and cancellation',await t.p.evaluate(()=>{
+  const {o,c}=financeSeed();finSaveTerms(o.id,{paymentMode:'credit',depositPercent:0,creditDays:30,issuedOn:'2028-02-01',dueOn:''},'Net agreement');c.creditDays=90;
+  const f={period:'all',terms:'all',query:''},first=finDueRows(f,'2028-03-01').rows[0];financePayment(100,40);const partial=finDueRows(f,'2028-03-01').total;
+  finSaveTerms(o.id,{...finTermsFor(o),dueOn:'2028-03-08'},'Extension');const due=finDueRows(f,'2028-03-01').rows[0].f.dueOn;
+  finApplyDeposit(c.id,o.id,60);const settled=finDueRows(f,'2028-03-01').rows.length;o.status='cancelled';return {date:first.f.dueOn,days:first.days,partial,due,settled,cancelled:finDueRows(f,'2028-03-01').rows.length};
+ }),{date:'2028-03-02',days:1,partial:60,due:'2028-03-08',settled:0,cancelled:0});
+ eq('schedule CSV and printing contain only the selected period and safe customer text',await t.p.evaluate(()=>{
+  financeScheduleSeed();DB.customer[0].displayName='=Unsafe';const oldDownload=customerDownload,oldPrint=printSheet;let csv='',printed='';customerDownload=(name,text)=>csv=text;printSheet=pages=>printed=pages.join('');finDueExport();finDuePrint();customerDownload=oldDownload;printSheet=oldPrint;
+  return {rows:csv.split('\r\n').length,safe:csv.includes("'=Unsafe"),dates:printed.includes('2026-03-08 to 2026-03-15'),total:printed.includes('$160.00'),excluded:!printed.includes('PO-d8')&&!csv.includes('PO-d8')};
+ }),{rows:3,safe:true,dates:true,total:true,excluded:true});
+ await t.p.evaluate(()=>{financeScheduleSeed();finFrom='2099-01-01';finTo='2099-12-31';finSetTab('schedule');});
+ await t.p.getByLabel('Payment due from',{exact:true}).fill('2026-03-16');
+ await t.p.getByLabel('Payment due to',{exact:true}).fill('2026-03-22');
+ await t.p.getByLabel('Schedule payment terms',{exact:true}).selectOption('credit');
+ await t.p.getByLabel('Search payment schedule',{exact:true}).fill('PO-d14');
+ eq('UI date/search/terms filters work independently of receipt dates and undated quick filter clears the date range',await t.p.evaluate(()=>{
+  const selected=[...document.querySelectorAll('[data-due-order]')].map(el=>el.dataset.dueOrder),history=finFrom;
+  finSchedule.query='';finDuePeriodSet('undated');return {selected,history,undated:[...document.querySelectorAll('[data-due-order]')].map(el=>el.dataset.dueOrder),from:document.querySelector('[aria-label="Payment due from"]').value,to:document.querySelector('[aria-label="Payment due to"]').value};
+ }),{selected:['DUE-d14'],history:'2099-01-01',undated:['DUE-undated'],from:'',to:''});
  // Real input/click flow for a payment and refund, not just domain calls.
  await t.p.evaluate(()=>{financeSeed();finNewReceipt('CUS-FIN');});
  await t.p.locator('#finAmount').fill('200');await t.p.getByRole('button',{name:'Save receipt',exact:true}).click();

@@ -14,17 +14,17 @@ function finFilterChips(){
  return finCustomerFilter||finOrderFilter?`<div class="fin-scope"><span>Showing ${esc(c?finCustomerName(c):finOrderFilter?'order '+finOrderNumber(finOrderFilter):'customer')}</span><button class="sm" onclick="finResetFilters()">Clear filter</button></div>`:'';
 }
 function finWorkspaceHTML(){
- const tabs=[['accounts','Customer accounts'],['receipts','Payments'],['refunds','Refunds'],['journal','Journal']];
+ const tabs=[['accounts','Customer accounts'],['schedule','Payment due dates'],['receipts','Payments'],['refunds','Refunds'],['journal','Journal']];
  const users=[...new Set((DB.user||[]).map(u=>u.name).filter(Boolean))];if(finActor&&!users.includes(finActor))users.push(finActor);
- return `<div class="page-head"><div><h2>Finance</h2><p>Customer payments, order balances and a complete record of changes.</p></div><div class="fin-operator"><label for="finActor">Recorded by</label><select id="finActor" onchange="finActorSet(this.value)"><option value="">Not specified</option>${users.map(n=>`<option ${n===finActor?'selected':''}>${esc(n)}</option>`).join('')}</select></div></div>
- ${finOverviewHTML()}<div class="card fin-card"><div class="tabs" role="tablist" aria-label="Finance sections">${tabs.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
- ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='journal'?finJournalView():finTab==='refunds'?finRefundsView():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}`;
+ return `<div class="card fin-card"><div class="fin-workspace-head">${finOverviewHTML()}<div class="fin-operator"><label for="finActor">Recorded by</label><select id="finActor" onchange="finActorSet(this.value)"><option value="">Not specified</option>${users.map(n=>`<option ${n===finActor?'selected':''}>${esc(n)}</option>`).join('')}</select></div></div>
+ <div class="tabs" role="tablist" aria-label="Finance sections">${tabs.map(t=>`<button role="tab" aria-selected="${finTab===t[0]}" class="${finTab===t[0]?'on':''}" onclick="finSetTab('${t[0]}')">${t[1]}</button>`).join('')}</div>
+ ${finTab==='accounts'?(finAccountId?finAccountHTML():finAccountsWorkspace()):finTab==='schedule'?finScheduleHTML():finTab==='journal'?finJournalView():finTab==='refunds'?finRefundsView():finEdit!==null?finReceiptForm():finReceiptsView()}</div>${finApplyModal()}${finActionHTML()}`;
 }
 function finOverviewHTML(){
  const month=finToday().slice(0,7),received=finActiveReceipts().filter(r=>r.date.startsWith(month)&&finCurrency(r)==='CAD').reduce((s,r)=>s+r.amount,0),refunded=DB.refund.filter(r=>!r.voided&&r.date.startsWith(month)&&r.currency==='CAD').reduce((s,r)=>s+r.amount,0);
  const deposit=finActiveReceipts().filter(r=>finCurrency(r)==='CAD').reduce((s,r)=>s+finReceiptOnAccount(r),0);
  const overdue=(DB.salesOrder||[]).filter(finOrderCounts).reduce((s,o)=>s+finOrderFinancial(o).overdue,0);
- return `<div class="fin-overview">${[['Received this month',received,'Confirmed payments · CAD'],['Refunded this month',refunded,'Recorded refunds · CAD'],['Unapplied deposits',deposit,'Available on customer accounts · CAD'],['Overdue',overdue,'Based on payment due dates · CAD']].map(([label,n,hint])=>`<div class="fin-stat"><span>${label}</span><strong>${finFmt(finMoney(n))}</strong><small>${hint}</small></div>`).join('')}</div>`;
+ return `<div class="fin-overview"><span class="fin-overview-caption">All accounts · CAD</span>${[['Received this month',received],['Refunded this month',refunded],['Unapplied deposits',deposit],['Overdue',overdue]].map(([label,n])=>`<span class="fin-stat"><span>${label}</span><strong>${finFmt(finMoney(n))}</strong></span>`).join('')}</div>`;
 }
 function finAccountMetrics(c){
  const rows=(DB.salesOrder||[]).filter(o=>o.customerId===c.id&&finOrderCounts(o)).map(o=>({o,f:finOrderFinancial(o)}));

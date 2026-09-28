@@ -13,7 +13,7 @@ let finTab='accounts',finSearch='',finMethod='',finFrom='',finTo='',finEdit=null
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
-function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','receipts','refunds','journal'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
+function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts','refunds','journal'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
 function finSearchChange(el){
  finSearch=el.value;const pos=el.selectionStart;render();
  requestAnimationFrame(()=>{const e=document.getElementById('finSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
