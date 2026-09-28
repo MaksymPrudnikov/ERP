@@ -2106,7 +2106,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     /* --- B8: реальные роли и демо-пользователи ---------------------- */
     t = await page();
     eq('роли приведены к реальным должностям', await t.p.evaluate(() => ({roles:ROLES,safe:SAFE_DEFAULT_ROLE})),
-      {roles:['Sales','Accounting','Admin','Owner'],safe:'Sales'});
+      {roles:['Sales','Accounting','Admin','Owner','Shop'],safe:'Sales'});
     eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.role)),
       ['Demo Sales · Sales','Demo Accounting · Accounting','Demo Owner · Owner']);
     /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
@@ -5991,7 +5991,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./docs.js')({eq,ok});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok});
   await b.close();
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */

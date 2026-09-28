@@ -42,7 +42,8 @@ const ICONS={
  next:'<path d="m9 18 6-6-6-6"/>',
  last:'<path d="M18 5v14M6 6l7 6-7 6z"/>',
  layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
- report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>'
+ report:'<path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h5"/>',
+ scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M16 8v8"/>'
 };
 function ico(name, cls=''){
  const p=ICONS[name]||ICONS.layers;

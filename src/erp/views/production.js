@@ -20,12 +20,13 @@
    ===================================================================== */
 
 const SF_TABS=[
+ {k:'where',     label:'Where glass is'},
  {k:'stations',  label:'Stations'},
  {k:'terminals', label:'Terminals'}
 ];
 
 function viewProduction(){
- if(!SF_TABS.some(t=>t.k===subtab)) subtab='stations';
+ if(!SF_TABS.some(t=>t.k===subtab)) subtab='where';
  const pipeline=DB.station.map((s,i)=>{
   const w=stationOperations(s.code);
   return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' works':'<span class="mut">no works</span>'}</div></div>`;
@@ -41,7 +42,7 @@ function viewProduction(){
   </div>
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
-   ${({stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
+   ${({where:viewSfWhere,stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -64,7 +65,8 @@ function viewSfStations(){
    <td class="mono">${sfDimText(s)}</td>
    <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="stEdit=${i};render()">Edit</button>
+   <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
+   <button class="sm" onclick="stEdit=${i};render()">Edit</button>
    <button class="sm dl" onclick="delSfStation(${i})">×</button></td></tr>`;
  }).join('');
  return `${stEdit!==null?sfStationForm():''}
