@@ -104,15 +104,27 @@ tr.st-hot td{background:#fff7f7}
 .st-pin-err{color:var(--red);font-weight:700;font-size:13px}
 .st-keys{display:grid;grid-template-columns:repeat(3,72px);gap:8px;justify-content:center;margin-top:12px}
 .st-keys button{font:inherit;font-size:22px;font-weight:600;height:56px;border-radius:12px;border:1px solid var(--line);background:#fff}
-/* Офис: где стёкла ждут */
-.sf-where{display:flex;gap:7px;overflow-x:auto;padding:3px 0 6px}
-.sf-where-st{font:inherit;flex:1;min-width:86px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:9px 10px;text-align:left;display:flex;flex-direction:column}
-.sf-where-st b{font-size:13px}
-.sf-where-st .n{font-size:24px;font-weight:800;line-height:1.1;margin-top:4px}
-.sf-where-st small{font-size:11px;color:var(--mut)}
-.sf-where-st small em{font-style:normal;color:var(--red);font-weight:700}
-.sf-where-st.zero .n{color:#b8c3ca}
-.sf-where-st.sel{border:2px solid var(--blue);background:var(--blue2)}
+/* Офис: Production → In production (view/production-board) */
+.pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
+.pb-tile{font:inherit;flex:1;min-width:78px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
+.pb-tile b{font-size:12px}
+.pb-tile span{font-size:22px;font-weight:800;line-height:1.15;margin-top:3px}
+.pb-tile small{font-size:11px;color:var(--mut)}
+.pb-tile.zero span{color:#b8c3ca}
+.pb-tile.sel{border:2px solid var(--blue);background:var(--blue2)}
+.pb-tile.q{background:var(--panel2)}
+.pb-table th.pb-st,.pb-table td.pb-st{text-align:center;padding-left:4px;padding-right:4px;min-width:46px}
+.pb-n{display:inline-block;min-width:30px;border-radius:7px;padding:2px 6px;font-weight:800;background:var(--blue2);color:#1f5f82}
+.pb-n.pb-cut{background:#eef1f4;color:#5c6a75}
+.pb-z{color:#c3ccd3}
+.pb-row{cursor:pointer}
+.pb-row.pb-hot td{background:#fff7f7}
+.pb-row.pb-opened td{background:#f5fafd}
+.pb-open{font:inherit;border:0;background:none;padding:0;cursor:pointer;color:var(--text)}
+.pb-prog{white-space:nowrap}
+.pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
+.pb-bar i{display:block;height:100%;background:var(--green)}
+.pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
 /* Планшет стоя и узкие экраны: колонки друг под другом. */
 @media (max-width:900px){
  .st-body{grid-template-columns:minmax(0,1fr)}

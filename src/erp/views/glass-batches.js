@@ -6,7 +6,7 @@ let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='c
 function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
- if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('orders','Orders','number'),col('status','Status','list')];
+ if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('cut','Cut','number'),col('orders','Orders','number'),col('status','Status','list')];
  return [col('piece','Glass ID'),col('number','Order'),col('customer','Customer'),col('line','Line','number'),col('unit','Unit'),col('lite','Lite'),col('glass','Glass'),col('width','Cut W · in','number'),col('height','Cut H · in','number'),col('shape','Shape','list'),col('due','Due','date',glassBatchViewScope()==='glassQueue'),col('status','Status','list'),col('priority','Priority','list',false),col('po','PO','text',false),col('created','Created','date',false),col('heat','Heat','list',false),col('coating','Coating surface','text',false),col('reason','Hold / review reason','text',false)];
 }
 function glassBatchActiveItems(b){return b.items.filter(i=>!i.releasedAt&&b.parts[i.part]);}
@@ -21,7 +21,7 @@ function glassBatchInfo(r){
 function glassBatchInfos(){
  const scope=glassBatchViewScope();
  if(scope==='glassQueue')return glassBatchRows().map(glassBatchInfo);
- if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});
+ if(scope==='glassBatches')return (DB.glassBatch||[]).map(b=>{const a=glassBatchActiveItems(b);return {o:{createdAt:b.createdAt},b,memo:{number:b.number,created:salesListIsoDay(b.createdAt),glass:[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '),units:a.length,cut:a.filter(i=>i.cutStartedAt).length,orders:new Set(a.map(i=>b.parts[i.part].orderId)).size,status:glassBatchStatus(b)}};});
  const b=glassBatchFind(glassBatchOpenNumber);if(!b)return [];
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
@@ -102,6 +102,9 @@ function glassBatchCell(i,c){
  const v=salesListValue(i,c.k);let text=v==null||v===''?'—':c.type==='date'?salesListShortDay(v):['width','height'].includes(c.k)?dimIn16(v):String(v);
  if(c.k==='number')return `<td><button type="button" class="gb-link" onclick="${i.b&&!i.item?`glassBatchOpen('${i.b.number}')`:`optimizationOpenOrder('${esc(i.r?i.r.orderId:i.part.orderId)}')`}">${esc(text)}</button></td>`;
  if(c.k==='piece')return `<td class="gb-piece">${esc(text)}</td>`;
+ /* Сколько стёкол батча порезано — по скану станции резки (владелец,
+    29.09.2026: «в списке батчей»). */
+ if(c.k==='cut'&&i.b&&!i.item)return `<td class="n" data-batch-cut>${v?`<b>${v}</b>`:'0'} / ${i.memo.units}</td>`;
  if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }

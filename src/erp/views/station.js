@@ -37,7 +37,7 @@ function stationOpen(code){
  const url=location.href.split('#')[0]+'#station='+encodeURIComponent(code);
  const w=window.open(url,'_blank');if(!w)location.hash='station='+code;
 }
-function stationExit(){stationCode='';tab='production';subtab='where';history.replaceState(null,'',location.href.split('#')[0]);render();}
+function stationExit(){stationCode='';tab='production';subtab='orders';history.replaceState(null,'',location.href.split('#')[0]);render();}
 function stationRow(){return (DB.station||[]).find(s=>s.code===stationCode)||null;}
 function stationName(code){const s=(DB.station||[]).find(x=>x.code===code);return s?sfName(s):code;}
 
@@ -302,13 +302,18 @@ function viewStation(){
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
   '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard():stationHereCard())+'</div></div>';
 }
-/* На станциях после резки листа нет — справа стёкла, которые ждут здесь. */
+/* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
+   позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
+   (владелец, 29.09.2026) — их читает сканер. */
 function stationHereCard(){
- const list=stationWaiting().get(stationCode)||[];
- const rows=list.slice(0,30).map(x=>{const snap=x.g.entry&&x.g.entry.part?x.g.entry.part.snapshot:null,urg=stationUrgency(x.g.o);
-  return '<tr'+(urg===2?' class="st-hot"':'')+'><td class="mono"><b>'+esc(x.id)+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>'+esc(x.g.o.businessNumber||'')+'</td><td data-raw>'+esc(snap?snap.glass:x.g.c?x.g.c.glass:'')+'</td><td class="mut">'+esc(x.from||'')+' '+esc(stationTime(x.since))+'</td></tr>';}).join('');
- return '<div class="card"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+list.length+'</span></div>'+
-  (list.length?'<table><thead><tr><th>Glass</th><th>Order</th><th>Glass type</th><th>From</th></tr></thead><tbody>'+rows+(list.length>30?'<tr><td colspan="4" class="mut">+ '+(list.length-30)+' more</td></tr>':'')+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
+ const list=stationWaiting().get(stationCode)||[],groups=new Map();
+ list.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
+  if(!groups.has(k))groups.set(k,{g,n:0,li:(g.o.lines||[]).indexOf(g.l)+1});groups.get(k).n++;});
+ const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,40).map(x=>{
+  const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
+  return '<tr'+(urg===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="n"><b>'+x.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('');
+ return '<div class="card"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+list.length+' glass</span></div>'+
+  (list.length?'<table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
 }
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
@@ -331,26 +336,3 @@ document.addEventListener('keydown',function(e){
  else if(e.key==='Enter'&&el.value.trim()){e.preventDefault();const v=el.value;el.value='';stationSubmit(v);}
 });
 document.addEventListener('focusout',function(){if(tab==='station')setTimeout(stationFocus,150);});
-
-/* ---------------------- Офис: где стёкла ждут ----------------------- */
-let sfWhereSel='';
-function viewSfWhere(){
- const map=stationWaiting(),codes=(DB.station||[]).map(s=>s.code);
- if(!sfWhereSel||!codes.includes(sfWhereSel))sfWhereSel=codes.find(c=>(map.get(c)||[]).length)||codes[0]||'';
- const pipe=(DB.station||[]).map(s=>{const n=(map.get(s.code)||[]).length,hot=(map.get(s.code)||[]).some(x=>stationUrgency(x.g.o)===2);
-  return '<button type="button" class="sf-where-st'+(n?'':' zero')+(s.code===sfWhereSel?' sel':'')+'" onclick="sfWhereSel=\''+esc(s.code)+'\';render()" data-where-station="'+esc(s.code)+'"><b>'+esc(s.code)+'</b><span class="n">'+n+'</span><small>'+(s.code===stationCutCode()?'in batches':'waiting')+(hot?' · <em>critical</em>':'')+'</small></button>';}).join('');
- const list=map.get(sfWhereSel)||[],max=200;
- const rows=list.slice(0,max).map(x=>{
-  const g=x.g,snap=g.entry&&g.entry.part?g.entry.part.snapshot:null,urg=stationUrgency(g.o);
-  const size=snap&&snap.width&&snap.height?frac16(snap.width)+' × '+frac16(snap.height):'';
-  return '<tr'+(urg===2?' class="st-hot"':'')+' data-where-row="'+esc(x.id)+'"><td class="mono"><b>'+esc(x.id)+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td>'+
-   '<td>'+esc(g.o.businessNumber||'')+'</td><td data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</td>'+
-   '<td>'+(snap?esc(snap.line+' · '+x.g.unit+'/'+snap.of):'')+'</td><td>'+esc(snap?snap.lite:g.c?g.c.lite:'')+'</td><td data-raw>'+esc(snap?snap.glass:g.c?g.c.glass:'')+'</td><td>'+esc(size)+'</td>'+
-   '<td>'+esc(x.from||'—')+'</td><td class="mut">'+esc(x.since?salesShortDate(x.since)+' '+stationTime(x.since):'')+'</td><td class="mono">'+esc(g.entry?g.entry.batch.number:'stock')+'</td></tr>';
- }).join('');
- return '<div class="sub">Each scan moves the glass to the next station of its route.</div>'+
-  '<div class="sf-where">'+pipe+'</div>'+
-  '<div class="section-title" style="margin-top:14px"><h3>Waiting at '+esc(sfWhereSel)+'</h3><span class="pill info">'+list.length+'</span><span class="sp"></span><button class="sm" onclick="stationOpen(\''+esc(sfWhereSel)+'\')">Open '+esc(sfWhereSel)+' screen</button></div>'+
-  (list.length?'<table><thead><tr><th>Glass</th><th>Order</th><th>Customer</th><th>Line</th><th>Lite</th><th>Glass type</th><th>Size</th><th>From</th><th>Since</th><th>Batch</th></tr></thead><tbody>'+rows+
-   (list.length>max?'<tr><td colspan="10" class="mut">+ '+(list.length-max)+' more</td></tr>':'')+'</tbody></table>':'<div class="empty">No glass here</div>');
-}

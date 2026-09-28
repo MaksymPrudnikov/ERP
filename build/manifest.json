@@ -111,6 +111,7 @@
   "src/erp/views/cut-layout-ui.js",
   "src/erp/views/stock-list.js",
   "src/erp/views/station.js",
+  "src/erp/views/production-board.js",
   "src/erp/storage.js"
  ]
 }

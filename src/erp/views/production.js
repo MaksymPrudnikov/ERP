@@ -20,13 +20,13 @@
    ===================================================================== */
 
 const SF_TABS=[
- {k:'where',     label:'Where glass is'},
+ {k:'orders',    label:'In production'},
  {k:'stations',  label:'Stations'},
  {k:'terminals', label:'Terminals'}
 ];
 
 function viewProduction(){
- if(!SF_TABS.some(t=>t.k===subtab)) subtab='where';
+ if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
  const pipeline=DB.station.map((s,i)=>{
   const w=stationOperations(s.code);
   return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' works':'<span class="mut">no works</span>'}</div></div>`;
@@ -34,15 +34,15 @@ function viewProduction(){
  const empty=DB.station.filter(s=>!stationOperations(s.code).length);
  const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
-  <div class="card">
+  ${subtab!=='stations'?'':`<div class="card">
    <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
    <div class="pipeline">${pipeline}</div>
    ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
    ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
-  </div>
+  </div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
-   ${({where:viewSfWhere,stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
+   ${({orders:viewProdOrders,stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }

@@ -107,7 +107,7 @@ module.exports=async function({page,eq,ok}){
   await t.p.keyboard.type('4321');
   const ids=await t.p.evaluate(()=>cutPlanFor('B-0001').groups[0].sheets[0].pieces.map(p=>p.piece));
   await t.p.waitForTimeout(50);
-  await t.p.keyboard.type(ids[0]);await t.p.keyboard.press('Enter');
+  await t.p.keyboard.type(ids[0]);await t.p.keyboard.press('Enter');await t.p.waitForTimeout(250);
   const card=await t.p.evaluate(()=>({who:stationWho().name,kind:document.querySelector('[data-station-result]').dataset.stationResult,next:document.querySelector('.st-big b').textContent,
    gid:document.querySelector('.st-gid').textContent,rows:document.querySelectorAll('.st-journal tbody tr').length,cut:document.querySelectorAll('.st-pc.cut,.st-pc.now').length,focus:document.activeElement&&document.activeElement.hasAttribute('data-station-scan')}));
   for(const id of ids.slice(1)){await t.p.keyboard.type(String(+id.slice(2)));await t.p.keyboard.press('Enter');}
@@ -128,15 +128,30 @@ module.exports=async function({page,eq,ok}){
   return {menu,marked:marked.join(),peek,scans:DB.stationScan.length};
  }),await t.p.evaluate(()=>({menu:['✓ Mark cut','Details'],marked:cutPlanFor('B-0001').groups[0].sheets[0].pieces[1].piece+':true',peek:'peek',scans:1})));
 
- eq('офис: Production → Where glass is — счёт по станциям, Critical первым, кнопка экрана станции',await t.p.evaluate(()=>{
-  stReset();const id=stOrder([[36,24,2]]);stBatch(id);const id2=stOrder([[30,20,1]],{priority:'critical'});stBatch(id2);
-  const [a]=stIds(id),[c]=stIds(id2);stScan('CUT',a);stScan('CUT',c);
-  tab='production';subtab=null;sfWhereSel='';render();
-  const counts=[...document.querySelectorAll('[data-where-station]')].map(b=>b.dataset.whereStation+':'+b.querySelector('.n').textContent).filter(x=>!x.endsWith(':0'));
-  const start=sfWhereSel;document.querySelector('[data-where-station="EDGE"]').click();
-  const rows=[...document.querySelectorAll('[data-where-row]')].map(r=>r.dataset.whereRow);
-  return {tab:subtab,counts,start,first:rows[0]===c,rows:rows.length,open:document.getElementById('app').innerText.includes('Open EDGE screen')};
- }),{tab:'where',counts:['CUT:1','EDGE:2'],start:'CUT',first:true,rows:2,open:true});
+ eq('офис: Production → In production — строка на заказ, Critical первым, в раскрытии позиция → стекло → сколько где; плитка станции — фильтр; у батча колонка Cut',await t.p.evaluate(()=>{
+  stReset();const c=oqCustomer({legalName:'North Shore Windows'});const id=oqOrder(c,{dueDate:'2026-10-06'});soDraft=null;soEdit=null;
+  salesRecord(id).makeups[0].panes[1].glassProductId=glassProductByCode('6Q240').id;salesSetRecordStatus(id,'verified');
+  glassBatchAssign(glassBatchRows([salesRecord(id)]).filter(r=>r.glass==='6CLEAR'),{});
+  const first=glassBatchRows([salesRecord(id)]).length,b=DB.glassBatch[0],cutPiece=b.items[0].piece;stScan('CUT',cutPiece);
+  const id2=stOrder([[30,20,1]],{priority:'critical',dueDate:'2026-10-09'});stBatch(id2);const [k]=stIds(id2);stScan('CUT',k);
+  tab='production';subtab=null;prodOpen=new Set();render();
+  const rowCells=oid=>{const tr=document.querySelector(`[data-prod-order="${oid}"]`);return [...tr.children].map(td=>td.textContent.trim());};
+  const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()).filter(Boolean);
+  const order=[...document.querySelectorAll('[data-prod-order]')].map(r=>r.dataset.prodOrder);
+  const col=h=>heads.indexOf(h),a=rowCells(id);
+  const main={glass:a[col('Glass')],shipped:a[col('Shipped')],queue:a[col('To batch')],cut:a[col('CUT')],edge:a[col('EDGE')],priority:rowCells(id2)[col('Priority')]};
+  prodToggle(id);const sub=[...document.querySelectorAll('.pb-sub')].map(tr=>{const td=[...tr.children].map(x=>x.textContent.trim());return [td[col('Order')],td[col('Customer')],td[col('Glass')],td[col('CUT')],td[col('EDGE')],td[col('To batch')]].join('|');});
+  document.querySelector('[data-prod-station="EDGE"]').click();const edgeRows=document.querySelectorAll('[data-prod-order]').length,chip=!!document.querySelector('[data-filter-chip="st_EDGE"]');
+  document.querySelector('[data-prod-station="IGU"]').click();const iguRows=document.querySelectorAll('[data-prod-order]').length;
+  document.querySelector('[data-prod-station="IGU"]').click();document.querySelector('[data-prod-station="EDGE"]').click();const back=document.querySelectorAll('[data-prod-order]').length;
+  const tiles=[...document.querySelectorAll('.pb-tile')].map(t=>t.querySelector('b').textContent+':'+t.querySelector('span').textContent).filter(x=>!x.endsWith(':0'));
+  const noIds=!/G-\d{7}/.test(document.querySelector('.pb-table').innerText);
+  tab='optimization';optimizationSetTab('production');glassBatchOpenNumber='';render();const cutCell=[...document.querySelectorAll('[data-batch-cut]')].map(td=>td.textContent).sort().join(', ');
+  tab='dashboard';render();
+  return {first,order:order[0]===id2&&order[1]===id,main,sub,edgeRows,chip,iguRows,back,tiles,noIds,cutCell};
+ }),{first:3,order:true,main:{glass:'6CLEAR, 6Q240',shipped:'0 / 6',queue:'3',cut:'2',edge:'1',priority:'Critical'},
+  sub:['Line 1|37 × 71 · 2 units · Kitchen|6CLEAR Lite 1|1|1|·','||6Q240 Lite 2|·|·|2','Line 2|30 × 40 · 1 unit · Bedroom|6CLEAR Lite 1|1|·|·','||6Q240 Lite 2|·|·|1'],
+  edgeRows:2,chip:true,iguRows:0,back:2,tiles:['To batch:3','CUT:2','EDGE:2'],noIds:true,cutCell:'1 / 1, 1 / 3'});
 
  eq('Users: PIN — четыре цифры или пусто; роль Shop',await t.p.evaluate(()=>{
   tab='users';subtab='list';uEdit='new';uDraft={name:'Pin Test',role:'Shop',station:'CUT',skills:[],pin:'12'};render();saveUser();const err=document.getElementById('e_user').textContent;
