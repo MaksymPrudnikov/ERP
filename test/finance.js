@@ -25,7 +25,7 @@ module.exports=async function({page,eq,ok}){
   };
   window.finCleanup=function(){
    DB.receipt=[];DB.salesOrder=DB.salesOrder.filter(o=>!/^8\d{4}$/.test(o.businessNumber));DB.customer=DB.customer.filter(c=>!/^QA/.test(c.code||''));
-   soEdit=null;soDraft=null;finEdit=null;finDraft=null;finApply=null;finSearch='';finFrom='';finTo='';finTab='receipts';
+   soEdit=null;soDraft=null;finEdit=null;finDraft=null;finApply=null;finTab='receipts';
   };
  });
 

@@ -111,7 +111,7 @@ function finStatementDoc(customerId,from,to,today){
  ];
  const left=[];if(company.paymentInstructions)left.push({label:'Payment',text:company.paymentInstructions});
  if(orders.some(x=>!x.billed))left.push({label:'In work',text:'Orders not yet picked up are billed on pickup.'+(d.prepaid>0?' '+money(d.prepaid)+' already paid on them is in the balance.':'')});
- const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:'-'+money(d.paid)}];
+ const rows=[{label:'Balance forward',value:finSigned(d.opening)},{label:'Orders billed',value:money(d.billed)},{label:'Payments received',value:d.paid>0?'-'+money(d.paid):money(0)}];
  if(d.refunded>0)rows.push({label:'Refunds',value:money(d.refunded)});
  m.end={left,rows,grand:d.closing>=0?{label:'Balance due',value:money(d.closing)}:{label:'Credit balance',value:money(-d.closing)},paid:d.overdue>0?[{label:'Overdue now',value:money(d.overdue),tone:'due'}]:null};
  m.footerRight=finPeriodText(from,to);
@@ -124,15 +124,16 @@ function finStatementCSV(customerId,from,to){
   d.rows.map(l=>[l.date,l.doc,kind[l.kind],l.text,l.charge?l.charge.toFixed(2):'',l.payment?l.payment.toFixed(2):'',l.balance.toFixed(2)]),
   [[to||'','','Closing balance','','','',d.closing.toFixed(2)]]).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
-/* Внутренний список «кто и когда должен заплатить» — для обзвона. */
-function finScheduleDoc(result,filter){
- const day=finToday(),money=docMoney,m=finDocBase('PAYMENTS DUE','Payments due',docDate(day),null);
- m.numberLabel='';m.customerName=finDueDescription(filter,result.range);m.footerLeft='';
- m.meta=[{label:'Selection',value:m.customerName},{label:'Orders',value:String(result.rows.length)},{label:'Customers',value:String(result.customers)},{label:'Currency',value:'CAD'}];
+/* Внутренний список «кто и когда должен заплатить» — для обзвона. Строки —
+   те, что сейчас видны в таблице Due dates после фильтров колонок. */
+function finScheduleDoc(rows,selection){
+ const day=finToday(),money=docMoney,m=finDocBase('PAYMENTS DUE','Payments due',docDate(day),null),total=finMoney(rows.reduce((s,x)=>s+x.f.b.balance,0)),customers=new Set(rows.map(x=>x.o.customerId)).size;
+ m.numberLabel='';m.customerName=selection||'All unpaid';m.footerLeft='';
+ m.meta=[{label:'Selection',value:m.customerName},{label:'Orders',value:String(rows.length)},{label:'Customers',value:String(customers)},{label:'Currency',value:'CAD'}];
  m.cols=[{label:'Due',x:36,w:62,due:true},{label:'Customer',x:104,w:124,bold:true},{label:'Order · PO',x:234,w:106},{label:'Terms',x:346,w:88},{label:'Timing',x:440,w:76,due:true},{label:'Outstanding',x:576,w:56,align:'right',bold:true}];
- m.rows=result.rows.map(x=>({due:x.days!=null&&x.days<0,cells:[x.f.dueOn?docDate(x.f.dueOn):finDueText(x.f),finCustomerName(x.c),x.o.businessNumber+(x.o.customerPo?' · '+x.o.customerPo:''),paymentTermsLabel(x.f.terms),finDueTiming(x),money(x.f.b.balance)]}));
+ m.rows=rows.map(x=>({due:x.days!=null&&x.days<0,cells:[x.f.dueOn?docDate(x.f.dueOn):finDueText(x.f),finCustomerName(x.c),x.o.businessNumber+(x.o.customerPo?' · '+x.o.customerPo:''),paymentTermsLabel(x.f.terms),finDueTiming(x),money(x.f.b.balance)]}));
  m.empty='No unpaid orders in this selection.';
- m.end={left:[],rows:[],grand:{label:'Outstanding',value:money(result.total)}};
+ m.end={left:[],rows:[],grand:{label:'Outstanding',value:money(total)}};
  return finDocLayout(m);
 }
 /* Балансы всех клиентов (или отфильтрованных) — кто сколько должен и чьи

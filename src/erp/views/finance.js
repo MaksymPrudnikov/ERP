@@ -9,52 +9,14 @@
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
-let finTab='accounts',finSearch='',finFrom='',finTo='',finEdit=null,finDraft=null,finApply=null;
+let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function finCustomerName(c){return c?(c.displayName||c.legalName||c.code):'—';}
 function finSetTab(t){if(!finCanLeave())return;finTab=['accounts','schedule','receipts'].includes(t)?t:'accounts';finEdit=null;finDraft=null;finAction=null;finAccountId='';render();}
-function finSearchChange(el){
- finSearch=el.value;const pos=el.selectionStart;render();
- requestAnimationFrame(()=>{const e=document.getElementById('finSearch');if(e){e.focus();try{e.setSelectionRange(pos,pos);}catch(x){}}});
-}
-
 function viewFinance(){return finWorkspaceHTML();}
 
-/* ------------------------------ Receipts ----------------------------- */
-function finFilteredReceipts(){
- const q=finSearch.trim().toLowerCase();
- return (DB.receipt||[]).filter(r=>{
-  if(finCustomerFilter&&r.customerId!==finCustomerFilter)return false;
-  if(finOrderFilter&&!r.allocations.some(a=>a.orderId===finOrderFilter)&&!finHistoryFor(r.id).some(e=>(e.orders||[]).some(o=>o.id===finOrderFilter)))return false;
-  if(finFrom&&r.date<finFrom)return false;
-  if(finTo&&r.date>finTo)return false;
-  if(!q)return true;
-  const c=salesFindCustomer(r.customerId)||{};
-  return [r.number,r.reference,r.note,c.legalName,c.displayName,c.code].concat(r.allocations.map(a=>finOrderNumber(a.orderId))).join(' ').toLowerCase().includes(q);
- }).sort((a,b)=>(b.date+b.number).localeCompare(a.date+a.number));
-}
-function finReceiptsView(){
- const rows=finFilteredReceipts(),active=rows.filter(r=>!r.voided&&finCurrency(r)==='CAD');
- return `${finFilterChips()}<div class="fin-toolbar"><input class="fin-search" id="finSearch" value="${esc(finSearch)}" placeholder="Search customer, order, cheque #…" oninput="finSearchChange(this)">
-  <label class="fin-date">From <input type="date" value="${esc(finFrom)}" onchange="finFrom=this.value;render()"></label><label class="fin-date">To <input type="date" value="${esc(finTo)}" onchange="finTo=this.value;render()"></label>
-  <span class="fin-spacer"></span><button type="button" onclick="finExportCsv()" title="Payments and refunds in this list">CSV</button>${finExportButtonHTML()}</div>
- <div class="fin-table-wrap"><table class="fin-table"><thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Method · reference</th><th class="n">Amount</th><th>Applied to orders</th><th class="n">On account</th></tr></thead>
- <tbody>${rows.map(finReceiptRow).join('')||'<tr><td colspan="7" class="empty">No payments</td></tr>'}</tbody>
- ${active.length?`<tfoot><tr><td colspan="4">${active.length} ${active.length===1?'payment':'payments'}</td><td class="n"><b>${finFmt(finMoney(active.reduce((s,r)=>s+r.amount,0)))}</b></td><td colspan="2"></td></tr></tfoot>`:''}</table></div>`;
-}
-function finReceiptRow(r){
- const c=salesFindCustomer(r.customerId),free=finReceiptOnAccount(r),refunded=finRefunded(r.id);
- const applied=r.allocations.length?r.allocations.map(a=>`<div><span class="mono">${raw(finOrderNumber(a.orderId))}</span> · ${finFmt(a.amount)}</div>`).join(''):'<span class="mut">—</span>';
- return `<tr class="fin-row${r.voided?' fin-void':''}" data-receipt="${esc(r.id)}" onclick="finOpenReceipt('${esc(r.id)}')"><td><button type="button" class="fin-link mono" onclick="event.stopPropagation();finOpenReceipt('${esc(r.id)}')">${raw(r.number)}</button>${r.voided?' <span class="pill bad">Void</span>':''}</td><td>${esc(r.date)}</td><td><b>${raw(finCustomerName(c))}</b></td>
-  <td>${finMethodLabel(r.method)}${r.reference?` <span class="mut">${raw(r.reference)}</span>`:''}</td><td class="n"><b>${finFmt(r.amount)}</b>${finCurrency(r)!=='CAD'?` <span class="mut small">${esc(finCurrency(r))}</span>`:''}${refunded>0?`<div class="mut small">refunded ${finFmt(refunded)}</div>`:''}</td>
-  <td>${applied}${r.voided&&r.voidReason?`<div class="mut small">Void: ${raw(r.voidReason)}</div>`:''}</td>
-  <td class="n">${free>0?`<b class="fin-deposit">${finFmt(free)}</b>`:'<span class="mut">—</span>'}</td></tr>`;
-}
-function finExportCsv(){
- const rows=finFilteredReceipts(),refunds=DB.refund.filter(x=>(!finCustomerFilter||x.customerId===finCustomerFilter)&&(!finOrderFilter||rows.some(r=>r.id===x.receiptId))&&(!finFrom||x.date>=finFrom)&&(!finTo||x.date<=finTo));
- customerDownload('payments'+(finFrom?'_from_'+finFrom:'')+(finTo?'_to_'+finTo:'')+'.csv',finMovementsCSV(rows,refunds),'text/csv;charset=utf-8');
-}
+/* Таблица Payments — views/finance-lists (фильтры колонок как в Sales). */
 
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
@@ -157,8 +119,11 @@ function finVoidCurrent(){
 }
 
 /* --------------------- Переход к оплатам клиента/заказа --------------- */
-function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finSearch='';finFrom='';finTo='';render();}
-function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finSearch='';finFrom='';finTo='';render();}
+/* Переход «все оплаты клиента / заказа»: фильтры колонок снимаются, иначе
+   старая оплата спряталась бы за периодом по умолчанию. */
+function finPaymentsClearFilters(){salesListMenu=null;const p=salesListLoadPrefs();p.filters={};salesListSavePrefs();}
+function finShowCustomer(id){if(!finCanLeave())return;tab='finance';finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter=id;finOrderFilter='';finPaymentsClearFilters();render();}
+function finShowOrder(orderId){if(typeof salesLeaveDraft==='function'&&soDraft&&salesDraftHasWork()){salesLeaveDraft(()=>finShowOrder(orderId));return;}if(!finCanLeave())return;tab='finance';subtab=null;finTab='receipts';finEdit=null;finDraft=null;finCustomerFilter='';finOrderFilter=orderId;finPaymentsClearFilters();render();}
 
 /* ---------------------------- Зачёт депозита -------------------------- */
 function finDueOrders(customerId){

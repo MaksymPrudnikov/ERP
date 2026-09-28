@@ -53,6 +53,8 @@ const SALES_LIST_OPS={
  list:[]
 };
 const SALES_LIST_PRESETS=[['today','Today'],['yesterday','Yesterday'],['thisWeek','This week'],['last7','Last 7 days'],['last14','Last 14 days'],['last30','Last 30 days'],['thisMonth','This month'],['lastMonth','Last month'],['thisYear','This year']];
+/* Сроки оплаты смотрят вперёд (Finance → Due dates): просрочено и ближайшие дни. */
+const SALES_LIST_DUE_PRESETS=[['overdue','Overdue'],['today','Today'],['next7','Next 7 days'],['next30','Next 30 days'],['thisMonth','This month'],['nextMonth','Next month']];
 const SALES_HOLD_REASONS=['Waiting for payment','Customer asked to wait','Sizes or drawing to confirm','Credit check'];
 
 let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAnchor=null,salesListDragKey=null,salesHoldDialog=null;
@@ -60,8 +62,9 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
+ if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
@@ -86,6 +89,7 @@ function salesListCleanPrefs(p){
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
  if(salesListScope()==='sales'&&p.createdRangeInitialized!==true&&!filters.created)filters.created=salesListCleanFilter('created',{preset:'last14'});
+ if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true};
 }
 function salesListDefaultOp(col){return col.type==='number'?'gt':col.type==='date'?'between':'contains';}
@@ -96,7 +100,7 @@ function salesListCleanFilter(k,f){
  const conds=(Array.isArray(f.conds)?f.conds:[]).filter(c=>c&&ops.includes(c.op)).slice(0,6)
   .map((c,i)=>({op:c.op,v:String(c.v==null?'':c.v).slice(0,120),v2:String(c.v2==null?'':c.v2).slice(0,120),join:i&&c.join==='or'?'or':'and'}));
  const values=(col.type==='list'||col.type==='text')&&Array.isArray(f.values)?f.values.map(v=>String(v)).slice(0,500):null;
- const preset=col.type==='date'&&SALES_LIST_PRESETS.some(x=>x[0]===f.preset)?f.preset:'';
+ const preset=col.type==='date'&&(col.presets||SALES_LIST_PRESETS).some(x=>x[0]===f.preset)?f.preset:'';
  return {mode:f.mode==='exclude'?'exclude':'include',conds,values,preset};
 }
 function salesListColumns(){
@@ -125,6 +129,9 @@ function salesListPresetRange(key){
   case 'thisMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth(),1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+1,0))];
   case 'lastMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()-1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth(),0))];
   case 'thisYear':return [d.getFullYear()+'-01-01',d.getFullYear()+'-12-31'];
+  case 'overdue':return ['0001-01-01',salesListDay(add(d,-1))];
+  case 'next7':case 'next30':return [salesListDay(d),salesListDay(add(d,Number(key.slice(4))))];
+  case 'nextMonth':return [salesListDay(new Date(d.getFullYear(),d.getMonth()+1,1)),salesListDay(new Date(d.getFullYear(),d.getMonth()+2,0))];
  }
  return null;
 }
@@ -236,6 +243,7 @@ function salesListCompare(col,dir){
 }
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
+ if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
  const all=salesListVisible(),ncrs=salesShow.ncr&&typeof ncrListInfos==='function'?ncrListInfos():[];
@@ -243,15 +251,20 @@ function salesListBase(){
   .concat(ncrs.filter(i=>!salesStatusFilter||salesStatusFilter==='ncr:'+i.o.ncrStatus.toLowerCase()));
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
+/* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
+function salesListDefaultSort(){const f=salesListScope().startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():null;return f||{k:'created',dir:'desc'};}
+/* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
+function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():'';}
 function salesListRows(infos){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
- const s=p.sort||{k:'created',dir:'desc'},col=salesListColumn(s.k)||salesListColumn('created'),cmp=salesListCompare(col,s.dir);
+ const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
    встречается вместе с другими стёклами в Double/Triple или нескольких Makeup. */
 function salesListTokens(info,k){
+ if(info.tokens&&info.tokens[k])return info.tokens[k].length?info.tokens[k]:['(empty)'];
  if(k==='batch'){const v=salesOrderBatchNumbers(info.o);return v.length?v:['(empty)'];}
  if(k!=='glass')return [salesListText(info,k)];
  const used=new Set((info.o.lines||[]).map(l=>l.makeupId)),codes=[];
@@ -281,14 +294,14 @@ function salesListFilterSummary(col,f){
   eq:'=',ne:'≠',gt:'>',gte:'≥',lt:'<',lte:'≤',between:'between',on:'on',before:'before',after:'after'};
  const fmt=v=>col.money&&String(v).trim()!==''&&Number.isFinite(+v)?finFmt(+v):col.type==='date'?salesListShortDay(v):String(v);
  const parts=[];
- if(f.preset)parts.push((SALES_LIST_PRESETS.find(x=>x[0]===f.preset)||['',''])[1]);
+ if(f.preset)parts.push(((col.presets||SALES_LIST_PRESETS).find(x=>x[0]===f.preset)||['',''])[1]);
  if(Array.isArray(f.values))parts.push(f.values.length?f.values.length<=3?f.values.join(', '):f.values.length+' values':'nothing');
  const conds=(f.conds||[]).filter(salesListCondReady).map((c,i)=>(i?(c.join==='or'?' or ':' and '):'')+opText[c.op]+(c.op==='empty'||c.op==='notEmpty'?'':' '+(c.op==='between'&&String(c.v2).trim()!==''?fmt(c.v)+' – '+fmt(c.v2):fmt(c.v))));
  if(conds.length)parts.push(conds.join(''));
  return (f.mode==='exclude'?'Not · ':'')+col.label+': '+parts.join(' · ');
 }
 function salesListFilterChips(){
- const p=salesListLoadPrefs(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(salesListScope()==='sales'&&k==='created'));
+ const p=salesListLoadPrefs(),dateCol=salesListDateColumn(),keys=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&k!==dateCol);
  if(!keys.length)return '';
  return `<div class="sl-chips"><span class="sl-chips-label">Filters</span>${keys.map(k=>`<span class="sl-chip" data-filter-chip="${k}">${esc(salesListFilterSummary(salesListColumn(k),p.filters[k]))}<button type="button" aria-label="Remove filter" onclick="salesListClearFilter('${k}')">×</button></span>`).join('')}<button type="button" class="sl-clear" data-clear-filters onclick="salesListClearAll()">Clear filters</button></div>`;
 }
@@ -381,10 +394,10 @@ function salesListMenuHTML(infos){
 }
 function salesListFilterHTML(m,infos,style){
  const col=salesListColumn(m.col);if(!col)return '';
- const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||{k:'created',dir:'desc'};
+ const d=m.draft,p=salesListLoadPrefs(),sort=p.sort||salesListDefaultSort();
  const labels=col.type==='number'?['↑ Smallest first','↓ Largest first']:col.type==='date'?['↑ Oldest first','↓ Newest first']:['↑ A → Z','↓ Z → A'];
  let html=`<div class="sl-menu" style="${style}" role="dialog" aria-label="Filter ${esc(col.label)}" data-filter-menu="${col.k}"><h5>Sort</h5><div class="sl-row"><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='asc'?' on':''}" data-sort="asc" onclick="salesListSort('${col.k}','asc')">${labels[0]}</button><button type="button" class="sl-btn${sort.k===col.k&&sort.dir==='desc'?' on':''}" data-sort="desc" onclick="salesListSort('${col.k}','desc')">${labels[1]}</button></div>`;
- if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${SALES_LIST_PRESETS.map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
+ if(col.type==='date')html+=`<h5>Date</h5><div class="sl-presets">${(col.presets||SALES_LIST_PRESETS).map(x=>`<button type="button" class="sl-btn${d.preset===x[0]?' on':''}" data-preset="${x[0]}" onclick="salesListDraft('preset','${x[0]}')">${x[1]}</button>`).join('')}</div>`;
  if(col.type!=='list'){
   const ops=SALES_LIST_OPS[col.type],input=col.type==='number'?'number':col.type==='date'?'date':'text',step=input==='number'?' step="any"':'';
   html+=`<h5>Condition</h5><div class="sl-row"><button type="button" class="sl-btn${d.mode!=='exclude'?' on':''}" data-mode="include" onclick="salesListDraft('mode','include')">Include</button><button type="button" class="sl-btn${d.mode==='exclude'?' on':''}" data-mode="exclude" onclick="salesListDraft('mode','exclude')">Exclude</button></div>`;

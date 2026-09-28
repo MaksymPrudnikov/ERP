@@ -21,30 +21,35 @@ function salesListDateParts(f){
  if(cs.length===1&&cs[0].op==='between')return {preset:'',from:cs[0].v,to:cs[0].v2||'',simple:true};
  return {preset:'',from:'',to:'',simple:false};
 }
-function salesListDateButton(){
- const f=salesListLoadPrefs().filters.created,d=salesListDateParts(f);
- const label=d.preset?(SALES_LIST_PRESETS.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
- return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range title="${esc(f?salesListFilterSummary(salesListColumn('created'),f):'Created: all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event)">Created: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
+/* Блок дат над таблицей. У Sales — Created; другие таблицы (Finance) дают
+   свою колонку и свои быстрые кнопки (col.range). Фильтр — тот же, что в
+   меню колонки. */
+const SALES_LIST_RANGE=[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']];
+function salesListDateButton(k){
+ k=k||'created';const col=salesListColumn(k)||{label:'Created'},f=salesListLoadPrefs().filters[k],d=salesListDateParts(f),presets=(col.presets||SALES_LIST_PRESETS).concat(col.range||[]);
+ const label=d.preset?(presets.find(x=>x[0]===d.preset)||['','Custom'])[1]:!d.simple?'Custom filter':d.from&&d.to?salesListShortDay(d.from)+' – '+salesListShortDay(d.to):d.from?'From '+salesListShortDay(d.from):d.to?'Through '+salesListShortDay(d.to):'All time';
+ return `<button type="button" class="sl-quiet sl-date-toggle" data-created-range data-date-col="${esc(k)}" title="${esc(f?salesListFilterSummary(col,f):col.label+': all dates')}" aria-haspopup="dialog" onclick="salesListOpenDate(event,'${esc(k)}')">${esc(col.label)}: ${esc(label)}<span class="sl-disclosure" aria-hidden="true">▾</span></button>`;
 }
-function salesListOpenDate(e){salesListMenu=Object.assign({kind:'date',scope:'sales',error:''},salesListDateParts(salesListLoadPrefs().filters.created),salesListAt(e,360));render();}
+function salesListOpenDate(e,k){k=k||'created';salesListMenu=Object.assign({kind:'date',scope:salesListScope(),col:k,error:''},salesListDateParts(salesListLoadPrefs().filters[k]),salesListAt(e,360));render();}
 function salesListDatePreset(key){
  const m=salesListMenu;if(!m||m.kind!=='date')return;
  const r=key?salesListPresetRange(key):null;Object.assign(m,{preset:key,from:r?r[0]:'',to:r?r[1]:'',simple:true,error:''});render();
 }
 function salesListDateInput(key,value){const m=salesListMenu;if(!m||m.kind!=='date'||!['from','to'].includes(key))return;m[key]=value;m.preset='';m.simple=true;m.error='';}
 function salesListDateToday(){const m=salesListMenu;if(!m||m.kind!=='date')return;m.to=salesListDay(new Date());m.preset='';m.simple=true;m.error='';render();}
-function salesListDateReset(){salesListMenu=null;salesListClearFilter('created');}
+function salesListDateReset(){const k=salesListMenu&&salesListMenu.col||'created';salesListMenu=null;salesListClearFilter(k);}
 function salesListValidDay(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const d=new Date(s+'T12:00:00');return !isNaN(d)&&salesListDay(d)===s;}
 function salesListDateApply(){
  const m=salesListMenu;if(!m||m.kind!=='date')return;
  if(!m.simple){salesListCloseMenu();return;}
  if([m.from,m.to].some(s=>s&&!salesListValidDay(s))||(m.from&&m.to&&m.from>m.to)){m.error='Choose a valid range. From must not be after To.';render();return;}
  salesListMenu=null;
- salesListSetFilter('created',m.preset?{preset:m.preset}:m.from||m.to?{conds:[{op:'between',v:m.from,v2:m.to}]}:null);
+ salesListSetFilter(m.col||'created',m.preset?{preset:m.preset}:m.from||m.to?{conds:[{op:'between',v:m.from,v2:m.to}]}:null);
 }
 function salesListDateMenuHTML(m,style){
- return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="Created date range"><div class="sl-date-presets">${[['last7','7 days'],['last14','14 days'],['last30','30 days'],['','All time']].map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
-  ${!m.simple?'<p class="mut">A custom Created filter is active. Choose a range to replace it.</p>':''}
+ const col=salesListColumn(m.col||'created')||{label:'Created'};
+ return `<div class="sl-menu sl-date-menu" style="${style}" role="dialog" aria-label="${esc(col.label)} date range"><div class="sl-date-presets">${(col.range||SALES_LIST_RANGE).map(([k,v])=>`<button type="button" class="sl-btn${m.preset===k&&m.simple&&(k||!m.from&&!m.to)?' on':''}" data-range-preset="${k}" onclick="salesListDatePreset('${k}')">${v}</button>`).join('')}</div>
+  ${!m.simple?`<p class="mut">A custom ${esc(col.label)} filter is active. Choose a range to replace it.</p>`:''}
   <div class="sl-date-inputs"><label>From<input type="date" data-range-from value="${esc(m.from)}" oninput="salesListDateInput('from',this.value)"></label><label>To<input type="date" data-range-to value="${esc(m.to)}" oninput="salesListDateInput('to',this.value)"></label></div>
   ${m.error?`<p class="sl-range-error" role="alert">${esc(m.error)}</p>`:''}<div class="sl-date-actions"><button type="button" class="sl-text-button" data-range-today onclick="salesListDateToday()">Today</button><button type="button" class="sl-reset" data-range-reset title="Clear date range · show all dates" aria-label="Clear date range" onclick="salesListDateReset()">↺</button><span class="sp"></span><button type="button" class="pri" data-range-apply onclick="salesListDateApply()">Apply</button></div></div>`;
 }
