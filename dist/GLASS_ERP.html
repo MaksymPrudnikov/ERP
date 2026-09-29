@@ -2319,7 +2319,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b77ed12fca72';
+var ERP_BUILD='29d0c2d9fad8';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -4220,7 +4220,6 @@ function shapeValidateComputed(def,geo,fg){
     var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
-      if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)finishes++;
       if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'||shapeIsLamiOnlyOp(op.type)){
         /* Ручной припуск на кромке отвечает за неё сам: цех назвал число, и
            отсутствие строки в таблице больше не блокирует рез. */
@@ -4231,7 +4230,7 @@ function shapeValidateComputed(def,geo,fg){
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
-    if(finishes>1)errors.push('Edge '+id+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.');
+    var conflict=shapeFinishConflict(ops,id);if(conflict)errors.push(conflict);
   });
   if(thicknessNeeded&&!(th>0))errors.push('Glass thickness for edge-processing allowance must come from the selected Sales Makeup.');
   return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};
@@ -5881,6 +5880,23 @@ function shapeDxfTopologyFingerprint(defOrPreview){
   return points.length>=3?shapeStableHash('top-',{points:points}):'';
 }
 
+/* Две группы финишей кромки. Внутри группы — одна отделка, между группами —
+   можно обе: у ламината плиты доводят до закалки (Rough Arris, Flat Polish,
+   CNC Shape Polish), а склеенную кромку — после (Lami Polish, CNC Lami
+   Polish). Владелец, 29.09.2026: «CNC Shape Polish и потом CNC Lami Polish»;
+   плиты режут с припуском большей отделки (shapeEdgeAllowance — максимум),
+   первый проход сразу в чистовой размер, после склейки кромку только
+   выравнивают, размер не снимают. */
+function shapeFinishGroup(type){return SHAPE_PRIMARY_FINISHES.indexOf(type)<0?'':shapeIsLamiOnlyOp(type)?'lami':'plate';}
+function shapeFinishNames(list){return list.length<2?list.join(''):list.slice(0,-1).join(', ')+' and '+list[list.length-1];}
+function shapeFinishConflict(ops,edgeId){
+  var seen={plate:[],lami:[]};
+  (Array.isArray(ops)?ops:[]).forEach(function(op){var g=op&&shapeFinishGroup(op.type);if(g&&seen[g].indexOf(op.type)<0)seen[g].push(op.type);});
+  var bad=seen.plate.length>1?'plate':seen.lami.length>1?'lami':'';if(!bad)return '';
+  var all=SHAPE_PRIMARY_FINISHES.filter(function(t){return shapeFinishGroup(t)===bad;});
+  return 'Edge '+edgeId+': '+shapeFinishNames(all)+' are mutually exclusive finishes.';
+}
+function shapeEdgeHasFinish(ops,type){return (Array.isArray(ops)?ops:[]).some(function(op){return op&&op.type===type;});}
 function shapePrimaryFinish(ops){
   return (Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).find(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0;})||null;
 }
@@ -5888,23 +5904,22 @@ function shapePrimaryFinish(ops){
 function shapeTogglePrimaryFinish(ops,type,on){
   var list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
   if(on){
-    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    var grp=shapeFinishGroup(type);if(grp)list=list.filter(function(op){return shapeFinishGroup(op.type)!==grp;});
     list.push(shapeNormalizeOp({type:type}));
   }
   return list.filter(Boolean);
 }
 
 function shapeValidateEdgeOperations(ops,edgeId){
-  var seen=Object.create(null),primary=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
+  var seen=Object.create(null),list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
   for(var i=0;i<list.length;i++){
     var op=list[i];
     if(seen[op.type])return {ok:false,reason:'Edge '+edgeId+': duplicate '+op.type+' operation.'};
     seen[op.type]=true;
-    if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)primary++;
     if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
-  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.'};
+  var conflict=shapeFinishConflict(list,edgeId);if(conflict)return {ok:false,reason:conflict};
   return {ok:true};
 }
 
@@ -5946,8 +5961,13 @@ function shapeAllowanceDefaults(){
   });
   rows.push(shapeAllowanceRow('CNC Shape Polish','mono',0,1000,'1/4'));
   rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','thick glass, larger stock removal'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','by the PLY thickness'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','by the PLY thickness'));
+  /* Плиты ламината под CNC Shape Polish — как одинарное стекло: 1/4″.
+     Владелец, 29.09.2026: «даём как для обычного CNC Shape Polish 1/4»; с
+     CNC Lami Polish после склейки первый проход сразу в чистовой размер,
+     после склейки кромку только выравнивают. Раньше здесь стояло 1/16 и 1/8
+     — по аналогии с Flat Polish, цехом не подтверждено. */
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/4','as a single glass'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/4','as a single glass'));
   SHAPE_LAMI_ONLY_OPS.forEach(function(op){
     rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','laminated edge, by the PLY thickness'));
     rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','laminated edge, by the PLY thickness'));
@@ -6896,7 +6916,12 @@ const DATA_FIXES=[
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
     уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
  ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
-  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']])
+  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
+ /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
+    1/4″, как у одинарного стекла (владелец). Только если стоит заводское
+    1/16 или 1/8 — своё значение цех мог уже вписать. */
+ [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-3-6',{allowance:'1/16'},['allowance','note']],
+ [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){
@@ -14514,9 +14539,10 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height),'cutting');
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
-  var byOp={},opOrder=[],contourEdges=[];
+  var byOp={},opOrder=[],contourEdges=[],polished={};
   (groups||[]).forEach(function(g){
     if(contourEdges.indexOf(g.id)<0)contourEdges.push(g.id);
+    if((g.ops||[]).some(function(op){return op&&(op.type==='Flat Polish'||op.type==='CNC Shape Polish');}))polished[g.id]=true;
     (g.ops||[]).forEach(function(op){
       var t=op&&op.type;if(!t)return;
       var key=salesServiceOpSignature(op);
@@ -14535,6 +14561,9 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
+    /* Плиты уже отполированы в чистовой размер до закалки — после склейки
+       кромку только выравнивают (владелец, 29.09.2026, вариант B). */
+    if(shapeIsLamiOnlyOp(t)&&group.edges.every(function(id){return polished[id];}))text+=' · align only';
     /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
        ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
        станции, то есть до склейки, и лист печатал бы неправду. */
@@ -19574,7 +19603,7 @@ function shapeProdDefaultOp(type){
 function shapeProdToggleOps(list,type,on){
   list=(Array.isArray(list)?list:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
   if(on){
-    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    var grp=shapeFinishGroup(type);if(grp)list=list.filter(function(op){return shapeFinishGroup(op.type)!==grp;});
     list.push(shapeProdDefaultOp(type));
   }
   return list;
@@ -19585,7 +19614,7 @@ function shapeProdToggleOps(list,type,on){
    умолчанию осталась в shapeProdToggleOps выше, её и зовёт единственная
    реализация переключателя. */
 function shapeProdConfiguredUniform(type){
-  var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
+  var groups=shapeGroups();return !!groups.length&&groups.every(function(g){return shapeEdgeHasFinish(shapeEdgeOps(sDraft,g.id),type);});
 }
 /* AR · ALL AROUND — решение по всей форме, а значит и по всем её лайтам:
    собственная обработка лайтов снимается. Иначе кнопка отрабатывала молча:
@@ -19645,7 +19674,7 @@ function shapeProdSetDxfOpParam(edgeId,type,key,value){
   render();
 }
 function shapeProdDxfUniform(type){
-  var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(g.ops);return f&&f.type===type;});
+  var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){return shapeEdgeHasFinish(g.ops,type);});
 }
 function shapeProdApplyDxfAR(type){
   if(!sDraft.edgeOps)sDraft.edgeOps={};ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[edge.id]||[],type,true);if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
