@@ -46,6 +46,23 @@ function shapeDxfTopologyFingerprint(defOrPreview){
   return points.length>=3?shapeStableHash('top-',{points:points}):'';
 }
 
+/* Две группы финишей кромки. Внутри группы — одна отделка, между группами —
+   можно обе: у ламината плиты доводят до закалки (Rough Arris, Flat Polish,
+   CNC Shape Polish), а склеенную кромку — после (Lami Polish, CNC Lami
+   Polish). Владелец, 29.09.2026: «CNC Shape Polish и потом CNC Lami Polish»;
+   плиты режут с припуском большей отделки (shapeEdgeAllowance — максимум),
+   первый проход сразу в чистовой размер, после склейки кромку только
+   выравнивают, размер не снимают. */
+function shapeFinishGroup(type){return SHAPE_PRIMARY_FINISHES.indexOf(type)<0?'':shapeIsLamiOnlyOp(type)?'lami':'plate';}
+function shapeFinishNames(list){return list.length<2?list.join(''):list.slice(0,-1).join(', ')+' and '+list[list.length-1];}
+function shapeFinishConflict(ops,edgeId){
+  var seen={plate:[],lami:[]};
+  (Array.isArray(ops)?ops:[]).forEach(function(op){var g=op&&shapeFinishGroup(op.type);if(g&&seen[g].indexOf(op.type)<0)seen[g].push(op.type);});
+  var bad=seen.plate.length>1?'plate':seen.lami.length>1?'lami':'';if(!bad)return '';
+  var all=SHAPE_PRIMARY_FINISHES.filter(function(t){return shapeFinishGroup(t)===bad;});
+  return 'Edge '+edgeId+': '+shapeFinishNames(all)+' are mutually exclusive finishes.';
+}
+function shapeEdgeHasFinish(ops,type){return (Array.isArray(ops)?ops:[]).some(function(op){return op&&op.type===type;});}
 function shapePrimaryFinish(ops){
   return (Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).find(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0;})||null;
 }
@@ -53,23 +70,22 @@ function shapePrimaryFinish(ops){
 function shapeTogglePrimaryFinish(ops,type,on){
   var list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
   if(on){
-    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    var grp=shapeFinishGroup(type);if(grp)list=list.filter(function(op){return shapeFinishGroup(op.type)!==grp;});
     list.push(shapeNormalizeOp({type:type}));
   }
   return list.filter(Boolean);
 }
 
 function shapeValidateEdgeOperations(ops,edgeId){
-  var seen=Object.create(null),primary=0,list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
+  var seen=Object.create(null),list=(Array.isArray(ops)?ops:[]).map(shapeNormalizeOp).filter(Boolean);
   for(var i=0;i<list.length;i++){
     var op=list[i];
     if(seen[op.type])return {ok:false,reason:'Edge '+edgeId+': duplicate '+op.type+' operation.'};
     seen[op.type]=true;
-    if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)primary++;
     if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)return {ok:false,reason:'Edge '+edgeId+': Mitering angle must be 22.5° or 45°.'};
     if(op.type==='Beveling'&&!(inch(op.width)>0))return {ok:false,reason:'Edge '+edgeId+': Bevel width must be greater than zero.'};
   }
-  if(primary>1)return {ok:false,reason:'Edge '+edgeId+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.'};
+  var conflict=shapeFinishConflict(list,edgeId);if(conflict)return {ok:false,reason:conflict};
   return {ok:true};
 }
 
@@ -111,8 +127,13 @@ function shapeAllowanceDefaults(){
   });
   rows.push(shapeAllowanceRow('CNC Shape Polish','mono',0,1000,'1/4'));
   rows.push(shapeAllowanceRow('CNC Shape Polish','mono',15,19,'1/2','thick glass, larger stock removal'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/16','by the PLY thickness'));
-  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/8','by the PLY thickness'));
+  /* Плиты ламината под CNC Shape Polish — как одинарное стекло: 1/4″.
+     Владелец, 29.09.2026: «даём как для обычного CNC Shape Polish 1/4»; с
+     CNC Lami Polish после склейки первый проход сразу в чистовой размер,
+     после склейки кромку только выравнивают. Раньше здесь стояло 1/16 и 1/8
+     — по аналогии с Flat Polish, цехом не подтверждено. */
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',3,6,'1/4','as a single glass'));
+  rows.push(shapeAllowanceRow('CNC Shape Polish','lami',8,1000,'1/4','as a single glass'));
   SHAPE_LAMI_ONLY_OPS.forEach(function(op){
     rows.push(shapeAllowanceRow(op,'lami',3,6,'1/16','laminated edge, by the PLY thickness'));
     rows.push(shapeAllowanceRow(op,'lami',8,1000,'1/8','laminated edge, by the PLY thickness'));

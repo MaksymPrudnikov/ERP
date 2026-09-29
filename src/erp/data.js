@@ -323,7 +323,12 @@ const DATA_FIXES=[
     Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
     уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
  ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
-  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']])
+  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']]),
+ /* Номер 5 · 29 сентября 2026. Припуск CNC Shape Polish по плите ламината —
+    1/4″, как у одинарного стекла (владелец). Только если стоит заводское
+    1/16 или 1/8 — своё значение цех мог уже вписать. */
+ [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-3-6',{allowance:'1/16'},['allowance','note']],
+ [5,'edgeAllowance','ALW-CNCSHAPEPOLISH-LAMI-8-1000',{allowance:'1/8'},['allowance','note']]
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){

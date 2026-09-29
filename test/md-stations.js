@@ -65,7 +65,7 @@ module.exports=async function({page,eq,ok}){
   DB=keep;stationRouteReset();
   return Object.assign(out,{again});
  }),{stations:'ARRIS,POLISH,BEVEL,MITER,CNC',edge:false,size:'130,true',works:'ARRIS,POLISH,CNC,MITER,BEVEL,CNC,LAM',
-  reasons:'ARRIS+BEVEL+MITER+POLISH|BEVEL|MITER|POLISH',terminal:'ARRIS,POLISH,BEVEL,MITER,CUT',scans:'CUT,ARRIS',waiting:'HEAT',fix:4,again:true});
+  reasons:'ARRIS+BEVEL+MITER+POLISH|BEVEL|MITER|POLISH',terminal:'ARRIS,POLISH,BEVEL,MITER,CUT',scans:'CUT,ARRIS',waiting:'HEAT',fix:5,again:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
