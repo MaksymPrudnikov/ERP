@@ -217,8 +217,12 @@ function validateStationScanPayload(src){
    маленькое рабочие сами режут из остатка — такой скан CUT примет как рез
    из стока. Разбитое стекло получает запись broken и выходит из маршрута.
    --------------------------------------------------------------------- */
-function stationBreakPlan(g,station){
- const panes=((salesMakeupById(g.o,g.l.makeupId)||{}).panes||[]),mu=stationUnitMerge(g.o,g.l),a=mu?stationAsmOf(g,mu):null;
+function stationBreakPlan(g,station,asmId){
+ const panes=((salesMakeupById(g.o,g.l.makeupId)||{}).panes||[]),mu=stationUnitMerge(g.o,g.l);
+ /* asmId — Recut недостающего лайта из сборки: у света его пара оказалась
+    поцарапанной, её не сканируют, а жмут Recut у лайта в сборке. */
+ let a=mu?stationAsmOf(g,mu):null;
+ if(!a&&asmId&&station===mu)a=stationAsms(g.o,g.l,mu).find(x=>x.asm===asmId&&!x.unit)||null;
  /* Юнит уже собран и уехал с IGU (разбили на скиде через пару дней) —
     переделывается весь юнит. */
  if(a&&a.unit&&!a.broken&&station!==mu)return {which:'unit',whole:true,asm:a,pieces:[...a.lites.values()],out:[]};
@@ -234,7 +238,7 @@ function stationBreak(station,check,who,reasonId,opts){
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
  if(!c||c.missing)return {error:'Glass not found in the order.'};
- const plan=stationBreakPlan(g,station);
+ const plan=stationBreakPlan(g,station,opts.asm);
  const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
  if(made.error)return made;
  const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
@@ -404,6 +408,18 @@ function stationUnitCheck(station,code){
 /* Остальные стёкла изделия пишутся тем же сканом — если ждут здесь же. */
 function stationRecordMates(station,check,who,opts){
  return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true})):null;}).filter(Boolean);
+}
+/* Какое стекло отметить разбитым, когда пару забраковали у света, не
+   сканируя: лайты позиции взаимозаменяемы — берём то, что ждёт здесь
+   дольше всех, иначе то, что ближе всех к станции. */
+function stationPairCandidate(o,l,key,station){
+ const inAsm=id=>stationScansFor(id).some(s=>s.asm&&s.station===station);
+ const here=(stationWaiting().get(station)||[]).filter(x=>x.g.l.id===l.id&&x.g.c&&x.g.c.key===key&&!inAsm(x.id));
+ if(here.length)return here[0].id;
+ const rec=(DB.glassPiece||[]).find(x=>x.key===key);if(!rec)return '';
+ const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean).map(id=>stationGlass(id)).filter(g=>g&&!inAsm(g.id));
+ const live=ids.map(g=>({g,p:stationPlace(g)})).filter(x=>!x.p.broken&&!x.p.shipped).sort((a,b)=>b.p.far-a.p.far);
+ return live.length?live[0].g.id:'';
 }
 /* Вынутые из сборки стёкла ждут пару: последняя запись — park. */
 function stationParked(filter){

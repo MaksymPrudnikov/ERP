@@ -63,9 +63,9 @@ module.exports=async function({page,eq,ok}){
   unReset();const u=unOrder(),a1=u.lite(0,1),b2=u.lite(1,2);
   [a1,b2].forEach(x=>['CUT','EDGE','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
   stationSubmit(a1);const box=document.querySelector('[data-station-unit]');
-  const first={head:box.querySelector('.st-unit-h b').textContent,rows:[...box.querySelectorAll('.st-unit-r')].map(r=>r.lastChild.textContent).join('|'),big:document.querySelector('.st-big b').textContent,waiting:stationPlace(stationGlass(a1)).waiting};
+  const first={head:box.querySelector('.st-unit-h b').textContent,rows:[...box.querySelectorAll('.st-unit-r')].map(r=>r.querySelector('.st-unit-st').firstChild.textContent).join('|'),big:document.querySelector('.st-big b').textContent,waiting:stationPlace(stationGlass(a1)).waiting};
   stationSubmit(b2);const box2=document.querySelector('[data-station-unit]');
-  const done={head:box2.querySelector('.st-unit-h b').textContent,unit:box2.dataset.stationUnit===u.unit(1),rows:[...box2.querySelectorAll('.st-unit-r')].map(r=>r.lastChild.textContent).join('|'),next:[a1,b2].map(x=>stationPlace(stationGlass(x)).waiting).join()};
+  const done={head:box2.querySelector('.st-unit-h b').textContent,unit:box2.dataset.stationUnit===u.unit(1),rows:[...box2.querySelectorAll('.st-unit-r')].map(r=>r.querySelector('.st-unit-st').firstChild.textContent).join('|'),next:[a1,b2].map(x=>stationPlace(stationGlass(x)).waiting).join()};
   box2.querySelector('[data-station-unit-sticker]').click();const printed=window.unPrinted;stkPrintCleanup();
   const recs=DB.stationScan.filter(s=>s.station==='IGU');normalizeStationScans();const kept=DB.stationScan.filter(s=>s.station==='IGU').map(s=>(s.asm===recs[0].id)+':'+s.unit).join();
   unOut();return {first,done,printed,kept};
@@ -82,7 +82,7 @@ module.exports=async function({page,eq,ok}){
   const a1Place=stationPlace(stationGlass(a1)).waiting,onDolly=(carrierContents().get('DL-1')||[]).map(x=>x.id===a1).join(),pairs=[...document.querySelector('[data-station-pairs] tbody tr').children].slice(1).map(td=>td.textContent).join('|');
   stationSubmit(a2);stationSubmit(b2);const other=stationLast.check.kind+':'+document.querySelector('[data-station-unit]').dataset.stationUnit.slice(-1);
   unOut();['CUT','EDGE','HEAT'].forEach(st=>unScan(st,newId));unLogin('IGU','Anna L.');
-  stationSubmit(newId);const take=[...document.querySelectorAll('[data-station-unit] .st-unit-r')].map(r=>r.lastChild.textContent).join('|');
+  stationSubmit(newId);const take=[...document.querySelectorAll('[data-station-unit] .st-unit-r')].map(r=>r.querySelector('.st-unit-st').firstChild.textContent).join('|');
   stationSubmit(a1);const last={head:document.querySelector('.st-unit-h b').textContent,unit:document.querySelector('[data-station-unit]').dataset.stationUnit.slice(-1),pairs:!!document.querySelector('[data-station-pairs]')};
   const journal=DB.stationScan.filter(s=>s.piece===a1).map(s=>s.station+(s.park?':park':'')+(s.undoneAt?':undone':'')).join();
   unOut();return {note,card,parkCard,a1Place,onDolly,pairs,other,take,last,journal,b1:stationPlace(stationGlass(b1)).broken.recut};
@@ -111,6 +111,33 @@ module.exports=async function({page,eq,ok}){
   const places=ids.map(x=>stationPlace(stationGlass(x)).waiting).join(),again=stationCheck('SHIPR',u.unit(1)).kind;
   unOut();return {early,igu,byG,byU,places,again};
  }),{early:'unit',igu:0,byG:{kind:'ok',moved:2,note:'Unit moved: 2 glass'},byU:{kind:'ok',note:'Unit moved: 2 glass · U'},places:'SHIP,SHIP,SHIP,SHIP',again:'already'});
+
+ eq('стикер юнита печатается сам, как только отсканированы все лайты (принтер у силикона); выключено — только кнопкой',await (async()=>{
+  await t.p.evaluate(()=>{
+   unReset();try{localStorage.removeItem(STATION_AUTOPRINT_KEY);}catch(e){}
+   const u=unOrder();window.unU=u;[u.lite(0,1),u.lite(1,1),u.lite(0,2),u.lite(1,2)].forEach(x=>['CUT','EDGE','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
+   window.unChip0=document.querySelector('[data-station-autoprint]').textContent;document.querySelector('[data-station-autoprint]').click();
+   stationSubmit(u.lite(0,1));stationSubmit(u.lite(1,1));
+  });
+  await t.p.waitForTimeout(200);
+  return await t.p.evaluate(()=>{
+   const on={chip0:unChip0,chip:document.querySelector('[data-station-autoprint]').textContent,printed:window.unPrinted,head:document.querySelector('.st-unit-h b').textContent,btn:document.querySelector('[data-station-unit-sticker]').textContent,label:document.querySelector('.stk-print-page')?'page':'none'};
+   stkPrintCleanup();document.querySelector('[data-station-autoprint]').click();window.unPrinted=0;
+   stationSubmit(unU.lite(0,2));stationSubmit(unU.lite(1,2));
+   return new Promise(res=>setTimeout(()=>{const off={printed:window.unPrinted,head:document.querySelector('.st-unit-h b').textContent};unOut();try{localStorage.removeItem(STATION_AUTOPRINT_KEY);}catch(e){}res({on,off});},200));
+  });
+ })(),{on:{chip0:'Unit stickers By button',chip:'Unit stickers Auto',printed:1,head:'Unit complete · sticker printed',btn:'Reprint unit sticker',label:'page'},off:{printed:0,head:'Unit complete'}});
+
+ eq('пару забраковали у света — её не сканируют: Recut у недостающего лайта; лайт в машине — на долли; стикер юнита не печатается',await t.p.evaluate(()=>{
+  unReset();try{localStorage.setItem(STATION_AUTOPRINT_KEY,JSON.stringify({IGU:true}));}catch(e){}
+  const u=unOrder(),a1=u.lite(0,1),b1=u.lite(1,1),b2=u.lite(1,2);[a1,b1,b2].forEach(x=>['CUT','EDGE','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
+  stationSubmit(a1);const btn=document.querySelector('[data-station-pair-recut]');const which=btn.dataset.stationPairRecut===glassBatchComponents(salesRecord(u.id),salesRecord(u.id).lines[0])[1].key;btn.click();
+  const note=document.querySelector('[data-recut-out]').textContent.replace(/\s+/g,' ');
+  [...document.querySelectorAll('[data-recut-reason]')].find(b=>b.textContent==='Scratched').click();
+  const out={which,note,kind:stationLast.check.kind,broken:[b1,b2].map(x=>{const p=stationPlace(stationGlass(x));return p.broken?'broken':p.waiting;}).join(),a1:stationPlace(stationGlass(a1)).waiting,park:DB.stationScan.filter(s=>s.piece===a1).map(s=>s.station+(s.park?':park':'')+(s.undoneAt?':undone':'')).join(),
+   iguScansOfPair:DB.stationScan.filter(s=>s.piece===b1&&s.station==='IGU'&&!s.broken).length,printed:window.unPrinted,parkCard:!!document.querySelector('[data-station-park]')};
+  unOut();try{localStorage.removeItem(STATION_AUTOPRINT_KEY);}catch(e){}return out;
+ }),{which:true,note:'Lite 1 · 6CLEAR comes out of the machine and waits for the new glass on a dolly',kind:'recut',broken:'broken,IGU',a1:'IGU',park:'CUT,EDGE,HEAT,IGU:undone,IGU:park',iguScansOfPair:0,printed:0,parkCard:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

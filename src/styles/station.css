@@ -206,6 +206,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
 /* IGU: пара для Recut */
+.st-autoprint{font:inherit;cursor:pointer;background:transparent;color:#dbe7ed}
+.st-autoprint.on{background:var(--green);border-color:var(--green)}.st-autoprint.on b{color:#fff}
+.st-unit-st{display:flex;align-items:center;gap:8px}
+.st-unit-r .b.sm{padding:1px 8px;font-size:12px}
 .st-park{margin-top:10px;border:1px dashed #e0b25e;border-radius:10px;padding:8px 12px;background:#fffdf7;color:#8a5a0f;font-size:15px}
 .st-park b{color:#8a5a0f}
 .st-parkj{color:#8a5a0f;font-weight:600}
