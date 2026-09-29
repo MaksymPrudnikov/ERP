@@ -449,7 +449,7 @@ function stationHereGroups(){
  const list=stationWaiting().get(stationCode)||[],groups=new Map(),asmOf=new Map();
  (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
  list.forEach(x=>{
-  const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode)>route.indexOf(mu);
+  const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode,x.place.far+1)>route.indexOf(mu);
   const k=g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''));
   if(!groups.has(k))groups.set(k,{k,g,unit,n:0,ids:[],asms:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});
   const G=groups.get(k);G.ids.push(x.id);if(unit){G.asms.add(asm);G.n=G.asms.size;}else G.n++;
