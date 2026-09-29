@@ -2222,6 +2222,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Waiting here: стикер не читается */
+.st-here-row{cursor:pointer}.st-here-row:hover td{background:#f4f8fb}.st-here-row.open td{background:var(--blue2)}
+.st-here-acts td{background:var(--blue2);padding-top:4px;padding-bottom:10px}
+.st-here-acts td{white-space:normal}.st-here-acts .b{margin-left:8px}
 /* IGU: пара для Recut */
 .st-autoprint{font:inherit;cursor:pointer;background:transparent;color:#dbe7ed}
 .st-autoprint.on{background:var(--green);border-color:var(--green)}.st-autoprint.on b{color:#fff}
@@ -2284,7 +2288,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='386f7dd33d1b';
+var ERP_BUILD='b23abea57bcf';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27457,6 +27461,8 @@ function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===
 function stationCodeOf(raw){
  const text=String(raw==null?'':raw).trim().toUpperCase().replace(/\s+/g,'');
  if(/^\d{1,9}$/.test(text))return 'G-'+text.padStart(7,'0');
+ /* Юнит — так же коротко: «U5» это U-0000005. */
+ if(/^U-?\d{1,9}$/.test(text))return 'U-'+text.replace(/^U-?/,'').padStart(7,'0');
  return text;
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
@@ -29712,7 +29718,7 @@ function stationPinKey(k){
  if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -29735,7 +29741,7 @@ function stationSubmit(raw){
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim()),on:stationPutOn()}):null;
+ const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
  const mates=rec?stationRecordMates(stationCode,check,who,{on:stationPutOn()}):[];if(mates.length)touch();
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;
  stationUnitDone([rec].concat(mates));
@@ -29978,12 +29984,14 @@ function stationCard(){
     стикер (не читается или стекло режут из остатка). */
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
  const stickerFor=c.kind==='recut'?(c.newIds||[])[0]:g?c.code:'';
+ /* Юнит собран — его стикер можно перепечатать на любой станции. */
+ const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint onclick="stationPrintUnit(\''+esc(c.code)+'\')">Unit sticker</button>':'';
  if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
   '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
  const acts=(L.rec||canRecut||stickerFor)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
   (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
-  (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+'</div>':'';
+  (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+unitBtn+'</div>':'';
  return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
   (bar&&c.kind!=='ok'?'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>':'')+
   '<div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+acts+'</div>';
@@ -30049,15 +30057,40 @@ function viewStation(){
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
    позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
    (владелец, 29.09.2026) — их читает сканер. */
+/* После IGU — юнитами: заказ → позиция → сколько юнитов. */
+let stationHereOpen='';     // строка «Waiting here», открытая нажатием
+function stationHereGroups(){
+ const list=stationWaiting().get(stationCode)||[],groups=new Map(),asmOf=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt&&s.asm&&s.unit)asmOf.set(s.piece,s.asm);});
+ list.forEach(x=>{
+  const g=x.g,asm=asmOf.get(x.id),route=stationRouteOf(g).codes,mu=stationUnitMerge(g.o,g.l),unit=!!asm&&!!mu&&route.indexOf(stationCode)>route.indexOf(mu);
+  const k=g.o.id+'|'+g.l.id+'|'+(unit?'unit':(g.c?g.c.key:''));
+  if(!groups.has(k))groups.set(k,{k,g,unit,n:0,ids:[],asms:new Set(),li:(g.o.lines||[]).indexOf(g.l)+1});
+  const G=groups.get(k);G.ids.push(x.id);if(unit){G.asms.add(asm);G.n=G.asms.size;}else G.n++;
+ });
+ return [...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li);
+}
+/* Стекло группы, которое можно отметить здесь: ждёт и ещё не отсканировано. */
+function stationHerePick(k){
+ const G=stationHereGroups().find(x=>x.k===k);if(!G)return '';
+ return G.ids.find(id=>{const c=stationCheck(stationCode,id);return c&&STATION_RECORDED.includes(c.kind);})||'';
+}
+/* Стикер не читается и номера не разобрать: стёкла одной позиции и одного
+   лайта одинаковые — отмечается любое из ждущих здесь; после IGU — юнит. */
+function stationHereMark(k){const id=stationHerePick(k);stationHereOpen='';if(!id){stationNote='Nothing to mark here';render();return false;}stationMark(id);return id;}
+function stationHerePrint(k){
+ const id=stationHerePick(k),G=stationHereGroups().find(x=>x.k===k);stationHereOpen='';if(!id){stationNote='Nothing to print';render();return false;}
+ const r=G&&G.unit?stationPrintUnit(id):stationPrintSticker(id);render();return r;
+}
 function stationHereCard(){
- const list=stationWaiting().get(stationCode)||[],groups=new Map();
- list.forEach(x=>{const g=x.g,k=g.o.id+'|'+g.l.id+'|'+(g.c?g.c.key:'');
-  if(!groups.has(k))groups.set(k,{g,n:0,li:(g.o.lines||[]).indexOf(g.l)+1});groups.get(k).n++;});
- const rows=[...groups.values()].sort((a,b)=>stationUrgency(b.g.o)-stationUrgency(a.g.o)||String(a.g.o.dueDate||'9').localeCompare(String(b.g.o.dueDate||'9'))||String(a.g.o.businessNumber).localeCompare(String(b.g.o.businessNumber))||a.li-b.li).slice(0,40).map(x=>{
-  const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
-  return '<tr'+(urg===2?' class="st-hot"':'')+'><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="n"><b>'+x.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>';}).join('');
- return '<div class="card"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+list.length+' glass</span></div>'+
-  (list.length?'<table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
+ const groups=stationHereGroups(),total=groups.reduce((n,x)=>n+x.ids.length,0);
+ const rows=groups.slice(0,40).map(x=>{
+  const o=x.g.o,l=x.g.l,urg=stationUrgency(o),open=stationHereOpen===x.k;
+  const glass=x.unit?'Unit · '+glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>c.glass).join(' / '):(x.g.c?x.g.c.glass:'');
+  return '<tr class="st-here-row'+(urg===2?' st-hot':'')+(open?' open':'')+'" data-station-here="'+esc(x.k)+'" onclick="stationHereOpen=stationHereOpen===\''+esc(x.k)+'\'?\'\':\''+esc(x.k)+'\';render()"><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+x.li+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(glass)+'</td><td class="n"><b>'+x.n+'</b></td><td class="mut">'+esc(o.dueDate?salesListShortDay(o.dueDate):'')+'</td></tr>'+
+   (open?'<tr class="st-here-acts"><td colspan="5"><span class="mut">Sticker unreadable?</span><button type="button" class="b" data-station-here-mark onclick="stationHereMark(\''+esc(x.k)+'\')">✓ Mark 1 '+(x.unit?'unit':'glass')+' done</button><button type="button" class="b" data-station-here-print onclick="stationHerePrint(\''+esc(x.k)+'\')">Print a new '+(x.unit?'unit ':'')+'sticker</button></td></tr>':'');}).join('');
+ return '<div class="card st-here"><div class="st-sec"><h3>Waiting here</h3><span class="pill info">'+total+' glass</span><span class="sp"></span><span class="mut">tap a row — no sticker</span></div>'+
+  (groups.length?'<table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th class="n">Pcs</th><th>Due</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">Nothing waiting</div>')+'</div>';
 }
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
@@ -30293,6 +30326,7 @@ function stationUnitHTML(L){
  }
  return out;
 }
+function stationUnitNo(g){const mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;return a&&a.unit&&!a.broken?a.unit:0;}
 function stationPrintUnit(code){
  const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
  if(!a||!a.unit||typeof stkPrint!=='function')return false;

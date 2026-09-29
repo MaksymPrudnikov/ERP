@@ -148,7 +148,7 @@ module.exports=async function({page,eq,ok}){
   const marked=DB.stationScan.filter(s=>s.station==='EDGE').map(s=>s.manual+':'+([a1,a2].includes(s.piece))).join(),card=stationLast.check.kind,count=document.querySelector(`[data-station-here="${row.dataset.stationHere}"] .n b`).textContent;
   document.querySelector(`[data-station-here="${row.dataset.stationHere}"]`).click();document.querySelector('[data-station-here-print]').click();const printed=window.unPrinted;stkPrintCleanup();
   unOut();return {codes,acts,marked,card,count,printed};
- }),{codes:'U-0000005,U-0000012,U-12345678',acts:['✓ Mark 1 glass done','Print a new sticker'],marked:'true:true',card:'ok',count:'1',printed:1});
+ }),{codes:'U-0000005,U-0000012,U-12345678',acts:['✓ Mark 1 glass done','Print a new sticker','Drawing'],marked:'true:true',card:'ok',count:'1',printed:1});
 
  eq('после IGU: «Waiting here» юнитами, «Mark 1 unit done» пишет оба лайта, «U1» с клавиатуры двигает юнит, на карточке — «Unit sticker»',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),ids=[u.lite(0,1),u.lite(1,1),u.lite(0,2),u.lite(1,2)];
@@ -159,7 +159,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit('U2');const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
- }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,false'},printed:1,label:true});
+ }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,false'},printed:1,label:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
