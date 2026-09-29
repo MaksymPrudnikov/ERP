@@ -2222,6 +2222,12 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* IGU: пара для Recut */
+.st-park{margin-top:10px;border:1px dashed #e0b25e;border-radius:10px;padding:8px 12px;background:#fffdf7;color:#8a5a0f;font-size:15px}
+.st-park b{color:#8a5a0f}
+.st-parkj{color:#8a5a0f;font-weight:600}
+.st-unit-r .take{color:#8a5a0f;font-weight:700}
+.st-rnote{margin:4px 0 8px;border-radius:9px;padding:8px 12px;background:var(--amber2);color:#8a5a0f;font-size:14px}
 /* Батч и стёкла над листом */
 .st-batchbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 10px}
 .st-batchbar label{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--mut)}
@@ -2274,7 +2280,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1b0370d6619a';
+var ERP_BUILD='6c135b94742f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27412,8 +27418,11 @@ function validateRecutPayload(src){
    Журнал сканов станций и «где стекло ждёт».
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
-        undoneAt, undoneBy[, on, confirmedAt, broken, recut, reason]} · DB.sheetBreak
+        undoneAt, undoneBy[, on, confirmedAt, asm, unit, broken, park, recut,
+        reason]} · DB.sheetBreak
    confirmedAt — станцию не отсканировали, работу подтвердил рабочий следующей.
+   asm, unit — сборка юнита на IGU и номер собранного юнита (ниже).
+   park — стекло вынули из сборки: пара ушла в Recut, оно ждёт на долли.
    on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
@@ -27492,11 +27501,13 @@ function stationRouteOf(g){
    следующая. Пройдено всё — стекло отгружено. */
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.forEach(s=>{if(s.broken)return;const i=route.indexOf(s.station);if(i>far)far=i;});
+ let far=-1;scans.forEach(s=>{if(s.broken||s.park)return;const i=route.indexOf(s.station);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
  const broken=scans.find(s=>s.broken)||null;
  if(broken)return {route,far,waiting:'',shipped:false,broken};
+ /* Сборка на IGU не закрыта — стекло ещё на IGU, юнит не собран. */
+ if(far>=0&&scans.some(s=>s.asm&&!s.unit&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
@@ -27510,7 +27521,7 @@ function stationCheck(station,raw){
  if(!glassPieceValid(code))return {kind:'unknown',code};
  const g=stationGlass(code);
  if(!g)return {kind:'unknown',code};
- const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station).pop()||null;
+ const scans=stationScansFor(code),place=stationPlace(g,scans),here=scans.filter(s=>s.station===station&&!s.park).pop()||null;
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
  if(place.broken)return Object.assign(base,{kind:'broken'});
@@ -27533,6 +27544,7 @@ function stationRecord(station,check,who,opts){
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
+ if(check.g)stationAsmJoin(rec,check.g,station);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
  const e=check.g&&check.g.entry;
@@ -27550,6 +27562,7 @@ function stationUndo(id,who,opts){
  const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
  if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
  rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
+ stationAsmReopen(rec);
  if(rec.station===stationCutCode()&&!stationScansFor(rec.piece).some(s=>s.station===rec.station)){
   const e=stationBatchIndex().get(rec.piece);
   if(e&&e.item.cutStartedAt===rec.at){
@@ -27591,6 +27604,9 @@ function normalizeStationScans(){
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
+   ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
+   ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
+   ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
  let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
  DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
@@ -27616,23 +27632,43 @@ function validateStationScanPayload(src){
    маленькое рабочие сами режут из остатка — такой скан CUT примет как рез
    из стока. Разбитое стекло получает запись broken и выходит из маршрута.
    --------------------------------------------------------------------- */
+function stationBreakPlan(g,station){
+ const panes=((salesMakeupById(g.o,g.l.makeupId)||{}).panes||[]),mu=stationUnitMerge(g.o,g.l),a=mu?stationAsmOf(g,mu):null;
+ /* Юнит уже собран и уехал с IGU (разбили на скиде через пару дней) —
+    переделывается весь юнит. */
+ if(a&&a.unit&&!a.broken&&station!==mu)return {which:'unit',whole:true,asm:a,pieces:[...a.lites.values()],out:[]};
+ const which=panes.length<2?'unit':String(g.c.index),keys=ncrGlassKeys(g.o,g.l,which);
+ /* На IGU перед закрытием — контроль: поцарапан один лайт, остальные
+    вынимают из машины, они ждут пару на долли (владелец, 29.09.2026). */
+ const out=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&!keys.includes(k)).map(([k,id])=>id):[];
+ const same=a&&!a.broken&&station===mu?[...a.lites.entries()].filter(([k,id])=>id!==g.id&&keys.includes(k)).map(([k,id])=>id):[];
+ return {which,whole:false,asm:a,pieces:[g.id].concat(same),out};
+}
 function stationBreak(station,check,who,reasonId,opts){
  opts=opts||{};
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
  if(!c||c.missing)return {error:'Glass not found in the order.'};
- const panes=((salesMakeupById(o,l.makeupId)||{}).panes||[]);
- const which=panes.length<2?'unit':String(c.index);
- const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which}},note:'Glass '+g.id+' at '+station});
+ const plan=stationBreakPlan(g,station);
+ const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
  if(made.error)return made;
  const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
  const rec=(DB.glassPiece||[]).find(x=>x.key===c.key),fresh=rec&&rec.extra&&rec.extra[ref]?rec.extra[ref].filter(Boolean):[];
+ const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
- DB.stationScan.push({id:stationScanNextId(),at:now,piece:g.id,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason});
+ const by=String(who&&who.name||''),byId=String(who&&who.id||'');
+ plan.pieces.forEach(id=>DB.stationScan.push({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason}));
+ /* Вынутые из машины: скан IGU снимается (сборка открыта заново), запись
+    park — «ждёт пару», дальше рабочий сканирует долли, на которую положил. */
+ const parked=plan.out.map(id=>{
+  (DB.stationScan||[]).forEach(s=>{if(s.piece===id&&s.station===station&&s.asm&&!s.undoneAt){s.undoneAt=now;s.undoneBy='Recut '+r.no+' · taken out';}});
+  const p={id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',park:true,recut:ref,reason:'Waits for a pair'};
+  DB.stationScan.push(p);return p;
+ });
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
  if(!opts.deferTouch)touch();
- return {ok:true,recut:r,ref,newIds:fresh};
+ return {ok:true,recut:r,ref,newIds:fresh,allNew,whole:plan.whole,broken:plan.pieces,parked};
 }
 /* Лопнул лист на столе — режут ту же раскладку заново, стикеры те же
    (владелец, 29.09.2026). Система только записывает потерю листа. */
@@ -27705,51 +27741,107 @@ function stationConfirmSkipped(station,code,who,opts){
 }
 
 /* ---------------------------------------------------------------------
-   Юнит после сборки. Владелец, 29.09.2026: после IGU юнит двигается одним
-   сканом — и по стикеру U-, и по любому стикеру G- этого юнита. До точки
-   слияния стёкла едут каждое само по себе; после неё скан одного стекла
-   отмечает всё изделие. Ламинат: плиты одного лайта сходятся на LAM.
-   Стёкла Recut (место R1.1) к изделию не привязаны — сканируются сами.
+   Юнит собирается на IGU из того, что там сканируют. Владелец, 29.09.2026:
+   «30 юнитов одинаковых — никто не будет собирать 1 со вторым лайтом, они
+   пойдут так, что первый с 16-м, а 15-й с 29-м: при закрывании важно, чтобы
+   тип стекла соответствовал Makeup, и размер». Поэтому юнит — не номер со
+   стикера стекла, а сборка: лайт встаёт в самую раннюю открытую сборку своей
+   позиции, где его места ещё нет, иначе начинает новую (asm — номер первого
+   скана сборки). Собрана — получает номер юнита: наименьший свободный в
+   позиции (unit на всех сканах сборки). Пока сборка открыта, её стёкла
+   ждут на IGU. После IGU юнит двигается одним сканом — по любому G- сборки
+   или по U-. Ламинат: плиты одного лайта сходятся на LAM и дальше едут
+   вместе, как и раньше, по номеру стекла.
    --------------------------------------------------------------------- */
 function stationUnitMerge(o,l){const m=salesMakeupById(o,l.makeupId);return m&&typeof salesRouteMerge==='function'?salesRouteMerge(m.unitType,m.panes):'';}
-function stationUnitMates(g){
+function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>c.key);}
+/* Сборки позиции на станции слияния — из журнала. */
+function stationAsms(o,l,station,index){
+ index=index||stationPieceIndex();
+ const broken=new Set(),out=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
+ (DB.stationScan||[]).forEach(s=>{
+  if(s.undoneAt||!s.asm||s.station!==station)return;
+  const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
+  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false});
+  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(broken.has(s.piece))a.broken=true;
+ });
+ return [...out.values()].sort((a,b)=>a.asm.localeCompare(b.asm));
+}
+function stationAsmOf(g,station){
+ const rec=stationScansFor(g.id).find(s=>s.asm&&s.station===station);if(!rec)return null;
+ return stationAsms(g.o,g.l,station).find(a=>a.asm===rec.asm)||null;
+}
+/* Скан на станции слияния: в сборку; сборка полная — номер юнита. */
+function stationAsmJoin(rec,g,station){
+ if(!g||!g.c||g.c.missing||stationUnitMerge(g.o,g.l)!==station)return;
+ const index=stationPieceIndex(),open=stationAsms(g.o,g.l,station,index).filter(a=>!a.unit&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec));
+ rec.asm=open.length?open[0].asm:rec.id;
+ const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
+ if(!a||!stationLineKeys(g.o,g.l).every(k=>a.lites.has(k)))return;
+ const used=new Set(all.filter(x=>x.unit&&!x.broken).map(x=>x.unit));let n=1;while(used.has(n))n++;
+ a.recs.forEach(r=>{r.unit=n;});
+}
+/* Отмена скана на станции слияния: сборка снова открыта. */
+function stationAsmReopen(rec){
+ if(!rec||!rec.asm)return;
+ (DB.stationScan||[]).forEach(s=>{if(s.asm===rec.asm&&s.unit)delete s.unit;});
+}
+/* Остальные стёкла юнита после станции слияния. */
+function stationUnitMates(g,merge){
+ const a=stationAsmOf(g,merge);if(!a||!a.unit||a.broken)return [];
+ return [...a.lites.values()].filter(id=>id!==g.id).map(id=>({id}));
+}
+/* Ламинат: плиты одного лайта — по номеру стекла, как и раньше. */
+function stationPlyMates(g){
  if(typeof g.unit!=='number'||!g.c)return [];
- const pieces=glassPieceMap(g.o.id),batches=stationBatchIndex();
- return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&c.key!==g.c.key).map(c=>{const rec=pieces.get(c.key),id=rec&&rec.ids[g.unit-1];return id?{id,o:g.o,l:g.l,c,unit:g.unit,entry:batches.get(id)||null}:null;}).filter(Boolean);
+ const pieces=glassPieceMap(g.o.id);
+ return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&c.key!==g.c.key&&c.index===g.c.index).map(c=>{const rec=pieces.get(c.key),id=rec&&rec.ids[g.unit-1];return id?{id}:null;}).filter(Boolean);
 }
 function stationMatesAt(g,station){
- if(!g||!g.c||typeof g.unit!=='number')return [];
+ if(!g||!g.c)return [];
  const route=stationRouteOf(g).codes,is=route.indexOf(station);if(is<0)return [];
- const mu=stationUnitMerge(g.o,g.l),lam=typeof salesRouteStationOf==='function'?salesRouteStationOf('lamination','LAM'):'LAM',mates=stationUnitMates(g);
- if(mu&&route.indexOf(mu)>=0&&is>route.indexOf(mu))return mates;
- if(g.c.ply&&route.indexOf(lam)>=0&&is>route.indexOf(lam))return mates.filter(x=>x.c.index===g.c.index);
+ const mu=stationUnitMerge(g.o,g.l),lam=typeof salesRouteStationOf==='function'?salesRouteStationOf('lamination','LAM'):'LAM';
+ if(mu&&route.indexOf(mu)>=0&&is>route.indexOf(mu))return stationUnitMates(g,mu);
+ if(g.c.ply&&route.indexOf(lam)>=0&&is>route.indexOf(lam))return stationPlyMates(g);
  return [];
 }
-/* Скан стикера U-: на точке слияния и после неё — всё изделие разом. */
+/* Скан стикера U-: после станции слияния — весь юнит с этим номером. */
 function stationUnitCheck(station,code){
  const u=glassLookup(code);if(!u)return {kind:'unknown',code};
  const o=salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId);if(!o||!l)return {kind:'unknown',code};
- const pieces=glassPieceMap(o.id),ids=glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const r=pieces.get(c.key);return r&&r.ids[u.unit-1];}).filter(Boolean);
- if(!ids.length)return {kind:'unknown',code};
- const mu=stationUnitMerge(o,l),first=stationGlass(ids[0]),route=first?stationRouteOf(first).codes:[],im=route.indexOf(mu),is=route.indexOf(station);
- if(!mu||im<0||is<im)return {kind:'unit',code};
- /* Главное стекло карточки — первое, которое здесь ждёт. */
- const checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
+ const mu=stationUnitMerge(o,l),a=mu?stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken):null;
+ const first=a?stationGlass([...a.lites.values()][0]):null,route=first?stationRouteOf(first).codes:[];
+ if(!a||route.indexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
+ const ids=[...a.lites.values()],checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
  return Object.assign(main,{unitCode:code,mates:ids.filter(id=>id!==main.code)});
 }
 /* Остальные стёкла изделия пишутся тем же сканом — если ждут здесь же. */
 function stationRecordMates(station,check,who,opts){
  return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true})):null;}).filter(Boolean);
 }
-/* На точке слияния — что из изделия уже здесь, а что ещё в пути. */
+/* Вынутые из сборки стёкла ждут пару: последняя запись — park. */
+function stationParked(filter){
+ const last=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+ const index=stationPieceIndex(),out=[];
+ last.forEach((s,piece)=>{if(!s.park)return;const hit=index.get(piece);if(!hit||filter&&!filter(hit,s))return;out.push({id:piece,hit,rec:s});});
+ return out.sort((a,b)=>String(a.rec.at).localeCompare(String(b.rec.at)));
+}
+/* На станции слияния — что в сборке уже есть, чего ждёт и где его взять. */
 function stationUnitStatus(g,station){
- if(!g||typeof g.unit!=='number'||stationUnitMerge(g.o,g.l)!==station)return null;
- const all=[{id:g.id,c:g.c}].concat(stationUnitMates(g).map(x=>({id:x.id,c:x.c}))).map(x=>{
-  const gg=stationGlass(x.id),scans=stationScansFor(x.id),here=scans.some(s=>s.station===station&&!s.broken),place=gg?stationPlace(gg,scans):null;
-  return {id:x.id,lite:x.c.lite,glass:x.c.glass,here,waiting:place?place.waiting:'',broken:!!(place&&place.broken)};
+ if(!g||!g.c||stationUnitMerge(g.o,g.l)!==station)return null;
+ const a=stationAsmOf(g,station);if(!a||a.broken)return null;
+ const index=stationPieceIndex(),waiting=stationWaiting().get(station)||[];
+ const lites=glassBatchComponents(g.o,g.l).filter(c=>!c.missing).map(c=>{
+  const id=a.lites.get(c.key),base={lite:c.lite,glass:c.glass,key:c.key};
+  if(id)return Object.assign(base,{here:true,id});
+  const park=stationParked((h)=>h.orderId===g.o.id&&h.lineId===g.l.id&&h.key===c.key)[0];
+  if(park)return Object.assign(base,{here:false,parked:park.rec.on||'set aside',parkId:park.id});
+  const n=waiting.filter(x=>x.g.l.id===g.l.id&&x.g.c&&x.g.c.key===c.key&&!stationScansFor(x.id).some(s=>s.asm&&s.station===station)).length;
+  return Object.assign(base,{here:false,waitingHere:n});
  });
- all.sort((a,b)=>String(a.lite).localeCompare(String(b.lite),undefined,{numeric:true}));
- return {unit:typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,g.unit):'',n:g.unit,of:g.l.qty,lites:all,complete:all.every(x=>x.here)};
+ lites.sort((x,y)=>String(x.lite).localeCompare(String(y.lite),undefined,{numeric:true}));
+ return {unit:a.unit&&typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,a.unit):'',n:a.unit,of:g.l.qty,lites,complete:!!a.unit,asm:a.asm};
 }
 
 /* ==== src/erp/shopfloor/carriers.js ==== */
@@ -29522,6 +29614,7 @@ let stationPin='',stationPinError=false;
 let stationTab='scan';      // CUT: scan | queue
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
+let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
 let stationDrawer=null;    // окно по нажатию рабочего: {kind:'recut',piece} | {kind:'sheet',batch,glass,no}
 const STATION_SESSION_KEY='glass_erp_station_session_v1';
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
@@ -29579,7 +29672,7 @@ function stationPinKey(k){
  if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -29811,7 +29904,7 @@ function stationCard(){
   unit:{cls:'st-red',head:'✕ Unit number'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   broken:{cls:'st-red',head:'✕ Broken · '+(place&&place.broken?'Recut '+esc(String(place.broken.recut).replace(/^R/,''))+' · '+esc(place.broken.reason||''):'')},
-  recut:{cls:'st-red',head:'✕ Broken · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
+  recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
   peek:{cls:'st-info',head:'Details'}
  }[c.kind]||{cls:'st-red',head:c.kind};
  if(c.kind==='ok'&&urg===2)K.cls='st-red';
@@ -29822,7 +29915,8 @@ function stationCard(){
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
  else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
- else if(c.kind==='recut')big='<div class="st-big st-red"><small>NEW GLASS</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>Waits for the next batch</span></div>';
+ else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
+ else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
  else if(c.kind==='broken')big='<div class="st-big st-red"><small>BROKEN</small><b>RECUT</b><span>Glass left the route</span></div>';
  else if(c.kind==='unknown')big='<div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Check the sticker</span></div>';
  else if(place&&place.shipped)big='<div class="st-big"><small>ROUTE</small><b>DONE</b><span>Shipped</span></div>';
@@ -29837,7 +29931,7 @@ function stationCard(){
   (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
   (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
-  '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
+  '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationParkHTML(c)+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
   (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
     стикер (не читается или стекло режут из остатка). */
@@ -29864,8 +29958,8 @@ function stationJournal(){
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+
    '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
-   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
-   '<td style="text-align:right">'+(!s.broken&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
+   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':s.park?'<span class="st-parkj">Out · waits for a pair</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
+   '<td style="text-align:right">'+(!s.broken&&!s.park&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
  }).join('');
  return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>On</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -29908,7 +30002,7 @@ function viewStation(){
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
 }
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
    позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
@@ -29959,7 +30053,8 @@ function stationRecutCreate(reasonId){
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}
  stationDrawer=null;stationMenu=null;
  let data=null;try{data=stkGlassData('production',check.g.o,check.g.l,check.g.c,check.g.unit,{batch:check.g.entry?check.g.entry.batch.number:''});}catch(e){}
- stationLast={check:Object.assign({},check,{kind:'recut',ref:r.ref,newIds:r.newIds}),rec:null,data,place:stationPlace(check.g),at:new Date().toISOString()};
+ const parked=(r.parked||[]).map(p=>p.piece);stationParkPending=(r.parked||[]).map(p=>p.id);
+ stationLast={check:Object.assign({},check,{kind:'recut',ref:r.ref,newIds:r.whole?r.allNew:r.newIds,whole:r.whole,parked}),rec:null,data,place:stationPlace(check.g),at:new Date().toISOString()};
  stationNote='';stationBeep('error');render();return r;
 }
 function stationRecutHTML(){
@@ -29971,10 +30066,20 @@ function stationRecutHTML(){
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
   '<h2><span class="st-flag">RECUT</span><span class="mono">'+esc(d.piece)+'</span></h2>'+
   (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
+  stationRecutPlanHTML(g)+
   (own.length?'<div class="st-rgroup">'+esc(stationCode)+'</div><div class="st-reasons">'+own.map(btn).join('')+'</div>':'')+
   '<div class="st-rgroup">Any station</div><div class="st-reasons">'+common.map(btn).join('')+'</div>'+
   (d.error?'<div class="st-pin-err">'+esc(d.error)+'</div>':'')+
   '<div class="st-drawer-foot"><span class="mut">New glass → next batch</span><button type="button" class="b" onclick="stationCloseDrawer()">Cancel</button></div></div>';
+}
+/* Что сделает Recut: после IGU — весь юнит; на IGU — остальные лайты сборки
+   выйдут из машины и подождут новое стекло. */
+function stationRecutPlanHTML(g){
+ if(!g||!g.c||g.c.missing)return '';
+ const plan=stationBreakPlan(g,stationCode),lite=id=>{const x=stationGlass(id);return x&&x.c?'Lite '+esc(x.c.lite)+' · <b data-raw>'+esc(x.c.glass)+'</b>':esc(id);};
+ if(plan.whole)return '<div class="st-rnote" data-recut-whole>Whole unit <b class="mono">'+esc(typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,plan.asm.unit):'')+'</b> — all '+plan.pieces.length+' glass are made again</div>';
+ if(plan.out.length)return '<div class="st-rnote" data-recut-out>'+plan.out.map(lite).join(', ')+' comes out of the machine and waits for the new glass on a dolly</div>';
+ return '';
 }
 /* Стикер одного стекла — тем же шаблоном Production, что из батча. */
 function stationPrintSticker(id){
@@ -30055,12 +30160,18 @@ document.addEventListener('keydown',function(e){if(tab==='station'&&stationDrawe
 function stationCarrierScan(code){
  const c=typeof carrierFind==='function'?carrierFind(code):null,now=new Date().toISOString();stationMenu=null;stationNote='';
  if(!c||!c.active){stationLast={check:{kind:'carrierBad',code},rec:null,data:null,place:null,at:now};stationBeep('error');return 'bad';}
+ /* Только что вынули стекло из машины (пара ушла в Recut) — долли для него. */
+ if(stationParkPending.length){
+  const recs=(DB.stationScan||[]).filter(s=>stationParkPending.includes(s.id)&&!s.undoneAt);stationParkPending=[];
+  if(recs.length){recs.forEach(s=>{s.on=c.code;});touch();stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
+ }
  const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
  if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
  stationSetPutOn(c.code);stationLast={check:{kind:'carrierPut',code:c.code,count:on.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
 }
 function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
+ if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
@@ -30125,21 +30236,45 @@ function stationShowQuestion(){
  }
  render();return false;
 }
-/* На точке слияния — состав изделия; после неё — сколько стёкол ушло одним сканом. */
+/* На IGU — сборка юнита: что в ней уже есть и где взять недостающее; после
+   IGU — сколько стёкол ушло одним сканом. */
 function stationUnitHTML(L){
  const c=L.check,g=c.g;let out='';
  if(L.mates&&L.mates.length)out+='<div class="st-unitnote">Unit moved: '+(L.mates.length+1)+' glass'+(c.unitCode?' · '+esc(c.unitCode):'')+'</div>';
  const st=g&&['ok','hold','already','peek'].includes(c.kind)?stationUnitStatus(g,stationCode):null;
  if(st&&st.lites.length>1){
-  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit '+st.n+' of '+st.of)+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
-   st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span><span class="'+(x.here?'ok':x.broken?'bad':'wait')+'">'+(x.here?'✓ here':x.broken?'broken':'waiting at '+esc(x.waiting||'—'))+'</span></div>').join('')+
+  const row=x=>x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>';
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+   st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span>'+row(x)+'</div>').join('')+
    (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">Print unit sticker</button>':'')+'</div>';
  }
  return out;
 }
 function stationPrintUnit(code){
- const g=stationGlass(code);if(!g||typeof g.unit!=='number'||typeof stkPrint!=='function')return false;
- return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:g.unit}],stkPrefSize()));
+ const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
+ if(!a||!a.unit||typeof stkPrint!=='function')return false;
+ return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit}],stkPrefSize()));
+}
+/* Recut на IGU: остальные лайты сборки вынули из машины — положить на долли. */
+function stationParkHTML(c){
+ if(c.kind!=='recut'||!c.parked||!c.parked.length)return '';
+ const list=c.parked.map(id=>{const g=stationGlass(id);return g&&g.c?'Lite '+esc(g.c.lite)+' · <b data-raw>'+esc(g.c.glass)+'</b>':esc(id);}).join(', ');
+ const on=(DB.stationScan||[]).filter(s=>s.park&&!s.undoneAt&&c.parked.includes(s.piece)).map(s=>s.on).filter(Boolean);
+ return '<div class="st-park" data-station-park>Out of the machine: '+list+(on.length?' · on <b>'+esc(on[0])+'</b>':' · <b>scan the dolly it waits on</b>')+'</div>';
+}
+/* Стёкла, вынутые из сборки: ждут пару из Recut. Новое стекло приедет —
+   скан покажет, на какой долли его пара. */
+function stationPairsCard(){
+ const list=stationParked((h,s)=>s.station===stationCode);if(!list.length)return '';
+ const rows=list.map(x=>{
+  const g=stationGlass(x.id);if(!g)return '';
+  const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
+  const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
+  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
+  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
+   '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
+ }).join('');
+ return '<div class="card" data-station-pairs><div class="st-sec"><h3>Waiting for a pair</h3><span class="pill warn">'+list.length+'</span></div><table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>On</th><th>Pair</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 
 /* ==== src/erp/views/production-board.js ==== */
