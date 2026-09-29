@@ -42,10 +42,10 @@ module.exports=async function({page,eq,ok}){
 
  const chipped=await rowOf('Chipped');
  await t.p.locator(`[data-ncr-reason="${chipped}"] .ncr-switch span`).click();
- await open('EDGE');
+ await open('POLISH');
  eq('выключенная общая причина не предлагается ни на одной станции, но остаётся в справочнике серой',await t.p.evaluate(id=>{
   const row=document.querySelector(`[data-ncr-reason="${id}"]`);
-  return {edge:ncrReasonsFor('EDGE',{activeOnly:true}).some(r=>r.id===id),heat:ncrReasonsFor('HEAT',{activeOnly:true}).some(r=>r.id===id),kept:DB.ncrReason.some(r=>r.id===id&&!r.active),grey:row.classList.contains('ncr-off'),label:row.querySelector('.ncr-active').textContent};
+  return {edge:ncrReasonsFor('POLISH',{activeOnly:true}).some(r=>r.id===id),heat:ncrReasonsFor('HEAT',{activeOnly:true}).some(r=>r.id===id),kept:DB.ncrReason.some(r=>r.id===id&&!r.active),grey:row.classList.contains('ncr-off'),label:row.querySelector('.ncr-active').textContent};
  },chipped),{edge:false,heat:false,kept:true,grey:true,label:'Off'});
 
  const burn=await rowOf('Polish burn');

@@ -39,10 +39,10 @@ module.exports=async function({page,eq,ok}){
   stationSwitch();tab='dashboard';render();return out;
  }),{put:'carrier',dl1:'top,mid,bottom',dl2:1,on:'DL-1,DL-1,DL-1,DL-2,—',chip:'Putting on DL-2✕',journalOn:'—,DL-2,DL-1,DL-1,DL-1'});
 
- eq('EDGE: долли со стеклом для EDGE — «приехала», стопка справа, кладу не меняется; пустая — кладу на неё; стекло уходит со старой долли на новую',await t.p.evaluate(()=>{
+ eq('ARRIS: долли со стеклом для ARRIS — «приехала», стопка справа, кладу не меняется; пустая — кладу на неё; стекло уходит со старой долли на новую',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',1);carrierAdd('DA',1);const id=cvOrder([[36,24,3]]);const g=cvIds(id);
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');g.forEach(x=>stationSubmit(x));stationSwitch();
-  cvLogin('EDGE','Oleg K.');const inc=stationSubmit('DL-1'),incKind=stationLast.check.kind,putAfterIn=stationPutOn();
+  cvLogin('ARRIS','Oleg K.');const inc=stationSubmit('DL-1'),incKind=stationLast.check.kind,putAfterIn=stationPutOn();
   const stack=[...document.querySelectorAll('[data-station-stack] tbody tr')].length,waiting=[...document.querySelectorAll('[data-station-incoming]')].map(x=>x.dataset.stationIncoming).join();
   stationSubmit('DA-1');const putKind=stationLast.check.kind;stationSubmit(g[2]);
   const c=carrierContents(),left=(c.get('DL-1')||[]).length,onDA=(c.get('DA-1')||[]).map(x=>x.place.waiting).join();
@@ -54,7 +54,7 @@ module.exports=async function({page,eq,ok}){
  eq('долли ждут на станции: Critical первой, потом кто раньше',await t.p.evaluate(()=>{
   cvReset();carrierAdd('DL',2);const a=cvOrder([[36,24,1]]),b=cvOrder([[30,20,1]],{priority:'critical'});
   cvLogin('CUT','Ivan P.');stationSubmit('DL-1');stationSubmit(cvIds(a)[0]);stationSubmit('DL-2');stationSubmit(cvIds(b)[0]);stationSwitch();
-  cvLogin('EDGE','Oleg K.');const order=[...document.querySelectorAll('[data-station-incoming]')].map(x=>x.dataset.stationIncoming).join();stationSwitch();tab='dashboard';render();
+  cvLogin('ARRIS','Oleg K.');const order=[...document.querySelectorAll('[data-station-incoming]')].map(x=>x.dataset.stationIncoming).join();stationSwitch();tab='dashboard';render();
   return order;
  }),'DL-2,DL-1');
 

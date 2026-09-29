@@ -22,13 +22,13 @@ module.exports=async function({page,eq,ok}){
   window.stScan=function(station,code){const c=stationCheck(station,code),rec=stationRecord(station,c,stWho);return {kind:c&&c.kind,rec:!!rec};};
  });
 
- eq('скан CUT: запись, стекло ждёт на EDGE, резка отмечена одному стеклу; повтор и чужие коды не пишутся',await t.p.evaluate(()=>{
+ eq('скан CUT: запись, стекло ждёт на ARRIS, резка отмечена одному стеклу; повтор и чужие коды не пишутся',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,3]]);const b=stBatch(id),[a,x]=stIds(id);
   const first=stScan('CUT',a),g=stationGlass(a),place=stationPlace(g),item=b.items.find(i=>i.piece===a),other=b.items.find(i=>i.piece===x);
   const again=stScan('CUT',a),digits=stationCheck('CUT',String(+x.slice(2))),unit=stationCheck('CUT','U-0000001').kind,unknown=stationCheck('CUT','G-9999999').kind,junk=stationCheck('CUT','hello').kind;
   return {first,route:place.route,waiting:place.waiting,cut:!!item.cutStartedAt,otherCut:!!other.cutStartedAt,line:!!salesRecord(id).lines[0].cutStartedAt,
    again,scans:DB.stationScan.length,digits:digits.code===x&&digits.kind,unit,unknown,junk,rec:Object.keys(DB.stationScan[0]).sort().join(','),by:DB.stationScan[0].by,id:DB.stationScan[0].id};
- }),{first:{kind:'ok',rec:true},route:['CUT','EDGE','HEAT','SHIPR','SHIP'],waiting:'EDGE',cut:true,otherCut:false,line:true,
+ }),{first:{kind:'ok',rec:true},route:['CUT','ARRIS','HEAT','SHIPR','SHIP'],waiting:'ARRIS',cut:true,otherCut:false,line:true,
   again:{kind:'already',rec:false},scans:1,digits:'ok',unit:'unknown',unknown:'unknown',junk:'unknown',rec:'at,by,byId,id,manual,piece,station,undoneAt,undoneBy',by:'Ivan P.',id:'SC-0000001'});
 
  eq('номер юнита на станции — «Unit number»: сканировать стикер стекла',await t.p.evaluate(()=>{
@@ -36,16 +36,16 @@ module.exports=async function({page,eq,ok}){
   return stationCheck('CUT',u).kind;
  }),'unit');
 
- eq('маршрут по порядку: EDGE до CUT не пишется (пропуск CUT), после CUT — пишется; CUT после EDGE — «уже»',await t.p.evaluate(()=>{
+ eq('маршрут по порядку: ARRIS до CUT не пишется (пропуск CUT), после CUT — пишется; CUT после ARRIS — «уже»',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,1]]);stBatch(id);const [a]=stIds(id);
-  const early=stationCheck('EDGE',a),skipped={kind:early.kind,missed:early.missed,rec:!!stationRecord('EDGE',early,stWho)};
-  const cut=stScan('CUT',a),edge=stScan('EDGE',a),back=stationCheck('CUT',a).kind,heatLater=stationCheck('SHIPR',a),place=stationPlace(stationGlass(a));
+  const early=stationCheck('ARRIS',a),skipped={kind:early.kind,missed:early.missed,rec:!!stationRecord('ARRIS',early,stWho)};
+  const cut=stScan('CUT',a),edge=stScan('ARRIS',a),back=stationCheck('CUT',a).kind,heatLater=stationCheck('SHIPR',a),place=stationPlace(stationGlass(a));
   return {skipped,cut,edge,back,heatLater:heatLater.kind+':'+heatLater.missed.join('/'),waiting:place.waiting,notInRoute:stationCheck('DRILL',a).kind};
  }),{skipped:{kind:'skipped',missed:['CUT'],rec:false},cut:{kind:'ok',rec:true},edge:{kind:'ok',rec:true},back:'already',heatLater:'skipped:HEAT',waiting:'HEAT',notInRoute:'route'});
 
  eq('Undo — только последний скан стекла; снимает отметку резки, стекло снова ждёт на CUT',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,2]]);const b=stBatch(id);const [a]=stIds(id);
-  stScan('CUT',a);stScan('EDGE',a);const [cutRec,edgeRec]=DB.stationScan;
+  stScan('CUT',a);stScan('ARRIS',a);const [cutRec,edgeRec]=DB.stationScan;
   const blocked=stationUndo(cutRec.id,stWho).error,edgeUndo=stationUndo(edgeRec.id,stWho).ok,cutUndo=stationUndo(cutRec.id,stWho).ok,twice=stationUndo(cutRec.id,stWho).error;
   const item=b.items.find(i=>i.piece===a);
   return {blocked,edgeUndo,cutUndo,twice,kept:DB.stationScan.length,undone:DB.stationScan.every(s=>s.undoneAt&&s.undoneBy==='Ivan P.'),cut:item.cutStartedAt,line:salesRecord(id).lines[0].cutStartedAt,waiting:stationPlace(stationGlass(a)).waiting};
@@ -61,7 +61,7 @@ module.exports=async function({page,eq,ok}){
  eq('стекло не из батча (рез из стока) принимается и едет дальше по маршруту',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,1]]);const [a]=stIds(id);const c=stationCheck('CUT',a);stationRecord('CUT',c,stWho);
   return {kind:c.kind,stock:c.stock,waiting:stationPlace(stationGlass(a)).waiting,batches:DB.glassBatch.length};
- }),{kind:'ok',stock:true,waiting:'EDGE',batches:0});
+ }),{kind:'ok',stock:true,waiting:'ARRIS',batches:0});
 
  eq('перенос последнего листа: порезанное стекло не переносится, непорезанное той же позиции — переносится',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,4]]);const b=stBatch(id);const [a,x]=stIds(id);stScan('CUT',a);
@@ -114,7 +114,7 @@ module.exports=async function({page,eq,ok}){
   const end=await t.p.evaluate(()=>({note:document.querySelector('.st-note').textContent,tile:document.querySelector('.st-tile').className,manual:DB.stationScan.filter(s=>s.manual).length,chip:document.querySelector('.st-top').textContent.includes('3 / 3 cut'),
    ru:/[А-Яа-яЁё]/.test(document.getElementById('app').innerText)}));
   return {login,wrong,card:Object.assign(card,{gid:card.gid===ids[0]}),end};
- })(),{login:{names:['OKOleg K.'],app:true},wrong:true,card:{who:'Oleg K.',kind:'ok',next:'EDGE',gid:true,rows:1,cut:1,focus:true},
+ })(),{login:{names:['OKOleg K.'],app:true},wrong:true,card:{who:'Oleg K.',kind:'ok',next:'ARRIS',gid:true,rows:1,cut:1,focus:true},
   end:{note:'Sheet 1 done · batch B-0001 cut',tile:'st-tile done now',manual:2,chip:true,ru:false}});
 
  eq('нажатие на стекло листа: Mark cut пишет скан с пометкой hand; Recut и стикер — из того же меню; Details — без записи',await t.p.evaluate(()=>{
@@ -139,11 +139,11 @@ module.exports=async function({page,eq,ok}){
   const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()).filter(Boolean);
   const order=[...document.querySelectorAll('[data-prod-order]')].map(r=>r.dataset.prodOrder);
   const col=h=>heads.indexOf(h),a=rowCells(id);
-  const main={glass:a[col('Glass')],shipped:a[col('Shipped')],queue:a[col('To batch')],cut:a[col('CUT')],edge:a[col('EDGE')],priority:rowCells(id2)[col('Priority')]};
-  prodToggle(id);const sub=[...document.querySelectorAll('.pb-sub')].map(tr=>{const td=[...tr.children].map(x=>x.textContent.trim());return [td[col('Order')],td[col('Customer')],td[col('Glass')],td[col('CUT')],td[col('EDGE')],td[col('To batch')]].join('|');});
-  document.querySelector('[data-prod-station="EDGE"]').click();const edgeRows=document.querySelectorAll('[data-prod-order]').length,chip=!!document.querySelector('[data-filter-chip="st_EDGE"]');
+  const main={glass:a[col('Glass')],shipped:a[col('Shipped')],queue:a[col('To batch')],cut:a[col('CUT')],edge:a[col('ARRIS')],priority:rowCells(id2)[col('Priority')]};
+  prodToggle(id);const sub=[...document.querySelectorAll('.pb-sub')].map(tr=>{const td=[...tr.children].map(x=>x.textContent.trim());return [td[col('Order')],td[col('Customer')],td[col('Glass')],td[col('CUT')],td[col('ARRIS')],td[col('To batch')]].join('|');});
+  document.querySelector('[data-prod-station="ARRIS"]').click();const edgeRows=document.querySelectorAll('[data-prod-order]').length,chip=!!document.querySelector('[data-filter-chip="st_ARRIS"]');
   document.querySelector('[data-prod-station="IGU"]').click();const iguRows=document.querySelectorAll('[data-prod-order]').length;
-  document.querySelector('[data-prod-station="IGU"]').click();document.querySelector('[data-prod-station="EDGE"]').click();const back=document.querySelectorAll('[data-prod-order]').length;
+  document.querySelector('[data-prod-station="IGU"]').click();document.querySelector('[data-prod-station="ARRIS"]').click();const back=document.querySelectorAll('[data-prod-order]').length;
   const tiles=[...document.querySelectorAll('.pb-tile')].map(t=>t.querySelector('b').textContent+':'+t.querySelector('span').textContent).filter(x=>!x.endsWith(':0'));
   const noIds=!/G-\d{7}/.test(document.querySelector('.pb-table').innerText);
   tab='optimization';optimizationSetTab('production');glassBatchOpenNumber='';render();const cutCell=[...document.querySelectorAll('[data-batch-cut]')].map(td=>td.textContent).sort().join(', ');
@@ -151,7 +151,7 @@ module.exports=async function({page,eq,ok}){
   return {first,order:order[0]===id2&&order[1]===id,main,sub,edgeRows,chip,iguRows,back,tiles,noIds,cutCell};
  }),{first:3,order:true,main:{glass:'6CLEAR, 6Q240',shipped:'0 / 6',queue:'3',cut:'2',edge:'1',priority:'Critical'},
   sub:['Line 1|37 × 71 · 2 units · Kitchen|6CLEAR Lite 1|1|1|·','||6Q240 Lite 2|·|·|2','Line 2|30 × 40 · 1 unit · Bedroom|6CLEAR Lite 1|1|·|·','||6Q240 Lite 2|·|·|1'],
-  edgeRows:2,chip:true,iguRows:0,back:2,tiles:['To batch:3','CUT:2','EDGE:2'],noIds:true,cutCell:'1 / 1, 1 / 3'});
+  edgeRows:2,chip:true,iguRows:0,back:2,tiles:['To batch:3','CUT:2','ARRIS:2'],noIds:true,cutCell:'1 / 1, 1 / 3'});
 
  eq('маршрут в строке: станции нет в маршруте — клетка пустая (одинарное стекло и IGU), прошли все — ✓, ещё не дошли — ·',await t.p.evaluate(()=>{
   stReset();const single=stOrder([[36,24,2]]);stBatch(single);stIds(single).forEach(g=>stScan('CUT',g));
@@ -159,7 +159,7 @@ module.exports=async function({page,eq,ok}){
   tab='production';subtab='orders';prodOpen=new Set();const p=salesListLoadPrefs();p.filters={};render();
   const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim());
   const cell=(oid,h)=>{const td=document.querySelector(`[data-prod-order="${oid}"]`).children[heads.indexOf(h)];return td?td.textContent.trim():'no column';};
-  const out={single:['CUT','EDGE','IGU'].map(h=>cell(single,h)).join('|'),dgu:['CUT','EDGE','IGU'].map(h=>cell(dgu,h)).join('|')};
+  const out={single:['CUT','ARRIS','IGU'].map(h=>cell(single,h)).join('|'),dgu:['CUT','ARRIS','IGU'].map(h=>cell(dgu,h)).join('|')};
   tab='dashboard';render();return out;
  }),{single:'✓|2|',dgu:'6|·|·'});
 
@@ -193,15 +193,15 @@ module.exports=async function({page,eq,ok}){
  }),{ok:true,ref:'R1',recut:'CUT|Broke|1|true',broken:'R1',check:'broken',newKind:'ok',newStock:true,newWaiting:'CUT',undo:'Recut is in the order — change it there.',
   again:'Scan the broken glass first.',xRef:'R2',xCut:true,recuts:2,where:'CUT:1'});
 
- eq('Recut на EDGE у стеклопакета — только разбитый лайт; табло: разбитое не считается, новое стекло — в To batch',await t.p.evaluate(()=>{
+ eq('Recut на ARRIS у стеклопакета — только разбитый лайт; табло: разбитое не считается, новое стекло — в To batch',await t.p.evaluate(()=>{
   stReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');stBatch(id);
   const o=salesRecord(id),l=o.lines[1],cs=glassBatchComponents(o,l),lite2=glassPieceMap(id).get(cs[1].key).ids[0];
-  stScan('CUT',lite2);const chip=ncrReasonsFor('EDGE',{activeOnly:true}).find(r=>r.name==='Chipped');
-  const r=stationBreak('EDGE',stationCheck('EDGE',lite2),stWho,chip.id),rc=DB.recut[0];
+  stScan('CUT',lite2);const chip=ncrReasonsFor('ARRIS',{activeOnly:true}).find(r=>r.name==='Chipped');
+  const r=stationBreak('ARRIS',stationCheck('ARRIS',lite2),stWho,chip.id),rc=DB.recut[0];
   tab='production';subtab='orders';prodOpen=new Set();const p=salesListLoadPrefs();p.filters={};render();
   const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()),tr=document.querySelector(`[data-prod-order="${id}"]`),cell=h=>tr.children[heads.indexOf(h)].textContent.trim();
   const out={where:rc.where,keys:rc.keys.length,lite:rc.lite,shipped:cell('Shipped'),queue:cell('To batch'),cut:cell('CUT')};tab='dashboard';render();return out;
- }),{where:'EDGE',keys:1,lite:'Lite 2 · 6CLEAR',shipped:'0 / 6',queue:'1',cut:'5'});
+ }),{where:'ARRIS',keys:1,lite:'Lite 2 · 6CLEAR',shipped:'0 / 6',queue:'1',cut:'5'});
 
  eq('экран: Recut с карточки — окно причин (CUT и общие), одно нажатие, карточка «Recut 1 created», стикер нового стекла; журнал — «✕ Recut 1» без Undo; Sheet broke пишет потерю листа',await (async()=>{
   const r=await t.p.evaluate(()=>{

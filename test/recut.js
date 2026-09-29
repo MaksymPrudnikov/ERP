@@ -72,7 +72,7 @@ module.exports=async function({page,eq,ok}){
  }),{same:true,dup:'Duplicate recut number.',shape:'The "recut" field must be an array.',del:true});
 
  eq('экран Recut без русского; заметка не исполняет HTML',await t.p.evaluate(()=>{
-  oqReset();const id=rcOrder('batched');rcFill(id,{where:'EDGE',reason:'Chipped',lines:[[0,1,'unit']],note:'<img src=x onerror="window.rcXss=1">'});const form=document.querySelector('.ncr-modal').innerText;ncrFormCreate();
+  oqReset();const id=rcOrder('batched');rcFill(id,{where:'ARRIS',reason:'Chipped',lines:[[0,1,'unit']],note:'<img src=x onerror="window.rcXss=1">'});const form=document.querySelector('.ncr-modal').innerText;ncrFormCreate();
   const text=form+document.getElementById('app').innerText;return {russian:/[А-яЁё]/.test(text),imgs:document.querySelectorAll('[data-recut-section] img').length,xss:!!window.rcXss,shown:rcSection()[0].includes('<img src=x')};
  }),{russian:false,imgs:0,xss:false,shown:true});
 

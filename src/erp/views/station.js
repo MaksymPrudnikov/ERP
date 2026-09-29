@@ -49,7 +49,7 @@ function stationUnitDone(recs){
 }
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
    у пользователя (поле station) тоже годится. */
-const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
+const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',ARRIS:'Edgework (arris/polish)',POLISH:'Edgework (arris/polish)',BEVEL:'Edgework (arris/polish)',MITER:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
 
 /* #station=CUT — экран станции; #station=CUT&batch=B-0001 — сразу этот батч. */
 function stationHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})(?:&batch=([A-Za-z0-9_-]{1,20}))?$/.exec(location.hash||'');return m?{code:m[1].toUpperCase(),batch:m[2]||''}:null;}
@@ -670,7 +670,7 @@ function stationStackCard(){
 }
 
 /* --------------------- Пропущенная станция: вопрос --------------------- */
-function stationAskWord(missed){const m=(missed||[])[0];return ({EDGE:'EDGES DONE?',DRILL:'HOLES DONE?',CNC:'CNC WORK DONE?',CERP:'PAINT DONE?',HEAT:'TEMPERED?',SAND:'SANDBLASTED?',PAINT:'PAINTED?',LAM:'LAMINATED?',IGU:'ASSEMBLED?'})[m]||(m?m+' DONE?':'DONE?');}
+function stationAskWord(missed){const m=(missed||[])[0];return ({EDGE:'EDGES DONE?',ARRIS:'ARRIS DONE?',POLISH:'POLISHED?',BEVEL:'BEVELED?',MITER:'MITERED?',DRILL:'HOLES DONE?',CNC:'CNC WORK DONE?',CERP:'PAINT DONE?',HEAT:'TEMPERED?',SAND:'SANDBLASTED?',PAINT:'PAINTED?',LAM:'LAMINATED?',IGU:'ASSEMBLED?'})[m]||(m?m+' DONE?':'DONE?');}
 function stationWorksHTML(c){
  const w=stationSkippedWorks(c);
  return '<div class="st-works">'+(w.length?w.map(x=>'<div><i>'+esc(x.station)+'</i>'+esc(x.text)+'</div>').join(''):(c.missed||[]).map(m=>'<div><i>'+esc(m)+'</i>'+esc(stationName(m))+'</div>').join(''))+'</div>';

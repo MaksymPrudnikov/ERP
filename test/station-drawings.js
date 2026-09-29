@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('скан стекла с формой: мини-лист на карточке; нажатие — лист крупно, строки заказа лентой, ← → листают; прямоугольник — только кнопка Drawing',await (async()=>{
   const r=await t.p.evaluate(()=>{
-   sdReset();const x=sdOrder();window.sdX=x;x.ids.forEach(g=>{const c=stationCheck('CUT',g);stationRecord('CUT',c,{id:'x',name:'Ivan'});});sdLogin('EDGE');
+   sdReset();const x=sdOrder();window.sdX=x;x.ids.forEach(g=>{const c=stationCheck('CUT',g);stationRecord('CUT',c,{id:'x',name:'Ivan'});});sdLogin('ARRIS');
    stationSubmit(x.ids[0]);
    const thumb=document.querySelector('[data-station-drawthumb]'),out={thumb:!!thumb,thumbSvg:!!(thumb&&thumb.querySelector('svg')),btn:!!document.querySelector('[data-station-drawing]')};
    thumb.click();return out;
@@ -49,7 +49,7 @@ module.exports=async function({page,eq,ok}){
  })(),{thumb:true,thumbSvg:true,btn:true,first:true,chips:'1,2,3',svg:true,title:true,second:true,rect:{thumb:false,btn:true}});
 
  eq('шапка Drawings: заказы станции одним нажатием; номер заказа или стикер стекла; неизвестный — подсказка; в «Waiting here» — Drawing',await t.p.evaluate(()=>{
-  sdReset();const x=sdOrder();x.ids.forEach(g=>stationRecord('CUT',stationCheck('CUT',g),{id:'x',name:'Ivan'}));sdLogin('EDGE');
+  sdReset();const x=sdOrder();x.ids.forEach(g=>stationRecord('CUT',stationCheck('CUT',g),{id:'x',name:'Ivan'}));sdLogin('ARRIS');
   document.querySelector('[data-station-drawings]').click();
   const orders=[...document.querySelectorAll('[data-station-draw-order]')].map(b=>b.dataset.stationDrawOrder).join()===x.no;
   document.querySelector('[data-station-draw-order]').click();const byOrder=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[0].id;
@@ -59,7 +59,7 @@ module.exports=async function({page,eq,ok}){
   stationDrawPick();stationDrawFind(x.no);const byNumber=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[0].id;
   stationCloseDrawer();document.querySelector('[data-station-here]').click();const here=!!document.querySelector('[data-station-here-drawing]');
   document.querySelector('[data-station-here-drawing]').click();const fromHere=!!document.querySelector('[data-station-draw]');
-  const scans=DB.stationScan.filter(s=>s.station==='EDGE').length;
+  const scans=DB.stationScan.filter(s=>s.station==='ARRIS').length;
   sdOut();return {orders,byOrder,byGlass,byDigits,miss,byNumber,here,fromHere,scans};
  }),{orders:true,byOrder:true,byGlass:true,byDigits:true,miss:'Order 99999 not found',byNumber:true,here:true,fromHere:true,scans:0});
 

@@ -1679,10 +1679,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     t = await page();
     eq('четыре справочника цеха заведены и разведены', await t.p.evaluate(() => [
       DB.station.length, DB.terminal.length, DB.operation === undefined, DB.workPosition === undefined, DB.level === undefined
-    ]), [12, 0, true, true, true]);
+    ]), [15, 0, true, true, true]);
     eq('станции идут по порядку, всегда проходятся только три', await t.p.evaluate(() => [
       DB.station.map(s => s.seq), DB.station.filter(s => s.always).map(s => s.code)
-    ]), [[1,2,3,4,5,6,7,8,9,10,11,12], ['CUT','SHIPR','SHIP']]);
+    ]), [[1,2,2,2,2,2,3,5,6,7,8,9,10,11,12], ['CUT','SHIPR','SHIP']]);
     /* Станция FAB упразднена 11 сентября 2026: зонтик над сверловкой и ЧПУ не
        говорил цеху, на чём делают деталь. Проверяем именно отсутствие — иначе
        она тихо вернётся с чьим-нибудь сохранённым localStorage. */
@@ -1746,7 +1746,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }));
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition === undefined
-    ]), [9, ['CUT','EDGE','DRILL','CNC','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], true]);
+    ]), [9, ['CUT','ARRIS','POLISH','BEVEL','MITER','CNC','DRILL','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], true]);
     /* Код, которому в справочнике станций ничего не соответствует, обнуляется:
        угадывать за человека, где он теперь работает, нельзя. */
     eq('привязка человека переехала на станцию по коду', await t.p.evaluate(() =>
@@ -1758,12 +1758,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
        прошлой заливки. Именно ради этого случая в DEFAULT стоит ноль. */
     t = await page(JSON.stringify({ station: [{ code: 'OLDX', name: 'Старьё', level: 1 }], level: [{ n: 1, label: 'Старый этап' }] }));
     eq('данные без версии справочника пересеваются', await t.p.evaluate(() =>
-      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [9, 12, false]);
+      [DB.refVersion, DB.station.length, DB.station.some(s => s.code === 'OLDX')]), [9, 15, false]);
     await t.c.close();
 
     t = await page(JSON.stringify({ user: [{ name: 'Ivan', role: 'Владелец', workPosition: '', skills: [] }] }));
     eq('пересев не трогает пользователей', await t.p.evaluate(() =>
-      [DB.user.map(u => u.name), DB.station.length]), [['Ivan'], 12]);
+      [DB.user.map(u => u.name), DB.station.length]), [['Ivan'], 15]);
     await t.c.close();
 
     t = await page();
@@ -1773,7 +1773,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const did = reseedReferenceTables();
       return [did, DB.station.length, DB.refVersion,
               DB.shapeDef.length === shapes, DB.user.length === users];
-    }), [true, 12, 9, true, true]);
+    }), [true, 15, 9, true, true]);
     await t.c.close();
 
     t = await page();
@@ -1849,14 +1849,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         spacersNotReseeded: DB.spacerVariant.map(s => s.id),
         silicone: [silicone.name, silicone.supplier]
       };
-    }), { version: [9, 3], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
+    }), { version: [9, 4], clamp: 'DRILL', hole12Off: true, ownStationKept: 'CNC', ownWorkUntouched: '',
           spacersNotReseeded: ['SP-OWN-1616'], silicone: ['Opaci-Coat · Silicone Spandrel', 'ICD'] });
     /* Правка разовая. Вернул владелец полосу — после перезагрузки она осталась. */
     await t.p.evaluate(() => { DB.serviceRate.find(r => r.id === 'hole:1-2').active = true; touch(); });
     await t.p.reload();
     await t.p.waitForTimeout(250);
     eq('выполненная правка не повторяется после перезагрузки', await t.p.evaluate(() =>
-      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 3]);
+      [DB.serviceRate.find(r => r.id === 'hole:1-2').active, DB.dataFix]), [true, 4]);
     await t.c.close();
 
     /* Старый файл Export JSON — тот же путь, номера правки в нём нет. Цену
@@ -1870,7 +1870,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const fresh = prepareImportedState({ refVersion: 9, dataFix: 1, serviceRate: [clamp] });
       const w = (s, id) => s.serviceRate.find(r => r.id === id);
       return [w(old, 'clamp').station, w(old, 'hole:1-2').active, old.dataFix, w(fresh, 'clamp').station];
-    }), ['DRILL', true, 3, '']);
+    }), ['DRILL', true, 4, '']);
     await t.c.close();
 
     /* Правка номер 2: заводские примечания каталога стекла были по-русски и
@@ -1883,7 +1883,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('заводские русские примечания стекла становятся английскими, свои остаются', await t.p.evaluate(() => {
       const g = id => DB.glassProduct.find(p => p.id === id);
       return [DB.dataFix, g('GL-6LAM015').note, g('GL-6E272').note];
-    }), [3, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
+    }), [4, 'PURCHASED laminate — not made in-house. Supplier and sheet size to be filled in.', 'заказываем у Cardinal напрямую']);
     await t.c.close();
 
     /* Правка номер 3: ставка Heat Soak. Пустая цена в браузере становится $5 за
@@ -1895,7 +1895,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const own = prepareImportedState({ refVersion: 9, dataFix: 2, serviceRate: [
         { id: 'heat_soak', name: 'Heat Soak', station: 'HEAT', stage: 'heat', kind: 'flat', flat: 4, unit: 'ft²' }] }).serviceRate.find(r => r.id === 'heat_soak');
       return [DB.dataFix, w.flat, w.unit, own.flat];
-    }), [3, 5, 'ft²', 4]);
+    }), [4, 5, 'ft²', 4]);
     await t.c.close();
 
     /* Заводские примечания, написанные ещё по-русски, у сохранённого браузера
@@ -2052,7 +2052,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('templates/STATIONS.csv принимается целиком', await t.p.evaluate(csv => {
       const r = importStationsCsv(csv);
       return [r.accepted, r.added, r.updated, r.rejected.length, DB.station.map(s => s.code).join(',')];
-    }, stationsCsv), [12, 0, 12, 0, 'CUT,EDGE,DRILL,CNC,CERP,HEAT,SAND,PAINT,LAM,IGU,SHIPR,SHIP']);
+    }, stationsCsv), [15, 0, 15, 0, 'CUT,ARRIS,POLISH,BEVEL,MITER,CNC,DRILL,CERP,HEAT,SAND,PAINT,LAM,IGU,SHIPR,SHIP']);
     await t.c.close();
 
     /* Отчёт обязан объяснить КАЖДУЮ отклонённую строку: строка, отклонённая
@@ -2068,10 +2068,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     }), [1, 1, [3, 4]]);
     eq('файл не того формата отклоняется целиком, а не молча', await t.p.evaluate(() => {
       const r = importStationsCsv('foo,bar\n1,2\n');
-      /* 13, а не 12: предыдущий тест на этой же странице принял строку GOOD1.
+      /* 16, а не 15: предыдущий тест на этой же странице принял строку GOOD1.
          Важно здесь другое — файл не того формата не добавил НИ ОДНОЙ. */
       return [r.accepted, r.rejected.length, DB.station.length];
-    }), [0, 1, 13]);
+    }), [0, 1, 16]);
     await t.c.close();
 
     /* Пересев обязан отработать НА ИМПОРТЕ, а не через F5: иначе после загрузки
@@ -2083,7 +2083,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition === undefined,
               next.station[0].code, next.user[0].station];
-    }), [9, 12, true, 'CUT', '']);
+    }), [9, 15, true, 'CUT', '']);
     await t.c.close();
 
     t = await page();
@@ -2991,9 +2991,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const text=prompts[0]||'';
       return {status:[status.key,status.label],attention:salesLineNeedsServiceAttention(line),badgeIssue:!!badge&&badge.classList.contains('issue'),
         modal:modal.indexOf('Does not fit a station of its route')>=0,afterCancel,afterConfirm,prompts:prompts.length,
-        text:text.indexOf('Line 1 (BIG) · Lite 1, Lite 2: cut 150″ × 80″ does not fit CUT, EDGE, IGU — 144″ × 100″ (size not verified in the shop)')>=0,
+        text:text.indexOf('Line 1 (BIG) · Lite 1, Lite 2: cut 150″ × 80″ does not fit CUT, ARRIS, IGU — 144″ × 100″ (size not verified in the shop)')>=0,
         override:text.indexOf('Save this order anyway?')>=0};
-    }), {status:['size','Too large · CUT, EDGE, IGU'],attention:true,badgeIssue:true,modal:true,afterCancel:0,afterConfirm:1,prompts:2,text:true,override:true});
+    }), {status:['size','Too large · CUT, ARRIS, IGU'],attention:true,badgeIssue:true,modal:true,afterCancel:0,afterConfirm:1,prompts:2,text:true,override:true});
     eq('габарит: стекло поворачивается, считается рез с припуском, замер снимает оговорку', await t.p.evaluate(() => {
       tab='sales';render();salesOrderNew();soDraft.lines=[];
       salesExcelPasteText('1\t90\t140\tTALL\n1\t140\t90\tWIDE\n1\t144\t100\tEXACT',0);salesExcelApply();
@@ -3005,7 +3005,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {fits,text};
     }), {fits:{tall:0,wide:0,exactArris:0},text:[
       'Line 3 (EXACT) · Lite 1, Lite 2: cut 144 1/8″ × 100 1/8″ does not fit CUT — 144″ × 100″',
-      'Line 3 (EXACT) · Lite 1, Lite 2: cut 144 1/8″ × 100 1/8″ does not fit EDGE, IGU — 144″ × 100″ (size not verified in the shop)']});
+      'Line 3 (EXACT) · Lite 1, Lite 2: cut 144 1/8″ × 100 1/8″ does not fit POLISH, IGU — 144″ × 100″ (size not verified in the shop)']});
     /* Работа ужесточает станцию: EDGE берёт 144 × 100, а фацет на ней — только
        свой станок. Лимит не переносит работу на другую станцию, он предупреждает. */
     eq('ограничение работы жёстче станции: фацет 70 × 100 не пропускает 80 × 90', await t.p.evaluate(() => {
@@ -3017,7 +3017,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const bevel=DB.serviceRate.find(r=>r.id==='bevel:9-15');bevel.maxW=70;bevel.maxL=100;
       const problems=salesStationSizeProblems(line,soDraft);bevel.maxW=null;bevel.maxL=null;
       return {before,stations:problems.map(p=>p.station),text:salesStationSizeTexts(problems)};
-    }), {before:0,stations:['EDGE'],text:['Lite 1: cut 80 1/8″ × 90 1/8″ does not fit EDGE — Beveling 9–15 mm 70″ × 100″']});
+    }), {before:0,stations:['BEVEL'],text:['Lite 1: cut 80 1/8″ × 90 1/8″ does not fit BEVEL — Beveling 9–15 mm 70″ × 100″']});
     /* Excel paste. Ввод — таблица с колонками Qty | Width | Height | Mark:
        проверяем и разбор буфера, и то, что на экране именно колонки, а не одна
        строка текста (на ней владелец и споткнулся: набранное через пробелы
@@ -3896,7 +3896,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       out.tail=salesPrintRoute(line,soDraft,s,res).lites[0].stations.slice(-1)[0].items.join('|').indexOf('Lami Polish')>=0;
       lam(6,6);ops('Flat Polish');out.plain=codes();
       return out;
-    })()`), {lami:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],tail:true,plain:[['CUT','EDGE','LAM'],['CUT','EDGE','LAM']]});
+    })()`), {lami:[['CUT','LAM','POLISH'],['CUT','LAM','POLISH']],tail:true,plain:[['CUT','POLISH','LAM'],['CUT','POLISH','LAM']]});
     /* Тот же лист в браузере, где работы заведены до 11 сентября: у полировки
        склейки там нет признака «после ламинации», и маршрут ставил её до LAM.
        Разовая правка ставит признак, но не трогает строку, которой владелец
@@ -3910,7 +3910,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       lam(6,6);ops('Lami Polish');
       const w=id=>DB.serviceRate.find(r=>r.id===id);
       return {route:codes(),lami:[w('lamiPolish').stage,w('lamiPolish').afterMerge],ownStage:[w('cncLamiPolish').stage,w('cncLamiPolish').afterMerge]};
-    })()`), {route:[['CUT','LAM','EDGE'],['CUT','LAM','EDGE']],lami:['post_temper',true],ownStage:['any',false]});
+    })()`), {route:[['CUT','LAM','POLISH'],['CUT','LAM','POLISH']],lami:['post_temper',true],ownStage:['any',false]});
     await stale.c.close();
     /* Разная толщина — разный припуск, значит и рез у лайтов разный. */
     eq('лайты с разным припуском режутся по-разному и уходят разными файлами', await t.p.evaluate(`(()=>{
@@ -5095,7 +5095,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       idAlign:['sheet-id-c','sheet-id-p','sheet-id-o'],
       line:'1',note:'D-2',qty:'4 pcs',
       size:'Finished 50″ × 80″',mass:'27.78 sq ft · 63 kg',
-      stations:['CUT','EDGE','DRILL','HEAT'],
+      stations:['CUT','POLISH','DRILL','HEAT'],
       /* Сторона названа буквой — слово Left рядом с буквой A было повтором,
          а точка отсчёта названа буквой соседней стороны: её видно на чертеже. */
       hinge:'HINGE Vienna 180',
@@ -5254,8 +5254,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         {id:'C',ops:[{type:'Beveling',width:'1/2',side:'front'}]},
         {id:'D',ops:[{type:'Mitering',angle:45,side:'front'}]}
       ];
-      return salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code==='EDGE').items;
-    }), ['A, D · Mitering 45° · Front','B · Mitering 22.5° · Back','C · Beveling · Width 1/2″ · Front']);
+      const list=salesRouteLiteStations(null,null,groups,'AN').list,at=c=>(list.find(s=>s.code===c)||{items:[]}).items;
+      return {miter:at('MITER'),bevel:at('BEVEL')};
+    }), {miter:['A, D · Mitering 45° · Front','B · Mitering 22.5° · Back'],bevel:['C · Beveling · Width 1/2″ · Front']});
 
     eq('route collapses a perimeter-wide edge operation but keeps partial sides', await t.p.evaluate(() => {
       const all=['E:PV1','E:PV2','E:PV3','E:PV4'].map(id=>({id:id,ops:[{type:'Rough Arris'}]}));
@@ -5265,9 +5266,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         {id:'C',ops:[{type:'Flat Polish'}]},
         {id:'D',ops:[{type:'Beveling',width:'1/2',side:'front'}]}
       ];
-      const items=groups=>salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code==='EDGE').items;
-      return {all:items(all),mixed:items(mixed)};
-    }), {all:['Rough Arris'],mixed:['A, B, C · Flat Polish','D · Beveling · Width 1/2″ · Front']});
+      const items=(groups,c)=>(salesRouteLiteStations(null,null,groups,'AN').list.find(s=>s.code===c)||{items:[]}).items;
+      return {all:items(all,'ARRIS'),polish:items(mixed,'POLISH'),bevel:items(mixed,'BEVEL')};
+    }), {all:['Rough Arris'],polish:['A, B, C · Flat Polish'],bevel:['D · Beveling · Width 1/2″ · Front']});
 
     eq('route uses each lite cutting size and its own body services', await t.p.evaluate(() => {
       const old=soDraft;soDraft=newSalesOrderDraft();const m=soDraft.makeups[0];
