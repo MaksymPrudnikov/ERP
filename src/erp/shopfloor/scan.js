@@ -38,6 +38,8 @@ function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===
 function stationCodeOf(raw){
  const text=String(raw==null?'':raw).trim().toUpperCase().replace(/\s+/g,'');
  if(/^\d{1,9}$/.test(text))return 'G-'+text.padStart(7,'0');
+ /* Юнит — так же коротко: «U5» это U-0000005. */
+ if(/^U-?\d{1,9}$/.test(text))return 'U-'+text.replace(/^U-?/,'').padStart(7,'0');
  return text;
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
