@@ -406,7 +406,7 @@ function stationBatchChip(){
 }
 function stationTop(who){
  const s=stationRow();
- const tabs=who&&stationCode===stationCutCode()?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
+ const tabs=who?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
   (stationTab==='queue'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
   (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
@@ -434,7 +434,7 @@ function viewStation(){
  setTimeout(stationFocus,0);
  if(stationCode===stationCutCode())stationSheetEnsure();
  const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationDrawer.kind==='draw'?stationDrawHTML():stationSheetBreakHTML()):'';
- if(stationTab==='queue'&&stationCode===stationCutCode())return stationTop(who)+stationQueueView()+drawer;
+ if(stationTab==='queue')return stationTop(who)+(stationCode===stationCutCode()?stationQueueView():stationFlowView())+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
