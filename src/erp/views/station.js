@@ -23,21 +23,24 @@ let stationLoginPick='';   // выбранный на входе рабочий 
 let stationPin='',stationPinError=false;
 let stationTab='scan';      // CUT: scan | queue
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
+let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
 let stationDrawer=null;    // окно по нажатию рабочего: {kind:'recut',piece} | {kind:'sheet',batch,glass,no}
 const STATION_SESSION_KEY='glass_erp_station_session_v1';
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
    у пользователя (поле station) тоже годится. */
 const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
 
-function stationFromHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})$/.exec(location.hash||'');return m?m[1].toUpperCase():'';}
-(function(){const c=stationFromHash();if(c){stationCode=c;tab='station';}})();
+/* #station=CUT — экран станции; #station=CUT&batch=B-0001 — сразу этот батч. */
+function stationHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})(?:&batch=([A-Za-z0-9_-]{1,20}))?$/.exec(location.hash||'');return m?{code:m[1].toUpperCase(),batch:m[2]||''}:null;}
+function stationFromHash(){const h=stationHash();return h?h.code:'';}
+(function(){const h=stationHash();if(h){stationCode=h.code;tab='station';if(h.batch)stationSheetView={batch:h.batch,glass:'',no:0};}})();
 window.addEventListener('hashchange',function(){
- const c=stationFromHash();
- if(c){stationCode=c;tab='station';stationLast=null;stationSheetView=null;render();}
+ const h=stationHash();
+ if(h){stationCode=h.code;tab='station';stationLast=null;stationSheetView=h.batch?{batch:h.batch,glass:'',no:0}:null;render();}
  else if(tab==='station'){tab='production';render();}
 });
-function stationOpen(code){
- const url=location.href.split('#')[0]+'#station='+encodeURIComponent(code);
+function stationOpen(code,batch){
+ const url=location.href.split('#')[0]+'#station='+encodeURIComponent(code)+(batch?'&batch='+encodeURIComponent(batch):'');
  const w=window.open(url,'_blank');if(!w)location.hash='station='+code;
 }
 function stationExit(){stationCode='';tab='production';subtab='orders';history.replaceState(null,'',location.href.split('#')[0]);render();}
@@ -78,7 +81,7 @@ function stationPinKey(k){
  if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -100,8 +103,10 @@ function stationSubmit(raw){
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
+ if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
  const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim()),on:stationPutOn()}):null;
- stationShow(check,rec);
+ const mates=rec?stationRecordMates(stationCode,check,who,{on:stationPutOn()}):[];if(mates.length)touch();
+ stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;
  render();
  return check.kind;
 }
@@ -114,14 +119,16 @@ function stationShow(check,rec){
  /* Лист: показываем лист отсканированного стекла; закрылся — следующий. */
  const kind=check.kind;let sound=kind==='ok'||kind==='hold'?(check.stock?'info':stationUrgency(g&&g.o)===2?'urgent':'ok'):kind==='already'?'twice':'error';
  if(kind==='hold')sound='error';
+ if(kind==='skipped')sound='twice';
  if(g&&g.entry&&rec){
   const at=stationSheetFind(g.entry.batch.number,g.id);
   if(at){
    stationSheetView={batch:g.entry.batch.number,glass:at.group.glass,no:at.sheet.no};
    if(stationSheetDone(at.sheet)){
     const next=stationSheetNext(g.entry.batch.number,at.group,at.sheet);
-    stationNote='Sheet '+at.sheet.no+' done'+(next?' → sheet '+next.sheet.no+(next.group.glass!==at.group.glass?' · glass change → '+next.group.glass:''):' · batch '+g.entry.batch.number+' cut');
-    if(next)stationSheetView={batch:g.entry.batch.number,glass:next.group.glass,no:next.sheet.no};
+    const nb=next?null:stationSheetAuto();
+    stationNote='Sheet '+at.sheet.no+' done'+(next?' → sheet '+next.sheet.no+(next.group.glass!==at.group.glass?' · glass change → '+next.group.glass:''):' · batch '+g.entry.batch.number+' cut'+(nb?' → batch '+nb.batch:''));
+    if(next)stationSheetView={batch:g.entry.batch.number,glass:next.group.glass,no:next.sheet.no};else if(nb)stationSheetView=nb;
     sound='sheet';
    }
   }
@@ -154,12 +161,64 @@ function stationSheetNext(batch,group,sheet){
  const at=all.findIndex(x=>x.group===group&&x.sheet===sheet),order=all.slice(at+1).concat(all.slice(0,Math.max(0,at)));
  return order.find(x=>!stationSheetDone(x.sheet,cut))||null;
 }
-function stationSheetPick(batch,glass,no){stationSheetView={batch,glass,no};stationMenu=null;render();}
+function stationSheetPick(batch,glass,no){stationSheetView={batch,glass,no};stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+/* Какой лист на столе, пока ничего не сканировали. Владелец, 29.09.2026:
+   «пробовал открыть батч — не получилось». Резчик открывает экран — на нём
+   уже первый неразрезанный лист первого батча в очереди офиса (▲▼ в
+   Batches); другой батч и другое стекло выбираются над листом. */
+function stationSheetFirst(batch,glass){
+ const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null;if(!plan||!Array.isArray(plan.groups))return null;
+ const cut=stationCutSet(),all=[];plan.groups.forEach(g=>{if(!glass||g.glass===glass)g.sheets.forEach(s=>all.push({group:g,sheet:s}));});
+ const x=all.find(a=>!stationSheetDone(a.sheet,cut))||all[0];return x?{batch,glass:x.group.glass,no:x.sheet.no,done:stationSheetDone(x.sheet,cut)}:null;
+}
+function stationSheetAuto(){
+ const q=typeof glassBatchCutQueue==='function'?glassBatchCutQueue():[];
+ for(const b of q){const v=stationSheetFirst(b.number);if(v&&!v.done)return {batch:v.batch,glass:v.glass,no:v.no};}
+ return q.length?{batch:q[0].number,glass:'',no:0}:null;
+}
+function stationBatchOpen(number,glass){
+ if(!glassBatchFind(number))return false;
+ const v=stationSheetFirst(number,glass);
+ stationSheetView=v?{batch:v.batch,glass:v.glass,no:v.no}:{batch:number,glass:'',no:0};stationMenu=null;stationDrawer=null;stationTab='scan';render();return true;
+}
+/* Весь батч разом: владелец, 29.09.2026 — оператор «сам открывает и
+   визуально оценивает, что ему предстоит резать». Все листы по стёклам,
+   нажатие на лист — он на столе. */
+function stationBatchView(number){if(!glassBatchFind(number))return false;stationMenu=null;stationDrawer={kind:'batch',batch:number};render();return true;}
+function stationBatchHTML(){
+ const b=glassBatchFind(stationDrawer.batch);if(!b)return '';
+ const plan=cutPlanFor(b.number),cut=stationCutSet(),live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
+ const orders=[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean),urg=Math.max(0,...orders.map(stationUrgency)),due=orders.map(o=>o.dueDate).filter(Boolean).sort()[0]||'';
+ const groups=(plan&&plan.groups||[]).map(g=>{
+  const left=g.sheets.filter(s=>!stationSheetDone(s,cut)).length;
+  return '<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(g.glass)+'</b><span class="mut">'+g.sheets.length+' sheet'+(g.sheets.length===1?'':'s')+' · '+(left?left+' left':'all cut')+'</span></div><div class="st-bsheets">'+
+   g.sheets.map(sh=>{const k=sh.pieces.filter(p=>cut.has(p.piece)).length,sz=sh.size||g.sheet||{},stock=/^S-/.test(String(sz.key||''));
+    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(sh,cut,'',true)+
+     '<span class="st-bsheet-t"><b>Sheet '+sh.no+'</b><span>'+sh.pieces.length+' glass'+(k?' · '+k+' cut':'')+'</span>'+(stock?'<span class="pill warn">Offcut '+esc(sz.key)+'</span>':'<span class="mut">'+esc(frac16(sz.w)+' × '+frac16(sz.h))+'</span>')+'</span></button>';}).join('')+'</div></div>';
+ }).join('');
+ const miss=(plan&&Array.isArray(plan.missing)?plan.missing:[]).map(gl=>'<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(gl)+'</b><span class="pill warn">no cutting plan</span></div></div>').join('');
+ return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-wide" role="dialog" aria-label="Batch" data-station-batch-view="'+esc(b.number)+'">'+
+  '<h2>Batch <b class="mono st-bnum">'+esc(b.number)+'</b>'+(urg===2?'<span class="pill bad">Critical</span>':urg===1?'<span class="pill warn">Rush</span>':'')+'</h2>'+
+  '<div class="mut">'+done+' of '+live.length+' glass cut · '+orders.length+' order'+(orders.length===1?'':'s')+(due?' · due '+esc(salesListShortDay(due)):'')+'</div>'+
+  (plan?groups+miss:'<div class="st-noplan"><b>No cutting plan yet</b><div class="mut">Make it in Optimization → Batches</div></div>')+
+  '<div class="st-drawer-foot"><span class="mut">Tap a sheet to put it on the table</span><button type="button" class="b" onclick="stationCloseDrawer()">Close</button><button type="button" class="b st-yes" data-batch-cut-open onclick="stationBatchOpen(\''+esc(b.number)+'\')">Cut this batch</button></div></div>';
+}
+/* Над листом: батч (очередь офиса) и стёкла батча — каждое своей кнопкой. */
+function stationBatchBar(v,plan){
+ const q=glassBatchCutQueue(),cur=glassBatchFind(v.batch),list=q.slice();if(cur&&!list.includes(cur))list.unshift(cur);
+ const opt=b=>{const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length;return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+' · '+cut+' / '+live.length+' cut</option>';};
+ const cutSet=stationCutSet();
+ const miss=plan&&Array.isArray(plan.missing)?plan.missing:[];
+ const groups=plan&&plan.groups.length+miss.length>1?plan.groups.map(g=>{const left=g.sheets.filter(s=>!stationSheetDone(s,cutSet)).length;
+  return '<button type="button" class="st-gbtn'+(g.glass===v.glass?' on':'')+(left?'':' done')+'" data-station-glass="'+esc(g.glass)+'" onclick="stationBatchOpen(\''+esc(v.batch)+'\',\''+esc(g.glass)+'\')"><b data-raw>'+esc(g.glass)+'</b><span>'+(left?left+' of '+g.sheets.length+' left':'✓')+'</span></button>';}).join('')+
+  miss.map(gl=>'<span class="st-gbtn st-gmiss" data-station-glass-missing="'+esc(gl)+'"><b data-raw>'+esc(gl)+'</b><span>no cutting plan</span></span>').join(''):'';
+ return '<div class="st-batchbar"><label>Batch <select data-station-batch onchange="stationBatchOpen(this.value)">'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open onclick="stationBatchView(\''+esc(v.batch)+'\')"><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
+}
 function stationPieceLabel(id){return String(+String(id).slice(2)||id);}
-function stationSheetSVG(sheet,cut,nowId){
+function stationSheetSVG(sheet,cut,nowId,still){
  const size=sheet.size||{w:144,h:102},W=+size.w||144,H=+size.h||102,fy=(y,h)=>H-y-h,f=Math.max(2,W/42);
  const broken=stationBrokenSet();
- const out=['<svg class="st-sheet-svg" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" onclick="stationSheetClick(event)">',
+ const out=['<svg class="'+(still?'st-sheet-mini':'st-sheet-svg')+'" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet"'+(still?'':' onclick="stationSheetClick(event)"')+'>',
   '<rect class="st-sheet-bg" x="0" y="0" width="'+W+'" height="'+H+'"/>'];
  (sheet.stock||[]).forEach(o=>{out.push('<rect class="st-stock" x="'+o.x+'" y="'+fy(o.y,o.h)+'" width="'+o.w+'" height="'+o.h+'"/>');
   if(o.w>f*6&&o.h>f*2)out.push('<text class="st-stock-t" x="'+(o.x+o.w/2)+'" y="'+(fy(o.y,o.h)+o.h/2+f*.35)+'" font-size="'+(f*.8)+'" text-anchor="middle">'+esc(o.id)+'</text>');});
@@ -186,7 +245,8 @@ function stationMark(piece){
  const who=stationWho();if(!who)return;
  const check=stationCheck(stationCode,piece);if(!check)return;
  const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
- stationShow(check,rec);render();
+ const mates=rec?stationRecordMates(stationCode,check,who,{manual:true,on:stationPutOn()}):[];if(mates.length)touch();
+ stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;render();
 }
 function stationPeek(piece){
  const check=stationCheck(stationCode,piece);if(!check)return;
@@ -194,18 +254,24 @@ function stationPeek(piece){
  if(g&&g.c&&!g.c.missing){try{data=stkGlassData('production',g.o,g.l,g.c,g.unit,{batch:g.entry?g.entry.batch.number:''});}catch(e){}}
  stationLast={check:Object.assign({},check,{kind:'peek'}),rec:null,data,place:g?stationPlace(g):null,at:new Date().toISOString()};render();
 }
+function stationSheetEnsure(){
+ if(stationSheetView&&!glassBatchFind(stationSheetView.batch))stationSheetView=null;
+ if(stationSheetView&&!stationSheetView.glass){const f=stationSheetFirst(stationSheetView.batch);if(f)stationSheetView={batch:f.batch,glass:f.glass,no:f.no};}
+ if(!stationSheetView)stationSheetView=stationSheetAuto();
+}
 function stationSheetCard(){
+ stationSheetEnsure();
  const v=stationSheetView;
- if(!v)return '<div class="card st-sheet-card st-empty"><div class="mut">Scan a glass — its sheet appears here</div></div>';
+ if(!v)return '<div class="card st-sheet-card st-empty" data-station-nobatch><div><b>Nothing to cut</b><div class="mut">Batches come here in the office order (Optimization → Batches)</div></div></div>';
  const plan=cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
- if(!sheet)return '<div class="card st-sheet-card st-empty"><div class="mut">No cutting plan for '+esc(v.batch)+'</div></div>';
+ if(!sheet)return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-noplan" data-station-noplan><b>'+esc(v.batch)+' has no cutting plan</b><div class="mut">Make it in Optimization → Batches. Scanning stickers works without it.</div></div></div>';
  const cut=stationCutSet(),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
  const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
- return '<div class="card st-sheet-card"><div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
+ return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
   stationSheetSVG(sheet,cut,nowId)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
@@ -237,7 +303,8 @@ function stationCard(){
   hold:{cls:'st-red',head:'✓ '+verb+' · order on hold'},
   already:{cls:'st-amber',head:'Already '+(verb==='Cut'?'cut':'done')+' · '+who},
   passed:{cls:'st-red',head:'✕ Not for '+stationCode},
-  skipped:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not scanned'},
+  skipped:{cls:'st-amber',head:(c.missed||[]).join(', ')+' not scanned'},
+  skippedNo:{cls:'st-red',head:'✕ '+(c.missed||[]).join(', ')+' not done'},
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
   cancelled:{cls:'st-red',head:'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
@@ -250,7 +317,8 @@ function stationCard(){
  /* Большой блок слева — главное действие рабочего. */
  let big;
  if(c.kind==='hold')big='<div class="st-big st-red"><small>ON HOLD</small><b>SET ASIDE</b><span>'+esc(c.reason||'Order on hold')+'</span></div>';
- else if(['passed','skipped','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
+ else if(c.kind==='skipped')big='<div class="st-big st-ask"><small>CHECK THE GLASS</small><b>'+esc(stationAskWord(c.missed))+'</b><span>'+esc((c.missed||[]).join(', ')+' not scanned')+'</span></div>';
+ else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
  else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>NEW GLASS</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>Waits for the next batch</span></div>';
@@ -268,12 +336,14 @@ function stationCard(){
   (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
   (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
-  '</div>'+stationRouteChips(place&&place.route,place)+
+  '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
   (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
     стикер (не читается или стекло режут из остатка). */
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
  const stickerFor=c.kind==='recut'?(c.newIds||[])[0]:g?c.code:'';
+ if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
+  '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
  const acts=(L.rec||canRecut||stickerFor)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
   (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
@@ -291,7 +361,7 @@ function stationJournal(){
  const lastOf=new Map();(DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)lastOf.set(s.piece,s);});
  const body=rows.map(s=>{
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
-  return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
+  return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+
    '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
    '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
    '<td style="text-align:right">'+(!s.broken&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
@@ -310,6 +380,7 @@ function stationTop(who){
  const tabs=who&&stationCode===stationCutCode()?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
   (stationTab==='queue'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
+  (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton>Putting on <b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
   '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
@@ -330,7 +401,8 @@ function viewStation(){
  const who=stationWho();
  if(!who)return stationTop(null)+'<div class="st-body st-one">'+stationLoginView()+'</div>';
  setTimeout(stationFocus,0);
- const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationSheetBreakHTML()):'';
+ if(stationCode===stationCutCode())stationSheetEnsure();
+ const drawer=stationDrawer?(stationDrawer.kind==='recut'?stationRecutHTML():stationDrawer.kind==='batch'?stationBatchHTML():stationSheetBreakHTML()):'';
  if(stationTab==='queue'&&stationCode===stationCutCode())return stationTop(who)+stationQueueView()+drawer;
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
@@ -356,6 +428,7 @@ function stationKey(ev,el){
 }
 function stationFocus(){
  if(tab!=='station'||stationMenu)return;
+ if(document.activeElement&&document.activeElement.tagName==='SELECT')return;
  const el=document.querySelector('[data-station-scan]');
  if(el&&document.activeElement!==el)el.focus();
 }
@@ -459,7 +532,7 @@ function stationQueueView(){
  const colors=['#2f7da8','#7a58b0','#c07a16','#27815a','#4a92b8','#a84444'];
  const stripHTML=strip.length?'<div class="st-qstrip">'+strip.map((x,i)=>'<div style="flex:'+Math.max(1,x.g.total-x.g.done)+';background:'+colors[i%colors.length]+'"><b data-raw>'+esc(x.g.glass)+' '+esc(x.g.label)+'</b><small>'+(x.g.total-x.g.done)+' · '+esc(x.b.number)+'</small></div>').join('')+'</div><div class="mut st-qhint">← now · later →</div>':'<div class="empty">Nothing to cut</div>';
  const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(i===0?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+
-  (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'</div>'+
+  (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
   (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round(g.done/g.total*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qg">No cutting plan yet</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(x.glass)+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
@@ -520,4 +593,49 @@ function stationStackCard(){
  return '<div class="card" data-station-stack="'+esc(stationIncoming)+'"><div class="st-sec"><h3>'+esc(stationIncoming)+' · top of the stack first</h3><span class="sp"></span><span class="pill info">'+list.length+'</span></div><table><tbody>'+
   list.map((x,i)=>{const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
    return '<tr class="'+(i===0?'st-top1':'')+(urg===2?' st-hot':'')+'"><td class="mut">'+(i+1)+'</td><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="mut">'+(i===0?'on top':'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+}
+
+/* --------------------- Пропущенная станция: вопрос --------------------- */
+function stationAskWord(missed){const m=(missed||[])[0];return ({EDGE:'EDGES DONE?',DRILL:'HOLES DONE?',CNC:'CNC WORK DONE?',CERP:'PAINT DONE?',HEAT:'TEMPERED?',SAND:'SANDBLASTED?',PAINT:'PAINTED?',LAM:'LAMINATED?',IGU:'ASSEMBLED?'})[m]||(m?m+' DONE?':'DONE?');}
+function stationWorksHTML(c){
+ const w=stationSkippedWorks(c);
+ return '<div class="st-works">'+(w.length?w.map(x=>'<div><i>'+esc(x.station)+'</i>'+esc(x.text)+'</div>').join(''):(c.missed||[]).map(m=>'<div><i>'+esc(m)+'</i>'+esc(stationName(m))+'</div>').join(''))+'</div>';
+}
+function stationAnswer(code,yes){
+ const who=stationWho();if(!who)return false;
+ stationQuestions=stationQuestions.filter(q=>q.code!==code);
+ if(yes){
+  const r=stationConfirmSkipped(stationCode,code,who,{on:stationPutOn()});
+  if(r.error){stationNote=r.error;render();return false;}
+  stationShow(r.check,r.rec);if(stationLast){stationLast.confirmed=r.confirmed;if(r.mates.length)stationLast.mates=r.mates;}
+  stationNote=r.confirmed.join(', ')+' confirmed here';render();return true;
+ }
+ const check=stationCheck(stationCode,code);
+ stationLast={check:Object.assign({},check,{kind:'skippedNo'}),rec:null,data:stationLast&&stationLast.check&&stationLast.check.code===code?stationLast.data:null,place:check.g?stationPlace(check.g):null,at:new Date().toISOString()};
+ stationBeep('error');render();return false;
+}
+/* Вопрос не держит работу: рабочий сканирует дальше — вопрос ждёт в плашке. */
+function stationShowQuestion(){
+ while(stationQuestions.length){
+  const q=stationQuestions[0],check=stationCheck(stationCode,q.code);
+  if(check&&check.kind==='skipped'){stationMenu=null;stationShow(check,null);render();return true;}
+  stationQuestions.shift();
+ }
+ render();return false;
+}
+/* На точке слияния — состав изделия; после неё — сколько стёкол ушло одним сканом. */
+function stationUnitHTML(L){
+ const c=L.check,g=c.g;let out='';
+ if(L.mates&&L.mates.length)out+='<div class="st-unitnote">Unit moved: '+(L.mates.length+1)+' glass'+(c.unitCode?' · '+esc(c.unitCode):'')+'</div>';
+ const st=g&&['ok','hold','already','peek'].includes(c.kind)?stationUnitStatus(g,stationCode):null;
+ if(st&&st.lites.length>1){
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit '+st.n+' of '+st.of)+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+   st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span><span class="'+(x.here?'ok':x.broken?'bad':'wait')+'">'+(x.here?'✓ here':x.broken?'broken':'waiting at '+esc(x.waiting||'—'))+'</span></div>').join('')+
+   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">Print unit sticker</button>':'')+'</div>';
+ }
+ return out;
+}
+function stationPrintUnit(code){
+ const g=stationGlass(code);if(!g||typeof g.unit!=='number'||typeof stkPrint!=='function')return false;
+ return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:g.unit}],stkPrefSize()));
 }

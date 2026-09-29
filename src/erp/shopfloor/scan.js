@@ -3,7 +3,8 @@
    Журнал сканов станций и «где стекло ждёт».
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
-        undoneAt, undoneBy[, on, broken, recut, reason]} · DB.sheetBreak
+        undoneAt, undoneBy[, on, confirmedAt, broken, recut, reason]} · DB.sheetBreak
+   confirmedAt — станцию не отсканировали, работу подтвердил рабочий следующей.
    on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
@@ -96,7 +97,7 @@ function stationCheck(station,raw){
  const code=stationCodeOf(raw);
  if(!code)return null;
  if(typeof carrierType==='function'&&carrierType(code))return {kind:'carrier',code};
- if(typeof unitIdValid==='function'&&unitIdValid(code))return {kind:'unit',code};
+ if(typeof unitIdValid==='function'&&unitIdValid(code))return stationUnitCheck(station,code);
  if(!glassPieceValid(code))return {kind:'unknown',code};
  const g=stationGlass(code);
  if(!g)return {kind:'unknown',code};
@@ -109,6 +110,7 @@ function stationCheck(station,raw){
  if(i<0)return Object.assign(base,{kind:'route'});
  if(place.shipped||w>=0&&i<w)return Object.assign(base,{kind:'passed'});
  if(w>=0&&i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
+ base.mates=stationMatesAt(g,station).map(x=>x.id);
  if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
  return Object.assign(base,{kind:'ok'});
 }
@@ -120,6 +122,7 @@ function stationRecord(station,check,who,opts){
  const now=opts.now||new Date().toISOString();
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
+ if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -178,6 +181,7 @@ function normalizeStationScans(){
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
+   ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
  let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
  DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
@@ -264,4 +268,77 @@ window.addEventListener('storage',function(e){
 function stationScanOff(id){
  const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
  delete rec.on;touch();return true;
+}
+
+/* ---------------------------------------------------------------------
+   Пропущенная станция. Стекло принесли на HEAT, а EDGE его не сканировал.
+   Не блокируем и не пишем молча: рабочий видит работы пропущенной станции
+   и отвечает. Yes — работа сделана, просто не отсканировали: пропущенные
+   станции отмечаются с пометкой «подтверждено на HEAT, кто», потом скан
+   этой станции. No — стекло назад. (Владелец, 29.09.2026: закалённое не
+   досверлишь — вопрос задаётся, пока стекло ещё можно вернуть.)
+   --------------------------------------------------------------------- */
+function stationSkippedWorks(check){
+ const svc=(stationRouteOf(check.g).services||[]).filter(s=>(check.missed||[]).includes(s.station));
+ return svc.map(s=>({station:s.station,text:s.text}));
+}
+function stationConfirmSkipped(station,code,who,opts){
+ opts=opts||{};
+ const check=stationCheck(station,code);
+ if(!check||check.kind!=='skipped')return {error:'Nothing to confirm.'};
+ const now=opts.now||new Date().toISOString();
+ check.missed.forEach(m=>stationRecord(m,{kind:'ok',code,g:check.g},who,{deferTouch:true,manual:true,confirmedAt:station,now}));
+ const after=stationCheck(station,code);
+ const rec=STATION_RECORDED.includes(after.kind)?stationRecord(station,after,who,{deferTouch:true,on:opts.on,now}):null;
+ const mates=rec?stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now}):[];
+ touch();
+ return {ok:true,check:after,rec,mates,confirmed:check.missed};
+}
+
+/* ---------------------------------------------------------------------
+   Юнит после сборки. Владелец, 29.09.2026: после IGU юнит двигается одним
+   сканом — и по стикеру U-, и по любому стикеру G- этого юнита. До точки
+   слияния стёкла едут каждое само по себе; после неё скан одного стекла
+   отмечает всё изделие. Ламинат: плиты одного лайта сходятся на LAM.
+   Стёкла Recut (место R1.1) к изделию не привязаны — сканируются сами.
+   --------------------------------------------------------------------- */
+function stationUnitMerge(o,l){const m=salesMakeupById(o,l.makeupId);return m&&typeof salesRouteMerge==='function'?salesRouteMerge(m.unitType,m.panes):'';}
+function stationUnitMates(g){
+ if(typeof g.unit!=='number'||!g.c)return [];
+ const pieces=glassPieceMap(g.o.id),batches=stationBatchIndex();
+ return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&c.key!==g.c.key).map(c=>{const rec=pieces.get(c.key),id=rec&&rec.ids[g.unit-1];return id?{id,o:g.o,l:g.l,c,unit:g.unit,entry:batches.get(id)||null}:null;}).filter(Boolean);
+}
+function stationMatesAt(g,station){
+ if(!g||!g.c||typeof g.unit!=='number')return [];
+ const route=stationRouteOf(g).codes,is=route.indexOf(station);if(is<0)return [];
+ const mu=stationUnitMerge(g.o,g.l),lam=typeof salesRouteStationOf==='function'?salesRouteStationOf('lamination','LAM'):'LAM',mates=stationUnitMates(g);
+ if(mu&&route.indexOf(mu)>=0&&is>route.indexOf(mu))return mates;
+ if(g.c.ply&&route.indexOf(lam)>=0&&is>route.indexOf(lam))return mates.filter(x=>x.c.index===g.c.index);
+ return [];
+}
+/* Скан стикера U-: на точке слияния и после неё — всё изделие разом. */
+function stationUnitCheck(station,code){
+ const u=glassLookup(code);if(!u)return {kind:'unknown',code};
+ const o=salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId);if(!o||!l)return {kind:'unknown',code};
+ const pieces=glassPieceMap(o.id),ids=glassBatchComponents(o,l).filter(c=>!c.missing).map(c=>{const r=pieces.get(c.key);return r&&r.ids[u.unit-1];}).filter(Boolean);
+ if(!ids.length)return {kind:'unknown',code};
+ const mu=stationUnitMerge(o,l),first=stationGlass(ids[0]),route=first?stationRouteOf(first).codes:[],im=route.indexOf(mu),is=route.indexOf(station);
+ if(!mu||im<0||is<im)return {kind:'unit',code};
+ /* Главное стекло карточки — первое, которое здесь ждёт. */
+ const checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
+ return Object.assign(main,{unitCode:code,mates:ids.filter(id=>id!==main.code)});
+}
+/* Остальные стёкла изделия пишутся тем же сканом — если ждут здесь же. */
+function stationRecordMates(station,check,who,opts){
+ return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true})):null;}).filter(Boolean);
+}
+/* На точке слияния — что из изделия уже здесь, а что ещё в пути. */
+function stationUnitStatus(g,station){
+ if(!g||typeof g.unit!=='number'||stationUnitMerge(g.o,g.l)!==station)return null;
+ const all=[{id:g.id,c:g.c}].concat(stationUnitMates(g).map(x=>({id:x.id,c:x.c}))).map(x=>{
+  const gg=stationGlass(x.id),scans=stationScansFor(x.id),here=scans.some(s=>s.station===station&&!s.broken),place=gg?stationPlace(gg,scans):null;
+  return {id:x.id,lite:x.c.lite,glass:x.c.glass,here,waiting:place?place.waiting:'',broken:!!(place&&place.broken)};
+ });
+ all.sort((a,b)=>String(a.lite).localeCompare(String(b.lite),undefined,{numeric:true}));
+ return {unit:typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,g.unit):'',n:g.unit,of:g.l.qty,lites:all,complete:all.every(x=>x.here)};
 }
