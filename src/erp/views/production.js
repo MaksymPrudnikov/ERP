@@ -27,22 +27,18 @@ const SF_TABS=[
 
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
- const pipeline=DB.station.map((s,i)=>{
-  const w=stationOperations(s.code);
-  return `${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' works':'<span class="mut">no works</span>'}</div></div>`;
- }).join('');
  const empty=DB.station.filter(s=>!stationOperations(s.code).length);
  const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
   ${subtab!=='stations'?'':`<div class="card">
    <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
-   <div class="pipeline">${pipeline}</div>
+   <div class="pipeline">${sfPipelineHTML()}</div>
    ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
    ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
   </div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
-   ${({orders:viewProdOrders,stations:viewSfStations,terminals:viewSfTerminals})[subtab]()}
+   ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals})[subtab]()}
   </div>
   ${subtab==='stations'?sfImportCard():''}`;
 }
@@ -57,32 +53,56 @@ function sfDimText(s){
  const v=`${s.maxW==null?'—':s.maxW} × ${s.maxL==null?'—':s.maxL}″`;
  return s.sizeMeasured?`<span data-raw>${esc(v)}</span>`:`<span data-raw>${esc(v)}</span><div class="mut">not verified in the shop</div>`;
 }
-function viewSfStations(){
+/* Шаги маршрута. Владелец, 29.09.2026: станции заводит, удаляет и ставит в
+   производственный порядок он сам — в Master Data. Одинаковый номер шага —
+   параллельные станции: «CNC shape edge стоит на уровне с полировкой»;
+   стекло заходит только на те, чьи работы ему нужны. */
+function sfSteps(){const m=new Map();DB.station.forEach(s=>{if(!m.has(s.seq))m.set(s.seq,[]);m.get(s.seq).push(s);});return [...m.entries()].sort((a,b)=>a[0]-b[0]);}
+function sfPipelineHTML(){
+ return sfSteps().map(([seq,list],i)=>`${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage-step">${list.map(s=>{const w=stationOperations(s.code);
+  return `<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' work'+(w.length===1?'':'s'):'no works'}</div></div>`;}).join('')}</div>`).join('');
+}
+/* Маршрут стекла считается из станций и работ — после правки кэш маршрутов
+   сбрасывается, экраны станций сразу видят новый порядок. */
+function stationRouteReset(){if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();}
+function viewSfStations(edit){
+ const steps=new Map();DB.station.forEach(s=>steps.set(s.seq,(steps.get(s.seq)||0)+1));
  const rows=DB.station.map((s,i)=>{
-  const w=stationOperations(s.code);
-  return `<tr><td class="mono"><b>${s.seq}</b></td><td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
+  const w=stationOperations(s.code),par=steps.get(s.seq)>1;
+  return `<tr data-sf-station="${esc(s.code)}"><td style="white-space:nowrap">${edit?`<input class="sf-step" type="number" min="1" step="1" value="${s.seq}" data-sf-step="${esc(s.code)}" onchange="sfStationSetStep(${i},this.value)">`:`<b class="mono">${s.seq}</b>`}${par?' <span class="pill info" title="Same step as another station">parallel</span>':''}</td>
+   <td class="mono"><b>${raw(s.code)}</b></td><td>${sfLabel(s)}</td>
    <td><span class="pill ${s.always?'ok':'info'}">${s.always?'always':'when required'}</span></td>
    <td class="mono">${sfDimText(s)}</td>
-   <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
+   <td>${w.length?w.slice(0,6).map(o=>`<span class="pill info" data-raw>${esc(o.name||o.id)}</span>`).join(' ')+(w.length>6?` <span class="mut">+${w.length-6}</span>`:''):'<span class="mut">none</span>'}</td>
    <td class="mut" style="max-width:260px">${raw(s.note||'')}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="stationOpen('${esc(s.code)}')" title="Open the scan screen">Screen</button>
-   <button class="sm" onclick="stEdit=${i};render()">Edit</button>
-   <button class="sm dl" onclick="delSfStation(${i})">×</button></td></tr>`;
+   ${edit?`<button class="sm" onclick="stEdit=${i};render()">Edit</button>
+   <button class="sm dl" data-sf-del="${esc(s.code)}" onclick="delSfStation(${i})">×</button>`:''}</td></tr>`;
  }).join('');
- return `${stEdit!==null?sfStationForm():''}
-  <div class="sub">Route steps in order. The size answers one question: will the part fit. Until it is measured a note stands beside it — an assumption must not look like a fact.</div>
-  <table><thead><tr><th>№</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th>Works</th><th>Note</th><th></th></tr></thead>
+ return `${edit&&stEdit!==null?sfStationForm():''}
+  <div class="sub">${edit?'Glass goes through the steps in order. The same step number makes stations parallel — a glass visits only the ones its works need. Each work in <b>Works</b> names its station: that is the route, the sticker and the scan screen.':'Route steps in order. Stations are added, removed and ordered in Master Data → Stations.'}</div>
+  ${edit?'':`<div class="row" style="margin:0 0 10px"><button class="sm" data-sf-to-md onclick="tab='masterdata';mdSetTab('stations')">Edit in Master Data</button></div>`}
+  <table><thead><tr><th>Step</th><th>Code</th><th>Name</th><th>In route</th><th>Size, W × L</th><th>Works</th><th>Note</th><th></th></tr></thead>
   <tbody>${rows||'<tr><td colspan="8" class="empty">empty</td></tr>'}</tbody></table>
-  ${stEdit!==null?'':'<div class="row"><button class="pri" onclick="stEdit=&quot;new&quot;;render()">Add station</button></div>'}`;
+  ${edit&&stEdit===null?'<div class="row"><button class="pri" data-sf-add onclick="stEdit=&quot;new&quot;;render()">Add station</button><button data-sf-tidy onclick="sfStationsTidy()" title="Renumber steps 1, 2, 3… keeping parallel stations together">Tidy step numbers</button></div>':''}`;
+}
+function sfStationSetStep(i,v){
+ const n=Math.floor(+v),s=DB.station[i];if(!s||!(n>0)){render();return false;}
+ s.seq=n;DB.station.sort((a,b)=>a.seq-b.seq);stationRouteReset();touch();render();return true;
+}
+/* 1, 2, 5, 5, 9 → 1, 2, 3, 3, 4: параллельные остаются вместе. */
+function sfStationsTidy(){
+ const map=new Map();sfSteps().forEach(([seq],k)=>map.set(seq,k+1));
+ DB.station.forEach(s=>{s.seq=map.get(s.seq);});stationRouteReset();touch();render();
 }
 function sfStationForm(){
- const r = stEdit==='new' ? {seq:(Math.max(0,...DB.station.map(s=>s.seq))+1),code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : DB.station[stEdit];
+ const last=DB.station.filter(s=>!s.always).reduce((m,s)=>Math.max(m,s.seq),0);
+ const r = stEdit==='new' ? {seq:last+1,code:'',name:'',nameEn:'',always:false,maxW:null,maxL:null,sizeMeasured:false,note:''} : DB.station[stEdit];
  return `<div class="form"><h3>${stEdit==='new'?'New station':'Edit'}</h3>
   <div class="grid">
-   <div><label>Sequence *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"></div>
-   <div><label>Code *</label><input id="sf_code" value="${esc(r.code)}"></div>
-   <div><label>Name (RU) *</label><input id="sf_name" value="${esc(r.name)}"></div>
-   <div><label>Name (EN)</label><input id="sf_nameEn" value="${esc(r.nameEn||'')}"></div>
+   <div><label>Step *</label><input id="sf_seq" type="number" min="1" step="1" value="${r.seq}"><div class="hint">Same number as another station — parallel.</div></div>
+   <div><label>Code *</label><input id="sf_code" value="${esc(r.code)}" placeholder="POLISH"></div>
+   <div><label>Name *</label><input id="sf_nameEn" value="${esc(sfName(r))}" placeholder="Polishing"></div>
    <div><label>Size W, inches</label><input id="sf_maxW" type="number" step="0.1" min="0" value="${r.maxW==null?'':r.maxW}"></div>
    <div><label>Size L, inches</label><input id="sf_maxL" type="number" step="0.1" min="0" value="${r.maxL==null?'':r.maxL}"></div>
    <div style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="sf_measured" ${r.sizeMeasured?'checked':''}> Size measured in the shop</label>
@@ -92,35 +112,42 @@ function sfStationForm(){
   </div>
   <div style="margin-top:12px"><label>Note</label><input id="sf_note" value="${esc(r.note||'')}"></div>
   <div class="err" id="e_sfStation"></div>
-  <div class="row"><button class="pri" onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
 }
 function saveSfStation(){
  const e=document.getElementById('e_sfStation'); e.style.display='none';
  const seq=+document.getElementById('sf_seq').value;
  const code=document.getElementById('sf_code').value.trim().toUpperCase();
- const name=document.getElementById('sf_name').value.trim();
- if(!Number.isInteger(seq)||seq<=0) return fail(e,'Sequence: a positive integer');
- if(!code||!name) return fail(e,'Code and name are required');
+ const nameEn=document.getElementById('sf_nameEn').value.trim();
+ if(!Number.isInteger(seq)||seq<=0) return fail(e,'Step: a positive whole number');
+ if(!code||!nameEn) return fail(e,'Code and name are required');
  if(!SF_CODE_RE.test(code)) return fail(e,'Code: use only A–Z, 0–9, hyphen and underscore');
  if(DB.station.some((s,i)=>i!==stEdit && s.code===code)) return fail(e,'This code already exists');
  const dim=id=>{const v=document.getElementById(id).value.trim();if(v==='')return null;const n=+v;return isFinite(n)&&n>0?n:NaN;};
  const maxW=dim('sf_maxW'),maxL=dim('sf_maxL');
  if(Number.isNaN(maxW)||Number.isNaN(maxL)) return fail(e,'Size: a positive number or empty');
- const o={seq,code,name,nameEn:document.getElementById('sf_nameEn').value.trim(),
+ const prev=stEdit==='new'?null:DB.station[stEdit];
+ /* Код станции, на который уже ссылаются работы и терминалы, переносится
+    вместе с ними — иначе работы остались бы без станции. */
+ if(prev&&prev.code!==code){
+  (DB.serviceRate||[]).forEach(w=>{if(w&&w.station===prev.code)w.station=code;});
+  (DB.terminal||[]).forEach(t=>{t.stations=(t.stations||[]).map(c=>c===prev.code?code:c);});
+ }
+ const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
   maxW,maxL,sizeMeasured:document.getElementById('sf_measured').checked,
   note:document.getElementById('sf_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  DB.station.sort((a,b)=>a.seq-b.seq);
- stEdit=null; touch(); render();
+ stEdit=null; stationRouteReset(); touch(); render();
 }
 /* Станцию, на которую ссылаются работы, не удаляем: работа без станции —
    сирота, и увидит её только тот, кто откроет нужный экран. */
 function delSfStation(i){
- const s=DB.station[i];
- if(stationOperations(s.code).length) return alert('Cannot delete — works belong to this station');
+ const s=DB.station[i],w=stationOperations(s.code);
+ if(w.length) return alert('Cannot delete '+s.code+' — works go to it: '+w.map(o=>o.name||o.id).join(', ')+'. Move them to another station in Master Data → Works first.');
  if(DB.terminal.some(t=>(t.stations||[]).includes(s.code))) return alert('Cannot delete — terminals point at this station');
- if(!confirm('Delete this station?'))return; DB.station.splice(i,1); touch(); render();
+ if(!confirm('Delete station '+s.code+'?'))return; DB.station.splice(i,1); stationRouteReset(); touch(); render();
 }
 
 /* --- 2. Терминалы ---------------------------------------------------- */
