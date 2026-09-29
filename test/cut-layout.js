@@ -1112,11 +1112,11 @@ module.exports=async function({page,eq,ok}){
   const plan=cutPlanRun(b.number).plan,g=plan.groups[0];
   const rows=[];
   g.sheets.forEach(s=>{
-   const size=s.size||g.sheet,pr=cutGroupParams(g,size),cuts=cutSheetCuts(s,size,pr,s.flip,true);
+   const size=s.size||g.sheet,pr=cutGroupParams(g,size),freeLeaves=cutFreeLeaves(s,size,pr);
    const d=document.createElement('div');d.innerHTML=cutSheetSVG(g,s,520,cutPieces(b,{}),{ids:true});
    const free=[...d.querySelectorAll('[data-cut-free]')],off=d.querySelectorAll('[data-cut-offcut]').length;
    /* Каждый пустой кусок дерева резов показан ровно один раз. */
-   rows.push({leaves:(cuts.free||[]).filter(r=>r.x1-r.x0>1e-6&&r.y1-r.y0>1e-6).length,shown:free.length+off,
+   rows.push({leaves:freeLeaves.length,shown:free.length+off,
     titled:free.every(x=>/^Free · .+ · [\d.]+ ft²$/.test(x.querySelector('title').textContent))});
   });
   const okShown=rows.every(r=>r.leaves===r.shown),titled=rows.every(r=>r.titled);
@@ -1124,7 +1124,7 @@ module.exports=async function({page,eq,ok}){
   const s0=g.sheets[0],size0=s0.size||g.sheet,pr0=cutGroupParams(g,size0);
   const d0=document.createElement('div');d0.innerHTML=cutSheetSVG(g,s0,520,cutPieces(b,{}),{ids:true});
   const texts=[...d0.querySelectorAll('text')].map(x=>x.textContent);
-  const big=(cutSheetCuts(s0,size0,pr0,s0.flip).free||[]).filter(r=>cutArea(r.x1-r.x0,r.y1-r.y0)>=4)
+  const big=cutFreeLeaves(s0,size0,pr0).filter(r=>cutArea(r.x1-r.x0,r.y1-r.y0)>=4)
    .filter(r=>!(s0.offcuts||[]).some(q=>Math.abs(q.x-cutRound(r.x0))<1e-6&&Math.abs(q.y-cutRound(r.y0))<1e-6));
   const labelled=big.every(r=>texts.some(t=>t.indexOf(frac16(cutRound(r.x1-r.x0))+' × '+frac16(cutRound(r.y1-r.y0))+'″')>=0));
   /* Переворот реза пересчитывает подсказки остатков. */
@@ -1134,6 +1134,22 @@ module.exports=async function({page,eq,ok}){
   const now=JSON.stringify((cutPlanFor(b.number).groups[0].sheets[0].offcuts||[]).map(o=>[o.w,o.h]));
   return {okShown,titled,labelled,flip:!!flip.ok,fresh:was!==now||!JSON.parse(was).length};
  }),{okShown:true,titled:true,labelled:true,flip:true,fresh:true});
+
+ eq('поворот направляющей пересчитывает размеры offcut и свободных кусков при той же площади отхода',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',100,100);ctOrder([[40,40,2]]);
+  const b=DB.glassBatch[0],plan=cutPlanRun(b.number).plan,g=plan.groups[0],s=g.sheets[0];
+  s.pieces.forEach((p,i)=>{p.x=i*40;p.y=i*40;p.w=40;p.h=40;p.turn=0;p.rot=false;});
+  cutPlanRefresh(plan);
+  const size=s.size||g.sheet,pr=cutGroupParams(g,size),dims=()=>JSON.stringify(s.offcuts.map(o=>[o.w,o.h])),
+    free=()=>JSON.stringify(cutFreeLeaves(s,size,pr).map(r=>[r.x1-r.x0,r.y1-r.y0])),
+    area=()=>cutFreeLeaves(s,size,pr).reduce((n,r)=>n+(r.x1-r.x0)*(r.y1-r.y0),0),
+    shown=()=>{const d=document.createElement('div');d.innerHTML=cutSheetSVG(g,s,520,cutPieces(b,{}),{ids:true});
+      return JSON.stringify([...d.querySelectorAll('[data-cut-offcut] rect,[data-cut-free]')].map(x=>[x.getAttribute('width'),x.getAttribute('height')]));};
+  const before={dims:dims(),free:free(),shown:shown(),area:area(),net:s.net},root=cutSheetCutsFor(g,s).lines[0],flip=cutFlipCut(b.number,g.glass,s.no,root.key),
+    after={dims:dims(),free:free(),shown:shown(),area:area(),net:s.net};
+  return {flipped:!!flip.ok,offcuts:before.dims!==after.dims,free:before.free!==after.free,
+    displayed:before.shown!==after.shown,conserved:Math.abs(before.area-after.area)<1e-6,scrap:before.net===after.net};
+ }),{flipped:true,offcuts:true,free:true,displayed:true,conserved:true,scrap:true});
 
  eq('снятая последняя галочка размера не запирает экран: таблица размеров остаётся, лишний размер удаляется отсюда же',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[40,50,2]]);const b=DB.glassBatch[0];

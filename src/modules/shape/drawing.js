@@ -153,7 +153,7 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
   return '<g class="shape-tri-offset-layer" aria-label="Top offset '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,mid,y+28,F)+'</g>';
 }
 /* Фигуры, у которых свои размеры рёбер стоят в том же коридоре, что и
-   габаритная цепочка: у них метрический лист идёт без дюймового эха и с
+   габаритная цепочка: дюймы идут компактной строкой рядом с мм и с
    разведёнными интервалами, иначе внизу собирается каша из четырёх чисел.
    У прямоугольника и круга ребро равно габариту и второй подписи не рождает. */
 var SHAPE_METRIC_CLEAN_TYPES=['parallelogram','raked','triangle','polygon','custom'];
@@ -255,7 +255,7 @@ function shapeMetricLayerSvg(result,F,L,metric,opts){
      теряет дюймовое эхо: на бумаге оно идёт ровно на один пункт меньше
      соседнего размера в mm, без второй вынесенной цепочки, которая раньше
      вылезала за поля. */
-  var cleanMetric=!!opts.cleanParallelogram,showInchEcho=!opts.cleanParallelogram,compactInch=!!opts.sheet,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
+  var cleanMetric=!!opts.cleanParallelogram,showInchEcho=true,compactInch=!!opts.sheet||cleanMetric,P=metric.vertices.map(function(v){return v.point;}),DP=opts.points?function(p){return [F.X(p[0]),F.Y(p[1])];}:L.DP;
   var Q=P.map(DP),orient=fabSignedArea(Q)>=0?1:-1,c='#111827',ic='#98a2b3';
   var path=Q.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z';
   var o='<g class="shape-metric-layer" data-units="mm"><defs><marker id="shapeMetricArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M1 1 L7 4 L1 7" fill="none" stroke="'+c+'" stroke-width=".9"/></marker></defs>';
@@ -415,7 +415,6 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
   var sideBase=function(key){var base=32;if(mfgSide[key])base=Math.max(base,66+(mfgSide[key]-1)*22);if(munRows[key])base=Math.max(base,munRows[key]*22+31);return base;};
   ['L','R','T','B'].forEach(function(k){if(mfgSide[k])ext[k]=Math.max(ext[k],62+(mfgSide[k]-1)*22);if(munRows[k])ext[k]=Math.max(ext[k],munRows[k]*22+25);});
   var orient=fabSignedArea(result.points),lanes={},out='',DP=(layer&&layer.DP)||function(p){return [F.X(p[0]),F.Y(p[1])];};
-  var edgeNames=shapeEdgeNames(result.geometry);
   shapeEdgeGroups(result.geometry).forEach(function(g){
     var total=g.length/2,walk=0,seg=g.segments[0],t=.5;for(var i=0;i<g.segments.length;i++){var L=g.segments[i].length||0;if(walk+L>=total){seg=g.segments[i];t=L?(total-walk)/L:.5;break;}walk+=L;}
     var dx=seg.p2[0]-seg.p1[0],dy=seg.p2[1]-seg.p1[1],L=Math.hypot(dx,dy)||1,n=orient<0?[-dy/L,dx/L]:[dy/L,-dx/L],key=Math.abs(n[0])>Math.abs(n[1])?(n[0]>0?'R':'L'):(n[1]>0?'T':'B'),lane=lanes[key]||0;lanes[key]=lane+1;
@@ -425,12 +424,12 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
     /* Smart-Shape уже подписывает длины своими цепочками. Для обычных форм
        оставляем короткую запись без символов единиц и декоративных разделителей. */
     var operationsOnly=!!(layer&&layer.contour&&layer.smart);
-    /* Машинный id ребра на чертеже не нужен: сторону называет буква, как у
-       Smart-Shape, а рядом стоит её длина — на скосах это единственный размер. */
-    var edgeName=edgeNames[g.id]||g.id,named=layer&&layer.letters?'':edgeName+' ';
+    /* На чертеже оставляем размер и обработку; id и буквенное имя ребра
+       нужны только в редакторе, где ими выбирают сторону. */
+    var named='';
     var txt=metricMode?ops.join(' + '):(operationsOnly?ops.join(' + '):((named+shapeDrawingDim(g.length)).split(' ').filter(Boolean).concat(ops).join(' ')));
     if(!txt)return;
-    /* A/B/C/D и обработка всегда стоят СНАРУЖИ контура. Короткая подпись
+    /* Размер и обработка всегда стоят СНАРУЖИ контура. Короткая подпись
        поворачивается вдоль ребра и не отнимает место у отверстий и петель. */
     /* В метрике возле ребра уже стоит его длина в мм, и обработка кромки
        должна разойтись с ней. У ребра по оси число уносит далеко (50 и дальше),
@@ -529,15 +528,13 @@ function shapeProductionSvg(result,opts){
   var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono});
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
-  /* Пунктирная рамка габарита — у круга, эллипса и овала лишняя (владелец,
-     28.09.2026): габарит и так читается по размерам. */
-  if(['rectangle','parallelogram','circle','ellipse','oval'].indexOf(result.definition.type)<0)o+='<rect x="'+L.box.left+'" y="'+L.box.top+'" width="'+(L.box.right-L.box.left)+'" height="'+(L.box.bottom-L.box.top)+'" fill="none" stroke="#d0d5dd" stroke-dasharray="7 6"/>';
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
      цвет опознаёт ребро, поэтому подписи несут только обработку. */
   o+=L.contour?('<path class="shape-sheet-glass" d="'+L.path+'" fill="#fff" stroke="none"/>'+L.contour)
              :('<path class="shape-sheet-glass" d="'+L.path+'" fill="#f9fafb" stroke="#101828" stroke-width="2"/>');
   /* Метрический режим — отдельный чистый лист, а не два чертежа друг поверх
-     друга. Дюймовые цепочки скрываем; отверстия и прочие производственные
+     друга. Полные дюймовые цепочки скрываем, оставляя компактные значения;
+     отверстия и прочие производственные
      обозначения ниже остаются в исходных единицах согласно спецификации. */
   if(!F.metric)o+=L.annotations;
   var metricClean=SHAPE_METRIC_CLEAN_TYPES.indexOf(result.definition.type)>=0;
@@ -563,7 +560,7 @@ function shapeProductionSvg(result,opts){
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
   o+=shapeProductionFeaturesSvg(result,F)+edgeSvg;
-  if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished contour in millimetres · feature callouts remain in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
+  if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished dimensions in mm and inches · feature callouts in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }
 /* ---------- Safety Border overlay ----------

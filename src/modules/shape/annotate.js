@@ -576,25 +576,12 @@ function shapeEdgeNames(geo){
 /* Контур рёбрами, а не одним путём: каждое ребро своим цветом. */
 function shapeAnnContour(r,DP,active,mono){
   var edges=r.geometry.edges||[],out='',names=shapeEdgeNames(r.geometry);
-  /* Цех печатает чёрно-белым, и цвет ребра там пропадает: все стороны
-     становятся одинаковыми серыми линиями. Поэтому на печатном варианте
-     сторону называет БУКВА рядом с ней, а не цвет. На экране цвет остаётся —
-     он там работает. */
-  var cx=0,cy=0,n=0;
-  edges.forEach(function(e){var a=DP(e.p1),b=DP(e.p2);cx+=a[0]+b[0];cy+=a[1]+b[1];n+=2;});
-  if(n){cx/=n;cy/=n;}
-  var seen={};
+  /* На печати контур остаётся чёрным; буквенные обозначения сторон на самой
+     детали больше не нужны. Они сохраняются в редакторе обработок. */
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
     var col=mono?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
     out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
-    if(!mono||seen[e.id])return;
-    seen[e.id]=1;
-    /* Буква садится на середину ребра и отодвигается ВНУТРЬ детали: снаружи
-       уже стоят размерные цепочки и подписи обработки. */
-    var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dx=cx-mx,dy=cy-my,d=Math.hypot(dx,dy)||1;
-    var lx=mx+dx/d*16,ly=my+dy/d*16;
-    out+='<text class="shape-edge-letter" x="'+lx.toFixed(1)+'" y="'+(ly+4).toFixed(1)+'" text-anchor="middle" font-size="'+SHAPE_NOTE_FONT+'" font-weight="700" fill="#101828" stroke="#fff" stroke-width="3.5" paint-order="stroke fill">'+shapeXml(names[e.id]||e.id)+'</text>';
   });
   return out;
 }
@@ -626,8 +613,6 @@ function shapeAnnotationLayer(result,F,active,opts){
   /* Рёбер немного — рисуем цветной контур по рёбрам (как в Designer);
      у круга/многоугольника рёбер много, там цветная россыпь читается хуже. */
   var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
-  /* letters — буквы сторон стоят внутри детали (печать, до 12 рёбер): размер
-     стороны тогда пишется без буквы, иначе она дважды (владелец, 28.09.2026). */
-  return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,letters:!!byEdge&&!!(opts&&opts.mono),
+  return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,
     path:disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z'};
 }

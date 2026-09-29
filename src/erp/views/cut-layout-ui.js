@@ -688,7 +688,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  /* Линии показывают физический рез, а свободное место — только поле между
     Trim/Border, иначе подписи пустоты перекрывают полезные остатки. */
  const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,pr,sheet.flip):{lines:[],stuck:[],free:[]};
- const visibleFree=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,pr,sheet.flip,true).free||[]:cuts.free||[];
+ const visibleFree=typeof cutFreeLeaves==='function'?cutFreeLeaves(sheet,size,pr):cuts.free||[];
  (sheet.offcuts||[]).forEach((o,i)=>block(o,'cut-off','data-cut-offcut="'+i+'"',['Offcut',frac16(o.w)+' × '+frac16(o.h)+'″'],'#98a2b3'));
  /* Остальное пустое место. Владелец, 21 сентября 2026: «вижу, где пустое
     пространство, но не знаю размеры — вдруг я бы мог туда добавить… не хочу
