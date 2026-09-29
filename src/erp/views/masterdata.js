@@ -24,6 +24,7 @@
 const MD_TABS=[
  {k:'materials', label:'Materials'},
  {k:'works',     label:'Works'},
+ {k:'stations',  label:'Stations'},
  {k:'hardware',  label:'Hardware'},
  {k:'weight',    label:'Weight norms'},
  {k:'company',   label:'Company'},
@@ -85,11 +86,13 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
-function mdSetTab(k){mdTab=k;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
+/* Станции — шаги маршрута; работы в Works ссылаются на них. */
+function viewMdStations(){return '<div class="pipeline" style="margin-bottom:14px">'+sfPipelineHTML()+'</div>'+viewSfStations(true);}
+function mdSetTab(k){mdTab=k;if(typeof stEdit!=='undefined')stEdit=null;if(typeof cutMdNotice!=='undefined')cutMdNotice='';mdEdit=null;mdSheetEdit=null;mdSpacerEdit=null;mdHwKindEdit=null;mdHwModelEdit=null;mdCatEdit=null;mdCatDraft=null;mdImportReport=null;
  /* Работы и материалы делят одну машинку Catalogues, поэтому при переходе
     между вкладками открытая таблица обязана соответствовать вкладке —
     иначе Works показал бы палитру спандрела. */
@@ -1040,7 +1043,7 @@ function mdCatSave(){
   const at=rows.findIndex(x=>x.id===next.id);
   if(!Array.isArray(DB.serviceRate))DB.serviceRate=[];
   if(at<0)DB.serviceRate.push(next);else DB.serviceRate[at]=next;
-  mdCatEdit=null;mdCatDraft=null;normalizeMasterData();touch();render();
+  mdCatEdit=null;mdCatDraft=null;normalizeMasterData();if(typeof stationRouteReset==='function')stationRouteReset();touch();render();
   return;
  }
  const code=mdVal('md_catCode');

@@ -205,6 +205,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Станции в Master Data: параллельные — столбиком в одном шаге */
+.stage-step{display:flex;flex-direction:column;gap:6px;min-width:185px;flex:1;align-self:center}
+.stage-step .stage{flex:none}
+.sf-step{width:64px}
 /* Очередь станций после резки */
 .st-flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
 .st-fb{flex:1;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfcfd}
