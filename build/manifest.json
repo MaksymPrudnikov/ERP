@@ -106,12 +106,14 @@
   "src/erp/quality/ncr.js",
   "src/erp/quality/recut.js",
   "src/erp/shopfloor/scan.js",
+  "src/erp/shopfloor/carriers.js",
   "src/erp/views/ncr-ui.js",
   "src/erp/views/stickers-ui.js",
   "src/erp/views/cut-layout-ui.js",
   "src/erp/views/stock-list.js",
   "src/erp/views/station.js",
   "src/erp/views/production-board.js",
+  "src/erp/views/carriers-ui.js",
   "src/erp/storage.js"
  ]
 }

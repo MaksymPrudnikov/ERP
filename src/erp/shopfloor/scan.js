@@ -3,7 +3,8 @@
    Журнал сканов станций и «где стекло ждёт».
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
-        undoneAt, undoneBy[, broken, recut, reason]} · DB.sheetBreak
+        undoneAt, undoneBy[, on, broken, recut, reason]} · DB.sheetBreak
+   on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
    «с батча попало на рез и находится в ожидании на следующей станции»
@@ -94,6 +95,7 @@ function stationPlace(g,scans){
 function stationCheck(station,raw){
  const code=stationCodeOf(raw);
  if(!code)return null;
+ if(typeof carrierType==='function'&&carrierType(code))return {kind:'carrier',code};
  if(typeof unitIdValid==='function'&&unitIdValid(code))return {kind:'unit',code};
  if(!glassPieceValid(code))return {kind:'unknown',code};
  const g=stationGlass(code);
@@ -117,6 +119,7 @@ function stationRecord(station,check,who,opts){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const now=opts.now||new Date().toISOString();
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  DB.stationScan.push(rec);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -174,6 +177,7 @@ function normalizeStationScans(){
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
+   ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
  let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
  DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
@@ -255,3 +259,9 @@ window.addEventListener('storage',function(e){
  if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
  storageLiveReload(e.newValue);
 });
+/* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
+   сразу). Скан остаётся, пропадает только тара. */
+function stationScanOff(id){
+ const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
+ delete rec.on;touch();return true;
+}

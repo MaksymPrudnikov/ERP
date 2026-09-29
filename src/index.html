@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 95 модулей, 15 стиля.
+  Состав: 97 модулей, 15 стиля.
 -->
 <html lang="en">
 <head>
@@ -49,7 +49,7 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='36d811b20068';
+var ERP_BUILD='871e4eb522d0';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
@@ -139,12 +139,14 @@ var ERP_BUILD='36d811b20068';
 <script src="erp/quality/ncr.js"></script>
 <script src="erp/quality/recut.js"></script>
 <script src="erp/shopfloor/scan.js"></script>
+<script src="erp/shopfloor/carriers.js"></script>
 <script src="erp/views/ncr-ui.js"></script>
 <script src="erp/views/stickers-ui.js"></script>
 <script src="erp/views/cut-layout-ui.js"></script>
 <script src="erp/views/stock-list.js"></script>
 <script src="erp/views/station.js"></script>
 <script src="erp/views/production-board.js"></script>
+<script src="erp/views/carriers-ui.js"></script>
 <script src="erp/storage.js"></script>
 </body>
 </html>

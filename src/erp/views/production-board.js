@@ -24,7 +24,7 @@ function prodListColumns(){
   {k:'glass',label:'Glass',type:'text',tokens:true,def:true},
   {k:'shipped',label:'Shipped',type:'number',def:true},
   {k:'queue',label:'To batch',type:'number',def:true,sum:true}
- ].concat(st,[{k:'on',label:'On',type:'text',def:true},{k:'rank',label:'Urgency',type:'number',def:false}]);
+ ].concat(st,[{k:'on',label:'On',type:'text',tokens:true,def:true},{k:'rank',label:'Urgency',type:'number',def:false}]);
 }
 /* Сначала Critical, потом Rush, дальше по сроку — горящее всегда наверху. */
 function prodListDefaultSort(){return {k:'rank',dir:'asc'};}
@@ -45,13 +45,13 @@ function prodBoard(){
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||['cancelled','closed'].includes(o.status))return;
   const pieces=glassPieceMap(o.id);if(!pieces.size)return;
-  const counts={queue:0},route={},lines=[],codes=[];let inProd=false,shipped=0,total=0;
+  const counts={queue:0},route={},lines=[],codes=[],onAll=new Set();let inProd=false,shipped=0,total=0;
   (o.lines||[]).forEach((l,li)=>{
    const lites=[];
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0,lb=0;
+    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={},lon=new Set();let ls=0,lb=0;
     ids.forEach(id=>{
      const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
      const place=stationPlace(g,scans),queued=!e&&!scans.length;
@@ -68,25 +68,27 @@ function prodBoard(){
      if(queued){lc.queue++;counts.queue++;return;}
      inProd=true;
      if(place.shipped||!place.waiting){ls++;shipped++;return;}
+     /* На чём лежит: последний скан стекла положил его на долли или скид. */
+     const last=scans[scans.length-1];if(last&&last.on){lon.add(last.on);onAll.add(last.on);}
      lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
     });
     if(!codes.includes(c.glass))codes.push(c.glass);
-    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length-lb});
+    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,on:[...lon],shipped:ls,total:ids.length-lb});
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
   });
   if(!inProd)return;
   const urg=stationUrgency(o),t=Date.parse(o.dueDate||''),days=Number.isNaN(t)?99999:Math.floor(t/864e5);
-  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,shipped,total,lines,rank:(2-urg)*1e6+days});
+  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,on:[...onAll].sort(),shipped,total,lines,rank:(2-urg)*1e6+days});
  });
  prodBoardCache={stamp,data:orders};
  return orders;
 }
 function prodListInfos(){
  return prodBoard().map(x=>{
-  const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:'',rank:x.rank};
+  const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:x.on.join(', '),rank:x.rank};
   (DB.station||[]).forEach(s=>{memo['st_'+s.code]=x.counts[s.code]||0;});
-  return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass},memo};
+  return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass,on:x.on},memo};
  });
 }
 function prodToggle(id){if(prodOpen.has(id))prodOpen.delete(id);else prodOpen.add(id);render();}
@@ -98,6 +100,7 @@ function prodFocusStation(code){
  else{const c=salesListCleanFilter(k,{mode:'include',conds:[{op:'gt',v:'0',v2:'',join:'and'}],values:null,preset:''});if(c)p.filters[k]=c;}
  salesListSavePrefs();render();
 }
+function prodOn(list){return list&&list.length?list.map(c=>`<span class="st-on">${esc(c)}</span>`).join(' '):'<span class="pb-z">—</span>';}
 function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
 function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?' pb-cut':''}">${n}</span>`:'<span class="pb-z">·</span>';}
 /* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
@@ -118,7 +121,7 @@ function prodCell(r,c){
   case 'glass':return `<td data-raw>${esc(v)}</td>`;
   case 'shipped':return `<td class="pb-prog"><span class="pb-bar"><i style="width:${x.total?Math.round(x.shipped/x.total*100):0}%"></i></span>${x.shipped} / ${x.total}</td>`;
   case 'queue':return `<td class="pb-st">${prodCount(v)}</td>`;
-  case 'on':return '<td><span class="pb-z">—</span></td>';
+  case 'on':return `<td>${prodOn(x.on)}</td>`;
   default:return `<td>${v==null||v===''?'':esc(String(v))}</td>`;
  }
 }
@@ -133,7 +136,7 @@ function prodSubRows(r,cols){
    case 'glass':return `<td><b data-raw>${esc(t.glass)}</b>${L.lites.length>1?` <span class="mut">Lite ${esc(t.lite)}</span>`:''}</td>`;
    case 'shipped':return `<td class="pb-prog mut">${t.shipped} / ${t.total}</td>`;
    case 'queue':return `<td class="pb-st">${prodCount(t.counts.queue||0)}</td>`;
-   case 'on':return '<td><span class="pb-z">—</span></td>';
+   case 'on':return `<td>${prodOn(t.on)}</td>`;
    default:return '<td></td>';
   }
  }).join('')}<td></td></tr>`).join('')).join('');
