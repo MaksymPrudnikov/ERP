@@ -15,6 +15,9 @@ module.exports=async function({page,eq,ok}){
   window.afScan=(s,id)=>{const c=stationCheck(s,id);return STATION_RECORDED.includes(c.kind)?stationMove(s,c,af.who):{kind:c.kind};};
   window.afFailWrite=fn=>{const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};try{return fn();}finally{Storage.prototype.setItem=keep;}};
  });
+ eq('late storage events never replace the latest saved database',await t.p.evaluate(()=>{
+  afOrder();const stale=localStorage.getItem(STORAGE_KEY);storageCommand(()=>{DB.customer[0].legalName='Newest saved value';});window.dispatchEvent(new StorageEvent('storage',{key:STORAGE_KEY,newValue:stale}));return {name:DB.customer[0].legalName,baseline:storageBaseline===localStorage.getItem(STORAGE_KEY)};
+ }),{name:'Newest saved value',baseline:true});
  eq('failed scan restores durable state, route and batch cut flag',await t.p.evaluate(()=>{
   afOrder();const before=localStorage.getItem(STORAGE_KEY),out=afFailWrite(()=>afScan('CUT',af.ids[0]));return {ok:out.ok,waiting:stationPlace(stationGlass(af.ids[0])).waiting,scans:DB.stationScan.length,frozen:DB.productionRoute.length,cut:!!stationGlass(af.ids[0]).entry.item.cutStartedAt,same:before===localStorage.getItem(STORAGE_KEY)};
  }),{ok:false,waiting:'CUT',scans:0,frozen:0,cut:false,same:true});
@@ -101,9 +104,9 @@ module.exports=async function({page,eq,ok}){
  const payment=await t.p.evaluate(id=>finPersist(()=>finSaveReceiptRecord({customerId:salesRecord(id).customerId,date:'2026-09-01',method:'cash',amount:50,allocations:[]},null,'',false)).value.id,shared);
  await follower.waitForFunction(id=>(DB.receipt||[]).some(r=>r.id===id),payment);
  await follower.evaluate(id=>{tab='finance';finOpenReceipt(id);finDraft.amount='200';finDraft.reason='Local correction';render();},payment);
- await t.p.evaluate(id=>{const r=DB.receipt.find(r=>r.id===id);finPersist(()=>finSaveReceiptRecord({...r,amount:75},id,'Other tab correction',false));},payment);
+ await t.p.evaluate(id=>{const r=DB.receipt.find(r=>r.id===id);const out=finPersist(()=>finSaveReceiptRecord({...r,amount:75},id,'Other tab correction',false));if(!out.ok)throw new Error('Could not prepare the correction: '+out.error);},payment);
  await follower.evaluate(()=>storageTakeControl());
- eq('stale payment draft cannot overwrite a correction from another tab',await follower.evaluate(id=>{const saved=finSaveReceipt();return {saved,amount:DB.receipt.find(r=>r.id===id).amount,draft:finDraft.amount,message:document.getElementById('e_fin').textContent.includes('changed elsewhere')};},payment),{saved:false,amount:75,draft:'200',message:true});
+ eq('stale payment draft cannot overwrite a correction from another tab',await follower.evaluate(id=>{const saved=finSaveReceipt();return {saved,amount:DB.receipt.find(r=>r.id===id).amount,draft:finDraft&&finDraft.amount,message:document.getElementById('e_fin').textContent.includes('changed elsewhere')};},payment),{saved:false,amount:75,draft:'200',message:true});
  await follower.close();await t.c.close();
  const closing=await page();await require('./optimization-fixture')(closing.p);
  eq('closing an unsaved order restores saved shapes before releasing the writer',await closing.p.evaluate(()=>{

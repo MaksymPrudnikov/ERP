@@ -352,7 +352,10 @@ function storageLiveReload(text){
 }
 window.addEventListener('storage',function(e){
  if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
- storageLiveReload(e.newValue);
+ // An old event can arrive after this tab has saved a newer value during handoff.
+ // Read the current durable value instead of replaying the queued event payload.
+ const current=storageRead('glazing_system_v1');
+ if(current&&current!==storageBaseline)storageLiveReload(current);
 });
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
    сразу). Скан остаётся, пропадает только тара. */
