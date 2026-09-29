@@ -26,7 +26,7 @@ function stationSqft(g){
 /* Что здесь и что едет на станцию S (стекло, в маршруте которого S впереди). */
 function stationFlowData(S){
  const w=stationWaiting(),here=w.get(S)||[],coming=[];
- w.forEach((list,at)=>{if(at===S)return;list.forEach(x=>{const r=x.place.route,iS=r.indexOf(S),iA=r.indexOf(at);if(iA>=0&&iS>iA)coming.push(Object.assign({at},x));});});
+ w.forEach((list,at)=>{if(at===S)return;list.forEach(x=>{const r=x.place.route,iA=x.place.far+1;if(r.indexOf(S,iA+1)>iA)coming.push(Object.assign({at},x));});});
  return {here,coming};
 }
 function stationWorksAt(g,S){return (stationRouteOf(g).services||[]).filter(s=>s.station===S).map(s=>s.text);}

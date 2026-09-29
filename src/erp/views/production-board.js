@@ -63,7 +63,7 @@ function prodBoard(){
      place.route.forEach((code,i)=>{
       const t=lr[code]||(lr[code]={w:0,p:0,n:0}),u=route[code]||(route[code]={w:0,p:0,n:0});
       t.n++;u.n++;if(!queued&&i<=place.far){t.p++;u.p++;}
-      if(!queued&&code===place.waiting){t.w++;u.w++;}
+      if(!queued&&place.waiting&&i===place.far+1){t.w++;u.w++;}
      });
      if(queued){lc.queue++;counts.queue++;return;}
      inProd=true;

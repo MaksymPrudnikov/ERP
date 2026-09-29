@@ -85,10 +85,16 @@ function stationRouteOf(g){
  stationRouteCache.set(key,r);return r;
 }
 /* Где стекло: самая дальняя отсканированная станция его маршрута, дальше —
-   следующая. Пройдено всё — стекло отгружено. */
+   следующая. Пройдено всё — стекло отгружено. Станция может стоять в
+   маршруте дважды: CNC Shape Polish до закалки и CNC Lami Polish после
+   ламинации — один станок (владелец, 29.09.2026). Поэтому сканы идут по
+   порядку, и каждый продвигает стекло к БЛИЖАЙШЕМУ впереди заходу на эту
+   станцию; повтор уже пройденной станции место не меняет. */
+function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1);return i>=0?i:route.lastIndexOf(station);}
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.forEach(s=>{if(s.broken||s.park)return;const i=route.indexOf(s.station);if(i>far)far=i;});
+ let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
+  .forEach(s=>{const i=stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
  const broken=scans.find(s=>s.broken)||null;
@@ -112,11 +118,11 @@ function stationCheck(station,raw){
  const base={code,g,scans,place,here,stock:!g.entry,priority:g.o.priority||'normal',due:g.o.dueDate||''};
  if(g.o.status==='cancelled')return Object.assign(base,{kind:'cancelled'});
  if(place.broken)return Object.assign(base,{kind:'broken'});
- if(here)return Object.assign(base,{kind:'already'});
- const i=place.route.indexOf(station),w=place.route.indexOf(place.waiting);
- if(i<0)return Object.assign(base,{kind:'route'});
- if(place.shipped||w>=0&&i<w)return Object.assign(base,{kind:'passed'});
- if(w>=0&&i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
+ /* Следующий заход на эту станцию — ближайший впереди по маршруту. */
+ const w=place.waiting?place.far+1:-1,i=w>=0?place.route.indexOf(station,w):-1;
+ if(place.route.indexOf(station)<0)return Object.assign(base,{kind:'route'});
+ if(i<0||place.assembling&&i===w)return Object.assign(base,{kind:here?'already':'passed'});
+ if(i>w)return Object.assign(base,{kind:'skipped',missed:place.route.slice(w,i)});
  base.mates=stationMatesAt(g,station).map(x=>x.id);
  if(g.o.onHold||g.l.onHold)return Object.assign(base,{kind:'hold',reason:(g.o.onHold?g.o.holdReason:g.l.holdReason)||''});
  return Object.assign(base,{kind:'ok'});
@@ -391,7 +397,7 @@ function stationPlyMates(g){
 }
 function stationMatesAt(g,station){
  if(!g||!g.c)return [];
- const route=stationRouteOf(g).codes,is=route.indexOf(station);if(is<0)return [];
+ const route=stationRouteOf(g).codes,is=stationRouteStep(route,station,stationPlace(g).far);if(is<0)return [];
  const mu=stationUnitMerge(g.o,g.l),lam=typeof salesRouteStationOf==='function'?salesRouteStationOf('lamination','LAM'):'LAM';
  if(mu&&route.indexOf(mu)>=0&&is>route.indexOf(mu))return stationUnitMates(g,mu);
  if(g.c.ply&&route.indexOf(lam)>=0&&is>route.indexOf(lam))return stationPlyMates(g);
@@ -403,7 +409,7 @@ function stationUnitCheck(station,code){
  const o=salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId);if(!o||!l)return {kind:'unknown',code};
  const mu=stationUnitMerge(o,l),a=mu?stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken):null;
  const first=a?stationGlass([...a.lites.values()][0]):null,route=first?stationRouteOf(first).codes:[];
- if(!a||route.indexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
+ if(!a||route.lastIndexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
  const ids=[...a.lites.values()],checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
  return Object.assign(main,{unitCode:code,mates:ids.filter(id=>id!==main.code)});
 }
