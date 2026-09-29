@@ -24,6 +24,7 @@ let stationPin='',stationPinError=false;
 let stationTab='scan';      // CUT: scan | queue
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
+let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
 let stationDrawer=null;    // окно по нажатию рабочего: {kind:'recut',piece} | {kind:'sheet',batch,glass,no}
 const STATION_SESSION_KEY='glass_erp_station_session_v1';
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
@@ -81,7 +82,7 @@ function stationPinKey(k){
  if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -313,7 +314,7 @@ function stationCard(){
   unit:{cls:'st-red',head:'✕ Unit number'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   broken:{cls:'st-red',head:'✕ Broken · '+(place&&place.broken?'Recut '+esc(String(place.broken.recut).replace(/^R/,''))+' · '+esc(place.broken.reason||''):'')},
-  recut:{cls:'st-red',head:'✕ Broken · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
+  recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
   peek:{cls:'st-info',head:'Details'}
  }[c.kind]||{cls:'st-red',head:c.kind};
  if(c.kind==='ok'&&urg===2)K.cls='st-red';
@@ -324,7 +325,8 @@ function stationCard(){
  else if(['passed','skippedNo','route'].includes(c.kind))big='<div class="st-big st-red"><small>WAITING AT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(place&&place.waiting?'Take it to '+esc(place.waiting):'Shipped')+'</span></div>';
  else if(c.kind==='cancelled')big='<div class="st-big st-red"><small>ORDER</small><b>STOP</b><span>Cancelled — set aside</span></div>';
  else if(c.kind==='unit')big='<div class="st-big st-red"><small>UNIT</small><b>'+esc(c.code)+'</b><span>Scan the glass sticker</span></div>';
- else if(c.kind==='recut')big='<div class="st-big st-red"><small>NEW GLASS</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>Waits for the next batch</span></div>';
+ else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
+ else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
  else if(c.kind==='broken')big='<div class="st-big st-red"><small>BROKEN</small><b>RECUT</b><span>Glass left the route</span></div>';
  else if(c.kind==='unknown')big='<div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Check the sticker</span></div>';
  else if(place&&place.shipped)big='<div class="st-big"><small>ROUTE</small><b>DONE</b><span>Shipped</span></div>';
@@ -339,7 +341,7 @@ function stationCard(){
   (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
   (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
-  '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
+  '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationParkHTML(c)+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
   (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
     стикер (не читается или стекло режут из остатка). */
@@ -366,8 +368,8 @@ function stationJournal(){
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+(s.confirmedAt?' <span class="st-man" title="Not scanned here — confirmed at '+esc(s.confirmedAt)+'">at '+esc(s.confirmedAt)+'</span>':'')+'</td>'+
    '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
-   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
-   '<td style="text-align:right">'+(!s.broken&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
+   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':s.park?'<span class="st-parkj">Out · waits for a pair</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
+   '<td style="text-align:right">'+(!s.broken&&!s.park&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
  }).join('');
  return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>On</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -410,7 +412,7 @@ function viewStation(){
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationPairsCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
 }
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
    позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
@@ -461,7 +463,8 @@ function stationRecutCreate(reasonId){
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}
  stationDrawer=null;stationMenu=null;
  let data=null;try{data=stkGlassData('production',check.g.o,check.g.l,check.g.c,check.g.unit,{batch:check.g.entry?check.g.entry.batch.number:''});}catch(e){}
- stationLast={check:Object.assign({},check,{kind:'recut',ref:r.ref,newIds:r.newIds}),rec:null,data,place:stationPlace(check.g),at:new Date().toISOString()};
+ const parked=(r.parked||[]).map(p=>p.piece);stationParkPending=(r.parked||[]).map(p=>p.id);
+ stationLast={check:Object.assign({},check,{kind:'recut',ref:r.ref,newIds:r.whole?r.allNew:r.newIds,whole:r.whole,parked}),rec:null,data,place:stationPlace(check.g),at:new Date().toISOString()};
  stationNote='';stationBeep('error');render();return r;
 }
 function stationRecutHTML(){
@@ -473,10 +476,20 @@ function stationRecutHTML(){
  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer" role="dialog" aria-label="Recut">'+
   '<h2><span class="st-flag">RECUT</span><span class="mono">'+esc(d.piece)+'</span></h2>'+
   (g?'<div class="st-dinfo"><span class="k">Order</span><span><b>'+esc(g.o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(g.o.customerId))+'</span></span><span class="k">Line</span><span>Line '+line+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></span><span class="k">Glass</span><span><b data-raw>'+esc(g.c?g.c.glass:'')+'</b></span></div>':'')+
+  stationRecutPlanHTML(g)+
   (own.length?'<div class="st-rgroup">'+esc(stationCode)+'</div><div class="st-reasons">'+own.map(btn).join('')+'</div>':'')+
   '<div class="st-rgroup">Any station</div><div class="st-reasons">'+common.map(btn).join('')+'</div>'+
   (d.error?'<div class="st-pin-err">'+esc(d.error)+'</div>':'')+
   '<div class="st-drawer-foot"><span class="mut">New glass → next batch</span><button type="button" class="b" onclick="stationCloseDrawer()">Cancel</button></div></div>';
+}
+/* Что сделает Recut: после IGU — весь юнит; на IGU — остальные лайты сборки
+   выйдут из машины и подождут новое стекло. */
+function stationRecutPlanHTML(g){
+ if(!g||!g.c||g.c.missing)return '';
+ const plan=stationBreakPlan(g,stationCode),lite=id=>{const x=stationGlass(id);return x&&x.c?'Lite '+esc(x.c.lite)+' · <b data-raw>'+esc(x.c.glass)+'</b>':esc(id);};
+ if(plan.whole)return '<div class="st-rnote" data-recut-whole>Whole unit <b class="mono">'+esc(typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,plan.asm.unit):'')+'</b> — all '+plan.pieces.length+' glass are made again</div>';
+ if(plan.out.length)return '<div class="st-rnote" data-recut-out>'+plan.out.map(lite).join(', ')+' comes out of the machine and waits for the new glass on a dolly</div>';
+ return '';
 }
 /* Стикер одного стекла — тем же шаблоном Production, что из батча. */
 function stationPrintSticker(id){
@@ -557,12 +570,18 @@ document.addEventListener('keydown',function(e){if(tab==='station'&&stationDrawe
 function stationCarrierScan(code){
  const c=typeof carrierFind==='function'?carrierFind(code):null,now=new Date().toISOString();stationMenu=null;stationNote='';
  if(!c||!c.active){stationLast={check:{kind:'carrierBad',code},rec:null,data:null,place:null,at:now};stationBeep('error');return 'bad';}
+ /* Только что вынули стекло из машины (пара ушла в Recut) — долли для него. */
+ if(stationParkPending.length){
+  const recs=(DB.stationScan||[]).filter(s=>stationParkPending.includes(s.id)&&!s.undoneAt);stationParkPending=[];
+  if(recs.length){recs.forEach(s=>{s.on=c.code;});touch();stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
+ }
  const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
  if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
  stationSetPutOn(c.code);stationLast={check:{kind:'carrierPut',code:c.code,count:on.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
 }
 function stationCarrierCard(L){
  const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
+ if(c.kind==='carrierPark')return '<div class="st-res st-ok" data-station-result="carrierPark"><div class="st-res-h">✓ On '+esc(c.code)+' · waits for a pair'+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>SET ASIDE ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">'+c.count+' glass waits for Recut</div><div class="mut">When the new glass comes, the screen says where its pair is</div></div></div></div>';
  if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
@@ -627,19 +646,43 @@ function stationShowQuestion(){
  }
  render();return false;
 }
-/* На точке слияния — состав изделия; после неё — сколько стёкол ушло одним сканом. */
+/* На IGU — сборка юнита: что в ней уже есть и где взять недостающее; после
+   IGU — сколько стёкол ушло одним сканом. */
 function stationUnitHTML(L){
  const c=L.check,g=c.g;let out='';
  if(L.mates&&L.mates.length)out+='<div class="st-unitnote">Unit moved: '+(L.mates.length+1)+' glass'+(c.unitCode?' · '+esc(c.unitCode):'')+'</div>';
  const st=g&&['ok','hold','already','peek'].includes(c.kind)?stationUnitStatus(g,stationCode):null;
  if(st&&st.lites.length>1){
-  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit '+st.n+' of '+st.of)+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
-   st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span><span class="'+(x.here?'ok':x.broken?'bad':'wait')+'">'+(x.here?'✓ here':x.broken?'broken':'waiting at '+esc(x.waiting||'—'))+'</span></div>').join('')+
+  const row=x=>x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>';
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+   st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span>'+row(x)+'</div>').join('')+
    (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">Print unit sticker</button>':'')+'</div>';
  }
  return out;
 }
 function stationPrintUnit(code){
- const g=stationGlass(code);if(!g||typeof g.unit!=='number'||typeof stkPrint!=='function')return false;
- return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:g.unit}],stkPrefSize()));
+ const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
+ if(!a||!a.unit||typeof stkPrint!=='function')return false;
+ return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit}],stkPrefSize()));
+}
+/* Recut на IGU: остальные лайты сборки вынули из машины — положить на долли. */
+function stationParkHTML(c){
+ if(c.kind!=='recut'||!c.parked||!c.parked.length)return '';
+ const list=c.parked.map(id=>{const g=stationGlass(id);return g&&g.c?'Lite '+esc(g.c.lite)+' · <b data-raw>'+esc(g.c.glass)+'</b>':esc(id);}).join(', ');
+ const on=(DB.stationScan||[]).filter(s=>s.park&&!s.undoneAt&&c.parked.includes(s.piece)).map(s=>s.on).filter(Boolean);
+ return '<div class="st-park" data-station-park>Out of the machine: '+list+(on.length?' · on <b>'+esc(on[0])+'</b>':' · <b>scan the dolly it waits on</b>')+'</div>';
+}
+/* Стёкла, вынутые из сборки: ждут пару из Recut. Новое стекло приедет —
+   скан покажет, на какой долли его пара. */
+function stationPairsCard(){
+ const list=stationParked((h,s)=>s.station===stationCode);if(!list.length)return '';
+ const rows=list.map(x=>{
+  const g=stationGlass(x.id);if(!g)return '';
+  const r=(DB.recut||[]).find(y=>y.orderId===g.o.id&&'R'+y.no===x.rec.recut),need=r?glassBatchComponents(g.o,g.l).filter(c=>(r.keys||[]).includes(c.key)):[];
+  const fresh=r?(r.keys||[]).flatMap(k=>{const p=(DB.glassPiece||[]).find(q=>q.key===k);return p&&p.extra&&p.extra[x.rec.recut]?p.extra[x.rec.recut].filter(Boolean):[];}):[];
+  const f=fresh[0]?stationGlass(fresh[0]):null,fp=f?stationPlace(f):null,where=!f?'':!f.entry&&!stationScansFor(f.id).length?'To batch':fp&&fp.waiting?'at '+fp.waiting:'';
+  return '<tr'+(stationUrgency(g.o)===2?' class="st-hot"':'')+'><td><b>'+esc(g.o.businessNumber||'')+'</b></td><td>Line '+((g.o.lines||[]).indexOf(g.l)+1)+' · <b>'+esc(frac16(g.l.width16/16)+' × '+frac16(g.l.height16/16))+'</b></td><td data-raw>Lite '+esc(g.c.lite)+' · '+esc(g.c.glass)+'</td><td>'+(x.rec.on?'<b class="st-on">'+esc(x.rec.on)+'</b>':'<span class="mut">—</span>')+'</td>'+
+   '<td class="mut">'+(need.length?'needs '+need.map(c=>esc(c.glass)).join(', '):'')+(r?' · Recut '+r.no+(where?' '+esc(where):''):'')+'</td></tr>';
+ }).join('');
+ return '<div class="card" data-station-pairs><div class="st-sec"><h3>Waiting for a pair</h3><span class="pill warn">'+list.length+'</span></div><table><thead><tr><th>Order</th><th>Line</th><th>Glass</th><th>On</th><th>Pair</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }

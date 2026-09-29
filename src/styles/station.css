@@ -205,6 +205,12 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* IGU: пара для Recut */
+.st-park{margin-top:10px;border:1px dashed #e0b25e;border-radius:10px;padding:8px 12px;background:#fffdf7;color:#8a5a0f;font-size:15px}
+.st-park b{color:#8a5a0f}
+.st-parkj{color:#8a5a0f;font-weight:600}
+.st-unit-r .take{color:#8a5a0f;font-weight:700}
+.st-rnote{margin:4px 0 8px;border-radius:9px;padding:8px 12px;background:var(--amber2);color:#8a5a0f;font-size:14px}
 /* Батч и стёкла над листом */
 .st-batchbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 10px}
 .st-batchbar label{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--mut)}
