@@ -29,7 +29,7 @@ module.exports=async function({page,eq,ok}){
   return {first,route:place.route,waiting:place.waiting,cut:!!item.cutStartedAt,otherCut:!!other.cutStartedAt,line:!!salesRecord(id).lines[0].cutStartedAt,
    again,scans:DB.stationScan.length,digits:digits.code===x&&digits.kind,unit,unknown,junk,rec:Object.keys(DB.stationScan[0]).sort().join(','),by:DB.stationScan[0].by,id:DB.stationScan[0].id};
  }),{first:{kind:'ok',rec:true},route:['CUT','EDGE','HEAT','SHIPR','SHIP'],waiting:'EDGE',cut:true,otherCut:false,line:true,
-  again:{kind:'already',rec:false},scans:1,digits:'ok',unit:'unit',unknown:'unknown',junk:'unknown',rec:'at,by,byId,id,manual,piece,station,undoneAt,undoneBy',by:'Ivan P.',id:'SC-0000001'});
+  again:{kind:'already',rec:false},scans:1,digits:'ok',unit:'unknown',unknown:'unknown',junk:'unknown',rec:'at,by,byId,id,manual,piece,station,undoneAt,undoneBy',by:'Ivan P.',id:'SC-0000001'});
 
  eq('номер юнита на станции — «Unit number»: сканировать стикер стекла',await t.p.evaluate(()=>{
   stReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'verified');const u=DB.glassUnitId[0].ids[0];

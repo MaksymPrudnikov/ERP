@@ -152,6 +152,22 @@ tr.st-hot td{background:#fff7f7}
 .st-qafter{font-size:15px;line-height:1.7}
 .st-qchange{color:#8a5a0f;font-weight:700}
 .gb-cutq .sm{padding:1px 6px;margin-left:2px}
+/* Пропущенная станция и юнит */
+.st-big.st-ask{background:var(--amber2);border-color:#f0d49b}
+.st-big.st-ask small,.st-big.st-ask span{color:#8a5a0f}.st-big.st-ask b{color:#8a5a0f;font-size:40px}
+.st-works{margin-top:10px;border:1px dashed #e0b25e;border-radius:10px;padding:8px 12px;background:#fffdf7;font-size:15px}
+.st-works div{display:flex;gap:8px;align-items:center;margin:2px 0}
+.st-works i{font-style:normal;font-weight:800;font-size:12px;background:var(--amber2);color:#8a5a0f;border-radius:5px;padding:1px 6px}
+.b.st-yes{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
+.st-ask-chip{font:inherit;cursor:pointer;background:var(--amber2);color:#8a5a0f;border-color:#f0d49b}
+.st-ask-chip b{color:#8a5a0f}
+.st-unitnote{margin-top:8px;font-weight:700;color:#1f5f82}
+.st-unit{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--panel2)}
+.st-unit.done{border-color:#b9dfc9;background:var(--green2)}
+.st-unit-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.st-unit-r{display:flex;justify-content:space-between;font-size:14px;padding:2px 0}
+.st-unit-r .ok{color:var(--green);font-weight:700}.st-unit-r .wait{color:var(--mut)}.st-unit-r .bad{color:var(--red);font-weight:700}
+.st-unit .b{margin-top:8px}
 /* Долли и скиды */
 .st-puton{background:#fff;color:#12232e}
 .st-puton b{color:#12232e;font-size:15px}
@@ -189,6 +205,27 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Батч и стёкла над листом */
+.st-batchbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:-2px 0 10px}
+.st-batchbar label{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--mut)}
+.st-batchbar select{font:inherit;font-size:16px;font-weight:700;color:var(--text);padding:8px 10px;min-height:42px;border-radius:9px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.st-gbtn{font:inherit;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:42px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:3px 12px;cursor:pointer;line-height:1.25}
+.st-gbtn span{font-size:11px;color:var(--mut)}
+.st-gbtn.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(47,125,168,.18)}
+.st-gbtn.done{opacity:.6}
+.st-gbtn.st-gmiss{cursor:default;border-style:dashed;background:var(--amber2)}.st-gbtn.st-gmiss span{color:var(--amber)}
+.st-gbtn.st-gview{background:var(--blue2);border-color:#bddbea}.st-gbtn.st-gview b{color:#1f5f82}
+.st-drawer.st-drawer-wide{width:min(1100px,100%)}
+.st-bgroup{margin-top:14px}
+.st-bgh{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:16px}
+.st-bsheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.st-drawer h2 .st-bnum{font-size:22px}
+.st-bsheet{font:inherit;text-align:left;border:1px solid var(--line);border-radius:10px;background:#fff;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.st-bsheet:hover{border-color:var(--blue)}
+.st-bsheet.done{opacity:.55}
+.st-sheet-mini{display:block;width:100%;height:auto}
+.st-bsheet-t{display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap}
+.st-noplan{min-height:160px;display:grid;place-content:center;text-align:center;gap:4px}
 /* Планшет стоя и узкие экраны: колонки друг под другом. */
 @media (max-width:900px){
  .st-body{grid-template-columns:minmax(0,1fr)}
