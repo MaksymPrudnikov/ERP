@@ -205,6 +205,24 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Чертежи */
+.st-left{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.st-drawthumb{font:inherit;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px;cursor:pointer}
+.st-drawthumb:hover{border-color:var(--blue)}
+.st-drawthumb-paper{position:relative;display:block;width:187px;height:242px;overflow:hidden;background:#fff}
+.st-drawthumb-sheet{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.22);transform-origin:0 0;pointer-events:none}
+.st-drawthumb-sheet .print-sheet{height:100%}
+.st-drawthumb-t{font-weight:700;color:#1f5f82;font-size:13px}
+.st-drawer.st-drawer-draw{left:0;width:auto;padding:14px 20px;gap:8px}
+.st-draw-h{display:flex;align-items:center;gap:12px}.st-draw-h h2{margin:0;font-size:20px;display:flex;gap:8px;align-items:baseline}
+.st-draw-find{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:#fff}
+.st-draw-find input{border:0;outline:0;font:inherit;font-size:15px;width:230px}
+.st-draw-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:18px;overflow:auto}
+.st-draw-film{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.st-draw-chip{font:inherit;flex:none;display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:9px;background:#fff;padding:4px 12px;cursor:pointer;line-height:1.3}
+.st-draw-chip span{font-size:12px;color:var(--mut)}.st-draw-chip.on{border-color:var(--blue);background:var(--blue2)}
+.st-draw-orders{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
+.st-draw-foot{text-align:center;font-size:13px}
 /* Waiting here: стикер не читается */
 .st-here-row{cursor:pointer}.st-here-row:hover td{background:#f4f8fb}.st-here-row.open td{background:var(--blue2)}
 .st-here-acts td{background:var(--blue2);padding-top:4px;padding-bottom:10px}
