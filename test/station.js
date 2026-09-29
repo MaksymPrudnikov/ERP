@@ -117,7 +117,7 @@ module.exports=async function({page,eq,ok}){
  })(),{login:{names:['OKOleg K.'],app:true},wrong:true,card:{who:'Oleg K.',kind:'ok',next:'EDGE',gid:true,rows:1,cut:1,focus:true},
   end:{note:'Sheet 1 done · batch B-0001 cut',tile:'st-tile done now',manual:2,chip:true,ru:false}});
 
- eq('нажатие на стекло листа: Mark cut пишет скан с пометкой hand; Details — без записи',await t.p.evaluate(()=>{
+ eq('нажатие на стекло листа: Mark cut пишет скан с пометкой hand; Recut и стикер — из того же меню; Details — без записи',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,2]]);stBatch(id);cutPlanRun('B-0001');const [a,x]=cutPlanFor('B-0001').groups[0].sheets[0].pieces.map(p=>p.piece);
   stationCode='CUT';tab='station';stationSheetView={batch:'B-0001',glass:'6CLEAR',no:1};render();
   document.querySelector(`[data-station-piece="${x}"] rect`).dispatchEvent(new MouseEvent('click',{bubbles:true}));
@@ -126,7 +126,7 @@ module.exports=async function({page,eq,ok}){
   stationPeek(a);const peek=document.querySelector('[data-station-result]').dataset.stationResult;
   stationSwitch();tab='dashboard';render();
   return {menu,marked:marked.join(),peek,scans:DB.stationScan.length};
- }),await t.p.evaluate(()=>({menu:['✓ Mark cut','Details'],marked:cutPlanFor('B-0001').groups[0].sheets[0].pieces[1].piece+':true',peek:'peek',scans:1})));
+ }),await t.p.evaluate(()=>({menu:['✓ Mark cut','✕ Broken — recut','Reprint sticker','Details'],marked:cutPlanFor('B-0001').groups[0].sheets[0].pieces[1].piece+':true',peek:'peek',scans:1})));
 
  eq('офис: Production → In production — строка на заказ, Critical первым, в раскрытии позиция → стекло → сколько где; плитка станции — фильтр; у батча колонка Cut',await t.p.evaluate(()=>{
   stReset();const c=oqCustomer({legalName:'North Shore Windows'});const id=oqOrder(c,{dueDate:'2026-10-06'});soDraft=null;soEdit=null;
@@ -180,6 +180,71 @@ module.exports=async function({page,eq,ok}){
   storageLiveReload('{broken');tab='dashboard';render();
   return {scans,cut,typing,kept:DB.stationScan.length};
  }),{scans:1,cut:true,typing:true,kept:1});
+
+ eq('Recut со станции: Recut в заказе (где, причина, 1 шт), новое стекло ждёт батча и принимается на CUT как рез из стока; разбитое — вне маршрута, Undo и повтор закрыты',await t.p.evaluate(()=>{
+  stReset();const id=stOrder([[36,24,3]]);const b=stBatch(id);const [a,x]=stIds(id);stScan('CUT',a);
+  const broke=ncrReasonsFor('CUT',{activeOnly:true}).find(r=>r.name==='Broke');
+  const r=stationBreak('CUT',stationCheck('CUT',a),stWho,broke.id),rc=DB.recut[0],newId=r.newIds[0],nc=stationCheck('CUT',newId);
+  const rx=stationBreak('CUT',stationCheck('CUT',x),stWho,broke.id),xItem=b.items.find(i=>i.piece===x);
+  return {ok:r.ok,ref:r.ref,recut:[rc.where,rc.reason,rc.qty,rc.lineId===salesRecord(id).lines[0].id].join('|'),broken:stationPlace(stationGlass(a)).broken.recut,check:stationCheck('CUT',a).kind,
+   newKind:nc.kind,newStock:nc.stock,newWaiting:stationPlace(stationGlass(newId)).waiting,undo:stationUndo(DB.stationScan.find(s=>s.broken).id,stWho).error,
+   again:stationBreak('CUT',stationCheck('CUT',a),stWho,broke.id).error,xRef:rx.ref,xCut:!!xItem.cutStartedAt,recuts:DB.recut.length,
+   where:[...stationWaiting()].map(([k,v])=>k+':'+v.length).join()};
+ }),{ok:true,ref:'R1',recut:'CUT|Broke|1|true',broken:'R1',check:'broken',newKind:'ok',newStock:true,newWaiting:'CUT',undo:'Recut is in the order — change it there.',
+  again:'Scan the broken glass first.',xRef:'R2',xCut:true,recuts:2,where:'CUT:1'});
+
+ eq('Recut на EDGE у стеклопакета — только разбитый лайт; табло: разбитое не считается, новое стекло — в To batch',await t.p.evaluate(()=>{
+  stReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');stBatch(id);
+  const o=salesRecord(id),l=o.lines[1],cs=glassBatchComponents(o,l),lite2=glassPieceMap(id).get(cs[1].key).ids[0];
+  stScan('CUT',lite2);const chip=ncrReasonsFor('EDGE',{activeOnly:true}).find(r=>r.name==='Chipped');
+  const r=stationBreak('EDGE',stationCheck('EDGE',lite2),stWho,chip.id),rc=DB.recut[0];
+  tab='production';subtab='orders';prodOpen=new Set();const p=salesListLoadPrefs();p.filters={};render();
+  const heads=[...document.querySelectorAll('.pb-table thead th')].map(th=>th.textContent.trim()),tr=document.querySelector(`[data-prod-order="${id}"]`),cell=h=>tr.children[heads.indexOf(h)].textContent.trim();
+  const out={where:rc.where,keys:rc.keys.length,lite:rc.lite,shipped:cell('Shipped'),queue:cell('To batch'),cut:cell('CUT')};tab='dashboard';render();return out;
+ }),{where:'EDGE',keys:1,lite:'Lite 2 · 6CLEAR',shipped:'0 / 6',queue:'1',cut:'5'});
+
+ eq('экран: Recut с карточки — окно причин (CUT и общие), одно нажатие, карточка «Recut 1 created», стикер нового стекла; журнал — «✕ Recut 1» без Undo; Sheet broke пишет потерю листа',await (async()=>{
+  const r=await t.p.evaluate(()=>{
+   window.print=()=>{window.stPrinted=(window.stPrinted||0)+1;};
+   stReset();const id=stOrder([[36,24,2],[20,30,1]]);stBatch(id);cutPlanRun('B-0001');
+   DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();
+   stationCode='CUT';tab='station';stationTab='scan';stationDrawer=null;stationLogin(DB.user[DB.user.length-1].viewProfileId);
+   const [a]=cutPlanFor('B-0001').groups[0].sheets[0].pieces.map(p=>p.piece);stationSubmit(a);
+   document.querySelector('[data-station-recut]').click();
+   const reasons=[...document.querySelectorAll('[data-recut-reason]')].map(b=>b.textContent);
+   [...document.querySelectorAll('[data-recut-reason]')].find(b=>b.textContent==='Wrong size').click();
+   const card={kind:document.querySelector('[data-station-result]').dataset.stationResult,head:document.querySelector('.st-res-h').firstChild.textContent,newId:stationLast.check.newIds[0]===DB.glassPiece.flatMap(r=>Object.values(r.extra||{})).flat()[0]};
+   document.querySelector('[data-station-sticker]').click();
+   const journal=document.querySelector('.st-journal tbody tr').innerText,undoOnBroken=!!document.querySelector('.st-journal tbody tr button');
+   stationOpenSheetBreak();document.querySelector('[data-sheet-break-save]').click();
+   const sb=DB.sheetBreak.map(x=>x.batch+':'+x.glass+':'+x.sheet+':'+x.by).join(),pill=document.querySelector('[data-sheet-breaks]').textContent;
+   let err='';try{prepareImportedState(Object.assign(JSON.parse(JSON.stringify(DB)),{sheetBreak:{}}));}catch(e){err=e.message;}
+   stationSwitch();tab='dashboard';render();
+   return {reasons,card,printed:window.stPrinted,journal:/✕ Recut 1/.test(journal),undoOnBroken,sb,pill,err,where:DB.recut[0].where+'|'+DB.recut[0].reason};
+  });
+  return r;
+ })(),{reasons:['Wrong size','Wrong glass','Shape cut wrong','Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],card:{kind:'recut',head:'✕ Broken · Recut 1 created',newId:true},printed:1,journal:true,undoOnBroken:false,
+  sb:'B-0001:6CLEAR:1:Ivan P.',pill:'broke 1×',err:'The "sheetBreak" field must be an array.',where:'CUT|Wrong size'});
+
+ eq('очередь резки: порядок задаёт офис (▲▼ в Batches), Queue на CUT — батчи по порядку, листы к столу, Recut в ожидании; порезанный батч уходит из очереди',await t.p.evaluate(()=>{
+  stReset();['B','C','D'].forEach(()=>{const id=stOrder([[36,24,2]]);stBatch(id);});['B-0001','B-0002','B-0003'].forEach(n=>cutPlanRun(n));
+  const first=glassBatchCutQueue().map(b=>b.number).join();
+  glassBatchCutMove('B-0003',-1);glassBatchCutMove('B-0003',-1);const edge=glassBatchCutMove('B-0003',-1);
+  tab='optimization';optimizationSetTab('production');glassBatchOpenNumber='';render();
+  const cells=[...document.querySelectorAll('[data-batch-queue]')].map(td=>td.dataset.batchQueue+':'+td.querySelector('b').textContent).sort().join();
+  document.querySelector('[data-batch-queue="B-0002"] button[title="Cut later"]').click();
+  const after=glassBatchCutQueue().map(b=>b.number).join();
+  DB.glassBatch.find(b=>b.number==='B-0001').items.forEach(i=>stScan('CUT',i.piece));
+  const [p]=DB.glassBatch.find(b=>b.number==='B-0002').items;stationBreak('CUT',stationCheck('CUT',p.piece),stWho,ncrReasonsFor('CUT',{activeOnly:true})[0].id);
+  const q=stationQueueData();
+  DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();
+  stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);document.querySelector('[data-station-tab="queue"]').click();
+  const shown=[...document.querySelectorAll('[data-queue-batch]')].map(x=>x.dataset.queueBatch).join(),topScan=!!document.querySelector('.st-top [data-station-scan]');
+  stationSwitch();tab='dashboard';render();
+  return {first,edge,cells,after,queue:q.cards.map(c=>c.b.number+':'+c.left).join(),bring:q.bring.map(x=>x.glass+' '+x.label+' '+x.n).join(),recuts:q.recuts.map(x=>x.n).join(),shown,topScan};
+ }),{first:'B-0001,B-0002,B-0003',edge:false,cells:'B-0001:2,B-0002:3,B-0003:1',after:'B-0003,B-0001,B-0002',queue:'B-0003:2,B-0002:1',bring:'6CLEAR 144 × 96 2',recuts:'1',shown:'B-0003,B-0002',topScan:true});
+
+ ok('корень сайта сохраняет окончание адреса: …/ERP/#station=CUT открывает экран станции',/location\.replace\('dist\/GLASS_ERP\.html'\+location\.search\+location\.hash\)/.test(require('fs').readFileSync(require('path').join(__dirname,'..','index.html'),'utf8')));
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
