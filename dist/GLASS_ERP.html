@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 95 модулей, 15 стиля.
+  Состав сборки: 97 модулей, 15 стиля.
 -->
 <html lang="en">
 <head>
@@ -2169,6 +2169,21 @@ tr.st-hot td{background:#fff7f7}
 .st-qafter{font-size:15px;line-height:1.7}
 .st-qchange{color:#8a5a0f;font-weight:700}
 .gb-cutq .sm{padding:1px 6px;margin-left:2px}
+/* Долли и скиды */
+.st-puton{background:#fff;color:#12232e}
+.st-puton b{color:#12232e;font-size:15px}
+.st-puton button{font:inherit;border:0;background:none;color:#6c7a86;padding:0 0 0 4px;cursor:pointer}
+.st-on{display:inline-block;font-weight:800;font-size:12px;border-radius:6px;padding:1px 6px;background:#12232e;color:#fff}
+.st-big.st-dark{background:#12232e;border-color:#12232e}
+.st-big.st-dark small{color:#8fb4c9}.st-big.st-dark b{color:#fff}.st-big.st-dark span{color:#cfe0e8}
+.st-dl{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line2);font-size:14px;cursor:default}
+.st-dl[data-station-incoming]{cursor:pointer}
+.st-dl:last-child{border-bottom:0}
+.st-dl.now{background:var(--blue2);border-radius:8px}
+.st-dl.hot{background:#fff7f7;border-radius:8px}
+.st-dchip{font-weight:800;font-size:14px;border-radius:8px;padding:4px 0;text-align:center;background:#12232e;color:#fff}
+.st-dchip.skid{background:#5c6a75}
+tr.st-top1 td{background:var(--blue2);font-weight:600}
 /* Офис: Production → In production (view/production-board) */
 .pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
 .pb-tile{font:inherit;flex:1;min-width:78px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
@@ -2222,7 +2237,7 @@ tr.st-hot td{background:#fff7f7}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='36d811b20068';
+var ERP_BUILD='871e4eb522d0';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20386,6 +20401,7 @@ const MD_TABS=[
  {k:'company',   label:'Company'},
  {k:'stickers',  label:'Stickers'},
  {k:'cutting',   label:'Cutting'},
+ {k:'carriers',  label:'Dollies & Skids'},
  {k:'ncr',       label:'NCR'},
  {k:'overview',  label:'Data overview'}
 ];
@@ -20441,7 +20457,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }
@@ -27359,7 +27375,8 @@ function validateRecutPayload(src){
    Журнал сканов станций и «где стекло ждёт».
    IN : DB.glassPiece · DB.glassBatch · маршрут стекла (stkRoute)
    OUT: DB.stationScan — {id, at, piece, station, by, byId, manual,
-        undoneAt, undoneBy[, broken, recut, reason]} · DB.sheetBreak
+        undoneAt, undoneBy[, on, broken, recut, reason]} · DB.sheetBreak
+   on — долли или скид, на которую положили стекло (erp/shopfloor/carriers).
    Правило: место стекла НЕ хранится, а считается: последний скан +
    маршрут = станция, на которой стекло ждёт. Так было и в Spil —
    «с батча попало на рез и находится в ожидании на следующей станции»
@@ -27450,6 +27467,7 @@ function stationPlace(g,scans){
 function stationCheck(station,raw){
  const code=stationCodeOf(raw);
  if(!code)return null;
+ if(typeof carrierType==='function'&&carrierType(code))return {kind:'carrier',code};
  if(typeof unitIdValid==='function'&&unitIdValid(code))return {kind:'unit',code};
  if(!glassPieceValid(code))return {kind:'unknown',code};
  const g=stationGlass(code);
@@ -27473,6 +27491,7 @@ function stationRecord(station,check,who,opts){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const now=opts.now||new Date().toISOString();
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  DB.stationScan.push(rec);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -27530,6 +27549,7 @@ function normalizeStationScans(){
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
+   ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
  let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
  DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
@@ -27611,6 +27631,81 @@ window.addEventListener('storage',function(e){
  if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
  storageLiveReload(e.newValue);
 });
+/* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
+   сразу). Скан остаётся, пропадает только тара. */
+function stationScanOff(id){
+ const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
+ delete rec.on;touch();return true;
+}
+
+/* ==== src/erp/shopfloor/carriers.js ==== */
+/* =====================================================================
+   erp/shopfloor/carriers  ·  carriers-1.0
+   Долли и скиды: тара, на которой стекло едет между станциями.
+   IN : DB.stationScan (поле on у скана)
+   OUT: DB.carrier {code, note, active}
+   Владелец, 29 сентября 2026:
+   - «нужно L A shape dolly & skids… если мне нужно срочно найти, система
+     скажет L-34, и я знаю, какой формы искать»; скиды тоже бывают L и A →
+     четыре типа, код говорит оба признака: DL, DA, SL, SA;
+   - «сначала скан скида или долли и потом то, что на ней»;
+   - «иногда 2 долли свободно, иногда 3 — решает человек»: система не
+     назначает тару, она записывает, на что положили.
+   Префикс S- занят остатками стока (S-0000001) — у скидов вторая буква
+   формы, спутать нельзя.
+   Где стекло физически: последний скан стекла с полем on — оно лежит на этой
+   таре, пока его не отсканируют снова.
+   ===================================================================== */
+DEFAULT.carrier=[];
+const CARRIER_TYPES=[
+ {k:'DL',kind:'Dolly',shape:'L',label:'L-shape dolly'},
+ {k:'DA',kind:'Dolly',shape:'A',label:'A-shape dolly'},
+ {k:'SL',kind:'Skid',shape:'L',label:'L-shape skid'},
+ {k:'SA',kind:'Skid',shape:'A',label:'A-shape skid'}
+];
+const CARRIER_RE=/^(DL|DA|SL|SA)-([1-9]\d{0,4})$/;
+function carrierCode(v){return String(v==null?'':v).trim().toUpperCase().replace(/\s+/g,'');}
+function carrierType(code){const m=CARRIER_RE.exec(carrierCode(code));return m?CARRIER_TYPES.find(t=>t.k===m[1]):null;}
+function carrierFind(code){const c=carrierCode(code);return (DB.carrier||[]).find(x=>x.code===c)||null;}
+/* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1… */
+function carrierAdd(prefix,count,opts){
+ opts=opts||{};const t=CARRIER_TYPES.find(x=>x.k===prefix);if(!t)return {error:'Unknown type.'};
+ const n=Math.max(1,Math.min(50,Math.floor(+count)||1));if(!Array.isArray(DB.carrier))DB.carrier=[];
+ let top=DB.carrier.reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
+ const made=[];for(let i=0;i<n;i++){const code=prefix+'-'+(++top);DB.carrier.push({code,note:'',active:true});made.push(code);}
+ if(!opts.deferTouch)touch();return {codes:made};
+}
+function carrierSet(code,field,value){
+ const c=carrierFind(code);if(!c)return false;
+ if(field==='active')c.active=!!value;else if(field==='note')c.note=String(value==null?'':value).slice(0,80);else return false;
+ touch();return true;
+}
+/* Что сейчас на таре: стекло, чей последний скан положил его на неё, и
+   которое с тех пор не сканировали, не разбили и не отгрузили. */
+function carrierContents(){
+ const last=new Map(),out=new Map();
+ (DB.stationScan||[]).forEach(s=>{if(!s.undoneAt)last.set(s.piece,s);});
+ const index=stationPieceIndex(),batches=stationBatchIndex();
+ last.forEach((s,piece)=>{
+  if(!s.on||s.broken)return;
+  const g=stationGlass(piece,index,batches);if(!g)return;
+  const place=stationPlace(g);if(place.broken||place.shipped)return;
+  if(!out.has(s.on))out.set(s.on,[]);
+  out.get(s.on).push({id:piece,g,place,scan:s});
+ });
+ /* Стопка: сверху — положенное последним. */
+ out.forEach(list=>list.sort((a,b)=>String(b.scan.at).localeCompare(String(a.scan.at))||b.scan.id.localeCompare(a.scan.id)));
+ return out;
+}
+function normalizeCarriers(){
+ if(!Array.isArray(DB.carrier))DB.carrier=[];
+ const seen=new Set();
+ DB.carrier=DB.carrier.filter(c=>c&&typeof c==='object'&&CARRIER_RE.test(carrierCode(c.code))&&!seen.has(carrierCode(c.code))&&(seen.add(carrierCode(c.code)),true))
+  .map(c=>({code:carrierCode(c.code),note:String(c.note==null?'':c.note).slice(0,80),active:c.active!==false}));
+}
+function validateCarrierPayload(src){
+ if(src&&Object.prototype.hasOwnProperty.call(src,'carrier')&&!Array.isArray(src.carrier))throw new Error('The "carrier" field must be an array.');
+}
 
 /* ==== src/erp/views/ncr-ui.js ==== */
 /* =====================================================================
@@ -29311,6 +29406,7 @@ let stationMenu=null;      // меню стекла на листе: {piece, x, 
 let stationLoginPick='';   // выбранный на входе рабочий (viewProfileId)
 let stationPin='',stationPinError=false;
 let stationTab='scan';      // CUT: scan | queue
+let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationDrawer=null;    // окно по нажатию рабочего: {kind:'recut',piece} | {kind:'sheet',batch,glass,no}
 const STATION_SESSION_KEY='glass_erp_station_session_v1';
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
@@ -29339,6 +29435,11 @@ function stationWho(){
  const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);
  return u?{id:u.viewProfileId,name:u.name}:null;
 }
+/* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
+   и вход: живёт в сессии этого браузера. */
+function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
+function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
+function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationUsers(){
  const skill=STATION_SKILL[stationCode],own=(DB.user||[]).filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
  return (own.length?own:(DB.user||[])).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
@@ -29361,7 +29462,7 @@ function stationPinKey(k){
  if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -29382,7 +29483,8 @@ function stationSubmit(raw){
  const check=stationCheck(stationCode,raw);if(!check)return false;
  /* Скан не ждёт окна: следующий стикер закрывает открытое окно. */
  stationDrawer=null;stationTab='scan';
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim())}):null;
+ if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
+ const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim()),on:stationPutOn()}):null;
  stationShow(check,rec);
  render();
  return check.kind;
@@ -29467,7 +29569,7 @@ function stationSheetClick(ev){
 function stationMark(piece){
  const who=stationWho();if(!who)return;
  const check=stationCheck(stationCode,piece);if(!check)return;
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true}):null;
+ const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
  stationShow(check,rec);render();
 }
 function stationPeek(piece){
@@ -29509,6 +29611,7 @@ function stationTime(iso){const d=new Date(iso);return Number.isNaN(d.getTime())
 function stationCard(){
  const L=stationLast;
  if(!L)return '<div class="st-res st-idle"><div class="mut">Ready for the first scan</div></div>';
+ if(/^carrier/.test(L.check.kind))return stationCarrierCard(L);
  const c=L.check,d=L.data,g=c.g,o=g&&g.o,urg=stationUrgency(o),place=L.place;
  const verb=stationCode===stationCutCode()?'Cut':'Done';
  const who=c.here?stationTime(c.here.at)+' · '+(c.here.by||'—'):'';
@@ -29548,6 +29651,7 @@ function stationCard(){
   (d?'<span class="k">Glass</span><span><b data-raw>'+esc(d.glass.code||d.glass.name)+'</b>'+(d.glass.heat?' · '+esc(d.glass.heat):'')+'</span>':'')+
   (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
+  (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
   '</div>'+stationRouteChips(place&&place.route,place)+
   (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
@@ -29555,6 +29659,7 @@ function stationCard(){
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
  const stickerFor=c.kind==='recut'?(c.newIds||[])[0]:g?c.code:'';
  const acts=(L.rec||canRecut||stickerFor)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
+  (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
   (stickerFor?'<button type="button" class="b" data-station-sticker onclick="stationPrintSticker(\''+esc(stickerFor)+'\')">'+(c.kind==='recut'?'Print new sticker':'Sticker')+'</button>':'')+'</div>':'';
  return '<div class="st-res '+K.cls+'" data-station-result="'+esc(c.kind)+'">'+(bar||'<div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div>')+
@@ -29572,15 +29677,15 @@ function stationJournal(){
   const g=stationGlass(s.piece,index,batches),snap=g&&g.entry&&g.entry.part?g.entry.part.snapshot:null,place=g?stationPlace(g):null;
   return '<tr'+(g&&stationUrgency(g.o)===2?' class="st-hot"':'')+'><td class="mut">'+esc(stationTime(s.at))+'</td><td class="mono"><b>'+esc(s.piece)+'</b>'+(s.manual?' <span class="st-man" title="Marked by hand">hand</span>':'')+'</td>'+
    '<td>'+esc(g?g.o.businessNumber||'':'')+'</td><td>'+esc(g&&snap?'Line '+snap.line:'')+'</td>'+
-   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
+   '<td class="st-to">'+(s.broken?'<span class="st-brk">✕ Recut '+esc(String(s.recut).replace(/^R/,''))+'</span>':place&&place.waiting?'→ '+esc(place.waiting):place&&place.shipped?'✓':'')+'</td><td>'+(s.on?'<b class="st-on">'+esc(s.on)+'</b>':'<span class="mut">—</span>')+'</td><td class="mut" data-raw>'+esc(s.by)+'</td>'+
    '<td style="text-align:right">'+(!s.broken&&lastOf.get(s.piece)===s?'<button type="button" class="b sm" onclick="stationUndoClick(\''+esc(s.id)+'\')">Undo</button>':'')+'</td></tr>';
  }).join('');
- return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
+ return '<div class="card st-journal"><div class="st-sec"><h3>Last scans</h3></div><table><thead><tr><th>Time</th><th>Glass</th><th>Order</th><th>Line</th><th>Next</th><th>On</th><th>By</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 
 /* ------------------------------ Экран -------------------------------- */
 function stationBatchChip(){
- const b=stationSheetView?glassBatchFind(stationSheetView.batch):null;if(!b)return '';
+ const b=stationCode===stationCutCode()&&stationSheetView?glassBatchFind(stationSheetView.batch):null;if(!b)return '';
  const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length;
  return '<div class="st-chip">Batch <b class="mono">'+esc(b.number)+'</b> · <b>'+cut+'</b> / '+live.length+' cut</div>';
 }
@@ -29589,6 +29694,7 @@ function stationTop(who){
  const tabs=who&&stationCode===stationCutCode()?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
   (stationTab==='queue'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
+  (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton>Putting on <b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
   '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
 }
@@ -29613,7 +29719,7 @@ function viewStation(){
  return stationTop(who)+'<div class="st-body"><div class="st-col">'+
   '<label class="st-scan"><span class="st-scan-ico">'+ico('scan')+'</span><span class="st-scan-lab"><b>SCAN BARCODE</b><input data-station-scan autocomplete="off" spellcheck="false" placeholder="Glass sticker or number" onkeydown="stationKey(event,this)"></span><span class="st-ready"><i></i>Ready</span></label>'+
   stationCard()+(stationNote?'<div class="st-note">'+esc(stationNote)+'</div>':'')+stationJournal()+
-  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard():stationHereCard())+'</div></div>'+drawer;
+  '</div><div class="st-col">'+(stationCode===stationCutCode()?stationSheetCard()+stationCarriersCard():stationStackCard()+stationCarriersCard()+stationHereCard())+'</div></div>'+drawer;
 }
 /* На станциях после резки листа нет — справа то, что ждёт здесь: заказ →
    позиция → стекло и сколько штук. Номера стёкол человеку ничего не говорят
@@ -29750,6 +29856,56 @@ function stationQueueView(){
 }
 document.addEventListener('keydown',function(e){if(tab==='station'&&stationDrawer&&e.key==='Escape'){stationDrawer=null;render();}});
 
+/* ---------------------------- Долли и скиды ---------------------------- */
+/* Скан тары. Привезла стекло на эту станцию — это «приехала»: справа её
+   стопка сверху вниз (последнее положенное — сверху). Пустая или со стеклом
+   для других станций — на неё кладут: дальше каждое стекло ложится на неё,
+   пока не отсканируют другую тару. Решает человек, система записывает. */
+function stationCarrierScan(code){
+ const c=typeof carrierFind==='function'?carrierFind(code):null,now=new Date().toISOString();stationMenu=null;stationNote='';
+ if(!c||!c.active){stationLast={check:{kind:'carrierBad',code},rec:null,data:null,place:null,at:now};stationBeep('error');return 'bad';}
+ const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
+ if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
+ stationSetPutOn(c.code);stationLast={check:{kind:'carrierPut',code:c.code,count:on.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'put';
+}
+function stationCarrierCard(L){
+ const c=L.check,t=typeof carrierType==='function'?carrierType(c.code):null,time='<span>'+esc(stationTime(L.at))+'</span>';
+ if(c.kind==='carrierBad')return '<div class="st-res st-red" data-station-result="carrierBad"><div class="st-res-h">✕ Unknown dolly or skid'+time+'</div><div class="st-res-b"><div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Add it in Master Data</span></div><div class="st-info"><div class="st-gid mono">'+esc(c.code)+'</div><div class="mut">Master Data → Dollies &amp; Skids</div></div></div></div>';
+ if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
+ return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
+}
+function stationScanOffClick(id){if(stationScanOff(id)){stationNote='By hand — not on a dolly';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)delete stationLast.rec.on;}render();}
+function stationNextLabel(x){
+ const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting);
+ return x.place.waiting+(svc?' · '+svc.text:'');
+}
+/* Справа: тара, что привезла стекло сюда (срочная первой, потом кто раньше),
+   и тара, которую загрузили здесь. */
+function stationCarriersCard(){
+ if(typeof carrierContents!=='function'||!(DB.carrier||[]).length)return '';
+ const all=carrierContents(),put=stationPutOn(),incoming=[],loaded=[];
+ all.forEach((list,code)=>{
+  const here=list.filter(x=>x.place.waiting===stationCode),mine=list.filter(x=>x.scan.station===stationCode);
+  if(here.length)incoming.push({code,list:here,urg:Math.max(0,...here.map(x=>stationUrgency(x.g.o))),since:here.map(x=>x.scan.at).sort()[0]});
+  if(mine.length)loaded.push({code,list:mine,since:mine.map(x=>x.scan.at).sort()[0]});
+ });
+ incoming.sort((a,b)=>b.urg-a.urg||String(a.since).localeCompare(String(b.since)));
+ loaded.sort((a,b)=>String(a.since).localeCompare(String(b.since)));
+ const mix=list=>{const m=new Map();list.forEach(x=>{const k=stationNextLabel(x);m.set(k,(m.get(k)||0)+1);});return [...m].map(([k,n])=>esc(k)+' '+n).join(' · ');};
+ const row=(x,click)=>'<div class="st-dl'+(x.code===put?' now':'')+(x.urg===2?' hot':'')+'"'+(click?' onclick="stationIncoming=\''+esc(x.code)+'\';render()" data-station-incoming="'+esc(x.code)+'"':' data-station-loaded="'+esc(x.code)+'"')+'><span class="st-dchip'+(/^S/.test(x.code)?' skid':'')+'">'+esc(x.code)+'</span><span><b>'+x.list.length+' glass</b>'+(x.urg===2?' <span class="pill bad">Critical</span>':'')+' <span class="mut">'+mix(x.list)+'</span></span><span class="mut">'+esc(stationTime(x.since))+'</span></div>';
+ const inc=incoming.length?'<div class="st-sec"><h3>Dollies waiting</h3><span class="mut">urgent first, then oldest</span></div>'+incoming.map(x=>row(x,true)).join(''):'';
+ const out=loaded.length?'<div class="st-sec"'+(inc?' style="margin-top:14px"':'')+'><h3>Dollies at '+esc(stationCode)+'</h3><span class="sp"></span><span class="mut">another dolly: scan it</span></div>'+loaded.map(x=>row(x,false)).join(''):'';
+ return inc||out?'<div class="card">'+inc+out+'</div>':'';
+}
+function stationStackCard(){
+ if(!stationIncoming||typeof carrierContents!=='function')return '';
+ const list=(carrierContents().get(stationIncoming)||[]).filter(x=>x.place.waiting===stationCode);
+ if(!list.length)return '<div class="card"><div class="st-sec"><h3>'+esc(stationIncoming)+'</h3><span class="pill ok">done</span></div><div class="mut">Nothing left for '+esc(stationCode)+' on it</div></div>';
+ return '<div class="card" data-station-stack="'+esc(stationIncoming)+'"><div class="st-sec"><h3>'+esc(stationIncoming)+' · top of the stack first</h3><span class="sp"></span><span class="pill info">'+list.length+'</span></div><table><tbody>'+
+  list.map((x,i)=>{const o=x.g.o,l=x.g.l,urg=stationUrgency(o);
+   return '<tr class="'+(i===0?'st-top1':'')+(urg===2?' st-hot':'')+'"><td class="mut">'+(i+1)+'</td><td><b>'+esc(o.businessNumber||'')+'</b>'+(urg?' <span class="pill '+(urg===2?'bad':'warn')+'">'+(urg===2?'Critical':'Rush')+'</span>':'')+'</td><td>Line '+((o.lines||[]).indexOf(l)+1)+' · <b>'+esc(frac16(l.width16/16)+' × '+frac16(l.height16/16))+'</b></td><td data-raw>'+esc(x.g.c?x.g.c.glass:'')+'</td><td class="mut">'+(i===0?'on top':'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+}
+
 /* ==== src/erp/views/production-board.js ==== */
 /* =====================================================================
    view/production-board  ·  board-1.0
@@ -29777,7 +29933,7 @@ function prodListColumns(){
   {k:'glass',label:'Glass',type:'text',tokens:true,def:true},
   {k:'shipped',label:'Shipped',type:'number',def:true},
   {k:'queue',label:'To batch',type:'number',def:true,sum:true}
- ].concat(st,[{k:'on',label:'On',type:'text',def:true},{k:'rank',label:'Urgency',type:'number',def:false}]);
+ ].concat(st,[{k:'on',label:'On',type:'text',tokens:true,def:true},{k:'rank',label:'Urgency',type:'number',def:false}]);
 }
 /* Сначала Critical, потом Rush, дальше по сроку — горящее всегда наверху. */
 function prodListDefaultSort(){return {k:'rank',dir:'asc'};}
@@ -29798,13 +29954,13 @@ function prodBoard(){
  (DB.salesOrder||[]).forEach(o=>{
   if(!o||salesIsQuote(o)||['cancelled','closed'].includes(o.status))return;
   const pieces=glassPieceMap(o.id);if(!pieces.size)return;
-  const counts={queue:0},route={},lines=[],codes=[];let inProd=false,shipped=0,total=0;
+  const counts={queue:0},route={},lines=[],codes=[],onAll=new Set();let inProd=false,shipped=0,total=0;
   (o.lines||[]).forEach((l,li)=>{
    const lites=[];
    glassBatchComponents(o,l).forEach(c=>{
     if(c.missing)return;
     const rec=pieces.get(c.key);if(!rec)return;
-    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={};let ls=0,lb=0;
+    const ids=rec.ids.concat(...Object.values(rec.extra||{})).filter(Boolean),lc={queue:0},lr={},lon=new Set();let ls=0,lb=0;
     ids.forEach(id=>{
      const e=batches.get(id)||null,scans=scansBy.get(id)||[],g={id,o,l,c,entry:e};total++;
      const place=stationPlace(g,scans),queued=!e&&!scans.length;
@@ -29821,25 +29977,27 @@ function prodBoard(){
      if(queued){lc.queue++;counts.queue++;return;}
      inProd=true;
      if(place.shipped||!place.waiting){ls++;shipped++;return;}
+     /* На чём лежит: последний скан стекла положил его на долли или скид. */
+     const last=scans[scans.length-1];if(last&&last.on){lon.add(last.on);onAll.add(last.on);}
      lc[place.waiting]=(lc[place.waiting]||0)+1;counts[place.waiting]=(counts[place.waiting]||0)+1;
     });
     if(!codes.includes(c.glass))codes.push(c.glass);
-    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,shipped:ls,total:ids.length-lb});
+    lites.push({glass:c.glass,lite:c.lite,counts:lc,route:lr,on:[...lon],shipped:ls,total:ids.length-lb});
    });
    if(lites.length)lines.push({no:li+1,mark:l.mark||'',size:frac16(l.width16/16)+' × '+frac16(l.height16/16),units:l.qty,lites});
   });
   if(!inProd)return;
   const urg=stationUrgency(o),t=Date.parse(o.dueDate||''),days=Number.isNaN(t)?99999:Math.floor(t/864e5);
-  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,shipped,total,lines,rank:(2-urg)*1e6+days});
+  orders.push({o,customer:salesCustomerDisplay(o.customerId),glass:codes,counts,route,on:[...onAll].sort(),shipped,total,lines,rank:(2-urg)*1e6+days});
  });
  prodBoardCache={stamp,data:orders};
  return orders;
 }
 function prodListInfos(){
  return prodBoard().map(x=>{
-  const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:'',rank:x.rank};
+  const memo={number:x.o.businessNumber||'',customer:x.customer,priority:SALES_LIST_PRIORITY[x.o.priority]||'Normal',due:x.o.dueDate||'',glass:x.glass.join(', '),shipped:x.shipped,queue:x.counts.queue||0,on:x.on.join(', '),rank:x.rank};
   (DB.station||[]).forEach(s=>{memo['st_'+s.code]=x.counts[s.code]||0;});
-  return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass},memo};
+  return {o:x.o,q:false,c:{},x,tokens:{glass:x.glass,on:x.on},memo};
  });
 }
 function prodToggle(id){if(prodOpen.has(id))prodOpen.delete(id);else prodOpen.add(id);render();}
@@ -29851,6 +30009,7 @@ function prodFocusStation(code){
  else{const c=salesListCleanFilter(k,{mode:'include',conds:[{op:'gt',v:'0',v2:'',join:'and'}],values:null,preset:''});if(c)p.filters[k]=c;}
  salesListSavePrefs();render();
 }
+function prodOn(list){return list&&list.length?list.map(c=>`<span class="st-on">${esc(c)}</span>`).join(' '):'<span class="pb-z">—</span>';}
 function prodTh(c,p){const f=p.filters[c.k],on=!!f&&salesListFilterActive(f);return `<th class="${c.type==='number'?'n':''}${c.station?' pb-st':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${on?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
 function prodCount(n,code){return n?`<span class="pb-n${code===stationCutCode()?' pb-cut':''}">${n}</span>`:'<span class="pb-z">·</span>';}
 /* Станция в маршруте: число — ждут здесь, ✓ — все прошли, · — ещё не
@@ -29871,7 +30030,7 @@ function prodCell(r,c){
   case 'glass':return `<td data-raw>${esc(v)}</td>`;
   case 'shipped':return `<td class="pb-prog"><span class="pb-bar"><i style="width:${x.total?Math.round(x.shipped/x.total*100):0}%"></i></span>${x.shipped} / ${x.total}</td>`;
   case 'queue':return `<td class="pb-st">${prodCount(v)}</td>`;
-  case 'on':return '<td><span class="pb-z">—</span></td>';
+  case 'on':return `<td>${prodOn(x.on)}</td>`;
   default:return `<td>${v==null||v===''?'':esc(String(v))}</td>`;
  }
 }
@@ -29886,7 +30045,7 @@ function prodSubRows(r,cols){
    case 'glass':return `<td><b data-raw>${esc(t.glass)}</b>${L.lites.length>1?` <span class="mut">Lite ${esc(t.lite)}</span>`:''}</td>`;
    case 'shipped':return `<td class="pb-prog mut">${t.shipped} / ${t.total}</td>`;
    case 'queue':return `<td class="pb-st">${prodCount(t.counts.queue||0)}</td>`;
-   case 'on':return '<td><span class="pb-z">—</span></td>';
+   case 'on':return `<td>${prodOn(t.on)}</td>`;
    default:return '<td></td>';
   }
  }).join('')}<td></td></tr>`).join('')).join('');
@@ -29909,6 +30068,56 @@ function viewProdOrders(){
  return `${tiles}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass in production</span></div>${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table pb-table"><thead><tr>${cols.map(c=>prodTh(c,p)).join('')}<th><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead>
   <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+}
+
+/* ==== src/erp/views/carriers-ui.js ==== */
+/* =====================================================================
+   view/carriers-ui  ·  carriers-1.0
+   Master Data → Dollies & Skids: список тары, добавить, отключить, что на
+   ней сейчас, печать этикеток на TSC (4 × 6″, как стикеры стёкол).
+   IN : DB.carrier, carrierContents() (erp/shopfloor/carriers)
+   OUT: html
+   ===================================================================== */
+let carrierSel=new Set();
+function viewMdCarriers(){
+ const contents=carrierContents(),list=(DB.carrier||[]).slice().sort((a,b)=>{const x=CARRIER_RE.exec(a.code),y=CARRIER_RE.exec(b.code);return x[1].localeCompare(y[1])||(+x[2])-(+y[2]);});
+ const rows=list.map(c=>{
+  const t=carrierType(c.code),on=contents.get(c.code)||[],where=[...new Set(on.map(x=>x.place.waiting).filter(Boolean))];
+  return `<tr data-carrier="${esc(c.code)}"${c.active?'':' class="mut"'}><td><input type="checkbox" ${carrierSel.has(c.code)?'checked':''} onchange="carrierPick('${esc(c.code)}',this.checked)"></td>
+   <td class="mono"><b>${esc(c.code)}</b></td><td>${esc(t.label)}</td>
+   <td>${on.length?`<b>${on.length}</b> glass${where.length?' · waiting at '+esc(where.join(', ')):''}`:'<span class="mut">empty</span>'}</td>
+   <td><input value="${esc(c.note)}" placeholder="Note" onchange="carrierSet('${esc(c.code)}','note',this.value)" style="max-width:220px"></td>
+   <td><label class="chk"><input type="checkbox" ${c.active?'checked':''} onchange="carrierSet('${esc(c.code)}','active',this.checked);render()"> Active</label></td>
+   <td><button class="sm" onclick="carrierPrintLabels(['${esc(c.code)}'])">Label</button></td></tr>`;
+ }).join('');
+ return `<div class="sub">Scan the dolly or skid, then the glass on it. The code says what to look for: DL · DA — L- and A-shape dolly, SL · SA — L- and A-shape skid.</div>
+  <div class="row" style="margin:0 0 12px;gap:8px;flex-wrap:wrap">${CARRIER_TYPES.map(t=>`<button class="sm" data-carrier-add="${t.k}" onclick="carrierAdd('${t.k}',1);render()">+ ${esc(t.label)}</button>`).join('')}
+   <span class="sp"></span><button class="sm" ${carrierSel.size?'':'disabled'} onclick="carrierPrintLabels([...carrierSel])">Print ${carrierSel.size||''} label${carrierSel.size===1?'':'s'}</button></div>
+  <table><thead><tr><th></th><th>Code</th><th>Type</th><th>On it now</th><th>Note</th><th>Active</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" class="empty">No dollies or skids yet</td></tr>'}</tbody></table>`;
+}
+function carrierPick(code,on){if(on)carrierSel.add(code);else carrierSel.delete(code);render();}
+/* Этикетка 4 × 6″ стоя: крупный код — его видно через цех, тип словами,
+   штрихкод Code 128 с тем же текстом — сканер вводит ровно код тары. */
+function carrierLabelSVG(code){
+ const t=carrierType(code)||{label:''},W=288,H=432,bars=barcode128Items(code,0,0,110,2.4),bw=barcode128Width(code)*2.4,x0=(W-bw)/2;
+ return `<svg xmlns="http://www.w3.org/2000/svg" width="4in" height="6in" viewBox="0 0 ${W} ${H}" font-family="Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>
+  <text x="${W/2}" y="60" text-anchor="middle" font-size="22" font-weight="700" fill="#000">${esc(t.label.toUpperCase())}</text>
+  <text x="${W/2}" y="190" text-anchor="middle" font-size="${code.length>5?84:100}" font-weight="800" fill="#000">${esc(code)}</text>
+  <g transform="translate(${x0.toFixed(1)} 250)">${bars.map(b=>`<rect x="${b.x.toFixed(2)}" y="0" width="${b.w.toFixed(2)}" height="110" fill="#000"/>`).join('')}</g>
+  <text x="${W/2}" y="390" text-anchor="middle" font-size="18" fill="#000">${esc(code)}</text>
+ </svg>`;
+}
+function carrierPrintLabels(codes){
+ const list=(codes||[]).map(carrierFind).filter(Boolean);if(!list.length)return false;
+ let st=document.getElementById('stkPageStyle');if(!st){st=document.createElement('style');st.id='stkPageStyle';document.head.appendChild(st);}
+ st.textContent='@page stk{size:4in 6in;margin:0}';
+ stkPrintHost().innerHTML=list.map(c=>`<div class="stk-print-page" style="width:4in;height:6in" data-carrier-label="${esc(c.code)}">${carrierLabelSVG(c.code)}</div>`).join('');
+ document.body.classList.add('stk-printing');
+ window.addEventListener('afterprint',stkPrintCleanup,{once:true});setTimeout(stkPrintCleanup,60000);
+ try{window.print();}catch(e){stkPrintCleanup();return false;}
+ return list.length;
 }
 
 /* ==== src/erp/storage.js ==== */
@@ -29985,6 +30194,7 @@ function validateImportedState(src){
  if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
  if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
+ if(typeof validateCarrierPayload==='function')validateCarrierPayload(src);
  function unique(list,key,label,normalize){
   const seen=new Set();(Array.isArray(list)?list:[]).forEach((row,i)=>{
    if(!row||typeof row!=='object')return;
@@ -30067,6 +30277,7 @@ function normalizeDB(){
 
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
+ if(typeof normalizeCarriers==='function')normalizeCarriers();
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
