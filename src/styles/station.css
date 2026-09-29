@@ -205,6 +205,15 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Очередь станций после резки */
+.st-flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.st-fb{flex:1;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fbfcfd}
+.st-fb small{display:block;color:var(--mut);font-weight:700;letter-spacing:.04em;font-size:11px}.st-fb b{font-size:26px}.st-fb span{display:block;color:var(--mut);font-size:12.5px}
+.st-fb.here{background:var(--blue2);border-color:#bddbea}
+.st-fa{align-self:center;color:#9fb0bc;font-size:22px}
+.st-load-mm td{background:var(--panel2);font-weight:800;font-size:13px;letter-spacing:.03em}
+.st-nw{white-space:nowrap}.st-nw .mut{font-size:12px}
+.st-lbar{height:10px;border-radius:6px;background:#edf1f4;overflow:hidden;display:flex}.st-lbar i{display:block;height:100%;background:var(--blue)}.st-lbar i.c{background:#bcd9ea}
 /* Чертежи */
 .st-left{display:flex;flex-direction:column;gap:10px;align-items:stretch}
 .st-drawthumb{font:inherit;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px;cursor:pointer}

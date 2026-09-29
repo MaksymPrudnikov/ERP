@@ -113,6 +113,7 @@
   "src/erp/views/stock-list.js",
   "src/erp/views/station.js",
   "src/erp/views/station-drawings.js",
+  "src/erp/views/station-queue.js",
   "src/erp/views/production-board.js",
   "src/erp/views/carriers-ui.js",
   "src/erp/storage.js"
