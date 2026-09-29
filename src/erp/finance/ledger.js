@@ -1,8 +1,8 @@
 /* Finance commands and history. No DOM; balances keep using the order pricing
    contract. Events are append-only through these commands; local JSON is not
    an authenticated or tamper-proof accounting ledger. */
-DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeVersion=1;
-const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport'];
+DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
+const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
 /* Who recorded an entry. Stays empty until the app has sign-in: a name picked
@@ -36,11 +36,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn){
- const keys=['receipt'].concat(FIN_TABLES),before={};keys.forEach(k=>before[k]=finCopy(DB[k]||[]));
- try{const value=fn();finAssert(value!==false,'The operation could not be completed.');finAssert(touch()!==false,'Not saved. Your changes are still open; retry or export a backup.');return {ok:true,value};}
- catch(e){keys.forEach(k=>DB[k]=before[k]);return {ok:false,error:e.message};}
-}
+function finPersist(fn){return storageCommand(fn);}
 function finReceiptDuplicates(d,id){
  const ref=String(d.reference||'').trim().toLowerCase();if(!ref||d.method==='cash')return [];
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
@@ -231,7 +227,7 @@ function finMonthRange(offset,today){
    после выгрузки и Void после выгрузки попадают в следующий файл с пометкой;
    аннулированная до выгрузки в QuickBooks не нужна. */
 function finExportSig(kind,x){
- return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided]:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount])]);
+ return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
 function finExportState(kind,x){
@@ -246,10 +242,12 @@ function finExportPending(){
  (DB.refund||[]).forEach(x=>{const state=finExportState('refund',x);if(state!=='done'&&state!=='skip')out.push({kind:'refund',x,state});});
  return out;
 }
-function finExportLastBatch(){return (DB.financeExport||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
+function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
 function finExportMark(list){
  finAssert(list.length,'Nothing new to export.');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
+ const states=new Map(list.map(x=>[x.x.id,x.state]));
+ DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states)});
  list.forEach(({kind,x})=>{
   const e={entityId:x.id,kind,sig:finExportSig(kind,x),at,batch},i=DB.financeExport.findIndex(y=>y.entityId===x.id);
   if(i<0)DB.financeExport.push(e);else DB.financeExport[i]=e;
@@ -261,6 +259,7 @@ function finValidatePayload(src){
  const unique=(rows,key,label)=>{const seen=new Set();(rows||[]).forEach(r=>{finAssert(r&&typeof r==='object'&&id(r[key]),label+': invalid id.');finAssert(!seen.has(r[key]),label+': duplicate id.');seen.add(r[key]);});};
  for(const k of FIN_TABLES)finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
  unique(src.financeExport,'entityId','QuickBooks export');
+ const exportBatches=new Set();(src.financeExportBatch||[]).forEach(e=>{finAssert(e&&Number.isSafeInteger(e.batch)&&e.batch>0&&!exportBatches.has(e.batch)&&Number.isFinite(Date.parse(e.at))&&typeof e.name==='string'&&typeof e.csv==='string','Invalid or duplicate saved QuickBooks CSV.');exportBatches.add(e.batch);});
  (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
  unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
  unique(src.receipt,'id','Payment');

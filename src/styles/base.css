@@ -226,3 +226,9 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
    в шапке та же фаза уже написана. */
 @media(max-height:860px){.side-footer{display:none}}
 @media(max-height:700px){.nav-item{padding:6px 14px}.nav-group{padding:8px 18px 3px}}
+
+.storage-status{display:flex;align-items:center;gap:12px;padding:7px 24px;background:#edf5f9;color:#1f5f82;font-size:12px}.storage-status small{color:#526577}.storage-status.bad{background:#fff0ed;color:#9f3026}.storage-status button{font-size:12px;padding:3px 8px;margin-left:auto}.storage-status:empty{display:none}.nav-item{font:inherit;border:0;background:transparent;width:100%;text-align:left;cursor:pointer}.nav-item:focus-visible{outline:2px solid #68b3d9;outline-offset:-3px}
+
+.pb-tiles{flex-wrap:wrap;overflow:visible}.pb-exceptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;font-size:12px}.pb-exceptions span{color:var(--mut)}
+
+#phaseChip[hidden]{display:none}

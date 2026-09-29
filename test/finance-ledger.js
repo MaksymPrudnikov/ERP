@@ -3,7 +3,7 @@ module.exports=async function({page,eq}){
  console.log('finance ledger');const t=await page();
  await t.p.evaluate(()=>{
   window.financeSeed=function(){
-   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.financeExport=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finActor='QA Operator';
+   DB.receipt=[];DB.refund=[];DB.financeEvent=[];DB.financeTerms=[];DB.financeExport=[];DB.financeExportBatch=[];DB.salesOrder=[];DB.customer=[];soDraft=null;soEdit=null;finDraft=null;finEdit=null;finAction=null;finCustomerFilter='';finOrderFilter='';finActor='QA Operator';
    const c=normalizeCustomer({id:'CUS-FIN',code:'FIN',legalName:'Finance Test',paymentMode:'credit',creditDays:30});DB.customer.push(c);
    const o=normalizeSalesOrder({id:'SO-FIN',businessNumber:'91001',customerId:c.id,lines:[],extraItems:[{id:'EXT-FIN',table:'stockItem',itemId:'TEST',qty:1,priceOverride:100}],orderCharges:{energy:{enabled:false},hst:{enabled:false},card:{enabled:false},delivery:{enabled:false},skidDeposit:{enabled:false}}});DB.salesOrder.push(o);
    finCaptureTerms(o);tab='finance';finTab='accounts';finAccountId='';render();return {c,o};
@@ -132,7 +132,7 @@ module.exports=async function({page,eq}){
   const keep=touch;touch=()=>false;finExportQuickBooks();touch=keep;const rolled=finExportPending().length;
   finExportQuickBooks();customerDownload=old;
   return {first,afterFirst,noteOnly,second,rolled,last:finExportPending().length,labels:file.includes(',Corrected')&&file.includes(',Voided')&&file.includes(refund.number),batches:finExportLastBatch()};
- }),{first:['R-0001:new','R-0002:new'],afterFirst:0,noteOnly:0,second:['R-0001:changed','R-0002:voided','RF-0001:new'],rolled:3,last:0,labels:true,batches:2});
+ }),{first:['R-0001:new','R-0002:new'],afterFirst:0,noteOnly:1,second:['R-0001:changed','R-0002:voided','RF-0001:new'],rolled:3,last:0,labels:true,batches:2});
  eq('QuickBooks marks travel with the JSON backup and damaged marks are rejected',await t.p.evaluate(()=>{
   financeSeed();financePayment(100,0);const old=customerDownload;customerDownload=()=>{};finExportQuickBooks();customerDownload=old;
   const raw=finCopy(DB),next=prepareImportedState(raw);raw.financeExport[0].kind='invoice';let rejected=false;try{prepareImportedState(raw);}catch(e){rejected=true;}

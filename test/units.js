@@ -126,7 +126,7 @@ module.exports=async function({page,eq,ok}){
    stationSubmit(unU.lite(0,2));stationSubmit(unU.lite(1,2));
    return new Promise(res=>setTimeout(()=>{const off={printed:window.unPrinted,head:document.querySelector('.st-unit-h b').textContent};unOut();try{localStorage.removeItem(STATION_AUTOPRINT_KEY);}catch(e){}res({on,off});},200));
   });
- })(),{on:{chip0:'Unit stickers By button',chip:'Unit stickers Auto',printed:1,head:'Unit complete · sticker printed',btn:'Reprint unit sticker',label:'page'},off:{printed:0,head:'Unit complete'}});
+ })(),{on:{chip0:'Unit stickers By button',chip:'Unit stickers Auto',printed:1,head:'Unit complete · print requested',btn:'Reprint unit sticker',label:'page'},off:{printed:0,head:'Unit complete'}});
 
  eq('пару забраковали у света — её не сканируют: Recut у недостающего лайта; лайт в машине — на долли; стикер юнита не печатается',await t.p.evaluate(()=>{
   unReset();try{localStorage.setItem(STATION_AUTOPRINT_KEY,JSON.stringify({IGU:true}));}catch(e){}
@@ -159,7 +159,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit('U2');const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
- }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,false'},printed:1,label:true});
+ }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});
 
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();

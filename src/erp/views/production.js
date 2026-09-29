@@ -115,6 +115,17 @@ function sfStationForm(){
   <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
 }
 function saveSfStation(){
+ const oldEdit=stEdit,oldCode=stEdit==='new'?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
+ const fields=[...document.querySelectorAll('[id^="sf_"]')].map(el=>({id:el.id,value:el.value,checked:el.checked}));
+ const out=storageCommand(()=>{const result=saveSfStationCommand();if(result!==true)throw new Error(document.getElementById('e_sfStation').textContent||'The station was not saved.');return true;});
+ if(!out.ok){stEdit=oldEdit;render();fields.forEach(f=>{const el=document.getElementById(f.id);if(el){el.value=f.value;el.checked=f.checked;}});const e=document.getElementById('e_sfStation');if(e)fail(e,out.error);return false;}
+ if(oldCode&&oldCode!==newCode){
+  if(typeof stationCode!=='undefined'&&stationCode===oldCode)stationCode=newCode;
+  try{const session=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');if(session&&session.station===oldCode){session.station=newCode;localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(session));}}catch(e){}
+ }
+ render();return true;
+}
+function saveSfStationCommand(){
  const e=document.getElementById('e_sfStation'); e.style.display='none';
  const seq=+document.getElementById('sf_seq').value;
  const code=document.getElementById('sf_code').value.trim().toUpperCase();
@@ -132,6 +143,12 @@ function saveSfStation(){
  if(prev&&prev.code!==code){
   (DB.serviceRate||[]).forEach(w=>{if(w&&w.station===prev.code)w.station=code;});
   (DB.terminal||[]).forEach(t=>{t.stations=(t.stations||[]).map(c=>c===prev.code?code:c);});
+  const old=prev.code;
+  ['stationScan','user'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;}));
+  ['ncrReason','ncr','recut'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.where===old)r.where=code;}));
+  (DB.productionRoute||[]).forEach(x=>{x.route.codes=x.route.codes.map(c=>c===old?code:c);x.route.shipping=(x.route.shipping||[]).map(c=>c===old?code:c);x.route.services.forEach(r=>{if(r.station===old)r.station=code;});});
+
+
  }
  const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
@@ -139,7 +156,7 @@ function saveSfStation(){
   note:document.getElementById('sf_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  DB.station.sort((a,b)=>a.seq-b.seq);
- stEdit=null; stationRouteReset(); touch(); render();
+ stEdit=null; stationRouteReset(); touch(); render();return true;
 }
 /* Станцию, на которую ссылаются работы, не удаляем: работа без станции —
    сирота, и увидит её только тот, кто откроет нужный экран. */
@@ -147,6 +164,7 @@ function delSfStation(i){
  const s=DB.station[i],w=stationOperations(s.code);
  if(w.length) return alert('Cannot delete '+s.code+' — works go to it: '+w.map(o=>o.name||o.id).join(', ')+'. Move them to another station in Master Data → Works first.');
  if(DB.terminal.some(t=>(t.stations||[]).includes(s.code))) return alert('Cannot delete — terminals point at this station');
+ if((DB.stationScan||[]).some(r=>r.station===s.code)||(DB.productionRoute||[]).some(r=>r.route.codes.includes(s.code))||(DB.user||[]).some(u=>u.station===s.code)||(DB.ncrReason||[]).some(r=>r.where===s.code))return alert('Cannot delete — history, active routes, workers or NCR reasons reference this station.');
  if(!confirm('Delete station '+s.code+'?'))return; DB.station.splice(i,1); stationRouteReset(); touch(); render();
 }
 

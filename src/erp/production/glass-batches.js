@@ -169,6 +169,10 @@ function glassBatchPartSnapshot(r){
    dryRun проверяет то же самое и ничего не пишет — так несколько батчей
    создаются все вместе или ни один. */
 function glassBatchAssign(rows,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchAssignCommand(rows,opts);
+ const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:null;
+}
+function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
  if(new Set(rows.map(r=>r.slot)).size!==rows.length)return null;
  const current=new Map(glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean)).map(r=>[r.slot,r]));
@@ -200,6 +204,10 @@ function glassBatchAssign(rows,opts){
    как у прежнего Unbatch: перед следующим батчем его проверяют заново.
    Номера стёкол сохраняются; другие батчи не меняются. */
 function glassBatchRelease(entries,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchReleaseCommand(entries,opts);
+ const out=storageCommand(()=>{const value=glassBatchReleaseCommand(entries,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok&&out.value;
+}
+function glassBatchReleaseCommand(entries,opts){
  opts=opts||{};if(!opts.confirmed||!entries||!entries.length)return false;
  if(new Set(entries.map(x=>x.item)).size!==entries.length)return false;
  const lineOf=x=>{const part=x.batch.parts[x.item.part],o=part&&salesRecord(part.orderId);return {part,o,l:o&&o.lines.find(l=>l.id===part.lineId)};};
@@ -221,6 +229,10 @@ function glassBatchRelease(entries,opts){
    в старом батче закрывается с пометкой movedTo, в новом открывается запись с
    тем же Glass ID; заказы остаются в Batched. Начатый рез не переносится. */
 function glassBatchMove(number,pieceIds,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchMoveCommand(number,pieceIds,opts);
+ const out=storageCommand(()=>{const value=glassBatchMoveCommand(number,pieceIds,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:{error:out.error};
+}
+function glassBatchMoveCommand(number,pieceIds,opts){
  opts=opts||{};const from=glassBatchFind(number);if(!from)return {error:'Batch not found.'};
  const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
  if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
