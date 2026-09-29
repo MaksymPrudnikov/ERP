@@ -152,6 +152,21 @@ tr.st-hot td{background:#fff7f7}
 .st-qafter{font-size:15px;line-height:1.7}
 .st-qchange{color:#8a5a0f;font-weight:700}
 .gb-cutq .sm{padding:1px 6px;margin-left:2px}
+/* Долли и скиды */
+.st-puton{background:#fff;color:#12232e}
+.st-puton b{color:#12232e;font-size:15px}
+.st-puton button{font:inherit;border:0;background:none;color:#6c7a86;padding:0 0 0 4px;cursor:pointer}
+.st-on{display:inline-block;font-weight:800;font-size:12px;border-radius:6px;padding:1px 6px;background:#12232e;color:#fff}
+.st-big.st-dark{background:#12232e;border-color:#12232e}
+.st-big.st-dark small{color:#8fb4c9}.st-big.st-dark b{color:#fff}.st-big.st-dark span{color:#cfe0e8}
+.st-dl{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line2);font-size:14px;cursor:default}
+.st-dl[data-station-incoming]{cursor:pointer}
+.st-dl:last-child{border-bottom:0}
+.st-dl.now{background:var(--blue2);border-radius:8px}
+.st-dl.hot{background:#fff7f7;border-radius:8px}
+.st-dchip{font-weight:800;font-size:14px;border-radius:8px;padding:4px 0;text-align:center;background:#12232e;color:#fff}
+.st-dchip.skid{background:#5c6a75}
+tr.st-top1 td{background:var(--blue2);font-weight:600}
 /* Офис: Production → In production (view/production-board) */
 .pb-tiles{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px}
 .pb-tile{font:inherit;flex:1;min-width:78px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;display:flex;flex-direction:column}
