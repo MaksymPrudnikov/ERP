@@ -241,6 +241,12 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 @media(max-height:860px){.side-footer{display:none}}
 @media(max-height:700px){.nav-item{padding:6px 14px}.nav-group{padding:8px 18px 3px}}
 
+.storage-status{display:flex;align-items:center;gap:12px;padding:7px 24px;background:#edf5f9;color:#1f5f82;font-size:12px}.storage-status small{color:#526577}.storage-status.bad{background:#fff0ed;color:#9f3026}.storage-status button{font-size:12px;padding:3px 8px;margin-left:auto}.storage-status:empty{display:none}.nav-item{font:inherit;border:0;background:transparent;width:100%;text-align:left;cursor:pointer}.nav-item:focus-visible{outline:2px solid #68b3d9;outline-offset:-3px}
+
+.pb-tiles{flex-wrap:wrap;overflow:visible}.pb-exceptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;font-size:12px}.pb-exceptions span{color:var(--mut)}
+
+#phaseChip[hidden]{display:none}
+
 /* ---- src/styles/modules.css ---- */
 .real-module-note{display:flex;gap:12px;align-items:flex-start;background:#f3f9fc;border:1px solid #cfe4ee;border-radius:10px;padding:11px 13px;margin-bottom:14px}.real-module-note b{white-space:nowrap;color:#245f7f}.real-module-note span{font-size:12px;color:#526b79}
 .module-chain{display:flex;align-items:center;gap:10px;margin-bottom:14px}.module-chain-node{flex:1;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:10px;background:#fbfcfd}.module-chain-node .node-icon{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--blue2);color:#2f7395}.module-chain-node .node-icon svg{width:18px;height:18px}.module-chain-node b{display:block;font-size:12px}.module-chain-node span{display:block;font-size:10.5px;color:var(--mut)}.module-chain-arrow{color:#9aabb4}.module-chain-arrow svg{width:18px}
@@ -2305,21 +2311,22 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <nav class="side" id="side"></nav>
 <div class="main">
 <header>
-  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Production system · prototype</span><span class="header-build" id="hdrBuild"></span></div>
+  <div class="header-title"><h1 id="hdr">ERP Glazing System</h1><span class="header-kicker" id="hdrSub">Production system</span><span class="header-build" id="hdrBuild"></span></div>
   <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <span class="top-chip" id="phaseChip"></span>
+  <span class="top-chip" id="phaseChip" hidden></span>
   <button class="gh" onclick="doExport()">Export JSON</button>
   <button class="gh" onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
 </header>
+<div id="storageStatus" aria-live="polite"></div>
 <main id="app"></main>
 </div>
 </div>
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='29d0c2d9fad8';
+var ERP_BUILD='8dfac4a452d1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10602,6 +10609,10 @@ function salesSyncRecordLifecycle(o){
  soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
 function salesSetRecordStatus(orderId,next,opts){
+ if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
+ const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts));return out.ok&&out.value;
+}
+function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
  const now=opts.now||new Date().toISOString();
@@ -11276,8 +11287,8 @@ function finOrderNumber(id){const o=(DB.salesOrder||[]).find(x=>x.id===id);retur
 /* Finance commands and history. No DOM; balances keep using the order pricing
    contract. Events are append-only through these commands; local JSON is not
    an authenticated or tamper-proof accounting ledger. */
-DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeVersion=1;
-const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport'];
+DEFAULT.refund=[];DEFAULT.financeEvent=[];DEFAULT.financeTerms=[];DEFAULT.financeExport=[];DEFAULT.financeExportBatch=[];DEFAULT.financeVersion=1;
+const FIN_TABLES=['refund','financeEvent','financeTerms','financeExport','financeExportBatch'];
 for(const k of FIN_TABLES)if(!Array.isArray(DB[k]))DB[k]=[];
 const FIN_EVENT_LABELS={opening:'Opening record',received:'Payment received',corrected:'Payment corrected',allocated:'Deposit allocated',released:'Allocation released',voided:'Payment voided',refunded:'Money refunded',refund_voided:'Refund voided',terms:'Payment terms changed'};
 /* Who recorded an entry. Stays empty until the app has sign-in: a name picked
@@ -11311,11 +11322,7 @@ function normalizeFinanceLedger(){
 }
 /* Commit money and its history together. A failed write leaves the UI draft
    available, and restores the previous in-memory balances. */
-function finPersist(fn){
- const keys=['receipt'].concat(FIN_TABLES),before={};keys.forEach(k=>before[k]=finCopy(DB[k]||[]));
- try{const value=fn();finAssert(value!==false,'The operation could not be completed.');finAssert(touch()!==false,'Not saved. Your changes are still open; retry or export a backup.');return {ok:true,value};}
- catch(e){keys.forEach(k=>DB[k]=before[k]);return {ok:false,error:e.message};}
-}
+function finPersist(fn){return storageCommand(fn);}
 function finReceiptDuplicates(d,id){
  const ref=String(d.reference||'').trim().toLowerCase();if(!ref||d.method==='cash')return [];
  return (DB.receipt||[]).filter(r=>!r.voided&&r.id!==id&&r.customerId===d.customerId&&r.method===d.method&&r.reference.trim().toLowerCase()===ref);
@@ -11506,7 +11513,7 @@ function finMonthRange(offset,today){
    после выгрузки и Void после выгрузки попадают в следующий файл с пометкой;
    аннулированная до выгрузки в QuickBooks не нужна. */
 function finExportSig(kind,x){
- return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided]:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount])]);
+ return JSON.stringify(kind==='refund'?[x.date,x.amount,x.method,x.reference,x.receiptId,!!x.voided,finCurrency(x),x.reason||'',x.voidReason||'']:[x.date,x.amount,x.method,x.reference,x.customerId,!!x.voided,(x.allocations||[]).map(a=>[a.orderId,a.amount]),finCurrency(x),x.note||'',x.voidReason||'']);
 }
 function finExportRecord(id){return (DB.financeExport||[]).find(e=>e.entityId===id)||null;}
 function finExportState(kind,x){
@@ -11521,10 +11528,12 @@ function finExportPending(){
  (DB.refund||[]).forEach(x=>{const state=finExportState('refund',x);if(state!=='done'&&state!=='skip')out.push({kind:'refund',x,state});});
  return out;
 }
-function finExportLastBatch(){return (DB.financeExport||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
+function finExportLastBatch(){return (DB.financeExport||[]).concat(DB.financeExportBatch||[]).reduce((n,e)=>Math.max(n,e.batch||0),0);}
 function finExportMark(list){
  finAssert(list.length,'Nothing new to export.');
  const batch=finExportLastBatch()+1,at=new Date().toISOString();
+ const states=new Map(list.map(x=>[x.x.id,x.state]));
+ DB.financeExportBatch.push({batch,at,name:'quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',csv:finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states)});
  list.forEach(({kind,x})=>{
   const e={entityId:x.id,kind,sig:finExportSig(kind,x),at,batch},i=DB.financeExport.findIndex(y=>y.entityId===x.id);
   if(i<0)DB.financeExport.push(e);else DB.financeExport[i]=e;
@@ -11536,6 +11545,7 @@ function finValidatePayload(src){
  const unique=(rows,key,label)=>{const seen=new Set();(rows||[]).forEach(r=>{finAssert(r&&typeof r==='object'&&id(r[key]),label+': invalid id.');finAssert(!seen.has(r[key]),label+': duplicate id.');seen.add(r[key]);});};
  for(const k of FIN_TABLES)finAssert(src[k]==null||Array.isArray(src[k]),k+' must be an array.');
  unique(src.financeExport,'entityId','QuickBooks export');
+ const exportBatches=new Set();(src.financeExportBatch||[]).forEach(e=>{finAssert(e&&Number.isSafeInteger(e.batch)&&e.batch>0&&!exportBatches.has(e.batch)&&Number.isFinite(Date.parse(e.at))&&typeof e.name==='string'&&typeof e.csv==='string','Invalid or duplicate saved QuickBooks CSV.');exportBatches.add(e.batch);});
  (src.financeExport||[]).forEach(e=>finAssert(['receipt','refund'].includes(e.kind)&&typeof e.sig==='string'&&Number.isSafeInteger(e.batch)&&e.batch>0&&Number.isFinite(Date.parse(e.at)),'Invalid QuickBooks export record.'));
  unique(src.refund,'id','Refund');unique(src.financeEvent,'id','Journal');unique(src.financeTerms,'orderId','Terms');
  unique(src.receipt,'id','Payment');
@@ -11643,10 +11653,10 @@ const NAV=[
     дописать поставщика, поправить цену листа. */
  {k:'masterdata', label:'Master Data', icon:'database'},
  {k:'shipping', label:'Shipping', icon:'shipping'},
+ {k:'finance', label:'Finance', icon:'finance'},
  {group:'Domains — next'},
  {k:'inventory', label:'Inventory', icon:'inventory', soon:1},
- {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1},
- {k:'finance', label:'Finance', icon:'finance'}
+ {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1}
 ];
 let tab='dashboard';
 let sideCollapsed=false;
@@ -11661,14 +11671,14 @@ function toggleSidebar(){setSidebarCollapsed(!sideCollapsed);}
 
 function renderNav(){
  document.getElementById('side').innerHTML =
-  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system · ERP prototype</span></div></div>` +
+  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system</span></div></div>` +
   `<button type="button" class="side-toggle" aria-label="${sideCollapsed?'Expand menu':'Collapse menu'}" title="${sideCollapsed?'Expand menu':'Collapse menu'}" onclick="toggleSidebar()"><i>${sideCollapsed?'›':'‹'}</i><span>${sideCollapsed?'Expand menu':'Collapse menu'}</span></button>` +
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
    if(n.soon) return `<div class="nav-item soon" title="${n.label} · planned">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
-   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></div>`;
+   return `<button type="button" class="nav-item ${tab===n.k?'on':''}" aria-current="${tab===n.k?'page':'false'}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></button>`;
   }).join('') +
-  `<div class="side-footer">Phase 1 · Foundation<br>Spil remains the operational system until the control phases are passed.</div>`;
+  `<div class="side-footer">Local browser database<br>Export a backup regularly.</div>`;
 }
 
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
@@ -12030,6 +12040,7 @@ function saveCustomer(){
    ===================================================================== */
 
 let soEdit=null,soDraft=null,soMakeupId=null;
+let soSavedBaseline=null;
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
 /* Владелец 11 сентября 2026: показ GLASS/IGU MAKEUPS не должен зависеть от
@@ -12056,8 +12067,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -12092,6 +12103,7 @@ function salesShapeSnapshotRestore(){
 /* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
    сохранённым, редактор формы строки закрывается вместе с заказом. */
 function salesDraftDrop(discard){
+ soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
@@ -12121,7 +12133,30 @@ function salesOrderClose(){salesLeaveDraft();}
  salesLeaveDraft(go);return true;
 });
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(function(){return salesDialogHTML();});
+/* Merge only fields unchanged in the office draft. A conflicting commercial
+   edit is explicit; production facts from another tab are retained. */
+function salesRebaseDraft(current){
+ if(!soSavedBaseline||soEdit==='new')return true;
+ if(!current)return 'This order was removed elsewhere. Your draft is still available; reopen the order list.';
+ const base=JSON.parse(soSavedBaseline),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),conflicts=[];
+ Object.keys(current).forEach(k=>{
+  if(same(current[k],base[k]))return;
+  if(!same(soDraft[k],base[k])&&!same(soDraft[k],current[k]))conflicts.push(k);
+  else soDraft[k]=current[k]===undefined?undefined:JSON.parse(JSON.stringify(current[k]));
+ });
+ if(conflicts.length)return 'The order changed elsewhere: '+conflicts.join(', ')+'. Reopen it before updating; your draft is still available.';
+ soSavedBaseline=JSON.stringify(current);return true;
+}
 function salesOrderSave(opts){
+ const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
+ const out=storageCommand(()=>{
+  const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
+  const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
+ });
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
+}
+function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}
@@ -20450,6 +20485,17 @@ function sfStationForm(){
   <div class="row"><button class="pri" data-sf-save onclick="saveSfStation()">Save</button><button onclick="stEdit=null;render()">Cancel</button></div></div>`;
 }
 function saveSfStation(){
+ const oldEdit=stEdit,oldCode=stEdit==='new'?'':DB.station[stEdit].code,newCode=document.getElementById('sf_code').value.trim().toUpperCase();
+ const fields=[...document.querySelectorAll('[id^="sf_"]')].map(el=>({id:el.id,value:el.value,checked:el.checked}));
+ const out=storageCommand(()=>{const result=saveSfStationCommand();if(result!==true)throw new Error(document.getElementById('e_sfStation').textContent||'The station was not saved.');return true;});
+ if(!out.ok){stEdit=oldEdit;render();fields.forEach(f=>{const el=document.getElementById(f.id);if(el){el.value=f.value;el.checked=f.checked;}});const e=document.getElementById('e_sfStation');if(e)fail(e,out.error);return false;}
+ if(oldCode&&oldCode!==newCode){
+  if(typeof stationCode!=='undefined'&&stationCode===oldCode)stationCode=newCode;
+  try{const session=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');if(session&&session.station===oldCode){session.station=newCode;localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(session));}}catch(e){}
+ }
+ render();return true;
+}
+function saveSfStationCommand(){
  const e=document.getElementById('e_sfStation'); e.style.display='none';
  const seq=+document.getElementById('sf_seq').value;
  const code=document.getElementById('sf_code').value.trim().toUpperCase();
@@ -20467,6 +20513,12 @@ function saveSfStation(){
  if(prev&&prev.code!==code){
   (DB.serviceRate||[]).forEach(w=>{if(w&&w.station===prev.code)w.station=code;});
   (DB.terminal||[]).forEach(t=>{t.stations=(t.stations||[]).map(c=>c===prev.code?code:c);});
+  const old=prev.code;
+  ['stationScan','user'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;}));
+  ['ncrReason','ncr','recut'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.where===old)r.where=code;}));
+  (DB.productionRoute||[]).forEach(x=>{x.route.codes=x.route.codes.map(c=>c===old?code:c);x.route.shipping=(x.route.shipping||[]).map(c=>c===old?code:c);x.route.services.forEach(r=>{if(r.station===old)r.station=code;});});
+
+
  }
  const o={seq,code,name:prev&&prev.name||nameEn,nameEn,
   always:document.getElementById('sf_always').checked,
@@ -20474,7 +20526,7 @@ function saveSfStation(){
   note:document.getElementById('sf_note').value.trim()};
  if(stEdit==='new') DB.station.push(o); else Object.assign(DB.station[stEdit],o);
  DB.station.sort((a,b)=>a.seq-b.seq);
- stEdit=null; stationRouteReset(); touch(); render();
+ stEdit=null; stationRouteReset(); touch(); render();return true;
 }
 /* Станцию, на которую ссылаются работы, не удаляем: работа без станции —
    сирота, и увидит её только тот, кто откроет нужный экран. */
@@ -20482,6 +20534,7 @@ function delSfStation(i){
  const s=DB.station[i],w=stationOperations(s.code);
  if(w.length) return alert('Cannot delete '+s.code+' — works go to it: '+w.map(o=>o.name||o.id).join(', ')+'. Move them to another station in Master Data → Works first.');
  if(DB.terminal.some(t=>(t.stations||[]).includes(s.code))) return alert('Cannot delete — terminals point at this station');
+ if((DB.stationScan||[]).some(r=>r.station===s.code)||(DB.productionRoute||[]).some(r=>r.route.codes.includes(s.code))||(DB.user||[]).some(u=>u.station===s.code)||(DB.ncrReason||[]).some(r=>r.where===s.code))return alert('Cannot delete — history, active routes, workers or NCR reasons reference this station.');
  if(!confirm('Delete station '+s.code+'?'))return; DB.station.splice(i,1); stationRouteReset(); touch(); render();
 }
 
@@ -22007,6 +22060,7 @@ function companyLogoUpload(input){
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
+let finRecordBaseline='',finRecordBaselineId='';
 let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -22019,14 +22073,14 @@ function viewFinance(){return finWorkspaceHTML();}
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
  if(!finCanLeave())return false;
- finTab='receipts';finEdit='new';
+ finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
 }
 function finOpenReceipt(id){
  if(!finCanLeave())return;
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return;
- finTab='receipts';finEdit=id;
+ finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
@@ -22103,6 +22157,7 @@ function finReceiptForm(){
 }
 function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
+ if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}
@@ -22406,8 +22461,9 @@ function finMovementsCSV(receipts,refunds,states){
  return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
 function finExportFile(list,batch){
- const states=new Map(list.map(x=>[x.x.id,x.state]));
- customerDownload('quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states),'text/csv;charset=utf-8');
+ const file=(DB.financeExportBatch||[]).find(x=>x.batch===batch);
+ if(!file){alert('The original CSV is unavailable for this older export. Export corrected entries as a new file.');return false;}
+ customerDownload(file.name,file.csv,'text/csv;charset=utf-8');return true;
 }
 /* Кнопка QuickBooks: файл только с тем, чего в QuickBooks ещё нет или что
    изменилось после выгрузки; после записи они считаются выгруженными. */
@@ -22416,16 +22472,14 @@ function finExportQuickBooks(){
  const out=finPersist(()=>finExportMark(list));if(!out.ok)return alert(out.error);
  finExportFile(list,out.value);render();
 }
-/* Тот же файл ещё раз — если прошлый потерялся. Суммы — текущие. */
+/* Тот же файл ещё раз — если прошлый потерялся. Суммы и подписи — сохранённый оригинал. */
 function finExportAgain(){
  const batch=finExportLastBatch();if(!batch)return;
- const ids=new Set(DB.financeExport.filter(e=>e.batch===batch).map(e=>e.entityId));
- const list=DB.receipt.filter(r=>ids.has(r.id)).map(x=>({kind:'receipt',x,state:'done'})).concat(DB.refund.filter(r=>ids.has(r.id)).map(x=>({kind:'refund',x,state:'done'})));
- finExportFile(list,batch);
+ finExportFile(null,batch);
 }
 function finExportButtonHTML(){
- const n=finExportPending().length,batch=finExportLastBatch(),last=batch?DB.financeExport.filter(e=>e.batch===batch):[];
- return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV with payments and refunds not yet in QuickBooks">${n?'QuickBooks · '+n+' new':'QuickBooks · up to date'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
+ const n=finExportPending().length,batch=finExportLastBatch(),last=batch?(DB.financeExportBatch||[]).filter(e=>e.batch===batch).concat(DB.financeExport.filter(e=>e.batch===batch)):[];
+ return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
 }
 
 /* ------------------------- Карточка клиента ------------------------- */
@@ -23517,6 +23571,10 @@ function glassBatchPartSnapshot(r){
    dryRun проверяет то же самое и ничего не пишет — так несколько батчей
    создаются все вместе или ни один. */
 function glassBatchAssign(rows,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchAssignCommand(rows,opts);
+ const out=storageCommand(()=>{const value=glassBatchAssignCommand(rows,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:null;
+}
+function glassBatchAssignCommand(rows,opts){
  opts=opts||{};if(!rows||!rows.length)return null;
  if(new Set(rows.map(r=>r.slot)).size!==rows.length)return null;
  const current=new Map(glassBatchRows([...new Set(rows.map(r=>r.orderId))].map(salesRecord).filter(Boolean)).map(r=>[r.slot,r]));
@@ -23548,6 +23606,10 @@ function glassBatchAssign(rows,opts){
    как у прежнего Unbatch: перед следующим батчем его проверяют заново.
    Номера стёкол сохраняются; другие батчи не меняются. */
 function glassBatchRelease(entries,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchReleaseCommand(entries,opts);
+ const out=storageCommand(()=>{const value=glassBatchReleaseCommand(entries,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok&&out.value;
+}
+function glassBatchReleaseCommand(entries,opts){
  opts=opts||{};if(!opts.confirmed||!entries||!entries.length)return false;
  if(new Set(entries.map(x=>x.item)).size!==entries.length)return false;
  const lineOf=x=>{const part=x.batch.parts[x.item.part],o=part&&salesRecord(part.orderId);return {part,o,l:o&&o.lines.find(l=>l.id===part.lineId)};};
@@ -23569,6 +23631,10 @@ function glassBatchRelease(entries,opts){
    в старом батче закрывается с пометкой movedTo, в новом открывается запись с
    тем же Glass ID; заказы остаются в Batched. Начатый рез не переносится. */
 function glassBatchMove(number,pieceIds,opts){
+ if(storageDepth||opts&&(opts.deferTouch||opts.dryRun))return glassBatchMoveCommand(number,pieceIds,opts);
+ const out=storageCommand(()=>{const value=glassBatchMoveCommand(number,pieceIds,opts);if(value==null)throw new Error('Nothing could be assigned to this batch.');return value;});return out.ok?out.value:{error:out.error};
+}
+function glassBatchMoveCommand(number,pieceIds,opts){
  opts=opts||{};const from=glassBatchFind(number);if(!from)return {error:'Batch not found.'};
  const ids=new Set(pieceIds||[]),items=from.items.filter(i=>!i.releasedAt&&ids.has(i.piece));
  if(!items.length||items.length!==ids.size)return {error:'Nothing to move.'};
@@ -23975,7 +24041,7 @@ function stkRoute(o,l,c){
  const codes=row.stations.map(s=>s.code),tail=[];
  (DB.station||[]).filter(s=>s.always).sort((a,b)=>(+a.seq||0)-(+b.seq||0)).forEach(s=>{if(!codes.includes(s.code)){codes.push(s.code);tail.push(s.code);}});
  const services=[];
- row.stations.forEach(s=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text))services.push({station:s.code,text});});});
+ row.stations.forEach((s,step)=>{if(s.code===salesRouteStationOf('cutting','CUT'))return;s.items.forEach(t=>{if(t===s.name)return;const text=String(t).toUpperCase();if(!services.some(x=>x.text===text&&x.step===step))services.push({station:s.code,text,step});});});
  return {codes,shipping:tail,services};
 }
 function stkWeight(l,o,lite){
@@ -24003,7 +24069,7 @@ function stkGlassData(kind,o,l,c,unit,opts){
    glass:c.missing?{name:'Glass missing',code:'',mm:null,heat:'',heatSoak:false,surface:'',paint:[],ply:''}:stkGlassInfo(c.pane,c.index,c.ply),
    cut:stkCut(cut,stkFinished(cut,l)),finished:stkFinished(cut,l),area:stkPieceArea(l,o),weight:stkWeight(l,o,c.lite),
    sheet:stkSheetOf(opts.batch,glassPieceAt(rec,unit)),
-   shape:stkShapeOf(cut),route:kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
+   shape:stkShapeOf(cut),route:kind==='production'&&typeof stationRouteOf==='function'?stationRouteOf({o,l,c}):kind==='production'?stkRoute(o,l,c):null,summary:comps.length>1&&m?salesMakeupSummary(m):''});
  });
 }
 function stkUnitData(o,l,unit){
@@ -27591,7 +27657,7 @@ function validateRecutPayload(src){
    Отмена скана (Undo) запись не удаляет, а помечает: журнал — история,
    и «кто отсканировал по ошибке» тоже её часть.
    ===================================================================== */
-DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
+DEFAULT.productionRoute=[];DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
 const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
 /* Что записывается, а что только показывается. On Hold записывается: на CUT
    стекло сканируют уже порезанным, и факт реза не отменить — рабочий
@@ -27644,6 +27710,7 @@ function stationGlass(id,index,batches){
    на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
 let stationRouteCache=new Map();
 function stationRouteOf(g){
+ const frozen=(DB.productionRoute||[]).find(x=>g.c&&x.key===g.c.key);if(frozen)return frozen.route;
  const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
@@ -27667,13 +27734,13 @@ function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
  let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
-  .forEach(s=>{const i=stationRouteStep(route,s.station,far);if(i>far)far=i;});
+  .forEach(s=>{const i=Number.isInteger(s.step)&&route[s.step]===s.station?s.step:stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
  const broken=scans.find(s=>s.broken)||null;
  if(broken)return {route,far,waiting:'',shipped:false,broken};
  /* Сборка на IGU не закрыта — стекло ещё на IGU, юнит не собран. */
- if(far>=0&&scans.some(s=>s.asm&&!s.unit&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
+ if(far>=0&&scans.some(s=>s.asm&&!s.unit&&!s.joined&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
@@ -27702,11 +27769,21 @@ function stationCheck(station,raw){
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
 function stationRecord(station,check,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationRecordCommand(station,check,who,opts);
+ const out=storageCommand(()=>stationRecordCommand(station,check,who,opts));
+ return out.ok?out.value:null;
+}
+function stationRecordCommand(station,check,who,opts){
  opts=opts||{};
  if(!check||!STATION_RECORDED.includes(check.kind))return null;
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const now=opts.now||new Date().toISOString();
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
+ if(check.g&&check.g.c){
+  const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
+  if(!DB.productionRoute.some(x=>x.key===check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+ }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
@@ -27718,27 +27795,43 @@ function stationRecord(station,check,who,opts){
  if(!opts.deferTouch)touch();
  return rec;
 }
+function stationMove(station,check,who,opts){
+ return storageCommand(()=>{
+  const rec=stationRecord(station,check,who,Object.assign({},opts,{deferTouch:true}));
+  if(!rec)throw new Error('Nothing was recorded.');
+  const mates=stationRecordMates(station,check,who,opts);
+  return {rec,mates};
+ });
+}
 /* Undo — только последний скан стекла: отменить CUT, когда стекло уже
    прошло EDGE, значило бы оставить его «на EDGE без реза». */
 function stationUndo(id,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationUndoCommand(id,who,opts);
+ const out=storageCommand(()=>stationUndoCommand(id,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationUndoCommand(id,who,opts){
  opts=opts||{};
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
- const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
- if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
- rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
- stationAsmReopen(rec);
- if(rec.station===stationCutCode()&&!stationScansFor(rec.piece).some(s=>s.station===rec.station)){
-  const e=stationBatchIndex().get(rec.piece);
-  if(e&&e.item.cutStartedAt===rec.at){
-   e.item.cutStartedAt='';
-   const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);
-   if(o&&l)glassBatchSyncLine(o,l);
-  }
+ const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
+ const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
+ if(rec.asm){
+  const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);
+  if(assembly.some(s=>{const last=ordered(s.piece).pop();return last&&!assembly.includes(last)&&!group.includes(last);} ))return {error:'The unit has moved on — undo its later move first.'};
  }
+ const at=opts.now||new Date().toISOString();
+ group.forEach(r=>{
+  r.undoneAt=at;r.undoneBy=String(who&&who.name||'');stationAsmReopen(r);
+  if(r.station===stationCutCode()&&!stationScansFor(r.piece).some(s=>s.station===r.station)){
+   const e=stationBatchIndex().get(r.piece);
+   if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
+  }
+ });
  if(!opts.deferTouch)touch();
- return {ok:true};
+ return {ok:true,pieces:group.map(s=>s.piece)};
 }
 /* Экран офиса: сколько стёкол ждёт на каждой станции и какие. Берём все
    стёкла активных батчей и все, у кого уже есть скан (порезанные из стока
@@ -27764,13 +27857,18 @@ function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='
 
 function normalizeStationScans(){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ if(!Array.isArray(DB.productionRoute))DB.productionRoute=[];
+ DB.productionRoute=DB.productionRoute.filter(x=>x&&typeof x.key==='string'&&x.route&&Array.isArray(x.route.codes)&&x.route.codes.length&&x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))&&Array.isArray(x.route.services));
  const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
+   ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
+   ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
+   ...(s.joined===true&&STATION_SCAN_ID_RE.test(String(s.asm))?{joined:true}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
    ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
@@ -27787,6 +27885,13 @@ function normalizeStationScans(){
  lines.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&(o.lines||[]).find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
 }
 function validateStationScanPayload(src){
+ if(src&&src.productionRoute!=null){
+  if(!Array.isArray(src.productionRoute))throw new Error('Saved production routes must be an array.');
+  const keys=new Set();src.productionRoute.forEach(x=>{
+   if(!x||typeof x.key!=='string'||!x.key||keys.has(x.key)||!x.route||!Array.isArray(x.route.codes)||!x.route.codes.length||!x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))||!Array.isArray(x.route.services)||!x.route.services.every(s=>s&&typeof s.text==='string'&&x.route.codes.includes(s.station)&&(s.step==null||Number.isInteger(s.step)&&x.route.codes[s.step]===s.station)))throw new Error('Invalid or duplicate saved production route.');keys.add(x.key);
+  });
+ }
+
  if(src&&Object.prototype.hasOwnProperty.call(src,'stationScan')&&!Array.isArray(src.stationScan))throw new Error('The "stationScan" field must be an array.');
  if(src&&Object.prototype.hasOwnProperty.call(src,'sheetBreak')&&!Array.isArray(src.sheetBreak))throw new Error('The "sheetBreak" field must be an array.');
 }
@@ -27815,6 +27920,11 @@ function stationBreakPlan(g,station,asmId){
  return {which,whole:false,asm:a,pieces:[g.id].concat(same),out};
 }
 function stationBreak(station,check,who,reasonId,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationBreakCommand(station,check,who,reasonId,opts);
+ const out=storageCommand(()=>stationBreakCommand(station,check,who,reasonId,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
@@ -27843,6 +27953,11 @@ function stationBreak(station,check,who,reasonId,opts){
 /* Лопнул лист на столе — режут ту же раскладку заново, стикеры те же
    (владелец, 29.09.2026). Система только записывает потерю листа. */
 function stationSheetBreak(batch,glass,sheetNo,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationSheetBreakCommand(batch,glass,sheetNo,who,opts);
+ const out=storageCommand(()=>stationSheetBreakCommand(batch,glass,sheetNo,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationSheetBreakCommand(batch,glass,sheetNo,who,opts){
  opts=opts||{};
  const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null,g=plan&&plan.groups.find(x=>x.glass===glass),sh=g&&g.sheets.find(s=>s.no===sheetNo);
  if(!sh)return {error:'Sheet not found.'};
@@ -27869,18 +27984,22 @@ function normalizeSheetBreaks(){
 function storageLiveReload(text){
  let next;
  try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
- DB=next;stationRouteCache=new Map();
+ DB=next;storageBaseline=text;storageInvalidate();
  const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
  if(!typing)render();
  return true;
 }
 window.addEventListener('storage',function(e){
  if(e.key!=='glazing_system_v1'||typeof e.newValue!=='string')return;
- storageLiveReload(e.newValue);
+ // An old event can arrive after this tab has saved a newer value during handoff.
+ // Read the current durable value instead of replaying the queued event payload.
+ const current=storageRead('glazing_system_v1');
+ if(current&&current!==storageBaseline)storageLiveReload(current);
 });
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
    сразу). Скан остаётся, пропадает только тара. */
-function stationScanOff(id){
+function stationScanOff(id){const out=storageCommand(()=>stationScanOffCommand(id));return out.ok&&out.value;}
+function stationScanOffCommand(id){
  const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
  delete rec.on;touch();return true;
 }
@@ -27894,18 +28013,26 @@ function stationScanOff(id){
    досверлишь — вопрос задаётся, пока стекло ещё можно вернуть.)
    --------------------------------------------------------------------- */
 function stationSkippedWorks(check){
- const svc=(stationRouteOf(check.g).services||[]).filter(s=>(check.missed||[]).includes(s.station));
+ const start=check.place.far+1,end=start+(check.missed||[]).length;
+ const svc=(stationRouteOf(check.g).services||[]).filter(s=>(check.missed||[]).includes(s.station)&&(s.step==null||s.step>=start&&s.step<end));
  return svc.map(s=>({station:s.station,text:s.text}));
 }
 function stationConfirmSkipped(station,code,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationConfirmSkippedCommand(station,code,who,opts);
+ const out=storageCommand(()=>stationConfirmSkippedCommand(station,code,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationConfirmSkippedCommand(station,code,who,opts){
  opts=opts||{};
  const check=stationCheck(station,code);
  if(!check||check.kind!=='skipped')return {error:'Nothing to confirm.'};
+ if(check.place.assembling)return {error:'The pair must be assembled before it can move on.'};
  const now=opts.now||new Date().toISOString();
  check.missed.forEach(m=>stationRecord(m,{kind:'ok',code,g:check.g},who,{deferTouch:true,manual:true,confirmedAt:station,now}));
  const after=stationCheck(station,code);
  const rec=STATION_RECORDED.includes(after.kind)?stationRecord(station,after,who,{deferTouch:true,on:opts.on,now}):null;
- const mates=rec?stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now}):[];
+ if(!rec)throw new Error('The pair must be assembled before it can move on.');
+ const mates=stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now});
  touch();
  return {ok:true,check:after,rec,mates,confirmed:check.missed};
 }
@@ -27933,8 +28060,8 @@ function stationAsms(o,l,station,index){
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||!s.asm||s.station!==station)return;
   const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
-  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false});
-  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(broken.has(s.piece))a.broken=true;
+  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false,complete:false});
+  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(s.unit||s.joined)a.complete=true;if(broken.has(s.piece))a.broken=true;
  });
  return [...out.values()].sort((a,b)=>a.asm.localeCompare(b.asm));
 }
@@ -27943,19 +28070,27 @@ function stationAsmOf(g,station){
  return stationAsms(g.o,g.l,station).find(a=>a.asm===rec.asm)||null;
 }
 /* Скан на станции слияния: в сборку; сборка полная — номер юнита. */
+function stationAssemblyKeys(g,station){
+ const lam=salesRouteStationOf('lamination','LAM');
+ return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&(station!==lam||!g.c.ply||c.index===g.c.index)).map(c=>c.key);
+}
 function stationAsmJoin(rec,g,station){
- if(!g||!g.c||g.c.missing||stationUnitMerge(g.o,g.l)!==station)return;
- const index=stationPieceIndex(),open=stationAsms(g.o,g.l,station,index).filter(a=>!a.unit&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec));
+ if(!g||!g.c||g.c.missing)return;
+ const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
+ if(station!==mu&&!(station===lam&&g.c.ply))return;
+ const expected=stationAssemblyKeys(g,station),index=stationPieceIndex();
+ const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k)));
  rec.asm=open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
- if(!a||!stationLineKeys(g.o,g.l).every(k=>a.lites.has(k)))return;
+ if(!a||!expected.every(k=>a.lites.has(k)))return;
+ if(station!==mu){a.recs.forEach(r=>{r.joined=true;});return;}
  const used=new Set(all.filter(x=>x.unit&&!x.broken).map(x=>x.unit));let n=1;while(used.has(n))n++;
  a.recs.forEach(r=>{r.unit=n;});
 }
 /* Отмена скана на станции слияния: сборка снова открыта. */
 function stationAsmReopen(rec){
  if(!rec||!rec.asm)return;
- (DB.stationScan||[]).forEach(s=>{if(s.asm===rec.asm&&s.unit)delete s.unit;});
+ (DB.stationScan||[]).forEach(s=>{if(s.asm===rec.asm){delete s.unit;delete s.joined;}});
 }
 /* Остальные стёкла юнита после станции слияния. */
 function stationUnitMates(g,merge){
@@ -27964,6 +28099,8 @@ function stationUnitMates(g,merge){
 }
 /* Ламинат: плиты одного лайта — по номеру стекла, как и раньше. */
 function stationPlyMates(g){
+ const lam=salesRouteStationOf('lamination','LAM'),assembly=stationAsmOf(g,lam);
+ if(assembly&&assembly.complete&&!assembly.broken)return [...assembly.lites.values()].filter(id=>id!==g.id).map(id=>({id}));
  if(typeof g.unit!=='number'||!g.c)return [];
  const pieces=glassPieceMap(g.o.id);
  return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&c.key!==g.c.key&&c.index===g.c.index).map(c=>{const rec=pieces.get(c.key),id=rec&&rec.ids[g.unit-1];return id?{id}:null;}).filter(Boolean);
@@ -27988,7 +28125,7 @@ function stationUnitCheck(station,code){
 }
 /* Остальные стёкла изделия пишутся тем же сканом — если ждут здесь же. */
 function stationRecordMates(station,check,who,opts){
- return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true})):null;}).filter(Boolean);
+ return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true,actionId:check.actionId,now:opts&&opts.now||check.recordedAt})):null;}).filter(Boolean);
 }
 /* Какое стекло отметить разбитым, когда пару забраковали у света, не
    сканируя: лайты позиции взаимозаменяемы — берём то, что ждёт здесь
@@ -28056,14 +28193,16 @@ function carrierCode(v){return String(v==null?'':v).trim().toUpperCase().replace
 function carrierType(code){const m=CARRIER_RE.exec(carrierCode(code));return m?CARRIER_TYPES.find(t=>t.k===m[1]):null;}
 function carrierFind(code){const c=carrierCode(code);return (DB.carrier||[]).find(x=>x.code===c)||null;}
 /* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1… */
-function carrierAdd(prefix,count,opts){
+function carrierAdd(prefix,count,opts){if(storageDepth||opts&&opts.deferTouch)return carrierAddCommand(prefix,count,opts);const out=storageCommand(()=>carrierAddCommand(prefix,count,opts));return out.ok?out.value:{error:out.error};}
+function carrierAddCommand(prefix,count,opts){
  opts=opts||{};const t=CARRIER_TYPES.find(x=>x.k===prefix);if(!t)return {error:'Unknown type.'};
  const n=Math.max(1,Math.min(50,Math.floor(+count)||1));if(!Array.isArray(DB.carrier))DB.carrier=[];
  let top=DB.carrier.reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
  const made=[];for(let i=0;i<n;i++){const code=prefix+'-'+(++top);DB.carrier.push({code,note:'',active:true});made.push(code);}
  if(!opts.deferTouch)touch();return {codes:made};
 }
-function carrierSet(code,field,value){
+function carrierSet(code,field,value){const out=storageCommand(()=>carrierSetCommand(code,field,value));return out.ok&&out.value;}
+function carrierSetCommand(code,field,value){
  const c=carrierFind(code);if(!c)return false;
  if(field==='active')c.active=!!value;else if(field==='note')c.note=String(value==null?'':value).slice(0,80);else return false;
  touch();return true;
@@ -29816,7 +29955,7 @@ function stationAutoPrintToggle(){
 function stationUnitDone(recs){
  const done=(recs||[]).find(r=>r&&r.unit&&r.asm&&r.station===stationCode);if(!done)return null;
  if(stationLast)stationLast.unitDone=done.unit;
- if(stationAutoPrintOn()){if(stationLast)stationLast.printed=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
+ if(stationAutoPrintOn()){if(stationLast)stationLast.printRequested=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
  return done;
 }
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
@@ -29897,12 +30036,17 @@ function stationSubmit(raw){
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
- const mates=rec?stationRecordMates(stationCode,check,who,{on:stationPutOn()}):[];if(mates.length)touch();
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
+ if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
+ const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;
  stationUnitDone([rec].concat(mates));
  render();
  return check.kind;
+}
+function stationSaveError(code,error){
+ const check=stationCheck(stationCode,code)||{code};check.kind='saveError';
+ stationShow(check,null);stationNote=error;render();return false;
 }
 function stationShow(check,rec){
  stationMenu=null;stationNote='';
@@ -30041,9 +30185,11 @@ function stationSheetClick(ev){
 function stationMark(piece){
  const who=stationWho();if(!who)return;
  const check=stationCheck(stationCode,piece);if(!check)return;
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
- const mates=rec?stationRecordMates(stationCode,check,who,{manual:true,on:stationPutOn()}):[];if(mates.length)touch();
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
+ if(out&&!out.ok){stationSaveError(check.code,out.error);return false;}
+ const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;stationUnitDone([rec].concat(mates));render();
+
 }
 function stationPeek(piece){
  const check=stationCheck(stationCode,piece);if(!check)return;
@@ -30083,7 +30229,7 @@ function stationMenuHTML(){
 /* ------------------------------ Карточка ----------------------------- */
 function stationRouteChips(route,place){
  if(!route||!route.length)return '';
- return '<div class="st-route">'+route.map((c,i)=>{const done=place&&i<=place.far,next=place&&c===place.waiting;
+ return '<div class="st-route">'+route.map((c,i)=>{const done=place&&i<=place.far,next=place&&i===place.far+1;
   return '<span class="st-rc'+(done?' done':next?' next':'')+'">'+(done?'✓ ':'')+esc(c)+'</span>';}).join('<span class="st-ra">›</span>')+'</div>';
 }
 function stationTime(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
@@ -30105,6 +30251,7 @@ function stationCard(){
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
   cancelled:{cls:'st-red',head:'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
+  saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   broken:{cls:'st-red',head:'✕ Broken · '+(place&&place.broken?'Recut '+esc(String(place.broken.recut).replace(/^R/,''))+' · '+esc(place.broken.reason||''):'')},
   recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
@@ -30121,21 +30268,23 @@ function stationCard(){
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
  else if(c.kind==='broken')big='<div class="st-big st-red"><small>BROKEN</small><b>RECUT</b><span>Glass left the route</span></div>';
+ else if(c.kind==='saveError')big='<div class="st-big st-red"><small>NOT SAVED</small><b>RETRY</b><span>Scan this sticker again</span></div>';
  else if(c.kind==='unknown')big='<div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Check the sticker</span></div>';
  else if(place&&place.shipped)big='<div class="st-big"><small>ROUTE</small><b>DONE</b><span>Shipped</span></div>';
  else big='<div class="st-big'+(urg===2&&c.kind==='ok'?' st-red':'')+'"><small>NEXT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(urg===2&&c.kind==='ok'?'Set aside or take it now':esc(waitName))+'</span></div>';
  const bar=o&&urg&&!['unknown','unit'].includes(c.kind)?'<div class="st-urg'+(urg===2?'':' st-rush')+'">'+(urg===2?'CRITICAL':'RUSH')+'<span>· order '+esc(o.businessNumber||'')+(d&&d.due?' · due '+esc(d.due):'')+'</span></div>':'';
- const size=d?(d.cut||d.finished):null;
+ const size=d?(stationCode===stationCutCode()?d.cut||d.finished:d.finished):null;
  const lineTxt=d?'Line '+d.line+' · '+(d.recut?esc(d.recut):d.unit+' of '+d.of)+(d.lites>1?' · Lite '+esc(d.lite):''):'';
  const info=g?'<div class="st-gid mono">'+esc(c.code)+'</div><div class="st-kv">'+
   '<span class="k">Order</span><span><b>'+esc(o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span></span>'+
   (d?'<span class="k">Line</span><span>'+lineTxt+'</span>':'')+
   (d?'<span class="k">Glass</span><span><b data-raw>'+esc(d.glass.code||d.glass.name)+'</b>'+(d.glass.heat?' · '+esc(d.glass.heat):'')+'</span>':'')+
-  (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
+  (d&&d.cut&&d.finished&&(d.cut.w!==d.finished.w||d.cut.h!==d.finished.h)&&stationCode!==stationCutCode()?'<span class="k">Cut size</span><span>'+esc(frac16(d.cut.w)+' × '+frac16(d.cut.h))+'</span>':'')+
+  (size?'<span class="k">'+(stationCode===stationCutCode()?'Cut size':'Finished size')+'</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
   (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
   '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationParkHTML(c)+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
-  (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
+  (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.filter(s=>s.station===stationCode&&(s.step==null||s.step===(L.rec&&Number.isInteger(L.rec.step)?L.rec.step:stationRouteStep(place.route,stationCode,place.far)))).map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
     стикер (не читается или стекло режут из остатка). */
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
@@ -30396,7 +30545,7 @@ function stationCarrierScan(code){
  /* Только что вынули стекло из машины (пара ушла в Recut) — долли для него. */
  if(stationParkPending.length){
   const recs=(DB.stationScan||[]).filter(s=>stationParkPending.includes(s.id)&&!s.undoneAt);stationParkPending=[];
-  if(recs.length){recs.forEach(s=>{s.on=c.code;});touch();stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
+  if(recs.length){const saved=storageCommand(()=>{recs.forEach(s=>{s.on=c.code;});});if(!saved.ok){stationParkPending=recs.map(s=>s.id);stationNote=saved.error;stationBeep('error');return 'saveError';}stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
  }
  const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
  if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
@@ -30409,9 +30558,9 @@ function stationCarrierCard(L){
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
 }
-function stationScanOffClick(id){if(stationScanOff(id)){stationNote='By hand — not on a dolly';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)delete stationLast.rec.on;}render();}
+function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
- const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting);
+ const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting&&(s.step==null||s.step===x.place.far+1));
  return x.place.waiting+(svc?' · '+svc.text:'');
 }
 /* Справа: тара, что привезла стекло сюда (срочная первой, потом кто раньше),
@@ -30478,9 +30627,9 @@ function stationUnitHTML(L){
  if(st&&st.lites.length>1){
   const miss=x=>!st.complete&&!x.here?' <button type="button" class="b sm st-red-b" data-station-pair-recut="'+esc(x.key)+'" onclick="stationRecutMissing(\''+esc(st.asm)+'\',\''+esc(x.key)+'\')" title="The pair is bad at the light — do not scan it">Recut</button>':'';
   const row=x=>'<span class="st-unit-st">'+(x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>')+miss(x)+'</span>';
-  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printed&&L.unitDone===st.n?' · sticker printed':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printRequested&&L.unitDone===st.n?' · print requested':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
    st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span>'+row(x)+'</div>').join('')+
-   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printed&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
+   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printRequested&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
  }
  return out;
 }
@@ -30639,7 +30788,7 @@ function stationFlowData(S){
  w.forEach((list,at)=>{if(at===S)return;list.forEach(x=>{const r=x.place.route,iA=x.place.far+1;if(r.indexOf(S,iA+1)>iA)coming.push(Object.assign({at},x));});});
  return {here,coming};
 }
-function stationWorksAt(g,S){return (stationRouteOf(g).services||[]).filter(s=>s.station===S).map(s=>s.text);}
+function stationWorksAt(g,S){const place=stationPlace(g),step=stationRouteStep(place.route,S,place.far);return (stationRouteOf(g).services||[]).filter(s=>s.station===S&&(s.step==null||s.step===step)).map(s=>s.text);}
 function stationFmtSqft(v){return v>=100?String(Math.round(v)):v.toFixed(1).replace(/\.0$/,'');}
 function stationPlural(n,one,many){return n+' '+(n===1?one:many);}
 function stationUrgPill(o){const u=stationUrgency(o);return u?' <span class="pill '+(u===2?'bad':'warn')+'">'+(u===2?'Critical':'Rush')+'</span>':'';}
@@ -30881,16 +31030,28 @@ function viewProdOrders(){
     Нет сверловки в работе — нет колонки DRILL. Плитки сверху — все. */
  const ahead=code=>infos.some(i=>{const t=i.x.route[code];return t&&t.n>t.p;});
  const cols=salesListColumns().filter(c=>c.station?ahead(c.station):c.k!=='queue'||total('queue')>0);
- const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).map(s=>{
+ const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).filter(s=>ahead(s.code)||total('st_'+s.code)>0).map(s=>{
   const k='st_'+s.code,n=total(k),f=p.filters[k],on=!!f&&salesListFilterActive(f);
   return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'}</small></button>`;
  }).join('')+'</div>';
  const body=rows.map(r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):'')).join('');
  const glassN=rows.reduce((n,r)=>n+r.x.total-r.x.shipped,0);
  const foot=rows.length?`<tfoot><tr class="sl-foot">${cols.map((c,i)=>i===0?`<td data-foot-count><b>${rows.length} order${rows.length===1?'':'s'}</b></td>`:c.sum?`<td class="n pb-st">${rows.reduce((n,r)=>n+(salesListValue(r,c.k)||0),0)||''}</td>`:'<td></td>').join('')}<td></td></tr></tfoot>`:'';
- return `${tiles}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass in production</span></div>${salesListFilterChips()}
+ return `${tiles}${prodExceptionsHTML(infos)}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass components in production</span></div>${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table pb-table"><thead><tr>${cols.map(c=>prodTh(c,p)).join('')}<th><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead>
-  <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+  <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass components in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+}
+
+/* Exceptions stay visible alongside the station totals. Counts are components,
+   while Hold and overdue counts are orders; one order can have both. */
+function prodExceptionsHTML(infos){
+ const orders=infos.map(x=>x.x.o),today=finToday();
+ const hold=orders.filter(o=>o.onHold||(o.lines||[]).some(l=>l.onHold)).length;
+ const late=orders.filter(o=>o.dueDate&&o.dueDate<today).length;
+ const ids=new Set(orders.map(o=>o.id));
+ const recuts=(DB.recut||[]).filter(r=>ids.has(r.orderId)).length;
+ const parked=stationParked(hit=>ids.has(hit.orderId)).length;
+ return '<div class="pb-exceptions" data-prod-exceptions><b>Needs attention</b><span>'+hold+' orders on hold</span><span>'+late+' overdue orders</span><span>'+parked+' components waiting for a pair</span><span>'+recuts+' recut records</span><button type="button" onclick="navGo(\'shipping\')">Shipping</button></div>';
 }
 
 /* ==== src/erp/views/carriers-ui.js ==== */
@@ -30953,12 +31114,93 @@ function carrierPrintLabels(codes){
    normalize/validate hooks и отвечает только за безопасный вход→выход.
    ===================================================================== */
 
-function afterRender(){}
-let storageWarningShown=false;
+/* One browser database has one writer. Web Locks protects the entire write
+   session; followers can review live data and explicitly take over. */
+const STORAGE_KEY='glazing_system_v1',STORAGE_LOCK=STORAGE_KEY+'-writer';
+const STORAGE_BACKUP_KEY=STORAGE_KEY+'-before-import';
+let storageWriter=false,storageRelease=null,storageChannel=null,storageStarting=true;
+let storageWarningShown=false,storageLastError='',storageLastSaved='',storageBaseline=null,storageDepth=0;
+let storageRecovery=false,storageBackupAt='';
+function storageInvalidate(){
+ if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
+ if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
+ if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
+}
+function storageCommand(fn){
+ if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
+ if(!storageWriter||storageRecovery)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':'Read only: activate editing in this tab first.'};
+ const before=JSON.stringify(DB),wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
+ storageDepth++;
+ try{
+  const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
+  storageDepth--;if(touch()===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  return {ok:true,value};
+ }catch(e){storageDepth=0;if(JSON.stringify(DB)!==before)DB=JSON.parse(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+}
 function touch(){
- dirty=true;
- try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
- catch(e){console.error('localStorage write failed:',e);if(!storageWarningShown){storageWarningShown=true;alert('Could not save to this browser. Export JSON and check free space.');}return false;}
+ if(storageDepth)return true;
+ if(!storageWriter||storageRecovery){
+  if(storageStarting)return false;
+  storageLastError=storageRecovery?'The stored database needs recovery. Export it before editing.':'Read only: activate editing in this tab first.';
+  if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
+  if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
+ }
+ try{
+  const text=JSON.stringify(DB);localStorage.setItem(STORAGE_KEY,text);
+  storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+ }catch(e){
+  storageLastError='Not saved. Your operation is still open; retry or export your changes.';
+  if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
+  console.error('localStorage write failed:',e);
+  if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
+ }
+}
+function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
+function storageStatusHTML(){
+ const text=storageRecovery?'Database recovery needed':!navigator.locks?'Editing unavailable in this browser':storageLastError?'Not saved':storageWriter?'Editing here':'Read only · editing in another tab';
+ return '<div class="storage-status'+(storageLastError||storageRecovery?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
+  (storageLastError?'<small>'+esc(storageLastError)+'</small>':'')+
+  (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
+  (!storageWriter?'<button type="button" onclick="storageTakeControl()">Activate editing here</button>':'')+
+  (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
+  (storageRead(STORAGE_BACKUP_KEY)?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+}
+function afterRender(){
+ const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
+ /* Forms remain available for reading. Persisting controls explain the writer
+    state; commands also check it, including calls made outside the DOM. */
+ if(!storageWriter||storageRecovery){
+  document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
+   if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
+    el.disabled=true;el.title='Activate editing in this tab to change the database.';
+   }
+  });
+ }
+}
+async function storageTakeControl(){
+ if(storageWriter)return true;
+ if(!navigator.locks){storageLastError='This browser cannot coordinate editing. Open the file in a current browser.';render();return false;}
+ if(storageChannel)storageChannel.postMessage({type:'release-writer'});
+ return new Promise(resolve=>{
+  const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),4000);
+  navigator.locks.request(STORAGE_LOCK,{signal:abort.signal},async lock=>{
+   clearTimeout(timer);storageWriter=true;storageWarningShown=false;
+   const text=localStorage.getItem(STORAGE_KEY);
+   if(text&&text!==storageBaseline){if(!storageLiveReload(text)){storageRecovery=true;storageLastError='Stored data could not be read. Export the original and import a complete backup.';}storageBaseline=text;}
+   if(!storageRecovery)storageLastError='';render();resolve(true);
+   await new Promise(r=>storageRelease=r);
+  }).catch(()=>{clearTimeout(timer);storageWriter=false;storageLastError='Editing is still open elsewhere. Save or discard any open draft in that tab, then try again.';render();resolve(false);});
+ });
+}
+function storageStart(){
+ try{storageChannel=new BroadcastChannel(STORAGE_LOCK);storageChannel.onmessage=e=>{
+  if(e.data&&e.data.type==='release-writer'&&storageWriter){if(typeof salesDraftHasWork==='function'&&salesDraftHasWork()||typeof finHasWork==='function'&&finHasWork())return;storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;render();}
+ };}catch(e){}
+ if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot();storageStarting=false;render();return;}
+ navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
+  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);render();
+  if(lock)await new Promise(r=>storageRelease=r);
+ }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
 }
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
@@ -30970,20 +31212,44 @@ window.addEventListener('beforeunload',function(e){
 /* Ушли со страницы, не сохранив заказ: формы строк возвращаются к
    сохранённым, иначе база осталась бы с формами без заказа. */
 window.addEventListener('pagehide',function(){
- if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
+ if(!storageWriter||typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
  salesDraftDrop(true);
 });
+/* Discard the order draft while the writer is still held, then release it. */
+window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
+function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
+function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function doExport(){
- const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
- const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
- setTimeout(()=>URL.revokeObjectURL(a.href),1000); dirty=false; render();
+ storageDownload('glazing_system_data.json',JSON.stringify(storageExportEnvelope(),null,2));
+ storageBackupAt=new Date().toISOString();dirty=false;render();
+}
+function storageExportRecovery(){const text=localStorage.getItem(STORAGE_KEY)||'';storageDownload('glazing_system_recovery.json',text);}
+function storageImportSummary(next){return ['customer','salesOrder','receipt','glassBatch','stationScan'].map(k=>k+': '+(DB[k]||[]).length+' → '+(next[k]||[]).length).join('\n');}
+function storageImportState(raw){
+ const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
+ if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
+ const next=prepareImportedState(raw);
+ if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
+ const old=JSON.stringify(DB);
+ /* The backup is written and checked before the live key is touched. */
+ const backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:JSON.parse(old)});
+ const recovering=storageRecovery;
+ if(recovering){storageDownload('glazing_system_recovery.json',localStorage.getItem(STORAGE_KEY)||'');storageRecovery=false;}
+ const result=storageCommand(()=>{
+  localStorage.setItem(STORAGE_BACKUP_KEY,backup);if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
+  DB=next;return true;
+ });
+ if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
+ storageInvalidate();render();return true;
+}
+function storageRestoreBackup(){
+ const raw=localStorage.getItem(STORAGE_BACKUP_KEY);if(!raw){alert('No pre-import recovery copy is available.');return false;}return storageImportState(JSON.parse(raw));
 }
 function doImport(inp){
- const f=inp.files[0]; if(!f) return; const r=new FileReader();
+ const f=inp.files[0];if(!f)return;
  if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
- r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
-  catch(e){ alert('File not readable: '+e.message); } };
- r.readAsText(f); inp.value='';
+ const r=new FileReader();r.onload=()=>{try{storageImportState(JSON.parse(r.result));}catch(e){alert('File not readable: '+e.message);}};
+ r.readAsText(f);inp.value='';
 }
 /* ИСПРАВЛЕНО (авг 2026). Раньше здесь был Object.assign(DB, JSON.parse(s)) —
    в DB попадало ЛЮБОЕ содержимое ключа, включая null вместо массива, и
@@ -31061,6 +31327,10 @@ function validateImportedState(src){
  });
 }
 function prepareImportedState(src){
+ if(src&&src.format!==undefined){
+  if(src.format!=='glass-erp'||src.schemaVersion!==1||!src.data)throw new Error('Unsupported GLASS ERP backup format or version.');src=src.data;
+ }
+ if(!src||typeof src!=='object'||Array.isArray(src)||!Object.keys(src).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a GLASS ERP database or backup, not an empty or unrelated object.');
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
@@ -31110,10 +31380,10 @@ function normalizeDB(){
 }
 function boot(){
  let hadSavedState=false;
- try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; mergeState(JSON.parse(s)); } }
- catch(e){ console.warn('localStorage could not be read, starting from defaults:',e.message); }
+ try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; const parsed=JSON.parse(s);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');mergeState(parsed); } }
+ catch(e){storageRecovery=true;storageLastError='Stored data could not be read. The original has been preserved.';console.warn(storageLastError,e.message);}
  try{ normalizeDB(); }
- catch(e){ console.warn('the data cannot be normalised, falling back to defaults:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
@@ -31128,7 +31398,7 @@ function boot(){
  if(typeof seedDemoUsers==='function'&&seedDemoUsers())touch();
  render();
 }
-boot();
+storageStart();
 
 /* ---------------------------------------------------------------------
    Печать чертежа на бумагу / в PDF.
