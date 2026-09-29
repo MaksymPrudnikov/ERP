@@ -59,15 +59,45 @@ module.exports=async function({page,eq,ok}){
   unOut();return out;
  }),{kind:'ok',note:'EDGE confirmed here',journal:'G',edge:'HEAT',waiting:'IGU',chip:false});
 
- eq('IGU: состав юнита — что уже здесь, что ещё в пути; собран — «Unit complete» и стикер юнита',await t.p.evaluate(()=>{
-  unReset();const u=unOrder(),a=u.lite(0,1),b=u.lite(1,1);
-  [a,b].forEach(x=>{unScan('CUT',x);unScan('EDGE',x);});unScan('HEAT',a);unLogin('IGU','Anna L.');
-  stationSubmit(a);const box=document.querySelector('[data-station-unit]'),first={unit:box.dataset.stationUnit===u.unit(1),head:box.querySelector('.st-unit-h b').textContent,rows:[...box.querySelectorAll('.st-unit-r')].map(r=>r.textContent.replace(/·.*?(✓|waiting|broken)/,'$1')).join('|'),sticker:!!box.querySelector('[data-station-unit-sticker]')};
-  unScan('HEAT',b);stationSubmit(b);const box2=document.querySelector('[data-station-unit]');
-  const done={head:box2.querySelector('.st-unit-h b').textContent,cls:box2.className};
+ eq('IGU: юнит собирается из того, что сканируют, — лайт 1 юнита 1 с лайтом 2 юнита 2; номер юнита — когда собран; стикер юнита',await t.p.evaluate(()=>{
+  unReset();const u=unOrder(),a1=u.lite(0,1),b2=u.lite(1,2);
+  [a1,b2].forEach(x=>['CUT','EDGE','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
+  stationSubmit(a1);const box=document.querySelector('[data-station-unit]');
+  const first={head:box.querySelector('.st-unit-h b').textContent,rows:[...box.querySelectorAll('.st-unit-r')].map(r=>r.lastChild.textContent).join('|'),big:document.querySelector('.st-big b').textContent,waiting:stationPlace(stationGlass(a1)).waiting};
+  stationSubmit(b2);const box2=document.querySelector('[data-station-unit]');
+  const done={head:box2.querySelector('.st-unit-h b').textContent,unit:box2.dataset.stationUnit===u.unit(1),rows:[...box2.querySelectorAll('.st-unit-r')].map(r=>r.lastChild.textContent).join('|'),next:[a1,b2].map(x=>stationPlace(stationGlass(x)).waiting).join()};
   box2.querySelector('[data-station-unit-sticker]').click();const printed=window.unPrinted;stkPrintCleanup();
-  unOut();return {first,done,printed,qty:u.qty};
- }),{first:{unit:true,head:'Unit 1 of 2',rows:'Lite 1 ✓ here|Lite 2 waiting at HEAT',sticker:false},done:{head:'Unit complete',cls:'st-unit done'},printed:1,qty:2});
+  const recs=DB.stationScan.filter(s=>s.station==='IGU');normalizeStationScans();const kept=DB.stationScan.filter(s=>s.station==='IGU').map(s=>(s.asm===recs[0].id)+':'+s.unit).join();
+  unOut();return {first,done,printed,kept};
+ }),{first:{head:'Unit · waiting for its pair',rows:'✓ in|1 waiting here',big:'IN',waiting:'IGU'},done:{head:'Unit complete',unit:true,rows:'✓ in|✓ in',next:'SHIPR,SHIPR'},printed:1,kept:'true:1,true:1'});
+
+ eq('пример владельца: 6CL в машине, 6Q поцарапан — Recut на IGU; 6CL вынимают на долли, ждёт пару; другие юниты собираются; новое 6Q — «пара на DL-1», юнит собран',await t.p.evaluate(()=>{
+  unReset();carrierAdd('DL',1);const u=unOrder(),a1=u.lite(0,1),b1=u.lite(1,1),a2=u.lite(0,2),b2=u.lite(1,2);
+  [a1,b1,a2,b2].forEach(x=>['CUT','EDGE','HEAT'].forEach(st=>unScan(st,x)));unLogin('IGU','Anna L.');
+  stationSubmit(a1);stationSubmit(b1);
+  document.querySelector('[data-station-recut]').click();const note=document.querySelector('[data-recut-out]').textContent.replace(/\s+/g,' ');
+  [...document.querySelectorAll('[data-recut-reason]')].find(b=>b.textContent==='Scratched').click();
+  const card={kind:stationLast.check.kind,park:document.querySelector('[data-station-park]').textContent},newId=stationLast.check.newIds[0];
+  stationSubmit('DL-1');const parkCard=document.querySelector('[data-station-result]').dataset.stationResult;
+  const a1Place=stationPlace(stationGlass(a1)).waiting,onDolly=(carrierContents().get('DL-1')||[]).map(x=>x.id===a1).join(),pairs=[...document.querySelector('[data-station-pairs] tbody tr').children].slice(1).map(td=>td.textContent).join('|');
+  stationSubmit(a2);stationSubmit(b2);const other=stationLast.check.kind+':'+document.querySelector('[data-station-unit]').dataset.stationUnit.slice(-1);
+  unOut();['CUT','EDGE','HEAT'].forEach(st=>unScan(st,newId));unLogin('IGU','Anna L.');
+  stationSubmit(newId);const take=[...document.querySelectorAll('[data-station-unit] .st-unit-r')].map(r=>r.lastChild.textContent).join('|');
+  stationSubmit(a1);const last={head:document.querySelector('.st-unit-h b').textContent,unit:document.querySelector('[data-station-unit]').dataset.stationUnit.slice(-1),pairs:!!document.querySelector('[data-station-pairs]')};
+  const journal=DB.stationScan.filter(s=>s.piece===a1).map(s=>s.station+(s.park?':park':'')+(s.undoneAt?':undone':'')).join();
+  unOut();return {note,card,parkCard,a1Place,onDolly,pairs,other,take,last,journal,b1:stationPlace(stationGlass(b1)).broken.recut};
+ }),{note:'Lite 1 · 6CLEAR comes out of the machine and waits for the new glass on a dolly',card:{kind:'recut',park:'Out of the machine: Lite 1 · 6CLEAR · scan the dolly it waits on'},parkCard:'carrierPark',
+  a1Place:'IGU',onDolly:'true',pairs:'Line 1 · 37 × 71|Lite 1 · 6CLEAR|DL-1|needs 6Q240 · Recut 1 To batch',other:'ok:1',take:'on DL-1 — take it|✓ in',last:{head:'Unit complete',unit:'2',pairs:false},journal:'CUT,EDGE,HEAT,IGU:undone,IGU:park,IGU',b1:'R1'});
+
+ eq('юнит разбили на скиде через пару дней — Recut всего юнита: оба лайта из маршрута, новые стёкла на весь юнит, номер юнита освобождается',await t.p.evaluate(()=>{
+  unReset();const u=unOrder(),a1=u.lite(0,1),b1=u.lite(1,1);
+  [a1,b1].forEach(x=>['CUT','EDGE','HEAT','IGU'].forEach(st=>unScan(st,x)));unScan('SHIPR',a1);
+  unLogin('SHIP','Sam R.');stationPeek(a1);document.querySelector('[data-station-recut]').click();const note=document.querySelector('[data-recut-whole]').textContent.replace(/U-\d+/,'U');
+  [...document.querySelectorAll('[data-recut-reason]')].find(b=>b.textContent==='Broke').click();
+  const r=DB.recut[DB.recut.length-1],head=document.querySelector('.st-res-h').textContent,fresh=stationLast.check.newIds.length;
+  const out={note,head:/^✕ Unit broken · Recut 1 created/.test(head),keys:r.keys.length,which:r.which,fresh,broken:[a1,b1].map(x=>stationPlace(stationGlass(x)).broken.recut).join(),free:stationAsms(salesRecord(u.id),salesRecord(u.id).lines[0],'IGU').filter(a=>a.unit&&!a.broken).length};
+  unOut();return out;
+ }),{note:'Whole unit U — all 2 glass are made again',head:true,keys:2,which:'unit',fresh:2,broken:'R1,R1',free:0});
 
  eq('после IGU юнит едет одним сканом: по G- любого лайта и по U-; до IGU U- — «Unit number»',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),ids=[u.lite(0,1),u.lite(1,1),u.lite(0,2),u.lite(1,2)];
