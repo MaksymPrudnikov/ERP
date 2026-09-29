@@ -67,6 +67,16 @@ module.exports=async function({page,eq,ok}){
   },50));
  }),{note:'Sheet 1 done · batch B-0001 cut → batch B-0002',next:true,hash:'CUT',shown:true,btn:'Open on CUT',opened:true});
 
+ eq('порядок офиса — совет: половину батча порезали, взяли другой, вернулись — тот же начатый лист; в списке батчей стёкла и «started»; в Queue — «On the table»',await t.p.evaluate(()=>{
+  cbReset();const a=cbOrder([[36,24,8],[48,30,6],[20,30,10]]),b=cbOrder([[30,20,4]]);[a,b].forEach(n=>cutPlanRun(n));cbLogin();
+  const s1=cutPlanFor(a).groups[0].sheets[0].pieces;s1.slice(0,3).forEach(x=>stationSubmit(x.piece));
+  stationBatchOpen(b);stationSubmit(cutPlanFor(b).groups[0].sheets[0].pieces[0].piece);const onB=cbView();
+  const sel=document.querySelector('[data-station-batch]');sel.value=a;sel.dispatchEvent(new Event('change'));
+  const back=cbView(),count=[...document.querySelectorAll('.st-sheet-card .st-sec .pill')].pop().textContent===3+' / '+s1.length+' cut',opts=[...document.querySelectorAll('[data-station-batch] option')].map(o=>o.textContent.replace(/B-\d+/,'B'));
+  document.querySelector('[data-station-tab="queue"]').click();const table=[...document.querySelectorAll('.st-qcard.now')].map(x=>x.dataset.queueBatch).join()===a;
+  cbOut();return {onB:onB===b+':6CLEAR:1',back:back===a+':6CLEAR:1',count,opts,table};
+ }),{onB:true,back:true,count:true,opts:['B · 6CLEAR · 3 / 24 cut · started','B · 6CLEAR · 1 / 4 cut · started'],table:true});
+
  eq('без ошибок страницы',t.errs,[]);
  await t.c.close();
 };

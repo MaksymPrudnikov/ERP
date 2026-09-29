@@ -206,7 +206,10 @@ function stationBatchHTML(){
 /* Над листом: батч (очередь офиса) и стёкла батча — каждое своей кнопкой. */
 function stationBatchBar(v,plan){
  const q=glassBatchCutQueue(),cur=glassBatchFind(v.batch),list=q.slice();if(cur&&!list.includes(cur))list.unshift(cur);
- const opt=b=>{const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length;return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+' · '+cut+' / '+live.length+' cut</option>';};
+ /* Порядок офиса — только совет: резчик берёт батч по стеклу, которое стоит
+    у стола (владелец, 29.09.2026), бросает начатый и возвращается к нему. */
+ const opt=b=>{const live=b.items.filter(i=>!i.releasedAt),cut=live.filter(i=>i.cutStartedAt).length,glass=[...new Set(live.map(i=>{const pt=b.parts[i.part];return pt&&pt.snapshot?pt.snapshot.glass:'';}).filter(Boolean))];
+  return '<option value="'+esc(b.number)+'"'+(b===cur?' selected':'')+'>'+esc(b.number)+(glass.length?' · '+esc(glass.join(', ')):'')+' · '+cut+' / '+live.length+' cut'+(cut&&cut<live.length?' · started':'')+'</option>';};
  const cutSet=stationCutSet();
  const miss=plan&&Array.isArray(plan.missing)?plan.missing:[];
  const groups=plan&&plan.groups.length+miss.length>1?plan.groups.map(g=>{const left=g.sheets.filter(s=>!stationSheetDone(s,cutSet)).length;
@@ -510,7 +513,7 @@ function stationQueueData(){
    const bySize=new Map();
    g.sheets.forEach(sh=>{
     const size=sh.size||g.sheet||{},stock=/^S-/.test(String(size.key||'')),label=stock?String(size.key):frac16(size.w)+' × '+frac16(size.h);
-    const r=bySize.get(label)||{glass:g.glass,label,stock,total:0,done:0};r.total++;if(stationSheetDone(sh,cut))r.done++;bySize.set(label,r);
+    const r=bySize.get(label)||{glass:g.glass,label,stock,total:0,done:0,pcs:0,pcut:0};r.total++;if(stationSheetDone(sh,cut))r.done++;r.pcs+=sh.pieces.length;r.pcut+=sh.pieces.filter(p=>cut.has(p.piece)).length;bySize.set(label,r);
    });
    bySize.forEach(r=>{groups.push(r);if(r.total>r.done){const k=r.glass+'|'+r.label,x=bring.get(k)||{glass:r.glass,label:r.label,stock:r.stock,n:0,batches:[]};x.n+=r.total-r.done;if(!x.batches.includes(b.number))x.batches.push(b.number);bring.set(k,x);}});
   });
@@ -531,15 +534,16 @@ function stationQueueView(){
  const strip=q.cards.flatMap(c=>c.groups.filter(g=>g.total>g.done).map(g=>({g,b:c.b}))),total=strip.reduce((n,x)=>n+x.g.total-x.g.done,0)||1;
  const colors=['#2f7da8','#7a58b0','#c07a16','#27815a','#4a92b8','#a84444'];
  const stripHTML=strip.length?'<div class="st-qstrip">'+strip.map((x,i)=>'<div style="flex:'+Math.max(1,x.g.total-x.g.done)+';background:'+colors[i%colors.length]+'"><b data-raw>'+esc(x.g.glass)+' '+esc(x.g.label)+'</b><small>'+(x.g.total-x.g.done)+' · '+esc(x.b.number)+'</small></div>').join('')+'</div><div class="mut st-qhint">← now · later →</div>':'<div class="empty">Nothing to cut</div>';
- const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(i===0?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+
+ const onTable=stationSheetView&&stationSheetView.batch;
+ const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(c.b.number===onTable?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+(c.b.number===onTable?'<span class="pill ok">On the table</span>':'')+
   (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
-  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round(g.done/g.total*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qg">No cutting plan yet</div>')+'</div>').join('');
+  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qg">No cutting plan yet</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(x.glass)+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
  const v=stationSheetView,plan=v&&cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(sheet){const next=stationSheetNext(v.batch,group,sheet);after=next?'Sheet '+next.sheet.no+' · <b data-raw>'+esc(next.group.glass)+'</b> · '+next.sheet.pieces.length+' glass'+(next.group.glass!==group.glass?'<div class="st-qchange">Glass change → <b data-raw>'+esc(next.group.glass)+'</b></div>':''):'Batch '+esc(v.batch)+' — last sheet';}
  const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(x.l.width16/16)+' × '+frac16(x.l.height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
- return '<div class="st-body st-queue"><div class="st-col"><div class="card"><div class="st-sec"><h3>Sheets in order</h3><span class="mut">what goes on the table next</span></div>'+stripHTML+'</div>'+cards+
+ return '<div class="st-body st-queue"><div class="st-col"><div class="card"><div class="st-sec"><h3>Suggested order</h3><span class="mut">from the office · pick any batch</span></div>'+stripHTML+'</div>'+cards+
   (recuts?'<div class="card"><div class="st-sec"><span class="st-flag">RECUT</span><h3>Waiting for a batch</h3></div>'+recuts+'</div>':'')+'</div>'+
   '<div class="st-col"><div class="card"><div class="st-sec"><h3>Bring to the table</h3></div>'+bring+'</div>'+(after?'<div class="card"><div class="st-sec"><h3>After this sheet</h3></div><div class="st-qafter">'+after+'</div></div>':'')+'</div></div>';
 }
