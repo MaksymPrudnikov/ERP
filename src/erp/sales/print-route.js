@@ -101,9 +101,10 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
   if(cut)salesRoutePush(map,order,salesRouteStationOf('cutting','CUT'),dimIn16(cut.width)+' × '+dimIn16(cut.height),'cutting');
 
   /* Кромка: группируем по операции — «A, B · Flat Polish», а не четыре строки. */
-  var byOp={},opOrder=[],contourEdges=[];
+  var byOp={},opOrder=[],contourEdges=[],polished={};
   (groups||[]).forEach(function(g){
     if(contourEdges.indexOf(g.id)<0)contourEdges.push(g.id);
+    if((g.ops||[]).some(function(op){return op&&(op.type==='Flat Polish'||op.type==='CNC Shape Polish');}))polished[g.id]=true;
     (g.ops||[]).forEach(function(op){
       var t=op&&op.type;if(!t)return;
       var key=salesServiceOpSignature(op);
@@ -122,6 +123,9 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
+    /* Плиты уже отполированы в чистовой размер до закалки — после склейки
+       кромку только выравнивают (владелец, 29.09.2026, вариант B). */
+    if(shapeIsLamiOnlyOp(t)&&group.edges.every(function(id){return polished[id];}))text+=' · align only';
     /* Полировка склеенной кромки — второй заход на ту же станцию, уже ПОСЛЕ
        ламинации. Складываем её отдельно: в общей полосе она встала бы по seq
        станции, то есть до склейки, и лист печатал бы неправду. */

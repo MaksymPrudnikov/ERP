@@ -234,7 +234,6 @@ function shapeValidateComputed(def,geo,fg){
     var ops=def.edgeOps[id]||[],seenOps=Object.create(null),finishes=0;
     ops.forEach(function(op){
       if(seenOps[op.type])errors.push('Edge '+id+': duplicate '+op.type+' operation.');seenOps[op.type]=true;
-      if(SHAPE_PRIMARY_FINISHES.indexOf(op.type)>=0)finishes++;
       if(op.type==='Flat Polish'||op.type==='Beveling'||op.type==='Mitering'||shapeIsLamiOnlyOp(op.type)){
         /* Ручной припуск на кромке отвечает за неё сам: цех назвал число, и
            отсутствие строки в таблице больше не блокирует рез. */
@@ -245,7 +244,7 @@ function shapeValidateComputed(def,geo,fg){
       if(op.type==='Mitering'&&[22.5,45].indexOf(+op.angle)<0)errors.push('Mitering on edge '+id+': angle must be 22.5° or 45°.');
       if(op.type==='Beveling'&&!(inch(op.width)>0))errors.push('Beveling on edge '+id+': width must be greater than zero.');
     });
-    if(finishes>1)errors.push('Edge '+id+': '+shapePrimaryFinishList()+' are mutually exclusive finishes.');
+    var conflict=shapeFinishConflict(ops,id);if(conflict)errors.push(conflict);
   });
   if(thicknessNeeded&&!(th>0))errors.push('Glass thickness for edge-processing allowance must come from the selected Sales Makeup.');
   return {errors:Array.from(new Set(errors)),warns:Array.from(new Set(warns))};

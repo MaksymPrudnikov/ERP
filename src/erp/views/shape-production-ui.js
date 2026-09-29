@@ -249,7 +249,7 @@ function shapeProdDefaultOp(type){
 function shapeProdToggleOps(list,type,on){
   list=(Array.isArray(list)?list:[]).map(shapeNormalizeOp).filter(Boolean).filter(function(op){return op.type!==type;});
   if(on){
-    if(SHAPE_PRIMARY_FINISHES.indexOf(type)>=0)list=list.filter(function(op){return SHAPE_PRIMARY_FINISHES.indexOf(op.type)<0;});
+    var grp=shapeFinishGroup(type);if(grp)list=list.filter(function(op){return shapeFinishGroup(op.type)!==grp;});
     list.push(shapeProdDefaultOp(type));
   }
   return list;
@@ -260,7 +260,7 @@ function shapeProdToggleOps(list,type,on){
    умолчанию осталась в shapeProdToggleOps выше, её и зовёт единственная
    реализация переключателя. */
 function shapeProdConfiguredUniform(type){
-  var groups=shapeGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(shapeEdgeOps(sDraft,g.id));return f&&f.type===type;});
+  var groups=shapeGroups();return !!groups.length&&groups.every(function(g){return shapeEdgeHasFinish(shapeEdgeOps(sDraft,g.id),type);});
 }
 /* AR · ALL AROUND — решение по всей форме, а значит и по всем её лайтам:
    собственная обработка лайтов снимается. Иначе кнопка отрабатывала молча:
@@ -320,7 +320,7 @@ function shapeProdSetDxfOpParam(edgeId,type,key,value){
   render();
 }
 function shapeProdDxfUniform(type){
-  var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){var f=shapePrimaryFinish(g.ops);return f&&f.type===type;});
+  var groups=shapeProdDxfGroups();return !!groups.length&&groups.every(function(g){return shapeEdgeHasFinish(g.ops,type);});
 }
 function shapeProdApplyDxfAR(type){
   if(!sDraft.edgeOps)sDraft.edgeOps={};ShapeModule.dxfEdges(sDraft).forEach(function(edge){var list=shapeTogglePrimaryFinish(sDraft.edgeOps[edge.id]||[],type,true);if(list.length)sDraft.edgeOps[edge.id]=list;else delete sDraft.edgeOps[edge.id];});shapeProdExceptionsOpen=false;render();
