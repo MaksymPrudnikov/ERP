@@ -29,7 +29,7 @@ function stationFlowData(S){
  w.forEach((list,at)=>{if(at===S)return;list.forEach(x=>{const r=x.place.route,iA=x.place.far+1;if(r.indexOf(S,iA+1)>iA)coming.push(Object.assign({at},x));});});
  return {here,coming};
 }
-function stationWorksAt(g,S){return (stationRouteOf(g).services||[]).filter(s=>s.station===S).map(s=>s.text);}
+function stationWorksAt(g,S){const place=stationPlace(g),step=stationRouteStep(place.route,S,place.far);return (stationRouteOf(g).services||[]).filter(s=>s.station===S&&(s.step==null||s.step===step)).map(s=>s.text);}
 function stationFmtSqft(v){return v>=100?String(Math.round(v)):v.toFixed(1).replace(/\.0$/,'');}
 function stationPlural(n,one,many){return n+' '+(n===1?one:many);}
 function stationUrgPill(o){const u=stationUrgency(o);return u?' <span class="pill '+(u===2?'bad':'warn')+'">'+(u===2?'Critical':'Rush')+'</span>':'';}

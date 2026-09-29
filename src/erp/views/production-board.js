@@ -149,14 +149,26 @@ function viewProdOrders(){
     Нет сверловки в работе — нет колонки DRILL. Плитки сверху — все. */
  const ahead=code=>infos.some(i=>{const t=i.x.route[code];return t&&t.n>t.p;});
  const cols=salesListColumns().filter(c=>c.station?ahead(c.station):c.k!=='queue'||total('queue')>0);
- const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).map(s=>{
+ const tiles=`<div class="pb-tiles"><div class="pb-tile q"><b>To batch</b><span>${total('queue').toLocaleString('en-US')}</span><small>in queue</small></div>`+(DB.station||[]).filter(s=>ahead(s.code)||total('st_'+s.code)>0).map(s=>{
   const k='st_'+s.code,n=total(k),f=p.filters[k],on=!!f&&salesListFilterActive(f);
   return `<button type="button" class="pb-tile${n?'':' zero'}${on?' sel':''}" data-prod-station="${esc(s.code)}" onclick="prodFocusStation('${esc(s.code)}')"><b>${esc(s.code)}</b><span>${n.toLocaleString('en-US')}</span><small>${s.code===cut?'in batches':'waiting'}</small></button>`;
  }).join('')+'</div>';
  const body=rows.map(r=>`<tr class="pb-row${r.x.o.priority==='critical'?' pb-hot':''}${prodOpen.has(r.x.o.id)?' pb-opened':''}" data-prod-order="${esc(r.x.o.id)}" onclick="prodToggle('${esc(r.x.o.id)}')">${cols.map(c=>prodCell(r,c)).join('')}<td></td></tr>`+(prodOpen.has(r.x.o.id)?prodSubRows(r,cols):'')).join('');
  const glassN=rows.reduce((n,r)=>n+r.x.total-r.x.shipped,0);
  const foot=rows.length?`<tfoot><tr class="sl-foot">${cols.map((c,i)=>i===0?`<td data-foot-count><b>${rows.length} order${rows.length===1?'':'s'}</b></td>`:c.sum?`<td class="n pb-st">${rows.reduce((n,r)=>n+(salesListValue(r,c.k)||0),0)||''}</td>`:'<td></td>').join('')}<td></td></tr></tfoot>`:'';
- return `${tiles}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass in production</span></div>${salesListFilterChips()}
+ return `${tiles}${prodExceptionsHTML(infos)}<div class="sales-toolbar">${salesListDateButton('due')}<span class="sales-toolbar-sp"></span><span class="mut small">${rows.length} order${rows.length===1?'':'s'} · ${glassN.toLocaleString('en-US')} glass components in production</span></div>${salesListFilterChips()}
   <div class="sales-table-wrap"><table class="sl-table pb-table"><thead><tr>${cols.map(c=>prodTh(c,p)).join('')}<th><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></th></tr></thead>
-  <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+  <tbody>${body||`<tr><td colspan="${cols.length+1}" class="empty">${infos.length?'Nothing matches the filters.':'No glass components in production yet.'}</td></tr>`}</tbody>${foot}</table></div>${salesListMenuHTML(infos)}`;
+}
+
+/* Exceptions stay visible alongside the station totals. Counts are components,
+   while Hold and overdue counts are orders; one order can have both. */
+function prodExceptionsHTML(infos){
+ const orders=infos.map(x=>x.x.o),today=finToday();
+ const hold=orders.filter(o=>o.onHold||(o.lines||[]).some(l=>l.onHold)).length;
+ const late=orders.filter(o=>o.dueDate&&o.dueDate<today).length;
+ const ids=new Set(orders.map(o=>o.id));
+ const recuts=(DB.recut||[]).filter(r=>ids.has(r.orderId)).length;
+ const parked=stationParked(hit=>ids.has(hit.orderId)).length;
+ return '<div class="pb-exceptions" data-prod-exceptions><b>Needs attention</b><span>'+hold+' orders on hold</span><span>'+late+' overdue orders</span><span>'+parked+' components waiting for a pair</span><span>'+recuts+' recut records</span><button type="button" onclick="navGo(\'shipping\')">Shipping</button></div>';
 }

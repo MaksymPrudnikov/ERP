@@ -44,7 +44,7 @@ function stationAutoPrintToggle(){
 function stationUnitDone(recs){
  const done=(recs||[]).find(r=>r&&r.unit&&r.asm&&r.station===stationCode);if(!done)return null;
  if(stationLast)stationLast.unitDone=done.unit;
- if(stationAutoPrintOn()){if(stationLast)stationLast.printed=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
+ if(stationAutoPrintOn()){if(stationLast)stationLast.printRequested=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
  return done;
 }
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
@@ -125,12 +125,17 @@ function stationSubmit(raw){
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
- const mates=rec?stationRecordMates(stationCode,check,who,{on:stationPutOn()}):[];if(mates.length)touch();
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
+ if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
+ const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;
  stationUnitDone([rec].concat(mates));
  render();
  return check.kind;
+}
+function stationSaveError(code,error){
+ const check=stationCheck(stationCode,code)||{code};check.kind='saveError';
+ stationShow(check,null);stationNote=error;render();return false;
 }
 function stationShow(check,rec){
  stationMenu=null;stationNote='';
@@ -269,9 +274,11 @@ function stationSheetClick(ev){
 function stationMark(piece){
  const who=stationWho();if(!who)return;
  const check=stationCheck(stationCode,piece);if(!check)return;
- const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
- const mates=rec?stationRecordMates(stationCode,check,who,{manual:true,on:stationPutOn()}):[];if(mates.length)touch();
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
+ if(out&&!out.ok){stationSaveError(check.code,out.error);return false;}
+ const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;stationUnitDone([rec].concat(mates));render();
+
 }
 function stationPeek(piece){
  const check=stationCheck(stationCode,piece);if(!check)return;
@@ -311,7 +318,7 @@ function stationMenuHTML(){
 /* ------------------------------ Карточка ----------------------------- */
 function stationRouteChips(route,place){
  if(!route||!route.length)return '';
- return '<div class="st-route">'+route.map((c,i)=>{const done=place&&i<=place.far,next=place&&c===place.waiting;
+ return '<div class="st-route">'+route.map((c,i)=>{const done=place&&i<=place.far,next=place&&i===place.far+1;
   return '<span class="st-rc'+(done?' done':next?' next':'')+'">'+(done?'✓ ':'')+esc(c)+'</span>';}).join('<span class="st-ra">›</span>')+'</div>';
 }
 function stationTime(iso){const d=new Date(iso);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
@@ -333,6 +340,7 @@ function stationCard(){
   route:{cls:'st-red',head:'✕ '+stationCode+' is not in its route'},
   cancelled:{cls:'st-red',head:'✕ Order cancelled'},
   unit:{cls:'st-red',head:'✕ Unit number'},
+  saveError:{cls:'st-red',head:'Not saved — scan again'},
   unknown:{cls:'st-red',head:'✕ Unknown code'},
   broken:{cls:'st-red',head:'✕ Broken · '+(place&&place.broken?'Recut '+esc(String(place.broken.recut).replace(/^R/,''))+' · '+esc(place.broken.reason||''):'')},
   recut:{cls:'st-red',head:'✕ '+(c.whole?'Unit broken':'Broken')+' · Recut '+esc(String(c.ref||'').replace(/^R/,''))+' created'},
@@ -349,21 +357,23 @@ function stationCard(){
  else if(c.kind==='recut')big='<div class="st-big st-red"><small>'+(c.whole?'NEW UNIT':'NEW GLASS')+'</small><b class="st-big-code">'+esc((c.newIds||[]).join(', ')||'—')+'</b><span>'+(c.whole?'All its glass — next batch':'Waits for the next batch')+'</span></div>';
  else if(place&&place.assembling&&['ok','hold','already','peek'].includes(c.kind))big='<div class="st-big"><small>UNIT</small><b>IN</b><span>Waiting for its pair</span></div>';
  else if(c.kind==='broken')big='<div class="st-big st-red"><small>BROKEN</small><b>RECUT</b><span>Glass left the route</span></div>';
+ else if(c.kind==='saveError')big='<div class="st-big st-red"><small>NOT SAVED</small><b>RETRY</b><span>Scan this sticker again</span></div>';
  else if(c.kind==='unknown')big='<div class="st-big st-red"><small>NOT FOUND</small><b class="st-big-code">'+esc(c.code)+'</b><span>Check the sticker</span></div>';
  else if(place&&place.shipped)big='<div class="st-big"><small>ROUTE</small><b>DONE</b><span>Shipped</span></div>';
  else big='<div class="st-big'+(urg===2&&c.kind==='ok'?' st-red':'')+'"><small>NEXT</small><b>'+esc(place&&place.waiting||'—')+'</b><span>'+(urg===2&&c.kind==='ok'?'Set aside or take it now':esc(waitName))+'</span></div>';
  const bar=o&&urg&&!['unknown','unit'].includes(c.kind)?'<div class="st-urg'+(urg===2?'':' st-rush')+'">'+(urg===2?'CRITICAL':'RUSH')+'<span>· order '+esc(o.businessNumber||'')+(d&&d.due?' · due '+esc(d.due):'')+'</span></div>':'';
- const size=d?(d.cut||d.finished):null;
+ const size=d?(stationCode===stationCutCode()?d.cut||d.finished:d.finished):null;
  const lineTxt=d?'Line '+d.line+' · '+(d.recut?esc(d.recut):d.unit+' of '+d.of)+(d.lites>1?' · Lite '+esc(d.lite):''):'';
  const info=g?'<div class="st-gid mono">'+esc(c.code)+'</div><div class="st-kv">'+
   '<span class="k">Order</span><span><b>'+esc(o.businessNumber||'')+'</b> · <span data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span></span>'+
   (d?'<span class="k">Line</span><span>'+lineTxt+'</span>':'')+
   (d?'<span class="k">Glass</span><span><b data-raw>'+esc(d.glass.code||d.glass.name)+'</b>'+(d.glass.heat?' · '+esc(d.glass.heat):'')+'</span>':'')+
-  (size?'<span class="k">Size</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
+  (d&&d.cut&&d.finished&&(d.cut.w!==d.finished.w||d.cut.h!==d.finished.h)&&stationCode!==stationCutCode()?'<span class="k">Cut size</span><span>'+esc(frac16(d.cut.w)+' × '+frac16(d.cut.h))+'</span>':'')+
+  (size?'<span class="k">'+(stationCode===stationCutCode()?'Cut size':'Finished size')+'</span><span><b>'+esc(frac16(size.w)+' × '+frac16(size.h))+'</b>'+(d.shape?' · Shape':'')+'</span>':'')+
   (d&&d.due?'<span class="k">Due</span><span>'+esc(d.due)+'</span>':'')+
   (L.rec&&L.rec.on?'<span class="k">On</span><span><b class="st-on">'+esc(L.rec.on)+'</b></span>':'')+
   '</div>'+(c.kind==='skipped'?stationWorksHTML(c):'')+stationParkHTML(c)+stationUnitHTML(L)+stationRouteChips(place&&place.route,place)+
-  (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
+  (d&&d.route&&d.route.services&&d.route.services.length?'<div class="st-svc">'+d.route.services.filter(s=>s.station===stationCode&&(s.step==null||s.step===(L.rec&&Number.isInteger(L.rec.step)?L.rec.step:stationRouteStep(place.route,stationCode,place.far)))).map(s=>'<span>'+esc(s.text)+'</span>').join('')+'</div>':''):'<div class="st-gid mono">'+esc(c.code)+'</div>';
  /* Действия по нажатию рабочего: Undo своего скана, Recut разбитого,
     стикер (не читается или стекло режут из остатка). */
  const canRecut=g&&!['broken','recut','cancelled','unit','unknown'].includes(c.kind)&&typeof recutCanOpen==='function'&&recutCanOpen(g.o);
@@ -624,7 +634,7 @@ function stationCarrierScan(code){
  /* Только что вынули стекло из машины (пара ушла в Recut) — долли для него. */
  if(stationParkPending.length){
   const recs=(DB.stationScan||[]).filter(s=>stationParkPending.includes(s.id)&&!s.undoneAt);stationParkPending=[];
-  if(recs.length){recs.forEach(s=>{s.on=c.code;});touch();stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
+  if(recs.length){const saved=storageCommand(()=>{recs.forEach(s=>{s.on=c.code;});});if(!saved.ok){stationParkPending=recs.map(s=>s.id);stationNote=saved.error;stationBeep('error');return 'saveError';}stationLast={check:{kind:'carrierPark',code:c.code,count:recs.length},rec:null,data:null,place:null,at:now};stationBeep('ok');return 'park';}
  }
  const on=carrierContents().get(c.code)||[],here=on.filter(x=>x.place.waiting===stationCode);
  if(here.length){stationIncoming=c.code;stationLast={check:{kind:'carrierIn',code:c.code,count:here.length},rec:null,data:null,place:null,at:now};stationBeep('info');return 'in';}
@@ -637,9 +647,9 @@ function stationCarrierCard(L){
  if(c.kind==='carrierIn')return '<div class="st-res st-info" data-station-result="carrierIn"><div class="st-res-h">'+esc(c.code)+' arrived · '+c.count+' glass for '+esc(stationCode)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>STACK</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Scan the glass from the top</div><div class="mut">The stack is on the right, top first</div></div></div></div>';
  return '<div class="st-res st-ok" data-station-result="carrierPut"><div class="st-res-h">Putting on '+esc(c.code)+time+'</div><div class="st-res-b"><div class="st-big st-dark"><small>PUT ON</small><b>'+esc(c.code)+'</b><span>'+esc(t?t.label:'')+'</span></div><div class="st-info"><div class="st-gid">Next glass goes on '+esc(c.code)+'</div><div class="mut">'+(c.count?'On it now: '+c.count+' glass':'Empty')+' · another dolly — scan it</div></div></div></div>';
 }
-function stationScanOffClick(id){if(stationScanOff(id)){stationNote='By hand — not on a dolly';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)delete stationLast.rec.on;}render();}
+function stationScanOffClick(id){const saved=stationScanOff(id);stationNote=saved?'By hand — not on a dolly':storageLastError||'Nothing to change';if(stationLast&&stationLast.rec&&stationLast.rec.id===id)stationLast.rec=(DB.stationScan||[]).find(s=>s.id===id)||null;render();}
 function stationNextLabel(x){
- const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting);
+ const svc=(stationRouteOf(x.g).services||[]).find(s=>s.station===x.place.waiting&&(s.step==null||s.step===x.place.far+1));
  return x.place.waiting+(svc?' · '+svc.text:'');
 }
 /* Справа: тара, что привезла стекло сюда (срочная первой, потом кто раньше),
@@ -706,9 +716,9 @@ function stationUnitHTML(L){
  if(st&&st.lites.length>1){
   const miss=x=>!st.complete&&!x.here?' <button type="button" class="b sm st-red-b" data-station-pair-recut="'+esc(x.key)+'" onclick="stationRecutMissing(\''+esc(st.asm)+'\',\''+esc(x.key)+'\')" title="The pair is bad at the light — do not scan it">Recut</button>':'';
   const row=x=>'<span class="st-unit-st">'+(x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>')+miss(x)+'</span>';
-  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printed&&L.unitDone===st.n?' · sticker printed':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printRequested&&L.unitDone===st.n?' · print requested':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
    st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span>'+row(x)+'</div>').join('')+
-   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printed&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
+   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printRequested&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
  }
  return out;
 }

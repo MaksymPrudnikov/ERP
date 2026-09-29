@@ -211,6 +211,10 @@ function salesSyncRecordLifecycle(o){
  soDraft.lines.forEach(l=>{const saved=o.lines.find(x=>x.id===l.id);if(saved){l.batchManaged=saved.batchManaged;l.batchedAt=saved.batchedAt;l.batchNo=saved.batchNo||'';l.cutStartedAt=saved.cutStartedAt||'';}});
 }
 function salesSetRecordStatus(orderId,next,opts){
+ if(storageDepth||opts&&opts.deferTouch)return salesSetRecordStatusCommand(orderId,next,opts);
+ const out=storageCommand(()=>salesSetRecordStatusCommand(orderId,next,opts));return out.ok&&out.value;
+}
+function salesSetRecordStatusCommand(orderId,next,opts){
  opts=opts||{};const o=salesRecord(orderId);
  if(!salesRecordTransitionAllowed(o,next,opts))return false;
  const now=opts.now||new Date().toISOString();

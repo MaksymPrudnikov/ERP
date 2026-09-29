@@ -27,14 +27,16 @@ function carrierCode(v){return String(v==null?'':v).trim().toUpperCase().replace
 function carrierType(code){const m=CARRIER_RE.exec(carrierCode(code));return m?CARRIER_TYPES.find(t=>t.k===m[1]):null;}
 function carrierFind(code){const c=carrierCode(code);return (DB.carrier||[]).find(x=>x.code===c)||null;}
 /* Номер — следующий внутри своего типа: DL-1, DL-2… и отдельно DA-1… */
-function carrierAdd(prefix,count,opts){
+function carrierAdd(prefix,count,opts){if(storageDepth||opts&&opts.deferTouch)return carrierAddCommand(prefix,count,opts);const out=storageCommand(()=>carrierAddCommand(prefix,count,opts));return out.ok?out.value:{error:out.error};}
+function carrierAddCommand(prefix,count,opts){
  opts=opts||{};const t=CARRIER_TYPES.find(x=>x.k===prefix);if(!t)return {error:'Unknown type.'};
  const n=Math.max(1,Math.min(50,Math.floor(+count)||1));if(!Array.isArray(DB.carrier))DB.carrier=[];
  let top=DB.carrier.reduce((m,c)=>{const x=CARRIER_RE.exec(c.code);return x&&x[1]===prefix?Math.max(m,+x[2]):m;},0);
  const made=[];for(let i=0;i<n;i++){const code=prefix+'-'+(++top);DB.carrier.push({code,note:'',active:true});made.push(code);}
  if(!opts.deferTouch)touch();return {codes:made};
 }
-function carrierSet(code,field,value){
+function carrierSet(code,field,value){const out=storageCommand(()=>carrierSetCommand(code,field,value));return out.ok&&out.value;}
+function carrierSetCommand(code,field,value){
  const c=carrierFind(code);if(!c)return false;
  if(field==='active')c.active=!!value;else if(field==='note')c.note=String(value==null?'':value).slice(0,80);else return false;
  touch();return true;

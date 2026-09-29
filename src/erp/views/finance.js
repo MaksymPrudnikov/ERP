@@ -9,6 +9,7 @@
    заказ, мы знали, нужно ли ему доплатить». Ошибочная оплата — Void.
    ===================================================================== */
 
+let finRecordBaseline='',finRecordBaselineId='';
 let finTab='accounts',finEdit=null,finDraft=null,finApply=null;
 
 function finFmt(v){return v==null||!Number.isFinite(+v)?'—':(v<0?'−$':'$')+Math.abs(+v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -21,14 +22,14 @@ function viewFinance(){return finWorkspaceHTML();}
 /* ------------------------------ Форма -------------------------------- */
 function finNewReceipt(customerId){
  if(!finCanLeave())return false;
- finTab='receipts';finEdit='new';
+ finRecordBaseline='';finRecordBaselineId='';finTab='receipts';finEdit='new';
  finDraft={customerId:customerId&&salesFindCustomer(customerId)?customerId:'',date:finToday(),method:'cash',reference:'',amount:'',note:'',apply:{},currency:'CAD',reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();return true;
 }
 function finOpenReceipt(id){
  if(!finCanLeave())return;
  const r=(DB.receipt||[]).find(x=>x.id===id);if(!r)return;
- finTab='receipts';finEdit=id;
+ finRecordBaseline=JSON.stringify(r);finRecordBaselineId=id;finTab='receipts';finEdit=id;
  finDraft={customerId:r.customerId,date:r.date,method:r.method,reference:r.reference,amount:String(r.amount),note:r.note,apply:Object.fromEntries(r.allocations.map(a=>[a.orderId,String(a.amount)])),currency:finCurrency(r),reason:'',duplicate:false};
  finDraftBaseline=JSON.stringify(finDraft);render();
 }
@@ -105,6 +106,7 @@ function finReceiptForm(){
 }
 function finSaveReceipt(){
  const e=document.getElementById('e_fin');if(e)e.style.display='none';if(!finDraft)return;
+ if(finEdit!=='new'&&finRecordBaselineId===finEdit&&JSON.stringify((DB.receipt||[]).find(r=>r.id===finEdit))!==finRecordBaseline){fail(e,'This payment changed elsewhere. Reopen it before correcting it; your draft is still available.');return false;}
  const d=Object.assign({},finDraft,{allocations:Object.entries(finDraft.apply).map(([orderId,amount])=>({orderId,amount:amount===''?0:amount}))});
  const out=finPersist(()=>finSaveReceiptRecord(d,finEdit==='new'?null:finEdit,d.reason,d.duplicate));
  if(!out.ok){if(/reference already exists/.test(out.error)){render();}return fail(document.getElementById('e_fin'),out.error);}

@@ -5,6 +5,7 @@
    ===================================================================== */
 
 let soEdit=null,soDraft=null,soMakeupId=null;
+let soSavedBaseline=null;
 let soSelectedLines=new Set();
 let soOpenSectionKey=null;
 /* Владелец 11 сентября 2026: показ GLASS/IGU MAKEUPS не должен зависеть от
@@ -31,8 +32,8 @@ function salesApplyCustomerDefaults(id){
 }
 /* Строки поиска в списке больше нет — фильтры колонок (views/sales-list-ui). */
 function salesToggleExpandAll(){soExpandAll=!soExpandAll;render();}
-function salesOrderNew(kind){salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
-function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderNew(kind){soSavedBaseline=null;salesLineHoldMenu=null;salesMetricsPanel=null;salesExcelReset();salesDialog=null;soQuoteCopyOf=null;soEdit='new';soDraft=newSalesOrderDraft(kind);salesShapeSnapshotTake(null);soMakeupId=soDraft.makeups[0].id;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;subtab='orders';render();}
+function salesOrderEdit(id){salesLineHoldMenu=null;salesMetricsPanel=null;salesDialog=null;const o=DB.salesOrder.find(x=>x.id===id);if(!o)return;soSavedBaseline=JSON.stringify(o);salesExcelReset();soQuoteCopyOf=null;if(salesQuoteOpensAsCopy(o)){soEdit='new';soDraft=normalizeSalesOrder(salesQuoteWorkingCopy(o));soQuoteCopyOf=o.id;}else{soEdit=id;soDraft=normalizeSalesOrder(JSON.parse(JSON.stringify(o)));}salesShapeSnapshotTake(o);salesEnsureAllLineShapes();soMakeupId=(soDraft.makeups[0]||{}).id||null;soSelectedLines=new Set();soOpenSectionKey='lite-0';soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=soDraft.lines.length>0;soStockPickerOpen=false;subtab='orders';render();}
 /* Закрытие черновика спрашивает подтверждение, если в нём есть что терять.
    Раньше Close молча стирал введённые строки — оператор терял работу без единого
    сообщения. Сравниваем с сохранённым состоянием: у нового заказа терять нечего,
@@ -67,6 +68,7 @@ function salesShapeSnapshotRestore(){
 /* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
    сохранённым, редактор формы строки закрывается вместе с заказом. */
 function salesDraftDrop(discard){
+ soSavedBaseline=null;
  const restored=!!discard&&salesShapeSnapshotRestore();
  if(typeof salesBridge!=='undefined'&&salesBridge&&typeof sEdit!=='undefined'){sEdit=null;sDraft=null;}
  salesExcelReset();soEdit=null;soDraft=null;soMakeupId=null;soSelectedLines=new Set();soOpenSectionKey=null;soPricingLineId=null;soServiceLineId=null;soServiceOrderOpen=false;soGlassOpen=true;soStockPickerOpen=false;salesBridge=null;soQuoteCopyOf=null;soShapeSnapshot=null;
@@ -96,7 +98,30 @@ function salesOrderClose(){salesLeaveDraft();}
  salesLeaveDraft(go);return true;
 });
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(function(){return salesDialogHTML();});
+/* Merge only fields unchanged in the office draft. A conflicting commercial
+   edit is explicit; production facts from another tab are retained. */
+function salesRebaseDraft(current){
+ if(!soSavedBaseline||soEdit==='new')return true;
+ if(!current)return 'This order was removed elsewhere. Your draft is still available; reopen the order list.';
+ const base=JSON.parse(soSavedBaseline),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),conflicts=[];
+ Object.keys(current).forEach(k=>{
+  if(same(current[k],base[k]))return;
+  if(!same(soDraft[k],base[k])&&!same(soDraft[k],current[k]))conflicts.push(k);
+  else soDraft[k]=current[k]===undefined?undefined:JSON.parse(JSON.stringify(current[k]));
+ });
+ if(conflicts.length)return 'The order changed elsewhere: '+conflicts.join(', ')+'. Reopen it before updating; your draft is still available.';
+ soSavedBaseline=JSON.stringify(current);return true;
+}
 function salesOrderSave(opts){
+ const editor={draft:soDraft?JSON.parse(JSON.stringify(soDraft)):null,edit:soEdit,quote:soQuoteCopyOf,shapes:soShapeSnapshot,baseline:soSavedBaseline};
+ const out=storageCommand(()=>{
+  const rebased=salesRebaseDraft(DB.salesOrder.find(x=>x.id===soEdit));if(rebased!==true)throw new Error(rebased);
+  const result=salesOrderSaveCommand(opts);if(result!==true){const e=document.getElementById('e_sales_order');throw new Error(e&&e.textContent||'The order was not saved.');}return true;
+ });
+ if(!out.ok){soDraft=editor.draft;soEdit=editor.edit;soQuoteCopyOf=editor.quote;soShapeSnapshot=editor.shapes;soSavedBaseline=editor.baseline;render();fail(document.getElementById('e_sales_order'),out.error);return false;}
+ soSavedBaseline=JSON.stringify(DB.salesOrder.find(x=>x.id===soEdit));render();return true;
+}
+function salesOrderSaveCommand(opts){
  opts=opts||{};
  const e=document.getElementById('e_sales_order');if(e)e.style.display='none';
  if(soQuoteCopyOf&&!salesDraftHasWork()){render();return true;}

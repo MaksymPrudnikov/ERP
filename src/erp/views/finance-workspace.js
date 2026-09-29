@@ -222,8 +222,9 @@ function finMovementsCSV(receipts,refunds,states){
  return [['Date','Document','Type','Customer','Account','Method','Reference','Amount','Currency','Applied to orders','Status','Note','QuickBooks']].concat(rows).map(row=>row.map(finCsvCell).join(',')).join('\r\n');
 }
 function finExportFile(list,batch){
- const states=new Map(list.map(x=>[x.x.id,x.state]));
- customerDownload('quickbooks_'+finToday()+'_'+String(batch).padStart(3,'0')+'.csv',finMovementsCSV(list.filter(x=>x.kind==='receipt').map(x=>x.x),list.filter(x=>x.kind==='refund').map(x=>x.x),states),'text/csv;charset=utf-8');
+ const file=(DB.financeExportBatch||[]).find(x=>x.batch===batch);
+ if(!file){alert('The original CSV is unavailable for this older export. Export corrected entries as a new file.');return false;}
+ customerDownload(file.name,file.csv,'text/csv;charset=utf-8');return true;
 }
 /* Кнопка QuickBooks: файл только с тем, чего в QuickBooks ещё нет или что
    изменилось после выгрузки; после записи они считаются выгруженными. */
@@ -232,16 +233,14 @@ function finExportQuickBooks(){
  const out=finPersist(()=>finExportMark(list));if(!out.ok)return alert(out.error);
  finExportFile(list,out.value);render();
 }
-/* Тот же файл ещё раз — если прошлый потерялся. Суммы — текущие. */
+/* Тот же файл ещё раз — если прошлый потерялся. Суммы и подписи — сохранённый оригинал. */
 function finExportAgain(){
  const batch=finExportLastBatch();if(!batch)return;
- const ids=new Set(DB.financeExport.filter(e=>e.batch===batch).map(e=>e.entityId));
- const list=DB.receipt.filter(r=>ids.has(r.id)).map(x=>({kind:'receipt',x,state:'done'})).concat(DB.refund.filter(r=>ids.has(r.id)).map(x=>({kind:'refund',x,state:'done'})));
- finExportFile(list,batch);
+ finExportFile(null,batch);
 }
 function finExportButtonHTML(){
- const n=finExportPending().length,batch=finExportLastBatch(),last=batch?DB.financeExport.filter(e=>e.batch===batch):[];
- return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV with payments and refunds not yet in QuickBooks">${n?'QuickBooks · '+n+' new':'QuickBooks · up to date'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
+ const n=finExportPending().length,batch=finExportLastBatch(),last=batch?(DB.financeExportBatch||[]).filter(e=>e.batch===batch).concat(DB.financeExport.filter(e=>e.batch===batch)):[];
+ return `<button type="button" class="${n?'pri':''}" ${n?'':'disabled'} onclick="finExportQuickBooks()" title="CSV of new or corrected payments and refunds; import it into QuickBooks">${n?'QuickBooks · '+n+' new':batch?'QuickBooks · CSV exported':'QuickBooks · no new entries'}</button>${last.length?`<button type="button" class="fin-link fin-export-last" onclick="finExportAgain()" title="Download the last QuickBooks file again">Last file · ${esc(finShortDate(finLocalDate(last[0].at)))}</button>`:''}`;
 }
 
 /* ------------------------- Карточка клиента ------------------------- */

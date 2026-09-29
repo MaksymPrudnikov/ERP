@@ -21,10 +21,10 @@ const NAV=[
     дописать поставщика, поправить цену листа. */
  {k:'masterdata', label:'Master Data', icon:'database'},
  {k:'shipping', label:'Shipping', icon:'shipping'},
+ {k:'finance', label:'Finance', icon:'finance'},
  {group:'Domains — next'},
  {k:'inventory', label:'Inventory', icon:'inventory', soon:1},
- {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1},
- {k:'finance', label:'Finance', icon:'finance'}
+ {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1}
 ];
 let tab='dashboard';
 let sideCollapsed=false;
@@ -39,14 +39,14 @@ function toggleSidebar(){setSidebarCollapsed(!sideCollapsed);}
 
 function renderNav(){
  document.getElementById('side').innerHTML =
-  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system · ERP prototype</span></div></div>` +
+  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system</span></div></div>` +
   `<button type="button" class="side-toggle" aria-label="${sideCollapsed?'Expand menu':'Collapse menu'}" title="${sideCollapsed?'Expand menu':'Collapse menu'}" onclick="toggleSidebar()"><i>${sideCollapsed?'›':'‹'}</i><span>${sideCollapsed?'Expand menu':'Collapse menu'}</span></button>` +
   NAV.map(n=>{
    if(n.group) return `<div class="nav-group">${n.group}</div>`;
    if(n.soon) return `<div class="nav-item soon" title="${n.label} · planned">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
-   return `<div class="nav-item ${tab===n.k?'on':''}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></div>`;
+   return `<button type="button" class="nav-item ${tab===n.k?'on':''}" aria-current="${tab===n.k?'page':'false'}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></button>`;
   }).join('') +
-  `<div class="side-footer">Phase 1 · Foundation<br>Spil remains the operational system until the control phases are passed.</div>`;
+  `<div class="side-footer">Local browser database<br>Export a backup regularly.</div>`;
 }
 
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными

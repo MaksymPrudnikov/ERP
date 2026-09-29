@@ -7,13 +7,95 @@
    normalize/validate hooks и отвечает только за безопасный вход→выход.
    ===================================================================== */
 
-function afterRender(){}
-let storageWarningShown=false;
-function touch(){
- dirty=true;
- try{localStorage.setItem('glazing_system_v1',JSON.stringify(DB));storageWarningShown=false;return true;}
- catch(e){console.error('localStorage write failed:',e);if(!storageWarningShown){storageWarningShown=true;alert('Could not save to this browser. Export JSON and check free space.');}return false;}
+/* One browser database has one writer. Web Locks protects the entire write
+   session; followers can review live data and explicitly take over. */
+const STORAGE_KEY='glazing_system_v1',STORAGE_LOCK=STORAGE_KEY+'-writer';
+const STORAGE_BACKUP_KEY=STORAGE_KEY+'-before-import';
+let storageWriter=false,storageRelease=null,storageChannel=null,storageStarting=true;
+let storageWarningShown=false,storageLastError='',storageLastSaved='',storageBaseline=null,storageDepth=0;
+let storageRecovery=false,storageBackupAt='';
+function storageInvalidate(){
+ if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
+ if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
+ if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
 }
+function storageCommand(fn){
+ if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
+ if(!storageWriter||storageRecovery)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':'Read only: activate editing in this tab first.'};
+ const before=JSON.stringify(DB),wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
+ storageDepth++;
+ try{
+  const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
+  storageDepth--;if(touch()===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
+  return {ok:true,value};
+ }catch(e){storageDepth=0;if(JSON.stringify(DB)!==before)DB=JSON.parse(before);dirty=wasDirty;if(draftBefore!==null&&JSON.stringify(soDraft)!==draftBefore)soDraft=JSON.parse(draftBefore);storageInvalidate();storageLastError=e.message;return {ok:false,error:e.message};}
+}
+function touch(){
+ if(storageDepth)return true;
+ if(!storageWriter||storageRecovery){
+  if(storageStarting)return false;
+  storageLastError=storageRecovery?'The stored database needs recovery. Export it before editing.':'Read only: activate editing in this tab first.';
+  if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
+  if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
+ }
+ try{
+  const text=JSON.stringify(DB);localStorage.setItem(STORAGE_KEY,text);
+  storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+ }catch(e){
+  storageLastError='Not saved. Your operation is still open; retry or export your changes.';
+  if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
+  console.error('localStorage write failed:',e);
+  if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
+ }
+}
+function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
+function storageStatusHTML(){
+ const text=storageRecovery?'Database recovery needed':!navigator.locks?'Editing unavailable in this browser':storageLastError?'Not saved':storageWriter?'Editing here':'Read only · editing in another tab';
+ return '<div class="storage-status'+(storageLastError||storageRecovery?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
+  (storageLastError?'<small>'+esc(storageLastError)+'</small>':'')+
+  (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
+  (!storageWriter?'<button type="button" onclick="storageTakeControl()">Activate editing here</button>':'')+
+  (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
+  (storageRead(STORAGE_BACKUP_KEY)?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+}
+function afterRender(){
+ const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
+ /* Forms remain available for reading. Persisting controls explain the writer
+    state; commands also check it, including calls made outside the DOM. */
+ if(!storageWriter||storageRecovery){
+  document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
+   if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
+    el.disabled=true;el.title='Activate editing in this tab to change the database.';
+   }
+  });
+ }
+}
+async function storageTakeControl(){
+ if(storageWriter)return true;
+ if(!navigator.locks){storageLastError='This browser cannot coordinate editing. Open the file in a current browser.';render();return false;}
+ if(storageChannel)storageChannel.postMessage({type:'release-writer'});
+ return new Promise(resolve=>{
+  const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),4000);
+  navigator.locks.request(STORAGE_LOCK,{signal:abort.signal},async lock=>{
+   clearTimeout(timer);storageWriter=true;storageWarningShown=false;
+   const text=localStorage.getItem(STORAGE_KEY);
+   if(text&&text!==storageBaseline){if(!storageLiveReload(text)){storageRecovery=true;storageLastError='Stored data could not be read. Export the original and import a complete backup.';}storageBaseline=text;}
+   if(!storageRecovery)storageLastError='';render();resolve(true);
+   await new Promise(r=>storageRelease=r);
+  }).catch(()=>{clearTimeout(timer);storageWriter=false;storageLastError='Editing is still open elsewhere. Save or discard any open draft in that tab, then try again.';render();resolve(false);});
+ });
+}
+function storageStart(){
+ try{storageChannel=new BroadcastChannel(STORAGE_LOCK);storageChannel.onmessage=e=>{
+  if(e.data&&e.data.type==='release-writer'&&storageWriter){if(typeof salesDraftHasWork==='function'&&salesDraftHasWork()||typeof finHasWork==='function'&&finHasWork())return;storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;render();}
+ };}catch(e){}
+ if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot();storageStarting=false;render();return;}
+ navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
+  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);render();
+  if(lock)await new Promise(r=>storageRelease=r);
+ }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
+}
+window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
    браузер показывал бы диалог на каждом уходе со страницы. */
@@ -27,17 +109,39 @@ window.addEventListener('pagehide',function(){
  if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
  salesDraftDrop(true);
 });
+function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
+function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function doExport(){
- const b=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
- const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='glazing_system_data.json'; a.click();
- setTimeout(()=>URL.revokeObjectURL(a.href),1000); dirty=false; render();
+ storageDownload('glazing_system_data.json',JSON.stringify(storageExportEnvelope(),null,2));
+ storageBackupAt=new Date().toISOString();dirty=false;render();
+}
+function storageExportRecovery(){const text=localStorage.getItem(STORAGE_KEY)||'';storageDownload('glazing_system_recovery.json',text);}
+function storageImportSummary(next){return ['customer','salesOrder','receipt','glassBatch','stationScan'].map(k=>k+': '+(DB[k]||[]).length+' → '+(next[k]||[]).length).join('\n');}
+function storageImportState(raw){
+ const payload=raw&&raw.format==='glass-erp'?raw.data:raw;
+ if(!payload||!Array.isArray(payload.customer)||!Array.isArray(payload.salesOrder)||!Array.isArray(payload.station))throw new Error('Choose a complete GLASS ERP backup. A partial data file cannot replace this database.');
+ const next=prepareImportedState(raw);
+ if(!confirm('Replace this browser database?\n\n'+storageImportSummary(next)+'\n\nA recovery copy will be kept before replacement.'))return false;
+ const old=JSON.stringify(DB);
+ /* The backup is written and checked before the live key is touched. */
+ const backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:JSON.parse(old)});
+ const recovering=storageRecovery;
+ if(recovering){storageDownload('glazing_system_recovery.json',localStorage.getItem(STORAGE_KEY)||'');storageRecovery=false;}
+ const result=storageCommand(()=>{
+  localStorage.setItem(STORAGE_BACKUP_KEY,backup);if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
+  DB=next;return true;
+ });
+ if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
+ storageInvalidate();render();return true;
+}
+function storageRestoreBackup(){
+ const raw=localStorage.getItem(STORAGE_BACKUP_KEY);if(!raw){alert('No pre-import recovery copy is available.');return false;}return storageImportState(JSON.parse(raw));
 }
 function doImport(inp){
- const f=inp.files[0]; if(!f) return; const r=new FileReader();
+ const f=inp.files[0];if(!f)return;
  if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
- r.onload=()=>{ try{ DB=prepareImportedState(JSON.parse(r.result));touch();render(); }
-  catch(e){ alert('File not readable: '+e.message); } };
- r.readAsText(f); inp.value='';
+ const r=new FileReader();r.onload=()=>{try{storageImportState(JSON.parse(r.result));}catch(e){alert('File not readable: '+e.message);}};
+ r.readAsText(f);inp.value='';
 }
 /* ИСПРАВЛЕНО (авг 2026). Раньше здесь был Object.assign(DB, JSON.parse(s)) —
    в DB попадало ЛЮБОЕ содержимое ключа, включая null вместо массива, и
@@ -113,6 +217,10 @@ function validateImportedState(src){
  });
 }
 function prepareImportedState(src){
+ if(src&&src.format!==undefined){
+  if(src.format!=='glass-erp'||src.schemaVersion!==1||!src.data)throw new Error('Unsupported GLASS ERP backup format or version.');src=src.data;
+ }
+ if(!src||typeof src!=='object'||Array.isArray(src)||!Object.keys(src).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a GLASS ERP database or backup, not an empty or unrelated object.');
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
@@ -160,10 +268,10 @@ function normalizeDB(){
 }
 function boot(){
  let hadSavedState=false;
- try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; mergeState(JSON.parse(s)); } }
- catch(e){ console.warn('localStorage could not be read, starting from defaults:',e.message); }
+ try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; const parsed=JSON.parse(s);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');mergeState(parsed); } }
+ catch(e){storageRecovery=true;storageLastError='Stored data could not be read. The original has been preserved.';console.warn(storageLastError,e.message);}
  try{ normalizeDB(); }
- catch(e){ console.warn('the data cannot be normalised, falling back to defaults:',e.message); DB=JSON.parse(JSON.stringify(DEFAULT)); normalizeDB(); }
+ catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,
     что и любые другие. Рабочие данные не трогаются — см. reseedReferenceTables. */
@@ -178,7 +286,7 @@ function boot(){
  if(typeof seedDemoUsers==='function'&&seedDemoUsers())touch();
  render();
 }
-boot();
+storageStart();
 
 /* ---------------------------------------------------------------------
    Печать чертежа на бумагу / в PDF.

@@ -18,7 +18,7 @@
    Отмена скана (Undo) запись не удаляет, а помечает: журнал — история,
    и «кто отсканировал по ошибке» тоже её часть.
    ===================================================================== */
-DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
+DEFAULT.productionRoute=[];DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
 const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
 /* Что записывается, а что только показывается. On Hold записывается: на CUT
    стекло сканируют уже порезанным, и факт реза не отменить — рабочий
@@ -71,6 +71,7 @@ function stationGlass(id,index,batches){
    на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
 let stationRouteCache=new Map();
 function stationRouteOf(g){
+ const frozen=(DB.productionRoute||[]).find(x=>g.c&&x.key===g.c.key);if(frozen)return frozen.route;
  const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
@@ -94,13 +95,13 @@ function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
  let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
-  .forEach(s=>{const i=stationRouteStep(route,s.station,far);if(i>far)far=i;});
+  .forEach(s=>{const i=Number.isInteger(s.step)&&route[s.step]===s.station?s.step:stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
  const broken=scans.find(s=>s.broken)||null;
  if(broken)return {route,far,waiting:'',shipped:false,broken};
  /* Сборка на IGU не закрыта — стекло ещё на IGU, юнит не собран. */
- if(far>=0&&scans.some(s=>s.asm&&!s.unit&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
+ if(far>=0&&scans.some(s=>s.asm&&!s.unit&&!s.joined&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
  return {route,far,waiting:far+1<route.length?route[far+1]:'',shipped:route.length>0&&far===route.length-1};
 }
 /* Разбор скана без записи. kind:
@@ -129,11 +130,21 @@ function stationCheck(station,raw){
 }
 /* who: {id, name} — рабочий, вошедший на станцию. */
 function stationRecord(station,check,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationRecordCommand(station,check,who,opts);
+ const out=storageCommand(()=>stationRecordCommand(station,check,who,opts));
+ return out.ok?out.value:null;
+}
+function stationRecordCommand(station,check,who,opts){
  opts=opts||{};
  if(!check||!STATION_RECORDED.includes(check.kind))return null;
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const now=opts.now||new Date().toISOString();
  const rec={id:stationScanNextId(),at:now,piece:check.code,station,by:String(who&&who.name||''),byId:String(who&&who.id||''),manual:!!opts.manual,undoneAt:'',undoneBy:''};
+ rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
+ if(check.g&&check.g.c){
+  const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
+  if(!DB.productionRoute.some(x=>x.key===check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+ }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
  DB.stationScan.push(rec);
@@ -145,27 +156,43 @@ function stationRecord(station,check,who,opts){
  if(!opts.deferTouch)touch();
  return rec;
 }
+function stationMove(station,check,who,opts){
+ return storageCommand(()=>{
+  const rec=stationRecord(station,check,who,Object.assign({},opts,{deferTouch:true}));
+  if(!rec)throw new Error('Nothing was recorded.');
+  const mates=stationRecordMates(station,check,who,opts);
+  return {rec,mates};
+ });
+}
 /* Undo — только последний скан стекла: отменить CUT, когда стекло уже
    прошло EDGE, значило бы оставить его «на EDGE без реза». */
 function stationUndo(id,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationUndoCommand(id,who,opts);
+ const out=storageCommand(()=>stationUndoCommand(id,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationUndoCommand(id,who,opts){
  opts=opts||{};
  const rec=(DB.stationScan||[]).find(s=>s.id===id);
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
- const last=stationScansFor(rec.piece).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id))).pop();
- if(last!==rec)return {error:'Glass has moved on — undo the later scan first.'};
- rec.undoneAt=opts.now||new Date().toISOString();rec.undoneBy=String(who&&who.name||'');
- stationAsmReopen(rec);
- if(rec.station===stationCutCode()&&!stationScansFor(rec.piece).some(s=>s.station===rec.station)){
-  const e=stationBatchIndex().get(rec.piece);
-  if(e&&e.item.cutStartedAt===rec.at){
-   e.item.cutStartedAt='';
-   const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);
-   if(o&&l)glassBatchSyncLine(o,l);
-  }
+ const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
+ const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
+ if(rec.asm){
+  const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);
+  if(assembly.some(s=>{const last=ordered(s.piece).pop();return last&&!assembly.includes(last)&&!group.includes(last);} ))return {error:'The unit has moved on — undo its later move first.'};
  }
+ const at=opts.now||new Date().toISOString();
+ group.forEach(r=>{
+  r.undoneAt=at;r.undoneBy=String(who&&who.name||'');stationAsmReopen(r);
+  if(r.station===stationCutCode()&&!stationScansFor(r.piece).some(s=>s.station===r.station)){
+   const e=stationBatchIndex().get(r.piece);
+   if(e&&e.item.cutStartedAt===r.at){e.item.cutStartedAt='';const o=salesRecord(e.part.orderId),l=o&&(o.lines||[]).find(x=>x.id===e.part.lineId);if(o&&l)glassBatchSyncLine(o,l);}
+  }
+ });
  if(!opts.deferTouch)touch();
- return {ok:true};
+ return {ok:true,pieces:group.map(s=>s.piece)};
 }
 /* Экран офиса: сколько стёкол ждёт на каждой станции и какие. Берём все
    стёкла активных батчей и все, у кого уже есть скан (порезанные из стока
@@ -191,13 +218,18 @@ function stationUrgency(o){return o&&o.priority==='critical'?2:o&&o.priority==='
 
 function normalizeStationScans(){
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
+ if(!Array.isArray(DB.productionRoute))DB.productionRoute=[];
+ DB.productionRoute=DB.productionRoute.filter(x=>x&&typeof x.key==='string'&&x.route&&Array.isArray(x.route.codes)&&x.route.codes.length&&x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))&&Array.isArray(x.route.services));
  const ids=new Set(),iso=v=>typeof v==='string'&&!Number.isNaN(Date.parse(v));
  DB.stationScan=DB.stationScan.filter(s=>s&&typeof s==='object'&&STATION_SCAN_ID_RE.test(String(s.id))&&!ids.has(s.id)&&glassPieceValid(s.piece)&&iso(s.at)&&typeof s.station==='string'&&s.station.trim()&&(ids.add(s.id),true))
   .map(s=>({id:s.id,at:s.at,piece:s.piece,station:sfCode(s.station),by:String(s.by==null?'':s.by).slice(0,80),byId:String(s.byId==null?'':s.byId).slice(0,80),manual:s.manual===true,
    undoneAt:iso(s.undoneAt)?s.undoneAt:'',undoneBy:iso(s.undoneAt)?String(s.undoneBy==null?'':s.undoneBy).slice(0,80):'',
    ...(typeof s.on==='string'&&typeof CARRIER_RE!=='undefined'&&CARRIER_RE.test(s.on)?{on:s.on}:{}),
    ...(typeof s.confirmedAt==='string'&&SF_CODE_RE.test(sfCode(s.confirmedAt))?{confirmedAt:sfCode(s.confirmedAt)}:{}),
+   ...(Number.isInteger(s.step)&&s.step>=0?{step:s.step}:{}),
+   ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
+   ...(s.joined===true&&STATION_SCAN_ID_RE.test(String(s.asm))?{joined:true}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
    ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
@@ -214,6 +246,13 @@ function normalizeStationScans(){
  lines.forEach(k=>{const [oid,lid]=k.split('|'),o=salesRecord(oid),l=o&&(o.lines||[]).find(x=>x.id===lid);if(o&&l)glassBatchSyncLine(o,l);});
 }
 function validateStationScanPayload(src){
+ if(src&&src.productionRoute!=null){
+  if(!Array.isArray(src.productionRoute))throw new Error('Saved production routes must be an array.');
+  const keys=new Set();src.productionRoute.forEach(x=>{
+   if(!x||typeof x.key!=='string'||!x.key||keys.has(x.key)||!x.route||!Array.isArray(x.route.codes)||!x.route.codes.length||!x.route.codes.every(c=>typeof c==='string'&&SF_CODE_RE.test(c))||!Array.isArray(x.route.services)||!x.route.services.every(s=>s&&typeof s.text==='string'&&x.route.codes.includes(s.station)&&(s.step==null||Number.isInteger(s.step)&&x.route.codes[s.step]===s.station)))throw new Error('Invalid or duplicate saved production route.');keys.add(x.key);
+  });
+ }
+
  if(src&&Object.prototype.hasOwnProperty.call(src,'stationScan')&&!Array.isArray(src.stationScan))throw new Error('The "stationScan" field must be an array.');
  if(src&&Object.prototype.hasOwnProperty.call(src,'sheetBreak')&&!Array.isArray(src.sheetBreak))throw new Error('The "sheetBreak" field must be an array.');
 }
@@ -242,6 +281,11 @@ function stationBreakPlan(g,station,asmId){
  return {which,whole:false,asm:a,pieces:[g.id].concat(same),out};
 }
 function stationBreak(station,check,who,reasonId,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationBreakCommand(station,check,who,reasonId,opts);
+ const out=storageCommand(()=>stationBreakCommand(station,check,who,reasonId,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationBreakCommand(station,check,who,reasonId,opts){
  opts=opts||{};
  if(!check||!check.g||!['ok','hold','already','passed','skipped','route','peek'].includes(check.kind))return {error:'Scan the broken glass first.'};
  const g=check.g,o=g.o,l=g.l,c=g.c;
@@ -270,6 +314,11 @@ function stationBreak(station,check,who,reasonId,opts){
 /* Лопнул лист на столе — режут ту же раскладку заново, стикеры те же
    (владелец, 29.09.2026). Система только записывает потерю листа. */
 function stationSheetBreak(batch,glass,sheetNo,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationSheetBreakCommand(batch,glass,sheetNo,who,opts);
+ const out=storageCommand(()=>stationSheetBreakCommand(batch,glass,sheetNo,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationSheetBreakCommand(batch,glass,sheetNo,who,opts){
  opts=opts||{};
  const plan=typeof cutPlanFor==='function'?cutPlanFor(batch):null,g=plan&&plan.groups.find(x=>x.glass===glass),sh=g&&g.sheets.find(s=>s.no===sheetNo);
  if(!sh)return {error:'Sheet not found.'};
@@ -296,7 +345,7 @@ function normalizeSheetBreaks(){
 function storageLiveReload(text){
  let next;
  try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
- DB=next;stationRouteCache=new Map();
+ DB=next;storageBaseline=text;storageInvalidate();
  const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
  if(!typing)render();
  return true;
@@ -307,7 +356,8 @@ window.addEventListener('storage',function(e){
 });
 /* «Не на эту долли» — стекло понесли в руках (Critical: отложить или отнести
    сразу). Скан остаётся, пропадает только тара. */
-function stationScanOff(id){
+function stationScanOff(id){const out=storageCommand(()=>stationScanOffCommand(id));return out.ok&&out.value;}
+function stationScanOffCommand(id){
  const rec=(DB.stationScan||[]).find(s=>s.id===id&&!s.undoneAt);if(!rec||!rec.on)return false;
  delete rec.on;touch();return true;
 }
@@ -321,18 +371,26 @@ function stationScanOff(id){
    досверлишь — вопрос задаётся, пока стекло ещё можно вернуть.)
    --------------------------------------------------------------------- */
 function stationSkippedWorks(check){
- const svc=(stationRouteOf(check.g).services||[]).filter(s=>(check.missed||[]).includes(s.station));
+ const start=check.place.far+1,end=start+(check.missed||[]).length;
+ const svc=(stationRouteOf(check.g).services||[]).filter(s=>(check.missed||[]).includes(s.station)&&(s.step==null||s.step>=start&&s.step<end));
  return svc.map(s=>({station:s.station,text:s.text}));
 }
 function stationConfirmSkipped(station,code,who,opts){
+ if(storageDepth||opts&&opts.deferTouch)return stationConfirmSkippedCommand(station,code,who,opts);
+ const out=storageCommand(()=>stationConfirmSkippedCommand(station,code,who,opts));
+ return out.ok?out.value:{error:out.error};
+}
+function stationConfirmSkippedCommand(station,code,who,opts){
  opts=opts||{};
  const check=stationCheck(station,code);
  if(!check||check.kind!=='skipped')return {error:'Nothing to confirm.'};
+ if(check.place.assembling)return {error:'The pair must be assembled before it can move on.'};
  const now=opts.now||new Date().toISOString();
  check.missed.forEach(m=>stationRecord(m,{kind:'ok',code,g:check.g},who,{deferTouch:true,manual:true,confirmedAt:station,now}));
  const after=stationCheck(station,code);
  const rec=STATION_RECORDED.includes(after.kind)?stationRecord(station,after,who,{deferTouch:true,on:opts.on,now}):null;
- const mates=rec?stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now}):[];
+ if(!rec)throw new Error('The pair must be assembled before it can move on.');
+ const mates=stationRecordMates(station,after,who,{deferTouch:true,on:opts.on,now});
  touch();
  return {ok:true,check:after,rec,mates,confirmed:check.missed};
 }
@@ -360,8 +418,8 @@ function stationAsms(o,l,station,index){
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||!s.asm||s.station!==station)return;
   const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
-  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false});
-  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(broken.has(s.piece))a.broken=true;
+  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false,complete:false});
+  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(s.unit||s.joined)a.complete=true;if(broken.has(s.piece))a.broken=true;
  });
  return [...out.values()].sort((a,b)=>a.asm.localeCompare(b.asm));
 }
@@ -370,19 +428,27 @@ function stationAsmOf(g,station){
  return stationAsms(g.o,g.l,station).find(a=>a.asm===rec.asm)||null;
 }
 /* Скан на станции слияния: в сборку; сборка полная — номер юнита. */
+function stationAssemblyKeys(g,station){
+ const lam=salesRouteStationOf('lamination','LAM');
+ return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&(station!==lam||!g.c.ply||c.index===g.c.index)).map(c=>c.key);
+}
 function stationAsmJoin(rec,g,station){
- if(!g||!g.c||g.c.missing||stationUnitMerge(g.o,g.l)!==station)return;
- const index=stationPieceIndex(),open=stationAsms(g.o,g.l,station,index).filter(a=>!a.unit&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec));
+ if(!g||!g.c||g.c.missing)return;
+ const mu=stationUnitMerge(g.o,g.l),lam=salesRouteStationOf('lamination','LAM');
+ if(station!==mu&&!(station===lam&&g.c.ply))return;
+ const expected=stationAssemblyKeys(g,station),index=stationPieceIndex();
+ const open=stationAsms(g.o,g.l,station,index).filter(a=>!a.complete&&!a.broken&&!a.lites.has(g.c.key)&&!a.recs.includes(rec)&&[...a.lites.keys()].every(k=>expected.includes(k)));
  rec.asm=open.length?open[0].asm:rec.id;
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
- if(!a||!stationLineKeys(g.o,g.l).every(k=>a.lites.has(k)))return;
+ if(!a||!expected.every(k=>a.lites.has(k)))return;
+ if(station!==mu){a.recs.forEach(r=>{r.joined=true;});return;}
  const used=new Set(all.filter(x=>x.unit&&!x.broken).map(x=>x.unit));let n=1;while(used.has(n))n++;
  a.recs.forEach(r=>{r.unit=n;});
 }
 /* Отмена скана на станции слияния: сборка снова открыта. */
 function stationAsmReopen(rec){
  if(!rec||!rec.asm)return;
- (DB.stationScan||[]).forEach(s=>{if(s.asm===rec.asm&&s.unit)delete s.unit;});
+ (DB.stationScan||[]).forEach(s=>{if(s.asm===rec.asm){delete s.unit;delete s.joined;}});
 }
 /* Остальные стёкла юнита после станции слияния. */
 function stationUnitMates(g,merge){
@@ -391,6 +457,8 @@ function stationUnitMates(g,merge){
 }
 /* Ламинат: плиты одного лайта — по номеру стекла, как и раньше. */
 function stationPlyMates(g){
+ const lam=salesRouteStationOf('lamination','LAM'),assembly=stationAsmOf(g,lam);
+ if(assembly&&assembly.complete&&!assembly.broken)return [...assembly.lites.values()].filter(id=>id!==g.id).map(id=>({id}));
  if(typeof g.unit!=='number'||!g.c)return [];
  const pieces=glassPieceMap(g.o.id);
  return glassBatchComponents(g.o,g.l).filter(c=>!c.missing&&c.key!==g.c.key&&c.index===g.c.index).map(c=>{const rec=pieces.get(c.key),id=rec&&rec.ids[g.unit-1];return id?{id}:null;}).filter(Boolean);
@@ -415,7 +483,7 @@ function stationUnitCheck(station,code){
 }
 /* Остальные стёкла изделия пишутся тем же сканом — если ждут здесь же. */
 function stationRecordMates(station,check,who,opts){
- return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true})):null;}).filter(Boolean);
+ return (check&&check.mates||[]).map(id=>{const c=stationCheck(station,id);return c&&STATION_RECORDED.includes(c.kind)?stationRecord(station,c,who,Object.assign({},opts,{deferTouch:true,actionId:check.actionId,now:opts&&opts.now||check.recordedAt})):null;}).filter(Boolean);
 }
 /* Какое стекло отметить разбитым, когда пару забраковали у света, не
    сканируя: лайты позиции взаимозаменяемы — берём то, что ждёт здесь
