@@ -1512,6 +1512,7 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .oq-actions button+button{margin-left:4px}
 .oq-hint{margin-top:12px;padding:10px 12px;background:#fffaeb;border:1px solid #fedf89;border-radius:8px;color:#84500c;font-size:12px}
 .oq-notice{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px;padding:12px;background:#ecfdf3;border:1px solid #abefc6;border-radius:8px;color:#05603a}
+.oq-notice.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
 .oq-notice span{flex:1;min-width:180px;font-size:12px;overflow-wrap:anywhere}
 .sales-status-readonly{color:#8a96a8;font-size:10px;white-space:nowrap;margin-top:0}
 @media(max-width:900px){.sales-steps{width:100%}.sales-status-readonly{align-self:flex-end}}
@@ -2326,7 +2327,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8dfac4a452d1';
+var ERP_BUILD='aa797f858476';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20286,8 +20287,12 @@ function optimizationRunOrders(ids,action,opts){
  const finish=()=>{
   if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'Nothing changed. Try again.',buttons:[{label:'Back'}]});return;}
   const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesBatchableLines(o).length)?salesNextBatchNumber():'';
-  orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
-  touch();optimizationSel.clear();
+  const saved=storageCommand(()=>{
+   orders.forEach(o=>{if(!salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}))throw new Error('An order could not be updated.');});
+   return true;
+  });
+  if(!saved.ok){optimizationNotice={title:'Not saved',detail:saved.error+' The orders are still selected; retry the action.',error:true};render();return;}
+  optimizationSel.clear();
   optimizationNotice={title:batchNo?'Batch created · '+batchNo:action==='cancelled'?'Orders cancelled':action==='back'?'Orders moved back':'Orders updated',
    detail:orders.map(o=>o.businessNumber+' · '+salesStatusLabel(o)).join(', ')};
   render();
@@ -20319,7 +20324,12 @@ function optimizationUnbatch(ids){
    if(before!==stamp()){salesDialogOpen({title:'Orders changed during confirmation',note:'Try again.',buttons:[{label:'Back'}]});return;}
    const chosen=new Set(d.checkedLines),affected=orders.map(o=>({o,ids:o.lines.filter(l=>chosen.has(l.id)).map(l=>l.id)})).filter(x=>x.ids.length);
    if(!d.confirmed||!affected.length||affected.some(x=>!salesUnbatchEligible(x.o)||x.ids.some(id=>{const l=x.o.lines.find(l=>l.id===id);return !l||!salesLineLocked(l)||!!l.cutStartedAt;})))return;
-   const now=new Date().toISOString();affected.forEach(x=>salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}));touch();optimizationSel.clear();
+   const now=new Date().toISOString(),saved=storageCommand(()=>{
+    affected.forEach(x=>{if(!salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}))throw new Error('Glass could not be unbatched.');});
+    return true;
+   });
+   if(!saved.ok){optimizationNotice={title:'Not saved',detail:saved.error+' The orders are still selected; retry the action.',error:true};render();return;}
+   optimizationSel.clear();
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
@@ -20354,7 +20364,7 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
+   ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
   ${salesListMenuHTML(infos)}</section>`;
 }
@@ -27211,8 +27221,12 @@ function glassBatchCreateSelected(){
   if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const list=[...groups.values()];
   if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
-  const now=new Date().toISOString(),made=list.map(g=>glassBatchAssign(g,{now,deferTouch:true})).filter(Boolean);
-  touch();glassBatchSelection.clear();glassBatchAnchor='';
+  const now=new Date().toISOString(),made=[],saved=storageCommand(()=>{
+   list.forEach(g=>{const batch=glassBatchAssign(g,{now,deferTouch:true});if(!batch)throw new Error('Glass could not be assigned to a batch.');made.push(batch);});
+   return true;
+  });
+  if(!saved.ok){salesDialogOpen({title:'Batch not saved',note:saved.error+' The glass is still selected; retry Create batch.',buttons:[{label:'Back'}]});return;}
+  glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
  const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
