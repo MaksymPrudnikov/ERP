@@ -27,6 +27,26 @@ let stationQuestions=[];   // пропущенная станция: вопро�
 let stationParkPending=[]; // IGU: вынутые из машины стёкла ждут скана долли, на которую их положили
 let stationDrawer=null;    // окно по нажатию рабочего: {kind:'recut',piece} | {kind:'sheet',batch,glass,no}
 const STATION_SESSION_KEY='glass_erp_station_session_v1';
+/* Стикер юнита печатается сам, когда на IGU отсканированы все лайты:
+   владелец, 29.09.2026 — «как только он отсканировал лайты, у человека на
+   силиконе напечатается стикер U». Принтер стоит у силикона и подключён к
+   компьютеру IGU; Chrome запущен с --kiosk-printing — печать без окна, скан
+   не останавливается. Включается на этом компьютере один раз. */
+const STATION_AUTOPRINT_KEY='glass_erp_station_autoprint_v1';
+function stationMergeCodes(){return typeof salesRouteStationOf==='function'?[salesRouteStationOf('igu_assembly','IGU'),salesRouteStationOf('lamination','LAM')]:['IGU','LAM'];}
+function stationAutoPrintOn(){try{return !!(JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{})[stationCode];}catch(e){return false;}}
+function stationAutoPrintToggle(){
+ let m={};try{m=JSON.parse(localStorage.getItem(STATION_AUTOPRINT_KEY)||'{}')||{};}catch(e){}
+ m[stationCode]=!m[stationCode];try{localStorage.setItem(STATION_AUTOPRINT_KEY,JSON.stringify(m));}catch(e){}
+ stationNote=m[stationCode]?'Unit stickers print by themselves':'Unit stickers: press the button';render();
+}
+/* Скан закрыл юнит — стикер юнита к силикону. */
+function stationUnitDone(recs){
+ const done=(recs||[]).find(r=>r&&r.unit&&r.asm&&r.station===stationCode);if(!done)return null;
+ if(stationLast)stationLast.unitDone=done.unit;
+ if(stationAutoPrintOn()){if(stationLast)stationLast.printed=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
+ return done;
+}
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
    у пользователя (поле station) тоже годится. */
 const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
@@ -108,6 +128,7 @@ function stationSubmit(raw){
  const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:/^\d+$/.test(String(raw).trim()),on:stationPutOn()}):null;
  const mates=rec?stationRecordMates(stationCode,check,who,{on:stationPutOn()}):[];if(mates.length)touch();
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;
+ stationUnitDone([rec].concat(mates));
  render();
  return check.kind;
 }
@@ -250,7 +271,7 @@ function stationMark(piece){
  const check=stationCheck(stationCode,piece);if(!check)return;
  const rec=STATION_RECORDED.includes(check.kind)?stationRecord(stationCode,check,who,{manual:true,on:stationPutOn()}):null;
  const mates=rec?stationRecordMates(stationCode,check,who,{manual:true,on:stationPutOn()}):[];if(mates.length)touch();
- stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;render();
+ stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;stationUnitDone([rec].concat(mates));render();
 }
 function stationPeek(piece){
  const check=stationCheck(stationCode,piece);if(!check)return;
@@ -385,6 +406,7 @@ function stationTop(who){
  const tabs=who&&stationCode===stationCutCode()?'<div class="st-tabs"><button type="button" class="'+(stationTab==='scan'?'on':'')+'" onclick="stationTab=\'scan\';stationMenu=null;render()">Scan</button><button type="button" class="'+(stationTab==='queue'?'on':'')+'" data-station-tab="queue" onclick="stationTab=\'queue\';stationMenu=null;render()">Queue</button></div>'+
   (stationTab==='queue'?'<label class="st-topscan">'+ico('scan')+'<input data-station-scan autocomplete="off" spellcheck="false" placeholder="Scan barcode…" onkeydown="stationKey(event,this)"></label>':''):'';
  return '<div class="st-top"><div class="st-code">'+esc(stationCode)+'</div><div class="st-name">'+(s?sfLabel(s):'Unknown station')+'</div>'+tabs+'<span class="sp"></span>'+
+  (who&&stationMergeCodes().includes(stationCode)?'<button type="button" class="st-chip st-autoprint'+(stationAutoPrintOn()?' on':'')+'" data-station-autoprint onclick="stationAutoPrintToggle()" title="Unit sticker when the last lite is scanned">Unit stickers <b>'+(stationAutoPrintOn()?'Auto':'By button')+'</b></button>':'')+
   (who&&stationQuestions.length?'<button type="button" class="st-chip st-ask-chip" data-station-questions onclick="stationShowQuestion()">'+stationQuestions.length+' to answer</button>':'')+
   (who&&stationPutOn()?'<div class="st-chip st-puton" data-station-puton>Putting on <b>'+esc(stationPutOn())+'</b><button type="button" title="Stop putting on this dolly" onclick="stationClearPutOn()">✕</button></div>':'')+
   (who?stationBatchChip()+'<div class="st-chip"><span class="st-av">'+esc(stationInitials(who.name))+'</span><b data-raw>'+esc(who.name)+'</b></div><button type="button" class="st-btn" onclick="stationSwitch()">Switch</button>':'')+
@@ -459,7 +481,7 @@ function stationCloseDrawer(){stationDrawer=null;render();}
 function stationRecutCreate(reasonId){
  const who=stationWho(),d=stationDrawer;if(!who||!d||d.kind!=='recut')return false;
  const check=stationCheck(stationCode,d.piece);
- const r=stationBreak(stationCode,check,who,reasonId);
+ const r=stationBreak(stationCode,check,who,reasonId,{asm:d.asm});
  if(r.error){d.error=r.error;stationBeep('error');render();return false;}
  stationDrawer=null;stationMenu=null;
  let data=null;try{data=stkGlassData('production',check.g.o,check.g.l,check.g.c,check.g.unit,{batch:check.g.entry?check.g.entry.batch.number:''});}catch(e){}
@@ -486,7 +508,7 @@ function stationRecutHTML(){
    выйдут из машины и подождут новое стекло. */
 function stationRecutPlanHTML(g){
  if(!g||!g.c||g.c.missing)return '';
- const plan=stationBreakPlan(g,stationCode),lite=id=>{const x=stationGlass(id);return x&&x.c?'Lite '+esc(x.c.lite)+' · <b data-raw>'+esc(x.c.glass)+'</b>':esc(id);};
+ const plan=stationBreakPlan(g,stationCode,stationDrawer&&stationDrawer.asm),lite=id=>{const x=stationGlass(id);return x&&x.c?'Lite '+esc(x.c.lite)+' · <b data-raw>'+esc(x.c.glass)+'</b>':esc(id);};
  if(plan.whole)return '<div class="st-rnote" data-recut-whole>Whole unit <b class="mono">'+esc(typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,plan.asm.unit):'')+'</b> — all '+plan.pieces.length+' glass are made again</div>';
  if(plan.out.length)return '<div class="st-rnote" data-recut-out>'+plan.out.map(lite).join(', ')+' comes out of the machine and waits for the new glass on a dolly</div>';
  return '';
@@ -630,7 +652,7 @@ function stationAnswer(code,yes){
  if(yes){
   const r=stationConfirmSkipped(stationCode,code,who,{on:stationPutOn()});
   if(r.error){stationNote=r.error;render();return false;}
-  stationShow(r.check,r.rec);if(stationLast){stationLast.confirmed=r.confirmed;if(r.mates.length)stationLast.mates=r.mates;}
+  stationShow(r.check,r.rec);if(stationLast){stationLast.confirmed=r.confirmed;if(r.mates.length)stationLast.mates=r.mates;}stationUnitDone([r.rec].concat(r.mates));
   stationNote=r.confirmed.join(', ')+' confirmed here';render();return true;
  }
  const check=stationCheck(stationCode,code);
@@ -653,10 +675,11 @@ function stationUnitHTML(L){
  if(L.mates&&L.mates.length)out+='<div class="st-unitnote">Unit moved: '+(L.mates.length+1)+' glass'+(c.unitCode?' · '+esc(c.unitCode):'')+'</div>';
  const st=g&&['ok','hold','already','peek'].includes(c.kind)?stationUnitStatus(g,stationCode):null;
  if(st&&st.lites.length>1){
-  const row=x=>x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>';
-  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete':'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
+  const miss=x=>!st.complete&&!x.here?' <button type="button" class="b sm st-red-b" data-station-pair-recut="'+esc(x.key)+'" onclick="stationRecutMissing(\''+esc(st.asm)+'\',\''+esc(x.key)+'\')" title="The pair is bad at the light — do not scan it">Recut</button>':'';
+  const row=x=>'<span class="st-unit-st">'+(x.here?'<span class="ok">✓ in</span>':x.parked?'<span class="take">on <b>'+esc(x.parked)+'</b> — take it</span>':x.waitingHere?'<span class="wait">'+x.waitingHere+' waiting here</span>':'<span class="wait">not here yet</span>')+miss(x)+'</span>';
+  out+='<div class="st-unit'+(st.complete?' done':'')+'" data-station-unit="'+esc(st.unit)+'"><div class="st-unit-h"><b>'+(st.complete?'Unit complete'+(L.printed&&L.unitDone===st.n?' · sticker printed':''):'Unit · waiting for its pair')+'</b><span class="mono">'+esc(st.unit)+'</span></div>'+
    st.lites.map(x=>'<div class="st-unit-r"><span>Lite '+esc(x.lite)+' · <b data-raw>'+esc(x.glass)+'</b></span>'+row(x)+'</div>').join('')+
-   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">Print unit sticker</button>':'')+'</div>';
+   (st.complete?'<button type="button" class="b" data-station-unit-sticker onclick="stationPrintUnit(\''+esc(c.code)+'\')">'+(L.printed&&L.unitDone===st.n?'Reprint unit sticker':'Print unit sticker')+'</button>':'')+'</div>';
  }
  return out;
 }
@@ -664,6 +687,14 @@ function stationPrintUnit(code){
  const g=stationGlass(code),mu=g?stationUnitMerge(g.o,g.l):'',a=mu?stationAsmOf(g,mu):null;
  if(!a||!a.unit||typeof stkPrint!=='function')return false;
  return stkPrint(stkPages([{type:'unit',o:g.o,l:g.l,unit:a.unit}],stkPrefSize()));
+}
+/* Пару забраковали у света — её не сканируют (скан закрыл бы юнит и
+   напечатал стикер), а жмут Recut у недостающего лайта. */
+function stationRecutMissing(asm,key){
+ const a=(DB.stationScan||[]).find(s=>s.asm===asm&&!s.undoneAt),g=a?stationGlass(a.piece):null;if(!g)return false;
+ const piece=stationPairCandidate(g.o,g.l,key,stationCode);
+ if(!piece){stationNote='No glass of this lite left to recut';render();return false;}
+ stationMenu=null;stationDrawer={kind:'recut',piece,asm};render();return true;
 }
 /* Recut на IGU: остальные лайты сборки вынули из машины — положить на долли. */
 function stationParkHTML(c){
