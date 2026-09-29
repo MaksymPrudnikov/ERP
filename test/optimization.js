@@ -78,6 +78,31 @@ module.exports=async function({page,eq,ok}){
  eq('Unbatch не меняет заказ без подтверждения, без выбранных строк или при устаревшем окне',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');optimizationUnbatch([id]);salesDialog.checkedLines=[];salesDialogConfirm(true);oqChoose('Unbatch selected lines');const empty=salesRecord(id).status;salesDialogChoose(0);optimizationUnbatch([id]);salesRecord(id).lines[0].cutStartedAt='2026-09-16';salesDialogConfirm(true);oqChoose('Unbatch selected lines');return {empty,status:salesRecord(id).status,title:salesDialog.title};
  }),{empty:'batched',status:'batched',title:'Orders changed during confirmation'});
+ await t.p.evaluate(()=>{window.oqFailWrite=fn=>{
+  const keep=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};
+  try{return fn();}finally{Storage.prototype.setItem=keep;}
+ };});
+ eq('glass queue write failure keeps batch selection and avoids phantom batch',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());salesSetRecordStatus(id,'verified');oqQueue('batch');glassBatchToggleAll(true);const n=glassBatchSelection.size,saved=localStorage.getItem(STORAGE_KEY);
+  oqFailWrite(()=>glassBatchCreateSelected());
+  return {status:salesRecord(id).status,batches:DB.glassBatch.length,saved:localStorage.getItem(STORAGE_KEY)===saved,selection:glassBatchSelection.size===n,tab:optimizationTab,dialog:salesDialog&&salesDialog.title};
+ }),{status:'verified',batches:0,saved:true,selection:true,tab:'batch',dialog:'Batch not saved'});
+ eq('mass batch write failure retains both orders, batch number and selection',await t.p.evaluate(()=>{
+  oqReset();const c=oqCustomer(),a=oqOrder(c),b=oqOrder(c);salesSetRecordStatus(a,'verified');salesSetRecordStatus(b,'verified');oqQueue('batch');optimizationSel=new Set([a,b]);
+  const saved=localStorage.getItem(STORAGE_KEY);oqFailWrite(()=>optimizationRunOrders([a,b],'batched'));
+  return {statuses:[salesRecord(a).status,salesRecord(b).status],batches:DB.glassBatch.length,next:salesNextBatchNumber(),saved:localStorage.getItem(STORAGE_KEY)===saved,selection:optimizationSel.size,notice:optimizationNotice&&optimizationNotice.title};
+ }),{statuses:['verified','verified'],batches:0,next:'B-0001',saved:true,selection:2,notice:'Not saved'});
+ eq('mass cancellation write failure keeps receipt allocations and selection',await t.p.evaluate(()=>{
+  oqReset();const a=oqOrder(oqCustomer()),b=oqOrder(oqCustomer());oqPay(a);oqPay(b);touch();oqQueue('new');optimizationSel=new Set([a,b]);const saved=localStorage.getItem(STORAGE_KEY),events=DB.financeEvent.length;
+  optimizationRunOrders([a,b],'cancelled');oqFailWrite(()=>oqChoose('Cancel orders'));
+  return {statuses:[salesRecord(a).status,salesRecord(b).status],allocations:DB.receipt.map(r=>r.allocations.length),events:DB.financeEvent.length===events,saved:localStorage.getItem(STORAGE_KEY)===saved,selection:optimizationSel.size,notice:optimizationNotice&&optimizationNotice.title};
+ }),{statuses:['new','new'],allocations:[1,1],events:true,saved:true,selection:2,notice:'Not saved'});
+ eq('unbatch write failure keeps glass assigned and selection',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());oqThrough(id,'batched');oqQueue('production');optimizationSel.add(id);const saved=localStorage.getItem(STORAGE_KEY);
+  optimizationUnbatch([id]);salesDialogConfirm(true);oqFailWrite(()=>oqChoose('Unbatch selected lines'));
+  return {status:salesRecord(id).status,assigned:glassBatchEntries(id).filter(x=>!x.item.releasedAt).length>0,history:salesRecord(id).unbatchHistory.length,saved:localStorage.getItem(STORAGE_KEY)===saved,selection:optimizationSel.size,notice:optimizationNotice&&optimizationNotice.title};
+ }),{status:'batched',assigned:true,history:0,saved:true,selection:1,notice:'Not saved'});
  eq('очередь и окна без русского; название клиента не исполняет HTML',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer({legalName:'<img src=x onerror="window.oqXss=1">',paymentMode:'cash'}));oqQueue();const escaped=document.body.textContent.includes('<img src=x'),images=document.querySelectorAll('.optimization-queue img').length;oqAdvance(id,'verified');const russian=/[А-яЁё]/.test(document.getElementById('app').innerText);return {escaped,images,russian,xss:!!window.oqXss,dialog:!!document.querySelector('.sales-dialog')};
  }),{escaped:true,images:0,russian:false,xss:false,dialog:true});

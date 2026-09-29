@@ -50,8 +50,12 @@ function optimizationRunOrders(ids,action,opts){
  const finish=()=>{
   if(before!==stamp()||ids.some(id=>!allowed(salesRecord(id)))){salesDialogOpen({title:'Orders changed during confirmation',note:'Nothing changed. Try again.',buttons:[{label:'Back'}]});return;}
   const now=new Date().toISOString(),batchNo=action==='batched'&&orders.some(o=>salesBatchableLines(o).length)?salesNextBatchNumber():'';
-  orders.forEach(o=>salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}));
-  touch();optimizationSel.clear();
+  const saved=storageCommand(()=>{
+   orders.forEach(o=>{if(!salesSetRecordStatus(o.id,next(o),{back:action==='back',delivery:opts.delivery,batchNo,now,deferTouch:true}))throw new Error('An order could not be updated.');});
+   return true;
+  });
+  if(!saved.ok){optimizationNotice={title:'Not saved',detail:saved.error+' The orders are still selected; retry the action.',error:true};render();return;}
+  optimizationSel.clear();
   optimizationNotice={title:batchNo?'Batch created · '+batchNo:action==='cancelled'?'Orders cancelled':action==='back'?'Orders moved back':'Orders updated',
    detail:orders.map(o=>o.businessNumber+' · '+salesStatusLabel(o)).join(', ')};
   render();
@@ -83,7 +87,12 @@ function optimizationUnbatch(ids){
    if(before!==stamp()){salesDialogOpen({title:'Orders changed during confirmation',note:'Try again.',buttons:[{label:'Back'}]});return;}
    const chosen=new Set(d.checkedLines),affected=orders.map(o=>({o,ids:o.lines.filter(l=>chosen.has(l.id)).map(l=>l.id)})).filter(x=>x.ids.length);
    if(!d.confirmed||!affected.length||affected.some(x=>!salesUnbatchEligible(x.o)||x.ids.some(id=>{const l=x.o.lines.find(l=>l.id===id);return !l||!salesLineLocked(l)||!!l.cutStartedAt;})))return;
-   const now=new Date().toISOString();affected.forEach(x=>salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}));touch();optimizationSel.clear();
+   const now=new Date().toISOString(),saved=storageCommand(()=>{
+    affected.forEach(x=>{if(!salesUnbatchRecord(x.o.id,x.ids,{confirmed:true,now,deferTouch:true}))throw new Error('Glass could not be unbatched.');});
+    return true;
+   });
+   if(!saved.ok){optimizationNotice={title:'Not saved',detail:saved.error+' The orders are still selected; retry the action.',error:true};render();return;}
+   optimizationSel.clear();
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
@@ -118,7 +127,7 @@ function viewOrderQueue(shipping){
   <div class="card oq-card"><div class="oq-toolbar"><b data-queue-selection>${n} order${n===1?'':'s'} selected</b>${actions}
    ${button('back','← Back','',can('back'))}${button('cancelled','Cancel order','dl',can('cancelled'))}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
    ${salesListFilterChips()}<div class="oq-table-wrap sales-table-wrap"><table class="sl-table"><thead><tr><th><input type="checkbox" data-queue-all aria-label="Select all eligible orders" ${all?'checked':''} ${selectable.length?'':'disabled'} onchange="optimizationSelectAll(this.checked)"></th>${cols.map(th).join('')}<th>Action</th></tr></thead><tbody>${body||`<tr><td colspan="${cols.length+2}" class="empty">No orders match this queue and its filters.</td></tr>`}</tbody>${rows.length?salesListFooter(filtered,cols):''}</table></div>
-   ${optimizationNotice?`<div class="oq-notice" role="status"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
+   ${optimizationNotice?`<div class="oq-notice${optimizationNotice.error?' bad':''}" role="${optimizationNotice.error?'alert':'status'}"><b>${esc(optimizationNotice.title)}</b><span>${esc(optimizationNotice.detail)}</span><button type="button" class="sm" aria-label="Dismiss update" onclick="optimizationNotice=null;render()">×</button></div>`:''}
   </div>
   ${salesListMenuHTML(infos)}</section>`;
 }

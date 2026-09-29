@@ -55,8 +55,12 @@ function glassBatchCreateSelected(){
   if(before!==glassBatchSelectionStamp(rows)){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
   const list=[...groups.values()];
   if(list.some(g=>!glassBatchAssign(g,{dryRun:true}))){salesDialogOpen({title:'Selection changed',note:'Nothing created. Select again.',buttons:[{label:'Back'}]});return;}
-  const now=new Date().toISOString(),made=list.map(g=>glassBatchAssign(g,{now,deferTouch:true})).filter(Boolean);
-  touch();glassBatchSelection.clear();glassBatchAnchor='';
+  const now=new Date().toISOString(),made=[],saved=storageCommand(()=>{
+   list.forEach(g=>{const batch=glassBatchAssign(g,{now,deferTouch:true});if(!batch)throw new Error('Glass could not be assigned to a batch.');made.push(batch);});
+   return true;
+  });
+  if(!saved.ok){salesDialogOpen({title:'Batch not saved',note:saved.error+' The glass is still selected; retry Create batch.',buttons:[{label:'Back'}]});return;}
+  glassBatchSelection.clear();glassBatchAnchor='';
   if(made.length===1)glassBatchOpen(made[0].number);else{glassBatchOpenNumber='';optimizationTab='production';salesListMenu=null;render();}
  };
  const check=i=>{if(i===orders.length){finish();return;}salesRunChecks(salesTransitionChecks(orders[i],'batched'),()=>check(i+1),amount=>salesTakeRecordPayment(orders[i].id,amount));};
