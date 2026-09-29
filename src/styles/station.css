@@ -205,6 +205,10 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .pb-bar{height:7px;border-radius:5px;background:#edf1f4;overflow:hidden;width:64px;display:inline-block;vertical-align:middle;margin-right:6px}
 .pb-bar i{display:block;height:100%;background:var(--green)}
 .pb-sub td{background:#f7fbfd;font-size:12.5px;padding-top:5px;padding-bottom:5px}
+/* Waiting here: стикер не читается */
+.st-here-row{cursor:pointer}.st-here-row:hover td{background:#f4f8fb}.st-here-row.open td{background:var(--blue2)}
+.st-here-acts td{background:var(--blue2);padding-top:4px;padding-bottom:10px}
+.st-here-acts td{white-space:normal}.st-here-acts .b{margin-left:8px}
 /* IGU: пара для Recut */
 .st-autoprint{font:inherit;cursor:pointer;background:transparent;color:#dbe7ed}
 .st-autoprint.on{background:var(--green);border-color:var(--green)}.st-autoprint.on b{color:#fff}
