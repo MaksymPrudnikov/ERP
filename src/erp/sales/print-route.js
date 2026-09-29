@@ -38,6 +38,10 @@ function salesRouteStationOf(code,fallback){
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
   'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel:9-15',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
+/* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
+   29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
+const SALES_ROUTE_EDGE_HOME={'Rough Arris':'ARRIS','Flat Polish':'POLISH','CNC Shape Polish':'CNC','Mitering':'MITER','Beveling':'BEVEL',
+  'Lami Polish':'POLISH','CNC Lami Polish':'CNC'};
 /* Признак «только после склейки» — свойство работы; справочник операций снова
    запасной. Заведёт владелец ещё одну работу по склеенной кромке — маршрут
    узнает сам, списка кодов здесь нет. */
@@ -114,7 +118,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
        одна сторона отличается, список остаётся и прямо показывает разницу. */
     var allEdges=contourEdges.length>0&&group.edges.length===contourEdges.length&&
       contourEdges.every(function(id){return group.edges.indexOf(id)>=0;});
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,SALES_ROUTE_EDGE_HOME[t]||'POLISH'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');

@@ -1,8 +1,11 @@
 seq,code,name_en,name_ru,always_or_optional,note
 1,CUT,Cutting,Резка,always,режется только отожжённое стекло
-2,EDGE,Edge work,Кромка,optional,услуги: arris · polish · cnc shape polish · miter · bevel · lami polish
+2,ARRIS,Arrising,Arrising,optional,2 machines · rough arris
+2,POLISH,Polishing,Polishing,optional,3 machines · flat polish · lami polish
+2,BEVEL,Beveling,Beveling,optional,bevel
+2,MITER,Mitering,Mitering,optional,miter 22.5° · 45°
+2,CNC,CNC,CNC,optional,"CNC shape polish · CNC lami polish · нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4"""
 3,DRILL,Drilling,Сверловка,optional,"петли · клемы · патчи · отверстия до 1 3/4"" · ручной нотч. Свёрл крупнее в цеху нет"
-4,CNC,CNC,ЧПУ,optional,"нотч на ЧПУ · внутренние вырезы · радиусы · отверстия свыше 1 3/4"""
 5,CERP,Ceramic paint,Силкскрин,optional,услуги: ceramic frit (3 узора) · digital ceramic print
 6,HEAT,Heat treatment,Термообработка,optional,услуги: tempering · heat strengthening · heat soak. Вся механика до неё
 7,SAND,Sandblasting,Пескоструй,optional,"позиция в маршруте зависит от того, есть ли термообработка"

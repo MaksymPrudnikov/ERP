@@ -89,7 +89,7 @@ module.exports=async function({page,eq,ok}){
   docFixture();const doc=docBuildModel('workOrder',soDraft),it=doc.items[0];
   const text=docLayout(doc).flatMap(p=>p.items.filter(x=>x.t==='text').map(x=>x.s)).join(' ');
   return {dollars:/\$/.test(text),codes:it.lites[0].chips.map(c=>c.code),cut:/37/.test(it.lites[0].chips[0].text),info:/kg\/unit/.test(it.info),summary:doc.summary.map(s=>s.label),cavities:it.cavities.length};
- }),{dollars:false,codes:['CUT','EDGE','HEAT','IGU'],cut:true,info:true,summary:['Glass units','Total area','Total weight','Due date'],cavities:1});
+ }),{dollars:false,codes:['CUT','ARRIS','HEAT','IGU'],cut:true,info:true,summary:['Glass units','Total area','Total weight','Due date'],cavities:1});
 
  eq('Shape drawing: у прямоугольника чертежа нет — размер уже сказан в строке',await t.p.evaluate(()=>{docFixture();return docBuildModel('proforma',soDraft,{shapeDrawing:true}).items[0].drawing;}),null);
 

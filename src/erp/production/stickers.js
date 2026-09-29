@@ -268,5 +268,5 @@ function stkDemoData(type){
  if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},
   rows:[{kind:'glass',label:'Lite 1',glass:Object.assign({},glass,{name:'Clear 6mm',code:'6CLEAR',surface:''})},{kind:'space',label:'Space',spacer:'Black Warm Edge 17/32″',gas:'Argon',sealant:'PIB / PS'},{kind:'glass',label:'Lite 2',glass}]});
  return Object.assign(base,{kind:type,id:'G-0000002',lite:'2',glass,weight:{kg:24.3,exact:true},summary:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',
-  route:type==='production'?{codes:['CUT','EDGE','HEAT','IGU','SHIPR','SHIP'],shipping:['SHIPR','SHIP'],services:[{station:'EDGE',text:'ROUGH ARRIS'},{station:'HEAT',text:'TEMPERING'}]}:null});
+  route:type==='production'?{codes:['CUT','ARRIS','HEAT','IGU','SHIPR','SHIP'],shipping:['SHIPR','SHIP'],services:[{station:'ARRIS',text:'ROUGH ARRIS'},{station:'HEAT',text:'TEMPERING'}]}:null});
 }

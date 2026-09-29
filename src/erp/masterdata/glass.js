@@ -803,14 +803,14 @@ const SERVICE_RATE_SEED=[
  ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  'CNC',   [7,8,9]],
  ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  'CNC',   [8,12,15]],
  ['hole:4+',          'Hole over 4″',          'pc',  'CNC',   [10,15,25]],
- ['roughArris',       'Rough Arris',           'in',  'EDGE',  [.01,.02,.03]],
- ['flatPolish',       'Flat Polish',           'in',  'EDGE',  [.07,.10,.13]],
- ['cncShapePolish',   'CNC Shape Polish',      'in',  'EDGE',  [.28,.38,.48]],
- ['miter225',         'Mitering 22.5°',        'in',  'EDGE',  [.28,.38,.45]],
+ ['roughArris',       'Rough Arris',           'in',  'ARRIS',  [.01,.02,.03]],
+ ['flatPolish',       'Flat Polish',           'in',  'POLISH',  [.07,.10,.13]],
+ ['cncShapePolish',   'CNC Shape Polish',      'in',  'CNC',  [.28,.38,.48]],
+ ['miter225',         'Mitering 22.5°',        'in',  'MITER',  [.28,.38,.45]],
  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
     Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
     число, а ключи сохранённых заказов не поедут. */
- ['miter45',          'Mitering 45°',          'in',  'EDGE',  [.28,.38,.45]],
+ ['miter45',          'Mitering 45°',          'in',  'MITER',  [.28,.38,.45]],
  ['radiusCorner',     'Radius Corner',         'pc',  'CNC',   [10,12,15]],
  ['notchHand',        'Notch by hand',         'pc',  'DRILL', [10,15,20]],
  ['notchCnc',         'Notch by CNC',          'pc',  'CNC',   [15,20,25]],
@@ -823,8 +823,8 @@ const SERVICE_RATE_SEED=[
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
 .concat([
- ['lamiPolish',    'Lami Polish',          'in',  'EDGE', .28,  'One rate for any laminate thickness',  true],
- ['cncLamiPolish', 'CNC Lami Polish',      'in',  'EDGE', .28,  'Price list: POLISH LAMI GLASS',        true],
+ ['lamiPolish',    'Lami Polish',          'in',  'POLISH', .28,  'One rate for any laminate thickness',  true],
+ ['cncLamiPolish', 'CNC Lami Polish',      'in',  'CNC', .28,  'Price list: POLISH LAMI GLASS',        true],
  ['muntinSection', 'Muntin section',       'pc',  'IGU',  4.50, 'Bars are installed at IGU assembly'],
  /* Станция пустая намеренно: это надбавка за фигурность юнита, отдельной
     операции в цеху под неё нет. Владелец 11 сентября: «просто за то, что юнит
@@ -843,7 +843,7 @@ const SERVICE_RATE_SEED=[
  ['bevel:3-8',  'Beveling 3–8 mm',   0,  8,  .45],
  ['bevel:9-15', 'Beveling 9–15 mm',  9,  15, .65],
  ['bevel:16-19','Beveling 16–19 mm', 16, 19, 1.20]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'EDGE',kind:'flat',flat:x[4],
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'BEVEL',kind:'flat',flat:x[4],
   family:'bevel',appliesBy:'thickness',appliesFrom:x[2],appliesTo:x[3]})))
 /* Шаги маршрута, которые не выставляются отдельной строкой в счёт: резка
    заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в

@@ -317,7 +317,13 @@ const DATA_FIXES=[
  /* Номер 3 · 14 сентября 2026. Ставка Heat Soak была пустой, и счёт не брал
     её из прайса вовсе. Владелец: $5 за ft² на любую толщину. Только если цена
     ещё пустая — свою владелец мог уже вписать. */
- [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']]
+ [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']],
+ /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
+    «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
+    Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
+    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
+  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']])
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){
@@ -335,6 +341,7 @@ function applyDataFixes(){
    fields.forEach(k=>{if(seed[k]!==undefined&&!same(row[k],seed[k])){row[k]=JSON.parse(JSON.stringify(seed[k]));changed++;}});
   });
  });
+ if(have<4&&typeof sfSplitEdgeFix==='function')changed+=sfSplitEdgeFix();
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;

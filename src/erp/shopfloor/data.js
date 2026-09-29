@@ -74,9 +74,15 @@ const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
 const STATION_SEED_MAX_W=144,STATION_SEED_MAX_L=100;
 DEFAULT.station=[
  {seq:1, code:'CUT',  name:'Cutting',                  nameEn:'Cutting',        always:true,  note:'only annealed glass is cut here'},
- {seq:2, code:'EDGE', name:'Edge work',                 nameEn:'Edge work',      always:false, note:'works: arris · polish · cnc shape polish · miter · bevel · lami polish'},
+  /* EDGE разделена 29 сентября 2026 по станкам цеха: «полировки у нас 3,
+    аррисинга 2», бевелинг, майтер; CNC Shape Polish делает тот же станок CNC,
+    и он «стоит на уровне с полировкой» — один шаг, параллельно. */
+ {seq:2, code:'ARRIS', name:'Arrising',                  nameEn:'Arrising',       always:false, note:'2 machines · rough arris'},
+ {seq:2, code:'POLISH',name:'Polishing',                 nameEn:'Polishing',      always:false, note:'3 machines · flat polish · lami polish'},
+ {seq:2, code:'BEVEL', name:'Beveling',                  nameEn:'Beveling',       always:false, note:'bevel'},
+ {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 22.5° · 45°'},
+ {seq:2, code:'CNC',  name:'CNC',                    nameEn:'CNC',            always:false, note:'CNC shape polish · CNC lami polish · CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'hinges · clamps · patches · holes up to 1 3/4\" · hand notch. The shop has no larger drills'},
- {seq:4, code:'CNC',  name:'ЧПУ',                    nameEn:'CNC',            always:false, note:'CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:5, code:'CERP', name:'Ceramic paint',              nameEn:'Ceramic paint',  always:false, note:'works: ceramic frit (3 patterns) · digital ceramic print'},
  {seq:6, code:'HEAT', name:'Heat treatment',         nameEn:'Heat treatment', always:false, note:'works: tempering · heat strengthening · heat soak. All machining comes before it'},
  {seq:7, code:'SAND', name:'Sandblasting',             nameEn:'Sandblasting',   always:false, note:'its place in the route depends on whether there is heat treatment'},
@@ -154,6 +160,46 @@ function stationSeq(code){const s=DB.station.find(x=>x.code===code);return s?s.s
 /* Работы станции. Единственная выведенная связь, которая осталась: всё
    остальное держалось на рабочих местах. */
 function stationOperations(code){return (DB.serviceRate||[]).filter(w=>w&&w.station===code);}
+
+/* Разовая правка 29 сентября 2026 (applyDataFixes, номер 4): станция EDGE
+   сохранённых данных делится на ARRIS · POLISH · BEVEL · MITER, CNC встаёт на
+   её шаг. Работы переносит сама правка номер 4 (только стоящие на EDGE).
+   Здесь — то, что правкой строки не сделать: новые станции, причины брака
+   EDGE, терминалы и сканы, уже сделанные на EDGE (стекло не должно
+   «вернуться» на станцию, которую прошло). Если владелец уже разделил EDGE
+   сам — ничего не трогаем. EDGE удаляется, только когда на неё не идёт ни
+   одна работа. */
+const SF_EDGE_SPLIT=['ARRIS','POLISH','BEVEL','MITER'];
+function sfSplitEdgeFix(){
+ const st=Array.isArray(DB.station)?DB.station:null,edge=st&&st.find(s=>s&&s.code==='EDGE');
+ if(!edge||SF_EDGE_SPLIT.some(c=>st.some(s=>s&&s.code===c)))return 0;
+ let n=0;
+ /* На место EDGE — в том же порядке, что в заводских данных. */
+ const fresh=DEFAULT.station.filter(s=>SF_EDGE_SPLIT.includes(s.code)).map(s=>Object.assign({},s,{seq:edge.seq,maxW:edge.maxW,maxL:edge.maxL,sizeMeasured:edge.sizeMeasured===true}));
+ st.splice(st.indexOf(edge),0,...fresh);n+=fresh.length;
+ const cnc=st.find(s=>s&&s.code==='CNC');if(cnc&&cnc.seq!==edge.seq){cnc.seq=edge.seq;n++;}
+ /* Причины брака: своя станция по смыслу, общая «Wrong edgework» — каждой. */
+ const byName={'Bevel width wrong':['BEVEL'],'Miter angle wrong':['MITER'],'Polish burn':['POLISH']};
+ const reasons=Array.isArray(DB.ncrReason)?DB.ncrReason:[],ids=new Set(reasons.map(r=>r&&r.id));
+ reasons.filter(r=>r&&r.where==='EDGE').forEach(r=>{
+  const to=byName[r.name]||SF_EDGE_SPLIT;
+  to.forEach((code,k)=>{if(k===0){r.where=code;n++;return;}let id=String(r.id)+'-'+code;while(ids.has(id))id+='x';ids.add(id);reasons.push(Object.assign({},r,{id,where:code}));n++;});
+ });
+ (Array.isArray(DB.terminal)?DB.terminal:[]).forEach(t=>{if(t&&(t.stations||[]).includes('EDGE')){t.stations=[...new Set(t.stations.flatMap(c=>c==='EDGE'?SF_EDGE_SPLIT:[c]))];n++;}});
+ /* Сканы на EDGE — на ту станцию кромки, что теперь стоит в маршруте стекла. */
+ if(typeof stationGlass==='function'&&typeof stationRouteOf==='function'){
+  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
+  const group=SF_EDGE_SPLIT.concat('CNC');
+  (Array.isArray(DB.stationScan)?DB.stationScan:[]).forEach(s=>{
+   if(!s||s.station!=='EDGE')return;
+   let g=null;try{g=stationGlass(s.piece);}catch(e){g=null;}
+   const code=g&&stationRouteOf(g).codes.find(c=>group.includes(c));
+   if(code){s.station=code;n++;}
+  });
+ }
+ if(!(DB.serviceRate||[]).some(w=>w&&w.station==='EDGE')){st.splice(st.indexOf(edge),1);n++;}
+ return n;
+}
 
 function normalizeShopFloor(){
  normalizeEdgeAllowance();

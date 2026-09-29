@@ -50,7 +50,7 @@ module.exports=async function({page,eq,ok}){
   const l=o.lines[0],cs=glassBatchComponents(o,l),d=stkGlassData('production',o,l,cs[1],2,{batch:stkBatchOf(o,cs[1],2)});
   return {id:d.id===glassPieceMap(id).get(cs[1].key).ids[1],order:d.order+' / '+d.line,unit:d.unit+' of '+d.of,lite:d.lite+' of '+d.lites,glass:stkGlassText(d.glass,stkDetailsBase(stkBlockDef('glass'))),code:stkGlassText(d.glass,{code:true,surface:true}),
    route:d.route.codes.join(' > '),services:d.route.services.map(s=>s.station+' '+s.text),cut:d.cut,kg:Math.round(d.weight.kg*10)/10,batch:d.batch,due:d.dueWeekday+' '+d.due};
- }),{id:true,order:'76002 / 1',unit:'2 of 2',lite:'2 of 2',glass:'Solarban 60 on Clear 6mm · Tempered · #3',code:'6SBN60 · #3',route:'CUT > EDGE > HEAT > IGU > SHIPR > SHIP',services:['EDGE ROUGH ARRIS','HEAT TEMPERING'],cut:null,kg:24,batch:'B-0001',due:'Fri Sep 25'});
+ }),{id:true,order:'76002 / 1',unit:'2 of 2',lite:'2 of 2',glass:'Solarban 60 on Clear 6mm · Tempered · #3',code:'6SBN60 · #3',route:'CUT > ARRIS > HEAT > IGU > SHIPR > SHIP',services:['ARRIS ROUGH ARRIS','HEAT TEMPERING'],cut:null,kg:24,batch:'B-0001',due:'Fri Sep 25'});
 
  eq('данные Final · whole unit: TGU с ламинатом — плёнка и её мм, рамки, газ, толщина; детали выключаются',await t.p.evaluate(()=>{
   oqReset();const id=stTgu(),o=salesRecord(id),d=stkUnitData(o,o.lines[0],2),det=stkDetailsBase(stkBlockDef('makeup'));
@@ -132,7 +132,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=stOrder();salesOrderEdit(id);const l=soDraft.lines[1],s=newShapeDef('raked');s.w='30';s.h='40';Object.assign(s.params,{shortHeight:'28',rakeSide:'top',shortSide:'right'});s.ownerLineId=l.id;DB.shapeDef.push(s);l.shapeRef=salesShapeRefFrom(s);salesOrderSave();soDraft=null;soEdit=null;
   const o=salesRecord(id),line=o.lines[1],c=glassBatchComponents(o,line)[0],d=stkGlassData('production',o,line,c,1,{});
   const text=pg=>pg.items.filter(i=>i.t==='text').map(i=>i.s);
-  const svc=text(stkLayout(stkBase('production','4x6'),'4x6',d)).filter(x=>/BORDER|ARRIS|^CUT \d/.test(x));
+  const svc=text(stkLayout(stkBase('production','4x6'),'4x6',d)).filter(x=>/BORDER|^ROUGH ARRIS|^CUT \d/.test(x));
   const demo=stkDemoData('production'),withCut=text(stkLayout(stkBase('production','4x6'),'4x6',demo)).filter(x=>/^CUT \d/.test(x));
   const tplOff=stkBase('production','4x6');tplOff.blocks.find(b=>b.k==='size').details.cut=false;
   const off=text(stkLayout(tplOff,'4x6',demo)).filter(x=>/^CUT \d/.test(x));
