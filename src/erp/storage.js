@@ -95,7 +95,6 @@ function storageStart(){
   if(lock)await new Promise(r=>storageRelease=r);
  }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
 }
-window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе
    браузер показывал бы диалог на каждом уходе со страницы. */
@@ -106,9 +105,11 @@ window.addEventListener('beforeunload',function(e){
 /* Ушли со страницы, не сохранив заказ: формы строк возвращаются к
    сохранённым, иначе база осталась бы с формами без заказа. */
 window.addEventListener('pagehide',function(){
- if(typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
+ if(!storageWriter||typeof salesDraftHasWork!=='function'||!salesDraftHasWork()||typeof salesDraftDrop!=='function')return;
  salesDraftDrop(true);
 });
+/* Discard the order draft while the writer is still held, then release it. */
+window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
 function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function doExport(){

@@ -105,7 +105,12 @@ module.exports=async function({page,eq,ok}){
  await follower.evaluate(()=>storageTakeControl());
  eq('stale payment draft cannot overwrite a correction from another tab',await follower.evaluate(id=>{const saved=finSaveReceipt();return {saved,amount:DB.receipt.find(r=>r.id===id).amount,draft:finDraft.amount,message:document.getElementById('e_fin').textContent.includes('changed elsewhere')};},payment),{saved:false,amount:75,draft:'200',message:true});
  await follower.close();await t.c.close();
+ const closing=await page();await require('./optimization-fixture')(closing.p);
+ eq('closing an unsaved order restores saved shapes before releasing the writer',await closing.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer()),o=salesRecord(id),shapeId=o.lines[0].shapeRef.id,old=DB.shapeDef.find(s=>s.id===shapeId).name;salesOrderEdit(id);DB.shapeDef.find(s=>s.id===shapeId).name='Uncommitted shape';soDraft.notes='Unsaved note';touch();window.dispatchEvent(new PageTransitionEvent('pagehide'));
+  return {restored:JSON.parse(localStorage.getItem(STORAGE_KEY)).shapeDef.find(s=>s.id===shapeId).name===old,writer:storageWriter};
+ }),{restored:true,writer:false});await closing.c.close();
  const corrupt=await page('{unreadable');
  eq('corrupt storage is preserved, screen explains recovery',await corrupt.p.evaluate(()=>({original:localStorage.getItem(STORAGE_KEY),recovery:storageRecovery,blocked:!storageCommand(()=>DB.customer.push({id:'unsafe'})).ok,text:document.getElementById('storageStatus').textContent.includes('recovery')})),{original:'{unreadable',recovery:true,blocked:true,text:true});
- eq('audit scenarios have no browser errors',t.errs.concat(corrupt.errs),[]);await corrupt.c.close();
+ eq('audit scenarios have no browser errors',t.errs.concat(closing.errs,corrupt.errs),[]);await corrupt.c.close();
 };

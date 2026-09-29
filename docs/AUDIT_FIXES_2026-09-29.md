@@ -58,8 +58,8 @@ data:DB}`. Полный старый экспорт без конверта пр
 
 ## Приёмка и границы
 
-- `npm test` и `npm run test:dist`: **984 проверок** в каждой версии,
-  включая **30** новых сценариев `test/audit-fixes.js`.
+- `npm test` и `npm run test:dist`: **985 проверок** в каждой версии,
+  включая **31** новых сценариев `test/audit-fixes.js`.
 - `npm run check:build`, `node build/check-manifest.js`: сборки воспроизводимы,
   порядок модулей и оболочка проверены.
 - Просмотр Finance, Production и CNC на desktop и tablet; нет ошибок JS.
