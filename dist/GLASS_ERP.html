@@ -2319,7 +2319,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='5ba7b1bbaf8e';
+var ERP_BUILD='b77ed12fca72';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -6890,7 +6890,13 @@ const DATA_FIXES=[
  /* Номер 3 · 14 сентября 2026. Ставка Heat Soak была пустой, и счёт не брал
     её из прайса вовсе. Владелец: $5 за ft² на любую толщину. Только если цена
     ещё пустая — свою владелец мог уже вписать. */
- [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']]
+ [3,'serviceRate','heat_soak',{flat:null,unit:'pc'},['flat','unit']],
+ /* Номер 4 · 29 сентября 2026. EDGE разделена по станкам цеха (владелец:
+    «полировки 3, аррисинга 2», бевелинг, майтер, CNC Shape Polish — на CNC).
+    Работа переезжает, только если стоит на EDGE, — свою станцию владелец мог
+    уже выбрать. Станции, причины брака и сканы — sfSplitEdgeFix. */
+ ...['roughArris','flatPolish','cncShapePolish','miter225','miter45','lamiPolish','cncLamiPolish','bevel:3-8','bevel:9-15','bevel:16-19']
+  .map(id=>[4,'serviceRate',id,{station:'EDGE'},['station']])
 ];
 const DATA_FIX_VERSION=DATA_FIXES.reduce((m,f)=>Math.max(m,f[0]),0);
 function applyDataFixes(){
@@ -6908,6 +6914,7 @@ function applyDataFixes(){
    fields.forEach(k=>{if(seed[k]!==undefined&&!same(row[k],seed[k])){row[k]=JSON.parse(JSON.stringify(seed[k]));changed++;}});
   });
  });
+ if(have<4&&typeof sfSplitEdgeFix==='function')changed+=sfSplitEdgeFix();
  DB.dataFix=DATA_FIX_VERSION;
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
@@ -7058,9 +7065,15 @@ const SF_OP_CODE_RE=/^[a-z0-9][a-z0-9_]{0,39}$/;
 const STATION_SEED_MAX_W=144,STATION_SEED_MAX_L=100;
 DEFAULT.station=[
  {seq:1, code:'CUT',  name:'Cutting',                  nameEn:'Cutting',        always:true,  note:'only annealed glass is cut here'},
- {seq:2, code:'EDGE', name:'Edge work',                 nameEn:'Edge work',      always:false, note:'works: arris · polish · cnc shape polish · miter · bevel · lami polish'},
+  /* EDGE разделена 29 сентября 2026 по станкам цеха: «полировки у нас 3,
+    аррисинга 2», бевелинг, майтер; CNC Shape Polish делает тот же станок CNC,
+    и он «стоит на уровне с полировкой» — один шаг, параллельно. */
+ {seq:2, code:'ARRIS', name:'Arrising',                  nameEn:'Arrising',       always:false, note:'2 machines · rough arris'},
+ {seq:2, code:'POLISH',name:'Polishing',                 nameEn:'Polishing',      always:false, note:'3 machines · flat polish · lami polish'},
+ {seq:2, code:'BEVEL', name:'Beveling',                  nameEn:'Beveling',       always:false, note:'bevel'},
+ {seq:2, code:'MITER', name:'Mitering',                  nameEn:'Mitering',       always:false, note:'miter 22.5° · 45°'},
+ {seq:2, code:'CNC',  name:'CNC',                    nameEn:'CNC',            always:false, note:'CNC shape polish · CNC lami polish · CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:3, code:'DRILL',name:'Сверловка',              nameEn:'Drilling',       always:false, note:'hinges · clamps · patches · holes up to 1 3/4\" · hand notch. The shop has no larger drills'},
- {seq:4, code:'CNC',  name:'ЧПУ',                    nameEn:'CNC',            always:false, note:'CNC notch · internal cutouts · radii · holes over 1 3/4"'},
  {seq:5, code:'CERP', name:'Ceramic paint',              nameEn:'Ceramic paint',  always:false, note:'works: ceramic frit (3 patterns) · digital ceramic print'},
  {seq:6, code:'HEAT', name:'Heat treatment',         nameEn:'Heat treatment', always:false, note:'works: tempering · heat strengthening · heat soak. All machining comes before it'},
  {seq:7, code:'SAND', name:'Sandblasting',             nameEn:'Sandblasting',   always:false, note:'its place in the route depends on whether there is heat treatment'},
@@ -7138,6 +7151,46 @@ function stationSeq(code){const s=DB.station.find(x=>x.code===code);return s?s.s
 /* Работы станции. Единственная выведенная связь, которая осталась: всё
    остальное держалось на рабочих местах. */
 function stationOperations(code){return (DB.serviceRate||[]).filter(w=>w&&w.station===code);}
+
+/* Разовая правка 29 сентября 2026 (applyDataFixes, номер 4): станция EDGE
+   сохранённых данных делится на ARRIS · POLISH · BEVEL · MITER, CNC встаёт на
+   её шаг. Работы переносит сама правка номер 4 (только стоящие на EDGE).
+   Здесь — то, что правкой строки не сделать: новые станции, причины брака
+   EDGE, терминалы и сканы, уже сделанные на EDGE (стекло не должно
+   «вернуться» на станцию, которую прошло). Если владелец уже разделил EDGE
+   сам — ничего не трогаем. EDGE удаляется, только когда на неё не идёт ни
+   одна работа. */
+const SF_EDGE_SPLIT=['ARRIS','POLISH','BEVEL','MITER'];
+function sfSplitEdgeFix(){
+ const st=Array.isArray(DB.station)?DB.station:null,edge=st&&st.find(s=>s&&s.code==='EDGE');
+ if(!edge||SF_EDGE_SPLIT.some(c=>st.some(s=>s&&s.code===c)))return 0;
+ let n=0;
+ /* На место EDGE — в том же порядке, что в заводских данных. */
+ const fresh=DEFAULT.station.filter(s=>SF_EDGE_SPLIT.includes(s.code)).map(s=>Object.assign({},s,{seq:edge.seq,maxW:edge.maxW,maxL:edge.maxL,sizeMeasured:edge.sizeMeasured===true}));
+ st.splice(st.indexOf(edge),0,...fresh);n+=fresh.length;
+ const cnc=st.find(s=>s&&s.code==='CNC');if(cnc&&cnc.seq!==edge.seq){cnc.seq=edge.seq;n++;}
+ /* Причины брака: своя станция по смыслу, общая «Wrong edgework» — каждой. */
+ const byName={'Bevel width wrong':['BEVEL'],'Miter angle wrong':['MITER'],'Polish burn':['POLISH']};
+ const reasons=Array.isArray(DB.ncrReason)?DB.ncrReason:[],ids=new Set(reasons.map(r=>r&&r.id));
+ reasons.filter(r=>r&&r.where==='EDGE').forEach(r=>{
+  const to=byName[r.name]||SF_EDGE_SPLIT;
+  to.forEach((code,k)=>{if(k===0){r.where=code;n++;return;}let id=String(r.id)+'-'+code;while(ids.has(id))id+='x';ids.add(id);reasons.push(Object.assign({},r,{id,where:code}));n++;});
+ });
+ (Array.isArray(DB.terminal)?DB.terminal:[]).forEach(t=>{if(t&&(t.stations||[]).includes('EDGE')){t.stations=[...new Set(t.stations.flatMap(c=>c==='EDGE'?SF_EDGE_SPLIT:[c]))];n++;}});
+ /* Сканы на EDGE — на ту станцию кромки, что теперь стоит в маршруте стекла. */
+ if(typeof stationGlass==='function'&&typeof stationRouteOf==='function'){
+  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
+  const group=SF_EDGE_SPLIT.concat('CNC');
+  (Array.isArray(DB.stationScan)?DB.stationScan:[]).forEach(s=>{
+   if(!s||s.station!=='EDGE')return;
+   let g=null;try{g=stationGlass(s.piece);}catch(e){g=null;}
+   const code=g&&stationRouteOf(g).codes.find(c=>group.includes(c));
+   if(code){s.station=code;n++;}
+  });
+ }
+ if(!(DB.serviceRate||[]).some(w=>w&&w.station==='EDGE')){st.splice(st.indexOf(edge),1);n++;}
+ return n;
+}
 
 function normalizeShopFloor(){
  normalizeEdgeAllowance();
@@ -8906,14 +8959,14 @@ const SERVICE_RATE_SEED=[
  ['hole:2-3',         'Hole 2-1/16″–3″',       'pc',  'CNC',   [7,8,9]],
  ['hole:3-4',         'Hole 3-1/16″–4″',       'pc',  'CNC',   [8,12,15]],
  ['hole:4+',          'Hole over 4″',          'pc',  'CNC',   [10,15,25]],
- ['roughArris',       'Rough Arris',           'in',  'EDGE',  [.01,.02,.03]],
- ['flatPolish',       'Flat Polish',           'in',  'EDGE',  [.07,.10,.13]],
- ['cncShapePolish',   'CNC Shape Polish',      'in',  'EDGE',  [.28,.38,.48]],
- ['miter225',         'Mitering 22.5°',        'in',  'EDGE',  [.28,.38,.45]],
+ ['roughArris',       'Rough Arris',           'in',  'ARRIS',  [.01,.02,.03]],
+ ['flatPolish',       'Flat Polish',           'in',  'POLISH',  [.07,.10,.13]],
+ ['cncShapePolish',   'CNC Shape Polish',      'in',  'CNC',  [.28,.38,.48]],
+ ['miter225',         'Mitering 22.5°',        'in',  'MITER',  [.28,.38,.45]],
  /* Митры 45° в прайсе нет; владелец 10 сентября: «столько же, сколько и 22,5».
     Отдельной строкой, а не ссылкой: когда цены разойдутся, правится одно
     число, а ключи сохранённых заказов не поедут. */
- ['miter45',          'Mitering 45°',          'in',  'EDGE',  [.28,.38,.45]],
+ ['miter45',          'Mitering 45°',          'in',  'MITER',  [.28,.38,.45]],
  ['radiusCorner',     'Radius Corner',         'pc',  'CNC',   [10,12,15]],
  ['notchHand',        'Notch by hand',         'pc',  'DRILL', [10,15,20]],
  ['notchCnc',         'Notch by CNC',          'pc',  'CNC',   [15,20,25]],
@@ -8926,8 +8979,8 @@ const SERVICE_RATE_SEED=[
    цифры значило бы придумать различие, которого у цеха нет; а появятся банды —
    владелец переключит вид строки на экране, кода это не потребует. */
 .concat([
- ['lamiPolish',    'Lami Polish',          'in',  'EDGE', .28,  'One rate for any laminate thickness',  true],
- ['cncLamiPolish', 'CNC Lami Polish',      'in',  'EDGE', .28,  'Price list: POLISH LAMI GLASS',        true],
+ ['lamiPolish',    'Lami Polish',          'in',  'POLISH', .28,  'One rate for any laminate thickness',  true],
+ ['cncLamiPolish', 'CNC Lami Polish',      'in',  'CNC', .28,  'Price list: POLISH LAMI GLASS',        true],
  ['muntinSection', 'Muntin section',       'pc',  'IGU',  4.50, 'Bars are installed at IGU assembly'],
  /* Станция пустая намеренно: это надбавка за фигурность юнита, отдельной
     операции в цеху под неё нет. Владелец 11 сентября: «просто за то, что юнит
@@ -8946,7 +8999,7 @@ const SERVICE_RATE_SEED=[
  ['bevel:3-8',  'Beveling 3–8 mm',   0,  8,  .45],
  ['bevel:9-15', 'Beveling 9–15 mm',  9,  15, .65],
  ['bevel:16-19','Beveling 16–19 mm', 16, 19, 1.20]
-].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'EDGE',kind:'flat',flat:x[4],
+].map(x=>normalizeServiceRate({id:x[0],name:x[1],unit:'in',station:'BEVEL',kind:'flat',flat:x[4],
   family:'bevel',appliesBy:'thickness',appliesFrom:x[2],appliesTo:x[3]})))
 /* Шаги маршрута, которые не выставляются отдельной строкой в счёт: резка
    заложена в цену стекла, печь — в термообработку, склейка и сборка пакета — в
@@ -14398,6 +14451,10 @@ function salesRouteStationOf(code,fallback){
 const SALES_ROUTE_EDGE_OP={'Rough Arris':'roughArris','Flat Polish':'flatPolish',
   'CNC Shape Polish':'cncShapePolish','Mitering':'miter225','Beveling':'bevel:9-15',
   'Lami Polish':'lamiPolish','CNC Lami Polish':'cncLamiPolish'};
+/* Станция по умолчанию, если работы нет в справочнике: EDGE разделена
+   29.09.2026 по станкам — аррис, полировка, фацет, майтер, CNC. */
+const SALES_ROUTE_EDGE_HOME={'Rough Arris':'ARRIS','Flat Polish':'POLISH','CNC Shape Polish':'CNC','Mitering':'MITER','Beveling':'BEVEL',
+  'Lami Polish':'POLISH','CNC Lami Polish':'CNC'};
 /* Признак «только после склейки» — свойство работы; справочник операций снова
    запасной. Заведёт владелец ещё одну работу по склеенной кромке — маршрут
    узнает сам, списка кодов здесь нет. */
@@ -14474,7 +14531,7 @@ function salesRouteLiteStations(shape,result,groups,heatTreatment,treatments,hea
        одна сторона отличается, список остаётся и прямо показывает разницу. */
     var allEdges=contourEdges.length>0&&group.edges.length===contourEdges.length&&
       contourEdges.every(function(id){return group.edges.indexOf(id)>=0;});
-    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,'EDGE'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
+    var code=SALES_ROUTE_EDGE_OP[t],station=salesRouteStationOf(code,SALES_ROUTE_EDGE_HOME[t]||'POLISH'),text=(allEdges?'':group.edges.join(', ')+' · ')+t;
     if(op.angle)text+=' '+op.angle+'°';
     if(op.width)text+=' · Width '+dimIn16(inch(op.width));
     if(op.side)text+=' · '+(op.side==='back'?'Back':'Front');
@@ -23954,7 +24011,7 @@ function stkDemoData(type){
  if(type==='unit')return Object.assign(base,{kind:'unit',id:'U-0000001',lite:'',heading:'IGU',thicknessMm:25.6,code:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',muntin:'',weight:{kg:48.6,exact:true},
   rows:[{kind:'glass',label:'Lite 1',glass:Object.assign({},glass,{name:'Clear 6mm',code:'6CLEAR',surface:''})},{kind:'space',label:'Space',spacer:'Black Warm Edge 17/32″',gas:'Argon',sealant:'PIB / PS'},{kind:'glass',label:'Lite 2',glass}]});
  return Object.assign(base,{kind:type,id:'G-0000002',lite:'2',glass,weight:{kg:24.3,exact:true},summary:'6CLEAR / 17/32 Black Warm Edge ARG / 6SBN60',
-  route:type==='production'?{codes:['CUT','EDGE','HEAT','IGU','SHIPR','SHIP'],shipping:['SHIPR','SHIP'],services:[{station:'EDGE',text:'ROUGH ARRIS'},{station:'HEAT',text:'TEMPERING'}]}:null});
+  route:type==='production'?{codes:['CUT','ARRIS','HEAT','IGU','SHIPR','SHIP'],shipping:['SHIPR','SHIP'],services:[{station:'ARRIS',text:'ROUGH ARRIS'},{station:'HEAT',text:'TEMPERING'}]}:null});
 }
 
 /* ==== src/erp/production/sticker-layout.js ==== */
@@ -27169,7 +27226,10 @@ const NCR_SEED={
  '*':   ['Impact','Broke','Chipped','Scratched','Fell from dolly / skid'],
  OFFICE:['Order entered wrong','Drawing wrong','Cut list wrong','Program error'],
  CUT:   ['Wrong size','Wrong glass','Shape cut wrong'],
- EDGE:  ['Wrong edgework','Bevel width wrong','Miter angle wrong','Polish burn'],
+ ARRIS: ['Wrong edgework'],
+ POLISH:['Wrong edgework','Polish burn'],
+ BEVEL: ['Wrong edgework','Bevel width wrong'],
+ MITER: ['Wrong edgework','Miter angle wrong'],
  DRILL: ['Chipped at hole','Hole position wrong','Hole size wrong','Drilling skipped before tempering'],
  CNC:   ['Chipped at cut-out','Position wrong','Size / radius wrong','CNC program error'],
  CERP:  ['Frit position wrong','Pinholes / coverage','Wrong color or pattern'],
@@ -29732,7 +29792,7 @@ function stationUnitDone(recs){
 }
 /* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
    у пользователя (поле station) тоже годится. */
-const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
+const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',ARRIS:'Edgework (arris/polish)',POLISH:'Edgework (arris/polish)',BEVEL:'Edgework (arris/polish)',MITER:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
 
 /* #station=CUT — экран станции; #station=CUT&batch=B-0001 — сразу этот батч. */
 function stationHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})(?:&batch=([A-Za-z0-9_-]{1,20}))?$/.exec(location.hash||'');return m?{code:m[1].toUpperCase(),batch:m[2]||''}:null;}
@@ -30353,7 +30413,7 @@ function stationStackCard(){
 }
 
 /* --------------------- Пропущенная станция: вопрос --------------------- */
-function stationAskWord(missed){const m=(missed||[])[0];return ({EDGE:'EDGES DONE?',DRILL:'HOLES DONE?',CNC:'CNC WORK DONE?',CERP:'PAINT DONE?',HEAT:'TEMPERED?',SAND:'SANDBLASTED?',PAINT:'PAINTED?',LAM:'LAMINATED?',IGU:'ASSEMBLED?'})[m]||(m?m+' DONE?':'DONE?');}
+function stationAskWord(missed){const m=(missed||[])[0];return ({EDGE:'EDGES DONE?',ARRIS:'ARRIS DONE?',POLISH:'POLISHED?',BEVEL:'BEVELED?',MITER:'MITERED?',DRILL:'HOLES DONE?',CNC:'CNC WORK DONE?',CERP:'PAINT DONE?',HEAT:'TEMPERED?',SAND:'SANDBLASTED?',PAINT:'PAINTED?',LAM:'LAMINATED?',IGU:'ASSEMBLED?'})[m]||(m?m+' DONE?':'DONE?');}
 function stationWorksHTML(c){
  const w=stationSkippedWorks(c);
  return '<div class="st-works">'+(w.length?w.map(x=>'<div><i>'+esc(x.station)+'</i>'+esc(x.text)+'</div>').join(''):(c.missed||[]).map(m=>'<div><i>'+esc(m)+'</i>'+esc(stationName(m))+'</div>').join(''))+'</div>';
