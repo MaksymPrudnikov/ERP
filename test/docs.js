@@ -6,13 +6,16 @@ module.exports=async function({eq}){
  console.log('docs');
  const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
  const hand=read('docs/GLASS_ERP_HANDOFF.md'),map=read('КАРТА-ПРОЕКТА.md');
+ const guide=read('docs/ДЛЯ_ЧАТГПТ.md'),readme=read('README.md');
  const vHand=(hand.match(/^Версия ([0-9]+\.[0-9]+) · /m)||[])[1]||'';
  const vMap=(map.match(/Текущая версия \*\*([0-9]+\.[0-9]+)\*\*/)||[])[1]||'';
+ const vGuide=(guide.match(/`docs\/GLASS_ERP_HANDOFF\.md` \(v([0-9]+\.[0-9]+)\)/)||[])[1]||'';
+ const vReadme=(readme.match(/^Документация v([0-9]+\.[0-9]+) · /m)||[])[1]||'';
  /* Строка версии целая: заканчивается точкой, не обрывком. */
  const line=(hand.match(/^Версия [^\n]*/m)||[''])[0];
- eq('документы: версия в хендоффе и в карте совпадают, строка не обрезана',
-  {hand:vHand,map:vMap,whole:/\.$/.test(line.trim()),long:line.length>40},
-  {hand:vHand,map:vHand,whole:true,long:true});
+ eq('документы: версии хендоффа, карты, инструкции и README совпадают',
+  {hand:vHand,map:vMap,guide:vGuide,readme:vReadme,whole:/\.$/.test(line.trim()),long:line.length>40},
+  {hand:vHand,map:vHand,guide:vHand,readme:vHand,whole:true,long:true});
  /* Ссылки на файлы репозитория из живых документов не должны висеть. */
  const live=['README.md','КАРТА-ПРОЕКТА.md','docs/GLASS_ERP_HANDOFF.md','docs/ДЛЯ_ЧАТГПТ.md'];
  const dead=[];
