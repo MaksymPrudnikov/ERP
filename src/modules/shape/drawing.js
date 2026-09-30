@@ -426,7 +426,11 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
     var ops=shapeEdgeOps(result.definition,g.id).map(shapeOpText);
     /* Smart-Shape уже подписывает длины своими цепочками. Для обычных форм
        оставляем короткую запись без символов единиц и декоративных разделителей. */
-    var operationsOnly=!!(layer&&layer.contour&&layer.smart);
+    /* Smart dimensions come from its construction chains.  The fillet adds
+       enough arc samples to change how the contour is painted, but must not
+       turn the separate edge-length labels back on.  Arc length is not a
+       corner radius and must never be presented as one. */
+    var operationsOnly=!!(layer&&layer.smart)||g.id.indexOf('R:')===0;
     /* На чертеже оставляем размер и обработку; id и буквенное имя ребра
        нужны только в редакторе, где ими выбирают сторону. */
     var named='';
@@ -476,6 +480,18 @@ function shapeProductionFeaturesSvg(result,F){
   fg.hardware.forEach(function(h,i){if(h.invalid)return;out+='<path d="'+shapeSvgPath(h.points,F.X,F.Y)+'" fill="#fff" stroke="#7f56d9" stroke-width="1.7"/><circle cx="'+F.X(h.center[0])+'" cy="'+F.Y(h.center[1])+'" r="'+Math.max(2,h.holeDia/2*F.sc)+'" fill="#fff" stroke="#7f56d9"/><text x="'+(F.X(h.center[0])+12)+'" y="'+(F.Y(h.center[1])-12-i*3)+'" font-size="13" fill="#6941c6">'+shapeXml(h.name)+' · '+shapeXml(h.edgeId)+'</text>';});
   fg.stamps.forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeStampDrawingSpec(s.source);out+='<g class="shape-temper-stamp" data-stamp-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#101828" stroke-width="1.4"/><text x="'+x+'" y="'+(y+spec.font*.4)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#101828">'+shapeXml(s.text)+'</text></g>';});
   (fg.sandblasts||[]).forEach(function(s){var x=F.X(s.point[0]),y=F.Y(s.point[1]),spec=shapeSandblastDrawingSpec(s.source,F.W*F.sc);out+='<g class="shape-sandblast-mark" data-sandblast-id="'+shapeXml(s.id)+'"><rect x="'+(x-spec.w/2)+'" y="'+(y-spec.h/2)+'" width="'+spec.w+'" height="'+spec.h+'" rx="2" fill="#fff" stroke="#087e8b" stroke-width="1.4" stroke-dasharray="5 3"/><text x="'+x+'" y="'+(y-2)+'" text-anchor="middle" font-size="'+spec.font+'" font-weight="700" fill="#075e68"><tspan x="'+x+'">'+shapeXml(spec.lines[0])+'</tspan><tspan x="'+x+'" dy="'+(spec.font+2)+'">'+shapeXml(spec.lines[1])+'</tspan></text></g>';});return out;
+}
+/* The radius is a feature of the finished contour, not the length of its
+   sampled arc.  Place one R callout at the displayed arc for every fillet. */
+function shapeRadiusCalloutsSvg(result,L){
+  var meta=result.geometry&&result.geometry.radiusMeta||{},edges=result.geometry&&result.geometry.edges||[],out='',box=L.box,cx=(box.left+box.right)/2,cy=(box.top+box.bottom)/2;
+  Object.keys(meta).forEach(function(id){
+    var arc=edges.filter(function(e){return e.id===id;}),m=meta[id];if(!arc.length)return;
+    var e=arc[Math.floor(arc.length/2)],a=L.DP(e.p1),b=L.DP(e.p2),px=(a[0]+b[0])/2,py=(a[1]+b[1])/2,dx=px-cx,dy=py-cy,len=Math.hypot(dx,dy)||1;
+    var tx=px+dx/len*43,ty=py+dy/len*43,label='R '+shapeDrawingDim(m.r);
+    out+='<g class="shape-radius-callout" data-radius-vertex="'+shapeXml(m.vertexId)+'"><line x1="'+px+'" y1="'+py+'" x2="'+(tx-dx/len*8)+'" y2="'+(ty-dy/len*8)+'" stroke="#344054" stroke-width="1"/>'+shapeAnnText(tx,ty-4,label,{size:SHAPE_NOTE_FONT,weight:700,halo:4})+'</g>';
+  });
+  return out;
 }
 /* Подпись метки на теле стекла. Пескоструй, подложка зеркала и герметик кромки
    рисуются одинаково — двумя строками в рамке, — поэтому спека одна на всех.
@@ -562,7 +578,8 @@ function shapeProductionSvg(result,opts){
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
-  o+=shapeProductionFeaturesSvg(result,F)+edgeSvg;
+  /* Metric detail already owns its R-in-mm callout. */
+  o+=shapeProductionFeaturesSvg(result,F)+edgeSvg+(F.metric?'':shapeRadiusCalloutsSvg(result,L));
   if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished dimensions in mm and inches · feature callouts in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }

@@ -170,7 +170,11 @@ var SHAPE_SIDE_CORNERS={top:['tl','tr'],bottom:['bl','br'],left:['tl','bl'],righ
 var SHAPE_SIDE_MAIN={top:'D',bottom:'B',left:'A',right:'C'};
 function shapeAnnChainSegments(r,S,side){
   var idx=shapeAnnSideAxis(side)==='x'?0:1,cs=SHAPE_SIDE_CORNERS[side]||[],main=SHAPE_SIDE_MAIN[side];
-  return (r.geometry.edges||[]).filter(function(e){
+  /* A radius shortens the physical straight edge, but the Smart Shape chain
+     still measures its construction side.  Use the same unsplit segments as
+     the slope callouts, before and after a corner is rounded. */
+  var edges=r.geometry.smartSegs||r.geometry.edges||[];
+  return edges.filter(function(e){
     if(e.id===main)return true;
     var inf=shapeAnnExtraInfo(S,e.id);
     return !!(inf&&cs.indexOf(inf.corner)>=0);
@@ -266,6 +270,20 @@ function shapeAnnDisplay(r,S,F){
       var pa=r.points[z],pn=N.points[z],nx=F.X(pn[0]),ny=F.Y(pn[1]);
       map[pa[0].toFixed(8)+','+pa[1].toFixed(8)]=[nx+shapeAnnMag(F.X(pa[0])-nx),ny+shapeAnnMag(F.Y(pa[1])-ny)];
     }
+  }else if(r.geometry.vertices&&r.geometry.vertices.length===N.points.length&&Object.keys(r.geometry.radiusMeta||{}).length){
+    /* Fillets add sampled arc points, so neither the point count nor the edge
+       count matches the neutral Smart contour.  Amplify the original corner
+       positions, then carry each arc with its own corner.  Dimensions use the
+       same mapped construction vertices; the cut geometry stays exact. */
+    var V=r.geometry.vertices,ids=r.geometry.pointEdgeIds||[],shift={};
+    V.forEach(function(v,i){
+      var p=[v.x,v.y],q=N.points[i],nx=F.X(q[0]),ny=F.Y(q[1]),tx=F.X(p[0]),ty=F.Y(p[1]),amp=[nx+shapeAnnMag(tx-nx),ny+shapeAnnMag(ty-ny)];
+      shift[v.id]=[amp[0]-tx,amp[1]-ty];map[p[0].toFixed(8)+','+p[1].toFixed(8)]=amp;
+    });
+    r.points.forEach(function(p,i){
+      var out=ids[i]||'',incoming=ids[(i-1+ids.length)%ids.length]||'',arc=out.indexOf('R:')===0?out:incoming.indexOf('R:')===0?incoming:'',delta=shift[arc.slice(2)];
+      if(delta)map[p[0].toFixed(8)+','+p[1].toFixed(8)]=[F.X(p[0])+delta[0],F.Y(p[1])+delta[1]];
+    });
   }else if(NE.length===AE.length&&AE.length){
     var vecs=[],i,a,n,nv,av;
     for(i=0;i<AE.length;i++){
@@ -398,8 +416,9 @@ function shapeAnnOverhead(r,F,left,right){
    угол в 89.28°. Настоящие прямые углы дают косинус ровно 0, поэтому 1e-6
    отсекает всё скошенное и ничего не теряет на дробях дюйма. */
 function shapeAnnRightAngles(r,DP){
-  var P=r.points,out='',square=[],skewed=0;
+  var radii=r.geometry&&r.geometry.radiusMeta||{},rounded=Object.keys(radii).length>0,V=rounded&&r.geometry.vertices||[],P=V.length?V.map(function(v){return [v.x,v.y];}):r.points,out='',square=[],skewed=rounded?1:0;
   for(var i=0;i<P.length;i++){
+    if(V.length&&radii['R:'+V[i].id])continue;
     var a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];
     var v1=[a[0]-b[0],a[1]-b[1]],v2=[c[0]-b[0],c[1]-b[1]],l1=Math.hypot(v1[0],v1[1]),l2=Math.hypot(v2[0],v2[1]);
     if(l1<1e-6||l2<1e-6)continue;
@@ -540,6 +559,9 @@ function shapeAnnCallouts(r,S,DP,opts,F){
           x=ax===0?(ref+far[0])/2:far[0],
           y=ax===0?far[1]:(ref+far[1])/2,
           anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
+      /* A short horizontal skew is labelled beside its end.  Centering the
+         white label on that end erased the first inches of the colored edge. */
+      if(ax===1)x+=far[0]<(F.x0+F.dw/2)?-26:26;
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;
@@ -580,7 +602,7 @@ function shapeAnnContour(r,DP,active,mono){
      детали больше не нужны. Они сохраняются в редакторе обработок. */
   edges.forEach(function(e){
     var a=DP(e.p1),b=DP(e.p2),sel=active&&active===e.id;
-    var col=mono?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
+    var col=mono?'#101828':e.id.indexOf('R:')===0?'#101828':shapeEdgeColor(names[e.id]||e.id),w=mono?(sel?4.6:1.9):(sel?4.6:1.3);
     out+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+w+'"'+(sel?' stroke-linecap="square"':'')+'/>';
   });
   return out;
@@ -612,7 +634,7 @@ function shapeAnnotationLayer(result,F,active,opts){
   ann+=shapeAnnOverhead(result,F,box.left,box.right);
   /* Рёбер немного — рисуем цветной контур по рёбрам (как в Designer);
      у круга/многоугольника рёбер много, там цветная россыпь читается хуже. */
-  var byEdge=((result.geometry.edges||[]).length<=12)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
+  var byEdge=((result.geometry.edges||[]).length<=512)?shapeAnnContour(result,DP,active,!!(opts&&opts.mono)):'';
   return {DP:DP,points:disp,box:box,annotations:ann,contour:byEdge,smart:smart,
     path:disp.map(function(p,i){return (i?'L ':'M ')+p[0]+' '+p[1];}).join(' ')+' Z'};
 }
