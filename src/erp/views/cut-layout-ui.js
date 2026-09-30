@@ -663,6 +663,7 @@ function cutAxisText(value,x,y,space,vertical){
 }
 function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
+ const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
@@ -671,7 +672,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
     сторон рисунка, по нему CSS считает ширину. Рамка элемента совпадает с
     рисунком, иначе мышь считала бы дюймы неверно. */
  const ar=((W+pad)/(H+pad)).toFixed(3);
- const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'style="--cut-ar:'+ar+'" ':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
+ const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'style="--cut-ar:'+ar+'" ':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg'+(station?' '+(opts.stationMini?'st-sheet-mini':'st-sheet-svg'):'')+'" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif"'+(station&&!opts.stationMini?' onclick="stationSheetClick(event)"':'')+'>',
   /* Блик стекла — мягкая диагональ вместо штриховки Perfect Cut. */
   '<defs><linearGradient id="cutGlassSheen" x1="0" y1="0" x2="1" y2="1"><stop class="cut-g1" offset="0"/><stop class="cut-g2" offset="45%"/><stop class="cut-g3" offset="100%"/></linearGradient></defs>',
   '<rect class="'+(edged?'cut-sheet-band':'cut-sheet-free')+'" width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'"/>'];
@@ -707,8 +708,9 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  (sheet.stock||[]).forEach(o=>block(o,'cut-stk','data-cut-stock="'+esc(o.id)+'"',[o.id,frac16(o.w)+' × '+frac16(o.h)+'″'],'#067647'));
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
+  const stationState=station?(stationBroken.has(p.piece)?'broken':p.piece===opts.stationNow?'now':stationCut.has(p.piece)?'cut':'wait'):'';
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
-  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
+  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':station?'<g class="cut-pc st-pc '+stationState+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'">':'<g>');
   /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
      Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
      `turn` — 0/90/180/270° против часовой; старый boolean rot читается как
@@ -734,7 +736,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
-  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16].filter(Boolean).join(' · '))+'</title>');
+  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828']];
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
@@ -941,7 +943,7 @@ function cutLayoutHeader(b,status){
   :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
  const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-icon-btn" data-cut-trial-open title="Export to machine" aria-label="Export to machine" aria-haspopup="menu" onclick="cutUiTrialMenu(event)">${ico('download')}</button>`:'';
- const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
+ const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':status==='Cutting complete'?'done':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
  const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}

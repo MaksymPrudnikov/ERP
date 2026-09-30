@@ -132,7 +132,31 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'batched');const b=glassBatchFind('B-0001'),item=b.items[0],part=b.parts[item.part];item.cutStartedAt='2026-09-16T08:00:00Z';glassBatchSyncLine(salesRecord(id),salesRecord(id).lines.find(l=>l.id===part.lineId));
   glassBatchOpen('B-0001');const disabled=document.querySelector(`[data-glass-id="${item.piece}"] [data-glass-check]`).disabled,status=document.querySelector(`[data-glass-id="${item.piece}"] .gb-state`).textContent;
   return {disabled,status,force:glassBatchRelease([{batch:b,item}],{confirmed:true}),released:!!item.releasedAt,batchStatus:glassBatchStatus(b),order:salesRecord(id).status};
- }),{disabled:true,status:'Cutting started',force:false,released:false,batchStatus:'Cutting started',order:'batched'});
+ }),{disabled:true,status:'Cut',force:false,released:false,batchStatus:'Cutting started',order:'batched'});
+
+ eq('после скана всех стёкол батч завершён и вышел из CUT queue; Optimization показывает Cutting complete и полный счётчик',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'verified');const b=glassBatchAssign(glassBatchRows([salesRecord(id)]),{deferTouch:true});
+  const first=b.items[0];first.cutStartedAt='2026-09-30T08:00:00Z';const partial=glassBatchStatus(b);
+  b.items.forEach(i=>{i.cutStartedAt='2026-09-30T08:01:00Z';});b.parts.forEach(p=>{const o=salesRecord(p.orderId),l=o.lines.find(x=>x.id===p.lineId);glassBatchSyncLine(o,l);});touch();
+  tab='optimization';optimizationSetTab('production');const row=document.querySelector(`[data-glass-row="${b.number}"]`),registry={count:row.querySelector('[data-batch-cut]').textContent.replace(/\s+/g,''),status:row.querySelector('.gb-state').textContent};
+  glassBatchOpen(b.number);const detail={status:document.querySelector('[data-batch-status]').textContent,all:[...document.querySelectorAll('.gb-state')].every(x=>x.textContent==='Cut')};
+  glassBatchDetailTab='optimization';render();const optimization=document.querySelector('[data-batch-status]').textContent;
+  return {partial,complete:glassBatchStatus(b),queue:glassBatchCutQueue().some(x=>x.number===b.number),registry,detail,optimization};
+ }),{partial:'Cutting started',complete:'Cutting complete',queue:false,registry:{count:'6/6',status:'Cutting complete'},detail:{status:'Cutting complete',all:true},optimization:'Cutting complete'});
+
+ eq('реестр батчей: 20 записей на страницу, поиск, статус и диапазон дат фильтруют весь список',await t.p.evaluate(()=>{
+  oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;gbSetQty(id,0,11);salesSetRecordStatus(id,'verified');const rows=glassBatchRows([salesRecord(id)]);
+  rows.slice(0,22).forEach(r=>{if(!glassBatchAssign([r],{deferTouch:true}))throw new Error('Batch creation failed');});
+  DB.glassBatch[0].createdAt='2026-08-01T10:00:00Z';DB.glassBatch.slice(1).forEach(b=>{b.createdAt='2026-09-30T10:00:00Z';});DB.glassBatch[0].items.forEach(i=>{i.cutStartedAt='2026-09-30T11:00:00Z';});touch();
+  tab='optimization';optimizationSetTab('production');glassBatchRegistryReset();
+  const visible=()=>[...document.querySelectorAll('[data-glass-row]')].map(r=>r.dataset.glassRow),page1={count:visible().length,page:document.querySelector('[data-batch-page]').textContent};
+  document.querySelector('[data-batch-next]').click();const page2={count:visible().length,page:document.querySelector('[data-batch-page]').textContent};
+  glassBatchRegistrySetNumber('B-0001');const search=visible();
+  glassBatchRegistrySetNumber('');glassBatchRegistrySetStatus('Cutting complete');const complete=visible();
+  glassBatchRegistrySetStatus('');glassBatchRegistrySetDate('from','2026-09-01');const september=+document.querySelector('.gb-footer').textContent.match(/^(\d+) batches/)[1];
+  glassBatchRegistrySetDate('to','2026-09-29');const empty=visible().length;
+  glassBatchRegistryReset();return {page1,page2,search,complete,september,empty,reset:visible().length};
+ }),{page1:{count:20,page:'Page 1 of 2'},page2:{count:2,page:'Page 2 of 2'},search:['B-0001'],complete:['B-0001'],september:21,empty:0,reset:20});
 
  eq('отменённый заказ: стекло в составе помечено, Restore и Verify не режут его повторно',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'batched');const ids=gbIds();salesSetRecordStatus(id,'cancelled');glassBatchOpen('B-0001');

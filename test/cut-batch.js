@@ -43,6 +43,18 @@ module.exports=async function({page,eq,ok}){
   cbOut();return {view,put,fromQueue,closedByScan,sheets:sheets.length>1};
  }),{view:{tiles:true,pics:true,second:true,head:'Batch B-0001',cutBtn:true},put:true,fromQueue:true,closedByScan:true,sheets:true});
 
+ eq('CUT показывает тот же контур Rake, что Optimization, и отмечает отсканированное стекло на листе и в All sheets',await t.p.evaluate(()=>{
+  cbReset();const n=cbOrder([[48,36,2]]),b=glassBatchFind(n),part=b.parts[0],o=salesRecord(part.orderId),l=o.lines.find(x=>x.id===part.lineId);
+  const sh=newShapeDef('raked');sh.w='48';sh.h='36';Object.assign(sh.params,{shortHeight:'30',rakeSide:'top',shortSide:'left'});sh.ownerLineId=l.id;DB.shapeDef.push(sh);l.shapeRef=salesShapeRefFrom(sh);
+  const plan=cutPlanRun(n).plan,g=plan.groups[0],sheet=g.sheets[0],pieces=cutPieces(b,plan.settings||{}),host=document.createElement('div');host.innerHTML=cutSheetSVG(g,sheet,700,pieces,{});
+  const opt=[...host.querySelectorAll('polygon.cut-glass')].map(x=>x.getAttribute('points'));
+  cbLogin();const main=document.querySelector('.st-sheet-card .st-sheet-svg'),station=[...main.querySelectorAll('polygon.cut-glass')].map(x=>x.getAttribute('points'));
+  const before={same:JSON.stringify(opt)===JSON.stringify(station)&&opt.length===sheet.pieces.length,wait:main.querySelectorAll('[data-station-state="wait"]').length===sheet.pieces.length};
+  stationSubmit(sheet.pieces[0].piece);const after=document.querySelector('.st-sheet-card .st-sheet-svg'),marked=after.querySelectorAll('[data-station-state="cut"],[data-station-state="now"]').length===1;
+  stationBatchView(n);const mini=document.querySelector('.st-sheet-mini'),preview=mini.querySelectorAll('polygon.cut-glass').length===sheet.pieces.length&&mini.querySelectorAll('[data-station-state="cut"],[data-station-state="now"]').length===1;
+  cbOut();return {before,marked,preview};
+ }),{before:{same:true,wait:true},marked:true,preview:true});
+
  eq('батч без раскроя — подсказка, скан работает; стекло без размера листа — отмечено над листом; нечего резать — пусто',await t.p.evaluate(()=>{
   cbReset();cbLogin();const empty=!!document.querySelector('[data-station-nobatch]');stationSwitch();
   const a=cbOrder([[36,24,2]]);cbLogin();const noplan=!!document.querySelector('[data-station-noplan]'),kind=stationSubmit(DB.glassBatch[0].items[0].piece);stationSwitch();
