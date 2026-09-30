@@ -2327,7 +2327,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='8406aa6b4cdd';
+var ERP_BUILD='af37ab084e22';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -5104,7 +5104,13 @@ function shapeAnnCallouts(r,S,DP,opts,F){
           anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
       /* A short horizontal skew is labelled beside its end.  Centering the
          white label on that end erased the first inches of the colored edge. */
-      if(ax===1)x+=far[0]<(F.x0+F.dw/2)?-26:26;
+      if(ax===1){
+        x+=far[0]<(F.x0+F.dw/2)?-26:26;
+        /* At a rounded lower-left corner the arc takes the outside space.
+           Put the bottom-skew note just inside the glass so its white halo
+           cannot erase the short straight edge after the arc. */
+        if(side==='bottom'&&far[0]<(F.x0+F.dw/2)&&r.geometry.radiusMeta&&r.geometry.radiusMeta['R:BL']){y-=28;step=[0,-1];}
+      }
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;
@@ -5674,6 +5680,9 @@ function shapeRadiusCalloutsSvg(result,L){
     var arc=edges.filter(function(e){return e.id===id;}),m=meta[id];if(!arc.length)return;
     var e=arc[Math.floor(arc.length/2)],a=L.DP(e.p1),b=L.DP(e.p2),px=(a[0]+b[0])/2,py=(a[1]+b[1])/2,dx=px-cx,dy=py-cy,len=Math.hypot(dx,dy)||1;
     var tx=px+dx/len*43,ty=py+dy/len*43,label='R '+shapeDrawingDim(m.r);
+    /* The lower-left Smart corner also carries the short bottom-skew note.
+       Give the radius its own space below that note and its white halo. */
+    if(L.smart&&px<cx&&py>cy){tx-=18;ty+=18;}
     out+='<g class="shape-radius-callout" data-radius-vertex="'+shapeXml(m.vertexId)+'"><line x1="'+px+'" y1="'+py+'" x2="'+(tx-dx/len*8)+'" y2="'+(ty-dy/len*8)+'" stroke="#344054" stroke-width="1"/>'+shapeAnnText(tx,ty-4,label,{size:SHAPE_NOTE_FONT,weight:700,halo:4})+'</g>';
   });
   return out;
