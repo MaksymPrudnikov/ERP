@@ -241,7 +241,7 @@ button.skill-card.active{border-color:#96c6dc;background:#f4fbfe;box-shadow:0 10
 @media(max-height:860px){.side-footer{display:none}}
 @media(max-height:700px){.nav-item{padding:6px 14px}.nav-group{padding:8px 18px 3px}}
 
-.storage-status{display:flex;align-items:center;gap:12px;padding:7px 24px;background:#edf5f9;color:#1f5f82;font-size:12px}.storage-status small{color:#526577}.storage-status.bad{background:#fff0ed;color:#9f3026}.storage-status button{font-size:12px;padding:3px 8px;margin-left:auto}.storage-status:empty{display:none}.nav-item{font:inherit;border:0;background:transparent;width:100%;text-align:left;cursor:pointer}.nav-item:focus-visible{outline:2px solid #68b3d9;outline-offset:-3px}
+.storage-status{display:flex;align-items:center;gap:12px;padding:7px 24px;background:#edf5f9;color:#1f5f82;font-size:12px}.storage-status small{color:#526577}.storage-status.bad{background:#fff0ed;color:#9f3026}.storage-status button{font-size:12px;padding:3px 8px;margin-left:auto}.storage-status:empty{display:none}.nav-item{font:inherit;border:0;background:transparent;width:auto;min-width:0;text-align:left;cursor:pointer}.nav-item:focus-visible{outline:2px solid #68b3d9;outline-offset:-3px}
 
 .pb-tiles{flex-wrap:wrap;overflow:visible}.pb-exceptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;font-size:12px}.pb-exceptions span{color:var(--mut)}
 
@@ -2327,7 +2327,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='57dfaa49a55c';
+var ERP_BUILD='ba4309d177c6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2881,8 +2881,9 @@ var SHAPE_RAKE_SIDES=[{id:'top',label:'Top'},{id:'bottom',label:'Bottom'},{id:'l
 var SHAPE_RAKE_SHORT_SIDES=[{id:'left',label:'Left'},{id:'right',label:'Right'}];
 function shapeRakeSide(v){v=String(v||'').toLowerCase();return ['top','bottom','left','right'].indexOf(v)>=0?v:'top';}
 function shapeRakeShortSide(v){return String(v||'').toLowerCase()==='left'?'left':'right';}
-/* Raked Rectangle uses the long height as its stable master height.  For the
-   historic model, leftDrop/rightDrop were the two top offsets; migrate those
+/* Raked Rectangle uses the overall width and height as its stable dimensions.
+   On top/bottom the short value is a height; on left/right it is a width.
+   In the historic model, leftDrop/rightDrop were the two top offsets; migrate those
    values into the same long/short-height construction without changing its
    contour. */
 function shapeRakedValues(widthRaw,longHeightRaw,rawParams){
@@ -2900,7 +2901,8 @@ function shapeRakedValues(widthRaw,longHeightRaw,rawParams){
   }
   if(isFinite(W)&&W<=0)errors.push('Raked Rectangle: Width must be greater than zero.');
   if(isFinite(H)&&H<=0)errors.push('Raked Rectangle: Long Height must be greater than zero.');
-  if(isFinite(shortH)&&(shortH<=0||shortH>H))errors.push('Raked Rectangle: Short Height must be greater than zero and no greater than Long Height.');
+  var shortLimit=rake==='left'||rake==='right'?W:H,shortName=rake==='left'||rake==='right'?'Short Width':'Short Height';
+  if(isFinite(shortH)&&(shortH<=0||shortH>shortLimit))errors.push('Raked Rectangle: '+shortName+' must be greater than zero and no greater than '+(rake==='left'||rake==='right'?'Width':'Long Height')+'.');
   if(!isFinite(leftH)||!isFinite(rightH)||leftH<=0||rightH<=0)errors.push('Raked Rectangle: both side heights must be greater than zero.');
   return {ok:errors.length===0,errors:errors,width:W,longHeight:H,shortHeight:shortH,leftHeight:leftH,rightHeight:rightH,rakeSide:rake,shortSide:shortSide,legacy:legacy};
 }
@@ -2909,10 +2911,10 @@ function shapeRakedVertices(q){
   if(q.rakeSide==='top')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,L,'D'),shapeVertex('TR',W,R,'C'),shapeVertex('BR',W,0,'B')];
   else if(q.rakeSide==='bottom')V=[shapeVertex('BL',0,H-L,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,H-R,'B')];
   else if(q.rakeSide==='left'){
-    var topX=q.shortSide==='left'?H-q.shortHeight:0,bottomX=q.shortSide==='left'?0:H-q.shortHeight;
+    var topX=q.shortSide==='left'?W-q.shortHeight:0,bottomX=q.shortSide==='left'?0:W-q.shortHeight;
     V=[shapeVertex('BL',bottomX,0,'A'),shapeVertex('TL',topX,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
   }else{
-    var topR=q.shortSide==='left'?W:W-(H-q.shortHeight),bottomR=q.shortSide==='left'?W-(H-q.shortHeight):W;
+    var topR=q.shortSide==='left'?W:q.shortHeight,bottomR=q.shortSide==='left'?q.shortHeight:W;
     V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',topR,H,'C'),shapeVertex('BR',bottomR,0,'B')];
   }
   return shapeLineTopology(V);
@@ -3060,7 +3062,7 @@ function shapeParamNumber(p,k,d){var r=fabParseDimStrict(p&&p[k]);return r.ok?r.
 function shapeDefaultParams(type){
   var all={
     'corner-offset':{tlx:'0',tly:'0',trx:'0',try:'0',brx:'0',bry:'0',blx:'0',bly:'0'},
-    parallelogram:{measureMode:'height-oos',outOfSquare:'4',diagonal:'36 1/4',angle:'6.34',slopeDirection:'right'},raked:{shortHeight:'30',rakeSide:'top',shortSide:'right'},triangle:{measureMode:'square',topOffset:'24',leftEdge:'43 1/4',rightEdge:'43 1/4'},polygon:{sides:'6',sideLength:'12'},
+    parallelogram:{measureMode:'height-oos',outOfSquare:'4',diagonal:'36 1/4',angle:'6.34',slopeDirection:'right'},raked:{shortHeight:'30',rakeSide:'top',shortSide:'right',rakeMeasure:'axis'},triangle:{measureMode:'square',topOffset:'24',leftEdge:'43 1/4',rightEdge:'43 1/4'},polygon:{sides:'6',sideLength:'12'},
     'notch-left':{depth:'6',height:'12',fromBottom:'12'},'notch-right':{depth:'6',height:'12',fromBottom:'12'},
     'notch-middle':{width:'8',depth:'8',fromLeft:'20'},'notch-both':{depth:'6',height:'10',fromBottom:'12'},
     'notch-left-double':{depth1:'4',height1:'8',gap:'8',depth2:'7',height2:'8'},
@@ -3521,6 +3523,16 @@ function normalizeShapeDef(s){
     var rh=fabParseDimStrict(normalizedH),rld=fabParseDimStrict(params.leftDrop),rrd=fabParseDimStrict(params.rightDrop);
     if(rh.ok&&rld.ok&&rrd.ok){var lh=rh.v-rld.v,rrh=rh.v-rrd.v;params.shortHeight=shapeParaDimText(Math.min(lh,rrh));params.rakeSide='top';params.shortSide=lh<=rrh?'left':'right';}
     delete params.leftDrop;delete params.rightDrop;
+  }
+  /* Before short width existed, a side rake stored H minus its horizontal
+     inset in shortHeight. Convert saved shapes once so their contours and
+     released revisions keep the same geometry after the field is corrected. */
+  if(type==='raked'&&params.rakeMeasure!=='axis'){
+    if(params.rakeSide==='left'||params.rakeSide==='right'){
+      var rw=fabParseDimStrict(normalizedW),rhSide=fabParseDimStrict(normalizedH),oldShort=fabParseDimStrict(params.shortHeight);
+      if(rw.ok&&rhSide.ok&&oldShort.ok){var shortWidth=rw.v-(rhSide.v-oldShort.v);if(shortWidth>0&&shortWidth<=rw.v)params.shortHeight=shapeParaDimText(shortWidth);}
+    }
+    params.rakeMeasure='axis';
   }
   /* Polygon раньше означал свободный контур по точкам. Теперь это правильный
      многоугольник, а свободный контур — отдельный тип Custom Shape. Всё, что
@@ -5235,17 +5247,17 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
   }
   return '<g class="shape-para-oos-layer" aria-label="Out of square '+shapeXml(label)+' '+units+'">'+out+'</g>';
 }
-/* Raked Rectangle has one intentional, useful difference: Long Height minus
-   Short Height.  Читается она там же, где у параллелограмма читается Out of
-   square, — в углу, который рез забрал.  Размер стоит на продолжении короткой
-   стороны, между базой полной высоты (пунктирный габарит на листе уже её
-   показывает) и вершиной, до которой контур реально доходит: он не пересекает
+/* Raked Rectangle has one intentional, useful difference: overall height or
+   width minus the short side, according to the rake direction. Читается она
+   там же, где у параллелограмма читается Out of
+   square, — в углу, который рез забрал. Пунктир показывает продолжение
+   длинной стороны; размер идёт от него до короткой вершины и не пересекает
    стекло, не спорит с подписью угла внутри того же угла и не выходит из кадра.
    Кнопки −/+ двигают его внутрь детали, как и остальные размеры. */
 function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
   var d=result&&result.definition;
   if(!d||d.type!=='raked'||!L)return '';
-  var q=shapeRakedValues(d.w,d.h,d.params||{}),delta=q.longHeight-q.shortHeight;
+  var q=shapeRakedValues(d.w,d.h,d.params||{}),sideways=q.rakeSide==='left'||q.rakeSide==='right',delta=(sideways?q.width:q.longHeight)-q.shortHeight;
   if(!q.ok||!(delta>1/64))return '';
   var byId={},vertices=(result.geometry&&result.geometry.vertices)||[];
   vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
@@ -5263,23 +5275,26 @@ function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
   var box=L.box,units=metricMode?'mm':'in',key='inch:raked:difference',ref='#98a2b3',ink='#101828',lead=26,
       label=metricMode?shapeMetricFormat(delta*SHAPE_MM_PER_INCH):shapeAnnDim(delta),shift=shapeAnnUiShift(opts,key),
       head='<g class="shape-raked-difference '+(axis?'vertical':'horizontal')+'" data-raked-role="difference" data-raked-value="'+shapeXml(delta)+'" data-units="'+units+'">',
+      datum=axis
+        ?'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+SP[0]+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>'
+        :'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+LP[0]+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>',
       body,dim,cx,cy;
   if(axis){
     var inX=SP[0]<=(box.left+box.right)/2?1:-1,x=Math.max(box.left,Math.min(box.right,SP[0]+inX*shift)),
         y1=Math.min(LP[1],SP[1]),y2=Math.max(LP[1],SP[1]),mid=(y1+y2)/2;
     if(y2-y1>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
     else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickV(x,mid);
-    body=head+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90})+'</g>';
+    body=head+datum+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90})+'</g>';
     cx=x+inX*28;cy=mid;
   }else{
     var inY=SP[1]<=(box.top+box.bottom)/2?1:-1,y=Math.max(box.top,Math.min(box.bottom,SP[1]+inY*shift)),
         x1=Math.min(LP[0],SP[0]),x2=Math.max(LP[0],SP[0]),midX=(x1+x2)/2;
     if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
     else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(midX,y);
-    body=head+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
+    body=head+datum+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
     cx=midX;cy=y+inY*28;
   }
-  return '<g class="shape-raked-difference-layer" aria-label="Height difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
+  return '<g class="shape-raked-difference-layer" aria-label="'+(sideways?'Width':'Height')+' difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
 }
 /* У треугольника единственная величина, которой нет ни в габаритах, ни в
    подписях рёбер, — смещение вершины от левого нижнего угла. Показываем его
@@ -9965,7 +9980,9 @@ function normalizeSalesLaminatedFrit(raw,d){
  const position=SALES_LAMINATED_FRIT_POSITIONS.includes(raw.position)?raw.position:d.position,color=salesString(raw.color),pattern=salesString(raw.pattern),corner=salesString(raw.marginFrom);
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
-function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
+function salesRecommendedHeat(g){return glassNeedsFurnace(g)?'HT-FT':glassBannedFromFurnace(g)?'HT-AN':null;}
+function salesApplyRecommendedHeat(p,g){const heat=salesRecommendedHeat(g);if(heat){p.heatTreatmentId=heat;p.heatSoak=false;}}
+function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
 /* Покрытие на плите ламината лежит либо на её открытой грани (номер
    поверхности пакета, как у фрита «Outside film»), либо к плёнке. Владелец,
    28 сентября 2026: у 4Q272/4CL выбрать поверхность было нельзя, а маршрут
@@ -10013,7 +10030,7 @@ function salesDefaultPane(i){
  const g=salesFirstGlass('uncoated','Vitro',6)||salesFirstGlass();
  const ply=salesDefaultLaminatedPly(g);
  return {
-  id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:'HT-AN',heatSoak:false,
+  id:salesUid('LITE'),category:'vision',manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,
   coatingSurface:null,
   frit:{productId:'FRIT-CERAMIC',color:FRIT_COLORS[0],pattern:FRIT_PATTERNS[0],dotMm:FRIT_DEFAULT_DOT_MM,marginFrom:FRIT_DEFAULT_CORNER,marginW16:FRIT_DEFAULT_MARGIN16,marginH16:FRIT_DEFAULT_MARGIN16,marking:'',surface:null},
   /* Цвет по умолчанию — строка палитры, а не слово: иначе новый лайт сразу
@@ -12192,7 +12209,7 @@ function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[
  render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
 function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p),rows=activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));return fam==='lowe'||fam==='reflective'?salesSortCoatedGlass(rows):salesSortGlass(rows,false);}
-function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
+function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId)){p.glassProductId=(rows[0]||{}).id||'';salesApplyRecommendedHeat(p,glassProductById(p.glassProductId));}}
 function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
 function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
 function salesPaneSetVisionType(i,v){const p=salesCurrentMakeup().panes[i];if(!SALES_VISION_TYPES.includes(v))return;p.visionType=v;p.coatingSurface=null;if(v==='frit')p.frit.surface=null;salesPaneEnsureProduct(p);render();}
@@ -12212,8 +12229,10 @@ function salesAllowedCoatingSurfaces(p,index){
    нажимаемой, просто помечена как не по каталогу. */
 function salesPaneSetProduct(i,v){
  const p=salesCurrentMakeup().panes[i],g=glassProductById(v);
+ const changed=p.glassProductId!==v;
  p.glassProductId=v;
  if(g){p.manufacturer=g.manufacturer;p.thicknessMm=g.thicknessMm;}
+ if(changed)salesApplyRecommendedHeat(p,g);
  if(g&&(p.visionType==='lowe'||p.visionType==='reflective')){
   const ok=salesAllowedCoatingSurfaces(p,i);
   if(ok.indexOf(+p.coatingSurface)<0)p.coatingSurface=ok[0]||null;
@@ -12253,7 +12272,7 @@ function salesFritMarginChange(i,key,el){
 }
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
 function salesPaneLamPly(i,side){const p=salesCurrentMakeup().panes[i];return p&&p.laminated&&(side==='outer'||side==='inner')?p.laminated[side]:null;}
-function salesPaneEnsureLamPly(ply){const rows=salesLaminatedPlyCandidates(ply);if(!rows.some(g=>g.id===ply.glassProductId))ply.glassProductId=(rows[0]||{}).id||'';}
+function salesPaneEnsureLamPly(ply){const rows=salesLaminatedPlyCandidates(ply);if(!rows.some(g=>g.id===ply.glassProductId)){ply.glassProductId=(rows[0]||{}).id||'';salesApplyRecommendedHeat(ply,glassProductById(ply.glassProductId));}}
 function salesPaneSetLamPly(i,side,key,v){
  const ply=salesPaneLamPly(i,side);if(!ply)return;
  if(key==='visionType'&&!SALES_LAMINATED_GLASS_TYPES.includes(v))return;
@@ -12275,7 +12294,7 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
 function salesPaneSetLamPlyCoatingPosition(i,side,v){const ply=salesPaneLamPly(i,side);if(!ply)return;ply.coatingPosition=SALES_LAMINATED_FRIT_POSITIONS.includes(v)?v:'outside';render();}
-function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
+function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;const changed=ply.glassProductId!==v;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}if(changed)salesApplyRecommendedHeat(ply,g);render();}
 /* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
 function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
 function salesLamPlyInnerSetPrice(i,v){salesSetLamPlyPrice(i,"inner",v);}
@@ -17189,7 +17208,7 @@ function setShapeTriMeasure(v){
   shapeTriRemember(shapeTriDraftValues());sDraft.params.measureMode=shapeTriMeasure(v);shapeTriApplyResolved();render();
 }
 function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();refreshShapeEditor();}
-function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();refreshShapeEditor();}
+function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();if(sDraft.type==='raked'&&k==='rakeSide')render();else refreshShapeEditor();}
 function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=S.shape.smart;refreshShapeEditor();}
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
@@ -18861,7 +18880,8 @@ function shapeCustomControls(){
 }
 function shapeRakedControls(){
   var p=sDraft.params||{},side=shapeRakeSide(p.rakeSide),shortSide=shapeRakeShortSide(p.shortSide);
-  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>Short Height</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>Short Side</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div></div></div>`;
+  var sideways=side==='left'||side==='right';
+  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>${sideways?'Short Width':'Short Height'}</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>${sideways?'Short Edge':'Short Side'}</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){var label=sideways?((side==='left'?x.id==='left':x.id==='right')?'Top':'Bottom'):x.label;return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${label}</option>`;}).join('')}</select></div></div></div>`;
 }
 function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;shapeCustomApplyResolved();refreshShapeEditor();}
 /* Номер точки должен читаться человеком: он стоит и в таблице, и в коде
