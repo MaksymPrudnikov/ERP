@@ -214,13 +214,13 @@ function stationBatchOpen(number,glass){
 function stationBatchView(number){if(!glassBatchFind(number))return false;stationMenu=null;stationDrawer={kind:'batch',batch:number};render();return true;}
 function stationBatchHTML(){
  const b=glassBatchFind(stationDrawer.batch);if(!b)return '';
- const plan=cutPlanFor(b.number),cut=stationCutSet(),live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
+ const plan=cutPlanFor(b.number),cut=stationCutSet(),broken=stationBrokenSet(),pieces=plan?cutPieces(b,plan.settings||{}):[],live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
  const orders=[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean),urg=Math.max(0,...orders.map(stationUrgency)),due=orders.map(o=>o.dueDate).filter(Boolean).sort()[0]||'';
  const groups=(plan&&plan.groups||[]).map(g=>{
   const left=g.sheets.filter(s=>!stationSheetDone(s,cut)).length;
   return '<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(g.glass)+'</b><span class="mut">'+g.sheets.length+' sheet'+(g.sheets.length===1?'':'s')+' · '+(left?left+' left':'all cut')+'</span></div><div class="st-bsheets">'+
    g.sheets.map(sh=>{const k=sh.pieces.filter(p=>cut.has(p.piece)).length,sz=sh.size||g.sheet||{},stock=/^S-/.test(String(sz.key||''));
-    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(sh,cut,'',true)+
+    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(g,sh,pieces,cut,'',true,broken)+
      '<span class="st-bsheet-t"><b>Sheet '+sh.no+'</b><span>'+sh.pieces.length+' glass'+(k?' · '+k+' cut':'')+'</span>'+(stock?'<span class="pill warn">Offcut '+esc(sz.key)+'</span>':'<span class="mut">'+esc(frac16(sz.w)+' × '+frac16(sz.h))+'</span>')+'</span></button>';}).join('')+'</div></div>';
  }).join('');
  const miss=(plan&&Array.isArray(plan.missing)?plan.missing:[]).map(gl=>'<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(gl)+'</b><span class="pill warn">no cutting plan</span></div></div>').join('');
@@ -244,24 +244,10 @@ function stationBatchBar(v,plan){
   miss.map(gl=>'<span class="st-gbtn st-gmiss" data-station-glass-missing="'+esc(gl)+'"><b data-raw>'+esc(gl)+'</b><span>no cutting plan</span></span>').join(''):'';
  return '<div class="st-batchbar"><label>Batch <select data-station-batch onchange="stationBatchOpen(this.value)">'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open onclick="stationBatchView(\''+esc(v.batch)+'\')"><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
 }
-function stationPieceLabel(id){return String(+String(id).slice(2)||id);}
-function stationSheetSVG(sheet,cut,nowId,still){
- const size=sheet.size||{w:144,h:102},W=+size.w||144,H=+size.h||102,fy=(y,h)=>H-y-h,f=Math.max(2,W/42);
- const broken=stationBrokenSet();
- const out=['<svg class="'+(still?'st-sheet-mini':'st-sheet-svg')+'" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet"'+(still?'':' onclick="stationSheetClick(event)"')+'>',
-  '<rect class="st-sheet-bg" x="0" y="0" width="'+W+'" height="'+H+'"/>'];
- (sheet.stock||[]).forEach(o=>{out.push('<rect class="st-stock" x="'+o.x+'" y="'+fy(o.y,o.h)+'" width="'+o.w+'" height="'+o.h+'"/>');
-  if(o.w>f*6&&o.h>f*2)out.push('<text class="st-stock-t" x="'+(o.x+o.w/2)+'" y="'+(fy(o.y,o.h)+o.h/2+f*.35)+'" font-size="'+(f*.8)+'" text-anchor="middle">'+esc(o.id)+'</text>');});
- (sheet.pieces||[]).forEach(p=>{
-  const st=broken.has(p.piece)?'broken':p.piece===nowId?'now':cut.has(p.piece)?'cut':'wait',y=fy(p.y,p.h),fs=Math.max(1.6,Math.min(f*1.2,p.w/6,p.h/3));
-  out.push('<g class="st-pc '+st+'" data-station-piece="'+esc(p.piece)+'"><rect x="'+(p.x+.3)+'" y="'+(y+.3)+'" width="'+Math.max(0,p.w-.6)+'" height="'+Math.max(0,p.h-.6)+'" rx=".6"/>');
-  out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2)+'" font-size="'+fs+'" text-anchor="middle" class="st-pc-n">'+esc(stationPieceLabel(p.piece))+'</text>');
-  if(p.h>fs*2.6)out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2+fs*1.1)+'" font-size="'+(fs*.72)+'" text-anchor="middle" class="st-pc-s">'+esc(frac16(p.w)+' × '+frac16(p.h))+'</text>');
-  if(st==='broken'&&p.w>fs*3&&p.h>fs*2)out.push('<text x="'+(p.x+p.w-fs*.5)+'" y="'+(y+fs*1.1)+'" font-size="'+fs+'" text-anchor="end" class="st-pc-x">✕</text>');
-  if(st==='cut'&&p.w>fs*3&&p.h>fs*2)out.push('<text x="'+(p.x+p.w-fs*.5)+'" y="'+(y+fs*1.1)+'" font-size="'+fs+'" text-anchor="end" class="st-pc-c">✓</text>');
-  out.push('</g>');
- });
- return out.join('')+'</svg>';
+function stationSheetSVG(group,sheet,pieces,cut,nowId,still,broken){
+ /* CUT and Optimization share contours, rotation, holes, trim and offcuts.
+    Station mode adds only scan state and click-to-open on each glass. */
+ return cutSheetSVG(group,sheet,still?320:700,pieces,{station:true,stationMini:!!still,stationCut:cut,stationNow:nowId,stationBroken:broken});
 }
 function stationSheetClick(ev){
  const g=ev.target.closest&&ev.target.closest('[data-station-piece]');
@@ -297,14 +283,14 @@ function stationSheetCard(){
  if(!v)return '<div class="card st-sheet-card st-empty" data-station-nobatch><div><b>Nothing to cut</b><div class="mut">Batches come here in the office order (Optimization → Batches)</div></div></div>';
  const plan=cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(!sheet)return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-noplan" data-station-noplan><b>'+esc(v.batch)+' has no cutting plan</b><div class="mut">Make it in Optimization → Batches. Scanning stickers works without it.</div></div></div>';
- const cut=stationCutSet(),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
+ const cut=stationCutSet(),broken=stationBrokenSet(),pieces=cutPieces(glassBatchFind(v.batch),plan.settings||{}),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
  const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
  return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
-  stationSheetSVG(sheet,cut,nowId)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
+  stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
  const m=stationMenu,cut=stationCutSet().has(m.piece),x=Math.max(8,m.x-90),y=m.y+12;

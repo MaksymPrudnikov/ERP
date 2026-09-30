@@ -69,17 +69,12 @@ tr.st-hot td{background:#fff7f7}
 .st-sheet-card{position:relative}
 .st-sheet-card.st-empty{min-height:200px;display:grid;place-items:center}
 .st-sheet-svg{display:block;width:100%;height:auto;max-height:56vh;cursor:pointer}
-.st-sheet-bg{fill:#e6ebef;stroke:#8fa3af;stroke-width:.4}
-.st-stock{fill:#e9f6ef;stroke:#27815a;stroke-width:.4;stroke-dasharray:1.5 1}
-.st-stock-t{fill:#27815a;font-weight:700}
-.st-pc rect{fill:#fff;stroke:#8fa3af;stroke-width:.35;stroke-dasharray:1.6 1.2}
-.st-pc.cut rect{fill:#e9f6ef;stroke:#27815a;stroke-dasharray:none}
-.st-pc.now rect{fill:#d7ecf8;stroke:#2f7da8;stroke-width:1.1;stroke-dasharray:none}
-.st-pc:hover rect{stroke:#12232e}
-.st-pc-n{font-weight:800;fill:#344651;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.st-pc.cut .st-pc-n,.st-pc-c{fill:#27815a}
-.st-pc.now .st-pc-n{fill:#1f5f82}
-.st-pc-s{fill:#5c6a75}
+.cut-svg.st-sheet-svg .cut-pc{cursor:pointer}
+.cut-svg.st-sheet-mini .cut-pc{cursor:default}
+.st-pc.cut .cut-glass:not([data-cut-out]){fill:#d9f2e5;stroke:#27815a;stroke-width:2.2}
+.st-pc.now .cut-glass:not([data-cut-out]){fill:#bfe2f5;stroke:#1f6f9f;stroke-width:2.4}
+.st-pc.broken .cut-glass{fill:var(--red2);stroke:var(--red);stroke-width:2.2}
+.st-pc:hover .cut-glass{stroke-width:2.6}
 .st-pc text{pointer-events:none}
 .st-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;margin-top:12px}
 .st-tile{font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:11px;padding:4px 0;color:#5c6a75;background:#fff;display:flex;flex-direction:column}
@@ -113,8 +108,6 @@ tr.st-hot td{background:#fff7f7}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
 /* Разбитое стекло на листе */
-.st-pc.broken rect{fill:var(--red2);stroke:var(--red);stroke-width:1;stroke-dasharray:none}
-.st-pc.broken .st-pc-n,.st-pc-x{fill:var(--red)}
 .st-menu button.st-menu-red{color:var(--red)}
 .st-sheetbrk{margin-left:8px}
 .b.st-red-b{border-color:#ebcccc;color:#943e3e}
