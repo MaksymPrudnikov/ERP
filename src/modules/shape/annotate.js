@@ -561,7 +561,13 @@ function shapeAnnCallouts(r,S,DP,opts,F){
           anchor='middle',step=ax===0?[sg0,0]:[0,sg0];
       /* A short horizontal skew is labelled beside its end.  Centering the
          white label on that end erased the first inches of the colored edge. */
-      if(ax===1)x+=far[0]<(F.x0+F.dw/2)?-26:26;
+      if(ax===1){
+        x+=far[0]<(F.x0+F.dw/2)?-26:26;
+        /* At a rounded lower-left corner the arc takes the outside space.
+           Put the bottom-skew note just inside the glass so its white halo
+           cannot erase the short straight edge after the arc. */
+        if(side==='bottom'&&far[0]<(F.x0+F.dw/2)&&r.geometry.radiusMeta&&r.geometry.radiusMeta['R:BL']){y-=28;step=[0,-1];}
+      }
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
       var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;

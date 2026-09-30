@@ -489,6 +489,9 @@ function shapeRadiusCalloutsSvg(result,L){
     var arc=edges.filter(function(e){return e.id===id;}),m=meta[id];if(!arc.length)return;
     var e=arc[Math.floor(arc.length/2)],a=L.DP(e.p1),b=L.DP(e.p2),px=(a[0]+b[0])/2,py=(a[1]+b[1])/2,dx=px-cx,dy=py-cy,len=Math.hypot(dx,dy)||1;
     var tx=px+dx/len*43,ty=py+dy/len*43,label='R '+shapeDrawingDim(m.r);
+    /* The lower-left Smart corner also carries the short bottom-skew note.
+       Give the radius its own space below that note and its white halo. */
+    if(L.smart&&px<cx&&py>cy){tx-=18;ty+=18;}
     out+='<g class="shape-radius-callout" data-radius-vertex="'+shapeXml(m.vertexId)+'"><line x1="'+px+'" y1="'+py+'" x2="'+(tx-dx/len*8)+'" y2="'+(ty-dy/len*8)+'" stroke="#344054" stroke-width="1"/>'+shapeAnnText(tx,ty-4,label,{size:SHAPE_NOTE_FONT,weight:700,halo:4})+'</g>';
   });
   return out;
