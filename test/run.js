@@ -918,6 +918,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         const r=ShapeModule.compute(d);return {valid:r.valid,points:r.points.map(p=>p.map(v=>+v.toFixed(3))),area:+r.area.toFixed(3)};
       }
       const old=normalizeShapeDef({id:'old-rake',type:'raked',w:'48',h:'36',params:{leftDrop:'0',rightDrop:'12'}});
+      const oldSide=normalizeShapeDef({id:'old-side-rake',type:'raked',w:'48',h:'36',params:{shortHeight:'24',rakeSide:'right',shortSide:'left'}});
       function drawing(metric){
         const d=newShapeDef('raked');d.w='48';d.h='36';Object.assign(d.params,{shortHeight:'30',rakeSide:'top',shortSide:'right'});
         const svg=ShapeModule.productionSvg(ShapeModule.compute(d),metric?{metric:{}}:{}),doc=new DOMParser().parseFromString(svg,'image/svg+xml');
@@ -950,20 +951,26 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       }
       tab='configurators';subtab='shape';openShapeNew('raked');
       const ui={long:document.querySelector('#shapeHField')?.previousElementSibling?.textContent||'',short:document.querySelector('.shape-raked-editor input')?.value||'',rake:[...document.querySelectorAll('.shape-raked-editor select')][0]?.options.length||0,shortSide:[...document.querySelectorAll('.shape-raked-editor select')][1]?.options.length||0};
+      setShapeParam('rakeSide','right');ui.sideLabel=document.querySelector('.shape-raked-editor label')?.textContent||'';ui.sideOptions=[...document.querySelectorAll('.shape-raked-editor select')[1].options].map(x=>x.textContent);
       sEdit=null;sDraft=null;render();
-      return {topRight:make('top','right'),topLeft:make('top','left'),bottomRight:make('bottom','right'),left:make('left','right'),right:make('right','left'),legacy:{short:old.params.shortHeight,rake:old.params.rakeSide,side:old.params.shortSide,hasDrops:old.params.leftDrop!=null||old.params.rightDrop!=null},ui:ui,drawing:{inch:drawing(false),metric:drawing(true)},anchors:anchors()};
+      return {topRight:make('top','right'),topLeft:make('top','left'),bottomRight:make('bottom','right'),left:make('left','right'),right:make('right','left'),legacy:{short:old.params.shortHeight,rake:old.params.rakeSide,side:old.params.shortSide,hasDrops:old.params.leftDrop!=null||old.params.rightDrop!=null,sideShort:oldSide.params.shortHeight,sideAgain:normalizeShapeDef(oldSide).params.shortHeight,sidePoints:ShapeModule.compute(oldSide).points.map(p=>p.map(n=>+n.toFixed(3)))},ui:ui,drawing:{inch:drawing(false),metric:drawing(true)},anchors:anchors()};
     });
     eq('Raked Rectangle: long/short height и четыре стороны', rakedModes, {
       topRight:{valid:true,points:[[0,0],[0,36],[48,24],[48,0]],area:1440},
       topLeft:{valid:true,points:[[0,0],[0,24],[48,36],[48,0]],area:1440},
       bottomRight:{valid:true,points:[[0,0],[0,36],[48,36],[48,12]],area:1440},
-      left:{valid:true,points:[[12,0],[0,36],[48,36],[48,0]],area:1512},
-      right:{valid:true,points:[[0,0],[0,36],[48,36],[36,0]],area:1512},
-      legacy:{short:'24',rake:'top',side:'right',hasDrops:false},
-      ui:{long:'Long Height',short:'30',rake:4,shortSide:2},
+      left:{valid:true,points:[[24,0],[0,36],[48,36],[48,0]],area:1296},
+      right:{valid:true,points:[[0,0],[0,36],[48,36],[24,0]],area:1296},
+      legacy:{short:'24',rake:'top',side:'right',hasDrops:false,sideShort:'36',sideAgain:'36',sidePoints:[[0,0],[0,36],[48,36],[36,0]]},
+      ui:{long:'Long Height',short:'30',rake:4,shortSide:2,sideLabel:'Short Width',sideOptions:['Bottom','Top']},
       drawing:{inch:{labels:['6'],units:'in',dimensions:1,inchRefs:0},metric:{labels:['152.40'],units:'mm',dimensions:1,inchRefs:2}},
       anchors:{axes:['top/left:vertical','top/right:vertical','bottom/left:vertical','bottom/right:vertical','left/left:horizontal','left/right:horizontal','right/left:horizontal','right/right:horizontal'],offDatum:[],offCorner:[]}
     });
+    eq('Raked Rectangle: боковой короткий размер и пунктир перепада', await p.evaluate(() => {
+      const make=(w,h,short,rake)=>{const d=newShapeDef('raked');d.w=w;d.h=h;Object.assign(d.params,{shortHeight:short,rakeSide:rake,shortSide:'right'});const r=ShapeModule.compute(d),svg=ShapeModule.productionSvg(r,{}),doc=new DOMParser().parseFromString(svg,'image/svg+xml'),line=doc.querySelector('.shape-raked-datum[stroke-dasharray]'),attr=n=>line&&+line.getAttribute(n);return {valid:r.valid,points:r.points.map(pt=>pt.map(n=>+n.toFixed(4))),area:+r.area.toFixed(4),delta:doc.querySelector('.shape-raked-difference')?.getAttribute('data-raked-value'),datum:line?(attr('y1')===attr('y2')?'horizontal':attr('x1')===attr('x2')?'vertical':'slanted'):null,frame:doc.querySelectorAll('rect[stroke-dasharray="7 6"]').length};};
+      const impossible=newShapeDef('raked');impossible.w='31 5/16';impossible.h='56 1/4';Object.assign(impossible.params,{shortHeight:'50',rakeSide:'right',shortSide:'right'});
+      return {top:make('48','36','30','top'),side:make('31 5/16','56 1/4','7 7/8','right'),invalid:ShapeModule.compute(impossible).valid};
+    }), {top:{valid:true,points:[[0,0],[0,36],[48,30],[48,0]],area:1584,delta:'6',datum:'horizontal',frame:0},side:{valid:true,points:[[0,0],[0,56.25],[7.875,56.25],[31.3125,0]],area:1102.1484,delta:'23.4375',datum:'vertical',frame:0},invalid:false});
     const triModes = await p.evaluate(() => {
       function mk(params){const d=newShapeDef('triangle');d.w='48';d.h='36';Object.assign(d.params,params);return normalizeShapeDef(d);}
       function pts(def){const r=ShapeModule.compute(def);return (r.points||[]).map(p=>p.map(v=>+v.toFixed(3)));}
@@ -2985,6 +2992,17 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       salesOrderSave();const afterCancel=DB.salesOrder.length;salesOrderSave();const afterConfirm=DB.salesOrder.length;window.confirm=oldConfirm;
       return {warningCount:warnings.length,afterCancel,afterConfirm,prompts:prompts.length,hasBanned:prompts[0].includes(banned.code),hasRequired:prompts[0].includes(required.code),offersOverride:prompts[0].includes('Save this order anyway?')};
     }), {warningCount:2,afterCancel:0,afterConfirm:1,prompts:2,hasBanned:true,hasRequired:true,offersOverride:true});
+    eq('выбор стекла подставляет обязательную закалку, ручное решение сохраняется', await t.p.evaluate(() => {
+      tab='sales';render();salesOrderNew();
+      const required=glassProductByCode('6SBN60VT')||activeGlassProducts().find(glassNeedsFurnace),banned=activeGlassProducts().find(glassBannedFromFurnace);
+      const pane=salesCurrentMakeup().panes[0];
+      salesPaneSetProduct(0,required.id);const requiredHeat=pane.heatTreatmentId;
+      salesPaneSetHeat(0,'HT-AN');salesPaneSetProduct(0,required.id);const manual=pane.heatTreatmentId;
+      salesPaneSetProduct(0,banned.id);const bannedHeat=pane.heatTreatmentId;
+      salesPaneSetLamPlyProduct(0,'outer',required.id);const plyHeat=pane.laminated.outer.heatTreatmentId;
+      const restored=normalizeSalesPane({category:'vision',manufacturer:required.manufacturer,thicknessMm:required.thicknessMm,visionType:required.coatingFamily,glassProductId:required.id,heatTreatmentId:'HT-AN'},0);
+      return {catalog:required.code,required:requiredHeat,manual,banned:bannedHeat,ply:plyHeat,stored:restored.heatTreatmentId,warning:salesPaneTemperConflict(restored)};
+    }), {catalog:'6SBN60VT',required:'HT-FT',manual:'HT-AN',banned:'HT-AN',ply:'HT-FT',stored:'HT-AN',warning:true});
     /* Габарит станции — решения владельца 13 сентября 2026: сравнивается рез с
        припусками, стекло на станке можно повернуть, реакция — предупреждение
        при сохранении, а не запрет (габариты пока засеяны 144 × 100″). */
@@ -4709,6 +4727,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         gained:narrow>wide+100,fillsViewport:wide>innerWidth-330};
       setSidebarCollapsed(false);render();return out;
     }), {cap:'none',sideScroll:0,gained:true,fillsViewport:true});
+    eq('боковое меню не создаёт горизонтальную прокрутку', await t.p.evaluate(() => {
+      const side=document.getElementById('side');
+      setSidebarCollapsed(false);render();const expanded=side.scrollWidth<=side.clientWidth;
+      setSidebarCollapsed(true);render();const collapsed=getComputedStyle(side).overflowX==='hidden';
+      setSidebarCollapsed(false);render();return {expanded,collapsed};
+    }), {expanded:true,collapsed:true});
 
     /* Заполнение нотча возвращает ПРОДОЛЖЕНИЕ реальной стороны, а не ребро
        нотча. Пока id брался у снятой кромки, нижняя сторона B выпадала из

@@ -53,8 +53,9 @@ var SHAPE_RAKE_SIDES=[{id:'top',label:'Top'},{id:'bottom',label:'Bottom'},{id:'l
 var SHAPE_RAKE_SHORT_SIDES=[{id:'left',label:'Left'},{id:'right',label:'Right'}];
 function shapeRakeSide(v){v=String(v||'').toLowerCase();return ['top','bottom','left','right'].indexOf(v)>=0?v:'top';}
 function shapeRakeShortSide(v){return String(v||'').toLowerCase()==='left'?'left':'right';}
-/* Raked Rectangle uses the long height as its stable master height.  For the
-   historic model, leftDrop/rightDrop were the two top offsets; migrate those
+/* Raked Rectangle uses the overall width and height as its stable dimensions.
+   On top/bottom the short value is a height; on left/right it is a width.
+   In the historic model, leftDrop/rightDrop were the two top offsets; migrate those
    values into the same long/short-height construction without changing its
    contour. */
 function shapeRakedValues(widthRaw,longHeightRaw,rawParams){
@@ -72,7 +73,8 @@ function shapeRakedValues(widthRaw,longHeightRaw,rawParams){
   }
   if(isFinite(W)&&W<=0)errors.push('Raked Rectangle: Width must be greater than zero.');
   if(isFinite(H)&&H<=0)errors.push('Raked Rectangle: Long Height must be greater than zero.');
-  if(isFinite(shortH)&&(shortH<=0||shortH>H))errors.push('Raked Rectangle: Short Height must be greater than zero and no greater than Long Height.');
+  var shortLimit=rake==='left'||rake==='right'?W:H,shortName=rake==='left'||rake==='right'?'Short Width':'Short Height';
+  if(isFinite(shortH)&&(shortH<=0||shortH>shortLimit))errors.push('Raked Rectangle: '+shortName+' must be greater than zero and no greater than '+(rake==='left'||rake==='right'?'Width':'Long Height')+'.');
   if(!isFinite(leftH)||!isFinite(rightH)||leftH<=0||rightH<=0)errors.push('Raked Rectangle: both side heights must be greater than zero.');
   return {ok:errors.length===0,errors:errors,width:W,longHeight:H,shortHeight:shortH,leftHeight:leftH,rightHeight:rightH,rakeSide:rake,shortSide:shortSide,legacy:legacy};
 }
@@ -81,10 +83,10 @@ function shapeRakedVertices(q){
   if(q.rakeSide==='top')V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,L,'D'),shapeVertex('TR',W,R,'C'),shapeVertex('BR',W,0,'B')];
   else if(q.rakeSide==='bottom')V=[shapeVertex('BL',0,H-L,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,H-R,'B')];
   else if(q.rakeSide==='left'){
-    var topX=q.shortSide==='left'?H-q.shortHeight:0,bottomX=q.shortSide==='left'?0:H-q.shortHeight;
+    var topX=q.shortSide==='left'?W-q.shortHeight:0,bottomX=q.shortSide==='left'?0:W-q.shortHeight;
     V=[shapeVertex('BL',bottomX,0,'A'),shapeVertex('TL',topX,H,'D'),shapeVertex('TR',W,H,'C'),shapeVertex('BR',W,0,'B')];
   }else{
-    var topR=q.shortSide==='left'?W:W-(H-q.shortHeight),bottomR=q.shortSide==='left'?W-(H-q.shortHeight):W;
+    var topR=q.shortSide==='left'?W:q.shortHeight,bottomR=q.shortSide==='left'?q.shortHeight:W;
     V=[shapeVertex('BL',0,0,'A'),shapeVertex('TL',0,H,'D'),shapeVertex('TR',topR,H,'C'),shapeVertex('BR',bottomR,0,'B')];
   }
   return shapeLineTopology(V);
@@ -232,7 +234,7 @@ function shapeParamNumber(p,k,d){var r=fabParseDimStrict(p&&p[k]);return r.ok?r.
 function shapeDefaultParams(type){
   var all={
     'corner-offset':{tlx:'0',tly:'0',trx:'0',try:'0',brx:'0',bry:'0',blx:'0',bly:'0'},
-    parallelogram:{measureMode:'height-oos',outOfSquare:'4',diagonal:'36 1/4',angle:'6.34',slopeDirection:'right'},raked:{shortHeight:'30',rakeSide:'top',shortSide:'right'},triangle:{measureMode:'square',topOffset:'24',leftEdge:'43 1/4',rightEdge:'43 1/4'},polygon:{sides:'6',sideLength:'12'},
+    parallelogram:{measureMode:'height-oos',outOfSquare:'4',diagonal:'36 1/4',angle:'6.34',slopeDirection:'right'},raked:{shortHeight:'30',rakeSide:'top',shortSide:'right',rakeMeasure:'axis'},triangle:{measureMode:'square',topOffset:'24',leftEdge:'43 1/4',rightEdge:'43 1/4'},polygon:{sides:'6',sideLength:'12'},
     'notch-left':{depth:'6',height:'12',fromBottom:'12'},'notch-right':{depth:'6',height:'12',fromBottom:'12'},
     'notch-middle':{width:'8',depth:'8',fromLeft:'20'},'notch-both':{depth:'6',height:'10',fromBottom:'12'},
     'notch-left-double':{depth1:'4',height1:'8',gap:'8',depth2:'7',height2:'8'},
