@@ -1544,19 +1544,26 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .gb-settings{display:inline-flex;align-items:center;justify-content:center;border:0;background:none;padding:2px;color:#667085;width:23px;height:23px}
 .gb-settings svg{width:15px;height:15px;display:block}
 .gb-state{font-size:11px;color:#667085}
-.gb-state.held{color:#9a6700}.gb-state.released{color:#98a2b3}
+.gb-state.held{color:#9a6700}.gb-state.released{color:#98a2b3}.gb-state.done{color:#067647;font-weight:700}
 .gb-footer{font-size:12px;font-weight:600;padding:10px 9px;background:#f8fafc;border-top:1px solid #e4e7ec}
+.gb-registry-filters{display:flex;flex-wrap:wrap;align-items:end;gap:8px 12px;margin:0 0 12px}
+.gb-registry-filters label{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#667085}
+.gb-registry-filters input,.gb-registry-filters select{height:34px;min-width:130px;max-width:200px;margin:0;padding:5px 8px;font-size:12px}
+.gb-registry-filters [data-batch-search]{width:135px;min-width:110px}
+.gb-registry-filters button{height:34px}
+.gb-pages{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 4px;font-size:12px}
+.gb-pages button{padding:5px 10px}
 .gb-note{margin:12px 0 0;font-size:11px;color:#8a96a8}
 .gb-detail-tabs{display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid #e4e7ec}
 .gb-detail-tabs button{background:none;border:0;border-radius:6px 6px 0 0;color:#667085;padding:9px 14px;font-size:12px}
 .gb-detail-tabs button.on{color:#1f6f9f;box-shadow:inset 0 -2px #1f6f9f}.gb-detail-tabs button:disabled{opacity:.5}
 .gb-history>div{display:flex;gap:20px;align-items:center;padding:12px 0;border-bottom:1px solid #eaecf0;font-size:12px}.gb-history time{color:#8a96a8}
-@media(max-width:600px){.gb-material select{max-width:210px}.glass-batches .oq-toolbar{gap:8px}.gb-table{min-width:900px}.gb-history>div{flex-wrap:wrap;gap:8px}.glass-batches .oq-tabs{overflow-x:auto}}
+@media(max-width:600px){.gb-material select{max-width:210px}.glass-batches .oq-toolbar{gap:8px}.gb-registry-filters label{flex:1 1 135px}.gb-registry-filters input,.gb-registry-filters select{width:100%;max-width:none}.gb-table{min-width:900px}.gb-history>div{flex-wrap:wrap;gap:8px}.glass-batches .oq-tabs{overflow-x:auto}}
 .glass-batches .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .glass-batches .page-head.cut-page-head-wrap{display:grid;grid-template-columns:minmax(260px,max-content) minmax(0,1fr);align-items:stretch;margin-bottom:10px}
 .gb-page-title{min-width:0}
 .gb-status{font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px;white-space:nowrap}
-.gb-status.wait{background:#fffaeb;color:#93370d;box-shadow:inset 0 0 0 1px #fedf89}.gb-status.cut{background:#e0f2fe;color:#026aa2}.gb-status.off{background:#f2f4f7;color:#667085}
+.gb-status.wait{background:#fffaeb;color:#93370d;box-shadow:inset 0 0 0 1px #fedf89}.gb-status.cut{background:#e0f2fe;color:#026aa2}.gb-status.done{background:#dcfae6;color:#067647}.gb-status.off{background:#f2f4f7;color:#667085}
 .gb-orders{color:#667085}
 .gb-waiting{margin-top:14px}.gb-waiting h3{margin:0 0 6px;font-size:13px}.gb-waiting p{margin:0 0 8px;font-size:12px;color:#475467}
 
@@ -2093,17 +2100,12 @@ tr.st-hot td{background:#fff7f7}
 .st-sheet-card{position:relative}
 .st-sheet-card.st-empty{min-height:200px;display:grid;place-items:center}
 .st-sheet-svg{display:block;width:100%;height:auto;max-height:56vh;cursor:pointer}
-.st-sheet-bg{fill:#e6ebef;stroke:#8fa3af;stroke-width:.4}
-.st-stock{fill:#e9f6ef;stroke:#27815a;stroke-width:.4;stroke-dasharray:1.5 1}
-.st-stock-t{fill:#27815a;font-weight:700}
-.st-pc rect{fill:#fff;stroke:#8fa3af;stroke-width:.35;stroke-dasharray:1.6 1.2}
-.st-pc.cut rect{fill:#e9f6ef;stroke:#27815a;stroke-dasharray:none}
-.st-pc.now rect{fill:#d7ecf8;stroke:#2f7da8;stroke-width:1.1;stroke-dasharray:none}
-.st-pc:hover rect{stroke:#12232e}
-.st-pc-n{font-weight:800;fill:#344651;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.st-pc.cut .st-pc-n,.st-pc-c{fill:#27815a}
-.st-pc.now .st-pc-n{fill:#1f5f82}
-.st-pc-s{fill:#5c6a75}
+.cut-svg.st-sheet-svg .cut-pc{cursor:pointer}
+.cut-svg.st-sheet-mini .cut-pc{cursor:default}
+.st-pc.cut .cut-glass:not([data-cut-out]){fill:#d9f2e5;stroke:#27815a;stroke-width:2.2}
+.st-pc.now .cut-glass:not([data-cut-out]){fill:#bfe2f5;stroke:#1f6f9f;stroke-width:2.4}
+.st-pc.broken .cut-glass{fill:var(--red2);stroke:var(--red);stroke-width:2.2}
+.st-pc:hover .cut-glass{stroke-width:2.6}
 .st-pc text{pointer-events:none}
 .st-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:5px;margin-top:12px}
 .st-tile{font:inherit;border:1px solid var(--line);border-radius:8px;text-align:center;font-size:11px;padding:4px 0;color:#5c6a75;background:#fff;display:flex;flex-direction:column}
@@ -2137,8 +2139,6 @@ tr.st-hot td{background:#fff7f7}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
 /* Разбитое стекло на листе */
-.st-pc.broken rect{fill:var(--red2);stroke:var(--red);stroke-width:1;stroke-dasharray:none}
-.st-pc.broken .st-pc-n,.st-pc-x{fill:var(--red)}
 .st-menu button.st-menu-red{color:var(--red)}
 .st-sheetbrk{margin-left:8px}
 .b.st-red-b{border-color:#ebcccc;color:#943e3e}
@@ -2327,7 +2327,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='ba4309d177c6';
+var ERP_BUILD='e8b1cc233e3f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -27177,6 +27177,22 @@ function validateStockOffcutPayload(src){
    таблиц независимы. По умолчанию нет ограничения по стеклу или дате: малые
    остатки видны до решения оператора. Shift выбирает диапазон строк. */
 let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='contents',glassBatchAnchor='';
+let glassBatchPage=1;
+const GLASS_BATCH_PAGE_SIZE=20;
+function glassBatchSetPage(page){glassBatchPage=Math.max(1,Math.floor(+page)||1);render();}
+function glassBatchRegistrySetFilter(key,value){
+ glassBatchPage=1;
+ salesListSetFilter(key,value);
+}
+function glassBatchRegistrySetNumber(value){value=String(value||'').trim().slice(0,80);glassBatchRegistrySetFilter('number',value?{conds:[{op:'contains',v:value}]}:null);}
+function glassBatchRegistrySetStatus(value){glassBatchRegistrySetFilter('status',value?{values:[value]}:null);}
+function glassBatchRegistrySetDate(which,value){
+ const f=salesListLoadPrefs().filters.created,c=f&&f.conds&&f.conds[0],from=which==='from'?value:c&&c.op==='between'?c.v:'',to=which==='to'?value:c&&c.op==='between'?c.v2:'';
+ glassBatchRegistrySetFilter('created',from||to?{conds:[{op:'between',v:from||'',v2:to||''}]}:null);
+}
+function glassBatchRegistryReset(){
+ const p=salesListLoadPrefs();['number','status','created'].forEach(k=>delete p.filters[k]);glassBatchPage=1;salesListSavePrefs();render();
+}
 function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
@@ -27186,7 +27202,9 @@ function glassBatchColumns(){
 function glassBatchActiveItems(b){return b.items.filter(i=>!i.releasedAt&&b.parts[i.part]);}
 function glassBatchStatus(b){
  const a=glassBatchActiveItems(b);
- return !a.length?(b.items.length&&b.items.every(i=>i.movedTo)?'Moved':'Unbatched'):a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
+ if(!a.length)return b.items.length&&b.items.every(i=>i.movedTo)?'Moved':'Unbatched';
+ if(a.every(i=>!!i.cutStartedAt))return 'Cutting complete';
+ return a.some(i=>{const p=b.parts[i.part],l=((salesRecord(p.orderId)||{}).lines||[]).find(l=>l.id===p.lineId);return i.cutStartedAt||l&&l.cutStartedAt;})?'Cutting started':'Awaiting cutting';
 }
 function glassBatchInfo(r){
  const o=r.o;return {o,q:false,c:{},r,memo:{piece:r.piece||'—',number:o.businessNumber,customer:r.customer,line:r.line,unit:r.recut?r.recutLabel+' · '+r.k+' of '+r.of:r.unit+' of '+r.of,lite:r.lite,glass:r.glass,width:r.width,height:r.height,shape:r.shapeLabel,units:1,due:o.dueDate,created:salesListIsoDay(o.createdAt),
@@ -27200,7 +27218,7 @@ function glassBatchInfos(){
  return b.items.map((item,index)=>({item,index})).filter(x=>b.parts[x.item.part]).map(({item,index})=>{
   const part=b.parts[item.part],s=part.snapshot,o=salesRecord(part.orderId)||{},l=(o.lines||[]).find(l=>l.id===part.lineId);
   return {o:{createdAt:item.at},b,item,index,part,memo:{piece:item.piece,number:s.order,customer:s.customer,line:s.line,unit:typeof item.unit==='string'?recutUnitText(item.unit,s.of):item.unit+' of '+(s.of||(l?l.qty:'?')),lite:s.lite,glass:s.glass,width:s.width,height:s.height,shape:s.shape,units:1,due:o.dueDate||'',created:salesListIsoDay(item.at),
-   status:item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt||l&&l.cutStartedAt?'Cutting started':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
+   status:item.releasedAt?(item.movedTo?'Moved to '+item.movedTo:'Unbatched'):item.cutStartedAt?'Cut':o.status==='cancelled'?'Order cancelled':'Batched',priority:SALES_LIST_PRIORITY[o.priority]||'Normal',po:o.customerPo||'',heat:s.heat,coating:s.coating,reason:''}};
  });
 }
 function glassBatchFiltered(){return salesListRows(glassBatchInfos());}
@@ -27284,7 +27302,7 @@ function glassBatchCell(i,c){
     29.09.2026: «в списке батчей»). */
  if(c.k==='queue'&&i.b&&!i.item)return `<td class="n gb-cutq" data-batch-queue="${esc(i.b.number)}">${v?`<b>${v}</b> <button type="button" class="sm" title="Cut earlier" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',-1)&&render()">▲</button><button type="button" class="sm" title="Cut later" onclick="event.stopPropagation();glassBatchCutMove('${esc(i.b.number)}',1)&&render()">▼</button>`:'<span class="mut">—</span>'}</td>`;
  if(c.k==='cut'&&i.b&&!i.item)return `<td class="n" data-batch-cut>${v?`<b>${v}</b>`:'0'} / ${i.memo.units}</td>`;
- if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${text==='On Hold'||text==='Needs review'||text==='Order cancelled'?'held':text==='Unbatched'||text==='Moved'||/^Moved to /.test(text)?'released':text==='Cutting complete'||text==='Cut'?'done':''}" title="${esc(i.r?i.r.reason:'')}">${esc(text)}</span></td>`;
  return `<td class="${c.type==='number'?'n':''}" title="${esc(text)}">${esc(text)}</td>`;
 }
 function viewGlassBatches(){
@@ -27293,13 +27311,18 @@ function viewGlassBatches(){
  if(scope==='glassContents'&&!b){glassBatchOpenNumber='';scope='glassBatches';}
  /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди. */
  if(scope==='glassQueue'&&(DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o)||changed,false))touch();
- const infos=glassBatchInfos(),rows=salesListRows(infos),cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
- glassBatchSelection=new Set([...glassBatchSelection].filter(k=>keys.has(k)));const n=rows.filter(i=>glassBatchSelection.has(glassBatchRowKey(i))).length,registry=scope==='glassBatches';
+ const infos=glassBatchInfos(),registry=scope==='glassBatches',filteredRows=salesListRows(infos),pages=registry?Math.max(1,Math.ceil(filteredRows.length/GLASS_BATCH_PAGE_SIZE)):1;
+ if(registry)glassBatchPage=Math.min(Math.max(1,glassBatchPage),pages);
+ const rows=registry?filteredRows.slice((glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE,glassBatchPage*GLASS_BATCH_PAGE_SIZE):filteredRows,cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
+ glassBatchSelection=new Set([...glassBatchSelection].filter(k=>keys.has(k)));const n=rows.filter(i=>glassBatchSelection.has(glassBatchRowKey(i))).length;
  const title=scope==='glassQueue'?'Glass queue':b?'Batch '+b.number:'Batches';
  const batchesTabs=b?`<div class="gb-detail-tabs"><button type="button" class="${glassBatchDetailTab==='contents'?'on':''}" onclick="glassBatchDetailTab='contents';render()">Contents</button><button type="button" class="${glassBatchDetailTab==='history'?'on':''}" onclick="glassBatchDetailTab='history';render()">History</button><button type="button" class="${glassBatchDetailTab==='optimization'?'on':''}" data-tab-optimization onclick="glassBatchDetailTab='optimization';cutNotice='';render()">Optimization</button></div>`:'';
  const materials=new Map();if(scope==='glassQueue')infos.forEach(i=>materials.set(i.memo.glass,(materials.get(i.memo.glass)||0)+1));
  const filter=salesListLoadPrefs().filters.glass,chosen=filter&&filter.values&&filter.values.length===1?filter.values[0]:'';
  const materialSelect=scope==='glassQueue'?`<label class="gb-material">Glass <select data-glass-material aria-label="Filter glass type" onchange="glassBatchMaterial(this.value)"><option value="">${filter?'Custom filter':'All'} · ${infos.length} pcs</option>${[...materials].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,c])=>`<option value="${esc(g)}" ${chosen===g?'selected':''}>${esc(g)} · ${c} pcs</option>`).join('')}</select></label>`:'';
+ const prefs=registry?salesListLoadPrefs():null,numberFilter=prefs&&prefs.filters.number,statusFilter=prefs&&prefs.filters.status,dateFilter=prefs&&prefs.filters.created,dateCond=dateFilter&&dateFilter.conds&&dateFilter.conds[0],numberCond=numberFilter&&numberFilter.conds&&numberFilter.conds[0];
+ const numberValue=numberCond&&numberCond.op==='contains'?numberCond.v:'',statusValue=statusFilter&&statusFilter.values&&statusFilter.values.length===1?statusFilter.values[0]:'',dateFrom=dateCond&&dateCond.op==='between'?dateCond.v:'',dateTo=dateCond&&dateCond.op==='between'?dateCond.v2:'';
+ const registryControls=registry?`<div class="gb-registry-filters" data-batch-filters><label>Batch<input type="search" data-batch-search value="${esc(numberValue)}" placeholder="B-0001" onchange="glassBatchRegistrySetNumber(this.value)"></label><label>Status<select data-batch-status-filter onchange="glassBatchRegistrySetStatus(this.value)"><option value="">All statuses</option>${['Awaiting cutting','Cutting started','Cutting complete','Moved','Unbatched'].map(v=>`<option value="${v}" ${statusValue===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Created from<input type="date" data-batch-date-from value="${esc(dateFrom)}" onchange="glassBatchRegistrySetDate('from',this.value)"></label><label>to<input type="date" data-batch-date-to value="${esc(dateTo)}" onchange="glassBatchRegistrySetDate('to',this.value)"></label><button type="button" class="sm" data-batch-filter-reset onclick="glassBatchRegistryReset()">Clear filters</button></div>`:'';
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  const table=`<div class="sales-table-wrap"><table class="sl-table gb-table"><thead><tr><th><span class="sl-header-tools">${registry?'':`<input type="checkbox" data-glass-all aria-label="Select all eligible glass" ${n&&n===pickable.length?'checked':''} ${pickable.length?'':'disabled'} onchange="glassBatchToggleAll(this.checked)">`}${settings}</span></th>${cols.map(glassBatchHeader).join('')}</tr></thead><tbody>${rows.map(i=>{const k=glassBatchRowKey(i),on=glassBatchSelection.has(k),held=i.r&&i.r.reason;return `<tr data-glass-row="${esc(k)}" data-glass-id="${esc(i.memo.piece||'')}" class="${held?'gb-held':on?'gb-selected':i.item&&i.item.releasedAt?'gb-released':''}"><td>${registry?'':`<input type="checkbox" data-glass-check aria-label="Select ${esc(i.memo.piece+' order '+i.memo.number+' line '+i.memo.line+' unit '+i.memo.unit+' lite '+i.memo.lite)}" ${on?'checked':''} ${glassBatchPickable(i)?'':'disabled'} onclick="glassBatchToggle('${esc(k)}',this.checked,event.shiftKey)">`}</td>${cols.map(c=>glassBatchCell(i,c)).join('')}</tr>`;}).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${scope==='glassQueue'?'No glass waiting in this view.':'No batches or glass match this view.'}</td></tr>`}</tbody></table></div>`;
  const pieceOrder=new Map();if(b)b.items.forEach(i=>{const p=b.parts[i.part];if(p)pieceOrder.set(i.piece,p.snapshot.order);});
@@ -27309,12 +27332,13 @@ function viewGlassBatches(){
  const waiting=b?glassBatchStillWaiting(b):[],plural=(c,w)=>c+' '+w+(c===1?'':'s');
  const head=b?`<p>${esc([...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / '))} · ${active.length} pcs · ${plural(activeOrders,'order')} · Created ${esc(salesShortDate(b.createdAt))}</p>`:'';
  const live=rows.filter(i=>!i.item||!i.item.releasedAt);
- const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${plural(rows.length,'batch').replace('batchs','batches')} · ${rows.reduce((c,i)=>c+i.memo.units,0)} pcs`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
- const statusBadge=b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`:'';
+ const footer=scope==='glassContents'?`${live.length} pcs · ${plural(new Set(live.map(i=>i.part.orderId)).size,'order')}`:registry?`${filteredRows.length} batches · ${filteredRows.reduce((c,i)=>c+i.memo.units,0)} pcs · showing ${filteredRows.length?(glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE+1:0}–${Math.min(glassBatchPage*GLASS_BATCH_PAGE_SIZE,filteredRows.length)}`:`${rows.length} pcs waiting · ${plural(materials.size,'glass type')}`;
+ const pager=registry?`<nav class="gb-pages" aria-label="Batch pages"><button type="button" data-batch-prev ${glassBatchPage<=1?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage-1})">Previous</button><span data-batch-page>Page ${glassBatchPage} of ${pages}</span><button type="button" data-batch-next ${glassBatchPage>=pages?'disabled':''} onclick="glassBatchSetPage(${glassBatchPage+1})">Next</button></nav>`:'';
+ const statusBadge=b?`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':status==='Cutting complete'?'done':'off'}" data-batch-status>${esc(status)}</span>`:'';
  const cutHead=b&&glassBatchDetailTab==='optimization'&&typeof cutLayoutHeader==='function'?cutLayoutHeader(b,status):'';
  return `<section class="optimization-queue glass-batches"><div class="page-head${cutHead?' cut-page-head-wrap':''}"><div class="gb-page-title">${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${cutHead||statusBadge}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
- <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button><button type="button" data-open-cut title="Cutting screen with this batch" onclick="stationOpen(stationCutCode(),'${esc(b.number)}')">Open on ${esc(stationCutCode())}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>`}
+ <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button><button type="button" data-open-cut title="Cutting screen with this batch" onclick="stationOpen(stationCutCode(),'${esc(b.number)}')">Open on ${esc(stationCutCode())}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${registryControls}${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>${pager}`}
  ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
@@ -29409,6 +29433,7 @@ function cutAxisText(value,x,y,space,vertical){
 }
 function cutSheetSVG(group,sheet,px,pieces,opts){
  opts=opts||{};
+ const station=!!opts.station,stationCut=opts.stationCut||new Set(),stationBroken=opts.stationBroken||new Set();
  const size=sheet.size||group.sheet,S=px/Math.max(size.w,size.h),W=size.w*S,H=size.h*S,by=new Map((pieces||[]).map(p=>[p.piece,p]));
  const pr=typeof cutGroupParams==='function'?cutGroupParams(group,size):{},u=cutUsable(size,pr),actualTrimY=cutEffectiveTrimY(sheet,pr),outside=p=>p.x<u.x0-1e-6||p.y<u.y0-1e-6||p.x+p.w>u.x1+1e-6||p.y+p.h>u.y1+1e-6,edged=u.x0>0||u.y0>0||u.x1<size.w||u.y1<size.h;
  const fy=(y,h)=>(size.h-y-h)*S,pad=CUT_SVG_PAD;
@@ -29417,7 +29442,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
     сторон рисунка, по нему CSS считает ширину. Рамка элемента совпадает с
     рисунком, иначе мышь считала бы дюймы неверно. */
  const ar=((W+pad)/(H+pad)).toFixed(3);
- const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'style="--cut-ar:'+ar+'" ':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif">',
+ const out=['<svg viewBox="'+(-pad)+' 0 '+(W+pad).toFixed(1)+' '+(H+pad).toFixed(1)+'" '+(opts.ids?'style="--cut-ar:'+ar+'" ':'width="'+(W+pad).toFixed(0)+'" height="'+(H+pad).toFixed(0)+'" ')+'class="cut-svg'+(station?' '+(opts.stationMini?'st-sheet-mini':'st-sheet-svg'):'')+'" data-cut-scale="'+S+'" data-cut-sh="'+size.h+'" font-family="Helvetica, Arial, sans-serif"'+(station&&!opts.stationMini?' onclick="stationSheetClick(event)"':'')+'>',
   /* Блик стекла — мягкая диагональ вместо штриховки Perfect Cut. */
   '<defs><linearGradient id="cutGlassSheen" x1="0" y1="0" x2="1" y2="1"><stop class="cut-g1" offset="0"/><stop class="cut-g2" offset="45%"/><stop class="cut-g3" offset="100%"/></linearGradient></defs>',
   '<rect class="'+(edged?'cut-sheet-band':'cut-sheet-free')+'" width="'+W.toFixed(1)+'" height="'+H.toFixed(1)+'"/>'];
@@ -29453,8 +29478,9 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
  (sheet.stock||[]).forEach(o=>block(o,'cut-stk','data-cut-stock="'+esc(o.id)+'"',[o.id,frac16(o.w)+' × '+frac16(o.h)+'″'],'#067647'));
  sheet.pieces.forEach((p,i)=>{
   const x=p.x*S,y=fy(p.y,p.h),w=p.w*S,h=p.h*S,src=by.get(p.piece)||{},sel=opts.sel===p.piece;
+  const stationState=station?(stationBroken.has(p.piece)?'broken':p.piece===opts.stationNow?'now':stationCut.has(p.piece)?'cut':'wait'):'';
   /* Стекло — группа: прямоугольник и подписи ловят мышь вместе. */
-  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':'<g>');
+  out.push(opts.ids?'<g data-cut-piece="'+esc(p.piece)+'" class="cut-pc'+(sel?' sel':'')+(p.locked?' locked':'')+'">':station?'<g class="cut-pc st-pc '+stationState+'" data-station-piece="'+esc(p.piece)+'" data-station-state="'+stationState+'">':'<g>');
   /* Форма: стол вырезает прямоугольную заготовку, а потом режет по контуру.
      Заготовка — серым, как пустое место: то, что внутри неё уйдёт в отход.
      `turn` — 0/90/180/270° против часовой; старый boolean rot читается как
@@ -29480,7 +29506,7 @@ function cutSheetSVG(group,sheet,px,pieces,opts){
      она идёт вдоль длинной стороны, как у Perfect Cut. Раньше строка
      «1 · 20 1/4 × 100 1/4″» на узком стекле налезала на соседей. */
   const size16=frac16(p.w)+' × '+frac16(p.h)+'″',turnLabel=!(h>52&&w>84)&&w>52&&h>84;
-  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16].filter(Boolean).join(' · '))+'</title>');
+  out.push('<title>'+esc([p.piece,src.order?src.order+' / '+src.line:'',size16,station?(stationState==='cut'?'Cut':stationState==='now'?'Just scanned':stationState==='broken'?'Sheet broke':'Waiting'):null].filter(Boolean).join(' · '))+'</title>');
   if(h>52&&w>84||turnLabel){
    const lines=[[src.customer||'',9,'#475467'],[(src.order?src.order+' / '+src.line:''),10,'#101828'],[String(i+1),15,'#101828']];
    const total=lines.reduce((a,l)=>a+l[1]*1.25,0);let ty2=-total/2;
@@ -29687,7 +29713,7 @@ function cutLayoutHeader(b,status){
   :`<button type="button" class="pri" data-cut-run ${lock?`disabled title="${built?'Reset first':'Building'}"`:''} onclick="cutUiBuild('${esc(b.number)}')">Build</button>`;
  const whatActs=built&&!busy?`<button type="button" class="cut-icon-btn" data-cut-whatif title="What if" aria-label="What if" onclick="cutUiWhatIf('${esc(b.number)}')">${ico('whatif')}</button><button type="button" class="cut-icon-btn" data-cut-reset-plan title="Reset layout" aria-label="Reset layout" onclick="cutUiReset('${esc(b.number)}')">${ico('reset')}</button>`:'';
  const trialAct=built&&!busy&&sheet&&sheet.pieces.length?`<button type="button" class="cut-icon-btn" data-cut-trial-open title="Export to machine" aria-label="Export to machine" aria-haspopup="menu" onclick="cutUiTrialMenu(event)">${ico('download')}</button>`:'';
- const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':'off'}" data-batch-status>${esc(status)}</span>`;
+ const statusBadge=`<span class="gb-status ${status==='Awaiting cutting'?'wait':status==='Cutting started'?'cut':status==='Cutting complete'?'done':'off'}" data-batch-status>${esc(status)}</span>`;
  const total=laid?cutSumTotal(plan,group,sheet):`<div class="cut-head-unbuilt"><b data-cut-stats>Not built</b><span class="mut">${live} glass</span></div>`;
  const sheetCuts=sheet&&typeof cutSheetCutsFor==='function'?cutSheetCutsFor(group,sheet):null,autoTrim=cutAutoTrimInfo(group,sheet);
  const sheetState=sheet?`<div class="cut-page-sheet" data-cut-page-sheet><div class="cut-page-sheet-summary"><b>Sheet ${sheet.no}</b>${cutSumSheet(group,sheet)}
@@ -30147,13 +30173,13 @@ function stationBatchOpen(number,glass){
 function stationBatchView(number){if(!glassBatchFind(number))return false;stationMenu=null;stationDrawer={kind:'batch',batch:number};render();return true;}
 function stationBatchHTML(){
  const b=glassBatchFind(stationDrawer.batch);if(!b)return '';
- const plan=cutPlanFor(b.number),cut=stationCutSet(),live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
+ const plan=cutPlanFor(b.number),cut=stationCutSet(),broken=stationBrokenSet(),pieces=plan?cutPieces(b,plan.settings||{}):[],live=b.items.filter(i=>!i.releasedAt),done=live.filter(i=>i.cutStartedAt).length;
  const orders=[...new Set(live.map(i=>b.parts[i.part]&&b.parts[i.part].orderId))].map(salesRecord).filter(Boolean),urg=Math.max(0,...orders.map(stationUrgency)),due=orders.map(o=>o.dueDate).filter(Boolean).sort()[0]||'';
  const groups=(plan&&plan.groups||[]).map(g=>{
   const left=g.sheets.filter(s=>!stationSheetDone(s,cut)).length;
   return '<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(g.glass)+'</b><span class="mut">'+g.sheets.length+' sheet'+(g.sheets.length===1?'':'s')+' · '+(left?left+' left':'all cut')+'</span></div><div class="st-bsheets">'+
    g.sheets.map(sh=>{const k=sh.pieces.filter(p=>cut.has(p.piece)).length,sz=sh.size||g.sheet||{},stock=/^S-/.test(String(sz.key||''));
-    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(sh,cut,'',true)+
+    return '<button type="button" class="st-bsheet'+(stationSheetDone(sh,cut)?' done':'')+'" data-batch-sheet="'+esc(g.glass)+':'+sh.no+'" onclick="stationSheetPick(\''+esc(b.number)+'\',\''+esc(g.glass)+'\','+sh.no+')">'+stationSheetSVG(g,sh,pieces,cut,'',true,broken)+
      '<span class="st-bsheet-t"><b>Sheet '+sh.no+'</b><span>'+sh.pieces.length+' glass'+(k?' · '+k+' cut':'')+'</span>'+(stock?'<span class="pill warn">Offcut '+esc(sz.key)+'</span>':'<span class="mut">'+esc(frac16(sz.w)+' × '+frac16(sz.h))+'</span>')+'</span></button>';}).join('')+'</div></div>';
  }).join('');
  const miss=(plan&&Array.isArray(plan.missing)?plan.missing:[]).map(gl=>'<div class="st-bgroup"><div class="st-bgh"><b data-raw>'+esc(gl)+'</b><span class="pill warn">no cutting plan</span></div></div>').join('');
@@ -30177,24 +30203,10 @@ function stationBatchBar(v,plan){
   miss.map(gl=>'<span class="st-gbtn st-gmiss" data-station-glass-missing="'+esc(gl)+'"><b data-raw>'+esc(gl)+'</b><span>no cutting plan</span></span>').join(''):'';
  return '<div class="st-batchbar"><label>Batch <select data-station-batch onchange="stationBatchOpen(this.value)">'+list.map(opt).join('')+'</select></label><button type="button" class="st-gbtn st-gview" data-station-batch-view-open onclick="stationBatchView(\''+esc(v.batch)+'\')"><b>All sheets</b><span>view the batch</span></button>'+groups+'</div>';
 }
-function stationPieceLabel(id){return String(+String(id).slice(2)||id);}
-function stationSheetSVG(sheet,cut,nowId,still){
- const size=sheet.size||{w:144,h:102},W=+size.w||144,H=+size.h||102,fy=(y,h)=>H-y-h,f=Math.max(2,W/42);
- const broken=stationBrokenSet();
- const out=['<svg class="'+(still?'st-sheet-mini':'st-sheet-svg')+'" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet"'+(still?'':' onclick="stationSheetClick(event)"')+'>',
-  '<rect class="st-sheet-bg" x="0" y="0" width="'+W+'" height="'+H+'"/>'];
- (sheet.stock||[]).forEach(o=>{out.push('<rect class="st-stock" x="'+o.x+'" y="'+fy(o.y,o.h)+'" width="'+o.w+'" height="'+o.h+'"/>');
-  if(o.w>f*6&&o.h>f*2)out.push('<text class="st-stock-t" x="'+(o.x+o.w/2)+'" y="'+(fy(o.y,o.h)+o.h/2+f*.35)+'" font-size="'+(f*.8)+'" text-anchor="middle">'+esc(o.id)+'</text>');});
- (sheet.pieces||[]).forEach(p=>{
-  const st=broken.has(p.piece)?'broken':p.piece===nowId?'now':cut.has(p.piece)?'cut':'wait',y=fy(p.y,p.h),fs=Math.max(1.6,Math.min(f*1.2,p.w/6,p.h/3));
-  out.push('<g class="st-pc '+st+'" data-station-piece="'+esc(p.piece)+'"><rect x="'+(p.x+.3)+'" y="'+(y+.3)+'" width="'+Math.max(0,p.w-.6)+'" height="'+Math.max(0,p.h-.6)+'" rx=".6"/>');
-  out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2)+'" font-size="'+fs+'" text-anchor="middle" class="st-pc-n">'+esc(stationPieceLabel(p.piece))+'</text>');
-  if(p.h>fs*2.6)out.push('<text x="'+(p.x+p.w/2)+'" y="'+(y+p.h/2+fs*1.1)+'" font-size="'+(fs*.72)+'" text-anchor="middle" class="st-pc-s">'+esc(frac16(p.w)+' × '+frac16(p.h))+'</text>');
-  if(st==='broken'&&p.w>fs*3&&p.h>fs*2)out.push('<text x="'+(p.x+p.w-fs*.5)+'" y="'+(y+fs*1.1)+'" font-size="'+fs+'" text-anchor="end" class="st-pc-x">✕</text>');
-  if(st==='cut'&&p.w>fs*3&&p.h>fs*2)out.push('<text x="'+(p.x+p.w-fs*.5)+'" y="'+(y+fs*1.1)+'" font-size="'+fs+'" text-anchor="end" class="st-pc-c">✓</text>');
-  out.push('</g>');
- });
- return out.join('')+'</svg>';
+function stationSheetSVG(group,sheet,pieces,cut,nowId,still,broken){
+ /* CUT and Optimization share contours, rotation, holes, trim and offcuts.
+    Station mode adds only scan state and click-to-open on each glass. */
+ return cutSheetSVG(group,sheet,still?320:700,pieces,{station:true,stationMini:!!still,stationCut:cut,stationNow:nowId,stationBroken:broken});
 }
 function stationSheetClick(ev){
  const g=ev.target.closest&&ev.target.closest('[data-station-piece]');
@@ -30230,14 +30242,14 @@ function stationSheetCard(){
  if(!v)return '<div class="card st-sheet-card st-empty" data-station-nobatch><div><b>Nothing to cut</b><div class="mut">Batches come here in the office order (Optimization → Batches)</div></div></div>';
  const plan=cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(!sheet)return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-noplan" data-station-noplan><b>'+esc(v.batch)+' has no cutting plan</b><div class="mut">Make it in Optimization → Batches. Scanning stickers works without it.</div></div></div>';
- const cut=stationCutSet(),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
+ const cut=stationCutSet(),broken=stationBrokenSet(),pieces=cutPieces(glassBatchFind(v.batch),plan.settings||{}),nowId=stationLast&&stationLast.check&&stationLast.check.code,size=sheet.size||{};
  const n=sheet.pieces.filter(p=>cut.has(p.piece)).length;
  const tiles=group.sheets.map(s=>{const done=stationSheetDone(s,cut),k=s.pieces.filter(p=>cut.has(p.piece)).length;
   return '<button type="button" class="st-tile'+(done?' done':'')+(s===sheet?' now':'')+'" onclick="stationSheetPick(\''+esc(v.batch)+'\',\''+esc(group.glass)+'\','+s.no+')"><b>'+s.no+'</b><span>'+(done?'✓':k?k+'/'+s.pieces.length:s.pieces.length)+'</span></button>';}).join('');
  const menu=stationMenu&&sheet.pieces.some(p=>p.piece===stationMenu.piece)?stationMenuHTML():'';
  const breaks=(DB.sheetBreak||[]).filter(x=>x.batch===v.batch&&x.glass===group.glass&&x.sheet===sheet.no).length;
  return '<div class="card st-sheet-card">'+stationBatchBar(v,plan)+'<div class="st-sec"><h3>Sheet '+sheet.no+' of '+group.sheets.length+'</h3><span class="pill" data-raw>'+esc(group.glass)+' · '+esc(frac16(size.w)+' × '+frac16(size.h))+'</span>'+(breaks?'<span class="pill bad" data-sheet-breaks>broke '+breaks+'×</span>':'')+'<span class="sp"></span><span class="pill '+(n===sheet.pieces.length?'ok':'')+'">'+n+' / '+sheet.pieces.length+' cut</span><button type="button" class="b sm st-sheetbrk" onclick="stationOpenSheetBreak()">Sheet broke</button></div>'+
-  stationSheetSVG(sheet,cut,nowId)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
+  stationSheetSVG(group,sheet,pieces,cut,nowId,false,broken)+'<div class="st-tiles">'+tiles+'</div>'+menu+'</div>';
 }
 function stationMenuHTML(){
  const m=stationMenu,cut=stationCutSet().has(m.piece),x=Math.max(8,m.x-90),y=m.y+12;
