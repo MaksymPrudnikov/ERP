@@ -828,6 +828,20 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       return {valid:after.valid,chainsSame:JSON.stringify(before.chains)===JSON.stringify(screen.chains),skewSame:Math.abs(before.skew-screen.skew)<.01,skewVisible:screen.skew>15,colors:screen.color,
         radius:screen.radius,printed:print.radius,extraEdgeLengths:screen.edgeLengths,metricInchRadius:metric.radius.length};
     }), {valid:true,chainsSame:true,skewSame:true,skewVisible:true,colors:true,radius:['R 12'],printed:['R 12'],extraEdgeLengths:0,metricInchRadius:0});
+    eq('радиусы во всех углах Smart Shape сохраняют размеры; нижняя левая подпись не теснится со скосом', await p.evaluate(() => {
+      const d=newShapeDef('smart');d.w='37 5/8';d.h='82 9/16';d.smart=ssNormalize({elbowsOn:false,C:{len:'82 11/16'},B:{out:'1/8',dir:'down'}});
+      function drawing(corner){
+        d.features=corner?[shapeNormalizeFeature({type:'radius',vertexId:corner,radius:'8'})]:[];
+        const r=ShapeModule.compute(d),host=document.createElement('div');host.style.cssText='position:absolute;left:-10000px';host.innerHTML=ShapeModule.productionSvg(r,{annotation:{interactive:true}});document.body.appendChild(host);
+        const svg=host.querySelector('svg'),chains=[...svg.querySelectorAll('[data-inch-primary-key^="inch:chain:"]')].map(g=>[g.getAttribute('data-inch-primary-key'),g.textContent]);
+        const radius=svg.querySelector('.shape-radius-callout text'),skew=[...svg.querySelectorAll('text')].find(t=>t.textContent==='1/8'&&!t.hasAttribute('transform')&&+t.getAttribute('x')>100);
+        const rb=radius&&radius.getBBox(),sb=skew&&skew.getBBox(),gap=rb&&sb?sb.x-rb.x-rb.width:null,green=svg.querySelector('line[stroke="#28b428"]');
+        const clear=sb&&green?sb.y+sb.height+8<Math.min(+green.getAttribute('y1'),+green.getAttribute('y2')):false;
+        host.remove();return {valid:r.valid,chains,radius:radius&&radius.textContent,gap,clear};
+      }
+      const base=drawing(null),corners=['TL','TR','BR','BL'].map(drawing);
+      return {valid:corners.every(x=>x.valid),chainsSame:corners.every(x=>JSON.stringify(x.chains)===JSON.stringify(base.chains)),radii:corners.map(x=>x.radius),lowerLeftGap:corners[3].gap>24,lowerLeftClear:corners[3].clear};
+    }), {valid:true,chainsSame:true,radii:['R 8','R 8','R 8','R 8'],lowerLeftGap:true,lowerLeftClear:true});
     eq('Rectangle uses only its four edge dimensions, like Smart Shape', await p.evaluate(() => {
       const d=newShapeDef('rectangle');d.w='60';d.h='80';
       const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d)),'image/svg+xml');
