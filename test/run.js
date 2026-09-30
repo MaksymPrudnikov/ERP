@@ -832,15 +832,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const screen=read(false,{'inch:overall:width':2}),print=read(true,{'inch:overall:width':2}),base=read(false,{});
       return {same:JSON.stringify(screen)===JSON.stringify(print),shift:+screen.label[1]-+base.label[1],sameFrame:screen.viewBox===print.viewBox};
     }), {same:true,shift:16,sameFrame:true});
-    eq('штриховая рамка начинается у фактического края отображённого контура', await p.evaluate(() => {
+    eq('у Smart Shape нет внешней штриховой рамки', await p.evaluate(() => {
       const d=newShapeDef('smart');d.w='54';d.h='54';d.smart=ssNormalize({corner:'BL',style:'single',notchW:'4',notchH:'4'});
       const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d)),'image/svg+xml');
-      const rect=doc.querySelector('rect[stroke-dasharray="7 6"]'),path=doc.querySelector('svg>path[fill="#fff"][stroke="none"]');
-      const nums=(path.getAttribute('d').match(/-?\d+(?:\.\d+)?/g)||[]).map(Number),xs=nums.filter((x,i)=>i%2===0),ys=nums.filter((x,i)=>i%2===1);
-      const actual=[+rect.getAttribute('x'),+rect.getAttribute('y'),+rect.getAttribute('width'),+rect.getAttribute('height')];
-      const contour=[Math.min(...xs),Math.min(...ys),Math.max(...xs)-Math.min(...xs),Math.max(...ys)-Math.min(...ys)];
-      return {count:doc.querySelectorAll('rect[stroke-dasharray="7 6"]').length,aligned:actual.every((x,i)=>Math.abs(x-contour[i])<1e-7)};
-    }), {count:1,aligned:true});
+      return {count:doc.querySelectorAll('rect[stroke-dasharray="7 6"]').length,contour:!!doc.querySelector('.shape-sheet-glass')};
+    }), {count:0,contour:true});
     const paraModes = await p.evaluate(() => {
       function make(mode,direction,params){
         const d=newShapeDef('parallelogram');d.w='37 1/2';d.h='80';
@@ -965,7 +961,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       right:{valid:true,points:[[0,0],[0,36],[48,36],[36,0]],area:1512},
       legacy:{short:'24',rake:'top',side:'right',hasDrops:false},
       ui:{long:'Long Height',short:'30',rake:4,shortSide:2},
-      drawing:{inch:{labels:['6'],units:'in',dimensions:1,inchRefs:0},metric:{labels:['152.40'],units:'mm',dimensions:1,inchRefs:0}},
+      drawing:{inch:{labels:['6'],units:'in',dimensions:1,inchRefs:0},metric:{labels:['152.40'],units:'mm',dimensions:1,inchRefs:2}},
       anchors:{axes:['top/left:vertical','top/right:vertical','bottom/left:vertical','bottom/right:vertical','left/left:horizontal','left/right:horizontal','right/left:horizontal','right/right:horizontal'],offDatum:[],offCorner:[]}
     });
     const triModes = await p.evaluate(() => {
@@ -1121,9 +1117,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       orientation:{ccwValid:true,cwBounds:[-0.0625,-0.0625,48.0625,40.0625],ccwBounds:[-0.0625,-0.0625,48.0625,40.0625],cwArea:1717.265625,ccwArea:1717.265625},
       legacyRemoved:2,legacyWarning:true
     });
-    /* Свободный контур на чертеже выглядит как Smart-Shape: цвет на каждую
-       сторону, буква вместо машинного id и длина рядом — на скосе это
-       единственный размер, который вообще есть. */
+    /* Свободный контур сохраняет цвет сторон и размеры скосов. Буквы
+       остаются только в редакторе, где выбирают обработку кромки. */
     const customDrawing = await p.evaluate(() => {
       const pts=[{id:'PV1',x:'0',y:'0'},{id:'PV2',x:'0',y:'30'},{id:'PV3',x:'36',y:'30'},{id:'PV4',x:'36',y:'12'},{id:'PV5',x:'20',y:'0'}];
       const d=normalizeShapeDef({id:'c-draw',type:'custom',polygon:pts});
@@ -1144,14 +1139,29 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         machineId:[...screen.querySelectorAll('.shape-edge-label-outside,.shape-inch-edge-length')].some(t=>t.textContent.indexOf('PV')>=0),
         ui:ui};
     });
-    eq('Custom Shape и Polygon: цветные стороны, буквы вместо E:PV и длина скоса', customDrawing, {
-      labels:['A 30','B 36','C 18','D 20','E 20'],
+    eq('Custom Shape и Polygon: размеры без букв на чертеже, выбор сторон в редакторе', customDrawing, {
+      labels:['30','36','18','20','20'],
       colors:['#2828dc','#28b428','#fe8d28','#a00082','#007d7d'],
-      monoLetters:['A','B','C','D','E'],
-      polygonLabels:['A 12','B 12','C 12','D 12','E 12'],
+      monoLetters:[],
+      polygonLabels:['12','12','12','12','12'],
       machineId:false,
       ui:{edgework:['A','B','C','D','E'],border:['A','B','C','D','E']}
     });
+    eq('все типы: на чертеже и в печати нет букв и внешней рамки, метрика сохраняет дюймы', await p.evaluate(() => {
+      const custom=normalizeShapeDef({id:'inch-custom',type:'custom',polygon:[
+        {id:'PV1',x:'0',y:'0'},{id:'PV2',x:'40 13/16',y:'0'},
+        {id:'PV3',x:'40 13/16',y:'55 5/16'},{id:'PV4',x:'0',y:'11/16'}]});
+      const defs=['smart','rectangle','triangle','parallelogram','raked','polygon','circle','ellipse','oval'].map(newShapeDef).concat(custom);
+      const rows=defs.map(d=>{
+        const r=ShapeModule.compute(d),parse=opts=>new DOMParser().parseFromString(ShapeModule.productionSvg(r,opts),'image/svg+xml');
+        const screen=parse({metric:{}}),sheet=parse({metric:{},sheet:true});
+        return {type:d.type,valid:r.valid,letters:screen.querySelectorAll('.shape-edge-letter').length+sheet.querySelectorAll('.shape-edge-letter').length,
+          frame:screen.querySelectorAll('rect[stroke-dasharray="7 6"]').length+sheet.querySelectorAll('rect[stroke-dasharray="7 6"]').length,
+          inches:screen.querySelectorAll('.shape-inch-reference').length>=2&&sheet.querySelectorAll('.shape-inch-reference').length>=2};
+      });
+      const c=parse=>parse.querySelector('.shape-inch-overall')?.textContent||'',customInches=c(new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(custom),{metric:{}}),'image/svg+xml'));
+      return {all:rows.every(x=>x.valid&&!x.letters&&!x.frame&&x.inches),customInches:customInches.includes('40 13/16')&&customInches.includes('55 5/16')};
+    }), {all:true,customInches:true});
     const paraUi = await p.evaluate(() => {
       const prevTab=tab,prevSub=subtab;tab='configurators';subtab='shape';openShapeNew('parallelogram');
       sDraft.w='37 1/2';sDraft.h='80';Object.assign(sDraft.params,{measureMode:'diagonal-angle',diagonal:'81',angle:'9.01',slopeDirection:'right'});render();
@@ -3639,7 +3649,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const circle=sheet('circle',()=>{setShapeField('w','24');});
       const rect=sheet('rectangle',()=>{setShapeField('w','48');setShapeField('h','36');});
       render();return {smart:{sizes:smart.sizes,bg:smart.bg.length>0&&smart.bg.every(s=>s==='none'),centered:smart.centered},circle:{sizes:circle.sizes,centered:circle.centered,compact:circle.compact},rect:{sizes:rect.sizes,centered:rect.centered}};
-    }), {smart:{sizes:['16','18'],bg:true,centered:true},circle:{sizes:['18'],centered:true,compact:true},rect:{sizes:['16','18'],centered:true}});
+    }), {smart:{sizes:['16','18'],bg:true,centered:true},circle:{sizes:['18'],centered:true,compact:true},rect:{sizes:['18'],centered:true}});
 
     /* Бары раскладки — прямоугольники в корне чертежа. Когда подгонка листа
        убирает фон, первый бар становился «первым прямоугольником» и терял
@@ -4544,7 +4554,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const outside=edgeLabels.every(t=>{const e=contour.find(x=>x.getAttribute('stroke')===SHAPE_EDGE_HEX[t.dataset.edgeId]),mx=(+e.getAttribute('x1')+ +e.getAttribute('x2'))/2,my=(+e.getAttribute('y1')+ +e.getAttribute('y2'))/2,tx=+t.getAttribute('x'),ty=+t.getAttribute('y');return (tx-mx)*(mx-cx)+(ty-my)*(my-cy)>0;});
       const drawing={noInch:!svg.textContent.includes('″'),noInternalCodes:triple.labels.every(x=>!/[VH]|C-C/.test(x)),edgeLabels:edgeLabels.map(x=>x.textContent.trim()),outside};
       sEdit=null;sDraft=null;render();return {initial,changed,triple,drawing};
-    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'18px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['3 1/8','2 1/4'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false},drawing:{noInch:true,noInternalCodes:true,edgeLabels:['A 40','D 20','C 40','B 20'],outside:true}});
+    }), {initial:{title:'Hole Double',short:'HOL2',types:['Hole Single','Hole Double','Hole Triple'],axes:['Horizontal →','Vertical ↑'],circles:2,c2c:true,services:[['Hole 1/2″–1″',2]],diameterFont:'14px',positionFont:'18px',cControl:2,cMoved:true,controls:['Horizontal','Vertical','C-C'],helperVisible:false,toolbarHints:0},changed:{axis:'vertical',spacing:3.0625,centers:[[5,7],[5,10.0625]],circles:2,c2c:true},triple:{title:'Hole Triple',short:'HOL3',centers:[[5,7],[5,10.125],[2.75,10.125]],circles:3,labels:['3 1/8','2 1/4'],services:[['Hole 1/2″–1″',3]],controls:['Horizontal','Vertical','Vertical C-C','Horizontal C-C'],offsets:[2,-1],staleC:false},drawing:{noInch:true,noInternalCodes:true,edgeLabels:['40','20','40','20'],outside:true}});
     /* Заготовка при дропе. Владелец: «отступ 3 по горизонтали, у двойного между
        отверстиями 6, у тройного 6 по вертикали и 12 по горизонтали». Высота —
        по месту дропа, горизонталь — со стандартного отступа от ближнего края. */
@@ -5099,7 +5109,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       /* Сторона названа буквой — слово Left рядом с буквой A было повтором,
          а точка отсчёта названа буквой соседней стороны: её видно на чертеже. */
       hinge:'HINGE Vienna 180',
-      letters:['A','D','C','B'],uuidOnSheet:false,cutTwice:1,drawingCropped:true,blankCanvasRemoved:true,
+      letters:[],uuidOnSheet:false,cutTwice:1,drawingCropped:true,blankCanvasRemoved:true,
       fingerprintKept:true,machineKept:true});
 
     /* Surface treatments are independent of geometry and must survive every
@@ -5514,7 +5524,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
          inchSize:host.querySelector('.shape-inch-edge-reference')?.getAttribute('font-size')||null};
       host.remove();sEdit=null;sDraft=null;render();
       return out;
-    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:0,inchSize:null});
+    }), {edges:['C','D'],anyInside:false,arrows:3,inchArrows:0,inchSize:'13.5'});
 
     eq('дюймовые осевые рёбра получают стрелки, а операция остаётся отдельной меткой', await t.p.evaluate(() => {
       const oldMetric=sMetricDetail;sMetricDetail=false;

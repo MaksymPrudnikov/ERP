@@ -655,10 +655,16 @@ function cutOffcutOk(w,h,params){
    совпадать с резами, и подсказанный остаток стол мог разрезать надвое
    (аудит раскроя, 20 сентября 2026). На кусок вешают номер стока и стикер,
    поэтому обещать можно только то, что снимется одним куском. */
+function cutFreeLeaves(sheet,size,params){
+ /* Направления клика задаются ключами областей ФИЗИЧЕСКОГО листа. Повторный
+    разбор только полезного поля создавал другие ключи и терял поворот реза. */
+ const cuts=cutSheetCuts(sheet,size,params,sheet&&sheet.flip),u=cutUsable(size,params);
+ const x0=cutEffectiveTrimY(sheet,params);
+ return (cuts.free||[]).map(r=>({x0:Math.max(r.x0,x0),y0:Math.max(r.y0,u.y0),x1:Math.min(r.x1,u.x1),y1:Math.min(r.y1,u.y1)}))
+  .filter(r=>r.x1-r.x0>1e-6&&r.y1-r.y0>1e-6);
+}
 function cutFreeRects(sheet,size,params){
- const cuts=typeof cutSheetCuts==='function'?cutSheetCuts(sheet,size,params,sheet&&sheet.flip,true):null;
- if(!cuts)return [];
- return (cuts.free||[]).map(r=>({x:cutRound(r.x0),y:cutRound(r.y0),w:cutRound(r.x1-r.x0),h:cutRound(r.y1-r.y0)}))
+ return cutFreeLeaves(sheet,size,params).map(r=>({x:cutRound(r.x0),y:cutRound(r.y0),w:cutRound(r.x1-r.x0),h:cutRound(r.y1-r.y0)}))
   .filter(r=>r.w>1e-6&&r.h>1e-6&&cutOffcutOk(r.w,r.h,params))
   .sort((a,b)=>b.w*b.h-a.w*a.h||a.x-b.x||a.y-b.y).slice(0,8);
 }

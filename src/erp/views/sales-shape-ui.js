@@ -1228,7 +1228,7 @@ function shapeDrawnProductionSvg(result,interactive,extra){
   /* The footer remains in downloaded/printed production files. In the live
      workspace it only consumed drawing area and repeated information already
      represented by the active drawing tab. */
-  if(interactive)svg=svg.replace(/<text x="24" y="[^"]+" font-size="10" fill="#667085">Finished geometry[^<]*<\/text>/,'');
+  if(interactive)svg=svg.replace(/<text x="24" y="[^"]+" font-size="10" fill="#667085">Finished (?:geometry|dimensions)[^<]*<\/text>/,'');
   var uiWas=shapeDimUi;if(!interactive)shapeDimUi=false;
   try{return salesFritDecorateSvg(shapeDrawnProductionBody(svg,T,interactive),sDraft,result,T);}finally{shapeDimUi=uiWas;}
 }
@@ -1722,7 +1722,7 @@ function shapeParaDiagram(){
   function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
   var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
   var arrow=SHAPE_PARA_DIRECTIONS.find(function(x){return x.id===q.direction;});
-  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Parallelogram measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>OOS ${esc(shapeParaDimText(q.outOfSquare))}″</text><text class='dir' x='${vw/2}' y='16' text-anchor='middle'>${esc(arrow.arrow+' '+arrow.label)}</text></svg>`;
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Parallelogram measurement preview'><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>OOS ${esc(shapeParaDimText(q.outOfSquare))}″</text><text class='dir' x='${vw/2}' y='16' text-anchor='middle'>${esc(arrow.arrow+' '+arrow.label)}</text></svg>`;
 }
 function shapeParaReadout(q){return q&&q.ok?{oos:shapeParaDimText(q.outOfSquare)+'″',diagonal:shapeParaDimText(q.diagonal)+'″',angle:shapeParaAngleText(q.angle)+'°'}:{oos:'—',diagonal:'—',angle:'—'};}
 function shapeParaRefresh(){
@@ -1769,7 +1769,7 @@ function shapeTriDiagram(){
   function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
   var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
   var ax=X(q.topOffset).toFixed(1),ay=Y(q.height).toFixed(1),base=Y(0).toFixed(1);
-  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Triangle measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><line x1='${ax}' y1='${ay}' x2='${ax}' y2='${base}' stroke='#b42318' stroke-width='1' stroke-dasharray='4 3'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Bottom ${esc(shapeParaDimText(q.bottom))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>Offset ${esc(shapeParaDimText(q.topOffset))}″</text></svg>`;
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Triangle measurement preview'><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><line x1='${ax}' y1='${ay}' x2='${ax}' y2='${base}' stroke='#b42318' stroke-width='1' stroke-dasharray='4 3'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Bottom ${esc(shapeParaDimText(q.bottom))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>Offset ${esc(shapeParaDimText(q.topOffset))}″</text></svg>`;
 }
 function shapeTriRefresh(){
   var q=shapeTriApplyResolved(),v=shapeTriReadout(q),act=document.activeElement;
@@ -1827,7 +1827,7 @@ function shapePolyDiagram(){
   var b=fabEdgeBounds(g.points),bw=Math.max(.001,b.maxX-b.minX),bh=Math.max(.001,b.maxY-b.minY),vw=230,vh=150,pad=23,sc=Math.min((vw-pad*2)/bw,(vh-pad*2)/bh),x0=(vw-bw*sc)/2,y0=(vh-bh*sc)/2;
   function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+bh*sc-(y-b.minY)*sc;}
   var d=g.points.map(function(p,i){return (i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join(' ')+' Z';
-  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Polygon measurement preview'><rect x='${x0.toFixed(1)}' y='${y0.toFixed(1)}' width='${(bw*sc).toFixed(1)}' height='${(bh*sc).toFixed(1)}' fill='none' stroke='#d0d5dd' stroke-dasharray='4 4'/><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>${q.sides} × ${esc(shapeParaDimText(q.sideLength))}″</text></svg>`;
+  return `<svg viewBox='0 0 ${vw} ${vh}' aria-label='Polygon measurement preview'><path d='${d}' fill='#fff' stroke='#101828' stroke-width='1.8'/><text x='${vw/2}' y='${vh-5}' text-anchor='middle'>Width ${esc(shapeParaDimText(q.width))}″</text><text x='7' y='${vh/2}' text-anchor='middle' transform='rotate(-90 7 ${vh/2})'>Height ${esc(shapeParaDimText(q.height))}″</text><text class='oos' x='${vw-8}' y='16' text-anchor='end'>${q.sides} × ${esc(shapeParaDimText(q.sideLength))}″</text></svg>`;
 }
 function shapePolyRefresh(){
   var q=shapePolyApplyResolved(),v=shapePolyReadout(q);
