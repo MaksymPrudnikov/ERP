@@ -174,7 +174,7 @@ function salesSetPaneCategory(i,v){const m=salesCurrentMakeup();if(!m||!m.panes[
  render();}
 function salesProductFamilyForPane(p){return p.visionType==='frit'?'uncoated':p.visionType;}
 function salesGlassCandidates(p){const fam=salesProductFamilyForPane(p),rows=activeGlassProducts().filter(g=>(!p.manufacturer||g.manufacturer===p.manufacturer)&&(!p.thicknessMm||g.thicknessMm===+p.thicknessMm)&&(!fam||g.coatingFamily===fam));return fam==='lowe'||fam==='reflective'?salesSortCoatedGlass(rows):salesSortGlass(rows,false);}
-function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId))p.glassProductId=(rows[0]||{}).id||'';}
+function salesPaneEnsureProduct(p){const rows=salesGlassCandidates(p);if(!rows.some(x=>x.id===p.glassProductId)){p.glassProductId=(rows[0]||{}).id||'';salesApplyRecommendedHeat(p,glassProductById(p.glassProductId));}}
 function salesPaneSetManufacturer(i,v){const p=salesCurrentMakeup().panes[i];p.manufacturer=v;salesPaneEnsureProduct(p);render();}
 function salesPaneSetThickness(i,v){const p=salesCurrentMakeup().panes[i];p.thicknessMm=+v||6;salesPaneEnsureProduct(p);render();}
 function salesPaneSetVisionType(i,v){const p=salesCurrentMakeup().panes[i];if(!SALES_VISION_TYPES.includes(v))return;p.visionType=v;p.coatingSurface=null;if(v==='frit')p.frit.surface=null;salesPaneEnsureProduct(p);render();}
@@ -194,8 +194,10 @@ function salesAllowedCoatingSurfaces(p,index){
    нажимаемой, просто помечена как не по каталогу. */
 function salesPaneSetProduct(i,v){
  const p=salesCurrentMakeup().panes[i],g=glassProductById(v);
+ const changed=p.glassProductId!==v;
  p.glassProductId=v;
  if(g){p.manufacturer=g.manufacturer;p.thicknessMm=g.thicknessMm;}
+ if(changed)salesApplyRecommendedHeat(p,g);
  if(g&&(p.visionType==='lowe'||p.visionType==='reflective')){
   const ok=salesAllowedCoatingSurfaces(p,i);
   if(ok.indexOf(+p.coatingSurface)<0)p.coatingSurface=ok[0]||null;
@@ -235,7 +237,7 @@ function salesFritMarginChange(i,key,el){
 }
 function salesPaneSetSpandrel(i,k,v){const p=salesCurrentMakeup().panes[i];if(k==='surface')p.spandrel.surface=normalizeSurface(v,salesPaneSurfaces(i));else p.spandrel[k]=v;render();}
 function salesPaneLamPly(i,side){const p=salesCurrentMakeup().panes[i];return p&&p.laminated&&(side==='outer'||side==='inner')?p.laminated[side]:null;}
-function salesPaneEnsureLamPly(ply){const rows=salesLaminatedPlyCandidates(ply);if(!rows.some(g=>g.id===ply.glassProductId))ply.glassProductId=(rows[0]||{}).id||'';}
+function salesPaneEnsureLamPly(ply){const rows=salesLaminatedPlyCandidates(ply);if(!rows.some(g=>g.id===ply.glassProductId)){ply.glassProductId=(rows[0]||{}).id||'';salesApplyRecommendedHeat(ply,glassProductById(ply.glassProductId));}}
 function salesPaneSetLamPly(i,side,key,v){
  const ply=salesPaneLamPly(i,side);if(!ply)return;
  if(key==='visionType'&&!SALES_LAMINATED_GLASS_TYPES.includes(v))return;
@@ -257,7 +259,7 @@ function salesPaneSetLamPlyCoating(i,side,coating){
  salesPaneSetLamPlyProduct(i,side,(same||rows[0]).id);
 }
 function salesPaneSetLamPlyCoatingPosition(i,side,v){const ply=salesPaneLamPly(i,side);if(!ply)return;ply.coatingPosition=SALES_LAMINATED_FRIT_POSITIONS.includes(v)?v:'outside';render();}
-function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}render();}
+function salesPaneSetLamPlyProduct(i,side,v){const ply=salesPaneLamPly(i,side),g=glassProductById(v);if(!ply)return;const changed=ply.glassProductId!==v;ply.glassProductId=v;if(g){ply.manufacturer=g.manufacturer;ply.thicknessMm=g.thicknessMm;if(SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily))ply.visionType=g.coatingFamily;}if(changed)salesApplyRecommendedHeat(ply,g);render();}
 /* Пустое поле снимает ручную цену плиты и возвращает каталожную. */
 function salesLamPlyOuterSetPrice(i,v){salesSetLamPlyPrice(i,"outer",v);}
 function salesLamPlyInnerSetPrice(i,v){salesSetLamPlyPrice(i,"inner",v);}

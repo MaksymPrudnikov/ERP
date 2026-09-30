@@ -84,17 +84,17 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
   }
   return '<g class="shape-para-oos-layer" aria-label="Out of square '+shapeXml(label)+' '+units+'">'+out+'</g>';
 }
-/* Raked Rectangle has one intentional, useful difference: Long Height minus
-   Short Height.  Читается она там же, где у параллелограмма читается Out of
-   square, — в углу, который рез забрал.  Размер стоит на продолжении короткой
-   стороны, между базой полной высоты (пунктирный габарит на листе уже её
-   показывает) и вершиной, до которой контур реально доходит: он не пересекает
+/* Raked Rectangle has one intentional, useful difference: overall height or
+   width minus the short side, according to the rake direction. Читается она
+   там же, где у параллелограмма читается Out of
+   square, — в углу, который рез забрал. Пунктир показывает продолжение
+   длинной стороны; размер идёт от него до короткой вершины и не пересекает
    стекло, не спорит с подписью угла внутри того же угла и не выходит из кадра.
    Кнопки −/+ двигают его внутрь детали, как и остальные размеры. */
 function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
   var d=result&&result.definition;
   if(!d||d.type!=='raked'||!L)return '';
-  var q=shapeRakedValues(d.w,d.h,d.params||{}),delta=q.longHeight-q.shortHeight;
+  var q=shapeRakedValues(d.w,d.h,d.params||{}),sideways=q.rakeSide==='left'||q.rakeSide==='right',delta=(sideways?q.width:q.longHeight)-q.shortHeight;
   if(!q.ok||!(delta>1/64))return '';
   var byId={},vertices=(result.geometry&&result.geometry.vertices)||[];
   vertices.forEach(function(v){byId[v.id]=L.DP([v.x,v.y]);});
@@ -112,23 +112,26 @@ function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
   var box=L.box,units=metricMode?'mm':'in',key='inch:raked:difference',ref='#98a2b3',ink='#101828',lead=26,
       label=metricMode?shapeMetricFormat(delta*SHAPE_MM_PER_INCH):shapeAnnDim(delta),shift=shapeAnnUiShift(opts,key),
       head='<g class="shape-raked-difference '+(axis?'vertical':'horizontal')+'" data-raked-role="difference" data-raked-value="'+shapeXml(delta)+'" data-units="'+units+'">',
+      datum=axis
+        ?'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+SP[0]+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>'
+        :'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+LP[0]+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>',
       body,dim,cx,cy;
   if(axis){
     var inX=SP[0]<=(box.left+box.right)/2?1:-1,x=Math.max(box.left,Math.min(box.right,SP[0]+inX*shift)),
         y1=Math.min(LP[1],SP[1]),y2=Math.max(LP[1],SP[1]),mid=(y1+y2)/2;
     if(y2-y1>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
     else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickV(x,mid);
-    body=head+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90})+'</g>';
+    body=head+datum+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90})+'</g>';
     cx=x+inX*28;cy=mid;
   }else{
     var inY=SP[1]<=(box.top+box.bottom)/2?1:-1,y=Math.max(box.top,Math.min(box.bottom,SP[1]+inY*shift)),
         x1=Math.min(LP[0],SP[0]),x2=Math.max(LP[0],SP[0]),midX=(x1+x2)/2;
     if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
     else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(midX,y);
-    body=head+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
+    body=head+datum+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
     cx=midX;cy=y+inY*28;
   }
-  return '<g class="shape-raked-difference-layer" aria-label="Height difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
+  return '<g class="shape-raked-difference-layer" aria-label="'+(sideways?'Width':'Height')+' difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
 }
 /* У треугольника единственная величина, которой нет ни в габаритах, ни в
    подписях рёбер, — смещение вершины от левого нижнего угла. Показываем его

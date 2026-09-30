@@ -176,7 +176,7 @@ function setShapeTriMeasure(v){
   shapeTriRemember(shapeTriDraftValues());sDraft.params.measureMode=shapeTriMeasure(v);shapeTriApplyResolved();render();
 }
 function setShapeField(k,v){sDraft[k]=v;if(sDraft.type==='circle'&&(k==='w'||k==='h')){sDraft.w=v;sDraft.h=v;}if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();refreshShapeEditor();}
-function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();refreshShapeEditor();}
+function setShapeParam(k,v){sDraft.params[k]=v;if(sDraft.type==='parallelogram')shapeParaApplyResolved();if(sDraft.type==='triangle')shapeTriApplyResolved();if(sDraft.type==='polygon')shapePolyApplyResolved();if(sDraft.type==='raked'&&k==='rakeSide')render();else refreshShapeEditor();}
 function setShapeC(v){var S=shapeDraftLine();S.shape.smart.C.len=v;sDraft.smart=S.shape.smart;refreshShapeEditor();}
 function setShapeElbows(v){sDraft.smart.elbowsOn=!!v;render();}
 function setShapeSimple(edge,k,v){sDraft.smart[edge][k]=v||null;refreshShapeEditor();}
@@ -1848,7 +1848,8 @@ function shapeCustomControls(){
 }
 function shapeRakedControls(){
   var p=sDraft.params||{},side=shapeRakeSide(p.rakeSide),shortSide=shapeRakeShortSide(p.shortSide);
-  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>Short Height</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>Short Side</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div></div></div>`;
+  var sideways=side==='left'||side==='right';
+  return `<div class='shape-subsection shape-raked-editor'><div class='corner-title'><b>Raked Rectangle measurements</b><span>finished size · fractions supported</span></div><div class='grid'><div><label>${sideways?'Short Width':'Short Height'}</label><input data-vfield='len' value='${esc(p.shortHeight)}' oninput='setShapeParam("shortHeight",this.value)'></div><div><label>Rake Side</label><select onchange='setShapeParam("rakeSide",this.value)'>${SHAPE_RAKE_SIDES.map(function(x){return `<option value='${x.id}' ${side===x.id?'selected':''}>${x.label}</option>`;}).join('')}</select></div><div><label>${sideways?'Short Edge':'Short Side'}</label><select onchange='setShapeParam("shortSide",this.value)'>${SHAPE_RAKE_SHORT_SIDES.map(function(x){var label=sideways?((side==='left'?x.id==='left':x.id==='right')?'Top':'Bottom'):x.label;return `<option value='${x.id}' ${shortSide===x.id?'selected':''}>${label}</option>`;}).join('')}</select></div></div></div>`;
 }
 function setPolygonCoord(i,k,v){if(sDraft.polygon[i])sDraft.polygon[i][k]=v;shapeCustomApplyResolved();refreshShapeEditor();}
 /* Номер точки должен читаться человеком: он стоит и в таблице, и в коде

@@ -353,6 +353,16 @@ function normalizeShapeDef(s){
     if(rh.ok&&rld.ok&&rrd.ok){var lh=rh.v-rld.v,rrh=rh.v-rrd.v;params.shortHeight=shapeParaDimText(Math.min(lh,rrh));params.rakeSide='top';params.shortSide=lh<=rrh?'left':'right';}
     delete params.leftDrop;delete params.rightDrop;
   }
+  /* Before short width existed, a side rake stored H minus its horizontal
+     inset in shortHeight. Convert saved shapes once so their contours and
+     released revisions keep the same geometry after the field is corrected. */
+  if(type==='raked'&&params.rakeMeasure!=='axis'){
+    if(params.rakeSide==='left'||params.rakeSide==='right'){
+      var rw=fabParseDimStrict(normalizedW),rhSide=fabParseDimStrict(normalizedH),oldShort=fabParseDimStrict(params.shortHeight);
+      if(rw.ok&&rhSide.ok&&oldShort.ok){var shortWidth=rw.v-(rhSide.v-oldShort.v);if(shortWidth>0&&shortWidth<=rw.v)params.shortHeight=shapeParaDimText(shortWidth);}
+    }
+    params.rakeMeasure='axis';
+  }
   /* Polygon раньше означал свободный контур по точкам. Теперь это правильный
      многоугольник, а свободный контур — отдельный тип Custom Shape. Всё, что
      сохранено списком точек и без числа сторон, уезжает в Custom вместе со
