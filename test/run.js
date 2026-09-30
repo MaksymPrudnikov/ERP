@@ -815,6 +815,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const r=ShapeModule.compute(d),editor=shapeGeometryBodyHTML(base.geometry);sDraft=old;
       return {base:base.valid,ids:ids,button:editor.includes('+ Radius corner'),valid:r.valid,rounded:r.points.length>4,arc:Object.keys(r.geometry.radiusMeta||{})};
     }), {base:true,ids:['BL','TL','TR','BR'],button:true,valid:true,rounded:true,arc:['R:BL']});
+    eq('радиус Smart Shape сохраняет исходные размеры и видимый скос, показывает один R вместо длины дуги', await p.evaluate(() => {
+      const d=newShapeDef('smart');d.w='37 5/8';d.h='82 9/16';d.smart=ssNormalize({elbowsOn:false,C:{len:'82 11/16'},B:{out:'1/8',dir:'down'}});
+      const base=ShapeModule.compute(d);
+      function drawing(r,opts){
+        const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(r,opts||{annotation:{interactive:true}}),'image/svg+xml');
+        const chains=[...doc.querySelectorAll('[data-inch-primary-key^="inch:chain:"]')].map(g=>[g.getAttribute('data-inch-primary-key'),[...g.querySelectorAll('text')].map(t=>t.textContent)]);
+        const F=shapeProductionDrawingFrame(r),L=shapeAnnotationLayer(r,F,null,{});
+        return {chains,skew:Math.abs(L.DP([0,0])[1]-L.DP([37.625,-.125])[1]),color:['#2828dc','#28b428','#fe8d28','#a00082'].every(c=>!!doc.querySelector('line[stroke="'+c+'"]')),radius:[...doc.querySelectorAll('.shape-radius-callout text')].map(t=>t.textContent),edgeLengths:doc.querySelectorAll('.shape-inch-edge-length').length};
+      }
+      const before=drawing(base);d.features=[shapeNormalizeFeature({type:'radius',vertexId:'TR',radius:'12'})];const after=ShapeModule.compute(d),screen=drawing(after),print=drawing(after,{sheet:true,annotation:{interactive:true}}),metric=drawing(after,{metric:{}});
+      return {valid:after.valid,chainsSame:JSON.stringify(before.chains)===JSON.stringify(screen.chains),skewSame:Math.abs(before.skew-screen.skew)<.01,skewVisible:screen.skew>15,colors:screen.color,
+        radius:screen.radius,printed:print.radius,extraEdgeLengths:screen.edgeLengths,metricInchRadius:metric.radius.length};
+    }), {valid:true,chainsSame:true,skewSame:true,skewVisible:true,colors:true,radius:['R 12'],printed:['R 12'],extraEdgeLengths:0,metricInchRadius:0});
     eq('Rectangle uses only its four edge dimensions, like Smart Shape', await p.evaluate(() => {
       const d=newShapeDef('rectangle');d.w='60';d.h='80';
       const doc=new DOMParser().parseFromString(ShapeModule.productionSvg(ShapeModule.compute(d)),'image/svg+xml');
