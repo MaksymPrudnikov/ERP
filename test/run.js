@@ -4729,13 +4729,10 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const cuttingRows=[...document.querySelectorAll('.shape-border-row')];
       const cutting={panels:document.querySelectorAll('.shape-prod-border,.shape-prod-cutallow').length,borderRows:cuttingRows.length,allowanceRows:document.querySelectorAll('.shape-allow-row').length,oneLine:new Set(cuttingRows.map(x=>Math.round(x.getBoundingClientRect().top))).size===1};
       setShapeView('production');
-      toggleSidebar();
-      const expanded={collapsed:document.body.classList.contains('sidebar-collapsed'),labelsVisible:[...document.querySelectorAll('.nav-item>span:nth-child(2)')].every(x=>getComputedStyle(x).display!=='none'),toggleLabel:document.querySelector('.side-toggle').getAttribute('aria-label')};
-      toggleSidebar();
       setShapeWorkspaceTab('cutout');
       const opened={active:document.querySelector('.shape-workspace-tabs .on b').textContent.trim(),designer:document.querySelectorAll('.shape-master-fields').length,cutout:document.querySelectorAll('.shape-cutout-workspace').length,marks:document.querySelectorAll('.shape-mi-marker').length,drawing:document.querySelectorAll('#shapeLivePreview svg').length};
-      sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,expanded,opened,closed};
-    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:11,labelsHidden:true,headerHidden:true,toggle:1,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},expanded:{collapsed:false,labelsVisible:true,toggleLabel:'Collapse menu'},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
+      sEdit=null;sDraft=null;render();const closed=!document.body.classList.contains('shape-workspace-mode');return {initial,cutting,opened,closed};
+    }), {initial:{tabs:['Shape Designer','Fabrication'],active:'Shape Designer',designer:1,cutout:0,marks:1,drawing:1,mode:true,chrome:{icons:9,labelsHidden:false,headerHidden:true,toggle:0,bodyOverflow:'hidden',leftOverflow:'auto',rightLarger:true},border:{panels:0,rows:0,duplicates:0,derivedOverflow:'visible'},footer:{screen:false,file:true}},cutting:{panels:2,borderRows:4,allowanceRows:4,oneLine:true},opened:{active:'Fabrication',designer:0,cutout:1,marks:1,drawing:1},closed:true});
 
     /* Выбор notch сначала создаёт E/F без размеров. Это нормальное промежуточное
        состояние ввода: Edge processing не должен исчезать из рабочего места.
@@ -4751,24 +4748,19 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       sEdit=null;sDraft=null;render();return {waiting,ready};
     }), {waiting:{present:1,disabled:1,text:true},ready:{present:1,disabled:0,edges:['A','B','C','D','E','F'],border:['A','B','C','D','E','F'],post:2,label:'6 physical edges · allowance and routing'}});
 
-    /* Экран используется целиком. Потолок ширины оставлял пустую полосу справа,
-       а свёрнутое меню ничего не отдавало рабочей области. Само меню — двенадцать
-       пунктов — обязано помещаться в один экран без собственной прокрутки. */
+    /* Экран используется целиком. Меню Glass Farm — узкая полоса иконок с
+       подписями (владелец, 1 октября 2026): помещается в экран без прокрутки и
+       отдаёт рабочей области почти всю ширину. */
     eq('рабочая область занимает экран, меню помещается без прокрутки', await t.p.evaluate(() => {
-      sEdit=null;sDraft=null;tab='dashboard';setSidebarCollapsed(false);render();
+      sEdit=null;sDraft=null;tab='dashboard';render();
       const side=document.getElementById('side'),main=document.querySelector('main');
       const wide=Math.round(main.getBoundingClientRect().width);
-      setSidebarCollapsed(true);const narrow=Math.round(main.getBoundingClientRect().width);
-      const out={cap:getComputedStyle(main).maxWidth,sideScroll:side.scrollHeight-side.clientHeight,
-        gained:narrow>wide+100,fillsViewport:wide>innerWidth-330};
-      setSidebarCollapsed(false);render();return out;
-    }), {cap:'none',sideScroll:0,gained:true,fillsViewport:true});
+      return {cap:getComputedStyle(main).maxWidth,sideScroll:side.scrollHeight-side.clientHeight,fillsViewport:wide>innerWidth-100,
+        labels:[...side.querySelectorAll('.nav-item')].filter(x=>x.getBoundingClientRect().width>0).map(x=>x.textContent.trim())};
+    }), {cap:'none',sideScroll:0,fillsViewport:true,labels:['Sales','Optimize','Production','Shipping','Finance','Customers','Data','Users','Overview']});
     eq('боковое меню не создаёт горизонтальную прокрутку', await t.p.evaluate(() => {
-      const side=document.getElementById('side');
-      setSidebarCollapsed(false);render();const expanded=side.scrollWidth<=side.clientWidth;
-      setSidebarCollapsed(true);render();const collapsed=getComputedStyle(side).overflowX==='hidden';
-      setSidebarCollapsed(false);render();return {expanded,collapsed};
-    }), {expanded:true,collapsed:true});
+      const side=document.getElementById('side');render();return {fits:side.scrollWidth<=side.clientWidth};
+    }), {fits:true});
 
     /* Заполнение нотча возвращает ПРОДОЛЖЕНИЕ реальной стороны, а не ребро
        нотча. Пока id брался у снятой кромки, нижняя сторона B выпадала из
@@ -6062,7 +6054,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */

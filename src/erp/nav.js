@@ -6,54 +6,52 @@
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* Меню Glass Farm (владелец, 1 октября 2026): узкая полоса иконок с
+   подписями, как в Figma. Сверху — работа офиса по ходу заказа, внизу —
+   редкое. Заглушек «planned» нет. Раздел виден только по подсвеченной иконке:
+   шапки и заголовка-повтора нет. На узком экране (планшет станции, телефон)
+   то же меню — нижний таб-бар: первые пять пунктов и «More». */
 const NAV=[
- {group:'Overview'},
- {k:'dashboard', label:'Dashboard', icon:'home'},
- {group:'Core'},
- {k:'users', label:'Users', icon:'users'},
- {group:'Operations'},
- {k:'customers', label:'Customers', icon:'users'},
  {k:'sales', label:'Sales', icon:'sales'},
- {k:'optimization', label:'Optimization', icon:'optimize'},
+ {k:'optimization', label:'Optimize', title:'Optimization', icon:'optimize'},
  {k:'production', label:'Production', icon:'factory'},
- /* Справочники стоят в операциях, а не в «ядре»: заводит их не администратор
-    раз в жизни, а продавец и снабженец по ходу работы — переименовать код,
-    дописать поставщика, поправить цену листа. */
- {k:'masterdata', label:'Master Data', icon:'database'},
  {k:'shipping', label:'Shipping', icon:'shipping'},
  {k:'finance', label:'Finance', icon:'finance'},
- {group:'Domains — next'},
- {k:'inventory', label:'Inventory', icon:'inventory', soon:1},
- {k:'purchasing', label:'Purchasing', icon:'purchase', soon:1}
+ {k:'customers', label:'Customers', icon:'users'},
+ {k:'masterdata', label:'Data', title:'Master Data', icon:'database', bottom:1},
+ {k:'users', label:'Users', icon:'users', bottom:1},
+ {k:'dashboard', label:'Overview', title:'System overview', icon:'home', bottom:1}
 ];
+const NAV_TABBAR=5;
 let tab='dashboard';
-let sideCollapsed=false;
-try{sideCollapsed=localStorage.getItem('glass_erp_sidebar_collapsed')==='1';}catch(e){}
+let navMoreOpen=false;
+/* Светлая и тёмная тема (владелец, 1 октября 2026): переключает клик по
+   логотипу, выбор помнит этот браузер. Чертежи и печать остаются светлыми. */
+const THEME_KEY='glass_farm_theme';
+function themeApply(dark){document.documentElement.setAttribute('data-theme',dark?'dark':'light');}
+function toggleTheme(){const dark=document.documentElement.getAttribute('data-theme')!=='dark';themeApply(dark);try{localStorage.setItem(THEME_KEY,dark?'dark':'light');}catch(e){}}
+try{themeApply(localStorage.getItem(THEME_KEY)==='dark');}catch(e){themeApply(false);}
 
-function setSidebarCollapsed(value,rerender){
- sideCollapsed=!!value;
- try{localStorage.setItem('glass_erp_sidebar_collapsed',sideCollapsed?'1':'0');}catch(e){}
- if(rerender!==false)render();
+function navItemHTML(n,i){
+ const on=tab===n.k||(n.k==='sales'&&tab==='configurators');
+ return `<button type="button" class="nav-item${on?' on':''}${i>=NAV_TABBAR?' nav-extra':''}" aria-current="${on?'page':'false'}" title="${n.title||n.label}" onclick="navGo('${n.k}')">${ico(n.icon)}<span>${n.label}</span></button>`;
 }
-function toggleSidebar(){setSidebarCollapsed(!sideCollapsed);}
-
+function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
 function renderNav(){
+ const main=NAV.filter(n=>!n.bottom),low=NAV.filter(n=>n.bottom);
  document.getElementById('side').innerHTML =
-  `<div class="brand" title="GLASS ERP"><div class="brand-mark">${ico('layers')}</div><div class="brand-copy"><b>GLASS ERP</b><span>production system</span></div></div>` +
-  `<button type="button" class="side-toggle" aria-label="${sideCollapsed?'Expand menu':'Collapse menu'}" title="${sideCollapsed?'Expand menu':'Collapse menu'}" onclick="toggleSidebar()"><i>${sideCollapsed?'›':'‹'}</i><span>${sideCollapsed?'Expand menu':'Collapse menu'}</span></button>` +
-  NAV.map(n=>{
-   if(n.group) return `<div class="nav-group">${n.group}</div>`;
-   if(n.soon) return `<div class="nav-item soon" title="${n.label} · planned">${ico(n.icon)} <span>${n.label}</span><span class="nav-badge">planned</span></div>`;
-   return `<button type="button" class="nav-item ${tab===n.k?'on':''}" aria-current="${tab===n.k?'page':'false'}" title="${n.label}" onclick="navGo('${n.k}')">${ico(n.icon)} <span>${n.label}</span></button>`;
-  }).join('') +
-  `<div class="side-footer">Local browser database<br>Export a backup regularly.</div>`;
+  `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" onclick="toggleTheme()">GF</button>` +
+  main.map((n,i)=>navItemHTML(n,i)).join('') +
+  `<span class="nav-sp"></span>` +
+  low.map((n,i)=>navItemHTML(n,main.length+i)).join('') +
+  `<button type="button" class="nav-item nav-more${navMoreOpen?' open':''}" aria-expanded="${navMoreOpen}" onclick="navToggleMore()">${ico('more')}<span>More</span></button>`;
 }
 
 /* Переход по меню. Модуль может придержать уход (заказ с несохранёнными
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
 function navGo(k){
- const go=()=>{tab=k;subtab=null;render();};
+ const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
  go();
 }
@@ -85,7 +83,6 @@ const fail=(el,m)=>{el.textContent=m;el.style.display='block';};
 
 function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
- document.body.classList.toggle('sidebar-collapsed',sideCollapsed);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
  renderNav();
@@ -100,13 +97,27 @@ function render(){
   shipping:['Shipping','Readiness · pickup · delivery · closeout'],
   production:['Production','Stations · work positions · operations · terminals'],
   masterdata:['Master Data','Glass catalog · supply points · hardware · database overview'],finance:['Finance','Customer receipts · deposits on account · order balances']
- }[tab]||['ERP Glazing System','Production system'];
+ }[tab]||['Glass Farm','Production system'];
  document.getElementById('hdr').textContent=meta[0];
+ document.title=meta[0]+' · Glass Farm';
  document.getElementById('hdrSub').textContent=meta[1];
  document.getElementById('phaseChip').innerHTML=ico('activity','icon-inline')+'Phase 1 · foundation';
  const V={dashboard:viewDashboard,users:viewUsers,customers:viewCustomers,sales:viewSales,configurators:viewConfigurators,optimization:viewOptimization,shipping:viewShipping,production:viewProduction,masterdata:viewMasterData,finance:viewFinance,station:typeof viewStation==='function'?viewStation:null}[tab];
  /* Окна модулей (window.APP_OVERLAYS) — поверх любого раздела: вопрос
     «сохранить заказ?» может прийти и из редактора формы строки. */
  document.getElementById('app').innerHTML = (V ? V() : '<div class="empty">module planned</div>')+(window.APP_OVERLAYS||[]).map(f=>f()).join('');
+ navHideRepeatedTitle(meta[0]);
  afterRender();
+}
+/* Заголовок раздела, который повторяет пункт меню («Sales» под иконкой Sales),
+   не показываем. Конкретные заголовки — «Batch B-0001», «Sales Order 76002» —
+   и кнопки в шапке страницы остаются. */
+function navHideRepeatedTitle(section){
+ const names=new Set([section].concat(NAV.map(n=>n.title||n.label),NAV.map(n=>n.label)).map(x=>String(x).trim().toLowerCase()));
+ document.querySelectorAll('#app .page-head').forEach(head=>{
+  const h=head.querySelector('h2');if(!h||!names.has(h.textContent.trim().toLowerCase()))return;
+  head.classList.add('gf-title-repeat');
+  const kids=[...head.children].filter(el=>!el.contains(h)&&!el.matches('.pill.info'));
+  if(!kids.some(el=>el.textContent.trim()||el.querySelector('button,input,select')))head.classList.add('gf-head-empty');
+ });
 }

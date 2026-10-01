@@ -156,9 +156,9 @@ module.exports=async function({page,eq,ok}){
  eq('цвет строки: Batched — серая, On Hold — красная',await t.p.evaluate(()=>{
   slByNum('76004').status='batched';render();
   const bg=num=>getComputedStyle(document.querySelector(`[data-order-row="${slByNum(num).id}"] td:nth-child(2)`)).backgroundColor;
-  const work=bg('76004'),hold=bg('76003'),plain=bg('Q-10001');
-  return {work,hold,plain:plain!==work&&plain!==hold};
- }),{work:'rgb(234, 236, 240)',hold:'rgb(254, 228, 226)',plain:true});
+  const work=bg('76004'),hold=bg('76003'),plain=bg('Q-10001');const tok=n=>{const d=document.createElement('div');d.style.background='var(--'+n+')';document.body.appendChild(d);const c=getComputedStyle(d).backgroundColor;d.remove();return c;};
+  return {work:work===tok('surface-3'),hold:hold===tok('danger-soft'),plain:plain!==work&&plain!==hold};
+ }),{work:true,hold:true,plain:true});
 
  eq('список, меню фильтра, колонки, меню строки и окно On Hold — без русского текста',await t.p.evaluate(()=>{
   let text='';const grab=()=>{text+=document.getElementById('app').innerText;};

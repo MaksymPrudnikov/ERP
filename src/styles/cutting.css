@@ -5,7 +5,7 @@
 .cut-md-head p{margin:2px 0 0;font-size:12px;max-width:640px}
 .cut-table{margin-top:12px;min-width:520px}
 .cut-table input{width:88px;text-align:right}
-.cut-table td.n small{display:block;font-size:10px;color:#98a2b3;text-align:right;padding-right:4px}
+.cut-table td.n small{display:block;font-size:10px;color:var(--text-3);text-align:right;padding-right:4px}
 .cut-md-foot{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
 .cut-md-foot input[type=text]{width:100px}
 .cut-md-foot .ncr-label{display:block;padding:0 0 6px}
@@ -19,28 +19,28 @@
 .cut-page-tools,.cut-page-primary{display:flex;align-items:center;gap:7px;flex:none}
 .cut-page-tools:empty{display:none}
 .cut-page-summary button{padding:5px 9px;font-size:12px}
-.cut-page-sheet{padding-top:8px;border-top:1px solid #e2e8ee}
-.cut-page-problem{font-size:12px;line-height:1.35;color:#b42318;text-align:center}
+.cut-page-sheet{padding-top:8px;border-top:1px solid var(--accent-line)}
+.cut-page-problem{font-size:12px;line-height:1.35;color:var(--danger);text-align:center}
 .cut-page-sheet-summary{min-width:0;flex:1;display:flex;align-items:center;justify-content:center;gap:8px}
 .cut-page-sheet-summary>b{font-size:13px;white-space:nowrap}
-.cut-auto-trim{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:3px 7px;border:1px solid #fedf89;border-radius:999px;background:#fffaeb;color:#93370d;font-size:11px;font-variant-numeric:tabular-nums}
+.cut-auto-trim{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:3px 7px;border:1px solid var(--warning-line);border-radius:999px;background:var(--warning-soft);color:var(--warning);font-size:11px;font-variant-numeric:tabular-nums}
 .cut-auto-trim b{font-size:11px}
 .cut-page-sheet .cut-tiles-sheet{margin-left:2px}
-.cut-page-summary .cut-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;color:#475467}
+.cut-page-summary .cut-icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:8px;color:var(--text-2)}
 .cut-page-summary .cut-icon-btn>span,.cut-strip-step>span{display:flex}
 .cut-page-summary .cut-icon-btn svg,.cut-strip-step svg{display:block;width:16px;height:16px}
-.cut-page-summary .cut-icon-btn:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
-.cut-page-summary .cut-icon-btn.on{color:#026aa2;border-color:#84caff;background:#e0f2fe}
+.cut-page-summary .cut-icon-btn:hover:not(:disabled){color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
+.cut-page-summary .cut-icon-btn.on{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
 .cut-head-unbuilt{display:flex;align-items:baseline;gap:10px;min-width:150px}
 .cut-page-total>.cut-head-unbuilt{flex:1;justify-content:center}
 .cut-card{padding-top:10px}
 .cut-card .cut-grid{margin-top:0}
 .cut-empty{margin:12px 0 0;max-width:640px}
-.cut-params{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:12px;color:#475467}
-.cut-params b{color:#101828}
+.cut-params{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--text-2)}
+.cut-params b{color:var(--text)}
 .cut-params{align-items:flex-start;gap:24px}
 .cut-stock{width:auto;border-collapse:collapse;font-size:12px}
-.cut-stock th{padding:0 8px 4px 0;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#667085;white-space:nowrap}
+.cut-stock th{padding:0 8px 4px 0;text-align:left;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);white-space:nowrap}
 .cut-stock th small{font-weight:400;text-transform:none;letter-spacing:normal}
 .cut-stock th.cut-edge-head{text-align:center;line-height:1.15;white-space:normal}
 .cut-stock th.cut-edge-head span,.cut-stock th.cut-edge-head small{display:block}
@@ -50,15 +50,15 @@
 .cut-stock-row input[type=text]{width:58px;padding:3px 6px;font-size:12px;text-align:right}
 .cut-stock-add td{padding-top:6px}
 .cut-stock-add input,.cut-size-add input,.cut-need input{width:64px;padding:3px 6px;font-size:12px;text-align:right}
-.cut-need{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;font-size:13px;color:#101828}
+.cut-need{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-soft);font-size:13px;color:var(--text)}
 .cut-need .mut{font-size:12px}
 .cut-size-add{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;font-size:12px}
-.cut-md-error{color:#b42318;font-size:12px}
+.cut-md-error{color:var(--danger);font-size:12px}
 .cut-stock-row .chk{margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;white-space:nowrap}
 .cut-knobs{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .cut-knobs input[type=text]{width:64px;padding:4px 6px;font-size:12px;text-align:right}
 .cut-knobs .chk{margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal}
-.cut-params label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:#475467}
+.cut-params label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text-2)}
 .cut-params select{padding:4px 8px;font-size:12px}
 .cut-params input[type=number]{width:70px;padding:4px 6px;font-size:12px}
 /* Слева список со своей прокруткой — высотой с правую часть. Справа лист —
@@ -66,19 +66,19 @@
    (владелец, 18 сентября 2026). */
 .cut-grid{display:grid;grid-template-columns:minmax(0,35fr) minmax(0,65fr);gap:16px;margin-top:14px;align-items:stretch}
 .cut-side{position:relative;min-width:0;min-height:420px}
-.cut-side-scroll{position:absolute;inset:0;overflow:auto;border:1px solid #eaecf0;border-radius:12px;background:#fff;padding:0 4px 8px}
-.cut-list-found{padding:2px 8px 6px;font-size:11px;color:#667085}
-.cut-side-scroll .cut-list-head{position:sticky;top:0;z-index:2;margin:0;padding:10px 8px 6px;background:#fff}
-.cut-side-scroll .cut-list thead th{position:sticky;top:30px;z-index:1;background:#f9fafb}
-.cut-list-more{display:block;width:calc(100% - 16px);margin:10px 8px;padding:8px;border:1px solid #d0d5dd;border-radius:8px;background:#fff;color:#175cd3;cursor:pointer}
-.cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:#667085;text-transform:uppercase;margin:12px 0 6px}
+.cut-side-scroll{position:absolute;inset:0;overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:0 4px 8px}
+.cut-list-found{padding:2px 8px 6px;font-size:11px;color:var(--text-2)}
+.cut-side-scroll .cut-list-head{position:sticky;top:0;z-index:2;margin:0;padding:10px 8px 6px;background:var(--surface)}
+.cut-side-scroll .cut-list thead th{position:sticky;top:30px;z-index:1;background:var(--surface-2)}
+.cut-list-more{display:block;width:calc(100% - 16px);margin:10px 8px;padding:8px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--accent);cursor:pointer}
+.cut-list-head{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--text-2);text-transform:uppercase;margin:12px 0 6px}
 .cut-list-head:first-child{margin-top:0}
 .cut-list{width:100%}
 .cut-list td,.cut-list th{padding:2px 5px;font-size:11px;line-height:1.3}
 .cut-list td:nth-child(5){max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cut-list tbody tr{cursor:grab}
-.cut-list tbody tr.on td{background:#dbeafe;color:#075985}
-.cut-list tbody tr.off td{color:#98a2b3}
+.cut-list tbody tr.on td{background:var(--accent-soft);color:var(--accent)}
+.cut-list tbody tr.off td{color:var(--text-3)}
 .cut-list input[type=number]{width:36px;padding:1px 3px;font-size:11px}
 .cut-list .pill{font-size:10px;padding:1px 6px}
 .cut-sheet-pane{min-width:0}
@@ -89,28 +89,28 @@
 .cut-strip-wrap{display:flex;align-items:center;gap:6px;margin:8px 0 2px}
 .cut-strip-nav{display:flex;align-items:center;gap:4px;flex:none}
 .cut-strip{display:flex;gap:6px;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
-.cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:66px;padding:4px 9px;background:#fff;border:1px solid #d0d5dd;border-radius:10px;box-shadow:none;color:#344054}
+.cut-strip button{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:66px;padding:4px 9px;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:none;color:var(--text)}
 .cut-strip button b{font-size:14px;font-variant-numeric:tabular-nums}
-.cut-strip button small{font-size:10px;color:#667085;white-space:nowrap}
-.cut-strip button.on{border-color:#1f6f9f;background:#eef4ff;color:#026aa2}
-.cut-strip button.on small{color:#026aa2}
-.cut-strip button small.cut-tab-trim,.cut-strip button.on small.cut-tab-trim{font-weight:700;color:#b54708}
-.cut-strip button.cut-hot{border-color:#1f6f9f;background:#eef4ff}
-.cut-strip .cut-repeat-toggle{min-width:116px;border-color:#84caff;background:#f0f9ff}
+.cut-strip button small{font-size:10px;color:var(--text-2);white-space:nowrap}
+.cut-strip button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.cut-strip button.on small{color:var(--accent)}
+.cut-strip button small.cut-tab-trim,.cut-strip button.on small.cut-tab-trim{font-weight:700;color:var(--warning)}
+.cut-strip button.cut-hot{border-color:var(--accent);background:var(--accent-soft)}
+.cut-strip .cut-repeat-toggle{min-width:116px;border-color:var(--accent-line);background:var(--accent-soft)}
 .cut-strip .cut-repeat-toggle b{display:flex;justify-content:space-between;gap:8px;width:100%}
-.cut-strip .cut-repeat-toggle span{color:#026aa2}
-.cut-strip-step{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:0;font-size:14px;line-height:1;border-radius:9px;color:#475467}
-.cut-strip-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.cut-strip .cut-repeat-toggle span{color:var(--accent)}
+.cut-strip-step{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;padding:0;font-size:14px;line-height:1;border-radius:9px;color:var(--text-2)}
+.cut-strip-step:hover:not(:disabled){color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
 .cut-strip-count{flex:none;font-size:12px;font-variant-numeric:tabular-nums}
 .cut-size-queue{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:3px 2px 6px;scrollbar-width:thin}
-.cut-size-queue-title{flex:none;font-size:11px;font-weight:700;color:#667085;text-transform:uppercase;letter-spacing:.04em}
-.cut-size-block{display:flex;align-items:center;flex:none;border:1px solid #d0d5dd;border-radius:10px;background:#fff;overflow:hidden}
-.cut-size-block.on{border-color:#1f6f9f;background:#eef4ff}
-.cut-size-jump{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:4px 9px;border:0;background:transparent;color:#344054;white-space:nowrap}
+.cut-size-queue-title{flex:none;font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.cut-size-block{display:flex;align-items:center;flex:none;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);overflow:hidden}
+.cut-size-block.on{border-color:var(--accent);background:var(--accent-soft)}
+.cut-size-jump{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:4px 9px;border:0;background:transparent;color:var(--text);white-space:nowrap}
 .cut-size-jump b{font-size:12px;font-variant-numeric:tabular-nums}
-.cut-size-jump small{font-size:10px;color:#667085}
-.cut-size-order-btn{align-self:stretch;width:25px;padding:0;border:0;border-left:1px solid #eaecf0;border-radius:0;background:transparent;color:#475467}
-.cut-size-order-btn:hover:not(:disabled){background:#dbeafe;color:#026aa2}
+.cut-size-jump small{font-size:10px;color:var(--text-2)}
+.cut-size-order-btn{align-self:stretch;width:25px;padding:0;border:0;border-left:1px solid var(--line);border-radius:0;background:transparent;color:var(--text-2)}
+.cut-size-order-btn:hover:not(:disabled){background:var(--accent-soft);color:var(--accent)}
 .cut-size-order-btn:disabled{opacity:.35}
 .cut-size-group{flex:none;padding:5px 9px;font-size:11px;white-space:nowrap}
 .cut-sheet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;font-size:13px}
@@ -120,15 +120,8 @@
    пустой лист — ровный серый, поле обрезки — темнее. «Визуально нет
    контраста цветов, где стекло, а где пустой лист… сделай лучше, в стиле
    2026–2030, а не 1985, как Perfect Cut» (владелец, 20 сентября 2026). */
-:root{
- --cut-band:#e4e7ec;--cut-free:#eef1f5;
- --cut-glass-a:#dcecfa;--cut-glass-b:#cfe4f6;--cut-glass-c:#c3dcf2;--cut-glass-line:#1b5e86;
- --cut-glass-sel:#a9d3f2;--cut-sel-line:#0b74c4;
- --cut-off:#f9fafb;--cut-off-line:#cbd5e1;--cut-stk:#d1fadf;--cut-stk-line:#12b76a;
- --cut-cut:#8a94a6;
- --cut-bad:#d92d20;--cut-bad-fill:#fee4e2;
-}
-.cut-sheet-band{fill:var(--cut-band);stroke:#98a2b3}
+/* Цвета листа — в styles/tokens.css, раздел «Графика». */
+.cut-sheet-band{fill:var(--cut-band);stroke:var(--text-3)}
 .cut-sheet-free{fill:var(--cut-free)}
 /* Заготовка формы: прямоугольник, который стол вырежет первым — то, что
    внутри него за контуром, уйдёт в отход. Тот же серый, что пустое место. */
@@ -139,7 +132,7 @@
 /* Заголовки списка стёкол — кнопки сортировки; выглядят как заголовки. */
 .cut-list thead .cut-sort{font:inherit;color:inherit;padding:0;border:0;background:none;cursor:pointer}
 .cut-list thead .cut-sort:hover{text-decoration:underline}
-.cut-list thead .cut-sort.on{color:#0b74c4}
+.cut-list thead .cut-sort.on{color:var(--accent)}
 .cut-svg .cut-g1{stop-color:var(--cut-glass-a)}
 .cut-svg .cut-g2{stop-color:var(--cut-glass-b)}
 .cut-svg .cut-g3{stop-color:var(--cut-glass-c)}
@@ -159,7 +152,7 @@
 .cut-svg [data-cut-line]{cursor:pointer}
 .cut-svg [data-cut-line]:hover .cut-cut-line{stroke:var(--cut-sel-line);stroke-width:2}
 .cut-stuck{fill:none;stroke:var(--cut-bad);stroke-width:2}
-.cut-paper{background:#fff;border:1px solid #eaecf0;border-radius:10px;padding:6px;display:flex;justify-content:center;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
+.cut-paper{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;justify-content:center;line-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
 .cut-svg{display:block}
 /* Высота листа ограничена окном, ширина считается от неё: «уменьшил бы
    процентов на 20, чтобы таблица листов была видна на одном экране»
@@ -172,29 +165,29 @@
 .cut-svg .cut-rot{cursor:pointer}
 .cut-svg [data-cut-offcut]{cursor:context-menu}
 body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
-.cut-list tbody tr.cut-hl td{background:#f5f8ff}
+.cut-list tbody tr.cut-hl td{background:var(--accent-soft)}
 
-.cut-side.cut-hot{outline:2px solid #1f6f9f;outline-offset:4px;border-radius:8px}
-.cut-menu{position:fixed;z-index:1000;min-width:200px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16);font-size:13px}
-.cut-menu button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:6px 10px;border:0;border-radius:6px;background:none;box-shadow:none;color:#101828;font-size:13px;text-align:left}
-.cut-menu button:hover{background:#f2f4f7}
-.cut-menu kbd{font-family:inherit;font-size:11px;color:#98a2b3}
-.cut-menu-head{padding:6px 10px 4px;font-size:11px;font-weight:600;color:#667085}
-.cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:#667085}
+.cut-side.cut-hot{outline:2px solid var(--accent);outline-offset:4px;border-radius:8px}
+.cut-menu{position:fixed;z-index:1000;min-width:200px;padding:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16);font-size:13px}
+.cut-menu button{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:6px 10px;border:0;border-radius:6px;background:none;box-shadow:none;color:var(--text);font-size:13px;text-align:left}
+.cut-menu button:hover{background:var(--surface-3)}
+.cut-menu kbd{font-family:inherit;font-size:11px;color:var(--text-3)}
+.cut-menu-head{padding:6px 10px 4px;font-size:11px;font-weight:600;color:var(--text-2)}
+.cut-menu-sub{padding:6px 10px 2px;font-size:11px;color:var(--text-2)}
 .cut-menu-sheets{display:flex;flex-wrap:wrap;gap:4px;padding:2px 8px 6px}
-.cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid #d0d5dd}
+.cut-menu-sheets button{width:auto;padding:3px 9px;border:1px solid var(--line-strong)}
 .cut-menu-split{display:flex;align-items:center;gap:4px;padding:2px 8px 6px;font-size:12px}
 .cut-menu-split input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
-.cut-menu-split button{width:auto;padding:3px 10px;border:1px solid #d0d5dd}
+.cut-menu-split button{width:auto;padding:3px 10px;border:1px solid var(--line-strong)}
 .cut-svg [data-cut-offcut],.cut-svg [data-cut-stock]{cursor:context-menu}
 .cut-offcuts-head{display:flex;align-items:center;gap:12px;justify-content:space-between}
 .cut-offcut-acts{display:flex;align-items:center;gap:6px;white-space:nowrap}
 .cut-offcut-acts input{width:58px;padding:3px 6px;font-size:12px;text-align:right}
 .cut-offcut-acts button{padding:3px 10px;font-size:12px}
 .cut-split-row{display:inline-flex;align-items:center;gap:4px;margin-left:6px}
-.cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:#f8fafc;border:1px solid #eaecf0;border-radius:10px;font-size:13px}
+.cut-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;font-size:13px}
 .cut-actions .sp{flex:1}
-.cut-actions button.on{background:#e0f2fe;border-color:#b9e6fe;color:#026aa2}
+.cut-actions button.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
 .cut-hint{margin:4px 0 0;font-size:11px}
 .cut-orders{margin-top:18px}
 .cut-orders h4{margin:0 0 8px}
@@ -205,7 +198,7 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 #cutPrintHost{display:none}
 /* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
 @media print{
- html:has(body.cut-printing),body.cut-printing{background:#fff!important}
+ html:has(body.cut-printing),body.cut-printing{background:var(--surface)!important}
  body.cut-printing>*{display:none!important}
  body.cut-printing>#cutPrintHost{display:block!important}
  .cut-print-page{page:cutsheet;break-after:page;font:12px Helvetica,Arial,sans-serif}
@@ -213,9 +206,9 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
  .cut-print-page h3{margin:0 0 6px;font-size:13px;line-height:18px}
  .cut-print-sheet svg{display:block;max-width:100%;height:auto}
 }
-.cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid #abefc6;border-radius:8px;background:#ecfdf3;color:#067647;font-size:13px}
-.cut-size-nums{font-size:10px;color:#667085;margin-top:2px;white-space:nowrap}
-.cut-size-nums b{color:#101828}
+.cut-info{display:flex;align-items:center;gap:12px;margin:10px 0;padding:8px 12px;border:1px solid var(--success-line);border-radius:8px;background:var(--success-soft);color:var(--success);font-size:13px}
+.cut-size-nums{font-size:10px;color:var(--text-2);margin-top:2px;white-space:nowrap}
+.cut-size-nums b{color:var(--text)}
 .cut-size-acts{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 .cut-size-acts button{padding:0;font-size:11px}
 .cut-stock-wrap{max-width:100%;overflow-x:auto}
@@ -225,32 +218,32 @@ body.cut-full:has([data-cut-full]) main{padding:12px 26px 12px 16px}
 body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr) minmax(0,65fr)}
 /* Build: тонкая полоска хода в строке кнопок; экран раскроя на это время
    приглушён и не ловит мышь. */
-.cut-progress{width:180px;height:6px;border-radius:3px;background:#eaecf0;overflow:hidden}
-.cut-progress i{display:block;height:100%;width:0;background:#1f6f9f;border-radius:3px;transition:width .2s ease-out}
-.cut-progress-pct{font-size:12px;color:#475467;font-variant-numeric:tabular-nums;min-width:96px}
+.cut-progress{width:180px;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden}
+.cut-progress i{display:block;height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .2s ease-out}
+.cut-progress-pct{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums;min-width:96px}
 .cut-busy{opacity:.45;pointer-events:none;transition:opacity .2s}
 /* Прикидки «а что если»: таблица под строкой кнопок. */
-.cut-what{margin-top:10px;border:1px solid #eaecf0;border-radius:10px;padding:10px 12px;background:#fff}
+.cut-what{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
 .cut-what-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
 .cut-what table{font-size:12px}
-.cut-what tr.on td{background:#f9fafb}
-.cut-what .cut-win{color:#067647}
+.cut-what tr.on td{background:var(--surface-2)}
+.cut-what .cut-win{color:var(--success)}
 /* Строки «только одна сторона» — под своей парой, мельче. */
-.cut-what tr.cut-what-sub td{color:#667085;padding-top:2px;padding-bottom:2px}
+.cut-what tr.cut-what-sub td{color:var(--text-2);padding-top:2px;padding-bottom:2px}
 .cut-what tr.cut-what-sub td:first-child{padding-left:14px}
 /* Листов ещё нет: пустой лист с линиями и подпись по центру. */
 .cut-paper-empty{position:relative}
 .cut-empty-cap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;line-height:1.3;pointer-events:none}
-.cut-empty-cap b{font-size:15px;color:#101828}
-.cut-empty-cap span{font-size:12px;color:#667085}
-.cut-sheet-pane input:disabled,.cut-list input:disabled{background:#f9fafb;color:#667085;border-color:#eaecf0}
-.cut-sheet-pane button.gb-link:disabled{color:#98a2b3;cursor:default;text-decoration:none}
+.cut-empty-cap b{font-size:15px;color:var(--text)}
+.cut-empty-cap span{font-size:12px;color:var(--text-2)}
+.cut-sheet-pane input:disabled,.cut-list input:disabled{background:var(--surface-2);color:var(--text-2);border-color:var(--line)}
+.cut-sheet-pane button.gb-link:disabled{color:var(--text-3);cursor:default;text-decoration:none}
 @media (prefers-reduced-motion:reduce){.cut-progress i,.cut-busy{transition:none}}
 /* Остатки: видно первые пять, крупные сверху, остальное — прокруткой. */
-.cut-offcuts-scroll{max-height:268px;overflow:auto;border:1px solid #eaecf0;border-radius:12px}
-.cut-offcuts-scroll thead th{position:sticky;top:0;z-index:1;background:#f9fafb}
+.cut-offcuts-scroll{max-height:268px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.cut-offcuts-scroll thead th{position:sticky;top:0;z-index:1;background:var(--surface-2)}
 .cut-offcuts-head .mut{font-size:12px}
-.cut-sheet-pane .cut-params{margin-top:8px;padding-top:8px;border-top:1px solid #eaecf0}
+.cut-sheet-pane .cut-params{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
 /* Правая половина: склад листов — плотнее. */
 .cut-sheet-pane .cut-stock-row input[type=text]{width:46px}
 .cut-sheet-pane .cut-stock-row input[type=number]{width:52px}
@@ -259,18 +252,18 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
 /* Цифры плитками: значение сверху, подпись снизу, одна линия, ничего не
    налезает; Used % — крупно и зелёным. */
 .cut-tiles{display:flex;align-items:flex-end;gap:0;flex-wrap:wrap;font-variant-numeric:tabular-nums}
-.cut-tiles-cap{align-self:center;margin-right:14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#98a2b3}
-.cut-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:64px;padding:0 14px;border-left:1px solid #eaecf0}
+.cut-tiles-cap{align-self:center;margin-right:14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+.cut-tile{display:flex;flex-direction:column;align-items:flex-start;min-width:64px;padding:0 14px;border-left:1px solid var(--line)}
 .cut-tile:first-of-type,.cut-tiles-gap+.cut-tile{border-left:0}
 .cut-tiles-gap{width:18px}
-.cut-tile b{font-size:14px;font-weight:600;color:#101828;line-height:1.15;white-space:nowrap}
-.cut-tile small{margin-top:2px;font-size:10px;color:#667085;letter-spacing:.02em;white-space:nowrap}
-.cut-tile.cut-use b{color:#067647}
-.cut-tile.cut-waste b{color:#b42318}
+.cut-tile b{font-size:14px;font-weight:600;color:var(--text);line-height:1.15;white-space:nowrap}
+.cut-tile small{margin-top:2px;font-size:10px;color:var(--text-2);letter-spacing:.02em;white-space:nowrap}
+.cut-tile.cut-use b{color:var(--success)}
+.cut-tile.cut-waste b{color:var(--danger)}
 .cut-tiles-cap+.cut-tile{padding-left:0}
 .cut-tiles-sheet{margin-left:10px}
 .cut-tiles-sheet .cut-tile{min-width:56px;padding:0 10px}
-.cut-sheet-size{font-size:12px;color:#667085}
+.cut-sheet-size{font-size:12px;color:var(--text-2)}
 @media(max-width:1500px){
  .glass-batches .page-head.cut-page-head-wrap{grid-template-columns:1fr}
  .cut-page-total>.cut-tiles{flex-wrap:wrap}

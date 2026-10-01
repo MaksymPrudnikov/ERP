@@ -2,60 +2,60 @@
    после батча, окно предупреждения перехода. */
 .sales-toolbar{flex-wrap:wrap;gap:8px}
 .sales-toolbar-sp{flex:1}
-.sales-show{display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid var(--line,#d0d5dd);border-radius:9px;background:#fff}
-.sales-show>span{margin:0 4px;color:var(--muted,#667085);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
-.sales-show-toggle{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:7px;background:transparent;padding:4px 9px;font-weight:700;color:#475467}
-.sales-show-toggle i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:1.5px solid #98a2b3;border-radius:3px;color:#fff;font-size:10px;font-style:normal}
-.sales-show-toggle.on{background:#eef4ff;color:#16325c}
-.sales-show-toggle.on i{background:#16325c;border-color:#16325c}
-.sales-show-toggle b{color:#98a2b3;font-weight:700}
+.sales-show{display:inline-flex;align-items:center;gap:4px;padding:3px 5px;border:1px solid var(--line,var(--line-strong));border-radius:9px;background:var(--surface)}
+.sales-show>span{margin:0 4px;color:var(--muted,var(--text-2));font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.sales-show-toggle{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:7px;background:transparent;padding:4px 9px;font-weight:700;color:var(--text-2)}
+.sales-show-toggle i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border:1.5px solid var(--text-3);border-radius:3px;color:var(--on-solid);font-size:10px;font-style:normal}
+.sales-show-toggle.on{background:var(--accent-soft);color:var(--accent)}
+.sales-show-toggle.on i{background:var(--accent);border-color:var(--accent)}
+.sales-show-toggle b{color:var(--text-3);font-weight:700}
 .sales-status-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
-.sales-status-chips button{border:1px solid var(--line,#d0d5dd);border-radius:999px;background:#fff;padding:3px 10px;font-size:12px;font-weight:600}
-.sales-status-chips button b{margin-left:3px;color:#667085}
-.sales-status-chips button.on{background:#16325c;border-color:#16325c;color:#fff}
-.sales-status-chips button.on b{color:#cfd8e6}
+.sales-status-chips button{border:1px solid var(--line,var(--line-strong));border-radius:999px;background:var(--surface);padding:3px 10px;font-size:12px;font-weight:600}
+.sales-status-chips button b{margin-left:3px;color:var(--text-2)}
+.sales-status-chips button.on{background:var(--accent);border-color:var(--accent);color:var(--on-solid)}
+.sales-status-chips button.on b{color:var(--accent-line)}
 .sales-list-card .small{font-size:11.5px}
-.pill.kind-order{background:#eef4ff;color:#16325c}
-.pill.kind-quote{background:#f4f3ff;color:#5b21b6}
-.pill.st-open{background:#f2f4f7;color:#344054}
-.pill.st-won{background:#dcfae6;color:#05603a}
-.pill.st-new{background:#f2f4f7;color:#344054}
-.pill.st-verified{background:#e0f2fe;color:#026aa2}
-.pill.st-batched{background:#fef0c7;color:#93370d}
-.pill.st-ready{background:#ecfdf3;color:#067647;box-shadow:inset 0 0 0 1px #abefc6}
-.pill.st-done{background:#dcfae6;color:#05603a}
-.pill.st-closed{background:#e4e7ec;color:#344054}
-.pill.st-cancelled{background:#fee4e2;color:#b42318}
-.pill.st-added{background:#e0f2fe;color:#026aa2;font-size:10px}
-button.go{background:#067647;border-color:#067647;color:#fff;font-weight:700}
+.pill.kind-order{background:var(--accent-soft);color:var(--accent)}
+.pill.kind-quote{background:var(--accent-soft);color:var(--violet)}
+.pill.st-open{background:var(--surface-3);color:var(--text)}
+.pill.st-won{background:var(--success-soft);color:var(--success)}
+.pill.st-new{background:var(--surface-3);color:var(--text)}
+.pill.st-verified{background:var(--accent-soft);color:var(--accent)}
+.pill.st-batched{background:var(--warning-soft);color:var(--warning)}
+.pill.st-ready{background:var(--success-soft);color:var(--success);box-shadow:inset 0 0 0 1px var(--success-line)}
+.pill.st-done{background:var(--success-soft);color:var(--success)}
+.pill.st-closed{background:var(--surface-3);color:var(--text)}
+.pill.st-cancelled{background:var(--danger-soft);color:var(--danger)}
+.pill.st-added{background:var(--accent-soft);color:var(--accent);font-size:10px}
+button.go{background:var(--success);border-color:var(--success);color:var(--on-solid);font-weight:700}
 /* Компактная история: название и точка на одной линии; даты только для состоявшихся этапов. */
-.sales-status-row{display:flex;align-items:center;gap:14px;margin:0 0 10px;padding:7px 12px;border:1px solid var(--line,#e3e7ee);border-radius:10px;background:#fff}
+.sales-status-row{display:flex;align-items:center;gap:14px;margin:0 0 10px;padding:7px 12px;border:1px solid var(--line,var(--accent-line));border-radius:10px;background:var(--surface)}
 .sales-status-row .sp{flex:1}
 .sales-steps{display:flex;flex:1;min-width:0;align-items:flex-start}
 .sales-step{position:relative;flex:1;min-width:0;text-align:center;line-height:18px}
-.sales-step:before{content:'';position:absolute;top:9px;left:0;right:0;height:1px;background:#e4e7ec}
+.sales-step:before{content:'';position:absolute;top:9px;left:0;right:0;height:1px;background:var(--surface-3)}
 .sales-step:first-child:before{left:50%}
 .sales-step:last-child:before{right:50%}
-.sales-step-label{position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 8px;background:#fff;white-space:nowrap}
-.sales-step i{display:block;flex:none;width:8px;height:8px;border:1.5px solid #d0d5dd;border-radius:50%;background:#fff}
-.sales-step b{display:block;color:#7b8492;font-size:11px;font-weight:500}
-.sales-step small{display:block;color:#98a2b3;font-size:10px;line-height:14px}
-.sales-step.done:before{background:#7babc7}
-.sales-step.done i{border-color:#1f6f9f;background:#1f6f9f}
-.sales-step.done b{color:#475467}
-.sales-step.cur:before{background:linear-gradient(90deg,#7babc7 50%,#e4e7ec 50%)}
-.sales-step:first-child.cur:before{background:#e4e7ec}
-.sales-step.cur i{border-color:#1f6f9f;background:#1f6f9f;box-shadow:0 0 0 3px #e5f1f9}
-.sales-step.cur b{color:#16325c;font-weight:600}
+.sales-step-label{position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 8px;background:var(--surface);white-space:nowrap}
+.sales-step i{display:block;flex:none;width:8px;height:8px;border:1.5px solid var(--line-strong);border-radius:50%;background:var(--surface)}
+.sales-step b{display:block;color:var(--text-2);font-size:11px;font-weight:500}
+.sales-step small{display:block;color:var(--text-3);font-size:10px;line-height:14px}
+.sales-step.done:before{background:var(--accent)}
+.sales-step.done i{border-color:var(--accent);background:var(--accent)}
+.sales-step.done b{color:var(--text-2)}
+.sales-step.cur:before{background:linear-gradient(90deg,var(--accent) 50%,var(--surface-3) 50%)}
+.sales-step:first-child.cur:before{background:var(--surface-3)}
+.sales-step.cur i{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 3px var(--accent-line)}
+.sales-step.cur b{color:var(--accent);font-weight:600}
 .sales-status-tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .sales-lockbar,.sales-quote-note{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px;padding:8px 12px;border-radius:9px}
-.sales-lockbar{border:1px solid #fedf89;background:#fffaeb;color:#7a2e0e}
+.sales-lockbar{border:1px solid var(--warning-line);background:var(--warning-soft);color:var(--warning)}
 .sales-lockbar .sp{flex:1}
-.sales-quote-note{border:1px solid #abefc6;background:#ecfdf3;color:#05603a}
-tr.line-locked td{background:#fafafa;color:#667085}
+.sales-quote-note{border:1px solid var(--success-line);background:var(--success-soft);color:var(--success)}
+tr.line-locked td{background:var(--surface-2);color:var(--text-2)}
 tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .line-lock{font-size:11px}
-.mu-lock-note{margin:8px 0;padding:6px 10px;border:1px solid #fedf89;border-radius:7px;background:#fffaeb;color:#7a2e0e;font-size:12px}
+.mu-lock-note{margin:8px 0;padding:6px 10px;border:1px solid var(--warning-line);border-radius:7px;background:var(--warning-soft);color:var(--warning);font-size:12px}
 .mu-locked{opacity:.75}
 .sales-readonly{opacity:.9}
 .sales-dialog{width:min(560px,96vw)}
@@ -63,11 +63,11 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-dialog-body p{margin:0 0 6px}
 .sales-dialog-rows{display:grid;grid-template-columns:1fr auto;gap:4px 14px;margin:8px 0}
 .sales-dialog-rows b{font-variant-numeric:tabular-nums;text-align:right}
-.sales-dialog-red{color:#b42318}
-.sales-dialog-note{margin-top:8px;padding:8px 10px;border:1px solid #fedf89;border-radius:8px;background:#fffaeb;color:#7a2e0e}
-.sales-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid #eaecf0;background:#f9fafb}
+.sales-dialog-red{color:var(--danger)}
+.sales-dialog-note{margin-top:8px;padding:8px 10px;border:1px solid var(--warning-line);border-radius:8px;background:var(--warning-soft);color:var(--warning)}
+.sales-dialog-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line);background:var(--surface-2)}
 @media(max-width:900px){.sales-status-row{overflow-x:auto}.sales-status-row .sales-steps{min-width:660px}.sales-status-tools{flex-direction:row;flex-wrap:wrap}}
 /* Сохранено ли то, что на экране: метка у кнопок заказа. */
-.sales-save-state{align-self:center;margin-right:4px;font-size:12px;color:#667085;white-space:nowrap}
-.sales-save-state.dirty{color:#b54708;font-weight:600}
-.sales-save-state.dirty::before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:#f79009;vertical-align:1px}
+.sales-save-state{align-self:center;margin-right:4px;font-size:12px;color:var(--text-2);white-space:nowrap}
+.sales-save-state.dirty{color:var(--warning);font-weight:600}
+.sales-save-state.dirty::before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--warning);vertical-align:1px}

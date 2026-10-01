@@ -1,73 +1,73 @@
 /* Бланки заказа: окно Preview, панель ✎ Customize, печать листов Letter,
    вкладка Master Data → Company и условия оплаты в шапке заказа. */
 .doc-back{position:fixed;inset:0;z-index:1300;display:flex;align-items:stretch;justify-content:center;padding:18px;background:rgba(13,31,41,.45)}
-.doc-window{display:flex;flex-direction:column;width:min(1280px,100%);min-height:0;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(16,24,40,.3)}
-.doc-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,#d9dfe8);background:#f8fafc}
+.doc-window{display:flex;flex-direction:column;width:min(1280px,100%);min-height:0;background:var(--surface);border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(16,24,40,.3)}
+.doc-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,var(--accent-line));background:var(--surface-2)}
 .doc-title{margin-right:6px;font-size:13px;white-space:nowrap}
-.doc-kinds{display:inline-flex;border:1px solid #c9d1dd;border-radius:7px;overflow:hidden}
-.doc-kinds button{border:0;border-right:1px solid #c9d1dd;border-radius:0;background:#fff;padding:6px 12px;font-size:12px}
+.doc-kinds{display:inline-flex;border:1px solid var(--accent-line);border-radius:7px;overflow:hidden}
+.doc-kinds button{border:0;border-right:1px solid var(--accent-line);border-radius:0;background:var(--surface);padding:6px 12px;font-size:12px}
 .doc-kinds button:last-child{border-right:0}
-.doc-kinds button.on{background:#16325c;color:#fff;font-weight:700}
+.doc-kinds button.on{background:var(--accent);color:var(--on-solid);font-weight:700}
 .doc-spacer{flex:1}
 .doc-pen{font-weight:700}
-.doc-pen.on{background:#fff4d6;border-color:#fdb022}
-.doc-status{display:flex;flex-wrap:wrap;gap:4px 16px;padding:7px 14px;border-bottom:1px solid #fedf89;background:#fffaeb;color:#7a4a00;font-size:12px}
-.doc-status .warn{color:#b54708;font-weight:600}
-.doc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);background:#e9edf3}
+.doc-pen.on{background:var(--warning-soft);border-color:var(--warning)}
+.doc-status{display:flex;flex-wrap:wrap;gap:4px 16px;padding:7px 14px;border-bottom:1px solid var(--warning-line);background:var(--warning-soft);color:var(--warning);font-size:12px}
+.doc-status .warn{color:var(--warning);font-weight:600}
+.doc-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);background:var(--accent-soft)}
 .doc-body.with-panel{grid-template-columns:minmax(0,1fr) 330px}
 .doc-pages{min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;align-items:center;gap:16px}
-.doc-sheet{width:min(760px,100%);flex:none;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-sheet{width:min(760px,100%);flex:none;background:var(--surface);box-shadow:0 2px 12px rgba(16,24,40,.18)}
 .doc-sheet svg{display:block;width:100%;height:auto}
-.doc-panel{min-height:0;overflow:auto;padding:12px 14px 0;border-left:1px solid var(--line,#d9dfe8);background:#fff;font-size:12.5px}
+.doc-panel{min-height:0;overflow:auto;padding:12px 14px 0;border-left:1px solid var(--line,var(--accent-line));background:var(--surface);font-size:12.5px}
 .doc-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .doc-panel-head button{border:0;background:transparent;padding:2px 6px;font-size:18px;line-height:1}
-.doc-panel-sub{margin:2px 0 6px;color:#667085;font-size:11.5px;line-height:1.4}
-.doc-panel h4{margin:12px 0 4px;padding-top:9px;border-top:1px solid #eaecf0;color:#667085;font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.doc-panel-sub{margin:2px 0 6px;color:var(--text-2);font-size:11.5px;line-height:1.4}
+.doc-panel h4{margin:12px 0 4px;padding-top:9px;border-top:1px solid var(--line);color:var(--text-2);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
 /* Общее правило подписей формы пишет label капсом и вразрядку — у галочек
    панели это обычный текст. */
-.doc-panel .doc-opt{display:flex;align-items:flex-start;gap:8px;margin:0;padding:3px 0;cursor:pointer;color:#1c2330;font-size:12.5px;font-weight:400;letter-spacing:normal;text-transform:none}
+.doc-panel .doc-opt{display:flex;align-items:flex-start;gap:8px;margin:0;padding:3px 0;cursor:pointer;color:var(--text);font-size:12.5px;font-weight:400;letter-spacing:normal;text-transform:none}
 .doc-opt input{flex:none;width:auto;margin:2px 0 0}
-.doc-panel .doc-opt small{display:block;color:#667085;font-size:10.5px;letter-spacing:normal;text-transform:none}
-.doc-opt-sub{margin:4px 0 0 22px;padding-left:8px;border-left:2px solid #eaecf0}
-.doc-panel-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding:10px 0 12px;border-top:1px solid #eaecf0;background:#fff}
+.doc-panel .doc-opt small{display:block;color:var(--text-2);font-size:10.5px;letter-spacing:normal;text-transform:none}
+.doc-opt-sub{margin:4px 0 0 22px;padding-left:8px;border-left:2px solid var(--line)}
+.doc-panel-actions{position:sticky;bottom:0;display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding:10px 0 12px;border-top:1px solid var(--line);background:var(--surface)}
 @media(max-width:900px){
  .doc-body.with-panel{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
- .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,#d9dfe8)}
+ .doc-panel{max-height:45vh;border-left:0;border-top:1px solid var(--line,var(--accent-line))}
 }
 /* Вкладка Drawings: лист чертежа 850 × 1100 (как у печати) крупно, по бокам
    ‹ ›, снизу лента мини-листов с номерами строк. */
-.doc-drawing-now{color:#475467;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch}
+.doc-drawing-now{color:var(--text-2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40ch}
 .doc-drawings{min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto}
 .doc-stage{min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px}
-.doc-drawing{flex:none;margin:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;background:#fff;box-shadow:0 2px 12px rgba(16,24,40,.18)}
+.doc-drawing{flex:none;margin:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;background:var(--surface);box-shadow:0 2px 12px rgba(16,24,40,.18)}
 .doc-drawing .print-sheet,.doc-thumb-sheet .print-sheet{height:100%}
-.doc-drawing-error{color:#b42318;font-size:14px}
-.doc-step{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0 0 3px;border:1px solid #d0d5dd;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(16,24,40,.12);color:#344054;font-size:30px;line-height:1}
-.doc-step:hover:not(:disabled){color:#026aa2;border-color:#84caff;background:#f0f9ff}
+.doc-drawing-error{color:var(--danger);font-size:14px}
+.doc-step{flex:none;display:flex;align-items:center;justify-content:center;width:46px;height:46px;padding:0 0 3px;border:1px solid var(--line-strong);border-radius:50%;background:var(--surface);box-shadow:0 2px 8px rgba(16,24,40,.12);color:var(--text);font-size:30px;line-height:1}
+.doc-step:hover:not(:disabled){color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
 .doc-step:disabled{opacity:.3;box-shadow:none}
-.doc-film{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;border-top:1px solid #d9dfe8;background:#f8fafc;scrollbar-width:thin}
+.doc-film{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 10px;border-top:1px solid var(--accent-line);background:var(--surface-2);scrollbar-width:thin}
 .doc-thumb{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 5px;border:2px solid transparent;border-radius:9px;background:none;box-shadow:none;cursor:pointer}
-.doc-thumb:hover{background:#f0f9ff}
-.doc-thumb.on{border-color:#1f6f9f;background:#eef4ff}
-.doc-thumb-paper{position:relative;display:block;width:56px;height:72px;overflow:hidden;background:#fff;box-shadow:0 1px 4px rgba(16,24,40,.22)}
+.doc-thumb:hover{background:var(--accent-soft)}
+.doc-thumb.on{border-color:var(--accent);background:var(--accent-soft)}
+.doc-thumb-paper{position:relative;display:block;width:56px;height:72px;overflow:hidden;background:var(--surface);box-shadow:0 1px 4px rgba(16,24,40,.22)}
 .doc-thumb-sheet{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.0659);transform-origin:0 0;pointer-events:none}
-.doc-thumb b{font-size:12px;font-variant-numeric:tabular-nums;color:#344054}
-.doc-thumb.on b{color:#026aa2}
+.doc-thumb b{font-size:12px;font-variant-numeric:tabular-nums;color:var(--text)}
+.doc-thumb.on b{color:var(--accent)}
 .doc-print-pick{position:relative}
-.doc-print-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:2;display:flex;flex-direction:column;min-width:180px;padding:4px;background:#fff;border:1px solid #d0d5dd;border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16)}
+.doc-print-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:2;display:flex;flex-direction:column;min-width:180px;padding:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.16)}
 .doc-print-menu[hidden]{display:none}
 .doc-print-menu button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:6px;white-space:nowrap}
-.doc-print-menu button:hover{background:#f2f4f7}
+.doc-print-menu button:hover{background:var(--surface-3)}
 @media(max-width:600px){.doc-back{padding:0}.doc-window{border-radius:0}.doc-pages{padding:8px}}
 
 
 .doc-company{display:grid;grid-template-columns:240px minmax(0,1fr);gap:22px;margin-top:14px}
 .doc-company-logo label{display:block}
-.doc-logo-box{display:flex;align-items:center;justify-content:center;height:110px;margin:6px 0 8px;overflow:hidden;border:1.5px dashed #b9c2d0;border-radius:8px;background:#fafbfc}
+.doc-logo-box{display:flex;align-items:center;justify-content:center;height:110px;margin:6px 0 8px;overflow:hidden;border:1.5px dashed var(--line-strong);border-radius:8px;background:var(--surface-2)}
 .doc-logo-box img{max-width:92%;max-height:92%}
-.doc-logo-box span{color:#98a2b3;font-size:12px}
+.doc-logo-box span{color:var(--text-3);font-size:12px}
 .doc-logo-actions{display:flex;gap:6px;margin-bottom:6px}
-.doc-company-logo small{color:#667085}
+.doc-company-logo small{color:var(--text-2)}
 .doc-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .doc-company-grid textarea{width:100%;box-sizing:border-box}
 .doc-company-wide{grid-column:1/-1}
