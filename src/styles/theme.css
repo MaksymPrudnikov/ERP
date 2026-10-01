@@ -113,3 +113,14 @@ main#app{padding:28px 36px}
 @media (max-width:900px){.app-foot{display:none}}
 /* Полноэкранный раскрой — только лист, без футера. */
 body.cut-full:has([data-cut-full]) .app-foot{display:none}
+
+/* ---- Overview: путь заказа и справочники, карточки ведут в раздел ---- */
+.dash-card{padding:20px 22px;margin-bottom:16px}
+.dash-card .section-title{margin-bottom:14px}
+.dash-go{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:none;border-radius:12px}
+.dash-go:hover{border-color:var(--accent);background:var(--accent-soft)}
+.dash-go b{display:block;margin-top:10px}
+.dash-go small{display:block;margin-top:4px;color:var(--text-2)}
+.dash-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dash-build{margin:6px 2px 0;font-size:12px;color:var(--text-3)}
+@media (max-width:900px){.dash-card .flow-row{flex-direction:column}.dash-card .flow-arrow{transform:rotate(90deg);align-self:center}.dash-setup{grid-template-columns:1fr}}
