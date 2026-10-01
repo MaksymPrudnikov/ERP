@@ -13,10 +13,12 @@
                  сам цвет, -soft (подложка) и -line (рамка)
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
-   Светлые островки (.gf-light и картинка листа svg.cut-svg) — чертёж,
-   раскрой, стикеры, печать — всегда в светлых значениях.
+   Светлые островки — бумага: .gf-light, лист чертежа .print-sheet, бланки
+   и чертежи Documents (.doc-sheet, .doc-drawing, .doc-thumb-paper), стикер
+   .stk-paper, миниатюра на станции .st-drawthumb-paper и картинка листа
+   svg.cut-svg — всегда в светлых значениях. Новая «бумага» — добавить сюда.
    ===================================================================== */
-:root,.gf-light,svg.cut-svg{
+:root,.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper,svg.cut-svg{
  --bg:#f5f7f7;--surface:#ffffff;--surface-2:#f8f9fa;--surface-3:#eef0f2;
  --line-soft:#eef0f2;--line:#e4e7ea;--line-strong:#cfd5da;
  --text:#14181c;--text-2:#4b5560;--text-3:#7b858f;--inverse:#1d2328;--on-solid:#ffffff;
@@ -27,6 +29,7 @@
  --violet:#6941c6;--violet-soft:#f3effc;--violet-line:#d6caf3;
  --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
+ --edge-mix:100%;
  --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
  color-scheme:light;
 }
@@ -41,13 +44,14 @@
  --violet:#9b7be8;--violet-soft:#211b33;--violet-line:#3e3363;
  --shadow:0 1px 2px rgba(0,0,0,.4);
  --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+ --edge-mix:62%;
  color-scheme:dark;
 }
 /* ---- Графика (раскрой) ----
    Техническая картинка листа, а не интерфейс: стекло — холодный голубой с
    бликом, пустой лист — ровный серый (владелец, 20 сентября 2026). Цвета
    живут здесь, чтобы весь набор был в одном файле; темой не меняются. */
-:root,.gf-light{
+:root,.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper{
  --cut-band:#e4e7ec;--cut-free:#eef1f5;
  --cut-glass-a:#dcecfa;--cut-glass-b:#cfe4f6;--cut-glass-c:#c3dcf2;--cut-glass-line:#1b5e86;
  --cut-glass-sel:#a9d3f2;--cut-sel-line:#0b74c4;
@@ -56,7 +60,7 @@
  --cut-bad:#d92d20;--cut-bad-fill:#fee4e2;
 }
 /* Островок внутри тёмной темы возвращает светлые значения себе и детям. */
-:root[data-theme="dark"] .gf-light{color-scheme:light;color:var(--text)}
+:root[data-theme="dark"] :is(.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper){color-scheme:light;color:var(--text)}
 @media print{
  :root[data-theme="dark"]{
   --bg:#ffffff;--surface:#ffffff;--surface-2:#f8f9fa;--surface-3:#eef0f2;--line-soft:#eef0f2;--line:#e4e7ea;--line-strong:#cfd5da;

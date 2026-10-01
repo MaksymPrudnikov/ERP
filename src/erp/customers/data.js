@@ -35,9 +35,9 @@ function customerStatus(v){
  if(['inactive','disabled','неактивный','неактивен'].includes(s))return 'inactive';
  return 'active';
 }
-function customerStatusLabel(v){return v==='archived'?'Архив':v==='inactive'?'Неактивный':'Активный';}
-function customerStatementLabel(v){return v==='print'?'Печать':v==='both'?'Email + печать':v==='none'?'Не отправлять':'Email';}
-function customerFuelLabel(v){return v==='custom'?'Индивидуальная ставка':v==='exempt'?'Без топливного сбора':'По умолчанию';}
+function customerStatusLabel(v){return v==='archived'?'Archived':v==='inactive'?'Inactive':'Active';}
+function customerStatementLabel(v){return v==='print'?'Print':v==='both'?'Email + print':v==='none'?'Do not send':'Email';}
+function customerFuelLabel(v){return v==='custom'?'Custom rate':v==='exempt'?'No fuel surcharge':'Default';}
 
 function normalizeCustomerContact(c,i){
  c=c&&typeof c==='object'?c:{};

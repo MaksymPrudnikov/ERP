@@ -1582,10 +1582,14 @@ function refreshShapeEditor(){
    всю фигуру разом, а не четыре отдельные карточки. Цвет буквы совпадает
    с цветом ребра на чертеже — опознание идёт по цвету, а не по подписи. */
 function shapeEdgeIsVert(e){return e==='A'||e==='C';}
+/* Цвет стороны на экране редактора. Цвета сторон подобраны для белой бумаги;
+   в тёмной теме к ним подмешан светлый текст (--edge-mix), иначе синюю A и
+   лиловую D не видно на тёмном. Чертёж и печать берут shapeEdgeColor как есть. */
+function shapeEdgeInk(e){return 'color-mix(in srgb,'+shapeEdgeColor(e)+' var(--edge-mix),var(--text))';}
 /* Превью формы выноса: прямое ребро, простой уклон или локоть. */
 function shapeOutageIcon(edge){
-  var m=sDraft.smart,s=m[edge]||{},vert=shapeEdgeIsVert(edge),W=44,H=30,pad=5,col=shapeEdgeColor(edge),d;
-  function seg(x1,y1,x2,y2){return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round"/>';}
+  var m=sDraft.smart,s=m[edge]||{},vert=shapeEdgeIsVert(edge),W=44,H=30,pad=5,col=shapeEdgeInk(edge),d;
+  function seg(x1,y1,x2,y2){return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" style="stroke:'+col+'" stroke-width="1.8" stroke-linecap="round"/>';}
   /* Простого уклона у D нет: без локтей её форма целиком задана концами, и
      выбирать нечего — рисуем прямую. С локтями показываем заданный излом;
      уход второго отрезка выводится, поэтому в превью он идёт ровно. */
@@ -1628,7 +1632,7 @@ function shapeMasterSizeFields(){
 }
 function shapeEdgeMatrix(){
   var m=sDraft.smart,cols=['A','B','C','D'],r=shapeDraftResult(),base=(r.valid&&r.base)||null;
-  var head=cols.map(function(e){return `<span class='em-col' style='color:${shapeEdgeColor(e)}'>${e}</span>`;}).join('');
+  var head=cols.map(function(e){return `<span class='em-col' style='color:${shapeEdgeInk(e)}'>${e}</span>`;}).join('');
   function cell(e,html){return `<span class='em-cell'>${html}</span>`;}
   function lengthCell(e){
     if(e==='A')return cell(e,`<input id='emAlen' data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
@@ -1686,7 +1690,7 @@ function shapeMiniPreview(){
   var sc=Math.min((vw-2*pad)/W,(vh-2*pad)/H),dw=W*sc,dh=H*sc,x0=(vw-dw)/2,y0=(vh-dh)/2;
   function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+dh-(y-b.minY)*sc;}
   var lines=(r.geometry.edges||[]).map(function(e){
-    return '<line x1="'+X(e.p1[0])+'" y1="'+Y(e.p1[1])+'" x2="'+X(e.p2[0])+'" y2="'+Y(e.p2[1])+'" stroke="'+shapeEdgeColor(e.id)+'" stroke-width="1.8"/>';
+    return '<line x1="'+X(e.p1[0])+'" y1="'+Y(e.p1[1])+'" x2="'+X(e.p2[0])+'" y2="'+Y(e.p2[1])+'" style="stroke:'+shapeEdgeInk(e.id)+'" stroke-width="1.8"/>';
   }).join('');
   return `<svg class='mini-shape' viewBox='0 0 ${vw} ${vh}'>${lines}</svg>`;
 }
