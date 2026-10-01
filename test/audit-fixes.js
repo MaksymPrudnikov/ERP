@@ -82,6 +82,15 @@ module.exports=async function({page,eq,ok}){
  eq('failed import keeps both current database and usable pre-import backup',await t.p.evaluate(()=>{
   const before=JSON.stringify(DB),stored=localStorage.getItem(STORAGE_KEY),raw=storageExportEnvelope();raw.data=JSON.parse(before);raw.data.customer[0].legalName='Imported change';const imported=afFailWrite(()=>storageImportState(raw));return {imported,same:before===JSON.stringify(DB),stored:stored===localStorage.getItem(STORAGE_KEY),backup:JSON.stringify(JSON.parse(localStorage.getItem(STORAGE_BACKUP_KEY)).data)===before};
  }),{imported:false,same:true,stored:true,backup:true});
+ eq('pre-import copy expires after a week and gives way when storage is full',await t.p.evaluate(()=>{
+  const env=days=>JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date(Date.now()-days*864e5).toISOString(),data:{}});
+  localStorage.setItem(STORAGE_BACKUP_KEY,env(2));storageBackupCheck();const fresh=storageBackupPresent&&localStorage.getItem(STORAGE_BACKUP_KEY)!==null;
+  localStorage.setItem(STORAGE_BACKUP_KEY,env(8));storageBackupCheck();const expired=!storageBackupPresent&&localStorage.getItem(STORAGE_BACKUP_KEY)===null;
+  localStorage.setItem(STORAGE_BACKUP_KEY,env(1));storageBackupCheck();
+  const keep=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===STORAGE_KEY&&localStorage.getItem(STORAGE_BACKUP_KEY)!==null)throw new DOMException('Test quota','QuotaExceededError');return keep.call(this,k,v);};
+  let out;try{out=storageCommand(()=>{DB.customer[0].legalName='Saved after cleanup';});}finally{Storage.prototype.setItem=keep;}
+  return {fresh,expired,saved:out.ok&&JSON.parse(localStorage.getItem(STORAGE_KEY)).customer[0].legalName==='Saved after cleanup',dropped:localStorage.getItem(STORAGE_BACKUP_KEY)===null&&!storageBackupPresent,button:!storageStatusHTML().includes('Restore pre-import')};
+ }),{fresh:true,expired:true,saved:true,dropped:true,button:true});
  eq('partial UI import is rejected before confirmation or replacement',await t.p.evaluate(()=>{const before=JSON.stringify(DB);try{storageImportState({customer:[]});return false;}catch(e){return JSON.stringify(DB)===before&&e.message.includes('complete');}}),true);
  eq('production exceptions and station dimensions are visible without horizontal tile scrolling',await t.p.evaluate(()=>{
   tab='production';subtab='orders';render();const attention=!!document.querySelector('[data-prod-exceptions]'),wrap=getComputedStyle(document.querySelector('.pb-tiles')).flexWrap;

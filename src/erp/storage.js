@@ -14,6 +14,18 @@ const STORAGE_BACKUP_KEY=STORAGE_KEY+'-before-import';
 let storageWriter=false,storageRelease=null,storageChannel=null,storageStarting=true;
 let storageWarningShown=false,storageLastError='',storageLastSaved='',storageBaseline=null,storageDepth=0;
 let storageRecovery=false,storageBackupAt='';
+/* The pre-import copy takes as much browser space as the database itself.
+   It is kept for a week and dropped earlier when an ordinary save would
+   otherwise fail for lack of space; a broken database keeps it untouched. */
+const STORAGE_BACKUP_DAYS=7;
+let storageBackupPresent=false,storageImporting=false;
+function storageBackupCheck(){
+ const raw=storageRead(STORAGE_BACKUP_KEY);storageBackupPresent=raw!==null;
+ if(!raw||!storageWriter||storageRecovery)return;
+ let at=NaN;try{at=Date.parse(JSON.parse(raw).exportedAt);}catch(e){}
+ if(!(Date.now()-at<=STORAGE_BACKUP_DAYS*864e5))storageBackupDrop();
+}
+function storageBackupDrop(){try{localStorage.removeItem(STORAGE_BACKUP_KEY);storageBackupPresent=false;}catch(e){}}
 function storageInvalidate(){
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
@@ -39,7 +51,9 @@ function touch(){
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
  try{
-  const text=JSON.stringify(DB);localStorage.setItem(STORAGE_KEY,text);
+  const text=JSON.stringify(DB);
+  try{localStorage.setItem(STORAGE_KEY,text);}
+  catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
   storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
@@ -56,7 +70,7 @@ function storageStatusHTML(){
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
   (!storageWriter?'<button type="button" onclick="storageTakeControl()">Activate editing here</button>':'')+
   (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
-  (storageRead(STORAGE_BACKUP_KEY)?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+  (storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
 }
 function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
@@ -80,7 +94,7 @@ async function storageTakeControl(){
    clearTimeout(timer);storageWriter=true;storageWarningShown=false;
    const text=localStorage.getItem(STORAGE_KEY);
    if(text&&text!==storageBaseline){if(!storageLiveReload(text)){storageRecovery=true;storageLastError='Stored data could not be read. Export the original and import a complete backup.';}storageBaseline=text;}
-   if(!storageRecovery)storageLastError='';render();resolve(true);
+   if(!storageRecovery)storageLastError='';storageBackupCheck();render();resolve(true);
    await new Promise(r=>storageRelease=r);
   }).catch(()=>{clearTimeout(timer);storageWriter=false;storageLastError='Editing is still open elsewhere. Save or discard any open draft in that tab, then try again.';render();resolve(false);});
  });
@@ -91,7 +105,7 @@ function storageStart(){
  };}catch(e){}
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot();storageStarting=false;render();return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
-  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);render();
+  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);storageBackupCheck();render();
   if(lock)await new Promise(r=>storageRelease=r);
  }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
 }
@@ -128,10 +142,12 @@ function storageImportState(raw){
  const backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:JSON.parse(old)});
  const recovering=storageRecovery;
  if(recovering){storageDownload('glazing_system_recovery.json',localStorage.getItem(STORAGE_KEY)||'');storageRecovery=false;}
+ storageImporting=true;
  const result=storageCommand(()=>{
-  localStorage.setItem(STORAGE_BACKUP_KEY,backup);if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
+  localStorage.setItem(STORAGE_BACKUP_KEY,backup);storageBackupPresent=true;if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
   DB=next;return true;
  });
+ storageImporting=false;storageBackupPresent=storageRead(STORAGE_BACKUP_KEY)!==null;
  if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
  storageInvalidate();render();return true;
 }
