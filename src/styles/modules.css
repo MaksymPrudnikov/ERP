@@ -276,6 +276,12 @@ svg.shape-mini.mirrored path{stroke:#a86c13;fill:rgba(214,124,22,.08)}
 .shape-mi-prod-dims.active line:not(.shape-dim-hit){stroke:#7f56d9!important}
 .shape-mi-prod-dims.active text{fill:#5925dc!important}
 .shape-dim-ghost{cursor:pointer}
+/* Ручная раскладка подписей чертежа: подпись тянется мышью, выделенная
+   подсвечена. На печать подсветка не попадает — там нет интерактивного слоя. */
+.shape-layout-item{cursor:move;touch-action:none}
+.shape-layout-item:hover{filter:drop-shadow(0 0 1.5px rgba(21,112,239,.7))}
+.shape-layout-item.active,.shape-layout-item.dragging{filter:drop-shadow(0 0 2px #1570ef) drop-shadow(0 0 1px #1570ef)}
+.shape-layout-leader{pointer-events:none}
 .shape-dim-ghost circle{fill:#fff;stroke:#98a2b3;stroke-width:1.2;stroke-dasharray:2.5 2.5}
 .shape-dim-ghost text{fill:#667085;font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace}
 .shape-dim-menu>rect{fill:#101828!important;stroke:none!important;opacity:1}

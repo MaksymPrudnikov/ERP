@@ -26,8 +26,8 @@ function shapeLabelBg(x,y,txt,size,transform){
   var w=String(txt).length*size*.6+6,h=size*1.15;
   return '<rect class="shape-ann-bg" x="'+(x-w/2).toFixed(1)+'" y="'+(y-size*.85).toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="#fff" stroke="none"'+(transform?' transform="'+transform+'"':'')+'/>';
 }
-function shapeDimH(x1,x2,y,label,color){color=color||'#344054';return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/><text x="'+((x1+x2)/2)+'" y="'+(y-8)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';}
-function shapeDimV(x,y1,y2,label,color){color=color||'#344054';var cy=(y1+y2)/2;return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/><text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';}
+function shapeDimH(x1,x2,y,label,color,opts,key){color=color||'#344054';var mid=(x1+x2)/2,text='<text x="'+mid+'" y="'+(y-8)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="'+color+'">'+shapeXml(label)+'</text>';var hid=shapeAnnDimHidden(opts,key);if(hid)return shapeAnnItem(opts,hid,text,mid,y-14);return shapeAnnLineItem(opts,key,'<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+color+'"/><path d="M '+x1+' '+y+' l 7 -4 v 8 z M '+x2+' '+y+' l -7 -4 v 8 z" fill="'+color+'"/><line x1="'+x1+'" y1="'+(y-5)+'" x2="'+x1+'" y2="'+(y+5)+'" stroke="'+color+'"/><line x1="'+x2+'" y1="'+(y-5)+'" x2="'+x2+'" y2="'+(y+5)+'" stroke="'+color+'"/>'+shapeAnnItem(opts,key,text,mid,y-14,{from:[mid,y],axis:'dim'}),x1,x2,y,'h');}
+function shapeDimV(x,y1,y2,label,color,opts,key){color=color||'#344054';var cy=(y1+y2)/2,text='<text x="'+(x-10)+'" y="'+cy+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="'+color+'" transform="rotate(-90 '+(x-10)+' '+cy+')">'+shapeXml(label)+'</text>';var hid=shapeAnnDimHidden(opts,key);if(hid)return shapeAnnItem(opts,hid,text,x-16,cy);return shapeAnnLineItem(opts,key,'<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+color+'"/><path d="M '+x+' '+y1+' l -4 7 h 8 z M '+x+' '+y2+' l -4 -7 h 8 z" fill="'+color+'"/><line x1="'+(x-5)+'" y1="'+y1+'" x2="'+(x+5)+'" y2="'+y1+'" stroke="'+color+'"/><line x1="'+(x-5)+'" y1="'+y2+'" x2="'+(x+5)+'" y2="'+y2+'" stroke="'+color+'"/>'+shapeAnnItem(opts,key,text,x-16,cy,{from:[x,cy],axis:'dim'}),y1,y2,x,'v');}
 /* Parallelogram OOS is a production measurement, not only an editor input.
    Show it at both displaced ends, inset into the drawing frame so the marks do
    not hang outside the shape preview: Right = top-left + bottom-right, Left
@@ -61,7 +61,7 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
     y+=sign*shapeAnnUiShift(opts,key);y=Math.max(box.top,Math.min(box.bottom,y));var mid=(x1+x2)/2,span=Math.abs(x2-x1),dim='';
     if(span>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
     else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickH(mid,y);
-    dim+=shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700});
+    dim+=metricMode?shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}):shapeAnnItem(opts,key+':label',shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}),mid,y-14,{from:[mid,y],vw:F&&F.vw});
     var body='<g class="shape-para-oos-dimension horizontal" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+x1+'" y1="'+fromY+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+x2+'" y1="'+fromY+'" x2="'+x2+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
     return shapeAnnUiWrap(opts,key,body,mid,y-28,F);
   }
@@ -69,7 +69,7 @@ function shapeParallelogramOosSvg(result,F,L,opts,metricMode){
     x+=sign*shapeAnnUiShift(opts,key);x=Math.max(box.left,Math.min(box.right,x));var mid=(y1+y2)/2,span=Math.abs(y2-y1),dim='';
     if(span>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
     else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1"/>'+shapeAnnTickV(x,mid);
-    dim+=shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90});
+    dim+=metricMode?shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}):shapeAnnItem(opts,key+':label',shapeAnnText(x-10,mid,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}),x-16,mid,{from:[x,mid],vw:F&&F.vw});
     var body='<g class="shape-para-oos-dimension vertical" data-oos-role="value" data-oos-position="'+pos+'" data-oos-value="'+shapeXml(q.outOfSquare)+'" data-units="'+units+'"><line x1="'+fromX+'" y1="'+y1+'" x2="'+x+'" y2="'+y1+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+fromX+'" y1="'+y2+'" x2="'+x+'" y2="'+y2+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+'</g>';
     return shapeAnnUiWrap(opts,key,body,x-28,mid,F);
   }
@@ -116,19 +116,21 @@ function shapeRakedDifferenceSvg(result,F,L,opts,metricMode){
         ?'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+SP[0]+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>'
         :'<line class="shape-raked-datum" x1="'+LP[0]+'" y1="'+LP[1]+'" x2="'+LP[0]+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".9" stroke-dasharray="7 5"/>',
       body,dim,cx,cy;
+  function shapeRakedLabel(text,lx,ly,from){return metricMode?text:shapeAnnItem(opts,'raked:diff',text,lx,ly,{from:from,vw:F&&F.vw});}
+  if(!metricMode&&shapeLayoutHidden(opts,'raked:diff')){var gx=(LP[0]+SP[0])/2,gy=(LP[1]+SP[1])/2;return shapeAnnItem(opts,'raked:diff',shapeAnnText(gx,gy,label,{size:SHAPE_NOTE_FONT,weight:700}),gx,gy);}
   if(axis){
     var inX=SP[0]<=(box.left+box.right)/2?1:-1,x=Math.max(box.left,Math.min(box.right,SP[0]+inX*shift)),
         y1=Math.min(LP[1],SP[1]),y2=Math.max(LP[1],SP[1]),mid=(y1+y2)/2;
     if(y2-y1>=.5)dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2);
     else dim='<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickV(x,mid);
-    body=head+datum+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90})+'</g>';
+    body=head+datum+'<line x1="'+(x+inX*lead)+'" y1="'+LP[1]+'" x2="'+x+'" y2="'+LP[1]+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+x+'" y2="'+SP[1]+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeRakedLabel(shapeAnnText(x+inX*11,mid,label,{size:SHAPE_NOTE_FONT,weight:700,rot:-90}),x+inX*5,mid,[x,mid])+'</g>';
     cx=x+inX*28;cy=mid;
   }else{
     var inY=SP[1]<=(box.top+box.bottom)/2?1:-1,y=Math.max(box.top,Math.min(box.bottom,SP[1]+inY*shift)),
         x1=Math.min(LP[0],SP[0]),x2=Math.max(LP[0],SP[0]),midX=(x1+x2)/2;
     if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
     else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(midX,y);
-    body=head+datum+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
+    body=head+datum+'<line x1="'+LP[0]+'" y1="'+(y+inY*lead)+'" x2="'+LP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/><line x1="'+SP[0]+'" y1="'+SP[1]+'" x2="'+SP[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeRakedLabel(shapeAnnText(midX,y+(inY>0?15:-9),label,{size:SHAPE_NOTE_FONT,weight:700}),midX,y+(inY>0?9:-15),[midX,y])+'</g>';
     cx=midX;cy=y+inY*28;
   }
   return '<g class="shape-raked-difference-layer" aria-label="'+(sideways?'Width':'Height')+' difference '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,cx,cy,F)+'</g>';
@@ -152,7 +154,7 @@ function shapeTriangleOffsetSvg(result,F,L,opts,metricMode){
       x1=Math.min(bl[0],apex[0]),x2=Math.max(bl[0],apex[0]),mid=(x1+x2)/2,dim;
   if(x2-x1>=.5)dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y);
   else dim='<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+ink+'" stroke-width="1"/>'+shapeAnnTickH(mid,y);
-  var body='<g class="shape-tri-offset" data-tri-role="offset" data-tri-value="'+shapeXml(q.topOffset)+'" data-units="'+units+'"><line x1="'+bl[0]+'" y1="'+bl[1]+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8" stroke-dasharray="6 4"/><line x1="'+apex[0]+'" y1="'+apex[1]+'" x2="'+apex[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700})+'</g>';
+  var body='<g class="shape-tri-offset" data-tri-role="offset" data-tri-value="'+shapeXml(q.topOffset)+'" data-units="'+units+'"><line x1="'+bl[0]+'" y1="'+bl[1]+'" x2="'+x1+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8" stroke-dasharray="6 4"/><line x1="'+apex[0]+'" y1="'+apex[1]+'" x2="'+apex[0]+'" y2="'+y+'" stroke="'+ref+'" stroke-width=".8"/>'+dim+(metricMode?shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700}):shapeAnnItem(opts,'tri:offset',shapeAnnText(mid,y+15,label,{size:SHAPE_NOTE_FONT,weight:700}),mid,y+9,{from:[mid,y],vw:F&&F.vw}))+'</g>';
   return '<g class="shape-tri-offset-layer" aria-label="Top offset '+shapeXml(label)+' '+units+'">'+shapeAnnUiWrap(opts,key,body,mid,y+28,F)+'</g>';
 }
 /* Фигуры, у которых свои размеры рёбер стоят в том же коридоре, что и
@@ -453,7 +455,8 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
       var dn=[n[0],-n[1]],shift=shapeAnnUiShift(layoutOpts,moveKey),dimOff=Math.max(18,sideBase(key)+lane*16+shift);
       var mx=(a[0]+b[0])/2,my=(a[1]+b[1])/2,dimLead=dimOff+14,dimX=mx+dn[0]*dimLead,dimY=my+dn[1]*dimLead;
       var dimAng=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(dimAng>90)dimAng-=180;if(dimAng<-90)dimAng+=180;
-      var dimBody='<g class="shape-inch-edge-dimension" data-edge-id="'+shapeXml(g.id)+'">'+shapeMetricEdgeDimSvg(a,b,dn[0],dn[1],dimOff,'#344054',true)+shapeLabelBg(dimX,dimY+6,named+shapeDrawingDim(g.length),SHAPE_DIM_FONT,'rotate('+dimAng+' '+dimX+' '+dimY+')')+'<text class="shape-inch-edge-length" data-edge-id="'+shapeXml(g.id)+'" x="'+dimX+'" y="'+(dimY+6)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+dimX+' '+dimY+')">'+shapeXml(named+shapeDrawingDim(g.length))+'</text></g>';
+      var lenKey='edge:'+g.id,lenText=shapeLabelBg(dimX,dimY+6,named+shapeDrawingDim(g.length),SHAPE_DIM_FONT,'rotate('+dimAng+' '+dimX+' '+dimY+')')+'<text class="shape-inch-edge-length" data-edge-id="'+shapeXml(g.id)+'" x="'+dimX+'" y="'+(dimY+6)+'" text-anchor="middle" font-size="'+SHAPE_DIM_FONT+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+dimX+' '+dimY+')">'+shapeXml(named+shapeDrawingDim(g.length))+'</text>';
+      var dimBody=shapeLayoutHidden(layoutOpts,lenKey)?shapeAnnItem(layoutOpts,lenKey,lenText,dimX,dimY):'<g class="shape-inch-edge-dimension" data-edge-id="'+shapeXml(g.id)+'">'+shapeMetricEdgeDimSvg(a,b,dn[0],dn[1],dimOff,'#344054',true)+shapeAnnItem(layoutOpts,lenKey,lenText,dimX,dimY,{from:[(a[0]+b[0])/2+dn[0]*dimOff,(a[1]+b[1])/2+dn[1]*dimOff],axis:'dim',vw:F.vw})+'</g>';
       /* Осевая сторона во всю ширину или высоту детали уже даёт габарит:
          общий размер рядом повторял бы её («A 48» и «48»). */
       if(Math.abs(dimAng)<1&&Math.abs(g.length-F.W)<1/32)ext.fullW=true;
@@ -461,7 +464,7 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
       out+=shapeAnnUiWrap(layoutOpts,moveKey,dimBody,dimX,dimY+27,F);track(dimX,dimY,named+shapeDrawingDim(g.length),dimAng,SHAPE_DIM_FONT);
       if(ops.length){
         var opOff=14,opX=mx+dn[0]*opOff,opY=my+dn[1]*opOff;
-        out+='<text class="shape-edge-label-outside shape-edge-operation-label" data-edge-id="'+shapeXml(g.id)+'" x="'+opX+'" y="'+(opY+4.5)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+opX+' '+opY+')">'+shapeXml(ops.join(' + '))+'</text>';
+        out+=shapeAnnItem(layoutOpts,'op:'+g.id,'<text class="shape-edge-label-outside shape-edge-operation-label" data-edge-id="'+shapeXml(g.id)+'" x="'+opX+'" y="'+(opY+4.5)+'" text-anchor="middle" font-size="12" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+dimAng+' '+opX+' '+opY+')">'+shapeXml(ops.join(' + '))+'</text>',opX,opY,{from:[mx,my],vw:F.vw});
       }
       return;
     }
@@ -470,7 +473,9 @@ function shapeEdgeLabelsSvg(result,F,layer,metricMode,layoutOpts,metricClean,ext
     var ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;
     if(ang>90)ang-=180;if(ang<-90)ang+=180;
     var body=(metricMode?'':shapeLabelBg(x,y,txt,SHAPE_DIM_FONT,'rotate('+ang+' '+x+' '+y+')'))+'<text class="shape-edge-label-outside" data-edge-id="'+shapeXml(g.id)+'" x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+(metricMode?9:SHAPE_DIM_FONT)+'" font-weight="700" fill="#344054" stroke="#fff" stroke-width="4" paint-order="stroke fill" transform="rotate('+ang+' '+x+' '+y+')">'+shapeXml(txt)+'</text>';
-    out+=operationsOnly||metricMode?body:shapeAnnUiWrap(layoutOpts,moveKey,body,x,y+27,F);if(!metricMode)track(x,y-SHAPE_DIM_FONT*.35,txt,ang,SHAPE_DIM_FONT);
+    /* Подпись ребра (FP, длина с обработкой) двигается мышью; старый сдвиг
+       −/+ остаётся в расчёте места. */
+    out+=metricMode?body:shapeAnnItem(layoutOpts,(operationsOnly?'op:':'edge:')+g.id,body,x,y-SHAPE_DIM_FONT*.35,{from:[ax,ay],vw:F.vw});if(!metricMode)track(x,y-SHAPE_DIM_FONT*.35,txt,ang,SHAPE_DIM_FONT);
   });return out;
 }
 function shapeProductionFeaturesSvg(result,F){
@@ -483,7 +488,7 @@ function shapeProductionFeaturesSvg(result,F){
 }
 /* The radius is a feature of the finished contour, not the length of its
    sampled arc.  Place one R callout at the displayed arc for every fillet. */
-function shapeRadiusCalloutsSvg(result,L){
+function shapeRadiusCalloutsSvg(result,L,opts){
   var meta=result.geometry&&result.geometry.radiusMeta||{},edges=result.geometry&&result.geometry.edges||[],out='',box=L.box,cx=(box.left+box.right)/2,cy=(box.top+box.bottom)/2;
   Object.keys(meta).forEach(function(id){
     var arc=edges.filter(function(e){return e.id===id;}),m=meta[id];if(!arc.length)return;
@@ -492,7 +497,9 @@ function shapeRadiusCalloutsSvg(result,L){
     /* The lower-left Smart corner also carries the short bottom-skew note.
        Give the radius its own space below that note and its white halo. */
     if(L.smart&&px<cx&&py>cy){tx-=18;ty+=18;}
-    out+='<g class="shape-radius-callout" data-radius-vertex="'+shapeXml(m.vertexId)+'"><line x1="'+px+'" y1="'+py+'" x2="'+(tx-dx/len*8)+'" y2="'+(ty-dy/len*8)+'" stroke="#344054" stroke-width="1"/>'+shapeAnnText(tx,ty-4,label,{size:SHAPE_NOTE_FONT,weight:700,halo:4})+'</g>';
+    /* Отодвинутое R тянет выноску за собой: от дуги к новому месту. */
+    var rKey='radius:'+id,moved=shapeLayoutMoved(opts,rKey);
+    out+='<g class="shape-radius-callout" data-radius-vertex="'+shapeXml(m.vertexId)+'">'+(moved||shapeLayoutHidden(opts,rKey)?'':'<line x1="'+px+'" y1="'+py+'" x2="'+(tx-dx/len*8)+'" y2="'+(ty-dy/len*8)+'" stroke="#344054" stroke-width="1"/>')+shapeAnnItem(opts,rKey,shapeAnnText(tx,ty-4,label,{size:SHAPE_NOTE_FONT,weight:700,halo:4}),tx,ty-10,{from:moved?[px,py]:null})+'</g>';
   });
   return out;
 }
@@ -548,6 +555,9 @@ function shapeProductionSvg(result,opts){
   /* Лист печати несёт СВОЮ шапку и свою подпись внизу: заголовок и сноска
      внутри чертежа стали бы вторым набором тех же сведений. */
   var sheet=!!opts.sheet,ann=Object.assign({},opts.annotation||{},{mono:sheet||!!opts.mono});
+  /* Ручная раскладка подписей приходит из самой формы — печать, станции и
+     другой компьютер видят то же, что редактор. */
+  if(!ann.layout)ann.layout=(result.definition&&result.definition.drawingLayout)||{};ann.vw=F.vw;
   var L=shapeAnnotationLayer(result,F,null,ann);
   var o='<rect width="'+F.vw+'" height="'+F.vh+'" fill="#fff"/>'+shapeAnnotationDefs()+(sheet?'':shapeTitleBlock(result,'PRODUCTION DRAWING',F));
   /* Белое поле и цветные рёбра — производственная договорённость чертежа:
@@ -569,20 +579,20 @@ function shapeProductionSvg(result,opts){
      числом рядом с той же цепочкой: снизу читалось «48» и тут же «48″», слева
      «1/4 + 36» и тут же «36 1/4″». Эталон общий габарит на чертеже не рисует
      вовсе — он читается из карточек Finished и Cut size под чертежом. */
-  var edgeExt={},edgeSvg=shapeEdgeLabelsSvg(result,F,L,!!F.metric,opts.annotation,metricClean,edgeExt);
+  var edgeExt={},edgeSvg=shapeEdgeLabelsSvg(result,F,L,!!F.metric,ann,metricClean,edgeExt);
   if(!L.smart&&result.definition.type!=='rectangle'&&!F.metric){
-    var annOpts=opts.annotation||{},wKey='inch:overall:width',hKey='inch:overall:height';
+    var annOpts=ann,wKey='inch:overall:width',hKey='inch:overall:height';
     /* Габарит — сразу за подписями сторон этой стороны (подпись ширины стоит
        над линией, между деталью и линией; подпись высоты — снаружи линии).
        Раньше 118 и 128 px запаса: деталь на листе выходила мелкой. */
     var wy=L.box.bottom+Math.max(34,edgeExt.B+36)+shapeAnnUiShift(annOpts,wKey),hx=L.box.left-Math.max(24,edgeExt.L+14)-shapeAnnUiShift(annOpts,hKey);
-    if(!edgeExt.fullW)o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W)),(L.box.left+L.box.right)/2,wy+28,F);
-    if(!edgeExt.fullH)o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H)),hx-58,(L.box.top+L.box.bottom)/2,F);
+    if(!edgeExt.fullW)o+=shapeAnnUiWrap(annOpts,wKey,shapeDimH(L.box.left,L.box.right,wy,shapeDrawingDim(F.W),null,annOpts,'overall:width'),(L.box.left+L.box.right)/2,wy+28,F);
+    if(!edgeExt.fullH)o+=shapeAnnUiWrap(annOpts,hKey,shapeDimV(hx,L.box.top,L.box.bottom,shapeDrawingDim(F.H),null,annOpts,'overall:height'),hx-58,(L.box.top+L.box.bottom)/2,F);
   }
   /* Feature callouts go down first; edgework labels remain the top layer and
      can never be hidden by a centered Sandblast note. */
   /* Metric detail already owns its R-in-mm callout. */
-  o+=shapeProductionFeaturesSvg(result,F)+edgeSvg+(F.metric?'':shapeRadiusCalloutsSvg(result,L));
+  o+=shapeProductionFeaturesSvg(result,F)+edgeSvg+(F.metric?'':shapeRadiusCalloutsSvg(result,L,ann));
   if(!sheet)o+='<text x="24" y="'+(F.vh-16)+'" font-size="10" fill="#667085">'+(F.metric?'Finished dimensions in mm and inches · feature callouts in inches':'Finished geometry · dimensions in inches · skew shown exaggerated for readability, printed dimensions are true')+'</text>';
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+F.vw+' '+F.vh+'" aria-label="Production Drawing">'+o+'</svg>';
 }

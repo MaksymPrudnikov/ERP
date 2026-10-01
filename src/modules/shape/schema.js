@@ -244,6 +244,28 @@ function shapeNormalizeDims(raw){
   });
   return out;
 }
+/* ---------- Ручная раскладка подписей ----------
+   Владелец, 1 октября 2026: любую подпись чертежа можно сдвинуть, увеличить,
+   уменьшить и скрыть. Как и `dims`, это оформление листа, а не геометрия, и
+   в отпечаток ревизии не входит. Ключ — подпись (`chain:bottom:A`, `op:B`,
+   `radius:R:BL`, `feat:<id>`…), запись — {dx, dy, scale, hide, off}: dx/dy —
+   сдвиг подписи в точках листа от автоматического места, scale — её размер,
+   off — прежний шаг −/+ для целой цепочки. */
+const SHAPE_LAYOUT_OFF_MAX=400,SHAPE_LAYOUT_SCALE_MIN=.6,SHAPE_LAYOUT_SCALE_MAX=2,SHAPE_LAYOUT_KEY_RE=/^[A-Za-z0-9_:.~|-]{1,120}$/;
+function shapeNormalizeDrawingLayout(raw){
+  var out={},src=shapePlainObject(raw);
+  Object.keys(src).slice(0,500).forEach(function(key){
+    if(!SHAPE_LAYOUT_KEY_RE.test(key))return;
+    var a=shapePlainObject(src[key]),rec={},dx=Math.round(+a.dx||0),dy=Math.round(+a.dy||0),sc=Math.round((+a.scale||1)*10)/10,off=Math.round(+a.off||0);
+    if(isFinite(dx)&&dx)rec.dx=Math.max(-SHAPE_LAYOUT_OFF_MAX,Math.min(SHAPE_LAYOUT_OFF_MAX,dx));
+    if(isFinite(dy)&&dy)rec.dy=Math.max(-SHAPE_LAYOUT_OFF_MAX,Math.min(SHAPE_LAYOUT_OFF_MAX,dy));
+    if(isFinite(sc)&&sc!==1)rec.scale=Math.max(SHAPE_LAYOUT_SCALE_MIN,Math.min(SHAPE_LAYOUT_SCALE_MAX,sc));
+    if(a.hide===true)rec.hide=true;
+    if(isFinite(off)&&off)rec.off=Math.max(-4,Math.min(8,off));
+    if(Object.keys(rec).length)out[key]=rec;
+  });
+  return out;
+}
 function shapeDimRec(def,id,axis){
   var all=(def&&def.dims)||{},entry=all[String(id)]||{};
   return entry[axis]||{};
@@ -409,6 +431,7 @@ function normalizeShapeDef(s){
     lites:shapeNormalizeLiteSpecs(s.lites),
     /* Оформление размеров на чертеже. В отпечаток ревизии не входит. */
     dims:shapeNormalizeDims(s.dims),
+    drawingLayout:shapeNormalizeDrawingLayout(s.drawingLayout),
     smart:ssNormalize(s.smart||{}),features:(Array.isArray(s.features)?s.features:[]).map(shapeNormalizeFeature),edgeOps:ops,
     manufacturingItems:shapeNormalizeManufacturingItems(s.manufacturingItems),
     source:source,schemaVersion:2,revision:Math.max(0,Math.floor(+s.revision||0)),status:s.status==='released'?'released':'draft'

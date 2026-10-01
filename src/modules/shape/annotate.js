@@ -43,7 +43,7 @@ function shapeAnnText(x,y,txt,o){
 /* Экранное оформление дюймовых размеров. Смещение хранится отдельно от
    Shape definition и в машинные данные не попадает; в печать приходит только
    итоговая позиция, без кнопок интерфейса. */
-function shapeAnnUiShift(opts,key){var n=opts&&opts.offsets?+(opts.offsets[key]||0):0;return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
+function shapeAnnUiShift(opts,key){var rec=shapeLayoutRec(opts,key),n=rec.off!=null?+rec.off:(opts&&opts.offsets?+(opts.offsets[key]||0):0);return Math.max(-4,Math.min(8,isFinite(n)?n:0))*8;}
 function shapeAnnUiMenu(opts,key,cx,cy,F){
   if(!opts||!opts.interactive||opts.selectedKey!==key)return '';
   var x=Math.max(34,Math.min((F&&F.vw||960)-34,cx)),w=24,h=20,x0=x-w;
@@ -52,6 +52,62 @@ function shapeAnnUiMenu(opts,key,cx,cy,F){
 function shapeAnnUiWrap(opts,key,body,cx,cy,F){
   if(!opts||!opts.interactive)return body;
   return '<g class="shape-inch-primary-movable'+(opts.selectedKey===key?' active':'')+'" data-inch-primary-key="'+shapeXml(key)+'" onclick="event.stopPropagation();shapeSelectMetricLabel(\''+shapeXml(key)+'\')"><title>Move inch dimension · − / +</title>'+body+'</g>'+shapeAnnUiMenu(opts,key,cx,cy,F);
+}
+/* ---------- ручная раскладка подписей ----------
+   Владелец, 1 октября 2026: любую подпись чертежа — число цепочки, обработку
+   кромки, R, уклон, название фурнитуры — можно сдвинуть мышью, увеличить,
+   уменьшить и скрыть. Раскладка живёт в def.drawingLayout и в отпечаток формы
+   не входит: подвинутое число не делает строки заказов устаревшими.
+   Сдвиг считается от автоматического места, поэтому печатный лист и
+   пересчитанный контур сохраняют ручную поправку. Двигается подпись, линия
+   размера остаётся на своём месте; отведённая далеко подпись получает тонкую
+   выноску к своей линии. Скрытое число убирает и сам размер. */
+var SHAPE_LAYOUT_TEXT={};
+function shapeLayoutRec(opts,key){var m=opts&&opts.layout;return (key&&m&&m[key])||{};}
+function shapeLayoutMoved(opts,key){var r=shapeLayoutRec(opts,key);return !!(r.dx||r.dy);}
+function shapeLayoutHidden(opts,key){return shapeLayoutRec(opts,key).hide===true;}
+function shapeLayoutTransform(dx,dy,s,ax,ay){
+  var t=(dx||dy)?'translate('+dx+' '+dy+')':'';
+  if(s&&s!==1)t+=(t?' ':'')+'translate('+ax+' '+ay+') scale('+s+') translate('+(-ax)+' '+(-ay)+')';
+  return t;
+}
+function shapeLayoutPlain(svg){return String(svg).replace(/<title>[\s\S]*?<\/title>/g,'').replace(/<[^>]+>/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();}
+function shapeLayoutMenuSvg(key,cx,cy,vw,o){
+  o=o||{};var k=shapeXml(key),btn=(o.noScale?[]:[['A−','shapeLayoutScale(\''+k+'\',-1)',28],['A+','shapeLayoutScale(\''+k+'\',1)',28]]).concat([['Hide','shapeLayoutHide(\''+k+'\')',40],['Reset','shapeLayoutReset(\''+k+'\')',44]]);
+  /* Линия цепочки: −/+ по-прежнему двигают всю цепочку разом. */
+  if(o.chainKey){var ck=shapeXml(o.chainKey);btn.push(['Chain −','shapeNudgeMetricLabel(\''+ck+'\',-1)',56],['Chain +','shapeNudgeMetricLabel(\''+ck+'\',1)',56]);}
+  var total=btn.reduce(function(n,b){return n+b[2];},0),h=20,x=Math.max(total/2+6,Math.min((vw||960)-total/2-6,cx)),x0=x-total/2,run=0;
+  return '<g class="shape-dim-menu shape-layout-menu" onclick="event.stopPropagation()"><rect x="'+(x0-4)+'" y="'+(cy-h/2-4)+'" width="'+(total+8)+'" height="'+(h+8)+'" rx="7"/>'+btn.map(function(b){
+    var bx=x0+run;run+=b[2];
+    return '<g class="shape-dim-btn" onclick="event.stopPropagation();'+b[1]+'"><rect x="'+bx+'" y="'+(cy-h/2)+'" width="'+b[2]+'" height="'+h+'" rx="4"/><text x="'+(bx+b[2]/2)+'" y="'+(cy+4)+'" text-anchor="middle">'+b[0]+'</text></g>';
+  }).join('')+'</g>';
+}
+/* label — SVG подписи; (ax, ay) — её центр; o.from — точка линии, к которой
+   подпись относится (для выноски); o.axis 'dim' — число размера: мышь ведёт
+   его только вдоль или поперёк линии. */
+function shapeAnnItem(opts,key,label,ax,ay,o){
+  o=o||{};if(!label)return '';
+  if(!key||!opts)return label;
+  var rec=shapeLayoutRec(opts,key),ui=!!opts.interactive,k=shapeXml(key);
+  SHAPE_LAYOUT_TEXT[key]=shapeLayoutPlain(label).slice(0,40);
+  ax=Math.round(ax*10)/10;ay=Math.round(ay*10)/10;
+  if(rec.hide===true){
+    if(!ui)return '';
+    return '<g class="shape-dim-ghost shape-layout-ghost" data-layout-key="'+k+'" onclick="event.stopPropagation();shapeLayoutShow(\''+k+'\')"><title>Show '+shapeXml(SHAPE_LAYOUT_TEXT[key])+'</title><circle cx="'+ax+'" cy="'+ay+'" r="7"/><text x="'+ax+'" y="'+(ay+3.5)+'" text-anchor="middle">+</text></g>';
+  }
+  var dx=+rec.dx||0,dy=+rec.dy||0,sc=o.noScale?1:(+rec.scale||1),tf=shapeLayoutTransform(dx,dy,sc,ax,ay),out='';
+  if(o.from&&Math.hypot(dx,dy)>12)out+='<line class="shape-layout-leader" x1="'+o.from[0]+'" y1="'+o.from[1]+'" x2="'+(ax+dx)+'" y2="'+(ay+dy)+'" stroke="#98a2b3" stroke-width=".8"/>';
+  var sel=ui&&opts.layoutSelected===key;
+  var attrs='class="shape-layout-item'+(sel?' active':'')+'" data-layout-key="'+k+'"'+(tf?' transform="'+tf+'"':'')+
+    (ui?' data-layout-ax="'+ax+'" data-layout-ay="'+ay+'" data-layout-dx="'+dx+'" data-layout-dy="'+dy+'" data-layout-s="'+sc+'" data-layout-axis="'+(o.axis||'free')+'" onpointerdown="shapeLayoutPointerDown(event,this)" onclick="event.stopPropagation()"':'');
+  /* Одиночная подпись без своего transform и class получает атрибуты прямо на
+     <text>: так подпись фурнитуры остаётся прямым потомком метки, и её стили
+     (кегль отверстия) не меняются. */
+  var head=label.slice(0,label.indexOf('>'));
+  if(o.inline&&/^<text\b/.test(label)&&!/\b(?:transform|class)=/.test(head)&&label.indexOf('<text',1)<0)out+=label.replace(/^<text\b/,'<text '+attrs);
+  else out+='<g '+attrs+'>'+label+'</g>';
+  if(sel)out+=shapeLayoutMenuSvg(key,ax+dx,ay+dy+(o.menuGap||30)*sc,o.vw||opts.vw,o);
+  return out;
 }
 /* ---------- раскладка подписей без наложений ----------
    Подпись рисуется с белой обводкой, поэтому наложение не «сливается», а
@@ -87,19 +143,21 @@ function shapeAnnFree(b,skipContour){
     if(b.x1<o.x2&&b.x2>o.x1&&b.y1<o.y2&&b.y2>o.y1)return false;}
   return true;
 }
-function shapeAnnPlace(x,y,txt,o,step){
+function shapeAnnPlaceAt(x,y,txt,o,step){
   o=o||{};step=step||[0,-1];
   var d=(o.size||11)+2;
   for(var k=0;k<16;k++){
     var px=x+step[0]*k*d,py=y+step[1]*k*d,b=shapeAnnBoxOf(px,py,txt,o);
-    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return shapeAnnText(px,py,txt,o);}
+    if(shapeAnnFree(b)){SS_ANN_BOXES.push(b);return {svg:shapeAnnText(px,py,txt,o),x:px,y:py};}
   }
-  return shapeAnnText(x,y,txt,o);
+  return {svg:shapeAnnText(x,y,txt,o),x:x,y:y};
 }
+function shapeAnnPlace(x,y,txt,o,step){return shapeAnnPlaceAt(x,y,txt,o,step).svg;}
 /* Выноска уклона — единый блок из двух строк: величина и под ней угол. Место
    ищется сразу под обе, иначе угол уезжал от своего числа и приклеивался
    к чужому. */
-function shapeAnnPlace2(x,y,l1,l2,o,step){
+function shapeAnnPlace2(x,y,l1,l2,o,step){return shapeAnnPlace2At(x,y,l1,l2,o,step).svg;}
+function shapeAnnPlace2At(x,y,l1,l2,o,step){
   o=o||{};step=step||[0,-1];
   var d=(o.size||11)+2,gap=(o.size||11)+6;
   /* Блок из двух строк растёт ВНИЗ. Вынесенный вверх, он возвращался бы к линии
@@ -116,10 +174,10 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
         b1=shapeAnnBoxOf(px,py,l1,o),b2=l2?shapeAnnBoxOf(px,py+gap,l2,o):null;
     if(shapeAnnFree(b1,skip)&&(!b2||shapeAnnFree(b2,skip))){
       SS_ANN_BOXES.push(b1);if(b2)SS_ANN_BOXES.push(b2);
-      return (skip?shapeAnnBg([b1,b2]):'')+shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):'');
+      return {svg:(skip?shapeAnnBg([b1,b2]):'')+shapeAnnText(px,py,l1,o)+(l2?shapeAnnText(px,py+gap,l2,o):''),x:px,y:py,gap:l2?gap:0};
     }
   }
-  return (skip?shapeAnnBg([shapeAnnBoxOf(x,y,l1,o),l2?shapeAnnBoxOf(x,y+gap,l2,o):null]):'')+shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):'');
+  return {svg:(skip?shapeAnnBg([shapeAnnBoxOf(x,y,l1,o),l2?shapeAnnBoxOf(x,y+gap,l2,o):null]):'')+shapeAnnText(x,y,l1,o)+(l2?shapeAnnText(x,y+gap,l2,o):''),x:x,y:y,gap:l2?gap:0};
 }
 /* Стоп-рыска на концах — то же оформление, что у размеров Cutout: видно, до
    какой ТОЧКИ размер, а не примерно куда смотрит остриё. Smart-Shape рисует свои
@@ -127,14 +185,33 @@ function shapeAnnPlace2(x,y,l1,l2,o,step){
    «голыми» стрелками, когда весь остальной лист уже перешёл на новые. */
 function shapeAnnTickH(x,y){return '<line x1="'+x+'" y1="'+(y-5)+'" x2="'+x+'" y2="'+(y+5)+'" stroke="#101828" stroke-width="1"/>';}
 function shapeAnnTickV(x,y){return '<line x1="'+(x-5)+'" y1="'+y+'" x2="'+(x+5)+'" y2="'+y+'" stroke="#101828" stroke-width="1"/>';}
-function shapeAnnDimH(x1,x2,y,label){
-  if(Math.abs(x2-x1)<0.5)return '';
-  return '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y)+shapeAnnPlace((x1+x2)/2,y-8,label,{size:SHAPE_DIM_FONT,weight:700},[0,-1]);
+/* Линия размера двигается целиком (с числом) и только поперёк себя: так её
+   нельзя поставить криво. От старого места к новому идут тонкие выносные
+   линии — видно, что размер меряет. Ключ линии — ключ числа + '|line'. */
+function shapeAnnLineItem(opts,key,body,a,b,pos,dir,chainKey){
+  if(!key||!opts)return body;
+  var lk=key+'|line',r=shapeLayoutRec(opts,lk),off=dir==='h'?(+r.dy||0):(+r.dx||0),ext='',hit='';
+  if(off){var ref='#98a2b3';ext=dir==='h'
+    ?'<line class="shape-layout-leader" x1="'+a+'" y1="'+pos+'" x2="'+a+'" y2="'+(pos+off)+'" stroke="'+ref+'" stroke-width=".8"/><line class="shape-layout-leader" x1="'+b+'" y1="'+pos+'" x2="'+b+'" y2="'+(pos+off)+'" stroke="'+ref+'" stroke-width=".8"/>'
+    :'<line class="shape-layout-leader" x1="'+pos+'" y1="'+a+'" x2="'+(pos+off)+'" y2="'+a+'" stroke="'+ref+'" stroke-width=".8"/><line class="shape-layout-leader" x1="'+pos+'" y1="'+b+'" x2="'+(pos+off)+'" y2="'+b+'" stroke="'+ref+'" stroke-width=".8"/>';}
+  if(opts.interactive)hit=dir==='h'?'<line class="shape-layout-hit" x1="'+a+'" y1="'+pos+'" x2="'+b+'" y2="'+pos+'" stroke="transparent" stroke-width="10"/>':'<line class="shape-layout-hit" x1="'+pos+'" y1="'+a+'" x2="'+pos+'" y2="'+b+'" stroke="transparent" stroke-width="10"/>';
+  var cx=dir==='h'?(a+b)/2:pos,cy=dir==='h'?pos:(a+b)/2;
+  return ext+shapeAnnItem(opts,lk,hit+body,cx,cy,{axis:dir==='h'?'y':'x',noScale:true,menuGap:dir==='h'?26:0,chainKey:chainKey,vw:opts.vw});
 }
-function shapeAnnDimV(x,y1,y2,label){
+function shapeAnnDimHidden(opts,key){return shapeLayoutHidden(opts,key)?key:shapeLayoutHidden(opts,key&&key+'|line')?key+'|line':'';}
+function shapeAnnDimH(x1,x2,y,label,opts,key,chainKey){
+  if(Math.abs(x2-x1)<0.5)return '';
+  var mid=(x1+x2)/2,hid=shapeAnnDimHidden(opts,key);
+  if(hid)return shapeAnnItem(opts,hid,shapeAnnText(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700}),mid,y-14);
+  var p=shapeAnnPlaceAt(mid,y-8,label,{size:SHAPE_DIM_FONT,weight:700},[0,-1]);
+  return shapeAnnLineItem(opts,key,'<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickH(x1,y)+shapeAnnTickH(x2,y)+shapeAnnItem(opts,key,p.svg,p.x,p.y-SHAPE_DIM_FONT*.35,{from:[mid,y],axis:'dim'}),x1,x2,y,'h',chainKey);
+}
+function shapeAnnDimV(x,y1,y2,label,opts,key,chainKey){
   if(Math.abs(y2-y1)<0.5)return '';
-  var cy=(y1+y2)/2;
-  return '<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2)+shapeAnnPlace(x-11,cy,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90},[-1,0]);
+  var cy=(y1+y2)/2,hid=shapeAnnDimHidden(opts,key);
+  if(hid)return shapeAnnItem(opts,hid,shapeAnnText(x-11,cy,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90}),x-17,cy);
+  var p=shapeAnnPlaceAt(x-11,cy,label,{size:SHAPE_DIM_FONT,weight:700,rot:-90},[-1,0]);
+  return shapeAnnLineItem(opts,key,'<line x1="'+x+'" y1="'+y1+'" x2="'+x+'" y2="'+y2+'" stroke="#101828" stroke-width="1" marker-start="url(#shpArr)" marker-end="url(#shpArr)"/>'+shapeAnnTickV(x,y1)+shapeAnnTickV(x,y2)+shapeAnnItem(opts,key,p.svg,p.x-SHAPE_DIM_FONT*.35,p.y,{from:[x,cy],axis:'dim'}),y1,y2,x,'v',chainKey);
 }
 function shapeAnnEqP(a,b){return Math.abs(a[0]-b[0])<1e-7&&Math.abs(a[1]-b[1])<1e-7;}
 
@@ -468,6 +545,9 @@ function shapeAnnExtent(r,S,side,DP){
 }
 function shapeAnnChains(r,S,DP,box,opts,F){
   var out='';
+  /* Своё место у каждого числа цепочки: ключ по id участка, а не по номеру —
+     вставленный нотч не перепутает, какое число владелец отодвинул. */
+  function itemKeys(side,items){var seen={};return items.map(function(q){var base='chain:'+side+':'+q.id,n=seen[base]=(seen[base]||0)+1;return n>1?base+'~'+(n-1):base;});}
   function hChain(side,y){
     var ex=shapeAnnExtent(r,S,side,DP);if(!ex)return;
     var key='inch:chain:'+side,dir=side==='top'?-1:1;y+=dir*shapeAnnUiShift(opts,key);var chain='';
@@ -476,13 +556,13 @@ function shapeAnnChains(r,S,DP,box,opts,F){
     var allX=r.points.map(function(p){return p[0];}),engMin=Math.min.apply(null,allX),engMax=Math.max.apply(null,allX);
     var sideXs=[];shapeAnnChainSegments(r,S,side).forEach(function(e){sideXs.push(e.p1[0],e.p2[0]);});
     var lp=Math.max(0,Math.min.apply(null,sideXs)-engMin),rp=Math.max(0,engMax-Math.max.apply(null,sideXs));
-    var minSmall=22,cursor=ex.min,width=Math.max(1,ex.max-ex.min);
-    if(lp>1/64&&lp<=2+1e-8){var g1=Math.max(ex.min-box.left,minSmall);chain+=shapeAnnDimH(ex.min-g1,ex.min,y,shapeAnnDim(lp));}
+    var minSmall=22,cursor=ex.min,width=Math.max(1,ex.max-ex.min),keys=itemKeys(side,items);
+    if(lp>1/64&&lp<=2+1e-8){var g1=Math.max(ex.min-box.left,minSmall);chain+=shapeAnnDimH(ex.min-g1,ex.min,y,shapeAnnDim(lp),opts,'chain:'+side+':lead',key);}
     items.forEach(function(q,i){
       var w=(i===items.length-1)?(ex.max-cursor):width*q.v/total,nx=cursor+w;
-      chain+=shapeAnnDimH(cursor,nx,y,shapeAnnDim(q.v));cursor=nx;
+      chain+=shapeAnnDimH(cursor,nx,y,shapeAnnDim(q.v),opts,keys[i],key);cursor=nx;
     });
-    if(rp>1/64&&rp<=2+1e-8){var g2=Math.max(box.right-ex.max,minSmall);chain+=shapeAnnDimH(ex.max,ex.max+g2,y,shapeAnnDim(rp));}
+    if(rp>1/64&&rp<=2+1e-8){var g2=Math.max(box.right-ex.max,minSmall);chain+=shapeAnnDimH(ex.max,ex.max+g2,y,shapeAnnDim(rp),opts,'chain:'+side+':tail',key);}
     out+=shapeAnnUiWrap(opts,key,chain,(ex.min+ex.max)/2,y+dir*30,F);
   }
   function vChain(side,x){
@@ -494,13 +574,13 @@ function shapeAnnChains(r,S,DP,box,opts,F){
     var sideYs=[];shapeAnnChainSegments(r,S,side).forEach(function(e){sideYs.push(e.p1[1],e.p2[1]);});
     var bp=Math.max(0,Math.min.apply(null,sideYs)-engMin),tp=Math.max(0,engMax-Math.max.apply(null,sideYs));
     /* экранный Y перевёрнут: цепочка идёт снизу вверх */
-    var minSmall=22,cursor=ex.max,height=Math.max(1,ex.max-ex.min);
-    if(bp>1/64&&bp<=2+1e-8){var g1=Math.max(box.bottom-ex.max,minSmall);chain+=shapeAnnDimV(x,ex.max,ex.max+g1,shapeAnnDim(bp));}
+    var minSmall=22,cursor=ex.max,height=Math.max(1,ex.max-ex.min),keys=itemKeys(side,items);
+    if(bp>1/64&&bp<=2+1e-8){var g1=Math.max(box.bottom-ex.max,minSmall);chain+=shapeAnnDimV(x,ex.max,ex.max+g1,shapeAnnDim(bp),opts,'chain:'+side+':lead',key);}
     items.forEach(function(q,i){
       var h=(i===items.length-1)?(cursor-ex.min):height*q.v/total,ny=cursor-h;
-      chain+=shapeAnnDimV(x,ny,cursor,shapeAnnDim(q.v));cursor=ny;
+      chain+=shapeAnnDimV(x,ny,cursor,shapeAnnDim(q.v),opts,keys[i],key);cursor=ny;
     });
-    if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);chain+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp));}
+    if(tp>1/64&&tp<=2+1e-8){var g2=Math.max(ex.min-box.top,minSmall);chain+=shapeAnnDimV(x,ex.min-g2,ex.min,shapeAnnDim(tp),opts,'chain:'+side+':tail',key);}
     out+=shapeAnnUiWrap(opts,key,chain,x+dir*62,(ex.min+ex.max)/2,F);
   }
   /* На печатном листе цепочки стоят ближе к детали: поле там одно, и пустые
@@ -570,10 +650,11 @@ function shapeAnnCallouts(r,S,DP,opts,F){
       }
       /* Угол печатается, только когда его есть смысл читать: при долях градуса
          скобки — шум, эталон их тоже не ставит. */
+      /* Старый сдвиг −/+ ещё читается; мышью уклон двигается свободно. */
       var key='inch:callout:'+g.id+':'+si,shift=shapeAnnUiShift(opts,key);x+=step[0]*shift;y+=step[1]*shift;
-      var body=shapeAnnPlace2(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
+      var p=shapeAnnPlace2At(x,y,shapeAnnDim(k.off),k.deg>=2?'('+k.deg.toFixed(1)+'°)':'',
         {size:SHAPE_NOTE_FONT,anchor:anchor,weight:600,overContour:true},step);
-      out+=shapeAnnUiWrap(opts,key,body,x+step[0]*32,y+step[1]*32,F);
+      out+=shapeAnnItem(opts,key,p.svg,p.x,p.y+p.gap/2-SHAPE_NOTE_FONT*.35,{from:far,vw:F&&F.vw});
     });
   });
   return out;
