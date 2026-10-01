@@ -2327,7 +2327,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='af37ab084e22';
+var ERP_BUILD='d405fe385f0f';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10029,7 +10029,14 @@ function normalizeSalesLaminatedFrit(raw,d){
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
 function salesRecommendedHeat(g){return glassNeedsFurnace(g)?'HT-FT':glassBannedFromFurnace(g)?'HT-AN':null;}
-function salesApplyRecommendedHeat(p,g){const heat=salesRecommendedHeat(g);if(heat){p.heatTreatmentId=heat;p.heatSoak=false;}}
+/* Каталог меняет закалку только при конфликте со стеклом: HS и FT + Heat Soak,
+   выбранные вручную, переживают смену толщины или производителя. */
+function salesApplyRecommendedHeat(p,g){
+ const heat=salesRecommendedHeat(g);if(!heat)return;
+ const ht=mdById('heatTreatment',p.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
+ if(heat==='HT-FT'?code==='FT'||code==='HS':code==='AN')return;
+ p.heatTreatmentId=heat;p.heatSoak=false;
+}
 function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
 /* Покрытие на плите ламината лежит либо на её открытой грани (номер
    поверхности пакета, как у фрита «Outside film»), либо к плёнке. Владелец,
@@ -27803,8 +27810,16 @@ function stationGlass(id,index,batches){
 /* Маршрут стекла — тот же, что печатается на стикере. Кэш по позиции:
    на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
 let stationRouteCache=new Map();
+/* Зафиксированные маршруты копятся месяцами, а табло спрашивает каждое
+   стекло: индекс по ключу пересобирается, только когда меняется список. */
+let stationFrozenIndex={list:null,size:-1,map:null};
+function stationFrozenRoute(key){
+ const list=DB.productionRoute||[];
+ if(stationFrozenIndex.list!==list||stationFrozenIndex.size!==list.length)stationFrozenIndex={list,size:list.length,map:new Map(list.map(x=>[x.key,x]))};
+ const x=key&&stationFrozenIndex.map.get(key);return x?x.route:null;
+}
 function stationRouteOf(g){
- const frozen=(DB.productionRoute||[]).find(x=>g.c&&x.key===g.c.key);if(frozen)return frozen.route;
+ const frozen=g.c&&stationFrozenRoute(g.c.key);if(frozen)return frozen;
  const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
@@ -27876,7 +27891,7 @@ function stationRecordCommand(station,check,who,opts){
  rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
  if(check.g&&check.g.c){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
-  if(!DB.productionRoute.some(x=>x.key===check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+  if(!stationFrozenRoute(check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
  }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
@@ -31203,6 +31218,18 @@ const STORAGE_BACKUP_KEY=STORAGE_KEY+'-before-import';
 let storageWriter=false,storageRelease=null,storageChannel=null,storageStarting=true;
 let storageWarningShown=false,storageLastError='',storageLastSaved='',storageBaseline=null,storageDepth=0;
 let storageRecovery=false,storageBackupAt='';
+/* The pre-import copy takes as much browser space as the database itself.
+   It is kept for a week and dropped earlier when an ordinary save would
+   otherwise fail for lack of space; a broken database keeps it untouched. */
+const STORAGE_BACKUP_DAYS=7;
+let storageBackupPresent=false,storageImporting=false;
+function storageBackupCheck(){
+ const raw=storageRead(STORAGE_BACKUP_KEY);storageBackupPresent=raw!==null;
+ if(!raw||!storageWriter||storageRecovery)return;
+ let at=NaN;try{at=Date.parse(JSON.parse(raw).exportedAt);}catch(e){}
+ if(!(Date.now()-at<=STORAGE_BACKUP_DAYS*864e5))storageBackupDrop();
+}
+function storageBackupDrop(){try{localStorage.removeItem(STORAGE_BACKUP_KEY);storageBackupPresent=false;}catch(e){}}
 function storageInvalidate(){
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
@@ -31228,7 +31255,9 @@ function touch(){
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
  try{
-  const text=JSON.stringify(DB);localStorage.setItem(STORAGE_KEY,text);
+  const text=JSON.stringify(DB);
+  try{localStorage.setItem(STORAGE_KEY,text);}
+  catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
   storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
@@ -31245,7 +31274,7 @@ function storageStatusHTML(){
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
   (!storageWriter?'<button type="button" onclick="storageTakeControl()">Activate editing here</button>':'')+
   (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
-  (storageRead(STORAGE_BACKUP_KEY)?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+  (storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
 }
 function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
@@ -31269,7 +31298,7 @@ async function storageTakeControl(){
    clearTimeout(timer);storageWriter=true;storageWarningShown=false;
    const text=localStorage.getItem(STORAGE_KEY);
    if(text&&text!==storageBaseline){if(!storageLiveReload(text)){storageRecovery=true;storageLastError='Stored data could not be read. Export the original and import a complete backup.';}storageBaseline=text;}
-   if(!storageRecovery)storageLastError='';render();resolve(true);
+   if(!storageRecovery)storageLastError='';storageBackupCheck();render();resolve(true);
    await new Promise(r=>storageRelease=r);
   }).catch(()=>{clearTimeout(timer);storageWriter=false;storageLastError='Editing is still open elsewhere. Save or discard any open draft in that tab, then try again.';render();resolve(false);});
  });
@@ -31280,7 +31309,7 @@ function storageStart(){
  };}catch(e){}
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot();storageStarting=false;render();return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
-  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);render();
+  storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);storageBackupCheck();render();
   if(lock)await new Promise(r=>storageRelease=r);
  }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
 }
@@ -31317,10 +31346,12 @@ function storageImportState(raw){
  const backup=JSON.stringify({format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:JSON.parse(old)});
  const recovering=storageRecovery;
  if(recovering){storageDownload('glazing_system_recovery.json',localStorage.getItem(STORAGE_KEY)||'');storageRecovery=false;}
+ storageImporting=true;
  const result=storageCommand(()=>{
-  localStorage.setItem(STORAGE_BACKUP_KEY,backup);if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
+  localStorage.setItem(STORAGE_BACKUP_KEY,backup);storageBackupPresent=true;if(localStorage.getItem(STORAGE_BACKUP_KEY)!==backup)throw new Error('The recovery copy could not be verified.');
   DB=next;return true;
  });
+ storageImporting=false;storageBackupPresent=storageRead(STORAGE_BACKUP_KEY)!==null;
  if(!result.ok){storageRecovery=recovering;alert(result.error);return false;}
  storageInvalidate();render();return true;
 }
