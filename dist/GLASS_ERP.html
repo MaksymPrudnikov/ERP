@@ -41,10 +41,12 @@
                  сам цвет, -soft (подложка) и -line (рамка)
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
-   Светлые островки (.gf-light и картинка листа svg.cut-svg) — чертёж,
-   раскрой, стикеры, печать — всегда в светлых значениях.
+   Светлые островки — бумага: .gf-light, лист чертежа .print-sheet, бланки
+   и чертежи Documents (.doc-sheet, .doc-drawing, .doc-thumb-paper), стикер
+   .stk-paper, миниатюра на станции .st-drawthumb-paper и картинка листа
+   svg.cut-svg — всегда в светлых значениях. Новая «бумага» — добавить сюда.
    ===================================================================== */
-:root,.gf-light,svg.cut-svg{
+:root,.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper,svg.cut-svg{
  --bg:#f5f7f7;--surface:#ffffff;--surface-2:#f8f9fa;--surface-3:#eef0f2;
  --line-soft:#eef0f2;--line:#e4e7ea;--line-strong:#cfd5da;
  --text:#14181c;--text-2:#4b5560;--text-3:#7b858f;--inverse:#1d2328;--on-solid:#ffffff;
@@ -55,6 +57,7 @@
  --violet:#6941c6;--violet-soft:#f3effc;--violet-line:#d6caf3;
  --shadow:0 1px 3px rgba(16,24,40,.05),0 1px 2px rgba(16,24,40,.03);
  --shadow-lg:0 12px 40px rgba(16,24,40,.12);
+ --edge-mix:100%;
  --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
  color-scheme:light;
 }
@@ -69,13 +72,14 @@
  --violet:#9b7be8;--violet-soft:#211b33;--violet-line:#3e3363;
  --shadow:0 1px 2px rgba(0,0,0,.4);
  --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+ --edge-mix:62%;
  color-scheme:dark;
 }
 /* ---- Графика (раскрой) ----
    Техническая картинка листа, а не интерфейс: стекло — холодный голубой с
    бликом, пустой лист — ровный серый (владелец, 20 сентября 2026). Цвета
    живут здесь, чтобы весь набор был в одном файле; темой не меняются. */
-:root,.gf-light{
+:root,.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper{
  --cut-band:#e4e7ec;--cut-free:#eef1f5;
  --cut-glass-a:#dcecfa;--cut-glass-b:#cfe4f6;--cut-glass-c:#c3dcf2;--cut-glass-line:#1b5e86;
  --cut-glass-sel:#a9d3f2;--cut-sel-line:#0b74c4;
@@ -84,7 +88,7 @@
  --cut-bad:#d92d20;--cut-bad-fill:#fee4e2;
 }
 /* Островок внутри тёмной темы возвращает светлые значения себе и детям. */
-:root[data-theme="dark"] .gf-light{color-scheme:light;color:var(--text)}
+:root[data-theme="dark"] :is(.gf-light,.print-sheet,.doc-sheet,.doc-drawing,.doc-thumb-paper,.stk-paper,.st-drawthumb-paper){color-scheme:light;color:var(--text)}
 @media print{
  :root[data-theme="dark"]{
   --bg:#ffffff;--surface:#ffffff;--surface-2:#f8f9fa;--surface-3:#eef0f2;--line-soft:#eef0f2;--line:#e4e7ea;--line-strong:#cfd5da;
@@ -378,7 +382,9 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 .sales-order-editor{--sa:var(--accent);--sa2:var(--accent-soft);--sink:var(--inverse);--swarm:var(--surface-2);--sline:var(--line);display:flex;flex-direction:column;gap:10px}
 .sales-page-head{margin-bottom:10px;align-items:center}.sales-page-head h2{font-size:20px;margin-bottom:2px}.sales-page-head p{font-size:11.5px}.sales-list-card{padding:14px}.sales-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sales-search{width:min(520px,100%)}.sales-table-wrap{overflow:auto}.sales-row-actions{white-space:nowrap}
 .sales-editor-top{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px 12px}.sales-order-title{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-order-title h3{font-size:15px;margin:0}.sales-editor-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.sales-editor-actions button{padding:6px 10px}
-.sales-header-compact{display:grid;grid-template-columns:repeat(8,minmax(110px,1fr));gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-header-compact label,.sales-order-editor label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:var(--text-2);margin-bottom:3px;font-weight:650}.sales-header-compact input,.sales-header-compact select,.sales-order-editor .mu-section input,.sales-order-editor .mu-section select{height:34px;padding:5px 8px;font-size:12px;border-radius:7px;border-color:var(--line-strong)}.sales-hold{font-size:11px;color:var(--danger);background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;padding:7px 10px}
+/* Первая колонка — клиент: имя длинное («QA1 · Northside Windows Ltd»), ей вдвое шире;
+   остальные поля делят строку без пустых колонок (у заказа их 6, у квоты 7). */
+.sales-header-compact{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(auto-fit,minmax(110px,1fr));gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-header-compact label,.sales-order-editor label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:var(--text-2);margin-bottom:3px;font-weight:650}.sales-header-compact input,.sales-header-compact select,.sales-order-editor .mu-section input,.sales-order-editor .mu-section select{height:34px;padding:5px 8px;font-size:12px;border-radius:7px;border-color:var(--line-strong)}.sales-hold{font-size:11px;color:var(--danger);background:var(--danger-soft);border:1px solid var(--danger-line);border-radius:8px;padding:7px 10px}
 .sales-block{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:10px}.sales-block-head,.sales-lines-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.sales-block-head>div,.sales-lines-head>div:first-child{display:flex;align-items:baseline;gap:9px}.sales-block-head b,.sales-lines-head b{font-size:11px;letter-spacing:.055em;color:var(--text)}.sales-block-head span,.sales-lines-head span{font-size:10.5px;color:var(--mut)}
 .mu-strip{display:flex;align-items:stretch;gap:7px;margin-bottom:8px}.mu-strip-scroll{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:1px}.mu-tab{display:flex;align-items:center;gap:7px;min-width:0;max-width:360px;height:34px;padding:4px 8px;border:1px solid var(--sline);background:var(--surface-2);border-radius:8px;color:var(--text-2)}.mu-tab b{font-size:12px;min-width:20px}.mu-tab span{font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-tab.on{border-color:var(--sa);background:var(--sa2);color:var(--warning);box-shadow:inset 0 0 0 1px var(--warning-line)}.mu-add{height:34px;white-space:nowrap;border-style:dashed;color:var(--text-2)}
 .mu-builder{border:1px solid var(--sline);border-radius:10px;overflow:hidden;background:var(--surface-2)}.mu-builder-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px;background:var(--surface-2);border-bottom:1px solid var(--sline)}.mu-builder-head>div:first-child{display:flex;align-items:center;gap:9px;min-width:0}.mu-builder-head b{font-size:11px;letter-spacing:.06em}.mu-builder-head span{font-size:10.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-builder-actions{display:flex;align-items:center;gap:5px;flex:none}.mu-builder-actions .pill{padding:2px 6px;font-size:9px}.mu-builder-actions button{padding:3px 7px;font-size:10px}
@@ -2450,7 +2456,7 @@ main#app{flex:1}
 :root[data-theme="dark"] input[type=checkbox],:root[data-theme="dark"] input[type=radio]{accent-color:var(--accent)}
 
 /* ---- светлые островки внутри тёмной темы ---- */
-:root[data-theme="dark"] .gf-light{background:var(--surface)}
+:root[data-theme="dark"] :is(.gf-light,.print-sheet){background:var(--surface)}
 
 /* ---- быстрые виды Sales: таблетки ---- */
 .sl-quick{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 10px}
@@ -2483,6 +2489,17 @@ main#app{padding:28px 36px}
 /* Полноэкранный раскрой — только лист, без футера. */
 body.cut-full:has([data-cut-full]) .app-foot{display:none}
 
+/* ---- Overview: путь заказа и справочники, карточки ведут в раздел ---- */
+.dash-card{padding:20px 22px;margin-bottom:16px}
+.dash-card .section-title{margin-bottom:14px}
+.dash-go{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;font:inherit;color:inherit;text-align:left;cursor:pointer;box-shadow:none;border-radius:12px}
+.dash-go:hover{border-color:var(--accent);background:var(--accent-soft)}
+.dash-go b{display:block;margin-top:10px}
+.dash-go small{display:block;margin-top:4px;color:var(--text-2)}
+.dash-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.dash-build{margin:6px 2px 0;font-size:12px;color:var(--text-3)}
+@media (max-width:900px){.dash-card .flow-row{flex-direction:column}.dash-card .flow-arrow{transform:rotate(90deg);align-self:center}.dash-setup{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -2508,7 +2525,7 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='398d530bb02d';
+var ERP_BUILD='d67423295fe0';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -10000,9 +10017,9 @@ function customerStatus(v){
  if(['inactive','disabled','неактивный','неактивен'].includes(s))return 'inactive';
  return 'active';
 }
-function customerStatusLabel(v){return v==='archived'?'Архив':v==='inactive'?'Неактивный':'Активный';}
-function customerStatementLabel(v){return v==='print'?'Печать':v==='both'?'Email + печать':v==='none'?'Не отправлять':'Email';}
-function customerFuelLabel(v){return v==='custom'?'Индивидуальная ставка':v==='exempt'?'Без топливного сбора':'По умолчанию';}
+function customerStatusLabel(v){return v==='archived'?'Archived':v==='inactive'?'Inactive':'Active';}
+function customerStatementLabel(v){return v==='print'?'Print':v==='both'?'Email + print':v==='none'?'Do not send':'Email';}
+function customerFuelLabel(v){return v==='custom'?'Custom rate':v==='exempt'?'No fuel surcharge':'Default';}
 
 function normalizeCustomerContact(c,i){
  c=c&&typeof c==='object'?c:{};
@@ -12107,81 +12124,40 @@ function navHideRepeatedTitle(section){
 
 /* ==== src/erp/views/dashboard.js ==== */
 /* =====================================================================
-   view/dashboard  ·  erp-1.0
-   Карта ERP, KPI, дорожная карта, открытые вопросы.
-   IN : DB
+   view/dashboard  ·  Overview
+   Карта Glass Farm: путь заказа по разделам и справочники. Каждая карточка
+   ведёт в свой раздел. Без статистики (владелец: цифры — в будущие отчёты),
+   без дорожной карты и заглушек: прежний экран прототипа убран 2 октября 2026.
+   IN : —
    OUT: html
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+const DASH_FLOW=[
+ ['sales','sales','Sales','Quotes · orders · shapes · documents · stickers'],
+ ['optimization','optimize','Optimize','Batches · cut layout · Maver / Disai files'],
+ ['production','factory','Production','Stations · scans · recuts · NCR'],
+ ['shipping','shipping','Shipping','Ready · pickup · delivery'],
+ ['finance','finance','Finance','Receipts · balances · statements · QuickBooks']
+];
+const DASH_SETUP=[
+ ['customers','users','Customers','Accounts · terms · contacts'],
+ ['masterdata','database','Data','Glass catalog · stations · services · prices'],
+ ['users','users','Users','People · roles · station PINs']
+];
+function dashNode(n){
+ return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}" onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
+}
 function viewDashboard(){
- /* Считаем не «станции с уровнем», а рабочие места без габарита: уровня
-    больше нет — станция сама стала шагом маршрута, — а незамеренное поле это
-    единственное, что сейчас держит `check_route_fits()` этапа 7·2. */
- /* Два РАЗНЫХ числа, и путать их нельзя: `sized` — у скольких габарит есть,
-    `unsized` — сколько ждёт замера. Разница не сходится на ручных местах:
-    у притупления руками габарита нет и не будет, оно не в долгу. */
- const sized=DB.station.filter(s=>s.sizeMeasured).length;
- const unsized=DB.station.length-sized;
- const moduleCount=3; // Sales / Optimization / Production в текущем прототипе
- const shapeCount=DB.shapeDef.length;
- return `<div class="page-head">
-   <div><h2>Glass production — one system</h2>
-   <p>The current ERP scope includes Customer Master, Draft Sales Orders with order-scoped Makeups, technical Shape and Muntin configuration, cutting optimization and shop-floor processing.</p></div>
-   <span class="pill info">${ico('layers','icon-inline')}Architecture prototype</span>
+ return `<div class="card dash-card">
+   <div class="section-title"><h3>How an order moves</h3></div>
+   <div class="domain-map"><div class="flow-row">${DASH_FLOW.map(dashNode).join(`<div class="flow-arrow">${ico('arrow')}</div>`)}</div></div>
   </div>
-
-  <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div><span class="pill ${unsized?'warn':'ok'}">${unsized?'measurements needed':'ready'}</span></div><div class="kpi-num">${DB.station.length}</div><div class="kpi-label">stations · ${sized} with a measured size</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div><span class="pill info">core</span></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">users in the prototype</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('shape')}</div><span class="pill info">Sales</span></div><div class="kpi-num">${shapeCount}</div><div class="kpi-label">Shape contours</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('link')}</div><span class="pill warn">waiting for data</span></div><div class="kpi-num">${moduleCount}</div><div class="kpi-label">operational modules in the new shell</div></div>
+  <div class="card dash-card">
+   <div class="section-title"><h3>Setup</h3></div>
+   <div class="dash-setup">${DASH_SETUP.map(dashNode).join('')}</div>
   </div>
-
-  <div class="dashboard-grid">
-   <div class="card">
-    <div class="section-title"><h3>ERP map</h3><span class="pill">green dot = screen already exists</span></div>
-    <div class="sub">This is a visual map of data ownership by business domain.</div>
-    <div class="domain-map">
-      <div class="flow-row">
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('sales')}</div><b>Configuration</b><small>Shape · Muntin · drawings · cutting geometry</small></div>
-       <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('optimize')}</div><b>Optimization</b><small>batches · cut layout · Maver / Disai files</small></div>
-       <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('factory')}</div><b>Production</b><small>stations · work positions · operations · terminals</small></div>
-       <div class="flow-arrow">${ico('arrow')}</div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('shipping')}</div><b>Shipping</b><small>racks · staging · delivery</small></div>
-      </div>
-      <div class="flow-split">
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('inventory')}</div><b>Inventory</b><small>materials · lots · stock · offcuts · movements</small></div>
-       <div class="domain-node planned"><span class="node-status"></span><div class="node-icon">${ico('purchase')}</div><b>Purchasing</b><small>suppliers · source · purchase cost · receiving</small></div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('finance')}</div><b>Finance</b><small>receipts · deposits on account · order balances</small></div>
-       <div class="domain-node active"><span class="node-status"></span><div class="node-icon">${ico('users')}</div><b>Core</b><small>users · permissions · units · currencies · event log</small></div>
-      </div>
-    </div>
-   </div>
-
-   <div class="card">
-    <div class="section-title"><h3>Roadmap</h3><span class="pill info">currently P1</span></div>
-    <div class="phase-list">
-     <div class="phase-item current"><div class="phase-num">1</div><div><b>Foundation</b><span>master data and domain shell</span><div class="progress"><span style="width:42%"></span></div></div></div>
-     <div class="phase-item"><div class="phase-num">2</div><div><b>Product engineering</b><span>Shape revisions · Muntin · drawings · cutting geometry</span></div></div>
-     <div class="phase-item"><div class="phase-num">3</div><div><b>Shop floor</b><span>WIP · breakage · stock</span></div></div>
-     <div class="phase-item"><div class="phase-num">4</div><div><b>Planning</b><span>capacity · batches · racks · delivery</span></div></div>
-     <div class="phase-item"><div class="phase-num">5</div><div><b>Closeout</b><span>MRP · actual costing · BI</span></div></div>
-    </div>
-   </div>
-  </div>
-
-  <div class="card">
-   <div class="section-title"><h3>What currently needs a decision, not design</h3><span class="pill warn">${ico('alert','icon-inline')}open questions</span></div>
-   <div class="machine-grid">
-    <div class="card-soft"><b>Station sizes</b><div class="hint">${unsized} of ${DB.station.length} stations await measurement. The seeded 144 × 100″ is a sheet size, not a machine size, so the fit check rests on an assumption.</div></div>
-    <div class="card-soft"><b>Three CNCs</b><div class="hint">Whether CNC1 / CNC2 / CNC3 share the same working field. If not, the route has to know which one is allowed.</div></div>
-    <div class="card-soft"><b>Terminals</b><div class="hint">The screen behaviour is known; how many stand in the shop and which positions hang on each is not. We do not create invented rows here.</div></div>
-    <div class="card-soft"><b>Permissions</b><div class="hint">The prototype has roles + work position so far. Field-level security and approval are not implemented yet.</div></div>
-   </div>
-  </div>`;
+  <p class="dash-build">Glass Farm${typeof ERP_BUILD!=='undefined'?' · build '+esc(ERP_BUILD):''} · data lives in this browser — Export JSON keeps a copy.</p>`;
 }
 
 /* ==== src/erp/views/users.js ==== */
@@ -18976,10 +18952,14 @@ function refreshShapeEditor(){
    всю фигуру разом, а не четыре отдельные карточки. Цвет буквы совпадает
    с цветом ребра на чертеже — опознание идёт по цвету, а не по подписи. */
 function shapeEdgeIsVert(e){return e==='A'||e==='C';}
+/* Цвет стороны на экране редактора. Цвета сторон подобраны для белой бумаги;
+   в тёмной теме к ним подмешан светлый текст (--edge-mix), иначе синюю A и
+   лиловую D не видно на тёмном. Чертёж и печать берут shapeEdgeColor как есть. */
+function shapeEdgeInk(e){return 'color-mix(in srgb,'+shapeEdgeColor(e)+' var(--edge-mix),var(--text))';}
 /* Превью формы выноса: прямое ребро, простой уклон или локоть. */
 function shapeOutageIcon(edge){
-  var m=sDraft.smart,s=m[edge]||{},vert=shapeEdgeIsVert(edge),W=44,H=30,pad=5,col=shapeEdgeColor(edge),d;
-  function seg(x1,y1,x2,y2){return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="'+col+'" stroke-width="1.8" stroke-linecap="round"/>';}
+  var m=sDraft.smart,s=m[edge]||{},vert=shapeEdgeIsVert(edge),W=44,H=30,pad=5,col=shapeEdgeInk(edge),d;
+  function seg(x1,y1,x2,y2){return '<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" style="stroke:'+col+'" stroke-width="1.8" stroke-linecap="round"/>';}
   /* Простого уклона у D нет: без локтей её форма целиком задана концами, и
      выбирать нечего — рисуем прямую. С локтями показываем заданный излом;
      уход второго отрезка выводится, поэтому в превью он идёт ровно. */
@@ -19022,7 +19002,7 @@ function shapeMasterSizeFields(){
 }
 function shapeEdgeMatrix(){
   var m=sDraft.smart,cols=['A','B','C','D'],r=shapeDraftResult(),base=(r.valid&&r.base)||null;
-  var head=cols.map(function(e){return `<span class='em-col' style='color:${shapeEdgeColor(e)}'>${e}</span>`;}).join('');
+  var head=cols.map(function(e){return `<span class='em-col' style='color:${shapeEdgeInk(e)}'>${e}</span>`;}).join('');
   function cell(e,html){return `<span class='em-cell'>${html}</span>`;}
   function lengthCell(e){
     if(e==='A')return cell(e,`<input id='emAlen' data-vfield='len' value='${esc(sDraft.h)}' oninput='setShapeField("h",this.value)'>`);
@@ -19080,7 +19060,7 @@ function shapeMiniPreview(){
   var sc=Math.min((vw-2*pad)/W,(vh-2*pad)/H),dw=W*sc,dh=H*sc,x0=(vw-dw)/2,y0=(vh-dh)/2;
   function X(x){return x0+(x-b.minX)*sc;}function Y(y){return y0+dh-(y-b.minY)*sc;}
   var lines=(r.geometry.edges||[]).map(function(e){
-    return '<line x1="'+X(e.p1[0])+'" y1="'+Y(e.p1[1])+'" x2="'+X(e.p2[0])+'" y2="'+Y(e.p2[1])+'" stroke="'+shapeEdgeColor(e.id)+'" stroke-width="1.8"/>';
+    return '<line x1="'+X(e.p1[0])+'" y1="'+Y(e.p1[1])+'" x2="'+X(e.p2[0])+'" y2="'+Y(e.p2[1])+'" style="stroke:'+shapeEdgeInk(e.id)+'" stroke-width="1.8"/>';
   }).join('');
   return `<svg class='mini-shape' viewBox='0 0 ${vw} ${vh}'>${lines}</svg>`;
 }
@@ -23423,15 +23403,18 @@ function salesListBase(){
 function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||{k:'created',dir:'desc'};}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
-function salesListRows(infos){
- const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
+function salesListRows(infos,skip){
+ const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
  const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
 /* Быстрые виды Sales (владелец, 1 октября 2026): таблетки над таблицей.
-   Работают поверх фильтров колонок. Выданные, закрытые и отменённые заказы в
-   сроки и «внимание» не попадают — с ними уже ничего делать не нужно. */
+   Работают поверх фильтров колонок, кроме даты создания: заказ, созданный
+   месяц назад, сдаётся сегодня или уже просрочен — он должен быть виден в
+   Today и Needs attention, хотя список по умолчанию показывает 14 дней.
+   Выданные, закрытые и отменённые заказы в сроки и «внимание» не попадают —
+   с ними уже ничего делать не нужно. */
 const SALES_QUICK=[['all','All'],['today','Today'],['week','Due this week'],['attention','Needs attention']];
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
@@ -23443,9 +23426,9 @@ function salesQuickTest(key,info){
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
 function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
-function salesQuickHTML(rows){
+function salesQuickHTML(rows,anyDate){
  const cur=salesListLoadPrefs().quick||'all';
- return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=rows.filter(r=>salesQuickTest(k,r)).length;
+ return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>salesQuickTest(k,r)).length;
   return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="salesQuickSet('${k}')">${label}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
@@ -23533,7 +23516,7 @@ function salesListFooter(rows,cols){
 }
 function salesListSelectedOrders(){return [...salesListSel].filter(id=>{const o=(DB.salesOrder||[]).find(x=>x.id===id);return !!o&&!salesIsQuote(o);});}
 function salesListView(){
- const p=salesListLoadPrefs(),{all,infos}=salesListBase(),filtered=salesListRows(infos),quick=salesListScope()==='sales'?p.quick||'all':'all',rows=filtered.filter(r=>salesQuickTest(quick,r)),cols=salesListColumns();
+ const p=salesListLoadPrefs(),{all,infos}=salesListBase(),filtered=salesListRows(infos),quick=salesListScope()==='sales'?p.quick||'all':'all',anyDate=quick==='all'&&salesListScope()!=='sales'?filtered:salesListRows(infos,['created']),rows=quick==='all'?filtered:anyDate.filter(r=>salesQuickTest(quick,r)),cols=salesListColumns();
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
  const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
@@ -23547,7 +23530,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
