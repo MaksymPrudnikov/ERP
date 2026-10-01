@@ -1,6 +1,7 @@
 {
  "title": "GLASS ERP — Glazing System",
  "styles": [
+  "src/styles/fonts.css",
   "src/styles/tokens.css",
   "src/styles/base.css",
   "src/styles/modules.css",
