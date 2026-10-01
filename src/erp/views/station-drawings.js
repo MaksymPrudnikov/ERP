@@ -43,7 +43,8 @@ function stationDrawStep(d){
  if(next&&next.id!==x.lineId){x.lineId=next.id;render();}
 }
 function stationDrawZoom(){return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/850,(window.innerHeight-64-150)/1100));}
-function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
+/* Чертёж — белый лист и в тёмной теме: класс gf-light держит светлые токены. */
+function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet gf-light">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
 function stationDrawFit(){document.querySelectorAll('[data-station-draw] .print-sheet,.st-drawthumb .print-sheet').forEach(el=>salesSheetFitDrawing(el));}
 /* Заказы этой станции — те, чьи стёкла здесь ждут или здесь сканировались. */
 function stationDrawOrders(){
@@ -78,6 +79,23 @@ function stationDrawThumb(g,d){
  const sheet=stationDrawingOf(g.o,g.l);if(!sheet||!sheet.html)return '';
  setTimeout(stationDrawFit,0);
  return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
+}
+/* Прямоугольник под плашкой NEXT (владелец, 1 октября 2026): у фигуры там
+   миниатюра чертежа, у прямоугольника было пусто. Стекло в пропорциях, тем же
+   голубым, что на листе раскроя, с размерами по сторонам — рабочий сверяет
+   форму и ориентацию (30 × 20 не перепутать с 20 × 30). Нажатие — чертёж. */
+function stationGlassPreview(g,size){
+ if(!g||!size||!(size.w>0)||!(size.h>0))return '';
+ const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef?' onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')"':'';
+ const svg='<svg width="'+(W+34)+'" height="'+(H+30)+'" viewBox="-28 -4 '+(W+34)+' '+(H+30)+'" aria-hidden="true">'+
+  '<defs><linearGradient id="st-glass-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cut-glass-a)"/><stop offset="1" style="stop-color:var(--cut-glass-c)"/></linearGradient></defs>'+
+  '<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="2" class="st-glassprev-glass"/>'+
+  '<path d="M'+(W*.62)+' '+(H*.18)+' L'+(W*.82)+' '+(H*.07)+'" class="st-glassprev-glint"/>'+
+  '<path d="M0 '+(H+14)+'H'+W+'M0 '+(H+9)+'V'+(H+19)+'M'+W+' '+(H+9)+'V'+(H+19)+'M-12 0V'+H+'M-17 0H-7M-17 '+H+'H-7" class="st-glassprev-dim"/>'+
+  '<text x="'+(W/2)+'" y="'+(H+10)+'" text-anchor="middle">'+esc(frac16(size.w))+'″</text>'+
+  '<text x="-16" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 -16 '+(H/2)+')">'+esc(frac16(size.h))+'″</text></svg>';
+ return '<button type="button" class="st-glassprev" data-station-glassprev'+(open||' disabled')+' title="'+(open?'Open the drawing':'Glass')+'">'+svg+
+  '<span class="st-glassprev-t">Rectangle · '+esc(frac16(size.w)+' × '+frac16(size.h))+(open?' · tap for drawing':'')+'</span></button>';
 }
 document.addEventListener('keydown',function(e){
  if(tab!=='station'||!stationDrawer||stationDrawer.kind!=='draw'||e.altKey||e.ctrlKey||e.metaKey)return;

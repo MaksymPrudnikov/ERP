@@ -1,4 +1,5 @@
-/* Чертежи на станциях. Владелец, 29.09.2026: «на всех станциях можно было
+/* Чертежи на станциях. У прямоугольника под плашкой NEXT — схема стекла в
+   пропорциях с размерами (владелец, 01.10.2026). Владелец, 29.09.2026: «на всех станциях можно было
    просмотреть чертежи по заказам или при сканировании стикера». Скан стекла
    с формой — мини-лист на карточке, нажатие — крупно; у прямоугольника —
    кнопка Drawing; в шапке Drawings — заказы станции, номер заказа или
@@ -42,11 +43,13 @@ module.exports=async function({page,eq,ok}){
   const flip=await t.p.evaluate(()=>{
    const second=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(sdX.id).lines[1].id;
    stationCloseDrawer();stationSubmit(sdX.ids[1]);
-   const rect={thumb:!!document.querySelector('[data-station-drawthumb]'),btn:!!document.querySelector('[data-station-drawing]')};
+   const pv=document.querySelector('[data-station-glassprev]'),box=pv&&pv.querySelector('rect').getBBox();
+   const rect={thumb:!!document.querySelector('[data-station-drawthumb]'),btn:!!document.querySelector('[data-station-drawing]'),
+    preview:!!pv&&pv.textContent.includes('Rectangle · 30 × 20'),wide:!!box&&box.width>box.height*1.4&&box.width<box.height*1.6};
    sdOut();return {second,rect};
   });
   return Object.assign(r,big,flip);
- })(),{thumb:true,thumbSvg:true,btn:true,first:true,chips:'1,2,3',svg:true,title:true,second:true,rect:{thumb:false,btn:true}});
+ })(),{thumb:true,thumbSvg:true,btn:true,first:true,chips:'1,2,3',svg:true,title:true,second:true,rect:{thumb:false,btn:true,preview:true,wide:true}});
 
  eq('шапка Drawings: заказы станции одним нажатием; номер заказа или стикер стекла; неизвестный — подсказка; в «Waiting here» — Drawing',await t.p.evaluate(()=>{
   sdReset();const x=sdOrder();x.ids.forEach(g=>stationRecord('CUT',stationCheck('CUT',g),{id:'x',name:'Ivan'}));sdLogin('ARRIS');
