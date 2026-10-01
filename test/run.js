@@ -3030,6 +3030,15 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       const restored=normalizeSalesPane({category:'vision',manufacturer:required.manufacturer,thicknessMm:required.thicknessMm,visionType:required.coatingFamily,glassProductId:required.id,heatTreatmentId:'HT-AN'},0);
       return {catalog:required.code,required:requiredHeat,manual,banned:bannedHeat,ply:plyHeat,stored:restored.heatTreatmentId,warning:salesPaneTemperConflict(restored)};
     }), {catalog:'6SBN60VT',required:'HT-FT',manual:'HT-AN',banned:'HT-AN',ply:'HT-FT',stored:'HT-AN',warning:true});
+    eq('смена толщины не снимает Heat Soak и ручной HS', await t.p.evaluate(() => {
+      salesOrderNew();const pane=salesCurrentMakeup().panes[0];
+      const g=activeGlassProducts().find(x=>glassNeedsFurnace(x)&&activeGlassProducts().some(y=>glassNeedsFurnace(y)&&y.coatingFamily===x.coatingFamily&&y.manufacturer===x.manufacturer&&y.thicknessMm!==x.thicknessMm));
+      const other=activeGlassProducts().find(y=>glassNeedsFurnace(y)&&y.coatingFamily===g.coatingFamily&&y.manufacturer===g.manufacturer&&y.thicknessMm!==g.thicknessMm);
+      salesPaneSetVisionType(0,g.coatingFamily);salesPaneSetProduct(0,g.id);salesSetHeatChoice(pane,'HT-FT-HST');
+      salesPaneSetThickness(0,other.thicknessMm);const soak=[pane.heatTreatmentId,pane.heatSoak,glassNeedsFurnace(glassProductById(pane.glassProductId))];
+      salesSetHeatChoice(pane,'HT-HS');salesPaneSetProduct(0,g.id);const hs=pane.heatTreatmentId;
+      salesDraftDrop(true);return {soak,hs};
+    }), {soak:['HT-FT',true,true],hs:'HT-HS'});
     /* Габарит станции — решения владельца 13 сентября 2026: сравнивается рез с
        припусками, стекло на станке можно повернуть, реакция — предупреждение
        при сохранении, а не запрет (габариты пока засеяны 144 × 100″). */

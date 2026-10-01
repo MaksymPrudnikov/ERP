@@ -70,8 +70,16 @@ function stationGlass(id,index,batches){
 /* Маршрут стекла — тот же, что печатается на стикере. Кэш по позиции:
    на экране офиса сотни стёкол одной позиции едут одним маршрутом. */
 let stationRouteCache=new Map();
+/* Зафиксированные маршруты копятся месяцами, а табло спрашивает каждое
+   стекло: индекс по ключу пересобирается, только когда меняется список. */
+let stationFrozenIndex={list:null,size:-1,map:null};
+function stationFrozenRoute(key){
+ const list=DB.productionRoute||[];
+ if(stationFrozenIndex.list!==list||stationFrozenIndex.size!==list.length)stationFrozenIndex={list,size:list.length,map:new Map(list.map(x=>[x.key,x]))};
+ const x=key&&stationFrozenIndex.map.get(key);return x?x.route:null;
+}
 function stationRouteOf(g){
- const frozen=(DB.productionRoute||[]).find(x=>g.c&&x.key===g.c.key);if(frozen)return frozen.route;
+ const frozen=g.c&&stationFrozenRoute(g.c.key);if(frozen)return frozen;
  const key=[g.o.id,g.l.id,g.c?g.c.key:'',g.o.updatedAt||''].join('|');
  if(stationRouteCache.has(key))return stationRouteCache.get(key);
  let r=null;
@@ -143,7 +151,7 @@ function stationRecordCommand(station,check,who,opts){
  rec.actionId=opts.actionId||rec.id;check.actionId=rec.actionId;check.recordedAt=rec.at;
  if(check.g&&check.g.c){
   const route=stationRouteOf(check.g);rec.step=stationRouteStep(route.codes,station,stationPlace(check.g).far);
-  if(!DB.productionRoute.some(x=>x.key===check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
+  if(!stationFrozenRoute(check.g.c.key))DB.productionRoute.push({key:check.g.c.key,at:now,route:JSON.parse(JSON.stringify(route))});
  }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);

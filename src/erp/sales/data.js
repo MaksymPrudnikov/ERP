@@ -122,7 +122,14 @@ function normalizeSalesLaminatedFrit(raw,d){
  return {enabled:raw.enabled===true||raw.active===true||raw.fritEnabled===true,position,productId:salesString(raw.productId)||d.productId,color:FRIT_COLORS.includes(color)?color:d.color,pattern:FRIT_PATTERNS.includes(pattern)?pattern:d.pattern,dotMm:salesFritDotMm(raw.dotMm,d.dotMm),marginFrom:FRIT_MARGIN_CORNERS.includes(corner)?corner:d.marginFrom,marginW16:salesStoredMargin16(raw.marginW16,d.marginW16),marginH16:salesStoredMargin16(raw.marginH16,d.marginH16),marking:salesString(raw.marking)};
 }
 function salesRecommendedHeat(g){return glassNeedsFurnace(g)?'HT-FT':glassBannedFromFurnace(g)?'HT-AN':null;}
-function salesApplyRecommendedHeat(p,g){const heat=salesRecommendedHeat(g);if(heat){p.heatTreatmentId=heat;p.heatSoak=false;}}
+/* Каталог меняет закалку только при конфликте со стеклом: HS и FT + Heat Soak,
+   выбранные вручную, переживают смену толщины или производителя. */
+function salesApplyRecommendedHeat(p,g){
+ const heat=salesRecommendedHeat(g);if(!heat)return;
+ const ht=mdById('heatTreatment',p.heatTreatmentId),code=String(ht&&ht.code||'').toUpperCase();
+ if(heat==='HT-FT'?code==='FT'||code==='HS':code==='AN')return;
+ p.heatTreatmentId=heat;p.heatSoak=false;
+}
 function salesDefaultLaminatedPly(g){return {priceOverride:null,manufacturer:g?g.manufacturer:'',thicknessMm:g?g.thicknessMm:6,visionType:g&&SALES_LAMINATED_GLASS_TYPES.includes(g.coatingFamily)?g.coatingFamily:'uncoated',glassProductId:g?g.id:'',heatTreatmentId:salesRecommendedHeat(g)||'HT-AN',heatSoak:false,coatingPosition:'outside',frit:salesDefaultLaminatedFrit()};}
 /* Покрытие на плите ламината лежит либо на её открытой грани (номер
    поверхности пакета, как у фрита «Outside film»), либо к плёнке. Владелец,
