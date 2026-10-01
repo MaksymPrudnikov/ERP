@@ -160,6 +160,18 @@ module.exports=async function({page,eq,ok}){
   return {work:work===tok('surface-3'),hold:hold===tok('danger-soft'),plain:plain!==work&&plain!==hold};
  }),{work:true,hold:true,plain:true});
 
+ eq('быстрые виды: Today и Needs attention видят старые заказы, хотя список по умолчанию — 14 дней',await t.p.evaluate(()=>{
+  slCleanup();const a=slCustomer('North Condo Build'),today=salesListDay(new Date());
+  const old=slOrder(a,{days:30}),late=slOrder(a,{days:25}),fresh=slOrder(a,{days:1});
+  slById(old).dueDate=today;slById(late).dueDate='2020-01-15';tab='sales';subtab='orders';render();
+  const pills=()=>[...document.querySelectorAll('.sl-quick-pill')].map(b=>b.textContent.trim());
+  const all=slNums().length,counts=pills();
+  salesQuickSet('today');const todayRows=slNums();
+  salesQuickSet('attention');const attRows=slNums();
+  salesQuickSet('all');const back=slNums().length;
+  return {all,counts,today:todayRows.length===1&&todayRows[0]===slById(old).businessNumber,attention:attRows.length===1&&attRows[0]===slById(late).businessNumber,back};
+ }),{all:1,counts:['All1','Today1','Due this week1','Needs attention1'],today:true,attention:true,back:1});
+
  eq('список, меню фильтра, колонки, меню строки и окно On Hold — без русского текста',await t.p.evaluate(()=>{
   let text='';const grab=()=>{text+=document.getElementById('app').innerText;};
   document.querySelector('[data-filter-col="customer"]').click();grab();salesListCloseMenu();

@@ -81,7 +81,7 @@ main#app{flex:1}
 :root[data-theme="dark"] input[type=checkbox],:root[data-theme="dark"] input[type=radio]{accent-color:var(--accent)}
 
 /* ---- светлые островки внутри тёмной темы ---- */
-:root[data-theme="dark"] .gf-light{background:var(--surface)}
+:root[data-theme="dark"] :is(.gf-light,.print-sheet){background:var(--surface)}
 
 /* ---- быстрые виды Sales: таблетки ---- */
 .sl-quick{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 10px}

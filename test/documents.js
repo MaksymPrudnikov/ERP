@@ -217,6 +217,13 @@ module.exports=async function({page,eq,ok}){
   tab='masterdata';mdSetTab('company');render();const b=document.querySelector('.doc-company').innerText;
   return /[А-яЁё]/.test(a+b);
  }),false);
+ eq('тёмная тема: лист чертежа в Drawings и миниатюры остаются белой бумагой, цифры тёмные',await t.p.evaluate(()=>{
+  docFixture();themeApply(true);render();docOpen('drawings',soDraft.lines[0].id);
+  const sheet=document.querySelector('[data-doc-drawing] .print-sheet'),text=sheet&&sheet.querySelector('svg text');
+  const paper=[document.querySelector('[data-doc-drawing]'),document.querySelector('.doc-thumb-paper')].filter(Boolean).map(x=>getComputedStyle(x).backgroundColor);
+  const r={sheet:sheet&&getComputedStyle(sheet).backgroundColor,text:text&&getComputedStyle(text).fill,paper:[...new Set(paper)]};
+  docClose();themeApply(false);soEdit=null;soDraft=null;render();return r;
+ }),{sheet:'rgb(255, 255, 255)',text:'rgb(20, 24, 28)',paper:['rgb(255, 255, 255)']});
  eq('бланки не дали ошибок страницы',t.errs,[]);
  await t.c.close();
 };

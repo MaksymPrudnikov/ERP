@@ -258,15 +258,18 @@ function salesListBase(){
 function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||{k:'created',dir:'desc'};}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
 function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
-function salesListRows(infos){
- const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k]));
+function salesListRows(infos,skip){
+ const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
  const d=salesListDefaultSort(),s=p.sort||d,col=salesListColumn(s.k)||salesListColumn(d.k),cmp=col?salesListCompare(col,s.dir):()=>0;
  return rows.sort((a,b)=>cmp(a,b)||String(b.o.createdAt||'').localeCompare(String(a.o.createdAt||'')));
 }
 /* Быстрые виды Sales (владелец, 1 октября 2026): таблетки над таблицей.
-   Работают поверх фильтров колонок. Выданные, закрытые и отменённые заказы в
-   сроки и «внимание» не попадают — с ними уже ничего делать не нужно. */
+   Работают поверх фильтров колонок, кроме даты создания: заказ, созданный
+   месяц назад, сдаётся сегодня или уже просрочен — он должен быть виден в
+   Today и Needs attention, хотя список по умолчанию показывает 14 дней.
+   Выданные, закрытые и отменённые заказы в сроки и «внимание» не попадают —
+   с ними уже ничего делать не нужно. */
 const SALES_QUICK=[['all','All'],['today','Today'],['week','Due this week'],['attention','Needs attention']];
 function salesQuickOpen(o){return !salesIsQuote(o)&&!['done','closed','cancelled'].includes(o.status);}
 function salesQuickTest(key,info){
@@ -278,9 +281,9 @@ function salesQuickTest(key,info){
  return !!o.onHold||(o.lines||[]).some(l=>l.onHold)||(!!due&&due<today);
 }
 function salesQuickSet(key){const p=salesListLoadPrefs();p.quick=SALES_QUICK.some(q=>q[0]===key)?key:'all';salesListSel=new Set();salesListSavePrefs();render();}
-function salesQuickHTML(rows){
+function salesQuickHTML(rows,anyDate){
  const cur=salesListLoadPrefs().quick||'all';
- return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=rows.filter(r=>salesQuickTest(k,r)).length;
+ return `<div class="sl-quick" role="tablist" aria-label="Quick views">${SALES_QUICK.map(([k,label])=>{const n=(k==='all'?rows:anyDate).filter(r=>salesQuickTest(k,r)).length;
   return `<button type="button" role="tab" class="sl-quick-pill${k===cur?' on':''}${k==='attention'&&n?' warn':''}" aria-selected="${k===cur}" data-quick="${k}" onclick="salesQuickSet('${k}')">${label}${k==='all'||n?`<b>${n}</b>`:''}</button>`;}).join('')}</div>`;
 }
 /* В очереди флажок Glass — конкретное стекло из каталога, даже если оно
@@ -368,7 +371,7 @@ function salesListFooter(rows,cols){
 }
 function salesListSelectedOrders(){return [...salesListSel].filter(id=>{const o=(DB.salesOrder||[]).find(x=>x.id===id);return !!o&&!salesIsQuote(o);});}
 function salesListView(){
- const p=salesListLoadPrefs(),{all,infos}=salesListBase(),filtered=salesListRows(infos),quick=salesListScope()==='sales'?p.quick||'all':'all',rows=filtered.filter(r=>salesQuickTest(quick,r)),cols=salesListColumns();
+ const p=salesListLoadPrefs(),{all,infos}=salesListBase(),filtered=salesListRows(infos),quick=salesListScope()==='sales'?p.quick||'all':'all',anyDate=quick==='all'&&salesListScope()!=='sales'?filtered:salesListRows(infos,['created']),rows=quick==='all'?filtered:anyDate.filter(r=>salesQuickTest(quick,r)),cols=salesListColumns();
  salesListSel=new Set([...salesListSel].filter(id=>rows.some(r=>r.o.id===id)));
  const selOrders=salesListSelectedOrders(),allHeld=selOrders.length>0&&selOrders.every(id=>(DB.salesOrder.find(o=>o.id===id)||{}).onHold);
  const holdBtn=`<button type="button" class="sl-quiet sl-hold-quiet" data-hold-button ${selOrders.length?'':'disabled'} onclick="salesListHoldSelected()">${allHeld?'Release':'On Hold'}${selOrders.length?' ('+selOrders.length+')':''}</button>`;
@@ -382,7 +385,7 @@ function salesListView(){
   return `<tr data-order-row="${esc(o.id)}"${cls?` class="${cls}"`:''} oncontextmenu="salesListContext(event,'${esc(o.id)}')"><td class="sl-check"><input type="checkbox" data-row-check ${sel?'checked':''} aria-label="Select ${esc(salesListValue(r,'number'))}" onclick="salesListToggleRow(event,'${esc(o.id)}')"></td>${cols.map(c=>salesListCell(r,c)).join('')}<td class="sales-row-actions"><button class="sm" onclick="salesOrderEdit('${esc(o.id)}')">Open</button><button class="sm dl" onclick="salesOrderDelete('${esc(o.id)}')">×</button></td></tr>`;
  }).join('');
  const empty=`<tr><td colspan="${cols.length+2}" class="empty">${all.length?'Nothing matches the filters.':'No Sales Orders yet'}</td></tr>`;
- return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
+ return `<div class="card sales-list-card"><div class="sales-toolbar">${salesListShowButton()}${holdBtn}${stickersBtn}<span class="sales-toolbar-sp"></span><button onclick="salesOrderNew('quote')">+ New Quote</button><button class="pri" onclick="salesOrderNew('order')">+ New Sales Order</button></div>${salesListScope()==='sales'?salesQuickHTML(filtered,anyDate):''}<div class="sl-view-controls">${salesStatusChips(all)}${salesListDateButton()}</div>${salesListFilterChips()}<div class="sales-table-wrap"><table class="sl-table"><thead><tr><th class="sl-check"><span class="sl-header-tools"><input type="checkbox" data-select-all ${allSel?'checked':''} aria-label="Select all rows" onclick="salesListToggleAll(this.checked)"><button type="button" class="sl-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button></span></th>${cols.map(th).join('')}<th></th></tr></thead><tbody>${body||empty}</tbody>${rows.length?salesListFooter(rows,cols):''}</table></div>${salesListMenuHTML(infos)}${salesHoldDialogHTML()}${typeof ncrModalHTML==='function'?ncrModalHTML():''}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</div>`;
 }
 
 /* ------------------------------ Меню ----------------------------------- */
