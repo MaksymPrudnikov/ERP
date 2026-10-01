@@ -1,0 +1,113 @@
+/* =====================================================================
+   Glass Farm · вид интерфейса (владелец, 1 октября 2026, вариант B)
+   Подключается последним. Только токены из styles/tokens.css — своих
+   цветов здесь нет. Функции и раскладка экранов не меняются.
+   ===================================================================== */
+html{background:var(--bg)}
+body{font-family:var(--font);color:var(--text);background:var(--bg);letter-spacing:-.003em}
+button,input,select,textarea{font-family:inherit}
+
+/* ---- полоса иконок с подписями (как Figma) ---- */
+.shell{--side-w:72px;background:var(--bg)}
+.side{width:var(--side-w);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
+ background:var(--surface-2);border-right:1px solid var(--line);overflow:hidden auto;color:var(--text-2)}
+.side .brand-mark{flex:none;width:34px;height:34px;margin:0 0 12px;padding:0;border:0;border-radius:9px;
+ display:grid;place-items:center;background:var(--inverse);color:var(--on-solid);box-shadow:none;
+ font:700 13px/1 var(--font);letter-spacing:-.04em;cursor:pointer}
+:root[data-theme="dark"] .side .brand-mark{background:var(--accent)}
+.side .brand-mark:hover{opacity:.9}
+.side .nav-item{flex:none;width:60px;margin:0;padding:7px 0 6px;border:0;border-radius:10px;background:transparent;
+ display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text-2);font:500 10.5px/1.15 var(--font);box-shadow:none}
+.side .nav-item>span:first-child{display:inline-flex}
+.side .nav-item svg{width:17px;height:17px;opacity:.75}
+.side .nav-item:hover{background:var(--surface-3);color:var(--text)}
+.side .nav-item.on{background:var(--accent-soft);color:var(--text);font-weight:650}
+.side .nav-item.on svg{opacity:1;color:var(--accent)}
+.side .nav-sp{flex:1}
+.side .nav-more{display:none}
+
+/* ---- шапки нет: раздел виден по подсвеченной иконке ---- */
+.main>header{display:none}
+#app .page-head.gf-title-repeat h2,#app .page-head.gf-title-repeat>div>p,#app .page-head.gf-title-repeat>p{display:none}
+#app .page-head.gf-head-empty{display:none}
+
+/* ---- узкий экран: то же меню нижним таб-баром ---- */
+@media (max-width:900px){
+ .shell{grid-template-columns:minmax(0,1fr)}
+ .side{position:fixed;left:10px;right:10px;bottom:10px;top:auto;width:auto;height:68px;padding:0 6px;z-index:30;
+  flex-direction:row;justify-content:space-around;gap:0;border:0;border-radius:22px;overflow:visible;
+  background:color-mix(in srgb,var(--surface) 86%,transparent);backdrop-filter:blur(20px) saturate(1.4);
+  box-shadow:var(--shadow-lg),inset 0 0 0 1px var(--line)}
+ .side .brand-mark,.side .nav-sp,.side .nav-extra{display:none}
+ .side .nav-item{flex:1;width:auto;font-size:11px;background:transparent}
+ .side .nav-item svg{width:20px;height:20px}
+ .side .nav-item.on{background:transparent;color:var(--accent)}
+ .side .nav-more{display:flex}
+ .side:has(.nav-more.open){height:auto;flex-wrap:wrap;padding:8px 6px}
+ .side:has(.nav-more.open) .nav-extra{display:flex;flex:0 0 25%}
+ .main{padding-bottom:88px}
+}
+
+/* ---- кнопки ---- */
+button{border-color:var(--line-strong);background:var(--surface);color:var(--text);border-radius:9px}
+button:hover{border-color:var(--text-3);background:var(--surface-2)}
+button.pri{background:var(--accent);border-color:var(--accent);color:var(--on-solid);font-weight:600}
+button.pri:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+button.gh{background:var(--surface);color:var(--text);border-color:var(--line)}
+
+/* ---- карточки и таблицы ---- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+th{background:var(--surface-2);color:var(--text-2);font-weight:500}
+td{border-bottom-color:var(--line-soft)}
+tbody tr:hover td{background:var(--surface-2)}
+.page-head h2{font-weight:650;letter-spacing:-.02em}
+.page-head .pill.info{display:none}
+input,select,textarea{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
+
+/* ---- футер: сохранение и резервная копия ---- */
+body.shape-workspace-mode main#app{height:calc(100vh - 47px)}
+body.station-mode .app-foot{display:none}
+.main{display:flex;flex-direction:column}
+main#app{flex:1}
+.app-foot{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;gap:14px;min-height:46px;padding:6px 26px;
+ background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line);font-size:12.5px;color:var(--text-2)}
+.app-foot .sp{flex:1}
+.app-foot #storageStatus{display:contents}
+.app-foot .storage-status{display:flex;align-items:center;gap:10px;background:transparent;border:0;padding:0;margin:0;color:var(--text-2)}
+.app-foot #dirty{color:var(--warning);background:transparent;border:0;padding:0;font-weight:500}
+.app-foot button.gh{padding:5px 11px;font-size:12.5px}
+
+/* ---- тёмная тема: родные элементы формы ---- */
+:root[data-theme="dark"] input[type=checkbox],:root[data-theme="dark"] input[type=radio]{accent-color:var(--accent)}
+
+/* ---- светлые островки внутри тёмной темы ---- */
+:root[data-theme="dark"] .gf-light{background:var(--surface)}
+
+/* ---- быстрые виды Sales: таблетки ---- */
+.sl-quick{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 10px}
+.sl-quick-pill{border:0;border-radius:999px;padding:6px 13px;background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--shadow),inset 0 0 0 1px var(--line)}
+.sl-quick-pill:hover{background:var(--surface-2)}
+.sl-quick-pill b{margin-left:7px;font-weight:600;color:var(--text-3)}
+.sl-quick-pill.warn b{color:var(--warning)}
+.sl-quick-pill.on{background:var(--accent);color:var(--on-solid);box-shadow:none;font-weight:600}
+.sl-quick-pill.on b{color:inherit;opacity:.75}
+
+/* ---- рабочие таблицы (Sales, Optimization, Shipping, Finance, Production) ---- */
+main#app{padding:28px 36px}
+.card.sales-list-card{border-radius:18px;padding:6px 0 0;overflow:hidden}
+.sales-list-card .sales-toolbar,.sales-list-card .sl-view-controls,.sales-list-card .sl-quick{padding-left:20px;padding-right:20px}
+.sales-list-card .sl-quiet,.fin-card .sl-quiet,.sales-status-chips .sl-status-toggle,.sl-view-controls .sl-date-toggle{border:0;background:transparent;font-weight:500;color:var(--text-2);border-radius:8px}
+.sales-list-card .sl-quiet:hover,.fin-card .sl-quiet:hover,.sales-status-chips .sl-status-toggle:hover,.sl-view-controls .sl-date-toggle:hover{background:var(--surface-3);color:var(--text)}
+.sl-table{font-size:13.5px}
+.sl-table th{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-weight:500;color:var(--text-2);font-size:12px;padding-top:10px;padding-bottom:10px}
+.sl-table td{border-bottom:1px solid var(--line-soft);padding-top:13px;padding-bottom:13px}
+.sl-table td:first-child,.sl-table th:first-child{padding-left:20px}
+.sl-table b.mono{font-family:var(--font);font-size:inherit;font-weight:600;font-variant-numeric:tabular-nums}
+.sl-table td.n,.sl-table .n{font-variant-numeric:tabular-nums}
+.sl-th svg,.sl-header-tools svg{opacity:.4}
+.sl-fbtn.on{background:var(--accent);border-color:var(--accent)}
+.sl-foot td{background:var(--surface-2);border-top:1px solid var(--line)}
+.pill{border-radius:999px;font-weight:500;border:0;padding:2px 9px}
+
+/* На планшете станции и телефоне футера нет: внизу только таб-бар. */
+@media (max-width:900px){.app-foot{display:none}}

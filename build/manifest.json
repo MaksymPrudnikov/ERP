@@ -1,6 +1,7 @@
 {
  "title": "GLASS ERP — Glazing System",
  "styles": [
+  "src/styles/tokens.css",
   "src/styles/base.css",
   "src/styles/modules.css",
   "src/styles/service-sets.css",
@@ -15,7 +16,8 @@
   "src/styles/ncr.css",
   "src/styles/stickers.css",
   "src/styles/cutting.css",
-  "src/styles/station.css"
+  "src/styles/station.css",
+  "src/styles/theme.css"
  ],
  "scripts": [
   "src/core/dim.js",

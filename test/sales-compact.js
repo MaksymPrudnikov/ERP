@@ -38,8 +38,8 @@ module.exports=async function({page,eq,ok}){
  ok('шестерёнка открывает прежнее управление колонками',await t.p.locator('[aria-label="Columns"] [data-col-toggle="glass"]').count()===1);await t.p.keyboard.press('Escape');
  eq('выданная строка зелёная; выбор виден; On Hold имеет приоритет цвета',await t.p.evaluate(()=>{
   const o=DB.salesOrder[0],row=()=>document.querySelector(`[data-order-row="${o.id}"]`),color=()=>getComputedStyle(row().querySelector('td')).backgroundColor;
-  const green=color();salesListSel.add(o.id);render();const selected=row().classList.contains('sl-row-sel');salesHoldApply([o.id],'Wait');const held=color();return {green,selected,held};
- }),{green:'rgb(236, 253, 243)',selected:true,held:'rgb(254, 228, 226)'});
+  const green=color();salesListSel.add(o.id);render();const selected=row().classList.contains('sl-row-sel');salesHoldApply([o.id],'Wait');const held=color();const tok=n=>{const d=document.createElement('div');d.style.background='var(--'+n+')';document.body.appendChild(d);const c=getComputedStyle(d).backgroundColor;d.remove();return c;};return {green:green===tok('success-soft'),selected,held:held===tok('danger-soft')};
+ }),{green:true,selected:true,held:true});
  const id=await t.p.evaluate(()=>{oqReset();const id=oqOrder(oqCustomer());soDraft.notes='Unsaved commercial note';return id;});
  const row=t.p.locator('[data-metrics-line-id]').nth(1);
  await row.click({button:'right'});await t.p.locator('[data-line-hold-action="hold"]').click();await t.p.locator('[data-line-hold-reason]').fill('Waiting for shape <img src=x onerror=alert(1)>');await t.p.locator('[data-line-hold-confirm]').click();
