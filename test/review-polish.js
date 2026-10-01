@@ -24,6 +24,11 @@ module.exports=async function({page,eq}){
   const right=Math.max(...[...head.children].map(x=>x.getBoundingClientRect().right)),edge=head.getBoundingClientRect().right;
   soDraft=null;soEdit=null;tab='dashboard';render();return {fits,noGap:edge-right<20};
  }),{fits:true,noGap:true});
+ eq('Customers: статус клиента по-английски (Active / Inactive / Archived), русского на экране нет',await t.p.evaluate(()=>{
+  oqReset();const a=oqCustomer({legalName:'Status Active Ltd'}),b=oqCustomer({legalName:'Status Inactive Ltd'});b.status='inactive';
+  tab='customers';render();const text=document.getElementById('app').innerText,labels=['active','inactive','archived'].map(customerStatusLabel);
+  tab='dashboard';render();return {labels,russian:/[А-яЁё]/.test(text)};
+ }),{labels:['Active','Inactive','Archived'],russian:false});
  eq('review-polish без ошибок страницы',t.errs,[]);
  await t.c.close();
 };
