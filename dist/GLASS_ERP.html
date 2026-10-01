@@ -41,10 +41,10 @@
                  сам цвет, -soft (подложка) и -line (рамка)
 
    Тёмная тема — те же токены с другими значениями (<html data-theme="dark">).
-   Светлые островки (.gf-light) — чертёж, раскрой, стикеры, печать —
-   всегда в светлых значениях.
+   Светлые островки (.gf-light и картинка листа svg.cut-svg) — чертёж,
+   раскрой, стикеры, печать — всегда в светлых значениях.
    ===================================================================== */
-:root,.gf-light{
+:root,.gf-light,svg.cut-svg{
  --bg:#f5f7f7;--surface:#ffffff;--surface-2:#f8f9fa;--surface-3:#eef0f2;
  --line-soft:#eef0f2;--line:#e4e7ea;--line-strong:#cfd5da;
  --text:#14181c;--text-2:#4b5560;--text-3:#7b858f;--inverse:#1d2328;--on-solid:#ffffff;
@@ -2068,22 +2068,33 @@ body.cut-full:has([data-cut-full]) .cut-grid{grid-template-columns:minmax(0,35fr
    и под палец на планшете. */
 body.station-mode .shell{grid-template-columns:1fr;background:var(--bg)}
 body.station-mode .side,body.station-mode .main>header{display:none}
-body.station-mode main{padding:0}
-.st-top{height:64px;background:var(--nav);color:var(--accent-line);display:flex;align-items:center;gap:14px;padding:0 18px;position:sticky;top:0;z-index:4}
+body.station-mode main#app{padding:0}
+body.station-mode .main{padding-bottom:0}
+/* Верхняя полоса станции — тёмная во всю ширину (владелец, 1 октября 2026,
+   вариант A): код станции видно через весь цех, экран станции не спутать с
+   офисом. Цвета — токены: inverse и белый на нём. */
+.st-top{height:68px;background:var(--inverse);color:var(--on-solid);display:flex;align-items:center;gap:12px;padding:0 20px;position:sticky;top:0;z-index:4}
 .st-top .sp,.st-sec .sp{flex:1}
-.st-code{background:var(--accent);color:var(--on-solid);font-weight:800;font-size:22px;letter-spacing:.04em;border-radius:10px;padding:5px 14px}
-.st-name{font-size:15px;font-weight:600;color:var(--on-solid)}
-.st-chip{display:flex;align-items:center;gap:8px;background:var(--nav2);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--accent-line)}
+.st-code{background:var(--accent);color:var(--on-solid);font-weight:800;font-size:22px;letter-spacing:.04em;border-radius:12px;padding:6px 15px}
+.st-name{font-size:15px;font-weight:600;color:color-mix(in srgb,var(--on-solid) 78%,transparent)}
+.st-chip{display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--on-solid) 10%,transparent);border:0;border-radius:999px;padding:6px 14px 6px 6px;font-size:13.5px;font-weight:500;color:var(--on-solid)}
 .st-chip b{color:var(--on-solid)}
 .st-av{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-grid;place-items:center;font-weight:800;font-size:11px;flex:none}
-.st-btn{font:inherit;font-size:13px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:transparent;color:var(--accent-line);padding:7px 12px}
-.st-btn:hover{background:rgba(255,255,255,.06);border-color:color-mix(in srgb,var(--on-solid) 40%,transparent)}
+.st-btn{font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;border:1px solid color-mix(in srgb,var(--on-solid) 24%,transparent);background:transparent;color:var(--on-solid);padding:9px 15px}
+.st-btn:hover{background:color-mix(in srgb,var(--on-solid) 8%,transparent);border-color:color-mix(in srgb,var(--on-solid) 40%,transparent)}
 .st-exit{opacity:.7}
-.st-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
-.st-body.st-one{grid-template-columns:minmax(0,640px);justify-content:center;padding-top:40px}
-.st-col{display:flex;flex-direction:column;gap:14px;min-width:0}
-.st-sec{display:flex;align-items:center;gap:10px;margin:0 0 10px}
-.st-sec h3{margin:0;font-size:15px}
+/* Сетка экрана: две колонки, один шаг 16 между всеми блоками. Колонки одной
+   высоты — по более длинной; в короткой последняя панель дотягивается вниз,
+   без рваного края. Карточка результата не растягивается. Каждый блок —
+   одинаковая панель. */
+.st-body{--st-gap:16px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:var(--st-gap);padding:var(--st-gap);align-items:stretch}
+.st-body.st-one{grid-template-columns:minmax(0,640px);justify-content:center;padding-top:40px;min-height:0}
+.st-col{display:flex;flex-direction:column;gap:var(--st-gap);min-width:0}
+.st-col>*{margin:0}
+.st-col>.card:last-child,.st-col>.st-idle:last-child{flex:1 0 auto}
+.st-body .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.st-sec{display:flex;align-items:center;gap:10px;margin:0 0 12px;min-height:24px}
+.st-sec h3{margin:0;font-size:15px;font-weight:650}
 /* Поле скана */
 .st-scan{display:flex;align-items:center;gap:16px;border:3px solid var(--blue);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 14%,transparent);border-radius:16px;padding:12px 20px;background:var(--surface);cursor:text}
 .st-scan-ico svg{width:44px;height:44px;stroke:var(--blue);fill:none;stroke-width:1.8;display:block}
@@ -2094,7 +2105,7 @@ body.station-mode main{padding:0}
 .st-ready{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--green);font-weight:700;white-space:nowrap}
 .st-ready i{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--success) 18%,transparent)}
 /* Карточка результата */
-.st-res{border-radius:14px;border:2px solid var(--green);background:var(--surface);overflow:hidden}
+.st-res{border-radius:16px;border:2px solid var(--green);background:var(--surface);overflow:hidden}
 .st-res-h{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--green2);color:var(--green);font-weight:700;font-size:16px}
 .st-res-h span{margin-left:auto;font-weight:500;font-size:13px;color:var(--mut)}
 .st-res.st-info{border-color:var(--blue)}.st-res.st-info .st-res-h{background:var(--blue2);color:var(--accent)}
@@ -2125,8 +2136,13 @@ body.station-mode main{padding:0}
 .st-acts{display:flex;gap:10px;padding:0 16px 14px}
 .st-acts .b,.st-journal .b{font:inherit;font-size:14px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);padding:8px 16px}
 .st-journal .b.sm{font-size:12px;padding:3px 10px}
-.st-note{background:var(--green2);border:1px solid var(--success-line);color:var(--green);border-radius:10px;padding:9px 14px;font-weight:700}
-.st-journal td,.st-journal th{padding:7px 9px}
+.st-acts .b{min-height:42px;font-weight:600}
+.st-note{background:var(--green2);border:1px solid var(--success-line);color:var(--green);border-radius:16px;padding:12px 18px;font-weight:700}
+/* Таблицы панелей — как рабочие таблицы офиса. */
+.st-body table{font-size:13.5px}
+.st-body th{background:var(--surface-2);color:var(--text-2);font-weight:500;font-size:12px;padding:9px 10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.st-body td{padding:10px;border-bottom:1px solid var(--line-soft)}
+.st-journal td,.st-journal th{padding:9px 10px}
 .st-to{font-weight:700;color:var(--accent)}
 .st-brk{font-weight:700;color:var(--red)}
 .st-man{font-size:10px;font-weight:700;border-radius:5px;padding:1px 5px;background:var(--amber2);color:var(--amber)}
@@ -2167,9 +2183,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-keys{display:grid;grid-template-columns:repeat(3,72px);gap:8px;justify-content:center;margin-top:12px}
 .st-keys button{font:inherit;font-size:22px;font-weight:600;height:56px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
 /* Вкладки CUT: Scan · Queue; на Queue поле скана — в шапке */
-.st-tabs{display:flex;gap:4px;margin-left:10px}
-.st-tabs button{font:inherit;font-size:14px;color:var(--text-3);background:none;border:0;padding:8px 14px;border-radius:9px}
-.st-tabs button.on{background:var(--nav2);color:var(--on-solid);font-weight:700;box-shadow:inset 0 -3px 0 var(--accent)}
+.st-tabs{display:flex;gap:2px;margin-left:10px;padding:3px;border-radius:12px;background:color-mix(in srgb,var(--on-solid) 8%,transparent)}
+.st-tabs button{font:inherit;font-size:14px;font-weight:600;color:color-mix(in srgb,var(--on-solid) 65%,transparent);background:none;border:0;padding:8px 18px;border-radius:9px}
+.st-tabs button.on{background:color-mix(in srgb,var(--on-solid) 16%,transparent);color:var(--on-solid)}
 .st-topscan{display:flex;align-items:center;gap:8px;background:var(--surface);border:2px solid var(--accent);border-radius:10px;padding:5px 12px;min-width:260px;margin-left:12px}
 .st-topscan svg{width:20px;height:20px;stroke:var(--blue);fill:none;stroke-width:1.8;flex:none}
 .st-topscan input{border:0;outline:0;font:inherit;font-size:15px;width:100%;background:transparent}
@@ -2270,7 +2286,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .sf-step{width:64px}
 /* Очередь станций после резки */
 .st-flow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
-.st-fb{flex:1;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface-2)}
+.st-fb{flex:1 1 0;min-width:120px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2)}
 .st-fb small{display:block;color:var(--mut);font-weight:700;letter-spacing:.04em;font-size:11px}.st-fb b{font-size:26px}.st-fb span{display:block;color:var(--mut);font-size:12.5px}
 .st-fb.here{background:var(--blue2);border-color:var(--accent-line)}
 .st-fa{align-self:center;color:var(--text-3);font-size:22px}
@@ -2285,6 +2301,16 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
 .st-drawthumb-sheet{position:absolute;left:0;top:0;width:850px;height:1100px;padding:34px;box-sizing:border-box;transform:scale(.22);transform-origin:0 0;pointer-events:none}
 .st-drawthumb-sheet .print-sheet{height:100%}
 .st-drawthumb-t{font-weight:700;color:var(--accent);font-size:13px}
+/* Схема прямоугольника под плашкой NEXT — той же ширины, что миниатюра чертежа. */
+.st-glassprev{font:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface-2);padding:14px 12px 10px;cursor:pointer;color:var(--text-2)}
+.st-glassprev:hover:not(:disabled){border-color:var(--accent)}
+.st-glassprev:disabled{cursor:default;opacity:1}
+.st-glassprev svg{display:block;overflow:visible}
+.st-glassprev-glass{fill:url(#st-glass-grad);stroke:var(--text-2);stroke-width:1.5}
+.st-glassprev-glint{stroke:var(--on-solid);stroke-width:3;stroke-linecap:round;opacity:.8}
+.st-glassprev-dim{stroke:var(--text-3);fill:none}
+.st-glassprev text{font:600 12px var(--font);fill:var(--text-2)}
+.st-glassprev-t{font-size:12px;font-weight:600;color:var(--text-3)}
 .st-drawer.st-drawer-draw{left:0;width:auto;padding:14px 20px;gap:8px}
 .st-draw-h{display:flex;align-items:center;gap:12px}.st-draw-h h2{margin:0;font-size:20px;display:flex;gap:8px;align-items:baseline}
 .st-draw-find{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:4px 10px;background:var(--surface)}
@@ -2335,7 +2361,7 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-body{grid-template-columns:minmax(0,1fr)}
  .st-res-b{grid-template-columns:minmax(0,1fr)}
  .st-big{min-width:0}
- .st-top{gap:8px;padding:0 10px}
+ .st-top{gap:8px;padding:0 12px}
  .st-top .st-chip:not(:has(.st-av)){display:none}
  .st-names{grid-template-columns:minmax(0,1fr)}
 }
@@ -2482,7 +2508,7 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='1c74999d6f43';
+var ERP_BUILD='398d530bb02d';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -30780,7 +30806,7 @@ function stationCard(){
  const unitNo=g&&c.kind!=='recut'?stationUnitNo(g):0,unitBtn=unitNo&&!(L.check&&stationUnitMerge(g.o,g.l)===stationCode)?'<button type="button" class="b" data-station-unit-reprint onclick="stationPrintUnit(\''+esc(c.code)+'\')">Unit sticker</button>':'';
  if(c.kind==='skipped')return '<div class="st-res st-amber" data-station-result="skipped"><div class="st-res-h">'+esc(K.head)+'<span>'+esc(stationTime(L.at))+'</span></div><div class="st-res-b">'+big+'<div class="st-info">'+info+'</div></div>'+
   '<div class="st-acts"><button type="button" class="b st-yes" data-station-yes onclick="stationAnswer(\''+esc(c.code)+'\',true)">✓ Yes, done</button><button type="button" class="b st-red-b" data-station-no onclick="stationAnswer(\''+esc(c.code)+'\',false)">✕ No — back to '+esc((c.missed||[])[0]||'')+'</button></div></div>';
- const thumb=g&&d?stationDrawThumb(g,d):'',drawBtn=g&&g.l.shapeRef&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')">Drawing</button>':'';
+ const thumb=g&&d?(stationDrawThumb(g,d)||(!d.shape&&c.kind!=='recut'?stationGlassPreview(g,size):'')):'',drawBtn=g&&g.l.shapeRef&&c.kind!=='recut'?'<button type="button" class="b" data-station-drawing onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')">Drawing</button>':'';
  const acts=(L.rec||canRecut||stickerFor||drawBtn)?'<div class="st-acts">'+(L.rec?'<button type="button" class="b" onclick="stationUndoClick(\''+esc(L.rec.id)+'\')">Undo</button>':'')+
   (L.rec&&L.rec.on?'<button type="button" class="b" data-station-off onclick="stationScanOffClick(\''+esc(L.rec.id)+'\')">Not on '+esc(L.rec.on)+'</button>':'')+
   (canRecut?'<button type="button" class="b st-red-b" data-station-recut onclick="stationOpenRecut(\''+esc(c.code)+'\')">Recut</button>':'')+
@@ -31202,7 +31228,8 @@ function stationDrawStep(d){
  if(next&&next.id!==x.lineId){x.lineId=next.id;render();}
 }
 function stationDrawZoom(){return Math.max(.2,Math.min(1,(Math.min(1400,window.innerWidth)-160)/850,(window.innerHeight-64-150)/1100));}
-function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
+/* Чертёж — белый лист и в тёмной теме: класс gf-light держит светлые токены. */
+function stationDrawSheet(d){return !d?'':d.html?'<div class="print-sheet gf-light">'+printSheetUniqueIds(d.html)+'</div>':'<div class="doc-drawing-error">'+esc(d.error||'No drawing')+'</div>';}
 function stationDrawFit(){document.querySelectorAll('[data-station-draw] .print-sheet,.st-drawthumb .print-sheet').forEach(el=>salesSheetFitDrawing(el));}
 /* Заказы этой станции — те, чьи стёкла здесь ждут или здесь сканировались. */
 function stationDrawOrders(){
@@ -31237,6 +31264,23 @@ function stationDrawThumb(g,d){
  const sheet=stationDrawingOf(g.o,g.l);if(!sheet||!sheet.html)return '';
  setTimeout(stationDrawFit,0);
  return '<button type="button" class="st-drawthumb" data-station-drawthumb onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')" title="Open the drawing"><span class="st-drawthumb-paper"><span class="st-drawthumb-sheet">'+stationDrawSheet(sheet)+'</span></span><span class="st-drawthumb-t">Drawing</span></button>';
+}
+/* Прямоугольник под плашкой NEXT (владелец, 1 октября 2026): у фигуры там
+   миниатюра чертежа, у прямоугольника было пусто. Стекло в пропорциях, тем же
+   голубым, что на листе раскроя, с размерами по сторонам — рабочий сверяет
+   форму и ориентацию (30 × 20 не перепутать с 20 × 30). Нажатие — чертёж. */
+function stationGlassPreview(g,size){
+ if(!g||!size||!(size.w>0)||!(size.h>0))return '';
+ const k=Math.min(196/size.w,130/size.h),W=Math.round(size.w*k),H=Math.round(size.h*k),open=g.l.shapeRef?' onclick="stationDrawOpen(\''+esc(g.o.id)+'\',\''+esc(g.l.id)+'\')"':'';
+ const svg='<svg width="'+(W+34)+'" height="'+(H+30)+'" viewBox="-28 -4 '+(W+34)+' '+(H+30)+'" aria-hidden="true">'+
+  '<defs><linearGradient id="st-glass-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cut-glass-a)"/><stop offset="1" style="stop-color:var(--cut-glass-c)"/></linearGradient></defs>'+
+  '<rect x="0" y="0" width="'+W+'" height="'+H+'" rx="2" class="st-glassprev-glass"/>'+
+  '<path d="M'+(W*.62)+' '+(H*.18)+' L'+(W*.82)+' '+(H*.07)+'" class="st-glassprev-glint"/>'+
+  '<path d="M0 '+(H+14)+'H'+W+'M0 '+(H+9)+'V'+(H+19)+'M'+W+' '+(H+9)+'V'+(H+19)+'M-12 0V'+H+'M-17 0H-7M-17 '+H+'H-7" class="st-glassprev-dim"/>'+
+  '<text x="'+(W/2)+'" y="'+(H+10)+'" text-anchor="middle">'+esc(frac16(size.w))+'″</text>'+
+  '<text x="-16" y="'+(H/2)+'" text-anchor="middle" transform="rotate(-90 -16 '+(H/2)+')">'+esc(frac16(size.h))+'″</text></svg>';
+ return '<button type="button" class="st-glassprev" data-station-glassprev'+(open||' disabled')+' title="'+(open?'Open the drawing':'Glass')+'">'+svg+
+  '<span class="st-glassprev-t">Rectangle · '+esc(frac16(size.w)+' × '+frac16(size.h))+(open?' · tap for drawing':'')+'</span></button>';
 }
 document.addEventListener('keydown',function(e){
  if(tab!=='station'||!stationDrawer||stationDrawer.kind!=='draw'||e.altKey||e.ctrlKey||e.metaKey)return;
