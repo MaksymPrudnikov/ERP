@@ -11,7 +11,7 @@ body.station-mode main{padding:0}
 .st-chip b{color:var(--on-solid)}
 .st-av{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-grid;place-items:center;font-weight:800;font-size:11px;flex:none}
 .st-btn{font:inherit;font-size:13px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:transparent;color:var(--accent-line);padding:7px 12px}
-.st-btn:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.4)}
+.st-btn:hover{background:rgba(255,255,255,.06);border-color:color-mix(in srgb,var(--on-solid) 40%,transparent)}
 .st-exit{opacity:.7}
 .st-body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
 .st-body.st-one{grid-template-columns:minmax(0,640px);justify-content:center;padding-top:40px}

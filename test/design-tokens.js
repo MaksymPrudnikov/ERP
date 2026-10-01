@@ -7,7 +7,8 @@ module.exports=async function({eq}){
  console.log('design-tokens');
  const ROOT=path.join(__dirname,'..'),styles=JSON.parse(fs.readFileSync(path.join(ROOT,'build/manifest.json'),'utf8')).styles;
  const COLOR=/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)|(?<![-\w])(?:white|black|red|green|blue|orange|yellow|gray|grey|purple|pink|navy|teal)(?![-\w])/g;
- const allowed=m=>{const p=m.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)/);if(!p)return false;const sum=+p[1]+ +p[2]+ +p[3];return sum<150||sum>740;};
+ /* Белый — только лёгкий блик (до 30%): плотный белый — это поверхность, её даёт токен. */
+ const allowed=m=>{const p=m.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/);if(!p)return false;const sum=+p[1]+ +p[2]+ +p[3];return sum<150||(sum>740&&+p[4]<=.3);};
  const raw=[];
  styles.filter(f=>!/tokens\.css$/.test(f)).forEach(f=>{
   const css=fs.readFileSync(path.join(ROOT,f),'utf8').replace(/\/\*[\s\S]*?\*\//g,'');

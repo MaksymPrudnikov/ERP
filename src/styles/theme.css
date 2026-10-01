@@ -9,7 +9,7 @@ button,input,select,textarea{font-family:inherit}
 
 /* ---- полоса иконок с подписями (как Figma) ---- */
 .shell{--side-w:72px;background:var(--bg)}
-.side{width:var(--side-w);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
+.side{position:sticky;top:0;align-self:start;height:100vh;overscroll-behavior:contain;width:var(--side-w);padding:12px 0;display:flex;flex-direction:column;align-items:center;gap:2px;
  background:var(--surface-2);border-right:1px solid var(--line);overflow:hidden auto;color:var(--text-2)}
 .side .brand-mark{flex:none;width:34px;height:34px;margin:0 0 12px;padding:0;border:0;border-radius:9px;
  display:grid;place-items:center;background:var(--inverse);color:var(--on-solid);box-shadow:none;
@@ -111,3 +111,5 @@ main#app{padding:28px 36px}
 
 /* На планшете станции и телефоне футера нет: внизу только таб-бар. */
 @media (max-width:900px){.app-foot{display:none}}
+/* Полноэкранный раскрой — только лист, без футера. */
+body.cut-full:has([data-cut-full]) .app-foot{display:none}
