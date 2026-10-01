@@ -2,7 +2,7 @@
    карта разделов без прототипных цифр; буквы сторон в редакторе формы видны
    в тёмной теме; имя клиента в шапке заказа не обрезается. */
 module.exports=async function({page,eq}){
- console.log('review-polish');const t=await page(null,{width:1440,height:900});await require('./optimization-fixture')(t.p);
+ console.log('review-polish');const t=await page(undefined,{width:1440,height:900});await require('./optimization-fixture')(t.p);
  eq('Overview: путь заказа и справочники ведут в свои разделы; прототипного текста нет',await t.p.evaluate(()=>{
   tab='dashboard';render();const app=document.getElementById('app'),cards=[...app.querySelectorAll('[data-dash-go]')].map(b=>b.dataset.dashGo);
   const text=app.innerText,stale=['Roadmap','prototype','ERP map','Inventory','Purchasing','needs a decision'].filter(w=>text.includes(w));
