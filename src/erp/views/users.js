@@ -36,12 +36,14 @@ function viewUsers(){
   return prod
    ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
    :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td class="user-access-cell">${userAccessHTML(u)}</td>
-   <td>${u.passwordHash?'<span class="pill ok">set</span>':'<span class="mut" title="Set at first sign-in">first sign-in</span>'}</td>${actions}</tr>`;
+   <td>${u.passwordHash?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${actions}</tr>`;
  }).join('');
  const head=prod
   ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>PIN</th><th></th>'
   :'<th>Name</th><th>Sections</th><th>Password</th><th></th>';
- return `<div class="page-head"><div><h2>Users</h2><p>${prod?'Number and PIN · any station.':'Password and sections.'}</p></div>
+ /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
+ const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
+ return `<div class="page-head"><div><h2>Users</h2><p>${prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
   ${uEdit!==null?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
   <div class="card">
   <div class="tabs">${[['office','Office'],['production','Production']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>
@@ -62,7 +64,7 @@ function userForm(){
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
   return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label><input id="u_password" type="password" autocomplete="new-password" placeholder="${r.passwordHash?'set · empty = keep':USER_PASSWORD_MIN+'+ characters · or at first sign-in'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value">${r.passwordHash?`<label class="chk" style="margin-top:6px"><input type="checkbox" id="u_password_reset" ${r.resetPassword?'checked':''} onchange="uDraft.resetPassword=this.checked"> Reset — set again at next sign-in</label>`:''}</div></div>
+   <div class="grid"><div><label>Password</label><input id="u_password" type="password" autocomplete="new-password" placeholder="${r.passwordHash?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"></div></div>
    <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
@@ -94,8 +96,10 @@ function saveUser(){
  if(!d.name) return fail(e,'Enter a name');
  if(!d.onOffice) d.access=[];
  else if(!d.access.length) return fail(e,'Office: tick at least one section');
- const pw=d.onOffice?String(d.newPassword||''):'',resetPw=!d.onOffice||(!pw&&!!d.resetPassword);
- if(pw&&pw.length<USER_PASSWORD_MIN) return fail(e,'Password: at least '+USER_PASSWORD_MIN+' characters');
+ /* Пароль ставят здесь, при входе его не придумать: офис без пароля не
+    сохраняется. Снять офис — пароль уходит вместе с галочками. */
+ const pw=d.onOffice?String(d.newPassword||''):'',dropPw=!d.onOffice;
+ if(d.onOffice&&(pw||!d.passwordHash)&&pw.length<USER_PASSWORD_MIN) return fail(e,'Password: at least '+USER_PASSWORD_MIN+' characters');
  d.pin=d.onStation?String(d.pin||''):'';
  if(d.onStation&&!USER_PIN_RE.test(d.pin)) return fail(e,'PIN: 4 digits');
  const no=String(d.no==null?'':d.no).trim();
@@ -106,9 +110,9 @@ function saveUser(){
  if(!userUsersKept(DB.user.map((x,i)=>i===at?d:x).concat(uEdit==='new'?[d]:[]))) return fail(e,'Someone must keep Users');
  d.no=no?+no:0;
  if(pw)userPasswordSet(d,pw);
- ['newPassword','resetPassword','onOffice','onStation'].forEach(k=>delete d[k]);
+ ['newPassword','onOffice','onStation'].forEach(k=>delete d[k]);
  if(uEdit==='new') DB.user.push(d); else Object.assign(DB.user[at],d);
- if(resetPw){const t=uEdit==='new'?d:DB.user[at];delete t.passwordHash;delete t.passwordSalt;}
+ if(dropPw){const t=uEdit==='new'?d:DB.user[at];delete t.passwordHash;delete t.passwordSalt;}
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
 /* × на вкладке снимает этот вход. Другого входа нет — человек удаляется. */

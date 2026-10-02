@@ -11,24 +11,26 @@ module.exports=async function({page,eq,ok}){
  await started(t.p);
  await require('./optimization-fixture')(t.p);
 
- eq('офис без входа — только экран «Who is working?» с названием компании; в списке только офисные роли, без Shop',await t.p.evaluate(()=>{
+ /* Первый пароль ставят только в Users (владелец, 3 октября 2026). Пока его
+    нет ни у кого с разделом Users, входа нет — иначе поставить пароль некому. */
+ eq('пароля нет ни у кого с Users — входа нет, Users так и говорит; пароль Sales вход не включает, пароль Owner — включает',await t.p.evaluate(()=>{
+  const gate0=!!document.querySelector('.signin');tab='users';subtab='office';render();const off=!!document.querySelector('[data-signin-off]');
+  const set=(n,pw)=>{userEditOpen(DB.user.findIndex(u=>u.name===n));uDraft.newPassword=pw;saveUser();return !!document.querySelector('.signin');};
+  const sales=set('Demo Sales','glass-farm-1'),owner=set('Demo Owner','owner-pass-1');tab='dashboard';render();
+  return {gate0,off,sales,owner};
+ }),{gate0:false,off:true,sales:false,owner:true});
+ eq('офис без входа — только экран «Who is working?» с названием компании; в списке только люди с офисом и паролем',await t.p.evaluate(()=>{
   const gate=!!document.querySelector('.signin')&&document.body.classList.contains('signin-mode'),names=document.querySelectorAll('[data-signin-user]').length;
   DB.user.push({name:'Shop Worker',role:'Shop',station:'CUT',skills:[],pin:'5555'});normalizeUsers();touch();render();
   const office=[...document.querySelectorAll('[data-signin-user]')].map(x=>x.querySelector('b').textContent);
   return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400,brand:document.querySelector('[data-signin-brand] b').textContent,panes:document.querySelectorAll('.signin-glass i').length,types:[...new Set([...document.querySelectorAll('.signin-glass i')].map(i=>i.className||'clear'))].length,clock:/^\d{2}:\d{2}$/.test(document.querySelector('[data-signin-clock]').textContent)};
- }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:6,types:5,clock:true});
+ }),{gate:true,names:2,office:['Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:6,types:5,clock:true});
 
- /* Пароля ещё нет — человек задаёт его при первом входе, дважды. */
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
- const passErr=async(a,b)=>{await t.p.fill('#signinPass',a);if(b!=null)await t.p.fill('#signinPass2',b);await t.p.click('[data-signin-form] button');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
- eq('первый вход офиса: пароль задаётся — короче 8 и разные не принимаются',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),short:await passErr('1234567','1234567'),differ:await passErr('glass-farm-1','glass-farm-2')},
-  {form:'create',short:{err:'At least 8 characters',user:null},differ:{err:'Passwords differ',user:null}});
- await passErr('glass-farm-1','glass-farm-1');
+ const passErr=async a=>{await t.p.fill('#signinPass',a);await t.p.click('[data-signin-form] button');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
  eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Sales'),text=localStorage.getItem('glazing_system_v1');
   return {hash:/^[0-9a-f]{64}$/.test(u.passwordHash),salt:/^[0-9a-f]{32}$/.test(u.passwordSalt),plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
   {hash:true,salt:true,plain:false,check:true,wrong:false});
- await t.p.evaluate(()=>signinOut());
- await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  eq('неверный пароль — «Wrong password», лимита нет; верный — вход',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),wrong1:await passErr('nope-nope'),wrong2:await passErr('still-wrong'),ok:await passErr('glass-farm-1')},
   {form:'enter',wrong1:{err:'Wrong password',user:null},wrong2:{err:'Wrong password',user:null},ok:{err:undefined,user:'Demo Sales'}});
  eq('верный пароль — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
@@ -56,16 +58,17 @@ module.exports=async function({page,eq,ok}){
   subtab='production';userEditOpen('new');const prod=[uDraft.onOffice,uDraft.onStation];uEdit=null;
   subtab='office';userEditOpen('new');const office=[uDraft.onOffice,uDraft.onStation];
   uDraft.name='Clerk';saveUser();const none=document.getElementById('e_user').textContent;
-  userSetSections(true);uDraft.newPassword='short';saveUser();const short=document.getElementById('e_user').textContent;
+  userSetSections(true);saveUser();const nopw=document.getElementById('e_user').textContent;
+  uDraft.newPassword='short';saveUser();const short=document.getElementById('e_user').textContent;
   uDraft.newPassword='clerk-pass-1';saveUser();const u=DB.user.find(x=>x.name==='Clerk');
   const ok=u.access.length===USER_SECTIONS.length&&userPasswordCheck(u,'clerk-pass-1')&&!JSON.stringify(u).includes('clerk-pass-1');
-  DB.user=DB.user.filter(x=>x!==u);touch();render();return {prod,office,none,short,ok};
- }),{prod:[false,true],office:[true,false],none:'Office: tick at least one section',short:'Password: at least 8 characters',ok:true});
- eq('Users: пароль задан — Reset снимает; снять офис — пароль уходит',await t.p.evaluate(()=>{
+  DB.user=DB.user.filter(x=>x!==u);touch();render();return {prod,office,none,nopw,short,ok};
+ }),{prod:[false,true],office:[true,false],none:'Office: tick at least one section',nopw:'Password: at least 8 characters',short:'Password: at least 8 characters',ok:true});
+ eq('Users: пароль меняют здесь, пустое поле — прежний; снять офис — пароль уходит',await t.p.evaluate(()=>{
   const i=DB.user.findIndex(u=>u.name==='Demo Accounting');
   userEditOpen(i);uDraft.newPassword='accounting-1';saveUser();const set=userPasswordCheck(DB.user[i],'accounting-1');
-  userEditOpen(i);uDraft.resetPassword=true;saveUser();const reset=!DB.user[i].passwordHash;
-  userEditOpen(i);uDraft.newPassword='accounting-2';saveUser();userEditOpen(i);uDraft.onOffice=false;uDraft.onStation=true;uDraft.pin='8642';saveUser();
+  userEditOpen(i);saveUser();userEditOpen(i);uDraft.newPassword='accounting-2';saveUser();const reset=userPasswordCheck(DB.user[i],'accounting-2')&&!userPasswordCheck(DB.user[i],'accounting-1');
+  userEditOpen(i);uDraft.onOffice=false;uDraft.onStation=true;uDraft.pin='8642';saveUser();
   const moved={access:DB.user[i].access,hash:!!DB.user[i].passwordHash,pin:DB.user[i].pin};
   DB.user[i].access=['sales','finance','customers','dashboard'];DB.user[i].pin='';touch();render();return {set,reset,moved};
  }),{set:true,reset:true,moved:{access:[],hash:false,pin:'8642'}});
@@ -89,10 +92,10 @@ module.exports=async function({page,eq,ok}){
   const lead=()=>DB.user.find(u=>u.name==='Shift Lead');delUser(DB.user.indexOf(lead()),'production');const a={pin:lead().pin,access:lead().access};
   delUser(DB.user.indexOf(lead()),'office');const gone=!lead();window.confirm=ok;subtab='office';render();return {a,gone};
  }),{a:{pin:'',access:['production']},gone:true});
- eq('снятые галочки офиса кончают вход: человека нет в списке «Who is working?»',await t.p.evaluate(()=>{
-  const u=DB.user.find(x=>x.name==='Demo Accounting');const keep=u.access;u.access=[];
-  const listed=signinOfficeUsers().map(x=>x.name);u.access=keep;return listed;
- }),['Demo Owner','Demo Sales']);
+ eq('снятые галочки офиса убирают человека из «Who is working?»',await t.p.evaluate(()=>{
+  const u=DB.user.find(x=>x.name==='Demo Accounting');userPasswordSet(u,'acc-pass-12');const before=signinOfficeUsers().map(x=>x.name);
+  const keep=u.access;u.access=[];const after=signinOfficeUsers().map(x=>x.name);u.access=keep;delete u.passwordHash;delete u.passwordSalt;return {before,after};
+ }),{before:['Demo Accounting','Demo Owner','Demo Sales'],after:['Demo Owner','Demo Sales']});
 
  eq('Users: колонка No. — на вкладке Production; номер новому — сам; чужой номер не сохраняется',await t.p.evaluate(()=>{
   tab='users';subtab='production';userEditOpen('new');uDraft.name='New Cutter';uDraft.pin='1111';saveUser();
@@ -167,10 +170,10 @@ module.exports=async function({page,eq,ok}){
  eq('новая вкладка при открытой — уже со входом',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Sales');
  await p2.evaluate(()=>signinOut());await t.p.waitForTimeout(150);
  eq('Sign out в одной вкладке — экран входа в обеих',await t.p.evaluate(()=>!!document.querySelector('.signin')),true);
+ eq('человек без пароля в «Who is working?» не виден — придумать пароль при входе нельзя',await p2.evaluate(()=>({names:[...document.querySelectorAll('[data-signin-user] b')].map(b=>b.textContent),create:!!document.getElementById('signinPass2')})),{names:['Demo Owner','Demo Sales'],create:false});
  await p2.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Owner');signinChoose(u.viewProfileId);});
- eq('выбор имени без пароля не впускает — сначала пароль',await p2.evaluate(()=>({user:signinUser(),form:document.querySelector('[data-signin-form]').dataset.signinForm})),{user:null,form:'create'});
- await p2.fill('#signinPass','owner-pass-1');await p2.fill('#signinPass2','owner-pass-1');await p2.click('[data-signin-form] button');
- eq('пароль задан — вошёл',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
+ await p2.fill('#signinPass','owner-pass-1');await p2.click('[data-signin-form] button');
+ eq('пароль из Users — вошёл',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
  await t.p.close();await p2.close();
  const p3=await t.c.newPage();await p3.goto(t.p.url());await started(p3);
  eq('все вкладки закрыты — снова «Who is working?»',await p3.evaluate(()=>({user:signinUser(),gate:!!document.querySelector('.signin')})),{user:null,gate:true});
