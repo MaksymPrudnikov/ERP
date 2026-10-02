@@ -48,8 +48,15 @@ function signinPinInput(el){
  signinError='Wrong PIN';render();
  setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
 }
+/* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
+   показывает только офисные роли, цех входит на своей станции. Нет ни одного
+   офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
+function signinOfficeUsers(){
+ const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
+ return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
 function signinView(){
- const users=(DB.user||[]).slice().sort((a,b)=>(a.role==='Shop')-(b.role==='Shop')||String(a.name).localeCompare(String(b.name)));
+ const users=signinOfficeUsers();
  const pick=users.find(u=>u.viewProfileId===signinPick);
  const pad=pick?`<div class="signin-pin"><label for="signinPin">PIN · <span data-raw>${esc(pick.name)}</span></label>
    <input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" oninput="signinPinInput(this)">
