@@ -98,14 +98,18 @@ function cutEstRevision(key,id){
  const o=salesRecord(id);
  return cutEstChange(key,r=>{if(!o||!salesIsQuote(o)||salesQuoteGroupId(o)!==key)return false;r.id=id;});
 }
-/* Стекло и толщина → какие записи его делят. Смешивать можно только там,
-   где записей две и больше: раскрой идёт по стеклу. */
+/* Стекло и толщина → сколько стёкол и у каких записей. Смешивать можно
+   только там, где записей две и больше: раскрой идёт по стеклу. Владелец,
+   2 октября 2026: «не пишет, сколько какого стекла в штуках… если
+   мейкапов 15, нужно точно понимать: 6CL 520, 6 blue 221». by — штуки
+   по записям, в порядке записей. */
 function cutEstGlass(pieces){
  const m=new Map();
  (pieces||[]).filter(p=>!p.off).forEach(p=>{
   const k=p.glass+'|'+p.mm;
-  if(!m.has(k))m.set(k,{glass:p.glass,mm:p.mm,ids:new Set(),pcs:0});
+  if(!m.has(k))m.set(k,{glass:p.glass,mm:p.mm,ids:new Set(),pcs:0,by:new Map()});
   const g=m.get(k);g.ids.add(p.orderId);g.pcs++;
+  const r=g.by.get(p.orderId)||{order:p.order,pcs:0};r.pcs++;g.by.set(p.orderId,r);
  });
  return [...m.values()].sort((a,b)=>(a.glass+'|'+a.mm).localeCompare(b.glass+'|'+b.mm));
 }

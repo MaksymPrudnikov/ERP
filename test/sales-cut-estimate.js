@@ -116,6 +116,23 @@ module.exports=async function({page,eq,ok}){
   return {buttons,first,second,n};
  }),{buttons:['6CLEAR','6Q240'],first:['6CLEAR'],second:['6Q240'],n:3});
 
+ eq('штуки по типу стекла: в карточке записи, в строке общего стекла (всего и по записям) и на кнопках над листом',await t.p.evaluate(async()=>{
+  ceSetup();['6SBN60','6Q366','6SOLARGRAY'].forEach(k=>ceSheet(k,96,144));
+  const igu=(first,sizes)=>{const id=oqOrder(oqCustomer({legalName:'IGU '+first}),{dueDate:'2026-10-20'});salesOrderEdit(id);const m=soDraft.makeups[0];
+   m.panes[0].glassProductId=glassProductByCode(first).id;m.panes[1].glassProductId=glassProductByCode('6SOLARGRAY').id;
+   soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
+   soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));salesOrderSave();soDraft=null;soEdit=null;return id;};
+  const a=igu('6SBN60',[[70,60,2],[46,30,2]]),b=igu('6Q366',[[60,30,3],[22,30,4]]);tab='sales';render();
+  salesCutEstimateOpen([a,b]);await ceWait();
+  const na=salesRecord(a).businessNumber,nb=salesRecord(b).businessNumber;
+  const chips=[...document.querySelectorAll('[data-cut-est-rec-pcs]')].map(x=>x.textContent);
+  const line=[...document.querySelectorAll('[data-cut-est-glass-pcs]')].map(x=>x.dataset.cutEstGlassPcs);
+  const shared=document.querySelector('[data-cut-est-glass-pcs="6SOLARGRAY:11"]').textContent;
+  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(x=>x.textContent);cutEstClose();render();
+  return {chips,line,shared:shared===`6SOLARGRAY · 6 mm — 11 pcs together: ${na} 4, ${nb} 7`,buttons};
+ }),{chips:['8 pcs · 6SBN60 4 · 6SOLARGRAY 4','14 pcs · 6Q366 7 · 6SOLARGRAY 7'],line:['6Q366:7','6SBN60:4','6SOLARGRAY:11'],shared:true,
+  buttons:['6Q366 · 6 mm · 7 pcs','6SBN60 · 6 mm · 4 pcs','6SOLARGRAY · 6 mm · 11 pcs']});
+
  eq('меню правой кнопки: Cut preview по отмеченным строкам; без отметок кнопка неактивна',await t.p.evaluate(async()=>{
   const {a,b}=ceBad();salesListSel=new Set();render();const off=document.querySelector('[data-cut-est-open]').disabled;
   salesListSel=new Set([a,b]);salesListContext({preventDefault(){},stopPropagation(){},clientX:20,clientY:20},b);
