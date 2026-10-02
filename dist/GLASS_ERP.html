@@ -2589,7 +2589,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='971fe7fcdadf';
+var ERP_BUILD='e886818ff3f1';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -17103,8 +17103,10 @@ function finBalancesDoc(list,selection){
 
 function viewSales(){
  subtab='orders';
- /* Открыто окно Cut preview — вместо списка (views/sales-cut-estimate). */
- if(typeof cutEst!=='undefined'&&cutEst&&typeof viewSalesCutEstimate==='function')return viewSalesCutEstimate();
+ /* Открыто окно Cut preview — вместо списка (views/sales-cut-estimate).
+    Открытый заказ важнее: ссылка «Open order» из Optimization ведёт в заказ,
+    а прикидка ждёт, пока его закроют. */
+ if(typeof cutEst!=='undefined'&&cutEst&&soEdit===null&&typeof viewSalesCutEstimate==='function')return viewSalesCutEstimate();
  return `<div class="page-head sales-page-head"><div><h2>Sales</h2></div><span class="pill info">Stage 3B</span></div>${salesOrdersPane()}`;
 }
 function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderList();}
@@ -30445,7 +30447,11 @@ function viewCutLayout(b){
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
- const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
+ /* В прикидке из Sales бывает несколько типов стекла сразу; список слева —
+    только того, что выбран кнопками над листом (владелец, 2 октября 2026:
+    «как я могу выбрать тип стекла»). У батча список прежний. */
+ const listed=est&&group?pieces.filter(p=>p.glass===group.glass&&p.mm===group.mm):pieces;
+ const waiting=listed.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=listed.filter(p=>placed.has(p.piece)),off=listed.filter(p=>p.off);
  const rows=list=>cutSortPieces(list,at).map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece,lock)).join('');
  const sortMark=by=>s.sort&&s.sort.by===by?(s.sort.dir>0?' ▲':' ▼'):'';
  const sortTh=(by,label,cls)=>`<th${cls?' class="'+cls+'"':''}><button type="button" class="gb-link cut-sort${s.sort&&s.sort.by===by?' on':''}" data-cut-sort="${by}" onclick="cutUiSort('${by}')">${label}${sortMark(by)}</button></th>`;
@@ -30473,7 +30479,7 @@ function viewCutLayout(b){
  const strip=!group||!group.sheets.length?'':`<div class="cut-strip-wrap"><div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-first ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',false)" title="First sheet" aria-label="First sheet">${ico('first')}</button><button type="button" class="cut-strip-step" data-cut-prev ${sheet.no<=group.sheets[0].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',-1)" title="Previous sheet" aria-label="Previous sheet">${ico('previous')}</button></div>
   <div class="cut-strip" data-cut-strip>${tabs}</div>
   <div class="cut-strip-nav"><button type="button" class="cut-strip-step" data-cut-next ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiStep('${esc(group.glass)}',1)" title="Next sheet" aria-label="Next sheet">${ico('next')}</button><button type="button" class="cut-strip-step" data-cut-last ${sheet.no>=group.sheets[group.sheets.length-1].no?'disabled':''} onclick="cutUiEdge('${esc(group.glass)}',true)" title="Last sheet" aria-label="Last sheet">${ico('last')}</button></div><span class="mut cut-strip-count">${sheet.no} / ${group.sheets.length}</span></div>`;
- const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm</button>`).join('')}</div>`:'';
+ const glasses=plan.groups.length>1?`<div class="stk-seg cut-glass">${plan.groups.map(g=>`<button type="button" class="${g.glass===group.glass?'on':''}" data-cut-glass="${esc(g.glass)}" onclick="cutUiSheet('${esc(g.glass)}',1)">${esc(g.glass)} · ${g.mm} mm${est?' · '+pieces.filter(p=>!p.off&&p.glass===g.glass&&p.mm===g.mm).length+' pcs':''}</button>`).join('')}</div>`:'';
  /* Все переменные правятся здесь же: склад листов прогона и параметры реза.
     Master Data остаётся значением по умолчанию. */
  const pick=group&&plan.sheetPick&&plan.sheetPick[group.glass]||{},stock=group?cutStockFor(group.glass,pick,group.mm,b.number):[];
@@ -30822,14 +30828,18 @@ function cutEstRevision(key,id){
  const o=salesRecord(id);
  return cutEstChange(key,r=>{if(!o||!salesIsQuote(o)||salesQuoteGroupId(o)!==key)return false;r.id=id;});
 }
-/* Стекло и толщина → какие записи его делят. Смешивать можно только там,
-   где записей две и больше: раскрой идёт по стеклу. */
+/* Стекло и толщина → сколько стёкол и у каких записей. Смешивать можно
+   только там, где записей две и больше: раскрой идёт по стеклу. Владелец,
+   2 октября 2026: «не пишет, сколько какого стекла в штуках… если
+   мейкапов 15, нужно точно понимать: 6CL 520, 6 blue 221». by — штуки
+   по записям, в порядке записей. */
 function cutEstGlass(pieces){
  const m=new Map();
  (pieces||[]).filter(p=>!p.off).forEach(p=>{
   const k=p.glass+'|'+p.mm;
-  if(!m.has(k))m.set(k,{glass:p.glass,mm:p.mm,ids:new Set(),pcs:0});
+  if(!m.has(k))m.set(k,{glass:p.glass,mm:p.mm,ids:new Set(),pcs:0,by:new Map()});
   const g=m.get(k);g.ids.add(p.orderId);g.pcs++;
+  const r=g.by.get(p.orderId)||{order:p.order,pcs:0};r.pcs++;g.by.set(p.orderId,r);
  });
  return [...m.values()].sort((a,b)=>(a.glass+'|'+a.mm).localeCompare(b.glass+'|'+b.mm));
 }
@@ -30914,7 +30924,7 @@ function salesCutEstimateRevision(key,id){cutEstRevision(key,id);render();}
 if(typeof document!=='undefined'&&!window.cutEstKeysOn){
  window.cutEstKeysOn=true;
  document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape'||!cutEst||tab!=='sales')return;
+  if(e.key!=='Escape'||!cutEst||tab!=='sales'||soEdit!==null)return;
   const t=e.target,tag=t&&t.tagName||'';
   if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||typeof salesDialog!=='undefined'&&salesDialog)return;
   salesCutEstimateClose();
@@ -30925,17 +30935,21 @@ if(typeof document!=='undefined'&&!window.cutEstKeysOn){
 function salesCutEstimateRecs(busy){
  return cutEst.recs.map(r=>{
   const o=salesRecord(r.id);if(!o)return '';
-  const q=salesIsQuote(o),scan=cutEstScan(o),glass=[...new Set(scan.pieces.map(x=>x.c.glass))].sort(),members=q?salesQuoteMembers(o):[];
+  const q=salesIsQuote(o),scan=cutEstScan(o),members=q?salesQuoteMembers(o):[];
+  const count=new Map();scan.pieces.forEach(x=>count.set(x.c.glass,(count.get(x.c.glass)||0)+1));
+  const glass=[...count].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>g+' '+n);
   const rev=members.length>1?`<select data-cut-est-rev="${esc(r.key)}" aria-label="Quote revision" ${busy?'disabled':''} onchange="salesCutEstimateRevision('${esc(r.key)}',this.value)">${members.map(m=>`<option value="${esc(m.id)}" ${m.id===r.id?'selected':''}>${esc(salesQuoteRevName(m))}</option>`).join('')}</select>`:'';
   return `<div class="cut-est-rec${r.on?'':' off'}" data-cut-est-rec="${esc(r.key)}"><label class="chk"><input type="checkbox" data-cut-est-on ${r.on?'checked':''} ${busy?'disabled':''} onchange="salesCutEstimateToggle('${esc(r.key)}',this.checked)">
    <span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span> <b class="mono">${esc(q?salesQuoteBaseNumber(o):o.businessNumber||'')}</b></label>${rev}
-   <span>${esc(salesCustomerDisplay(o.customerId))}</span><span class="mut">${scan.pieces.length} pcs${glass.length?' · '+esc(glass.join(', ')):''}</span></div>`;
+   <span>${esc(salesCustomerDisplay(o.customerId))}</span><span class="mut" data-cut-est-rec-pcs>${scan.pieces.length} pcs${glass.length?' · '+esc(glass.join(' · ')):''}</span></div>`;
  }).join('');
 }
-/* Какое стекло общее: смешивать можно только одно стекло одной толщины. */
+/* Какое стекло общее и сколько его в штуках: смешивать можно только одно
+   стекло одной толщины. */
 function salesCutEstimateGlass(){
  const list=cutEstGlass(cutPiecesOf(CUT_EST));if(!list.length)return '';
- return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}">${esc(g.glass)} · ${g.mm} mm — ${g.ids.size>1?g.ids.size+' together':'only one, nothing to mix'}</span>`).join('')}</div>`;
+ const by=g=>[...g.by.values()].map(r=>esc(r.order)+' '+r.pcs).join(', ');
+ return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}" data-cut-est-glass-pcs="${esc(g.glass)}:${g.pcs}"><b>${esc(g.glass)}</b> · ${g.mm} mm — <b>${g.pcs} pcs</b>${g.ids.size>1?' together: '+by(g):', only '+by(g)+' — nothing to mix'}</span>`).join('')}</div>`;
 }
 function salesCutEstimateSkipped(){
  const list=cutEstSkipped();if(!list.length)return '';
