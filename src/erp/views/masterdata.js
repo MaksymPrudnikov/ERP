@@ -309,59 +309,101 @@ function mdGlassDelete(id){
 
 /* --- 2. Точки поставки ------------------------------------------------ */
 
+/* Таблица точек поставки — на общем движке Sales (владелец, 2 октября 2026:
+   «разбросано, без корректных фильтров»; правило: таблицы как в Sales —
+   фильтры колонок, без общего поиска). Своя область mdSupply, свои настройки. */
+function mdListScope(){return mdTab==='materials'&&mdMatCategory==='glass'&&mdMatView==='glassSheet'&&mdSheetEdit===null?'mdSupply':'';}
+function mdSupplyColumns(){
+ const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
+ return [col('product','Product'),col('glass','Glass'),col('supplier','Supply point','list'),col('sheet','Sheet'),col('unit','Unit','list'),col('price','Purchase price','number'),col('currency','Currency','list'),col('date','Price date','date'),col('freight','Freight, %','number'),col('lead','Lead time, days','number'),col('availability','Availability','list')];
+}
+function mdSupplyInfos(){
+ return (DB.glassSheet||[]).map(s=>{const p=glassProductByCode(s.productCode);return {o:{createdAt:s.priceDate||''},s,p,memo:{product:s.productCode,glass:p?p.name:'no product',supplier:s.supplier,
+  sheet:s.sheetWIn!=null&&s.sheetHIn!=null?s.sheetWIn+' × '+s.sheetHIn+' in':'',unit:mdUnitName(s.purchaseUnit),price:s.purchasePrice,currency:s.currency,date:s.priceDate||'',freight:s.freightPct,lead:s.leadTimeDays,availability:glassLabel('availability',s.availability)}};});
+}
+function mdSupplyHeader(c){const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;}
+function mdSupplyCell(i,c){
+ const s=i.s,v=salesListValue(i,c.k);
+ if(c.k==='product')return `<td class="mono"><b>${raw(s.productCode)}</b></td>`;
+ if(c.k==='glass')return `<td>${i.p?raw(i.p.name):'<span class="pill warn">no product</span>'}</td>`;
+ if(c.k==='price')return `<td class="n mono">${s.purchasePrice==null?'<span class="mut">none</span>':esc(s.purchasePrice.toFixed(2))}</td>`;
+ if(c.k==='date')return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+ if(c.k==='freight')return `<td class="n">${v==null?'—':esc(v+'%')}</td>`;
+ if(c.k==='lead')return `<td class="n">${v==null?'<span class="mut">—</span>':esc(v+' days')}</td>`;
+ if(c.k==='availability')return `<td><span class="pill ${s.availability==='stock'?'ok':s.availability==='inactive'?'warn':'info'}">${esc(v)}</span></td>`;
+ return `<td>${v==null||v===''?'<span class="mut">—</span>':raw(String(v))}</td>`;
+}
 function viewMdSupply(){
  if(mdSheetEdit!==null)return mdSheetForm();
- const rows=DB.glassSheet.slice().sort((a,b)=>a.productCode.localeCompare(b.productCode)||a.supplier.localeCompare(b.supplier));
- const orphans=glassOrphanSheets().length;
- return `<div class="sub">One row is one product at one supply point in one sheet format. The same sheet at a new price updates the row; a different sheet format starts its own. The currency belongs to the supply point: Vitro Barrie ships in CAD, Vitro USA ships the same glass in USD.</div>
-  ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b>. This happens after a code is renamed in the catalogue — the price is not lost, but its product has to be given back.</div>`:''}
-  <div class="customer-table-wrap"><table><thead><tr><th>Product</th><th>Supply point</th><th>Sheet</th><th>Unit</th><th>Purchase price</th><th>Date</th><th>Freight</th><th>Lead time</th><th>Availability</th><th></th></tr></thead>
-  <tbody>${rows.map(mdSheetRow).join('')||'<tr><td colspan="10" class="empty">no supply rows yet — load GLASS_SHEETS.csv or add a row by hand</td></tr>'}</tbody></table></div>
-  <div class="row"><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>`;
-}
-function mdSheetRow(s){
- const p=glassProductByCode(s.productCode);
- return `<tr><td class="mono"><b>${raw(s.productCode)}</b>${p?`<div class="mut">${raw(p.name)}</div>`:'<div><span class="pill warn">no product</span></div>'}</td>
-  <td>${raw(s.supplier)}</td>
-  <td class="mono">${s.sheetWIn!=null&&s.sheetHIn!=null?esc(s.sheetWIn+' × '+s.sheetHIn+' in'):'<span class="mut">not set</span>'}</td>
-  <td>${esc(mdUnitName(s.purchaseUnit))}<div class="mut">${esc(mdUnitCalcName(mdUnitCalc(s.purchaseUnit)))}</div></td>
-  <td class="mono">${s.purchasePrice==null?'<span class="mut">none</span>':esc(s.currency+' '+s.purchasePrice.toFixed(2))}</td>
-  <td class="mono">${s.priceDate?esc(s.priceDate):'<span class="mut">—</span>'}</td>
-  <td class="mono">${s.freightPct==null?'—':esc(s.freightPct+'%')}</td>
-  <td class="mono">${s.leadTimeDays==null?'<span class="mut">—</span>':esc(s.leadTimeDays+' days')}</td>
-  <td><span class="pill ${s.availability==='stock'?'ok':s.availability==='inactive'?'warn':'info'}">${esc(glassLabel('availability',s.availability))}</span></td>
-  <td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(s.id)}')">Edit</button>
-   <button class="sm dl" onclick="mdSheetDelete('${esc(s.id)}')">×</button></td></tr>`;
+ const infos=mdSupplyInfos(),rows=salesListRows(infos),cols=salesListColumns(),orphans=glassOrphanSheets().length;
+ const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
+ return `<div class="md-supply-head"><span class="mut">One row — one glass at one supply point in one sheet size.</span><span class="sp"></span><button class="pri" onclick="mdSheetNew()">+ New supply row</button></div>
+  ${orphans?`<div class="note">Supply rows without a product: <b>${orphans}</b> — give them a product back.</div>`:''}
+  ${salesListFilterChips()}
+  <div class="sales-table-wrap"><table class="sl-table md-supply-table"><thead><tr><th><span class="sl-header-tools">${settings}</span></th>${cols.map(mdSupplyHeader).join('')}<th></th></tr></thead>
+  <tbody>${rows.map(i=>`<tr data-supply-row="${esc(i.s.id)}"><td></td>${cols.map(c=>mdSupplyCell(i,c)).join('')}<td style="white-space:nowrap"><button class="sm" onclick="mdSheetEditRow('${esc(i.s.id)}')">Edit</button> <button class="sm dl" onclick="mdSheetDelete('${esc(i.s.id)}')">×</button></td></tr>`).join('')||`<tr><td colspan="${cols.length+2}" class="empty">${infos.length?'Nothing matches the filters.':'No supply rows yet — load GLASS_SHEETS.csv or add a row'}</td></tr>`}</tbody></table></div>
+  <div class="mut md-supply-foot">${rows.length} of ${infos.length} rows</div>${salesListMenuHTML(infos)}`;
 }
 function mdSheetNew(){
- mdSheetEdit='new';
+ mdSheetEdit='new';mdSheetPick={mfr:'',thick:'',q:''};
  mdSheetDraft=normalizeGlassSheet({productCode:'',supplier:'',currency:GLASS_DEFAULT_CURRENCY,purchaseUnit:GLASS_DEFAULT_UNIT,availability:'order'});
  render();
 }
 function mdSheetEditRow(id){
  const s=(DB.glassSheet||[]).find(x=>x.id===id);if(!s)return;
- mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));render();
+ mdSheetEdit=id;mdSheetDraft=JSON.parse(JSON.stringify(s));mdSheetPick={mfr:'',thick:'',q:''};render();
 }
+/* Форма из двух блоков (владелец, 2 октября 2026): Glass — производитель,
+   толщина и поиск сужают список из 500+ стёкол; Supply — точка поставки из
+   уже заведённых (валюта подставляется от неё), лист, цена, дата календарём.
+   Фильтры перестраивают только список стёкол: набранное в Supply не теряется. */
+let mdSheetPick={mfr:'',thick:'',q:''};
+function mdSheetProducts(){
+ const q=mdSheetPick.q.trim().toLowerCase();
+ return DB.glassProduct.filter(p=>(!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr)&&(!mdSheetPick.thick||String(p.thicknessMm)===mdSheetPick.thick)&&(!q||(p.code+' '+p.name).toLowerCase().includes(q))).sort((a,b)=>a.code.localeCompare(b.code));
+}
+function mdSheetProductOptions(code){
+ const list=mdSheetProducts(),chosen=code&&!list.some(p=>p.code===code)?glassProductByCode(code):null;
+ return (chosen?[chosen]:[]).concat(list).map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===code?'selected':''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('');
+}
+function mdSheetThickOptions(){
+ const t=[...new Set(DB.glassProduct.filter(p=>!mdSheetPick.mfr||p.manufacturer===mdSheetPick.mfr).map(p=>+p.thicknessMm).filter(n=>n>0))].sort((a,b)=>a-b);
+ return '<option value="">Any thickness</option>'+t.map(n=>`<option value="${n}" ${String(n)===mdSheetPick.thick?'selected':''}>${n} mm</option>`).join('');
+}
+function mdSheetPickSet(k,v){
+ mdSheetPick[k]=String(v==null?'':v);if(k==='mfr'){const t=document.getElementById('md_sheetThick');mdSheetPick.thick='';if(t)t.innerHTML=mdSheetThickOptions();}
+ const sel=document.getElementById('md_sheetCode'),cur=sel?sel.value:'';if(sel)sel.innerHTML=mdSheetProductOptions(cur);
+ const n=document.getElementById('md_sheetCount');if(n)n.textContent=mdSheetProducts().length+' of '+DB.glassProduct.length;
+}
+/* Точка поставки знает свою валюту: Vitro Barrie — CAD, Vitro USA — USD. */
+function mdSheetPoints(){const m=new Map();(DB.glassSheet||[]).forEach(s=>{if(s.supplier&&!m.has(s.supplier))m.set(s.supplier,s.currency||'');});return m;}
+function mdSheetPointPicked(v){const cur=mdSheetPoints().get(String(v||'').trim()),el=document.getElementById('md_sheetCurrency');if(cur&&el)el.value=cur;}
 function mdSheetForm(){
- const r=mdSheetDraft,isNew=mdSheetEdit==='new';
- const codes=DB.glassProduct.slice().sort((a,b)=>a.code.localeCompare(b.code));
- return `<div class="form"><h3>${isNew?'New supply row':'Edit supply row'}</h3>
-  <div class="grid">
-   <div><label>Product *</label><select id="md_sheetCode"><option value="">— select —</option>${codes.map(p=>`<option data-raw value="${esc(p.code)}" ${p.code===r.productCode?'selected':''}>${esc(p.code)} · ${esc(p.name)}</option>`).join('')}</select></div>
-   <div><label>Supply point *</label><input id="md_sheetSupplier" value="${esc(r.supplier)}" placeholder="Vitro Barrie"><div class="hint">The point, not the company: Vitro Barrie and Vitro USA differ in currency and lead time.</div></div>
-   <div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3"></div>
-   <div><label>Sheet width (in)</label><input id="md_sheetW" type="number" step="0.1" min="0" value="${r.sheetWIn==null?'':r.sheetWIn}"></div>
-   <div><label>Sheet height (in)</label><input id="md_sheetH" type="number" step="0.1" min="0" value="${r.sheetHIn==null?'':r.sheetHIn}"><div class="hint">The size is filled in as a pair: half a size is worse than none.</div></div>
-   <div><label>Purchase unit</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select><div class="hint">Not every item is bought by area — a box or a drum is not measured in square feet.</div></div>
-   <div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"><div class="hint">This is the PURCHASE side, at the supply point. The SALE price lives on the product in the glass catalogue — the Price AN and Price FT columns.</div></div>
-   <div><label>Price date</label><input id="md_sheetDate" value="${esc(r.priceDate)}" placeholder="2026-08-22"><div class="hint">A price with no date says nothing about how stale it is.</div></div>
+ const r=mdSheetDraft,isNew=mdSheetEdit==='new',p=r.productCode?glassProductByCode(r.productCode):null;
+ if(!mdSheetPick.touched){mdSheetPick={mfr:p?p.manufacturer:'',thick:p?String(p.thicknessMm):'',q:'',touched:true};}
+ const mfrs=[...new Set(DB.glassProduct.map(x=>x.manufacturer).filter(Boolean))].sort(),points=mdSheetPoints();
+ return `<div class="form md-sheet-form"><h3>${isNew?'New supply row':'Edit supply row'}</h3><div class="md-sheet-grid">
+  <div class="md-sheet-box"><h4>Glass</h4><div class="md-sheet-fields">
+   <div><label>Manufacturer</label><select id="md_sheetMfr" onchange="mdSheetPickSet('mfr',this.value)"><option value="">All manufacturers</option>${mfrs.map(m=>`<option data-raw value="${esc(m)}" ${m===mdSheetPick.mfr?'selected':''}>${esc(m)}</option>`).join('')}</select></div>
+   <div><label>Thickness</label><select id="md_sheetThick" onchange="mdSheetPickSet('thick',this.value)">${mdSheetThickOptions()}</select></div>
+   <div class="md-sheet-wide"><label>Find glass</label><input id="md_sheetFind" type="search" autocomplete="off" placeholder="Code or name — 6CLEAR, Solarban" value="${esc(mdSheetPick.q)}" oninput="mdSheetPickSet('q',this.value)"></div>
+   <div class="md-sheet-wide"><label>Product *</label><select id="md_sheetCode" size="8">${mdSheetProductOptions(r.productCode)}</select><div class="mut md-sheet-tiny"><span id="md_sheetCount">${mdSheetProducts().length} of ${DB.glassProduct.length}</span></div></div>
+  </div></div>
+  <div class="md-sheet-box"><h4>Supply</h4><div class="md-sheet-fields md-sheet-3">
+   <div><label>Supply point *</label><input id="md_sheetSupplier" list="md_sheetPoints" autocomplete="off" value="${esc(r.supplier)}" placeholder="Vitro Barrie" onchange="mdSheetPointPicked(this.value)"><datalist id="md_sheetPoints">${[...points.keys()].map(n=>`<option value="${esc(n)}"></option>`).join('')}</datalist></div>
+   <div><label>Currency</label><input id="md_sheetCurrency" value="${esc(r.currency)}" maxlength="3" title="Filled from the supply point"></div>
+   <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
+   <div><label>Sheet, in</label><div class="md-sheet-pair"><input id="md_sheetW" type="number" step="0.1" min="0" placeholder="W" value="${r.sheetWIn==null?'':r.sheetWIn}"><span>×</span><input id="md_sheetH" type="number" step="0.1" min="0" placeholder="H" value="${r.sheetHIn==null?'':r.sheetHIn}"></div></div>
+   <div><label>Purchase unit</label><select id="md_sheetUnit">${mdUnitOptions(r.purchaseUnit)}</select></div>
+   <div><label>Purchase price</label><input id="md_sheetPrice" type="number" step="0.01" min="0" value="${r.purchasePrice==null?'':r.purchasePrice}"></div>
+   <div><label>Price date</label><input id="md_sheetDate" type="date" value="${esc(r.priceDate)}"></div>
    <div><label>Freight, %</label><input id="md_sheetFreight" type="number" step="0.1" min="0" value="${r.freightPct==null?'':r.freightPct}"></div>
    <div><label>Lead time, days</label><input id="md_sheetLead" type="number" step="1" min="0" value="${r.leadTimeDays==null?'':r.leadTimeDays}"></div>
-   <div><label>Availability</label><select id="md_sheetAvail">${mdVocabOptions('availability',r.availability)}</select></div>
-  </div>
-  <div style="margin-top:12px"><label>Note</label><input id="md_sheetNote" value="${esc(r.note)}"></div>
+   <div class="md-sheet-wide"><label>Note</label><input id="md_sheetNote" value="${esc(r.note)}"></div>
+  </div><div class="mut md-sheet-tiny">Purchase side only — the sale price lives in the Glass catalogue.</div></div>
+ </div>
   <div class="err" id="e_mdSheet"></div>
-  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" onclick="mdSheetSave()">Save</button><button onclick="mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};render()">Cancel</button></div></div>`;
 }
 function mdSheetSave(){
  const e=document.getElementById('e_mdSheet');e.style.display='none';
@@ -388,7 +430,7 @@ function mdSheetSave(){
  if(clash)return fail(e,'This supply point with this sheet is already there');
  if(mdSheetEdit==='new')DB.glassSheet.push(next);
  else{const at=DB.glassSheet.findIndex(s=>s.id===mdSheetDraft.id);if(at<0)return fail(e,'Row not found');DB.glassSheet[at]=next;}
- mdSheetEdit=null;mdSheetDraft=null;normalizeMasterData();touch();render();
+ mdSheetEdit=null;mdSheetDraft=null;mdSheetPick={mfr:'',thick:'',q:''};normalizeMasterData();touch();render();
 }
 function mdSheetDelete(id){
  if(!confirm('Delete this supply row?'))return;

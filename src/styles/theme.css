@@ -124,3 +124,21 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 .dash-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .dash-build{margin:6px 2px 0;font-size:12px;color:var(--text-3)}
 @media (max-width:900px){.dash-card .flow-row{flex-direction:column}.dash-card .flow-arrow{transform:rotate(90deg);align-self:center}.dash-setup{grid-template-columns:1fr}}
+
+/* ---- Data → Supply points: таблица как в Sales, форма из двух блоков ---- */
+.md-supply-head{display:flex;align-items:center;gap:12px;margin:4px 0 10px}
+.md-supply-head .sp{flex:1}
+.md-supply-foot{margin-top:8px;font-size:12.5px}
+.md-sheet-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px}
+.md-sheet-box{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--surface)}
+.md-sheet-box h4{margin:0 0 12px;font-size:14px}
+.md-sheet-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.md-sheet-fields.md-sheet-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.md-sheet-fields label{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}
+.md-sheet-fields input,.md-sheet-fields select{width:100%;box-sizing:border-box}
+.md-sheet-wide{grid-column:1/-1}
+.md-sheet-pair{display:flex;gap:6px;align-items:center}
+.md-sheet-tiny{font-size:11.5px;margin-top:6px}
+#md_sheetCode{height:auto;padding:4px}
+@media (max-width:1100px){.md-sheet-grid{grid-template-columns:1fr}.md-sheet-fields.md-sheet-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#md_sheetCode option{padding:4px 6px}
