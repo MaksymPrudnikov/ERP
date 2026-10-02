@@ -116,6 +116,8 @@
   "src/erp/views/cut-layout-ui.js",
   "src/erp/views/stock-list.js",
   "src/erp/views/sheet-usage.js",
+  "src/erp/sales/cut-estimate.js",
+  "src/erp/views/sales-cut-estimate.js",
   "src/erp/views/station.js",
   "src/erp/views/station-drawings.js",
   "src/erp/views/station-queue.js",
