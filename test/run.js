@@ -6043,7 +6043,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT',skills:[]}]});
     const u = await page(seeded);
     eq('имя станции берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
-      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
+      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(4)').textContent.trim();
     }), 'CUT — Cutting');
     await u.c.close();
   }

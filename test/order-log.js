@@ -9,13 +9,13 @@ module.exports=async function({page,eq,ok}){
  await started(t.p);
  await require('./optimization-fixture')(t.p);
 
- eq('офис без входа — только экран «Who is working?»; в списке только офисные роли, без Shop',await t.p.evaluate(()=>{
+ eq('офис без входа — только экран «Who is working?» с названием компании; в списке только офисные роли, без Shop',await t.p.evaluate(()=>{
   const gate=!!document.querySelector('.signin')&&document.body.classList.contains('signin-mode'),names=document.querySelectorAll('[data-signin-user]').length;
   const u=DB.user.find(x=>x.name==='Demo Sales');u.pin='4321';
   DB.user.push({name:'Shop Worker',role:'Shop',station:'CUT',skills:[],pin:'5555'});normalizeUsers();touch();render();
   const office=[...document.querySelectorAll('[data-signin-user]')].map(x=>x.querySelector('b').textContent);
-  return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400};
- }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true});
+  return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400,brand:document.querySelector('[data-signin-brand] b').textContent,panes:document.querySelectorAll('.signin-glass i').length};
+ }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:5});
 
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  await t.p.fill('#signinPin','1111');
