@@ -8,12 +8,15 @@
    ===================================================================== */
 
 /* One browser database has one writer. Web Locks protects the entire write
-   session; followers can review live data and explicitly take over. */
+   session. The writer is the tab you are working in (owner, 2 October 2026):
+   a tab takes over by itself when it is opened, shown, clicked, typed or
+   scanned in. The other tab always gives way; its unsaved draft stays in its
+   own memory and comes back, on top of the latest data, when you return. */
 const STORAGE_KEY='glazing_system_v1',STORAGE_LOCK=STORAGE_KEY+'-writer';
 const STORAGE_BACKUP_KEY=STORAGE_KEY+'-before-import';
 let storageWriter=false,storageRelease=null,storageChannel=null,storageStarting=true;
 let storageWarningShown=false,storageLastError='',storageLastSaved='',storageBaseline=null,storageDepth=0;
-let storageRecovery=false,storageBackupAt='';
+let storageRecovery=false,storageBackupAt='',storageTakeover=null,storageHandoffFailed=false;
 /* The pre-import copy takes as much browser space as the database itself.
    It is kept for a week and dropped earlier when an ordinary save would
    otherwise fail for lack of space; a broken database keeps it untouched. */
@@ -33,7 +36,7 @@ function storageInvalidate(){
 }
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
- if(!storageWriter||storageRecovery)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':'Read only: activate editing in this tab first.'};
+ if(!storageWriter||storageRecovery)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
  const before=JSON.stringify(DB),wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
  storageDepth++;
  try{
@@ -46,7 +49,7 @@ function touch(){
  if(storageDepth)return true;
  if(!storageWriter||storageRecovery){
   if(storageStarting)return false;
-  storageLastError=storageRecovery?'The stored database needs recovery. Export it before editing.':'Read only: activate editing in this tab first.';
+  storageLastError=storageRecovery?'The stored database needs recovery. Export it before editing.':storageReadOnlyText();
   if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
@@ -63,20 +66,30 @@ function touch(){
  }
 }
 function storageRead(key){try{return localStorage.getItem(key);}catch(e){return null;}}
+function storageReadOnlyText(){return storageTakeover?'Switching editing to this tab — repeat the action in a moment.':'Glass Farm is busy in another tab. Click here to continue, or close the other tab.';}
+/* Footer: a calm status line. Problems that stop the work go to the alert
+   bar above the screen, which is visible on the station and tablet too. */
 function storageStatusHTML(){
- const text=storageRecovery?'Database recovery needed':!navigator.locks?'Editing unavailable in this browser':storageLastError?'Not saved':storageWriter?'Editing here':'Read only · editing in another tab';
+ const text=storageRecovery?'Database recovery needed':!navigator.locks?'Editing unavailable in this browser':storageLastError?'Not saved':storageWriter?'Editing here':'Editing in another tab';
  return '<div class="storage-status'+(storageLastError||storageRecovery?' bad':'')+'" role="status"><span>'+esc(text)+'</span>'+
-  (storageLastError?'<small>'+esc(storageLastError)+'</small>':'')+
   (storageLastSaved&&!storageLastError?'<small>Saved '+esc(new Date(storageLastSaved).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</small>':'')+
-  (!storageWriter?'<button type="button" onclick="storageTakeControl()">Activate editing here</button>':'')+
-  (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
   (storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'')+'</div>';
+}
+function storageAlertHTML(){
+ const text=storageRecovery?'Database recovery needed. '+(storageLastError||''):!navigator.locks?'This browser cannot coordinate editing. Open Glass Farm in a current Chrome, Edge, Firefox or Safari.':storageLastError;
+ if(!text)return '';
+ return '<span>'+esc(text)+'</span>'+
+  (!storageWriter&&!storageRecovery&&navigator.locks?'<button type="button" onclick="storageTakeControl()">Edit here</button>':'')+
+  (storageRecovery?'<button type="button" onclick="storageExportRecovery()">Export original data</button>':'')+
+  (storageRecovery&&storageBackupPresent?'<button type="button" onclick="storageRestoreBackup()">Restore pre-import backup</button>':'');
 }
 function afterRender(){
  const host=document.getElementById('storageStatus');if(host)host.innerHTML=storageStatusHTML();
- /* Forms remain available for reading. Persisting controls explain the writer
-    state; commands also check it, including calls made outside the DOM. */
- if(!storageWriter||storageRecovery){
+ const alertBar=document.getElementById('storageAlert');if(alertBar){const h=storageAlertHTML();alertBar.innerHTML=h;alertBar.hidden=!h;}
+ /* Forms remain available for reading. A tab that can take over keeps its
+    buttons: the click itself makes it the writer. Without coordination or
+    with a broken database, persisting controls are switched off. */
+ if(storageRecovery||!navigator.locks){
   document.querySelectorAll('#app button[onclick],#app [data-station-scan]').forEach(el=>{
    if(el.hasAttribute('data-station-scan')||/\b(?:save\w*|\w*Save|\w*Create|stationSubmit|stationMark|stationUndoClick|finConfirmApply|finExportQuickBooks|del\w*|carrierSet)\s*\(/.test(el.getAttribute('onclick')||'')){
     el.disabled=true;el.title='Activate editing in this tab to change the database.';
@@ -84,30 +97,65 @@ function afterRender(){
   });
  }
 }
-async function storageTakeControl(){
- if(storageWriter)return true;
- if(!navigator.locks){storageLastError='This browser cannot coordinate editing. Open the file in a current browser.';render();return false;}
+/* A redraw caused by another tab must not wipe what is typed: fields the
+   user changed since the last draw keep their value, focus and caret. */
+function storageRerender(){
+ const app=document.getElementById('app'),changed=el=>el.tagName==='SELECT'?[...el.options].some(o=>o.selected!==o.defaultSelected):el.type==='checkbox'||el.type==='radio'?el.checked!==el.defaultChecked:el.type!=='file'&&el.value!==el.defaultValue;
+ const keep=app?[...app.querySelectorAll('input[id],select[id],textarea[id]')].filter(changed).map(el=>({id:el.id,type:el.type,value:el.value,checked:el.checked})):[];
+ const a=document.activeElement,focus=a&&a.id&&app&&app.contains(a)?{id:a.id,start:a.selectionStart,end:a.selectionEnd}:null;
+ render();
+ keep.forEach(k=>{const el=document.getElementById(k.id);if(!el||el.type!==k.type)return;if(k.type==='checkbox'||k.type==='radio')el.checked=k.checked;else el.value=k.value;});
+ if(focus){const el=document.getElementById(focus.id);if(el&&document.activeElement!==el){el.focus();try{if(focus.start!=null)el.setSelectionRange(focus.start,focus.end);}catch(e){}}}
+}
+function storageTakeControl(){
+ if(storageWriter)return Promise.resolve(true);
+ if(storageTakeover)return storageTakeover;
+ if(!navigator.locks){storageLastError='This browser cannot coordinate editing. Open the file in a current browser.';render();return Promise.resolve(false);}
  if(storageChannel)storageChannel.postMessage({type:'release-writer'});
- return new Promise(resolve=>{
+ storageTakeover=new Promise(resolve=>{
   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),4000);
   navigator.locks.request(STORAGE_LOCK,{signal:abort.signal},async lock=>{
-   clearTimeout(timer);storageWriter=true;storageWarningShown=false;
+   clearTimeout(timer);storageTakeover=null;storageWriter=true;storageWarningShown=false;storageHandoffFailed=false;
+   /* The latest saved data first; this tab's open draft rides on top of it. */
    const text=localStorage.getItem(STORAGE_KEY);
    if(text&&text!==storageBaseline){if(!storageLiveReload(text)){storageRecovery=true;storageLastError='Stored data could not be read. Export the original and import a complete backup.';}storageBaseline=text;}
-   if(!storageRecovery)storageLastError='';storageBackupCheck();render();resolve(true);
+   if(!storageRecovery)storageLastError='';storageBackupCheck();storageRerender();resolve(true);
    await new Promise(r=>storageRelease=r);
-  }).catch(()=>{clearTimeout(timer);storageWriter=false;storageLastError='Editing is still open elsewhere. Save or discard any open draft in that tab, then try again.';render();resolve(false);});
+  }).catch(()=>{clearTimeout(timer);storageTakeover=null;storageWriter=false;storageHandoffFailed=true;storageLastError='Glass Farm is still busy in another tab that does not answer. Close it, then click Edit here.';storageRerender();resolve(false);});
  });
+ return storageTakeover;
 }
+/* Give the writer to the tab the user moved to — always, even with an
+   unsaved order or payment here. A draft lives in this tab's memory; only
+   the order's line shapes sit in the shared database before Update, so they
+   are parked as saved and come back from memory when this tab returns. */
+function storageYield(){
+ if(!storageWriter)return;
+ try{const parked=typeof salesDraftParkText==='function'?salesDraftParkText():null;if(parked){localStorage.setItem(STORAGE_KEY,parked);storageBaseline=parked;}}catch(e){console.warn('Draft shapes were not parked:',e.message);}
+ storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;storageRerender();
+}
+/* Run an action as the writer: a scan typed into a tab that is not the writer
+   yet waits for the handoff instead of failing. */
+function storageWhenWriter(fn){
+ if(storageWriter||storageRecovery||!navigator.locks)return fn();
+ storageTakeControl().then(()=>fn());
+}
+function storageWantControl(){if(!storageWriter&&!storageStarting&&!storageRecovery&&!storageTakeover&&navigator.locks)storageTakeControl();}
 function storageStart(){
  try{storageChannel=new BroadcastChannel(STORAGE_LOCK);storageChannel.onmessage=e=>{
-  if(e.data&&e.data.type==='release-writer'&&storageWriter){if(typeof salesDraftHasWork==='function'&&salesDraftHasWork()||typeof finHasWork==='function'&&finHasWork())return;storageWriter=false;if(storageRelease)storageRelease();storageRelease=null;render();}
+  if(e.data&&e.data.type==='release-writer'&&storageWriter)storageYield();
  };}catch(e){}
  if(!navigator.locks){storageLastError='This browser cannot coordinate editing safely.';boot();storageStarting=false;render();return;}
  navigator.locks.request(STORAGE_LOCK,{ifAvailable:true},async lock=>{
   storageWriter=!!lock;boot();storageStarting=false;storageBaseline=storageRead(STORAGE_KEY);storageBackupCheck();render();
+  /* A tab you just opened is where you work: it takes over at once. */
+  if(!lock&&document.visibilityState==='visible'&&document.hasFocus())storageTakeControl();
   if(lock)await new Promise(r=>storageRelease=r);
  }).catch(e=>{storageLastError=e.message;storageWriter=false;storageStarting=false;render();});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')storageWantControl();});
+ window.addEventListener('focus',storageWantControl);
+ document.addEventListener('pointerdown',storageWantControl,true);
+ document.addEventListener('keydown',storageWantControl,true);
 }
 /* Черновик заказа живёт только в памяти: F5 или закрытие вкладки стирали его
    без предупреждения. Спрашиваем ровно тогда, когда есть что терять — иначе

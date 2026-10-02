@@ -476,7 +476,7 @@ function stationHereCard(){
 }
 function stationKey(ev,el){
  if(ev.key!=='Enter'&&!(ev.key==='Tab'&&el.value.trim()))return;
- ev.preventDefault();const v=el.value;el.value='';if(v.trim())stationSubmit(v);
+ ev.preventDefault();const v=el.value;el.value='';if(v.trim())(typeof storageWhenWriter==='function'?storageWhenWriter:f=>f())(()=>stationSubmit(v));
 }
 function stationFocus(){
  if(tab!=='station'||stationMenu)return;

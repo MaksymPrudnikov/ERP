@@ -353,9 +353,13 @@ function normalizeSheetBreaks(){
 function storageLiveReload(text){
  let next;
  try{next=prepareImportedState(JSON.parse(text));}catch(e){console.warn('live reload skipped:',e.message);return false;}
+ /* Несохранённый заказ этой вкладки едет поверх свежей базы со своими
+    формами строк (владелец, 2 октября 2026: большой заказ в одной вкладке,
+    клиент у стойки — в другой). */
+ if(typeof salesDraftKeepShapes==='function')salesDraftKeepShapes(DB,next);
  DB=next;storageBaseline=text;storageInvalidate();
  const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.dataset&&a.dataset.stationScan!==undefined&&!a.value);
- if(!typing)render();
+ if(!typing)(typeof storageRerender==='function'?storageRerender:render)();
  return true;
 }
 window.addEventListener('storage',function(e){
