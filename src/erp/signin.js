@@ -55,13 +55,25 @@ function signinOfficeUsers(){
  const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
  return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
+/* Office / Production (владелец, 2 октября 2026): «производство не должно
+   видеть имена всех, кто в офисе». Production — только станции, имён нет;
+   человек входит уже на экране своей станции. Выбор помнит этот браузер:
+   компьютер в цеху открывается сразу на Production. */
+const SIGNIN_SIDE_KEY='glass_farm_signin_side';
+function signinSide(){try{return localStorage.getItem(SIGNIN_SIDE_KEY)==='production'?'production':'office';}catch(e){return 'office';}}
+function signinSetSide(v){try{localStorage.setItem(SIGNIN_SIDE_KEY,v==='production'?'production':'office');}catch(e){}signinPick='';signinError='';render();}
+function signinStation(code){try{localStorage.setItem(SIGNIN_SIDE_KEY,'production');}catch(e){}location.hash='station='+code;}
 function signinView(){
+ const side=signinSide();
+ const sw=`<div class="signin-side" role="tablist">${[['office','Office'],['production','Production']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${side===k}" class="${side===k?'on':''}" data-signin-side="${k}" onclick="signinSetSide('${k}')">${l}</button>`).join('')}</div>`;
+ if(side==='production')return `<div class="signin"><div class="signin-card">${sw}<h2>Which station?</h2>
+  <div class="signin-names">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><b data-raw>${esc(s.code)}</b><small>${sfLabel(s)}</small></button>`).join('')}</div></div></div>`;
  const users=signinOfficeUsers();
  const pick=users.find(u=>u.viewProfileId===signinPick);
  const pad=pick?`<div class="signin-pin"><label for="signinPin">PIN · <span data-raw>${esc(pick.name)}</span></label>
    <input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" oninput="signinPinInput(this)">
    ${signinError?`<div class="signin-err" role="alert">${esc(signinError)}</div>`:''}</div>`:'';
- return `<div class="signin"><div class="signin-card"><h2>Who is working?</h2>
+ return `<div class="signin"><div class="signin-card">${sw}<h2>Who is working?</h2>
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></button>`).join('')}</div>
   ${pad}</div></div>`;
 }

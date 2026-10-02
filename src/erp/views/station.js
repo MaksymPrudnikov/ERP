@@ -80,9 +80,13 @@ function stationWho(){
 function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
 function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
+/* Цех не видит имён офиса (владелец, 2 октября 2026): на станции — только
+   роль Shop. Пока в Users нет ни одного Shop, показываем всех — иначе при
+   первой настройке на станцию некому войти. */
 function stationUsers(){
- const skill=STATION_SKILL[stationCode],own=(DB.user||[]).filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
- return (own.length?own:(DB.user||[])).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ const all=DB.user||[],shop=all.filter(u=>u.role==='Shop'),pool=shop.length?shop:all;
+ const skill=STATION_SKILL[stationCode],own=pool.filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
+ return (own.length?own:pool).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;

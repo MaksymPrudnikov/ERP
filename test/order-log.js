@@ -93,6 +93,12 @@ module.exports=async function({page,eq,ok}){
  await t.p.close();await p2.close();
  const p3=await t.c.newPage();await p3.goto(t.p.url());await started(p3);
  eq('все вкладки закрыты — снова «Who is working?»',await p3.evaluate(()=>({user:signinUser(),gate:!!document.querySelector('.signin')})),{user:null,gate:true});
+ await p3.click('[data-signin-side="production"]');
+ eq('Production — только станции, имён нет',await p3.evaluate(()=>({names:document.querySelectorAll('[data-signin-user]').length,cut:!!document.querySelector('[data-signin-station="CUT"]'),side:localStorage.getItem('glass_farm_signin_side')})),{names:0,cut:true,side:'production'});
+ await p3.click('[data-signin-station="CUT"]');await p3.waitForFunction(()=>tab==='station');
+ eq('станция CUT: только люди цеха, офисных имён нет',await p3.evaluate(()=>[...document.querySelectorAll('.st-name-btn')].map(b=>b.textContent.trim())),['SWShop Worker']);
+ await p3.click('.st-exit');await p3.waitForFunction(()=>tab!=='station');
+ eq('кнопка ERP на станции без офисного входа — снова выбор, браузер помнит Production',await p3.evaluate(()=>({gate:!!document.querySelector('.signin'),side:(document.querySelector('.signin-side .on')||{}).textContent})),{gate:true,side:'Production'});
  await p3.goto(t.p.url().split('#')[0]+'#station=CUT');await p3.reload();await started(p3);
  eq('экран станции офисного входа не просит',await p3.evaluate(()=>({tab,gate:!!document.querySelector('.signin')})),{tab:'station',gate:false});
  eq('без ошибок страницы',t.errs,[]);

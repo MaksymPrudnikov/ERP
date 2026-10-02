@@ -223,6 +223,9 @@ body.signin-mode .side,body.signin-mode .main>header,body.signin-mode .app-foot{
 .signin{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .signin-card{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:22px}
 .signin-card h2{margin:0 0 14px;font-size:18px}
+.signin-side{display:inline-flex;gap:4px;padding:3px;margin-bottom:16px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2)}
+.signin-side button{border:0;border-radius:999px;padding:6px 16px;background:transparent;color:var(--text-2);font-weight:600}
+.signin-side button.on{background:var(--accent);color:var(--on-solid)}
 .signin-names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .signin-name{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text)}
 .signin-name small{color:var(--text-3);font-size:11px}
