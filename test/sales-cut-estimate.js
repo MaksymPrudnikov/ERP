@@ -96,6 +96,43 @@ module.exports=async function({page,eq,ok}){
   return {recs:recs.length===1&&recs[0]===o,n};
  }),{recs:true,n:2});
 
+ eq('открытый заказ важнее окна: «Open order» показывает заказ, после него снова прикидка; Esc в заказе её не закрывает',await t.p.evaluate(async()=>{
+  const {a,b}=ceBad();salesCutEstimateOpen([a,b]);await ceWait();
+  optimizationOpenOrder(a);const editor=!!soDraft&&soDraft.id===a&&!document.querySelector('[data-cut-est]');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const kept=!!cutEst;
+  soDraft=null;soEdit=null;render();const back=!!document.querySelector('[data-cut-est]');cutEstClose();render();
+  return {editor,kept,back};
+ }),{editor:true,kept:true,back:true});
+
+ eq('два типа стекла: кнопки стекла над листом, список стёкол слева — только выбранного типа',await t.p.evaluate(async()=>{
+  ceSetup();ceSheet('6Q240',96,144);
+  const a=ceRec('order',[[30,30,2]]),c=ceRec('order',[[20,20,3]],'6Q240');tab='sales';render();
+  salesCutEstimateOpen([a,c]);await ceWait();
+  const glassOf=new Map(cutPiecesOf('EST').map(p=>[p.piece,p.glass]));
+  const list=()=>[...new Set([...document.querySelectorAll('[data-cut-list]')].map(r=>glassOf.get(r.dataset.cutList)))];
+  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(b=>b.dataset.cutGlass),first=list();
+  document.querySelector('[data-cut-glass="6Q240"]').click();
+  const second=list(),n=document.querySelectorAll('[data-cut-list]').length;cutEstClose();render();
+  return {buttons,first,second,n};
+ }),{buttons:['6CLEAR','6Q240'],first:['6CLEAR'],second:['6Q240'],n:3});
+
+ eq('штуки по типу стекла: в карточке записи, в строке общего стекла (всего и по записям) и на кнопках над листом',await t.p.evaluate(async()=>{
+  ceSetup();['6SBN60','6Q366','6SOLARGRAY'].forEach(k=>ceSheet(k,96,144));
+  const igu=(first,sizes)=>{const id=oqOrder(oqCustomer({legalName:'IGU '+first}),{dueDate:'2026-10-20'});salesOrderEdit(id);const m=soDraft.makeups[0];
+   m.panes[0].glassProductId=glassProductByCode(first).id;m.panes[1].glassProductId=glassProductByCode('6SOLARGRAY').id;
+   soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});
+   soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));salesOrderSave();soDraft=null;soEdit=null;return id;};
+  const a=igu('6SBN60',[[70,60,2],[46,30,2]]),b=igu('6Q366',[[60,30,3],[22,30,4]]);tab='sales';render();
+  salesCutEstimateOpen([a,b]);await ceWait();
+  const na=salesRecord(a).businessNumber,nb=salesRecord(b).businessNumber;
+  const chips=[...document.querySelectorAll('[data-cut-est-rec-pcs]')].map(x=>x.textContent);
+  const line=[...document.querySelectorAll('[data-cut-est-glass-pcs]')].map(x=>x.dataset.cutEstGlassPcs);
+  const shared=document.querySelector('[data-cut-est-glass-pcs="6SOLARGRAY:11"]').textContent;
+  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(x=>x.textContent);cutEstClose();render();
+  return {chips,line,shared:shared===`6SOLARGRAY · 6 mm — 11 pcs together: ${na} 4, ${nb} 7`,buttons};
+ }),{chips:['8 pcs · 6SBN60 4 · 6SOLARGRAY 4','14 pcs · 6Q366 7 · 6SOLARGRAY 7'],line:['6Q366:7','6SBN60:4','6SOLARGRAY:11'],shared:true,
+  buttons:['6Q366 · 6 mm · 7 pcs','6SBN60 · 6 mm · 4 pcs','6SOLARGRAY · 6 mm · 11 pcs']});
+
  eq('меню правой кнопки: Cut preview по отмеченным строкам; без отметок кнопка неактивна',await t.p.evaluate(async()=>{
   const {a,b}=ceBad();salesListSel=new Set();render();const off=document.querySelector('[data-cut-est-open]').disabled;
   salesListSel=new Set([a,b]);salesListContext({preventDefault(){},stopPropagation(){},clientX:20,clientY:20},b);

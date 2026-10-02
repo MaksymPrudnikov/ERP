@@ -32,7 +32,7 @@ function salesCutEstimateRevision(key,id){cutEstRevision(key,id);render();}
 if(typeof document!=='undefined'&&!window.cutEstKeysOn){
  window.cutEstKeysOn=true;
  document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape'||!cutEst||tab!=='sales')return;
+  if(e.key!=='Escape'||!cutEst||tab!=='sales'||soEdit!==null)return;
   const t=e.target,tag=t&&t.tagName||'';
   if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||typeof salesDialog!=='undefined'&&salesDialog)return;
   salesCutEstimateClose();
@@ -43,17 +43,21 @@ if(typeof document!=='undefined'&&!window.cutEstKeysOn){
 function salesCutEstimateRecs(busy){
  return cutEst.recs.map(r=>{
   const o=salesRecord(r.id);if(!o)return '';
-  const q=salesIsQuote(o),scan=cutEstScan(o),glass=[...new Set(scan.pieces.map(x=>x.c.glass))].sort(),members=q?salesQuoteMembers(o):[];
+  const q=salesIsQuote(o),scan=cutEstScan(o),members=q?salesQuoteMembers(o):[];
+  const count=new Map();scan.pieces.forEach(x=>count.set(x.c.glass,(count.get(x.c.glass)||0)+1));
+  const glass=[...count].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>g+' '+n);
   const rev=members.length>1?`<select data-cut-est-rev="${esc(r.key)}" aria-label="Quote revision" ${busy?'disabled':''} onchange="salesCutEstimateRevision('${esc(r.key)}',this.value)">${members.map(m=>`<option value="${esc(m.id)}" ${m.id===r.id?'selected':''}>${esc(salesQuoteRevName(m))}</option>`).join('')}</select>`:'';
   return `<div class="cut-est-rec${r.on?'':' off'}" data-cut-est-rec="${esc(r.key)}"><label class="chk"><input type="checkbox" data-cut-est-on ${r.on?'checked':''} ${busy?'disabled':''} onchange="salesCutEstimateToggle('${esc(r.key)}',this.checked)">
    <span class="pill ${q?'kind-quote':'kind-order'}">${q?'Quote':'Order'}</span> <b class="mono">${esc(q?salesQuoteBaseNumber(o):o.businessNumber||'')}</b></label>${rev}
-   <span>${esc(salesCustomerDisplay(o.customerId))}</span><span class="mut">${scan.pieces.length} pcs${glass.length?' · '+esc(glass.join(', ')):''}</span></div>`;
+   <span>${esc(salesCustomerDisplay(o.customerId))}</span><span class="mut" data-cut-est-rec-pcs>${scan.pieces.length} pcs${glass.length?' · '+esc(glass.join(' · ')):''}</span></div>`;
  }).join('');
 }
-/* Какое стекло общее: смешивать можно только одно стекло одной толщины. */
+/* Какое стекло общее и сколько его в штуках: смешивать можно только одно
+   стекло одной толщины. */
 function salesCutEstimateGlass(){
  const list=cutEstGlass(cutPiecesOf(CUT_EST));if(!list.length)return '';
- return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}">${esc(g.glass)} · ${g.mm} mm — ${g.ids.size>1?g.ids.size+' together':'only one, nothing to mix'}</span>`).join('')}</div>`;
+ const by=g=>[...g.by.values()].map(r=>esc(r.order)+' '+r.pcs).join(', ');
+ return `<div class="cut-est-glass" data-cut-est-glass>${list.map(g=>`<span class="${g.ids.size>1?'':'mut'}" data-cut-est-shared="${g.ids.size>1}" data-cut-est-glass-pcs="${esc(g.glass)}:${g.pcs}"><b>${esc(g.glass)}</b> · ${g.mm} mm — <b>${g.pcs} pcs</b>${g.ids.size>1?' together: '+by(g):', only '+by(g)+' — nothing to mix'}</span>`).join('')}</div>`;
 }
 function salesCutEstimateSkipped(){
  const list=cutEstSkipped();if(!list.length)return '';

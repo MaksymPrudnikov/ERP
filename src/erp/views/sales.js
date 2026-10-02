@@ -6,8 +6,10 @@
 
 function viewSales(){
  subtab='orders';
- /* Открыто окно Cut preview — вместо списка (views/sales-cut-estimate). */
- if(typeof cutEst!=='undefined'&&cutEst&&typeof viewSalesCutEstimate==='function')return viewSalesCutEstimate();
+ /* Открыто окно Cut preview — вместо списка (views/sales-cut-estimate).
+    Открытый заказ важнее: ссылка «Open order» из Optimization ведёт в заказ,
+    а прикидка ждёт, пока его закроют. */
+ if(typeof cutEst!=='undefined'&&cutEst&&soEdit===null&&typeof viewSalesCutEstimate==='function')return viewSalesCutEstimate();
  return `<div class="page-head sales-page-head"><div><h2>Sales</h2></div><span class="pill info">Stage 3B</span></div>${salesOrdersPane()}`;
 }
 function salesOrdersPane(){return soEdit!==null?salesOrderEditor():salesOrderList();}
