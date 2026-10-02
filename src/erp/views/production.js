@@ -27,15 +27,8 @@ const SF_TABS=[
 
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
- const empty=DB.station.filter(s=>!stationOperations(s.code).length);
- const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
-  ${subtab!=='stations'?'':`<div class="card">
-   <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
-   <div class="pipeline">${sfPipelineHTML()}</div>
-   ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
-   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
-  </div>`}
+  ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
    ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals})[subtab]()}
@@ -61,6 +54,31 @@ function sfSteps(){const m=new Map();DB.station.forEach(s=>{if(!m.has(s.seq))m.s
 function sfPipelineHTML(){
  return sfSteps().map(([seq,list],i)=>`${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage-step">${list.map(s=>{const w=stationOperations(s.code);
   return `<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' work'+(w.length===1?'':'s'):'no works'}</div></div>`;}).join('')}</div>`).join('');
+}
+/* Маршрут для людей (владелец, 2 октября 2026: «логично для нас, а другие не
+   поймут эту длинную ветку»). Нумерованный список шагов: что делают со
+   стеклом простыми словами, всегда или по надобности, коды станций.
+   Параллельные станции одного шага — один пункт «одна из». Ветка со
+   столбиками осталась в Master Data → Stations: там маршрут редактируют.
+   Жёлтых плашек здесь нет: «размер не замерен» видно в колонке Size. */
+const SF_PLAIN={CUT:'cut from the sheet',DRILL:'holes and notches',CERP:'ceramic frit or print',HEAT:'tempered or heat-strengthened',SAND:'frosted by sand',PAINT:'back-painted',LAM:'laminated with film',IGU:'sealed into insulated units',SHIPR:'checked and staged for the customer',SHIP:'picked up or delivered'};
+const SF_EDGE_CODES=['ARRIS','POLISH','BEVEL','MITER','CNC','SEAM'];
+function sfRouteHTML(){
+ return `<div class="section-title"><h3>How glass moves</h3></div>
+  <p class="sf-route-lead">Every glass starts at CUT and stops only where its works need it.</p>
+  <ol class="sf-route">${sfSteps().map(([seq,list],i)=>{
+   const group=list.length>1,edges=group&&list.every(s=>SF_EDGE_CODES.includes(s.code)),always=list.every(s=>s.always),name=s=>s.nameEn||s.name;
+   const title=group?(edges?'Edges':list.map(name).join(' / ')):name(list[0]);
+   const what=group?(edges?'edges ground and polished — at one of these':'at one of these'):(SF_PLAIN[list[0].code]||'');
+   const idle=!always&&list.every(s=>!stationOperations(s.code).length);
+   return `<li class="sf-route-step" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" onclick="sfRouteFocus(this)"><span class="n">${i+1}</span><div><b data-raw>${esc(title)}</b><span class="when">${always?'always':'if needed'}</span>${what?`<div class="what">${esc(what)}</div>`:''}<div class="codes" data-raw>${list.map(s=>esc(s.code)).join(' · ')}${idle?' · <span class="mut">no works yet</span>':''}</div></div></li>`;
+  }).join('')}</ol>`;
+}
+/* Щелчок по шагу подсвечивает его станции в таблице ниже. */
+function sfRouteFocus(el){
+ const codes=String(el.dataset.routeCodes||'').split(' ');let first=null;
+ document.querySelectorAll('[data-sf-station]').forEach(tr=>{const on=codes.includes(tr.dataset.sfStation);tr.classList.toggle('sf-hit',on);if(on&&!first)first=tr;});
+ if(first&&first.scrollIntoView)first.scrollIntoView({block:'center',behavior:'smooth'});
 }
 /* Маршрут стекла считается из станций и работ — после правки кэш маршрутов
    сбрасывается, экраны станций сразу видят новый порядок. */

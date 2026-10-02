@@ -591,19 +591,21 @@ function stationQueueData(){
 }
 function stationQueueView(){
  const q=stationQueueData();
- const strip=q.cards.flatMap(c=>c.groups.filter(g=>g.total>g.done).map(g=>({g,b:c.b}))),total=strip.reduce((n,x)=>n+x.g.total-x.g.done,0)||1;
- const colors=['#2f7da8','#7a58b0','#c07a16','#27815a','#4a92b8','#a84444'];
- const stripHTML=strip.length?'<div class="st-qstrip">'+strip.map((x,i)=>'<div style="flex:'+Math.max(1,x.g.total-x.g.done)+';background:'+colors[i%colors.length]+'"><b data-raw>'+esc(x.g.glass)+' '+esc(x.g.label)+'</b><small>'+(x.g.total-x.g.done)+' · '+esc(x.b.number)+'</small></div>').join('')+'</div><div class="mut st-qhint">← now · later →</div>':'<div class="empty">Nothing to cut</div>';
+ /* Полосы «Suggested order» больше нет (владелец, 2 октября 2026): цветные
+    плашки обрезали подписи и повторяли список ниже. Порядок офиса — это
+    нумерация карточек; над ними одна строка: сколько батчей и листов. */
+ const n=q.cards.length,left=q.cards.reduce((t,c)=>t+c.groups.reduce((m,g)=>m+Math.max(0,g.total-g.done),0),0);
+ const head=n?'<div class="st-qhead" data-queue-head><h3>Batches</h3><span class="mut">office order — cut any one · '+n+' batch'+(n===1?'':'es')+(left?' · '+left+' sheet'+(left===1?'':'s')+' left':'')+'</span></div>':'<div class="card"><div class="empty">Nothing to cut</div></div>';
  const onTable=stationSheetView&&stationSheetView.batch;
  const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(c.b.number===onTable?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+(c.b.number===onTable?'<span class="pill ok">On the table</span>':'')+
   (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
-  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qg">No cutting plan yet</div>')+'</div>').join('');
+  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qnoplan">No cutting plan yet — the office builds it in Optimize</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(x.glass)+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
  const v=stationSheetView,plan=v&&cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(sheet){const next=stationSheetNext(v.batch,group,sheet);after=next?'Sheet '+next.sheet.no+' · <b data-raw>'+esc(next.group.glass)+'</b> · '+next.sheet.pieces.length+' glass'+(next.group.glass!==group.glass?'<div class="st-qchange">Glass change → <b data-raw>'+esc(next.group.glass)+'</b></div>':''):'Batch '+esc(v.batch)+' — last sheet';}
  const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(x.l.width16/16)+' × '+frac16(x.l.height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
- return '<div class="st-body st-queue"><div class="st-col"><div class="card"><div class="st-sec"><h3>Suggested order</h3><span class="mut">from the office · pick any batch</span></div>'+stripHTML+'</div>'+cards+
+ return '<div class="st-body st-queue"><div class="st-col">'+head+cards+
   (recuts?'<div class="card"><div class="st-sec"><span class="st-flag">RECUT</span><h3>Waiting for a batch</h3></div>'+recuts+'</div>':'')+'</div>'+
   '<div class="st-col"><div class="card"><div class="st-sec"><h3>Bring to the table</h3></div>'+bring+'</div>'+(after?'<div class="card"><div class="st-sec"><h3>After this sheet</h3></div><div class="st-qafter">'+after+'</div></div>':'')+'</div></div>';
 }
