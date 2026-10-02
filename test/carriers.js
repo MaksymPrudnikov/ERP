@@ -17,7 +17,7 @@ module.exports=async function({page,eq,ok}){
    if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return id;
   };
   window.cvIds=function(id){return [...glassPieceMap(id).values()].flatMap(r=>r.ids);};
-  window.cvLogin=function(station,name){DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:''});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
+  window.cvLogin=function(station,name){DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationIncoming='';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
  });
 
  eq('четыре типа тары и номер внутри типа; мусор отсеивается, импорт без массива — ошибка',await t.p.evaluate(()=>{

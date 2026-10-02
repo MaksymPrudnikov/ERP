@@ -10,7 +10,10 @@
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
+   пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
+function userEditIndex(){return uEdit==='new'||uEdit===null?-1:DB.user.findIndex(u=>u.viewProfileId===uEdit);}
 function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:k,icon:'report'};}
 function userAccessHTML(u){
  if(!userOffice(u))return '<span class="mut">—</span>';
@@ -51,7 +54,7 @@ function viewUsers(){
 function userEditOpen(i){
  const u=i==='new'?{no:'',name:'',access:[],pin:''}:JSON.parse(JSON.stringify(DB.user[i]));
  u.onOffice=i==='new'?usersSide()==='office':userOffice(u);u.onStation=i==='new'?usersSide()==='production':!!u.pin;
- uEdit=i;uDraft=u;render();
+ uEdit=i==='new'?'new':u.viewProfileId;uDraft=u;render();
  setTimeout(()=>{const el=document.getElementById('u_name');if(el&&i==='new')el.focus();},0);
 }
 function userForm(){
@@ -85,7 +88,8 @@ function userSetSections(all){uDraft.access=all?USER_SECTIONS.slice():[];render(
 function userUsersKept(list){const office=list.filter(userOffice);return !office.length||office.some(u=>u.access.includes('users'));}
 function saveUser(){
  const e=document.getElementById('e_user'); e.style.display='none';
- const d=uDraft;
+ const d=uDraft,at=userEditIndex();
+ if(uEdit!=='new'&&at<0) return fail(e,'This user was deleted');
  d.name=(d.name||'').trim();
  if(!d.name) return fail(e,'Enter a name');
  if(!d.onOffice) d.access=[];
@@ -96,15 +100,15 @@ function saveUser(){
  if(d.onStation&&!USER_PIN_RE.test(d.pin)) return fail(e,'PIN: 4 digits');
  const no=String(d.no==null?'':d.no).trim();
  if(no&&!/^\d{1,4}$/.test(no)) return fail(e,'No.: up to 4 digits or empty');
- const taken=no&&+no>0?DB.user.find((x,i)=>i!==uEdit&&x.no===+no):null;
+ const taken=no&&+no>0?DB.user.find((x,i)=>i!==at&&x.no===+no):null;
  if(no&&+no<1) return fail(e,'No.: from 1');
  if(taken) return fail(e,'No. '+userNoText(taken)+' belongs to '+taken.name);
- if(!userUsersKept(DB.user.map((x,i)=>i===uEdit?d:x).concat(uEdit==='new'?[d]:[]))) return fail(e,'Someone must keep Users');
+ if(!userUsersKept(DB.user.map((x,i)=>i===at?d:x).concat(uEdit==='new'?[d]:[]))) return fail(e,'Someone must keep Users');
  d.no=no?+no:0;
  if(pw)userPasswordSet(d,pw);
  ['newPassword','resetPassword','onOffice','onStation'].forEach(k=>delete d[k]);
- if(uEdit==='new') DB.user.push(d); else Object.assign(DB.user[uEdit],d);
- if(resetPw){const t=uEdit==='new'?d:DB.user[uEdit];delete t.passwordHash;delete t.passwordSalt;}
+ if(uEdit==='new') DB.user.push(d); else Object.assign(DB.user[at],d);
+ if(resetPw){const t=uEdit==='new'?d:DB.user[at];delete t.passwordHash;delete t.passwordSalt;}
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
 /* × на вкладке снимает этот вход. Другого входа нет — человек удаляется. */

@@ -78,6 +78,12 @@ module.exports=async function({page,eq,ok}){
   const healed=DB.user.filter(u=>u.access.includes('users')).map(u=>u.name);
   DB.user=JSON.parse(keep);touch();render();return {save,del:msgs[0],still,healed};
  }),{save:'Someone must keep Users',del:'Someone must keep Users',still:true,healed:['Demo Sales']});
+ eq('форма открыта, удалили строку выше — Save пишет в того, кого правили',await t.p.evaluate(()=>{
+  DB.user.unshift({name:'Temp Row',pin:'2580'});normalizeUsers();subtab='production';render();const ok=window.confirm;window.confirm=()=>true;
+  const owner=DB.user.find(u=>u.name==='Demo Owner');userEditOpen(DB.user.indexOf(owner));uDraft.name='Demo Owner 2';
+  delUser(0,'production');window.confirm=ok;saveUser();
+  const names=DB.user.map(u=>u.name);owner.name='Demo Owner';subtab='office';touch();render();return names;
+ }),['Demo Sales','Demo Accounting','Demo Owner 2','Shop Worker','Shift Lead']);
  eq('× на вкладке снимает только этот вход; другого нет — человек удаляется',await t.p.evaluate(()=>{
   const ok=window.confirm;window.confirm=()=>true;
   const lead=()=>DB.user.find(u=>u.name==='Shift Lead');delUser(DB.user.indexOf(lead()),'production');const a={pin:lead().pin,access:lead().access};
@@ -149,9 +155,9 @@ module.exports=async function({page,eq,ok}){
  }),{old:[['Created','','before the log']],added:0});
 
  eq('на экране станции «кто» — рабочий и станция',await t.p.evaluate(()=>{
-  const u=DB.user.find(x=>x.name==='Demo Owner'),keep=[tab,stationCode];
+  const u=DB.user.find(x=>x.name==='Demo Owner'),keep=[tab,stationCode];u.pin='9999';
   localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:new Date().toISOString()}));
-  tab='station';stationCode='CUT';const a=orderLogActor();tab=keep[0];stationCode=keep[1];localStorage.removeItem(STATION_SESSION_KEY);
+  tab='station';stationCode='CUT';const a=orderLogActor();tab=keep[0];stationCode=keep[1];localStorage.removeItem(STATION_SESSION_KEY);u.pin='';
   return a.by;
  }),'Demo Owner · CUT');
 

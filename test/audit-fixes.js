@@ -28,7 +28,7 @@ module.exports=async function({page,eq,ok}){
   afOrder();salesSetRecordStatus(af.id,'ready');salesOrderEdit(af.id);const out=afFailWrite(()=>salesSetRecordStatus(af.id,'done',{delivery:'pickup'}));const result={changed:out,status:salesRecord(af.id).status,draft:soDraft.status};salesDraftDrop();return result;
  }),{changed:false,status:'ready',draft:'ready'});
  eq('scan UI reports failure, retains retry code, then records exactly once',await t.p.evaluate(()=>{
-  afOrder();DB.user.push({name:'Audit operator',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();stationCode='CUT';tab='station';stationLogin(DB.user.at(-1).viewProfileId);
+  afOrder();DB.user.push({name:'Audit operator',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();stationCode='CUT';tab='station';stationLogin(DB.user.at(-1).viewProfileId);
   const failed=afFailWrite(()=>stationSubmit(af.ids[0])),text=document.getElementById('app').textContent;const kind=stationSubmit(af.ids[0]);return {failed,message:text.includes('NOT SAVED'),kind,count:DB.stationScan.length};
  }),{failed:'saveError',message:true,kind:'ok',count:1});
  eq('nested LAM inside IGU blocks incomplete pairs, confirmation cannot bypass assembly',await t.p.evaluate(()=>{
@@ -94,7 +94,7 @@ module.exports=async function({page,eq,ok}){
  eq('partial UI import is rejected before confirmation or replacement',await t.p.evaluate(()=>{const before=JSON.stringify(DB);try{storageImportState({customer:[]});return false;}catch(e){return JSON.stringify(DB)===before&&e.message.includes('complete');}}),true);
  eq('production exceptions and station dimensions are visible without horizontal tile scrolling',await t.p.evaluate(()=>{
   tab='production';subtab='orders';render();const attention=!!document.querySelector('[data-prod-exceptions]'),wrap=getComputedStyle(document.querySelector('.pb-tiles')).flexWrap;
-  DB.user.push({name:'CNC audit',role:'Shop',station:'CNC',skills:[],pin:''});normalizeUsers();stationCode='CNC';tab='station';stationLogin(DB.user.at(-1).viewProfileId);stationPeek(af.ids[0]);const text=document.getElementById('app').textContent;return {attention,wrap,dimensions:text.includes('Finished size'),keyboardNav:[...document.querySelectorAll('.nav-item:not(.soon)')].every(el=>el.tagName==='BUTTON')};
+  DB.user.push({name:'CNC audit',role:'Shop',station:'CNC',skills:[],pin:'0000'});normalizeUsers();stationCode='CNC';tab='station';stationLogin(DB.user.at(-1).viewProfileId);stationPeek(af.ids[0]);const text=document.getElementById('app').textContent;return {attention,wrap,dimensions:text.includes('Finished size'),keyboardNav:[...document.querySelectorAll('.nav-item:not(.soon)')].every(el=>el.tagName==='BUTTON')};
  }),{attention:true,wrap:'wrap',dimensions:true,keyboardNav:true});
  // Actual tabs share a Web Lock. The writer is the tab you work in: a tab you
  // open takes over, the other keeps reading and cannot persist; going back

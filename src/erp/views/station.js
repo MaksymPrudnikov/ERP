@@ -74,9 +74,10 @@ function stationSessions(){
 }
 function stationSessionsSave(m){try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(m));return true;}catch(e){return false;}}
 function stationSession(){const s=stationSessions()[stationCode];return s&&typeof s==='object'?s:null;}
+/* PIN сняли в Users — вход на станции кончается сразу, как и в офисе. */
 function stationWho(){
  const s=stationSession();if(!s)return null;
- const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId&&x.pin);
  return u?{id:u.viewProfileId,name:u.name}:null;
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
