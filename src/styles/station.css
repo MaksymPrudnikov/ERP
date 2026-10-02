@@ -296,6 +296,9 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-top{gap:8px;padding:0 12px}
  .st-top .st-chip:not(:has(.st-av)){display:none}
  .st-names{grid-template-columns:minmax(0,1fr)}
+ /* Очередь на планшете: поле скана сжимается, а не выталкивает Switch и ERP за край. */
+ .st-topscan{min-width:0;flex:1 1 140px;margin-left:4px}
+ .st-top>*{flex-shrink:0}.st-top>.st-topscan{flex-shrink:1}
 }
 
 /* Окно выбора чертежа — настоящее окно поверх станции (2 октября 2026). */

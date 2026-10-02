@@ -28,6 +28,9 @@ module.exports=async function({page,eq}){
    inlineColour:[...app.querySelectorAll('[style*="background"]')].some(el=>/#[0-9a-f]{3,6}/i.test(el.getAttribute('style'))),
    noplan:!!noplan&&noplan.getBoundingClientRect().height<30&&!noplan.classList.contains('st-qg'),order:[...app.querySelectorAll('[data-queue-batch]')].map(x=>x.dataset.queueBatch).join()===q.cards.map(c=>c.b.number).join()};
  }).then(r=>({...r,head:r.head===r.expected,expected:undefined})),{strip:false,head:true,inlineColour:false,noplan:true,order:true});
+ await t.p.setViewportSize({width:820,height:1180});
+ eq('CUT → Queue on a tablet: the top bar fits — Switch and ERP stay on screen',await t.p.evaluate(()=>{stationTab='queue';render();const top=document.querySelector('.st-top');return top.scrollWidth<=top.clientWidth+1;}),true);
+ await t.p.setViewportSize({width:1440,height:900});
  eq('Drawings button: a real window with a one-line hint, a big Close, order tiles with the number of drawings',await t.p.evaluate(()=>{
   stationTab='scan';render();stationDrawPick();const d=document.querySelector('[data-station-draw]'),r=d.getBoundingClientRect(),tile=d.querySelector('[data-station-draw-order]');
   const o=DB.salesOrder.find(x=>x.businessNumber===tile.dataset.stationDrawOrder),n=stationDrawLines(o).length;
