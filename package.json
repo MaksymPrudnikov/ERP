@@ -8,7 +8,9 @@
     "build:web": "node build/build.js --web",
     "check:build": "node build/check-reproducible.js",
     "test": "node test/run.js",
-    "test:dist": "TARGET=dist node test/run.js"
+    "test:dist": "TARGET=dist node test/run.js",
+    "test:snap": "node tools/test-snap.js",
+    "shot": "node tools/shot.js"
   },
   "devDependencies": {
     "playwright": "1.55.0"

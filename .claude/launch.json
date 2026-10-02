@@ -5,7 +5,8 @@
       "name": "glass-erp",
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/preview-server.js"],
-      "port": 8765
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }
