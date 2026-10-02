@@ -32,7 +32,7 @@ function salesCutEstimateRevision(key,id){cutEstRevision(key,id);render();}
 if(typeof document!=='undefined'&&!window.cutEstKeysOn){
  window.cutEstKeysOn=true;
  document.addEventListener('keydown',e=>{
-  if(e.key!=='Escape'||!cutEst||tab!=='sales')return;
+  if(e.key!=='Escape'||!cutEst||tab!=='sales'||soEdit!==null)return;
   const t=e.target,tag=t&&t.tagName||'';
   if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||typeof salesDialog!=='undefined'&&salesDialog)return;
   salesCutEstimateClose();

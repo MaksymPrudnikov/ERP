@@ -96,6 +96,14 @@ module.exports=async function({page,eq,ok}){
   return {recs:recs.length===1&&recs[0]===o,n};
  }),{recs:true,n:2});
 
+ eq('открытый заказ важнее окна: «Open order» показывает заказ, после него снова прикидка; Esc в заказе её не закрывает',await t.p.evaluate(async()=>{
+  const {a,b}=ceBad();salesCutEstimateOpen([a,b]);await ceWait();
+  optimizationOpenOrder(a);const editor=!!soDraft&&soDraft.id===a&&!document.querySelector('[data-cut-est]');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const kept=!!cutEst;
+  soDraft=null;soEdit=null;render();const back=!!document.querySelector('[data-cut-est]');cutEstClose();render();
+  return {editor,kept,back};
+ }),{editor:true,kept:true,back:true});
+
  eq('меню правой кнопки: Cut preview по отмеченным строкам; без отметок кнопка неактивна',await t.p.evaluate(async()=>{
   const {a,b}=ceBad();salesListSel=new Set();render();const off=document.querySelector('[data-cut-est-open]').disabled;
   salesListSel=new Set([a,b]);salesListContext({preventDefault(){},stopPropagation(){},clientX:20,clientY:20},b);
