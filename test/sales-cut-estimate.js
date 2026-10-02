@@ -104,6 +104,18 @@ module.exports=async function({page,eq,ok}){
   return {editor,kept,back};
  }),{editor:true,kept:true,back:true});
 
+ eq('два типа стекла: кнопки стекла над листом, список стёкол слева — только выбранного типа',await t.p.evaluate(async()=>{
+  ceSetup();ceSheet('6Q240',96,144);
+  const a=ceRec('order',[[30,30,2]]),c=ceRec('order',[[20,20,3]],'6Q240');tab='sales';render();
+  salesCutEstimateOpen([a,c]);await ceWait();
+  const glassOf=new Map(cutPiecesOf('EST').map(p=>[p.piece,p.glass]));
+  const list=()=>[...new Set([...document.querySelectorAll('[data-cut-list]')].map(r=>glassOf.get(r.dataset.cutList)))];
+  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(b=>b.dataset.cutGlass),first=list();
+  document.querySelector('[data-cut-glass="6Q240"]').click();
+  const second=list(),n=document.querySelectorAll('[data-cut-list]').length;cutEstClose();render();
+  return {buttons,first,second,n};
+ }),{buttons:['6CLEAR','6Q240'],first:['6CLEAR'],second:['6Q240'],n:3});
+
  eq('меню правой кнопки: Cut preview по отмеченным строкам; без отметок кнопка неактивна',await t.p.evaluate(async()=>{
   const {a,b}=ceBad();salesListSel=new Set();render();const off=document.querySelector('[data-cut-est-open]').disabled;
   salesListSel=new Set([a,b]);salesListContext({preventDefault(){},stopPropagation(){},clientX:20,clientY:20},b);

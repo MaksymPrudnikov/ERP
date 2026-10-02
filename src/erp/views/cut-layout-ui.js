@@ -976,7 +976,11 @@ function viewCutLayout(b){
  if(!plan.groups.length)return `${notice}${need}<p class="mut cut-empty">${est?'Nothing to lay out: tick an order or quote with glass.':'Build lays this batch on sheets: one glass, orders mixed, rectangles cut edge to edge. Sheet sizes: glass supply rows and Master Data → Cutting.'}</p>`;
  const at=id=>cutFind(plan,id);
  const placed=new Set(),locations=new Map();plan.groups.forEach(g=>g.sheets.forEach(x=>x.pieces.forEach((p,i)=>{placed.add(p.piece);locations.set(p.piece,{group:g,sheet:x,piece:p,index:i});})));
- const waiting=pieces.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=pieces.filter(p=>placed.has(p.piece)),off=pieces.filter(p=>p.off);
+ /* В прикидке из Sales бывает несколько типов стекла сразу; список слева —
+    только того, что выбран кнопками над листом (владелец, 2 октября 2026:
+    «как я могу выбрать тип стекла»). У батча список прежний. */
+ const listed=est&&group?pieces.filter(p=>p.glass===group.glass&&p.mm===group.mm):pieces;
+ const waiting=listed.filter(p=>!p.off&&!placed.has(p.piece)),onSheet=listed.filter(p=>placed.has(p.piece)),off=listed.filter(p=>p.off);
  const rows=list=>cutSortPieces(list,at).map(p=>cutPieceRow(p,at(p.piece),s.sel===p.piece,lock)).join('');
  const sortMark=by=>s.sort&&s.sort.by===by?(s.sort.dir>0?' ▲':' ▼'):'';
  const sortTh=(by,label,cls)=>`<th${cls?' class="'+cls+'"':''}><button type="button" class="gb-link cut-sort${s.sort&&s.sort.by===by?' on':''}" data-cut-sort="${by}" onclick="cutUiSort('${by}')">${label}${sortMark(by)}</button></th>`;
