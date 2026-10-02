@@ -215,6 +215,18 @@ svg{display:block}
 .stage-machines{margin-top:10px;font-size:11px;color:var(--text-2)}
 .pipe-arrow{display:flex;align-items:center;color:var(--text-3)}
 .pipe-arrow svg{width:18px;height:18px}
+/* Production → Stations: маршрут списком (владелец, 2 октября 2026). */
+.sf-route-lead{margin:2px 0 8px;color:var(--text-2);font-size:13.5px}
+.sf-route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
+.sf-route-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding:9px 6px;border-bottom:1px solid var(--line-soft);border-radius:8px;cursor:pointer}
+.sf-route-step:hover{background:var(--surface-2)}
+.sf-route-step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:650;font-size:12px}
+.sf-route-step b{font-size:14px}
+.sf-route-step .when{margin-left:7px;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}
+.sf-route-step .what{font-size:13px;color:var(--text-2);margin-top:2px}
+.sf-route-step .codes{font-size:12px;color:var(--text-3);letter-spacing:.03em;margin-top:1px}
+tr.sf-hit td{background:var(--accent-soft)}
+@media (max-width:900px){.sf-route{grid-template-columns:1fr}}
 .machine-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
 .machine-card{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--surface)}
 .machine-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
@@ -2215,11 +2227,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-drawer-foot .mut{margin-right:auto}
 .st-dtext{margin:0 0 6px;font-size:15px;color:var(--text)}
 /* Queue */
-.st-qstrip{display:flex;gap:4px}
-.st-qstrip div{border-radius:8px;padding:7px 9px;color:var(--on-solid);min-width:0;overflow:hidden}
-.st-qstrip b{display:block;font-size:12.5px;white-space:nowrap}
-.st-qstrip small{font-size:11.5px;opacity:.9;white-space:nowrap}
-.st-qhint{font-size:12px;margin-top:6px}
+.st-qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:2px 2px 0}
+.st-qhead h3{margin:0;font-size:18px}.st-qhead .mut{font-size:14px}
+.st-qnoplan{margin-top:8px;font-size:14px}
 .st-qcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface)}
 .st-qcard.now{border:2px solid var(--blue)}
 .st-qh{display:flex;align-items:center;gap:10px}
@@ -2370,7 +2380,19 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-top{gap:8px;padding:0 12px}
  .st-top .st-chip:not(:has(.st-av)){display:none}
  .st-names{grid-template-columns:minmax(0,1fr)}
+ /* Очередь на планшете: поле скана сжимается, а не выталкивает Switch и ERP за край. */
+ .st-topscan{min-width:0;flex:1 1 140px;margin-left:4px}
+ .st-top>*{flex-shrink:0}.st-top>.st-topscan{flex-shrink:1}
 }
+
+/* Окно выбора чертежа — настоящее окно поверх станции (2 октября 2026). */
+.st-drawer.st-drawer-draw.st-draw-pick{left:50%;right:auto;bottom:auto;top:92px;transform:translateX(-50%);width:min(980px,calc(100% - 48px));max-height:calc(100% - 120px);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow-lg)}
+.st-draw-pick .st-draw-h h2{font-size:21px}
+.st-draw-hint{margin:2px 0 6px;color:var(--text-2);font-size:14px}
+.st-draw-close{font-size:15px;font-weight:600;padding:9px 16px}
+.st-draw-order{font:inherit;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.st-draw-order:hover{border-color:var(--accent);background:var(--accent-soft)}
+.st-draw-order b{font-size:17px}.st-draw-order span{font-size:13px;color:var(--text-2)}.st-draw-order small{font-size:12px;color:var(--accent);font-weight:600}
 
 /* ---- src/styles/theme.css ---- */
 /* =====================================================================
@@ -2535,7 +2557,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='0b74eb2a5aed';
+var ERP_BUILD='f105e1302fdc';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20869,15 +20891,8 @@ const SF_TABS=[
 
 function viewProduction(){
  if(!SF_TABS.some(t=>t.k===subtab)) subtab='orders';
- const empty=DB.station.filter(s=>!stationOperations(s.code).length);
- const unmeasured=DB.station.filter(s=>!s.sizeMeasured).length;
  return `${referenceReseeded?'<div class="note" style="margin-bottom:14px">Reference tables updated: stations were reseeded from the factory data.</div>':''}
-  ${subtab!=='stations'?'':`<div class="card">
-   <div class="section-title"><h3>Route by station</h3><span class="pill ${empty.length?'warn':'ok'}">${empty.length?empty.length+' without works':'all busy'}</span></div>
-   <div class="pipeline">${sfPipelineHTML()}</div>
-   ${empty.length?`<div class="note" style="margin-top:10px">Without works: ${empty.map(s=>`<b>${raw(s.code)}</b>`).join(', ')}. This is not an error — the station is waiting for its work in Master Data → Works.</div>`:''}
-   ${unmeasured?`<div class="note" style="margin-top:10px"><b>Sizes not measured: ${unmeasured} of ${DB.station.length}.</b> The seeded value is 144 × 100″ — a sheet size, not a machine size. Until it is measured, the fit check rests on an assumption.</div>`:''}
-  </div>`}
+  ${subtab!=='stations'?'':`<div class="card sf-route-card">${sfRouteHTML()}</div>`}
   <div class="card">
    <div class="tabs">${SF_TABS.map(t=>`<button class="${subtab===t.k?'on':''}" onclick="subtab='${t.k}';render()">${t.label}</button>`).join('')}</div>
    ${({orders:viewProdOrders,stations:()=>viewSfStations(false),terminals:viewSfTerminals})[subtab]()}
@@ -20903,6 +20918,31 @@ function sfSteps(){const m=new Map();DB.station.forEach(s=>{if(!m.has(s.seq))m.s
 function sfPipelineHTML(){
  return sfSteps().map(([seq,list],i)=>`${i?`<div class="pipe-arrow">${ico('arrow')}</div>`:''}<div class="stage-step">${list.map(s=>{const w=stationOperations(s.code);
   return `<div class="stage"><div class="stage-top"><div class="stage-code" data-raw>${esc(s.code)}</div>${s.always?'<span class="pill ok">always</span>':''}</div><div class="stage-name">${sfLabel(s)}</div><div class="stage-count">${w.length?w.length+' work'+(w.length===1?'':'s'):'no works'}</div></div>`;}).join('')}</div>`).join('');
+}
+/* Маршрут для людей (владелец, 2 октября 2026: «логично для нас, а другие не
+   поймут эту длинную ветку»). Нумерованный список шагов: что делают со
+   стеклом простыми словами, всегда или по надобности, коды станций.
+   Параллельные станции одного шага — один пункт «одна из». Ветка со
+   столбиками осталась в Master Data → Stations: там маршрут редактируют.
+   Жёлтых плашек здесь нет: «размер не замерен» видно в колонке Size. */
+const SF_PLAIN={CUT:'cut from the sheet',DRILL:'holes and notches',CERP:'ceramic frit or print',HEAT:'tempered or heat-strengthened',SAND:'frosted by sand',PAINT:'back-painted',LAM:'laminated with film',IGU:'sealed into insulated units',SHIPR:'checked and staged for the customer',SHIP:'picked up or delivered'};
+const SF_EDGE_CODES=['ARRIS','POLISH','BEVEL','MITER','CNC','SEAM'];
+function sfRouteHTML(){
+ return `<div class="section-title"><h3>How glass moves</h3></div>
+  <p class="sf-route-lead">Every glass starts at CUT and stops only where its works need it.</p>
+  <ol class="sf-route">${sfSteps().map(([seq,list],i)=>{
+   const group=list.length>1,edges=group&&list.every(s=>SF_EDGE_CODES.includes(s.code)),always=list.every(s=>s.always),name=s=>s.nameEn||s.name;
+   const title=group?(edges?'Edges':list.map(name).join(' / ')):name(list[0]);
+   const what=group?(edges?'edges ground and polished — at one of these':'at one of these'):(SF_PLAIN[list[0].code]||'');
+   const idle=!always&&list.every(s=>!stationOperations(s.code).length);
+   return `<li class="sf-route-step" data-route-step="${seq}" data-route-codes="${esc(list.map(s=>s.code).join(' '))}" onclick="sfRouteFocus(this)"><span class="n">${i+1}</span><div><b data-raw>${esc(title)}</b><span class="when">${always?'always':'if needed'}</span>${what?`<div class="what">${esc(what)}</div>`:''}<div class="codes" data-raw>${list.map(s=>esc(s.code)).join(' · ')}${idle?' · <span class="mut">no works yet</span>':''}</div></div></li>`;
+  }).join('')}</ol>`;
+}
+/* Щелчок по шагу подсвечивает его станции в таблице ниже. */
+function sfRouteFocus(el){
+ const codes=String(el.dataset.routeCodes||'').split(' ');let first=null;
+ document.querySelectorAll('[data-sf-station]').forEach(tr=>{const on=codes.includes(tr.dataset.sfStation);tr.classList.toggle('sf-hit',on);if(on&&!first)first=tr;});
+ if(first&&first.scrollIntoView)first.scrollIntoView({block:'center',behavior:'smooth'});
 }
 /* Маршрут стекла считается из станций и работ — после правки кэш маршрутов
    сбрасывается, экраны станций сразу видят новый порядок. */
@@ -31044,19 +31084,21 @@ function stationQueueData(){
 }
 function stationQueueView(){
  const q=stationQueueData();
- const strip=q.cards.flatMap(c=>c.groups.filter(g=>g.total>g.done).map(g=>({g,b:c.b}))),total=strip.reduce((n,x)=>n+x.g.total-x.g.done,0)||1;
- const colors=['#2f7da8','#7a58b0','#c07a16','#27815a','#4a92b8','#a84444'];
- const stripHTML=strip.length?'<div class="st-qstrip">'+strip.map((x,i)=>'<div style="flex:'+Math.max(1,x.g.total-x.g.done)+';background:'+colors[i%colors.length]+'"><b data-raw>'+esc(x.g.glass)+' '+esc(x.g.label)+'</b><small>'+(x.g.total-x.g.done)+' · '+esc(x.b.number)+'</small></div>').join('')+'</div><div class="mut st-qhint">← now · later →</div>':'<div class="empty">Nothing to cut</div>';
+ /* Полосы «Suggested order» больше нет (владелец, 2 октября 2026): цветные
+    плашки обрезали подписи и повторяли список ниже. Порядок офиса — это
+    нумерация карточек; над ними одна строка: сколько батчей и листов. */
+ const n=q.cards.length,left=q.cards.reduce((t,c)=>t+c.groups.reduce((m,g)=>m+Math.max(0,g.total-g.done),0),0);
+ const head=n?'<div class="st-qhead" data-queue-head><h3>Batches</h3><span class="mut">office order — cut any one · '+n+' batch'+(n===1?'':'es')+(left?' · '+left+' sheet'+(left===1?'':'s')+' left':'')+'</span></div>':'<div class="card"><div class="empty">Nothing to cut</div></div>';
  const onTable=stationSheetView&&stationSheetView.batch;
  const cards=q.cards.map((c,i)=>'<div class="st-qcard'+(c.b.number===onTable?' now':'')+'" data-queue-batch="'+esc(c.b.number)+'"><div class="st-qh"><span class="st-qn">'+(i+1)+'</span><b class="mono">'+esc(c.b.number)+'</b>'+(c.b.number===onTable?'<span class="pill ok">On the table</span>':'')+
   (c.urg===2?'<span class="pill bad">Critical</span>':c.urg===1?'<span class="pill warn">Rush</span>':'')+'<span class="mut">'+c.left+' of '+c.live+' to cut · '+c.orders+' order'+(c.orders===1?'':'s')+'</span><span class="sp"></span>'+(c.due?'<span class="pill">Due '+esc(salesListShortDay(c.due))+'</span>':'')+'<button type="button" class="b sm" data-queue-view="'+esc(c.b.number)+'" onclick="stationBatchView(\''+esc(c.b.number)+'\')">View</button><button type="button" class="b sm" data-queue-open="'+esc(c.b.number)+'" onclick="stationBatchOpen(\''+esc(c.b.number)+'\')">Cut this batch</button></div>'+
-  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qg">No cutting plan yet</div>')+'</div>').join('');
+  (c.plan?c.groups.map(g=>'<div class="st-qg"><b data-raw>'+esc(g.glass)+'</b><span>'+(g.stock?'<span class="pill warn">Stock offcut '+esc(g.label)+'</span>':esc(g.label))+'</span><span class="st-qbar"><i style="width:'+Math.round((g.pcs?g.pcut/g.pcs:g.done/g.total)*100)+'%"></i></span><span class="n"><b>'+(g.total-g.done)+'</b> of '+g.total+' sheet'+(g.total===1?'':'s')+' left</span></div>').join(''):'<div class="mut st-qnoplan">No cutting plan yet — the office builds it in Optimize</div>')+'</div>').join('');
  const bring=q.bring.length?'<table><thead><tr><th>Glass</th><th>Sheet</th><th>For</th><th class="n">Sheets</th></tr></thead><tbody>'+q.bring.map(x=>'<tr><td><b data-raw>'+esc(x.glass)+'</b></td><td>'+(x.stock?'<span class="pill warn">'+esc(x.label)+'</span>':esc(x.label))+'</td><td class="mono">'+esc(x.batches.join(', '))+'</td><td class="n st-qbig">'+x.n+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Nothing to bring</div>';
  let after='';
  const v=stationSheetView,plan=v&&cutPlanFor(v.batch),group=plan&&plan.groups.find(g=>g.glass===v.glass),sheet=group&&group.sheets.find(s=>s.no===v.no);
  if(sheet){const next=stationSheetNext(v.batch,group,sheet);after=next?'Sheet '+next.sheet.no+' · <b data-raw>'+esc(next.group.glass)+'</b> · '+next.sheet.pieces.length+' glass'+(next.group.glass!==group.glass?'<div class="st-qchange">Glass change → <b data-raw>'+esc(next.group.glass)+'</b></div>':''):'Batch '+esc(v.batch)+' — last sheet';}
  const recuts=q.recuts.length?'<table><tbody>'+q.recuts.map(x=>'<tr><td><b>'+esc(x.o.businessNumber||'')+'</b></td><td>Line '+x.r.line+(x.l?' · '+esc(frac16(x.l.width16/16)+' × '+frac16(x.l.height16/16)):'')+'</td><td data-raw>'+esc(x.r.lite)+'</td><td class="mut">'+esc(x.r.where)+' · '+raw(x.r.reason)+'</td><td class="n"><b>'+x.n+'</b></td></tr>').join('')+'</tbody></table>':'';
- return '<div class="st-body st-queue"><div class="st-col"><div class="card"><div class="st-sec"><h3>Suggested order</h3><span class="mut">from the office · pick any batch</span></div>'+stripHTML+'</div>'+cards+
+ return '<div class="st-body st-queue"><div class="st-col">'+head+cards+
   (recuts?'<div class="card"><div class="st-sec"><span class="st-flag">RECUT</span><h3>Waiting for a batch</h3></div>'+recuts+'</div>':'')+'</div>'+
   '<div class="st-col"><div class="card"><div class="st-sec"><h3>Bring to the table</h3></div>'+bring+'</div>'+(after?'<div class="card"><div class="st-sec"><h3>After this sheet</h3></div><div class="st-qafter">'+after+'</div></div>':'')+'</div></div>';
 }
@@ -31256,11 +31298,15 @@ function stationDrawOrders(){
 function stationDrawHTML(){
  const x=stationDrawer,o=x.orderId?salesRecord(x.orderId):null;
  const find='<label class="st-draw-find">'+ico('scan')+'<input data-station-keep data-station-draw-find autocomplete="off" spellcheck="false" placeholder="Order # or glass sticker" onkeydown="if(event.key===\'Enter\'){event.preventDefault();stationDrawFind(this.value);}"></label>';
- const head=(title)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+'<button type="button" class="b" onclick="stationCloseDrawer()">Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
+ const head=(title)=>'<div class="st-draw-h"><h2>'+title+'</h2><span class="sp"></span>'+find+'<button type="button" class="b st-draw-close" onclick="stationCloseDrawer()">× Close</button></div>'+(x.error?'<div class="st-pin-err">'+esc(x.error)+'</div>':'');
  if(!o){
+  /* Окно выбора (владелец, 2 октября 2026: «провалился в окно и не понял,
+     куда попал и зачем»): настоящее окно поверх станции, одна строка о том,
+     что здесь делают, крупная Close; в плитке — клиент и число чертежей. */
   const list=stationDrawOrders();
-  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw" role="dialog" aria-label="Drawings" data-station-draw>'+head('Drawings')+
-   '<div class="st-rgroup">Orders at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>'<button type="button" class="st-reason" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span></button>').join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
+  return '<div class="st-dim" onclick="stationCloseDrawer()"></div><div class="st-drawer st-drawer-draw st-draw-pick" role="dialog" aria-label="Drawings" data-station-draw>'+head('Drawings · '+esc(stationCode))+
+   '<p class="st-draw-hint">Open any order\'s drawing: tap an order, type its number or scan a glass sticker.</p>'+
+   '<div class="st-rgroup">Orders with glass at '+esc(stationCode)+'</div><div class="st-draw-orders">'+(list.length?list.map(r=>{const n=stationDrawLines(r).length;return '<button type="button" class="st-draw-order" data-station-draw-order="'+esc(r.businessNumber||'')+'" onclick="stationDrawOpen(\''+esc(r.id)+'\',\'\')"><b>'+esc(r.businessNumber||'')+'</b><span data-raw>'+esc(salesCustomerDisplay(r.customerId))+'</span><small>'+n+' drawing'+(n===1?'':'s')+'</small></button>';}).join(''):'<div class="mut">No orders here yet — type the order number or scan a glass sticker</div>')+'</div></div>';
  }
  const lines=stationDrawLines(o),l=lines.find(y=>y.id===x.lineId)||lines[0],at=lines.indexOf(l);
  const title='Drawings · <b>'+esc(o.businessNumber||'')+'</b> <span class="mut" data-raw>'+esc(salesCustomerDisplay(o.customerId))+'</span>';
