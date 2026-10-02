@@ -66,6 +66,7 @@ function salesListScope(){if(tab==='masterdata'&&typeof mdListScope==='function'
 function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
+ if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
@@ -247,6 +248,7 @@ function salesListCompare(col,dir){
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
  if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
+ if(salesListScope()==='glassSheets'&&typeof sheetUsageInfos==='function'){const infos=sheetUsageInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
@@ -256,9 +258,9 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));

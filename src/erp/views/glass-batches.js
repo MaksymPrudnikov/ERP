@@ -19,7 +19,7 @@ function glassBatchRegistrySetDate(which,value){
 function glassBatchRegistryReset(){
  const p=salesListLoadPrefs();['number','status','created'].forEach(k=>delete p.filters[k]);glassBatchPage=1;salesListSavePrefs();render();
 }
-function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
+function glassBatchViewScope(){return optimizationTab==='sheets'?'glassSheets':optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
  if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('cut','Cut','number'),col('queue','Cut order','number'),col('orders','Orders','number'),col('status','Status','list')];
