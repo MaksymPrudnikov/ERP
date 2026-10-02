@@ -49,7 +49,7 @@ function userForm(){
    <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
-   <div><label>Station PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
+   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
   </div>
   <div style="margin-top:12px"><label>Skills and proficiency level</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">

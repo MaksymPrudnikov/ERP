@@ -21,7 +21,7 @@ function finEvent(kind,before,after,reason,entity){
  const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),0)+1;
  const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
   customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
-  actor:finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
+  actor:(typeof signinUser==='function'&&signinUser()||{}).name||finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
  e.orders=[...new Set([...(before&&before.allocations||[]),...(after&&after.allocations||[])].map(a=>a.orderId).concat(r.orderId?[r.orderId]:[]))].map(id=>({id,number:finOrderNumber(id)}));
  DB.financeEvent.push(e);return e;
 }

@@ -121,6 +121,7 @@ const ready = page => page.waitForFunction(() => {
 async function shoot(browser, side, json) {
   const ctx = await browser.newContext({ viewport: { width: o.width, height: o.height },
     isMobile: o.mobile, hasTouch: o.mobile, deviceScaleFactor: o.mobile ? 2 : 1 });
+  await ctx.addInitScript(() => { window.GF_NO_SIGNIN = true; });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));

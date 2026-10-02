@@ -395,6 +395,9 @@ function seedDemoUsers(){
  try{if(localStorage.getItem(DEMO_USERS_KEY))return false;localStorage.setItem(DEMO_USERS_KEY,'1');}catch(e){return false;}
  if(!Array.isArray(DB.user)||DB.user.length)return false;
  DB.user=JSON.parse(JSON.stringify(DEMO_USERS));
+ /* Засев идёт после нормализации — id входа (viewProfileId) нужен сразу,
+    а не после F5: по нему входят в офис и на станцию. */
+ normalizeUsers();
  return true;
 }
 

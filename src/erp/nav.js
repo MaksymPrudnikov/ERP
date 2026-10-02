@@ -85,6 +85,11 @@ function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
+ /* Офис без входа — только экран «Who is working?» (erp/signin). */
+ const gate=typeof signinNeeded==='function'&&signinNeeded();
+ document.body.classList.toggle('signin-mode',gate);
+ const chip=document.getElementById('signinChip');if(chip)chip.innerHTML=gate||typeof signinChipHTML!=='function'?'':signinChipHTML();
+ if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
