@@ -279,10 +279,10 @@ function validateImportedState(src){
   if(t.code&&!SF_CODE_RE.test(String(t.code).trim().toUpperCase()))throw new Error('Terminal row '+(i+1)+' has an invalid code.');
   if(t.stations!=null&&!Array.isArray(t.stations))throw new Error('Terminal row '+(i+1)+': stations must be an array.');
  });
+ /* Старые роли и навыки не проверяем: нормализация переносит роль в
+    галочки разделов, а навыки отбрасывает (Users, 3 октября 2026). */
  (src.user||[]).forEach((u,i)=>{
-  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
-  if(u.role!=null&&!ROLES.includes(migrateRole(u.role)))throw new Error('User '+(i+1)+' has an unknown role.');
-  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('User '+(i+1)+', skill '+(j+1)+' is invalid.');});
+  if(u&&u.access!=null&&!Array.isArray(u.access))throw new Error('User '+(i+1)+': access must be an array.');
  });
 }
 function prepareImportedState(src){

@@ -55,11 +55,11 @@ module.exports=async function({page,eq,ok}){
  eq('quota failure does not split a unit move',await t.p.evaluate(()=>{
   const n=DB.stationScan.length;const out=afFailWrite(()=>afScan('SHIPR',af.ids[0]));return {ok:out.ok,scans:DB.stationScan.length===n,waiting:af.ids.map(id=>stationPlace(stationGlass(id)).waiting)};
  }),{ok:false,scans:true,waiting:['SHIPR','SHIPR']});
- eq('station rename migrates history, profiles, NCR and frozen routes',await t.p.evaluate(()=>{
-  afOrder();af.ids.forEach(id=>afScan('CUT',id));DB.user.push({name:'Rename',station:'CUT',role:'Shop',skills:[]});DB.ncrReason.push({id:'af-rename',where:'CUT',name:'Rename',active:true});
+ eq('station rename migrates history, station sign-in, NCR and frozen routes',await t.p.evaluate(()=>{
+  afOrder();af.ids.forEach(id=>afScan('CUT',id));localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({CUT:{userId:'view-rename',at:'x'}}));DB.ncrReason.push({id:'af-rename',where:'CUT',name:'Rename',active:true});
   tab='masterdata';mdTab='stations';stEdit=DB.station.findIndex(s=>s.code==='CUT');document.getElementById('app').innerHTML=sfStationForm();document.getElementById('sf_code').value='CUT2';saveSfStation();
-  const out={waiting:af.ids.map(id=>stationPlace(stationGlass(id)).waiting),history:DB.stationScan.every(s=>s.station==='CUT2'),profile:DB.user.at(-1).station,reason:DB.ncrReason.at(-1).where,frozen:DB.productionRoute.every(x=>x.route.codes[0]==='CUT2')};
-  stEdit=DB.station.findIndex(s=>s.code==='CUT2');document.getElementById('app').innerHTML=sfStationForm();document.getElementById('sf_code').value='CUT';saveSfStation();return out;
+  const out={waiting:af.ids.map(id=>stationPlace(stationGlass(id)).waiting),history:DB.stationScan.every(s=>s.station==='CUT2'),profile:Object.keys(stationSessions()).join(),reason:DB.ncrReason.at(-1).where,frozen:DB.productionRoute.every(x=>x.route.codes[0]==='CUT2')};
+  stEdit=DB.station.findIndex(s=>s.code==='CUT2');document.getElementById('app').innerHTML=sfStationForm();document.getElementById('sf_code').value='CUT';saveSfStation();localStorage.removeItem(STATION_SESSION_KEY);return out;
  }),{waiting:['ARRIS','ARRIS'],history:true,profile:'CUT2',reason:'CUT2',frozen:true});
  eq('dolly edits invalidate production board immediately',await t.p.evaluate(()=>{
   afOrder();carrierAdd('DL',1);const out=stationMove('CUT',stationCheck('CUT',af.ids[0]),af.who,{on:'DL-1'});const before=prodBoard().find(x=>x.o.id===af.id).on;stationCode='CUT';stationLast={check:stationCheck('CUT',af.ids[0]),rec:out.value.rec};afFailWrite(()=>stationScanOffClick(out.value.rec.id));const restored=stationLast.rec.on==='DL-1';stationScanOff(out.value.rec.id);return {before,restored,after:prodBoard().find(x=>x.o.id===af.id).on};

@@ -18,10 +18,11 @@ const DASH_FLOW=[
 const DASH_SETUP=[
  ['customers','users','Customers','Accounts · terms · contacts'],
  ['masterdata','database','Data','Glass catalog · stations · services · prices'],
- ['users','users','Users','People · roles · station PINs']
+ ['users','users','Users','Office passwords · sections · station PINs']
 ];
+/* Раздел без галочки в Users остаётся на карте пути заказа, но не нажимается. */
 function dashNode(n){
- return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}" onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
+ return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}"${navAllowed(n[0])?'':' disabled'} onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
 }
 function viewDashboard(){
  return `<div class="card dash-card">

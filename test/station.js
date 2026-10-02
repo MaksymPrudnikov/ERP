@@ -165,13 +165,26 @@ module.exports=async function({page,eq,ok}){
   tab='dashboard';render();return out;
  }),{single:'✓|2|',dgu:'6|·|·'});
 
- eq('Users: PIN — четыре цифры или пусто; роль Shop',await t.p.evaluate(()=>{
-  tab='users';subtab='list';uEdit='new';uDraft={name:'Pin Test',role:'Shop',station:'CUT',skills:[],pin:'12'};render();saveUser();const err=document.getElementById('e_user').textContent;
+ eq('Users → Production: PIN — четыре цифры; без офиса и без навыков',await t.p.evaluate(()=>{
+  tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.pin='12';render();saveUser();const err=document.getElementById('e_user').textContent;
   uDraft.pin='0042';saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
-  const bad=DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk=DB.user.find(x=>x.name==='Junk').pin;
+  DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk=DB.user.find(x=>x.name==='Junk').pin;
   DB.user=DB.user.filter(x=>!['Pin Test','Junk'].includes(x.name));render();
-  return {err,pin:u&&u.pin,role:u&&u.role,junk};
- }),{err:'PIN: 4 digits or empty',pin:'0042',role:'Shop',junk:''});
+  return {err,pin:u&&u.pin,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
+ }),{err:'PIN: 4 digits',pin:'0042',access:[],keys:[]});
+
+ /* Владелец, 3 октября 2026: «он может быть на двух станциях одновременно
+    ответственным». Вход — свой у каждой станции; Switch выходит только с этой. */
+ eq('один человек входит на две станции в одном браузере; Switch — только с этой',await t.p.evaluate(()=>{
+  const keep=[tab,stationCode];try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}
+  DB.user=DB.user.filter(x=>x.name!=='Two Posts');DB.user.push({name:'Two Posts',pin:'2468'});normalizeUsers();const u=DB.user.find(x=>x.name==='Two Posts');
+  const login=code=>{stationCode=code;tab='station';render();String(u.no).split('').forEach(stationLoginKey);stationLoginKey('ok');'2468'.split('').forEach(stationLoginKey);return stationWho()&&stationWho().name;};
+  const a=login('ARRIS'),b=login('POLISH');stationCode='ARRIS';const still=stationWho()&&stationWho().name;
+  stationSwitch();const gone=stationWho();stationCode='POLISH';const other=stationWho()&&stationWho().name;
+  localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:'x'}));stationCode='CUT';const legacy=stationWho()&&stationWho().name;
+  localStorage.removeItem(STATION_SESSION_KEY);DB.user=DB.user.filter(x=>x!==u);tab=keep[0];stationCode=keep[1];render();
+  return {a,b,still,gone,other,legacy};
+ }),{a:'Two Posts',b:'Two Posts',still:'Two Posts',gone:null,other:'Two Posts',legacy:'Two Posts'});
 
  eq('живые данные из другой вкладки: база перечитывается, экран не прыгает, пока человек печатает',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,1]]);stBatch(id);const [a]=stIds(id);touch();

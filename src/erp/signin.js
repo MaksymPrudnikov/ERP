@@ -1,13 +1,13 @@
 /* =====================================================================
    erp/signin  ·  signin-1.0
-   Вход в офис по PIN: кто сейчас работает за этим компьютером.
-   IN : DB.user (имя, PIN — тот же, что на станции)
-   OUT: signinUser() — для журнала заказа и Finance; экран входа; имя в шапке
+   Вход в офис по паролю: кто сейчас работает за этим компьютером.
+   IN : DB.user (имя, пароль, галочки разделов)
+   OUT: signinUser() — для журнала заказа, Finance и меню; экран входа
 
    Владелец, 2 октября 2026: журнал заказа должен знать «кто». Вход — имя и
-   PIN из Users. Выход — кнопкой Sign out или когда закрыты все вкладки
+   пароль из Users; входят только люди с галочками разделов. Выход — кнопкой Sign out или когда закрыты все вкладки
    браузера; по простою не выходит: «резчик может пол дня разгружать трак».
-   F5 входа не сбрасывает. Экран станции (#station=…) входит своим PIN.
+   F5 входа не сбрасывает. Экран станции (#station=…) входит номером и PIN.
 
    Как узнаём «браузер закрывали»: каждая открытая вкладка держит общий
    замок SIGNIN_LOCK. Новая вкладка смотрит, держит ли его кто-то ещё: да —
@@ -19,13 +19,16 @@ let signinPick='',signinError='',signinChecking=false;
 function signinSession(){try{const s=JSON.parse(localStorage.getItem(SIGNIN_KEY)||'null');return s&&typeof s==='object'&&s.userId&&s.sid?s:null;}catch(e){return null;}}
 function signinTabSid(){try{return sessionStorage.getItem(SIGNIN_TAB_KEY)||'';}catch(e){return '';}}
 function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,sid);else sessionStorage.removeItem(SIGNIN_TAB_KEY);}catch(e){}}
+/* Галочки офиса сняли, пока человек работал, — вход кончается сразу. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId)||null;
+ return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u))||null;
 }
+/* Офисных людей нет — входа нет, как в пустой базе: иначе дверь закрыта и
+   завести первого человека некому. */
 function signinNeeded(){
  if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
- return (DB.user||[]).length>0&&!signinUser();
+ return signinOfficeUsers().length>0&&!signinUser();
 }
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
@@ -78,11 +81,10 @@ function signinBrandHTML(){
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
-   показывает только офисные роли, цех входит на своей станции. Нет ни одного
-   офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
+   показывает только тех, у кого в Users отмечены разделы; цех входит на своей
+   станции номером и PIN. */
 function signinOfficeUsers(){
- const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
- return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ return (DB.user||[]).filter(userOffice).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 /* Office / Production (владелец, 2 октября 2026): «производство не должно
    видеть имена всех, кто в офисе». Production — только станции, имён нет;
@@ -109,7 +111,7 @@ function signinView(){
    <button type="submit" class="pri">${first?'Set and sign in':'Sign in'}</button>
    <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
-  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
   <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;

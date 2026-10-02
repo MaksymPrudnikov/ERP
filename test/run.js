@@ -2129,8 +2129,8 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
         station: [{ code: 'CNC1', name: 'Обрабатывающий центр ЧПУ', levels: [2, 3] }],
         user: [{ name: 'Ivan', role: 'Владелец', station: 'CNC1', skills: [] }] });
       return [next.refVersion, next.station.length, next.workPosition === undefined,
-              next.station[0].code, next.user[0].station];
-    }), [9, 15, true, 'CUT', '']);
+              next.station[0].code, 'station' in next.user[0], next.user[0].access.length];
+    }), [9, 15, true, 'CUT', false, 9]);
     await t.c.close();
 
     t = await page();
@@ -2142,33 +2142,33 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'неизвестно',workPosition:'',skills:[{skill:'Резка',level:'неизвестно'}]}]}));
-    eq('битая роль/квалификация нормализуется без повышения прав', await t.p.evaluate(() => ({role:DB.user[0].role,skills:DB.user[0].skills})), {role:'Sales',skills:[]});
-    eq('отчёт навыков после нормализации не падает', await t.p.evaluate(() => {tab='users';subtab='report';render();return document.querySelectorAll('.skill-coverage-card').length;}), 7);
+    eq('неизвестная роль — без офиса, навыки отброшены: права не повышаются', await t.p.evaluate(() => ({access:DB.user[0].access,role:'role' in DB.user[0],skills:'skills' in DB.user[0]})), {access:[],role:false,skills:false});
+    eq('человек без входа — во вкладке Production, PIN «—»', await t.p.evaluate(() => {tab='users';subtab='production';render();return [...document.querySelectorAll('tbody tr td')].slice(1,3).map(td=>td.textContent.trim());}), ['Оператор','—']);
     await t.c.close();
 
     t = await page(JSON.stringify({user:[{name:'Оператор',role:'Цех',workPosition:'',skills:{skill:'Резка'}}]}));
-    eq('skills не-массив не даёт белый экран', await t.p.evaluate(() => ({skills:DB.user[0].skills,hasUI:document.getElementById('app').innerHTML.length>200})), {skills:[],hasUI:true});
+    eq('skills не-массив не даёт белый экран', await t.p.evaluate(() => ({skills:'skills' in DB.user[0],hasUI:document.getElementById('app').innerHTML.length>200})), {skills:false,hasUI:true});
     await t.c.close();
 
     /* --- B8: реальные роли и демо-пользователи ---------------------- */
     t = await page();
-    eq('роли приведены к реальным должностям', await t.p.evaluate(() => ({roles:ROLES,safe:SAFE_DEFAULT_ROLE})),
-      {roles:['Sales','Accounting','Admin','Owner','Shop'],safe:'Sales'});
-    eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.role)),
-      ['Demo Sales · Sales','Demo Accounting · Accounting','Demo Owner · Owner']);
+    eq('галочки доступа — ровно разделы меню', await t.p.evaluate(() => ({same:JSON.stringify(USER_SECTIONS)===JSON.stringify(NAV.map(n=>n.k))})), {same:true});
+    eq('чистый браузер получает трёх демо-пользователей', await t.p.evaluate(() => DB.user.map(u => u.name + ' · ' + u.access.length)),
+      ['Demo Sales · 6','Demo Accounting · 4','Demo Owner · 9']);
     /* Роли и навыки — ХРАНИМЫЕ значения, и английский интерфейс их переименовал.
        У владельца в браузере лежат пользователи со старыми русскими значениями:
        без переноса роль стала бы «unknown role» на импорте, а навыки исчезли бы
        молча — нормализация выбрасывает навык, которого нет в списке. */
-    eq('старые русские роли и навыки переносятся, а не теряются', await t.p.evaluate(() => {
-      DB.user.push({name:'Legacy Person',role:'Бухгалтер',station:'',
-        skills:[{skill:'Закалка',level:'Мидл'},{skill:'Контроль качества',level:'Синьор'}]});
+    /* Роли до 3 октября 2026 переносятся в галочки: офисные видели всё и
+       получают все разделы; Shop и неизвестная — без офиса. Навыки уходят. */
+    eq('старые роли переносятся в галочки, навыки уходят, импорт старого файла проходит', await t.p.evaluate(() => {
+      DB.user.push({name:'Legacy Person',role:'Бухгалтер',station:'CUT',skills:[{skill:'Закалка',level:'Мидл'}]},{name:'Legacy Shop',role:'Shop',pin:'1234'},{name:'Legacy Admin',role:'Admin'});
       normalizeUsers();
-      const u=DB.user.find(x=>x.name==='Legacy Person');
-      const imported=(()=>{try{prepareImportedState({user:[{name:'X',role:'Владелец',skills:[]}]});return 'ok';}catch(e){return 'ошибка: '+e.message;}})();
-      DB.user=DB.user.filter(x=>x.name!=='Legacy Person');
-      return {role:u.role,skills:u.skills.map(s=>s.skill+'/'+s.level),imported};
-    }), {role:'Accounting',skills:['Tempering/Intermediate','Quality control/Senior'],imported:'ok'});
+      const pick=n=>{const u=DB.user.find(x=>x.name===n);return [u.access.length,Object.keys(u).filter(k=>['role','skills','station'].includes(k)).length,u.pin];};
+      const imported=(()=>{try{return prepareImportedState({user:[{name:'X',role:'Владелец',skills:[{skill:'?'}]},{name:'Y',role:'Цех'}]}).user.map(u=>u.access.length).join('/');}catch(e){return 'ошибка: '+e.message;}})();
+      const out={accounting:pick('Legacy Person'),shop:pick('Legacy Shop'),admin:pick('Legacy Admin'),imported};
+      DB.user=DB.user.filter(x=>!/^Legacy /.test(x.name));return out;
+    }), {accounting:[9,0,''],shop:[0,0,'1234'],admin:[9,0,''],imported:'9/0'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });
@@ -6033,7 +6033,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     });
     eq('данные пользователя не переводятся', await t.p.evaluate(() => {
       DB.user.push({ name: 'Закалка', role: 'Цех', workPosition: '', skills: [] });
-      tab = 'users'; subtab = 'list'; render();
+      tab = 'users'; subtab = 'production'; render();
       return [...document.querySelectorAll('tbody tr td b')].map(e => e.textContent).pop();
     }), 'Закалка');
     await t.c.close();
@@ -6043,8 +6043,9 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT',skills:[]}]});
     const u = await page(seeded);
     eq('имя станции берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
-      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(4)').textContent.trim();
-    }), 'CUT — Cutting');
+      localStorage.setItem('glass_farm_signin_side','production');const box=document.createElement('div');box.innerHTML=signinView();
+      localStorage.removeItem('glass_farm_signin_side');return box.querySelector('[data-signin-station="CUT"]').textContent.trim();
+    }), 'CUTCutting');
     await u.c.close();
   }
 

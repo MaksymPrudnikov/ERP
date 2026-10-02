@@ -50,6 +50,20 @@ input[type=checkbox]{width:auto}
 .form h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .chk{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px}
+/* Users: два входа — офис (пароль + разделы) и станция (номер + PIN) */
+.user-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px;align-items:start}
+.user-block{border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);padding:12px}
+.user-block.on{border-color:var(--accent-line)}
+.user-block-head{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-size:13px;color:var(--text)}
+.user-block-head .mut{font-size:12px;margin-left:auto}
+.user-block-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.user-sec-head{display:flex;align-items:center;gap:6px;margin-top:12px}
+.user-sec-head label{margin:0 auto 0 0}
+.user-secs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:6px}
+.user-sec{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--text)}
+.user-sec.on{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+.user-sec .icon-inline{margin-right:0}
+.user-access-cell .pill{margin:1px 0}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;border:1px solid var(--line-strong);background:var(--surface);white-space:nowrap}
 .ok{background:var(--green2);border-color:var(--success-line);color:var(--success)}
 .bad{background:var(--red2);border-color:var(--danger-line);color:var(--danger)}
@@ -83,6 +97,7 @@ svg{display:block}
 .domain-node{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--surface);position:relative}
 .domain-node.active{border-color:var(--accent-line);background:var(--surface)}
 .domain-node.planned{background:var(--surface-2)}
+.dash-go:disabled{opacity:.45;cursor:default}
 .domain-node.external{border-style:dashed;background:var(--surface-2)}
 .domain-node .node-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;background:var(--accent-soft);color:var(--accent)}
 .domain-node.planned .node-icon{background:var(--surface-3);color:var(--text-2)}
@@ -164,9 +179,6 @@ tr.sf-hit td{background:var(--accent-soft)}
 .icon-inline{display:inline-flex;vertical-align:-3px;margin-right:5px}
 .icon-inline svg{width:16px;height:16px}
 .skill-pillset{display:flex;flex-wrap:wrap;gap:7px}
-.skill-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);font-size:11px;line-height:1}
-.skill-badge .pill{padding:3px 7px;font-size:10px}
-.skill-badge .icon-inline{margin-right:0}
 .skill-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .skill-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface);display:flex;gap:12px;align-items:flex-start}
 button.skill-card{width:100%;text-align:left;cursor:pointer;transition:.15s ease;border-color:var(--line)}
@@ -178,7 +190,6 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 .skill-card-body b{display:block;font-size:13px;margin:0 0 4px}
 .skill-card-body small{display:block;color:var(--mut);font-size:11px;line-height:1.35}
 .skill-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.skill-coverage-card .skill-card-meta .pill{font-size:10px}
 .sales-skill-grid{margin:14px 0 16px}
 
 
