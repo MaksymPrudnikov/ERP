@@ -104,7 +104,7 @@ function stationLoginKey(k){
   else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
   if(stationPin.length===4){
    const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
-   if(u&&u.pin&&u.pin===stationPin)return stationLogin(u.viewProfileId);
+   if(userPinCheck(u,stationPin))return stationLogin(u.viewProfileId);
    stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
    stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
   }

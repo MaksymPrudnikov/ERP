@@ -29,11 +29,19 @@ module.exports=async function({page,eq,ok}){
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  const passErr=async a=>{await t.p.fill('#signinPass',a);await t.p.click('[data-signin-form] button');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
  eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Sales'),text=localStorage.getItem('glazing_system_v1');
-  return {hash:/^[0-9a-f]{64}$/.test(u.passwordHash),salt:/^[0-9a-f]{32}$/.test(u.passwordSalt),plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
+  return {hash:/^[0-9a-f]{64}$/.test(u.password.hash),salt:/^[0-9a-f]{32}$/.test(u.password.salt)&&u.password.algo==='sha256-salt',plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
   {hash:true,salt:true,plain:false,check:true,wrong:false});
  eq('неверный пароль — «Wrong password», лимита нет; верный — вход',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),wrong1:await passErr('nope-nope'),wrong2:await passErr('still-wrong'),ok:await passErr('glass-farm-1')},
   {form:'enter',wrong1:{err:'Wrong password',user:null},wrong2:{err:'Wrong password',user:null},ok:{err:undefined,user:'Demo Sales'}});
- eq('верный пароль — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
+ eq('верный пароль — внизу меню инициалы и имя',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales',gate:false,grid:2});
+
+ /* Свой пароль меняет сам офис (владелец, 3 октября 2026); PIN станции — нет, его даёт офис. */
+ eq('своё имя внизу меню → окно: Change password — неверный старый, короткий, разные не проходят; верный — новый пароль работает',await t.p.evaluate(()=>{
+  document.querySelector('[data-signin-who]').click();const open=!!document.querySelector('[data-signin-me]');
+  const tryIt=(a,b,c)=>{document.getElementById('meOld').value=a;document.getElementById('meNew').value=b;document.getElementById('meNew2').value=c;signinMeSave();return signinMe?document.querySelector('[data-signin-me] .signin-err').textContent:'closed';};
+  const out={open,pin:!!document.querySelector('[data-signin-me] input[inputmode=numeric]'),wrong:tryIt('nope-nope','new-pass-99','new-pass-99'),short:tryIt('glass-farm-1','short','short'),differ:tryIt('glass-farm-1','new-pass-99','new-pass-98'),ok:tryIt('glass-farm-1','new-pass-99','new-pass-99')};
+  const u=signinUser();out.now=userPasswordCheck(u,'new-pass-99')&&!userPasswordCheck(u,'glass-farm-1');userPasswordSet(u,'glass-farm-1');touch();render();return out;
+ }),{open:true,pin:false,wrong:'Wrong password',short:'At least 8 characters',differ:'Passwords differ',ok:'closed',now:true});
 
  /* Доступ — галочки разделов (владелец, 3 октября 2026: «видит / не видит»). */
  eq('Demo Sales видит только свои разделы: меню, переход и карточки Overview',await t.p.evaluate(()=>{
@@ -42,11 +50,17 @@ module.exports=async function({page,eq,ok}){
   const off=[...document.querySelectorAll('.dash-go:disabled')].map(b=>b.dataset.dashGo);tab='sales';render();
   return {nav,go,forced,off};
  }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',off:['finance','masterdata','users']});
+ eq('Export / Import JSON — только у администратора (Users): кнопок нет, вызов ничего не делает',await t.p.evaluate(()=>{
+  const shown=[...document.querySelectorAll('[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').length;
+  const keep=storageDownload;let saved=0;storageDownload=()=>{saved++;};doExport();storageDownload=keep;
+  return {shown,saved};
+ }),{shown:0,saved:0});
  eq('добавили раздел Users — меню показывает его сразу',await t.p.evaluate(()=>{
   const me=signinUser();me.access=USER_SECTIONS.filter(k=>k==='users'||me.access.includes(k));touch();navGo('users');
   return {tab,nav:!![...document.querySelectorAll('#side .nav-item>span')].find(x=>x.textContent==='Users')};
  }),{tab:'users',nav:true});
 
+ eq('с разделом Users — Export / Import снова видны',await t.p.evaluate(()=>[...document.querySelectorAll('.app-foot button[data-admin]')].filter(b=>getComputedStyle(b).display!=='none').map(b=>b.textContent)),['Export JSON','Import JSON']);
  eq('Users: две вкладки — Office и Production; мастер цеха с обоими входами в обеих',await t.p.evaluate(()=>{
   DB.user.push({name:'Shift Lead',access:['production'],pin:'1357'});normalizeUsers();
   const names=side=>{subtab=side;render();return [...document.querySelectorAll('[data-user-row] b')].map(b=>b.textContent);};
@@ -68,10 +82,10 @@ module.exports=async function({page,eq,ok}){
   const i=DB.user.findIndex(u=>u.name==='Demo Accounting');
   userEditOpen(i);uDraft.newPassword='accounting-1';saveUser();const set=userPasswordCheck(DB.user[i],'accounting-1');
   userEditOpen(i);saveUser();userEditOpen(i);uDraft.newPassword='accounting-2';saveUser();const reset=userPasswordCheck(DB.user[i],'accounting-2')&&!userPasswordCheck(DB.user[i],'accounting-1');
-  userEditOpen(i);uDraft.onOffice=false;uDraft.onStation=true;uDraft.pin='8642';saveUser();
-  const moved={access:DB.user[i].access,hash:!!DB.user[i].passwordHash,pin:DB.user[i].pin};
-  DB.user[i].access=['sales','finance','customers','dashboard'];DB.user[i].pin='';touch();render();return {set,reset,moved};
- }),{set:true,reset:true,moved:{access:[],hash:false,pin:'8642'}});
+  userEditOpen(i);uDraft.onOffice=false;uDraft.onStation=true;uDraft.newPin='8642';saveUser();
+  const moved={access:DB.user[i].access,hash:!!DB.user[i].password,pin:userPinCheck(DB.user[i],'8642')};
+  DB.user[i].access=['sales','finance','customers','dashboard'];delete DB.user[i].pin;touch();render();return {set,reset,moved};
+ }),{set:true,reset:true,moved:{access:[],hash:false,pin:true}});
  eq('Users не запирается: последнему с разделом Users его не снять и не удалить',await t.p.evaluate(()=>{
   const keep=JSON.stringify(DB.user);DB.user.forEach(u=>{if(u.name!=='Demo Sales')u.access=u.access.filter(k=>k!=='users');});
   const i=DB.user.findIndex(u=>u.name==='Demo Sales');userEditOpen(i);userToggleSection('users',false);saveUser();const save=document.getElementById('e_user').textContent;
@@ -89,18 +103,18 @@ module.exports=async function({page,eq,ok}){
  }),['Demo Sales','Demo Accounting','Demo Owner 2','Shop Worker','Shift Lead']);
  eq('× на вкладке снимает только этот вход; другого нет — человек удаляется',await t.p.evaluate(()=>{
   const ok=window.confirm;window.confirm=()=>true;
-  const lead=()=>DB.user.find(u=>u.name==='Shift Lead');delUser(DB.user.indexOf(lead()),'production');const a={pin:lead().pin,access:lead().access};
+  const lead=()=>DB.user.find(u=>u.name==='Shift Lead');delUser(DB.user.indexOf(lead()),'production');const a={pin:!!lead().pin,access:lead().access};
   delUser(DB.user.indexOf(lead()),'office');const gone=!lead();window.confirm=ok;subtab='office';render();return {a,gone};
- }),{a:{pin:'',access:['production']},gone:true});
+ }),{a:{pin:false,access:['production']},gone:true});
  eq('снятые галочки офиса убирают человека из «Who is working?»',await t.p.evaluate(()=>{
   const u=DB.user.find(x=>x.name==='Demo Accounting');userPasswordSet(u,'acc-pass-12');const before=signinOfficeUsers().map(x=>x.name);
-  const keep=u.access;u.access=[];const after=signinOfficeUsers().map(x=>x.name);u.access=keep;delete u.passwordHash;delete u.passwordSalt;return {before,after};
+  const keep=u.access;u.access=[];const after=signinOfficeUsers().map(x=>x.name);u.access=keep;delete u.password;return {before,after};
  }),{before:['Demo Accounting','Demo Owner','Demo Sales'],after:['Demo Owner','Demo Sales']});
 
  eq('Users: колонка No. — на вкладке Production; номер новому — сам; чужой номер не сохраняется',await t.p.evaluate(()=>{
-  tab='users';subtab='production';userEditOpen('new');uDraft.name='New Cutter';uDraft.pin='1111';saveUser();
+  tab='users';subtab='production';userEditOpen('new');uDraft.name='New Cutter';uDraft.newPin='1111';saveUser();
   const made=DB.user.find(u=>u.name==='New Cutter'),head=[...document.querySelectorAll('thead th')].map(th=>th.textContent)[0];
-  userEditOpen('new');uDraft.name='Dup';uDraft.pin='2222';uDraft.no=String(made.no);saveUser();
+  userEditOpen('new');uDraft.name='Dup';uDraft.newPin='2222';uDraft.no=String(made.no);saveUser();
   const err=document.getElementById('e_user').textContent;uEdit=null;uDraft=null;DB.user=DB.user.filter(u=>u!==made);touch();tab='sales';render();
   return {head,auto:made.no>0,err:err==='No. '+userNoText(made)+' belongs to New Cutter'};
  }),{head:'No.',auto:true,err:true});

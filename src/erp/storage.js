@@ -176,7 +176,10 @@ window.addEventListener('pagehide',function(){
 window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
 function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+/* Вся база целиком — дело администратора (раздел Users, erp/access): Import
+   заменяет и людей с их правами, Export отдаёт и Finance. */
 function doExport(){
+ if(!accessCan(ACCESS_ADMIN))return;
  storageDownload('glazing_system_data.json',JSON.stringify(storageExportEnvelope(),null,2));
  storageBackupAt=new Date().toISOString();dirty=false;render();
 }
@@ -206,6 +209,7 @@ function storageRestoreBackup(){
 }
 function doImport(inp){
  const f=inp.files[0];if(!f)return;
+ if(!accessCan(ACCESS_ADMIN)){inp.value='';return;}
  if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
  const r=new FileReader();r.onload=()=>{try{storageImportState(JSON.parse(r.result));}catch(e){alert('File not readable: '+e.message);}};
  r.readAsText(f);inp.value='';

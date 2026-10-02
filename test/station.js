@@ -166,12 +166,12 @@ module.exports=async function({page,eq,ok}){
  }),{single:'✓|2|',dgu:'6|·|·'});
 
  eq('Users → Production: PIN — четыре цифры; без офиса и без навыков',await t.p.evaluate(()=>{
-  tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.pin='12';render();saveUser();const err=document.getElementById('e_user').textContent;
-  uDraft.pin='0042';saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
-  DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk=DB.user.find(x=>x.name==='Junk').pin;
+  tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.newPin='12';render();saveUser();const err=document.getElementById('e_user').textContent;
+  uDraft.newPin='0042';saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
+  DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk='pin' in DB.user.find(x=>x.name==='Junk');
   DB.user=DB.user.filter(x=>!['Pin Test','Junk'].includes(x.name));render();
-  return {err,pin:u&&u.pin,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
- }),{err:'PIN: 4 digits',pin:'0042',access:[],keys:[]});
+  return {err,pin:userPinCheck(u,'0042'),plain:JSON.stringify(u).includes('0042'),junk,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
+ }),{err:'PIN: 4 digits',pin:true,plain:false,junk:false,access:[],keys:[]});
 
  /* Владелец, 3 октября 2026: «он может быть на двух станциях одновременно
     ответственным». Вход — свой у каждой станции; Switch выходит только с этой. */

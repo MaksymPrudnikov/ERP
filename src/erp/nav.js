@@ -38,17 +38,10 @@ function navItemHTML(n,i){
 }
 function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
 /* Доступ — галочки разделов в Users (владелец, 3 октября 2026: «видит / не
-   видит»). Раздела без галочки нет в меню, и он не открывается. Никто не
-   вошёл — в базе нет офисных людей, входа нет — видно всё. Редактор формы
-   (configurators) — часть Sales. */
-function navAllowed(k){
- const u=typeof signinUser==='function'?signinUser():null;
- if(!u)return true;
- const key=k==='configurators'?'sales':k;
- return !USER_SECTIONS.includes(key)||u.access.includes(key);
-}
+   видит»): раздела без галочки нет в меню, и он не открывается. Проверка
+   одна — accessCan (erp/access). */
 function renderNav(){
- const main=NAV.filter(n=>!n.bottom&&navAllowed(n.k)),low=NAV.filter(n=>n.bottom&&navAllowed(n.k));
+ const main=NAV.filter(n=>!n.bottom&&accessCan(n.k)),low=NAV.filter(n=>n.bottom&&accessCan(n.k));
  document.getElementById('side').innerHTML =
   `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" onclick="toggleTheme()">GF</button>` +
   main.map((n,i)=>navItemHTML(n,i)).join('') +
@@ -62,7 +55,7 @@ function renderNav(){
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
 function navGo(k){
- if(!navAllowed(k))return;
+ if(!accessCan(k))return;
  const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
  go();
@@ -101,7 +94,9 @@ function render(){
  const gate=typeof signinNeeded==='function'&&signinNeeded();
  document.body.classList.toggle('signin-mode',gate);
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
- if(tab!=='station'&&!navAllowed(tab)){const open=NAV.find(n=>navAllowed(n.k));if(open){tab=open.k;subtab=null;}}
+ if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
+ /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
+ document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={

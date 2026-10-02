@@ -36,15 +36,12 @@ function normalizeSalesModules(){
    · станция — личный номер (No.) и PIN, на любой станции, и на двух сразу:
      «он может быть на двух станциях одновременно ответственным». PIN пуст —
      на станцию не входит. */
-const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
-/* PIN — четыре цифры: опознание рабочего у станции. */
-const USER_PIN_RE=/^\d{4}$/;
+/* Ключи прав (USER_SECTIONS), проверка accessCan и секреты — erp/access. */
 /* Роли до 3 октября 2026 переносятся в галочки один раз. Прав тогда не
    проверял никто, офисные роли видели всё — и получают все разделы: пока
    владелец сам не снимет галочки, ничего не меняется. Shop и неизвестная
    роль — без офиса: права не повышаем. */
 const LEGACY_OFFICE_ROLES=['Sales','Accounting','Admin','Owner','Продажи','Бухгалтер','Админ','Владелец'];
-function userOffice(u){return !!(u&&Array.isArray(u.access)&&u.access.length);}
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
@@ -56,11 +53,8 @@ function normalizeUsers(){
   const access=Array.isArray(u.access)?u.access:LEGACY_OFFICE_ROLES.includes(u.role)?USER_SECTIONS:[];
   u.access=USER_SECTIONS.filter(k=>access.includes(k));
   delete u.role;delete u.skills;delete u.station;delete u.workPosition;
-  u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
-  /* Пароль офиса — только отпечаток с солью (erp/signin), не сам пароль. */
-  const hash=String(u.passwordHash||''),salt=String(u.passwordSalt||'');
-  if(/^[0-9a-f]{64}$/.test(hash)&&/^[0-9a-f]{32}$/.test(salt)){u.passwordHash=hash;u.passwordSalt=salt;}else{delete u.passwordHash;delete u.passwordSalt;}
-  delete u.password;
+  /* Пароль офиса и PIN станции — только отпечатки (erp/access). */
+  secretsNormalize(u);
  });
  /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
     (владелец, 2 октября 2026: «один пользователь может работать на разных
@@ -75,16 +69,6 @@ function normalizeUsers(){
  const office=DB.user.filter(userOffice);
  if(office.length&&!office.some(u=>u.access.includes('users'))){const first=office.reduce((a,b)=>b.no<a.no?b:a);first.access=USER_SECTIONS.filter(k=>k==='users'||first.access.includes(k));}
 }
-/* Пароль офиса (владелец, 3 октября 2026): «для офиса 8-значный пароль, для
-   производства так и останется PIN — у офиса больше прав». Не меньше 8
-   символов, любые; хранится SHA-256 от соли и пароля. */
-const USER_PASSWORD_MIN=8;
-function userPasswordSet(u,password){
- const a=new Uint8Array(16);crypto.getRandomValues(a);
- u.passwordSalt=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
- u.passwordHash=sha256Hex(u.passwordSalt+':'+password);
-}
-function userPasswordCheck(u,password){return !!(u&&u.passwordHash&&u.passwordSalt)&&sha256Hex(u.passwordSalt+':'+password)===u.passwordHash;}
 function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ

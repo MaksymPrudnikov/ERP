@@ -2164,11 +2164,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('старые роли переносятся в галочки, навыки уходят, импорт старого файла проходит', await t.p.evaluate(() => {
       DB.user.push({name:'Legacy Person',role:'Бухгалтер',station:'CUT',skills:[{skill:'Закалка',level:'Мидл'}]},{name:'Legacy Shop',role:'Shop',pin:'1234'},{name:'Legacy Admin',role:'Admin'});
       normalizeUsers();
-      const pick=n=>{const u=DB.user.find(x=>x.name===n);return [u.access.length,Object.keys(u).filter(k=>['role','skills','station'].includes(k)).length,u.pin];};
+      const pick=n=>{const u=DB.user.find(x=>x.name===n);return [u.access.length,Object.keys(u).filter(k=>['role','skills','station'].includes(k)).length,userPinCheck(u,'1234')];};
       const imported=(()=>{try{return prepareImportedState({user:[{name:'X',role:'Владелец',skills:[{skill:'?'}]},{name:'Y',role:'Цех'}]}).user.map(u=>u.access.length).join('/');}catch(e){return 'ошибка: '+e.message;}})();
       const out={accounting:pick('Legacy Person'),shop:pick('Legacy Shop'),admin:pick('Legacy Admin'),imported};
       DB.user=DB.user.filter(x=>!/^Legacy /.test(x.name));return out;
-    }), {accounting:[9,0,''],shop:[0,0,'1234'],admin:[9,0,''],imported:'9/0'});
+    }), {accounting:[9,0,false],shop:[0,0,true],admin:[9,0,false],imported:'9/0'});
     /* Засев обязан быть одноразовым: иначе удалённые демо-записи возвращались бы
        после каждого обновления страницы, и удалить их было бы невозможно. */
     await t.p.evaluate(() => { DB.user=[]; touch(); });

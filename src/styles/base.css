@@ -64,6 +64,11 @@ input[type=checkbox]{width:auto}
 .user-sec.on{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
 .user-sec .icon-inline{margin-right:0}
 .user-access-cell .pill{margin:1px 0}
+body.no-admin [data-admin]{display:none!important}
+.signin-me{max-width:420px}
+.signin-me-form{display:flex;flex-direction:column;gap:8px}
+.signin-me-form label{margin:0}
+.signin-me-form .sp{flex:1}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;border:1px solid var(--line-strong);background:var(--surface);white-space:nowrap}
 .ok{background:var(--green2);border-color:var(--success-line);color:var(--success)}
 .bad{background:var(--red2);border-color:var(--danger-line);color:var(--danger)}
