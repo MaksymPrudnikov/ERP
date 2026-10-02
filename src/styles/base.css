@@ -217,22 +217,49 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 
 #phaseChip[hidden]{display:none}
 
-/* Вход в офис по PIN (erp/signin). */
+/* Вход: Office | Production (erp/signin). Тёплый фон — два мягких пятна
+   цвета темы и «стёкла» по краям; работает в светлой и тёмной теме. */
 body.signin-mode .shell{grid-template-columns:minmax(0,1fr)}
 body.signin-mode .side,body.signin-mode .main>header,body.signin-mode .app-foot{display:none}
-.signin{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-.signin-card{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:22px}
-.signin-card h2{margin:0 0 14px;font-size:18px}
+body.signin-mode main#app{padding:0}
+.signin{position:relative;overflow:hidden;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;
+ background:radial-gradient(900px 520px at 10% -10%,var(--accent-soft),transparent 62%),radial-gradient(760px 480px at 105% 110%,var(--violet-soft),transparent 60%),var(--bg)}
+.signin::before,.signin::after{content:"";position:absolute;border-radius:28px;border:1px solid var(--accent-line);background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 70%,transparent),transparent);pointer-events:none}
+.signin::before{width:340px;height:460px;left:-90px;top:12%;transform:rotate(-14deg)}
+.signin::after{width:280px;height:380px;right:-70px;bottom:6%;transform:rotate(11deg);border-color:var(--violet-line);background:linear-gradient(135deg,color-mix(in srgb,var(--violet-soft) 70%,transparent),transparent)}
+.signin-wrap{position:relative;z-index:1;width:min(620px,100%)}
+.signin-brand{display:flex;align-items:center;gap:12px;margin:0 0 16px 4px}
+.signin-brand b{display:block;font-size:16px}
+.signin-brand small{color:var(--text-3);font-size:12.5px}
+.signin-mark{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:var(--on-solid);font-weight:800;letter-spacing:.02em;box-shadow:var(--shadow)}
+.signin-card{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow-lg);padding:24px}
+.signin-card h2{margin:4px 0 2px;font-size:24px;letter-spacing:-.01em}
+.signin-sub{margin:0 0 16px;color:var(--text-2)}
 .signin-side{display:inline-flex;gap:4px;padding:3px;margin-bottom:16px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2)}
-.signin-side button{border:0;border-radius:999px;padding:6px 16px;background:transparent;color:var(--text-2);font-weight:600}
+.signin-side button{border:0;border-radius:999px;padding:6px 16px;background:transparent;color:var(--text-2);font-weight:600;box-shadow:none}
 .signin-side button.on{background:var(--accent);color:var(--on-solid)}
-.signin-names{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.signin-name{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--text)}
-.signin-name small{color:var(--text-3);font-size:11px}
+.signin-names{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.signin-name{display:flex;align-items:center;gap:10px;padding:10px 12px;text-align:left;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);transition:border-color .15s,transform .15s,box-shadow .15s}
+.signin-name:hover{border-color:var(--accent-line);transform:translateY(-1px);box-shadow:var(--shadow)}
 .signin-name.on{border-color:var(--accent);background:var(--accent-soft)}
-.signin-pin{margin-top:16px;display:flex;flex-direction:column;gap:6px}
-.signin-pin label{color:var(--text-2);font-size:13px}
-.signin-pin input{font-size:22px;letter-spacing:.5em;width:9em;text-align:center}
-.signin-err{color:var(--danger);font-weight:600;font-size:13px}
+.signin-who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.signin-who b{font-weight:650;line-height:1.25;overflow-wrap:anywhere}
+.signin-who small{color:var(--text-3);font-size:11px}
+.signin-av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 12.5px/1 var(--font)}
+.tone-0{background:var(--accent-soft);color:var(--accent)}
+.tone-1{background:var(--violet-soft);color:var(--violet)}
+.tone-2{background:var(--warning-soft);color:var(--warning)}
+.tone-3{background:var(--success-soft);color:var(--success)}
+.signin-code{flex:none;min-width:58px;padding:7px 8px;border-radius:10px;background:var(--inverse);color:var(--on-solid);font-weight:800;text-align:center;font-size:13px}
+.signin-stations .signin-who b{font-weight:500;color:var(--text-2)}
+.signin-pin{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:10px}
+.signin-pin label{color:var(--text-2);font-size:14px}
+.signin-dots{position:relative;display:flex;gap:14px;padding:8px 4px}
+.signin-dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);transition:background .12s,border-color .12s}
+.signin-dots i.f{background:var(--accent);border-color:var(--accent)}
+.signin-dots.bad i{border-color:var(--danger)}
+.signin-dots input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text;border:0;padding:0}
+.signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
+@media (max-width:600px){.signin::before,.signin::after{display:none}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}

@@ -19,8 +19,8 @@ let stationLast=null;      // последний скан: {check, rec, data, pl
 let stationNote='';        // короткая строка под карточкой: «Sheet 3 done»
 let stationSheetView=null; // какой лист показан: {batch, glass, no}
 let stationMenu=null;      // меню стекла на листе: {piece, x, y}
-let stationLoginPick='';   // выбранный на входе рабочий (viewProfileId)
-let stationPin='',stationPinError=false;
+let stationLoginNo='',stationLoginStep='no'; // вход: личный номер, затем PIN
+let stationPin='',stationPinError='';
 let stationTab='scan';      // CUT: scan | queue
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
@@ -80,30 +80,30 @@ function stationWho(){
 function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
 function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
-/* Цех не видит имён офиса (владелец, 2 октября 2026): на станции — только
-   роль Shop. Пока в Users нет ни одного Shop, показываем всех — иначе при
-   первой настройке на станцию некому войти. */
-function stationUsers(){
- const all=DB.user||[],shop=all.filter(u=>u.role==='Shop'),pool=shop.length?shop:all;
- const skill=STATION_SKILL[stationCode],own=pool.filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
- return (own.length?own:pool).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
  try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:stationCode,userId:id,at:new Date().toISOString()}));}catch(e){return false;}
- stationLoginPick='';stationPin='';stationPinError=false;render();return true;
+ stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
-function stationPickUser(id){
- const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
- if(!u.pin)return stationLogin(id);
- stationLoginPick=id;stationPin='';stationPinError=false;render();
-}
-function stationPinKey(k){
- const u=(DB.user||[]).find(x=>x.viewProfileId===stationLoginPick);if(!u)return;
- if(k==='back')stationPin=stationPin.slice(0,-1);
- else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
- stationPinError=false;
- if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
+/* Вход на станции: личный номер + PIN, имён на экране нет — «один
+   пользователь может работать на разных станциях» (владелец, 2 октября 2026).
+   Номер — в Users. Ошибка не говорит, что неверно — номер или PIN. */
+function stationLoginKey(k){
+ stationPinError='';
+ if(stationLoginStep==='no'){
+  if(k==='back')stationLoginNo=stationLoginNo.slice(0,-1);
+  else if(/^\d$/.test(k)&&stationLoginNo.length<4)stationLoginNo+=k;
+  else if(k==='ok'&&stationLoginNo){stationLoginStep='pin';stationPin='';}
+ }else{
+  if(k==='back'){if(stationPin)stationPin=stationPin.slice(0,-1);else stationLoginStep='no';}
+  else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
+  if(stationPin.length===4){
+   const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
+   if(u&&u.pin&&u.pin===stationPin)return stationLogin(u.viewProfileId);
+   stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
+   stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
+  }
+ }
  render();
 }
 function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
@@ -417,12 +417,12 @@ function stationTop(who){
   '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
 }
 function stationLoginView(){
- const users=stationUsers(),pick=(DB.user||[]).find(u=>u.viewProfileId===stationLoginPick);
- const names=users.map(u=>'<button type="button" class="st-name-btn'+(pick===u?' on':'')+'" onclick="stationPickUser(\''+esc(u.viewProfileId)+'\')"><span class="st-av">'+esc(stationInitials(u.name))+'</span><span data-raw>'+esc(u.name)+'</span></button>').join('');
- const pad=pick?'<div class="st-pin"><div class="st-pin-t">PIN · <span data-raw>'+esc(pick.name)+'</span></div><div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'+
-  (stationPinError?'<div class="st-pin-err">Wrong PIN</div>':'')+
-  '<div class="st-keys">'+['1','2','3','4','5','6','7','8','9','','0','back'].map(k=>k?'<button type="button" onclick="stationPinKey(\''+k+'\')">'+(k==='back'?'⌫':k)+'</button>':'<span></span>').join('')+'</div></div>':'';
- return '<div class="st-login card"><h2>Who is working?</h2>'+(users.length?'<div class="st-names">'+names+'</div>':'<div class="mut">No users yet — add them in Users.</div>')+pad+'</div>';
+ const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
+ const shown=pin?'<div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'
+  :'<div class="st-login-no'+(stationLoginNo?'':' empty')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
+ const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" onclick="stationLoginKey(\''+k+'\')">'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
+ return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
+  '<div class="st-pin-err" role="alert">'+esc(stationPinError)+'</div><div class="st-keys">'+keys+'</div></div>';
 }
 function viewStation(){
  const s=stationRow();
@@ -493,7 +493,7 @@ function stationFocus(){
 document.addEventListener('keydown',function(e){
  if(tab!=='station')return;
  const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
- if(!stationWho()&&stationLoginPick&&(/^\d$/.test(e.key)||e.key==='Backspace')){stationPinKey(e.key==='Backspace'?'back':e.key);e.preventDefault();return;}
+ if(!stationWho()&&stationRow()&&(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Enter')){stationLoginKey(e.key==='Backspace'?'back':e.key==='Enter'?'ok':e.key);e.preventDefault();return;}
  const el=document.querySelector('[data-station-scan]');if(!el||document.activeElement===el)return;
  if(e.ctrlKey||e.metaKey||e.altKey)return;
  if(e.key.length===1){stationMenu=null;el.focus();el.value+=e.key;e.preventDefault();}

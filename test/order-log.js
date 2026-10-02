@@ -23,6 +23,14 @@ module.exports=async function({page,eq,ok}){
  await t.p.fill('#signinPin','4321');
  eq('верный PIN — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
 
+ eq('Users: колонка No., номер новому — сам; чужой номер не сохраняется',await t.p.evaluate(()=>{
+  tab='users';subtab='list';uEdit='new';uDraft={no:'',name:'New Cutter',role:'Shop',station:'',skills:[],pin:''};render();saveUser();
+  const made=DB.user.find(u=>u.name==='New Cutter'),head=[...document.querySelectorAll('thead th')].map(th=>th.textContent)[0];
+  uEdit='new';uDraft={no:String(made.no),name:'Dup',role:'Shop',station:'',skills:[],pin:''};render();saveUser();
+  const err=document.getElementById('e_user').textContent;uEdit=null;uDraft=null;DB.user=DB.user.filter(u=>u!==made);touch();tab='sales';render();
+  return {head,auto:made.no>0,err:err==='No. '+userNoText(made)+' belongs to New Cutter'};
+ }),{head:'No.',auto:true,err:true});
+
  eq('создан → изменён → Verified → Batched B-… → Unbatched → Picked up; всё на вошедшего',await t.p.evaluate(()=>{
   oqReset();DB.orderEvent=[];const id=oqOrder(oqCustomer());
   soDraft.lines[1].qty=3;soDraft.dueDate='2026-10-30';salesOrderSave();salesDraftDrop();
@@ -96,7 +104,14 @@ module.exports=async function({page,eq,ok}){
  await p3.click('[data-signin-side="production"]');
  eq('Production — только станции, имён нет',await p3.evaluate(()=>({names:document.querySelectorAll('[data-signin-user]').length,cut:!!document.querySelector('[data-signin-station="CUT"]'),side:localStorage.getItem('glass_farm_signin_side')})),{names:0,cut:true,side:'production'});
  await p3.click('[data-signin-station="CUT"]');await p3.waitForFunction(()=>tab==='station');
- eq('станция CUT: только люди цеха, офисных имён нет',await p3.evaluate(()=>[...document.querySelectorAll('.st-name-btn')].map(b=>b.textContent.trim())),['SWShop Worker']);
+ eq('станция: имён нет — личный номер и PIN; без PIN и неверный — ошибка; номер из Users',await p3.evaluate(()=>{
+  const names=document.querySelectorAll('.st-name-btn,[data-signin-user]').length,press=k=>stationLoginKey(k),type=v=>String(v).split('').forEach(press);
+  const u=DB.user.find(x=>x.name==='Shop Worker'),office=DB.user.find(x=>x.name==='Demo Owner');
+  type(office.no);press('ok');type('1234');const nopin=document.querySelector('.st-pin-err').textContent;
+  type(u.no);press('ok');type('1111');const wrong=document.querySelector('.st-pin-err').textContent;
+  type(u.no);press('ok');type('5555');
+  return {names,nopin,wrong,who:stationWho()&&stationWho().name,unique:new Set(DB.user.map(x=>x.no)).size===DB.user.length};
+ }),{names:0,nopin:'No PIN yet — ask the office',wrong:'Wrong number or PIN',who:'Shop Worker',unique:true});
  await p3.click('.st-exit');await p3.waitForFunction(()=>tab!=='station');
  eq('кнопка ERP на станции без офисного входа — снова выбор, браузер помнит Production',await p3.evaluate(()=>({gate:!!document.querySelector('.signin'),side:(document.querySelector('.signin-side .on')||{}).textContent})),{gate:true,side:'Production'});
  await p3.goto(t.p.url().split('#')[0]+'#station=CUT');await p3.reload();await started(p3);

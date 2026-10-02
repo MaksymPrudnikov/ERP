@@ -93,7 +93,14 @@ function normalizeUsers(){
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
   u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
  });
+ /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
+    (владелец, 2 октября 2026: «один пользователь может работать на разных
+    станциях»). Номер у каждого свой; нет или повтор — следующий свободный. */
+ const nos=new Set();
+ DB.user.forEach(u=>{const n=Number(u.no);u.no=Number.isInteger(n)&&n>0&&n<10000&&!nos.has(n)?n:0;if(u.no)nos.add(u.no);});
+ let next=1;DB.user.forEach(u=>{if(u.no)return;while(nos.has(next))next++;u.no=next;nos.add(next);});
 }
+function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ
 

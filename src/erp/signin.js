@@ -42,12 +42,19 @@ function signinChoose(id){
 }
 function signinPinInput(el){
  el.value=el.value.replace(/\D/g,'').slice(0,4);
+ document.querySelectorAll('.signin-dots i').forEach((d,i)=>d.classList.toggle('f',i<el.value.length));
  if(el.value.length<4)return;
  const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);
  if(u&&el.value===u.pin)return signinAs(u.viewProfileId);
  signinError='Wrong PIN';render();
  setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
 }
+/* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
+   2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
+function signinGreeting(){const h=new Date().getHours();return h>=5&&h<12?'Good morning':h>=12&&h<18?'Good afternoon':'Good evening';}
+function signinToday(){return new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});}
+function signinInitials(name){return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';}
+function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
    показывает только офисные роли, цех входит на своей станции. Нет ни одного
    офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
@@ -66,16 +73,21 @@ function signinStation(code){try{localStorage.setItem(SIGNIN_SIDE_KEY,'productio
 function signinView(){
  const side=signinSide();
  const sw=`<div class="signin-side" role="tablist">${[['office','Office'],['production','Production']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${side===k}" class="${side===k?'on':''}" data-signin-side="${k}" onclick="signinSetSide('${k}')">${l}</button>`).join('')}</div>`;
- if(side==='production')return `<div class="signin"><div class="signin-card">${sw}<h2>Which station?</h2>
-  <div class="signin-names">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><b data-raw>${esc(s.code)}</b><small>${sfLabel(s)}</small></button>`).join('')}</div></div></div>`;
- const users=signinOfficeUsers();
- const pick=users.find(u=>u.viewProfileId===signinPick);
- const pad=pick?`<div class="signin-pin"><label for="signinPin">PIN · <span data-raw>${esc(pick.name)}</span></label>
-   <input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" oninput="signinPinInput(this)">
-   ${signinError?`<div class="signin-err" role="alert">${esc(signinError)}</div>`:''}</div>`:'';
- return `<div class="signin"><div class="signin-card">${sw}<h2>Who is working?</h2>
-  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></button>`).join('')}</div>
-  ${pad}</div></div>`;
+ let body;
+ if(side==='production'){
+  body=`<p class="signin-sub">Choose your station</p>
+  <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
+ }else{
+  const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
+  const pad=pick?`<div class="signin-pin"><label for="signinPin">Hi, <span data-raw>${esc(String(pick.name).trim().split(/\s+/)[0])}</span> — your PIN</label>
+   <div class="signin-dots${signinError?' bad':''}">${[0,1,2,3].map(()=>'<i></i>').join('')}<input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" oninput="signinPinInput(this)"></div>
+   <div class="signin-err" role="alert">${esc(signinError)}</div></div>`:'';
+  body=`<p class="signin-sub">Who is working?</p>
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
+ }
+ return `<div class="signin"><div class="signin-wrap">
+  <div class="signin-brand"><span class="signin-mark">GF</span><span><b>Glass Farm</b><small>${esc(signinToday())}</small></span></div>
+  <div class="signin-card">${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
 }
 /* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
 function signinNavHTML(){
