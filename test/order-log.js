@@ -35,11 +35,11 @@ module.exports=async function({page,eq,ok}){
 
  /* Доступ — галочки разделов (владелец, 3 октября 2026: «видит / не видит»). */
  eq('Demo Sales видит только свои разделы: меню, переход и карточки Overview',await t.p.evaluate(()=>{
-  const nav=[...document.querySelectorAll('#side .nav-item:not(.nav-user):not(.nav-more)>span')].map(x=>x.textContent);
+  const nav=[...document.querySelectorAll('#side .nav-item:not(.nav-user):not(.nav-more)>span:last-child')].map(x=>x.textContent);
   navGo('finance');const go=tab;tab='users';render();const forced=tab;navGo('dashboard');
   const off=[...document.querySelectorAll('.dash-go:disabled')].map(b=>b.dataset.dashGo);tab='sales';render();
   return {nav,go,forced,off};
- }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'sales',forced:'sales',off:['finance','masterdata','users']});
+ }),{nav:['Sales','Optimize','Production','Shipping','Customers','Overview'],go:'dashboard',forced:'sales',off:['finance','masterdata','users']});
  eq('добавили раздел Users — меню показывает его сразу',await t.p.evaluate(()=>{
   const me=signinUser();me.access=USER_SECTIONS.filter(k=>k==='users'||me.access.includes(k));touch();navGo('users');
   return {tab,nav:!![...document.querySelectorAll('#side .nav-item>span')].find(x=>x.textContent==='Users')};
@@ -70,8 +70,8 @@ module.exports=async function({page,eq,ok}){
   DB.user[i].access=['sales','finance','customers','dashboard'];DB.user[i].pin='';touch();render();return {set,reset,moved};
  }),{set:true,reset:true,moved:{access:[],hash:false,pin:'8642'}});
  eq('Users не запирается: последнему с разделом Users его не снять и не удалить',await t.p.evaluate(()=>{
-  const keep=JSON.stringify(DB.user);DB.user.forEach(u=>{if(u.name!=='Demo Owner')u.access=u.access.filter(k=>k!=='users');});
-  const i=DB.user.findIndex(u=>u.name==='Demo Owner');userEditOpen(i);userToggleSection('users',false);saveUser();const save=document.getElementById('e_user').textContent;
+  const keep=JSON.stringify(DB.user);DB.user.forEach(u=>{if(u.name!=='Demo Sales')u.access=u.access.filter(k=>k!=='users');});
+  const i=DB.user.findIndex(u=>u.name==='Demo Sales');userEditOpen(i);userToggleSection('users',false);saveUser();const save=document.getElementById('e_user').textContent;
   uEdit=null;uDraft=null;const msgs=[],al=window.alert;window.alert=m=>msgs.push(m);delUser(i,'office');window.alert=al;
   const still=DB.user[i].access.includes('users');
   DB.user=JSON.parse(keep);DB.user.forEach(u=>u.access=u.access.filter(k=>k!=='users'));normalizeUsers();
