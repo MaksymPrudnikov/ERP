@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 99 модулей, 18 стиля.
+  Состав сборки: 101 модулей, 18 стиля.
 -->
 <html lang="en">
 <head>
@@ -2575,7 +2575,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='9732553bfd46';
+var ERP_BUILD='709d727910b0';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -20745,7 +20745,7 @@ salesOrderClose=function(){salesResetServiceSetUi();return __salesServiceOrderCl
    Моста к Perfect Cut нет (владелец, 27.09.2026): фигуры, раскрой и файлы
    Maver / Disai ERP делает сама — см. views/cut-layout-ui.
    ===================================================================== */
-const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches'],['stock','Stock']];
+const OPTIMIZATION_TABS=[['all','All'],['new','To verify'],['batch','To batch'],['production','Batches'],['stock','Stock'],['sheets','Sheets']];
 let optimizationTab='new',optimizationSel=new Set(),optimizationNotice=null,optimizationScope='';
 function orderQueueKey(){return tab==='shipping'?shippingTab:optimizationTab;}
 function orderQueueTabs(){return tab==='shipping'?SHIPPING_TABS:OPTIMIZATION_TABS;}
@@ -20755,7 +20755,7 @@ function optimizationMatches(o,key){
  return key==='all'?!['closed','cancelled'].includes(o.status):key==='new'?o.status==='new':key==='batch'?o.status==='verified'||(['batched','ready','done'].includes(o.status)&&fresh>0):
   key==='production'?o.status==='batched':key==='awaiting'?o.status==='batched'&&!fresh:key==='ready'?o.status==='ready'&&!fresh:key==='done'?o.status==='done'&&!fresh:false;
 }
-function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
+function optimizationTabCount(key){return key==='production'?(DB.glassBatch||[]).length:key==='stock'?(DB.stockOffcut||[]).filter(r=>r.status==='stock').length:key==='sheets'?sheetUsageRows().length:(DB.salesOrder||[]).filter(o=>optimizationMatches(o,key)).length;}
 function optimizationBase(){return (DB.salesOrder||[]).filter(o=>optimizationMatches(o,orderQueueKey())).map(salesListInfo);}
 function optimizationRows(){return salesListRows(optimizationBase()).map(info=>info.o);}
 function optimizationBlocked(o){return o.onHold&&tab!=='shipping'&&['all','new','batch'].includes(orderQueueKey());}
@@ -20835,7 +20835,7 @@ function optimizationUnbatch(ids){
    optimizationNotice={title:'Lines unbatched · verification required',detail:affected.map(x=>x.o.businessNumber+' · '+x.ids.length+' line(s)').join(', ')};render();
   }}]});
 }
-function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():optimizationTab==='stock'?viewStockList():viewOrderQueue(false);}
+function viewOptimization(){return ['batch','production'].includes(optimizationTab)?viewGlassBatches():optimizationTab==='stock'?viewStockList():optimizationTab==='sheets'?viewSheetUsage():viewOrderQueue(false);}
 function viewOrderQueue(shipping){
  if(optimizationScope!==tab){optimizationScope=tab;optimizationSel.clear();optimizationNotice=null;salesListMenu=null;}
  const key=orderQueueKey(),infos=optimizationBase(),filtered=salesListRows(infos),rows=filtered.map(i=>i.o),cols=salesListColumns(),selectable=rows.filter(o=>!optimizationBlocked(o));
@@ -23339,6 +23339,7 @@ function salesListScope(){if(tab==='masterdata'&&typeof mdListScope==='function'
 function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
+ if(salesListScope()==='glassSheets'&&typeof sheetUsageColumns==='function')return sheetUsageColumns();
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
@@ -23520,6 +23521,7 @@ function salesListCompare(col,dir){
 /* Строки после галочек Show и кнопок статусов (до фильтров колонок). */
 function salesListBase(){
  if(salesListScope().startsWith('fin')&&typeof finListInfos==='function'){const infos=finListInfos();return {all:infos.map(i=>i.o),infos};}
+ if(salesListScope()==='glassSheets'&&typeof sheetUsageInfos==='function'){const infos=sheetUsageInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('glass')){const infos=glassBatchInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope().startsWith('prod')&&typeof prodListInfos==='function'){const infos=prodListInfos();return {all:infos.map(i=>i.o),infos};}
  if(salesListScope()!=='sales'){const infos=optimizationBase();return {all:infos.map(i=>i.o),infos};}
@@ -23529,9 +23531,9 @@ function salesListBase(){
  return {all:all.concat(ncrs.map(i=>i.o)),infos};
 }
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
-function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:{k:'created',dir:'desc'});}
+function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -27754,6 +27756,57 @@ function validateStockOffcutPayload(src){
  });
 }
 
+/* ==== src/erp/production/sheet-usage.js ==== */
+/* =====================================================================
+   erp/production/sheet-usage  ·  sheets-1.0
+   Учёт листов: какие размеры листов ушли на батчи и какой отход.
+   IN : собранные раскрои DB.cutPlan (erp/production/cut-layout),
+        лопнувшие на столе листы DB.sheetBreak (erp/shopfloor/scan)
+   OUT: строки журнала Optimization → Sheets; в базу ничего не пишет
+
+   Владелец, 2 октября 2026: «после оптимизации батча хочу, чтобы был учёт,
+   какие размеры листов были использованы и какой вейстедж». Размеры нужны:
+   листы покупают по размерам, отход у размеров разный, а будущий склад целых
+   листов будет списывать именно их. Цифры — те же, что в таблице размеров
+   раскроя батча (cutSheetNumbers), своих формул здесь нет. Лопнувший лист —
+   ещё один лист того же размера: он входит в ft² листов и целиком в отход.
+   Батч без активных стёкол (Unbatched, Moved) в учёт не идёт: его раскрой
+   резать уже нечего.
+   ===================================================================== */
+const SHEET_USAGE_STATUS={'Awaiting cutting':'Planned','Cutting started':'Cutting','Cutting complete':'Cut'};
+/* Одна строка — батч × стекло × размер листа. Кусок со стеллажа (S-…) —
+   своя строка: это не купленный лист. */
+function sheetUsageRows(){
+ const out=[];
+ (DB.cutPlan||[]).forEach(plan=>{
+  if(!plan||plan.reset||!Array.isArray(plan.groups))return;
+  const b=glassBatchFind(plan.batch),status=b&&SHEET_USAGE_STATUS[typeof glassBatchStatus==='function'?glassBatchStatus(b):''];
+  if(!status)return;
+  plan.groups.forEach(g=>{
+   const rows=new Map();
+   const rowFor=(size,stock)=>{
+    const w=cutRound(Math.max(+size.w,+size.h)),h=cutRound(Math.min(+size.w,+size.h)),key=stock||w+'x'+h;
+    if(!rows.has(key))rows.set(key,{batch:plan.batch,built:plan.at||'',glass:g.glass,mm:g.mm,w,h,stock:stock||'',sheets:0,broken:0,area:0,used:0,net:0,keep:0,status});
+    return rows.get(key);
+   };
+   g.sheets.forEach(s=>{
+    const size=s.size||g.sheet,r=rowFor(size,/^S-/.test(size.key||'')?size.key:'');
+    r.sheets++;r.area+=cutArea(size.w,size.h);r.used+=+s.used||0;r.net+=+s.net||0;r.keep+=+s.keep||0;
+   });
+   /* Размер лопнувшего листа записан в момент поломки; если лист с тем же
+      номером и размером — кусок стока, ломается кусок, а не целый лист. */
+   (DB.sheetBreak||[]).filter(x=>x&&x.batch===plan.batch&&x.glass===g.glass&&+x.w>0&&+x.h>0).forEach(x=>{
+    const size={w:Math.max(+x.w,+x.h),h:Math.min(+x.w,+x.h)},sh=g.sheets.find(s=>s.no===x.sheet),z=sh&&(sh.size||g.sheet);
+    const same=z&&Math.abs(Math.max(+z.w,+z.h)-size.w)<1e-6&&Math.abs(Math.min(+z.w,+z.h)-size.h)<1e-6&&/^S-/.test(z.key||'');
+    const r=rowFor(size,same?z.key:''),a=cutArea(size.w,size.h);
+    r.broken++;r.area+=a;r.net+=a;
+   });
+   rows.forEach(r=>{r.usedPct=cutPct(r.used,r.area);['area','used','net','keep'].forEach(k=>{r[k]=cutFt2(r[k]);});out.push(r);});
+  });
+ });
+ return out;
+}
+
 /* ==== src/erp/views/glass-batches.js ==== */
 /* Очередь отдельных стёкол и реестр. Одна строка — одно стекло с Glass ID
    и местом «Unit 7 of 50». Общие фильтры колонок — из Sales; настройки трёх
@@ -27776,7 +27829,7 @@ function glassBatchRegistrySetDate(which,value){
 function glassBatchRegistryReset(){
  const p=salesListLoadPrefs();['number','status','created'].forEach(k=>delete p.filters[k]);glassBatchPage=1;salesListSavePrefs();render();
 }
-function glassBatchViewScope(){return optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
+function glassBatchViewScope(){return optimizationTab==='sheets'?'glassSheets':optimizationTab==='batch'?'glassQueue':optimizationTab==='production'?(glassBatchOpenNumber?'glassContents':'glassBatches'):'';}
 function glassBatchColumns(){
  const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
  if(glassBatchViewScope()==='glassBatches')return [col('number','Batch'),col('created','Created','date'),col('glass','Glass'),col('units','Qty','number'),col('cut','Cut','number'),col('queue','Cut order','number'),col('orders','Orders','number'),col('status','Status','list')];
@@ -30549,6 +30602,66 @@ function viewStockList(){
     <button type="button" class="gb-link" data-stock-info-open onclick="stockUiOpenBatch('${esc(stockInfo.batch)}')">Open ${esc(stockInfo.batch)}</button></div>`:''}
    <div class="sales-table-wrap"><table class="sl-table"><thead><tr><th>Stock</th><th>Glass</th><th>Size</th><th class="n">ft\u00b2</th><th>From</th><th>Booked</th><th>Status</th><th></th></tr></thead><tbody>${body}</tbody></table></div>
   </div>${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;
+}
+
+/* ==== src/erp/views/sheet-usage.js ==== */
+/* =====================================================================
+   views/sheet-usage  ·  sheets-1.0
+   Optimization → Sheets: журнал листов по собранным раскроям батчей.
+   IN : sheetUsageRows (erp/production/sheet-usage)
+   OUT: таблица как в Sales — фильтры колонок, блок дат, итоги отфильтрованного
+
+   Плиток над таблицей нет: статистику на главный экран не выносить
+   (владелец, 15 сентября 2026) — итоги только строкой под таблицей. По ней
+   же видно расход по размерам за месяц: блок дат → This month, фильтр Sheet
+   size или Status = Cut.
+   ===================================================================== */
+function sheetUsageColumns(){
+ const col=(k,label,type,def,extra)=>Object.assign({k,label,type:type||'text',def:def!==false},extra||{});
+ return [col('batch','Batch'),col('built','Built','date'),col('glass','Glass','list'),col('mm','mm','number',false),col('size','Sheet size','list'),
+  col('sheets','Sheets','number',true,{sum:true}),col('broken','Broken','number',true,{sum:true}),col('area','Sheet ft²','number',true,{sum:true,digits:1}),
+  col('used','Glass ft²','number',true,{sum:true,digits:1}),col('waste','Waste ft²','number',true,{sum:true,digits:1}),col('usedPct','Used %','number'),
+  col('keep','To stock ft²','number',false,{sum:true,digits:1}),col('status','Status','list')];
+}
+function sheetUsageSizeText(r){return (r.stock?r.stock+' · ':'')+frac16(r.w)+' × '+frac16(r.h)+'″';}
+/* Фильтры Batch и Glass у Sales читают заказ; здесь значения готовые. */
+function sheetUsageInfos(){
+ return sheetUsageRows().map(r=>({o:{createdAt:r.built},r,tokens:{batch:[r.batch],glass:[r.glass]},
+  memo:{batch:r.batch,built:salesListIsoDay(r.built),glass:r.glass,mm:r.mm,size:sheetUsageSizeText(r),sheets:r.sheets,broken:r.broken,
+   area:r.area,used:r.used,waste:r.net,usedPct:r.usedPct,keep:r.keep,status:r.status}}));
+}
+function sheetUsageOpenBatch(number){optimizationSetTab('production');glassBatchOpen(number);glassBatchDetailTab='optimization';render();}
+function sheetUsageCell(i,c){
+ const v=salesListValue(i,c.k);
+ if(c.k==='batch')return `<td><button type="button" class="gb-link" data-sheet-batch onclick="sheetUsageOpenBatch('${esc(v)}')">${esc(v)}</button></td>`;
+ if(c.k==='built')return `<td>${v?esc(salesListShortDay(v)):'<span class="mut">—</span>'}</td>`;
+ if(c.k==='size')return `<td class="nowrap"><b>${esc(v)}</b></td>`;
+ if(c.k==='status')return `<td><span class="gb-state ${v==='Cut'?'done':''}">${esc(v)}</span></td>`;
+ if(c.k==='usedPct')return `<td class="n">${cutNum(v,1)}%</td>`;
+ if(c.type==='number')return `<td class="n">${c.k==='broken'&&v?'<b>'+v+'</b>':cutNum(v,c.digits||0)}</td>`;
+ return `<td>${esc(v==null?'':String(v))}</td>`;
+}
+/* Итог отфильтрованных строк: суммы ft² и листов; Used % — от сумм, а не
+   среднее процентов. */
+function sheetUsageFooter(rows,cols){
+ const sum=k=>rows.reduce((a,i)=>a+(+i.memo[k]||0),0),batches=new Set(rows.map(i=>i.r.batch)).size;
+ const label=`<b data-sheet-foot>${rows.length} row${rows.length===1?'':'s'} · ${batches} batch${batches===1?'':'es'}</b>`;
+ const cell=c=>c.sum?`<td class="n" data-sum="${c.k}">${cutNum(sum(c.k),c.digits||0)}</td>`:c.k==='usedPct'?`<td class="n" data-sum="usedPct">${cutNum(cutPct(sum('used'),sum('area')),1)}%</td>`:'<td></td>';
+ const first=cols.findIndex(c=>c.sum||c.k==='usedPct');
+ if(first<=0)return `<tfoot><tr class="sl-foot"><td colspan="${cols.length}" class="sl-foot-head">${label}</td></tr><tr class="sl-foot">${cols.map(cell).join('')}</tr></tfoot>`;
+ return `<tfoot><tr class="sl-foot"><td colspan="${first}" class="sl-foot-head">${label}</td>${cols.slice(first).map(cell).join('')}</tr></tfoot>`;
+}
+function viewSheetUsage(){
+ const infos=sheetUsageInfos(),rows=salesListRows(infos),cols=salesListColumns();
+ const th=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th class="${c.type==='number'?'n':''}" data-col="${c.k}"><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const body=rows.map(i=>`<tr data-sheet-row="${esc(i.r.batch+'|'+i.r.glass+'|'+(i.r.stock||i.r.w+'x'+i.r.h))}">${cols.map(c=>sheetUsageCell(i,c)).join('')}</tr>`).join('')
+  ||`<tr><td colspan="${cols.length}" class="empty" data-sheet-empty>${infos.length?'Nothing matches the filters.':'No built layouts yet.'}</td></tr>`;
+ return `<section class="optimization-queue sheet-usage"><div class="page-head"><div><h2>Sheets</h2><p>Sheets in built batch layouts. A broken sheet counts as a used sheet and as waste.</p></div></div>
+  <div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>
+  <div class="card oq-card"><div class="oq-toolbar">${salesListDateButton('built')}<span class="sp"></span><button type="button" data-columns-button onclick="salesListOpenColumns(event)">Columns</button></div>
+   ${salesListFilterChips()}
+   <div class="sales-table-wrap"><table class="sl-table" data-sheet-table><thead><tr>${cols.map(th).join('')}</tr></thead><tbody>${body}</tbody>${rows.length?sheetUsageFooter(rows,cols):''}</table></div>
+  </div>${salesListMenuHTML(infos)}</section>`;
 }
 
 /* ==== src/erp/views/station.js ==== */
