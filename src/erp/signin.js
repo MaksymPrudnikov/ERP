@@ -62,7 +62,7 @@ function signinInitials(name){return String(name||'').trim().split(/\s+/).filter
 function signinBrandHTML(){
  const c=DB.company||{},name=String(c.legalName||'').trim()||'Glass Farm';
  const mark=c.logo?`<img class="signin-mark signin-logo" src="${esc(c.logo)}" alt="">`:`<span class="signin-mark" data-raw>${esc(signinInitials(name))}</span>`;
- return `<div class="signin-brand" data-signin-brand>${mark}<span><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span><span class="signin-clock" data-signin-clock>${esc(signinClock())}</span></div>`;
+ return `<div class="signin-brand" data-signin-brand>${mark}<span class="signin-brand-text"><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span><span class="signin-clock" data-signin-clock>${esc(signinClock())}</span></div>`;
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
@@ -96,8 +96,7 @@ function signinView(){
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
-  ${signinBrandHTML()}
-  <div class="signin-card">${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
+  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
 }
 /* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
 function signinNavHTML(){
