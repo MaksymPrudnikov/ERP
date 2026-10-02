@@ -14,8 +14,8 @@ module.exports=async function({page,eq,ok}){
   const u=DB.user.find(x=>x.name==='Demo Sales');u.pin='4321';
   DB.user.push({name:'Shop Worker',role:'Shop',station:'CUT',skills:[],pin:'5555'});normalizeUsers();touch();render();
   const office=[...document.querySelectorAll('[data-signin-user]')].map(x=>x.querySelector('b').textContent);
-  return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400,brand:document.querySelector('[data-signin-brand] b').textContent,panes:document.querySelectorAll('.signin-glass i').length};
- }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:5});
+  return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400,brand:document.querySelector('[data-signin-brand] b').textContent,panes:document.querySelectorAll('.signin-glass i').length,types:[...new Set([...document.querySelectorAll('.signin-glass i')].map(i=>i.className||'clear'))].length,clock:/^\d{2}:\d{2}$/.test(document.querySelector('[data-signin-clock]').textContent)};
+ }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:6,types:5,clock:true});
 
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  await t.p.fill('#signinPin','1111');

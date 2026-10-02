@@ -421,7 +421,7 @@ function stationLoginView(){
  const shown=pin?'<div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'
   :'<div class="st-login-no'+(stationLoginNo?'':' empty')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
  const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" onclick="stationLoginKey(\''+k+'\')">'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
- return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
+ return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+(typeof signinClock==='function'?' · <span data-signin-clock>'+esc(signinClock())+'</span>':'')+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
   '<div class="st-pin-err" role="alert">'+esc(stationPinError)+'</div><div class="st-keys">'+keys+'</div></div>';
 }
 function viewStation(){

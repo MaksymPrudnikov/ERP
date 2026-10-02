@@ -52,6 +52,9 @@ function signinPinInput(el){
 /* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
    2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
 function signinGreeting(){const h=new Date().getHours();return h>=5&&h<12?'Good morning':h>=12&&h<18?'Good afternoon':'Good evening';}
+function signinClock(){return new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});}
+/* Часы на входе идут сами: меняется только текст, экран не перерисовывается. */
+setInterval(()=>{const t=signinClock();document.querySelectorAll('[data-signin-clock]').forEach(el=>{if(el.textContent!==t)el.textContent=t;});},10000);
 function signinToday(){return new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});}
 function signinInitials(name){return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';}
 /* Над карточкой — сама компания (Master Data → Company): название и логотип,
@@ -59,7 +62,7 @@ function signinInitials(name){return String(name||'').trim().split(/\s+/).filter
 function signinBrandHTML(){
  const c=DB.company||{},name=String(c.legalName||'').trim()||'Glass Farm';
  const mark=c.logo?`<img class="signin-mark signin-logo" src="${esc(c.logo)}" alt="">`:`<span class="signin-mark" data-raw>${esc(signinInitials(name))}</span>`;
- return `<div class="signin-brand" data-signin-brand>${mark}<span><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span></div>`;
+ return `<div class="signin-brand" data-signin-brand>${mark}<span><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span><span class="signin-clock" data-signin-clock>${esc(signinClock())}</span></div>`;
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
@@ -92,7 +95,7 @@ function signinView(){
   body=`<p class="signin-sub">Who is working?</p>
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
  }
- return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div><div class="signin-wrap">
+ return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
   ${signinBrandHTML()}
   <div class="signin-card">${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
 }

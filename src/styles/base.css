@@ -228,18 +228,31 @@ body.signin-mode main#app{padding:0}
    и чтобы потемнее»): зелёная кромка, как у флоат-стекла, тонировка, блик
    по диагонали и тень. Цвета — токены темы, в тёмной теме то же самое. */
 .signin-glass{position:absolute;inset:0;pointer-events:none}
-.signin-glass i{position:absolute;border-radius:22px;
- background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 34%,transparent),color-mix(in srgb,var(--accent) 13%,transparent) 48%,color-mix(in srgb,var(--accent) 27%,transparent));
- border:1px solid color-mix(in srgb,var(--accent) 60%,transparent);border-left-width:3px;border-top-width:2px;
- box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.12),0 24px 48px rgba(16,24,40,.2);backdrop-filter:blur(2px)}
-.signin-glass i::after{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.3) 36%,rgba(255,255,255,.08) 42%,transparent 50%,transparent 64%,rgba(255,255,255,.18) 68%,transparent 74%)}
-.signin-glass i:nth-child(1){width:360px;height:480px;left:-80px;top:7%;transform:rotate(-14deg)}
-.signin-glass i:nth-child(2){width:220px;height:300px;left:150px;top:54%;transform:rotate(9deg);opacity:.85}
-.signin-glass i:nth-child(3){width:330px;height:450px;right:-70px;bottom:3%;transform:rotate(11deg)}
-.signin-glass i:nth-child(4){width:200px;height:270px;right:170px;top:5%;transform:rotate(-7deg);opacity:.8}
-.signin-glass i:nth-child(5){width:280px;height:170px;left:30%;bottom:-70px;transform:rotate(-4deg);opacity:.7}
+.signin-glass i{--tint:var(--accent);--edge:var(--accent);--r:0deg;--dx:14px;--dy:-18px;position:absolute;border-radius:22px;overflow:hidden;
+ background:linear-gradient(135deg,color-mix(in srgb,var(--tint) 34%,transparent),color-mix(in srgb,var(--tint) 13%,transparent) 48%,color-mix(in srgb,var(--tint) 27%,transparent));
+ border:1px solid color-mix(in srgb,var(--edge) 60%,transparent);border-left-width:3px;border-top-width:2px;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.12),0 24px 48px rgba(16,24,40,.2);
+ transform:rotate(var(--r));animation:signinFloat var(--t,26s) ease-in-out var(--d,0s) infinite alternate}
+.signin-glass i::after{content:"";position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.3) 47%,rgba(255,255,255,.08) 51%,transparent 56%);transform:translateX(-60%);animation:signinShine var(--s,12s) ease-in-out var(--d,0s) infinite}
+/* Типы стекла: прозрачное (зелёная кромка), серое и бронзовое тонированное,
+   синее Low-E, матовое пескоструйное. */
+.signin-glass .g-gray{--tint:var(--text-2);--edge:var(--text-2)}
+.signin-glass .g-bronze{--tint:var(--warning);--edge:var(--warning)}
+.signin-glass .g-blue{--tint:var(--cut-glass-line);--edge:var(--cut-glass-line)}
+.signin-glass .g-frost{--tint:var(--line-strong);--edge:var(--line-strong);background:color-mix(in srgb,var(--surface) 62%,transparent);backdrop-filter:blur(8px)}
+@keyframes signinFloat{from{transform:translate(0,0) rotate(var(--r))}to{transform:translate(var(--dx),var(--dy)) rotate(calc(var(--r) + 4deg))}}
+@keyframes signinShine{0%,55%{transform:translateX(-60%)}85%,100%{transform:translateX(60%)}}
+.signin-glass i:nth-child(1){--r:-14deg;--t:28s;--d:-6s;width:360px;height:480px;left:-80px;top:7%}
+.signin-glass i:nth-child(2){--r:9deg;--t:23s;--d:-14s;--dx:-16px;--dy:20px;--s:15s;width:220px;height:300px;left:150px;top:56%}
+.signin-glass i:nth-child(3){--r:11deg;--t:31s;--d:-3s;--dx:-18px;--dy:-14px;--s:13s;width:330px;height:450px;right:-70px;bottom:3%}
+.signin-glass i:nth-child(4){--r:-7deg;--t:25s;--d:-18s;--dx:12px;--dy:22px;--s:17s;width:200px;height:270px;right:170px;top:5%}
+.signin-glass i:nth-child(5){--r:-4deg;--t:34s;--d:-9s;--dx:20px;--dy:-10px;--s:19s;width:280px;height:170px;left:30%;bottom:-70px}
+.signin-glass i:nth-child(6){--r:6deg;--t:21s;--d:-11s;--dx:-10px;--dy:16px;--s:14s;width:180px;height:140px;left:13%;top:-50px}
+@media (prefers-reduced-motion:reduce){.signin-glass i,.signin-glass i::after{animation:none}}
 .signin-wrap{position:relative;z-index:1;width:min(620px,100%)}
 .signin-brand{display:flex;align-items:center;gap:12px;margin:0 0 16px 4px}
+.signin-brand>span:nth-child(2){flex:1;min-width:0}
+.signin-clock{font:700 34px/1 var(--font);letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
 .signin-brand b{display:block;font-size:16px}
 .signin-brand small{color:var(--text-3);font-size:12.5px}
 .signin-mark{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--accent);color:var(--on-solid);font-weight:800;letter-spacing:.02em;box-shadow:var(--shadow)}
@@ -272,6 +285,6 @@ body.signin-mode main#app{padding:0}
 .signin-dots.bad i{border-color:var(--danger)}
 .signin-dots input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text;border:0;padding:0}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
-@media (max-width:600px){.signin-glass i:nth-child(n+2){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:26px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}
