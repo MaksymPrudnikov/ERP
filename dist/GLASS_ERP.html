@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 103 модулей, 18 стиля.
+  Состав сборки: 106 модулей, 18 стиля.
 -->
 <html lang="en">
 <head>
@@ -318,6 +318,77 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 .pb-tiles{flex-wrap:wrap;overflow:visible}.pb-exceptions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;font-size:12px}.pb-exceptions span{color:var(--mut)}
 
 #phaseChip[hidden]{display:none}
+
+/* Вход: Office | Production (erp/signin). Тёплый фон — два мягких пятна
+   цвета темы и «стёкла» по краям; работает в светлой и тёмной теме. */
+body.signin-mode .shell{grid-template-columns:minmax(0,1fr)}
+body.signin-mode .side,body.signin-mode .main>header,body.signin-mode .app-foot{display:none}
+body.signin-mode main#app{padding:0}
+.signin{position:relative;overflow:hidden;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;
+ background:radial-gradient(900px 520px at 10% -10%,var(--accent-soft),transparent 62%),radial-gradient(760px 480px at 105% 110%,var(--violet-soft),transparent 60%),var(--bg)}
+/* Листы стекла на фоне (владелец, 3 октября 2026: «плитки типа стекла,
+   и чтобы потемнее»): зелёная кромка, как у флоат-стекла, тонировка, блик
+   по диагонали и тень. Цвета — токены темы, в тёмной теме то же самое. */
+.signin-glass{position:absolute;inset:0;pointer-events:none}
+.signin-glass i{--tint:var(--accent);--edge:var(--accent);--r:0deg;--dx:14px;--dy:-18px;position:absolute;border-radius:22px;overflow:hidden;
+ background:linear-gradient(135deg,color-mix(in srgb,var(--tint) 34%,transparent),color-mix(in srgb,var(--tint) 13%,transparent) 48%,color-mix(in srgb,var(--tint) 27%,transparent));
+ border:1px solid color-mix(in srgb,var(--edge) 60%,transparent);border-left-width:3px;border-top-width:2px;
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.12),0 24px 48px rgba(16,24,40,.2);
+ transform:rotate(var(--r));animation:signinFloat var(--t,26s) ease-in-out var(--d,0s) infinite alternate}
+.signin-glass i::after{content:"";position:absolute;inset:-40%;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.3) 47%,rgba(255,255,255,.08) 51%,transparent 56%);transform:translateX(-60%);animation:signinShine var(--s,12s) ease-in-out var(--d,0s) infinite}
+/* Типы стекла: прозрачное (зелёная кромка), серое и бронзовое тонированное,
+   синее Low-E, матовое пескоструйное. */
+.signin-glass .g-gray{--tint:var(--text-2);--edge:var(--text-2)}
+.signin-glass .g-bronze{--tint:var(--warning);--edge:var(--warning)}
+.signin-glass .g-blue{--tint:var(--cut-glass-line);--edge:var(--cut-glass-line)}
+.signin-glass .g-frost{--tint:var(--line-strong);--edge:var(--line-strong);background:color-mix(in srgb,var(--surface) 62%,transparent);backdrop-filter:blur(8px)}
+@keyframes signinFloat{from{transform:translate(0,0) rotate(var(--r))}to{transform:translate(var(--dx),var(--dy)) rotate(calc(var(--r) + 4deg))}}
+@keyframes signinShine{0%,55%{transform:translateX(-60%)}85%,100%{transform:translateX(60%)}}
+.signin-glass i:nth-child(1){--r:-14deg;--t:28s;--d:-6s;width:360px;height:480px;left:-80px;top:7%}
+.signin-glass i:nth-child(2){--r:9deg;--t:23s;--d:-14s;--dx:-16px;--dy:20px;--s:15s;width:220px;height:300px;left:150px;top:56%}
+.signin-glass i:nth-child(3){--r:11deg;--t:31s;--d:-3s;--dx:-18px;--dy:-14px;--s:13s;width:330px;height:450px;right:-70px;bottom:3%}
+.signin-glass i:nth-child(4){--r:-7deg;--t:25s;--d:-18s;--dx:12px;--dy:22px;--s:17s;width:200px;height:270px;right:170px;top:5%}
+.signin-glass i:nth-child(5){--r:-4deg;--t:34s;--d:-9s;--dx:20px;--dy:-10px;--s:19s;width:280px;height:170px;left:30%;bottom:-70px}
+.signin-glass i:nth-child(6){--r:6deg;--t:21s;--d:-11s;--dx:-10px;--dy:16px;--s:14s;width:180px;height:140px;left:13%;top:-50px}
+@media (prefers-reduced-motion:reduce){.signin-glass i,.signin-glass i::after{animation:none}}
+.signin-wrap{position:relative;z-index:1;width:min(620px,100%)}
+.signin-brand{display:flex;align-items:center;gap:12px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid var(--line-soft)}
+.signin-brand-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.signin-brand b{font-size:16px;font-weight:650;line-height:1.2}
+.signin-brand small{color:var(--text-3);font-size:12.5px}
+.signin-clock{flex:none;padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--text);font:650 18px/1 var(--font);font-variant-numeric:tabular-nums}
+.signin-logo{flex:none;height:40px;max-width:120px;object-fit:contain}
+.signin-card{background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(16px) saturate(1.2);border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),var(--shadow-lg);padding:24px}
+.signin-card h2{margin:4px 0 2px;font-size:24px;letter-spacing:-.01em}
+.signin-sub{margin:0 0 16px;color:var(--text-2)}
+.signin-side{display:inline-flex;gap:4px;padding:3px;margin-bottom:16px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2)}
+.signin-side button{border:0;border-radius:999px;padding:6px 16px;background:transparent;color:var(--text-2);font-weight:600;box-shadow:none}
+.signin-side button.on{background:var(--accent);color:var(--on-solid)}
+.signin-names{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.signin-name{display:flex;align-items:center;gap:10px;padding:10px 12px;text-align:left;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));border-radius:14px;color:var(--text);background:linear-gradient(135deg,color-mix(in srgb,var(--surface) 94%,transparent),color-mix(in srgb,var(--accent-soft) 85%,transparent));box-shadow:inset 0 1px 0 rgba(255,255,255,.3);transition:border-color .15s,transform .15s,box-shadow .15s}
+.signin-name:hover{border-color:color-mix(in srgb,var(--accent) 55%,transparent);transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),var(--shadow)}
+.signin-name.on{border-color:var(--accent);background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--accent) 16%,var(--accent-soft)))}
+.signin-who{display:flex;flex-direction:column;gap:1px;min-width:0}
+.signin-who b{font-weight:650;line-height:1.25;overflow-wrap:anywhere}
+.signin-who small{color:var(--text-3);font-size:11px}
+.signin-av{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:700 12.5px/1 var(--font)}
+.tone-0{background:var(--accent-soft);color:var(--accent)}
+.tone-1{background:var(--violet-soft);color:var(--violet)}
+.tone-2{background:var(--warning-soft);color:var(--warning)}
+.tone-3{background:var(--success-soft);color:var(--success)}
+.signin-code{flex:none;min-width:58px;padding:7px 8px;border-radius:10px;background:var(--inverse);color:var(--on-solid);font-weight:800;text-align:center;font-size:13px}
+.signin-stations .signin-who b{font-weight:500;color:var(--text-2)}
+.signin-pin{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:10px}
+.signin-pin label{color:var(--text-2);font-size:14px}
+.signin-dots{position:relative;display:flex;gap:14px;padding:8px 4px}
+.signin-dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);transition:background .12s,border-color .12s}
+.signin-dots i.f{background:var(--accent);border-color:var(--accent)}
+.signin-dots.bad i{border-color:var(--danger)}
+.signin-dots input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text;border:0;padding:0}
+.signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
+@media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:15px;padding:6px 10px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}
 
 /* ---- src/styles/modules.css ---- */
 .real-module-note{display:flex;gap:12px;align-items:flex-start;background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:10px;padding:11px 13px;margin-bottom:14px}.real-module-note b{white-space:nowrap;color:var(--accent)}.real-module-note span{font-size:12px;color:var(--text-2)}
@@ -1402,6 +1473,15 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-save-state.dirty{color:var(--warning);font-weight:600}
 .sales-save-state.dirty::before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--warning);vertical-align:1px}
 
+/* Журнал заказа (views/order-log-ui). */
+.order-log-dialog{width:min(640px,96vw)}
+.order-log-dialog .sales-dialog-body{max-height:62vh;overflow:auto;padding-top:6px}
+.order-log-table{width:100%;border-collapse:collapse;font-size:13px}
+.order-log-table th{text-align:left;color:var(--text-3);font-weight:600;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.order-log-table td{padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.order-log-table td:first-child{white-space:nowrap;color:var(--text-2)}
+.order-log-table .order-log-note{color:var(--text-3)}
+
 /* ---- src/styles/quotes.css ---- */
 /* Ревизии квоты, отправка, выбор ревизии при Convert to order. */
 .pill.st-sent{background:var(--accent-soft);color:var(--accent)}
@@ -2200,7 +2280,14 @@ tr.st-hot td{background:var(--surface-2)}
 .st-menu button{font:inherit;font-size:14px;text-align:left;border:0;background:none;padding:9px 10px;border-radius:7px}
 .st-menu button:hover{background:var(--blue2)}
 /* Вход */
-.st-login h2{margin:0 0 12px;font-size:20px}
+.st-login h2{margin:0 0 12px;font-size:20px;justify-content:center}
+.st-body .st-login.card{text-align:center;max-width:380px;margin:0 auto;border-radius:20px;background:radial-gradient(420px 200px at 50% -40%,var(--accent-soft),transparent 70%),var(--surface)}
+.st-login-hi{color:var(--text-3);font-size:14px;margin-top:4px}
+.st-login-no{font:800 34px/1.1 var(--font);letter-spacing:.12em;margin:6px 0 4px;color:var(--text)}
+.st-login-no.empty{color:var(--line-strong)}
+.st-login .st-pin-err{min-height:18px}
+.st-keys .st-key-ok{background:var(--accent);color:var(--on-solid);border-color:var(--accent)}
+.st-keys .st-key-ok:disabled{opacity:.35}
 .st-names{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .st-name-btn{font:inherit;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:16px;font-weight:600;background:var(--surface);text-align:left}
 .st-name-btn.on{border:2px solid var(--blue);background:var(--blue2)}
@@ -2589,7 +2676,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='b7573072ecc3';
+var ERP_BUILD='4b097e9cf76b';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7115,7 +7202,14 @@ function normalizeUsers(){
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
   u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
  });
+ /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
+    (владелец, 2 октября 2026: «один пользователь может работать на разных
+    станциях»). Номер у каждого свой; нет или повтор — следующий свободный. */
+ const nos=new Set();
+ DB.user.forEach(u=>{const n=Number(u.no);u.no=Number.isInteger(n)&&n>0&&n<10000&&!nos.has(n)?n:0;if(u.no)nos.add(u.no);});
+ let next=1;DB.user.forEach(u=>{if(u.no)return;while(nos.has(next))next++;u.no=next;nos.add(next);});
 }
+function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ
 
@@ -7417,6 +7511,9 @@ function seedDemoUsers(){
  try{if(localStorage.getItem(DEMO_USERS_KEY))return false;localStorage.setItem(DEMO_USERS_KEY,'1');}catch(e){return false;}
  if(!Array.isArray(DB.user)||DB.user.length)return false;
  DB.user=JSON.parse(JSON.stringify(DEMO_USERS));
+ /* Засев идёт после нормализации — id входа (viewProfileId) нужен сразу,
+    а не после F5: по нему входят в офис и на станцию. */
+ normalizeUsers();
  return true;
 }
 
@@ -11370,6 +11467,137 @@ function salesQuoteGroupPill(o){
  return `<span class="pill st-open">Not sent${more}</span>`;
 }
 
+/* ==== src/erp/sales/order-log.js ==== */
+/* =====================================================================
+   erp/sales/order-log  ·  order-log-1.0
+   Журнал заказа: кто и когда создал, изменил, напечатал, отправил в батч,
+   выдал. Только главное — «у заказа не так много манипуляций» (владелец,
+   2 октября 2026). Смотрят правой кнопкой на заказе → Activity log.
+   IN : DB.salesOrder до и после каждой записи базы (touch в erp/storage);
+        печать и письма — orderLogAdd из Documents и Stickers;
+        кто — signinUser() (erp/signin) или рабочий станции
+   OUT: DB.orderEvent {id, at, orderId, no, what, note, by, byId};
+        orderLogFor(id) — строки окна вместе с оплатами из Finance
+
+   Изменения не размечаются по всему коду: журнал сравнивает заказ с тем,
+   что лежало в базе до записи, поэтому ловит правку из любого экрана —
+   Sales, Optimization, Shipping, батчи, станции. Значений «было → стало»
+   не храним: Edited называет только, что тронули (строку, срок, клиента).
+   Журнал локальный, как и вся база; это не защищённый аудит.
+   ===================================================================== */
+DEFAULT.orderEvent=[];
+if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
+const ORDER_LOG_HEAD=[['customerId','customer'],['customerPo','PO'],['dueDate','due date'],['priority','priority'],['delivery','delivery'],['paymentTerms','terms'],['currency','currency'],['branch','branch'],['notes','notes'],['orderCharges','charges'],['makeups','makeups'],['extraItems','items'],['noCharge','no charge'],['validUntil','valid until']];
+/* Поля строки, которые ведёт цех (батч, Hold строки) — у них свои записи. */
+const ORDER_LOG_LINE_OWN=['batchManaged','batchedAt','cutStartedAt','batchNo','onHold','holdReason','holdAt'];
+let orderLogBase={text:null,map:null},orderLogPending=null;
+
+function normalizeOrderLog(){
+ if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
+ const s=v=>typeof v==='string'?v:'';
+ DB.orderEvent=DB.orderEvent.filter(e=>e&&typeof e==='object'&&typeof e.orderId==='string'&&e.orderId&&typeof e.what==='string'&&e.what&&typeof e.at==='string')
+  .map(e=>({id:s(e.id)||salesUid('OE'),at:e.at,orderId:e.orderId,no:s(e.no),what:e.what.slice(0,60),note:s(e.note).slice(0,200),by:s(e.by).slice(0,80),byId:s(e.byId)}));
+}
+/* Кто: на экране станции — вошедший рабочий и станция, в офисе — вход по PIN. */
+function orderLogActor(){
+ if(typeof tab!=='undefined'&&tab==='station'&&typeof stationWho==='function'){const w=stationWho();if(w)return {by:w.name+' · '+stationCode,byId:w.id};}
+ const u=typeof signinUser==='function'?signinUser():null;
+ return u?{by:u.name,byId:u.viewProfileId}:{by:'',byId:''};
+}
+function orderLogPush(o,what,note){
+ if(!o||!o.id)return null;
+ if(!Array.isArray(DB.orderEvent))DB.orderEvent=[];
+ const e=Object.assign({id:salesUid('OE'),at:new Date().toISOString(),orderId:o.id,no:String(o.businessNumber||''),what,note:String(note||'').slice(0,200)},orderLogActor());
+ DB.orderEvent.push(e);return e;
+}
+/* Печать и письмо базу не меняют — запись журнала сохраняется отдельно.
+   Вкладка, которая сейчас не пишет, сначала забирает запись себе. */
+function orderLogAdd(orderId,what,note){
+ const o=(DB.salesOrder||[]).find(x=>x.id===orderId);if(!o)return;
+ storageWhenWriter(()=>storageCommand(()=>{const now=(DB.salesOrder||[]).find(x=>x.id===orderId);if(now)orderLogPush(now,what,note);return true;}));
+}
+
+/* ---------------- сравнение заказа до и после записи ---------------- */
+function orderLogLineKey(l){const c=Object.assign({},l);ORDER_LOG_LINE_OWN.forEach(k=>delete c[k]);return JSON.stringify(c);}
+function orderLogBatchNos(o){return new Set((o.lines||[]).map(l=>l.batchNo).concat(o.batchNo||'').filter(Boolean));}
+function orderLogDiff(a,b){
+ const out=[],add=(what,note)=>out.push([what,note||'']),q=salesIsQuote(b);
+ /* Edited: шапка и строки, без цеховых полей. */
+ const parts=ORDER_LOG_HEAD.filter(([k])=>JSON.stringify(a[k]??null)!==JSON.stringify(b[k]??null)).map(([,label])=>label);
+ const before=new Map((a.lines||[]).map(l=>[l.id,l]));
+ (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(!was)parts.push('line '+(i+1)+' added');else if(orderLogLineKey(was)!==orderLogLineKey(l))parts.push('line '+(i+1));});
+ const gone=(a.lines||[]).filter(l=>!(b.lines||[]).some(x=>x.id===l.id)).length;
+ if(gone)parts.push(gone===1?'line removed':gone+' lines removed');
+ if(parts.length)add('Edited',parts.length>6?parts.slice(0,6).join(', ')+' +'+(parts.length-6):parts.join(', '));
+ /* Hold заказа и строк. */
+ if(!a.onHold&&b.onHold)add('On Hold',b.holdReason);
+ if(a.onHold&&!b.onHold)add('Hold released');
+ (b.lines||[]).forEach((l,i)=>{const was=before.get(l.id);if(!was)return;if(!was.onHold&&l.onHold)add('Line '+(i+1)+' on hold',l.holdReason);if(was.onHold&&!l.onHold)add('Line '+(i+1)+' released');});
+ /* Батч. */
+ const wasNos=orderLogBatchNos(a),batched=[...orderLogBatchNos(b)].filter(n=>!wasNos.has(n));
+ batched.forEach(n=>add('Batched',n));
+ const unb=(b.unbatchHistory||[]).slice((a.unbatchHistory||[]).length);
+ unb.forEach(u=>add('Unbatched',(u.batchNumbers||[]).join(', ')));
+ /* Статус. Переход в батч и из батча уже записан строкой Batched / Unbatched. */
+ if(a.status!==b.status&&!((a.status==='batched'||b.status==='batched')&&(batched.length||unb.length))){
+  if(q){const won=b.status==='won'&&(DB.salesOrder||[]).find(x=>x.id===b.wonOrderId);add(salesStatusLabel(b,b.status),won?'→ '+won.businessNumber:'');}
+  else if(a.status==='cancelled')add('Restored',salesStatusLabel(b,b.status));
+  else if(b.status==='cancelled')add('Cancelled');
+  else add((typeof SALES_PREV_STATUS!=='undefined'&&SALES_PREV_STATUS[a.status]===b.status?'Back to ':'')+salesStatusLabel(b,b.status));
+ }
+ return out;
+}
+function orderLogCreatedNote(o){
+ if(o.fromQuoteId){const qt=(DB.salesOrder||[]).find(x=>x.id===o.fromQuoteId);return 'from quote '+(qt&&qt.businessNumber||'');}
+ if(o.remakeNcrId)return 'remake';
+ if(salesIsQuote(o)&&o.quoteRev>1)return 'revision '+o.quoteRev;
+ return salesIsQuote(o)?'quote':'';
+}
+/* Заказы того, что лежит в базе сейчас (storageBaseline): разбираем текст
+   один раз и дальше держим копию после каждой своей записи. */
+function orderLogBaseMap(){
+ if(typeof storageBaseline!=='string'||!storageBaseline)return null;
+ if(orderLogBase.text!==storageBaseline){
+  let orders;try{const d=JSON.parse(storageBaseline);orders=Array.isArray(d&&d.salesOrder)?d.salesOrder:[];}catch(e){return null;}
+  orderLogBase={text:storageBaseline,map:new Map(orders.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]))};
+ }
+ return orderLogBase.map;
+}
+/* touch(): перед записью — события по разнице с базой. */
+function orderLogCapture(){
+ orderLogPending=null;
+ if(!Array.isArray(DB.salesOrder))return;
+ const now=new Map(DB.salesOrder.filter(o=>o&&o.id).map(o=>[o.id,JSON.stringify(o)]));
+ orderLogPending=now;
+ /* Импорт JSON заменяет базу целиком — это не правка заказов. */
+ if(typeof storageImporting!=='undefined'&&storageImporting)return;
+ const base=orderLogBaseMap();if(!base)return;
+ now.forEach((text,id)=>{
+  const o=DB.salesOrder.find(x=>x.id===id);
+  if(!base.has(id)){orderLogPush(o,'Created',orderLogCreatedNote(o));return;}
+  if(base.get(id)===text)return;
+  let a,b;try{a=normalizeSalesOrder(JSON.parse(base.get(id)));b=normalizeSalesOrder(JSON.parse(text));}catch(e){return;}
+  orderLogDiff(a,b).forEach(([what,note])=>orderLogPush(o,what,note));
+ });
+ base.forEach((text,id)=>{if(now.has(id))return;let o;try{o=JSON.parse(text);}catch(e){return;}orderLogPush(o,'Deleted');});
+}
+function orderLogCommitted(text){if(orderLogPending)orderLogBase={text,map:orderLogPending};orderLogPending=null;}
+
+/* ---------------------------- для окна ---------------------------- */
+/* Записи журнала и оплаты Finance по этому заказу, по времени. У заказа,
+   созданного до журнала, первой строкой — дата создания без имени. */
+function orderLogFor(orderId){
+ const o=(DB.salesOrder||[]).find(x=>x.id===orderId);
+ const rows=(DB.orderEvent||[]).filter(e=>e.orderId===orderId).map(e=>({at:e.at,by:e.by,what:e.what,note:e.note}));
+ (DB.financeEvent||[]).forEach(e=>{
+  if(e.kind==='opening'||!(e.orders||[]).some(x=>x.id===orderId))return;
+  const r=e.after||e.before||{},amount=typeof r.amount==='number'?'$'+r.amount.toFixed(2):'';
+  rows.push({at:e.at,by:e.actor==='Not specified'?'':e.actor,what:typeof FIN_EVENT_LABELS!=='undefined'&&FIN_EVENT_LABELS[e.kind]||e.kind,note:[r.number||'',amount].filter(Boolean).join(' · ')});
+ });
+ if(o&&!rows.some(r=>r.what==='Created'))rows.push({at:o.createdAt||'',by:'',what:'Created',note:'before the log'});
+ return rows.sort((x,y)=>String(x.at).localeCompare(String(y.at)));
+}
+
 /* ==== src/erp/documents/company.js ==== */
 /* =====================================================================
    erp/documents/company  ·  documents-1.0
@@ -11738,7 +11966,7 @@ function finEvent(kind,before,after,reason,entity){
  const seq=(DB.financeEvent||[]).reduce((n,e)=>Math.max(n,e.seq||0),0)+1;
  const e={id:'FE-'+finUid(),seq,at:new Date().toISOString(),date:r.date||finToday(),kind,entity:entity||'receipt',entityId:r.id||r.orderId,
   customerId:r.customerId,customerName:customer?(customer.displayName||customer.legalName):'',number,currency:finCurrency(r),
-  actor:finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
+  actor:(typeof signinUser==='function'&&signinUser()||{}).name||finActor||'Not specified',reason:String(reason||'').trim(),before:snapshot(before),after:snapshot(after)};
  e.orders=[...new Set([...(before&&before.allocations||[]),...(after&&after.allocations||[])].map(a=>a.orderId).concat(r.orderId?[r.orderId]:[]))].map(id=>({id,number:finOrderNumber(id)}));
  DB.financeEvent.push(e);return e;
 }
@@ -12108,6 +12336,7 @@ function renderNav(){
   main.map((n,i)=>navItemHTML(n,i)).join('') +
   `<span class="nav-sp"></span>` +
   low.map((n,i)=>navItemHTML(n,main.length+i)).join('') +
+  (typeof signinNavHTML==='function'?signinNavHTML():'') +
   `<button type="button" class="nav-item nav-more${navMoreOpen?' open':''}" aria-expanded="${navMoreOpen}" onclick="navToggleMore()">${ico('more')}<span>More</span></button>`;
 }
 
@@ -12149,6 +12378,10 @@ function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
+ /* Офис без входа — только экран «Who is working?» (erp/signin). */
+ const gate=typeof signinNeeded==='function'&&signinNeeded();
+ document.body.classList.toggle('signin-mode',gate);
+ if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
@@ -12256,7 +12489,7 @@ function viewUsersList(){
  const rows=DB.user.map((u,i)=>{
   const st=DB.station.find(s=>s.code===u.station);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
-  return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
+  return `<tr><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
    <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>
@@ -12264,9 +12497,9 @@ function viewUsersList(){
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
+  <table><thead><tr><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" class="empty">empty</td></tr>'}</tbody></table>
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={no:\'\',name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -12276,7 +12509,8 @@ function userForm(){
    <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
-   <div><label>Station PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
+   <div><label>No. · station sign-in</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
+   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
   </div>
   <div style="margin-top:12px"><label>Skills and proficiency level</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
@@ -12307,6 +12541,12 @@ function saveUser(){
  if(!uDraft.name) return fail(e,'Enter a name');
  uDraft.pin=String(uDraft.pin||'');
  if(uDraft.pin&&!USER_PIN_RE.test(uDraft.pin)) return fail(e,'PIN: 4 digits or empty');
+ const no=String(uDraft.no==null?'':uDraft.no).trim();
+ if(no&&!/^\d{1,4}$/.test(no)) return fail(e,'No.: up to 4 digits or empty');
+ const taken=no&&+no>0?DB.user.find((x,i)=>i!==uEdit&&x.no===+no):null;
+ if(no&&+no<1) return fail(e,'No.: from 1');
+ if(taken) return fail(e,'No. '+userNoText(taken)+' belongs to '+taken.name);
+ uDraft.no=no?+no:0;
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
@@ -12333,6 +12573,136 @@ function skillReport(){
   <div class="skill-card-grid" style="margin-bottom:14px">${cards}</div>
   <table><thead><tr><th>Skill</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Coverage</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+
+/* ==== src/erp/signin.js ==== */
+/* =====================================================================
+   erp/signin  ·  signin-1.0
+   Вход в офис по PIN: кто сейчас работает за этим компьютером.
+   IN : DB.user (имя, PIN — тот же, что на станции)
+   OUT: signinUser() — для журнала заказа и Finance; экран входа; имя в шапке
+
+   Владелец, 2 октября 2026: журнал заказа должен знать «кто». Вход — имя и
+   PIN из Users. Выход — кнопкой Sign out или когда закрыты все вкладки
+   браузера; по простою не выходит: «резчик может пол дня разгружать трак».
+   F5 входа не сбрасывает. Экран станции (#station=…) входит своим PIN.
+
+   Как узнаём «браузер закрывали»: каждая открытая вкладка держит общий
+   замок SIGNIN_LOCK. Новая вкладка смотрит, держит ли его кто-то ещё: да —
+   браузер жив, вход продолжается; нет — вход сброшен. Своя вкладка после F5
+   узнаёт себя по номеру сеанса в sessionStorage.
+   ===================================================================== */
+const SIGNIN_KEY='glass_farm_signin',SIGNIN_TAB_KEY='glass_farm_signin_tab',SIGNIN_LOCK='glass_farm_open';
+let signinPick='',signinError='',signinChecking=false;
+function signinSession(){try{const s=JSON.parse(localStorage.getItem(SIGNIN_KEY)||'null');return s&&typeof s==='object'&&s.userId&&s.sid?s:null;}catch(e){return null;}}
+function signinTabSid(){try{return sessionStorage.getItem(SIGNIN_TAB_KEY)||'';}catch(e){return '';}}
+function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,sid);else sessionStorage.removeItem(SIGNIN_TAB_KEY);}catch(e){}}
+function signinUser(){
+ const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
+ return (DB.user||[]).find(u=>u.viewProfileId===s.userId)||null;
+}
+function signinNeeded(){
+ if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
+ return (DB.user||[]).length>0&&!signinUser();
+}
+function signinAs(id){
+ const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
+ const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+ try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
+ signinSetTabSid(sid);signinPick='';signinError='';render();
+}
+function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+function signinChoose(id){
+ const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
+ if(!u.pin)return signinAs(id);
+ signinPick=id;signinError='';render();
+ setTimeout(()=>{const el=document.getElementById('signinPin');if(el)el.focus();},0);
+}
+function signinPinInput(el){
+ el.value=el.value.replace(/\D/g,'').slice(0,4);
+ document.querySelectorAll('.signin-dots i').forEach((d,i)=>d.classList.toggle('f',i<el.value.length));
+ if(el.value.length<4)return;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);
+ if(u&&el.value===u.pin)return signinAs(u.viewProfileId);
+ signinError='Wrong PIN';render();
+ setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
+}
+/* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
+   2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
+function signinGreeting(){const h=new Date().getHours();return h>=5&&h<12?'Good morning':h>=12&&h<18?'Good afternoon':'Good evening';}
+function signinClock(){return new Date().toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});}
+/* Часы на входе идут сами: меняется только текст, экран не перерисовывается. */
+setInterval(()=>{const t=signinClock();document.querySelectorAll('[data-signin-clock]').forEach(el=>{if(el.textContent!==t)el.textContent=t;});},10000);
+function signinToday(){return new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});}
+function signinInitials(name){return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';}
+/* Первая строка карточки — сама компания (Master Data → Company): название,
+   дата, время. Логотип — только настоящий, загруженный в Company; инициалы
+   владелец убрал: «не туда и не сюда» (3 октября 2026). */
+function signinBrandHTML(){
+ const c=DB.company||{},name=String(c.legalName||'').trim()||'Glass Farm';
+ const mark=c.logo?`<img class="signin-logo" src="${esc(c.logo)}" alt="">`:'';
+ return `<div class="signin-brand" data-signin-brand>${mark}<span class="signin-brand-text"><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span><span class="signin-clock" data-signin-clock>${esc(signinClock())}</span></div>`;
+}
+function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
+/* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
+   показывает только офисные роли, цех входит на своей станции. Нет ни одного
+   офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
+function signinOfficeUsers(){
+ const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
+ return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
+/* Office / Production (владелец, 2 октября 2026): «производство не должно
+   видеть имена всех, кто в офисе». Production — только станции, имён нет;
+   человек входит уже на экране своей станции. Выбор помнит этот браузер:
+   компьютер в цеху открывается сразу на Production. */
+const SIGNIN_SIDE_KEY='glass_farm_signin_side';
+function signinSide(){try{return localStorage.getItem(SIGNIN_SIDE_KEY)==='production'?'production':'office';}catch(e){return 'office';}}
+function signinSetSide(v){try{localStorage.setItem(SIGNIN_SIDE_KEY,v==='production'?'production':'office');}catch(e){}signinPick='';signinError='';render();}
+function signinStation(code){try{localStorage.setItem(SIGNIN_SIDE_KEY,'production');}catch(e){}location.hash='station='+code;}
+function signinView(){
+ const side=signinSide();
+ const sw=`<div class="signin-side" role="tablist">${[['office','Office'],['production','Production']].map(([k,l])=>`<button type="button" role="tab" aria-selected="${side===k}" class="${side===k?'on':''}" data-signin-side="${k}" onclick="signinSetSide('${k}')">${l}</button>`).join('')}</div>`;
+ let body;
+ if(side==='production'){
+  body=`<p class="signin-sub">Choose your station</p>
+  <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
+ }else{
+  const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
+  const pad=pick?`<div class="signin-pin"><label for="signinPin">Hi, <span data-raw>${esc(String(pick.name).trim().split(/\s+/)[0])}</span> — your PIN</label>
+   <div class="signin-dots${signinError?' bad':''}">${[0,1,2,3].map(()=>'<i></i>').join('')}<input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" oninput="signinPinInput(this)"></div>
+   <div class="signin-err" role="alert">${esc(signinError)}</div></div>`:'';
+  body=`<p class="signin-sub">Who is working?</p>
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
+ }
+ return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
+  <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
+}
+/* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
+function signinNavHTML(){
+ const u=signinUser();if(!u)return '';
+ const name=String(u.name||'').trim(),ini=name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
+ return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)} · Sign out" onclick="signinOutAsk()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
+}
+function signinOutAsk(){const u=signinUser();if(u&&confirm('Sign out '+u.name+'?'))signinOut();}
+/* Вход и выход в другой вкладке того же браузера — сразу и здесь. */
+window.addEventListener('storage',function(e){
+ if(e.key!==SIGNIN_KEY)return;
+ const s=signinSession();signinSetTabSid(s?s.sid:'');signinPick='';signinError='';
+ if(typeof storageStarting==='undefined'||!storageStarting)(typeof storageRerender==='function'?storageRerender:render)();
+});
+(function signinStart(){
+ const s=signinSession();
+ const hold=()=>{try{navigator.locks.request(SIGNIN_LOCK,{mode:'shared'},()=>new Promise(()=>{})).catch(()=>{});}catch(e){}};
+ if(!navigator.locks){if(s&&!signinTabSid())signinSetTabSid(s.sid);return;}
+ if(!s||signinTabSid()===s.sid){hold();return;}
+ signinChecking=true;
+ navigator.locks.query().then(q=>(q.held||[]).some(l=>l.name===SIGNIN_LOCK)).catch(()=>false).then(alive=>{
+  const now=signinSession();
+  if(alive&&now)signinSetTabSid(now.sid);
+  else if(now&&now.sid===s.sid){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}}
+  signinChecking=false;hold();
+  if(typeof storageStarting!=='undefined'&&!storageStarting)render();
+ });
+})();
 
 /* ==== src/erp/views/customers.js ==== */
 /* =====================================================================
@@ -22468,7 +22838,7 @@ function docDrawingsPrint(which){
  const sheets=(which==='one'?[now]:items).filter(x=>x&&x.html).map(x=>x.html);
  const m=document.querySelector('[data-doc-print-menu]');if(m)m.hidden=true;
  if(!sheets.length)return;
- printSheet(sheets,'',salesSheetFitDrawing);
+ if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -22502,7 +22872,8 @@ function docPrint(){
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);
- try{window.print();}catch(e){docPrintCleanup();}
+ try{window.print();}catch(e){docPrintCleanup();return;}
+ if(soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed',docKindLabel(docState.kind));
 }
 
 /* ------------------------------ Email ------------------------------- */
@@ -22549,6 +22920,7 @@ function docEmail(){
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const file=docFileName(docState.kind,soDraft),to=docEmailRecipient();
  docDownload(file,bytes);
+ if(typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Emailed',docKindLabel(docState.kind));
  const win=window.open(docEmailUrl(),'_blank');
  docState.status='PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.');
  render();
@@ -23804,13 +24176,14 @@ function salesListContextHTML(m,style){
  const q=salesIsQuote(o),ids=salesListSelectedOrders(),many=ids.length>1&&ids.includes(o.id);
  const item=(act,label,cls)=>`<button type="button" role="menuitem" class="${cls||''}" data-menu="${act}" onclick="salesListMenuRun('${act}')">${label}</button>`;
  const hold=q?'':o.onHold?item('release',many?'Release · '+ids.length+' orders':'Release'):item('hold',many?'⛔ On Hold… · '+ids.length+' orders':'⛔ On Hold…');
- return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
+ return `<div class="sl-ctx" style="${style}" role="menu">${item('open','Open')}${typeof orderLogOpen==='function'?item('log','Activity log'):''}${hold}<hr>${item('documents','Documents')}${item('drawings','Drawings')}${typeof salesCutEstimateOpen==='function'&&cutEstUsable(o)?item('cutpreview',salesCutEstimateIds().length>1?'Cut preview · '+salesCutEstimateIds().length+' selected':'Cut preview'):''}${!q&&o.status!=='cancelled'?item('stickers','Print stickers…'):''}${!q&&typeof glassBatchCanUnbatchOrder==='function'&&glassBatchCanUnbatchOrder(o)?item('unbatch','Unbatch order…'):''}${!q&&o.status!=='cancelled'&&o.status!=='closed'?item('cancel','Cancel order'):''}${!q&&o.status==='cancelled'?item('restore','Restore as New'):''}<hr>${item('delete','Delete','dl')}</div>`;
 }
 function salesListMenuRun(act){
  const m=salesListMenu;salesListMenu=null;
  const o=m&&(DB.salesOrder||[]).find(x=>x.id===m.id);if(!o){render();return;}
  const sel=salesListSelectedOrders(),ids=sel.includes(o.id)?sel:[o.id],held=id=>!!(DB.salesOrder.find(x=>x.id===id)||{}).onHold;
  if(act==='open')salesOrderEdit(o.id);
+ else if(act==='log')orderLogOpen(o.id);
  else if(act==='hold')salesHoldOpen(ids.filter(id=>!held(id)));
  else if(act==='release')salesReleaseHold(ids.filter(held));
  else if(act==='documents'){salesOrderEdit(o.id);docOpen();}
@@ -29264,7 +29637,8 @@ function stkDialogPrint(){
  let pages;try{pages=stkPages(r.jobs,d.size,d.tpl);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
  const over=[...new Set(pages.flatMap(p=>p.overflow))];
  if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
- stkDialog=null;render();stkPrint(pages);
+ stkDialog=null;render();
+ if(stkPrint(pages)&&typeof orderLogAdd==='function'){const by=new Map();r.jobs.forEach(j=>{if(j.o&&j.o.id)by.set(j.o.id,(by.get(j.o.id)||0)+1);});by.forEach((n,id)=>orderLogAdd(id,'Printed','Stickers · '+n+(d.mode==='batch'&&d.batchNo?' · '+d.batchNo:'')));}
 }
 /* Трудный заказ правится на месте, а не шаблон для всех: «не проще дать
    отредактировать точечно заказ на момент сложного стикера» (владелец,
@@ -30997,6 +31371,31 @@ function viewSalesCutEstimate(){
  }finally{cutEstMemo=null;}
 }
 
+/* ==== src/erp/views/order-log-ui.js ==== */
+/* =====================================================================
+   views/order-log-ui  ·  order-log-ui-1.0
+   Окно Activity log поверх списка Sales: когда, кто, что.
+   IN : orderLogFor(id) (erp/sales/order-log)
+   OUT: окно; открывается правой кнопкой на заказе → Activity log
+   ===================================================================== */
+let orderLogView=null;
+function orderLogOpen(id){if(!(DB.salesOrder||[]).some(o=>o.id===id))return;salesListMenu=null;orderLogView={id};render();}
+function orderLogClose(){orderLogView=null;render();}
+function orderLogWhen(at){
+ const d=new Date(at);if(!at||isNaN(d))return '—';
+ return d.toLocaleDateString('en-CA',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function orderLogDialogHTML(){
+ const v=orderLogView;if(!v)return '';
+ const o=(DB.salesOrder||[]).find(x=>x.id===v.id);if(!o){orderLogView=null;return '';}
+ const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}</td></tr>`).join('');
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
+  <div class="sales-service-modal-head"><div><span>Activity log</span><h3 data-raw>${esc([o.businessNumber,salesCustomerDisplay(o.customerId)].filter(Boolean).join(' · '))}</h3></div><button type="button" aria-label="Close" onclick="orderLogClose()">×</button></div>
+  <div class="sales-dialog-body"><table class="order-log-table"><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>`;
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(orderLogDialogHTML);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&orderLogView)orderLogClose();});
+
 /* ==== src/erp/views/station.js ==== */
 /* =====================================================================
    view/station  ·  station-1.0
@@ -31019,8 +31418,8 @@ let stationLast=null;      // последний скан: {check, rec, data, pl
 let stationNote='';        // короткая строка под карточкой: «Sheet 3 done»
 let stationSheetView=null; // какой лист показан: {batch, glass, no}
 let stationMenu=null;      // меню стекла на листе: {piece, x, y}
-let stationLoginPick='';   // выбранный на входе рабочий (viewProfileId)
-let stationPin='',stationPinError=false;
+let stationLoginNo='',stationLoginStep='no'; // вход: личный номер, затем PIN
+let stationPin='',stationPinError='';
 let stationTab='scan';      // CUT: scan | queue
 let stationIncoming='';    // долли, которая привезла стекло на эту станцию: её стопка справа
 let stationQuestions=[];   // пропущенная станция: вопрос ждёт ответа, работа не стоит
@@ -31080,26 +31479,30 @@ function stationWho(){
 function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
 function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
-function stationUsers(){
- const skill=STATION_SKILL[stationCode],own=(DB.user||[]).filter(u=>u.station===stationCode||(u.skills||[]).some(x=>x&&x.skill===skill));
- return (own.length?own:(DB.user||[])).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
  try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:stationCode,userId:id,at:new Date().toISOString()}));}catch(e){return false;}
- stationLoginPick='';stationPin='';stationPinError=false;render();return true;
+ stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
-function stationPickUser(id){
- const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
- if(!u.pin)return stationLogin(id);
- stationLoginPick=id;stationPin='';stationPinError=false;render();
-}
-function stationPinKey(k){
- const u=(DB.user||[]).find(x=>x.viewProfileId===stationLoginPick);if(!u)return;
- if(k==='back')stationPin=stationPin.slice(0,-1);
- else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
- stationPinError=false;
- if(stationPin.length===4){if(stationPin===u.pin)return stationLogin(u.viewProfileId);stationPin='';stationPinError=true;stationBeep('error');}
+/* Вход на станции: личный номер + PIN, имён на экране нет — «один
+   пользователь может работать на разных станциях» (владелец, 2 октября 2026).
+   Номер — в Users. Ошибка не говорит, что неверно — номер или PIN. */
+function stationLoginKey(k){
+ stationPinError='';
+ if(stationLoginStep==='no'){
+  if(k==='back')stationLoginNo=stationLoginNo.slice(0,-1);
+  else if(/^\d$/.test(k)&&stationLoginNo.length<4)stationLoginNo+=k;
+  else if(k==='ok'&&stationLoginNo){stationLoginStep='pin';stationPin='';}
+ }else{
+  if(k==='back'){if(stationPin)stationPin=stationPin.slice(0,-1);else stationLoginStep='no';}
+  else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
+  if(stationPin.length===4){
+   const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
+   if(u&&u.pin&&u.pin===stationPin)return stationLogin(u.viewProfileId);
+   stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
+   stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
+  }
+ }
  render();
 }
 function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
@@ -31413,12 +31816,12 @@ function stationTop(who){
   '<button type="button" class="st-btn st-exit" onclick="stationExit()" title="Back to ERP">ERP</button></div>';
 }
 function stationLoginView(){
- const users=stationUsers(),pick=(DB.user||[]).find(u=>u.viewProfileId===stationLoginPick);
- const names=users.map(u=>'<button type="button" class="st-name-btn'+(pick===u?' on':'')+'" onclick="stationPickUser(\''+esc(u.viewProfileId)+'\')"><span class="st-av">'+esc(stationInitials(u.name))+'</span><span data-raw>'+esc(u.name)+'</span></button>').join('');
- const pad=pick?'<div class="st-pin"><div class="st-pin-t">PIN · <span data-raw>'+esc(pick.name)+'</span></div><div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'+
-  (stationPinError?'<div class="st-pin-err">Wrong PIN</div>':'')+
-  '<div class="st-keys">'+['1','2','3','4','5','6','7','8','9','','0','back'].map(k=>k?'<button type="button" onclick="stationPinKey(\''+k+'\')">'+(k==='back'?'⌫':k)+'</button>':'<span></span>').join('')+'</div></div>':'';
- return '<div class="st-login card"><h2>Who is working?</h2>'+(users.length?'<div class="st-names">'+names+'</div>':'<div class="mut">No users yet — add them in Users.</div>')+pad+'</div>';
+ const pin=stationLoginStep==='pin',hi=typeof signinGreeting==='function'?signinGreeting():'Hello';
+ const shown=pin?'<div class="st-dots'+(stationPinError?' bad':'')+'">'+[0,1,2,3].map(i=>'<i class="'+(i<stationPin.length?'f':'')+'"></i>').join('')+'</div>'
+  :'<div class="st-login-no'+(stationLoginNo?'':' empty')+'" data-station-login-no>'+(stationLoginNo?esc(stationLoginNo):'· ·')+'</div>';
+ const keys=['1','2','3','4','5','6','7','8','9','back','0','ok'].map(k=>'<button type="button"'+(k==='ok'?' class="st-key-ok"'+(pin||!stationLoginNo?' disabled':''):'')+' data-station-key="'+k+'" onclick="stationLoginKey(\''+k+'\')">'+(k==='back'?'⌫':k==='ok'?'→':k)+'</button>').join('');
+ return '<div class="st-login card"><div class="st-login-hi">'+esc(hi)+(typeof signinClock==='function'?' · <span data-signin-clock>'+esc(signinClock())+'</span>':'')+'</div><h2>'+(pin?'PIN':'Your number')+'</h2>'+shown+
+  '<div class="st-pin-err" role="alert">'+esc(stationPinError)+'</div><div class="st-keys">'+keys+'</div></div>';
 }
 function viewStation(){
  const s=stationRow();
@@ -31489,7 +31892,7 @@ function stationFocus(){
 document.addEventListener('keydown',function(e){
  if(tab!=='station')return;
  const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
- if(!stationWho()&&stationLoginPick&&(/^\d$/.test(e.key)||e.key==='Backspace')){stationPinKey(e.key==='Backspace'?'back':e.key);e.preventDefault();return;}
+ if(!stationWho()&&stationRow()&&(/^\d$/.test(e.key)||e.key==='Backspace'||e.key==='Enter')){stationLoginKey(e.key==='Backspace'?'back':e.key==='Enter'?'ok':e.key);e.preventDefault();return;}
  const el=document.querySelector('[data-station-scan]');if(!el||document.activeElement===el)return;
  if(e.ctrlKey||e.metaKey||e.altKey)return;
  if(e.key.length===1){stationMenu=null;el.focus();el.value+=e.key;e.preventDefault();}
@@ -32260,10 +32663,12 @@ function touch(){
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
  try{
+  /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
+  if(typeof orderLogCapture==='function')orderLogCapture();
   const text=JSON.stringify(DB);
   try{localStorage.setItem(STORAGE_KEY,text);}
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
-  storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+  storageBaseline=text;if(typeof orderLogCommitted==='function')orderLogCommitted(text);storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
   if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
@@ -32537,6 +32942,7 @@ function normalizeDB(){
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
+ if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
