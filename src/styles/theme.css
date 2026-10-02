@@ -124,3 +124,12 @@ body.cut-full:has([data-cut-full]) .app-foot{display:none}
 .dash-setup{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .dash-build{margin:6px 2px 0;font-size:12px;color:var(--text-3)}
 @media (max-width:900px){.dash-card .flow-row{flex-direction:column}.dash-card .flow-arrow{transform:rotate(90deg);align-self:center}.dash-setup{grid-template-columns:1fr}}
+
+/* ---- Полоса тревоги сохранения: видна везде, и на станции, и на планшете.
+   Спокойный статус — в футере; сюда попадает только то, что мешает работе. ---- */
+.app-alert{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 26px;
+ background:var(--warning-soft);color:var(--warning);border-bottom:1px solid var(--warning-line);font-size:14px;font-weight:500}
+.app-alert[hidden]{display:none}
+.app-alert button{background:var(--surface);color:var(--text);border-color:var(--warning-line);font-weight:600}
+body.station-mode .app-alert{position:static;font-size:17px;padding:14px 22px}
+body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:16px}
