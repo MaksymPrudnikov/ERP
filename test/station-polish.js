@@ -31,8 +31,8 @@ module.exports=async function({page,eq}){
  eq('Drawings button: a real window with a one-line hint, a big Close, order tiles with the number of drawings',await t.p.evaluate(()=>{
   stationTab='scan';render();stationDrawPick();const d=document.querySelector('[data-station-draw]'),r=d.getBoundingClientRect(),tile=d.querySelector('[data-station-draw-order]');
   const o=DB.salesOrder.find(x=>x.businessNumber===tile.dataset.stationDrawOrder),n=stationDrawLines(o).length;
-  const out={window:d.classList.contains('st-draw-pick')&&r.left>20&&r.top>60,title:d.querySelector('h2').textContent,hint:d.querySelector('.st-draw-hint').textContent,close:d.querySelector('.st-draw-close').textContent,
-   tile:tile.querySelector('small').textContent===n+' drawing'+(n===1?'':'s'),red:tile.classList.contains('st-reason')};
+  const out={window:d.classList.contains('st-draw-pick')&&r.left>20&&r.top>60,title:d.querySelector('h2').textContent,hint:(d.querySelector('.st-draw-hint')||{}).textContent,close:(d.querySelector('.st-draw-close')||{}).textContent,
+   tile:(tile.querySelector('small')||{}).textContent===n+' drawing'+(n===1?'':'s'),red:tile.classList.contains('st-reason')};
   stationCloseDrawer();out.closed=!document.querySelector('[data-station-draw]');return out;
  }),{window:true,title:'Drawings · CUT',hint:"Open any order's drawing: tap an order, type its number or scan a glass sticker.",close:'× Close',tile:true,red:false,closed:true});
  eq('station-polish без ошибок страницы',t.errs,[]);
