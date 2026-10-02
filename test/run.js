@@ -4346,13 +4346,14 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
       set('md_sheetCode', '6CLEAR'); set('md_sheetSupplier', 'Vitro USA'); set('md_sheetCurrency', 'USD');
       set('md_sheetW', '144'); set('md_sheetH', '');
       mdSheetSave(); const half = [DB.glassSheet.length, err()];
+      // Price date is a calendar field: a typed 22.08.2026 never reaches the save.
       set('md_sheetH', '96'); set('md_sheetDate', '22.08.2026');
-      mdSheetSave(); const date = [DB.glassSheet.length, err()];
+      const date = [document.getElementById('md_sheetDate').type, document.getElementById('md_sheetDate').value];
       set('md_sheetDate', '2026-08-22'); set('md_sheetCurrency', 'CADD');
       mdSheetSave(); const cur = [DB.glassSheet.length, err()];
       mdSheetEdit = null; mdSheetDraft = null; render();
       return [half, date, cur];
-    }), [[2, true], [2, true], [2, true]]);
+    }), [[2, true], ['date', ''], [2, true]]);
 
     eq('обзор базы считает все коллекции', await t.p.evaluate(() => {
       mdTab = 'overview'; render();
