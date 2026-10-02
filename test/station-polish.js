@@ -4,7 +4,7 @@
 module.exports=async function({page,eq}){
  console.log('station-polish');const t=await page(undefined,{width:1440,height:900});await require('./optimization-fixture')(t.p);
  eq('Production → Stations: How glass moves — numbered steps in plain words, edges as one step, no warning notes, no sideways scroll',await t.p.evaluate(()=>{
-  tab='production';subtab='stations';render();const card=document.querySelector('.sf-route-card'),steps=[...card.querySelectorAll('[data-route-step]')];
+  tab='production';subtab='stations';render();const card=document.querySelector('.sf-route-card');if(!card)return {missing:true};const steps=[...card.querySelectorAll('[data-route-step]')];
   const edges=steps.find(s=>s.dataset.routeCodes.includes('ARRIS')),cut=steps[0],text=card.innerText;
   edges.click();const hit=[...document.querySelectorAll('tr.sf-hit')].map(tr=>tr.dataset.sfStation).join(' ');
   return {title:card.querySelector('h3').textContent,count:steps.length===sfSteps().length,first:cut.querySelector('b').textContent+' · '+cut.querySelector('.when').textContent+' · '+cut.querySelector('.what').textContent,
