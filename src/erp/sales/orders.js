@@ -65,6 +65,24 @@ function salesShapeSnapshotRestore(){
   if(i<0){DB.shapeDef.push(s);changed=true;}else if(JSON.stringify(DB.shapeDef[i])!==JSON.stringify(s)){DB.shapeDef[i]=s;changed=true;}});
  soShapeSnapshot=null;return changed;
 }
+/* Две вкладки (владелец, 2 октября 2026): пока этот заказ не сохранён, формы
+   его строк живут в общей DB.shapeDef. Отдавая запись другой вкладке, кладём
+   в базу формы как в сохранённом заказе (снимок soShapeSnapshot), а свои
+   правки держим в памяти. Свежая база из другой вкладки их не знает — новые
+   строки она и вовсе подчистила как сироты, — поэтому при перечитывании формы
+   черновика переносятся из прежней копии. */
+function salesDraftParkText(){
+ if(!soDraft||soShapeSnapshot==null||!salesDraftHasWork())return null;
+ const parked=JSON.parse(JSON.stringify(DB));
+ JSON.parse(soShapeSnapshot).forEach(s=>{const i=parked.shapeDef.findIndex(x=>x&&x.id===s.id);if(i<0)parked.shapeDef.push(s);else parked.shapeDef[i]=s;});
+ return JSON.stringify(parked);
+}
+function salesDraftKeepShapes(from,to){
+ if(!soDraft||!from||!to||!Array.isArray(from.shapeDef)||!Array.isArray(to.shapeDef))return 0;
+ const ids=salesShapeIdsOf(soDraft);let n=0;
+ from.shapeDef.forEach(s=>{if(!s||!ids.has(s.id))return;const copy=JSON.parse(JSON.stringify(s)),i=to.shapeDef.findIndex(x=>x&&x.id===s.id);if(i<0)to.shapeDef.push(copy);else to.shapeDef[i]=copy;n++;});
+ return n;
+}
 /* Убрать черновик. discard — правки не сохраняются: формы возвращаются к
    сохранённым, редактор формы строки закрывается вместе с заказом. */
 function salesDraftDrop(discard){
