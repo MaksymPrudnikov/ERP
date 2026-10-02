@@ -167,7 +167,7 @@ function docDrawingsPrint(which){
  const sheets=(which==='one'?[now]:items).filter(x=>x&&x.html).map(x=>x.html);
  const m=document.querySelector('[data-doc-print-menu]');if(m)m.hidden=true;
  if(!sheets.length)return;
- printSheet(sheets,'',salesSheetFitDrawing);
+ if(printSheet(sheets,'',salesSheetFitDrawing)&&soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed','Drawings'+(sheets.length>1?' · '+sheets.length:''));
 }
 function docPanel(){
  const kind=docState.kind,o=docState.opts,groups=[];
@@ -201,7 +201,8 @@ function docPrint(){
  try{docPrintPrepare();}catch(e){alert('The document could not be prepared: '+(e&&e.message||e));return;}
  window.addEventListener('afterprint',docPrintCleanup,{once:true});
  setTimeout(docPrintCleanup,60000);
- try{window.print();}catch(e){docPrintCleanup();}
+ try{window.print();}catch(e){docPrintCleanup();return;}
+ if(soDraft&&typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Printed',docKindLabel(docState.kind));
 }
 
 /* ------------------------------ Email ------------------------------- */
@@ -248,6 +249,7 @@ function docEmail(){
  catch(e){alert('The PDF could not be prepared: '+(e&&e.message||e));return;}
  const file=docFileName(docState.kind,soDraft),to=docEmailRecipient();
  docDownload(file,bytes);
+ if(typeof orderLogAdd==='function')orderLogAdd(soDraft.id,'Emailed',docKindLabel(docState.kind));
  const win=window.open(docEmailUrl(),'_blank');
  docState.status='PDF saved to Downloads as '+file+' — drag it into the Gmail message.'+(to?'':' The customer has no email: add Invoice Email in the customer card.')+(win?'':' The browser blocked the Gmail tab: allow pop-ups for this file.');
  render();

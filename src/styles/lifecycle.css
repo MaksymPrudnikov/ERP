@@ -71,3 +71,12 @@ tr.line-locked input,tr.line-locked select,tr.line-locked button{opacity:.7}
 .sales-save-state{align-self:center;margin-right:4px;font-size:12px;color:var(--text-2);white-space:nowrap}
 .sales-save-state.dirty{color:var(--warning);font-weight:600}
 .sales-save-state.dirty::before{content:'';display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:50%;background:var(--warning);vertical-align:1px}
+
+/* Журнал заказа (views/order-log-ui). */
+.order-log-dialog{width:min(640px,96vw)}
+.order-log-dialog .sales-dialog-body{max-height:62vh;overflow:auto;padding-top:6px}
+.order-log-table{width:100%;border-collapse:collapse;font-size:13px}
+.order-log-table th{text-align:left;color:var(--text-3);font-weight:600;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.order-log-table td{padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+.order-log-table td:first-child{white-space:nowrap;color:var(--text-2)}
+.order-log-table .order-log-note{color:var(--text-3)}

@@ -44,6 +44,7 @@ function renderNav(){
   main.map((n,i)=>navItemHTML(n,i)).join('') +
   `<span class="nav-sp"></span>` +
   low.map((n,i)=>navItemHTML(n,main.length+i)).join('') +
+  (typeof signinNavHTML==='function'?signinNavHTML():'') +
   `<button type="button" class="nav-item nav-more${navMoreOpen?' open':''}" aria-expanded="${navMoreOpen}" onclick="navToggleMore()">${ico('more')}<span>More</span></button>`;
 }
 
@@ -85,6 +86,10 @@ function render(){
  document.body.classList.toggle('shape-workspace-mode',tab==='configurators'&&typeof sEdit!=='undefined'&&sEdit!==null&&typeof sDraft!=='undefined'&&!!sDraft);
  /* Экран станции — без меню и шапки ERP (view/station). */
  document.body.classList.toggle('station-mode',tab==='station');
+ /* Офис без входа — только экран «Who is working?» (erp/signin). */
+ const gate=typeof signinNeeded==='function'&&signinNeeded();
+ document.body.classList.toggle('signin-mode',gate);
+ if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={

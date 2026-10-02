@@ -77,8 +77,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
   }
   const b = await chromium.launch(EXE ? { executablePath: EXE } : {});
 
-  async function page(seedLS, viewport) {
+  /* Вход в офис по PIN (erp/signin) проверяет test/order-log.js; остальным
+     тестам экран «Who is working?» не нужен. */
+  async function page(seedLS, viewport, opts) {
     const c = await b.newContext(viewport ? { viewport } : {});
+    if (!(opts && opts.signin)) await c.addInitScript(() => { window.GF_NO_SIGNIN = true; });
     const p = await c.newPage();
     const errs = [];
     p.on('pageerror', e => errs.push(e.message));
@@ -6040,7 +6043,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     const seeded=JSON.stringify({user:[{name:'Alex',role:'Цех',station:'CUT',skills:[]}]});
     const u = await page(seeded);
     eq('имя станции берётся из колонки nameEn, а не из словаря', await u.p.evaluate(() => {
-      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(3)').textContent.trim();
+      tab='users';subtab='list';render();return document.querySelector('tbody tr td:nth-child(4)').textContent.trim();
     }), 'CUT — Cutting');
     await u.c.close();
   }
@@ -6055,7 +6058,7 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     await t.c.close();
   }
 
-  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
+  await require('./line-metrics.js')({page,eq,ok}); await require('./documents.js')({page,eq,ok}); await require('./review-polish.js')({page,eq,ok}); await require('./station-polish.js')({page,eq,ok}); await require('./supply-points.js')({page,eq,ok}); await require('./finance.js')({page,eq,ok}); await require('./finance-ledger.js')({page,eq,ok}); await require('./lifecycle.js')({page,eq,ok}); await require('./quotes.js')({page,eq,ok}); await require('./sales-list.js')({page,eq,ok}); await require('./optimization.js')({page,eq,ok}); await require('./sales-compact.js')({page,eq,ok}); await require('./glass-batches.js')({page,eq,ok}); await require('./ncr-reasons.js')({page,eq,ok}); await require('./ncr-records.js')({page,eq,ok}); await require('./recut.js')({page,eq,ok}); await require('./stickers.js')({page,eq,ok}); await require('./cut-layout.js')({page,eq,ok}); await require('./sheet-usage.js')({page,eq,ok}); await require('./sales-cut-estimate.js')({page,eq,ok}); await require('./docs.js')({eq,ok}); await require('./station.js')({page,eq,ok}); await require('./carriers.js')({page,eq,ok}); await require('./units.js')({page,eq,ok}); await require('./cut-batch.js')({page,eq,ok}); await require('./station-drawings.js')({page,eq,ok}); await require('./station-queue.js')({page,eq,ok}); await require('./md-stations.js')({page,eq,ok}); await require('./route-repeat.js')({page,eq,ok}); await require('./lami-edges.js')({page,eq,ok}); await require('./audit-fixes.js')({page,eq,ok}); await require('./order-log.js')({page,eq,ok}); await require('./drawing-layout.js')({page,eq,ok}); await require('./design-tokens.js')({page,eq,ok}); await require('./pilot-orders.js')({eq});
   await b.close();
   /* Счёт проверок в README — настоящий: его знает только этот прогон.
      «провер», а не «проверк»: в тексте бывает и «проверки», и «проверок». */

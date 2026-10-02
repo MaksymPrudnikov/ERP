@@ -145,7 +145,8 @@ function stkDialogPrint(){
  let pages;try{pages=stkPages(r.jobs,d.size,d.tpl);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
  const over=[...new Set(pages.flatMap(p=>p.overflow))];
  if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
- stkDialog=null;render();stkPrint(pages);
+ stkDialog=null;render();
+ if(stkPrint(pages)&&typeof orderLogAdd==='function'){const by=new Map();r.jobs.forEach(j=>{if(j.o&&j.o.id)by.set(j.o.id,(by.get(j.o.id)||0)+1);});by.forEach((n,id)=>orderLogAdd(id,'Printed','Stickers · '+n+(d.mode==='batch'&&d.batchNo?' · '+d.batchNo:'')));}
 }
 /* Трудный заказ правится на месте, а не шаблон для всех: «не проще дать
    отредактировать точечно заказ на момент сложного стикера» (владелец,

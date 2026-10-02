@@ -29,7 +29,7 @@ function viewUsersList(){
  const rows=DB.user.map((u,i)=>{
   const st=DB.station.find(s=>s.code===u.station);
   const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
-  return `<tr><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
+  return `<tr><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
    <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>
@@ -37,9 +37,9 @@ function viewUsersList(){
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="6" class="empty">empty</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
+  <table><thead><tr><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" class="empty">empty</td></tr>'}</tbody></table>
+  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={no:\'\',name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
 }
 function userForm(){
  const r = uDraft;
@@ -49,7 +49,8 @@ function userForm(){
    <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
    <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
-   <div><label>Station PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
+   <div><label>No. · station sign-in</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
+   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
   </div>
   <div style="margin-top:12px"><label>Skills and proficiency level</label>
    <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
@@ -80,6 +81,12 @@ function saveUser(){
  if(!uDraft.name) return fail(e,'Enter a name');
  uDraft.pin=String(uDraft.pin||'');
  if(uDraft.pin&&!USER_PIN_RE.test(uDraft.pin)) return fail(e,'PIN: 4 digits or empty');
+ const no=String(uDraft.no==null?'':uDraft.no).trim();
+ if(no&&!/^\d{1,4}$/.test(no)) return fail(e,'No.: up to 4 digits or empty');
+ const taken=no&&+no>0?DB.user.find((x,i)=>i!==uEdit&&x.no===+no):null;
+ if(no&&+no<1) return fail(e,'No.: from 1');
+ if(taken) return fail(e,'No. '+userNoText(taken)+' belongs to '+taken.name);
+ uDraft.no=no?+no:0;
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }

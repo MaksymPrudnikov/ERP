@@ -95,16 +95,18 @@ module.exports=async function({page,eq,ok}){
   return {crit:Object.assign(crit,{bar:crit.bar===`CRITICAL· order ${salesRecord(id).businessNumber} · due Oct 1`}),rush};
  }),{crit:{bar:true,big:'st-big st-red',note:'Set aside or take it now'},rush:'st-urg st-rush'});
 
- eq('экран CUT: вход по PIN (неверный — ошибка), скан с клавиатуры в поле, карточка NEXT, журнал, лист; конец листа — «Sheet 1 done · batch cut»',await (async()=>{
+ eq('экран CUT: вход — личный номер и PIN, имён нет (неверный — ошибка), скан с клавиатуры в поле, карточка NEXT, журнал, лист; конец листа — «Sheet 1 done · batch cut»',await (async()=>{
   await t.p.evaluate(()=>{
    stReset();const id=stOrder([[36,24,2],[20,30,1]]);stBatch(id);cutPlanRun('B-0001');
    DB.user=DB.user.filter(u=>!['Ivan P.','Oleg K.','Office Anna'].includes(u.name));DB.user.push({name:'Oleg K.',role:'Shop',station:'',skills:[{skill:'Cutting',level:'Senior'}],pin:'4321'},{name:'Office Anna',role:'Sales',station:'',skills:[],pin:''});normalizeUsers();
    try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode='CUT';tab='station';render();
   });
-  const login=await t.p.evaluate(()=>({names:[...document.querySelectorAll('.st-name-btn')].map(b=>b.textContent.trim()),app:document.querySelector('.side').offsetParent===null}));
-  await t.p.evaluate(()=>stationPickUser(DB.user.find(u=>u.name==='Oleg K.').viewProfileId));
-  await t.p.keyboard.type('1111');const wrong=await t.p.evaluate(()=>!!document.querySelector('.st-pin-err')&&!stationWho());
-  await t.p.keyboard.type('4321');
+  const login=await t.p.evaluate(()=>({names:document.querySelectorAll('.st-name-btn,[data-signin-user]').length,step:document.querySelector('.st-login h2').textContent,app:document.querySelector('.side').offsetParent===null}));
+  /* Вход: личный номер + PIN с клавиатуры, имён на экране нет. */
+  const no=await t.p.evaluate(()=>String(DB.user.find(u=>u.name==='Oleg K.').no));
+  await t.p.keyboard.type(no);await t.p.keyboard.press('Enter');
+  await t.p.keyboard.type('1111');const wrong=await t.p.evaluate(()=>document.querySelector('.st-pin-err').textContent==='Wrong number or PIN'&&!stationWho());
+  await t.p.keyboard.type(no);await t.p.keyboard.press('Enter');await t.p.keyboard.type('4321');
   const ids=await t.p.evaluate(()=>cutPlanFor('B-0001').groups[0].sheets[0].pieces.map(p=>p.piece));
   await t.p.waitForTimeout(50);
   await t.p.keyboard.type(ids[0]);await t.p.keyboard.press('Enter');await t.p.waitForTimeout(250);
@@ -114,7 +116,7 @@ module.exports=async function({page,eq,ok}){
   const end=await t.p.evaluate(()=>({note:document.querySelector('.st-note').textContent,tile:document.querySelector('.st-tile').className,manual:DB.stationScan.filter(s=>s.manual).length,chip:document.querySelector('.st-top').textContent.includes('3 / 3 cut'),
    ru:/[А-Яа-яЁё]/.test(document.getElementById('app').innerText)}));
   return {login,wrong,card:Object.assign(card,{gid:card.gid===ids[0]}),end};
- })(),{login:{names:['OKOleg K.'],app:true},wrong:true,card:{who:'Oleg K.',kind:'ok',next:'ARRIS',gid:true,rows:1,cut:1,focus:true},
+ })(),{login:{names:0,step:'Your number',app:true},wrong:true,card:{who:'Oleg K.',kind:'ok',next:'ARRIS',gid:true,rows:1,cut:1,focus:true},
   end:{note:'Sheet 1 done · batch B-0001 cut',tile:'st-tile done now',manual:2,chip:true,ru:false}});
 
  eq('нажатие на стекло листа: Mark cut пишет скан с пометкой hand; Recut и стикер — из того же меню; Details — без записи',await t.p.evaluate(()=>{

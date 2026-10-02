@@ -54,10 +54,12 @@ function touch(){
   if(!storageWarningShown){storageWarningShown=true;alert(storageLastError);}return false;
  }
  try{
+  /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
+  if(typeof orderLogCapture==='function')orderLogCapture();
   const text=JSON.stringify(DB);
   try{localStorage.setItem(STORAGE_KEY,text);}
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
-  storageBaseline=text;storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
+  storageBaseline=text;if(typeof orderLogCommitted==='function')orderLogCommitted(text);storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
   if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
@@ -331,6 +333,7 @@ function normalizeDB(){
  if(typeof normalizeStationScans==='function')normalizeStationScans();
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
+ if(typeof normalizeOrderLog==='function')normalizeOrderLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
