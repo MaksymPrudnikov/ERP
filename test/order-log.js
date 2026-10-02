@@ -12,14 +12,14 @@ module.exports=async function({page,eq,ok}){
  eq('офис без входа — только экран «Who is working?»; имён три, PIN не нужен без PIN',await t.p.evaluate(()=>{
   const gate=!!document.querySelector('.signin')&&document.body.classList.contains('signin-mode'),names=document.querySelectorAll('[data-signin-user]').length;
   const u=DB.user.find(x=>x.name==='Demo Sales');u.pin='4321';touch();render();
-  return {gate,names,nav:getComputedStyle(document.getElementById('side')).display};
- }),{gate:true,names:3,nav:'none'});
+  return {gate,names,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400};
+ }),{gate:true,names:3,nav:'none',wide:true});
 
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
  await t.p.fill('#signinPin','1111');
  eq('неверный PIN — «Wrong PIN», вход не открыт',await t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()})),{err:'Wrong PIN',user:null});
  await t.p.fill('#signinPin','4321');
- eq('верный PIN — в шапке имя и Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,chip:document.getElementById('signinChip').textContent.trim(),gate:!!document.querySelector('.signin')})),{user:'Demo Sales',chip:'Demo SalesSign out',gate:false});
+ eq('верный PIN — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
 
  eq('создан → изменён → Verified → Batched B-… → Unbatched → Picked up; всё на вошедшего',await t.p.evaluate(()=>{
   oqReset();DB.orderEvent=[];const id=oqOrder(oqCustomer());

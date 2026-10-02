@@ -218,6 +218,7 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 #phaseChip[hidden]{display:none}
 
 /* Вход в офис по PIN (erp/signin). */
+body.signin-mode .shell{grid-template-columns:minmax(0,1fr)}
 body.signin-mode .side,body.signin-mode .main>header,body.signin-mode .app-foot{display:none}
 .signin{min-height:80vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
 .signin-card{width:min(520px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:22px}
@@ -230,7 +231,5 @@ body.signin-mode .side,body.signin-mode .main>header,body.signin-mode .app-foot{
 .signin-pin label{color:var(--text-2);font-size:13px}
 .signin-pin input{font-size:22px;letter-spacing:.5em;width:9em;text-align:center}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px}
-.top-user{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
-.top-user:empty{display:none}
-.signin-who{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--text)}
-.signin-out{font-size:12px;padding:4px 8px}
+.side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-user-ini{width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-line);font:700 10px/1 var(--font)}

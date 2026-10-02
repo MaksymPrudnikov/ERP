@@ -58,10 +58,13 @@ function signinView(){
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></button>`).join('')}</div>
   ${pad}</div></div>`;
 }
-function signinChipHTML(){
+/* Кто вошёл — внизу левого меню (шапки на экране нет); на планшете — в More. */
+function signinNavHTML(){
  const u=signinUser();if(!u)return '';
- return `<span class="signin-who" title="Signed in">${ico('users','icon-inline')}<span data-raw>${esc(u.name)}</span></span><button type="button" class="gh signin-out" onclick="signinOut()">Sign out</button>`;
+ const name=String(u.name||'').trim(),ini=name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
+ return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)} · Sign out" onclick="signinOutAsk()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
 }
+function signinOutAsk(){const u=signinUser();if(u&&confirm('Sign out '+u.name+'?'))signinOut();}
 /* Вход и выход в другой вкладке того же браузера — сразу и здесь. */
 window.addEventListener('storage',function(e){
  if(e.key!==SIGNIN_KEY)return;
