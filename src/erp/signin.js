@@ -57,11 +57,12 @@ function signinClock(){return new Date().toLocaleTimeString('en-CA',{hour:'2-dig
 setInterval(()=>{const t=signinClock();document.querySelectorAll('[data-signin-clock]').forEach(el=>{if(el.textContent!==t)el.textContent=t;});},10000);
 function signinToday(){return new Date().toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric'});}
 function signinInitials(name){return String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';}
-/* Над карточкой — сама компания (Master Data → Company): название и логотип,
-   без логотипа — инициалы (владелец, 3 октября 2026). */
+/* Первая строка карточки — сама компания (Master Data → Company): название,
+   дата, время. Логотип — только настоящий, загруженный в Company; инициалы
+   владелец убрал: «не туда и не сюда» (3 октября 2026). */
 function signinBrandHTML(){
  const c=DB.company||{},name=String(c.legalName||'').trim()||'Glass Farm';
- const mark=c.logo?`<img class="signin-mark signin-logo" src="${esc(c.logo)}" alt="">`:`<span class="signin-mark" data-raw>${esc(signinInitials(name))}</span>`;
+ const mark=c.logo?`<img class="signin-logo" src="${esc(c.logo)}" alt="">`:'';
  return `<div class="signin-brand" data-signin-brand>${mark}<span class="signin-brand-text"><b data-raw>${esc(name)}</b><small>${esc(signinToday())}</small></span><span class="signin-clock" data-signin-clock>${esc(signinClock())}</span></div>`;
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
