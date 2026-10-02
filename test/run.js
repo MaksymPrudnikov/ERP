@@ -1794,11 +1794,11 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('станки прошлой модели не остаются станциями', await t.p.evaluate(() => [
       DB.refVersion, DB.station.map(s => s.code), DB.workPosition === undefined
     ]), [9, ['CUT','ARRIS','POLISH','BEVEL','MITER','CNC','DRILL','CERP','HEAT','SAND','PAINT','LAM','IGU','SHIPR','SHIP'], true]);
-    /* Код, которому в справочнике станций ничего не соответствует, обнуляется:
-       угадывать за человека, где он теперь работает, нельзя. */
-    eq('привязка человека переехала на станцию по коду', await t.p.evaluate(() =>
-      DB.user.map(u => [u.name, u.station, u.workPosition === undefined])
-    ), [['Ivan','',true], ['Petr','',true]]);
+    /* Станции по умолчанию у людей больше нет (Users, 3 октября 2026): старый
+       код станка отбрасывается, офисная роль становится всеми разделами. */
+    eq('станок у человека отброшен, роль стала галочками', await t.p.evaluate(() =>
+      DB.user.map(u => [u.name, 'station' in u, u.workPosition === undefined, u.access.length])
+    ), [['Ivan',false,true,9], ['Petr',false,true,9]]);
     await t.c.close();
 
     /* Данных без refVersion — так выглядит браузер, который не открывали с
@@ -2185,9 +2185,12 @@ const ok = (name, cond, info) => eq(name, cond ? true : (info || false), true);
     eq('дубликат станции в импорте называется по-английски', await t.p.evaluate(() => {
       try{prepareImportedState({station:[{code:'A1',name:'x'},{code:'A1',name:'y'}]});return '';}catch(e){return e.message;}
     }), 'Stations: duplicate "A1".');
-    eq('неизвестная роль в импорте отклоняется по-английски', await t.p.evaluate(() => {
-      try{prepareImportedState({user:[{name:'X',role:'Начальник цеха'}]});return '';}catch(e){return e.message;}
-    }), 'User 1 has an unknown role.');
+    eq('неизвестная роль в импорте — человек без офиса, а не ошибка', await t.p.evaluate(() => {
+      try{return prepareImportedState({user:[{name:'X',role:'Начальник цеха'}]}).user[0].access;}catch(e){return e.message;}
+    }), []);
+    eq('битые галочки в импорте отклоняются по-английски', await t.p.evaluate(() => {
+      try{prepareImportedState({user:[{name:'X',access:'all'}]});return '';}catch(e){return e.message;}
+    }), 'User 1: access must be an array.');
     await t.c.close();
 
     t = await page();
