@@ -1,4 +1,5 @@
-/* Журнал заказа и вход в офис по PIN (владелец, 2 октября 2026): кто создал,
+/* Журнал заказа и вход: офис — пароль от 8 символов, станция — номер и PIN
+   (владелец, 2–3 октября 2026). Журнал: кто создал,
    изменил, напечатал, отправил в батч, выдал. Окно — правой кнопкой на
    заказе → Activity log. Выход — Sign out или все вкладки закрыты; F5 не
    выходит. Станция входит своим PIN. */
@@ -11,17 +12,33 @@ module.exports=async function({page,eq,ok}){
 
  eq('офис без входа — только экран «Who is working?» с названием компании; в списке только офисные роли, без Shop',await t.p.evaluate(()=>{
   const gate=!!document.querySelector('.signin')&&document.body.classList.contains('signin-mode'),names=document.querySelectorAll('[data-signin-user]').length;
-  const u=DB.user.find(x=>x.name==='Demo Sales');u.pin='4321';
   DB.user.push({name:'Shop Worker',role:'Shop',station:'CUT',skills:[],pin:'5555'});normalizeUsers();touch();render();
   const office=[...document.querySelectorAll('[data-signin-user]')].map(x=>x.querySelector('b').textContent);
   return {gate,names,office,nav:getComputedStyle(document.getElementById('side')).display,wide:document.querySelector('.signin-card').getBoundingClientRect().width>400,brand:document.querySelector('[data-signin-brand] b').textContent,panes:document.querySelectorAll('.signin-glass i').length,types:[...new Set([...document.querySelectorAll('.signin-glass i')].map(i=>i.className||'clear'))].length,clock:/^\d{2}:\d{2}$/.test(document.querySelector('[data-signin-clock]').textContent)};
  }),{gate:true,names:3,office:['Demo Accounting','Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:6,types:5,clock:true});
 
+ /* Пароля ещё нет — человек задаёт его при первом входе, дважды. */
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
- await t.p.fill('#signinPin','1111');
- eq('неверный PIN — «Wrong PIN», вход не открыт',await t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()})),{err:'Wrong PIN',user:null});
- await t.p.fill('#signinPin','4321');
- eq('верный PIN — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
+ const passErr=async(a,b)=>{await t.p.fill('#signinPass',a);if(b!=null)await t.p.fill('#signinPass2',b);await t.p.click('[data-signin-form] button');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
+ eq('первый вход офиса: пароль задаётся — короче 8 и разные не принимаются',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),short:await passErr('1234567','1234567'),differ:await passErr('glass-farm-1','glass-farm-2')},
+  {form:'create',short:{err:'At least 8 characters',user:null},differ:{err:'Passwords differ',user:null}});
+ await passErr('glass-farm-1','glass-farm-1');
+ eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Sales'),text=localStorage.getItem('glazing_system_v1');
+  return {hash:/^[0-9a-f]{64}$/.test(u.passwordHash),salt:/^[0-9a-f]{32}$/.test(u.passwordSalt),plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
+  {hash:true,salt:true,plain:false,check:true,wrong:false});
+ await t.p.evaluate(()=>signinOut());
+ await t.p.click('[data-signin-user]:has-text("Demo Sales")');
+ eq('неверный пароль — «Wrong password», лимита нет; верный — вход',{form:await t.p.evaluate(()=>document.querySelector('[data-signin-form]').dataset.signinForm),wrong1:await passErr('nope-nope'),wrong2:await passErr('still-wrong'),ok:await passErr('glass-farm-1')},
+  {form:'enter',wrong1:{err:'Wrong password',user:null},wrong2:{err:'Wrong password',user:null},ok:{err:undefined,user:'Demo Sales'}});
+ eq('верный пароль — внизу меню инициалы и имя, нажатие спрашивает Sign out',await t.p.evaluate(()=>({user:signinUser()&&signinUser().name,who:document.querySelector('[data-signin-who]').textContent.trim(),title:document.querySelector('[data-signin-who]').title,gate:!!document.querySelector('.signin'),grid:getComputedStyle(document.querySelector('.shell')).gridTemplateColumns.split(' ').length})),{user:'Demo Sales',who:'DSDemo',title:'Demo Sales · Sign out',gate:false,grid:2});
+
+ eq('Users: пароль офиса — короче 8 не сохраняется; задан — отпечатком; Reset снимает',await t.p.evaluate(()=>{
+  tab='users';subtab='list';const i=DB.user.findIndex(u=>u.name==='Demo Accounting');
+  uEdit=i;uDraft=JSON.parse(JSON.stringify(DB.user[i]));uDraft.newPassword='short';render();saveUser();const err=document.getElementById('e_user').textContent;
+  uDraft.newPassword='accounting-1';saveUser();const set=userPasswordCheck(DB.user[i],'accounting-1')&&!JSON.stringify(DB.user[i]).includes('accounting-1');
+  uEdit=i;uDraft=JSON.parse(JSON.stringify(DB.user[i]));uDraft.resetPassword=true;render();saveUser();
+  const reset=!DB.user[i].passwordHash&&!DB.user[i].passwordSalt;tab='sales';render();return {err,set,reset};
+ }),{err:'Password: at least 8 characters',set:true,reset:true});
 
  eq('Users: колонка No., номер новому — сам; чужой номер не сохраняется',await t.p.evaluate(()=>{
   tab='users';subtab='list';uEdit='new';uDraft={no:'',name:'New Cutter',role:'Shop',station:'',skills:[],pin:''};render();saveUser();
@@ -97,7 +114,9 @@ module.exports=async function({page,eq,ok}){
  await p2.evaluate(()=>signinOut());await t.p.waitForTimeout(150);
  eq('Sign out в одной вкладке — экран входа в обеих',await t.p.evaluate(()=>!!document.querySelector('.signin')),true);
  await p2.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Owner');signinChoose(u.viewProfileId);});
- eq('без PIN — вход одним нажатием',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
+ eq('выбор имени без пароля не впускает — сначала пароль',await p2.evaluate(()=>({user:signinUser(),form:document.querySelector('[data-signin-form]').dataset.signinForm})),{user:null,form:'create'});
+ await p2.fill('#signinPass','owner-pass-1');await p2.fill('#signinPass2','owner-pass-1');await p2.click('[data-signin-form] button');
+ eq('пароль задан — вошёл',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
  await t.p.close();await p2.close();
  const p3=await t.c.newPage();await p3.goto(t.p.url());await started(p3);
  eq('все вкладки закрыты — снова «Who is working?»',await p3.evaluate(()=>({user:signinUser(),gate:!!document.querySelector('.signin')})),{user:null,gate:true});

@@ -278,11 +278,8 @@ body.signin-mode main#app{padding:0}
 .signin-stations .signin-who b{font-weight:500;color:var(--text-2)}
 .signin-pin{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:10px}
 .signin-pin label{color:var(--text-2);font-size:14px}
-.signin-dots{position:relative;display:flex;gap:14px;padding:8px 4px}
-.signin-dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);transition:background .12s,border-color .12s}
-.signin-dots i.f{background:var(--accent);border-color:var(--accent)}
-.signin-dots.bad i{border-color:var(--danger)}
-.signin-dots input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text;border:0;padding:0}
+.signin-pin input{width:min(300px,100%);font-size:16px;padding:10px 12px;border-radius:12px;text-align:center}
+.signin-pin button{width:min(300px,100%);padding:10px 12px;border-radius:12px}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
 @media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:15px;padding:6px 10px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

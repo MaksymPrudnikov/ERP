@@ -34,20 +34,31 @@ function signinAs(id){
  signinSetTabSid(sid);signinPick='';signinError='';render();
 }
 function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+/* Офис входит паролем от 8 символов, станция — номером и PIN (владелец,
+   3 октября 2026). Пароля ещё нет — человек задаёт его при первом входе
+   (дважды); сбросить можно в Users. Лимита попыток нет — решение владельца. */
 function signinChoose(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
- if(!u.pin)return signinAs(id);
- signinPick=id;signinError='';render();
- setTimeout(()=>{const el=document.getElementById('signinPin');if(el)el.focus();},0);
+ signinPick=id;signinError='';render();signinFocus();
 }
-function signinPinInput(el){
- el.value=el.value.replace(/\D/g,'').slice(0,4);
- document.querySelectorAll('.signin-dots i').forEach((d,i)=>d.classList.toggle('f',i<el.value.length));
- if(el.value.length<4)return;
- const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);
- if(u&&el.value===u.pin)return signinAs(u.viewProfileId);
- signinError='Wrong PIN';render();
- setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
+function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
+function signinSubmit(e){
+ if(e)e.preventDefault();
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u)return;
+ const pass=(document.getElementById('signinPass')||{}).value||'',again=document.getElementById('signinPass2');
+ const fail=msg=>{signinError=msg;render();signinFocus();};
+ if(!u.passwordHash){
+  if(pass.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
+  if(!again||again.value!==pass)return fail('Passwords differ');
+  const id=u.viewProfileId;
+  storageWhenWriter(()=>{
+   const out=storageCommand(()=>{const now=(DB.user||[]).find(x=>x.viewProfileId===id);if(!now)throw new Error('User not found');userPasswordSet(now,pass);return true;});
+   if(out.ok)signinAs(id);else fail(out.error||'Not saved');
+  });
+  return;
+ }
+ if(userPasswordCheck(u,pass))return signinAs(u.viewProfileId);
+ fail('Wrong password');
 }
 /* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
    2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
@@ -90,9 +101,13 @@ function signinView(){
   <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
  }else{
   const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
-  const pad=pick?`<div class="signin-pin"><label for="signinPin">Hi, <span data-raw>${esc(String(pick.name).trim().split(/\s+/)[0])}</span> — your PIN</label>
-   <div class="signin-dots${signinError?' bad':''}">${[0,1,2,3].map(()=>'<i></i>').join('')}<input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" oninput="signinPinInput(this)"></div>
-   <div class="signin-err" role="alert">${esc(signinError)}</div></div>`:'';
+  const first=pick&&!pick.passwordHash,hi=pick?esc(String(pick.name).trim().split(/\s+/)[0]):'';
+  const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="${first?'create':'enter'}">
+   <label for="signinPass">Hi, <span data-raw>${hi}</span> — ${first?'set your password · '+USER_PASSWORD_MIN+'+ characters':'your password'}</label>
+   <input id="signinPass" type="password" autocomplete="${first?'new-password':'current-password'}" aria-label="Password" placeholder="Password">
+   ${first?'<input id="signinPass2" type="password" autocomplete="new-password" aria-label="Repeat password" placeholder="Repeat password">':''}
+   <button type="submit" class="pri">${first?'Set and sign in':'Sign in'}</button>
+   <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
   <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
  }

@@ -92,6 +92,10 @@ function normalizeUsers(){
   delete u.workPosition;
   const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
   u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
+  /* Пароль офиса — только отпечаток с солью (erp/signin), не сам пароль. */
+  const hash=String(u.passwordHash||''),salt=String(u.passwordSalt||'');
+  if(/^[0-9a-f]{64}$/.test(hash)&&/^[0-9a-f]{32}$/.test(salt)){u.passwordHash=hash;u.passwordSalt=salt;}else{delete u.passwordHash;delete u.passwordSalt;}
+  delete u.password;
  });
  /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
     (владелец, 2 октября 2026: «один пользователь может работать на разных
@@ -100,6 +104,16 @@ function normalizeUsers(){
  DB.user.forEach(u=>{const n=Number(u.no);u.no=Number.isInteger(n)&&n>0&&n<10000&&!nos.has(n)?n:0;if(u.no)nos.add(u.no);});
  let next=1;DB.user.forEach(u=>{if(u.no)return;while(nos.has(next))next++;u.no=next;nos.add(next);});
 }
+/* Пароль офиса (владелец, 3 октября 2026): «для офиса 8-значный пароль, для
+   производства так и останется PIN — у офиса больше прав». Не меньше 8
+   символов, любые; хранится SHA-256 от соли и пароля. */
+const USER_PASSWORD_MIN=8;
+function userPasswordSet(u,password){
+ const a=new Uint8Array(16);crypto.getRandomValues(a);
+ u.passwordSalt=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
+ u.passwordHash=sha256Hex(u.passwordSalt+':'+password);
+}
+function userPasswordCheck(u,password){return !!(u&&u.passwordHash&&u.passwordSalt)&&sha256Hex(u.passwordSalt+':'+password)===u.passwordHash;}
 function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
    ПЕРЕСЕВ СПРАВОЧНИКОВ

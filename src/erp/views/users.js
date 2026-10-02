@@ -33,12 +33,13 @@ function viewUsersList(){
    <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
    <td>${skillPills||'<span class="mut">—</span>'}</td>
    <td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>
+   <td>${u.role==='Shop'?'<span class="mut">—</span>':u.passwordHash?'<span class="pill ok">set</span>':'<span class="mut" title="Set at first sign-in">first sign-in</span>'}</td>
    <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Edit</button>
    <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
  }).join('');
  return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="7" class="empty">empty</td></tr>'}</tbody></table>
+  <table><thead><tr><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th title="Station: number + PIN">PIN</th><th title="Office sign-in">Password</th><th></th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="8" class="empty">empty</td></tr>'}</tbody></table>
   ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={no:\'\',name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
 }
 function userForm(){
@@ -50,6 +51,7 @@ function userForm(){
    <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
     ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
    <div><label>No. · station sign-in</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
+   <div><label>Office password</label><input id="u_password" type="password" autocomplete="new-password" placeholder="${r.passwordHash?'set · empty = keep':'8+ characters · or at first sign-in'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value">${r.passwordHash?'<label class="chk" style="margin-top:4px"><input type="checkbox" id="u_password_reset" onchange="uDraft.resetPassword=this.checked"> Reset — set again at next sign-in</label>':''}</div>
    <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
   </div>
   <div style="margin-top:12px"><label>Skills and proficiency level</label>
@@ -87,7 +89,12 @@ function saveUser(){
  if(no&&+no<1) return fail(e,'No.: from 1');
  if(taken) return fail(e,'No. '+userNoText(taken)+' belongs to '+taken.name);
  uDraft.no=no?+no:0;
+ const pw=String(uDraft.newPassword||''),resetPw=!pw&&!!uDraft.resetPassword;
+ if(pw&&pw.length<USER_PASSWORD_MIN) return fail(e,'Password: at least '+USER_PASSWORD_MIN+' characters');
+ if(pw)userPasswordSet(uDraft,pw);
+ delete uDraft.newPassword;delete uDraft.resetPassword;
  if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
+ if(resetPw){const t=uEdit==='new'?uDraft:DB.user[uEdit];delete t.passwordHash;delete t.passwordSalt;}
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
 function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
