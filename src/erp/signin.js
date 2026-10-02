@@ -48,6 +48,16 @@ function signinChoose(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  signinPick=id;signinError='';render();signinFocus();
 }
+/* Поле пароля с «глазиком» (владелец, 3 октября 2026: «видеть и не видеть,
+   но базово не видеть»). Нажатие меняет только тип поля — экран не
+   перерисовывается, набранное остаётся; после перерисовки поле снова скрыто. */
+function pwInput(attrs){
+ return `<span class="pw-wrap"><input type="password" ${attrs}><button type="button" class="pw-eye" data-pw-eye aria-label="Show" aria-pressed="false" onclick="pwToggle(this)">${ico('eye')}${ico('eyeOff')}</button></span>`;
+}
+function pwToggle(btn){
+ const inp=btn.previousElementSibling;if(!inp)return;const show=inp.type==='password';
+ inp.type=show?'text':'password';btn.setAttribute('aria-pressed',String(show));btn.setAttribute('aria-label',show?'Hide':'Show');inp.focus();
+}
 function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
 function signinSubmit(e){
  if(e)e.preventDefault();
@@ -99,7 +109,7 @@ function signinView(){
   const hi=pick?esc(String(pick.name).trim().split(/\s+/)[0]):'';
   const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
    <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
-   <input id="signinPass" type="password" autocomplete="current-password" aria-label="Password" placeholder="Password">
+   ${pwInput('id="signinPass" autocomplete="current-password" aria-label="Password" placeholder="Password"')}
    <button type="submit" class="pri">Sign in</button>
    <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
@@ -126,9 +136,9 @@ function signinMeHTML(){
   <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
   <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">
    <label>Change password</label>
-   <input id="meOld" type="password" autocomplete="current-password" placeholder="Current password">
-   <input id="meNew" type="password" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters">
-   <input id="meNew2" type="password" autocomplete="new-password" placeholder="Repeat new">
+   ${pwInput('id="meOld" autocomplete="current-password" placeholder="Current password"')}
+   ${pwInput(`id="meNew" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters"`)}
+   ${pwInput('id="meNew2" autocomplete="new-password" placeholder="Repeat new"')}
    <div class="signin-err" role="alert">${esc(signinMe.error)}</div>
    <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinMe=null;signinOut()">Sign out</button></div>
   </form></div></div>`;

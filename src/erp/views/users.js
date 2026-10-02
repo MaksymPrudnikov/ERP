@@ -64,12 +64,12 @@ function userForm(){
  const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
   return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
  const office=r.onOffice?`<div class="user-block-body">
-   <div class="grid"><div><label>Password</label><input id="u_password" type="password" autocomplete="new-password" placeholder="${r.password?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"></div></div>
+   <div class="grid"><div><label>Password</label>${pwInput(`id="u_password" autocomplete="new-password" placeholder="${r.password?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"`)}</div></div>
    <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
    <div class="user-secs">${sections}</div></div>`:'';
  const station=r.onStation?`<div class="user-block-body"><div class="grid">
    <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
-   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.pin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.newPin=this.value"></div>
+   <div><label>PIN</label>${pwInput(`id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.pin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.newPin=this.value"`)}</div>
   </div><div class="hint">Any station. The office gives the PIN.</div></div>`:'';
  return `<div class="form user-form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
   <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div></div>

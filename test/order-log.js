@@ -43,6 +43,13 @@ module.exports=async function({page,eq,ok}){
   const u=signinUser();out.now=userPasswordCheck(u,'new-pass-99')&&!userPasswordCheck(u,'glass-farm-1');userPasswordSet(u,'glass-farm-1');touch();render();return out;
  }),{open:true,pin:false,wrong:'Wrong password',short:'At least 8 characters',differ:'Passwords differ',ok:'closed',now:true});
 
+ eq('глазик: пароль скрыт по умолчанию, нажатие показывает и прячет, набранное остаётся',await t.p.evaluate(()=>{
+  signinMeOpen();const types=[...document.querySelectorAll('[data-signin-me] input')].map(i=>i.type);
+  const i=document.getElementById('meNew');i.value='abc-12345';const b=i.nextElementSibling;b.click();const shown=[i.type,b.getAttribute('aria-label')];
+  b.click();const hidden=[i.type,b.getAttribute('aria-label')];const kept=i.value;signinMeClose();
+  return {types,shown,hidden,kept,again:document.getElementById('signinPass')===null};
+ }),{types:['password','password','password'],shown:['text','Hide'],hidden:['password','Show'],kept:'abc-12345',again:true});
+
  /* Доступ — галочки разделов (владелец, 3 октября 2026: «видит / не видит»). */
  eq('Demo Sales видит только свои разделы: меню, переход и карточки Overview',await t.p.evaluate(()=>{
   const nav=[...document.querySelectorAll('#side .nav-item:not(.nav-user):not(.nav-more)>span:last-child')].map(x=>x.textContent);

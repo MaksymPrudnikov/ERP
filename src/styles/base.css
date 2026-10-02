@@ -65,6 +65,15 @@ input[type=checkbox]{width:auto}
 .user-sec .icon-inline{margin-right:0}
 .user-access-cell .pill{margin:1px 0}
 body.no-admin [data-admin]{display:none!important}
+.pw-wrap{position:relative;display:block}
+.pw-wrap input{padding-right:40px}
+.pw-wrap .pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-height:0;padding:0;margin:0;border:0;border-radius:8px;background:none;box-shadow:none;color:var(--mut);display:grid;place-items:center;cursor:pointer}
+.pw-wrap .pw-eye:hover{color:var(--text);background:var(--surface-2)}
+.pw-eye span{display:grid;place-items:center}
+.pw-eye svg{width:18px;height:18px}
+.pw-eye[aria-pressed="false"] span:last-child,.pw-eye[aria-pressed="true"] span:first-child{display:none}
+.signin-pin .pw-wrap{width:min(300px,100%)}
+.signin-pin .pw-wrap input{width:100%}
 .signin-me{max-width:420px}
 .signin-me-form{display:flex;flex-direction:column;gap:8px}
 .signin-me-form label{margin:0}
