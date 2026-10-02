@@ -233,8 +233,10 @@ function validateImportedState(src){
  if(typeof validateGlassBatchesPayload==='function')validateGlassBatchesPayload(src);
  if(typeof validateNcrPayload==='function')validateNcrPayload(src);
  if(typeof validateRecutPayload==='function')validateRecutPayload(src);
- if(typeof validateStickerPayload==='function')validateStickerPayload(src);
- if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
+ if(typeof validateStickerPayload==='function')validateStickerPayload(src);
+
+ if(typeof validateCuttingPayload==='function')validateCuttingPayload(src);
+
  if(typeof validateCutPlanPayload==='function')validateCutPlanPayload(src);
  if(typeof validateStockOffcutPayload==='function')validateStockOffcutPayload(src);
  if(typeof validateStationScanPayload==='function')validateStationScanPayload(src);
@@ -319,8 +321,10 @@ function normalizeDB(){
  if(typeof normalizeNcrRecords==='function')normalizeNcrRecords();
  if(typeof normalizeGlassBatches==='function')normalizeGlassBatches();
  if(typeof normalizeNcrReasons==='function')normalizeNcrReasons();
- if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
- if(typeof normalizeCutting==='function')normalizeCutting();
+ if(typeof normalizeStickerTemplates==='function')normalizeStickerTemplates();
+
+ if(typeof normalizeCutting==='function')normalizeCutting();
+
  if(typeof normalizeCutPlans==='function')normalizeCutPlans();
  if(typeof normalizeStockOffcuts==='function')normalizeStockOffcuts();
  if(typeof normalizeCarriers==='function')normalizeCarriers();
