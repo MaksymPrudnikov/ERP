@@ -128,10 +128,13 @@ module.exports=async function({page,eq,ok}){
   const chips=[...document.querySelectorAll('[data-cut-est-rec-pcs]')].map(x=>x.textContent);
   const line=[...document.querySelectorAll('[data-cut-est-glass-pcs]')].map(x=>x.dataset.cutEstGlassPcs);
   const shared=document.querySelector('[data-cut-est-glass-pcs="6SOLARGRAY:11"]').textContent;
-  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(x=>x.textContent);cutEstClose();render();
-  return {chips,line,shared:shared===`6SOLARGRAY · 6 mm — 11 pcs together: ${na} 4, ${nb} 7`,buttons};
+  const buttons=[...document.querySelectorAll('[data-cut-glass]')].map(x=>x.textContent);
+  /* «Отдельно» считается только по общему стеклу: необщее отдельно и вместе одинаково. */
+  const alone=[a,b].map(id=>{const p=cutPiecesOf('EST:'+id);return [...new Set(p.map(x=>x.glass))].join()+':'+p.length;});
+  const exact=cutEstCompare()[0].rows.every(r=>!r.quick);cutEstClose();render();
+  return {chips,line,shared:shared===`6SOLARGRAY · 6 mm — 11 pcs together: ${na} 4, ${nb} 7`,buttons,alone,exact};
  }),{chips:['8 pcs · 6SBN60 4 · 6SOLARGRAY 4','14 pcs · 6Q366 7 · 6SOLARGRAY 7'],line:['6Q366:7','6SBN60:4','6SOLARGRAY:11'],shared:true,
-  buttons:['6Q366 · 6 mm · 7 pcs','6SBN60 · 6 mm · 4 pcs','6SOLARGRAY · 6 mm · 11 pcs']});
+  buttons:['6Q366 · 6 mm · 7 pcs','6SBN60 · 6 mm · 4 pcs','6SOLARGRAY · 6 mm · 11 pcs'],alone:['6SOLARGRAY:4','6SOLARGRAY:7'],exact:true});
 
  eq('меню правой кнопки: Cut preview по отмеченным строкам; без отметок кнопка неактивна',await t.p.evaluate(async()=>{
   const {a,b}=ceBad();salesListSel=new Set();render();const off=document.querySelector('[data-cut-est-open]').disabled;

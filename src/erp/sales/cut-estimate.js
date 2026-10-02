@@ -50,13 +50,19 @@ function cutEstScan(o){
  if(cutEstMemo)cutEstMemo.set(o.id,out);
  return out;
 }
-/* Стёкла для движка: EST — все записи, EST:<id> — одна запись. */
+/* Стёкла для движка: EST — все записи, EST:<id> — одна запись и только
+   общее с другими стекло (cutEst.shared, ставит Build). Стекло одной записи
+   отдельно и вместе раскраивается одинаково — второй раз его не считаем:
+   типы стекла раскраиваются независимо, цифры общего стекла от этого не
+   меняются. На 3 заказах × 5 мейкапов (868 стёкол, 16 типов) прогоны
+   «отдельно» стали в несколько раз короче. */
 function cutEstPieces(number,settings){
  if(!cutEst)return [];
  const only=number.indexOf(':')>0?number.slice(number.indexOf(':')+1):'',set=settings||{},out=[];
+ const keep=only&&cutEst.shared?cutEst.shared:null;
  cutEstRecords().filter(o=>!only||o.id===only).forEach(o=>cutEstScan(o).pieces.forEach(x=>{
-  const id=cutEstPieceId(o,x.line,x.c.lite,x.unit);
-  out.push(cutPieceFrom(o,x.l,x.c,x.lite,id,x.unit,set[id]||{}));
+  const id=cutEstPieceId(o,x.line,x.c.lite,x.unit),row=cutPieceFrom(o,x.l,x.c,x.lite,id,x.unit,set[id]||{});
+  if(!keep||keep.has(row.glass+'|'+row.mm))out.push(row);
  }));
  return out.sort((a,b)=>a.piece.localeCompare(b.piece,undefined,{numeric:true}));
 }
@@ -116,10 +122,12 @@ function cutEstGlass(pieces){
 function cutEstSum(g){const t=cutTotals([g]);return {glass:g.glass,mm:g.mm,sheets:t.sheets,area:t.area,used:t.used,net:t.net,unplaced:(g.unplaced||[]).length};}
 /* Build прикидки: сначала все записи вместе (план EST), потом каждая запись,
    у которой есть общее с другими стекло, отдельно — пробой, тем же движком
-   и с теми же размерами листов и отступами. Большая запись (больше 300
-   стёкол) считается быстрым вариантом, как прикидки What if, и помечается ≈. */
+   и с теми же размерами листов и отступами, только по общему стеклу. Если
+   общего стекла у записи больше 300 штук, она считается быстрым вариантом,
+   как прикидки What if, и помечается ≈. */
 function* cutEstSteps(){
  const groups=cutEstGlass(cutPiecesOf(CUT_EST));
+ if(cutEst)cutEst.shared=new Set(groups.filter(g=>g.ids.size>1).map(g=>g.glass+'|'+g.mm));
  const solo=cutEstRecords().filter(o=>groups.some(g=>g.ids.size>1&&g.ids.has(o.id)));
  const runs=1+solo.length;
  let it=cutPlanSteps(CUT_EST),r=it.next();
