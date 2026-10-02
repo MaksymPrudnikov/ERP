@@ -113,6 +113,18 @@ svg{display:block}
 .stage-machines{margin-top:10px;font-size:11px;color:var(--text-2)}
 .pipe-arrow{display:flex;align-items:center;color:var(--text-3)}
 .pipe-arrow svg{width:18px;height:18px}
+/* Production → Stations: маршрут списком (владелец, 2 октября 2026). */
+.sf-route-lead{margin:2px 0 8px;color:var(--text-2);font-size:13.5px}
+.sf-route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
+.sf-route-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding:9px 6px;border-bottom:1px solid var(--line-soft);border-radius:8px;cursor:pointer}
+.sf-route-step:hover{background:var(--surface-2)}
+.sf-route-step .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:650;font-size:12px}
+.sf-route-step b{font-size:14px}
+.sf-route-step .when{margin-left:7px;font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}
+.sf-route-step .what{font-size:13px;color:var(--text-2);margin-top:2px}
+.sf-route-step .codes{font-size:12px;color:var(--text-3);letter-spacing:.03em;margin-top:1px}
+tr.sf-hit td{background:var(--accent-soft)}
+@media (max-width:900px){.sf-route{grid-template-columns:1fr}}
 .machine-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:12px}
 .machine-card{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--surface)}
 .machine-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}

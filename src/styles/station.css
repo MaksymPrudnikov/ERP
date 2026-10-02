@@ -143,11 +143,9 @@ tr.st-hot td{background:var(--surface-2)}
 .st-drawer-foot .mut{margin-right:auto}
 .st-dtext{margin:0 0 6px;font-size:15px;color:var(--text)}
 /* Queue */
-.st-qstrip{display:flex;gap:4px}
-.st-qstrip div{border-radius:8px;padding:7px 9px;color:var(--on-solid);min-width:0;overflow:hidden}
-.st-qstrip b{display:block;font-size:12.5px;white-space:nowrap}
-.st-qstrip small{font-size:11.5px;opacity:.9;white-space:nowrap}
-.st-qhint{font-size:12px;margin-top:6px}
+.st-qhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:2px 2px 0}
+.st-qhead h3{margin:0;font-size:18px}.st-qhead .mut{font-size:14px}
+.st-qnoplan{margin-top:8px;font-size:14px}
 .st-qcard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface)}
 .st-qcard.now{border:2px solid var(--blue)}
 .st-qh{display:flex;align-items:center;gap:10px}
@@ -299,3 +297,12 @@ tr.st-top1 td{background:var(--blue2);font-weight:600}
  .st-top .st-chip:not(:has(.st-av)){display:none}
  .st-names{grid-template-columns:minmax(0,1fr)}
 }
+
+/* Окно выбора чертежа — настоящее окно поверх станции (2 октября 2026). */
+.st-drawer.st-drawer-draw.st-draw-pick{left:50%;right:auto;bottom:auto;top:92px;transform:translateX(-50%);width:min(980px,calc(100% - 48px));max-height:calc(100% - 120px);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow-lg)}
+.st-draw-pick .st-draw-h h2{font-size:21px}
+.st-draw-hint{margin:2px 0 6px;color:var(--text-2);font-size:14px}
+.st-draw-close{font-size:15px;font-weight:600;padding:9px 16px}
+.st-draw-order{font:inherit;text-align:left;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface);color:var(--text);cursor:pointer;display:flex;flex-direction:column;gap:3px}
+.st-draw-order:hover{border-color:var(--accent);background:var(--accent-soft)}
+.st-draw-order b{font-size:17px}.st-draw-order span{font-size:13px;color:var(--text-2)}.st-draw-order small{font-size:12px;color:var(--accent);font-weight:600}
