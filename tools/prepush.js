@@ -19,8 +19,8 @@
      4. dist/GLASS_ERP.html сверяется с main ТЕМ ЖЕ сравнением, что в CI
         (`git diff --quiet origin/main HEAD -- dist/GLASS_ERP.html`);
      5. манифест и воспроизводимость;
-     6. переносы строк: `--numstat` обязан совпасть с
-        `--ignore-cr-at-eol --numstat` (см. tools/fix-eol.js);
+     6. переносы строк: в коммитах ветки нет CR (весь репозиторий в LF,
+        см. .gitattributes);
      7. тесты по модулям и по собранному dist, после чего dist возвращается
         к версии main — в ветку он не коммитится;
      8. только после всего этого — push.
@@ -76,17 +76,20 @@ if (!run('node build/check-manifest.js')) stop('проверка манифес�
 if (!run('node build/check-reproducible.js')) stop('проверка воспроизводимости не прошла.');
 
 step(6, 'Переносы строк');
-const real = sh('git diff --ignore-cr-at-eol --numstat origin/main...HEAD');
-const shown = sh('git diff --numstat origin/main...HEAD');
-if (real !== shown) {
-  const honest = new Map(real.split('\n').map(l => [l.split('\t')[2], l]));
-  const bad = shown.split('\n').filter(l => honest.get(l.split('\t')[2]) !== l)
-    .map(l => { const [add, del, f] = l.split('\t'); return '      ' + f + ': показано ' + add + '/' + del + ', на самом деле ' + (honest.get(f) || '0\t0').split('\t').slice(0, 2).join('/'); })
-    .join('\n');
-  stop('перенос строк поехал — ревьюер увидит тысячи ложных строк.',
-    '  Расходятся:\n' + bad + '\n\n  Чинится: node tools/fix-eol.js <файл>');
+/* До 2 октября 2026 здесь сравнивали дифф с `--ignore-cr-at-eol`: файлы были
+   смешанные CRLF/LF, и редактор раздувал дифф на тысячи строк. Теперь весь
+   репозиторий в LF, git приводит к LF сам (.gitattributes), и ложный дифф
+   возможен только если CR всё же попал в коммит — такие файлы и ищем.
+   Переход CRLF → LF — желанный, его не останавливаем. Файлы с -text
+   (шаблоны CSV для Excel) хранятся как есть. */
+const withCr = sh('git ls-files --eol').split('\n')
+  .filter(l => /^i\/(crlf|mixed)\b/.test(l) && !/attr\/-text\b/.test(l))
+  .map(l => '      ' + l.split('\t')[1]);
+if (withCr.length) {
+  stop('в коммит попали переводы строк CRLF — ревьюер увидит тысячи ложных строк.',
+    '  Файлы:\n' + withCr.join('\n') + '\n\n  Чинится: git add --renormalize <файл> && git commit');
 }
-console.log('    ложного дифа нет');
+console.log('    всё в LF');
 
 step(7, 'Тесты по модулям');
 if (!run('node test/run.js')) stop('тесты по модулям упали.');
