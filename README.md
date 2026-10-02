@@ -250,6 +250,8 @@ node build/check-manifest.js
 node build/check-reproducible.js  # обе версии одинаковы для LF и CRLF
 node test/run.js     # прогон по src/
 TARGET=dist node test/run.js
+npm run test:snap -- --dist   # то же по копии коммита: дерево можно править дальше
+npm run shot -- --data latest --tab sales   # PNG «сейчас (main) / после (ветка)»
 ```
 
 Регрессионные тесты держат эталонные числа раскроя и проверяют повреждённые данные, импорт, XSS, отсутствие русского в интерфейсе, Sales Makeups, Shape bridge с раскладкой изделия и мобильный viewport. Если после правки модуля упал тест вида
