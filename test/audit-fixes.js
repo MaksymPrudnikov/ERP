@@ -96,19 +96,24 @@ module.exports=async function({page,eq,ok}){
   tab='production';subtab='orders';render();const attention=!!document.querySelector('[data-prod-exceptions]'),wrap=getComputedStyle(document.querySelector('.pb-tiles')).flexWrap;
   DB.user.push({name:'CNC audit',role:'Shop',station:'CNC',skills:[],pin:''});normalizeUsers();stationCode='CNC';tab='station';stationLogin(DB.user.at(-1).viewProfileId);stationPeek(af.ids[0]);const text=document.getElementById('app').textContent;return {attention,wrap,dimensions:text.includes('Finished size'),keyboardNav:[...document.querySelectorAll('.nav-item:not(.soon)')].every(el=>el.tagName==='BUTTON')};
  }),{attention:true,wrap:'wrap',dimensions:true,keyboardNav:true});
- // Actual tabs share a Web Lock. A follower cannot persist; explicit handoff
- // reloads the latest database before its first edit.
+ // Actual tabs share a Web Lock. The writer is the tab you work in: a tab you
+ // open takes over, the other keeps reading and cannot persist; going back
+ // takes over again and reloads the latest database before the first edit.
  const shared=await t.p.evaluate(()=>{tab='sales';const id=oqOrder(oqCustomer());salesDraftDrop();touch();return id;});
  const follower=await t.c.newPage();follower.on('pageerror',e=>t.errs.push(e.message));follower.on('dialog',d=>d.accept());await follower.goto(t.p.url());await follower.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);
- eq('second tab is read only and cannot overwrite the database',await follower.evaluate(()=>{const before=localStorage.getItem(STORAGE_KEY),n=DB.customer.length,out=storageCommand(()=>DB.customer.push({id:'af-lost'}));return {writer:storageWriter,ok:out.ok,same:before===localStorage.getItem(STORAGE_KEY),count:DB.customer.length===n};}),{writer:false,ok:false,same:true,count:true});
+ ok('a tab you open becomes the writer',await follower.evaluate(()=>storageWriter));
+ eq('the tab left behind cannot overwrite the database',await t.p.evaluate(()=>{const before=localStorage.getItem(STORAGE_KEY),n=DB.customer.length,out=storageCommand(()=>DB.customer.push({id:'af-lost'}));return {writer:storageWriter,ok:out.ok,same:before===localStorage.getItem(STORAGE_KEY),count:DB.customer.length===n};}),{writer:false,ok:false,same:true,count:true});
  await follower.evaluate(id=>{tab='sales';salesOrderEdit(id);soDraft.notes='Local note';},shared);
+ await t.p.evaluate(()=>storageTakeControl());
  await t.p.evaluate(id=>{salesSetRecordStatus(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});storageCommand(()=>{DB.customer[0].legalName='Latest tab value';});},shared);
- ok('explicit handoff grants one writer and reloads the latest value',await follower.evaluate(async()=>{const granted=await storageTakeControl();return granted&&storageWriter&&DB.customer[0].legalName==='Latest tab value';}));
+ await follower.dispatchEvent('body','pointerdown');await follower.waitForFunction(()=>storageWriter,null,{timeout:5000});
+ ok('a click takes the writer back, reloads the latest value and keeps the open draft',await follower.evaluate(()=>storageWriter&&DB.customer[0].legalName==='Latest tab value'&&soDraft&&soDraft.notes==='Local note'));
  eq('old writer loses editing after handoff',await t.p.evaluate(()=>({writer:storageWriter,ok:storageCommand(()=>DB.customer.push({id:'af-old-writer'})).ok})),{writer:false,ok:false});
  eq('stale order notes do not rewind batching or lose assigned glass',await follower.evaluate(id=>{const saved=salesOrderSave(),o=salesRecord(id);return {saved,status:o.status,notes:o.notes,assigned:DB.glassBatch.some(b=>b.items.some(i=>!i.releasedAt&&b.parts[i.part].orderId===id))};},shared),{saved:true,status:'batched',notes:'Local note',assigned:true});
  eq('conflicting edits are rejected and retain the local draft',await follower.evaluate(id=>{salesOrderEdit(id);soDraft.notes='Unsaved local';const o=salesRecord(id);o.notes='External edit';const saved=salesOrderSave();return {saved,notes:salesRecord(id).notes,draft:soDraft.notes};},shared),{saved:false,notes:'External edit',draft:'Unsaved local'});
  eq('quota failure keeps the sales draft and previous saved order',await follower.evaluate(id=>{salesOrderEdit(id);soDraft.notes='Retry note';const old=salesRecord(id).notes,keep=Storage.prototype.setItem;Storage.prototype.setItem=function(){throw new DOMException('Test quota','QuotaExceededError');};let saved;try{saved=salesOrderSave();}finally{Storage.prototype.setItem=keep;}return {saved,notes:salesRecord(id).notes===old,draft:soDraft.notes};},shared),{saved:false,notes:true,draft:'Retry note'});
- eq('handoff cannot discard unsaved work in the active tab',await t.p.evaluate(async()=>({granted:await storageTakeControl(),writer:storageWriter})),{granted:false,writer:false});
+ eq('handoff never discards unsaved work in the tab that gives way',await t.p.evaluate(async()=>({granted:await storageTakeControl(),writer:storageWriter})),{granted:true,writer:true});
+ eq('the unsaved draft waits in its tab and is still there on return',await follower.evaluate(async()=>{const left=!storageWriter&&soDraft.notes;const back=await storageTakeControl();return {left,back,notes:soDraft.notes};}),{left:'Retry note',back:true,notes:'Retry note'});
  await follower.evaluate(()=>salesDraftDrop(true));await t.p.evaluate(()=>storageTakeControl());
  const payment=await t.p.evaluate(id=>finPersist(()=>finSaveReceiptRecord({customerId:salesRecord(id).customerId,date:'2026-09-01',method:'cash',amount:50,allocations:[]},null,'',false)).value.id,shared);
  await follower.waitForFunction(id=>(DB.receipt||[]).some(r=>r.id===id),payment);
@@ -117,6 +122,42 @@ module.exports=async function({page,eq,ok}){
  await follower.evaluate(()=>storageTakeControl());
  eq('stale payment draft cannot overwrite a correction from another tab',await follower.evaluate(id=>{const saved=finSaveReceipt();return {saved,amount:DB.receipt.find(r=>r.id===id).amount,draft:finDraft&&finDraft.amount,message:document.getElementById('e_fin').textContent.includes('changed elsewhere')};},payment),{saved:false,amount:75,draft:'200',message:true});
  await follower.close();await t.c.close();
+ // Owner, 2 October 2026: a big order in one tab, a walk-in client in another.
+ const two=await page();await require('./optimization-fixture')(two.p);const A=two.p;
+ const ready=await A.evaluate(()=>{oqReset();const id=oqOrder(oqCustomer({legalName:'Walk-in Client'}));oqThrough(id,'ready');salesDraftDrop();return id;});
+ const bigShape=await A.evaluate(()=>{window.afLines=(n,w,h,mark)=>{const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];Object.assign(m.panes[0],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});
+   return Array.from({length:n},(_,i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:(w+i)*16,height16:h*16,qty:1,mark:mark+(i+1)});salesEnsureLineShape(l);return l;});};
+  tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Big Project Inc'}).id);soDraft.lines=afLines(12,30,40,'B');
+  const s=DB.shapeDef.find(x=>x.id===soDraft.lines[0].shapeRef.id);s.name='Big custom shape';touch();render();return s.id;});
+ const B=await two.c.newPage();B.on('pageerror',e=>two.errs.push(e.message));B.on('dialog',d=>{two.errs.push('dialog: '+d.message());d.accept();});await B.goto(A.url());await B.waitForFunction(()=>typeof storageStarting!=='undefined'&&!storageStarting);await require('./optimization-fixture')(B);
+ await B.waitForFunction(()=>storageWriter,null,{timeout:5000});
+ eq('walk-in: the new tab picks up an order and saves a 2-glass order while the big order waits',await B.evaluate(id=>{
+  salesSetRecordStatus(id,'done');tab='sales';salesOrderNew('order');salesApplyCustomerDefaults(oqCustomer({legalName:'Walk-in Client 2'}).id);
+  window.afLines=(n,w,h,mark)=>{const m=soDraft.makeups[0],g=glassProductByCode('6CLEAR');m.unitType='single';m.panes=[m.panes[0]];m.cavities=[];Object.assign(m.panes[0],{glassProductId:g.id,thicknessMm:6,heatTreatmentId:'HT-FT'});
+   return Array.from({length:n},(_,i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:(w+i)*16,height16:h*16,qty:1,mark:mark+(i+1)});salesEnsureLineShape(l);return l;});};
+  soDraft.lines=afLines(2,20,21,'S');return {saved:salesOrderSave(),status:salesRecord(id).status};},ready),{saved:true,status:'done'});
+ eq('walk-in: the big order waited in its tab untouched',await A.evaluate(()=>({writer:storageWriter,lines:soDraft&&soDraft.lines.length})),{writer:false,lines:12});
+ await A.dispatchEvent('body','pointerdown');await A.waitForFunction(()=>storageWriter,null,{timeout:5000});
+ eq('walk-in: back in the big order, Update keeps everything from both tabs',await A.evaluate(([id,shape])=>{
+  soDraft.lines.push(...afLines(1,50,50,'X'));const saved=salesOrderSave(),db=JSON.parse(localStorage.getItem(STORAGE_KEY)),nums=db.salesOrder.map(o=>o.businessNumber);
+  const big=db.salesOrder.find(o=>o.lines.length===13),small=db.salesOrder.find(o=>o.lines.length===2&&o.lines[0].mark==='S1');
+  return {saved,orders:db.salesOrder.length,unique:new Set(nums).size===nums.length,small:!!small,pickedUp:db.salesOrder.find(o=>o.id===id).status,
+   shapes:!!big&&big.lines.every(l=>db.shapeDef.some(s=>s.id===l.shapeRef.id)),custom:(db.shapeDef.find(s=>s.id===shape)||{}).name};},[ready,bigShape]),
+  {saved:true,orders:3,unique:true,small:true,pickedUp:'done',shapes:true,custom:'Big custom shape'});
+ eq('a scan typed into the tab left behind waits for the handoff and is saved',await B.evaluate(async()=>{
+  const left=!storageWriter;let done=null;storageWhenWriter(()=>{done=storageCommand(()=>{DB.customer[0].legalName='Saved from the scan tab';}).ok;});
+  for(let i=0;i<50&&done===null;i++)await new Promise(r=>setTimeout(r,50));
+  return {left,done,writer:storageWriter,stored:JSON.parse(localStorage.getItem(STORAGE_KEY)).customer[0].legalName};}),{left:true,done:true,writer:true,stored:'Saved from the scan tab'});
+ /* A tab that does not answer (an old version still open): the alert bar
+    explains it on the office screen, the station and a tablet. */
+ await B.evaluate(()=>{storageYield=()=>{};});
+ const stuck=await A.evaluate(async()=>{const granted=await storageTakeControl();const bar=()=>{const el=document.getElementById('storageAlert');return !!el&&!el.hidden&&el.offsetHeight>0&&/Edit here/.test(el.textContent);};
+  const office=bar();tab='station';stationCode='CUT';render();const station=bar();tab='sales';render();return {granted,office,station};});
+ await A.setViewportSize({width:820,height:1180});
+ eq('a tab that does not answer: the alert bar with Edit here is visible in the office, on the station and on a tablet',{...stuck,tablet:await A.evaluate(()=>{const el=document.getElementById('storageAlert');return !el.hidden&&el.offsetHeight>0;})},{granted:false,office:true,station:true,tablet:true});
+ await B.close();await A.dispatchEvent('body','pointerdown');await A.waitForFunction(()=>storageWriter,null,{timeout:5000});
+ eq('the other tab closed: a click makes this one the writer and the alert goes away',await A.evaluate(()=>({writer:storageWriter,alert:!document.getElementById('storageAlert').hidden})),{writer:true,alert:false});
+ const twoErrs=two.errs.slice();await two.c.close();
  const closing=await page();await require('./optimization-fixture')(closing.p);
  eq('closing an unsaved order restores saved shapes before releasing the writer',await closing.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer()),o=salesRecord(id),shapeId=o.lines[0].shapeRef.id,old=DB.shapeDef.find(s=>s.id===shapeId).name;salesOrderEdit(id);DB.shapeDef.find(s=>s.id===shapeId).name='Uncommitted shape';soDraft.notes='Unsaved note';touch();window.dispatchEvent(new PageTransitionEvent('pagehide'));
@@ -124,5 +165,5 @@ module.exports=async function({page,eq,ok}){
  }),{restored:true,writer:false});await closing.c.close();
  const corrupt=await page('{unreadable');
  eq('corrupt storage is preserved, screen explains recovery',await corrupt.p.evaluate(()=>({original:localStorage.getItem(STORAGE_KEY),recovery:storageRecovery,blocked:!storageCommand(()=>DB.customer.push({id:'unsafe'})).ok,text:document.getElementById('storageStatus').textContent.includes('recovery')})),{original:'{unreadable',recovery:true,blocked:true,text:true});
- eq('audit scenarios have no browser errors',t.errs.concat(closing.errs,corrupt.errs),[]);await corrupt.c.close();
+ eq('audit scenarios have no browser errors',t.errs.concat(twoErrs,closing.errs,corrupt.errs),[]);await corrupt.c.close();
 };
