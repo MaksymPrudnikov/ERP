@@ -144,19 +144,20 @@ module.exports=async function({page,eq,ok}){
   return {partial,complete:glassBatchStatus(b),queue:glassBatchCutQueue().some(x=>x.number===b.number),registry,detail,optimization};
  }),{partial:'Cutting started',complete:'Cutting complete',queue:false,registry:{count:'6/6',status:'Cutting complete'},detail:{status:'Cutting complete',all:true},optimization:'Cutting complete'});
 
- eq('реестр батчей: 20 записей на страницу, поиск, статус и диапазон дат фильтруют весь список',await t.p.evaluate(()=>{
+ eq('реестр батчей: 20 на страницу; над таблицей только кнопка периода, номер и статус — воронкой колонки; смена фильтра — снова первая страница',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;gbSetQty(id,0,11);salesSetRecordStatus(id,'verified');const rows=glassBatchRows([salesRecord(id)]);
   rows.slice(0,22).forEach(r=>{if(!glassBatchAssign([r],{deferTouch:true}))throw new Error('Batch creation failed');});
   DB.glassBatch[0].createdAt='2026-08-01T10:00:00Z';DB.glassBatch.slice(1).forEach(b=>{b.createdAt='2026-09-30T10:00:00Z';});DB.glassBatch[0].items.forEach(i=>{i.cutStartedAt='2026-09-30T11:00:00Z';});touch();
   tab='optimization';optimizationSetTab('production');glassBatchRegistryReset();
+  const bar={date:document.querySelector('.oq-toolbar [data-created-range]').textContent.trim(),old:document.querySelectorAll('[data-batch-filters],[data-batch-search],[data-batch-status-filter]').length,funnels:['number','status','created'].every(k=>!!document.querySelector(`thead [data-filter-col="${k}"]`))};
   const visible=()=>[...document.querySelectorAll('[data-glass-row]')].map(r=>r.dataset.glassRow),page1={count:visible().length,page:document.querySelector('[data-batch-page]').textContent};
   document.querySelector('[data-batch-next]').click();const page2={count:visible().length,page:document.querySelector('[data-batch-page]').textContent};
-  glassBatchRegistrySetNumber('B-0001');const search=visible();
-  glassBatchRegistrySetNumber('');glassBatchRegistrySetStatus('Cutting complete');const complete=visible();
-  glassBatchRegistrySetStatus('');glassBatchRegistrySetDate('from','2026-09-01');const september=+document.querySelector('.gb-footer').textContent.match(/^(\d+) batches/)[1];
-  glassBatchRegistrySetDate('to','2026-09-29');const empty=visible().length;
-  glassBatchRegistryReset();return {page1,page2,search,complete,september,empty,reset:visible().length};
- }),{page1:{count:20,page:'Page 1 of 2'},page2:{count:2,page:'Page 2 of 2'},search:['B-0001'],complete:['B-0001'],september:21,empty:0,reset:20});
+  salesListSetFilter('number',{conds:[{op:'contains',v:'B-0001'}]});const search=visible(),back=document.querySelector('[data-batch-page]').textContent;
+  salesListSetFilter('number',null);salesListSetFilter('status',{values:['Cutting complete']});const complete=visible();
+  salesListSetFilter('status',null);salesListSetFilter('created',{conds:[{op:'between',v:'2026-09-01',v2:''}]});const september=+document.querySelector('.gb-footer').textContent.match(/^(\d+) batches/)[1];
+  salesListSetFilter('created',{conds:[{op:'between',v:'2026-09-01',v2:'2026-09-29'}]});const empty=visible().length;
+  glassBatchRegistryReset();return {bar,page1,page2,search,back,complete,september,empty,reset:visible().length};
+ }),{bar:{date:'Created: All time▾',old:0,funnels:true},page1:{count:20,page:'Page 1 of 2'},page2:{count:2,page:'Page 2 of 2'},search:['B-0001'],back:'Page 1 of 1',complete:['B-0001'],september:21,empty:0,reset:20});
 
  eq('отменённый заказ: стекло в составе помечено, Restore и Verify не режут его повторно',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'batched');const ids=gbIds();salesSetRecordStatus(id,'cancelled');glassBatchOpen('B-0001');
