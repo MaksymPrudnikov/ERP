@@ -166,6 +166,9 @@ input[type=checkbox]{width:auto}
 .user-sec.on{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
 .user-sec .icon-inline{margin-right:0}
 .user-access-cell .pill{margin:1px 0}
+/* Now: зелёная точка — сейчас в системе на этом компьютере */
+.user-now{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap}.user-now i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);flex:none}.user-now.on{color:var(--text)}.user-now.on i{background:var(--success);box-shadow:0 0 0 3px var(--success-soft)}
+.users-log-tabs{padding:8px 20px 0}.users-log-card .sales-toolbar{margin-top:8px}
 body.no-admin [data-admin]{display:none!important}
 .pw-wrap{position:relative;display:block}
 .pw-wrap input{padding-right:40px}
@@ -2697,7 +2700,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='fae66eefb886';
+var ERP_BUILD='c0c4ccbcbe1c';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -7181,15 +7184,31 @@ const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',com
    ===================================================================== */
 const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
 const ACCESS_ADMIN='users';
-/* Никто не вошёл — входа ещё нет (пароля нет ни у кого с Users, erp/signin):
-   видно всё, как в пустой базе. С сервером «никто не вошёл» значит «ничего».
-   Редактор формы (configurators) — часть Sales; экраны вне меню (станция)
-   ключа не имеют. */
+/* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
+   erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
+   первого человека некому. Вход включён, а человека нет (вышел, сменили
+   пароль, сеанс отозван) — закрыто, даже для команды, которая ждала своей
+   очереди (повторный аудит, 3 октября 2026). С сервером «никто не вошёл»
+   всегда значит «ничего». GF_NO_SIGNIN — вход выключен целиком (тесты,
+   картинки). Редактор формы (configurators) — часть Sales; экраны вне
+   меню (станция) ключа не имеют. */
 function accessCan(key){
+ if(typeof window!=='undefined'&&window.GF_NO_SIGNIN)return true;
  const u=typeof signinUser==='function'?signinUser():null;
- if(!u)return true;
+ if(!u)return !(typeof signinOn==='function'&&signinOn());
  const k=key==='configurators'?'sales':key;
  return !USER_SECTIONS.includes(k)||u.access.includes(k);
+}
+/* Кто подаёт команду: сеанс входа и человек, «setup» — пока вход не
+   настроен, пусто — никто. Команда запоминает это при нажатии и
+   выполняется, только если к моменту выполнения подающий тот же: вышел,
+   сменился или сеанс отозван — команда отменяется, а не выполняется от
+   имени следующего (erp/users/commands). На сервере — то же правило. */
+function accessActor(){
+ if(typeof window!=='undefined'&&window.GF_NO_SIGNIN)return 'setup';
+ const u=typeof signinUser==='function'?signinUser():null;
+ if(u){const s=signinSession();return 'S:'+(s&&s.sid)+':'+u.viewProfileId;}
+ return typeof signinOn==='function'&&signinOn()?'':'setup';
 }
 function userOffice(u){return !!(u&&Array.isArray(u.access)&&u.access.length);}
 
@@ -7623,7 +7642,10 @@ let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
      usersChangeOwnPassword(a, b)  POST /me/password
    Каждая команда сама проверяет право (администратор — раздел Users; свой
    пароль — только вошедший), правила и версию записи и пишет одной
-   storageCommand: всё или ничего. Ответ — {ok, error, id}.
+   storageCommand: всё или ничего. Ответ — Promise<{ok, error, id}>, как у
+   будущего запроса к серверу: экран ждёт ответа (повторный аудит,
+   3 октября 2026). Команда ждёт права записи и выполняется, только если
+   подавший её (accessActor, запомнен при нажатии) всё ещё тот же.
 
    Правила (аудит 3 октября 2026, принят владельцем):
    · Users не запирается: пока есть офис, у кого-то остаётся раздел Users;
@@ -7637,6 +7659,15 @@ let DB=JSON.parse(JSON.stringify(DEFAULT)), dirty=false;
    OUT: команды; экран — view/users, окно своего пароля — erp/signin
    ===================================================================== */
 function usersFail(error){return {ok:false,error};}
+/* Выполнить, когда вкладка получит право записи, и только от имени того,
+   кто нажал. Вышел, сменился, сеанс отозван — «Signed out — not saved». */
+function usersRun(actor,fn){
+ const who=actor===undefined?accessActor():actor;
+ return new Promise(resolve=>{
+  const go=()=>{try{resolve(who&&who===accessActor()?fn():usersFail('Signed out — not saved'));}catch(e){resolve(usersFail(e.message));}};
+  if(typeof storageWhenWriter==='function')storageWhenWriter(go);else go();
+ });
+}
 function usersFind(id){return (DB.user||[]).find(u=>u.viewProfileId===id)||null;}
 /* Что станет с дверью, если база людей станет такой (after: записи с
    access и признаком пароля). Пусто — можно. */
@@ -7651,7 +7682,8 @@ function usersShape(u,over){return Object.assign({access:u.access||[],hasPasswor
 /* Создать (id пуст) или изменить человека. input: {id, rev, name, no,
    office, access[], password, station, pin}; password и pin — только новые
    значения, пусто — оставить заданный. */
-function usersSave(input){
+function usersSave(input,actor){return usersRun(actor,()=>usersSaveNow(input));}
+function usersSaveNow(input){
  if(!accessCan(ACCESS_ADMIN))return usersFail('Users access needed');
  const d=input||{},isNew=!d.id,cur=isNew?null:usersFind(d.id);
  if(!isNew&&!cur)return usersFail('This user was deleted');
@@ -7689,16 +7721,19 @@ function usersSave(input){
 }
 
 /* Снять вход на вкладке: Production — PIN, Office — разделы и пароль.
-   Другого входа нет — человек удаляется. */
-function usersDropError(id,side){
+   Другого входа нет — человек удаляется. rev — версия записи, которую
+   человек видел, подтверждая: запись изменили — «Changed elsewhere». */
+function usersDropError(id,side,rev){
  if(!accessCan(ACCESS_ADMIN))return 'Users access needed';
  const u=usersFind(id);if(!u)return 'This user was deleted';
+ if(rev!=null&&u.rev!==rev)return 'Changed elsewhere — reopen';
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u);
  const after=(DB.user||[]).filter(x=>x!==u||other).map(x=>x!==u?usersShape(x):prod?usersShape(x):usersShape(x,{access:[],hasPassword:false}));
  return usersDoorError(after);
 }
-function usersDrop(id,side){
- const err=usersDropError(id,side);if(err)return usersFail(err);
+function usersDrop(id,side,rev,actor){return usersRun(actor,()=>usersDropNow(id,side,rev));}
+function usersDropNow(id,side,rev){
+ const err=usersDropError(id,side,rev);if(err)return usersFail(err);
  const prod=side==='production';
  const out=storageCommand(()=>{
   const u=usersFind(id),other=prod?userOffice(u):userHasPin(u);
@@ -7711,7 +7746,8 @@ function usersDrop(id,side){
 
 /* Свой пароль — только офис (владелец, 3 октября 2026); PIN станции даёт
    офис. Текущий вход остаётся, остальные входы этого человека кончаются. */
-function usersChangeOwnPassword(current,next){
+function usersChangeOwnPassword(current,next,actor){return usersRun(actor,()=>usersChangeOwnPasswordNow(current,next));}
+function usersChangeOwnPasswordNow(current,next){
  const u=typeof signinUser==='function'?signinUser():null;
  if(!u)return usersFail('Sign in first');
  if(!userPasswordCheck(u,current))return usersFail('Wrong password');
@@ -12572,7 +12608,8 @@ function render(){
  const gate=typeof signinNeeded==='function'&&signinNeeded();
  document.body.classList.toggle('signin-mode',gate);
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
- if(typeof signinMarkOwner==='function')signinMarkOwner();
+ if(typeof signinMarkOwner==='function'&&signinMarkOwner()===false)return;
+ if(typeof authLogFlush==='function')authLogFlush();
  if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
  /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
  document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
@@ -12678,33 +12715,61 @@ function userAccessHTML(u){
    офис и производство»). Office — у кого отмечены разделы, Production — у
    кого есть PIN станции или нет офиса (рабочий, которому PIN ещё не дали).
    Мастер цеха с обоими входами — в обеих. */
-function usersSide(){return subtab==='production'?'production':'office';}
+function usersSide(){return subtab==='production'?'production':subtab==='log'?'log':'office';}
 function usersOn(u,side){return side==='production'?userHasPin(u)||!userOffice(u):userOffice(u);}
+/* Зелёная точка — человек сейчас в системе на этом компьютере (офис или
+   станция); серая — нет, рядом последний вход или выход из журнала
+   (владелец, 3 октября 2026). Пока база в браузере, другие компьютеры
+   здесь не видны — их покажет сервер. */
+function userNowHTML(u){
+ const on=authOnline(u),last=authLastSeen(u);
+ if(on.length)return `<span class="user-now on" data-user-now="on"><i></i>${esc(on.join(', '))}</span>`;
+ return `<span class="user-now" data-user-now="off"><i></i>${last?esc(salesListShortDay(salesListIsoDay(last))+' · '+new Date(last).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false})):'—'}</span>`;
+}
 function viewUsers(){
- const side=usersSide(),prod=side==='production';
- const list=DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
- const count=k=>DB.user.filter(u=>usersOn(u,k)).length;
+ const side=usersSide(),prod=side==='production',log=side==='log';
+ const list=log?[]:DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
+ const count=k=>k==='log'?(DB.authEvent||[]).length:DB.user.filter(u=>usersOn(u,k)).length;
  const rows=list.map(({u,i})=>{
   const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
    <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
   return prod
-   ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
-   :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td class="user-access-cell">${userAccessHTML(u)}</td>
+   ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td>${userHasPin(u)?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
+   :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td>${userNowHTML(u)}</td><td class="user-access-cell">${userAccessHTML(u)}</td>
    <td>${userHasPassword(u)?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${actions}</tr>`;
  }).join('');
  const head=prod
-  ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>PIN</th><th></th>'
-  :'<th>Name</th><th>Sections</th><th>Password</th><th></th>';
+  ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th title="Signed in now on this computer">Now</th><th>PIN</th><th></th>'
+  :'<th>Name</th><th title="Signed in now on this computer">Now</th><th>Sections</th><th>Password</th><th></th>';
  /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
  const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
- return `<div class="page-head"><div><h2>Users</h2><p>${prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
-  ${uEdit!==null?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
-  <div class="card">
-  <div class="tabs">${[['office','Office'],['production','Production']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>
+ const tabs=`<div class="tabs">${[['office','Office'],['production','Production'],['log','Sign-in log']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';uEdit=null;uDraft=null;render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>`;
+ return `<div class="page-head"><div><h2>Users</h2><p>${log?'Sign-ins and sign-outs on this computer.':prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
+  ${uEdit!==null||log?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
+  ${log?`<div class="card sales-list-card users-log-card"><div class="users-log-tabs">${tabs}</div>${authLogTable()}</div>`:`<div class="card">${tabs}
   ${uEdit!==null?userForm():''}
   <table><thead><tr>${head}</tr></thead>
-  <tbody>${rows||`<tr><td colspan="4" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
-  </div>`;
+  <tbody>${rows||`<tr><td colspan="5" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
+  </div>`}`;
+}
+/* Журнал входов — таблица как в Sales: период When, воронки Who / What /
+   Where. Своя область usersLog в общем движке (sales-list-ui). */
+function usersListScope(){return tab==='users'&&usersSide()==='log'?'usersLog':'';}
+function authLogColumns(){
+ const col=(k,label,type,def)=>({k,label,type:type||'text',def:def!==false});
+ return [col('when','When','date'),col('who','Who','list'),col('what','What','list'),col('where','Where','list'),col('note','Note')];
+}
+function authLogInfos(){
+ return (DB.authEvent||[]).map(e=>({o:{createdAt:e.at},e,memo:{when:salesListIsoDay(e.at),who:e.name||'—',what:e.what,where:e.where,note:e.note}}));
+}
+function authLogTable(){
+ const infos=authLogInfos(),rows=salesListRows(infos).sort((a,b)=>b.e.at.localeCompare(a.e.at)),cols=salesListColumns();
+ const head=c=>{const active=salesListFilterActive(salesListLoadPrefs().filters[c.k]);return `<th><span class="sl-th">${esc(c.label)}<button type="button" class="sl-fbtn${active?' on':''}" data-filter-col="${c.k}" aria-label="Filter and sort ${esc(c.label)}" onclick="salesListOpenFilter(event,'${c.k}')"></button></span></th>`;};
+ const cell=(i,c)=>c.k==='when'?`<td>${esc(salesListShortDay(i.memo.when))} · ${esc(new Date(i.e.at).toLocaleTimeString('en-CA',{hour:'2-digit',minute:'2-digit',hour12:false}))}</td>`:c.k==='what'?`<td><span class="pill ${i.e.what==='Sign in'?'ok':''}">${esc(i.e.what)}</span></td>`:`<td>${i.memo[c.k]?raw(String(i.memo[c.k])):'<span class="mut">—</span>'}</td>`;
+ return `<div class="sales-toolbar">${salesListDateButton('when')}</div>${salesListFilterChips()}
+  <div class="sales-table-wrap"><table class="sl-table users-log"><thead><tr>${cols.map(head).join('')}</tr></thead>
+  <tbody>${rows.map(i=>`<tr data-auth-row>${cols.map(c=>cell(i,c)).join('')}</tr>`).join('')||`<tr><td colspan="${cols.length}" class="empty">${infos.length?'Nothing matches the filters.':'No sign-ins yet'}</td></tr>`}</tbody></table></div>
+  <div class="mut cust-foot">${rows.length} of ${infos.length} records · this computer only</div>${salesListMenuHTML(infos)}`;
 }
 /* Новый человек — с тем входом, на вкладке которого нажали Add user.
    Черновик формы — только правки: имя, номер, галочки, новые пароль и PIN.
@@ -12737,7 +12802,7 @@ function userForm(){
    <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} onchange="uDraft.onStation=this.checked;render()"><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
   </div>
   <div class="err" id="e_user"></div>
-  <div class="row"><button class="pri" onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
+  <div class="row"><button class="pri" data-user-save onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
 }
 function userToggleSection(k,on){
  const set=new Set(uDraft.access);if(on)set.add(k);else set.delete(k);
@@ -12747,24 +12812,28 @@ function userSetSections(all){uDraft.access=all?USER_SECTIONS.slice():[];render(
 /* Сохранение и удаление — команды erp/users/commands: они проверяют право,
    правила и версию и пишут всё или ничего. Форма закрывается только после
    записи; не записалось — правки остаются, ошибка рядом с Save. */
+/* Save ждёт ответа команды (Promise, как запрос к серверу): пока ждёт —
+   «Saving…» и второй раз не нажимается; ошибка — форма с правками
+   остаётся, текст рядом с Save; успех — форма закрывается. Возвращает
+   обещание — им пользуются проверки. */
 function saveUser(){
+ const d=uDraft;if(!d||d.pending)return Promise.resolve(null);
  const e=document.getElementById('e_user');if(e)e.style.display='none';
- const d=uDraft;if(!d)return;
  const input={id:d.id,rev:d.rev,name:d.name,no:d.no,office:d.onOffice,access:d.access,password:d.newPassword,station:d.onStation,pin:d.newPin};
- storageWhenWriter(()=>{
-  const r=usersSave(input);
-  if(!r.ok){const el=document.getElementById('e_user');if(el)fail(el,r.error);return;}
-  uEdit=null;uDraft=null;render();
+ d.pending=true;userSaveButton(true);
+ return usersSave(input,accessActor()).then(r=>{
+  d.pending=false;if(uDraft!==d)return r;
+  if(!r.ok){userSaveButton(false);const el=document.getElementById('e_user');if(el)fail(el,r.error);return r;}
+  uEdit=null;uDraft=null;render();return r;
  });
 }
-/* × на вкладке снимает этот вход. Другого входа нет — человек удаляется. */
+function userSaveButton(busy){const b=document.querySelector('[data-user-save]');if(b){b.disabled=busy;b.textContent=busy?'Saving…':'Save';}}
 function delUser(i,side){
- const u=DB.user[i];if(!u)return;
- const err=usersDropError(u.viewProfileId,side);if(err)return alert(err);
+ const u=DB.user[i];if(!u)return Promise.resolve(null);
+ const rev=u.rev,err=usersDropError(u.viewProfileId,side,rev);if(err){alert(err);return Promise.resolve(usersFail(err));}
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u),name=u.name||'this user';
- if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return;
- const id=u.viewProfileId;
- storageWhenWriter(()=>{const r=usersDrop(id,side);if(!r.ok)alert(r.error);render();});
+ if(!confirm(other?(prod?'Remove station sign-in for ':'Remove office sign-in for ')+name+'?':'Delete '+name+'?'))return Promise.resolve(null);
+ return usersDrop(u.viewProfileId,side,rev,accessActor()).then(r=>{if(!r.ok)alert(r.error);render();return r;});
 }
 
 /* ==== src/erp/signin.js ==== */
@@ -12806,7 +12875,17 @@ function signinKeyRefresh(){
    продолжается; вошёл другой — черновики прежнего отменяются и страница
    открывается заново, чистой. signinOwner — чья работа сейчас в памяти. */
 let signinOwner=null;
-function signinMarkOwner(){const u=signinUser();if(u&&!signinOwner)signinOwner=u.viewProfileId;}
+/* Зовётся при каждом показе офиса (render): вошёл не тот, чья работа в
+   памяти, — страница открывается заново. Так закрыт и обход через экран
+   станции: там проверка молчит (у станции свой вход), а при возврате в
+   офис срабатывает здесь (повторный аудит, 3 октября 2026). false — экран
+   не рисовать, идёт перезагрузка. */
+function signinMarkOwner(){
+ const u=signinUser();if(!u||tab==='station')return true;
+ if(!signinOwner){signinOwner=u.viewProfileId;return true;}
+ if(signinOwner!==u.viewProfileId){signinFresh();return false;}
+ return true;
+}
 function signinFresh(){
  try{if(typeof soDraft!=='undefined'&&soDraft){if(typeof storageWriter!=='undefined'&&storageWriter&&typeof salesDraftDrop==='function')salesDraftDrop(true);else{soDraft=null;soEdit=null;}}}catch(e){}
  try{if(typeof finDraft!=='undefined'){finDraft=null;finAction=null;}}catch(e){}
@@ -12826,11 +12905,11 @@ function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
  try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:secretKey(u.password),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
- signinSetTabSid(sid);signinPick='';signinError='';
+ signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
 }
-function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+function signinOut(){const was=signinUser();if(was)authLog('Sign out','Office',was);try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
 /* Sign out своей кнопкой: сначала тот же вопрос, что при уходе из
    несохранённого заказа или оплаты (стражи NAV_GUARDS), — чтобы правку не
    записали на следующего вошедшего и чтобы она не пропала молча. */
@@ -12947,10 +13026,7 @@ function signinMeSave(e){
  const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
  const fail=m=>{signinMe.error=m;render();};
  if(next!==v('meNew2'))return fail(next.length<USER_PASSWORD_MIN?'At least '+USER_PASSWORD_MIN+' characters':'Passwords differ');
- storageWhenWriter(()=>{
-  const r=usersChangeOwnPassword(old,next);
-  if(r.ok){signinMe=null;render();}else fail(r.error);
- });
+ return usersChangeOwnPassword(old,next,accessActor()).then(r=>{if(r.ok){signinMe=null;render();}else fail(r.error);return r;});
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&signinMe)signinMeClose();});
@@ -12972,11 +13048,52 @@ window.addEventListener('storage',function(e){
  navigator.locks.query().then(q=>(q.held||[]).some(l=>l.name===SIGNIN_LOCK)).catch(()=>false).then(alive=>{
   const now=signinSession();
   if(alive&&now)signinSetTabSid(now.sid);
-  else if(now&&now.sid===s.sid){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}}
+  else if(now&&now.sid===s.sid){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}authLogPending={what:'Sign out',where:'Office',userId:s.userId,note:'browser was closed'};}
   signinChecking=false;hold();
   if(typeof storageStarting!=='undefined'&&!storageStarting)render();
  });
 })();
+
+/* ---------------------- Журнал входов и выходов ---------------------- */
+/* Владелец, 3 октября 2026: «чтобы напротив пользователя горел зелёный —
+   залогинен он или нет — и чтобы был журнал входов и выходов по
+   пользователям». DB.authEvent {id, at, userId, name, what, where, note}:
+   Sign in / Sign out, Office или Station <код>. Пока база в браузере —
+   только этот компьютер; с сервером журнал пишет сервер из своего сеанса.
+   Закрытый браузер виден при следующем открытии: «browser was closed».
+   Держим последние AUTH_LOG_MAX записей. */
+DEFAULT.authEvent=[];
+if(!Array.isArray(DB.authEvent))DB.authEvent=[];
+const AUTH_LOG_MAX=3000;
+let authLogPending=null;
+function normalizeAuthLog(){
+ if(!Array.isArray(DB.authEvent))DB.authEvent=[];
+ const t=v=>typeof v==='string'?v:'';
+ DB.authEvent=DB.authEvent.filter(e=>e&&typeof e==='object'&&typeof e.at==='string'&&typeof e.what==='string')
+  .map(e=>({id:t(e.id)||('AE-'+Math.random().toString(36).slice(2,10)),at:e.at,userId:t(e.userId),name:t(e.name).slice(0,80),what:e.what.slice(0,30),where:t(e.where).slice(0,40),note:t(e.note).slice(0,80)}))
+  .slice(-AUTH_LOG_MAX);
+}
+function authLog(what,where,u,note){
+ const ev={id:'AE-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),userId:u?u.viewProfileId:'',name:u?String(u.name||''):'',what,where:where||'',note:note||''};
+ const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;}):null;return out;};
+ if(typeof storageWhenWriter==='function')storageWhenWriter(write);else write();
+}
+/* Запись «браузер был закрыт» ждёт, пока база поднимется. */
+function authLogFlush(){
+ if(!authLogPending||typeof storageStarting==='undefined'||storageStarting)return;
+ const p=authLogPending;authLogPending=null;const u=(DB.user||[]).find(x=>x.viewProfileId===p.userId);
+ authLog(p.what,p.where,u||{viewProfileId:p.userId,name:''},p.note);
+}
+/* Кто сейчас в системе на этом компьютере: вход в офис и входы станций. */
+function authOnline(u){
+ const where=[];if(!u)return where;
+ const s=signinSession();if(s&&s.userId===u.viewProfileId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))where.push('Office');
+ if(typeof stationSessions==='function')Object.entries(stationSessions()).forEach(([code,x])=>{if(x&&x.userId===u.viewProfileId&&userHasPin(u)&&x.key===secretKey(u.pin))where.push(code);});
+ return where;
+}
+function authLastSeen(u){
+ if(!u)return '';let last='';(DB.authEvent||[]).forEach(e=>{if(e.userId===u.viewProfileId&&e.at>last)last=e.at;});return last;
+}
 
 /* ==== src/erp/views/customers.js ==== */
 /* =====================================================================
@@ -24089,7 +24206,7 @@ let salesListPrefs=null,salesListMenu=null,salesListSel=new Set(),salesListAncho
 /* ------------------------------ Настройки ------------------------------ */
 /* Один движок колонок/фильтров, отдельные настройки Sales, Optimization и Shipping. */
 const salesQueuePrefs={optimization:null,shipping:null};
-function salesListScope(){if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
+function salesListScope(){if(tab==='users'&&typeof usersListScope==='function'&&usersListScope())return usersListScope();if(tab==='customers'&&typeof custListScope==='function'&&custListScope())return custListScope();if(tab==='masterdata'&&typeof mdListScope==='function'&&mdListScope())return mdListScope();if(tab==='finance'&&typeof finListScope==='function')return finListScope();if(tab==='production'&&typeof prodListScope==='function'&&prodListScope())return prodListScope();if(tab==='optimization'&&typeof glassBatchViewScope==='function'&&glassBatchViewScope())return glassBatchViewScope();return tab==='optimization'||tab==='shipping'?tab:'sales';}
 function salesListCatalog(){
  if(salesListScope().startsWith('fin')&&typeof finListColumns==='function')return finListColumns();
  if(salesListScope().startsWith('prod')&&typeof prodListColumns==='function')return prodListColumns();
@@ -24097,6 +24214,7 @@ function salesListCatalog(){
  if(typeof glassBatchColumns==='function'&&salesListScope().startsWith('glass'))return glassBatchColumns();
  if(salesListScope()==='mdSupply'&&typeof mdSupplyColumns==='function')return mdSupplyColumns();
  if(salesListScope()==='customers'&&typeof custColumns==='function')return custColumns();
+ if(salesListScope()==='usersLog'&&typeof authLogColumns==='function')return authLogColumns();
  if(salesListScope()==='sales')return SALES_LIST_COLUMNS;
  const defaults=['number','customer','due','status','glass','unitType','units','batch','balance'];
  return SALES_LIST_COLUMNS.filter(c=>!['type','validUntil','revisions','fromQuote'].includes(c.k)).map(c=>Object.assign({},c,{def:defaults.includes(c.k),tokens:c.k==='glass'}))
@@ -24120,6 +24238,7 @@ function salesListCleanPrefs(p){
  Object.keys(src).forEach(k=>{const f=salesListCleanFilter(k,src[k]);if(f&&salesListFilterActive(f))filters[k]=f;});
  const sort=p.sort&&salesListColumn(p.sort.k)?{k:p.sort.k,dir:p.sort.dir==='asc'?'asc':'desc'}:null;
  if(salesListScope()==='sales'&&p.createdRangeInitialized!==true&&!filters.created)filters.created=salesListCleanFilter('created',{preset:'last14'});
+ if(salesListScope()==='usersLog'&&p.createdRangeInitialized!==true&&!filters.when)filters.when=salesListCleanFilter('when',{preset:'last14'});
  if(salesListScope()==='customers'&&p.createdRangeInitialized!==true&&typeof custListDefaults==='function')Object.entries(custListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  if(salesListScope().startsWith('fin')&&p.createdRangeInitialized!==true&&typeof finListDefaults==='function')Object.entries(finListDefaults()).forEach(([k,f])=>{const c=salesListCleanFilter(k,f);if(c&&salesListFilterActive(c))filters[k]=c;});
  return {cols,filters,sort,createdRangeInitialized:true,statusExpanded:p.statusExpanded===true,quick:SALES_QUICK.some(q=>q[0]===p.quick)?p.quick:'all'};
@@ -24289,7 +24408,7 @@ function salesListBase(){
 /* Сортировка по умолчанию: у Sales — новые сверху, у таблиц Finance — своя. */
 function salesListDefaultSort(){const s=salesListScope(),f=s.startsWith('fin')&&typeof finListDefaultSort==='function'?finListDefaultSort():s.startsWith('prod')&&typeof prodListDefaultSort==='function'?prodListDefaultSort():null;return f||(s==='mdSupply'?{k:'product',dir:'asc'}:s==='glassSheets'?{k:'built',dir:'desc'}:{k:'created',dir:'desc'});}
 /* Колонка блока дат над таблицей: её фильтр показан кнопкой, а не чипом. */
-function salesListDateColumn(){return salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
+function salesListDateColumn(){return salesListScope()==='usersLog'?'when':salesListScope()==='sales'?'created':salesListScope()==='glassSheets'?'built':salesListScope().startsWith('fin')&&typeof finListDateColumn==='function'?finListDateColumn():salesListScope().startsWith('prod')?'due':'';}
 function salesListRows(infos,skip){
  const p=salesListLoadPrefs(),active=Object.keys(p.filters).filter(k=>salesListColumn(k)&&salesListFilterActive(p.filters[k])&&!(skip||[]).includes(k));
  const rows=infos.filter(info=>active.every(k=>salesListFilterTest(salesListColumn(k),p.filters[k],info)));
@@ -31850,6 +31969,7 @@ function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a d
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
  const m=stationSessions();m[stationCode]={userId:id,key:secretKey(u.pin),at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
+ if(typeof authLog==='function')authLog('Sign in','Station '+stationCode,u);
  stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
 /* Вход на станции: личный номер + PIN, имён на экране нет — «один
@@ -31873,7 +31993,7 @@ function stationLoginKey(k){
  }
  render();
 }
-function stationSwitch(){const m=stationSessions();delete m[stationCode];stationSessionsSave(m);stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){const who=stationWho(),m=stationSessions();delete m[stationCode];stationSessionsSave(m);if(who&&typeof authLog==='function')authLog('Sign out','Station '+stationCode,{viewProfileId:who.id,name:who.name});stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -33320,6 +33440,7 @@ function normalizeDB(){
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
