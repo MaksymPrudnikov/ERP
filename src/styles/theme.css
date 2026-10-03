@@ -95,7 +95,8 @@ main#app{flex:1}
 /* ---- рабочие таблицы (Sales, Optimization, Shipping, Finance, Production) ---- */
 main#app{padding:28px 36px}
 .card.sales-list-card{border-radius:18px;padding:6px 0 0;overflow:hidden}
-.sales-list-card .sales-toolbar,.sales-list-card .sl-view-controls,.sales-list-card .sl-quick{padding-left:20px;padding-right:20px}
+.sales-list-card .sales-toolbar,.sales-list-card .sl-view-controls,.sales-list-card .sl-quick,.sales-list-card .sl-chips,.sales-list-card .cust-foot{padding-left:20px;padding-right:20px}
+.sales-list-card .cust-foot{padding-bottom:14px}
 .sales-list-card .sl-quiet,.fin-card .sl-quiet,.sales-status-chips .sl-status-toggle,.sl-view-controls .sl-date-toggle{border:0;background:transparent;font-weight:500;color:var(--text-2);border-radius:8px}
 .sales-list-card .sl-quiet:hover,.fin-card .sl-quiet:hover,.sales-status-chips .sl-status-toggle:hover,.sl-view-controls .sl-date-toggle:hover{background:var(--surface-3);color:var(--text)}
 .sl-table{font-size:13.5px}

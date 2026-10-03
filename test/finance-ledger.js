@@ -141,7 +141,7 @@ module.exports=async function({page,eq}){
  eq('balances: prepaid is money on orders not yet picked up; totals for all customers; customer card shows the same numbers',await t.p.evaluate(()=>{
   const {c,o}=financeSeed();financePayment(100,60);const inWork=finCustomerMoney(c.id);o.status='done';o.statusDates.done=new Date().toISOString();const shipped=finCustomerMoney(c.id);
   const all=finAllMoney();tab='finance';finSetTab('accounts');const foot=(document.querySelector('.fin-list tfoot')||{}).textContent||'';
-  const doc=finDocText(finBalancesDoc(finAccountsList(),'Open accounts'));tab='customers';customerEdit(c.id);const strip=document.querySelector('.fin-customer-strip').textContent;cEdit=null;cDraft=null;
+  const doc=finDocText(finBalancesDoc(finAccountsList(),'Open accounts'));tab='customers';customerEdit(c.id);cTab='payment';render();const strip=document.querySelector('.fin-customer-strip').textContent;cEdit=null;cDraft=null;
   return {inWork:[inWork.balance,inWork.prepaid,inWork.deposit],shipped:[shipped.balance,shipped.prepaid],all:[all.balance,all.prepaid,all.deposit],foot:foot.includes('1 customer')&&foot.includes('$40.00'),doc:doc.includes('CUSTOMER BALANCES')&&doc.includes('$40.00'),strip:strip.includes('$40.00')&&strip.includes('Finance account')};
  }),{inWork:[40,60,40],shipped:[40,0],all:[40,0,40],foot:true,doc:true,strip:true});
  await t.p.evaluate(()=>{
