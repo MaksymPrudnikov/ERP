@@ -6,16 +6,12 @@ let glassBatchSelection=new Set(),glassBatchOpenNumber='',glassBatchDetailTab='c
 let glassBatchPage=1;
 const GLASS_BATCH_PAGE_SIZE=20;
 function glassBatchSetPage(page){glassBatchPage=Math.max(1,Math.floor(+page)||1);render();}
-function glassBatchRegistrySetFilter(key,value){
- glassBatchPage=1;
- salesListSetFilter(key,value);
-}
-function glassBatchRegistrySetNumber(value){value=String(value||'').trim().slice(0,80);glassBatchRegistrySetFilter('number',value?{conds:[{op:'contains',v:value}]}:null);}
-function glassBatchRegistrySetStatus(value){glassBatchRegistrySetFilter('status',value?{values:[value]}:null);}
-function glassBatchRegistrySetDate(which,value){
- const f=salesListLoadPrefs().filters.created,c=f&&f.conds&&f.conds[0],from=which==='from'?value:c&&c.op==='between'?c.v:'',to=which==='to'?value:c&&c.op==='between'?c.v2:'';
- glassBatchRegistrySetFilter('created',from||to?{conds:[{op:'between',v:from||'',v2:to||''}]}:null);
-}
+/* Реестр батчей фильтруется как Sales (владелец, 3 октября 2026): над
+   таблицей — только кнопка периода Created, номер и статус — воронкой в
+   заголовке колонки. Отдельных полей поиска, статуса и дат больше нет.
+   Сменился любой фильтр — реестр снова с первой страницы. */
+let glassBatchFilterSig='';
+function glassBatchPageForFilters(){const sig=JSON.stringify(salesListLoadPrefs().filters||{});if(sig!==glassBatchFilterSig){glassBatchFilterSig=sig;glassBatchPage=1;}}
 function glassBatchRegistryReset(){
  const p=salesListLoadPrefs();['number','status','created'].forEach(k=>delete p.filters[k]);glassBatchPage=1;salesListSavePrefs();render();
 }
@@ -138,7 +134,7 @@ function viewGlassBatches(){
  /* Страховка: проверенный заказ без номеров стёкол получает их до показа очереди. */
  if(scope==='glassQueue'&&(DB.salesOrder||[]).reduce((changed,o)=>glassPieceEnsure(o)||changed,false))touch();
  const infos=glassBatchInfos(),registry=scope==='glassBatches',filteredRows=salesListRows(infos),pages=registry?Math.max(1,Math.ceil(filteredRows.length/GLASS_BATCH_PAGE_SIZE)):1;
- if(registry)glassBatchPage=Math.min(Math.max(1,glassBatchPage),pages);
+ if(registry){glassBatchPageForFilters();glassBatchPage=Math.min(Math.max(1,glassBatchPage),pages);}
  const rows=registry?filteredRows.slice((glassBatchPage-1)*GLASS_BATCH_PAGE_SIZE,glassBatchPage*GLASS_BATCH_PAGE_SIZE):filteredRows,cols=salesListColumns(),pickable=rows.filter(glassBatchPickable),keys=new Set(pickable.map(glassBatchRowKey));
  glassBatchSelection=new Set([...glassBatchSelection].filter(k=>keys.has(k)));const n=rows.filter(i=>glassBatchSelection.has(glassBatchRowKey(i))).length;
  const title=scope==='glassQueue'?'Glass queue':b?'Batch '+b.number:'Batches';
@@ -146,9 +142,6 @@ function viewGlassBatches(){
  const materials=new Map();if(scope==='glassQueue')infos.forEach(i=>materials.set(i.memo.glass,(materials.get(i.memo.glass)||0)+1));
  const filter=salesListLoadPrefs().filters.glass,chosen=filter&&filter.values&&filter.values.length===1?filter.values[0]:'';
  const materialSelect=scope==='glassQueue'?`<label class="gb-material">Glass <select data-glass-material aria-label="Filter glass type" onchange="glassBatchMaterial(this.value)"><option value="">${filter?'Custom filter':'All'} · ${infos.length} pcs</option>${[...materials].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,c])=>`<option value="${esc(g)}" ${chosen===g?'selected':''}>${esc(g)} · ${c} pcs</option>`).join('')}</select></label>`:'';
- const prefs=registry?salesListLoadPrefs():null,numberFilter=prefs&&prefs.filters.number,statusFilter=prefs&&prefs.filters.status,dateFilter=prefs&&prefs.filters.created,dateCond=dateFilter&&dateFilter.conds&&dateFilter.conds[0],numberCond=numberFilter&&numberFilter.conds&&numberFilter.conds[0];
- const numberValue=numberCond&&numberCond.op==='contains'?numberCond.v:'',statusValue=statusFilter&&statusFilter.values&&statusFilter.values.length===1?statusFilter.values[0]:'',dateFrom=dateCond&&dateCond.op==='between'?dateCond.v:'',dateTo=dateCond&&dateCond.op==='between'?dateCond.v2:'';
- const registryControls=registry?`<div class="gb-registry-filters" data-batch-filters><label>Batch<input type="search" data-batch-search value="${esc(numberValue)}" placeholder="B-0001" onchange="glassBatchRegistrySetNumber(this.value)"></label><label>Status<select data-batch-status-filter onchange="glassBatchRegistrySetStatus(this.value)"><option value="">All statuses</option>${['Awaiting cutting','Cutting started','Cutting complete','Moved','Unbatched'].map(v=>`<option value="${v}" ${statusValue===v?'selected':''}>${v}</option>`).join('')}</select></label><label>Created from<input type="date" data-batch-date-from value="${esc(dateFrom)}" onchange="glassBatchRegistrySetDate('from',this.value)"></label><label>to<input type="date" data-batch-date-to value="${esc(dateTo)}" onchange="glassBatchRegistrySetDate('to',this.value)"></label><button type="button" class="sm" data-batch-filter-reset onclick="glassBatchRegistryReset()">Clear filters</button></div>`:'';
  const settings=`<button type="button" class="gb-settings" data-columns-button title="Columns" aria-label="Columns" onclick="salesListOpenColumns(event)">${ico('settings')}</button>`;
  const table=`<div class="sales-table-wrap"><table class="sl-table gb-table"><thead><tr><th><span class="sl-header-tools">${registry?'':`<input type="checkbox" data-glass-all aria-label="Select all eligible glass" ${n&&n===pickable.length?'checked':''} ${pickable.length?'':'disabled'} onchange="glassBatchToggleAll(this.checked)">`}${settings}</span></th>${cols.map(glassBatchHeader).join('')}</tr></thead><tbody>${rows.map(i=>{const k=glassBatchRowKey(i),on=glassBatchSelection.has(k),held=i.r&&i.r.reason;return `<tr data-glass-row="${esc(k)}" data-glass-id="${esc(i.memo.piece||'')}" class="${held?'gb-held':on?'gb-selected':i.item&&i.item.releasedAt?'gb-released':''}"><td>${registry?'':`<input type="checkbox" data-glass-check aria-label="Select ${esc(i.memo.piece+' order '+i.memo.number+' line '+i.memo.line+' unit '+i.memo.unit+' lite '+i.memo.lite)}" ${on?'checked':''} ${glassBatchPickable(i)?'':'disabled'} onclick="glassBatchToggle('${esc(k)}',this.checked,event.shiftKey)">`}</td>${cols.map(c=>glassBatchCell(i,c)).join('')}</tr>`;}).join('')||`<tr><td colspan="${cols.length+1}" class="empty">${scope==='glassQueue'?'No glass waiting in this view.':'No batches or glass match this view.'}</td></tr>`}</tbody></table></div>`;
  const pieceOrder=new Map();if(b)b.items.forEach(i=>{const p=b.parts[i.part];if(p)pieceOrder.set(i.piece,p.snapshot.order);});
@@ -164,7 +157,7 @@ function viewGlassBatches(){
  const cutHead=b&&glassBatchDetailTab==='optimization'&&typeof cutLayoutHeader==='function'?cutLayoutHeader(b,status):'';
  return `<section class="optimization-queue glass-batches"><div class="page-head${cutHead?' cut-page-head-wrap':''}"><div class="gb-page-title">${b?'<button type="button" class="gb-link" onclick="optimizationSetTab(\'production\')">‹ Batches</button>':''}<h2>${esc(title)}</h2>${head}</div>${cutHead||statusBadge}</div>
  ${b?batchesTabs:`<div class="oq-tabs" role="tablist">${glassBatchTabs()}</div>`}
- <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button><button type="button" data-open-cut title="Cutting screen with this batch" onclick="stationOpen(stationCutCode(),'${esc(b.number)}')">Open on ${esc(stationCutCode())}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${registryControls}${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>${pager}`}
+ <div class="card oq-card${cutHead?' cut-card':''}">${b&&glassBatchDetailTab==='optimization'?viewCutLayout(b):b&&glassBatchDetailTab==='history'?history:`<div class="oq-toolbar">${materialSelect}${registry?salesListDateButton('created'):''}<span class="sp"></span>${b?`<button type="button" data-print-stickers onclick="stkOpenForBatch('${esc(b.number)}')">${n?'Print '+n+' sticker'+(n===1?'':'s'):'Print stickers'}</button><button type="button" data-open-cut title="Cutting screen with this batch" onclick="stationOpen(stationCutCode(),'${esc(b.number)}')">Open on ${esc(stationCutCode())}</button>`:''}${registry?'':`<b data-glass-selected>${n} pcs selected</b><button type="button" class="${scope==='glassQueue'?'pri':''}" data-glass-action="${scope==='glassQueue'?'create':'unbatch'}" ${n?'':'disabled'} onclick="${scope==='glassQueue'?'glassBatchCreateSelected()':'glassBatchUnbatchSelected()'}">${scope==='glassQueue'?'Create batch':'Unbatch selected'}</button>`}</div>${salesListFilterChips()}${table}<div class="gb-footer">${footer}</div>${pager}`}
  ${b||registry?'':'<p class="gb-note">Shift+click — range</p>'}</div>
  ${b&&glassBatchDetailTab==='contents'?`<div class="card gb-waiting" data-still-waiting><h3>Still waiting in these orders</h3><p>${waiting.length?waiting.map(([g,c])=>esc(g)+': '+c+' pcs').join(' · '):'Nothing waiting.'}</p><button type="button" class="gb-link" onclick="optimizationSetTab('batch')">Back to glass queue</button></div>`:''}
  ${salesListMenuHTML(infos)}${typeof stkDialogHTML==='function'?stkDialogHTML():''}</section>`;

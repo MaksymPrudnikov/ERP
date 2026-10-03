@@ -21,5 +21,9 @@ module.exports=async function({eq}){
  eq('styles use only colours from the Glass Farm token set',raw,[]);
  const tokens=fs.readFileSync(path.join(ROOT,'src/styles/tokens.css'),'utf8'),names=n=>[...tokens.matchAll(/--([a-z0-9-]+)\s*:/g)].map(m=>m[1]).filter(x=>!x.startsWith('cut-')&&!/^(shadow|font)/.test(x));
  const light=tokens.slice(0,tokens.indexOf(':root[data-theme="dark"]')),dark=tokens.slice(tokens.indexOf(':root[data-theme="dark"]'),tokens.indexOf('/* ---- Графика'));
+ /* Выбранный мейкап в заказе: оранжевый текст на жёлтом был «грязненько»
+    (владелец, 3 октября 2026) — теперь как всё выбранное, зелёным акцентом. */
+ const mods=fs.readFileSync(path.join(ROOT,'src/styles/modules.css'),'utf8').replace(/\/\*[\s\S]*?\*\//g,''),on=(mods.match(/\.mu-tab\.on\{([^}]*)\}/)||[])[1]||'';
+ eq('selected makeup chip uses the accent, not warning colours',{accent:/--accent/.test(on),warning:/--warning/.test(on)},{accent:true,warning:false});
  eq('dark theme defines every light colour token',[...new Set(names(light))].filter(n=>!names(dark).includes(n)),[]);
 };
