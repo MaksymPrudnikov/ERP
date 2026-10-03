@@ -94,7 +94,8 @@ function render(){
  const gate=typeof signinNeeded==='function'&&signinNeeded();
  document.body.classList.toggle('signin-mode',gate);
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
- if(typeof signinMarkOwner==='function')signinMarkOwner();
+ if(typeof signinMarkOwner==='function'&&signinMarkOwner()===false)return;
+ if(typeof authLogFlush==='function')authLogFlush();
  if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
  /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
  document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
