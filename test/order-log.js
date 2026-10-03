@@ -27,7 +27,7 @@ module.exports=async function({page,eq,ok}){
  }),{gate:true,names:2,office:['Demo Owner','Demo Sales'],nav:'none',wide:true,brand:'Infinity Glass Group Inc',panes:6,types:5,clock:true});
 
  await t.p.click('[data-signin-user]:has-text("Demo Sales")');
- const passErr=async a=>{await t.p.fill('#signinPass',a);await t.p.click('[data-signin-form] button');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
+ const passErr=async a=>{await t.p.fill('#signinPass',a);await t.p.click('[data-signin-form] button[type=submit]');return t.p.evaluate(()=>({err:(document.querySelector('.signin-err')||{}).textContent,user:signinUser()&&signinUser().name}));};
  eq('пароль хранится отпечатком с солью, самого пароля в базе нет',await t.p.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Sales'),text=localStorage.getItem('glazing_system_v1');
   return {hash:/^[0-9a-f]{64}$/.test(u.password.hash),salt:/^[0-9a-f]{32}$/.test(u.password.salt)&&u.password.algo==='sha256-salt',plain:text.includes('glass-farm-1'),check:userPasswordCheck(u,'glass-farm-1'),wrong:userPasswordCheck(u,'glass-farm-2')};}),
   {hash:true,salt:true,plain:false,check:true,wrong:false});
@@ -193,7 +193,7 @@ module.exports=async function({page,eq,ok}){
  eq('Sign out в одной вкладке — экран входа в обеих',await t.p.evaluate(()=>!!document.querySelector('.signin')),true);
  eq('человек без пароля в «Who is working?» не виден — придумать пароль при входе нельзя',await p2.evaluate(()=>({names:[...document.querySelectorAll('[data-signin-user] b')].map(b=>b.textContent),create:!!document.getElementById('signinPass2')})),{names:['Demo Owner','Demo Sales'],create:false});
  await p2.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Owner');signinChoose(u.viewProfileId);});
- await p2.fill('#signinPass','owner-pass-1');await p2.click('[data-signin-form] button');
+ await p2.fill('#signinPass','owner-pass-1');await p2.click('[data-signin-form] button[type=submit]');
  eq('пароль из Users — вошёл',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
  await t.p.close();await p2.close();
  const p3=await t.c.newPage();await p3.goto(t.p.url());await started(p3);
