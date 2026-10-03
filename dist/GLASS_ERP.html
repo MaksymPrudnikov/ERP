@@ -3,7 +3,7 @@
   GLASS ERP — Glazing System
   СБОРКА — не редактировать руками. Детерминированно собрано из src/ через build/build.js.
   Правки вносить в отдельные модули src/**, затем: node build/build.js
-  Состав сборки: 106 модулей, 18 стиля.
+  Состав сборки: 108 модулей, 18 стиля.
 -->
 <html lang="en">
 <head>
@@ -152,6 +152,25 @@ input[type=checkbox]{width:auto}
 .form h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .chk{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px}
+/* Users: два входа — офис (пароль + разделы) и станция (номер + PIN) */
+.user-blocks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px;align-items:start}
+.user-block{border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);padding:12px}
+.user-block.on{border-color:var(--accent-line)}
+.user-block-head{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-size:13px;color:var(--text)}
+.user-block-head .mut{font-size:12px;margin-left:auto}
+.user-block-body{margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft)}
+.user-sec-head{display:flex;align-items:center;gap:6px;margin-top:12px}
+.user-sec-head label{margin:0 auto 0 0}
+.user-secs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:6px}
+.user-sec{display:flex;align-items:center;gap:7px;margin:0;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--text)}
+.user-sec.on{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+.user-sec .icon-inline{margin-right:0}
+.user-access-cell .pill{margin:1px 0}
+body.no-admin [data-admin]{display:none!important}
+.signin-me{max-width:420px}
+.signin-me-form{display:flex;flex-direction:column;gap:8px}
+.signin-me-form label{margin:0}
+.signin-me-form .sp{flex:1}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:11px;border:1px solid var(--line-strong);background:var(--surface);white-space:nowrap}
 .ok{background:var(--green2);border-color:var(--success-line);color:var(--success)}
 .bad{background:var(--red2);border-color:var(--danger-line);color:var(--danger)}
@@ -185,6 +204,7 @@ svg{display:block}
 .domain-node{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--surface);position:relative}
 .domain-node.active{border-color:var(--accent-line);background:var(--surface)}
 .domain-node.planned{background:var(--surface-2)}
+.dash-go:disabled{opacity:.45;cursor:default}
 .domain-node.external{border-style:dashed;background:var(--surface-2)}
 .domain-node .node-icon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;background:var(--accent-soft);color:var(--accent)}
 .domain-node.planned .node-icon{background:var(--surface-3);color:var(--text-2)}
@@ -266,9 +286,6 @@ tr.sf-hit td{background:var(--accent-soft)}
 .icon-inline{display:inline-flex;vertical-align:-3px;margin-right:5px}
 .icon-inline svg{width:16px;height:16px}
 .skill-pillset{display:flex;flex-wrap:wrap;gap:7px}
-.skill-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);font-size:11px;line-height:1}
-.skill-badge .pill{padding:3px 7px;font-size:10px}
-.skill-badge .icon-inline{margin-right:0}
 .skill-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .skill-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--surface);display:flex;gap:12px;align-items:flex-start}
 button.skill-card{width:100%;text-align:left;cursor:pointer;transition:.15s ease;border-color:var(--line)}
@@ -280,7 +297,6 @@ button.skill-card.active{border-color:var(--accent-line);background:var(--accent
 .skill-card-body b{display:block;font-size:13px;margin:0 0 4px}
 .skill-card-body small{display:block;color:var(--mut);font-size:11px;line-height:1.35}
 .skill-card-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.skill-coverage-card .skill-card-meta .pill{font-size:10px}
 .sales-skill-grid{margin:14px 0 16px}
 
 
@@ -380,11 +396,8 @@ body.signin-mode main#app{padding:0}
 .signin-stations .signin-who b{font-weight:500;color:var(--text-2)}
 .signin-pin{margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;align-items:center;gap:10px}
 .signin-pin label{color:var(--text-2);font-size:14px}
-.signin-dots{position:relative;display:flex;gap:14px;padding:8px 4px}
-.signin-dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);transition:background .12s,border-color .12s}
-.signin-dots i.f{background:var(--accent);border-color:var(--accent)}
-.signin-dots.bad i{border-color:var(--danger)}
-.signin-dots input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:text;border:0;padding:0}
+.signin-pin input{width:min(300px,100%);font-size:16px;padding:10px 12px;border-radius:12px;text-align:center}
+.signin-pin button{width:min(300px,100%);padding:10px 12px;border-radius:12px}
 .signin-err{color:var(--danger);font-weight:600;font-size:13px;min-height:16px}
 @media (max-width:600px){.signin-glass i:nth-child(n+3){display:none}.signin-glass i:nth-child(1){left:-180px}.signin-glass i:nth-child(2){left:auto;right:-90px}.signin-clock{font-size:15px;padding:6px 10px}.signin-card{padding:18px}.signin-names{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .side .nav-user>span:last-child{max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2665,10 +2678,10 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <main id="app"></main>
 <footer class="app-foot">
   <div id="storageStatus" aria-live="polite"></div>
-  <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
+  <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <button class="gh" onclick="doExport()">Export JSON</button>
-  <button class="gh" onclick="document.getElementById('imp').click()">Import JSON</button>
+  <button class="gh" data-admin onclick="doExport()">Export JSON</button>
+  <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
 </footer>
 </div>
@@ -2676,7 +2689,7 @@ body.station-mode .app-alert button{min-height:42px;padding:8px 18px;font-size:1
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='4b097e9cf76b';
+var ERP_BUILD='034c745ec7b6';
 /* ==== src/core/dim.js ==== */
 /* =====================================================================
    core/dim  ·  v4.5-port
@@ -2817,6 +2830,34 @@ function fabPolygonsOverlap(A,B){
   if(!A||!B||A.length<3||B.length<3)return false;
   for(var i=0;i<A.length;i++)for(var j=0;j<B.length;j++)if(fabSegIntersectsInclusive(A[i],A[(i+1)%A.length],B[j],B[(j+1)%B.length]))return true;
   return fabPointInPoly(A[0],B)||fabPointInPoly(B[0],A);
+}
+
+/* ==== src/core/sha256.js ==== */
+/* =====================================================================
+   core/sha256  ·  sha256-1.0
+   SHA-256 строки (UTF-8) → 64 hex. Без DOM и внешних библиотек: файл
+   открывается с диска, crypto.subtle там бывает недоступен и асинхронен.
+   Нужен паролю офиса (erp/signin): в базе лежит отпечаток с солью, а не
+   сам пароль.
+   ===================================================================== */
+const SHA256_K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+function sha256Hex(text){
+ const bytes=new TextEncoder().encode(String(text)),len=bytes.length,total=((len+9+63)>>6)<<6,m=new Uint8Array(total);
+ m.set(bytes);m[len]=0x80;const bits=len*8;
+ for(let i=0;i<8;i++)m[total-1-i]=Math.floor(bits/Math.pow(2,8*i))&0xff;
+ const h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19],w=new Array(64);
+ const r=(x,n)=>(x>>>n)|(x<<(32-n));
+ for(let o=0;o<total;o+=64){
+  for(let i=0;i<16;i++)w[i]=(m[o+4*i]<<24)|(m[o+4*i+1]<<16)|(m[o+4*i+2]<<8)|m[o+4*i+3];
+  for(let i=16;i<64;i++){const s0=r(w[i-15],7)^r(w[i-15],18)^(w[i-15]>>>3),s1=r(w[i-2],17)^r(w[i-2],19)^(w[i-2]>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}
+  let [a,b,c,d,e,f,g,k]=h;
+  for(let i=0;i<64;i++){
+   const t1=(k+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+SHA256_K[i]+w[i])|0,t2=((r(a,2)^r(a,13)^r(a,22))+((a&b)^(a&c)^(b&c)))|0;
+   k=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;
+  }
+  h[0]=(h[0]+a)|0;h[1]=(h[1]+b)|0;h[2]=(h[2]+c)|0;h[3]=(h[3]+d)|0;h[4]=(h[4]+e)|0;h[5]=(h[5]+f)|0;h[6]=(h[6]+g)|0;h[7]=(h[7]+k)|0;
+ }
+ return h.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
 
 /* ==== src/modules/shape/consts.js ==== */
@@ -7106,6 +7147,69 @@ function realMuntinResult(shape,mdef){
 }
 const MuntinModule={code:'MUNTIN',name:'Adaptive Muntin',version:'v4.5-port',compute:realMuntinResult};
 
+/* ==== src/erp/access.js ==== */
+/* =====================================================================
+   erp/access  ·  access-1.0
+   Кто что может и как хранятся секреты — один слой.
+   IN : signinUser() (erp/signin), sha256Hex (core/sha256)
+   OUT: USER_SECTIONS, ACCESS_ADMIN, accessCan(); пароль офиса и PIN станции
+
+   Владелец, 3 октября 2026: «построй правильную архитектуру под базу данных…
+   строй на будущее». Сейчас база живёт в браузере; когда появится сервер,
+   меняется этот файл и erp/signin, остальной код — нет:
+   · права — строки-ключи разделов меню (USER_SECTIONS) в поле access
+     человека. В базе это столбец access у пользователя; сервер проверяет те
+     же ключи на своих запросах, интерфейс — через accessCan();
+   · ACCESS_ADMIN (раздел Users) — администратор: люди, пароли, PIN и вся
+     база целиком (Export / Import JSON). На сервере это админские запросы;
+   · секреты — только отпечатки {algo, salt, hash}, ни пароля, ни PIN в базе
+     и в выгрузке нет. algo записан, чтобы сервер при первом входе проверил
+     старый отпечаток и пересчитал своим, более медленным алгоритмом;
+   · id человека — viewProfileId; журнал заказа и скан станции пишут его
+     рядом с именем (byId).
+   Правило: файл не знает про заказы, цены и экраны.
+   ===================================================================== */
+const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
+const ACCESS_ADMIN='users';
+/* Никто не вошёл — входа ещё нет (пароля нет ни у кого с Users, erp/signin):
+   видно всё, как в пустой базе. С сервером «никто не вошёл» значит «ничего».
+   Редактор формы (configurators) — часть Sales; экраны вне меню (станция)
+   ключа не имеют. */
+function accessCan(key){
+ const u=typeof signinUser==='function'?signinUser():null;
+ if(!u)return true;
+ const k=key==='configurators'?'sales':key;
+ return !USER_SECTIONS.includes(k)||u.access.includes(k);
+}
+function userOffice(u){return !!(u&&Array.isArray(u.access)&&u.access.length);}
+
+/* --- секреты: пароль офиса (8+ символов) и PIN станции (4 цифры) --- */
+const SECRET_ALGO='sha256-salt';
+const USER_PASSWORD_MIN=8;
+const USER_PIN_RE=/^\d{4}$/;
+function secretMake(text){
+ const a=new Uint8Array(16);crypto.getRandomValues(a);
+ const salt=[...a].map(x=>x.toString(16).padStart(2,'0')).join('');
+ return {algo:SECRET_ALGO,salt,hash:sha256Hex(salt+':'+text)};
+}
+function secretValid(s){return !!(s&&typeof s==='object'&&s.algo===SECRET_ALGO&&/^[0-9a-f]{32}$/.test(s.salt)&&/^[0-9a-f]{64}$/.test(s.hash));}
+function secretCheck(s,text){return secretValid(s)&&sha256Hex(s.salt+':'+text)===s.hash;}
+/* Приводит секреты человека к виду для базы. PIN из старых данных лежал
+   открытой строкой — превращается в отпечаток; пароль ветки до access-1.0
+   (passwordHash + passwordSalt) — в объект. Битое — удаляется: войти по нему
+   нельзя, офис выдаст новый. */
+function secretsNormalize(u){
+ if(!u.password&&u.passwordHash&&u.passwordSalt)u.password={algo:SECRET_ALGO,salt:String(u.passwordSalt),hash:String(u.passwordHash)};
+ delete u.passwordHash;delete u.passwordSalt;
+ if(!secretValid(u.password))delete u.password;
+ if(typeof u.pin==='string'||typeof u.pin==='number'){const p=String(u.pin);if(USER_PIN_RE.test(p))u.pin=secretMake(p);}
+ if(!secretValid(u.pin))delete u.pin;
+}
+function userPasswordSet(u,password){u.password=secretMake(password);}
+function userPasswordCheck(u,password){return !!u&&secretCheck(u.password,password);}
+function userPinSet(u,pin){u.pin=secretMake(pin);}
+function userPinCheck(u,pin){return !!u&&secretCheck(u.pin,pin);}
+
 /* ==== src/erp/data.js ==== */
 /* =====================================================================
    erp/data  ·  erp-1.0
@@ -7133,55 +7237,24 @@ function normalizeSalesModules(){
   });
 }
 
-/* Реальные должности компании (хендофф, раздел 7): Продажи · Бухгалтер ·
-   Админ · Владелец. Прежние семь ролей были выдумкой прототипа — проектировать
-   права под несуществующие должности нельзя. Цех, отгрузка и снабжение
-   именованных учёток не получают: учётка принадлежит терминалу станции, а
-   человек опознаётся сканом бейджа при действии.
-   Прибыль видит только Владелец; Админ — техническая роль без денег.
-   Shop — рабочий цеха. Владелец 29 сентября 2026: «рабочий логинится и
-   открывает свою станцию, и потом всё, что он сканирует, — под его именем».
-   Вход раз в смену — имя и PIN на экране станции, не пароль. */
-const ROLES=['Sales','Accounting','Admin','Owner','Shop'];
-/* PIN — четыре цифры. Это опознание рабочего у станции, а не защита:
-   права в прототипе ещё не проверяются нигде. */
-const USER_PIN_RE=/^\d{4}$/;
-/* Неизвестная роль из импорта или из старых данных падает в самую слабую —
-   Sales: она не видит ни себестоимости, ни настроек системы. */
-const SAFE_DEFAULT_ROLE='Sales';
-const SKILLS=['Cutting','Edgework (arris/polish)','CNC polishing','Drilling / notches','Tempering','Quality control','Shipping / loading'];
-const SKILL_LEVELS=['Beginner','Intermediate','Senior'];
-/* Роли и навыки — ХРАНИМЫЕ значения, а не подписи: они лежат в базе у каждого
-   пользователя и проверяются по списку при импорте. Английский интерфейс
-   переименовал их, поэтому старое значение надо перенести, иначе сохранённый
-   пользователь получит «unknown role», а его навыки молча исчезнут. Перенос
-   разовый и по значению — id у ролей нет. */
-const LEGACY_ROLES={'Продажи':'Sales','Бухгалтер':'Accounting','Админ':'Admin','Владелец':'Owner'};
-const LEGACY_SKILLS={'Резка':'Cutting','Кромка (arris/polish)':'Edgework (arris/polish)','ЧПУ полировка':'CNC polishing','Сверловка/выемки':'Drilling / notches','Закалка':'Tempering','Контроль качества':'Quality control','Отгрузка/погрузка':'Shipping / loading'};
-const LEGACY_SKILL_LEVELS={'Джун':'Beginner','Мидл':'Intermediate','Синьор':'Senior'};
-const migrateRole = r => LEGACY_ROLES[r]||r;
-const migrateSkillName = s => LEGACY_SKILLS[s]||s;
-const migrateSkillLevel = l => LEGACY_SKILL_LEVELS[l]||l;
-/* Старые записи могли хранить навык строкой — для них сохраняем исторический
-   уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
-const normSkill = x => {
- const src=typeof x==='string'?{skill:x,level:'Intermediate'}:(x&&typeof x==='object'?x:null);
- if(!src)return null;
- const skill=migrateSkillName(String(src.skill==null?'':src.skill).trim());if(!SKILLS.includes(skill))return null;
- const level=migrateSkillLevel(typeof x==='string'?'Intermediate':src.level);if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
-};
-/* Пользователь привязан к РАБОЧЕМУ МЕСТУ, а не к станции: станция теперь шаг
-   маршрута, и «привязать человека к шагу маршрута» не значит ничего.
-
-   Старое поле `station` держало код станка (CUT1, CNC1, FURN1) — по коду оно
-   и переносится в `workPosition`. Код, которому в реальном цеху ничего не
-   соответствует (`EDGE1` — выдуманная «кромкообрабатывающая линия», вместо
-   неё стоят ARRIS-H/M, POL1–3, MITER1, BEVEL1), обнуляется. Угадывать, за
-   каким из шести мест стоял человек, нельзя: это ровно та подмена, из-за
-   которой у Spil расстановка смены оказалась структурой цеха.
-
-   И это ПРЕФИЛЛ, не назначение. Правда о том, кто сделал работу, приходит со
-   скана и живёт в событии (хендофф, раздел 9м §3). */
+/* Пользователь (владелец, 3 октября 2026): «вряд ли нужны скилы и прочее —
+   нужен пользователь, пароль и уровень доступа выбором галочек». Навыки,
+   станция по умолчанию и роли убраны: их читал только сам экран Users.
+   Осталось два входа, оба необязательны, у одного человека могут быть оба
+   (мастер цеха):
+   · офис — пароль от 8 символов и галочки разделов меню (access): раздела
+     без галочки нет в меню, и он не открывается; галочек нет — в офис не
+     входит. Уровней «смотреть / править» нет — владелец выбрал «видит / не
+     видит»;
+   · станция — личный номер (No.) и PIN, на любой станции, и на двух сразу:
+     «он может быть на двух станциях одновременно ответственным». PIN пуст —
+     на станцию не входит. */
+/* Ключи прав (USER_SECTIONS), проверка accessCan и секреты — erp/access. */
+/* Роли до 3 октября 2026 переносятся в галочки один раз. Прав тогда не
+   проверял никто, офисные роли видели всё — и получают все разделы: пока
+   владелец сам не снимет галочки, ничего не меняется. Shop и неизвестная
+   роль — без офиса: права не повышаем. */
+const LEGACY_OFFICE_ROLES=['Sales','Accounting','Admin','Owner','Продажи','Бухгалтер','Админ','Владелец'];
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
@@ -7189,18 +7262,12 @@ function normalizeUsers(){
  DB.user.forEach(u=>{
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
-  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(migrateRole(u.role))?migrateRole(u.role):SAFE_DEFAULT_ROLE;
-  /* Человек привязан к СТАНЦИИ, а не к станку: рабочие места удалены
-     11 сентября 2026, а по разделу 7 хендоффа учётка вообще принадлежит
-     терминалу станции — конкретный оператор опознаётся бейджем при действии.
-     Старый код места читаем как есть: коды станков и станций не пересекаются,
-     и несуществующий просто обнулится. */
-  const legacy=u.station==null?u.workPosition:u.station;
-  const code=String(legacy==null?'':legacy).trim().toUpperCase();
-  u.station=DB.station.some(s=>s.code===code)?code:'';
-  delete u.workPosition;
-  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
-  u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
+  u.name=String(u.name==null?'':u.name);
+  const access=Array.isArray(u.access)?u.access:LEGACY_OFFICE_ROLES.includes(u.role)?USER_SECTIONS:[];
+  u.access=USER_SECTIONS.filter(k=>access.includes(k));
+  delete u.role;delete u.skills;delete u.station;delete u.workPosition;
+  /* Пароль офиса и PIN станции — только отпечатки (erp/access). */
+  secretsNormalize(u);
  });
  /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
     (владелец, 2 октября 2026: «один пользователь может работать на разных
@@ -7208,6 +7275,12 @@ function normalizeUsers(){
  const nos=new Set();
  DB.user.forEach(u=>{const n=Number(u.no);u.no=Number.isInteger(n)&&n>0&&n<10000&&!nos.has(n)?n:0;if(u.no)nos.add(u.no);});
  let next=1;DB.user.forEach(u=>{if(u.no)return;while(nos.has(next))next++;u.no=next;nos.add(next);});
+ /* Дверь не запирается: офис есть, а раздел Users не видит никто — людей
+    больше некому завести и некому вернуть галочки. Тогда Users получает
+    первый по номеру офисный. Экран Users такого сохранить не даёт; это на
+    случай импорта чужого файла. */
+ const office=DB.user.filter(userOffice);
+ if(office.length&&!office.some(u=>u.access.includes('users'))){const first=office.reduce((a,b)=>b.no<a.no?b:a);first.access=USER_SECTIONS.filter(k=>k==='users'||first.access.includes(k));}
 }
 function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
@@ -7467,22 +7540,6 @@ function applyDataFixes(){
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
 }
-function skillIconName(skill){
- return ({
-  'Cutting':'cut',
-  'Edgework (arris/polish)':'edge',
-  'CNC polishing':'cnc',
-  'Drilling / notches':'cnc',
-  'Tempering':'furnace',
-  'Quality control':'check',
-  'Shipping / loading':'shipping'
- })[skill] || 'report';
-}
-function skillBadgeHTML(skillObj){
- const s=normSkill(skillObj);
- if(!s)return '';
- return `<span class="skill-badge">${ico(skillIconName(s.skill),'icon-inline')}<span>${esc(s.skill)}</span><span class="pill">${esc(s.level)}</span></span>`;
-}
 function salesSkillCards(){
  const cards=[
   {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'}
@@ -7490,17 +7547,15 @@ function salesSkillCards(){
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';sEdit=null;sDraft=null;render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
 }
 
-/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
-   показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
-   проверить было не на ком. Трое — по одному на роль, которую в жизни держит
-   человек; Админ не засеян намеренно, это техническая роль. Рабочее место у
-   всех троих пустое: это офисные роли, за станком они не стоят.
+/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user, и вход
+   проверить было не на ком. Трое офисных с разными галочками; на станцию
+   никто из них не входит — PIN пуст. Пароль каждый задаёт при первом входе.
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Sales',station:'',skills:[]},
- {name:'Demo Accounting',role:'Accounting',station:'',skills:[]},
- {name:'Demo Owner',role:'Owner',station:'',skills:[]}
+ {name:'Demo Sales',access:['sales','optimization','production','shipping','customers','dashboard']},
+ {name:'Demo Accounting',access:['sales','finance','customers','dashboard']},
+ {name:'Demo Owner',access:USER_SECTIONS}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому
@@ -12329,8 +12384,11 @@ function navItemHTML(n,i){
  return `<button type="button" class="nav-item${on?' on':''}${i>=NAV_TABBAR?' nav-extra':''}" aria-current="${on?'page':'false'}" title="${n.title||n.label}" onclick="navGo('${n.k}')">${ico(n.icon)}<span>${n.label}</span></button>`;
 }
 function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
+/* Доступ — галочки разделов в Users (владелец, 3 октября 2026: «видит / не
+   видит»): раздела без галочки нет в меню, и он не открывается. Проверка
+   одна — accessCan (erp/access). */
 function renderNav(){
- const main=NAV.filter(n=>!n.bottom),low=NAV.filter(n=>n.bottom);
+ const main=NAV.filter(n=>!n.bottom&&accessCan(n.k)),low=NAV.filter(n=>n.bottom&&accessCan(n.k));
  document.getElementById('side').innerHTML =
   `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" onclick="toggleTheme()">GF</button>` +
   main.map((n,i)=>navItemHTML(n,i)).join('') +
@@ -12344,6 +12402,7 @@ function renderNav(){
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
 function navGo(k){
+ if(!accessCan(k))return;
  const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
  go();
@@ -12382,11 +12441,14 @@ function render(){
  const gate=typeof signinNeeded==='function'&&signinNeeded();
  document.body.classList.toggle('signin-mode',gate);
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
+ if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
+ /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
+ document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
   dashboard:['System overview','ERP map and current status'],
-  users:['Users','Roles, work positions and skill coverage'],
+  users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
   configurators:['Configurators','Engineering Shape configurator'],
@@ -12440,10 +12502,11 @@ const DASH_FLOW=[
 const DASH_SETUP=[
  ['customers','users','Customers','Accounts · terms · contacts'],
  ['masterdata','database','Data','Glass catalog · stations · services · prices'],
- ['users','users','Users','People · roles · station PINs']
+ ['users','users','Users','Office passwords · sections · station PINs']
 ];
+/* Раздел без галочки в Users остаётся на карте пути заказа, но не нажимается. */
 function dashNode(n){
- return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}" onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
+ return `<button type="button" class="domain-node active dash-go" data-dash-go="${n[0]}"${accessCan(n[0])?'':' disabled'} onclick="navGo('${n[0]}')"><div class="node-icon">${ico(n[1])}</div><b>${n[2]}</b><small>${n[3]}</small></button>`;
 }
 function viewDashboard(){
  return `<div class="card dash-card">
@@ -12459,132 +12522,150 @@ function viewDashboard(){
 
 /* ==== src/erp/views/users.js ==== */
 /* =====================================================================
-   view/users  ·  erp-1.0
-   Пользователи, рабочие места, навыки и покрытие навыков.
+   view/users  ·  erp-2.0
+   Люди и доступ: имя, вход в офис (пароль + разделы), вход на станцию
+   (номер + PIN). Модель — erp/data (USER_SECTIONS, normalizeUsers).
    IN : DB.user
    OUT: html
+   Владелец, 3 октября 2026: «вряд ли нужны скилы и прочее — нужен
+   пользователь, пароль и уровень доступа выбором галочек». Навыки, станция
+   по умолчанию, роли и отчёт покрытия убраны.
    Правило: файл не знает про цены, клиентов и заказы. Только вход→выход.
    ===================================================================== */
 
+/* uEdit — 'new' или viewProfileId, а не номер строки: × на другой строке,
+   пока форма открыта, сдвигает список, и Save писал бы не в того человека. */
 let uEdit=null, uDraft=null;
+function userEditIndex(){return uEdit==='new'||uEdit===null?-1:DB.user.findIndex(u=>u.viewProfileId===uEdit);}
+function userSectionNav(k){return NAV.find(n=>n.k===k)||{k,label:k,icon:'report'};}
+function userAccessHTML(u){
+ if(!userOffice(u))return '<span class="mut">—</span>';
+ if(u.access.length===USER_SECTIONS.length)return '<span class="pill ok">All sections</span>';
+ return u.access.map(k=>`<span class="pill">${esc(userSectionNav(k).label)}</span>`).join(' ');
+}
+/* Две вкладки, как на экране входа (владелец, 3 октября 2026: «разделить на
+   офис и производство»). Office — у кого отмечены разделы, Production — у
+   кого есть PIN станции или нет офиса (рабочий, которому PIN ещё не дали).
+   Мастер цеха с обоими входами — в обеих. */
+function usersSide(){return subtab==='production'?'production':'office';}
+function usersOn(u,side){return side==='production'?!!u.pin||!userOffice(u):userOffice(u);}
 function viewUsers(){
- if(!subtab || !['list','report'].includes(subtab)) subtab='list';
- const covered=SKILLS.filter(skill=>DB.user.some(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill))).length;
- return `<div class="page-head"><div><h2>Team and production access</h2><p>Who works in the system and which work position they stand at by default. This prefills the screen; it does not tie a person to a machine — the truth about who did the work arrives with the scan. Module and field permissions come as a separate layer.</p></div><span class="pill info">${ico('lock','icon-inline')}permissions — next step</span></div>
-  <div class="kpi-grid">
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('users')}</div></div><div class="kpi-num">${DB.user.length}</div><div class="kpi-label">users</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('factory')}</div></div><div class="kpi-num">${DB.user.filter(u=>u.station).length}</div><div class="kpi-label">assigned to a work position</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('check')}</div></div><div class="kpi-num">${covered}/${SKILLS.length}</div><div class="kpi-label">skill types covered</div></div>
-   <div class="kpi"><div class="kpi-top"><div class="kpi-icon">${ico('alert')}</div></div><div class="kpi-num">${SKILLS.length-covered}</div><div class="kpi-label">skills with no holder</div></div>
-  </div>
+ const side=usersSide(),prod=side==='production';
+ const list=DB.user.map((u,i)=>({u,i})).filter(x=>usersOn(x.u,side));
+ const count=k=>DB.user.filter(u=>usersOn(u,k)).length;
+ const rows=list.map(({u,i})=>{
+  const actions=`<td style="white-space:nowrap"><button class="sm" onclick="userEditOpen(${i})">Edit</button>
+   <button class="sm dl" title="${prod?'Remove from production':'Remove from office'}" onclick="delUser(${i},'${side}')">×</button></td>`;
+  return prod
+   ?`<tr data-user-row="${esc(u.viewProfileId)}"><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>${actions}</tr>`
+   :`<tr data-user-row="${esc(u.viewProfileId)}"><td><b>${raw(u.name)}</b></td><td class="user-access-cell">${userAccessHTML(u)}</td>
+   <td>${u.password?'<span class="pill ok">set</span>':'<span class="pill warn" title="Cannot sign in">not set</span>'}</td>${actions}</tr>`;
+ }).join('');
+ const head=prod
+  ?'<th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>PIN</th><th></th>'
+  :'<th>Name</th><th>Sections</th><th>Password</th><th></th>';
+ /* Вход ещё выключен (signinOn): пароля нет ни у кого с разделом Users. */
+ const off=DB.user.some(userOffice)&&!signinOn()?'<span class="pill warn" data-signin-off>Sign-in is off — set a password for someone with Users</span>':'';
+ return `<div class="page-head"><div><h2>Users</h2><p>${prod?'Number and PIN · any station.':'Password and sections.'}</p></div>${off}
+  ${uEdit!==null?'':`<button class="pri" data-user-add onclick="userEditOpen('new')">Add user</button>`}</div>
   <div class="card">
-   <div class="tabs">
-    <button class="${subtab==='list'?'on':''}" onclick="subtab='list';render()">Users</button>
-    <button class="${subtab==='report'?'on':''}" onclick="subtab='report';render()">Skill coverage</button>
-   </div>
-   ${subtab==='report'?skillReport():viewUsersList()}
+  <div class="tabs">${[['office','Office'],['production','Production']].map(([k,l])=>`<button class="${side===k?'on':''}" data-users-side="${k}" onclick="subtab='${k}';render()">${l} <span class="mut">${count(k)}</span></button>`).join('')}</div>
+  ${uEdit!==null?userForm():''}
+  <table><thead><tr>${head}</tr></thead>
+  <tbody>${rows||`<tr><td colspan="4" class="empty">${prod?'No one signs in at stations yet':'No one signs in to the office yet'}</td></tr>`}</tbody></table>
   </div>`;
 }
-function viewUsersList(){
- const rows=DB.user.map((u,i)=>{
-  const st=DB.station.find(s=>s.code===u.station);
-  const skillPills=(u.skills||[]).map(skillBadgeHTML).join(' ');
-  return `<tr><td class="mono">${esc(userNoText(u))}</td><td><b>${raw(u.name)}</b></td><td>${esc(u.role)}</td>
-   <td class="mono">${st?`<span data-raw>${esc(st.code)}</span> — ${sfLabel(st)}`:'<span class="mut">not assigned</span>'}</td>
-   <td>${skillPills||'<span class="mut">—</span>'}</td>
-   <td>${u.pin?'<span class="pill ok">set</span>':'<span class="mut">—</span>'}</td>
-   <td style="white-space:nowrap"><button class="sm" onclick="uEdit=${i};uDraft=JSON.parse(JSON.stringify(DB.user[${i}]));uDraft.skills=(uDraft.skills||[]).map(normSkill);render()">Edit</button>
-   <button class="sm dl" onclick="delUser(${i})">×</button></td></tr>`;
- }).join('');
- return `${uEdit!==null?userForm():''}
-  <table><thead><tr><th title="Station sign-in: number + PIN">No.</th><th>Name</th><th>Role</th><th>Work position</th><th>Skills</th><th>PIN</th><th></th></tr></thead>
-  <tbody>${rows||'<tr><td colspan="7" class="empty">empty</td></tr>'}</tbody></table>
-  ${uEdit!==null?'':'<div class="row"><button class="pri" onclick="uEdit=\'new\';uDraft={no:\'\',name:\'\',role:SAFE_DEFAULT_ROLE,station:\'\',skills:[],pin:\'\'};render()">Add user</button></div>'}`;
+/* Новый человек — с тем входом, на вкладке которого нажали Add user. */
+function userEditOpen(i){
+ const u=i==='new'?{no:'',name:'',access:[]}:JSON.parse(JSON.stringify(DB.user[i]));
+ u.onOffice=i==='new'?usersSide()==='office':userOffice(u);u.onStation=i==='new'?usersSide()==='production':!!u.pin;
+ uEdit=i==='new'?'new':u.viewProfileId;uDraft=u;render();
+ setTimeout(()=>{const el=document.getElementById('u_name');if(el&&i==='new')el.focus();},0);
 }
 function userForm(){
- const r = uDraft;
- return `<div class="form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
-  <div class="grid">
-   <div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div>
-   <div><label>Role *</label><select id="u_role" onchange="uDraft.role=this.value">${ROLES.map(x=>`<option ${x===r.role?'selected':''}>${x}</option>`).join('')}</select></div>
-   <div><label>Default station</label><select id="u_station" onchange="uDraft.station=this.value"><option value="">— none —</option>
-    ${DB.station.map(w=>`<option value="${esc(w.code)}" ${w.code===r.station?'selected':''} data-raw>${esc(w.code)} — ${esc(sfName(w))}</option>`).join('')}</select></div>
-   <div><label>No. · station sign-in</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
-   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4 digits" value="${esc(r.pin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.pin=this.value"></div>
-  </div>
-  <div style="margin-top:12px"><label>Skills and proficiency level</label>
-   <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
-   ${SKILLS.map(s=>{
-     const entry=(r.skills||[]).find(x=>x.skill===s);
-     return `<div style="display:flex;align-items:center;gap:8px">
-      <label class="chk" style="min-width:230px"><input type="checkbox" ${entry?'checked':''} onchange="toggleUserSkill('${esc(s)}',this.checked)"> ${esc(s)}</label>
-      ${entry?`<select onchange="setUserSkillLevel('${esc(s)}',this.value)">${SKILL_LEVELS.map(l=>`<option ${l===entry.level?'selected':''}>${l}</option>`).join('')}</select>`:'<span class="mut" style="font-size:12px">not selected</span>'}
-     </div>`;
-   }).join('')}
-   </div>
+ const r=uDraft;
+ const sections=USER_SECTIONS.map(k=>{const n=userSectionNav(k),on=r.access.includes(k);
+  return `<label class="user-sec${on?' on':''}" data-user-sec="${k}"><input type="checkbox" ${on?'checked':''} onchange="userToggleSection('${k}',this.checked)">${ico(n.icon,'icon-inline')}${esc(n.label)}</label>`;}).join('');
+ const office=r.onOffice?`<div class="user-block-body">
+   <div class="grid"><div><label>Password</label><input id="u_password" type="password" autocomplete="new-password" placeholder="${r.password?'set · type to change':USER_PASSWORD_MIN+'+ characters'}" value="${esc(r.newPassword||'')}" oninput="uDraft.newPassword=this.value"></div></div>
+   <div class="user-sec-head"><label>Sections</label><button type="button" class="sm" onclick="userSetSections(true)">All</button><button type="button" class="sm" onclick="userSetSections(false)">None</button></div>
+   <div class="user-secs">${sections}</div></div>`:'';
+ const station=r.onStation?`<div class="user-block-body"><div class="grid">
+   <div><label>No.</label><input id="u_no" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="auto" value="${esc(r.no?userNoText(r):'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.no=this.value"></div>
+   <div><label>PIN</label><input id="u_pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r.pin?'set · type to change':'4 digits'}" value="${esc(r.newPin||'')}" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,4);uDraft.newPin=this.value"></div>
+  </div><div class="hint">Any station. The office gives the PIN.</div></div>`:'';
+ return `<div class="form user-form"><h3>${uEdit==='new'?'New user':'Edit'}</h3>
+  <div class="grid"><div><label>Name *</label><input id="u_name" value="${esc(r.name||'')}" oninput="uDraft.name=this.value"></div></div>
+  <div class="user-blocks">
+   <div class="user-block${r.onOffice?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_office" ${r.onOffice?'checked':''} onchange="uDraft.onOffice=this.checked;render()"><b>Office sign-in</b><span class="mut">password · sections</span></label>${office}</div>
+   <div class="user-block${r.onStation?' on':''}"><label class="user-block-head"><input type="checkbox" id="u_station" ${r.onStation?'checked':''} onchange="uDraft.onStation=this.checked;render()"><b>Station sign-in</b><span class="mut">number · PIN</span></label>${station}</div>
   </div>
   <div class="err" id="e_user"></div>
   <div class="row"><button class="pri" onclick="saveUser()">Save</button><button onclick="uEdit=null;uDraft=null;render()">Cancel</button></div></div>`;
 }
-function toggleUserSkill(skill, checked){
- if(!uDraft.skills) uDraft.skills=[];
- if(checked){ if(!uDraft.skills.some(x=>x.skill===skill)) uDraft.skills.push({skill, level:'Beginner'}); }
- else { uDraft.skills=uDraft.skills.filter(x=>x.skill!==skill); }
- render();
+function userToggleSection(k,on){
+ const set=new Set(uDraft.access);if(on)set.add(k);else set.delete(k);
+ uDraft.access=USER_SECTIONS.filter(x=>set.has(x));render();
 }
-function setUserSkillLevel(skill, level){
- const e=uDraft.skills.find(x=>x.skill===skill); if(e) e.level=level;
-}
+function userSetSections(all){uDraft.access=all?USER_SECTIONS.slice():[];render();}
+/* Без раздела Users людей некому завести — хотя бы у одного офисного он
+   должен остаться. Проверяется на том, что получится после сохранения. */
+function userUsersKept(list){const office=list.filter(userOffice);return !office.length||office.some(u=>u.access.includes('users'));}
 function saveUser(){
  const e=document.getElementById('e_user'); e.style.display='none';
- uDraft.name=(uDraft.name||'').trim();
- if(!uDraft.name) return fail(e,'Enter a name');
- uDraft.pin=String(uDraft.pin||'');
- if(uDraft.pin&&!USER_PIN_RE.test(uDraft.pin)) return fail(e,'PIN: 4 digits or empty');
- const no=String(uDraft.no==null?'':uDraft.no).trim();
+ const d=uDraft,at=userEditIndex();
+ if(uEdit!=='new'&&at<0) return fail(e,'This user was deleted');
+ d.name=(d.name||'').trim();
+ if(!d.name) return fail(e,'Enter a name');
+ if(!d.onOffice) d.access=[];
+ else if(!d.access.length) return fail(e,'Office: tick at least one section');
+ /* Пароль и PIN ставят здесь (erp/access хранит только отпечатки): при
+    входе их не придумать, а заданные не видны — только сменить. Офис без
+    пароля и станция без PIN не сохраняются; снять вход — секрет уходит. */
+ const pw=d.onOffice?String(d.newPassword||''):'',pin=d.onStation?String(d.newPin||''):'';
+ if(d.onOffice&&(pw||!d.password)&&pw.length<USER_PASSWORD_MIN) return fail(e,'Password: at least '+USER_PASSWORD_MIN+' characters');
+ if(d.onStation&&(pin||!d.pin)&&!USER_PIN_RE.test(pin)) return fail(e,'PIN: 4 digits');
+ const no=String(d.no==null?'':d.no).trim();
  if(no&&!/^\d{1,4}$/.test(no)) return fail(e,'No.: up to 4 digits or empty');
- const taken=no&&+no>0?DB.user.find((x,i)=>i!==uEdit&&x.no===+no):null;
+ const taken=no&&+no>0?DB.user.find((x,i)=>i!==at&&x.no===+no):null;
  if(no&&+no<1) return fail(e,'No.: from 1');
  if(taken) return fail(e,'No. '+userNoText(taken)+' belongs to '+taken.name);
- uDraft.no=no?+no:0;
- if(uEdit==='new') DB.user.push(uDraft); else Object.assign(DB.user[uEdit],uDraft);
+ if(!userUsersKept(DB.user.map((x,i)=>i===at?d:x).concat(uEdit==='new'?[d]:[]))) return fail(e,'Someone must keep Users');
+ d.no=no?+no:0;
+ if(pw)userPasswordSet(d,pw);
+ if(pin)userPinSet(d,pin);
+ const dropPw=!d.onOffice,dropPin=!d.onStation;
+ ['newPassword','newPin','onOffice','onStation'].forEach(k=>delete d[k]);
+ if(uEdit==='new') DB.user.push(d); else Object.assign(DB.user[at],d);
+ const t=uEdit==='new'?d:DB.user[at];if(dropPw)delete t.password;if(dropPin)delete t.pin;
  normalizeUsers();uEdit=null; uDraft=null; touch(); render();
 }
-function delUser(i){ if(!confirm('Delete this user?'))return; DB.user.splice(i,1); touch(); render(); }
-
-/* --- отчёт: свод по навыкам всех людей сразу, чекбоксы этого не умеют,
-   поэтому это отдельный экран, а не ещё одна колонка в списке --- */
-function skillReport(){
- const cards=SKILLS.map(skill=>{
-  const people=DB.user.filter(u=>(u.skills||[]).map(normSkill).some(x=>x&&x.skill===skill));
-  const pct=DB.user.length?Math.min(100,Math.round(people.length/DB.user.length*100)):0;
-  const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
-  const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<div class="skill-card skill-coverage-card"><div class="skill-card-icon">${ico(skillIconName(skill))}</div><div class="skill-card-body"><b>${esc(skill)}</b><small>${total===0?'no holder':total===1?'risk: 1 person':total+' people'}</small><div class="bar-bg" style="margin-top:9px"><div class="bar-fill" style="width:${pct}%"></div></div><div class="skill-card-meta">${SKILL_LEVELS.map(l=>`<span class="pill ${byLevel[l].length?'info':''}">${esc(l)} · ${byLevel[l].length}</span>`).join(' ')}</div></div></div>`;
- }).join('');
- const rows=SKILLS.map(skill=>{
-  const byLevel={}; SKILL_LEVELS.forEach(l=>byLevel[l]=[]);
-  DB.user.forEach(u=>{const e=(u.skills||[]).map(normSkill).find(x=>x&&x.skill===skill);if(e&&byLevel[e.level]) byLevel[e.level].push(u.name);});
-  const total=SKILL_LEVELS.reduce((s,l)=>s+byLevel[l].length,0), cls=total===0?'bad':total===1?'warn':'ok';
-  return `<tr><td><b>${esc(skill)}</b></td>${SKILL_LEVELS.map(l=>`<td>${byLevel[l].length?byLevel[l].map(raw).join(', '):'<span class="mut">—</span>'}</td>`).join('')}<td><span class="pill ${cls}">${total===0?'no holder':total===1?'risk: 1 person':total+' people'}</span></td></tr>`;
- }).join('');
- return `<div class="sub">The visual layer first shows competency gaps. The exact level matrix remains below.</div>
-  <div class="skill-card-grid" style="margin-bottom:14px">${cards}</div>
-  <table><thead><tr><th>Skill</th>${SKILL_LEVELS.map(l=>`<th>${l}</th>`).join('')}<th>Coverage</th></tr></thead><tbody>${rows}</tbody></table>`;
+/* × на вкладке снимает этот вход. Другого входа нет — человек удаляется. */
+function delUser(i,side){
+ const u=DB.user[i];if(!u)return;
+ const prod=side==='production',other=prod?userOffice(u):!!u.pin;
+ if(!other){
+  if(!userUsersKept(DB.user.filter((x,j)=>j!==i)))return alert('Someone must keep Users');
+  if(!confirm('Delete '+(u.name||'this user')+'?'))return;
+  DB.user.splice(i,1);touch();render();return;
+ }
+ if(!prod&&!userUsersKept(DB.user.map((x,j)=>j===i?Object.assign({},x,{access:[]}):x)))return alert('Someone must keep Users');
+ if(!confirm((prod?'Remove station sign-in for ':'Remove office sign-in for ')+(u.name||'this user')+'?'))return;
+ if(prod)delete u.pin;else{u.access=[];delete u.password;}
+ touch();render();
 }
 
 /* ==== src/erp/signin.js ==== */
 /* =====================================================================
    erp/signin  ·  signin-1.0
-   Вход в офис по PIN: кто сейчас работает за этим компьютером.
-   IN : DB.user (имя, PIN — тот же, что на станции)
-   OUT: signinUser() — для журнала заказа и Finance; экран входа; имя в шапке
+   Вход в офис по паролю: кто сейчас работает за этим компьютером.
+   IN : DB.user (имя, пароль, галочки разделов)
+   OUT: signinUser() — для журнала заказа, Finance и меню; экран входа
 
    Владелец, 2 октября 2026: журнал заказа должен знать «кто». Вход — имя и
-   PIN из Users. Выход — кнопкой Sign out или когда закрыты все вкладки
+   пароль из Users; входят только люди с галочками разделов и паролем. Выход — кнопкой Sign out или когда закрыты все вкладки
    браузера; по простою не выходит: «резчик может пол дня разгружать трак».
-   F5 входа не сбрасывает. Экран станции (#station=…) входит своим PIN.
+   F5 входа не сбрасывает. Экран станции (#station=…) входит номером и PIN.
 
    Как узнаём «браузер закрывали»: каждая открытая вкладка держит общий
    замок SIGNIN_LOCK. Новая вкладка смотрит, держит ли его кто-то ещё: да —
@@ -12596,13 +12677,20 @@ let signinPick='',signinError='',signinChecking=false;
 function signinSession(){try{const s=JSON.parse(localStorage.getItem(SIGNIN_KEY)||'null');return s&&typeof s==='object'&&s.userId&&s.sid?s:null;}catch(e){return null;}}
 function signinTabSid(){try{return sessionStorage.getItem(SIGNIN_TAB_KEY)||'';}catch(e){return '';}}
 function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,sid);else sessionStorage.removeItem(SIGNIN_TAB_KEY);}catch(e){}}
+/* Галочки офиса или пароль сняли, пока человек работал, — вход кончается. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId)||null;
+ return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&u.password)||null;
 }
+/* Первый пароль ставят только в Users (владелец, 3 октября 2026): самому
+   придумать его при входе нельзя — иначе любой за компьютером займёт чужое
+   имя. Поэтому вход включается, когда пароль есть хотя бы у одного человека
+   с разделом Users; до тех пор входа нет, как в пустой базе: иначе дверь
+   закрыта и поставить пароль некому. */
+function signinOn(){return (DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
 function signinNeeded(){
  if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
- return (DB.user||[]).length>0&&!signinUser();
+ return signinOn()&&!signinUser();
 }
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
@@ -12611,20 +12699,20 @@ function signinAs(id){
  signinSetTabSid(sid);signinPick='';signinError='';render();
 }
 function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+/* Офис входит паролем от 8 символов, станция — номером и PIN (владелец,
+   3 октября 2026). Пароль ставят и меняют в Users. Лимита попыток нет —
+   решение владельца. */
 function signinChoose(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
- if(!u.pin)return signinAs(id);
- signinPick=id;signinError='';render();
- setTimeout(()=>{const el=document.getElementById('signinPin');if(el)el.focus();},0);
+ signinPick=id;signinError='';render();signinFocus();
 }
-function signinPinInput(el){
- el.value=el.value.replace(/\D/g,'').slice(0,4);
- document.querySelectorAll('.signin-dots i').forEach((d,i)=>d.classList.toggle('f',i<el.value.length));
- if(el.value.length<4)return;
- const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);
- if(u&&el.value===u.pin)return signinAs(u.viewProfileId);
- signinError='Wrong PIN';render();
- setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
+function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
+function signinSubmit(e){
+ if(e)e.preventDefault();
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u)return;
+ const pass=(document.getElementById('signinPass')||{}).value||'';
+ if(userPasswordCheck(u,pass))return signinAs(u.viewProfileId);
+ signinError='Wrong password';render();signinFocus();
 }
 /* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
    2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
@@ -12644,11 +12732,10 @@ function signinBrandHTML(){
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
-   показывает только офисные роли, цех входит на своей станции. Нет ни одного
-   офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
+   показывает только тех, у кого в Users отмечены разделы и стоит пароль; цех
+   входит на своей станции номером и PIN. */
 function signinOfficeUsers(){
- const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
- return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ return (DB.user||[]).filter(u=>userOffice(u)&&u.password).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 /* Office / Production (владелец, 2 октября 2026): «производство не должно
    видеть имена всех, кто в офисе». Production — только станции, имён нет;
@@ -12667,11 +12754,14 @@ function signinView(){
   <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
  }else{
   const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
-  const pad=pick?`<div class="signin-pin"><label for="signinPin">Hi, <span data-raw>${esc(String(pick.name).trim().split(/\s+/)[0])}</span> — your PIN</label>
-   <div class="signin-dots${signinError?' bad':''}">${[0,1,2,3].map(()=>'<i></i>').join('')}<input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" oninput="signinPinInput(this)"></div>
-   <div class="signin-err" role="alert">${esc(signinError)}</div></div>`:'';
+  const hi=pick?esc(String(pick.name).trim().split(/\s+/)[0]):'';
+  const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
+   <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
+   <input id="signinPass" type="password" autocomplete="current-password" aria-label="Password" placeholder="Password">
+   <button type="submit" class="pri">Sign in</button>
+   <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
-  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
   <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
@@ -12680,9 +12770,43 @@ function signinView(){
 function signinNavHTML(){
  const u=signinUser();if(!u)return '';
  const name=String(u.name||'').trim(),ini=name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
- return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)} · Sign out" onclick="signinOutAsk()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
+ return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)}" onclick="signinMeOpen()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
 }
-function signinOutAsk(){const u=signinUser();if(u&&confirm('Sign out '+u.name+'?'))signinOut();}
+/* Своё имя внизу меню → окно: сменить свой пароль или выйти (владелец,
+   3 октября 2026: «свой пароль — только для офиса; продакшн — то, что даст
+   офис»). PIN станции человек сам не меняет — его выдаёт офис в Users. */
+let signinMe=null;
+function signinMeOpen(){if(!signinUser())return;signinMe={error:''};render();setTimeout(()=>{const el=document.getElementById('meOld');if(el)el.focus();},0);}
+function signinMeClose(){signinMe=null;render();}
+function signinMeHTML(){
+ const u=signinUser();if(!signinMe||!u)return '';
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)signinMeClose()"><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
+  <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
+  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">
+   <label>Change password</label>
+   <input id="meOld" type="password" autocomplete="current-password" placeholder="Current password">
+   <input id="meNew" type="password" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters">
+   <input id="meNew2" type="password" autocomplete="new-password" placeholder="Repeat new">
+   <div class="signin-err" role="alert">${esc(signinMe.error)}</div>
+   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinMe=null;signinOut()">Sign out</button></div>
+  </form></div></div>`;
+}
+function signinMeSave(e){
+ if(e)e.preventDefault();
+ const u=signinUser();if(!u||!signinMe)return;
+ const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
+ const fail=m=>{signinMe.error=m;render();};
+ if(!userPasswordCheck(u,old))return fail('Wrong password');
+ if(next.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
+ if(next!==v('meNew2'))return fail('Passwords differ');
+ const id=u.viewProfileId;
+ storageWhenWriter(()=>{
+  const out=storageCommand(()=>{const now=(DB.user||[]).find(x=>x.viewProfileId===id);if(!now)throw new Error('User not found');userPasswordSet(now,next);return true;});
+  if(out.ok){signinMe=null;render();}else fail(out.error||'Not saved');
+ });
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&signinMe)signinMeClose();});
 /* Вход и выход в другой вкладке того же браузера — сразу и здесь. */
 window.addEventListener('storage',function(e){
  if(e.key!==SIGNIN_KEY)return;
@@ -21409,7 +21533,7 @@ function saveSfStation(){
  if(!out.ok){stEdit=oldEdit;render();fields.forEach(f=>{const el=document.getElementById(f.id);if(el){el.value=f.value;el.checked=f.checked;}});const e=document.getElementById('e_sfStation');if(e)fail(e,out.error);return false;}
  if(oldCode&&oldCode!==newCode){
   if(typeof stationCode!=='undefined'&&stationCode===oldCode)stationCode=newCode;
-  try{const session=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');if(session&&session.station===oldCode){session.station=newCode;localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(session));}}catch(e){}
+  if(typeof stationSessions==='function'){const m=stationSessions();if(m[oldCode]){m[newCode]=m[oldCode];delete m[newCode].station;delete m[oldCode];stationSessionsSave(m);}}
  }
  render();return true;
 }
@@ -21432,7 +21556,7 @@ function saveSfStationCommand(){
   (DB.serviceRate||[]).forEach(w=>{if(w&&w.station===prev.code)w.station=code;});
   (DB.terminal||[]).forEach(t=>{t.stations=(t.stations||[]).map(c=>c===prev.code?code:c);});
   const old=prev.code;
-  ['stationScan','user'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;}));
+  (DB.stationScan||[]).forEach(r=>{if(r.station===old)r.station=code;if(r.confirmedAt===old)r.confirmedAt=code;});
   ['ncrReason','ncr','recut'].forEach(k=>(DB[k]||[]).forEach(r=>{if(r.where===old)r.where=code;}));
   (DB.productionRoute||[]).forEach(x=>{x.route.codes=x.route.codes.map(c=>c===old?code:c);x.route.shipping=(x.route.shipping||[]).map(c=>c===old?code:c);x.route.services.forEach(r=>{if(r.station===old)r.station=code;});});
 
@@ -21452,7 +21576,7 @@ function delSfStation(i){
  const s=DB.station[i],w=stationOperations(s.code);
  if(w.length) return alert('Cannot delete '+s.code+' — works go to it: '+w.map(o=>o.name||o.id).join(', ')+'. Move them to another station in Master Data → Works first.');
  if(DB.terminal.some(t=>(t.stations||[]).includes(s.code))) return alert('Cannot delete — terminals point at this station');
- if((DB.stationScan||[]).some(r=>r.station===s.code)||(DB.productionRoute||[]).some(r=>r.route.codes.includes(s.code))||(DB.user||[]).some(u=>u.station===s.code)||(DB.ncrReason||[]).some(r=>r.where===s.code))return alert('Cannot delete — history, active routes, workers or NCR reasons reference this station.');
+ if((DB.stationScan||[]).some(r=>r.station===s.code)||(DB.productionRoute||[]).some(r=>r.route.codes.includes(s.code))||(DB.ncrReason||[]).some(r=>r.where===s.code))return alert('Cannot delete — history, active routes or NCR reasons reference this station.');
  if(!confirm('Delete station '+s.code+'?'))return; DB.station.splice(i,1); stationRouteReset(); touch(); render();
 }
 
@@ -31446,10 +31570,6 @@ function stationUnitDone(recs){
  if(stationAutoPrintOn()){if(stationLast)stationLast.printRequested=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
  return done;
 }
-/* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
-   у пользователя (поле station) тоже годится. */
-const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',ARRIS:'Edgework (arris/polish)',POLISH:'Edgework (arris/polish)',BEVEL:'Edgework (arris/polish)',MITER:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
-
 /* #station=CUT — экран станции; #station=CUT&batch=B-0001 — сразу этот батч. */
 function stationHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})(?:&batch=([A-Za-z0-9_-]{1,20}))?$/.exec(location.hash||'');return m?{code:m[1].toUpperCase(),batch:m[2]||''}:null;}
 function stationFromHash(){const h=stationHash();return h?h.code:'';}
@@ -31468,20 +31588,29 @@ function stationRow(){return (DB.station||[]).find(s=>s.code===stationCode)||nul
 function stationName(code){const s=(DB.station||[]).find(x=>x.code===code);return s?sfName(s):code;}
 
 /* --------------------------- Кто работает --------------------------- */
-function stationSession(){try{const s=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');return s&&typeof s==='object'?s:null;}catch(e){return null;}}
+/* Вход — свой у каждой станции этого браузера: один человек может отвечать
+   за две станции сразу (владелец, 3 октября 2026) — две вкладки, два входа,
+   Switch выходит только с этой станции. Прежняя запись {station,userId}
+   читается как вход одной станции. */
+function stationSessions(){
+ try{const m=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');if(!m||typeof m!=='object'||Array.isArray(m))return {};return typeof m.station==='string'?{[m.station]:m}:m;}catch(e){return {};}
+}
+function stationSessionsSave(m){try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(m));return true;}catch(e){return false;}}
+function stationSession(){const s=stationSessions()[stationCode];return s&&typeof s==='object'?s:null;}
+/* PIN сняли в Users — вход на станции кончается сразу, как и в офисе. */
 function stationWho(){
- const s=stationSession();if(!s||s.station!==stationCode)return null;
- const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);
+ const s=stationSession();if(!s)return null;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId&&x.pin);
  return u?{id:u.viewProfileId,name:u.name}:null;
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
-function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
-function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
+function stationPutOn(){const s=stationSession();return s&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
- try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:stationCode,userId:id,at:new Date().toISOString()}));}catch(e){return false;}
+ const m=stationSessions();m[stationCode]={userId:id,at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
  stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
 /* Вход на станции: личный номер + PIN, имён на экране нет — «один
@@ -31498,14 +31627,14 @@ function stationLoginKey(k){
   else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
   if(stationPin.length===4){
    const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
-   if(u&&u.pin&&u.pin===stationPin)return stationLogin(u.viewProfileId);
+   if(userPinCheck(u,stationPin))return stationLogin(u.viewProfileId);
    stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
    stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
   }
  }
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){const m=stationSessions();delete m[stationCode];stationSessionsSave(m);stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */
@@ -32785,7 +32914,10 @@ window.addEventListener('pagehide',function(){
 window.addEventListener('pagehide',()=>{storageWriter=false;if(storageRelease)storageRelease();});
 function storageExportEnvelope(){return {format:'glass-erp',schemaVersion:1,exportedAt:new Date().toISOString(),data:DB};}
 function storageDownload(name,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+/* Вся база целиком — дело администратора (раздел Users, erp/access): Import
+   заменяет и людей с их правами, Export отдаёт и Finance. */
 function doExport(){
+ if(!accessCan(ACCESS_ADMIN))return;
  storageDownload('glazing_system_data.json',JSON.stringify(storageExportEnvelope(),null,2));
  storageBackupAt=new Date().toISOString();dirty=false;render();
 }
@@ -32815,6 +32947,7 @@ function storageRestoreBackup(){
 }
 function doImport(inp){
  const f=inp.files[0];if(!f)return;
+ if(!accessCan(ACCESS_ADMIN)){inp.value='';return;}
  if(f.size>10*1024*1024){alert('File not readable: JSON exceeds 10 MB.');inp.value='';return;}
  const r=new FileReader();r.onload=()=>{try{storageImportState(JSON.parse(r.result));}catch(e){alert('File not readable: '+e.message);}};
  r.readAsText(f);inp.value='';
@@ -32888,10 +33021,10 @@ function validateImportedState(src){
   if(t.code&&!SF_CODE_RE.test(String(t.code).trim().toUpperCase()))throw new Error('Terminal row '+(i+1)+' has an invalid code.');
   if(t.stations!=null&&!Array.isArray(t.stations))throw new Error('Terminal row '+(i+1)+': stations must be an array.');
  });
+ /* Старые роли и навыки не проверяем: нормализация переносит роль в
+    галочки разделов, а навыки отбрасывает (Users, 3 октября 2026). */
  (src.user||[]).forEach((u,i)=>{
-  if(!u)return;if(u.skills!=null&&!Array.isArray(u.skills))throw new Error('User '+(i+1)+': skills must be an array.');
-  if(u.role!=null&&!ROLES.includes(migrateRole(u.role)))throw new Error('User '+(i+1)+' has an unknown role.');
-  (u.skills||[]).forEach((s,j)=>{const n=normSkill(s);if(!n)throw new Error('User '+(i+1)+', skill '+(j+1)+' is invalid.');});
+  if(u&&u.access!=null&&!Array.isArray(u.access))throw new Error('User '+(i+1)+': access must be an array.');
  });
 }
 function prepareImportedState(src){
