@@ -14,6 +14,17 @@
 .stk-count{margin:0}
 .stk-custom{font-size:13px;color:var(--accent)}
 .stk-modal .sales-dialog-actions .sp{flex:1}
+/* Окно печати батча: листы, список стёкол с галочками, три печати. */
+.stk-sheets{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.stk-sheets input{width:110px}
+.stk-batch-list{max-height:min(46vh,420px);overflow:auto;border:1px solid var(--line);border-radius:8px}
+.stk-batch-list thead th{position:sticky;top:0;z-index:1}
+.stk-batch-list tr.stk-sheet-row td{background:var(--surface-2);font-size:12px}
+.stk-batch-list tr.off td{color:var(--text-3)}
+.stk-sent{font-size:13px;color:var(--success)}
+.stk-print-btn{display:inline-flex;align-items:center;gap:6px}
+.stk-print-btn>span{display:inline-flex;width:15px;height:15px}
+.stk-print-btn svg{width:15px;height:15px}
 .stk-edit-modal{width:1180px;max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);overflow:auto}
 .stk-edit-modal .stk-builder{margin-top:0}
 .stk-count.bad{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger)}

@@ -606,6 +606,8 @@ body.shape-workspace-mode .shape-artifacts.dxf-source>span{overflow:hidden;text-
 .sheet-merge>em{font-family:Arial,Helvetica,sans-serif;font-size:8px;color:var(--text-2)}
 .sheet-foot{flex:none;display:flex;justify-content:space-between;margin-top:2px;
   font-size:7.5px;color:var(--text-2)}
+/* Подпись стекла из батча — крупнее даты: по ней бумагу сверяют со стикером. */
+.sheet-foot .sheet-tag{font-size:10px;font-weight:700;color:var(--text)}
 /* Общее печатное правило .print-sheet svg растягивает ЛЮБОЙ svg на всю ширину
    листа — оно старше по специфичности, поэтому схема пакета раздувалась во весь
    верх. Обе картинки листа размеры задают себе сами. */

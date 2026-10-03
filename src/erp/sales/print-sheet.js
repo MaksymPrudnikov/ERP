@@ -316,6 +316,12 @@ function salesShapeSheetHTML(shape,result,svg,kind){
       '<span>'+esc(new Date().toISOString().slice(0,10))+' · 1 / 1</span></div>'+
   '</div>';
 }
+/* Подпись стекла слева в подвале (там пусто): печать чертежей из батча —
+   «каждое стекло — стикер, к нему бумажка» (владелец, 4 октября 2026).
+   Лист строки строится один раз, подпись дописывается на каждое стекло. */
+function salesSheetFoot(html,text){
+  return text?String(html).replace('<div class="sheet-foot"><span></span>','<div class="sheet-foot"><span class="sheet-tag">'+esc(text)+'</span>'):html;
+}
 /* Лист чертежа строки без открытия редактора — окно Drawings и печать
    нескольких чертежей сразу. Владелец, 26.09.2026: после батча чертёж было не
    открыть и не распечатать. Редактор рисует лист из своего sDraft и

@@ -294,7 +294,7 @@ module.exports=async function({page,eq,ok}){
   cutUiPick(id);cutUiRun(()=>cutPieceAuto(cutUi.batch,id,1));const backOn=!!cutFind(cutPlanFor(b.number),id);
   document.querySelector('[data-cut-sheet-lock]').click();const locked=document.querySelector('[data-cut-sheet-lock]').getAttribute('aria-label')==='Unlock sheet';
   document.querySelector('[data-cut-sheet-lock]').click();
-  document.querySelector('[data-cut-print]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();
+  document.querySelector('[data-cut-print]').click();document.querySelector('[data-stk-print-layouts]').click();const pages=document.querySelectorAll('#cutPrintHost .cut-print-page').length;cutPrintCleanup();stkDialogClose();
   return {stats:['Used','Scrap','Net','Net %','Sheets','Pieces','To stock'].every(x=>[...document.querySelectorAll('[data-cut-total] small')].some(e=>e.textContent===x)),rows,cur,total:/^[\d.]+%/.test(document.querySelector('[data-cut-total] [data-cut-used-pct] b').textContent),lifted,labels:/Northside/.test(svg)&&/76002/.test(svg),
    sheetView,paramHeads,tabs,actions,waiting,backOn,locked,pages,orders:!!document.querySelector('[data-cut-orders]'),russian:/[А-яЁё]/.test(document.querySelector('.oq-card').innerText)};
  }),{stats:true,rows:8,cur:true,total:true,lifted:{total:true,current:true,controls:true,icons:true,once:true,clean:true,fits:true},labels:true,sheetView:{landscape:true,trim:true,dashed:0,zero:true},paramHeads:true,tabs:2,actions:true,waiting:true,backOn:true,locked:true,pages:2,orders:true,russian:false});
@@ -488,6 +488,38 @@ module.exports=async function({page,eq,ok}){
   const inOrder=jobs.slice(0,i).every(j=>j.sort[1]<=withHint.no)&&jobs.slice(i+1).every(j=>j.sort[1]>withHint.no);
   return {id,one:jobs.filter(j=>j.type==='stock').length,stockPage,inOrder,picked:stkBatchJobs(b,[jobs[0].c?glassPieceAt(glassPieceMap(jobs[0].o.id).get(jobs[0].c.key),jobs[0].unit):''],'sheet').filter(j=>j.type==='stock').length};
  }),{id:'S-0000001',one:1,stockPage:true,inOrder:true,picked:0});
+
+ /* Владелец, 4 октября 2026: печать батча — из окна оптимизации: весь батч,
+    листы или отдельные стёкла; стикеры, чертежи (лист на стекло) и схемы. */
+ eq('окно печати батча: поле листов — стёкла этого листа и его сток; снятая галочка не печатается ни стикером, ни чертежом; схемы — только эти листы; правая кнопка — одно стекло',await t.p.evaluate(()=>{
+  oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,60,10]]);const b=DB.glassBatch[0];
+  const g=cutPlanRun(b.number).plan.groups[0],two=g.sheets.find(x=>x.pieces.length>1&&(x.offcuts||[]).length),T=two.no;const sid=cutStockTake(b.number,g.glass,T,0).id;
+  glassBatchOpen(b.number);glassBatchDetailTab='optimization';cutUi={batch:'',glass:'',sheet:1,sel:'',drag:''};render();
+  document.querySelector('[data-cut-print]').click();
+  const sub=document.querySelector('.stk-modal p.mut').textContent,all=document.querySelectorAll('[data-stk-item]').length;
+  stkBatchSheets(String(T));const items=[...document.querySelectorAll('[data-stk-item]')].map(x=>x.dataset.stkItem);
+  const onSheet=two.pieces.map(p=>p.piece),drop=onSheet[0];
+  document.querySelector('[data-stk-item="'+drop+'"] [data-stk-check]').click();
+  const count=document.querySelector('[data-stk-count]').textContent,sheetBox=document.querySelector('[data-stk-sheet-check]').checked;
+  window.print=()=>{};
+  document.querySelector('[data-stk-print]').click();const stickers=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>/S-\d{7}/.test(p.textContent)?'stock':(p.textContent.match(/G-\d{7}/)||[''])[0]);stkPrintCleanup();
+  const open=!!document.querySelector('[data-stk-batch-list]'),notice=document.querySelector('[data-stk-notice]').textContent;
+  document.querySelector('[data-stk-print-drawings]').click();
+  const drawings=[...document.querySelectorAll('#printSheetHost .sheet-tag')].map(x=>x.textContent);printSheetCleanup();
+  document.querySelector('[data-stk-print-layouts]').click();const layouts=[...document.querySelectorAll('#cutPrintHost .cut-print-page h3')].map(h=>/Sheet (\d+)/.exec(h.textContent)[1]);cutPrintCleanup();
+  stkDialogClose();const closed=!document.querySelector('.stk-modal');
+  /* Правая кнопка по стеклу на листе — один стикер и один чертёж сразу. */
+  cutUi.glass=g.glass;cutUi.sheet=1;render();const one=g.sheets[0].pieces[0].piece,el=document.querySelector('.cut-paper [data-cut-piece="'+one+'"] rect'),r=el.getBoundingClientRect();
+  el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));
+  document.querySelector('#cutMenu [data-cut-menu="print-sticker"]').click();const sticker=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>(p.textContent.match(/G-\d{7}/)||[''])[0]);stkPrintCleanup();
+  el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));
+  document.querySelector('#cutMenu [data-cut-menu="print-drawing"]').click();const drawing=[...document.querySelectorAll('#printSheetHost .sheet-tag')].map(x=>x.textContent);printSheetCleanup();
+  const log=(DB.orderEvent||[]).filter(e=>e.what==='Printed').map(e=>e.note);
+  window.print=()=>{window.cutPrinted=(window.cutPrinted||0)+1;};
+  return {sub,all:all===10+1,items:items.join()===onSheet.concat(sid).join(),count,sheetBox,stickers:stickers.join()===onSheet.slice(1).concat('stock').join(),open,notice,
+   drawings:drawings.join()===onSheet.slice(1).map(id=>b.number+' · Sheet '+T+' · '+id).join(),layouts:layouts.join()===String(T),closed,sticker:sticker.join()===one,drawing:drawing.join()===b.number+' · Sheet 1 · '+one,log};
+ }),{sub:'6CLEAR · 10 glass · 3 sheets',all:true,items:true,count:'1 glass · 1 stock · 1 sheet',sheetBox:false,stickers:true,open:true,notice:'✓ 2 stickers sent',drawings:true,layouts:true,closed:true,sticker:true,drawing:true,
+  log:['Stickers · 1 · B-0001','Drawings · 1 · B-0001','Stickers · 1 · B-0001','Drawings · 1 · B-0001']});
 
  eq('остатки мышью: правая кнопка по остатку — To stock и Split с размером; по стоку — печать и возврат в отход',await t.p.evaluate(()=>{
   oqReset();DB.glassSheet=[];DB.cutting=cutSettingsDefault();ctSheet('6CLEAR',96,130);ctOrder([[46,30,2]]);const b=DB.glassBatch[0];
@@ -952,7 +984,7 @@ module.exports=async function({page,eq,ok}){
   eq('мышь: клик по подписи, двойной клик, перетаскивание с тенью, правая кнопка, клавиши, подсветка, бросок из списка и в список',
    {byLabel:byLabel===a,turned:turned.w===before.h&&turned.h===before.w,ghost,moved:moved.y>=40&&moved.x===u.x0,menu,locked,menuGone,
     keyTurn:kr.w===ka.h&&kr.h===ka.w,keyTake:kd===null,hover,fromList,offList,unsel:unsel===''},
-   {byLabel:true,turned:true,ghost:'1',moved:true,menu:['rotate','take','lock','sheet-lock'],locked:true,menuGone:true,
+   {byLabel:true,turned:true,ghost:'1',moved:true,menu:['rotate','take','lock','print-sticker','print-drawing','sheet-lock'],locked:true,menuGone:true,
     keyTurn:true,keyTake:true,hover:true,fromList:{ghost:true,on:true},offList:true,unsel:true});
   /* Бросок на вкладку другого листа — перенос на тот лист. */
   const tabs=await P.evaluate(()=>{

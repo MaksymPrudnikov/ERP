@@ -197,15 +197,20 @@ module.exports=async function({page,eq,ok}){
   return {modal,samples,types,note,size,kept,saved:DB.stickerTemplate['production|4x6'].blocks.find(b=>b.k==='customer').size,undo:(stkDialogUndoLayout(),!document.querySelector('[data-stk-custom]'))};
  }),{modal:'Customize this print · Production · 4 × 6',samples:6,types:false,note:true,size:19,kept:'{}',saved:21,undo:true});
 
- eq('батч: Print stickers — все стёкла по порядку заказ → позиция → изделие → лайт; с выбором — только выбранные',await t.p.evaluate(()=>{
+ /* Владелец, 4 октября 2026: печать батча — в окне оптимизации; в Contents
+    кнопки больше нет. Раскрой не собран — все стёкла по порядку. */
+ eq('батч: печать из окна оптимизации — без раскроя все стёкла по порядку заказ → позиция → изделие → лайт; галочки — только отмеченные; окно остаётся открытым',await t.p.evaluate(()=>{
   oqReset();const b1=stOrder({businessNumber:'80002'}),a1=stOrder({businessNumber:'80001'});[a1,b1].forEach(id=>oqThrough(id,'verified'));
   glassBatchAssign(glassBatchRows([salesRecord(b1),salesRecord(a1)]),{});const bno=DB.glassBatch[0].number;glassBatchOpen(bno);
-  const btn=document.querySelector('[data-print-stickers]').textContent;document.querySelector('[data-print-stickers]').click();const title=document.querySelector('.stk-modal h3').textContent,count=document.querySelector('[data-stk-count]').textContent;
-  const jobs=stkDialogJobs().jobs.map(j=>j.o.businessNumber+'/'+(j.o.lines.indexOf(j.l)+1)+'/'+j.unit+'/'+j.c.lite).slice(0,5);stkDialogClose();
-  const rows=[...document.querySelectorAll('[data-glass-check]')].slice(0,2);rows.forEach(c=>c.click());const sel=document.querySelector('[data-print-stickers]').textContent;
-  document.querySelector('[data-print-stickers]').click();stkDialogPrint();const pages=stHost().length;stkPrintCleanup();
-  return {btn,title,count,jobs,sel,pages};
- }),{btn:'Print stickers',title:'Print stickers · Batch B-0001',count:'12 stickers',jobs:['80001/1/1/1','80001/1/1/2','80001/1/2/1','80001/1/2/2','80001/2/1/1'],sel:'Print 2 stickers',pages:2});
+  const contents=!!document.querySelector('[data-print-stickers]');
+  glassBatchDetailTab='optimization';render();document.querySelector('[data-cut-print]').click();
+  const title=document.querySelector('.stk-modal h3').textContent,count=document.querySelector('[data-stk-count]').textContent,sheets=!!document.querySelector('[data-stk-sheets]');
+  const jobs=stkDialogJobs().jobs.map(j=>j.o.businessNumber+'/'+(j.o.lines.indexOf(j.l)+1)+'/'+j.unit+'/'+j.c.lite).slice(0,5);
+  document.querySelector('[data-stk-check-all]').click();const none=document.querySelector('[data-stk-print]').disabled;
+  [0,1].forEach(i=>document.querySelectorAll('[data-stk-check]')[i].click());const sel=document.querySelector('[data-stk-print]').textContent.trim();
+  document.querySelector('[data-stk-print]').click();const pages=stHost().length;stkPrintCleanup();
+  return {contents,title,count,sheets,jobs,none,sel,pages,open:!!document.querySelector('.stk-modal'),layouts:document.querySelector('[data-stk-print-layouts]').disabled};
+ }),{contents:false,title:'Print · Batch B-0001',count:'12 glass',sheets:false,jobs:['80001/1/1/1','80001/1/1/2','80001/1/2/1','80001/1/2/2','80001/2/1/1'],none:true,sel:'Stickers · 2',pages:2,open:true,layouts:true});
 
  eq('конструктор без русского; пустая программа — демо-стекло',await t.p.evaluate(()=>{
   oqReset();stkBuilder=null;tab='masterdata';mdSetTab('stickers');const text=document.querySelector('[data-stk-builder]').innerText;
