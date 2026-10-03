@@ -74,10 +74,11 @@ function stationSessions(){
 }
 function stationSessionsSave(m){try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(m));return true;}catch(e){return false;}}
 function stationSession(){const s=stationSessions()[stationCode];return s&&typeof s==='object'?s:null;}
-/* PIN сняли в Users — вход на станции кончается сразу, как и в офисе. */
+/* PIN сняли или сменили в Users — вход на станции кончается сразу, как и в
+   офисе: сеанс помнит версию PIN (secretKey, erp/access), при которой открыт. */
 function stationWho(){
  const s=stationSession();if(!s)return null;
- const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId&&x.pin);
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId&&userHasPin(x)&&s.key===secretKey(x.pin));
  return u?{id:u.viewProfileId,name:u.name}:null;
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
@@ -87,7 +88,7 @@ function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s|
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
- const m=stationSessions();m[stationCode]={userId:id,at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
+ const m=stationSessions();m[stationCode]={userId:id,key:secretKey(u.pin),at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
  stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
 /* Вход на станции: личный номер + PIN, имён на экране нет — «один
@@ -105,7 +106,7 @@ function stationLoginKey(k){
   if(stationPin.length===4){
    const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
    if(userPinCheck(u,stationPin))return stationLogin(u.viewProfileId);
-   stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
+   stationPinError=u&&!userHasPin(u)?'No PIN yet — ask the office':'Wrong number or PIN';
    stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
   }
  }

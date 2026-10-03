@@ -5,7 +5,9 @@
    OUT: окно; открывается правой кнопкой на заказе → Activity log
    ===================================================================== */
 let orderLogView=null;
-function orderLogOpen(id){if(!(DB.salesOrder||[]).some(o=>o.id===id))return;salesListMenu=null;orderLogView={id};render();}
+/* Журнал заказа — часть Sales: без права Sales окно не открывается и не
+   рисуется, даже если осталось открытым до смены человека. */
+function orderLogOpen(id){if(!accessCan('sales')||!(DB.salesOrder||[]).some(o=>o.id===id))return;salesListMenu=null;orderLogView={id};render();}
 function orderLogClose(){orderLogView=null;render();}
 function orderLogWhen(at){
  const d=new Date(at);if(!at||isNaN(d))return '—';
@@ -13,6 +15,7 @@ function orderLogWhen(at){
 }
 function orderLogDialogHTML(){
  const v=orderLogView;if(!v)return '';
+ if(!accessCan('sales')){orderLogView=null;return '';}
  const o=(DB.salesOrder||[]).find(x=>x.id===v.id);if(!o){orderLogView=null;return '';}
  const rows=orderLogFor(o.id).map(r=>`<tr data-order-log-row><td>${esc(orderLogWhen(r.at))}</td><td>${r.by?raw(r.by):'<span class="mut">—</span>'}</td><td><b>${esc(r.what)}</b>${r.note?` <span class="order-log-note">· ${raw(r.note)}</span>`:''}</td></tr>`).join('');
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)orderLogClose()"><div class="sales-service-modal sales-dialog order-log-dialog" role="dialog" aria-modal="true" aria-label="Activity log" data-order-log>
