@@ -8,7 +8,10 @@
      usersChangeOwnPassword(a, b)  POST /me/password
    Каждая команда сама проверяет право (администратор — раздел Users; свой
    пароль — только вошедший), правила и версию записи и пишет одной
-   storageCommand: всё или ничего. Ответ — {ok, error, id}.
+   storageCommand: всё или ничего. Ответ — Promise<{ok, error, id}>, как у
+   будущего запроса к серверу: экран ждёт ответа (повторный аудит,
+   3 октября 2026). Команда ждёт права записи и выполняется, только если
+   подавший её (accessActor, запомнен при нажатии) всё ещё тот же.
 
    Правила (аудит 3 октября 2026, принят владельцем):
    · Users не запирается: пока есть офис, у кого-то остаётся раздел Users;
@@ -22,6 +25,15 @@
    OUT: команды; экран — view/users, окно своего пароля — erp/signin
    ===================================================================== */
 function usersFail(error){return {ok:false,error};}
+/* Выполнить, когда вкладка получит право записи, и только от имени того,
+   кто нажал. Вышел, сменился, сеанс отозван — «Signed out — not saved». */
+function usersRun(actor,fn){
+ const who=actor===undefined?accessActor():actor;
+ return new Promise(resolve=>{
+  const go=()=>{try{resolve(who&&who===accessActor()?fn():usersFail('Signed out — not saved'));}catch(e){resolve(usersFail(e.message));}};
+  if(typeof storageWhenWriter==='function')storageWhenWriter(go);else go();
+ });
+}
 function usersFind(id){return (DB.user||[]).find(u=>u.viewProfileId===id)||null;}
 /* Что станет с дверью, если база людей станет такой (after: записи с
    access и признаком пароля). Пусто — можно. */
@@ -36,7 +48,8 @@ function usersShape(u,over){return Object.assign({access:u.access||[],hasPasswor
 /* Создать (id пуст) или изменить человека. input: {id, rev, name, no,
    office, access[], password, station, pin}; password и pin — только новые
    значения, пусто — оставить заданный. */
-function usersSave(input){
+function usersSave(input,actor){return usersRun(actor,()=>usersSaveNow(input));}
+function usersSaveNow(input){
  if(!accessCan(ACCESS_ADMIN))return usersFail('Users access needed');
  const d=input||{},isNew=!d.id,cur=isNew?null:usersFind(d.id);
  if(!isNew&&!cur)return usersFail('This user was deleted');
@@ -74,16 +87,19 @@ function usersSave(input){
 }
 
 /* Снять вход на вкладке: Production — PIN, Office — разделы и пароль.
-   Другого входа нет — человек удаляется. */
-function usersDropError(id,side){
+   Другого входа нет — человек удаляется. rev — версия записи, которую
+   человек видел, подтверждая: запись изменили — «Changed elsewhere». */
+function usersDropError(id,side,rev){
  if(!accessCan(ACCESS_ADMIN))return 'Users access needed';
  const u=usersFind(id);if(!u)return 'This user was deleted';
+ if(rev!=null&&u.rev!==rev)return 'Changed elsewhere — reopen';
  const prod=side==='production',other=prod?userOffice(u):userHasPin(u);
  const after=(DB.user||[]).filter(x=>x!==u||other).map(x=>x!==u?usersShape(x):prod?usersShape(x):usersShape(x,{access:[],hasPassword:false}));
  return usersDoorError(after);
 }
-function usersDrop(id,side){
- const err=usersDropError(id,side);if(err)return usersFail(err);
+function usersDrop(id,side,rev,actor){return usersRun(actor,()=>usersDropNow(id,side,rev));}
+function usersDropNow(id,side,rev){
+ const err=usersDropError(id,side,rev);if(err)return usersFail(err);
  const prod=side==='production';
  const out=storageCommand(()=>{
   const u=usersFind(id),other=prod?userOffice(u):userHasPin(u);
@@ -96,7 +112,8 @@ function usersDrop(id,side){
 
 /* Свой пароль — только офис (владелец, 3 октября 2026); PIN станции даёт
    офис. Текущий вход остаётся, остальные входы этого человека кончаются. */
-function usersChangeOwnPassword(current,next){
+function usersChangeOwnPassword(current,next,actor){return usersRun(actor,()=>usersChangeOwnPasswordNow(current,next));}
+function usersChangeOwnPasswordNow(current,next){
  const u=typeof signinUser==='function'?signinUser():null;
  if(!u)return usersFail('Sign in first');
  if(!userPasswordCheck(u,current))return usersFail('Wrong password');

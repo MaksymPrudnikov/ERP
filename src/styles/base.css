@@ -64,6 +64,9 @@ input[type=checkbox]{width:auto}
 .user-sec.on{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
 .user-sec .icon-inline{margin-right:0}
 .user-access-cell .pill{margin:1px 0}
+/* Now: зелёная точка — сейчас в системе на этом компьютере */
+.user-now{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap}.user-now i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);flex:none}.user-now.on{color:var(--text)}.user-now.on i{background:var(--success);box-shadow:0 0 0 3px var(--success-soft)}
+.users-log-tabs{padding:8px 20px 0}.users-log-card .sales-toolbar{margin-top:8px}
 body.no-admin [data-admin]{display:none!important}
 .pw-wrap{position:relative;display:block}
 .pw-wrap input{padding-right:40px}

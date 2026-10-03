@@ -89,6 +89,7 @@ function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a d
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
  const m=stationSessions();m[stationCode]={userId:id,key:secretKey(u.pin),at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
+ if(typeof authLog==='function')authLog('Sign in','Station '+stationCode,u);
  stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
 /* Вход на станции: личный номер + PIN, имён на экране нет — «один
@@ -112,7 +113,7 @@ function stationLoginKey(k){
  }
  render();
 }
-function stationSwitch(){const m=stationSessions();delete m[stationCode];stationSessionsSave(m);stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){const who=stationWho(),m=stationSessions();delete m[stationCode];stationSessionsSave(m);if(who&&typeof authLog==='function')authLog('Sign out','Station '+stationCode,{viewProfileId:who.id,name:who.name});stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */

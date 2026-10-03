@@ -23,15 +23,31 @@
    ===================================================================== */
 const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
 const ACCESS_ADMIN='users';
-/* Никто не вошёл — входа ещё нет (пароля нет ни у кого с Users, erp/signin):
-   видно всё, как в пустой базе. С сервером «никто не вошёл» значит «ничего».
-   Редактор формы (configurators) — часть Sales; экраны вне меню (станция)
-   ключа не имеют. */
+/* Никто не вошёл. Пока вход не настроен (пароля нет ни у кого с Users,
+   erp/signin → signinOn) — открыто, как в пустой базе: иначе завести
+   первого человека некому. Вход включён, а человека нет (вышел, сменили
+   пароль, сеанс отозван) — закрыто, даже для команды, которая ждала своей
+   очереди (повторный аудит, 3 октября 2026). С сервером «никто не вошёл»
+   всегда значит «ничего». GF_NO_SIGNIN — вход выключен целиком (тесты,
+   картинки). Редактор формы (configurators) — часть Sales; экраны вне
+   меню (станция) ключа не имеют. */
 function accessCan(key){
+ if(typeof window!=='undefined'&&window.GF_NO_SIGNIN)return true;
  const u=typeof signinUser==='function'?signinUser():null;
- if(!u)return true;
+ if(!u)return !(typeof signinOn==='function'&&signinOn());
  const k=key==='configurators'?'sales':key;
  return !USER_SECTIONS.includes(k)||u.access.includes(k);
+}
+/* Кто подаёт команду: сеанс входа и человек, «setup» — пока вход не
+   настроен, пусто — никто. Команда запоминает это при нажатии и
+   выполняется, только если к моменту выполнения подающий тот же: вышел,
+   сменился или сеанс отозван — команда отменяется, а не выполняется от
+   имени следующего (erp/users/commands). На сервере — то же правило. */
+function accessActor(){
+ if(typeof window!=='undefined'&&window.GF_NO_SIGNIN)return 'setup';
+ const u=typeof signinUser==='function'?signinUser():null;
+ if(u){const s=signinSession();return 'S:'+(s&&s.sid)+':'+u.viewProfileId;}
+ return typeof signinOn==='function'&&signinOn()?'':'setup';
 }
 function userOffice(u){return !!(u&&Array.isArray(u.access)&&u.access.length);}
 
