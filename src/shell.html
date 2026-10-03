@@ -11,10 +11,10 @@
 <main id="app"></main>
 <footer class="app-foot">
   <div id="storageStatus" aria-live="polite"></div>
-  <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
+  <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <button class="gh" onclick="doExport()">Export JSON</button>
-  <button class="gh" onclick="document.getElementById('imp').click()">Import JSON</button>
+  <button class="gh" data-admin onclick="doExport()">Export JSON</button>
+  <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
 </footer>
 </div>

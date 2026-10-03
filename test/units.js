@@ -21,7 +21,7 @@ module.exports=async function({page,eq,ok}){
   };
   window.unWho={id:'view-test-ivan',name:'Ivan P.'};
   window.unScan=function(station,code){const c=stationCheck(station,code);return stationRecord(station,c,unWho)?c.kind:c.kind+':no';};
-  window.unLogin=function(station,name){DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:''});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationQuestions=[];stationLogin(DB.user[DB.user.length-1].viewProfileId);};
+  window.unLogin=function(station,name){DB.user=DB.user.filter(u=>u.name!==name);DB.user.push({name,role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationQuestions=[];stationLogin(DB.user[DB.user.length-1].viewProfileId);};
   window.unOut=function(){stationSwitch();tab='dashboard';render();};
   window.unHead=function(){return document.querySelector('.st-res-h').firstChild.textContent;};
  });

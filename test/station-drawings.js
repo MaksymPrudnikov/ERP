@@ -22,7 +22,7 @@ module.exports=async function({page,eq,ok}){
    const pm=glassPieceMap(id),o2=salesRecord(id),ids=o2.lines.map(x=>{const c=glassBatchComponents(o2,x)[0];return pm.get(c.key).ids[0];});
    return {id,no:o2.businessNumber,ids};
   };
-  window.sdLogin=function(station){DB.user=DB.user.filter(u=>u.name!=='Oleg K.');DB.user.push({name:'Oleg K.',role:'Shop',station,skills:[],pin:''});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
+  window.sdLogin=function(station){DB.user=DB.user.filter(u=>u.name!=='Oleg K.');DB.user.push({name:'Oleg K.',role:'Shop',station,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=station;tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
   window.sdOut=function(){stationSwitch();tab='dashboard';render();};
  });
 

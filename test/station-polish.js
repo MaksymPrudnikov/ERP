@@ -18,7 +18,7 @@ module.exports=async function({page,eq}){
    soDraft.lines=sizes.map(([w,h,q],i)=>{const l=normalizeSalesOrderLine({makeupId:m.id,width16:w*16,height16:h*16,qty:q,mark:'M'+(i+1)});salesEnsureLineShape(l);return l;});salesOrderSave();soDraft=null;soEdit=null;oqThrough(id,'verified');return id;};
   const a=mk('North Shore Windows',[[36,24,3],[48,30,2]]),b=mk('Lakeview Glass',[[40,40,2]]);
   glassBatchAssign(glassBatchRows([salesRecord(a)]),{});cutPlanRun(DB.glassBatch.at(-1).number);glassBatchAssign(glassBatchRows([salesRecord(b)]),{});
-  DB.user.push({name:'Polish Cutter',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();
+  DB.user.push({name:'Polish Cutter',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();
   stationCode='CUT';tab='station';render();stationLogin(DB.user.at(-1).viewProfileId);
  });
  eq('CUT → Queue: no colour strip; one line says how many batches and sheets; a batch without a plan reads in one line',await t.p.evaluate(()=>{

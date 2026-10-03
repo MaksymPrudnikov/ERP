@@ -23,6 +23,7 @@
  "scripts": [
   "src/core/dim.js",
   "src/core/poly.js",
+  "src/core/sha256.js",
   "src/modules/shape/consts.js",
   "src/modules/shape/model.js",
   "src/modules/shape/contour.js",
@@ -44,6 +45,7 @@
   "src/modules/muntin/adaptive.js",
   "src/modules/muntin/bom.js",
   "src/modules/muntin/index.js",
+  "src/erp/access.js",
   "src/erp/data.js",
   "src/erp/shopfloor/data.js",
   "src/erp/masterdata/units.js",

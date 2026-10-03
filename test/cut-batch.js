@@ -17,7 +17,7 @@ module.exports=async function({page,eq,ok}){
    soDraft.lines.forEach(l=>salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;}));
    if(!salesOrderSave())throw new Error('order not saved');soDraft=null;soEdit=null;oqThrough(id,'verified');glassBatchAssign(glassBatchRows([salesRecord(id)]),{});return DB.glassBatch[DB.glassBatch.length-1].number;
   };
-  window.cbLogin=function(){DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
+  window.cbLogin=function(){DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);};
   window.cbView=function(){const v=stationSheetView;return v?v.batch+':'+v.glass+':'+v.no:'';};
   window.cbOut=function(){stationSwitch();stationSheetView=null;tab='dashboard';render();};
  });

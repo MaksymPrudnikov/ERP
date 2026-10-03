@@ -24,55 +24,24 @@ function normalizeSalesModules(){
   });
 }
 
-/* Реальные должности компании (хендофф, раздел 7): Продажи · Бухгалтер ·
-   Админ · Владелец. Прежние семь ролей были выдумкой прототипа — проектировать
-   права под несуществующие должности нельзя. Цех, отгрузка и снабжение
-   именованных учёток не получают: учётка принадлежит терминалу станции, а
-   человек опознаётся сканом бейджа при действии.
-   Прибыль видит только Владелец; Админ — техническая роль без денег.
-   Shop — рабочий цеха. Владелец 29 сентября 2026: «рабочий логинится и
-   открывает свою станцию, и потом всё, что он сканирует, — под его именем».
-   Вход раз в смену — имя и PIN на экране станции, не пароль. */
-const ROLES=['Sales','Accounting','Admin','Owner','Shop'];
-/* PIN — четыре цифры. Это опознание рабочего у станции, а не защита:
-   права в прототипе ещё не проверяются нигде. */
-const USER_PIN_RE=/^\d{4}$/;
-/* Неизвестная роль из импорта или из старых данных падает в самую слабую —
-   Sales: она не видит ни себестоимости, ни настроек системы. */
-const SAFE_DEFAULT_ROLE='Sales';
-const SKILLS=['Cutting','Edgework (arris/polish)','CNC polishing','Drilling / notches','Tempering','Quality control','Shipping / loading'];
-const SKILL_LEVELS=['Beginner','Intermediate','Senior'];
-/* Роли и навыки — ХРАНИМЫЕ значения, а не подписи: они лежат в базе у каждого
-   пользователя и проверяются по списку при импорте. Английский интерфейс
-   переименовал их, поэтому старое значение надо перенести, иначе сохранённый
-   пользователь получит «unknown role», а его навыки молча исчезнут. Перенос
-   разовый и по значению — id у ролей нет. */
-const LEGACY_ROLES={'Продажи':'Sales','Бухгалтер':'Accounting','Админ':'Admin','Владелец':'Owner'};
-const LEGACY_SKILLS={'Резка':'Cutting','Кромка (arris/polish)':'Edgework (arris/polish)','ЧПУ полировка':'CNC polishing','Сверловка/выемки':'Drilling / notches','Закалка':'Tempering','Контроль качества':'Quality control','Отгрузка/погрузка':'Shipping / loading'};
-const LEGACY_SKILL_LEVELS={'Джун':'Beginner','Мидл':'Intermediate','Синьор':'Senior'};
-const migrateRole = r => LEGACY_ROLES[r]||r;
-const migrateSkillName = s => LEGACY_SKILLS[s]||s;
-const migrateSkillLevel = l => LEGACY_SKILL_LEVELS[l]||l;
-/* Старые записи могли хранить навык строкой — для них сохраняем исторический
-   уровень «Мидл». Объект с неизвестным навыком/уровнем не угадываем и удаляем. */
-const normSkill = x => {
- const src=typeof x==='string'?{skill:x,level:'Intermediate'}:(x&&typeof x==='object'?x:null);
- if(!src)return null;
- const skill=migrateSkillName(String(src.skill==null?'':src.skill).trim());if(!SKILLS.includes(skill))return null;
- const level=migrateSkillLevel(typeof x==='string'?'Intermediate':src.level);if(!SKILL_LEVELS.includes(level))return null;return {skill,level};
-};
-/* Пользователь привязан к РАБОЧЕМУ МЕСТУ, а не к станции: станция теперь шаг
-   маршрута, и «привязать человека к шагу маршрута» не значит ничего.
-
-   Старое поле `station` держало код станка (CUT1, CNC1, FURN1) — по коду оно
-   и переносится в `workPosition`. Код, которому в реальном цеху ничего не
-   соответствует (`EDGE1` — выдуманная «кромкообрабатывающая линия», вместо
-   неё стоят ARRIS-H/M, POL1–3, MITER1, BEVEL1), обнуляется. Угадывать, за
-   каким из шести мест стоял человек, нельзя: это ровно та подмена, из-за
-   которой у Spil расстановка смены оказалась структурой цеха.
-
-   И это ПРЕФИЛЛ, не назначение. Правда о том, кто сделал работу, приходит со
-   скана и живёт в событии (хендофф, раздел 9м §3). */
+/* Пользователь (владелец, 3 октября 2026): «вряд ли нужны скилы и прочее —
+   нужен пользователь, пароль и уровень доступа выбором галочек». Навыки,
+   станция по умолчанию и роли убраны: их читал только сам экран Users.
+   Осталось два входа, оба необязательны, у одного человека могут быть оба
+   (мастер цеха):
+   · офис — пароль от 8 символов и галочки разделов меню (access): раздела
+     без галочки нет в меню, и он не открывается; галочек нет — в офис не
+     входит. Уровней «смотреть / править» нет — владелец выбрал «видит / не
+     видит»;
+   · станция — личный номер (No.) и PIN, на любой станции, и на двух сразу:
+     «он может быть на двух станциях одновременно ответственным». PIN пуст —
+     на станцию не входит. */
+/* Ключи прав (USER_SECTIONS), проверка accessCan и секреты — erp/access. */
+/* Роли до 3 октября 2026 переносятся в галочки один раз. Прав тогда не
+   проверял никто, офисные роли видели всё — и получают все разделы: пока
+   владелец сам не снимет галочки, ничего не меняется. Shop и неизвестная
+   роль — без офиса: права не повышаем. */
+const LEGACY_OFFICE_ROLES=['Sales','Accounting','Admin','Owner','Продажи','Бухгалтер','Админ','Владелец'];
 function normalizeUsers(){
  if(!Array.isArray(DB.user))DB.user=[];
  DB.user=DB.user.filter(u=>u&&typeof u==='object');
@@ -80,18 +49,12 @@ function normalizeUsers(){
  DB.user.forEach(u=>{
   if(!/^view-[A-Za-z0-9-]+$/.test(u.viewProfileId||'')||profileIds.has(u.viewProfileId))u.viewProfileId='view-'+crypto.randomUUID();
   profileIds.add(u.viewProfileId);
-  u.name=String(u.name==null?'':u.name);u.role=ROLES.includes(migrateRole(u.role))?migrateRole(u.role):SAFE_DEFAULT_ROLE;
-  /* Человек привязан к СТАНЦИИ, а не к станку: рабочие места удалены
-     11 сентября 2026, а по разделу 7 хендоффа учётка вообще принадлежит
-     терминалу станции — конкретный оператор опознаётся бейджем при действии.
-     Старый код места читаем как есть: коды станков и станций не пересекаются,
-     и несуществующий просто обнулится. */
-  const legacy=u.station==null?u.workPosition:u.station;
-  const code=String(legacy==null?'':legacy).trim().toUpperCase();
-  u.station=DB.station.some(s=>s.code===code)?code:'';
-  delete u.workPosition;
-  const seen=Object.create(null);u.skills=(Array.isArray(u.skills)?u.skills:[]).map(normSkill).filter(x=>x&&!seen[x.skill]&&(seen[x.skill]=true));
-  u.pin=USER_PIN_RE.test(String(u.pin==null?'':u.pin))?String(u.pin):'';
+  u.name=String(u.name==null?'':u.name);
+  const access=Array.isArray(u.access)?u.access:LEGACY_OFFICE_ROLES.includes(u.role)?USER_SECTIONS:[];
+  u.access=USER_SECTIONS.filter(k=>access.includes(k));
+  delete u.role;delete u.skills;delete u.station;delete u.workPosition;
+  /* Пароль офиса и PIN станции — только отпечатки (erp/access). */
+  secretsNormalize(u);
  });
  /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
     (владелец, 2 октября 2026: «один пользователь может работать на разных
@@ -99,6 +62,12 @@ function normalizeUsers(){
  const nos=new Set();
  DB.user.forEach(u=>{const n=Number(u.no);u.no=Number.isInteger(n)&&n>0&&n<10000&&!nos.has(n)?n:0;if(u.no)nos.add(u.no);});
  let next=1;DB.user.forEach(u=>{if(u.no)return;while(nos.has(next))next++;u.no=next;nos.add(next);});
+ /* Дверь не запирается: офис есть, а раздел Users не видит никто — людей
+    больше некому завести и некому вернуть галочки. Тогда Users получает
+    первый по номеру офисный. Экран Users такого сохранить не даёт; это на
+    случай импорта чужого файла. */
+ const office=DB.user.filter(userOffice);
+ if(office.length&&!office.some(u=>u.access.includes('users'))){const first=office.reduce((a,b)=>b.no<a.no?b:a);first.access=USER_SECTIONS.filter(k=>k==='users'||first.access.includes(k));}
 }
 function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================
@@ -358,22 +327,6 @@ function applyDataFixes(){
  console.info('data fixes '+have+' \u2192 '+DATA_FIX_VERSION+': '+changed+' values');
  return true;
 }
-function skillIconName(skill){
- return ({
-  'Cutting':'cut',
-  'Edgework (arris/polish)':'edge',
-  'CNC polishing':'cnc',
-  'Drilling / notches':'cnc',
-  'Tempering':'furnace',
-  'Quality control':'check',
-  'Shipping / loading':'shipping'
- })[skill] || 'report';
-}
-function skillBadgeHTML(skillObj){
- const s=normSkill(skillObj);
- if(!s)return '';
- return `<span class="skill-badge">${ico(skillIconName(s.skill),'icon-inline')}<span>${esc(s.skill)}</span><span class="pill">${esc(s.level)}</span></span>`;
-}
 function salesSkillCards(){
  const cards=[
   {id:'shape', icon:'shape', title:'Production Shape', desc:'finished geometry · features · edgework · cutting', meta:'schema v2 · fail closed'}
@@ -381,17 +334,15 @@ function salesSkillCards(){
  return `<div class="skill-card-grid sales-skill-grid">${cards.map(c=>`<button type="button" class="skill-card ${subtab===c.id?'active':''}" onclick="subtab='${c.id}';sEdit=null;sDraft=null;render()"><div class="skill-card-icon">${ico(c.icon)}</div><div class="skill-card-body"><b>${c.title}</b><small>${c.desc}</small><div class="skill-card-meta"><span class="pill ${subtab===c.id?'ok':'info'}">${c.meta}</span></div></div></button>`).join('')}</div>`;
 }
 
-/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user: дашборд
-   показывал ноль, отчёт по навыкам был пуст, а привязку к станции и роли
-   проверить было не на ком. Трое — по одному на роль, которую в жизни держит
-   человек; Админ не засеян намеренно, это техническая роль. Рабочее место у
-   всех троих пустое: это офисные роли, за станком они не стоят.
+/* B8 · демо-пользователи. Прототип стартовал с пустым DB.user, и вход
+   проверить было не на ком. Трое офисных с разными галочками; на станцию
+   никто из них не входит — PIN пуст. Пароль каждый задаёт при первом входе.
    Имена латиницей: имя пользователя — данные, переводчик их не трогает, и
    русское имя осталось бы русским в английском интерфейсе. */
 const DEMO_USERS=[
- {name:'Demo Sales',role:'Sales',station:'',skills:[]},
- {name:'Demo Accounting',role:'Accounting',station:'',skills:[]},
- {name:'Demo Owner',role:'Owner',station:'',skills:[]}
+ {name:'Demo Sales',access:['sales','optimization','production','shipping','customers','dashboard']},
+ {name:'Demo Accounting',access:['sales','finance','customers','dashboard']},
+ {name:'Demo Owner',access:USER_SECTIONS}
 ];
 const DEMO_USERS_KEY='glazing_system_demo_users_v1';
 /* Засев ОДИН раз на браузер. Отметка живёт в localStorage, а не в DB, потому

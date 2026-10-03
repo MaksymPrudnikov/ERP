@@ -1,13 +1,13 @@
 /* =====================================================================
    erp/signin  ·  signin-1.0
-   Вход в офис по PIN: кто сейчас работает за этим компьютером.
-   IN : DB.user (имя, PIN — тот же, что на станции)
-   OUT: signinUser() — для журнала заказа и Finance; экран входа; имя в шапке
+   Вход в офис по паролю: кто сейчас работает за этим компьютером.
+   IN : DB.user (имя, пароль, галочки разделов)
+   OUT: signinUser() — для журнала заказа, Finance и меню; экран входа
 
    Владелец, 2 октября 2026: журнал заказа должен знать «кто». Вход — имя и
-   PIN из Users. Выход — кнопкой Sign out или когда закрыты все вкладки
+   пароль из Users; входят только люди с галочками разделов и паролем. Выход — кнопкой Sign out или когда закрыты все вкладки
    браузера; по простою не выходит: «резчик может пол дня разгружать трак».
-   F5 входа не сбрасывает. Экран станции (#station=…) входит своим PIN.
+   F5 входа не сбрасывает. Экран станции (#station=…) входит номером и PIN.
 
    Как узнаём «браузер закрывали»: каждая открытая вкладка держит общий
    замок SIGNIN_LOCK. Новая вкладка смотрит, держит ли его кто-то ещё: да —
@@ -19,13 +19,20 @@ let signinPick='',signinError='',signinChecking=false;
 function signinSession(){try{const s=JSON.parse(localStorage.getItem(SIGNIN_KEY)||'null');return s&&typeof s==='object'&&s.userId&&s.sid?s:null;}catch(e){return null;}}
 function signinTabSid(){try{return sessionStorage.getItem(SIGNIN_TAB_KEY)||'';}catch(e){return '';}}
 function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,sid);else sessionStorage.removeItem(SIGNIN_TAB_KEY);}catch(e){}}
+/* Галочки офиса или пароль сняли, пока человек работал, — вход кончается. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId)||null;
+ return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&u.password)||null;
 }
+/* Первый пароль ставят только в Users (владелец, 3 октября 2026): самому
+   придумать его при входе нельзя — иначе любой за компьютером займёт чужое
+   имя. Поэтому вход включается, когда пароль есть хотя бы у одного человека
+   с разделом Users; до тех пор входа нет, как в пустой базе: иначе дверь
+   закрыта и поставить пароль некому. */
+function signinOn(){return (DB.user||[]).some(u=>u.password&&(u.access||[]).includes(ACCESS_ADMIN));}
 function signinNeeded(){
  if(window.GF_NO_SIGNIN||signinChecking||tab==='station')return false;
- return (DB.user||[]).length>0&&!signinUser();
+ return signinOn()&&!signinUser();
 }
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
@@ -34,20 +41,20 @@ function signinAs(id){
  signinSetTabSid(sid);signinPick='';signinError='';render();
 }
 function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+/* Офис входит паролем от 8 символов, станция — номером и PIN (владелец,
+   3 октября 2026). Пароль ставят и меняют в Users. Лимита попыток нет —
+   решение владельца. */
 function signinChoose(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
- if(!u.pin)return signinAs(id);
- signinPick=id;signinError='';render();
- setTimeout(()=>{const el=document.getElementById('signinPin');if(el)el.focus();},0);
+ signinPick=id;signinError='';render();signinFocus();
 }
-function signinPinInput(el){
- el.value=el.value.replace(/\D/g,'').slice(0,4);
- document.querySelectorAll('.signin-dots i').forEach((d,i)=>d.classList.toggle('f',i<el.value.length));
- if(el.value.length<4)return;
- const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);
- if(u&&el.value===u.pin)return signinAs(u.viewProfileId);
- signinError='Wrong PIN';render();
- setTimeout(()=>{const p=document.getElementById('signinPin');if(p)p.focus();},0);
+function signinFocus(){setTimeout(()=>{const el=document.getElementById('signinPass');if(el)el.focus();},0);}
+function signinSubmit(e){
+ if(e)e.preventDefault();
+ const u=(DB.user||[]).find(x=>x.viewProfileId===signinPick);if(!u)return;
+ const pass=(document.getElementById('signinPass')||{}).value||'';
+ if(userPasswordCheck(u,pass))return signinAs(u.viewProfileId);
+ signinError='Wrong password';render();signinFocus();
 }
 /* Экран входа не должен быть «одиноким и холодным» (владелец, 2 октября
    2026): приветствие по времени суток, дата, кружки с инициалами своего цвета. */
@@ -67,11 +74,10 @@ function signinBrandHTML(){
 }
 function signinTone(name){let h=0;for(const c of String(name||''))h=(h*31+c.charCodeAt(0))>>>0;return 'tone-'+(h%4);}
 /* В офисе ~11 человек, в цеху 10–20 (владелец, 2 октября 2026): офисный вход
-   показывает только офисные роли, цех входит на своей станции. Нет ни одного
-   офисного — показываем всех, чтобы не остаться перед закрытой дверью. */
+   показывает только тех, у кого в Users отмечены разделы и стоит пароль; цех
+   входит на своей станции номером и PIN. */
 function signinOfficeUsers(){
- const all=DB.user||[],office=all.filter(u=>u.role!=='Shop');
- return (office.length?office:all).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+ return (DB.user||[]).filter(u=>userOffice(u)&&u.password).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
 }
 /* Office / Production (владелец, 2 октября 2026): «производство не должно
    видеть имена всех, кто в офисе». Production — только станции, имён нет;
@@ -90,11 +96,14 @@ function signinView(){
   <div class="signin-names signin-stations">${(DB.station||[]).map(s=>`<button type="button" class="signin-name" data-signin-station="${esc(s.code)}" onclick="signinStation('${esc(s.code)}')"><span class="signin-code" data-raw>${esc(s.code)}</span><span class="signin-who"><b>${sfLabel(s)}</b></span></button>`).join('')}</div>`;
  }else{
   const users=signinOfficeUsers(),pick=users.find(u=>u.viewProfileId===signinPick);
-  const pad=pick?`<div class="signin-pin"><label for="signinPin">Hi, <span data-raw>${esc(String(pick.name).trim().split(/\s+/)[0])}</span> — your PIN</label>
-   <div class="signin-dots${signinError?' bad':''}">${[0,1,2,3].map(()=>'<i></i>').join('')}<input id="signinPin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" oninput="signinPinInput(this)"></div>
-   <div class="signin-err" role="alert">${esc(signinError)}</div></div>`:'';
+  const hi=pick?esc(String(pick.name).trim().split(/\s+/)[0]):'';
+  const pad=pick?`<form class="signin-pin" onsubmit="signinSubmit(event)" data-signin-form="enter">
+   <label for="signinPass">Hi, <span data-raw>${hi}</span> — your password</label>
+   <input id="signinPass" type="password" autocomplete="current-password" aria-label="Password" placeholder="Password">
+   <button type="submit" class="pri">Sign in</button>
+   <div class="signin-err" role="alert">${esc(signinError)}</div></form>`:'';
   body=`<p class="signin-sub">Who is working?</p>
-  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b><small>${esc(u.role||'')}</small></span></button>`).join('')}</div>${pad}`;
+  <div class="signin-names">${users.map(u=>`<button type="button" class="signin-name${u.viewProfileId===signinPick?' on':''}" data-signin-user="${esc(u.viewProfileId)}" onclick="signinChoose('${esc(u.viewProfileId)}')"><span class="signin-av ${signinTone(u.name)}" data-raw>${esc(signinInitials(u.name))}</span><span class="signin-who"><b data-raw>${esc(u.name)}</b></span></button>`).join('')}</div>${pad}`;
  }
  return `<div class="signin"><div class="signin-glass" aria-hidden="true"><i></i><i class="g-bronze"></i><i class="g-blue"></i><i class="g-gray"></i><i class="g-frost"></i><i></i></div><div class="signin-wrap">
   <div class="signin-card">${signinBrandHTML()}${sw}<h2>${esc(signinGreeting())}</h2>${body}</div></div></div>`;
@@ -103,9 +112,43 @@ function signinView(){
 function signinNavHTML(){
  const u=signinUser();if(!u)return '';
  const name=String(u.name||'').trim(),ini=name.split(/\s+/).map(w=>w[0]||'').join('').slice(0,2).toUpperCase()||'?';
- return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)} · Sign out" onclick="signinOutAsk()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
+ return `<button type="button" class="nav-item nav-extra nav-user" data-signin-who title="${esc(name)}" onclick="signinMeOpen()"><span class="nav-user-ini" data-raw>${esc(ini)}</span><span data-raw>${esc(name.split(/\s+/)[0]||name)}</span></button>`;
 }
-function signinOutAsk(){const u=signinUser();if(u&&confirm('Sign out '+u.name+'?'))signinOut();}
+/* Своё имя внизу меню → окно: сменить свой пароль или выйти (владелец,
+   3 октября 2026: «свой пароль — только для офиса; продакшн — то, что даст
+   офис»). PIN станции человек сам не меняет — его выдаёт офис в Users. */
+let signinMe=null;
+function signinMeOpen(){if(!signinUser())return;signinMe={error:''};render();setTimeout(()=>{const el=document.getElementById('meOld');if(el)el.focus();},0);}
+function signinMeClose(){signinMe=null;render();}
+function signinMeHTML(){
+ const u=signinUser();if(!signinMe||!u)return '';
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)signinMeClose()"><div class="sales-service-modal sales-dialog signin-me" role="dialog" aria-modal="true" aria-label="Your account" data-signin-me>
+  <div class="sales-service-modal-head"><div><span>Signed in</span><h3 data-raw>${esc(u.name)}</h3></div><button type="button" aria-label="Close" onclick="signinMeClose()">×</button></div>
+  <form class="sales-dialog-body signin-me-form" onsubmit="signinMeSave(event)">
+   <label>Change password</label>
+   <input id="meOld" type="password" autocomplete="current-password" placeholder="Current password">
+   <input id="meNew" type="password" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters">
+   <input id="meNew2" type="password" autocomplete="new-password" placeholder="Repeat new">
+   <div class="signin-err" role="alert">${esc(signinMe.error)}</div>
+   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinMe=null;signinOut()">Sign out</button></div>
+  </form></div></div>`;
+}
+function signinMeSave(e){
+ if(e)e.preventDefault();
+ const u=signinUser();if(!u||!signinMe)return;
+ const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
+ const fail=m=>{signinMe.error=m;render();};
+ if(!userPasswordCheck(u,old))return fail('Wrong password');
+ if(next.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
+ if(next!==v('meNew2'))return fail('Passwords differ');
+ const id=u.viewProfileId;
+ storageWhenWriter(()=>{
+  const out=storageCommand(()=>{const now=(DB.user||[]).find(x=>x.viewProfileId===id);if(!now)throw new Error('User not found');userPasswordSet(now,next);return true;});
+  if(out.ok){signinMe=null;render();}else fail(out.error||'Not saved');
+ });
+}
+(window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&signinMe)signinMeClose();});
 /* Вход и выход в другой вкладке того же браузера — сразу и здесь. */
 window.addEventListener('storage',function(e){
  if(e.key!==SIGNIN_KEY)return;

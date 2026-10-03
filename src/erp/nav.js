@@ -37,8 +37,11 @@ function navItemHTML(n,i){
  return `<button type="button" class="nav-item${on?' on':''}${i>=NAV_TABBAR?' nav-extra':''}" aria-current="${on?'page':'false'}" title="${n.title||n.label}" onclick="navGo('${n.k}')">${ico(n.icon)}<span>${n.label}</span></button>`;
 }
 function navToggleMore(){navMoreOpen=!navMoreOpen;renderNav();}
+/* Доступ — галочки разделов в Users (владелец, 3 октября 2026: «видит / не
+   видит»): раздела без галочки нет в меню, и он не открывается. Проверка
+   одна — accessCan (erp/access). */
 function renderNav(){
- const main=NAV.filter(n=>!n.bottom),low=NAV.filter(n=>n.bottom);
+ const main=NAV.filter(n=>!n.bottom&&accessCan(n.k)),low=NAV.filter(n=>n.bottom&&accessCan(n.k));
  document.getElementById('side').innerHTML =
   `<button type="button" class="brand-mark" title="Glass Farm · light / dark" aria-label="Switch light or dark theme" onclick="toggleTheme()">GF</button>` +
   main.map((n,i)=>navItemHTML(n,i)).join('') +
@@ -52,6 +55,7 @@ function renderNav(){
    правками спрашивает «сохранить?») — стражи в window.NAV_GUARDS; этот файл
    про заказы по-прежнему не знает. */
 function navGo(k){
+ if(!accessCan(k))return;
  const go=()=>{tab=k;subtab=null;navMoreOpen=false;render();};
  if((window.NAV_GUARDS||[]).some(g=>g(k,go)))return;
  go();
@@ -90,11 +94,14 @@ function render(){
  const gate=typeof signinNeeded==='function'&&signinNeeded();
  document.body.classList.toggle('signin-mode',gate);
  if(gate){document.getElementById('app').innerHTML=signinView();document.title='Sign in · Glass Farm';return;}
+ if(tab!=='station'&&!accessCan(tab)){const open=NAV.find(n=>accessCan(n.k));if(open){tab=open.k;subtab=null;}}
+ /* Export / Import JSON — вся база целиком, это дело администратора (Users). */
+ document.body.classList.toggle('no-admin',!accessCan(ACCESS_ADMIN));
  renderNav();
  document.getElementById('dirty').style.display=dirty?'inline-flex':'none';
  const meta={
   dashboard:['System overview','ERP map and current status'],
-  users:['Users','Roles, work positions and skill coverage'],
+  users:['Users','Office and station sign-in'],
   customers:['Customers','Customer master, contacts and commercial terms'],
   sales:['Sales','Orders and commercial configuration'],
   configurators:['Configurators','Engineering Shape configurator'],

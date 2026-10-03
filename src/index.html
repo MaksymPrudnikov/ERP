@@ -7,7 +7,7 @@
   Правишь код модуля — достаточно F5, пересобирать не нужно. Пересборка нужна
   только при смене состава модулей (build/manifest.json) или правке шапки
   (src/shell.html). Работает и с сервера, и при открытии с диска (file://).
-  Состав: 106 модулей, 18 стиля.
+  Состав: 108 модулей, 18 стиля.
 -->
 <html lang="en">
 <head>
@@ -46,10 +46,10 @@
 <main id="app"></main>
 <footer class="app-foot">
   <div id="storageStatus" aria-live="polite"></div>
-  <span id="dirty" title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
+  <span id="dirty" data-admin title="Data is saved in this browser. Export JSON to keep a copy outside it.">● not exported to JSON</span>
   <span class="sp"></span>
-  <button class="gh" onclick="doExport()">Export JSON</button>
-  <button class="gh" onclick="document.getElementById('imp').click()">Import JSON</button>
+  <button class="gh" data-admin onclick="doExport()">Export JSON</button>
+  <button class="gh" data-admin onclick="document.getElementById('imp').click()">Import JSON</button>
   <input type="file" id="imp" accept=".json" style="display:none" onchange="doImport(this)">
 </footer>
 </div>
@@ -57,10 +57,11 @@
 <script>
 /* Метка сборки: видно, та ли версия файла открыта. Это fingerprint исходников,
    а не текущее время, поэтому повторная сборка остаётся воспроизводимой. */
-var ERP_BUILD='4b097e9cf76b';
+var ERP_BUILD='034c745ec7b6';
 </script>
 <script src="core/dim.js"></script>
 <script src="core/poly.js"></script>
+<script src="core/sha256.js"></script>
 <script src="modules/shape/consts.js"></script>
 <script src="modules/shape/model.js"></script>
 <script src="modules/shape/contour.js"></script>
@@ -82,6 +83,7 @@ var ERP_BUILD='4b097e9cf76b';
 <script src="modules/muntin/adaptive.js"></script>
 <script src="modules/muntin/bom.js"></script>
 <script src="modules/muntin/index.js"></script>
+<script src="erp/access.js"></script>
 <script src="erp/data.js"></script>
 <script src="erp/shopfloor/data.js"></script>
 <script src="erp/masterdata/units.js"></script>

@@ -47,10 +47,6 @@ function stationUnitDone(recs){
  if(stationAutoPrintOn()){if(stationLast)stationLast.printRequested=true;setTimeout(()=>stationPrintUnit(done.piece),60);}
  return done;
 }
-/* Навык, по которому станция узнаёт своих рабочих. Станция по умолчанию
-   у пользователя (поле station) тоже годится. */
-const STATION_SKILL={CUT:'Cutting',EDGE:'Edgework (arris/polish)',ARRIS:'Edgework (arris/polish)',POLISH:'Edgework (arris/polish)',BEVEL:'Edgework (arris/polish)',MITER:'Edgework (arris/polish)',CNC:'CNC polishing',DRILL:'Drilling / notches',HEAT:'Tempering',SHIPR:'Shipping / loading',SHIP:'Shipping / loading'};
-
 /* #station=CUT — экран станции; #station=CUT&batch=B-0001 — сразу этот батч. */
 function stationHash(){const m=/^#station=([A-Za-z0-9_-]{1,40})(?:&batch=([A-Za-z0-9_-]{1,20}))?$/.exec(location.hash||'');return m?{code:m[1].toUpperCase(),batch:m[2]||''}:null;}
 function stationFromHash(){const h=stationHash();return h?h.code:'';}
@@ -69,20 +65,29 @@ function stationRow(){return (DB.station||[]).find(s=>s.code===stationCode)||nul
 function stationName(code){const s=(DB.station||[]).find(x=>x.code===code);return s?sfName(s):code;}
 
 /* --------------------------- Кто работает --------------------------- */
-function stationSession(){try{const s=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');return s&&typeof s==='object'?s:null;}catch(e){return null;}}
+/* Вход — свой у каждой станции этого браузера: один человек может отвечать
+   за две станции сразу (владелец, 3 октября 2026) — две вкладки, два входа,
+   Switch выходит только с этой станции. Прежняя запись {station,userId}
+   читается как вход одной станции. */
+function stationSessions(){
+ try{const m=JSON.parse(localStorage.getItem(STATION_SESSION_KEY)||'null');if(!m||typeof m!=='object'||Array.isArray(m))return {};return typeof m.station==='string'?{[m.station]:m}:m;}catch(e){return {};}
+}
+function stationSessionsSave(m){try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(m));return true;}catch(e){return false;}}
+function stationSession(){const s=stationSessions()[stationCode];return s&&typeof s==='object'?s:null;}
+/* PIN сняли в Users — вход на станции кончается сразу, как и в офисе. */
 function stationWho(){
- const s=stationSession();if(!s||s.station!==stationCode)return null;
- const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);
+ const s=stationSession();if(!s)return null;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId&&x.pin);
  return u?{id:u.viewProfileId,name:u.name}:null;
 }
 /* На какую тару рабочий сейчас кладёт стекло — свойство рабочего места, как
    и вход: живёт в сессии этого браузера. */
-function stationPutOn(){const s=stationSession();return s&&s.station===stationCode&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
-function stationSetPutOn(code){const s=stationSession();if(!s)return;s.putOn=code||'';try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify(s));}catch(e){}}
+function stationPutOn(){const s=stationSession();return s&&s.putOn&&typeof carrierFind==='function'&&carrierFind(s.putOn)?s.putOn:'';}
+function stationSetPutOn(code){const m=stationSessions(),s=m[stationCode];if(!s||typeof s!=='object')return;s.putOn=code||'';stationSessionsSave(m);}
 function stationClearPutOn(){stationSetPutOn('');stationNote='Not putting on a dolly';render();}
 function stationLogin(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return false;
- try{localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:stationCode,userId:id,at:new Date().toISOString()}));}catch(e){return false;}
+ const m=stationSessions();m[stationCode]={userId:id,at:new Date().toISOString()};if(!stationSessionsSave(m))return false;
  stationLoginNo='';stationLoginStep='no';stationPin='';stationPinError='';render();return true;
 }
 /* Вход на станции: личный номер + PIN, имён на экране нет — «один
@@ -99,14 +104,14 @@ function stationLoginKey(k){
   else if(/^\d$/.test(k)&&stationPin.length<4)stationPin+=k;
   if(stationPin.length===4){
    const u=(DB.user||[]).find(x=>x.no===+stationLoginNo);
-   if(u&&u.pin&&u.pin===stationPin)return stationLogin(u.viewProfileId);
+   if(userPinCheck(u,stationPin))return stationLogin(u.viewProfileId);
    stationPinError=u&&!u.pin?'No PIN yet — ask the office':'Wrong number or PIN';
    stationLoginNo='';stationLoginStep='no';stationPin='';stationBeep('error');
   }
  }
  render();
 }
-function stationSwitch(){try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
+function stationSwitch(){const m=stationSessions();delete m[stationCode];stationSessionsSave(m);stationIncoming='';stationQuestions=[];stationParkPending=[];stationHereOpen='';stationLast=null;stationNote='';stationMenu=null;stationDrawer=null;stationTab='scan';render();}
 function stationInitials(name){return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
 
 /* ------------------------------ Звук ------------------------------- */

@@ -21,7 +21,7 @@ module.exports=async function({page,eq,ok}){
    ids(a).slice(0,3).forEach(g=>sc('HEAT',g));
    return {a,b,c};
   };
-  window.sqOpen=function(st){DB.user=DB.user.filter(u=>u.name!=='Op');DB.user.push({name:'Op',role:'Shop',station:st,skills:[],pin:''});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=st;tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);document.querySelector('[data-station-tab="queue"]').click();};
+  window.sqOpen=function(st){DB.user=DB.user.filter(u=>u.name!=='Op');DB.user.push({name:'Op',role:'Shop',station:st,skills:[],pin:'0000'});normalizeUsers();try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}stationCode=st;tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);document.querySelector('[data-station-tab="queue"]').click();};
   window.sqTiles=function(){return [...document.querySelectorAll('[data-flow-at]')].map(x=>x.dataset.flowAt+':'+x.querySelector('b').textContent).join();};
   window.sqRows=function(sel,from){return [...document.querySelectorAll(sel+' tbody tr')].map(tr=>[...tr.children].slice(from||0).map(td=>td.textContent.replace(/\s+/g,' ').trim()).join('|'));};
   window.sqOut=function(){stationSwitch();tab='dashboard';render();};

@@ -88,7 +88,7 @@ module.exports=async function({page,eq,ok}){
  eq('Critical из заказа: карточка красная, «отложить или отнести сразу»; Rush — жёлтая полоса',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,1]],{priority:'critical'});stBatch(id);const [a]=stIds(id);
   const id2=stOrder([[30,20,1]],{priority:'rush'});stBatch(id2);const [r]=stIds(id2);
-  DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();stationCode='CUT';tab='station';
+  DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();stationCode='CUT';tab='station';
   stationLogin(DB.user[DB.user.length-1].viewProfileId);stationSubmit(a);
   const crit={bar:document.querySelector('.st-urg').textContent,big:document.querySelector('.st-big').className,note:document.querySelector('.st-big span').textContent};
   stationSubmit(r);const rush=document.querySelector('.st-urg').className;stationSwitch();tab='dashboard';DB.user=DB.user.filter(u=>u.name!=='Ivan P.');render();
@@ -165,13 +165,32 @@ module.exports=async function({page,eq,ok}){
   tab='dashboard';render();return out;
  }),{single:'✓|2|',dgu:'6|·|·'});
 
- eq('Users: PIN — четыре цифры или пусто; роль Shop',await t.p.evaluate(()=>{
-  tab='users';subtab='list';uEdit='new';uDraft={name:'Pin Test',role:'Shop',station:'CUT',skills:[],pin:'12'};render();saveUser();const err=document.getElementById('e_user').textContent;
-  uDraft.pin='0042';saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
-  const bad=DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk=DB.user.find(x=>x.name==='Junk').pin;
+ eq('Users → Production: PIN — четыре цифры; без офиса и без навыков',await t.p.evaluate(()=>{
+  tab='users';subtab='production';userEditOpen('new');uDraft.name='Pin Test';uDraft.newPin='12';render();saveUser();const err=document.getElementById('e_user').textContent;
+  uDraft.newPin='0042';saveUser();const u=DB.user.find(x=>x.name==='Pin Test');
+  DB.user.push({name:'Junk',role:'Shop',pin:'abcd'});normalizeUsers();const junk='pin' in DB.user.find(x=>x.name==='Junk');
   DB.user=DB.user.filter(x=>!['Pin Test','Junk'].includes(x.name));render();
-  return {err,pin:u&&u.pin,role:u&&u.role,junk};
- }),{err:'PIN: 4 digits or empty',pin:'0042',role:'Shop',junk:''});
+  return {err,pin:userPinCheck(u,'0042'),plain:JSON.stringify(u).includes('0042'),junk,access:u&&u.access,keys:u&&Object.keys(u).filter(k=>['role','skills','station'].includes(k))};
+ }),{err:'PIN: 4 digits',pin:true,plain:false,junk:false,access:[],keys:[]});
+
+ /* Владелец, 3 октября 2026: «он может быть на двух станциях одновременно
+    ответственным». Вход — свой у каждой станции; Switch выходит только с этой. */
+ eq('один человек входит на две станции в одном браузере; Switch — только с этой',await t.p.evaluate(()=>{
+  const keep=[tab,stationCode];try{localStorage.removeItem(STATION_SESSION_KEY);}catch(e){}
+  DB.user=DB.user.filter(x=>x.name!=='Two Posts');DB.user.push({name:'Two Posts',pin:'2468'});normalizeUsers();const u=DB.user.find(x=>x.name==='Two Posts');
+  const login=code=>{stationCode=code;tab='station';render();String(u.no).split('').forEach(stationLoginKey);stationLoginKey('ok');'2468'.split('').forEach(stationLoginKey);return stationWho()&&stationWho().name;};
+  const a=login('ARRIS'),b=login('POLISH');stationCode='ARRIS';const still=stationWho()&&stationWho().name;
+  stationSwitch();const gone=stationWho();stationCode='POLISH';const other=stationWho()&&stationWho().name;
+  localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:'x'}));stationCode='CUT';const legacy=stationWho()&&stationWho().name;
+  localStorage.removeItem(STATION_SESSION_KEY);DB.user=DB.user.filter(x=>x!==u);tab=keep[0];stationCode=keep[1];render();
+  return {a,b,still,gone,other,legacy};
+ }),{a:'Two Posts',b:'Two Posts',still:'Two Posts',gone:null,other:'Two Posts',legacy:'Two Posts'});
+ eq('PIN сняли в Users — вход на станции кончается сразу',await t.p.evaluate(()=>{
+  const keep=[tab,stationCode];DB.user=DB.user.filter(x=>x.name!=='Gone Pin');DB.user.push({name:'Gone Pin',pin:'1357'});normalizeUsers();const u=DB.user.find(x=>x.name==='Gone Pin');
+  stationCode='CUT';tab='station';stationLogin(u.viewProfileId);const before=stationWho()&&stationWho().name;u.pin='';render();
+  const after={who:stationWho(),login:!!document.querySelector('.st-login')};
+  localStorage.removeItem(STATION_SESSION_KEY);DB.user=DB.user.filter(x=>x!==u);tab=keep[0];stationCode=keep[1];render();return {before,after};
+ }),{before:'Gone Pin',after:{who:null,login:true}});
 
  eq('живые данные из другой вкладки: база перечитывается, экран не прыгает, пока человек печатает',await t.p.evaluate(()=>{
   stReset();const id=stOrder([[36,24,1]]);stBatch(id);const [a]=stIds(id);touch();
@@ -209,7 +228,7 @@ module.exports=async function({page,eq,ok}){
   const r=await t.p.evaluate(()=>{
    window.print=()=>{window.stPrinted=(window.stPrinted||0)+1;};
    stReset();const id=stOrder([[36,24,2],[20,30,1]]);stBatch(id);cutPlanRun('B-0001');
-   DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();
+   DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();
    stationCode='CUT';tab='station';stationTab='scan';stationDrawer=null;stationLogin(DB.user[DB.user.length-1].viewProfileId);
    const [a]=cutPlanFor('B-0001').groups[0].sheets[0].pieces.map(p=>p.piece);stationSubmit(a);
    document.querySelector('[data-station-recut]').click();
@@ -239,7 +258,7 @@ module.exports=async function({page,eq,ok}){
   DB.glassBatch.find(b=>b.number==='B-0001').items.forEach(i=>stScan('CUT',i.piece));
   const [p]=DB.glassBatch.find(b=>b.number==='B-0002').items;stationBreak('CUT',stationCheck('CUT',p.piece),stWho,ncrReasonsFor('CUT',{activeOnly:true})[0].id);
   const q=stationQueueData();
-  DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:''});normalizeUsers();
+  DB.user=DB.user.filter(u=>u.name!=='Ivan P.');DB.user.push({name:'Ivan P.',role:'Shop',station:'CUT',skills:[],pin:'0000'});normalizeUsers();
   stationCode='CUT';tab='station';stationLogin(DB.user[DB.user.length-1].viewProfileId);document.querySelector('[data-station-tab="queue"]').click();
   const shown=[...document.querySelectorAll('[data-queue-batch]')].map(x=>x.dataset.queueBatch).join(),topScan=!!document.querySelector('.st-top [data-station-scan]');
   stationSwitch();tab='dashboard';render();
