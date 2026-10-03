@@ -7,6 +7,8 @@
    Владелец, 17 сентября 2026:
    - сток: выбрать заказ в Sales → Stickers → стекло или весь юнит;
    - батч печатают по порядку (по листу — когда будет своя раскладка);
+   4 октября 2026: печать батча — из окна оптимизации: весь батч, листы или
+   отдельные стёкла; стикеры, чертежи и схемы листов — одно окно;
    - размер рулона выбирается при печати и запоминается на компьютере;
    - конструктор «как конструктор документов»: размер в pt, детали внутри
      блока, блоки двигаются мышкой — в списке и прямо на стикере.
@@ -76,16 +78,21 @@ function stkOpenForOrder(orderId){
  const rows={};stkOrderRows(o).forEach(r=>{rows[r.key]={on:r.kind==='line',which:'all',units:''};});
  stkDialog={mode:'order',orderId,type:'production',size:stkPrefSize(),rows,warning:'',error:''};render();
 }
+/* Окно батча: off — снятые галочки (Glass ID или S-…), sheets — поле листов.
+   Открывается поверх экрана оптимизации без его перерисовки: в батче на
+   240 листов экран рисуется ~1,5 с. */
 function stkOpenForBatch(number){
- const b=glassBatchFind(number);if(!b)return;
- const picked=glassBatchInfos().filter(i=>i.item&&!i.item.releasedAt&&glassBatchSelection.has(glassBatchRowKey(i))).map(i=>i.item.piece);
- stkDialog={mode:'batch',batchNo:number,pieces:picked,type:'production',size:stkPrefSize(),order:typeof cutPlanLaid==='function'&&cutPlanLaid(number)?'sheet':'in',warning:'',error:''};render();
+ if(!glassBatchFind(number))return;
+ stkDialog={mode:'batch',batchNo:number,type:'production',size:stkPrefSize(),sheets:'',off:new Set(),warning:'',error:'',notice:''};
+ const host=document.querySelector('section.glass-batches');if(host)host.insertAdjacentHTML('beforeend',stkDialogHTML());else render();
 }
 function stkDialogType(v){stkDialogSet('type',v);}
-function stkDialogOrder(v){stkDialogSet('order',v);}
 function stkDialogSize(v){stkDialogSet('size',v);}
-function stkDialogClose(){stkDialog=null;stkPrintEdit=null;render();}
-function stkDialogSet(k,v){if(!stkDialog)return;if(stkDialog[k]!==v&&(k==='type'||k==='size'))stkDialog.tpl=null;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';if(k==='size')stkSetPrefSize(v);render();}
+function stkDialogClose(){
+ const el=stkDialog&&stkDialog.mode==='batch'&&!stkPrintEdit&&document.querySelector('[data-stk-batch-list]');
+ stkDialog=null;stkPrintEdit=null;if(el)el.closest('.sales-dialog-back').remove();else render();
+}
+function stkDialogSet(k,v){if(!stkDialog)return;if(stkDialog[k]!==v&&(k==='type'||k==='size'))stkDialog.tpl=null;stkDialog[k]=v;stkDialog.warning='';stkDialog.error='';stkDialog.notice='';if(k==='size')stkSetPrefSize(v);if(stkDialog.mode==='batch')stkBatchRender();else render();}
 function stkDialogRow(key,k,v,rerender){
  const d=stkDialog;if(!d||!d.rows[key])return;d.rows[key][k]=v;d.warning='';d.error='';
  if(rerender)render();else stkDialogRefresh();
@@ -105,19 +112,72 @@ function stkBatchJobs(b,pieces,order){
   const part=b.parts[item.part],o=salesRecord(part.orderId),l=o&&(o.lines||[]).find(x=>x.id===part.lineId),cs=o&&l?glassBatchComponents(o,l):[],c=cs.find(x=>x.key===part.key);
   if(!c)return;
   const at=sheets&&sheets.get(item.piece);
-  jobs.push({type:'production',o,l,c,unit:item.unit,
+  jobs.push({type:'production',o,l,c,unit:item.unit,piece:item.piece,sheet:at?at.sheet:0,
    sort:at?[0,at.sheet,at.pos,0]:[+String(o.businessNumber).replace(/\D/g,'')||0,o.lines.indexOf(l),typeof item.unit==='string'?1e6+(+item.unit.split('.')[1]||0):item.unit,cs.indexOf(c)]});
  });
  /* По листу: после стёкол листа — его куски в стоке. Стикер стока не
     печатается кнопкой «в сток» — «он будет печататься, следуя листам»
     (владелец, 18 сентября 2026). */
  const plan=sheets&&!pick&&typeof cutPlanFor==='function'?cutPlanFor(b.number):null;
- if(plan)plan.groups.forEach(g=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sort:[0,s.no,1e6+i,0]});})));
+ if(plan)plan.groups.forEach(g=>g.sheets.forEach(s=>(s.stock||[]).forEach((x,i)=>{const rec=typeof stockOffcutFind==='function'&&stockOffcutFind(x.id);if(rec&&rec.status==='stock')jobs.push({type:'stock',rec,sheet:s.no,sort:[0,s.no,1e6+i,0]});})));
  return jobs.sort((a,b)=>{for(let i=0;i<4;i++)if(a.sort[i]!==b.sort[i])return a.sort[i]-b.sort[i];return 0;});
+}
+/* Окно печати батча (владелец, 4 октября 2026): «весь батч, определённый
+   оптимизированный лист или определённое выбранное стекло». Раскрой собран —
+   стёкла его листов в порядке листа, куски в сток — за стёклами своего листа;
+   стёкла не на листе не печатаются. Не собран — все стёкла по порядку. */
+function stkJobKey(j){return j.type==='stock'?j.rec.id:j.piece;}
+function stkBatchView(d){
+ const b=glassBatchFind(d.batchNo);if(!b)return null;
+ const laid=typeof cutPlanLaid==='function'?cutPlanLaid(b.number):null,all=stkBatchJobs(b,null,laid?'sheet':'in');
+ const nos=laid?[...new Set(laid.groups.flatMap(g=>g.sheets.map(s=>s.no)))].sort((x,y)=>x-y):[],max=nos.length?nos[nos.length-1]:0;
+ const want=laid?stkParseUnits(d.sheets,max):null,error=laid&&!want?'Sheets 1 to '+max:'';
+ const pick=new Set(want||[]),scope=laid?all.filter(j=>j.sheet&&pick.has(j.sheet)):all;
+ const selected=scope.filter(j=>!d.off.has(stkJobKey(j)));
+ return {b,laid,all,scope,selected,error,max,
+  away:laid?all.filter(j=>!j.sheet).length:0,
+  sheets:[...new Set(selected.map(j=>j.sheet))].filter(Boolean)};
+}
+/* Перерисовывается только окно, прокрутка списка сохраняется: галочка в
+   конце длинного батча не отбрасывает список к началу. */
+function stkBatchRender(){
+ const el=document.querySelector('[data-stk-batch-list]'),top=el?el.scrollTop:0,back=el&&el.closest('.sales-dialog-back'),html=back&&stkDialog&&!stkPrintEdit?stkDialogHTML():'';
+ if(html)back.outerHTML=html;else render();
+ const next=document.querySelector('[data-stk-batch-list]');if(next)next.scrollTop=top;
+}
+function stkBatchSheets(v){const d=stkDialog;if(!d)return;d.sheets=String(v==null?'':v).trim();d.warning='';d.error='';d.notice='';stkBatchRender();}
+function stkBatchCheck(kind,v,on){
+ const d=stkDialog,x=d&&stkBatchView(d);if(!x)return;
+ const keys=kind==='all'?x.scope.map(stkJobKey):kind==='sheet'?x.scope.filter(j=>j.sheet===+v).map(stkJobKey):[String(v)];
+ keys.forEach(k=>{if(on)d.off.delete(k);else d.off.add(k);});d.warning='';d.error='';d.notice='';stkBatchRender();
+}
+function stkLogPrinted(jobs,what,batchNo){
+ if(typeof orderLogAdd!=='function')return;
+ const by=new Map();jobs.forEach(j=>{if(j.o&&j.o.id)by.set(j.o.id,(by.get(j.o.id)||0)+1);});
+ by.forEach((n,id)=>orderLogAdd(id,'Printed',what+' · '+n+(batchNo?' · '+batchNo:'')));
+}
+/* Правая кнопка по стеклу на листе: один стикер сразу, размер и шаблон —
+   последние выбранные на этом компьютере. */
+function stkPrintPieces(number,pieces){
+ const b=glassBatchFind(number);if(!b)return false;
+ const jobs=stkBatchJobs(b,pieces,'sheet').filter(j=>j.type==='production');if(!jobs.length)return false;
+ let pages;try{pages=stkPages(jobs,stkPrefSize(),null);}catch(e){return false;}
+ const ok=stkPrint(pages);if(ok)stkLogPrinted(jobs,'Stickers',number);return ok;
+}
+function stkBatchDrawings(){
+ const d=stkDialog,x=d&&stkBatchView(d);if(!x||x.error||!x.selected.length)return;
+ const n=x.selected.filter(j=>j.type!=='stock').length;if(n>100&&!confirm('Print '+n+' drawings?'))return;
+ const r=batchDrawingsPrint(d.batchNo,x.selected);
+ d.notice=r.printed?r.printed+' drawing'+(r.printed===1?'':'s')+' sent':'';
+ d.error=r.bad.length?'No drawing: '+r.bad.slice(0,5).join(', ')+(r.bad.length>5?' …':''):'';stkBatchRender();
+}
+function stkBatchLayouts(){
+ const d=stkDialog,x=d&&stkBatchView(d);if(!x||!x.laid||!x.sheets.length)return;
+ if(typeof cutPrintLayouts==='function'&&cutPrintLayouts(d.batchNo,x.sheets)){d.notice=x.sheets.length+' layout'+(x.sheets.length===1?'':'s')+' sent';stkBatchRender();}
 }
 function stkDialogJobs(){
  const d=stkDialog;if(!d)return {jobs:[],error:''};
- if(d.mode==='batch'){const b=glassBatchFind(d.batchNo);return {jobs:b?stkBatchJobs(b,d.pieces,d.order):[],error:''};}
+ if(d.mode==='batch'){const x=stkBatchView(d);return {jobs:x?x.selected:[],error:x?x.error:''};}
  const o=salesRecord(d.orderId);if(!o)return {jobs:[],error:''};
  const jobs=[];
  for(const row of stkOrderRows(o)){
@@ -144,9 +204,10 @@ function stkDialogPrint(){
  if(!r.jobs.length)return;
  let pages;try{pages=stkPages(r.jobs,d.size,d.tpl);}catch(e){d.error='Stickers could not be prepared: '+(e&&e.message||e);render();return;}
  const over=[...new Set(pages.flatMap(p=>p.overflow))];
- if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');render();return;}
- stkDialog=null;render();
- if(stkPrint(pages)&&typeof orderLogAdd==='function'){const by=new Map();r.jobs.forEach(j=>{if(j.o&&j.o.id)by.set(j.o.id,(by.get(j.o.id)||0)+1);});by.forEach((n,id)=>orderLogAdd(id,'Printed','Stickers · '+n+(d.mode==='batch'&&d.batchNo?' · '+d.batchNo:'')));}
+ if(over.length&&!d.warning){d.warning="Doesn't fit: "+over.join(', ');if(d.mode==='batch')stkBatchRender();else render();return;}
+ /* Батч: окно остаётся — следом печатают чертежи и схемы. */
+ if(d.mode==='batch'){d.warning='';d.notice=pages.length+' sticker'+(pages.length===1?'':'s')+' sent';stkBatchRender();}else{stkDialog=null;render();}
+ if(stkPrint(pages))stkLogPrinted(r.jobs,'Stickers',d.mode==='batch'?d.batchNo:'');
 }
 /* Трудный заказ правится на месте, а не шаблон для всех: «не проще дать
    отредактировать точечно заказ на момент сложного стикера» (владелец,
@@ -170,27 +231,21 @@ function stkDialogHTML(){
   <div class="sales-service-modal-head"><h3>Customize this print · ${esc(stkTypeLabel(stkPrintEdit.type))} · ${esc(stkSizeDef(stkPrintEdit.size).label)}</h3><button type="button" aria-label="Close" onclick="stkPrintEditCancel()">×</button></div>
   <div class="sales-dialog-body">${stkEditorHTML()}</div></div></div>`;
  const seg=(list,cur,fn,dis)=>`<div class="stk-seg">${list.map(x=>`<button type="button" class="${x.k===cur?'on':''}" ${dis&&dis(x)?'disabled':''} onclick="${fn}('${x.k}')">${esc(x.label)}</button>`).join('')}</div>`;
+ if(d.mode==='batch')return stkBatchDialogHTML(d,seg);
  const r=stkDialogJobs(),count=r.error||r.jobs.length+' sticker'+(r.jobs.length===1?'':'s');
- let title,sub,body='';
- if(d.mode==='batch'){
-  const b=glassBatchFind(d.batchNo);title='Print stickers · Batch '+d.batchNo;
-  sub=(d.pieces&&d.pieces.length?'Selected glass':'All glass')+' · in order';if(!b)sub='Batch not found';
- }else{
-  const o=salesRecord(d.orderId);if(!o){stkDialog=null;return '';}
-  title='Print stickers · Order '+(o.businessNumber||'');sub=[salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · ');
-  const rows=stkOrderRows(o).map(row=>{
-   const x=d.rows[row.key]||{on:false,which:'all',units:''},unitType=d.type==='unit',usable=unitType?row.kind==='line'&&row.comps.length>1:row.comps.length>0,on=x.on&&usable;
-   const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
-   const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
-   return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
-    <td>${name}</td><td class="nowrap">${esc(dimIn16(row.l.width16/16))} × ${esc(dimIn16(row.l.height16/16))}</td><td class="n">${max}</td>
-    <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
-    <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
-  }).join('');
-  body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
- }
- const plan=d.mode==='batch'&&typeof cutPlanLaid==='function'?cutPlanLaid(d.batchNo):null;
- const types=d.mode==='batch'?`<div><div class="ncr-label">ORDER</div>${seg([{k:'in',label:'In order'},{k:'sheet',label:'By sheet'}],d.order||'in','stkDialogOrder',x=>x.k==='sheet'&&!plan)}</div>`:`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
+ const o=salesRecord(d.orderId);if(!o){stkDialog=null;return '';}
+ const title='Print stickers · Order '+(o.businessNumber||''),sub=[salesCustomerDisplay(o.customerId),o.customerPo,salesStatusLabel(o)].filter(Boolean).join(' · ');
+ const rows=stkOrderRows(o).map(row=>{
+  const x=d.rows[row.key]||{on:false,which:'all',units:''},unitType=d.type==='unit',usable=unitType?row.kind==='line'&&row.comps.length>1:row.comps.length>0,on=x.on&&usable;
+  const opts=unitType?[{v:'all',t:'Whole unit'}]:[{v:'all',t:row.comps.length>1?'All glass':'Lite '+(row.comps[0]?row.comps[0].lite+' · '+row.comps[0].glass:'')}].concat(row.comps.length>1?row.comps.map(c=>({v:c.key,t:'Lite '+c.lite+' · '+c.glass})):[]);
+  const max=row.kind==='recut'?row.r.qty:row.l.qty,name=row.kind==='recut'?`<b class="stk-recut">Recut ${row.r.no}</b> · Line ${row.li+1}`:'Line '+(row.li+1)+(row.l.mark?' · '+esc(row.l.mark):'');
+  return `<tr data-stk-row="${esc(row.key)}" class="${on?'on':''}${usable?'':' off'}"><td><input type="checkbox" data-stk-row-on ${on?'checked':''} ${usable?'':'disabled'} aria-label="Print ${row.kind==='recut'?'recut '+row.r.no:'line '+(row.li+1)}" onchange="stkDialogRow('${esc(row.key)}','on',this.checked,true)"></td>
+   <td>${name}</td><td class="nowrap">${esc(dimIn16(row.l.width16/16))} × ${esc(dimIn16(row.l.height16/16))}</td><td class="n">${max}</td>
+   <td>${usable?`<select data-stk-which ${on&&opts.length>1?'':'disabled'} aria-label="Which glass" onchange="stkDialogRow('${esc(row.key)}','which',this.value,true)">${opts.map(v=>`<option value="${esc(v.v)}" ${x.which===v.v?'selected':''}>${esc(v.t)}</option>`).join('')}</select>`:`<span class="mut">${unitType?'Single glass':'No glass'}</span>`}</td>
+   <td><input type="text" data-stk-units value="${esc(x.units)}" placeholder="1-${max}" ${on?'':'disabled'} aria-label="Units" oninput="stkDialogRow('${esc(row.key)}','units',this.value)"></td></tr>`;
+ }).join('');
+ const body=`<div class="ncr-lines-wrap"><table class="ncr-lines stk-lines"><thead><tr><th></th><th>Line</th><th>Size</th><th class="n">Qty</th><th>Which glass</th><th>Units</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ const types=`<div><div class="ncr-label">STICKER</div>${seg(STK_TYPES,d.type,'stkDialogType')}</div>`;
  return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print stickers">
   <div class="sales-service-modal-head"><h3>${esc(title)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
   <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>
@@ -204,6 +259,49 @@ function stkDialogHTML(){
   <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${r.error||!r.jobs.length?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span><button type="button" onclick="stkDialogClose()">Cancel</button><button type="button" class="pri" data-stk-print ${r.error||!r.jobs.length?'disabled':''} onclick="stkDialogPrint()">${d.warning?'Print anyway':'Print'}</button></div></div></div>`;
 }
 
+/* Окно батча: листы — All / This / поле «2, 5-7»; список стёкол по листам
+   с галочками; три печати — стикеры (рулон), чертежи и схемы (Letter): одна
+   печать браузера идёт на один принтер. */
+function stkBatchDialogHTML(d,seg){
+ const x=stkBatchView(d);if(!x){stkDialog=null;return '';}
+ const b=x.b,glass=[...new Set(b.parts.map(p=>p.snapshot.glass))].join(' / ');
+ const plural=(n,w)=>n+' '+w+(n===1?'':'s'),glassN=x.selected.filter(j=>j.type!=='stock').length,stockN=x.selected.length-glassN;
+ const sub=[glass,x.all.filter(j=>j.type!=='stock').length+' glass',x.laid?plural(x.max,'sheet'):'Not built · in order'].join(' · ');
+ const cur=typeof cutUi!=='undefined'&&cutUi&&cutUi.batch===b.number&&+cutUi.sheet||1;
+ const sheets=x.laid?`<div><div class="ncr-label">SHEETS</div><div class="stk-sheets"><div class="stk-seg"><button type="button" class="${d.sheets===''?'on':''}" data-stk-sheets-all onclick="stkBatchSheets('')">All</button><button type="button" class="${d.sheets===String(cur)?'on':''}" data-stk-sheets-this onclick="stkBatchSheets('${cur}')">This · ${cur}</button></div><input type="text" data-stk-sheets value="${esc(d.sheets)}" placeholder="1-${x.max}" aria-label="Sheets" onchange="stkBatchSheets(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();stkBatchSheets(this.value);}"></div></div>`:'';
+ const lines=new Map(),info=j=>{const k=j.o.id+'|'+j.l.id;if(!lines.has(k))lines.set(k,{shape:!salesShapeIsLineRect(salesLineGeometryShape(j.l)),many:glassBatchComponents(j.o,j.l).length>1});return lines.get(k);};
+ const row=j=>{
+  const k=stkJobKey(j),on=!d.off.has(k);
+  if(j.type==='stock')return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td class="mut">Stock offcut</td><td></td><td class="nowrap">${esc(frac16(j.rec.w))} × ${esc(frac16(j.rec.h))}″</td><td></td></tr>`;
+  const f=info(j),li=j.o.lines.indexOf(j.l)+1;
+  return `<tr data-stk-item="${esc(k)}" class="${on?'':'off'}"><td><input type="checkbox" data-stk-check ${on?'checked':''} aria-label="Print ${esc(k)}" onchange="stkBatchCheck('item','${esc(k)}',this.checked)"></td><td class="gb-piece">${esc(k)}</td><td>${esc(j.o.businessNumber||'')} / ${li}${f.many?' · Lite '+esc(j.c.lite):''}${j.l.mark?' · '+esc(j.l.mark):''}</td><td>${esc(salesCustomerDisplay(j.o.customerId))}</td><td class="nowrap">${esc(dimIn16(j.l.width16/16))} × ${esc(dimIn16(j.l.height16/16))}</td><td>${f.shape?'<span class="pill">shape</span>':''}</td></tr>`;
+ };
+ const groups=[];x.scope.forEach(j=>{const g=groups[groups.length-1];if(g&&g.no===j.sheet)g.jobs.push(j);else groups.push({no:j.sheet,jobs:[j]});});
+ const body=groups.map(g=>{
+  const on=g.jobs.filter(j=>!d.off.has(stkJobKey(j))).length,n=g.jobs.filter(j=>j.type!=='stock').length,st=g.jobs.length-n;
+  const head=x.laid?`<tr class="stk-sheet-row" data-stk-sheet="${g.no}"><td><input type="checkbox" data-stk-sheet-check ${on===g.jobs.length?'checked':''} aria-label="Print sheet ${g.no}" onchange="stkBatchCheck('sheet',${g.no},this.checked)"></td><td colspan="5"><b>Sheet ${g.no}</b> · ${n+' glass'}${st?' · '+st+' stock':''}</td></tr>`:'';
+  return head+g.jobs.map(row).join('');
+ }).join('');
+ const allOn=x.scope.length&&x.scope.every(j=>!d.off.has(stkJobKey(j)));
+ const list=`<div class="ncr-lines-wrap stk-batch-list" data-stk-batch-list><table class="ncr-lines stk-lines"><thead><tr><th><input type="checkbox" data-stk-check-all ${allOn?'checked':''} ${x.scope.length?'':'disabled'} aria-label="Print all" onchange="stkBatchCheck('all','',this.checked)"></th><th>Glass</th><th>Order / Line</th><th>Customer</th><th>Size</th><th></th></tr></thead><tbody>${body||'<tr><td colspan="6" class="empty">No glass on these sheets.</td></tr>'}</tbody></table></div>`;
+ const count=x.error||[glassN+' glass',stockN?stockN+' stock':'',x.laid?plural(x.sheets.length,'sheet'):'',x.away?x.away+' not on a sheet':''].filter(Boolean).join(' · ');
+ const none=!!x.error||!x.selected.length;
+ return `<div class="sales-service-modal-back sales-dialog-back" onclick="if(event.target===this)stkDialogClose()"><div class="sales-service-modal sales-dialog stk-modal" role="dialog" aria-modal="true" aria-label="Print batch">
+  <div class="sales-service-modal-head"><h3>${esc('Print · Batch '+b.number)}</h3><button type="button" aria-label="Close" onclick="stkDialogClose()">×</button></div>
+  <div class="sales-dialog-body stk-dialog"><p class="mut">${esc(sub)}</p>
+   <div class="stk-dialog-pick">${sheets}<div><div class="ncr-label">STICKER SIZE</div>${seg(STK_SIZES,d.size,'stkDialogSize')}</div></div>
+   ${list}
+   <div class="sales-quote-note stk-count${x.error?' bad':''}" data-stk-count>${esc(count)}</div>
+   ${d.tpl?`<div class="stk-custom" data-stk-custom>Custom layout · this print <button type="button" class="gb-link" onclick="stkDialogUndoLayout()">Undo</button></div>`:''}
+   ${d.notice?`<div class="stk-sent" data-stk-notice>✓ ${esc(d.notice)}</div>`:''}
+   ${d.warning?`<div class="ncr-warning" role="alert" data-stk-warning>⚠ ${esc(d.warning)}</div>`:''}
+   ${d.error?`<div class="ncr-error" role="alert">${esc(d.error)}</div>`:''}
+  </div>
+  <div class="sales-dialog-actions"><button type="button" class="stk-customize" data-stk-customize ${none||!glassN?'disabled':''} onclick="stkPrintCustomize()">✎ Customize</button><span class="sp"></span>
+   <button type="button" class="stk-print-btn" data-stk-print ${none?'disabled':''} onclick="stkDialogPrint()">${ico('printer')}${d.warning?'Stickers anyway':'Stickers · '+x.selected.length}</button>
+   <button type="button" class="stk-print-btn" data-stk-print-drawings ${none||!glassN?'disabled':''} onclick="stkBatchDrawings()">${ico('printer')}Drawings · ${glassN}</button>
+   <button type="button" class="stk-print-btn" data-stk-print-layouts ${none||!x.laid||!x.sheets.length?'disabled':''} onclick="stkBatchLayouts()">${ico('printer')}Layouts · ${x.laid?x.sheets.length:0}</button></div></div></div>`;
+}
 /* ---------------------------- Конструктор ---------------------------- */
 function stkBuilderState(){
  if(stkPrintEdit)return stkPrintEdit;

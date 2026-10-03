@@ -353,6 +353,7 @@ function cutSplitForm(glass,no,i,o,pre,menu){
   <span class="cut-split-row">${esc(frac16(o.w))}″ × <input type="text" id="${W}" placeholder="width" aria-label="Width to stock, in" onkeydown="if(event.key==='Enter')cutUiStockSplit('${esc(glass)}',${no},${i},'width','${W}')"> ${btn('width',W)}</span>`};
 }
 function cutUiStockCancel(id){if(!confirm('Put '+id+' back to waste?'))return;cutUiRun(()=>cutStockCancel(cutUi.batch,id));}
+function cutUiPrintDrawing(id){const b=glassBatchFind(cutUi.batch);if(b)batchDrawingsPrint(b.number,stkBatchJobs(b,[id],'sheet'));}
 function cutUiStockPrint(ids){if(ids.length&&typeof stkPrintStock==='function')stkPrintStock(ids);}
 /* Приоритеты ставят пачкой по многу стёкол, а каждая правка перерисовывает
    экран: список уезжал в начало и поле теряло фокус. Владелец, 21 сентября
@@ -554,6 +555,9 @@ function cutUiMenu(e,glass,no){
   if(p&&p.shape)act('Rotate 180°','⇧R',()=>cutUiRotate(2),'data-cut-menu="rotate-180"');
   act('Take off the sheet','Del',()=>cutUiTake(),'data-cut-menu="take"');
   act(p&&p.locked?'Unlock glass':'Lock glass','L',()=>cutUiLock(),'data-cut-menu="lock"');
+  /* Перепечатка одного стекла — без окна (владелец, 4 октября 2026). */
+  act('Print sticker','',()=>stkPrintPieces(cutUi.batch,[id]),'data-cut-menu="print-sticker"');
+  act('Print drawing','',()=>cutUiPrintDrawing(id),'data-cut-menu="print-drawing"');
   const others=ctx.g.sheets.filter(x=>x.no!==ctx.sheet.no&&!x.locked);
   if(others.length){
    rows.push('<div class="cut-menu-sub">Move to sheet</div><div class="cut-menu-sheets">');
@@ -802,10 +806,11 @@ function cutPrintPlan(sizes){
  const worst=landscape=>Math.min(...sizes.map(z=>cutPrintFit(z,landscape))),landscape=worst(true)>=worst(false);
  return {landscape,scales:sizes.map(z=>cutPrintFit(z,landscape))};
 }
-function cutPrintLayouts(number){
+/* sheetNos — только эти листы (окно печати батча); без него — все. */
+function cutPrintLayouts(number,sheetNos){
  const plan=cutPlanFor(number);if(!plan)return false;
- const pieces=cutPiecesOf(number,plan.settings||{}),pages=[];
- const list=plan.groups.flatMap(g=>g.sheets.map(s=>({g,s,size:s.size||g.sheet})));
+ const pieces=cutPiecesOf(number,plan.settings||{}),pages=[],only=sheetNos?new Set(sheetNos.map(Number)):null;
+ const list=plan.groups.flatMap(g=>g.sheets.filter(s=>!only||only.has(s.no)).map(s=>({g,s,size:s.size||g.sheet})));
  const layout=cutPrintPlan(list.map(x=>x.size)),landscape=layout.landscape;
  list.forEach(({g,s,size},k)=>{
   const autoTrim=cutAutoTrimInfo(g,s);
@@ -960,7 +965,7 @@ function cutLayoutHeader(b,status){
    <button type="button" class="cut-icon-btn${sheet.locked?' on':''}" data-cut-sheet-lock title="${sheet.locked?'Unlock sheet':'Lock sheet'}" aria-label="${sheet.locked?'Unlock sheet':'Lock sheet'}" onclick="cutUiSheetLock()">${ico(sheet.locked?'unlock':'lock')}</button></div>`}</div>${sheetCuts&&!sheetCuts.ok?`<div class="cut-page-problem" data-cut-problem>${esc(cutRepackNotice||cutCutIssue(sheetCuts))}</div>`:''}`:'';
  const fullLabel=cutFull?'Exit full screen':'Full screen';
  return `<div class="cut-page-summary" data-cut-page-summary><div class="cut-page-total">${total}<div class="cut-page-actions">
-  <div class="cut-page-tools">${laid&&!est?`<button type="button" class="cut-icon-btn" data-cut-print title="Print layouts" aria-label="Print layouts" ${busy?'disabled':''} onclick="cutPrintLayouts('${esc(b.number)}')">${ico('printer')}</button>`:''}${trialAct}${whatActs}</div>
+  <div class="cut-page-tools">${est?'':`<button type="button" class="cut-icon-btn" data-cut-print title="Print" aria-label="Print stickers, drawings, layouts" ${busy?'disabled':''} onclick="stkOpenForBatch('${esc(b.number)}')">${ico('printer')}</button>`}${trialAct}${whatActs}</div>
   <div class="cut-page-primary">${buildActs}${plan.groups.length?`<button type="button" class="cut-icon-btn" data-cut-full title="${fullLabel}" aria-label="${fullLabel}" onclick="cutUiFull()">${ico(cutFull?'collapse':'expand')}</button>`:''}${statusBadge}</div></div></div>${sheetState}</div>`;
 }
 function viewCutLayout(b){
