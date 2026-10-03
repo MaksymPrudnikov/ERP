@@ -36,7 +36,17 @@ function signinKeyRefresh(){
    продолжается; вошёл другой — черновики прежнего отменяются и страница
    открывается заново, чистой. signinOwner — чья работа сейчас в памяти. */
 let signinOwner=null;
-function signinMarkOwner(){const u=signinUser();if(u&&!signinOwner)signinOwner=u.viewProfileId;}
+/* Зовётся при каждом показе офиса (render): вошёл не тот, чья работа в
+   памяти, — страница открывается заново. Так закрыт и обход через экран
+   станции: там проверка молчит (у станции свой вход), а при возврате в
+   офис срабатывает здесь (повторный аудит, 3 октября 2026). false — экран
+   не рисовать, идёт перезагрузка. */
+function signinMarkOwner(){
+ const u=signinUser();if(!u||tab==='station')return true;
+ if(!signinOwner){signinOwner=u.viewProfileId;return true;}
+ if(signinOwner!==u.viewProfileId){signinFresh();return false;}
+ return true;
+}
 function signinFresh(){
  try{if(typeof soDraft!=='undefined'&&soDraft){if(typeof storageWriter!=='undefined'&&storageWriter&&typeof salesDraftDrop==='function')salesDraftDrop(true);else{soDraft=null;soEdit=null;}}}catch(e){}
  try{if(typeof finDraft!=='undefined'){finDraft=null;finAction=null;}}catch(e){}
@@ -56,11 +66,11 @@ function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
  try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:secretKey(u.password),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
- signinSetTabSid(sid);signinPick='';signinError='';
+ signinSetTabSid(sid);signinPick='';signinError='';authLog('Sign in','Office',u);
  if(signinOwner&&signinOwner!==id)return signinFresh();
  signinOwner=id;render();
 }
-function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+function signinOut(){const was=signinUser();if(was)authLog('Sign out','Office',was);try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
 /* Sign out своей кнопкой: сначала тот же вопрос, что при уходе из
    несохранённого заказа или оплаты (стражи NAV_GUARDS), — чтобы правку не
    записали на следующего вошедшего и чтобы она не пропала молча. */
@@ -177,10 +187,7 @@ function signinMeSave(e){
  const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
  const fail=m=>{signinMe.error=m;render();};
  if(next!==v('meNew2'))return fail(next.length<USER_PASSWORD_MIN?'At least '+USER_PASSWORD_MIN+' characters':'Passwords differ');
- storageWhenWriter(()=>{
-  const r=usersChangeOwnPassword(old,next);
-  if(r.ok){signinMe=null;render();}else fail(r.error);
- });
+ return usersChangeOwnPassword(old,next,accessActor()).then(r=>{if(r.ok){signinMe=null;render();}else fail(r.error);return r;});
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&signinMe)signinMeClose();});
@@ -202,8 +209,49 @@ window.addEventListener('storage',function(e){
  navigator.locks.query().then(q=>(q.held||[]).some(l=>l.name===SIGNIN_LOCK)).catch(()=>false).then(alive=>{
   const now=signinSession();
   if(alive&&now)signinSetTabSid(now.sid);
-  else if(now&&now.sid===s.sid){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}}
+  else if(now&&now.sid===s.sid){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}authLogPending={what:'Sign out',where:'Office',userId:s.userId,note:'browser was closed'};}
   signinChecking=false;hold();
   if(typeof storageStarting!=='undefined'&&!storageStarting)render();
  });
 })();
+
+/* ---------------------- Журнал входов и выходов ---------------------- */
+/* Владелец, 3 октября 2026: «чтобы напротив пользователя горел зелёный —
+   залогинен он или нет — и чтобы был журнал входов и выходов по
+   пользователям». DB.authEvent {id, at, userId, name, what, where, note}:
+   Sign in / Sign out, Office или Station <код>. Пока база в браузере —
+   только этот компьютер; с сервером журнал пишет сервер из своего сеанса.
+   Закрытый браузер виден при следующем открытии: «browser was closed».
+   Держим последние AUTH_LOG_MAX записей. */
+DEFAULT.authEvent=[];
+if(!Array.isArray(DB.authEvent))DB.authEvent=[];
+const AUTH_LOG_MAX=3000;
+let authLogPending=null;
+function normalizeAuthLog(){
+ if(!Array.isArray(DB.authEvent))DB.authEvent=[];
+ const t=v=>typeof v==='string'?v:'';
+ DB.authEvent=DB.authEvent.filter(e=>e&&typeof e==='object'&&typeof e.at==='string'&&typeof e.what==='string')
+  .map(e=>({id:t(e.id)||('AE-'+Math.random().toString(36).slice(2,10)),at:e.at,userId:t(e.userId),name:t(e.name).slice(0,80),what:e.what.slice(0,30),where:t(e.where).slice(0,40),note:t(e.note).slice(0,80)}))
+  .slice(-AUTH_LOG_MAX);
+}
+function authLog(what,where,u,note){
+ const ev={id:'AE-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:new Date().toISOString(),userId:u?u.viewProfileId:'',name:u?String(u.name||''):'',what,where:where||'',note:note||''};
+ const write=()=>{const out=typeof storageCommand==='function'?storageCommand(()=>{if(!Array.isArray(DB.authEvent))DB.authEvent=[];DB.authEvent.push(ev);if(DB.authEvent.length>AUTH_LOG_MAX)DB.authEvent.splice(0,DB.authEvent.length-AUTH_LOG_MAX);return true;}):null;return out;};
+ if(typeof storageWhenWriter==='function')storageWhenWriter(write);else write();
+}
+/* Запись «браузер был закрыт» ждёт, пока база поднимется. */
+function authLogFlush(){
+ if(!authLogPending||typeof storageStarting==='undefined'||storageStarting)return;
+ const p=authLogPending;authLogPending=null;const u=(DB.user||[]).find(x=>x.viewProfileId===p.userId);
+ authLog(p.what,p.where,u||{viewProfileId:p.userId,name:''},p.note);
+}
+/* Кто сейчас в системе на этом компьютере: вход в офис и входы станций. */
+function authOnline(u){
+ const where=[];if(!u)return where;
+ const s=signinSession();if(s&&s.userId===u.viewProfileId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))where.push('Office');
+ if(typeof stationSessions==='function')Object.entries(stationSessions()).forEach(([code,x])=>{if(x&&x.userId===u.viewProfileId&&userHasPin(u)&&x.key===secretKey(u.pin))where.push(code);});
+ return where;
+}
+function authLastSeen(u){
+ if(!u)return '';let last='';(DB.authEvent||[]).forEach(e=>{if(e.userId===u.viewProfileId&&e.at>last)last=e.at;});return last;
+}

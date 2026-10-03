@@ -343,6 +343,7 @@ function normalizeDB(){
  if(typeof salesNormalizeWeightRates==='function')salesNormalizeWeightRates(); if(typeof normalizeDocuments==='function')normalizeDocuments(); if(typeof normalizeReceipts==='function')normalizeReceipts();
  if(typeof normalizeFinanceLedger==='function')normalizeFinanceLedger();
  if(typeof normalizeOrderLog==='function')normalizeOrderLog();
+ if(typeof normalizeAuthLog==='function')normalizeAuthLog();
  /* Фигура без строки заказа не хранится — при запуске и на импорте тоже:
     старый браузер и старый файл приносят библиотеку прежних версий. */
  if(typeof salesPruneOrphanShapes==='function')salesPruneOrphanShapes();
