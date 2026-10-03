@@ -181,10 +181,12 @@ module.exports=async function({page,eq,ok}){
   const login=code=>{stationCode=code;tab='station';render();String(u.no).split('').forEach(stationLoginKey);stationLoginKey('ok');'2468'.split('').forEach(stationLoginKey);return stationWho()&&stationWho().name;};
   const a=login('ARRIS'),b=login('POLISH');stationCode='ARRIS';const still=stationWho()&&stationWho().name;
   stationSwitch();const gone=stationWho();stationCode='POLISH';const other=stationWho()&&stationWho().name;
-  localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:'x'}));stationCode='CUT';const legacy=stationWho()&&stationWho().name;
+  /* Вход станции до версии PIN (запись {station,userId}) читается, но не
+     впускает: не известно, при каком PIN он открыт, — номер и PIN ещё раз. */
+  localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:'x'}));stationCode='CUT';const legacy=stationWho();
   localStorage.removeItem(STATION_SESSION_KEY);DB.user=DB.user.filter(x=>x!==u);tab=keep[0];stationCode=keep[1];render();
   return {a,b,still,gone,other,legacy};
- }),{a:'Two Posts',b:'Two Posts',still:'Two Posts',gone:null,other:'Two Posts',legacy:'Two Posts'});
+ }),{a:'Two Posts',b:'Two Posts',still:'Two Posts',gone:null,other:'Two Posts',legacy:null});
  eq('PIN сняли в Users — вход на станции кончается сразу',await t.p.evaluate(()=>{
   const keep=[tab,stationCode];DB.user=DB.user.filter(x=>x.name!=='Gone Pin');DB.user.push({name:'Gone Pin',pin:'1357'});normalizeUsers();const u=DB.user.find(x=>x.name==='Gone Pin');
   stationCode='CUT';tab='station';stationLogin(u.viewProfileId);const before=stationWho()&&stationWho().name;u.pin='';render();

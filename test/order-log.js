@@ -40,8 +40,8 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-signin-who]').click();const open=!!document.querySelector('[data-signin-me]');
   const tryIt=(a,b,c)=>{document.getElementById('meOld').value=a;document.getElementById('meNew').value=b;document.getElementById('meNew2').value=c;signinMeSave();return signinMe?document.querySelector('[data-signin-me] .signin-err').textContent:'closed';};
   const out={open,pin:!!document.querySelector('[data-signin-me] input[inputmode=numeric]'),wrong:tryIt('nope-nope','new-pass-99','new-pass-99'),short:tryIt('glass-farm-1','short','short'),differ:tryIt('glass-farm-1','new-pass-99','new-pass-98'),ok:tryIt('glass-farm-1','new-pass-99','new-pass-99')};
-  const u=signinUser();out.now=userPasswordCheck(u,'new-pass-99')&&!userPasswordCheck(u,'glass-farm-1');userPasswordSet(u,'glass-farm-1');touch();render();return out;
- }),{open:true,pin:false,wrong:'Wrong password',short:'At least 8 characters',differ:'Passwords differ',ok:'closed',now:true});
+  const u=signinUser();out.now=!!u&&userPasswordCheck(u,'new-pass-99')&&!userPasswordCheck(u,'glass-farm-1');out.back=usersChangeOwnPassword('new-pass-99','glass-farm-1').ok&&!!signinUser();render();return out;
+ }),{open:true,pin:false,wrong:'Wrong password',short:'At least 8 characters',differ:'Passwords differ',ok:'closed',now:true,back:true});
 
  eq('глазик: пароль скрыт по умолчанию, нажатие показывает и прячет, набранное остаётся',await t.p.evaluate(()=>{
   signinMeOpen();const types=[...document.querySelectorAll('[data-signin-me] input')].map(i=>i.type);
@@ -179,9 +179,8 @@ module.exports=async function({page,eq,ok}){
  }),{old:[['Created','','before the log']],added:0});
 
  eq('на экране станции «кто» — рабочий и станция',await t.p.evaluate(()=>{
-  const u=DB.user.find(x=>x.name==='Demo Owner'),keep=[tab,stationCode];u.pin='9999';
-  localStorage.setItem(STATION_SESSION_KEY,JSON.stringify({station:'CUT',userId:u.viewProfileId,at:new Date().toISOString()}));
-  tab='station';stationCode='CUT';const a=orderLogActor();tab=keep[0];stationCode=keep[1];localStorage.removeItem(STATION_SESSION_KEY);u.pin='';
+  const u=DB.user.find(x=>x.name==='Demo Owner'),keep=[tab,stationCode];userPinSet(u,'9999');
+  tab='station';stationCode='CUT';stationLogin(u.viewProfileId);const a=orderLogActor();tab=keep[0];stationCode=keep[1];localStorage.removeItem(STATION_SESSION_KEY);delete u.pin;render();
   return a.by;
  }),'Demo Owner · CUT');
 
@@ -193,7 +192,9 @@ module.exports=async function({page,eq,ok}){
  eq('Sign out в одной вкладке — экран входа в обеих',await t.p.evaluate(()=>!!document.querySelector('.signin')),true);
  eq('человек без пароля в «Who is working?» не виден — придумать пароль при входе нельзя',await p2.evaluate(()=>({names:[...document.querySelectorAll('[data-signin-user] b')].map(b=>b.textContent),create:!!document.getElementById('signinPass2')})),{names:['Demo Owner','Demo Sales'],create:false});
  await p2.evaluate(()=>{const u=DB.user.find(x=>x.name==='Demo Owner');signinChoose(u.viewProfileId);});
- await p2.fill('#signinPass','owner-pass-1');await p2.click('[data-signin-form] button[type=submit]');
+ await p2.fill('#signinPass','owner-pass-1');
+ /* Вошёл другой человек (до этого — Demo Sales): вкладка открывается заново. */
+ await Promise.all([p2.waitForEvent('load'),p2.click('[data-signin-form] button[type=submit]')]);await started(p2);
  eq('пароль из Users — вошёл',await p2.evaluate(()=>signinUser()&&signinUser().name),'Demo Owner');
  await t.p.close();await p2.close();
  const p3=await t.c.newPage();await p3.goto(t.p.url());await started(p3);

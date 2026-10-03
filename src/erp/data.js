@@ -55,6 +55,9 @@ function normalizeUsers(){
   delete u.role;delete u.skills;delete u.station;delete u.workPosition;
   /* Пароль офиса и PIN станции — только отпечатки (erp/access). */
   secretsNormalize(u);
+  /* Версия записи: команды (erp/users/commands) повышают её на каждой
+     правке; форма, открытая на старой версии, не перезапишет новую. */
+  u.rev=Number.isInteger(u.rev)&&u.rev>0?u.rev:1;
  });
  /* Личный номер — «пользователь» на станции: номер + PIN, имён на экране нет
     (владелец, 2 октября 2026: «один пользователь может работать на разных
@@ -67,7 +70,7 @@ function normalizeUsers(){
     первый по номеру офисный. Экран Users такого сохранить не даёт; это на
     случай импорта чужого файла. */
  const office=DB.user.filter(userOffice);
- if(office.length&&!office.some(u=>u.access.includes('users'))){const first=office.reduce((a,b)=>b.no<a.no?b:a);first.access=USER_SECTIONS.filter(k=>k==='users'||first.access.includes(k));}
+ if(office.length&&!office.some(u=>u.access.includes('users'))){const first=office.reduce((a,b)=>b.no<a.no?b:a);first.access=USER_SECTIONS.filter(k=>k==='users'||first.access.includes(k));first.rev++;}
 }
 function userNoText(u){return u&&u.no?String(u.no).padStart(2,'0'):'';}
 /* =====================================================================

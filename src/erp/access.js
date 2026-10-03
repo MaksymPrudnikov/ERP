@@ -16,7 +16,9 @@
      и в выгрузке нет. algo записан, чтобы сервер при первом входе проверил
      старый отпечаток и пересчитал своим, более медленным алгоритмом;
    · id человека — viewProfileId; журнал заказа и скан станции пишут его
-     рядом с именем (byId).
+     рядом с именем (byId);
+   · менять людей можно только командами erp/users/commands — экраны базу
+     сами не трогают; про секреты экраны знают только «задан / не задан».
    Правило: файл не знает про заказы, цены и экраны.
    ===================================================================== */
 const USER_SECTIONS=['sales','optimization','production','shipping','finance','customers','masterdata','users','dashboard'];
@@ -59,3 +61,8 @@ function userPasswordSet(u,password){u.password=secretMake(password);}
 function userPasswordCheck(u,password){return !!u&&secretCheck(u.password,password);}
 function userPinSet(u,pin){u.pin=secretMake(pin);}
 function userPinCheck(u,pin){return !!u&&secretCheck(u.pin,pin);}
+function userHasPassword(u){return !!(u&&secretValid(u.password));}
+function userHasPin(u){return !!(u&&secretValid(u.pin));}
+/* Версия секрета — его соль: новая при каждой смене. Вход помнит её и
+   кончается, когда пароль или PIN сменили (erp/signin, view/station). */
+function secretKey(s){return secretValid(s)?s.salt:'';}

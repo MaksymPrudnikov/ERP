@@ -19,10 +19,28 @@ let signinPick='',signinError='',signinChecking=false;
 function signinSession(){try{const s=JSON.parse(localStorage.getItem(SIGNIN_KEY)||'null');return s&&typeof s==='object'&&s.userId&&s.sid?s:null;}catch(e){return null;}}
 function signinTabSid(){try{return sessionStorage.getItem(SIGNIN_TAB_KEY)||'';}catch(e){return '';}}
 function signinSetTabSid(sid){try{if(sid)sessionStorage.setItem(SIGNIN_TAB_KEY,sid);else sessionStorage.removeItem(SIGNIN_TAB_KEY);}catch(e){}}
-/* Галочки офиса или пароль сняли, пока человек работал, — вход кончается. */
+/* Галочки офиса сняли или пароль сменили, пока человек работал, — вход
+   кончается: сеанс помнит версию пароля (secretKey, erp/access), при которой
+   открыт. Свой пароль, сменённый самим человеком, вход обновляет. */
 function signinUser(){
  const s=signinSession();if(!s||signinChecking||signinTabSid()!==s.sid)return null;
- return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&u.password)||null;
+ return (DB.user||[]).find(u=>u.viewProfileId===s.userId&&userOffice(u)&&userHasPassword(u)&&s.key===secretKey(u.password))||null;
+}
+function signinKeyRefresh(){
+ const s=signinSession();if(!s)return;
+ const u=(DB.user||[]).find(x=>x.viewProfileId===s.userId);if(!u)return;
+ s.key=secretKey(u.password);try{localStorage.setItem(SIGNIN_KEY,JSON.stringify(s));}catch(e){}
+}
+/* Смена человека за компьютером (аудит 3 октября 2026): в памяти вкладки
+   остаются черновики и окна того, кто работал. Вернулся он же — работа
+   продолжается; вошёл другой — черновики прежнего отменяются и страница
+   открывается заново, чистой. signinOwner — чья работа сейчас в памяти. */
+let signinOwner=null;
+function signinMarkOwner(){const u=signinUser();if(u&&!signinOwner)signinOwner=u.viewProfileId;}
+function signinFresh(){
+ try{if(typeof soDraft!=='undefined'&&soDraft){if(typeof storageWriter!=='undefined'&&storageWriter&&typeof salesDraftDrop==='function')salesDraftDrop(true);else{soDraft=null;soEdit=null;}}}catch(e){}
+ try{if(typeof finDraft!=='undefined'){finDraft=null;finAction=null;}}catch(e){}
+ location.reload();
 }
 /* Первый пароль ставят только в Users (владелец, 3 октября 2026): самому
    придумать его при входе нельзя — иначе любой за компьютером займёт чужое
@@ -37,10 +55,20 @@ function signinNeeded(){
 function signinAs(id){
  const u=(DB.user||[]).find(x=>x.viewProfileId===id);if(!u)return;
  const sid='S-'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
- try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
- signinSetTabSid(sid);signinPick='';signinError='';render();
+ try{localStorage.setItem(SIGNIN_KEY,JSON.stringify({userId:u.viewProfileId,sid,key:secretKey(u.password),at:new Date().toISOString()}));}catch(e){signinError='This browser cannot keep the sign-in.';render();return;}
+ signinSetTabSid(sid);signinPick='';signinError='';
+ if(signinOwner&&signinOwner!==id)return signinFresh();
+ signinOwner=id;render();
 }
 function signinOut(){try{localStorage.removeItem(SIGNIN_KEY);}catch(e){}signinSetTabSid('');signinPick='';signinError='';render();}
+/* Sign out своей кнопкой: сначала тот же вопрос, что при уходе из
+   несохранённого заказа или оплаты (стражи NAV_GUARDS), — чтобы правку не
+   записали на следующего вошедшего и чтобы она не пропала молча. */
+function signinOutSafe(){
+ signinMe=null;
+ if((window.NAV_GUARDS||[]).some(g=>g('signout',signinOut)))return;
+ signinOut();
+}
 /* Офис входит паролем от 8 символов, станция — номером и PIN (владелец,
    3 октября 2026). Пароль ставят и меняют в Users. Лимита попыток нет —
    решение владельца. */
@@ -140,29 +168,29 @@ function signinMeHTML(){
    ${pwInput(`id="meNew" autocomplete="new-password" placeholder="New · ${USER_PASSWORD_MIN}+ characters"`)}
    ${pwInput('id="meNew2" autocomplete="new-password" placeholder="Repeat new"')}
    <div class="signin-err" role="alert">${esc(signinMe.error)}</div>
-   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinMe=null;signinOut()">Sign out</button></div>
+   <div class="row"><button type="submit" class="pri">Change password</button><span class="sp"></span><button type="button" data-signin-out onclick="signinOutSafe()">Sign out</button></div>
   </form></div></div>`;
 }
 function signinMeSave(e){
  if(e)e.preventDefault();
- const u=signinUser();if(!u||!signinMe)return;
+ if(!signinUser()||!signinMe)return;
  const v=id=>(document.getElementById(id)||{}).value||'',old=v('meOld'),next=v('meNew');
  const fail=m=>{signinMe.error=m;render();};
- if(!userPasswordCheck(u,old))return fail('Wrong password');
- if(next.length<USER_PASSWORD_MIN)return fail('At least '+USER_PASSWORD_MIN+' characters');
- if(next!==v('meNew2'))return fail('Passwords differ');
- const id=u.viewProfileId;
+ if(next!==v('meNew2'))return fail(next.length<USER_PASSWORD_MIN?'At least '+USER_PASSWORD_MIN+' characters':'Passwords differ');
  storageWhenWriter(()=>{
-  const out=storageCommand(()=>{const now=(DB.user||[]).find(x=>x.viewProfileId===id);if(!now)throw new Error('User not found');userPasswordSet(now,next);return true;});
-  if(out.ok){signinMe=null;render();}else fail(out.error||'Not saved');
+  const r=usersChangeOwnPassword(old,next);
+  if(r.ok){signinMe=null;render();}else fail(r.error);
  });
 }
 (window.APP_OVERLAYS=window.APP_OVERLAYS||[]).push(signinMeHTML);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&signinMe)signinMeClose();});
-/* Вход и выход в другой вкладке того же браузера — сразу и здесь. */
+/* Вход и выход в другой вкладке того же браузера — сразу и здесь. Вошёл
+   другой человек — эта вкладка открывается заново, чистой (signinFresh);
+   экран станции живёт своим входом и не трогается. */
 window.addEventListener('storage',function(e){
  if(e.key!==SIGNIN_KEY)return;
- const s=signinSession();signinSetTabSid(s?s.sid:'');signinPick='';signinError='';
+ const s=signinSession();signinSetTabSid(s?s.sid:'');signinPick='';signinError='';signinMe=null;
+ if(s&&signinOwner&&s.userId!==signinOwner&&tab!=='station')return signinFresh();
  if(typeof storageStarting==='undefined'||!storageStarting)(typeof storageRerender==='function'?storageRerender:render)();
 });
 (function signinStart(){

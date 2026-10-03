@@ -47,6 +47,7 @@
   "src/modules/muntin/index.js",
   "src/erp/access.js",
   "src/erp/data.js",
+  "src/erp/users/commands.js",
   "src/erp/shopfloor/data.js",
   "src/erp/masterdata/units.js",
   "src/erp/masterdata/hardware.js",
