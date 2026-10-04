@@ -79,7 +79,8 @@
 .cut-list tbody tr{cursor:grab}
 .cut-list tbody tr.on td{background:var(--accent-soft);color:var(--accent)}
 .cut-list tbody tr.off td{color:var(--text-3)}
-.cut-list input[type=number]{width:36px;padding:1px 3px;font-size:11px}
+.cut-list input[type=number],.cut-list input[data-cut-priority]{width:36px;padding:1px 3px;font-size:11px}
+.cut-list input[data-cut-priority]{text-align:center}
 .cut-list .pill{font-size:10px;padding:1px 6px}
 .cut-sheet-pane{min-width:0}
 .cut-glass{margin-bottom:10px}

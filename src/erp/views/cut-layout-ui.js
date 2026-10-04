@@ -396,7 +396,11 @@ function cutUiPicksClear(){const picks=cutPicks();if(!picks.size)return false;pi
 /* Приоритет в строке выделения — всем выделенным; вне выделения — одному. */
 function cutUiPrioIds(ids,value){if(ids.length)cutUiKeepSpot(()=>cutUiRun(()=>cutSettingMany(cutUi.batch,ids,'priority',value)));}
 function cutUiPrio(pieceId,value){const picks=cutPicks();cutUiPrioIds(picks.size>1&&picks.has(pieceId)?[...picks]:[pieceId],value);}
-/* Ctrl+V в Pri — сразу, как в Perfect Cut: ввёл 10, Ctrl+C, выделил, Ctrl+V.
+/* Поля Pri — текст с цифровой клавиатурой, не number: у узкого числового поля
+   щелчок попадал на стрелку и менял число на 1, а колесо мыши над полем в
+   фокусе меняло его при прокрутке списка — и уходило всем выделенным
+   (проверка 4 октября 2026). Не число 0–10 — «нет приоритета» (cutPriority).
+   Ctrl+V в Pri — сразу, как в Perfect Cut: ввёл 10, Ctrl+C, выделил, Ctrl+V.
    Без pieceId — полоса «N selected». */
 function cutUiPrioPaste(e,pieceId){
  const raw=String((e.clipboardData||window.clipboardData).getData('text')||'').trim();
@@ -634,7 +638,7 @@ function cutUiListMenu(e,pieceId){
  const rows=[],act=cutMenuAct(rows),keys=[];
  rows.push(`<div class="cut-menu-head">${esc(p.piece)} · ${esc(p.order)} / ${p.line}</div>`);
  const group=(key,label,ids)=>{keys.push(key);
-  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="number" min="0" max="10" step="1" id="cutPri-${key}" placeholder="1–10" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
+  rows.push(`<div class="cut-menu-sub">${esc(label)} · ${ids.length} glass</div><div class="cut-menu-split"><input type="text" inputmode="numeric" maxlength="2" id="cutPri-${key}" placeholder="1–10" aria-label="Priority, 10 is the most urgent" ${lock?'disabled':''} onkeydown="if(event.key==='Enter')document.querySelector('[data-cut-menu=pri-${key}]').click()">`);
   act('Set','',()=>cutUiPrioIds(ids,(document.getElementById('cutPri-'+key)||{}).value||0),`data-cut-menu="pri-${key}" ${lock?'disabled':''}`);rows.push('</div>');};
  if(picks.size>1&&picks.has(pieceId))group('sel','Selected',[...picks]);
  group('order','Order '+p.order,all.filter(x=>x.orderId===p.orderId).map(x=>x.piece));
@@ -920,7 +924,7 @@ function cutPieceRow(p,at,sel,lock){
   <td><input type="checkbox" data-cut-on ${p.off?'':'checked'} ${lock?'disabled':''} aria-label="Cut ${esc(p.piece)}" onclick="event.stopPropagation()" onchange="cutUiSet('${esc(p.piece)}','off',!this.checked)"></td>
   <td class="gb-piece">${esc(p.piece)}</td><td class="nowrap">${esc(frac16(p.w))} × ${esc(frac16(p.h))}″${p.shape?' <span class="pill">shape</span>':''}</td>
   <td>${view?`${esc(p.order)} / ${p.line}`:`<button type="button" class="gb-link" data-cut-open="${esc(p.orderId)}" title="Open the order and its shape" onclick="event.stopPropagation();optimizationOpenOrder('${esc(p.orderId)}')">${esc(p.order)} / ${p.line}</button>`}${p.mark?' · '+esc(p.mark):''}</td><td>${esc(p.customer)}</td>
-  <td class="n"><input type="number" min="0" max="10" step="1" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled title="Reset first"':''} aria-label="Priority, 10 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiPrio('${esc(p.piece)}',this.value||0)" onpaste="cutUiPrioPaste(event,'${esc(p.piece)}')"></td>
+  <td class="n"><input type="text" inputmode="numeric" maxlength="2" data-cut-priority value="${p.priority||''}" placeholder="—" ${lock?'disabled title="Reset first"':''} aria-label="Priority, 10 is the most urgent" onclick="event.stopPropagation()" onchange="cutUiPrio('${esc(p.piece)}',this.value||0)" onpaste="cutUiPrioPaste(event,'${esc(p.piece)}')"></td>
   <td class="n">${place}</td></tr>`;
 }
 let cutListCtx=null;
@@ -942,7 +946,7 @@ function cutListHTML(ctx){
  /* Полоса выделения — в конце списка, прижата к низу окна списка: видна при
     любой прокрутке (сверху закреплены шапки групп и таблицы). */
  const n=cutPicks().size;
- const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="number" min="0" max="10" step="1" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
+ const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="text" inputmode="numeric" maxlength="2" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
  return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}${bulk}`;
 }
 function cutUiShowMore(){
