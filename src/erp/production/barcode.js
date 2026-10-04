@@ -1,7 +1,7 @@
 /* =====================================================================
    erp/production/barcode  ·  barcode-1.0
-   Линейный штрихкод Code 128 (набор B) для стикеров стёкол.
-   IN : текст номера (G-0000001, U-0000001)
+   Линейный штрихкод Code 128 (наборы B/C) для стикеров стёкол.
+   IN : текст номера (G-0000001, G-0000000001-1, U-0000000001-1)
    OUT: ширины модулей и прямоугольники страницы стикера
    Правило: без внешних библиотек — файл программы открывается с диска.
    Сканер цеха работает как клавиатура и вводит ровно этот текст.
@@ -17,12 +17,32 @@ const BARCODE128=['212222','222122','222221','121223','121322','131222','122213'
  '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
  '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
  '114131','311141','411131','211412','211214','211232','2331112'];
-const BARCODE128_START_B=104,BARCODE128_STOP=106,BARCODE128_QUIET=10;
-/* Значения символов: старт B, данные, контрольная сумма, стоп. */
+const BARCODE128_START_B=104,BARCODE128_START_C=105,BARCODE128_STOP=106,BARCODE128_QUIET=10;
+/* Кратчайший путь по наборам B/C: B сохраняет ASCII, C упаковывает пары
+   цифр. Переключение тоже занимает символ; при равной длине не переключаем
+   набор. Штрихкод возвращает исходный текст, включая все ведущие нули. */
 function barcode128Values(text){
- const s=String(text==null?'':text),vals=[BARCODE128_START_B];
- for(const ch of s){const c=ch.charCodeAt(0);if(c<32||c>126)throw new Error('Barcode: unsupported character');vals.push(c-32);}
- let sum=BARCODE128_START_B;for(let i=1;i<vals.length;i++)sum+=vals[i]*i;
+ const s=String(text==null?'':text),n=s.length;
+ for(const ch of s){const c=ch.charCodeAt(0);if(c<32||c>126)throw new Error('Barcode: unsupported character');}
+ const b=new Array(n+1),c=new Array(n+1),toC=new Array(n),toB=new Array(n),pair=i=>i+1<n&&s.charCodeAt(i)>=48&&s.charCodeAt(i)<=57&&s.charCodeAt(i+1)>=48&&s.charCodeAt(i+1)<=57;
+ b[n]=c[n]=0;
+ for(let i=n-1;i>=0;i--){
+  b[i]=1+b[i+1];toC[i]=false;
+  c[i]=2+b[i+1];toB[i]=true;
+  if(pair(i)){
+   if(2+c[i+2]<b[i]){b[i]=2+c[i+2];toC[i]=true;}
+   if(1+c[i+2]<=c[i]){c[i]=1+c[i+2];toB[i]=false;}
+  }
+ }
+ let setC=c[0]<b[0],i=0;const vals=[setC?BARCODE128_START_C:BARCODE128_START_B];
+ while(i<n){
+  if(setC){
+   if(toB[i]){vals.push(100,s.charCodeAt(i)-32);setC=false;i++;}
+   else{vals.push(+s.slice(i,i+2));i+=2;}
+  }else if(toC[i]){vals.push(99,+s.slice(i,i+2));setC=true;i+=2;}
+  else{vals.push(s.charCodeAt(i)-32);i++;}
+ }
+ let sum=vals[0];for(let k=1;k<vals.length;k++)sum+=vals[k]*k;
  vals.push(sum%103,BARCODE128_STOP);return vals;
 }
 /* Ширины полос и промежутков по очереди, начиная с полосы. */

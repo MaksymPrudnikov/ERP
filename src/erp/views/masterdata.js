@@ -32,6 +32,7 @@ const MD_TABS=[
  {k:'cutting',   label:'Cutting'},
  {k:'carriers',  label:'Dollies & Skids'},
  {k:'ncr',       label:'NCR'},
+ {k:'identity', label:'Production identity'},
  {k:'overview',  label:'Data overview'}
 ];
 /* Категория → чем она наполнена. Стекло и спейсер держат свои экраны (у них
@@ -86,7 +87,7 @@ function viewMasterData(){
   </div>
   <div class="card">
    <div class="tabs">${MD_TABS.map(t=>`<button class="${mdTab===t.k?'on':''}" onclick="mdSetTab('${t.k}')">${t.label}</button>`).join('')}</div>
-   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,overview:viewMdOverview})[mdTab]()}
+   ${({materials:viewMdMaterials,works:viewMdWorks,stations:viewMdStations,weight:viewMdWeight,hardware:viewMdHardware,company:viewMdCompany,stickers:viewMdStickers,cutting:viewMdCutting,carriers:viewMdCarriers,ncr:viewMdNcr,identity:viewMdProductionIdentity,overview:viewMdOverview})[mdTab]()}
   </div>
   ${mdTab==='materials'&&mdMatCategory==='glass'?mdImportCard():''}`;
 }

@@ -34,7 +34,7 @@ module.exports=async function({eq}){
  eq('three damage journeys completed',damage.result.length,3);
  const [cut,lost,ncr]=damage.result;
  eq('broken glass at CUT gets a fresh ID and a new planned batch',{
-  damaged:cut.damaged,recuts:cut.recut,newId:/^G-\d{7}$/.test(cut.replacement||'')&&cut.replacement===(cut.waiting||[])[0],
+  damaged:cut.damaged,recuts:cut.recut,newId:/^G-\d{10,}-\d+$/.test(cut.replacement||'')&&cut.replacement===(cut.waiting||[])[0],
   next:cut.newBatch!==cut.originalBatch&&/^B-\d{4}$/.test(cut.newBatch||''),plan:cut.newPlan,cut:cut.cut&&cut.cut.ok,old:cut.old,status:cut.replacementStatus,error:cut.error||''
  },{damaged:true,recuts:[1],newId:true,next:true,plan:true,cut:true,old:'broken',status:'Cutting complete',error:''});
  eq('lost glass at ARRIS cannot proceed; replacement follows CUT and ARRIS',{

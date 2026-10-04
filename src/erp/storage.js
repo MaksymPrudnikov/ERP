@@ -30,6 +30,7 @@ function storageBackupCheck(){
 }
 function storageBackupDrop(){try{localStorage.removeItem(STORAGE_BACKUP_KEY);storageBackupPresent=false;}catch(e){}}
 function storageInvalidate(){
+ if(typeof productionIdentityIndexes!=='undefined')productionIdentityIndexes=null;
  if(typeof stationRouteCache!=='undefined')stationRouteCache=new Map();
  if(typeof prodBoardCache!=='undefined')prodBoardCache={stamp:'',data:null};
  if(typeof stationAreaCache!=='undefined')stationAreaCache=new Map();
@@ -37,9 +38,11 @@ function storageInvalidate(){
 function storageCommand(fn){
  if(storageDepth){try{return {ok:true,value:fn()};}catch(e){return {ok:false,error:e.message};}}
  if(!storageWriter||storageRecovery)return {ok:false,error:storageRecovery?'Restore or export the unreadable database before editing.':storageReadOnlyText()};
+ try{if(typeof productionGatewayCheckCurrent==='function')productionGatewayCheckCurrent();}catch(e){storageLastError=e.message;return {ok:false,error:e.message};}
  const before=JSON.stringify(DB),wasDirty=dirty,draftBefore=typeof soDraft==='undefined'?null:JSON.stringify(soDraft);
  storageDepth++;
  try{
+  if(typeof normalizeProductionIdentity==='function')normalizeProductionIdentity();
   const value=fn();if(value===false||value&&value.error)throw new Error(value&&value.error||'The operation could not be completed.');
   storageDepth--;if(touch()===false)throw new Error(storageLastError||'Not saved. Retry the operation.');
   return {ok:true,value};
@@ -56,6 +59,12 @@ function touch(){
  try{
   /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
   if(typeof orderLogCapture==='function')orderLogCapture();
+  /* Burn issued identities before saving the commercial snapshot. A failed
+     snapshot write can leave gaps, never a barcode that can be issued again. */
+  const gatewayIdentity=typeof productionIdentityState==='function'&&productionIdentityState().authority==='gateway';
+  if(!gatewayIdentity&&typeof productionIdentityPersistLedger==='function')productionIdentityPersistLedger();
+  if(typeof productionGatewaySave==='function')productionGatewaySave();
+  if(gatewayIdentity)productionIdentityPersistLedger();
   const text=JSON.stringify(DB);
   try{localStorage.setItem(STORAGE_KEY,text);}
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
@@ -238,6 +247,7 @@ function mergeState(src){
 function validateImportedState(src){
  if(!src||typeof src!=='object'||Array.isArray(src))throw new Error('Expected an exported state object.');
  Object.keys(DEFAULT).forEach(k=>{if(Array.isArray(DEFAULT[k])&&Object.prototype.hasOwnProperty.call(src,k)&&!Array.isArray(src[k]))throw new Error('The "'+k+'" field must be an array.');});
+ if(typeof validateProductionIdentityPayload==='function')validateProductionIdentityPayload(src);
  if(typeof finValidatePayload==='function')finValidatePayload(src);
  if(typeof validateCustomersPayload==='function')validateCustomersPayload(src);
  if(typeof validateSalesPayload==='function')validateSalesPayload(src);
@@ -302,7 +312,7 @@ function prepareImportedState(src){
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
-  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);productionIdentityReconcile(DB,previous);normalizeDB();
   /* Пересев на импорте, а не только на старте. Версия справочников живёт В
      ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
@@ -317,6 +327,7 @@ function prepareImportedState(src){
 }
 function normalizeDB(){
  Object.keys(DEFAULT).forEach(k=>{ if(Array.isArray(DEFAULT[k])&&!Array.isArray(DB[k])) DB[k]=JSON.parse(JSON.stringify(DEFAULT[k])); });
+ if(!storageRecovery)normalizeProductionIdentity();else productionIdentityReconciledState=productionIdentityState();
  normalizeRefVersion();
  /* Порядок обязателен: рабочие места приводятся в порядок ДО пользователей.
     Пользователь ссылается на рабочее место, и проверять ссылку не на чем,
@@ -352,7 +363,7 @@ function boot(){
  let hadSavedState=false;
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; const parsed=JSON.parse(s);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');mergeState(parsed); } }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be read. The original has been preserved.';console.warn(storageLastError,e.message);}
- try{ normalizeDB(); }
+ try{ if(typeof productionGatewayLoad==='function')productionGatewayLoad();normalizeDB(); }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,

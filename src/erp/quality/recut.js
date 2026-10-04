@@ -19,7 +19,7 @@ function recutForOrder(orderId){return (DB.recut||[]).filter(r=>r.orderId===orde
 function recutCanOpen(o){return !!o&&!salesIsQuote(o)&&!!salesRecord(o.id)&&RECUT_OPEN_STATUSES.includes(o.status);}
 function recutNextNo(orderId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId).reduce((n,r)=>Math.max(n,+r.no||0),0)+1;}
 function recutSlots(r){
- return (r&&r.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+r.qty)||0)},(_,i)=>({key,lineId:r.lineId,unit:'R'+r.no+'.'+(i+1),k:i+1,of:+r.qty,ref:'R'+r.no,label:'Recut '+r.no})));
+ return (r&&r.keys||[]).flatMap(key=>Array.from({length:Math.max(0,Math.floor(+r.qty)||0)},(_,i)=>({key,lineId:r.lineId,unit:'R'+r.no+'.'+(i+1),k:i+1,of:+r.qty,ref:'R'+r.no,label:'Recut '+r.no,replacesCode:r.replacements&&r.replacements[key]&&r.replacements[key][i]||''})));
 }
 function recutSlotsFor(orderId,lineId){return (DB.recut||[]).filter(r=>r&&r.orderId===orderId&&(!lineId||r.lineId===lineId)).flatMap(recutSlots);}
 /* «Recut 1 · 2 of 3» по месту стекла; старые места NCR1001.2 — до переноса. */
@@ -41,12 +41,28 @@ function recutCreate(d){
   const qty=Number(x.qty);if(!Number.isInteger(qty)||qty<1||qty>l.qty)return {error:'Line '+(i+1)+': 1 to '+l.qty+' pcs'};
   const which=String(x.which||'unit'),keys=ncrGlassKeys(o,l,which),opt=ncrLiteOptions(o,l).find(v=>v.value===which);
   if(!keys.length||!opt)return {error:'Line '+(i+1)+': choose which glass.'};
-  picks.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty});
+  const replacements={},entered=String(x.codes||'').split(/[\s,;]+/).filter(Boolean).map(productionIdentityBarcodeNormalize);
+  for(const key of keys){
+   const ids=d.replacements&&d.replacements[key]||entered.filter(code=>{const e=productionIdentityFind(code);return e&&e.componentKey===key;});
+   if(!Array.isArray(ids)||ids.length!==qty||new Set(ids).size!==ids.length||ids.some(code=>{const e=productionIdentityFind(code);return !e||e.kind!=='G'||e.active===false||e.componentKey!==key||e.orderId!==o.id||e.lineId!==l.id;}))return {error:'Line '+(i+1)+': scan '+qty+' affected Glass IDs for each selected lite.'};
+   replacements[key]=ids.slice();
+  }
+  picks.push({lineId:l.id,line:i+1,mark:l.mark||'',which,lite:opt.label,keys,qty,replacements});
  }
  if(!picks.length)return {error:'Select the affected glass.'};
  const now=new Date().toISOString();let no=recutNextNo(o.id);
- const made=picks.map(p=>Object.assign({id:salesUid('RC'),orderId:o.id,no:no++,createdAt:now},p,{where:d.where,reasonId:reason.id,reason:reason.name,note:salesString(d.note).slice(0,500)}));
- DB.recut.push(...made);glassPieceEnsure(o);o.updatedAt=now;touch();
+ const made=picks.map(p=>{
+  const {replacements,...attributes}=p;
+  return Object.assign({id:salesUid('RC'),orderId:o.id,no:no++,createdAt:now},attributes,{where:d.where,reasonId:reason.id,reason:reason.name,note:salesString(d.note).slice(0,500),replacements,replacesUnitCode:unitIdValid(d.replacesUnitCode)?d.replacesUnitCode:'',fulfillmentSlot:Number.isSafeInteger(d.fulfillmentSlot)?d.fulfillmentSlot:null});
+ });
+ DB.recut.push(...made);glassPieceEnsure(o);
+ made.forEach(r=>Object.entries(r.replacements).forEach(([key,oldCodes])=>oldCodes.forEach((code,i)=>{
+  const old=productionIdentityFind(code),fresh=productionIdentityFind(glassPieceAt(glassPieceMap(o.id).get(key),'R'+r.no+'.'+(i+1)));
+  old.status='broken';old.retiredRecut='R'+r.no;glassIdentityRetire(code,'Glass replaced · Recut '+r.no);
+  const owner=productionIdentityState().entities.find(e=>e.kind==='U'&&e.active!==false&&(e.componentIds||[]).includes(old.id));
+  if(owner){owner.status='broken';glassIdentityRetire(owner.code,'Unit glass replaced');if(fresh)fresh.replacesUnitCode=owner.code;}
+ })));
+ o.updatedAt=now;touch();
  return {recuts:made};
 }
 /* Recut, записанный раньше как действие NCR, переносится в заказ один раз:
@@ -78,7 +94,8 @@ function normalizeRecuts(){
  DB.recut=DB.recut.filter(r=>r&&typeof r==='object').map(r=>({id:typeof r.id==='string'&&r.id?r.id:salesUid('RC'),orderId:salesString(r.orderId),no:Math.max(1,Math.floor(+r.no)||1),createdAt:salesString(r.createdAt),
   lineId:salesString(r.lineId),line:Math.max(1,Math.floor(+r.line)||1),mark:salesString(r.mark),which:r.which==null?'unit':String(r.which),lite:salesString(r.lite),
   keys:(Array.isArray(r.keys)?r.keys:[]).filter(k=>typeof k==='string'&&k.split('|').length===4),qty:Math.max(1,Math.floor(+r.qty)||1),
-  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500)}))
+  where:salesString(r.where).toUpperCase(),reasonId:salesString(r.reasonId),reason:ncrName(r.reason),note:salesString(r.note).slice(0,500),
+  replacements:r.replacements&&typeof r.replacements==='object'&&!Array.isArray(r.replacements)?Object.fromEntries(Object.entries(r.replacements).map(([key,ids])=>[key,Array.isArray(ids)?ids.filter(glassPieceValid):[]])):{},replacesUnitCode:unitIdValid(r.replacesUnitCode)?r.replacesUnitCode:'',fulfillmentSlot:Number.isSafeInteger(r.fulfillmentSlot)&&r.fulfillmentSlot>0?r.fulfillmentSlot:null}))
   .filter(r=>{if(!r.orderId||!r.lineId||!r.keys.length||ids.has(r.id))return false;ids.add(r.id);return true;});
 }
 function validateRecutPayload(src){

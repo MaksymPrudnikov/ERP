@@ -136,7 +136,7 @@ function stationSubmit(raw){
  stationDrawer=null;stationTab='scan';
  if(check.kind==='carrier'){stationCarrierScan(check.code);render();return 'carrier';}
  if(check.kind==='skipped'&&!stationQuestions.some(q=>q.code===check.code))stationQuestions.push({code:check.code,at:new Date().toISOString()});
- const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
+ const out=STATION_RECORDED.includes(check.kind)?stationMove(stationCode,check,who,{manual:/^(\d+|[GU]?-?\d{1,9}-\d+|U-?\d{1,6})$/i.test(String(raw).trim()),on:stationPutOn()}):null;
  if(out&&!out.ok){stationSaveError(check.code,out.error);return 'saveError';}
  const rec=out?out.value.rec:null,mates=out?out.value.mates:[];
  stationShow(check,rec);if(mates.length&&stationLast)stationLast.mates=mates;

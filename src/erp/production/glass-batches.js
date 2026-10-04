@@ -1,6 +1,6 @@
 /* Номера стёкол и реестр резки.
-   Каждое стекло — отдельный объект. Glass ID G-0000001 выдаётся при сохранении
-   заказа, не меняется и не используется повторно (счётчик DB.glassPieceSeq).
+   Каждое стекло — отдельный объект. Glass ID G-base-instance выдаётся при сохранении
+   заказа, не меняется и не используется повторно (productionIdentity).
    Владелец, 17 сентября 2026: стикер печатают сразу — стекло из стока режут
    без Verify и батча, а сканирование потом отмечает пройденные этапы. Место
    стекла в заказе — позиция, изделие «7 of 50», Lite — берётся из связей.
@@ -11,17 +11,67 @@
 DEFAULT.glassBatch=[];DEFAULT.glassPiece=[];DEFAULT.glassPieceSeq=0;DEFAULT.glassUnitId=[];DEFAULT.glassUnitIdSeq=0;
 const GLASS_WAITING_STATUSES=['verified','batched','ready','done'];
 function glassBatchClone(v){return v==null?null:JSON.parse(JSON.stringify(v));}
-function glassPieceValid(id){return typeof id==='string'&&/^G-\d{7,}$/.test(id);}
-function glassPieceNumber(id){return glassPieceValid(id)?+id.slice(2):0;}
-/* Номер юнита U-0000001 — для финального стикера на весь DGU/TGU или ламинат:
+function glassPieceValid(id){return productionIdentityBarcodeValid(id,'G');}
+function glassPieceNumber(id){return typeof id==='string'&&/^G-\d{7,}$/.test(id)&&Number.isSafeInteger(+id.slice(2))?+id.slice(2):0;}
+/* Номер юнита U-base-instance — для финального стикера на весь DGU/TGU или ламинат:
    G-номер одного стекла отметил бы при скане только это стекло. Выдаётся
    позиции, где стёкол два и больше, по номеру на изделие, по тем же правилам,
    что Glass ID. DB.glassUnitId: {key: заказ|позиция, ids[изделие-1]}. */
-function unitIdValid(id){return typeof id==='string'&&/^U-\d{7,}$/.test(id);}
-function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
-function unitIdNext(){DB.glassUnitIdSeq=(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0)+1;return 'U-'+String(DB.glassUnitIdSeq).padStart(7,'0');}
+function unitIdValid(id){return productionIdentityBarcodeValid(id,'U');}
+function unitIdNumber(id){return typeof id==='string'&&/^U-\d{7,}$/.test(id)&&Number.isSafeInteger(+id.slice(2))?+id.slice(2):0;}
+function unitIdNext(orderId,lineId,options){return productionIdentityAllocate('U',orderId,lineId,options||{}).code;}
 function unitIdAt(orderId,lineId,unit){const r=(DB.glassUnitId||[]).find(x=>x.key===orderId+'|'+lineId);return r&&r.ids[unit-1]||'';}
-function glassPieceNextId(){DB.glassPieceSeq=(Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0)+1;return 'G-'+String(DB.glassPieceSeq).padStart(7,'0');}
+function glassPieceNextId(orderId,lineId,options){return productionIdentityAllocate('G',orderId,lineId,options||{}).code;}
+/* A barcode identifies a physical object; its current order/component/slot is
+   a relationship. Retired records remain in the identity registry. */
+function glassIdentityAttach(kind,code,orderId,lineId,options){
+ let e=productionIdentityFind(code);
+ if(!e)e=productionIdentityRegisterLegacy(kind,code,orderId,lineId,options||{});
+ if(e){e.orderId=orderId;e.lineId=lineId;Object.assign(e,options||{});}
+ return e;
+}
+function glassIdentityRetire(code,reason){const e=productionIdentityFind(code);if(e){e.active=false;e.retiredAt=e.retiredAt||new Date().toISOString();e.retiredReason=e.retiredReason||reason;}}
+function glassUnitBind(o,l,slot,asm,pieces,options){
+ const rec=(DB.glassUnitId||[]).find(r=>r.key===o.id+'|'+l.id);
+ if(!rec||!Number.isSafeInteger(slot)||slot<1||slot>l.qty)throw new Error('No remaining ordered unit slot.');
+ const opts=options||{},ids=pieces.map(code=>{
+  const e=productionIdentityFind(code);if(!e)throw new Error('Assembly glass has no physical identity.');return e.id;
+ });
+ const signature=ids.slice().sort().join('|');
+ let code=opts.code||rec.ids[slot-1],e=productionIdentityFind(code);
+ const reusable=e&&e.active!==false&&(!e.assemblyId||e.assemblyId===asm&&(!e.componentIds||e.componentIds.slice().sort().join('|')===signature));
+ if(!reusable){
+  const replacement=opts.replacesCode||(e&&e.active===false?e.code:'');
+  code=unitIdNext(o.id,l.id,{slot,replacesCode:replacement||undefined,requestId:'assembly:'+asm+':'+signature});e=productionIdentityFind(code);
+ }
+ /* A unit reopened by Undo can retain its physical barcode if its glass
+    membership is unchanged. Ordered slots are independently replaceable. */
+ rec.ids.forEach((id,i)=>{if(id===code&&i!==slot-1)rec.ids[i]=unitIdNext(o.id,l.id,{slot:i+1});});
+ rec.ids[slot-1]=code;e.slot=slot;e.assemblyId=asm;e.componentIds=ids;e.componentCodes=pieces.slice();e.assembledAt=e.assembledAt||new Date().toISOString();e.status='assembled';
+ return e;
+}
+function glassUnitMigrateAssemblies(){
+ if(typeof stationAsms!=='function')return;
+ (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)).forEach(o=>(o.lines||[]).forEach(l=>{
+  const mu=stationUnitMerge(o,l);if(!mu)return;
+  const assemblies=stationAsms(o,l,mu),record=(DB.glassUnitId||[]).find(r=>r.key===o.id+'|'+l.id);if(!record)return;
+  assemblies.filter(a=>a.unit).forEach(a=>{
+   let code=a.unitCode||record.ids[a.unit-1],e=productionIdentityFind(code);
+   if(!e)return;
+   if(!a.unitCode&&e.assemblyId&&e.assemblyId!==a.asm){
+    /* Old U identified an ordered slot and could be reused. Preserve its
+       original object; give the other physical assembly a fresh barcode. */
+    e.ambiguousLegacy=true;
+    code=unitIdNext(o.id,l.id,{slot:a.unit,replacesCode:e.code,requestId:'legacy-assembly:'+a.asm});e=productionIdentityFind(code);
+   }
+   const children=[...a.lites.values()].map(id=>productionIdentityFind(id)).filter(Boolean);
+   e.assemblyId=a.asm;e.componentIds=children.map(x=>x.id);e.componentCodes=[...a.lites.values()];e.slot=a.unit;e.assembledAt=e.assembledAt||a.recs[0].at;e.status=a.broken?'broken':'assembled';
+   if(a.broken)glassIdentityRetire(code,'Unit broken');
+   a.recs.forEach(r=>{r.unitCode=code;r.unitEntityId=e.id;});
+   if(!a.broken)record.ids[a.unit-1]=code;
+  });
+ }));
+}
 /* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
    одну запись Glass missing: её количество не теряется из остатка заказа. */
 function glassBatchComponents(o,l){
@@ -58,15 +108,20 @@ function glassPieceAt(rec,unit){
 }
 /* Скан: G или U → заказ, позиция, стекло и место. Нужен станциям. */
 function glassLookup(code){
- const id=String(code==null?'':code).trim().toUpperCase();
- if(unitIdValid(id)){for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,orderId,lineId,unit:i+1};}}return null;}
+ const id=productionIdentityBarcodeNormalize(String(code==null?'':code));
+ const identity=productionIdentityFind(id);
+ if(unitIdValid(id)){
+  if(identity&&identity.assemblyId)return {kind:'unit',id,entityId:identity.id,orderId:identity.orderId,lineId:identity.lineId,unit:identity.slot,assemblyId:identity.assemblyId,retired:identity.active===false};
+  for(const r of DB.glassUnitId||[]){const i=r.ids.indexOf(id);if(i>=0){const [orderId,lineId]=r.key.split('|');return {kind:'unit',id,entityId:identity&&identity.id,orderId,lineId,unit:i+1};}}
+  return identity?{kind:'unit',id,entityId:identity.id,orderId:identity.orderId,lineId:identity.lineId,unit:identity.slot,retired:true}:null;
+ }
  if(!glassPieceValid(id))return null;
  for(const r of DB.glassPiece||[]){
   const [orderId,lineId]=r.key.split('|'),i=r.ids.indexOf(id);
   if(i>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:i+1};
   for(const nr of Object.keys(r.extra||{})){const k=r.extra[nr].indexOf(id);if(k>=0)return {kind:'glass',id,orderId,lineId,key:r.key,unit:nr+'.'+(k+1)};}
  }
- return null;
+ return identity&&identity.componentKey?{kind:'glass',id,entityId:identity.id,orderId:identity.orderId,lineId:identity.lineId,key:identity.componentKey,unit:identity.slot,retired:identity.active===false}:null;
 }
 function glassBatchTaken(active,key,qty){let n=0;for(let u=1;u<=qty;u++)if(active.has(key+'|'+u))n++;return n;}
 function glassBatchRemaining(o,l,active){
@@ -87,37 +142,45 @@ function glassBatchProgress(o){
    если их стекло не в батче. Номер в оборот не возвращается. */
 function glassPieceEnsure(o){
  if(!o||salesIsQuote(o))return false;
+ productionIdentityReadyState();
  const active=glassBatchActive(o.id);
  if(['closed','cancelled'].includes(o.status)&&!active.size)return false;
  if(!Array.isArray(DB.glassPiece))DB.glassPiece=[];
  const map=glassPieceMap(o.id),keep=new Set([...active.values()].map(x=>x.part.key));let changed=false;
- (o.lines||[]).forEach(l=>glassBatchComponents(o,l).forEach(c=>{
+ (o.lines||[]).forEach(l=>{productionIdentityEnsureLine(o.id,l.id);glassBatchComponents(o,l).forEach(c=>{
   keep.add(c.key);let rec=map.get(c.key);
   if(!rec){rec={key:c.key,ids:[]};DB.glassPiece.push(rec);map.set(c.key,rec);changed=true;}
   let want=l.qty;active.forEach(x=>{if(x.part.key===c.key)want=Math.max(want,x.item.unit);});
-  for(let i=0;i<want;i++)if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId();changed=true;}
-  if(rec.ids.length>want){rec.ids.length=want;changed=true;}
- }));
+  for(let i=0;i<want;i++){
+   if(!glassPieceValid(rec.ids[i])){rec.ids[i]=glassPieceNextId(o.id,l.id,{slot:i+1,componentKey:c.key});changed=true;}
+   glassIdentityAttach('G',rec.ids[i],o.id,l.id,{slot:i+1,componentKey:c.key});
+  }
+  if(rec.ids.length>want){rec.ids.slice(want).forEach(id=>glassIdentityRetire(id,'Quantity reduced'));rec.ids.length=want;changed=true;}
+ });});
  /* Стёкла Recut получают свои номера сразу при создании Recut. */
  glassRecutSlots(o.id).forEach(x=>{
   keep.add(x.key);let rec=map.get(x.key);
   if(!rec){rec={key:x.key,ids:[]};DB.glassPiece.push(rec);map.set(x.key,rec);changed=true;}
   if(!rec.extra||typeof rec.extra!=='object')rec.extra={};const list=rec.extra[x.ref]||(rec.extra[x.ref]=[]);
-  if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId();changed=true;}
+  if(!glassPieceValid(list[x.k-1])){list[x.k-1]=glassPieceNextId(o.id,x.lineId,{slot:x.unit,componentKey:x.key,replacesCode:x.replacesCode||undefined});changed=true;}
+  glassIdentityAttach('G',list[x.k-1],o.id,x.lineId,{slot:x.unit,componentKey:x.key});
  });
  const next=DB.glassPiece.filter(r=>!r.key.startsWith(o.id+'|')||keep.has(r.key));
- if(next.length!==DB.glassPiece.length){DB.glassPiece=next;changed=true;}
+ if(next.length!==DB.glassPiece.length){DB.glassPiece.filter(r=>!next.includes(r)).forEach(r=>r.ids.concat(...Object.values(r.extra||{})).forEach(id=>glassIdentityRetire(id,'Order line removed')));DB.glassPiece=next;changed=true;}
  if(!Array.isArray(DB.glassUnitId))DB.glassUnitId=[];
  const units=new Set();
  (o.lines||[]).forEach(l=>{
   if(glassBatchComponents(o,l).filter(c=>!c.missing).length<2)return;
   const key=o.id+'|'+l.id;units.add(key);let rec=DB.glassUnitId.find(r=>r.key===key);
   if(!rec){rec={key,ids:[]};DB.glassUnitId.push(rec);changed=true;}
-  for(let i=0;i<l.qty;i++)if(!unitIdValid(rec.ids[i])){rec.ids[i]=unitIdNext();changed=true;}
-  if(rec.ids.length>l.qty){rec.ids.length=l.qty;changed=true;}
+  for(let i=0;i<l.qty;i++){
+   if(!unitIdValid(rec.ids[i])){rec.ids[i]=unitIdNext(o.id,l.id,{slot:i+1});changed=true;}
+   glassIdentityAttach('U',rec.ids[i],o.id,l.id,{slot:i+1});
+  }
+  if(rec.ids.length>l.qty){rec.ids.slice(l.qty).forEach(id=>glassIdentityRetire(id,'Quantity reduced'));rec.ids.length=l.qty;changed=true;}
  });
  const nextUnits=DB.glassUnitId.filter(r=>!r.key.startsWith(o.id+'|')||units.has(r.key));
- if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId=nextUnits;changed=true;}
+ if(nextUnits.length!==DB.glassUnitId.length){DB.glassUnitId.filter(r=>!nextUnits.includes(r)).forEach(r=>r.ids.forEach(id=>glassIdentityRetire(id,'Order line removed')));DB.glassUnitId=nextUnits;changed=true;}
  return changed;
 }
 /* Строки очереди — отдельные стёкла. План резки читает Makeup через soDraft,
@@ -335,7 +398,7 @@ function normalizeGlassBatches(){
  (DB.salesOrder||[]).forEach(o=>glassPieceEnsure(o));
  const pieces=glassPieceMap();
  DB.glassBatch.forEach(b=>{
-  b.items.forEach(i=>{if(glassPieceValid(i.piece))return;const id=glassPieceAt(pieces.get(b.parts[i.part].key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId();});
+  b.items.forEach(i=>{const part=b.parts[i.part];if(!glassPieceValid(i.piece)){const id=glassPieceAt(pieces.get(part.key),i.unit);i.piece=glassPieceValid(id)?id:glassPieceNextId(part.orderId,part.lineId,{slot:i.unit,componentKey:part.key});}glassIdentityAttach('G',i.piece,part.orderId,part.lineId,{slot:i.unit,componentKey:part.key});});
   b.history.forEach(h=>{if(h.convert){h.pieces=h.convert.map(i=>i.piece);delete h.convert;}});
  });
  (DB.salesOrder||[]).forEach(o=>(o.lines||[]).forEach(l=>{
@@ -348,7 +411,7 @@ function normalizeGlassBatches(){
  }));
 }
 function validateGlassBatchesPayload(src){
- if(src.glassPieceSeq!=null&&!(Number.isSafeInteger(src.glassPieceSeq)&&src.glassPieceSeq>=0))throw new Error('Glass ID counter is invalid.');
+ if(src.glassPieceSeq!=null){try{productionIdentityDecimal(src.glassPieceSeq,true);}catch(e){throw new Error('Glass ID counter is invalid.');}}
  const orders=new Map((Array.isArray(src.salesOrder)?src.salesOrder:[]).filter(o=>o&&o.id).map(o=>[o.id,o]));
  const lineOf=(orderId,lineId)=>{const o=orders.get(orderId);return o&&(o.lines||[]).find(l=>l&&l.id===lineId);};
  const seen=new Set(),slotPiece=new Map();
@@ -357,7 +420,7 @@ function validateGlassBatchesPayload(src){
   r.ids.forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+(i+1),id);});
   if(r.extra!=null){if(typeof r.extra!=='object'||Array.isArray(r.extra))throw new Error('Invalid glass ID record.');Object.keys(r.extra).forEach(nr=>{if(!/^(NCR|R)\d+$/.test(nr)||!Array.isArray(r.extra[nr]))throw new Error('Invalid glass ID record.');r.extra[nr].forEach((id,i)=>{if(!glassPieceValid(id)||seen.has(id))throw new Error('Invalid or duplicate Glass ID.');seen.add(id);slotPiece.set(r.key+'|'+nr+'.'+(i+1),id);});});}
  });
- if(src.glassUnitIdSeq!=null&&!(Number.isSafeInteger(src.glassUnitIdSeq)&&src.glassUnitIdSeq>=0))throw new Error('Unit ID counter is invalid.');
+ if(src.glassUnitIdSeq!=null){try{productionIdentityDecimal(src.glassUnitIdSeq,true);}catch(e){throw new Error('Unit ID counter is invalid.');}}
  const unitSeen=new Set();
  (Array.isArray(src.glassUnitId)?src.glassUnitId:[]).forEach(r=>{
   if(!r||typeof r.key!=='string'||r.key.split('|').length!==2||!Array.isArray(r.ids))throw new Error('Invalid unit ID record.');

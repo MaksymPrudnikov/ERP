@@ -502,7 +502,7 @@ module.exports=async function({page,eq,ok}){
   document.querySelector('[data-stk-item="'+drop+'"] [data-stk-check]').click();
   const count=document.querySelector('[data-stk-count]').textContent,sheetBox=document.querySelector('[data-stk-sheet-check]').checked;
   window.print=()=>{};
-  document.querySelector('[data-stk-print]').click();const stickers=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>/S-\d{7}/.test(p.textContent)?'stock':(p.textContent.match(/G-\d{7}/)||[''])[0]);stkPrintCleanup();
+  document.querySelector('[data-stk-print]').click();const stickers=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>/S-\d{7}/.test(p.textContent)?'stock':([...p.querySelectorAll('text')].map(n=>n.textContent).find(s=>/^G-\d{10,}-\d+$/.test(s))||''));stkPrintCleanup();
   const open=!!document.querySelector('[data-stk-batch-list]'),notice=document.querySelector('[data-stk-notice]').textContent;
   document.querySelector('[data-stk-print-drawings]').click();
   const drawings=[...document.querySelectorAll('#printSheetHost .sheet-tag')].map(x=>x.textContent);printSheetCleanup();
@@ -511,7 +511,7 @@ module.exports=async function({page,eq,ok}){
   /* Правая кнопка по стеклу на листе — один стикер и один чертёж сразу. */
   cutUi.glass=g.glass;cutUi.sheet=1;render();const one=g.sheets[0].pieces[0].piece,el=document.querySelector('.cut-paper [data-cut-piece="'+one+'"] rect'),r=el.getBoundingClientRect();
   el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));
-  document.querySelector('#cutMenu [data-cut-menu="print-sticker"]').click();const sticker=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>(p.textContent.match(/G-\d{7}/)||[''])[0]);stkPrintCleanup();
+  document.querySelector('#cutMenu [data-cut-menu="print-sticker"]').click();const sticker=[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>([...p.querySelectorAll('text')].map(n=>n.textContent).find(s=>/^G-\d{10,}-\d+$/.test(s))||''));stkPrintCleanup();
   el.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));
   document.querySelector('#cutMenu [data-cut-menu="print-drawing"]').click();const drawing=[...document.querySelectorAll('#printSheetHost .sheet-tag')].map(x=>x.textContent);printSheetCleanup();
   const log=(DB.orderEvent||[]).filter(e=>e.what==='Printed').map(e=>e.note);

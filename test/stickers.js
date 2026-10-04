@@ -15,28 +15,32 @@ module.exports=async function({page,eq,ok}){
    m.cavities.forEach(x=>{x.priceOverride=3.1;});soDraft.lines=[];const l=normalizeSalesOrderLine({makeupId:m.id,width16:48*16,height16:36*16,qty:2,mark:'Lobby'});soDraft.lines.push(l);salesEnsureLineShape(l);
    salesLineChargeRows(l).forEach(r=>{salesEnsureChargePricing(l,r).orderRate=0.013;});salesApplyCustomerDefaults(oqCustomer({legalName:'City Glazing'}).id);if(!salesOrderSave())throw new Error('TGU not saved');const id=soDraft.id;soDraft=null;soEdit=null;return id;};
   window.stList=ids=>{soDraft=null;soEdit=null;tab='sales';salesListSel=new Set(ids);render();};
-  window.stHost=()=>[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>p.textContent.replace(/\s+/g,' ').trim());
+  window.stHost=()=>[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>[...p.querySelectorAll('text')].map(n=>n.textContent).join(' ').replace(/\s+/g,' ').trim());
   window.stDecode=widths=>{let i=0;const vals=[];while(i<widths.length){const run=widths.slice(i,i+6).join('');const v=BARCODE128.indexOf(run);if(v===106||run==='233111'){vals.push(106);break;}if(v<0)return null;vals.push(v);i+=6;}
-   let sum=vals[0];for(let k=1;k<vals.length-2;k++)sum+=vals[k]*k;return sum%103===vals[vals.length-2]?vals.slice(1,-2).map(v=>String.fromCharCode(v+32)).join(''):'bad checksum';};
+   let sum=vals[0];for(let k=1;k<vals.length-2;k++)sum+=vals[k]*k;if(sum%103!==vals[vals.length-2])return 'bad checksum';
+   let set=vals[0]===105?'C':'B',text='';for(const v of vals.slice(1,-2)){
+    if(set==='B'){if(v===99)set='C';else text+=String.fromCharCode(v+32);}
+    else if(v===100)set='B';else text+=String(v).padStart(2,'0');
+   }return text;};
  });};
  await helpers();
 
- eq('штрихкод Code 128 B: старт, данные, контрольная сумма, стоп; читается обратно; 107 узоров по 11 модулей',await t.p.evaluate(()=>{
+ eq('штрихкод Code 128 B/C: старт, данные, контрольная сумма, стоп; читается обратно; 107 узоров по 11 модулей',await t.p.evaluate(()=>{
   const sums=BARCODE128.map((p,i)=>p.split('').reduce((a,b)=>a+ +b,0)===(i===106?13:11)).every(Boolean);
   return {values:barcode128Values('G-0000001'),width:barcode128Width('G-0000001'),sums,unique:new Set(BARCODE128).size,
    back:['G-0000001','U-0000123','G-1234567'].map(s=>stDecode(barcode128Modules(s))),bars:barcode128Items('G-0000001',0,0,40,1.44).length};
- }),{values:[104,39,13,16,16,16,16,16,16,17,26,106],width:154,sums:true,unique:107,back:['G-0000001','U-0000123','G-1234567'],bars:37});
+ }),{values:[104,39,13,16,99,0,0,1,2,106],width:132,sums:true,unique:107,back:['G-0000001','U-0000123','G-1234567'],bars:31});
 
  eq('номер юнита U- у позиций с двумя и больше стёклами, по изделию; одинарному не выдаётся; qty меньше — последние снимаются; скан G, U, Recut',await t.p.evaluate(()=>{
   oqReset();const id=stOrder(),o=salesRecord(id);
   const first=DB.glassUnitId.map(r=>r.ids.slice());
   salesOrderEdit(id);soDraft.lines[0].qty=1;const m=soDraft.makeups[0];soDraft.makeups.push(Object.assign(JSON.parse(JSON.stringify(m)),{id:'MK-single',code:'B',unitType:'single',panes:[JSON.parse(JSON.stringify(m.panes[0]))],cavities:[]}));soDraft.lines[1].makeupId='MK-single';salesOrderSave();soDraft=null;soEdit=null;
   const after=DB.glassUnitId.map(r=>r.ids.slice()),rec=salesRecord(id);
-  oqThrough(id,'verified');const reason=ncrReasonsFor('HEAT',{activeOnly:true})[0];recutCreate({orderId:id,where:'HEAT',reasonId:reason.id,lines:{[rec.lines[0].id]:{on:true,qty:1,which:'0'}}});
+  oqThrough(id,'verified');const reason=ncrReasonsFor('HEAT',{activeOnly:true})[0];recutCreate({orderId:id,where:'HEAT',reasonId:reason.id,lines:{[rec.lines[0].id]:{on:true,qty:1,which:'0',codes:glassPieceMap(id).get(ncrGlassKeys(rec,rec.lines[0],'0')[0]).ids.slice(0,1).join(' ')}}});
   const recutId=glassPieceMap(id).get(glassBatchComponents(rec,rec.lines[0])[0].key).extra.R1[0];
   const look=[DB.glassPiece[0].ids[0],after[0][0],recutId,' '+after[0][0].toLowerCase()+' ','G-9999999','X-1'].map(c=>{const r=glassLookup(c);return r?r.kind+' '+r.unit:null;});
-  return {first,after,seq:DB.glassUnitIdSeq,look};
- }),{first:[['U-0000001','U-0000002'],['U-0000003']],after:[['U-0000001']],seq:3,look:['glass 1','unit 1','glass R1.1','unit 1',null,null]});
+  return {first,after,seq:DB.productionIdentity.lines.map(l=>l.seqU),look};
+ }),{first:[['U-0000000001-1','U-0000000001-2'],['U-0000000002-1']],after:[['U-0000000001-1']],seq:['2','1'],look:['glass 1','unit 1','glass R1.1','unit 1',null,null]});
 
  eq('номера юнитов в JSON: повтор отклоняется, после перезагрузки те же',await t.p.evaluate(()=>{
   oqReset();stOrder();const src=JSON.parse(JSON.stringify(DB));
@@ -56,7 +60,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=stTgu(),o=salesRecord(id),d=stkUnitData(o,o.lines[0],2),det=stkDetailsBase(stkBlockDef('makeup'));
   const rows=d.rows.map(r=>r.label+': '+stkMakeupRowText(r,det)),off=stkMakeupRowText(d.rows[0],Object.assign({},det,{film:false,heat:false}));
   return {id:d.id,heading:d.heading,mm:Math.round(d.thicknessMm),rows,off,finished:d.finished,sealant:stkMakeupRowText(d.rows[1],Object.assign({},det,{sealant:true}))};
- }),{id:'U-0000002',heading:'Triple IGU · laminated',mm:52,
+ }),{id:'U-0000000001-2',heading:'Triple IGU · laminated',mm:52,
   rows:['Lite 1: Clear 6mm · Heat Strengthened + EVA Clear 0.76 mm (2 layers) + Clear 6mm · Heat Strengthened','Space: Black Warm Edge 17/32″ · Argon','Lite 2: Clear 6mm · Tempered','Space: Black Warm Edge 17/32″ · Argon','Lite 3: Clear 6mm · Tempered'],
   off:'Clear 6mm + EVA Clear + Clear 6mm',finished:{w:48,h:36},sealant:'Black Warm Edge 17/32″ · Argon · PIB / PS'});
 
@@ -125,7 +129,7 @@ module.exports=async function({page,eq,ok}){
   const center=bar(),id=stkDraft().tpl.blocks.find(b=>b.k==='barcode').id;
   document.querySelector('[data-stk-hit="'+id+'"]').click();const panel=!!document.querySelector('[data-stk-details-panel="'+id+'"] [data-stk-align="left"]');
   document.querySelector('[data-stk-align="left"]').click();const left=bar();document.querySelector('[data-stk-align="right"]').click();const right=bar();
-  return {center,panel,left:left<-15,right:right>15};
+  return {center,panel,left:left<0,right:right>0};
  }),{center:0,panel:true,left:true,right:true});
 
  eq('размер — готовый, под ним размер до обработки кромки; бордер не печатается; контур формы из плана резки во всех форматах',await t.p.evaluate(()=>{
@@ -208,13 +212,13 @@ module.exports=async function({page,eq,ok}){
 
  eq('Recut в окне печати: стекло R с меткой RECUT; не влезло — предупреждение и Print anyway',await t.p.evaluate(()=>{
   oqReset();const id=stOrder();oqThrough(id,'batched');const o=salesRecord(id);const reason=ncrReasonsFor('HEAT',{activeOnly:true})[0];
-  recutCreate({orderId:id,where:'HEAT',reasonId:reason.id,lines:{[o.lines[0].id]:{on:true,qty:2,which:'0'}}});const r=DB.recut[0];
+  recutCreate({orderId:id,where:'HEAT',reasonId:reason.id,lines:{[o.lines[0].id]:{on:true,qty:2,which:'0',codes:glassPieceMap(id).get(ncrGlassKeys(o,o.lines[0],'0')[0]).ids.slice(0,2).join(' ')}}});const r=DB.recut[0];
   stkOpenForOrder(id);Object.keys(stkDialog.rows).forEach(k=>{stkDialog.rows[k].on=k==='R:'+r.id;});stkDialogSize('4x6');render();
   const count=document.querySelector('[data-stk-count]').textContent;stkDialogPrint();const pages=stHost();stkPrintCleanup();
   DB.stickerTemplate={'production|4x6':(()=>{const x=stkBase('production','4x6');x.blocks.find(b=>b.k==='order').size=90;x.blocks.find(b=>b.k==='size').size=72;return x;})()};
   stkOpenForOrder(id);stkDialogPrint();const warn=document.querySelector('[data-stk-warning]').textContent,btn=document.querySelector('[data-stk-print]').textContent;const printed=window.stPrinted;stkDialogPrint();
   const after=window.stPrinted-printed;stkPrintCleanup();DB.stickerTemplate={};
-  return {count,recut:pages.every(p=>p.includes('RECUT 1')),ids:pages.map(p=>/G-\d{7}/.exec(p)[0]).join()===glassPieceMap(id).get(r.keys[0]).extra.R1.join(),warn:warn.startsWith("⚠ Doesn't fit"),btn,after};
+  return {count,recut:pages.every(p=>p.includes('RECUT 1')),ids:pages.map(p=>/G-(?:\d{10,}-\d+|\d{7,})\b/.exec(p)[0]).join()===glassPieceMap(id).get(r.keys[0]).extra.R1.join(),warn:warn.startsWith("⚠ Doesn't fit"),btn,after};
  }),{count:'2 stickers',recut:true,ids:true,warn:true,btn:'Print anyway',after:1});
 
  eq('трудный заказ: ✎ Customize правит только эту печать; Done → печать с правкой, шаблон не меняется; Save as template — меняется',await t.p.evaluate(()=>{

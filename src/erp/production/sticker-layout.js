@@ -327,7 +327,27 @@ function stkLayout(tpl,size,d){
   const left=[],right=[];while(i<top.length&&top[i].at!=='full'&&top[i].at!=='bottom'){(top[i].at==='right'?right:left).push(top[i]);i++;}
   let lw=(inner-10)/2,rw=lw;const room=inner-10-inner*.4;
   const wantR=Math.max(0,...right.map(x=>stkWantWidth(x,d,room))),wantL=Math.max(0,...left.map(x=>stkWantWidth(x,d,room)));
-  if(wantR>rw){rw=wantR;lw=inner-10-rw;}else if(wantL>lw){lw=wantL;rw=inner-10-lw;}
+  if(wantR>rw){rw=Math.min(wantR,room);lw=inner-10-rw;}else if(wantL>lw){lw=Math.min(wantL,room);rw=inner-10-lw;}
+  /* Длинный номер занимает строку целиком, если колонка потребовала бы
+     полосы тоньше минимума. Явные Free frames остаются под контролем автора. */
+  if(left.length&&right.length){
+   const wide=[...left.filter(x=>x.k==='barcode'&&stkNeedWidth(x,d)>lw),...right.filter(x=>x.k==='barcode'&&stkNeedWidth(x,d)>rw)].filter(x=>stkNeedWidth(x,d)<=inner);
+   wide.forEach(b=>{const h=measure(b,inner,'full');if(y+h>floor+.5)overflow.push(b);else{rows.push({b,h});y+=h+gap;}
+    for(const list of [left,right]){const at=list.indexOf(b);if(at>=0)list.splice(at,1);}});
+   if(wide.length){
+    lw=rw=(inner-10)/2;
+    /* После отдельной строки штрихкода две колонки делят оставшуюся
+       высоту: переносим хвост более высокой колонки, сохраняя кегли. */
+    const height=(list,col)=>list.reduce((sum,b)=>{const h=measure(b,lw,col);return sum+(h?h+gap:0);},0);
+    while(left.length&&right.length){
+     const lh=height(left,'left'),rh=height(right,'right'),from=lh>rh?left:right,to=lh>rh?right:left,b=from[from.length-1],
+      fromCol=from===left?'left':'right',toCol=to===left?'left':'right',h=measure(b,lw,fromCol),next=measure(b,lw,toCol),
+      tall=Math.max(lh,rh),short=Math.min(lh,rh);
+     if(!h||Math.max(tall-h-gap,short+(next?next+gap:0))>=tall-.5)break;
+     from.pop();to.unshift(b);
+    }
+   }
+  }
   const solo=!left.length||!right.length,L=left.filter(x=>stkNeedWidth(x,d)>(solo?inner:lw)?(overflow.push(x),false):true),Rr=right.filter(x=>stkNeedWidth(x,d)>(solo?inner:rw)?(overflow.push(x),false):true);
   const lwid=L.length&&!Rr.length?inner:lw,rwid=Rr.length&&!L.length?inner:rw;
   const lh=L.map(x=>measure(x,lwid,'left')),rh=Rr.map(x=>measure(x,rwid,'right')),sum=a=>a.reduce((s,v)=>s+(v?v+gap:0),0),gh=Math.max(sum(lh),sum(rh));

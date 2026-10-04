@@ -18,9 +18,9 @@ module.exports=async function({page,eq,ok}){
   oqReset();const c=oqCustomer();tab='sales';salesOrderNew('order');const unsaved=gbIds().length;const id=oqOrder(c);soDraft=null;soEdit=null;const saved=gbIds(),status=salesRecord(id).status;
   oqOrder(c,{kind:'quote'});soDraft=null;soEdit=null;const quote=gbIds().length;salesSetRecordStatus(id,'verified');const verified=gbIds();
   tab='sales';salesOrderEdit(id);soDraft.notes='Checked';salesOrderSave();soDraft=null;soEdit=null;normalizeDB();
-  return {unsaved,saved,status,quote,same:JSON.stringify(verified)===JSON.stringify(saved)&&JSON.stringify(gbIds())===JSON.stringify(saved),seq:DB.glassPieceSeq,rows:glassBatchRows().map(r=>r.piece+' '+r.line+':'+r.unit+' of '+r.of+' L'+r.lite)};
- }),{unsaved:0,saved:['G-0000001','G-0000002','G-0000003','G-0000004','G-0000005','G-0000006'],status:'new',quote:6,same:true,seq:6,
-  rows:['G-0000001 1:1 of 2 L1','G-0000002 1:2 of 2 L1','G-0000003 1:1 of 2 L2','G-0000004 1:2 of 2 L2','G-0000005 2:1 of 1 L1','G-0000006 2:1 of 1 L2']});
+  return {unsaved,saved,status,quote,same:JSON.stringify(verified)===JSON.stringify(saved)&&JSON.stringify(gbIds())===JSON.stringify(saved),seq:DB.productionIdentity.lines.map(l=>l.seqG),rows:glassBatchRows().map(r=>r.piece+' '+r.line+':'+r.unit+' of '+r.of+' L'+r.lite)};
+ }),{unsaved:0,saved:['G-0000000001-1','G-0000000001-2','G-0000000001-3','G-0000000001-4','G-0000000002-1','G-0000000002-2'],status:'new',quote:6,same:true,seq:['4','2'],
+  rows:['G-0000000001-1 1:1 of 2 L1','G-0000000001-2 1:2 of 2 L1','G-0000000001-3 1:1 of 2 L2','G-0000000001-4 1:2 of 2 L2','G-0000000002-1 2:1 of 1 L1','G-0000000002-2 2:1 of 1 L2']});
 
  eq('номера остаются после возврата в New и Cancel → Restore; отменённому заказу новые не выдаются',await t.p.evaluate(()=>{
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;const first=gbIds();salesSetRecordStatus(id,'verified');salesSetRecordStatus(id,'new',{back:true});const back=gbIds();
@@ -32,13 +32,13 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;salesSetRecordStatus(id,'verified');
   gbSetQty(id,1,3);const grown=gbIds();gbSetQty(id,0,1);const shrunk=gbIds();gbSetQty(id,0,2);
   return {grown,shrunk,regrown:gbIds(),queue:glassBatchRows().length};
- }),{grown:['G-0000001','G-0000002','G-0000003','G-0000004','G-0000005','G-0000007','G-0000008','G-0000006','G-0000009','G-0000010'],
-  shrunk:['G-0000001','G-0000003','G-0000005','G-0000007','G-0000008','G-0000006','G-0000009','G-0000010'],
-  regrown:['G-0000001','G-0000011','G-0000003','G-0000012','G-0000005','G-0000007','G-0000008','G-0000006','G-0000009','G-0000010'],queue:10});
+ }),{grown:['G-0000000001-1','G-0000000001-2','G-0000000001-3','G-0000000001-4','G-0000000002-1','G-0000000002-3','G-0000000002-4','G-0000000002-2','G-0000000002-5','G-0000000002-6'],
+  shrunk:['G-0000000001-1','G-0000000001-3','G-0000000002-1','G-0000000002-3','G-0000000002-4','G-0000000002-2','G-0000000002-5','G-0000000002-6'],
+  regrown:['G-0000000001-1','G-0000000001-5','G-0000000001-3','G-0000000001-6','G-0000000002-1','G-0000000002-3','G-0000000002-4','G-0000000002-2','G-0000000002-5','G-0000000002-6'],queue:10});
 
  eq('только выбранный 6CLEAR уходит в батч; 6Q240 и 6Q270 остаются проверенными в очереди',await t.p.evaluate(()=>{
   oqReset();const c=oqCustomer();window.gbA=gbMixed(c,'6Q240');window.gbB=gbMixed(c,'6Q270');window.gbC=gbMixed(c,'6Q240');gbQueue();
-  const all=glassBatchRows(),before={rows:all.length,ids:new Set(all.map(r=>r.piece)).size,valid:all.every(r=>/^G-\d{7}$/.test(r.piece)),select:document.querySelector('[data-glass-material]').selectedOptions[0].textContent};
+  const all=glassBatchRows(),before={rows:all.length,ids:new Set(all.map(r=>r.piece)).size,valid:all.every(r=>/^G-\d{10,}-[1-9]\d*$/.test(r.piece)),select:document.querySelector('[data-glass-material]').selectedOptions[0].textContent};
   gbPick('6CLEAR');const picked=glassBatchSelection.size;document.querySelector('[data-glass-action="create"]').click();
   const b=glassBatchFind('B-0001'),waiting=glassBatchRows();
   return {before,picked,title:document.querySelector('.glass-batches h2').textContent,items:b.items.length,glass:[...new Set(b.parts.map(p=>p.snapshot.glass))],parts:b.parts.length,
@@ -166,17 +166,17 @@ module.exports=async function({page,eq,ok}){
  }),{marked:true,queue:0,resumed:true,items:6,batches:1,ids:true});
 
  const keep=await t.p.evaluate(()=>{oqReset();const id=gbMixed(oqCustomer(),'6Q240');gbQueue();gbPick('6CLEAR');document.querySelector('[data-glass-action="create"]').click();return id;});
- const saved=await t.p.evaluate(()=>JSON.stringify([DB.glassBatch,DB.glassPiece,DB.glassPieceSeq]));
+ const saved=await t.p.evaluate(()=>JSON.stringify([DB.glassBatch,DB.glassPiece,DB.productionIdentity.lines]));
  await t.p.reload();
  eq('после перезагрузки: состав, номера, история, остаток и замки те же',await t.p.evaluate(([saved,keep])=>{
-  const o=salesRecord(keep);return {same:JSON.stringify([DB.glassBatch,DB.glassPiece,DB.glassPieceSeq])===saved,managed:o.lines.map(l=>l.batchManaged),queue:glassBatchRows().map(r=>r.glass+' '+r.piece),status:o.status,locked:o.lines.every(salesLineLocked)};
- },[saved,keep]),{same:true,managed:[true,true],queue:['6Q240 G-0000003','6Q240 G-0000004','6Q240 G-0000006'],status:'batched',locked:true});
+  const o=salesRecord(keep);return {same:JSON.stringify([DB.glassBatch,DB.glassPiece,DB.productionIdentity.lines])===saved,managed:o.lines.map(l=>l.batchManaged),queue:glassBatchRows().map(r=>r.glass+' '+r.piece),status:o.status,locked:o.lines.every(salesLineLocked)};
+ },[saved,keep]),{same:true,managed:[true,true],queue:['6Q240 G-0000000001-3','6Q240 G-0000000001-4','6Q240 G-0000000002-2'],status:'batched',locked:true});
  await helpers();
 
  eq('JSON: экспорт и импорт сохраняют реестр и номера; испорченные данные не импортируются',await t.p.evaluate(()=>{
   const src=JSON.parse(JSON.stringify(DB)),next=prepareImportedState(JSON.parse(JSON.stringify(src)));
   const fail=mutate=>{const x=JSON.parse(JSON.stringify(src));mutate(x);try{prepareImportedState(x);return '';}catch(e){return e.message;}};
-  return {same:JSON.stringify([next.glassBatch,next.glassPiece,next.glassPieceSeq])===JSON.stringify([src.glassBatch,src.glassPiece,src.glassPieceSeq]),
+  return {same:JSON.stringify([next.glassBatch,next.glassPiece,next.productionIdentity.lines])===JSON.stringify([src.glassBatch,src.glassPiece,src.productionIdentity.lines]),
    duplicate:fail(x=>x.glassBatch.push(JSON.parse(JSON.stringify(x.glassBatch[0])))),
    over:fail(x=>{x.glassBatch[0].items[0].unit=99;}),
    twice:fail(x=>{x.glassBatch[0].items[1].unit=x.glassBatch[0].items[0].unit;x.glassBatch[0].items[1].part=x.glassBatch[0].items[0].part;}),
@@ -192,7 +192,7 @@ module.exports=async function({page,eq,ok}){
   oqReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;let o=salesRecord(id);
   o.status='batched';o.batchNo='B-0007';o.batchHistory=['B-0007'];o.lines.forEach(l=>{l.batchedAt='2026-09-01T10:00:00Z';l.batchNo='B-0007';l.batchManaged=false;});o.lines[1].cutStartedAt='2026-09-02T09:00:00Z';DB.glassBatch=[];
   normalizeDB();normalizeDB();o=salesRecord(id);const b=glassBatchFind('B-0007'),pieces=b.items.map(i=>i.piece);
-  const first={batches:DB.glassBatch.length,items:b.items.length,units:b.items.map(i=>i.unit).join(','),valid:pieces.every(p=>/^G-\d{7}$/.test(p))&&new Set(pieces).size===6,registry:JSON.stringify(gbIds().slice().sort())===JSON.stringify(pieces.slice().sort()),
+  const first={batches:DB.glassBatch.length,items:b.items.length,units:b.items.map(i=>i.unit).join(','),valid:pieces.every(p=>/^G-\d{10,}-[1-9]\d*$/.test(p))&&new Set(pieces).size===6,registry:JSON.stringify(gbIds().slice().sort())===JSON.stringify(pieces.slice().sort()),
    history:b.history.map(h=>h.action+' '+h.pieces.length),cut:b.items.filter(i=>i.cutStartedAt).map(i=>b.parts[i.part].lineId===o.lines[1].id),managed:o.lines.map(l=>l.batchManaged),queue:glassBatchRows().length,next:salesNextBatchNumber(),locked:o.lines.every(salesLineLocked)};
   DB.glassBatch=[];normalizeDB();o=salesRecord(id);const again=glassBatchFind('B-0007');
   return Object.assign(first,{relocked:again.items.length,samePieces:JSON.stringify(again.items.map(i=>i.piece))===JSON.stringify(pieces),stillLocked:o.lines.every(salesLineLocked),queueAfterLoss:glassBatchRows().length});
@@ -203,7 +203,7 @@ module.exports=async function({page,eq,ok}){
   DB.glassPiece=[];DB.glassPieceSeq=0;o.status='batched';l.batchManaged=true;l.batchedAt=at;l.batchNo='B-0003';
   DB.glassBatch=[{number:'B-0003',createdAt:at,items:[{id:'BI-old',key:[o.id,l.id,pane.id,'lite'].join('|'),orderId:o.id,lineId:l.id,paneId:pane.id,ply:'',qty:2,at,releasedAt:'',cutStartedAt:'',snapshot:{order:o.businessNumber,line:1,lite:'1',glass:'6CLEAR'}}],history:[{at,action:'Created',itemIds:['BI-old'],qty:2}]}];
   normalizeDB();normalizeDB();const b=glassBatchFind('B-0003'),rows=glassBatchRows([salesRecord(id)]);
-  return {parts:b.parts.length,units:b.items.map(i=>i.unit),pieces:b.items.every(i=>/^G-\d{7}$/.test(i.piece)),history:b.history.map(h=>h.action+' '+h.pieces.length),left:rows.filter(r=>r.line===1&&r.lite==='1').length,rows:rows.length};
+  return {parts:b.parts.length,units:b.items.map(i=>i.unit),pieces:b.items.every(i=>/^G-\d{10,}-[1-9]\d*$/.test(i.piece)),history:b.history.map(h=>h.action+' '+h.pieces.length),left:rows.filter(r=>r.line===1&&r.lite==='1').length,rows:rows.length};
  }),{parts:1,units:[1,2],pieces:true,history:['Created 2'],left:0,rows:4});
 
  eq('позиция без Makeup не теряется: видна как Glass missing и держит заказ от Ready',await t.p.evaluate(()=>{
@@ -233,7 +233,7 @@ module.exports=async function({page,eq,ok}){
  await t.p.locator('.sl-ctx [data-menu="unbatch"]').click();
  eq('окно Unbatch order: батчи заказа без номеров стёкол; снимаются стёкла только этого заказа в отмеченных батчах',await t.p.evaluate(()=>{
   const d=salesDialog,a=gbU[0],b=gbU[1],text=document.querySelector('.sales-dialog').innerText;
-  const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-\d{7}/.test(text),confirm:text.includes('Cutting not started')};
+  const shown={title:d.title===('Unbatch order '+salesRecord(a).businessNumber+'?'),choices:d.lineChoices.map(x=>x.label+' '+x.detail),noGlassIds:!/G-(?:\d{10,}-\d+|\d{7,})\b/.test(text),confirm:text.includes('Cutting not started')};
   salesDialogToggleLine('B-0002',false);salesDialogConfirm(true);oqChoose('Unbatch order');
   const active=(n,id)=>glassBatchFind(n).items.filter(i=>!i.releasedAt&&glassBatchFind(n).parts[i.part].orderId===id).length;
   return Object.assign(shown,{status:[salesRecord(a).status,salesRecord(b).status],a:[active('B-0001',a),active('B-0002',a)],b:[active('B-0001',b),active('B-0002',b)],selection:[...salesListSel].length,menuAfter:salesListContextHTML({id:a},'').includes('data-menu="unbatch"')});
@@ -241,7 +241,7 @@ module.exports=async function({page,eq,ok}){
 
  eq('Glass ID не попадают в Sales: список, заказ и окна',await t.p.evaluate(()=>{
   salesDialog=null;soDraft=null;soEdit=null;tab='sales';render();const list=document.getElementById('app').innerText;salesOrderEdit(gbU[1]);const order=document.getElementById('app').innerText;
-  return {pieces:gbIds().length>0,list:/G-\d{7}/.test(list),order:/G-\d{7}/.test(order)};
+  return {pieces:gbIds().length>0,list:/G-(?:\d{10,}-\d+|\d{7,})\b/.test(list),order:/G-(?:\d{10,}-\d+|\d{7,})\b/.test(order)};
  }),{pieces:true,list:false,order:false});
 
  eq('экраны очереди, реестра, состава и истории без русского; имя клиента и причина Hold не исполняют HTML',await t.p.evaluate(()=>{

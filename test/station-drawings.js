@@ -57,7 +57,7 @@ module.exports=async function({page,eq,ok}){
   const orders=[...document.querySelectorAll('[data-station-draw-order]')].map(b=>b.dataset.stationDrawOrder).join()===x.no;
   document.querySelector('[data-station-draw-order]').click();const byOrder=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[0].id;
   stationDrawFind(x.ids[2]);const byGlass=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[2].id;
-  stationDrawFind(String(+x.ids[1].slice(2)));const byDigits=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[1].id;
+  stationDrawFind(x.ids[1].slice(2).replace(/^0+/, ''));const byDigits=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[1].id;
   stationDrawFind('99999');const miss=document.querySelector('[data-station-draw] .st-pin-err').textContent;
   stationDrawPick();stationDrawFind(x.no);const byNumber=document.querySelector('[data-station-draw]').dataset.stationDraw===salesRecord(x.id).lines[0].id;
   stationCloseDrawer();document.querySelector('[data-station-here]').click();const here=!!document.querySelector('[data-station-here-drawing]');

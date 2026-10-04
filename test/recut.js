@@ -7,7 +7,7 @@ module.exports=async function({page,eq,ok}){
   window.rcReason=(where,name)=>ncrReasonsFor(where,{activeOnly:true}).find(r=>r.name===name).id;
   window.rcOrder=status=>{const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;if(status)oqThrough(id,status);tab='sales';salesOrderEdit(id);return id;};
   window.rcFill=(id,o)=>{ncrOpenForm('recut');const rec=salesRecord(id);if(o.where)ncrFormSet('where',o.where);if(o.reason)ncrFormSet('reasonId',rcReason(o.where,o.reason));
-   (o.lines||[]).forEach(([i,qty,which])=>{ncrFormLine(rec.lines[i].id,'on',true,true);ncrFormLine(rec.lines[i].id,'qty',String(qty));if(which!=null)ncrFormLine(rec.lines[i].id,'which',String(which),true);});if(o.note)ncrForm.note=o.note;};
+   (o.lines||[]).forEach(([i,qty,which])=>{ncrFormLine(rec.lines[i].id,'on',true,true);ncrFormLine(rec.lines[i].id,'qty',String(qty));if(which!=null)ncrFormLine(rec.lines[i].id,'which',String(which),true);});(o.lines||[]).forEach(([i,qty,which])=>{const l=rec.lines[i],keys=ncrGlassKeys(rec,l,String(which==null?'unit':which));ncrFormLine(l.id,'codes',keys.flatMap(key=>glassPieceMap(id).get(key).ids.slice(0,qty)).join(' '));});if(o.note)ncrForm.note=o.note;};
   window.rcSection=()=>[...document.querySelectorAll('[data-recut-row]')].map(r=>r.innerText.replace(/\s+/g,' ').trim());
  });};
  await helpers();
@@ -32,7 +32,7 @@ module.exports=async function({page,eq,ok}){
   const o=salesRecord(id),rows=glassBatchRows([o]);window.rcId=id;
   const notesAfter=(()=>{const sec=document.querySelector('[data-recut-section]'),notes=document.querySelector('.sales-notes');return !!sec&&!!notes&&!!(sec.compareDocumentPosition(notes)&Node.DOCUMENT_POSITION_FOLLOWING);})();
   return {recuts:DB.recut.map(r=>[r.no,r.line,r.lite,r.qty,r.keys.length]),form:!!ncrForm,view:!!ncrViewId,section:rcSection(),notesAfter,ncr:DB.ncr.length,
-   rows:rows.map(r=>r.unit+' · '+glassBatchInfo(r).memo.unit),fresh:rows.every(r=>/^G-\d{7}$/.test(r.piece)&&+r.piece.slice(2)>seq),ready:salesRecordTransitionAllowed(o,'ready'),lines:o.lines.map(l=>l.qty),
+   rows:rows.map(r=>r.unit+' · '+glassBatchInfo(r).memo.unit),fresh:rows.every(r=>productionIdentityBarcodeValid(r.piece,'G')&&productionIdentityBarcodeParse(r.piece).legacy===false),ready:salesRecordTransitionAllowed(o,'ready'),lines:o.lines.map(l=>l.qty),
    glassIds:/G-\d{7}/.test(document.getElementById('app').innerText)};
  }),{recuts:[[1,1,'Lite 1 · 6CLEAR',2,1],[2,2,'Whole unit',1,2]],form:false,view:false,
   section:['Recut 1 Line 1 · Kitchen Lite 1 · 6CLEAR 2 pcs HEAT · Exploded in furnace In queue Second load','Recut 2 Line 2 · Bedroom Whole unit 1 pc HEAT · Exploded in furnace In queue Second load'],notesAfter:true,ncr:0,

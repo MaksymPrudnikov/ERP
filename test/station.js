@@ -25,11 +25,11 @@ module.exports=async function({page,eq,ok}){
  eq('скан CUT: запись, стекло ждёт на ARRIS, резка отмечена одному стеклу; повтор и чужие коды не пишутся',await t.p.evaluate(async()=>{
   stReset();const id=stOrder([[36,24,3]]);const b=stBatch(id),[a,x]=stIds(id);
   const first=stScan('CUT',a),g=stationGlass(a),place=stationPlace(g),item=b.items.find(i=>i.piece===a),other=b.items.find(i=>i.piece===x);
-  const again=stScan('CUT',a),digits=stationCheck('CUT',String(+x.slice(2))),unit=stationCheck('CUT','U-0000001').kind,unknown=stationCheck('CUT','G-9999999').kind,junk=stationCheck('CUT','hello').kind;
+  const again=stScan('CUT',a),digits=stationCheck('CUT',x.slice(2).replace(/^0+/, '')),unit=stationCheck('CUT','U-0000001').kind,unknown=stationCheck('CUT','G-9999999').kind,junk=stationCheck('CUT','hello').kind;
   return {first,route:place.route,waiting:place.waiting,cut:!!item.cutStartedAt,otherCut:!!other.cutStartedAt,line:!!salesRecord(id).lines[0].cutStartedAt,
-   again,scans:DB.stationScan.length,digits:digits.code===x&&digits.kind,unit,unknown,junk,rec:Object.keys(DB.stationScan[0]).sort().join(','),by:DB.stationScan[0].by,id:DB.stationScan[0].id};
+   again,scans:DB.stationScan.length,digits:digits.code===x&&digits.kind,unit,unknown,junk,rec:Object.keys(DB.stationScan[0]).sort().join(','),by:DB.stationScan[0].by,id:!!/^SC-[0-9a-f-]{36}$/.test(DB.stationScan[0].id)};
  }),{first:{kind:'ok',rec:true},route:['CUT','ARRIS','HEAT','SHIPR','SHIP'],waiting:'ARRIS',cut:true,otherCut:false,line:true,
-  again:{kind:'already',rec:false},scans:1,digits:'ok',unit:'unknown',unknown:'unknown',junk:'unknown',rec:'actionId,at,by,byId,id,manual,piece,station,step,undoneAt,undoneBy',by:'Ivan P.',id:'SC-0000001'});
+  again:{kind:'already',rec:false},scans:1,digits:'ok',unit:'unknown',unknown:'unknown',junk:'unknown',rec:'actionId,at,by,byId,deviceId,entityId,id,manual,piece,sequence,station,step,undoneAt,undoneBy',by:'Ivan P.',id:true});
 
  eq('номер юнита на станции — «Unit number»: сканировать стикер стекла',await t.p.evaluate(async()=>{
   stReset();const id=oqOrder(oqCustomer());soDraft=null;soEdit=null;oqThrough(id,'verified');const u=DB.glassUnitId[0].ids[0];
@@ -83,7 +83,7 @@ module.exports=async function({page,eq,ok}){
   const next=prepareImportedState(src),item=next.glassBatch[0].items.find(i=>i.piece===a);
   let err='';try{prepareImportedState(Object.assign({},src,{stationScan:{}}));}catch(e){err=e.message;}
   return {restored:!!item.cutStartedAt,scans:next.stationScan.length,seq:next.stationScanSeq,err};
- }),{restored:true,scans:1,seq:1,err:'The "stationScan" field must be an array.'});
+ }),{restored:true,scans:1,seq:'1',err:'The "stationScan" field must be an array.'});
 
  eq('Critical из заказа: карточка красная, «отложить или отнести сразу»; Rush — жёлтая полоса',await t.p.evaluate(async()=>{
   stReset();const id=stOrder([[36,24,1]],{priority:'critical'});stBatch(id);const [a]=stIds(id);
@@ -112,7 +112,7 @@ module.exports=async function({page,eq,ok}){
   await t.p.keyboard.type(ids[0]);await t.p.keyboard.press('Enter');await t.p.waitForTimeout(250);
   const card=await t.p.evaluate(()=>({who:stationWho().name,kind:document.querySelector('[data-station-result]').dataset.stationResult,next:document.querySelector('.st-big b').textContent,
    gid:document.querySelector('.st-gid').textContent,rows:document.querySelectorAll('.st-journal tbody tr').length,cut:document.querySelectorAll('.st-pc.cut,.st-pc.now').length,focus:document.activeElement&&document.activeElement.hasAttribute('data-station-scan')}));
-  for(const id of ids.slice(1)){await t.p.keyboard.type(String(+id.slice(2)));await t.p.keyboard.press('Enter');}
+  for(const id of ids.slice(1)){await t.p.keyboard.type(id.slice(2).replace(/^0+/, ''));await t.p.keyboard.press('Enter');}
   const end=await t.p.evaluate(()=>({note:document.querySelector('.st-note').textContent,tile:document.querySelector('.st-tile').className,manual:DB.stationScan.filter(s=>s.manual).length,chip:document.querySelector('.st-top').textContent.includes('3 / 3 cut'),
    ru:/[А-Яа-яЁё]/.test(document.getElementById('app').innerText)}));
   return {login,wrong,card:Object.assign(card,{gid:card.gid===ids[0]}),end};

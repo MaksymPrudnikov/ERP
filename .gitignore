@@ -2,3 +2,10 @@ node_modules/
 *.log
 .DS_Store
 .preview-root
+
+# Durable factory data and service credentials stay outside Git.
+var/production-identity/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env

@@ -10,9 +10,20 @@
     "test": "node test/run.js",
     "test:dist": "TARGET=dist node test/run.js",
     "test:snap": "node tools/test-snap.js",
-    "shot": "node tools/shot.js"
+    "shot": "node tools/shot.js",
+    "test:identity": "node test/production-identity.js && node --test services/production-identity/test/registry.test.mjs test/identity-gateway.test.cjs",
+    "identity:central": "node services/production-identity/central.mjs",
+    "identity:gateway": "node services/production-identity/gateway.mjs",
+    "identity:migrate": "node services/production-identity/migrate.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "playwright": "1.55.1"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

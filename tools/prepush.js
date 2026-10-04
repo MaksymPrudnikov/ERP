@@ -91,6 +91,9 @@ if (withCr.length) {
 }
 console.log('    всё в LF');
 
+step(7, 'Тесты идентичности и серверов');
+if (!run('npm run test:identity')) stop('тесты реестра и сервера цеха упали.');
+
 step(7, 'Тесты по модулям');
 if (!run('node test/run.js')) stop('тесты по модулям упали.');
 

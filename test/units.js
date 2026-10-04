@@ -54,7 +54,7 @@ module.exports=async function({page,eq,ok}){
  eq('экран HEAT: Yes — стекло принято, в журнале ARRIS не здесь, а «at HEAT»',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),b=u.lite(1,1);unScan('CUT',b);unLogin('HEAT','Marco R.');
   stationSubmit(b);document.querySelector('[data-station-yes]').click();
-  const out={kind:stationLast.check.kind,note:document.querySelector('.st-note').textContent,journal:[...document.querySelectorAll('.st-journal tbody tr')].map(tr=>tr.children[1].textContent.replace(/G-\d+/,'G').trim()).join('|'),
+  const out={kind:stationLast.check.kind,note:document.querySelector('.st-note').textContent,journal:[...document.querySelectorAll('.st-journal tbody tr')].map(tr=>tr.children[1].textContent.replace(/G-(?:\d{10,}-\d+|\d{7,})\b/,'G').trim()).join('|'),
    edge:DB.stationScan.filter(s=>s.station==='ARRIS').map(s=>s.confirmedAt).join(),waiting:stationPlace(stationGlass(b)).waiting,chip:!!document.querySelector('[data-station-questions]')};
   unOut();return out;
  }),{kind:'ok',note:'ARRIS confirmed here',journal:'G',edge:'HEAT',waiting:'IGU',chip:false});
@@ -87,12 +87,12 @@ module.exports=async function({page,eq,ok}){
   const journal=DB.stationScan.filter(s=>s.piece===a1).map(s=>s.station+(s.park?':park':'')+(s.undoneAt?':undone':'')).join();
   unOut();return {note,card,parkCard,a1Place,onDolly,pairs,other,take,last,journal,b1:stationPlace(stationGlass(b1)).broken.recut};
  }),{note:'Lite 1 · 6CLEAR comes out of the machine and waits for the new glass on a dolly',card:{kind:'recut',park:'Out of the machine: Lite 1 · 6CLEAR · scan the dolly it waits on'},parkCard:'carrierPark',
-  a1Place:'IGU',onDolly:'true',pairs:'Line 1 · 37 × 71|Lite 1 · 6CLEAR|DL-1|needs 6Q240 · Recut 1 To batch',other:'ok:1',take:'on DL-1 — take it|✓ in',last:{head:'Unit complete',unit:'2',pairs:false},journal:'CUT,ARRIS,HEAT,IGU:undone,IGU:park,IGU',b1:'R1'});
+  a1Place:'IGU',onDolly:'true',pairs:'Line 1 · 37 × 71|Lite 1 · 6CLEAR|DL-1|needs 6Q240 · Recut 1 To batch',other:'ok:3',take:'on DL-1 — take it|✓ in',last:{head:'Unit complete',unit:'2',pairs:false},journal:'CUT,ARRIS,HEAT,IGU:undone,IGU:park,IGU',b1:'R1'});
 
  eq('юнит разбили на скиде через пару дней — Recut всего юнита: оба лайта из маршрута, новые стёкла на весь юнит, номер юнита освобождается',await t.p.evaluate(()=>{
   unReset();const u=unOrder(),a1=u.lite(0,1),b1=u.lite(1,1);
   [a1,b1].forEach(x=>['CUT','ARRIS','HEAT','IGU'].forEach(st=>unScan(st,x)));unScan('SHIPR',a1);
-  unLogin('SHIP','Sam R.');stationPeek(a1);document.querySelector('[data-station-recut]').click();const note=document.querySelector('[data-recut-whole]').textContent.replace(/U-\d+/,'U');
+  unLogin('SHIP','Sam R.');stationPeek(a1);document.querySelector('[data-station-recut]').click();const note=document.querySelector('[data-recut-whole]').textContent.replace(/U-(?:\d{10,}-\d+|\d{7,})\b/,'U');
   [...document.querySelectorAll('[data-recut-reason]')].find(b=>b.textContent==='Broke').click();
   const r=DB.recut[DB.recut.length-1],head=document.querySelector('.st-res-h').textContent,fresh=stationLast.check.newIds.length;
   const out={note,head:/^✕ Unit broken · Recut 1 created/.test(head),keys:r.keys.length,which:r.which,fresh,broken:[a1,b1].map(x=>stationPlace(stationGlass(x)).broken.recut).join(),free:stationAsms(salesRecord(u.id),salesRecord(u.id).lines[0],'IGU').filter(a=>a.unit&&!a.broken).length};
@@ -107,7 +107,7 @@ module.exports=async function({page,eq,ok}){
   stationSubmit(ids[2]);stationSubmit(ids[3]);
   unLogin('SHIPR','Sam R.');
   stationSubmit(ids[1]);const byG={kind:stationLast.check.kind,moved:(stationLast.mates||[]).length+1,note:document.querySelector('.st-unitnote').textContent};
-  stationSubmit(u.unit(2));const byU={kind:stationLast.check.kind,note:document.querySelector('.st-unitnote').textContent.replace(/U-\d+/,'U')};
+  stationSubmit(u.unit(2));const byU={kind:stationLast.check.kind,note:document.querySelector('.st-unitnote').textContent.replace(/U-(?:\d{10,}-\d+|\d{7,})\b/,'U')};
   const places=ids.map(x=>stationPlace(stationGlass(x)).waiting).join(),again=stationCheck('SHIPR',u.unit(1)).kind;
   unOut();return {early,igu,byG,byU,places,again};
  }),{early:'unit',igu:0,byG:{kind:'ok',moved:2,note:'Unit moved: 2 glass'},byU:{kind:'ok',note:'Unit moved: 2 glass · U'},places:'SHIP,SHIP,SHIP,SHIP',again:'already'});
@@ -156,7 +156,7 @@ module.exports=async function({page,eq,ok}){
   const row=document.querySelector('[data-station-here]'),text=[...row.children].slice(1).map(td=>td.textContent).join('|');
   row.click();const acts=[...document.querySelectorAll('.st-here-acts button')].map(b=>b.textContent);document.querySelector('[data-station-here-mark]').click();
   const moved=DB.stationScan.filter(s=>s.station==='SHIPR').length,manual=DB.stationScan.filter(s=>s.station==='SHIPR').every(s=>s.manual);
-  stationSubmit('U2');const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
+  stationSubmit(u.unit(2).replace(/-0+/, '-'));const byU={kind:stationLast.check.kind,moved:DB.stationScan.filter(s=>s.station==='SHIPR').length,manual:DB.stationScan.filter(s=>s.station==='SHIPR').slice(-2).map(s=>s.manual).join()};
   document.querySelector('[data-station-unit-reprint]').click();const printed=window.unPrinted,label=!!document.querySelector('.stk-print-page');stkPrintCleanup();
   unOut();return {text,acts,moved,manual,byU,printed,label};
  }),{text:'Line 1 · 37 × 71|Unit · 6CLEAR / 6Q240|2|',acts:['✓ Mark 1 unit done','Print a new unit sticker','Drawing'],moved:2,manual:true,byU:{kind:'ok',moved:4,manual:'true,true'},printed:1,label:true});

@@ -37,6 +37,7 @@ on:
       - 'src/**'
       - 'build/**'
       - 'test/**'
+      - 'services/**'
       - 'dist/**'
       - 'package.json'
       - 'package-lock.json'
@@ -46,6 +47,7 @@ on:
       - 'src/**'
       - 'build/**'
       - 'test/**'
+      - 'services/**'
       - 'dist/**'
       - 'package.json'
       - 'package-lock.json'
@@ -95,7 +97,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Установить зависимости
         run: npm ci --no-audit --no-fund
@@ -115,6 +117,9 @@ jobs:
 
       - name: Собрать обе версии
         run: node build/build.js
+
+      - name: Проверить реестр и сервер цеха
+        run: npm run test:identity
 
       - name: Прогнать тесты по версии из модулей
         run: node test/run.js

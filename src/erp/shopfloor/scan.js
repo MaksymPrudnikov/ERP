@@ -19,15 +19,28 @@
    и «кто отсканировал по ошибке» тоже её часть.
    ===================================================================== */
 DEFAULT.productionRoute=[];DEFAULT.stationScan=[];DEFAULT.stationScanSeq=0;DEFAULT.sheetBreak=[];
-const STATION_SCAN_ID_RE=/^SC-\d{7,}$/;
+const STATION_SCAN_ID_RE=/^SC-(?:\d{7,}|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 /* Что записывается, а что только показывается. On Hold записывается: на CUT
    стекло сканируют уже порезанным, и факт реза не отменить — рабочий
    откладывает стекло в сторону. */
 const STATION_RECORDED=['ok','hold'];
 
 function stationScanNextId(){
- DB.stationScanSeq=(Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0)+1;
- return 'SC-'+String(DB.stationScanSeq).padStart(7,'0');
+ DB.stationScanSeq=productionIdentityCounterNext(DB.stationScanSeq||'0');
+ return 'SC-'+productionIdentityUUID();
+}
+function stationScanCompare(a,b){
+ const time=String(a.at||'').localeCompare(String(b.at||''));if(time)return time;
+ if(a.sequence!=null&&b.sequence!=null&&a.deviceId===b.deviceId)return productionIdentityCounterCompare(a.sequence,b.sequence);
+ if(/^SC-\d+$/.test(a.id)&&/^SC-\d+$/.test(b.id))return productionIdentityCounterCompare(a.id.slice(3),b.id.slice(3));
+ return (DB.stationScan||[]).indexOf(a)-(DB.stationScan||[]).indexOf(b);
+}
+function stationIdentityMeta(rec){
+ let device=localStorage.getItem('glass-production-terminal-id');
+ if(!device){device=productionIdentityUUID();localStorage.setItem('glass-production-terminal-id',device);}
+ rec.deviceId=device;rec.sequence=String(DB.stationScanSeq);
+ const e=productionIdentityFind(rec.piece);if(e)rec.entityId=e.id;
+ return rec;
 }
 /* Станция резки — та, что стоит у работы «cutting». Её скан и есть «резка
    началась» у стекла: поле cutStartedAt ждало этого события с PR #84. */
@@ -37,9 +50,11 @@ function stationScansFor(piece){return (DB.stationScan||[]).filter(s=>s.piece===
    стикер не читается, а набирать весь номер у стола никто не будет. */
 function stationCodeOf(raw){
  const text=String(raw==null?'':raw).trim().toUpperCase().replace(/\s+/g,'');
- if(/^\d{1,9}$/.test(text))return 'G-'+text.padStart(7,'0');
+ const modern=/^([GU])?-?(\d+)-(\d+)$/.exec(text);
+ if(modern){const code=(modern[1]||'G')+'-'+modern[2].padStart(10,'0')+'-'+modern[3];return productionIdentityBarcodeNormalize(code)||text;}
+ if(/^\d+$/.test(text))return 'G-'+text.padStart(7,'0');
  /* Юнит — так же коротко: «U5» это U-0000005. */
- if(/^U-?\d{1,9}$/.test(text))return 'U-'+text.replace(/^U-?/,'').padStart(7,'0');
+ if(/^U-?\d+$/.test(text))return 'U-'+text.replace(/^U-?/,'').padStart(7,'0');
  return text;
 }
 /* Номер стекла → заказ, позиция, стекло Makeup и активная запись батча.
@@ -51,6 +66,7 @@ function stationPieceIndex(){
   r.ids.forEach((id,i)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:i+1});});
   Object.keys(r.extra||{}).forEach(nr=>r.extra[nr].forEach((id,k)=>{if(id)m.set(id,{orderId,lineId,key:r.key,unit:nr+'.'+(k+1)});}));
  });
+ productionIdentityState().entities.filter(e=>e.kind==='G'&&e.componentKey&&!m.has(e.code)).forEach(e=>m.set(e.code,{orderId:e.orderId,lineId:e.lineId,key:e.componentKey,unit:e.slot,retired:e.active===false}));
  return m;
 }
 function stationBatchIndex(){
@@ -102,11 +118,12 @@ function stationRouteOf(g){
 function stationRouteStep(route,station,far){const i=route.indexOf(station,far+1);return i>=0?i:route.lastIndexOf(station);}
 function stationPlace(g,scans){
  const route=stationRouteOf(g).codes;scans=scans||stationScansFor(g.id);
- let far=-1;scans.filter(s=>!s.broken&&!s.park).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)))
+ let far=-1;scans.filter(s=>!s.broken&&!s.park).sort(stationScanCompare)
   .forEach(s=>{const i=Number.isInteger(s.step)&&route[s.step]===s.station?s.step:stationRouteStep(route,s.station,far);if(i>far)far=i;});
  /* Разбитое стекло выходит из маршрута: станции его больше не ждут, вместо
     него едет стекло Recut со своим номером. */
- const broken=scans.find(s=>s.broken)||null;
+ const identity=productionIdentityFind(g.id);
+ const broken=scans.find(s=>s.broken)||(identity&&identity.status==='broken'?{recut:identity.retiredRecut||'',reason:identity.retiredReason||'Glass broken'}:null);
  if(broken)return {route,far,waiting:'',shipped:false,broken};
  /* Сборка на IGU не закрыта — стекло ещё на IGU, юнит не собран. */
  if(far>=0&&scans.some(s=>s.asm&&!s.unit&&!s.joined&&s.station===route[far]))return {route,far:far-1,waiting:route[far],shipped:false,assembling:true};
@@ -155,7 +172,7 @@ function stationRecordCommand(station,check,who,opts){
  }
  if(opts.on&&typeof carrierFind==='function'&&carrierFind(opts.on))rec.on=carrierCode(opts.on);
  if(opts.confirmedAt)rec.confirmedAt=sfCode(opts.confirmedAt);
- DB.stationScan.push(rec);
+ stationIdentityMeta(rec);DB.stationScan.push(rec);
  if(check.g)stationAsmJoin(rec,check.g,station);
  /* Скан резки ставит «резка началась» ОДНОМУ стеклу, а не всей позиции:
     позиция узнаёт это через glassBatchSyncLine, как и прежде. */
@@ -185,7 +202,7 @@ function stationUndoCommand(id,who,opts){
  if(!rec||rec.undoneAt)return {error:'Scan not found.'};
  if(rec.broken)return {error:'Recut is in the order — change it there.'};
  const group=rec.actionId?(DB.stationScan||[]).filter(s=>s.actionId===rec.actionId&&!s.undoneAt):[rec];
- const ordered=id=>stationScansFor(id).sort((a,b)=>String(a.at).localeCompare(String(b.at))||String(a.id).localeCompare(String(b.id)));
+ const ordered=id=>stationScansFor(id).sort(stationScanCompare);
  if(group.some(r=>ordered(r.piece).pop()!==r))return {error:'Glass has moved on — undo the later scan first.'};
  if(rec.asm){
   const assembly=(DB.stationScan||[]).filter(s=>s.asm===rec.asm&&!s.undoneAt);
@@ -238,11 +255,17 @@ function normalizeStationScans(){
    ...(STATION_SCAN_ID_RE.test(String(s.actionId))?{actionId:s.actionId}:{}),
    ...(STATION_SCAN_ID_RE.test(String(s.asm))?{asm:s.asm}:{}),
    ...(s.joined===true&&STATION_SCAN_ID_RE.test(String(s.asm))?{joined:true}:{}),
-   ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isInteger(s.unit)&&s.unit>0&&s.unit<1e5?{unit:s.unit}:{}),
+   ...(STATION_SCAN_ID_RE.test(String(s.asm))&&Number.isSafeInteger(s.unit)&&s.unit>0?{unit:s.unit}:{}),
+   ...(unitIdValid(s.unitCode)?{unitCode:s.unitCode}:{}),
+   ...(productionIdentityUUIDValid(s.unitEntityId)?{unitEntityId:s.unitEntityId}:{}),
+   ...(productionIdentityUUIDValid(s.entityId)?{entityId:s.entityId}:{}),
+   ...(typeof s.deviceId==='string'?{deviceId:s.deviceId}:{}),
+   ...(s.sequence!=null?{sequence:productionIdentityDecimal(s.sequence,true)}:{}),
    ...(s.park===true&&s.broken!==true?{park:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{}),
    ...(s.broken===true?{broken:true,recut:String(s.recut==null?'':s.recut).slice(0,20),reason:String(s.reason==null?'':s.reason).slice(0,80)}:{})}));
- let top=Number.isSafeInteger(DB.stationScanSeq)&&DB.stationScanSeq>0?DB.stationScanSeq:0;
- DB.stationScan.forEach(s=>{top=Math.max(top,+s.id.slice(3));});DB.stationScanSeq=top;
+ let top=productionIdentityDecimal(DB.stationScanSeq||'0',true);
+ DB.stationScan.forEach(s=>{if(/^SC-\d+$/.test(s.id))top=productionIdentityCounterMax(top,s.id.slice(3));if(s.sequence!=null)top=productionIdentityCounterMax(top,s.sequence);});DB.stationScanSeq=top;
+ glassUnitMigrateAssemblies();
  /* Скан резки — правда о «резка началась»: у импортированных данных поле
     стекла могло потеряться, журнал его восстанавливает. */
  const cut=stationCutCode(),first=new Map();
@@ -299,20 +322,23 @@ function stationBreakCommand(station,check,who,reasonId,opts){
  const g=check.g,o=g.o,l=g.l,c=g.c;
  if(!c||c.missing)return {error:'Glass not found in the order.'};
  const plan=stationBreakPlan(g,station,opts.asm);
- const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},note:(plan.whole?'Unit '+(typeof unitIdAt==='function'?unitIdAt(o.id,l.id,plan.asm.unit):plan.asm.unit)+' · glass ':'Glass ')+g.id+' at '+station});
+ const replacements={};plan.pieces.forEach(id=>{const e=productionIdentityFind(id);if(e&&e.componentKey)(replacements[e.componentKey]||(replacements[e.componentKey]=[])).push(id);});
+ const unitCode=plan.asm&&plan.asm.unit?(plan.asm.unitCode||unitIdAt(o.id,l.id,plan.asm.unit)):'';
+ const made=recutCreate({orderId:o.id,where:station,reasonId,lines:{[l.id]:{on:true,qty:1,which:plan.which}},replacements,replacesUnitCode:unitCode,fulfillmentSlot:plan.asm&&plan.asm.unit||null,note:(plan.whole?'Unit '+unitCode+' · glass ':'Glass ')+g.id+' at '+station});
  if(made.error)return made;
  const r=made.recuts[0],now=r.createdAt,ref='R'+r.no;
  const rec=(DB.glassPiece||[]).find(x=>x.key===c.key),fresh=rec&&rec.extra&&rec.extra[ref]?rec.extra[ref].filter(Boolean):[];
  const allNew=(r.keys||[]).flatMap(k=>{const x=(DB.glassPiece||[]).find(p=>p.key===k);return x&&x.extra&&x.extra[ref]?x.extra[ref].filter(Boolean):[];});
  if(!Array.isArray(DB.stationScan))DB.stationScan=[];
  const by=String(who&&who.name||''),byId=String(who&&who.id||'');
- plan.pieces.forEach(id=>DB.stationScan.push({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason}));
+ plan.pieces.forEach(id=>{const e=productionIdentityFind(id);if(e)e.status='broken';glassIdentityRetire(id,'Glass broken');DB.stationScan.push(stationIdentityMeta({id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',broken:true,recut:ref,reason:r.reason}));});
+ if(unitCode){const e=productionIdentityFind(unitCode);if(e)e.status='broken';glassIdentityRetire(unitCode,'Unit glass replaced');allNew.forEach(id=>{const fresh=productionIdentityFind(id);if(fresh)fresh.replacesUnitCode=unitCode;});}
  /* Вынутые из машины: скан IGU снимается (сборка открыта заново), запись
     park — «ждёт пару», дальше рабочий сканирует долли, на которую положил. */
  const parked=plan.out.map(id=>{
   (DB.stationScan||[]).forEach(s=>{if(s.piece===id&&s.station===station&&s.asm&&!s.undoneAt){s.undoneAt=now;s.undoneBy='Recut '+r.no+' · taken out';}});
   const p={id:stationScanNextId(),at:now,piece:id,station,by,byId,manual:false,undoneAt:'',undoneBy:'',park:true,recut:ref,reason:'Waits for a pair'};
-  DB.stationScan.push(p);return p;
+  stationIdentityMeta(p);DB.stationScan.push(p);return p;
  });
  /* Разбилось на резе — стекло всё равно порезано: лист закрывается. */
  const e=g.entry;if(station===stationCutCode()&&e&&!e.item.cutStartedAt){e.item.cutStartedAt=now;glassBatchSyncLine(o,l);}
@@ -428,15 +454,15 @@ function stationLineKeys(o,l){return glassBatchComponents(o,l).filter(c=>!c.miss
 /* Сборки позиции на станции слияния — из журнала. */
 function stationAsms(o,l,station,index){
  index=index||stationPieceIndex();
- const broken=new Set(),out=new Map();
+ const broken=new Set(productionIdentityState().entities.filter(e=>e.kind==='G'&&e.status==='broken').map(e=>e.code)),out=new Map();
  (DB.stationScan||[]).forEach(s=>{if(s.broken&&!s.undoneAt)broken.add(s.piece);});
  (DB.stationScan||[]).forEach(s=>{
   if(s.undoneAt||!s.asm||s.station!==station)return;
   const hit=index.get(s.piece);if(!hit||hit.orderId!==o.id||hit.lineId!==l.id)return;
-  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,broken:false,complete:false});
-  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(s.unit||s.joined)a.complete=true;if(broken.has(s.piece))a.broken=true;
+  if(!out.has(s.asm))out.set(s.asm,{asm:s.asm,lites:new Map(),recs:[],unit:0,unitCode:'',broken:false,complete:false});
+  const a=out.get(s.asm);a.lites.set(hit.key,s.piece);a.recs.push(s);if(s.unit)a.unit=s.unit;if(s.unitCode)a.unitCode=s.unitCode;if(s.unit||s.joined)a.complete=true;if(broken.has(s.piece))a.broken=true;
  });
- return [...out.values()].sort((a,b)=>a.asm.localeCompare(b.asm));
+ return [...out.values()].sort((a,b)=>stationScanCompare(a.recs[0],b.recs[0]));
 }
 function stationAsmOf(g,station){
  const rec=stationScansFor(g.id).find(s=>s.asm&&s.station===station);if(!rec)return null;
@@ -457,8 +483,12 @@ function stationAsmJoin(rec,g,station){
  const all=stationAsms(g.o,g.l,station,index),a=all.find(x=>x.asm===rec.asm);
  if(!a||!expected.every(k=>a.lites.has(k)))return;
  if(station!==mu){a.recs.forEach(r=>{r.joined=true;});return;}
- const used=new Set(all.filter(x=>x.unit&&!x.broken).map(x=>x.unit));let n=1;while(used.has(n))n++;
- a.recs.forEach(r=>{r.unit=n;});
+ const used=new Set(all.filter(x=>x.unit&&!x.broken&&x!==a).map(x=>x.unit));let n=1;while(used.has(n))n++;
+ if(n>g.l.qty)throw new Error('All ordered unit slots are already filled.');
+ const old=[...a.lites.values()].map(id=>productionIdentityFind(id)).find(e=>e&&e.replacesUnitCode);
+ if(old){const replaced=productionIdentityFind(old.replacesUnitCode);if(replaced&&Number.isSafeInteger(replaced.slot)&&replaced.slot<=g.l.qty&&!used.has(replaced.slot))n=replaced.slot;}
+ const entity=glassUnitBind(g.o,g.l,n,a.asm,[...a.lites.values()],{code:a.unitCode||undefined,replacesCode:old&&old.replacesUnitCode||undefined});
+ a.recs.forEach(r=>{r.unit=n;r.unitCode=entity.code;r.unitEntityId=entity.id;});
 }
 /* Отмена скана на станции слияния: сборка снова открыта. */
 function stationAsmReopen(rec){
@@ -490,7 +520,7 @@ function stationMatesAt(g,station){
 function stationUnitCheck(station,code){
  const u=glassLookup(code);if(!u)return {kind:'unknown',code};
  const o=salesRecord(u.orderId),l=o&&(o.lines||[]).find(x=>x.id===u.lineId);if(!o||!l)return {kind:'unknown',code};
- const mu=stationUnitMerge(o,l),a=mu?stationAsms(o,l,mu).find(x=>x.unit===u.unit&&!x.broken):null;
+ const mu=stationUnitMerge(o,l),a=mu?stationAsms(o,l,mu).find(x=>(x.unitCode?x.unitCode===code:u.assemblyId?x.asm===u.assemblyId:x.unit===u.unit)&&!x.broken):null;
  const first=a?stationGlass([...a.lites.values()][0]):null,route=first?stationRouteOf(first).codes:[];
  if(!a||route.lastIndexOf(station)<=route.indexOf(mu))return {kind:'unit',code};
  const ids=[...a.lites.values()],checks=ids.map(id=>stationCheck(station,id)),main=checks.find(c=>STATION_RECORDED.includes(c.kind))||checks[0];
@@ -533,5 +563,5 @@ function stationUnitStatus(g,station){
   return Object.assign(base,{here:false,waitingHere:n});
  });
  lites.sort((x,y)=>String(x.lite).localeCompare(String(y.lite),undefined,{numeric:true}));
- return {unit:a.unit&&typeof unitIdAt==='function'?unitIdAt(g.o.id,g.l.id,a.unit):'',n:a.unit,of:g.l.qty,lites,complete:!!a.unit,asm:a.asm};
+ return {unit:a.unit?(a.unitCode||unitIdAt(g.o.id,g.l.id,a.unit)):'',n:a.unit,of:g.l.qty,lites,complete:!!a.unit,asm:a.asm};
 }
