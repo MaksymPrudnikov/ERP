@@ -647,11 +647,17 @@ function cutUiListMenu(e,pieceId){
 function cutUiKey(e){
  if(cutBusy||cutUiPreview())return;
  const t=e.target,tag=t&&t.tagName||'';
+ /* Esc закрывает меню и из его поля (туда сразу встаёт курсор) и снимает
+    выделение строк из поля Pri — после ввода фокус остаётся в нём. */
+ if(e.key==='Escape'){
+  if(cutUiMenuClose())return;
+  if(t&&t.matches&&t.matches('[data-cut-priority],[data-cut-bulk-pri]')&&cutUiPicksClear()){t.blur();return;}
+ }
  if(/^(INPUT|SELECT|TEXTAREA)$/.test(tag)||t&&t.isContentEditable)return;
  /* Выделение строк живёт и до Build, когда листа на экране ещё нет. */
- if(e.key==='Escape'&&!document.getElementById('cutMenu')&&document.querySelector('[data-cut-list]')&&cutUiPicksClear())return;
+ if(e.key==='Escape'&&document.querySelector('[data-cut-list]')&&cutUiPicksClear())return;
  if(!document.querySelector('[data-cut-sheet]'))return;
- if(e.key==='Escape'){if(cutUiMenuClose())return;if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
+ if(e.key==='Escape'){if(cutUi.sel){cutUi.sel='';render();return;}if(cutFull)cutUiFull(false);return;}
  if(!cutUi.sel||e.metaKey||e.ctrlKey||e.altKey)return;
  const k=String(e.key||'').toLowerCase();
  if(k==='r'){e.preventDefault();cutUiRotate(e.shiftKey?2:1);}
@@ -933,9 +939,11 @@ function cutListHTML(ctx){
   shown+=rows.length;
   return `<div class="cut-list-head"${label==='Not on a sheet'?' data-cut-waiting':''}${label==='Not cutting'?' data-cut-off':''}>${label} · ${list.length}</div>${rows.length?ctx.table(rows.map(p=>cutPieceRow(p,ctx.at.get(p.piece)||null,ctx.sel===p.piece,ctx.lock)).join('')):''}`;
  }).join('');
+ /* Полоса выделения — в конце списка, прижата к низу окна списка: видна при
+    любой прокрутке (сверху закреплены шапки групп и таблицы). */
  const n=cutPicks().size;
  const bulk=cutUiPreview()?'':`<div class="cut-bulk" data-cut-bulk ${n>1?'':'hidden'}><b data-cut-bulk-n>${n} selected</b><label>Priority <input type="number" min="0" max="10" step="1" data-cut-bulk-pri placeholder="—" ${ctx.lock?'disabled title="Reset first"':''} aria-label="Priority for selected, 10 is the most urgent" onchange="cutUiPrioIds([...cutPicks()],this.value||0)" onpaste="cutUiPrioPaste(event,'')"></label><button type="button" class="cut-bulk-x" data-cut-bulk-clear aria-label="Clear selection" title="Clear selection" onclick="cutUiPicksClear()">×</button></div>`;
- return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${bulk}${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}`;
+ return `<div class="cut-list-found" data-cut-list-found>${total>shown?`Showing ${shown} of ${total}`:`${total} glass`}</div>${body}${total>shown?'<button type="button" class="cut-list-more" data-cut-list-more onclick="cutUiShowMore()">Show 200 more</button>':''}${bulk}`;
 }
 function cutUiShowMore(){
  const side=document.querySelector('.cut-side-scroll'),top=side&&side.scrollTop;

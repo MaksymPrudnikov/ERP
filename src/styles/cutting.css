@@ -194,16 +194,17 @@ body.cut-dragging,body.cut-dragging *{cursor:grabbing!important}
 .cut-orders table{width:100%}
 .cut-orders td,.cut-orders th{padding:5px 8px;font-size:12px}
 @media(max-width:1200px){.cut-grid{grid-template-columns:minmax(0,1fr)}}
-/* Печать схем для стола резки. */
-#cutPrintHost{display:none}
-/* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
-/* Выделение строк списка и полоса «N selected» — приоритет разом. */
+/* Выделение строк списка и полоса «N selected» — приоритет разом. Полоса
+   прижата к низу окна списка. */
 .cut-list tr.pick td{background:var(--accent-soft)}
-.cut-bulk{display:flex;align-items:center;gap:10px;margin:4px 0 6px;padding:6px 8px;border:1px solid var(--accent-line);border-radius:8px;background:var(--accent-soft);font-size:12px}
+.cut-bulk{position:sticky;bottom:0;z-index:3;display:flex;align-items:center;gap:10px;margin:6px 0 0;padding:7px 10px;border:1px solid var(--accent-line);border-radius:8px;background:var(--surface);box-shadow:0 -4px 12px rgba(16,24,40,.12);font-size:12px}
 .cut-bulk[hidden]{display:none}
 .cut-bulk label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:12px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--text)}
 .cut-bulk input{width:56px;padding:3px 6px}
 .cut-bulk-x{margin-left:auto;border:0;background:transparent;box-shadow:none;min-width:0;padding:2px 6px;font-size:15px;color:var(--text-2)}
+/* Печать схем для стола резки. */
+#cutPrintHost{display:none}
+/* @page cutsheet (книжный или альбомный Letter) ставит cutPrintLayouts. */
 @media print{
  html:has(body.cut-printing),body.cut-printing{background:var(--surface)!important}
  body.cut-printing>*{display:none!important}

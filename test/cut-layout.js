@@ -538,8 +538,11 @@ module.exports=async function({page,eq,ok}){
   const rows=()=>[...document.querySelectorAll('[data-cut-list]')].map(r=>r.dataset.cutList),click=(id,o)=>document.querySelector('[data-cut-list="'+id+'"]').dispatchEvent(new MouseEvent('click',Object.assign({bubbles:true},o||{})));
   const ids=rows();click(ids[0]);click(ids[3],{shiftKey:true});
   const bar=document.querySelector('[data-cut-bulk]'),range={n:document.querySelectorAll('[data-cut-list].pick').length,bar:!bar.hidden&&bar.textContent.includes('4 selected')};
-  const box=document.querySelector('[data-cut-list="'+ids[1]+'"] [data-cut-priority]');box.value='10';box.dispatchEvent(new Event('change',{bubbles:true}));
+  const box=document.querySelector('[data-cut-list="'+ids[1]+'"] [data-cut-priority]');box.focus();box.value='10';box.dispatchEvent(new Event('change',{bubbles:true}));
   const typed=pri(),one=redrafts;
+  /* Фокус остался в Pri — Esc оттуда снимает выделение. */
+  const inPri=!!document.activeElement&&document.activeElement.matches('[data-cut-priority]');document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  const escInput={inPri,left:document.querySelectorAll('[data-cut-list].pick').length,bar:document.querySelector('[data-cut-bulk]').hidden};
   const four=ids.slice(0,4).every(id=>typed[id]===10)&&ids.slice(4).every(id=>!typed[id]);
   /* Cmd+клик — две другие строки; Ctrl+V в Pri — сразу обоим. */
   click(ids[5]);click(ids[6],{metaKey:true});const dt=new DataTransfer();dt.setData('text','7');
@@ -549,6 +552,9 @@ module.exports=async function({page,eq,ok}){
   const alpha=cutPiecesOf(bn,cutSettingsOf(bn)).filter(p=>p.customer.includes('Alpha')).map(p=>p.piece),row=document.querySelector('[data-cut-list="'+alpha[0]+'"]'),r=row.getBoundingClientRect();
   row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+10,clientY:r.y+5}));
   const menu=[...document.querySelectorAll('#cutMenu [data-cut-menu]')].map(x=>x.dataset.cutMenu),focus=document.activeElement&&document.activeElement.id;
+  /* Esc из поля меню закрывает меню. */
+  document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));const escMenu=!document.getElementById('cutMenu');
+  row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r.x+10,clientY:r.y+5}));
   document.getElementById('cutPri-customer').value='5';document.querySelector('#cutMenu [data-cut-menu="pri-customer"]').click();
   const cust=pri();
   window.cutPlanRedraft=keep;
@@ -558,8 +564,8 @@ module.exports=async function({page,eq,ok}){
   cutPlanRun(bn);render();const row2=document.querySelector('[data-cut-list]'),r2=row2.getBoundingClientRect();
   row2.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:r2.x+10,clientY:r2.y+5}));
   const locked={field:document.querySelector('[data-cut-priority]').disabled,menu:!!document.querySelector('#cutMenu [data-cut-menu-locked]')&&document.getElementById('cutPri-order').disabled,cmd:!!cutSettingMany(bn,[ids[0]],'priority',3).error};cutUiMenuClose();
-  return {rank,sorted,range,four,one,pasted:[pasted[ids[5]],pasted[ids[6]],pasted[ids[0]]],menu,focus,alpha:alpha.length,cust:alpha.every(id=>cust[id]===5)&&Object.keys(cust).filter(id=>!alpha.includes(id)).every(id=>cust[id]!==5),esc,locked};
- }),{rank:[1,10,11],sorted:'y,x,z',range:{n:4,bar:true},four:true,one:1,pasted:[7,7,10],menu:['pri-order','pri-customer'],focus:'cutPri-order',alpha:4,cust:true,esc:0,locked:{field:true,menu:true,cmd:true}});
+  return {rank,sorted,range,four,one,escInput,escMenu,pasted:[pasted[ids[5]],pasted[ids[6]],pasted[ids[0]]],menu,focus,alpha:alpha.length,cust:alpha.every(id=>cust[id]===5)&&Object.keys(cust).filter(id=>!alpha.includes(id)).every(id=>cust[id]!==5),esc,locked};
+ }),{rank:[1,10,11],sorted:'y,x,z',range:{n:4,bar:true},four:true,one:1,escInput:{inPri:true,left:0,bar:true},escMenu:true,pasted:[7,7,10],menu:['pri-order','pri-customer'],focus:'cutPri-order',alpha:4,cust:true,esc:0,locked:{field:true,menu:true,cmd:true}});
 
  eq('правка данных 6: старые приоритеты раскроя обнуляются (было «1 — самый срочный»), уже исправленная база не трогается',await t.p.evaluate(()=>{
   const keep={plan:DB.cutPlan,fix:DB.dataFix};
