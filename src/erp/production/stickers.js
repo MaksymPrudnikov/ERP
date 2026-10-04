@@ -46,7 +46,7 @@ const STK_BLOCKS=[
  {k:'size',label:'Size',group:'Glass',types:STK_ANY,size:[36,8,90],bold:true,details:[['cut','Size before edgework',true]]},
  {k:'area',label:'Area ft²',group:'Glass',types:STK_ANY,size:[13,6,48],details:[]},
  {k:'weight',label:'Weight kg',group:'Glass',types:STK_ALL,size:[13,6,48],details:[]},
- {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['letters','Side letters A B C D',true],['label','SHAPE label',true]]},
+ {k:'shape',label:'Shape outline',group:'Glass',types:STK_ALL,size:[90,30,250],graphic:true,details:[['dims','Side lengths',true],['label','SHAPE label',true]]},
  {k:'route',label:'Route by station',group:'Production',types:['production'],size:[30,12,60],graphic:true,details:[['shipping','SHIPR and SHIP',true]]},
  {k:'services',label:'Services',group:'Production',types:['production'],size:[12,6,36],bold:true,details:[['boxes','Check boxes',true],['station','Station before service',false]]},
  {k:'divider',label:'Divider line',group:'Other',types:STK_ANY,size:[1,0.5,6],graphic:true,multi:true,details:[]},
@@ -186,7 +186,23 @@ function stkShapeOf(lite){
  const holes=(fg.holes||[]).map(h=>({x:mx(+h.center[0]),y:+h.center[1],d:+h.diameter})).filter(h=>h.d>0&&Number.isFinite(h.x)&&Number.isFinite(h.y));
  const polys=[].concat(fg.cutouts||[],fg.hardware||[]).map(c=>(c.points||[]).map(p=>[mx(+p[0]),+p[1]])).filter(p=>p.length>2);
  if(stkIsRect(pts)&&!holes.length&&!polys.length)return null;
- return {points:pts,holes,polys};
+ return {points:pts,holes,polys,sides:stkShapeSides(lite,pts,mx)};
+}
+/* Длины прямых сторон — подписи у контура вместо букв A B C D: на чертеже
+   букв нет, и на стикере они «не несут смысла» (владелец, 4 октября 2026).
+   Стороны — из геометрии формы (те же координаты, что у контура); дуги не
+   подписываются. У прямоугольника — только низ и левая, без повторов. Форма
+   без геометрии (DXF) — по точкам контура, если их немного. */
+function stkShapeSides(lite,pts,mx){
+ const groups=lite.result&&Array.isArray(lite.result.edges)?lite.result.edges:null,pt=p=>[mx(+p[0]),+p[1]];
+ let sides=groups?groups.filter(g=>(g.segments||[]).length&&g.segments.every(e=>e.type==='line'&&e.p1&&e.p2)).map(g=>{const a=g.segments[0],z=g.segments[g.segments.length-1];return {a:pt(a.p1),b:pt(z.p2),len:+g.length};})
+  :pts.length<=12?pts.map((p,i)=>{const q=pts[(i+1)%pts.length];return {a:p,b:q,len:Math.hypot(q[0]-p[0],q[1]-p[1])};}):[];
+ sides=sides.filter(x=>x.len>=0.25&&[x.a[0],x.a[1],x.b[0],x.b[1]].every(Number.isFinite));
+ if(stkIsRect(pts)){
+  const minX=Math.min(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),near=(v,w)=>Math.abs(v-w)<1e-3;
+  sides=sides.filter(x=>near(x.a[1],minY)&&near(x.b[1],minY)||near(x.a[0],minX)&&near(x.b[0],minX));
+ }
+ return sides.length>8?[]:sides;
 }
 function stkFinished(lite,l){return lite&&+lite.finishedW>0&&+lite.finishedH>0?{w:+lite.finishedW,h:+lite.finishedH}:{w:l.width16/16,h:l.height16/16};}
 /* Размер до обработки кромки — размер реза: готовый плюс припуск кромки и
