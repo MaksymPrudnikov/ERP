@@ -255,5 +255,23 @@ module.exports=async function({page,eq,ok}){
  eq('на телефоне очередь и состав батча не шире экрана',await t.p.evaluate(()=>{
   gbQueue();const queue=document.documentElement.scrollWidth<=innerWidth+1;glassBatchOpen('B-0001');const detail=document.documentElement.scrollWidth<=innerWidth+1;return {queue,detail};
  }),{queue:true,detail:true});
+ await t.p.setViewportSize({width:1280,height:800});
+ /* Владелец, 5 октября 2026: номера должны оставаться уникальными годами.
+    Старая выгрузка откатывает базу, но не высший выданный номер. */
+ const back=await t.p.evaluate(()=>{
+  oqReset();oqOrder(oqCustomer());soDraft=null;soEdit=null;touch();
+  const backup=JSON.parse(JSON.stringify(DB)),old=[backup.glassPieceSeq,backup.glassUnitIdSeq];
+  oqOrder(oqCustomer());soDraft=null;soEdit=null;touch();
+  const high=[DB.glassPieceSeq,DB.glassUnitIdSeq],printed=gbIds().concat(DB.glassUnitId.flatMap(r=>r.ids));
+  const next=prepareImportedState(JSON.parse(JSON.stringify(backup)));DB=next;const fresh=[glassPieceNextId(),unitIdNext()];
+  localStorage.setItem('glazing_system_v1',JSON.stringify(backup));
+  return {grew:high[0]>old[0]&&high[1]>old[1],seq:next.glassPieceSeq>=high[0]+1&&next.glassUnitIdSeq>=high[1]+1,fresh:fresh.every(id=>!printed.includes(id)),
+   mark:JSON.parse(localStorage.getItem('glazing_system_v1-id-mark')).g>=high[0],high,printed};
+ });
+ eq('старая выгрузка не выдаёт напечатанные номера повторно: G и U продолжаются с высшего выданного',{grew:back.grew,seq:back.seq,fresh:back.fresh,mark:back.mark},{grew:true,seq:true,fresh:true,mark:true});
+ await t.p.reload();await t.p.waitForTimeout(250);
+ eq('старая база в браузере после перезагрузки тоже продолжает с высшего номера',await t.p.evaluate(([high,printed])=>{
+  return {seq:DB.glassPieceSeq>=high[0]&&DB.glassUnitIdSeq>=high[1],fresh:![glassPieceNextId(),unitIdNext()].some(id=>printed.includes(id))};
+ },[back.high,back.printed]),{seq:true,fresh:true});
  eq('батчи стёкол без ошибок страницы',t.errs,[]);await t.c.close();
 };

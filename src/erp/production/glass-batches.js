@@ -22,6 +22,18 @@ function unitIdNumber(id){return unitIdValid(id)?+id.slice(2):0;}
 function unitIdNext(){DB.glassUnitIdSeq=(Number.isSafeInteger(DB.glassUnitIdSeq)&&DB.glassUnitIdSeq>0?DB.glassUnitIdSeq:0)+1;return 'U-'+String(DB.glassUnitIdSeq).padStart(7,'0');}
 function unitIdAt(orderId,lineId,unit){const r=(DB.glassUnitId||[]).find(x=>x.key===orderId+'|'+lineId);return r&&r.ids[unit-1]||'';}
 function glassPieceNextId(){DB.glassPieceSeq=(Number.isSafeInteger(DB.glassPieceSeq)&&DB.glassPieceSeq>0?DB.glassPieceSeq:0)+1;return 'G-'+String(DB.glassPieceSeq).padStart(7,'0');}
+/* Высший выданный номер G и U живёт и вне базы, в своём ключе браузера.
+   Старая выгрузка откатывает базу, но не этот ключ: номер с уже
+   напечатанного стикера второй раз не выдаётся. Ключ пишется до базы —
+   при сбое записи остаётся пропуск, а не повтор. */
+const GLASS_ID_MARK_KEY='glazing_system_v1-id-mark';
+function glassIdSeq(v){return Number.isSafeInteger(v)&&v>0?v:0;}
+function glassIdMarkRead(){try{const m=JSON.parse(localStorage.getItem(GLASS_ID_MARK_KEY)||'null')||{};return {g:glassIdSeq(m.g),u:glassIdSeq(m.u)};}catch(e){return {g:0,u:0};}}
+function glassIdMarkApply(){const m=glassIdMarkRead();DB.glassPieceSeq=Math.max(glassIdSeq(DB.glassPieceSeq),m.g);DB.glassUnitIdSeq=Math.max(glassIdSeq(DB.glassUnitIdSeq),m.u);}
+function glassIdMarkSave(){
+ const m=glassIdMarkRead(),g=Math.max(m.g,glassIdSeq(DB.glassPieceSeq)),u=Math.max(m.u,glassIdSeq(DB.glassUnitIdSeq));
+ if(g!==m.g||u!==m.u)localStorage.setItem(GLASS_ID_MARK_KEY,JSON.stringify({g,u}));
+}
 /* Стекло позиции — панель, у ламината каждая плита. Позиция без Makeup даёт
    одну запись Glass missing: её количество не теряется из остатка заказа. */
 function glassBatchComponents(o,l){

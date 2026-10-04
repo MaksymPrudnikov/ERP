@@ -56,6 +56,8 @@ function touch(){
  try{
   /* Журнал заказа: события по разнице с тем, что лежит в базе (erp/sales/order-log). */
   if(typeof orderLogCapture==='function')orderLogCapture();
+  /* Счётчик номеров стёкол — раньше базы (erp/production/glass-batches). */
+  if(typeof glassIdMarkSave==='function')glassIdMarkSave();
   const text=JSON.stringify(DB);
   try{localStorage.setItem(STORAGE_KEY,text);}
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
@@ -302,7 +304,7 @@ function prepareImportedState(src){
  validateImportedState(src);
  const previous=DB, previousReseeded=referenceReseeded;
  try{
-  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);normalizeDB();
+  DB=JSON.parse(JSON.stringify(DEFAULT));mergeState(src);if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB();
   /* Пересев на импорте, а не только на старте. Версия справочников живёт В
      ДАННЫХ ровно затем, чтобы чужой файл со старым каталогом тоже пересеялся;
      до сих пор это срабатывало лишь при следующем F5, и всё это время на
@@ -352,7 +354,7 @@ function boot(){
  let hadSavedState=false;
  try{ const s=localStorage.getItem('glazing_system_v1'); if(s){ hadSavedState=true; const parsed=JSON.parse(s);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Object.keys(parsed).some(k=>Object.prototype.hasOwnProperty.call(DEFAULT,k)))throw new Error('Expected a database object.');mergeState(parsed); } }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be read. The original has been preserved.';console.warn(storageLastError,e.message);}
- try{ normalizeDB(); }
+ try{ if(typeof glassIdMarkApply==='function')glassIdMarkApply();normalizeDB(); }
  catch(e){storageRecovery=true;storageLastError='Stored data could not be normalised. The original has been preserved.';console.warn(storageLastError,e.message);DB=JSON.parse(JSON.stringify(DEFAULT));normalizeDB();}
  /* Пересев справочников. Идёт ПОСЛЕ первой нормализации (иначе сравнивать не с
     чем) и сам вызывает её повторно, чтобы заводские данные прошли те же правила,

@@ -17,15 +17,18 @@ module.exports=async function({page,eq,ok}){
   window.stList=ids=>{soDraft=null;soEdit=null;tab='sales';salesListSel=new Set(ids);render();};
   window.stHost=()=>[...document.querySelectorAll('#stkPrintHost .stk-print-page')].map(p=>p.textContent.replace(/\s+/g,' ').trim());
   window.stDecode=widths=>{let i=0;const vals=[];while(i<widths.length){const run=widths.slice(i,i+6).join('');const v=BARCODE128.indexOf(run);if(v===106||run==='233111'){vals.push(106);break;}if(v<0)return null;vals.push(v);i+=6;}
-   let sum=vals[0];for(let k=1;k<vals.length-2;k++)sum+=vals[k]*k;return sum%103===vals[vals.length-2]?vals.slice(1,-2).map(v=>String.fromCharCode(v+32)).join(''):'bad checksum';};
+   let sum=vals[0];for(let k=1;k<vals.length-2;k++)sum+=vals[k]*k;if(sum%103!==vals[vals.length-2])return 'bad checksum';
+   /* Наборы B и C: 99 — перейти в C (две цифры символом), 100 — в B. */
+   let set=vals[0]===105?'C':'B',out='';vals.slice(1,-2).forEach(v=>{if(set==='C'&&v===100)set='B';else if(set==='B'&&v===99)set='C';else out+=set==='C'?String(v).padStart(2,'0'):String.fromCharCode(v+32);});return out;};
  });};
  await helpers();
 
- eq('штрихкод Code 128 B: старт, данные, контрольная сумма, стоп; читается обратно; 107 узоров по 11 модулей',await t.p.evaluate(()=>{
+ eq('штрихкод Code 128 B/C: цифры парами в наборе C, короче B; контрольная сумма, стоп; читается обратно, 8–9 цифр тоже; 107 узоров по 11 модулей',await t.p.evaluate(()=>{
   const sums=BARCODE128.map((p,i)=>p.split('').reduce((a,b)=>a+ +b,0)===(i===106?13:11)).every(Boolean);
   return {values:barcode128Values('G-0000001'),width:barcode128Width('G-0000001'),sums,unique:new Set(BARCODE128).size,
-   back:['G-0000001','U-0000123','G-1234567'].map(s=>stDecode(barcode128Modules(s))),bars:barcode128Items('G-0000001',0,0,40,1.44).length};
- }),{values:[104,39,13,16,16,16,16,16,16,17,26,106],width:154,sums:true,unique:107,back:['G-0000001','U-0000123','G-1234567'],bars:37});
+   back:['G-0000001','U-0000123','G-1234567','G-10000000','G-123456789','Lot A-12'].map(s=>stDecode(barcode128Modules(s))),bars:barcode128Items('G-0000001',0,0,40,1.44).length,
+   longer:['G-9999999','G-10000000','G-123456789'].map(barcode128Width)};
+ }),{values:[104,39,13,16,99,0,0,1,2,106],width:132,sums:true,unique:107,back:['G-0000001','U-0000123','G-1234567','G-10000000','G-123456789','Lot A-12'],bars:31,longer:[132,132,143]});
 
  eq('номер юнита U- у позиций с двумя и больше стёклами, по изделию; одинарному не выдаётся; qty меньше — последние снимаются; скан G, U, Recut',await t.p.evaluate(()=>{
   oqReset();const id=stOrder(),o=salesRecord(id);
