@@ -41,7 +41,8 @@ function glassUnitBind(o,l,slot,asm,pieces,options){
  let code=opts.code||rec.ids[slot-1],e=productionIdentityFind(code);
  const reusable=e&&e.active!==false&&(!e.assemblyId||e.assemblyId===asm&&(!e.componentIds||e.componentIds.slice().sort().join('|')===signature));
  if(!reusable){
-  const replacement=opts.replacesCode||(e&&e.active===false?e.code:'');
+  if(e&&e.assemblyId){e.status='withdrawn';glassIdentityRetire(e.code,'Unit composition replaced');}
+  const replacement=opts.replacesCode||(e&&(e.active===false||e.assemblyId)?e.code:'');
   code=unitIdNext(o.id,l.id,{slot,replacesCode:replacement||undefined,requestId:'assembly:'+asm+':'+signature});e=productionIdentityFind(code);
  }
  /* A unit reopened by Undo can retain its physical barcode if its glass

@@ -208,7 +208,7 @@ export class GatewayStore {
     return this.idempotent('command', input, () => {
       requireValue(this.reconciled, 'RECONCILIATION_REQUIRED', 'Gateway must register its new event incarnation before accepting production commands.', 409);
       const p = input.payload;
-      if (input.type === 'scan.recorded') this.lookup(p.code);
+      if (input.type === 'scan.recorded') requireValue(this.db.prepare('SELECT entity_id FROM registry WHERE code=?').get(canonicalCode(p.code)), 'BARCODE_NOT_FOUND', 'Scanned object is not registered locally.', 404);
       else if (input.type === 'assembly.completed') {
         uuid(p.unitId, 'unitId'); const row = this.db.prepare('SELECT data FROM entities WHERE id=?').get(p.unitId); const unit = row && JSON.parse(row.data);
         requireValue(unit && unit.kind === 'U' && unit.state === 'active', 'INVALID_UNIT', 'Assembly requires an active unit.', 409);
