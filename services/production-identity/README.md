@@ -36,10 +36,13 @@ npm run identity:central
 npm run identity:gateway
 ```
 
-Run as supervised services on persistent disks. Use TLS for traffic outside the
-trusted factory LAN. Serve terminals from `http://factory-server:8782/erp/index.html`
-(or its HTTPS reverse proxy) to avoid mixed-content restrictions and cross-origin
-configuration. Static ERP files are public; all registry/workspace APIs require
+Run as supervised services on persistent disks. Factory terminals must open
+`https://factory-server/erp/index.html` through an HTTPS reverse proxy which forwards
+both `/erp/` and `/v1/` to the gateway. The ERP writer uses Web Locks and requires a
+secure browser context: plain HTTP on a LAN hostname does not enable editing.
+Loopback HTTP (`127.0.0.1` or `localhost`) is suitable for local tests. Keeping the
+ERP and gateway API on the same HTTPS origin avoids mixed-content restrictions
+and cross-origin configuration. Use TLS for central traffic outside the trusted LAN. Static ERP files are public; all registry/workspace APIs require
 the token. Master Data → Production identity configures the LAN URL and token;
 credentials remain in terminal storage and are excluded from database exports.
 
