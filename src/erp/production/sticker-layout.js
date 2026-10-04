@@ -135,15 +135,45 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
-   if(!d.shape)return 0;const side=Math.min(w,sz),bx=ax(side),pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=det.letters?9:2,inner=side-2*pad,k=Math.min(inner/((maxX-minX)||1),inner/((maxY-minY)||1));
-   const ox=bx+pad+(inner-(maxX-minX)*k)/2,oy=y+pad+(inner-(maxY-minY)*k)/2,px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+   /* Контур с длинами сторон снаружи (владелец, 4 октября 2026: букв A–D
+      на чертеже нет, «заменить размерами»). Подпись отодвигается от своей
+      стороны ровно настолько, чтобы её не касаться; контур — самый крупный,
+      при котором всё влезает в квадрат size × size и в колонку. Подпись,
+      что налезла бы на другую или на контур (вырез, короткие стороны), не
+      печатается — короткие стороны уступают длинным; если из-за подписей
+      контур мельче половины блока, короткие подписи снимаются. */
+   if(!d.shape)return 0;const pts=d.shape.points,xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),spanX=(maxX-minX)||1,spanY=(maxY-minY)||1;
+   const availW=Math.min(w,sz),availH=sz,kMax=Math.min(availW/spanX,availH/spanY),ls=Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)),lh=ls*.9,gap=1.5;
+   const turn=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)>=0?1:-1;
+   let cand=(det.dims?d.shape.sides||[]:[]).map(sd=>{
+    const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,t=frac16(sd.len);
+    return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:turn*dy/n,sy:turn*dx/n,len:sd.len};
+   }).sort((a,b)=>b.len-a.len);
+   /* Рамка подписи в осях блока (y вниз) при масштабе k, начало — угол minX, maxY. */
+   const boxOf=(q,k)=>{
+    const ax0=(q.mx-minX)*k,ay0=(maxY-q.my)*k;
+    let x0=q.sx>.35?ax0:q.sx<-.35?ax0-q.tw:ax0-q.tw/2,y0=q.sy<-.35?ay0-lh:q.sy>.35?ay0:ay0-lh/2;
+    const near=Math.min(...[[x0,y0],[x0+q.tw,y0],[x0,y0+lh],[x0+q.tw,y0+lh]].map(c=>(c[0]-ax0)*q.sx+(c[1]-ay0)*q.sy)),sh=gap-near;
+    x0+=sh*q.sx;y0+=sh*q.sy;return {x0,y0,x1:x0+q.tw,y1:y0+lh,q};
+   };
+   const cross=(ax,ay,bx,by,cx,cy,dx,dy)=>{const o=(px,py,qx,qy,rx,ry)=>Math.sign((qx-px)*(ry-py)-(qy-py)*(rx-px));return o(ax,ay,bx,by,cx,cy)!==o(ax,ay,bx,by,dx,dy)&&o(cx,cy,dx,dy,ax,ay)!==o(cx,cy,dx,dy,bx,by);};
+   const onOutline=(r,k)=>pts.some((p,i)=>{const q=pts[(i+1)%pts.length],ax1=(p[0]-minX)*k,ay1=(maxY-p[1])*k,bx1=(q[0]-minX)*k,by1=(maxY-q[1])*k;
+    if(ax1>r.x0&&ax1<r.x1&&ay1>r.y0&&ay1<r.y1)return true;
+    return cross(ax1,ay1,bx1,by1,r.x0,r.y0,r.x1,r.y0)||cross(ax1,ay1,bx1,by1,r.x1,r.y0,r.x1,r.y1)||cross(ax1,ay1,bx1,by1,r.x1,r.y1,r.x0,r.y1)||cross(ax1,ay1,bx1,by1,r.x0,r.y1,r.x0,r.y0);});
+   const place=(list,k)=>{const out2=[];list.forEach(q=>{const r=boxOf(q,k);if(out2.some(o=>r.x0<o.x1+1&&o.x0<r.x1+1&&r.y0<o.y1+.5&&o.y0<r.y1+.5)||onOutline(r,k))return;out2.push(r);});return out2;};
+   const bbox=(list,k)=>list.reduce((b,r)=>({x0:Math.min(b.x0,r.x0),y0:Math.min(b.y0,r.y0),x1:Math.max(b.x1,r.x1),y1:Math.max(b.y1,r.y1)}),{x0:0,y0:0,x1:spanX*k,y1:spanY*k});
+   const fits=(list,k)=>{const b=bbox(place(list,k),k);return b.x1-b.x0<=availW+1e-6&&b.y1-b.y0<=availH+1e-6;};
+   const best=list=>{if(fits(list,kMax))return kMax;let lo=kMax*.05,hi=kMax;for(let i=0;i<24;i++){const m=(lo+hi)/2;if(fits(list,m))lo=m;else hi=m;}return lo;};
+   let k=best(cand);while(cand.length&&k<kMax*.55){cand=cand.slice(0,-1);k=best(cand);}
+   const labels=place(cand,k),bb=bbox(labels,k),bw=bb.x1-bb.x0,bh=bb.y1-bb.y0,bx=ax(bw),ox=bx-bb.x0,oy=y-bb.y0;
+   const px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
    out.push({t:'path',d:path(pts)});
    (d.shape.polys||[]).forEach(pg=>out.push({t:'path',d:path(pg)}));
    (d.shape.holes||[]).forEach(h=>out.push({t:'circle',cx:px(h.x),cy:py(h.y),r:Math.max(1.2,h.d*k/2)}));
-   if(det.letters){const ls=7,cx=bx+side/2,cy=y+side/2;[['A',bx+1,cy+2.5,''],['B',cx,y+side-1,'center'],['C',bx+side-1,cy+2.5,'right'],['D',cx,y+ls,'center']].forEach(a=>out.push({t:'text',s:a[0],x:a[1],y:a[2],size:ls,bold:true,color:K,align:a[3]}));}
-   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+side/2,y:y+side+8,size:7,bold:true,color:K,align:'center'});return side+10;}
-   return side+2;}
+   labels.forEach(r=>out.push({t:'text',s:r.q.t,x:ox+r.x0,y:oy+r.y0+ls*.78,size:ls,bold:true,color:K,align:''}));
+   if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
+   return bh+2;}
   case 'route':{
    if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
    while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
