@@ -30,6 +30,10 @@ function recutStatus(r){
 }
 /* Одна позиция формы — один Recut. Всё проверяется до записи. */
 function recutCreate(d){
+ const result=storageCommand(()=>recutCreateCommand(d));
+ return result.ok?result.value:{error:result.error};
+}
+function recutCreateCommand(d){
  const o=salesRecord(d&&d.orderId);
  if(!recutCanOpen(o))return {error:'Recut not available'};
  if(d.stamp&&d.stamp!==ncrOrderStamp(o))return {error:'Order changed. Reopen Recut.'};

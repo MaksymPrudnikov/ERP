@@ -70,6 +70,10 @@ function touch(){
   catch(e){if(!storageBackupPresent||storageImporting)throw e;console.warn('Storage full: pre-import copy removed to keep saving.');storageBackupDrop();localStorage.setItem(STORAGE_KEY,text);}
   storageBaseline=text;if(typeof orderLogCommitted==='function')orderLogCommitted(text);storageLastSaved=new Date().toISOString();storageLastError='';storageWarningShown=false;dirty=true;storageInvalidate();return true;
  }catch(e){
+  /* The gateway may have committed before a local cache write failed (or
+     before its response was lost). Force a reload before the next command;
+     the rolled-back browser snapshot must never overwrite that commit. */
+  if(typeof productionGatewayRevision!=='undefined'&&typeof productionIdentityState==='function'&&productionIdentityState().authority==='gateway')productionGatewayRevision=null;
   storageLastError='Not saved. Your operation is still open; retry or export your changes.';
   if(storageBaseline&&!storageRecovery){DB=JSON.parse(storageBaseline);storageInvalidate();}
   console.error('localStorage write failed:',e);

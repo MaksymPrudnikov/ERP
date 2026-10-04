@@ -143,7 +143,7 @@ export class CentralStore {
     const row = (await this.pool.query(`${ENTITY_SELECT} JOIN identity_registry r ON r.entity_id=e.id WHERE r.code=$1`, [value])).rows[0];
     requireValue(row, 'BARCODE_NOT_FOUND', 'No registered object has this barcode.', 404);
     const composition = (await this.pool.query('SELECT glass_id FROM identity_composition WHERE unit_id=$1 ORDER BY glass_id', [row.id])).rows.map(v => v.glass_id);
-    const events = (await this.pool.query(`SELECT id,type,payload,occurred_at FROM identity_events WHERE payload->>'entityId'=$1 OR payload->>'unitId'=$1 OR payload->'entity'->>'id'=$1 ORDER BY occurred_at,id`, [row.id])).rows;
+    const events = (await this.pool.query(`SELECT id,type,payload,occurred_at FROM identity_events WHERE payload->>'entityId'=$1 OR payload->>'unitId'=$1 OR payload->'entity'->>'id'=$1 OR payload->'glassIds' ? $1 OR payload->>'code' IN (SELECT code FROM identity_registry WHERE entity_id=$1::uuid) ORDER BY occurred_at,id`, [row.id])).rows;
     return { entity: entityFromRow(row), scannedCode: value, composition, events };
   }
   importLegacy(body) {
@@ -199,15 +199,17 @@ export class CentralStore {
         if (legacy) requireValue(/^[GU]-[0-9]+$/.test(code) && code[0] === type && (value.instance == null), 'INVALID_BARCODE', 'Legacy code must be an original G/U number with a null instance.');
         else requireValue(match[1] === type && code === barcode(type, line.base, decimal(value.instance, 'instance')) && BigInt(value.instance) <= BigInt(line[`seq${type}`]), 'INVALID_BARCODE', 'Physical barcode does not match its imported line and high-water mark.');
         requireValue(Number.isFinite(Date.parse(value.createdAt)), 'INVALID_ENTITY', 'Imported object createdAt is invalid.');
-        const existing = (await db.query('SELECT id,code,line_id,kind,instance::text,replaces_id,metadata FROM identity_entities WHERE id=$1', [id])).rows[0];
+        const existing = (await db.query('SELECT id,code,line_id,kind,instance::text,replaces_id,state,metadata FROM identity_entities WHERE id=$1', [id])).rows[0];
         const replacesId = value.replacesId ? uuid(value.replacesId, 'replacesId') : null;
         if (existing) {
           requireValue(existing.code === code && existing.line_id === line.id && existing.kind === type && existing.instance === (legacy ? null : value.instance) && (!existing.replaces_id || existing.replaces_id === replacesId), 'ENTITY_CONFLICT', 'Existing physical object has a different immutable identity.', 409);
-          requireValue(!existing.metadata?.componentIds || JSON.stringify(existing.metadata.componentIds)===JSON.stringify(value.componentIds),'IMMUTABLE_COMPOSITION','Imported unit already has different physical glass.',409);
+          const composition=(await db.query('SELECT glass_id FROM identity_composition WHERE unit_id=$1 ORDER BY glass_id',[id])).rows.map(r=>r.glass_id);
+          requireValue(!composition.length || JSON.stringify(composition)===JSON.stringify([...(value.componentIds||[])].sort()),'IMMUTABLE_COMPOSITION','Imported unit already has different physical glass.',409);
+          requireValue(existing.state==='active' || (value.active===false && (existing.state!=='broken' || value.status==='broken')),'ENTITY_RETIRED','Registry import cannot revive a retired physical object.',409);
         } else {
-          await this.insertEntity(db, { ...value, id, kind: type, code, originLineKey: key, currentLineKey: value.currentLineKey || key, instance: legacy ? null : value.instance, replacesId: null, state: value.status === 'broken' ? 'broken' : value.active === false ? 'cancelled' : 'active', legacy }, line.id);
+          await this.insertEntity(db, { ...value, id, kind: type, code, originLineKey: key, currentLineKey: value.currentLineKey || (value.orderId && value.lineId ? value.orderId+'|'+value.lineId : key), instance: legacy ? null : value.instance, replacesId: null, state: value.status === 'broken' ? 'broken' : value.active === false ? 'cancelled' : 'active', legacy }, line.id);
         }
-        await db.query('UPDATE identity_entities SET metadata=$2::jsonb WHERE id=$1', [id, JSON.stringify(value)]);
+        await db.query('UPDATE identity_entities SET metadata=$2::jsonb,state=$3,current_line_key=$4 WHERE id=$1', [id, JSON.stringify(value), value.status==='broken'?'broken':value.active===false?'cancelled':'active', value.currentLineKey || (value.orderId && value.lineId ? value.orderId+'|'+value.lineId : key)]);
         if (replacesId) newReplacements.push({ id, replacesId, lineId: line.id, kind: type });
         for (const alias of value.aliases || []) {
           const normalized = canonicalCode(alias); const previous = (await db.query('SELECT entity_id FROM identity_registry WHERE code=$1', [normalized])).rows[0];
@@ -279,10 +281,12 @@ export class CentralStore {
         const event = { id: uuid(value.id, 'event.id'), incarnationId: uuid(value.incarnationId, 'incarnationId'), sequence: decimal(value.sequence, 'event.sequence'), type: value.type, payload: value.payload, occurredAt: value.occurredAt };
         requireValue(event.type === 'entity.issued' || event.type === 'workspace.saved' || COMMAND_TYPES.has(event.type), 'INVALID_EVENT', 'Unsupported production event type.');
         requireValue(event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload) && Number.isFinite(Date.parse(event.occurredAt)), 'INVALID_EVENT', 'Event must contain a payload and valid occurredAt.');
-        const hash = fingerprint(event); const old = (await db.query('SELECT fingerprint FROM identity_events WHERE id=$1', [event.id])).rows[0];
-        if (old) { requireValue(old.fingerprint === hash, 'EVENT_CONFLICT', 'Event ID was reused with different data.', 409); acknowledged.push(event.id); continue; }
         const incarnation = (await db.query('SELECT gateway_id,next_event_sequence::text FROM identity_incarnations WHERE id=$1 FOR UPDATE', [event.incarnationId])).rows[0];
         requireValue(incarnation && incarnation.gateway_id === gatewayId, 'UNKNOWN_INCARNATION', 'Event incarnation is not registered for this gateway.', 409);
+        // Serialize before checking retries: another connection may have
+        // committed this same event while we waited for the incarnation lock.
+        const hash = fingerprint(event); const old = (await db.query('SELECT fingerprint FROM identity_events WHERE id=$1', [event.id])).rows[0];
+        if (old) { requireValue(old.fingerprint === hash, 'EVENT_CONFLICT', 'Event ID was reused with different data.', 409); acknowledged.push(event.id); continue; }
         requireValue(incarnation.next_event_sequence === event.sequence, 'EVENT_SEQUENCE_GAP', 'Synchronize earlier events before this event.', 409);
         if (event.type === 'entity.issued') {
           const reservation = (await db.query(`SELECT r.*,l.origin_line_key,l.base::text FROM identity_reservations r JOIN identity_lines l ON l.id=r.line_id WHERE r.id=$1`, [uuid(event.payload.reservationId, 'reservationId')])).rows[0];

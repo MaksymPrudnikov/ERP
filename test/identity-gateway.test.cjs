@@ -27,6 +27,22 @@ test('ERP terminals share durable LAN scans, offline recuts, idempotent codes an
   await a.reload();await a.waitForTimeout(300);assert.equal(await a.evaluate(code=>productionIdentityFind(code).id,replacement.code),replacement.id);
   const response=await message('online');assert.equal(response.pending,0);assert.equal(response.error,undefined);
   assert.ok((await scan(b,original.codes[2])).error.includes('Another terminal'));assert.equal((await scan(b,original.codes[2])).ok,true);
+  // Office Recut must reject a stale workspace before issuing any replacements.
+  const office=await a.evaluate(code=>{
+   const e=productionIdentityFind(code),o=salesRecord(e.orderId),before=DB.recut.length,reason=ncrReasonsFor('CUT',{activeOnly:true})[0];
+   const result=recutCreate({orderId:o.id,where:'CUT',reasonId:reason.id,lines:{[e.lineId]:{on:true,qty:1,which:'unit',codes:code}}});
+   return {error:result.error,before,after:DB.recut.length};
+  },original.codes[3]);assert.match(office.error,/Another terminal/);assert.equal(office.after,office.before);
+  // Server commit succeeds, but the terminal cannot cache it. A subsequent
+  // command must reload the committed scan before it can save anything else.
+  const cacheFailure=await a.evaluate(code=>{
+   const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key===STORAGE_KEY)throw new Error('Injected cache failure');return set.call(this,key,value);};
+   let result;try{result=stationRecord('CUT',stationCheck('CUT',code),{id:'worker',name:'Worker'});}finally{Storage.prototype.setItem=set;}
+   const revision=productionGatewayRevision;let refresh='';try{productionGatewayCheckCurrent();}catch(e){refresh=e.message;}
+   return {ok:!!result,revision,refresh,scans:DB.stationScan.filter(r=>r.piece===code&&r.station==='CUT').length};
+  },original.codes[3]);assert.equal(cacheFailure.ok,false);assert.equal(cacheFailure.revision,null);assert.match(cacheFailure.refresh,/Another terminal/);assert.equal(cacheFailure.scans,1);
+  assert.equal((await scan(a,original.codes[4])).ok,true);
+  await a.reload();await a.waitForTimeout(300);assert.equal(await a.evaluate(code=>DB.stationScan.filter(r=>r.piece===code&&r.station==='CUT').length,original.codes[3]),1);
   const requestId=randomBytes(12).toString('hex');const call=()=>fetch(url+'/v1/issue',{method:'POST',headers:{authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({requestId,originLineKey:'unreleased|line',kind:'G',count:1})});
   // A missing/released-line error must never allocate a browser substitute.
   assert.equal((await call()).status,404);

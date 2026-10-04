@@ -65,10 +65,23 @@ test('real central and gateway preserve free assembly, retirement, durable CAS a
   assert.throws(()=>gateway.command({...assembly,requestId:req(),payload:{...assembly.payload,glassIds:[glass[1].id,glass[2].id]}}),e=>e.code==='IMMUTABLE_COMPOSITION');
   await gateway.command({requestId:req(),type:'entity.broken',payload:{entityId:unit.id}});
   const next=(await issue(gateway,'U',1,{replacesIds:[unit.id]})).entities[0];assert.equal(next.replacesId,unit.id);
-  const data={productionIdentity:{authority:'gateway',entities:glass.concat(unit,next)},stationScan:[]};
+  const retired={...unit,active:false,status:'broken',componentIds:assembly.payload.glassIds};
+  const data={productionIdentity:{authority:'gateway',entities:glass.concat(retired,next)},stationScan:[]};
   const commit={requestId:req(),revision:'0',data};assert.equal(gateway.saveWorkspace(commit).revision,'1');assert.equal(gateway.saveWorkspace(commit).revision,'1');
   assert.throws(()=>gateway.saveWorkspace({...commit,requestId:req()}),e=>e.code==='WORKSPACE_CONFLICT');
+  const invalid=(entities,code)=>assert.throws(()=>gateway.saveWorkspace({requestId:req(),revision:'1',data:{...data,productionIdentity:{...data.productionIdentity,entities}}}),e=>e.code===code);
+  invalid(glass.concat({...retired,active:true},next),'ENTITY_RETIRED');
+  invalid(glass.concat({...retired,componentIds:[glass[1].id]},next),'IMMUTABLE_COMPOSITION');
+  invalid(glass.concat(next),'ENTITY_HISTORY_REQUIRED');
+  gateway.command({requestId:req(),type:'scan.recorded',payload:{code:glass[0].code}});
   await gateway.sync();assert.equal(gateway.pendingCount(),0);assert.deepEqual((await central.lookup(unit.code)).composition,[glass[0].id,glass[3].id].sort());assert.equal((await central.lookup(unit.code)).entity.state,'broken');
+  for(const store of [gateway,central]){const history=(await store.lookup(glass[0].code)).events;assert.ok(history.some(e=>e.type==='assembly.completed'));assert.ok(history.some(e=>e.type==='scan.recorded'));}
+  const registry={version:1,baseSeq:'1',lines:[{key,base:unit.code.split('-')[1],seqG:'4',seqU:'2'}],entities:data.productionIdentity.entities};
+  await assert.rejects(()=>central.importRegistry({requestId:req(),registry:{...registry,entities:glass.concat({...retired,componentIds:[glass[1].id]},next)}}),e=>e.code==='IMMUTABLE_COMPOSITION');
+  await assert.rejects(()=>central.importRegistry({requestId:req(),registry:{...registry,entities:glass.concat({...retired,active:true,status:'active'},next)}}),e=>e.code==='ENTITY_RETIRED');
+  await central.importRegistry({requestId:req(),registry});
+  const events=gateway.db.prepare('SELECT data FROM outbox ORDER BY CAST(sequence AS INTEGER)').all().map(r=>JSON.parse(r.data));
+  const retries=await Promise.all([central.ingest({gatewayId:'factory-a',events}),central.ingest({gatewayId:'factory-a',events})]);assert.deepEqual(retries[0],retries[1]);
   assert.equal((await db.pool.query('SELECT revision::text FROM identity_workspaces')).rows[0].revision,'1');
   const recovery=new CentralStore(db.pool,{recoveryRequired:true});assert.throws(()=>issue(recovery),e=>e.code==='CENTRAL_RECOVERY_REQUIRED');assert.equal((await recovery.lookup(unit.code)).entity.id,unit.id);
  }finally{gateway.close();await db.close();}

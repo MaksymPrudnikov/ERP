@@ -198,7 +198,7 @@ export class GatewayStore {
     const entity = JSON.parse(row.data);
     const composition = this.db.prepare('SELECT glass_id FROM composition WHERE unit_id=? ORDER BY glass_id').all(entity.id).map(item => item.glass_id);
     const events = this.db.prepare('SELECT data FROM outbox ORDER BY CAST(sequence AS INTEGER)').all().map(item => JSON.parse(item.data))
-      .filter(event => event.payload.entityId === entity.id || event.payload.unitId === entity.id || event.payload.entity?.id === entity.id || event.payload.glassIds?.includes(entity.id));
+      .filter(event => event.payload.entityId === entity.id || event.payload.unitId === entity.id || event.payload.entity?.id === entity.id || event.payload.glassIds?.includes(entity.id) || (event.payload.code && this.db.prepare('SELECT entity_id FROM registry WHERE code=?').get(canonicalCode(event.payload.code))?.entity_id === entity.id));
     return { entity, scannedCode: normalized, composition, events };
   }
   command(body) {
@@ -244,16 +244,24 @@ export class GatewayStore {
       const prior=this.workspace();
       requireValue(prior.revision===input.revision,'WORKSPACE_CONFLICT','Another terminal saved first. Reload and retry the action.',409);
       const oldEntities=new Map((prior.data?.productionIdentity?.entities||[]).map(e=>[e.id,e]));
+      const incoming=new Map(input.data.productionIdentity.entities.map(e=>[e.id,e]));
+      requireValue(incoming.size===input.data.productionIdentity.entities.length && [...oldEntities.keys()].every(id=>incoming.has(id)),'ENTITY_HISTORY_REQUIRED','Workspace must retain every previously saved physical object.',409);
       const scans=new Map((prior.data?.stationScan||[]).map(r=>[r.id,JSON.stringify(r)]));
       for(const r of input.data.stationScan||[])if(scans.get(r.id)!==JSON.stringify(r))this.command({requestId:input.requestId+':scan:'+r.id,type:'scan.recorded',payload:{code:r.piece,entityId:r.entityId,record:r}});
       for(const e of input.data.productionIdentity.entities){
         const old=oldEntities.get(e.id);
         const local=this.db.prepare('SELECT data FROM entities WHERE id=?').get(e.id);
-        requireValue(local && JSON.parse(local.data).code===e.code,'ENTITY_NOT_REGISTERED','Workspace objects must be issued by this gateway.',409);
-        if(e.kind==='U' && e.active!==false && e.componentIds?.length && (!old?.componentIds?.length))this.command({requestId:input.requestId+':assembly:'+e.id,type:'assembly.completed',payload:{unitId:e.id,glassIds:e.componentIds,assemblyId:e.assemblyId}});
+        const registered=local && JSON.parse(local.data);
+        requireValue(registered && ['code','kind','originLineKey'].every(k=>registered[k]===e[k]) && (registered.instance??null)===(e.instance??null) && (registered.replacesId||null)===(e.replacesId||null),'ENTITY_NOT_REGISTERED','Workspace objects must retain their registered identity.',409);
+        requireValue(registered.state==='active' || (e.active===false && (registered.state!=='broken' || e.status==='broken')),'ENTITY_RETIRED','A retired physical object cannot be restored to production.',409);
+        const composition=this.db.prepare('SELECT glass_id FROM composition WHERE unit_id=? ORDER BY glass_id').all(e.id).map(r=>r.glass_id);
+        requireValue(!composition.length || JSON.stringify(composition)===JSON.stringify([...(e.componentIds||[])].sort()),'IMMUTABLE_COMPOSITION','Workspace must retain the physical unit composition.',409);
         if(e.orderId && e.lineId && old && (old.orderId!==e.orderId || old.lineId!==e.lineId))this.command({requestId:input.requestId+':assign:'+e.id,type:'entity.reassigned',payload:{entityId:e.id,currentLineKey:e.orderId+'|'+e.lineId}});
         if(e.active===false && old?.active!==false)this.command({requestId:input.requestId+':retire:'+e.id,type:e.status==='broken'?'entity.broken':'entity.cancelled',payload:{entityId:e.id,reason:e.retiredReason||''}});
       }
+      // Retire replaced units before binding surviving glass into new units,
+      // regardless of the order objects have in an imported workspace.
+      for(const e of incoming.values())if(e.kind==='U' && e.active!==false && e.componentIds?.length && !oldEntities.get(e.id)?.componentIds?.length)this.command({requestId:input.requestId+':assembly:'+e.id,type:'assembly.completed',payload:{unitId:e.id,glassIds:e.componentIds,assemblyId:e.assemblyId}});
       const revision=(BigInt(prior.revision)+1n).toString();
       const changes=Object.fromEntries(Object.entries(input.data).filter(([key,value])=>JSON.stringify(prior.data?.[key])!==JSON.stringify(value)));
       const event=this.enqueue('workspace.saved',{revision,changes});
