@@ -14,7 +14,7 @@
      блока, блоки двигаются мышкой — в списке и прямо на стикере.
    Glass ID в окнах Sales не показывается — только на бумаге.
    ===================================================================== */
-let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='';
+let stkDialog=null,stkBuilder=null,stkPrintEdit=null,stkDrag='',stkPointer=null,stkClickUntil=0;
 const STK_SIZE_PREF='glass_erp_sticker_size_v1',STK_PX=1.3;
 function stkPrefSize(){try{const v=localStorage.getItem(STK_SIZE_PREF);return STK_SIZES.some(s=>s.k===v)?v:'4x6';}catch(e){return '4x6';}}
 function stkSetPrefSize(v){try{localStorage.setItem(STK_SIZE_PREF,v);}catch(e){}}
@@ -310,27 +310,22 @@ function stkBuilderState(){
  if(!stkBuilder.drafts[k])stkBuilder.drafts[k]={tpl:stkTemplate(stkBuilder.type,stkBuilder.size),dirty:false};
  return stkBuilder;
 }
-function stkDraft(){const s=stkBuilderState();return s.drafts[stkKey(s.type,s.size)];}
-function stkEditTpl(fn){const d=stkDraft();fn(d.tpl);d.dirty=true;stkBuilderState().notice='';render();}
+function stkDraft(){const s=stkBuilderState(),d=s.drafts[stkKey(s.type,s.size)];if(!d.undo){d.undo=[];d.redo=[];d.saved=JSON.stringify(d.tpl);}return d;}
+function stkClone(v){return JSON.parse(JSON.stringify(v));}
+function stkHistoryRecord(d,before){if(JSON.stringify(before)===JSON.stringify(d.tpl))return false;d.undo.push(before);if(d.undo.length>60)d.undo.shift();d.redo=[];d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';return true;}
+function stkSeedEditorFrames(tpl){const s=stkBuilderState();if(tpl.layout==='free')stkSeedFrames(tpl,s.size,stkSampleData(s.type).data);}
+function stkEditTpl(fn){const d=stkDraft(),before=stkClone(d.tpl);fn(d.tpl);stkSeedEditorFrames(d.tpl);stkHistoryRecord(d,before);render();}
+function stkBUndo(){const d=stkDraft();if(!d.undo.length)return;d.redo.push(stkClone(d.tpl));d.tpl=d.undo.pop();d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';render();}
+function stkBRedo(){const d=stkDraft();if(!d.redo.length)return;d.undo.push(stkClone(d.tpl));d.tpl=d.redo.pop();d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';render();}
+function stkBLayout(v){if(v!=='free'&&v!=='auto'||(stkDraft().tpl.layout||'auto')===v)return;stkEditTpl(t=>{t.layout=v;});}
 function stkFindBlock(id){return stkDraft().tpl.blocks.find(b=>b.id===id);}
 function stkBSet(k,v){const s=stkBuilderState();if(k==='type'&&s.type!==v){s.sample='';s.sel='';s.open='';}s[k]=v;s.notice='';stkBuilderState();render();}
 function stkBType(v){stkBSet('type',v);}
 function stkBSizeKey(v){stkBSet('size',v);}
-/* Смена ориентации раскладывает блоки по базе этой ориентации: лёжа — две
-   колонки и кегли под 4″ высоты. Вертикальная раскладка в лежачий стикер не
-   влезала (владелец, 4 октября 2026: «сменил портретную на лендскейп, и
-   стикер вылез»). Своё переносится: какие блоки печатать, жирный, детали,
-   свой текст; лишние свои тексты — в конец. Разделители — часть раскладки,
-   у новой ориентации свои. */
+/* Ориентации хранят свои макеты. Новый вариант начинается с его базы. */
 function stkBOrient(v){
  const s=stkBuilderState(),orient=v==='landscape'?'landscape':'portrait';if(stkDraft().tpl.orient===orient)return;
- stkEditTpl(t=>{
-  const base=stkBase(s.type,s.size,orient).blocks,used=new Set();
-  base.forEach(b=>{const m=t.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
-   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},b.k==='text'?{text:m.text}:{});});
-  const rest=t.blocks.filter(x=>!used.has(x)&&x.k!=='divider'),low=x=>x.at==='bottom';
-  t.orient=orient;t.blocks=base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)).map(x=>Object.assign(x,{at:'full'})),base.filter(low),rest.filter(low));
- });
+ stkEditTpl(t=>{stkSwitchOrientation(t,s.type,s.size,orient);});
 }
 function stkBToggle(id,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.on=!!on;});}
 function stkBPlace(id,at){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!STK_PLACES.some(p=>p.k===at))return;b.at=at;t.blocks=t.blocks.filter(x=>x.at!=='bottom').concat(t.blocks.filter(x=>x.at==='bottom'));});}
@@ -342,6 +337,25 @@ function stkBSize(id,v,delta){
 }
 function stkBBold(id){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.bold=!b.bold;});}
 function stkBAlign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&STK_ALIGNS.some(x=>x.k===a))b.align=a;});}
+function stkBValign(id,a){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&['top','middle','bottom'].includes(a))b.valign=a;});}
+function stkBFrame(id,key,mm){const n=Number(mm);if(!['x','y','w','h'].includes(key)||!Number.isFinite(n))return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b||!b.frame)return;b.frame[key]=stkFrameValue(key,n*72/25.4);});}
+function stkBFont(id,key,v){if(!stkFontFields({k:stkFindBlock(id)?.k}).some(x=>x[0]===key))return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(!b)return;stkFontValue(b,key,v);});}
+function stkFrameValue(key,v){return Math.round(Math.max(key==='w'||key==='h'?1:-10000,Math.min(10000,v))*100)/100;}
+function stkFontValue(b,key,v){if(!b.fonts)b.fonts={};if(v==='')delete b.fonts[key];else if(Number.isFinite(Number(v)))b.fonts[key]=Math.max(6,Math.min(144,Math.round(Number(v)*2)/2));if(!Object.keys(b.fonts).length)delete b.fonts;}
+function stkFontFields(b){return ({shape:[['dims','Side lengths'],['label','SHAPE']],barcode:[['number','Barcode number']],size:[['cut','CUT line']],order:[['recut','RECUT']],makeup:[['heading','Makeup heading']],route:[['route','Route text']]})[b.k]||[];}
+/* Numeric edits keep focus and update only the preview until the edit commits. */
+function stkNumberBegin(input){if(!input._stkBefore)input._stkBefore=stkClone(stkDraft().tpl);}
+function stkBNumber(id,kind,key,input,commit){
+ const d=stkDraft(),b=d.tpl.blocks.find(x=>x.id===id);if(!b)return;stkNumberBegin(input);
+ const raw=input.value,n=Number(raw);if(kind==='frame'&&raw!==''&&Number.isFinite(n)&&b.frame)b.frame[key]=stkFrameValue(key,n*72/25.4);
+ if(kind==='font'&&(raw===''||Number.isFinite(n)))stkFontValue(b,key,raw);
+ if(kind==='size'&&raw!==''&&Number.isFinite(n)){const def=stkBlockDef(b.k);b.size=Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2));}
+ d.dirty=JSON.stringify(d.tpl)!==d.saved;stkBuilderState().notice='';
+ if(commit){stkHistoryRecord(d,input._stkBefore);input._stkBefore=null;input.value=kind==='frame'?stkMM(b.frame[key]):kind==='font'?(b.fonts&&b.fonts[key]||''):b.size;}
+ stkPreviewRefresh();stkHistoryRefresh();
+}
+function stkMM(pt){return Math.round(pt*25.4/72*100)/100;}
+function stkHistoryRefresh(){const d=stkDraft(),builder=document.querySelector('[data-stk-builder]');if(!builder)return;const undo=builder.querySelector('[data-stk-undo]'),redo=builder.querySelector('[data-stk-redo]'),save=builder.querySelector('[data-stk-save]');if(undo)undo.disabled=!d.undo.length;if(redo)redo.disabled=!d.redo.length;if(save)save.disabled=!d.dirty;const mark=builder.querySelector('[data-stk-dirty]');if(mark&&!d.dirty)mark.remove();else if(!mark&&d.dirty&&save)save.insertAdjacentHTML('beforebegin','<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>');const saved=builder.querySelector('.stk-saved');if(saved)saved.textContent='';}
 function stkBField(id,label){if(!label)return;stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b)b.text=((b.text||'').trim()+' {'+label+'}').trim().slice(0,STK_TEXT_MAX);});}
 function stkBAddField(label){if(!label)return;const s=stkBuilderState();stkEditTpl(t=>{const b=stkBlock('text','full',null,{text:'{'+label+'}',bold:false}),j=t.blocks.findIndex(x=>x.at==='bottom');t.blocks.splice(j<0?t.blocks.length:j,0,b);s.sel=s.open=b.id;});}
 function stkBDetail(id,key,on){stkEditTpl(t=>{const b=t.blocks.find(x=>x.id===id);if(b&&b.details)b.details[key]=!!on;});}
@@ -357,11 +371,11 @@ function stkBSelect(id){
  const r=s.sel&&document.querySelector('[data-stk-block="'+s.sel+'"]');if(r&&r.scrollIntoView)r.scrollIntoView({block:'nearest'});
 }
 function stkBOpen(id){stkBSelect(id);}
-function stkBReset(){const s=stkBuilderState();stkEditTpl(t=>{const base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size);t.orient=base.orient;t.blocks=base.blocks;});s.sel='';s.open='';}
+function stkBReset(){const s=stkBuilderState();s.sel='';s.open='';stkEditTpl(t=>{const orient=t.orient,variants=t.variants,base=s.print?stkTemplate(s.type,s.size):stkBase(s.type,s.size,orient);if(s.print)stkSwitchOrientation(base,s.type,s.size,orient);Object.keys(t).forEach(k=>delete t[k]);Object.assign(t,base);if(variants)t.variants=variants;});}
 function stkBSave(){
  const s=stkBuilderState(),d=stkDraft(),k=stkKey(s.type,s.size);
  DB.stickerTemplate=Object.assign({},DB.stickerTemplate,{[k]:stkCleanTemplate(s.type,s.size,d.tpl)});
- d.tpl=stkTemplate(s.type,s.size);d.dirty=false;s.notice='Saved';touch();render();
+ d.tpl=stkTemplate(s.type,s.size);d.saved=JSON.stringify(d.tpl);d.dirty=false;s.notice='Saved';touch();render();
 }
 /* Перемещение: в списке блок сохраняет свою колонку; на стикере — берёт
    колонку того блока, на который его бросили. Bottom всегда в конце. */
@@ -390,6 +404,49 @@ function stkDrop(e,id,adopt){
  if(from&&from!==id)stkMoveBlock(from,id,after?'after':'before',adopt);
 }
 function stkDropZone(e,zone){e.preventDefault();const from=stkDrag;stkDrag='';if(from)stkMoveToZone(from,zone);}
+function stkHitsHTML(pg,tpl,s){
+ const free=tpl.layout==='free',pc=(v,of)=>(v/of*100).toFixed(4)+'%';
+ return pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);if(!b)return '';const sel=s.sel===x.id,bad=x.bad||(pg.issues||[]).some(i=>i.id===x.id);
+  const handles=free&&sel?['nw','n','ne','e','se','s','sw','w'].map(k=>`<span class="stk-resize stk-resize-${k}" data-stk-resize="${k}" title="Resize ${k.toUpperCase()}" aria-hidden="true"></span>`).join(''):'';
+  const drag=free?`draggable="false" onpointerdown="stkPointerStart(event,'${x.id}')" onclick="stkHitClick(event,'${x.id}')"`:`draggable="true" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"`;
+  return `<div class="stk-hit${free?' free':''}${sel?' sel':''}${bad?' bad':''}" data-stk-hit="${x.id}" title="${esc(stkBlockLabel(b))}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(free?x.h:Math.max(6/STK_PX,x.h),pg.h)}" ${drag}>${handles}</div>`;
+ }).join('');
+}
+function stkFitHTML(pg){
+ const issues=pg.issues||[],messages=[...new Set((pg.overflow||[]).concat(issues.map(i=>i.message)))];
+ return messages.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit</span><ul class="stk-issues" data-stk-issues>${messages.map(m=>`<li>${esc(m)}</li>`).join('')}</ul>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
+}
+function stkPreviewRefresh(){
+ const s=stkBuilderState(),tpl=stkDraft().tpl,pg=stkLayout(tpl,s.size,stkSampleData(s.type).data),paper=document.querySelector('[data-stk-paper]');if(!paper)return;
+ paper.innerHTML=stkPageSVG(pg,'100%','100%')+stkHitsHTML(pg,tpl,s);paper.dataset.stkWidth=pg.w;paper.dataset.stkHeight=pg.h;
+ const fit=document.querySelector('[data-stk-fit-wrap]');if(fit)fit.innerHTML=stkFitHTML(pg);
+ const b=tpl.blocks.find(x=>x.id===s.sel);if(b&&b.frame)document.querySelectorAll('[data-stk-details-panel="'+b.id+'"] [data-stk-frame]').forEach(input=>{if(input!==document.activeElement)input.value=stkMM(b.frame[input.dataset.stkFrame]);});
+ document.querySelectorAll('[data-stk-block]').forEach(el=>el.classList.toggle('sel',el.dataset.stkBlock===s.sel));
+}
+function stkHitClick(e,id){if(Date.now()<stkClickUntil){e.preventDefault();e.stopPropagation();return;}stkBSelect(id);}
+/* Pointer capture stays on the paper while its SVG and hit areas update. */
+function stkPointerStart(e,id){
+ if(e.button!==0||stkPointer||stkDraft().tpl.layout!=='free')return;
+ const d=stkDraft(),b=d.tpl.blocks.find(x=>x.id===id),paper=e.currentTarget.closest('[data-stk-paper]');if(!b||!b.frame||!paper)return;
+ e.preventDefault();e.stopPropagation();const r=paper.getBoundingClientRect(),s=stkBuilderState();s.sel=s.open=id;
+ const handle=e.target.closest('[data-stk-resize]');stkPointer={id,pid:e.pointerId,paper,draft:d,before:stkClone(d.tpl),dirty:d.dirty,frame:Object.assign({},b.frame),handle:handle?handle.dataset.stkResize:'move',x:e.clientX,y:e.clientY,sx:Number(paper.dataset.stkWidth)/r.width,sy:Number(paper.dataset.stkHeight)/r.height};
+ try{paper.setPointerCapture(e.pointerId);}catch(x){}paper.classList.add('stk-moving');stkPreviewRefresh();
+}
+function stkPointerMove(e){
+ const p=stkPointer;if(!p||e.pointerId!==p.pid)return;e.preventDefault();const b=p.draft.tpl.blocks.find(x=>x.id===p.id);if(!b)return;
+ const dx=(e.clientX-p.x)*p.sx,dy=(e.clientY-p.y)*p.sy,f=p.frame,next=Object.assign({},f),h=p.handle;
+ if(h==='move'){next.x=f.x+dx;next.y=f.y+dy;}else{
+  if(h.includes('e'))next.w=f.w+dx;if(h.includes('s'))next.h=f.h+dy;
+  if(h.includes('w')){next.w=Math.max(1,Math.min(10000,f.w-dx));next.x=f.x+f.w-next.w;}
+  if(h.includes('n')){next.h=Math.max(1,Math.min(10000,f.h-dy));next.y=f.y+f.h-next.h;}
+ }
+ ['x','y','w','h'].forEach(k=>next[k]=stkFrameValue(k,next[k]));b.frame=next;stkPreviewRefresh();
+}
+function stkPointerEnd(e,cancel){
+ const p=stkPointer;if(!p||e.pointerId!==p.pid)return;stkPointer=null;stkClickUntil=Date.now()+350;
+ if(cancel){p.draft.tpl=p.before;p.draft.dirty=p.dirty;}else stkHistoryRecord(p.draft,p.before);
+ try{p.paper.releasePointerCapture(p.pid);}catch(x){}p.paper.classList.remove('stk-moving');render();
+}
 function stkSamples(type){
  const out=[];
  (DB.salesOrder||[]).filter(o=>!salesIsQuote(o)&&o.status!=='cancelled').slice().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))).slice(0,15).forEach(o=>(o.lines||[]).forEach((l,li)=>{
@@ -419,46 +476,50 @@ function stkSampleData(type){
 }
 function viewMdStickers(){return stkEditorHTML();}
 function stkEditorHTML(){
- const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data);
+ const s=stkBuilderState(),dr=stkDraft(),tpl=dr.tpl,{data,list,key}=stkSampleData(s.type),pg=stkLayout(tpl,s.size,data),free=tpl.layout==='free';
  const seg=(items,cur,fn,mark)=>`<div class="stk-seg">${items.map(x=>`<button type="button" class="${x.k===cur?'on':''}" data-stk-seg="${x.k}" onclick="${fn}('${x.k}')">${esc(x.label)}${mark&&mark(x)?' •':''}</button>`).join('')}</div>`;
  const dirtyType=t=>STK_SIZES.some(z=>(s.drafts[stkKey(t.k,z.k)]||{}).dirty),dirtySize=z=>!!(s.drafts[stkKey(s.type,z.k)]||{}).dirty;
  const usable=tpl.blocks.filter(b=>(stkBlockDef(b.k)||{types:[]}).types.includes(s.type));
  const fields=Object.keys(data.vars||{}).filter(k=>data.vars[k]!=='');
  const fieldSelect=(attr,call)=>`<select ${attr} aria-label="Insert field" onchange="${call}"><option value="">+ Field…</option>${fields.map(k=>`<option value="${esc(k)}">${esc(k)} — ${esc(String(data.vars[k]).slice(0,28))}</option>`).join('')}</select>`;
  const row=b=>{
-  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=stkAlignOf(b,b.at==='right'?'right':'full');
+  const def=stkBlockDef(b.k),sel=s.sel===b.id,open=s.open===b.id,A=free&&b.k==='route'&&!STK_ALIGNS.some(a=>a.k===b.align)?'center':stkAlignOf(b,b.at==='right'?'right':'full');
+  const numbers=(kind,key,label,value,unit,min,max)=>`<label class="stk-number-label">${label}<span><input type="number" data-stk-${kind}="${key}" value="${value}" ${min!=null?'min="'+min+'"':''} ${max!=null?'max="'+max+'"':''} step="${kind==='frame'?'0.1':'0.5'}" placeholder="Auto" aria-label="${label} ${unit}" onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','${kind}','${key}',this,false)" onchange="stkBNumber('${b.id}','${kind}','${key}',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','${kind}','${key}',this,true)">${unit}</span></label>`;
+  const frame=free&&b.frame?`<div class="stk-frame-fields">${[['x','X'],['y','Y'],['w','Width'],['h','Height']].map(([k,label])=>numbers('frame',k,label,stkMM(b.frame[k]),'mm',k==='w'||k==='h'?0.36:null,null)).join('')}</div>`:'';
+  const fonts=stkFontFields(b),fontPanel=fonts.length?`<div class="stk-font-fields">${fonts.map(([k,label])=>numbers('font',k,label,b.fonts&&b.fonts[k]||'','pt',6,144)).join('')}</div>`:'';
   const panel=open?`<div class="stk-details" data-stk-details-panel="${b.id}">
-    ${b.k==='divider'||b.k==='route'?'':`<span class="stk-seg stk-seg-sm">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${frame}
+    ${!free&&(b.k==='divider'||b.k==='route')?'':`<span class="stk-seg stk-seg-sm" aria-label="Horizontal alignment">${STK_ALIGNS.map(a=>`<button type="button" class="${A===a.k?'on':''}" data-stk-align="${a.k}" onclick="stkBAlign('${b.id}','${a.k}')">${a.label}</button>`).join('')}</span>`}
+    ${free?`<span class="stk-seg stk-seg-sm" aria-label="Vertical alignment">${[['top','Top'],['middle','Middle'],['bottom','Bottom']].map(([k,label])=>`<button type="button" class="${(b.valign||(b.k==='route'?'middle':'top'))===k?'on':''}" data-stk-valign="${k}" onclick="stkBValign('${b.id}','${k}')">${label}</button>`).join('')}</span>`:''}
     ${def.graphic?'':`<label><input type="checkbox" data-stk-bold ${b.bold?'checked':''} onchange="stkBBold('${b.id}')"> Bold</label>`}
     ${def.details.map(x=>`<label><input type="checkbox" data-stk-detail="${x[0]}" ${b.details[x[0]]?'checked':''} onchange="stkBDetail('${b.id}','${x[0]}',this.checked)"> ${esc(x[1])}</label>`).join('')}
-    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}</div>`:'';
+    ${b.k==='text'?fieldSelect('data-stk-field',"stkBField('"+b.id+"',this.value)"):''}${fontPanel}</div>`:'';
   return `<div class="stk-row${b.on?'':' off'}${sel?' sel':''}" data-stk-block="${b.id}" data-stk-kind="${b.k}" draggable="true" ondragstart="stkDragStart(event,'${b.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${b.id}',false)" onclick="if(event.target===this||event.target.classList.contains('stk-name'))stkBSelect('${b.id}')">
    <span class="stk-grip" title="Drag">⋮⋮</span><input type="checkbox" data-stk-on ${b.on?'checked':''} aria-label="Print ${esc(def.label)}" onchange="stkBToggle('${b.id}',this.checked)">
    <span class="stk-name">${b.k==='text'?`<input type="text" class="stk-text" data-stk-text value="${esc(b.text)}" maxlength="${STK_TEXT_MAX}" aria-label="Text" placeholder="Text or {field}" onchange="stkBText('${b.id}',this.value)">`:esc(def.label)}</span>
-   <select data-stk-place aria-label="Place" onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
-   <span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" onchange="stkBSize('${b.id}',this.value)"><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>
+   <select data-stk-place aria-label="Place" ${free?'disabled title="Position uses frame coordinates"':''} onchange="stkBPlace('${b.id}',this.value)">${STK_PLACES.map(p=>`<option value="${p.k}" ${b.at===p.k?'selected':''}>${p.label}</option>`).join('')}</select>
+   ${free&&['shape','barcode','route'].includes(b.k)?'<span class="stk-frame-size">Frame · mm</span>':`<span class="stk-step"><button type="button" aria-label="Smaller" data-stk-minus onclick="stkBSize('${b.id}',0,-1)">−</button><input type="number" data-stk-size value="${b.size}" min="${def.size[1]}" max="${def.size[2]}" step="${stkSizeStep(def)}" aria-label="Size pt" ${free?`onfocus="stkNumberBegin(this)" oninput="stkBNumber('${b.id}','size','',this,false)" onchange="stkBNumber('${b.id}','size','',this,true)" onblur="if(this._stkBefore)stkBNumber('${b.id}','size','',this,true)"`:`onchange="stkBSize('${b.id}',this.value)"`}><button type="button" aria-label="Larger" data-stk-plus onclick="stkBSize('${b.id}',0,1)">+</button></span>`}
    <button type="button" class="stk-icon${open?' on':''}" data-stk-gear title="Settings" aria-expanded="${open}" onclick="stkBSelect('${b.id}')">⚙</button>
    ${def.multi?`<button type="button" class="stk-icon" data-stk-remove title="Remove" onclick="stkBRemove('${b.id}')">×</button>`:'<span class="stk-icon-sp"></span>'}
   </div>${panel}`;
  };
  const zone=(name,list,z)=>`<div class="stk-zone" data-stk-zone="${z}" ondragover="event.preventDefault()" ondrop="stkDropZone(event,'${z}')"><div class="stk-zone-head">${name}</div>${list.map(row).join('')||'<div class="stk-zone-empty">Drop here</div>'}</div>`;
  const W=pg.w*STK_PX,H=pg.h*STK_PX;
- /* Бумага ужимается в колонку превью (лёжа 6″ шире её) — зоны блоков в %. */
- const pc=(v,of)=>(v/of*100).toFixed(2)+'%';
- const hits=pg.boxes.map(x=>{const b=tpl.blocks.find(y=>y.id===x.id);return `<div class="stk-hit${s.sel===x.id?' sel':''}" data-stk-hit="${x.id}" draggable="true" title="${esc(b?stkBlockLabel(b):'')}" style="left:${pc(x.x,pg.w)};top:${pc(x.y,pg.h)};width:${pc(x.w,pg.w)};height:${pc(Math.max(6/STK_PX,x.h),pg.h)}" ondragstart="stkDragStart(event,'${x.id}')" ondragover="stkDragOver(event)" ondragleave="stkDragLeave(event)" ondrop="stkDrop(event,'${x.id}',true)" onclick="stkBSelect('${x.id}')"></div>`;}).join('');
- const fit=pg.overflow.length?`<span class="pill warn" data-stk-fit="no">Doesn't fit: ${esc(pg.overflow.join(', '))}</span>`:'<span class="pill ok" data-stk-fit="yes">Fits</span>';
+ const hits=stkHitsHTML(pg,tpl,s),fit=stkFitHTML(pg);
  const samples=list.length?`<select data-stk-sample aria-label="Sample" onchange="stkBuilderState().sample=this.value;render()">${list.map(x=>`<option value="${esc(x.key)}" ${x.key===key?'selected':''}>${esc(x.label)}</option>`).join('')}</select>`:'<span class="mut">Demo glass</span>';
  return `<div class="stk-builder" data-stk-builder>
   <div class="stk-head">
    ${s.print?'':`<div class="stk-ctl"><span class="ncr-label">STICKER</span>${seg(STK_TYPES,s.type,'stkBType',dirtyType)}</div>
    <div class="stk-ctl"><span class="ncr-label">SIZE</span>${seg(STK_SIZES,s.size,'stkBSizeKey',dirtySize)}</div>`}
    <div class="stk-ctl"><span class="ncr-label">ORIENTATION</span>${seg([{k:'portrait',label:'Portrait'},{k:'landscape',label:'Landscape'}],tpl.orient,'stkBOrient')}</div>
+   <div class="stk-ctl"><span class="ncr-label">LAYOUT</span><div class="stk-seg">${[['auto','Automatic'],['free','Free layout']].map(([k,label])=>`<button type="button" class="${(tpl.layout||'auto')===k?'on':''}" data-stk-layout="${k}" onclick="stkBLayout('${k}')">${label}</button>`).join('')}</div></div>
    <div class="stk-ctl stk-sample"><span class="ncr-label">SAMPLE</span>${samples}</div>
   </div>
+  <div class="stk-edit-tools"><button type="button" data-stk-undo ${dr.undo.length?'':'disabled'} onclick="stkBUndo()">↶ Undo</button><button type="button" data-stk-redo ${dr.redo.length?'':'disabled'} onclick="stkBRedo()">↷ Redo</button>${free?'<span class="mut">Drag blocks or resize their frames. Text sizes use pt.</span>':''}</div>
   <div class="stk-grid">
    <div class="stk-side">${zone('TOP',usable.filter(b=>b.at!=='bottom'),'top')}${zone('BOTTOM',usable.filter(b=>b.at==='bottom'),'bottom')}
     <div class="stk-add"><button type="button" data-stk-add="text" onclick="stkBAdd('text')">+ Custom text</button>${fieldSelect('data-stk-add-field','stkBAddField(this.value)')}<button type="button" data-stk-add="divider" onclick="stkBAdd('divider')">+ Divider</button></div></div>
-   <div class="stk-preview"><div class="stk-paper" data-stk-paper style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${W.toFixed(0)}/${H.toFixed(0)}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit">${fit}</div></div>
+   <div class="stk-preview"><div class="stk-paper${free?' stk-free-paper':''}" data-stk-paper data-stk-width="${pg.w}" data-stk-height="${pg.h}" onpointermove="stkPointerMove(event)" onpointerup="stkPointerEnd(event,false)" onpointercancel="stkPointerEnd(event,true)" style="width:${W.toFixed(0)}px;max-width:100%;aspect-ratio:${pg.w}/${pg.h}">${stkPageSVG(pg,'100%','100%')}${hits}</div><div class="stk-fit" data-stk-fit-wrap>${fit}</div></div>
   </div>
   ${s.print?`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to template</button><span class="sp"></span><button type="button" onclick="stkPrintEditCancel()">Cancel</button><button type="button" data-stk-save-template onclick="stkPrintEditSave()">Save as template</button><button type="button" class="pri" data-stk-done onclick="stkPrintEditDone()">Done</button></div>`
   :`<div class="stk-foot"><button type="button" data-stk-reset onclick="stkBReset()">Reset to base</button><span class="sp"></span>${dr.dirty?'<span class="stk-dirty" data-stk-dirty>Unsaved changes</span>':s.notice?`<span class="stk-saved">${esc(s.notice)}</span>`:''}<button type="button" class="pri" data-stk-save ${dr.dirty?'':'disabled'} onclick="stkBSave()">Save template</button></div>`}

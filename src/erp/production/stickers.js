@@ -101,8 +101,8 @@ function stkBase(type,size,orient){
 /* Шаблон из хранилища приводится к каталогу: неизвестный блок отбрасывается,
    размер держится в пределах блока, новые блоки каталога дописываются
    выключенными. */
-function stkCleanTemplate(type,size,raw){
- const base=stkBase(type,size),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
+function stkCleanVariant(type,size,raw,orient){
+ const base=stkBase(type,size,orient),src=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:null;
  if(!src||!Array.isArray(src.blocks))return base;
  const ids=new Set(),seen=new Set(),blocks=[];
  src.blocks.forEach(b=>{
@@ -111,10 +111,49 @@ function stkCleanTemplate(type,size,raw){
   let id=typeof b.id==='string'&&/^[\w-]{1,40}$/.test(b.id)&&!ids.has(b.id)?b.id:stkBlock(def.k,'full').id;ids.add(id);
   const n=Number(b.size),details=stkDetailsBase(def);
   (def.details||[]).forEach(x=>{if(b.details&&typeof b.details[x[0]]==='boolean')details[x[0]]=b.details[x[0]];});
-  blocks.push({id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',align:STK_ALIGNS.some(a=>a.k===b.align)?b.align:'auto',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,STK_TEXT_MAX):''});
+  const block={id,k:def.k,on:b.on!==false,at:STK_PLACES.some(p=>p.k===b.at)?b.at:'full',align:STK_ALIGNS.some(a=>a.k===b.align)?b.align:'auto',size:Number.isFinite(n)?Math.min(def.size[2],Math.max(def.size[1],Math.round(n*2)/2)):def.size[0],bold:typeof b.bold==='boolean'?b.bold:!!def.bold,details,text:typeof b.text==='string'?b.text.slice(0,STK_TEXT_MAX):''};
+  if(['top','middle','bottom'].includes(b.valign))block.valign=b.valign;
+  if(b.frame&&typeof b.frame==='object'){
+   const f=b.frame;if(['x','y','w','h'].every(k=>typeof f[k]==='number'&&Number.isFinite(f[k])&&Math.abs(f[k])<=10000)&&f.w>=1&&f.h>=1)block.frame={x:f.x,y:f.y,w:f.w,h:f.h};
+  }
+  if(b.fonts&&typeof b.fonts==='object'){
+   const fonts={};['dims','label','number','cut','recut','heading','route'].forEach(k=>{const v=b.fonts[k];if(typeof v==='number'&&Number.isFinite(v)&&v>=6&&v<=144)fonts[k]=v;});
+   if(Object.keys(fonts).length)block.fonts=fonts;
+  }
+  blocks.push(block);
  });
  base.blocks.forEach(b=>{if(!blocks.some(x=>x.k===b.k))blocks.push(Object.assign(b,{on:false}));});
- return {orient:src.orient==='landscape'?'landscape':'portrait',blocks};
+ return {orient:orient|| (src.orient==='landscape'?'landscape':'portrait'),layout:src.layout==='free'?'free':'auto',blocks};
+}
+/* Orientation variants are complete, independent layouts. The top-level
+   fields remain the active layout so printing and old callers share one API. */
+function stkCleanTemplate(type,size,raw){
+ const activeOrient=raw&&['portrait','landscape'].includes(raw.orient)?raw.orient:stkBase(type,size).orient;
+ const out=stkCleanVariant(type,size,raw,activeOrient),variants={};
+ ['portrait','landscape'].forEach(key=>{
+  const v=raw&&raw.variants&&raw.variants[key];
+  if(key!==activeOrient&&v&&Array.isArray(v.blocks)){
+   const clean=stkCleanVariant(type,size,v,key);variants[key]={layout:clean.layout||'auto',blocks:clean.blocks};
+  }
+ });
+ if(Object.keys(variants).length)out.variants=variants;
+ return out;
+}
+function stkSwitchOrientation(tpl,type,size,orient){
+ if(tpl.orient===orient)return tpl;
+ const copy=v=>JSON.parse(JSON.stringify(v));
+ const variants=tpl.variants||{};
+ variants[tpl.orient]={layout:tpl.layout||'auto',blocks:copy(tpl.blocks)};
+ let next=variants[orient];
+ if(!next){
+  const base=stkBase(type,size,orient).blocks,used=new Set();
+  base.forEach(b=>{const m=tpl.blocks.find(x=>x.k===b.k&&!used.has(x));if(!m)return;used.add(m);
+   Object.assign(b,{id:m.id,on:m.on,bold:m.bold,details:Object.assign({},b.details,m.details)},m.fonts?{fonts:copy(m.fonts)}:{},b.k==='text'?{text:m.text}:{});});
+  const rest=tpl.blocks.filter(x=>!used.has(x)&&x.k!=='divider').map(x=>{const b=copy(x);delete b.frame;b.at=b.at==='bottom'?'bottom':'full';return b;}),low=x=>x.at==='bottom';
+  next={layout:tpl.layout||'auto',blocks:base.filter(x=>!low(x)).concat(rest.filter(x=>!low(x)),base.filter(low),rest.filter(low))};
+ }
+ tpl.orient=orient;tpl.layout=next.layout||'auto';tpl.blocks=copy(next.blocks);delete variants[orient];tpl.variants=variants;
+ return tpl;
 }
 function stkTemplate(type,size){return stkCleanTemplate(type,size,DB.stickerTemplate&&DB.stickerTemplate[stkKey(type,size)]);}
 function normalizeStickerTemplates(){

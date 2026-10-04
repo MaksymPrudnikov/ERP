@@ -1,8 +1,8 @@
 /* =====================================================================
    erp/production/sticker-layout  ·  stickers-1.0
    Раскладка стикера по шаблону и SVG для предпросмотра и печати.
-   IN : шаблон {orient, blocks}, размер 4x6 | 3x4, модель стикера
-   OUT: {w, h, items, boxes, overflow} в pt; stkPageSVG
+   IN : шаблон {orient, layout, blocks}, размер 4x6 | 3x4, модель стикера
+   OUT: {w, h, items, boxes, issues, overflow} в pt; stkPageSVG
 
    Правила раскладки:
    - Full — блок на всю ширину; подряд идущие Left / Right — две колонки
@@ -64,22 +64,25 @@ function stkWantWidth(b,d,max){if(b.k!=='barcode'||!d.id)return 0;const n=barcod
    колонка вправо, штрихкод и маршрут по центру, остальное влево.
    Владелец, 17 сентября 2026: «баркод хоть и Full, но тянет правее, и в
    конструкторе нельзя отцентровать». */
-function stkAlignOf(b,col){if(b.align&&b.align!=='auto')return b.align;if(col==='right')return 'right';return b.k==='barcode'?'center':'left';}
+function stkAlignOf(b,col){if(b.align&&b.align!=='auto')return b.align;if(col==='right')return 'right';return b.k==='barcode'||b.k==='route'?'center':'left';}
 /* Один блок в прямоугольнике x, y, w. Возвращает высоту в pt (0 — печатать нечего). */
-function stkRenderBlock(b,d,x,y,w,col,out){
+function stkRenderBlock(b,d,x,y,w,col,out,opt){
+ opt=opt||{};const fixed=!!opt.free,fonts=b.fonts||{},explicit=k=>Number.isFinite(+fonts[k])&&+fonts[k]>0,font=(k,f)=>explicit(k)?+fonts[k]:f;
  const det=b.details||{},sz=Math.max(6,+b.size||10),bold=!!b.bold,R=x+w,A=stkAlignOf(b,col),K='#000000',Wt='#ffffff';
  const ax=tw=>A==='right'?R-tw:A==='center'?x+(w-tw)/2:x;
  const put=(s,xx,yy,size,bld,color)=>out.push({t:'text',s,x:xx,y:yy,size,bold:bld,color:color||K,align:''});
- const line=(s,yy,size,bld)=>{const t=stkFit(s,size,bld,w);put(t,ax(docTextWidth(t,size,bld)),yy,size,bld);};
- const para=(s,size,bld,n)=>{const ls=stkWrap(String(s||''),size,bld,w).filter(Boolean).slice(0,n||2);ls.forEach((t,i)=>line(t,y+size*.9+i*size*1.18,size,bld));return ls.length?ls.length*size*1.18+size*.15:0;};
+ const line=(s,yy,size,bld)=>{const ls=fixed?stkWrap(s,size,bld,w):[stkFit(s,size,bld,w)];ls.forEach((t,i)=>put(t,ax(docTextWidth(t,size,bld)),yy+i*size*1.18,size,bld));return ls.length;};
+ const para=(s,size,bld,n)=>{const ls=stkWrap(String(s||''),size,bld,w).filter(Boolean);if(!fixed)ls.splice(n||2);ls.forEach((t,i)=>line(t,y+size*.9+i*size*1.18,size,bld));return ls.length?ls.length*size*1.18+size*.15:0;};
  const rect=(xx,yy,ww,hh,o)=>out.push(Object.assign({t:'rect',x:xx,y:yy,w:ww,h:hh,fill:K},o||{}));
  /* Номер заказа и размер не обрезаются многоточием — кегль уменьшается. */
- const shrink=(s,size,bld,max)=>{let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
+ const shrink=(s,size,bld,max)=>{if(fixed)return size;let f=size;while(f>6&&docTextWidth(s,f,bld)>max)f-=.5;return f;};
  switch(b.k){
   case 'company':{
    const c=DB.company||{},name=det.name?String(c.legalName||'').toUpperCase():'',logo=det.logo&&c.logo?c.logo:'';if(!name&&!logo)return 0;
    const info=logo&&typeof docJpegInfo==='function'?docJpegInfo(logo):null,lh=sz*1.9,lw=logo?Math.min(w*.5,info&&info.h?lh*info.w/info.h:lh*2):0;
-   const nm=name?stkFit(name,sz,bold,w-(logo?lw+6:0)):'',tw=lw+(logo&&nm?6:0)+(nm?docTextWidth(nm,sz,bold):0),sx=ax(tw);
+   if(fixed){const ls=name?stkWrap(name,sz,bold,Math.max(1,w-(logo?lw+6:0))).filter(Boolean):[],tw=lw+(logo&&ls.length?6:0)+Math.max(0,...ls.map(t=>docTextWidth(t,sz,bold))),sx=ax(tw),nh=ls.length?sz*1.15+(ls.length-1)*sz*1.18:0;
+    if(logo)out.push({t:'image',href:logo,x:sx,y,w:lw,h:lh});ls.forEach((t,i)=>put(t,sx+(logo?lw+6:0),y+(logo?Math.max(sz*.9,lh/2+sz*.35):sz*.9)+i*sz*1.18,sz,bold));return logo?Math.max(lh,nh)+2:nh;}
+   const nm=name?(fixed?name:stkFit(name,sz,bold,w-(logo?lw+6:0))):'',tw=lw+(logo&&nm?6:0)+(nm?docTextWidth(nm,sz,bold):0),sx=ax(tw);
    if(logo)out.push({t:'image',href:logo,x:sx,y,w:lw,h:lh});
    if(nm)put(nm,sx+(logo?lw+6:0),y+(logo?lh/2+sz*.35:sz*.9),sz,bold);
    return logo?lh+2:sz*1.15;}
@@ -88,13 +91,13 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'stockFrom':{const fr=d.from;if(!fr)return 0;const t=[fr.batch?'From '+fr.batch:'',fr.sheet?'Sheet '+fr.sheet:'',det.date?fr.date:''].filter(Boolean).join(' · ');if(!t)return 0;line(t,y+sz*.9,sz,bold);return sz*1.2;}
   case 'sheet':{if(!d.sheet)return 0;line('Sheet '+d.sheet.sheet+(det.pos?' · #'+d.sheet.pos:''),y+sz*.9,sz,bold);return sz*1.2;}
   case 'barcode':{
-   if(!d.id)return 0;const m=stkBarModule(d.id,w);if(!m)return 0;
-   const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=Math.max(7,Math.min(16,sz*.26));
-   barcode128Items(d.id,bx,y,sz,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
-   if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+sz+ns+1,size:ns,bold:true,color:K,align:'center'});return sz+ns+4;}
-   return sz+2;}
+   if(!d.id)return 0;const m=stkBarModule(d.id,w)||(fixed?STK_BAR_MODULES[STK_BAR_MODULES.length-1]:0);if(!m)return 0;
+   const bw=barcode128Width(d.id)*m,bx=ax(bw),ns=font('number',Math.max(7,Math.min(16,sz*.26))),barH=fixed?Math.max(1,opt.h-(det.number?ns+4:2)):sz;
+   barcode128Items(d.id,bx,y,barH,m).forEach(r=>out.push(Object.assign(r,{fill:K})));
+   if(det.number){out.push({t:'text',s:d.id,x:bx+bw/2,y:y+barH+ns+1,size:ns,bold:true,color:K,align:'center'});return barH+ns+4;}
+   return barH+2;}
   case 'order':{
-   const t=d.order+(det.line?' / '+d.line:''),rs=Math.max(7,Math.round(sz*.4)),tag=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs:0,f=shrink(t,sz,bold,w-(tag?tag+8:0)),tw=docTextWidth(t,f,bold),sx=ax(tw+(tag?tag+8:0));
+   if(fixed&&!d.order)return 0;const t=d.order+(det.line?' / '+d.line:''),rs=font('recut',Math.max(7,Math.round(sz*.4))),tag=det.recut&&d.recut?docTextWidth(d.recut,rs,true)+rs:0,f=shrink(t,sz,bold,w-(tag?tag+8:0)),tw=docTextWidth(t,f,bold),sx=ax(tw+(tag?tag+8:0));
    put(t,sx,y+sz*.82,f,bold);
    if(tag){const rx=sx+tw+8;rect(rx,y+sz*.82-rs-5,tag,rs+8);out.push({t:'text',s:d.recut,x:rx+tag/2,y:y+sz*.82-2,size:rs,bold:true,color:Wt,align:'center'});}
    return sz*.95;}
@@ -113,16 +116,18 @@ function stkRenderBlock(b,d,x,y,w,col,out){
   case 'summary':{if(!d.summary)return 0;return para((det.label?'Unit  ':'')+d.summary,sz,bold,2);}
   case 'makeup':{
    /* Состав — таблица: подписи строк слева, текст с отступом. */
-   if(!d.rows)return 0;let yy=y;const hs=sz*1.2;
+   if(!d.rows)return 0;let yy=y;const hs=font('heading',sz*1.2);
    const head=[det.heading&&d.heading,det.thickness&&d.thicknessMm?d.thicknessMm.toFixed(1)+' mm':''].filter(Boolean).join(' · ');
-   if(head){const t=stkFit(head,hs,true,w);put(t,ax(docTextWidth(t,hs,true)),yy+hs*.9,hs,true);yy+=hs*1.25;}
-   if(det.code&&d.code){stkWrap(d.code,sz,false,w).filter(Boolean).slice(0,2).forEach(t=>{put(t,x,yy+sz*.9,sz,false);yy+=sz*1.2;});}
+   if(head){const ls=fixed||explicit('heading')?stkWrap(head,hs,true,w):[stkFit(head,hs,true,w)];ls.forEach(t=>{put(t,ax(docTextWidth(t,hs,true)),yy+hs*.9,hs,true);yy+=hs*1.25;});}
+   const tableStart=out.length;
+   if(det.code&&d.code){stkWrap(d.code,sz,false,w).filter(Boolean).slice(0,fixed?undefined:2).forEach(t=>{put(t,x,yy+sz*.9,sz,false);yy+=sz*1.2;});}
    const lab=docTextWidth('Space',sz,true)+sz*.8;
    d.rows.concat(det.muntin&&d.muntin?[{kind:'muntin',label:'Grid',text:d.muntin}]:[]).forEach(r=>{
     const t=r.kind==='muntin'?r.text:stkMakeupRowText(r,det);if(!t)return;
     put(r.label,x,yy+sz*.9,sz,true);
-    stkWrap(t,sz,bold,w-lab).filter(Boolean).slice(0,2).forEach(s=>{put(s,x+lab,yy+sz*.9,sz,bold);yy+=sz*1.2;});
+    stkWrap(t,sz,bold,w-lab).filter(Boolean).slice(0,fixed?undefined:2).forEach(s=>{put(s,x+lab,yy+sz*.9,sz,bold);yy+=sz*1.2;});
    });
+   if(fixed&&A!=='left'){const body=out.slice(tableStart),bounds=stkContentBounds(body);if(bounds){const dx=(A==='right'?R-bounds.w:x+(w-bounds.w)/2)-bounds.x;body.forEach(a=>{if(a.x!=null)a.x+=dx;});}}
    return yy-y;}
   case 'size':{
    /* Крупно — готовый размер; мелко под ним — размер до обработки кромки,
@@ -130,11 +135,12 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    const dim=d.finished;if(!dim)return 0;const t=frac16(dim.w)+' × '+frac16(dim.h)+'″',f=shrink(t,sz,bold,w);
    put(t,ax(docTextWidth(t,f,bold)),y+sz*.82,f,bold);
    if(!det.cut||!d.cut)return sz*.98;
-   const cs=Math.max(7,Math.round(sz*.34)),ct='CUT '+frac16(d.cut.w)+' × '+frac16(d.cut.h)+'″',cf=shrink(ct,cs,true,w);
+   const cs=font('cut',Math.max(7,Math.round(sz*.34))),ct='CUT '+frac16(d.cut.w)+' × '+frac16(d.cut.h)+'″',cf=explicit('cut')?cs:shrink(ct,cs,true,w);
    put(ct,ax(docTextWidth(ct,cf,true)),y+sz*.82+cs*1.15,cf,true);return sz*.98+cs*1.25;}
   case 'area':{if(d.area==null)return 0;line(d.area.toFixed(2)+' ft²',y+sz*.9,sz,bold);return sz*1.2;}
   case 'weight':{if(!d.weight)return 0;line(stkFmtKg(d.weight),y+sz*.9,sz,bold);return sz*1.2;}
   case 'shape':{
+   if(fixed||explicit('dims')||explicit('label'))return stkRenderShape(b,d,x,y,fixed?w:Math.min(w,sz),fixed?opt.h:sz+(det.label?10:2),col,out,opt.issue);
    /* Контур с длинами сторон снаружи (владелец, 4 октября 2026: букв A–D
       на чертеже нет, «заменить размерами»). Подпись отодвигается от своей
       стороны ровно настолько, чтобы её не касаться; контур — самый крупный,
@@ -175,12 +181,13 @@ function stkRenderBlock(b,d,x,y,w,col,out){
    if(det.label){out.push({t:'text',s:'SHAPE',x:bx+bw/2,y:y+bh+8,size:7,bold:true,color:K,align:'center'});return bh+10;}
    return bh+2;}
   case 'route':{
-   if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');let fs=Math.max(6,sz*.56);
-   while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;rect(x,y,w,sz);out.push({t:'text',s:t,x:x+w/2,y:y+sz/2+fs*.36,size:fs,bold:true,color:Wt,align:'center'});return sz+1;}
+   if(!d.route)return 0;const codes=det.shipping?d.route.codes:d.route.codes.filter(c=>!(d.route.shipping||[]).includes(c)),t=codes.join(' > ');if(fixed&&!t)return 0;let fs=font('route',Math.max(6,sz*.56));
+   if(!fixed&&!explicit('route'))while(fs>6&&docTextWidth(t,fs,true)>w-10)fs-=.5;const rh=fixed?opt.h:sz,routeA=b.align&&b.align!=='auto'?A:'center',tx=fixed&&routeA==='left'?x+5:fixed&&routeA==='right'?R-5:x+w/2,ta=fixed&&routeA==='left'?'':fixed&&routeA==='right'?'right':'center',ty=fixed&&b.valign==='top'?y+3+fs*.8:fixed&&b.valign==='bottom'?y+rh-3-fs*.15:y+rh/2+fs*.36;rect(x,y,w,rh);out.push({t:'text',s:t,x:tx,y:ty,size:fs,bold:true,color:Wt,align:ta});return rh+(fixed?0:1);}
   case 'services':{
    const list=d.route?d.route.services:[];if(!list.length)return 0;
    const box=det.boxes?sz*.85:0,gap=box?sz*.45:0,rows=[[]];let used=0;
-   list.forEach(s=>{const t=stkFit((det.station?s.station+' · ':'')+s.text,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
+   if(fixed&&list.some(s=>docTextWidth((det.station?s.station+' · ':'')+s.text,sz,bold)>w-box-gap)){let yy=y;list.forEach(s=>{const ls=stkWrap((det.station?s.station+' · ':'')+s.text,sz,bold,Math.max(1,w-box-gap)),tw=box+gap+Math.max(0,...ls.map(t=>docTextWidth(t,sz,bold))),sx=ax(tw);if(box)rect(sx,yy+sz*.9-box*.95,box,box,{fill:'none',stroke:K,sw:1});ls.forEach((t,i)=>put(t,sx+box+gap,yy+sz*.9+i*sz*1.35,sz,bold));yy+=ls.length*sz*1.35;});return yy-y-sz*.05;}
+   list.forEach(s=>{const raw=(det.station?s.station+' · ':'')+s.text,t=fixed?raw:stkFit(raw,sz,bold,w-box-gap),ww=box+gap+docTextWidth(t,sz,bold);
     if(rows[rows.length-1].length&&used+sz+ww>w){rows.push([]);used=0;}const row=rows[rows.length-1];used+=(row.length?sz:0)+ww;row.push({t,ww});});
    rows.forEach((row,i)=>{const cy=y+sz*.9+i*sz*1.35;let cx=ax(row.reduce((a,r,j)=>a+r.ww+(j?sz:0),0));
     row.forEach(r=>{if(box)rect(cx,cy-box*.95,box,box,{fill:'none',stroke:K,sw:1});put(r.t,cx+box+gap,cy,sz,bold);cx+=r.ww+sz;});});
@@ -190,15 +197,120 @@ function stkRenderBlock(b,d,x,y,w,col,out){
  }
  return 0;
 }
+/* A fixed frame fits the outline and all annotations together. Text keeps its
+   chosen point size; an impossible frame is reported rather than dropping labels. */
+function stkRenderShape(b,d,x,y,w,h,col,out,issue){
+ if(!d.shape||!Array.isArray(d.shape.points)||!d.shape.points.length)return 0;
+ const pts=d.shape.points,det=b.details||{},sz=Math.max(6,+b.size||90),fonts=b.fonts||{};
+ const font=(k,f)=>Number.isFinite(+fonts[k])&&+fonts[k]>0?+fonts[k]:f;
+ const ls=font('dims',Math.max(6,Math.min(9,Math.round(sz*.11*2)/2))),labelSize=font('label',7),lh=ls*.94,gap=1.5;
+ const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
+ const spanX=maxX-minX||1,spanY=maxY-minY||1,turn=pts.reduce((a,p,i)=>{const q=pts[(i+1)%pts.length];return a+p[0]*q[1]-q[0]*p[1];},0)>=0?1:-1;
+ const cand=(det.dims?d.shape.sides||[]:[]).map(sd=>{const dx=sd.b[0]-sd.a[0],dy=sd.b[1]-sd.a[1],n=Math.hypot(dx,dy)||1,t=frac16(sd.len);return {t,tw:docTextWidth(t,ls,true),mx:(sd.a[0]+sd.b[0])/2,my:(sd.a[1]+sd.b[1])/2,sx:turn*dy/n,sy:turn*dx/n};});
+ const labelsAt=k=>cand.map(q=>{
+  const ax=(q.mx-minX)*k,ay=(maxY-q.my)*k;
+  let x0=q.sx>.35?ax:q.sx<-.35?ax-q.tw:ax-q.tw/2,y0=q.sy<-.35?ay-lh:q.sy>.35?ay:ay-lh/2;
+  const near=Math.min(...[[x0,y0],[x0+q.tw,y0],[x0,y0+lh],[x0+q.tw,y0+lh]].map(c=>(c[0]-ax)*q.sx+(c[1]-ay)*q.sy)),shift=gap-near;
+  x0+=shift*q.sx;y0+=shift*q.sy;return {x0,y0,x1:x0+q.tw,y1:y0+lh,q};
+ });
+ const boundsAt=k=>{
+  const labels=labelsAt(k),bb=labels.reduce((r,a)=>({x0:Math.min(r.x0,a.x0),y0:Math.min(r.y0,a.y0),x1:Math.max(r.x1,a.x1),y1:Math.max(r.y1,a.y1)}),{x0:0,y0:0,x1:spanX*k,y1:spanY*k});
+  let title=null;if(det.label){const tw=docTextWidth('SHAPE',labelSize,true),mid=(bb.x0+bb.x1)/2;title={x0:mid-tw/2,y0:bb.y1+gap,x1:mid+tw/2,y1:bb.y1+gap+labelSize*1.15};bb.x0=Math.min(bb.x0,title.x0);bb.x1=Math.max(bb.x1,title.x1);bb.y1=title.y1;}
+  return {labels,bb,title};
+ };
+ const maxK=Math.min(w/spanX,h/spanY),fits=k=>{const z=boundsAt(k).bb;return z.x1-z.x0<=w+.001&&z.y1-z.y0<=h+.001;};
+ let lo=0,hi=Math.max(0,maxK);if(fits(hi))lo=hi;else for(let i=0;i<36;i++){const mid=(lo+hi)/2;if(fits(mid))lo=mid;else hi=mid;}
+ const k=Math.max(.0001,lo),z=boundsAt(k),bw=z.bb.x1-z.bb.x0,bh=z.bb.y1-z.bb.y0,A=stkAlignOf(b,col);
+ const bx=A==='right'?x+w-bw:A==='center'?x+(w-bw)/2:x,by=b.valign==='bottom'?y+h-bh:b.valign==='middle'?y+(h-bh)/2:y,ox=bx-z.bb.x0,oy=by-z.bb.y0;
+ const px=v=>ox+(v-minX)*k,py=v=>oy+(maxY-v)*k,path=list=>'M'+list.map(p=>px(p[0]).toFixed(2)+' '+py(p[1]).toFixed(2)).join('L')+'Z';
+ const emitPath=list=>{if(!list.length)return;const xs=list.map(p=>px(p[0])),ys=list.map(p=>py(p[1]));out.push({t:'path',d:path(list),bounds:{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)}});};
+ emitPath(pts);(d.shape.polys||[]).forEach(emitPath);(d.shape.holes||[]).forEach(a=>out.push({t:'circle',cx:px(a.x),cy:py(a.y),r:Math.max(1.2,a.d*k/2)}));
+ z.labels.forEach(a=>out.push({t:'text',s:a.q.t,x:ox+a.x0,y:oy+a.y0+ls*.8,size:ls,bold:true,color:'#000000',align:''}));
+ if(z.title)out.push({t:'text',s:'SHAPE',x:ox+(z.title.x0+z.title.x1)/2,y:oy+z.title.y0+labelSize*.9,size:labelSize,bold:true,color:'#000000',align:'center'});
+ if(issue){
+  if(!fits(k))issue('Annotations do not fit the frame.');
+  const overlaps=(a,r)=>a.x0<r.x1+.5&&r.x0<a.x1+.5&&a.y0<r.y1+.5&&r.y0<a.y1+.5;
+  const segmentHits=(a,p,q)=>{
+   const ax=(p[0]-minX)*k,ay=(maxY-p[1])*k,bx=(q[0]-minX)*k,by=(maxY-q[1])*k,dx=bx-ax,dy=by-ay;
+   let t0=0,t1=1;for(const [v,n] of [[-dx,ax-a.x0],[dx,a.x1-ax],[-dy,ay-a.y0],[dy,a.y1-ay]]){if(Math.abs(v)<1e-9){if(n<0)return false;continue;}const t=n/v;if(v<0)t0=Math.max(t0,t);else t1=Math.min(t1,t);if(t0>t1)return false;}return true;
+  };
+  if(z.labels.some((a,i)=>z.labels.slice(i+1).some(r=>overlaps(a,r))||pts.some((p,j)=>segmentHits(a,p,pts[(j+1)%pts.length]))))issue('Side labels overlap each other or the outline.');
+ }
+ return bh;
+}
+/* Item bounds drive the same overflow diagnostics for preview and print. */
+function stkItemBounds(a){
+ if(a.bounds)return a.bounds;
+ if(a.t==='text'){const w=docTextWidth(a.s,a.size,a.bold),x=a.x-(a.align==='center'?w/2:a.align==='right'?w:0);return {x,y:a.y-a.size*.8,w,h:a.size*.95};}
+ if(a.t==='rect'||a.t==='image')return {x:a.x,y:a.y,w:a.w,h:a.h};
+ if(a.t==='circle')return {x:a.cx-a.r,y:a.cy-a.r,w:a.r*2,h:a.r*2};
+ if(a.t==='path'){const vals=(a.d.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)||[]).map(Number),xs=[],ys=[];for(let i=0;i+1<vals.length;i+=2){xs.push(vals[i]);ys.push(vals[i+1]);}if(xs.length)return {x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)};}
+ return null;
+}
+function stkContentBounds(items){
+ const boxes=items.map(stkItemBounds).filter(Boolean);if(!boxes.length)return null;
+ const x=Math.min(...boxes.map(a=>a.x)),y=Math.min(...boxes.map(a=>a.y));return {x,y,w:Math.max(...boxes.map(a=>a.x+a.w))-x,h:Math.max(...boxes.map(a=>a.y+a.h))-y};
+}
+function stkValidFrame(f){return f&&['x','y','w','h'].every(k=>Number.isFinite(+f[k]))&&+f.w>0&&+f.h>0;}
+/* Freeze effective automatic typography once, when a block first gets a frame.
+   This includes fonts that the automatic renderer reduced to make a line fit. */
+function stkSeedBlockFonts(b,d,frame,col){
+ const out=[];stkRenderBlock(b,d,frame.x,frame.y,frame.w,col,out);const text=out.filter(a=>a.t==='text'),sz=Math.max(6,+b.size||10),fonts=Object.assign({},b.fonts||{}),set=(k,actual,fallback)=>{if(!(Number.isFinite(+fonts[k])&&+fonts[k]>0))fonts[k]=actual?actual.size:fallback;};
+ if(['order','size','stockNo'].includes(b.k)&&text.length)b.size=text[0].size;
+ if(b.k==='barcode')set('number',text.find(a=>a.s===d.id),Math.max(7,Math.min(16,sz*.26)));
+ if(b.k==='order')set('recut',text.find(a=>d.recut&&a.s===d.recut),Math.max(7,Math.round(sz*.4)));
+ if(b.k==='size')set('cut',text.find(a=>/^CUT /.test(a.s)),Math.max(7,Math.round(sz*.34)));
+ if(b.k==='makeup')set('heading',d.heading?text.find(a=>a.bold&&a.size!==sz):null,sz*1.2);
+ if(b.k==='shape'){set('dims',text.find(a=>a.s!=='SHAPE'),Math.max(6,Math.min(9,Math.round(sz*.11*2)/2)));set('label',text.find(a=>a.s==='SHAPE'),7);}
+ if(b.k==='route'){set('route',text[0],Math.max(6,sz*.56));if(!b.valign)b.valign='middle';}
+ if(Object.keys(fonts).length)b.fonts=fonts;
+}
+/* Seed printed blocks from their exact auto-layout boxes. Missing/off blocks get
+   a usable frame without moving already printed or previously edited blocks. */
+function stkSeedFrames(tpl,size,d){
+ const auto=Object.assign({},tpl,{layout:'auto'}),pg=stkLayout(auto,size,d),M=stkMargin(size),inner=pg.w-2*M,byId=new Map(pg.boxes.map(a=>[a.id,a]));
+ const demo=typeof stkDemoData==='function'?stkDemoData(d.kind):d,fallback=Object.assign({},demo,d);
+ (tpl.blocks||[]).forEach((b,i)=>{
+  if(stkValidFrame(b.frame))return;const actual=byId.get(b.id);
+  if(actual){b.frame={x:actual.x,y:actual.y,w:actual.w,h:Math.max(1,actual.h)};stkSeedBlockFonts(b,d,b.frame,b.at==='right'?'right':b.at==='left'?'left':'full');return;}
+  const col=b.at==='right'?'right':b.at==='left'?'left':'full',w=col==='full'?inner:(inner-10)/2,out=[],h=stkRenderBlock(b,fallback,0,0,w,col,out)||(+b.size||10)*1.25;
+  const before=(tpl.blocks||[]).slice(0,i).reverse().find(a=>byId.has(a.id)),after=(tpl.blocks||[]).slice(i+1).find(a=>byId.has(a.id));
+  const prev=before&&byId.get(before.id),next=after&&byId.get(after.id),y=b.at==='bottom'?pg.h-M-h:next?next.y:prev?Math.min(pg.h-M-h,prev.y+prev.h+3):M;
+  const fh=Math.min(pg.h-2*M,Math.max(4,h));b.frame={x:col==='right'?pg.w-M-w:M,y:Math.max(M,Math.min(pg.h-M-fh,y)),w,h:fh};stkSeedBlockFonts(b,fallback,b.frame,col);
+ });return tpl;
+}
+function stkFixedLayout(tpl,size,d){
+ const dims=stkDims(size,tpl.orient),M=stkMargin(size),items=[],boxes=[],issues=[],issue=(b,message)=>{if(!issues.some(a=>a.id===b.id&&a.message===stkBlockLabel(b)+': '+message))issues.push({id:b.id,message:stkBlockLabel(b)+': '+message});};
+ const supported=b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind);
+ const source=(tpl.blocks||[]).some(b=>supported(b)&&!stkValidFrame(b.frame))?stkSeedFrames(Object.assign({},tpl,{blocks:(tpl.blocks||[]).map(b=>Object.assign({},b))}),size,d):tpl;
+ const outside=(r,limit)=>r.x<limit.x-.75||r.y<limit.y-.75||r.x+r.w>limit.x+limit.w+.75||r.y+r.h>limit.y+limit.h+.75;
+ source.blocks.filter(supported).forEach(b=>{
+  const f={x:+b.frame.x,y:+b.frame.y,w:+b.frame.w,h:+b.frame.h},out=[],col=b.at==='right'?'right':b.at==='left'?'left':'full';
+  const h=stkRenderBlock(b,d,f.x,f.y,f.w,col,out,{free:true,h:f.h,issue:m=>issue(b,m)});
+  let content=stkContentBounds(out);
+  if(b.k!=='shape'&&b.k!=='route'&&out.length){const used=Math.max(h,content?content.y+content.h-f.y:0),dy=b.valign==='bottom'?f.h-used:b.valign==='middle'?(f.h-used)/2:0;
+   if(dy)out.forEach(a=>{if(a.y!=null)a.y+=dy;if(a.cy!=null)a.cy+=dy;if(a.bounds)a.bounds.y+=dy;});content=stkContentBounds(out);
+  }
+  if(outside(f,{x:M,y:M,w:dims.w-2*M,h:dims.h-2*M}))issue(b,'Frame is outside the printable area.');
+  if(content&&outside(content,f))issue(b,'Content does not fit the frame.');
+  if(content&&outside(content,{x:M,y:M,w:dims.w-2*M,h:dims.h-2*M}))issue(b,'Content is outside the printable area.');
+  if(stkNeedWidth(b,d)>f.w+.001)issue(b,'Barcode width is below the minimum readable size.');
+  items.push(...out);boxes.push(Object.assign({id:b.id,empty:!out.length},f));
+ });
+ boxes.forEach((a,i)=>boxes.slice(i+1).forEach(b=>{if(!a.empty&&!b.empty&&a.x<b.x+b.w-.5&&b.x<a.x+a.w-.5&&a.y<b.y+b.h-.5&&b.y<a.y+a.h-.5){const first=source.blocks.find(z=>z.id===a.id),second=source.blocks.find(z=>z.id===b.id);issue(first,'Frame overlaps '+stkBlockLabel(second)+'.');issue(second,'Frame overlaps '+stkBlockLabel(first)+'.');}}));
+ boxes.forEach(a=>{a.bad=issues.some(v=>v.id===a.id);});return {w:dims.w,h:dims.h,items,boxes,free:0,issues,overflow:issues.map(a=>a.message)};
+}
 function stkBlockLabel(b){const def=stkBlockDef(b.k);return def?def.label+(b.k==='text'&&b.text?' "'+b.text+'"':''):b.k;}
 /* Два прохода: сначала строки и что не влезло, потом отрисовка. Свободное
    место делится между строками (не больше 10 pt на промежуток), чтобы стикер
    не пустовал посередине: «стикер как будто пустует» (владелец). */
 function stkLayout(tpl,size,d){
- const {w:W,h:H}=stkDims(size,tpl.orient),small=size==='3x4',M=stkMargin(size),gap=small?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[];
+ if(tpl.layout==='free')return stkFixedLayout(tpl,size,d);
+ const {w:W,h:H}=stkDims(size,tpl.orient),small=size==='3x4',M=stkMargin(size),gap=small?2.5:3.5,inner=W-2*M,items=[],boxes=[],overflow=[],issues=[];
+ const issue=(b,message)=>{if(!issues.some(a=>a.id===b.id&&a.message===stkBlockLabel(b)+': '+message))issues.push({id:b.id,message:stkBlockLabel(b)+': '+message});};
  const blocks=(tpl.blocks||[]).filter(b=>b.on&&(stkBlockDef(b.k)||{types:[]}).types.includes(d.kind));
  const measure=(b,w,col)=>stkRenderBlock(b,d,0,0,w,col,[]);
- const draw=(b,x,y,w,col)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,col,out);if(h){items.push(...out);boxes.push({id:b.id,x,y,w,h});}return h;};
+ const draw=(b,x,y,w,col)=>{const out=[],h=stkRenderBlock(b,d,x,y,w,col,out,{issue:m=>issue(b,m)});if(h){items.push(...out);const frame={id:b.id,x,y,w,h};if(b.fonts&&Object.keys(b.fonts).some(k=>+b.fonts[k]>0)){const c=stkContentBounds(out);if(c&&(c.x<x-.75||c.y<y-.75||c.x+c.w>x+w+.75||c.y+c.h>y+h+.75))issue(b,'Content does not fit the block.');}boxes.push(frame);}return h;};
  /* Низ: блоки Bottom в своём порядке, последний — у самого края. */
  const bottom=blocks.filter(b=>b.at==='bottom'),bh=bottom.map(b=>measure(b,inner,'full')),btotal=bh.reduce((s,h)=>s+(h?h+gap:0),0);
  let by=H-M-Math.max(0,btotal-gap);const floor=btotal?by-gap:H-M;
@@ -230,7 +342,7 @@ function stkLayout(tpl,size,d){
   else{let ly=yy,ry=yy;r.L.forEach((x,j)=>{if(r.lh[j]){draw(x,M,ly,r.lwid,'left');ly+=r.lh[j]+gap;}});r.Rr.forEach((x,j)=>{if(r.rh[j]){draw(x,W-M-r.rwid,ry,r.rwid,'right');ry+=r.rh[j]+gap;}});}
   yy+=r.h+gap+spread;
  });
- return {w:W,h:H,items,boxes,free:Math.round(free),overflow:overflow.map(stkBlockLabel)};
+ boxes.forEach(b=>{b.bad=issues.some(a=>a.id===b.id);});return {w:W,h:H,items,boxes,free:Math.round(free),issues,overflow:overflow.map(stkBlockLabel).concat(issues.map(a=>a.message))};
 }
 function stkXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function stkPageSVG(pg,widthCss,heightCss){

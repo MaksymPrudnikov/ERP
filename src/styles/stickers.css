@@ -59,6 +59,15 @@
 .stk-add{display:flex;gap:8px;flex-wrap:wrap}
 .stk-add select,.stk-details select{max-width:260px;font-size:12px}
 .stk-seg-sm button{padding:3px 9px;font-size:12px}
+.stk-edit-tools{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;font-size:12px}
+.stk-edit-tools button{padding:4px 10px;font-size:12px}
+.stk-edit-tools .mut{margin-left:6px}
+.stk-frame-size{width:108px;text-align:center;color:var(--text-2);font-size:12px}
+.stk-frame-fields,.stk-font-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;width:100%}
+.stk-font-fields{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:6px;border-top:1px solid var(--line)}
+.stk-details .stk-number-label{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;color:var(--text-2)}
+.stk-number-label>span{display:flex;align-items:center;gap:5px;width:100%;font-size:11px}
+.stk-number-label input{width:100%;min-width:0;padding:4px 6px;font-size:12px;color:var(--text)}
 .stk-preview{background:var(--surface-3);border-radius:12px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:12px;position:sticky;top:12px}
 .stk-paper{position:relative;box-shadow:0 1px 5px rgba(0,0,0,.25);line-height:0;background:var(--surface)}
 .stk-paper svg{display:block}
@@ -67,13 +76,30 @@
 .stk-hit.sel{outline:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .stk-hit.drop-before{box-shadow:0 -3px 0 var(--accent)}
 .stk-hit.drop-after{box-shadow:0 3px 0 var(--accent)}
+.stk-free-paper,.stk-hit.free{touch-action:none}
+.stk-hit.free{cursor:move;min-width:0;min-height:0}
+.stk-hit.free.sel{z-index:2}
+.stk-hit.bad{outline:1px dashed var(--danger)}
+.stk-hit.bad.sel{outline:2px solid var(--danger)}
+.stk-moving,.stk-moving *{user-select:none}
+.stk-resize{position:absolute;width:9px;height:9px;background:var(--surface);border:1px solid var(--accent);border-radius:1px;box-sizing:border-box;z-index:3;line-height:0}
+.stk-resize-nw{left:-5px;top:-5px;cursor:nwse-resize}
+.stk-resize-n{left:calc(50% - 5px);top:-5px;cursor:ns-resize}
+.stk-resize-ne{right:-5px;top:-5px;cursor:nesw-resize}
+.stk-resize-e{right:-5px;top:calc(50% - 5px);cursor:ew-resize}
+.stk-resize-se{right:-5px;bottom:-5px;cursor:nwse-resize}
+.stk-resize-s{left:calc(50% - 5px);bottom:-5px;cursor:ns-resize}
+.stk-resize-sw{left:-5px;bottom:-5px;cursor:nesw-resize}
+.stk-resize-w{left:-5px;top:calc(50% - 5px);cursor:ew-resize}
+.stk-fit{text-align:center;max-width:100%;font-size:12px;line-height:1.4}
+.stk-issues{padding-left:18px;margin:8px 0 0;text-align:left;color:var(--danger);font-size:12px;overflow-wrap:anywhere}
 .pill.ok{background:var(--success-soft);color:var(--success)}
 .stk-foot{display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .stk-foot .sp{flex:1}
 .stk-dirty{font-size:12px;color:var(--warning)}
 .stk-saved{font-size:12px;color:var(--success)}
 @media(max-width:1100px){.stk-grid{grid-template-columns:minmax(0,1fr)}.stk-preview{position:static}}
-@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}}
+@media(max-width:760px){.stk-preview{padding:8px;overflow-x:auto;align-items:flex-start}.stk-sample{margin-left:0}.stk-sample select{min-width:0;width:100%}.stk-row{flex-wrap:wrap}.stk-details{padding-left:12px}.stk-frame-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Печать: одна этикетка — одна страница без полей. Размер страницы пишется
    перед печатью в @page stk (4×6 или 3×4, стоя или лёжа). */
 #stkPrintHost{display:none}
