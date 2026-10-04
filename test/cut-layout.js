@@ -912,6 +912,24 @@ module.exports=async function({page,eq,ok}){
    turned:!!narrow&&/rotate\(-90\)/.test(cutSheetSVG(g,narrow,480,[],{}))};
  }),{sheets:23,placed:true,clean:true,safe:true,oldSliver:0.5,healed:true,turned:true});
 
+ /* Владелец, 5 октября 2026: G number на стекле, мелко, «чтобы влазило даже
+    на стекло 20 на 20», и тот же вид, что на стикере. */
+ eq('схема листа: Glass ID под номером, как на стикере; 20×20 — на экране и на станции; крошечное — только номер; не на подписях размеров',await t.p.evaluate(()=>{
+  const size={w:144,h:96,key:'144x96'},pick={trimX:0,trimY:0,borderX:0,borderY:0,minDist:.75};
+  const P=(piece,x,y,w,h)=>({piece,x,y,w,h,turn:0,rot:false,locked:false});
+  const sheet={size,pieces:[P('G-0002025',0,0,60,40),P('G-0002026',62,0,20,20),P('G-0002027',84,0,8,8),P('EST-1',94,0,30,30)],stock:[]};
+  const group={mm:6,sheet:size,pick,sheets:[sheet]};
+  const draw=(px,opts)=>{const host=document.createElement('div');host.innerHTML=cutSheetSVG(group,sheet,px,[],opts);document.body.appendChild(host);
+   const sel=id=>opts.station?'[data-station-piece="'+id+'"]':'[data-cut-piece="'+id+'"]';
+   const texts=id=>[...host.querySelectorAll(sel(id)+' text')];
+   const has=id=>texts(id).some(t=>t.textContent.includes(id));
+   const clear=id=>{const g=texts(id).find(t=>t.textContent.includes(id));if(!g)return false;const r=g.getBoundingClientRect();
+    return texts(id).filter(t=>t.hasAttribute('data-cut-axis')).every(a=>{const q=a.getBoundingClientRect();return r.right<=q.left||q.right<=r.left||r.bottom<=q.top||q.bottom<=r.top;});};
+   const out={big:has('G-0002025'),g20:has('G-0002026'),clear20:clear('G-0002026'),tiny:has('G-0002027'),tinyNo:texts('G-0002027').some(t=>t.textContent.trim()==='3'),other:texts('EST-1').some(t=>/EST-1/.test(t.textContent))};
+   host.remove();return out;};
+  return {screen:draw(520,{ids:true}),station:draw(700,{station:true})};
+ }),{screen:{big:true,g20:true,clear20:true,tiny:false,tinyNo:true,other:false},station:{big:true,g20:true,clear20:true,tiny:false,tinyNo:true,other:false}});
+
  eq('общий левый Trim Y: уступ 5/16″ исправляется тримом 1 5/16″ на всём листе',await t.p.evaluate(()=>{
   const size={w:144,h:96,key:'144x96'},params={trimX:0,trimY:1,borderX:0,borderY:0,minDist:.75};
   const bottom=Array.from({length:6},(_,i)=>({piece:'B'+i,x:1.3125+i*24,y:0,w:i===5?22.6875:24,h:58.75}));
